@@ -7,11 +7,11 @@
   IgnorableNamespaces="uap mp">
 
   <Identity
-    Name="e5acab5d-4630-487f-b1a5-1350de822e4f"
+    Name="205d33b2-5f81-4352-ba9f-cbcabb975c09"
     Publisher="CN=seank"
     Version="1.0.0.0" />
 
-  <mp:PhoneIdentity PhoneProductId="e5acab5d-4630-487f-b1a5-1350de822e4f" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
+  <mp:PhoneIdentity PhoneProductId="205d33b2-5f81-4352-ba9f-cbcabb975c09" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
     <DisplayName>Project_Plutus.UWP</DisplayName>

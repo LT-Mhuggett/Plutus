@@ -4,7 +4,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
-    <ProjectGuid>{A4DBFCEE-3A33-46BF-9BFB-A80D2F2D67DF}</ProjectGuid>
+    <ProjectGuid>{BCCF32DD-959D-41A4-8146-4FB88AA92643}</ProjectGuid>
     <OutputType>AppContainerExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Project_Plutus.UWP</RootNamespace>
