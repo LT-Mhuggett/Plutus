@@ -16,6 +16,6 @@ namespace Plutus.Models
         internal string Password { get; set; }
         internal string PasswordConf { get; set; }
         internal string HashedPassword { get; set; }
-        internal string salt { get; set; }
+        internal string Salt { get; set; }
     }
 }

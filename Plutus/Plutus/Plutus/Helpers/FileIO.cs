@@ -12,13 +12,13 @@ namespace Plutus.Helpers
     {
         /// <summary>
         /// This handles File Saving
-        /// This calls the GetLib() and then uses WriteAllText() to save the file to the local system.
+        /// This calls the GetLib() and then uses WriteAllLines() to save the file to the local system.
         /// </summary>
         /// <param name="fileN">This is the File's Name</param>
         /// <param name="fileC">This is the File's Content</param>
-        public static void Save(string fileN, string fileC)
+        public static void Save(string fileN, string[] fileC)
         {
-            File.WriteAllText(Path.Combine(GetLib(), fileN), fileC);
+            File.WriteAllLines(Path.Combine(GetLib(), fileN), fileC);
         }
 
         /// <summary>

@@ -10,7 +10,7 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>Plutus.iOS</RootNamespace>
     <IPhoneResourcePrefix>Resources</IPhoneResourcePrefix>
-    <AssemblyName>Plutus.iOS</AssemblyName>
+    <AssemblyName>Plutus</AssemblyName>
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
   </PropertyGroup>
