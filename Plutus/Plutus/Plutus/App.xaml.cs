@@ -11,11 +11,14 @@ namespace Plutus
 	{
 		public App ()
 		{
-            SaveAndLoad.Save("test", "test123");
 			InitializeComponent();
-
-			MainPage = new Plutus.MainPage();
-		}
+            
+            if (FileIO.Exist(".config"))
+                MainPage = new NavigationPage(new MainPage());
+            else
+                MainPage = new NavigationPage(new FirstTimeStartUpPage());
+            
+        }
 
 		protected override void OnStart ()
 		{
