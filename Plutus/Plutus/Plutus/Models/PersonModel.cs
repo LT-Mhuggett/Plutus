@@ -4,6 +4,10 @@ using System.Text;
 
 namespace Plutus.Models
 {
+    /// <summary>
+    /// This is the Default model for any person related entity.
+    /// e.g. employees inherit all of persons.
+    /// </summary>
     public class PersonModel
     {
         public string FName { get; set; }

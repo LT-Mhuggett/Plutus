@@ -46,5 +46,10 @@ namespace Plutus
             Emp.salt = Convert.ToBase64String(salt);
             Emp.HashedPassword = Convert.ToBase64String(hash);
         }
+
+        private void StoreName_TextChanged(object sender, TextChangedEventArgs e)
+        {
+
+        }
     }
 }

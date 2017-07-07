@@ -13,7 +13,7 @@ namespace Plutus
 		{
 			InitializeComponent();
             
-            if (FileIO.Exist(".config"))
+            if (FileIO.Exists(".config"))
                 MainPage = new NavigationPage(new MainPage());
             else
                 MainPage = new NavigationPage(new FirstTimeStartUpPage());
