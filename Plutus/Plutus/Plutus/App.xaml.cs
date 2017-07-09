@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using Plutus.Helpers;
 using Xamarin.Forms;
+using System.IO;
+using SQLite;
 
 namespace Plutus
 {
@@ -12,7 +14,7 @@ namespace Plutus
 		public App ()
 		{
 			InitializeComponent();
-            
+
             if (FileIO.Exists("App.config"))
                 MainPage = new NavigationPage(new MainPage());
             else

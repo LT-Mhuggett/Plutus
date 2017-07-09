@@ -22,6 +22,17 @@ namespace Plutus.Helpers
         }
 
         /// <summary>
+        /// This handles File Saving
+        /// This calls the GetLib() and then uses WriteAllText() to save the file to the local system.
+        /// </summary>
+        /// <param name="fileN">This is the File's Name</param>
+        /// <param name="fileC">This is the File's Content</param>
+        public static void Save(string fileN, string fileC)
+        {
+            File.WriteAllText(Path.Combine(GetLib(), fileN), fileC);
+        }
+
+        /// <summary>
         /// This handles File Loading.
         /// This calls the GetLib() and then uses File.Open() to open the file and read it's contents to memory.
         /// </summary>
@@ -37,7 +48,7 @@ namespace Plutus.Helpers
         /// This calls the GetLib() and then uses File.Exists() to check if the file is in it's directory.
         /// </summary>
         /// <param name="fileN">This is the File's Name</param>
-        /// <returns></returns>
+        /// <returns>Bool</returns>
         public static bool Exists(string fileN)
         {
             return File.Exists(Path.Combine(GetLib(), fileN));
@@ -50,14 +61,14 @@ namespace Plutus.Helpers
         /// <returns>string libPath - this contains the correct file directory based on device</returns>
         public static string GetLib()
         {
-            #if __ANDROID__
+#if __ANDROID__
                 string libPath = Environment.GetFolderPath(Environment.SpecialFolder.Personal);
-            #elif __IOS__
+#elif __IOS__
                 string documentsPath = Environment.GetFolderPath (Environment.SpecialFolder.Personal); // Documents folder
                 string libPath = Path.Combine (documentsPath, "..", "Library");
-            #else
+#else
                 string libPath = Windows.Storage.ApplicationData.Current.LocalFolder.Path;
-            #endif
+#endif
 
             return libPath;
         }

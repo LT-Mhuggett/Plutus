@@ -56,11 +56,18 @@ namespace Plutus
             FileC.Add("<Salt>" + Emp.Salt + "</Salt>");
             FileC.Add("<PasswordHash>" + Emp.HashedPassword + "</PasswordHash>");
             FileC.Add("</Manager>");
+            FileC.Add("<Database>");
+            FileC.Add("<Type>" + DatabasePicker.SelectedItem + "</Type>");
+            FileC.Add("<TypeIndex>" + DatabasePicker.SelectedIndex + "</TypeIndex>");
+            FileC.Add("</Database>");
             FileC.Add("</Local>");
 
             FileIO.Save("App.config", FileC.ToArray());
-
-            Application.Current.MainPage = new NavigationPage(new MainPage());
+            if (DatabasePicker.SelectedIndex == 0)
+            {
+                Database.Connection();
+                Application.Current.MainPage = new NavigationPage(new MainPage());
+            }
         }
 
         private void StoreName_TextChanged(object sender, TextChangedEventArgs e)

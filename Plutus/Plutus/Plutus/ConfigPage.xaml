@@ -26,6 +26,10 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             <Grid Grid.Row="0">
                 <Label Text="As this is the first time your using the Plutus POS System, you will have to create a new account.   if you already have a cloud/local system, then please switch to the store login page."/>
@@ -72,7 +76,19 @@
             <Grid Grid.Row="14">
                 <Entry x:Name="PasswordConf" IsPassword="True"/>
             </Grid>
-            <Grid Grid.Row="15">
+            <Grid Grid.Row="15" Margin="0,10">
+                <Label Text="Database" VerticalOptions="FillAndExpand"/>
+            </Grid>
+            <Grid Grid.Row="17">
+                <Picker x:Name="DatabasePicker" Title="Database Type">
+                    <Picker.Items>
+                        <x:String>Host Database</x:String>
+                        <x:String>Local/Server Database</x:String>
+                        <x:String>Cloud Database</x:String>
+                    </Picker.Items>
+                </Picker>
+            </Grid>
+            <Grid Grid.Row="18">
                 <Button x:Name="Create" Text="Create" VerticalOptions="Center" Clicked="Create_Clicked"/>
             </Grid>
         </Grid>

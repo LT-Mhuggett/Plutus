@@ -20,6 +20,7 @@
       <DependentUpon>FirstTimeStartUpPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\Database.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\FileIO.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Password.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)MainPage.xaml.cs">
