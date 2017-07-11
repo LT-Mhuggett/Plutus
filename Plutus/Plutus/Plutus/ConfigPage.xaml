@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:Plutus;assembly=Plutus"
@@ -7,16 +7,16 @@
              Icon="">
     <ScrollView>
         <StackLayout BackgroundColor="Transparent"
-              RowSpacing="0"
               HorizontalOptions="FillAndExpand"
-              VerticalOptions="FillAndExpand">
+              VerticalOptions="FillAndExpand"
+                     Margin="10,0,10,0">
             <Label Text="As this is the first time your using the Plutus POS System, you will have to create a new account.   if you already have a cloud/local system, then please switch to the store login page."/>
-            <Label Text="Store Details" VerticalOptions="FillAndExpand"/>
+            <Label Text="Store Details" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start"/>
             <Label Text="Store Name" VerticalOptions="FillAndExpand"/>
             <Entry x:Name="StoreName" TextChanged="StoreName_TextChanged"/>
             <Label Text="Store Name Abbreviation (4 letters)" VerticalOptions="FillAndExpand"/>
             <Entry x:Name="StoreAbbr" />
-            <Label Text="Manager Details" VerticalOptions="FillAndExpand"/>
+            <Label Text="Manager Details" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start"/>
             <Label Text="First Name" VerticalOptions="FillAndExpand"/>
             <Entry x:Name="FName"/>
             <Label Text="Last Name" VerticalOptions="FillAndExpand"/>
@@ -25,11 +25,11 @@
             <Entry x:Name="Password" IsPassword="True"/>
             <Label Text="Password Confirm" VerticalOptions="FillAndExpand"/>
             <Entry x:Name="PasswordConf" IsPassword="True"/>
-            <Label Text="Database" VerticalOptions="FillAndExpand"/>
+            <Label Text="Database" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start"/>
             <Picker x:Name="DatabasePicker" Title="Database Type">
                     <Picker.Items>
-                        <x:String>Host Database</x:String>
-                        <x:String>Local/Server Database</x:String>
+                        <x:String>Local Database</x:String>
+                        <x:String>Server Database</x:String>
                         <x:String>Cloud Database</x:String>
                     </Picker.Items>
                 </Picker>

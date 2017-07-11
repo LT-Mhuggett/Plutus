@@ -11,7 +11,6 @@ namespace Plutus.Helpers
     class Database
     {
         internal static SQLiteConnection DB;
-        public static string message;
 
         internal static void Connection()
         {
