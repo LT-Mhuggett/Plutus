@@ -23,7 +23,8 @@ namespace Plutus.iOS
 		public override bool FinishedLaunching(UIApplication app, NSDictionary options)
 		{
 			global::Xamarin.Forms.Forms.Init ();
-			LoadApplication (new Plutus.App ());
+		    Xamarin.FormsMaps.Init();
+            LoadApplication (new Plutus.App ());
 
 			return base.FinishedLaunching (app, options);
 		}

@@ -5,7 +5,6 @@ using System.Text;
 using Plutus.Helpers;
 using Xamarin.Forms;
 using System.IO;
-using SQLite;
 
 namespace Plutus
 {
@@ -13,14 +12,10 @@ namespace Plutus
 	{
 		public App ()
 		{
-			InitializeComponent();
+		    InitializeComponent();
 
-            if (FileIO.Exists("App.config"))
-                MainPage = new NavigationPage(new MainPage());
-            else
-                MainPage = new NavigationPage(new FirstTimeStartUpPage());
-            
-        }
+		    MainPage = FileIO.Exists("App.config") ? new NavigationPage(new MainPage()) : new NavigationPage(new FirstTimeStartUpPage());
+		}
 
 		protected override void OnStart ()
 		{

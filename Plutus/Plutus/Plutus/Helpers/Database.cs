@@ -1,4 +1,5 @@
-﻿using System;
+﻿/*
+using System;
 using System.Collections.Generic;
 using System.Text;
 using SQLite;
@@ -21,4 +22,4 @@ namespace Plutus.Helpers
             DB = new SQLiteConnection($"{Path.Combine(FileIO.GetLib(), "Database", "Database.db3")}");
         }
     }
-}
+}*/

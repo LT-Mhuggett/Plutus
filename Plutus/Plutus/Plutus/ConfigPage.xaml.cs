@@ -8,6 +8,8 @@ using Xamarin.Forms.Xaml;
 using Plutus.Models;
 using Plutus.Helpers;
 using System.Reflection;
+using Plutus.Data;
+using Xamarin.Forms.Maps;
 
 namespace Plutus
 {
@@ -21,58 +23,121 @@ namespace Plutus
 
         private void Create_Clicked(object sender, EventArgs e)
         {
-            StoreModel store = new StoreModel() {
+            var store = new StoreModel() {
                 StoreName = StoreName.Text,
-                StoreAbbr = StoreAbbr.Text
+                StoreAbbr = StoreAbbr.Text,
+                AdLine1 = StoreAdLine1.Text,
+                AdLine2 = StoreAdLine2.Text,
+                City = StoreCity.Text,
+                Country = StoreCountry.Text,
+                PostCode = StorePostCode.Text
             };
 
-            EmployeeModel Emp = new EmployeeModel()
+            var emp = new EmployeeModel()
             {
                 FName = FName.Text,
                 Role = "0",
                 LName = LName.Text,
-                Password = Password.Text,
-                PasswordConf = PasswordConf.Text
+                AdLine1 = AdLine1.Text,
+                AdLine2 = AdLine2.Text,
+                City = City.Text,
+                Country = Country.Text,
+                PostCode = PostCode.Text
             };
 
 
-            if (Emp.Password != Emp.PasswordConf) {
+            if (Password.Text != PasswordConf.Text) {
                 DisplayAlert("OOPS!", "Passwords are not the same please try again", "OK");
                 return;
             }
 
-            Emp.Salt = Convert.ToBase64String(Helpers.Password.GenerateSalt());
-            Emp.HashedPassword = Convert.ToBase64String(Helpers.Password.ComputeHash(Emp.Password, Convert.FromBase64String(Emp.Salt)));
+            emp.Salt = Convert.ToBase64String(Helpers.Password.GenerateSalt());
+            emp.HashedPassword = Convert.ToBase64String(Helpers.Password.ComputeHash(Password.Text, Convert.FromBase64String(emp.Salt)));
 
-            var FileC = new List<string>();
-            FileC.Add("<Local>");
-            FileC.Add("<Store>");
-            FileC.Add("<StoreName>" + store.StoreName + "</StoreName>");
-            FileC.Add("<StoreAbbr>" + store.StoreAbbr + "</StoreAbbr>");
-            FileC.Add("</Store>");
-            FileC.Add("<Manager>");
-            FileC.Add("<FName>" + Emp.FName + "</FName>");
-            FileC.Add("<LName>" + Emp.LName + "</LName>");
-            FileC.Add("<Salt>" + Emp.Salt + "</Salt>");
-            FileC.Add("<PasswordHash>" + Emp.HashedPassword + "</PasswordHash>");
-            FileC.Add("</Manager>");
-            FileC.Add("<Database>");
-            FileC.Add("<Type>" + DatabasePicker.SelectedItem + "</Type>");
-            FileC.Add("<TypeIndex>" + DatabasePicker.SelectedIndex + "</TypeIndex>");
-            FileC.Add("</Database>");
-            FileC.Add("</Local>");
+            var fileC = new List<string>
+            {
+                "<Local>",
+                "<Store>",
+                "<StoreName>" + store.StoreName + "</StoreName>",
+                "<StoreAbbr>" + store.StoreAbbr + "</StoreAbbr>",
+                "</Store>",
+                "<Manager>",
+                "<FName>" + emp.FName + "</FName>",
+                "<LName>" + emp.LName + "</LName>",
+                "<Salt>" + emp.Salt + "</Salt>",
+                "<PasswordHash>" + emp.HashedPassword + "</PasswordHash>",
+                "</Manager>",
+                "<Database>",
+                "<Type>" + DatabasePicker.SelectedItem + "</Type>",
+                "<TypeIndex>" + DatabasePicker.SelectedIndex + "</TypeIndex>",
+                "</Database>",
+                "</Local>"
+            };
 
-            FileIO.Save("App.config", FileC.ToArray());
+            FileIO.Save("App.config", fileC.ToArray());
             if (DatabasePicker.SelectedIndex == 0)
             {
-                Database.Connection();
                 Application.Current.MainPage = new NavigationPage(new MainPage());
             }
         }
 
         private void StoreName_TextChanged(object sender, TextChangedEventArgs e)
         {
-
+            throw new NotImplementedException();
         }
-    }
+
+	    private async void AutoFillStore_OnClicked(object sender, EventArgs e)
+	    {
+	        List<string> addressList = await Location.ReverseGeocde();
+	        if (addressList.Count == 0)
+	        {
+	            await DisplayAlert("OOPS!", "Something went wrong!", "OK");
+	            return;
+	        }
+	        else
+	        {
+	            foreach (var item in addressList)
+	                StoreAddressPicker.Items.Add(item);
+	            ManLayoutS.IsVisible = !ManLayoutS.IsVisible;
+	            AutoLayoutS.IsVisible = !AutoLayoutS.IsVisible;
+	            StoreAddressPicker.Focus();
+	        }
+	    }
+
+	    private async void AutoFillPerson_OnClicked(object sender, EventArgs e)
+	    {
+	        List<string> addressList = await Location.ReverseGeocde();
+	        if (addressList.Count == 0)
+	        {
+	            await DisplayAlert("OOPS!", "Something went wrong!", "OK");
+	            return;
+	        }
+	        else
+	        {
+	            foreach (var item in addressList)
+	                PersonAddressPicker.Items.Add(item);
+	            ManLayoutP.IsVisible = !ManLayoutP.IsVisible;
+	            AutoLayoutP.IsVisible = !AutoLayoutP.IsVisible;
+	            PersonAddressPicker.Focus();
+	        }
+	    }
+
+        private void SEnterManually_OnClicked(object sender, EventArgs e)
+	    {
+	        ManLayoutS.IsVisible = !ManLayoutS.IsVisible;
+	        AutoLayoutS.IsVisible = !AutoLayoutS.IsVisible;
+            StoreAddressPicker.Items.Clear();
+	        StoreAdLine1.Focus();
+	    }
+
+	    private void PEnterManually_OnClicked(object sender, EventArgs e)
+	    {
+	        ManLayoutP.IsVisible = !ManLayoutP.IsVisible;
+	        AutoLayoutP.IsVisible = !AutoLayoutP.IsVisible;
+            PersonAddressPicker.Items.Clear();
+	        AdLine1.Focus();
+	    }
+
+	    
+	}
 }
