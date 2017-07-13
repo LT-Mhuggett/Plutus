@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Plutus.Models
 {
@@ -10,6 +12,10 @@ namespace Plutus.Models
     /// </summary>
     public class PersonModel : Address
     {
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public int Id { get; set; }
+
         public string FName { get; set; }
         public string LName { get; set; }
         public string Mobile { get; set; }

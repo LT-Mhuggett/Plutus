@@ -14,7 +14,11 @@ namespace Plutus
 		{
 		    InitializeComponent();
 
-		    MainPage = FileIO.Exists("App.config") ? new NavigationPage(new MainPage()) : new NavigationPage(new FirstTimeStartUpPage());
+		    MainPage = FileIO.Exists("App.config")?
+                new NavigationPage(new MainPage()) :
+                FileIO.Exists("Database.db")?
+                    throw new NotImplementedException(): 
+                    new NavigationPage(new FirstTimeStartUpPage());
 		}
 
 		protected override void OnStart ()

@@ -7,22 +7,25 @@ using Plutus.Models;
 
 namespace Plutus.Data
 {
-    public sealed class EmpStoreContext : DbContext
+    public sealed class Context : DbContext
     {
         public DbSet<EmployeeModel> Employees { get; set; }
         public DbSet<StoreModel> Stores { get; set; }
 
         private readonly string _databasePath;
 
-        public EmpStoreContext(string databasePath)
+        public Context(string databasePath)
         {
             _databasePath = databasePath;
-            Database.Migrate();
         }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder.UseSqlite($"Filename={_databasePath}");
+        }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
         }
     }
 }

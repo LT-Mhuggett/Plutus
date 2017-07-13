@@ -12,12 +12,12 @@
     <Compile Include="$(MSBuildThisFileDirectory)App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
-    <Compile Include="$(MSBuildThisFileDirectory)ConfigPage.xaml.cs">
+    <Compile Include="$(MSBuildThisFileDirectory)Pages\ConfigPage.xaml.cs">
       <DependentUpon>ConfigPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Data\Context.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)FirstTimeStartUpPage.xaml.cs">
+    <Compile Include="$(MSBuildThisFileDirectory)Pages\FirstTimeStartUpPage.xaml.cs">
       <DependentUpon>FirstTimeStartUpPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
@@ -25,20 +25,20 @@
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\FileIO.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Location.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Password.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)MainPage.xaml.cs">
+    <Compile Include="$(MSBuildThisFileDirectory)Pages\MainPage.xaml.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>
     </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Models\Address.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\EmployeeModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\PersonModel.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)StoreLoginPage.xaml.cs">
+    <Compile Include="$(MSBuildThisFileDirectory)Pages\StoreLoginPage.xaml.cs">
       <DependentUpon>StoreLoginPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Models\StoreModel.cs" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="$(MSBuildThisFileDirectory)MainPage.xaml">
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\MainPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
     </EmbeddedResource>
@@ -48,21 +48,24 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="$(MSBuildThisFileDirectory)ConfigPage.xaml">
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\ConfigPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="$(MSBuildThisFileDirectory)FirstTimeStartUpPage.xaml">
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\FirstTimeStartUpPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="$(MSBuildThisFileDirectory)StoreLoginPage.xaml">
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\StoreLoginPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
     </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="$(MSBuildThisFileDirectory)Pages\" />
   </ItemGroup>
 </Project>

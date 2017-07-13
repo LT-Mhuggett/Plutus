@@ -23,14 +23,24 @@ namespace Plutus
 
         private void Create_Clicked(object sender, EventArgs e)
         {
+            if (Password.Text != PasswordConf.Text||Password.Text.Length<=3)
+            {
+                DisplayAlert("OOPS!", "Passwords are not the same\nor are not long enough\nPlease try again", "OK");
+                return;
+            }
+
+            var Salt = Convert.ToBase64String(Helpers.Password.GenerateSalt());
+            var HashedPassword = Convert.ToBase64String(Helpers.Password.ComputeHash(Password.Text, Convert.FromBase64String(Salt)));
+
             var store = new StoreModel() {
                 StoreName = StoreName.Text,
                 StoreAbbr = StoreAbbr.Text,
-                AdLine1 = StoreAdLine1.Text,
-                AdLine2 = StoreAdLine2.Text,
-                City = StoreCity.Text,
-                Country = StoreCountry.Text,
-                PostCode = StorePostCode.Text
+                AdLine1 = AutoLayoutS.IsVisible ? null : StoreAdLine1.Text,
+                AdLine2 = AutoLayoutS.IsVisible ? null : StoreAdLine2.Text,
+                City = AutoLayoutS.IsVisible ? null : StoreCity.Text,
+                Country = AutoLayoutS.IsVisible ? null : StoreCountry.Text,
+                PostCode = AutoLayoutS.IsVisible ? null : StorePostCode.Text,
+                FullAddress = AutoLayoutS.IsVisible ? StoreAddressPicker.SelectedItem.ToString() : null
             };
 
             var emp = new EmployeeModel()
@@ -38,21 +48,17 @@ namespace Plutus
                 FName = FName.Text,
                 Role = "0",
                 LName = LName.Text,
-                AdLine1 = AdLine1.Text,
-                AdLine2 = AdLine2.Text,
-                City = City.Text,
-                Country = Country.Text,
-                PostCode = PostCode.Text
+                AdLine1 = AutoLayoutP.IsVisible ? null : AdLine1.Text,
+                AdLine2 = AutoLayoutP.IsVisible ? null : AdLine2.Text,
+                City = AutoLayoutP.IsVisible ? null : City.Text,
+                Country = AutoLayoutP.IsVisible ? null : Country.Text,
+                PostCode = AutoLayoutP.IsVisible ? null : PostCode.Text,
+                FullAddress = AutoLayoutP.IsVisible ? PersonAddressPicker.SelectedItem.ToString() : null,
+                Email = Email.Text,
+                Mobile = Mobile.Text,
+                Salt = Salt,
+                HashedPassword = HashedPassword
             };
-
-
-            if (Password.Text != PasswordConf.Text) {
-                DisplayAlert("OOPS!", "Passwords are not the same please try again", "OK");
-                return;
-            }
-
-            emp.Salt = Convert.ToBase64String(Helpers.Password.GenerateSalt());
-            emp.HashedPassword = Convert.ToBase64String(Helpers.Password.ComputeHash(Password.Text, Convert.FromBase64String(emp.Salt)));
 
             var fileC = new List<string>
             {
@@ -61,12 +67,12 @@ namespace Plutus
                 "<StoreName>" + store.StoreName + "</StoreName>",
                 "<StoreAbbr>" + store.StoreAbbr + "</StoreAbbr>",
                 "</Store>",
-                "<Manager>",
+                "<StoreOwner>",
                 "<FName>" + emp.FName + "</FName>",
                 "<LName>" + emp.LName + "</LName>",
                 "<Salt>" + emp.Salt + "</Salt>",
                 "<PasswordHash>" + emp.HashedPassword + "</PasswordHash>",
-                "</Manager>",
+                "</StoreOwner>",
                 "<Database>",
                 "<Type>" + DatabasePicker.SelectedItem + "</Type>",
                 "<TypeIndex>" + DatabasePicker.SelectedIndex + "</TypeIndex>",
@@ -77,15 +83,14 @@ namespace Plutus
             FileIO.Save("App.config", fileC.ToArray());
             if (DatabasePicker.SelectedIndex == 0)
             {
+                Database dbContext = new Database();
+                dbContext.AddStore(store);
+                emp.StoreIdFK = store.StoreId;
+                dbContext.AddEmployee(emp);
                 Application.Current.MainPage = new NavigationPage(new MainPage());
             }
         }
-
-        private void StoreName_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            throw new NotImplementedException();
-        }
-
+        
 	    private async void AutoFillStore_OnClicked(object sender, EventArgs e)
 	    {
 	        List<string> addressList = await Location.ReverseGeocde();

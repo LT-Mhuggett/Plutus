@@ -14,7 +14,7 @@
             <Label Text="If you already have a cloud/local system, then please switch to the store login page."/>
             <Label Text="Store Details" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start"/>
             <Label Text="Store Name" VerticalOptions="FillAndExpand"/>
-            <Entry x:Name="StoreName" TextChanged="StoreName_TextChanged"/>
+            <Entry x:Name="StoreName"/>
             <Label Text="Store Name Abbreviation (4 letters)" VerticalOptions="FillAndExpand"/>
             <Entry x:Name="StoreAbbr" />
             <Label Text="Address" FontAttributes="Bold" FontSize="Medium" VerticalOptions="Start"/>
@@ -36,11 +36,15 @@
                 <Label x:Name="SCountryL" Text="Country" VerticalOptions="FillAndExpand"/>
                 <Entry x:Name="StoreCountry"/>
             </StackLayout>
-            <Label Text="Manager Details" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start"/>
+            <Label Text="Store Owner Details" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start"/>
             <Label Text="First Name" VerticalOptions="FillAndExpand"/>
             <Entry x:Name="FName"/>
             <Label Text="Last Name" VerticalOptions="FillAndExpand"/>
             <Entry x:Name="LName"/>
+            <Label Text="Email" VerticalOptions="FillAndExpand"/>
+            <Entry x:Name="Email" Keyboard="Email"/>
+            <Label Text="Phone Number"/>
+            <Entry x:Name="Mobile" Keyboard="Telephone"/>
             <Label Text="Password" VerticalOptions="FillAndExpand"/>
             <Entry x:Name="Password" IsPassword="True"/>
             <Label Text="Password Confirm" VerticalOptions="FillAndExpand"/>

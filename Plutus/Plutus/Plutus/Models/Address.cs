@@ -11,5 +11,6 @@ namespace Plutus.Models
         public string City { get; set; }
         public string PostCode { get; set; }
         public string Country { get; set; }
+        public string FullAddress { get; set; }
     }
 }

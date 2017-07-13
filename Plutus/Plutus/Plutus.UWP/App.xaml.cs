@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
@@ -59,7 +60,7 @@ namespace Plutus.UWP
                 rootFrame.NavigationFailed += OnNavigationFailed;
 
                 Xamarin.Forms.Forms.Init(e);
-                Xamarin.FormsMaps.Init();
+                Xamarin.FormsMaps.Init("AneS-AJ9T8WUs1EmSZqbNAdCbXixSWf2GSow3BlT8DwtpRCdXQUZz9nYpOe0N8qD");
 
                 if (e.PreviousExecutionState == ApplicationExecutionState.Terminated)
                 {

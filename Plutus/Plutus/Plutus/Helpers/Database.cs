@@ -1,25 +1,33 @@
-﻿/*
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using SQLite;
 using System.IO;
-using Plutus.Helpers;
-using Xamarin.Forms;
+using Microsoft.EntityFrameworkCore;
+using Plutus.Data;
+using Plutus.Models;
 
 namespace Plutus.Helpers
 {
-    class Database
+    internal class Database
     {
-        internal static SQLiteConnection DB;
+        private static DbContext _db;
 
-        internal static void Connection()
+        internal Database()
         {
-            if (!FileIO.Exists(Path.Combine("Database", "Database.db3"))){
-                //FileIO.Save(Path.Combine("Database", "Database.db3"), "");
-                Directory.CreateDirectory(Path.Combine(FileIO.GetLib(), "Database"));
-            }
-            DB = new SQLiteConnection($"{Path.Combine(FileIO.GetLib(), "Database", "Database.db3")}");
+            _db = new Context(Path.Combine(FileIO.GetLib(), "Database.db"));
+            _db.Database.EnsureCreated();
+        }
+
+        internal void AddEmployee(EmployeeModel emp)
+        {
+            _db.Add(emp);
+            _db.SaveChanges();
+        }
+
+        internal void AddStore(StoreModel store)
+        {
+            _db.Add(store);
+            _db.SaveChanges();
         }
     }
-}*/
+}
