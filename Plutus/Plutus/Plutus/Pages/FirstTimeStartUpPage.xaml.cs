@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 
-namespace Plutus
+namespace Plutus.Pages
 {
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class FirstTimeStartUpPage : TabbedPage

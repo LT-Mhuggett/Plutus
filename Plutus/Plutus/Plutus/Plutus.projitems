@@ -12,6 +12,15 @@
     <Compile Include="$(MSBuildThisFileDirectory)App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\Validate.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\ItemModel.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\PaymentMethodModel.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\PaymentMethod_SaleModel.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\RefundModel.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\Refund_SaleModel.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\SaleModel.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\TransactionModel.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\VatModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Pages\ConfigPage.xaml.cs">
       <DependentUpon>ConfigPage.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -25,6 +34,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\FileIO.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Location.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Password.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Pages\LoginPage.xaml.cs">
+      <DependentUpon>LoginPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Pages\MainPage.xaml.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>
     </Compile>
@@ -66,6 +79,9 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="$(MSBuildThisFileDirectory)Pages\" />
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\LoginPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
   </ItemGroup>
 </Project>

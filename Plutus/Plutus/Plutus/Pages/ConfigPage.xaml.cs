@@ -7,11 +7,12 @@ using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 using Plutus.Models;
 using Plutus.Helpers;
+using Plutus.Pages;
 using System.Reflection;
 using Plutus.Data;
 using Xamarin.Forms.Maps;
 
-namespace Plutus
+namespace Plutus.Pages
 {
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class ConfigPage : ContentPage
@@ -84,10 +85,12 @@ namespace Plutus
             if (DatabasePicker.SelectedIndex == 0)
             {
                 Database dbContext = new Database();
-                dbContext.AddStore(store);
-                emp.StoreIdFK = store.StoreId;
-                dbContext.AddEmployee(emp);
-                Application.Current.MainPage = new NavigationPage(new MainPage());
+                dbContext.Init();
+                dbContext.Add(store);
+                emp.StoreId = store.StoreId;
+                dbContext.Add(emp);
+                dbContext.Save();
+                Application.Current.MainPage = new NavigationPage(new MainPage(emp, store));
             }
         }
         

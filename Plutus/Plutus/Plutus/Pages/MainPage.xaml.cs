@@ -4,14 +4,22 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Xamarin.Forms;
+using Plutus.Models;
 
-namespace Plutus
+namespace Plutus.Pages
 {
 	public partial class MainPage : ContentPage
 	{
-		public MainPage()
+		public MainPage(EmployeeModel etemp, StoreModel stemp)
 		{
-			InitializeComponent();
+            ToolbarItems.Add(new ToolbarItem { Text = "Users", Icon = "", });
+
+            var emp = etemp;
+            var store =stemp;
+            etemp = null;
+            stemp = null;
+
+            InitializeComponent();
 		}
 	}
 }

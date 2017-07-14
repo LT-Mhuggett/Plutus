@@ -17,7 +17,8 @@ namespace Plutus.Models
         public string Salt { get; set; }
 
         [ForeignKey("StoreIdFK")]
-        public string StoreIdFK { get; set; }
+        public string StoreId { get; set; }
         public StoreModel Store { get; set; }
+        public SaleModel Sale { get; set; }
     }
 }

@@ -5,6 +5,7 @@ using System.Text;
 using Plutus.Helpers;
 using Xamarin.Forms;
 using System.IO;
+using Plutus.Pages;
 
 namespace Plutus
 {
@@ -14,11 +15,12 @@ namespace Plutus
 		{
 		    InitializeComponent();
 
-		    MainPage = FileIO.Exists("App.config")?
-                new NavigationPage(new MainPage()) :
+		    MainPage = FileIO.Exists("App.config")&&FileIO.Exists("Database.db")?
+                new NavigationPage(new LoginPage()):
                 FileIO.Exists("Database.db")?
                     throw new NotImplementedException(): 
                     new NavigationPage(new FirstTimeStartUpPage());
+            MainPage.Title = "Welcome To Plutus";
 		}
 
 		protected override void OnStart ()
