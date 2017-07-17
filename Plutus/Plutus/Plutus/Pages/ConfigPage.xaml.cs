@@ -24,42 +24,75 @@ namespace Plutus.Pages
 
         private void Create_Clicked(object sender, EventArgs e)
         {
-            if (Password.Text != PasswordConf.Text||Password.Text.Length<=3)
+            if (string.IsNullOrEmpty(Password.Text)||string.IsNullOrEmpty(PasswordConf.Text))
             {
-                DisplayAlert("OOPS!", "Passwords are not the same\nor are not long enough\nPlease try again", "OK");
+                DisplayAlert("OOPS!", "Please set your password", "OK");
+                return;
+            }
+            if (Password.Text != PasswordConf.Text||Password.Text.Length<=6)
+            {
+                DisplayAlert("OOPS!", "Passwords are not the same\nOR\n Not longer than 6 characters\nPlease try again", "OK");
                 return;
             }
 
             var Salt = Convert.ToBase64String(Helpers.Password.GenerateSalt());
             var HashedPassword = Convert.ToBase64String(Helpers.Password.ComputeHash(Password.Text, Convert.FromBase64String(Salt)));
 
-            var store = new StoreModel() {
-                StoreName = StoreName.Text,
-                StoreAbbr = StoreAbbr.Text,
-                AdLine1 = AutoLayoutS.IsVisible ? null : StoreAdLine1.Text,
+            var store = new StoreModel()
+            {
+                StoreName = !String.IsNullOrEmpty(StoreName.Text)? StoreName.Text : null,
+                StoreAbbr = !String.IsNullOrEmpty(StoreAbbr.Text) ? StoreAbbr.Text : null,
+                AdLine1 = AutoLayoutS.IsVisible ? null : !String.IsNullOrEmpty(StoreAdLine1.Text) ? StoreAdLine1.Text : null,
                 AdLine2 = AutoLayoutS.IsVisible ? null : StoreAdLine2.Text,
-                City = AutoLayoutS.IsVisible ? null : StoreCity.Text,
-                Country = AutoLayoutS.IsVisible ? null : StoreCountry.Text,
-                PostCode = AutoLayoutS.IsVisible ? null : StorePostCode.Text,
+                City = AutoLayoutS.IsVisible ? null : !String.IsNullOrEmpty(StoreCity.Text) ? StoreCity.Text : null,
+                Country = AutoLayoutS.IsVisible ? null : !String.IsNullOrEmpty(StoreCountry.Text) ? StoreCountry.Text : null,
+                PostCode = AutoLayoutS.IsVisible ? null : Validate.IsPostCodeValid(StorePostCode.Text) ? StorePostCode.Text : null,
                 FullAddress = AutoLayoutS.IsVisible ? StoreAddressPicker.SelectedItem.ToString() : null
             };
+            if (store.StoreName == null || store.StoreAbbr == null || store.FullAddress == null && store.AdLine1 == null)
+            {
+                Error(0);
+                return;
+            }
+            else if (store.PostCode == null && store.FullAddress==null)
+            {
+                Error(2);
+                return;
+            }
 
             var emp = new EmployeeModel()
             {
-                FName = FName.Text,
+                FName = !String.IsNullOrEmpty(FName.Text) ? FName.Text : null,
                 Role = "0",
-                LName = LName.Text,
-                AdLine1 = AutoLayoutP.IsVisible ? null : AdLine1.Text,
+                LName = !String.IsNullOrEmpty(LName.Text) ? LName.Text : null,
+                AdLine1 = AutoLayoutP.IsVisible ? null : !String.IsNullOrEmpty(AdLine1.Text) ? AdLine1.Text : null,
                 AdLine2 = AutoLayoutP.IsVisible ? null : AdLine2.Text,
-                City = AutoLayoutP.IsVisible ? null : City.Text,
-                Country = AutoLayoutP.IsVisible ? null : Country.Text,
-                PostCode = AutoLayoutP.IsVisible ? null : PostCode.Text,
+                City = AutoLayoutP.IsVisible ? null : !String.IsNullOrEmpty(City.Text) ? City.Text : null,
+                Country = AutoLayoutP.IsVisible ? null : !String.IsNullOrEmpty(Country.Text) ? Country.Text : null,
+                PostCode = AutoLayoutP.IsVisible ? null : Validate.IsPostCodeValid(PostCode.Text)? PostCode.Text : null,
                 FullAddress = AutoLayoutP.IsVisible ? PersonAddressPicker.SelectedItem.ToString() : null,
-                Email = Email.Text,
-                Mobile = Mobile.Text,
+                Email = Validate.IsEmailValid(Email.Text)? Email.Text : null,
+                Mobile = Validate.IsPhoneNumberValid(Mobile.Text)? Mobile.Text : null,
                 Salt = Salt,
                 HashedPassword = HashedPassword
             };
+            if (emp.FName == null||emp.LName==null||emp.FullAddress==null&&emp.AdLine1==null)
+            {
+                Error(0);
+                return;
+            }else if (emp.PostCode == null && emp.FullAddress==null)
+            {
+                Error(2);
+                return;
+            }else if (emp.Email == null)
+            {
+                Error(1);
+                return;
+            }else if (emp.Mobile == null)
+            {
+                Error(3);
+                return;
+            }
 
             var fileC = new List<string>
             {
@@ -82,6 +115,11 @@ namespace Plutus.Pages
             };
 
             FileIO.Save("App.config", fileC.ToArray());
+            if(DatabasePicker.SelectedIndex > 2 && DatabasePicker.SelectedIndex < 0)
+            {
+                Error(4);
+                return;
+            }
             if (DatabasePicker.SelectedIndex == 0)
             {
                 Database dbContext = new Database();
@@ -92,6 +130,33 @@ namespace Plutus.Pages
                 dbContext.Save();
                 Application.Current.MainPage = new NavigationPage(new MainPage(emp, store));
             }
+        }
+
+        public string Error(int tester)
+        {
+            var message = "";
+            switch (tester)
+            {
+                case 0:
+                    message = "Please Ensure all required fields are filled in";
+                    break;
+                case 1:
+                    message = "Please Ensure your Email is valid and correct";
+                    break;
+                case 2:
+                    message = "Please Ensure your Post Code is valid and correct";
+                    break;
+                case 3:
+                    message = "Please Ensure your Phone Number is valid and correct";
+                    break;
+                case 4:
+                    message = "Please Select a type of Database";
+                    break;
+                default:
+                    break;
+            }
+            DisplayAlert("OOPS!", message, "OK");
+            return null;
         }
         
 	    private async void AutoFillStore_OnClicked(object sender, EventArgs e)

@@ -40,15 +40,24 @@ namespace Plutus.Helpers
             Save();
         }
 
-        internal static object Login(string idEmail, string password)
+        internal static EmployeeModel Login(string idEmail, string password)
         {
-            EmployeeModel emp = _db.Employees.FirstOrDefault(
-                e => e.Id.Equals(idEmail) ||
-                     e.Email.Equals(idEmail));
-            if (emp == null) return false;
+            var emp = _db.Employees
+                .Where(e => e.Id == idEmail || e.Email == idEmail)
+                .SingleOrDefault();
+            if (emp == null) return null;
             if (!Password.Verify(password, Convert.FromBase64String(emp.Salt),
-                Convert.FromBase64String(emp.HashedPassword))) return false;
+                Convert.FromBase64String(emp.HashedPassword))) return null; 
             return emp;
+        }
+
+        internal static StoreModel getStore(string id)
+        {
+            var store = _db.Stores
+                .Where(s => s.StoreId == id)
+                .SingleOrDefault();
+            if (store == null) return null;
+            return store;
         }
     }
 }

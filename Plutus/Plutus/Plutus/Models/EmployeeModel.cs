@@ -7,7 +7,6 @@ namespace Plutus.Models
     /// This is the employee model to store all employee data and interact with the employee section of DB.
     /// it inherits PersonModel to improve code efficiency
     /// </summary>
-    [Table("Employee")]
     public class EmployeeModel : PersonModel
     {
         public string Wage { get; set; }

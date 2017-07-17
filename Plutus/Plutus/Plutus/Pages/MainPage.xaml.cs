@@ -14,8 +14,9 @@ namespace Plutus.Pages
 		{
             ToolbarItems.Add(new ToolbarItem { Text = "Users", Icon = "", });
 
-            var emp = etemp;
-            var store =stemp;
+            List<EmployeeModel> empsLogedin = new List<EmployeeModel>();
+            empsLogedin.Add(etemp);
+            StoreModel store = stemp;
             etemp = null;
             stemp = null;
 
