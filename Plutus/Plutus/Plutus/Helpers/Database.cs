@@ -47,7 +47,11 @@ namespace Plutus.Helpers
                 .SingleOrDefault();
             if (emp == null) return null;
             if (!Password.Verify(password, Convert.FromBase64String(emp.Salt),
-                Convert.FromBase64String(emp.HashedPassword))) return null; 
+                Convert.FromBase64String(emp.HashedPassword)))
+            {
+                emp = null;
+                return null;
+            }
             return emp;
         }
 

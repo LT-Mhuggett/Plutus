@@ -6,7 +6,8 @@
     "System.ComponentModel.Annotations": "4.3.0",
     "Xam.Plugin.Geolocator": "4.0.1",
     "Xamarin.Forms": "2.3.4.247",
-    "Xamarin.Forms.Maps": "2.3.4.247"
+    "Xamarin.Forms.Maps": "2.3.4.247",
+    "ZXing.Net.Mobile": "2.2.9"
   },
   "frameworks": {
     "uap10.0": {}

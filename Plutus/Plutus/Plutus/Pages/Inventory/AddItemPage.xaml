@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Plutus.Pages.Inventory.AddItemPage"
+             Title="Add New Inventory Item">
+    <ContentPage.Content>
+            <TableView Intent="Form">
+                <TableRoot>
+                    <TableSection Title="New Item">
+                    <EntryCell x:Name="Id" Label="ID" />
+                    <EntryCell x:Name="Name" Label="Name" />
+                    <EntryCell x:Name="Cost" Label="Cost" Placeholder="Cost to Company: XX.XX" />
+                    <EntryCell x:Name="Price" Label="Price" Placeholder="Recomended price: XX.XX"/>
+                    </TableSection>
+                </TableRoot>
+            </TableView>
+    </ContentPage.Content>
+</ContentPage>

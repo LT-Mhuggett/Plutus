@@ -36,7 +36,7 @@ namespace Plutus.Pages
                 DisplayAlert("Hmm...", "There has been a problem on our end, please check the database for corruption.", "OK");
                 return;
             }
-            Application.Current.MainPage = new NavigationPage(new MainPage(emp, store));
+            Application.Current.MainPage = new NavigationPage(new MainNavigationPage(emp, store));
         }
     }
 }

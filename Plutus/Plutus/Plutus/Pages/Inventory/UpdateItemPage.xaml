@@ -1,11 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="Plutus.Pages.StoreLoginPage"
-             Title="Store Login">
+             x:Class="Plutus.Pages.Inventory.UpdateItemPage">
     <ContentPage.Content>
         <StackLayout>
-            <Label Text="To be Developed" />
+            <Entry x:Name="ItemSearch"/>
+            <Button x:Name="SearchButton" Text="search" Clicked="SearchButton_Clicked"/>
         </StackLayout>
     </ContentPage.Content>
 </ContentPage>

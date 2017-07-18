@@ -21,7 +21,7 @@ namespace Plutus.Droid
 
             global::Xamarin.Forms.Forms.Init (this, bundle);
             Xamarin.FormsMaps.Init(this, bundle);
-			LoadApplication (new Plutus.App ());
+            LoadApplication (new Plutus.App ());
 		}
 	}
 }

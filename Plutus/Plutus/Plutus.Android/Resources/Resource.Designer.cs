@@ -27,6 +27,9 @@ namespace Plutus.Droid
 		public static void UpdateIdValues()
 		{
 			global::Xamarin.Forms.Platform.Android.Resource.Attribute.actionBarSize = global::Plutus.Droid.Resource.Attribute.actionBarSize;
+			global::ZXing.Mobile.Resource.Id.contentFrame = global::Plutus.Droid.Resource.Id.contentFrame;
+			global::ZXing.Mobile.Resource.Layout.zxingscanneractivitylayout = global::Plutus.Droid.Resource.Layout.zxingscanneractivitylayout;
+			global::ZXing.Mobile.Resource.Layout.zxingscannerfragmentlayout = global::Plutus.Droid.Resource.Layout.zxingscannerfragmentlayout;
 		}
 		
 		public partial class Animation
@@ -2573,6 +2576,9 @@ namespace Plutus.Droid
 			// aapt resource value: 0x7f0a002a
 			public const int collapseActionView = 2131361834;
 			
+			// aapt resource value: 0x7f0a00a5
+			public const int contentFrame = 2131361957;
+			
 			// aapt resource value: 0x7f0a0055
 			public const int contentPanel = 2131361877;
 			
@@ -3217,6 +3223,12 @@ namespace Plutus.Droid
 			
 			// aapt resource value: 0x7f030038
 			public const int Toolbar = 2130903096;
+			
+			// aapt resource value: 0x7f030039
+			public const int zxingscanneractivitylayout = 2130903097;
+			
+			// aapt resource value: 0x7f03003a
+			public const int zxingscannerfragmentlayout = 2130903098;
 			
 			static Layout()
 			{

@@ -40,14 +40,14 @@ namespace Plutus.Pages
 
             var store = new StoreModel()
             {
-                StoreName = !String.IsNullOrEmpty(StoreName.Text)? StoreName.Text : null,
+                StoreName = !String.IsNullOrEmpty(StoreName.Text) ? StoreName.Text : null,
                 StoreAbbr = !String.IsNullOrEmpty(StoreAbbr.Text) ? StoreAbbr.Text : null,
                 AdLine1 = AutoLayoutS.IsVisible ? null : !String.IsNullOrEmpty(StoreAdLine1.Text) ? StoreAdLine1.Text : null,
                 AdLine2 = AutoLayoutS.IsVisible ? null : StoreAdLine2.Text,
                 City = AutoLayoutS.IsVisible ? null : !String.IsNullOrEmpty(StoreCity.Text) ? StoreCity.Text : null,
                 Country = AutoLayoutS.IsVisible ? null : !String.IsNullOrEmpty(StoreCountry.Text) ? StoreCountry.Text : null,
                 PostCode = AutoLayoutS.IsVisible ? null : Validate.IsPostCodeValid(StorePostCode.Text) ? StorePostCode.Text : null,
-                FullAddress = AutoLayoutS.IsVisible ? StoreAddressPicker.SelectedItem.ToString() : null
+                FullAddress = AutoLayoutS.IsVisible ? StoreAddressPicker.SelectedIndex < 0 ? null : StoreAddressPicker.SelectedItem.ToString() : null
             };
             if (store.StoreName == null || store.StoreAbbr == null || store.FullAddress == null && store.AdLine1 == null)
             {
@@ -69,10 +69,10 @@ namespace Plutus.Pages
                 AdLine2 = AutoLayoutP.IsVisible ? null : AdLine2.Text,
                 City = AutoLayoutP.IsVisible ? null : !String.IsNullOrEmpty(City.Text) ? City.Text : null,
                 Country = AutoLayoutP.IsVisible ? null : !String.IsNullOrEmpty(Country.Text) ? Country.Text : null,
-                PostCode = AutoLayoutP.IsVisible ? null : Validate.IsPostCodeValid(PostCode.Text)? PostCode.Text : null,
-                FullAddress = AutoLayoutP.IsVisible ? PersonAddressPicker.SelectedItem.ToString() : null,
-                Email = Validate.IsEmailValid(Email.Text)? Email.Text : null,
-                Mobile = Validate.IsPhoneNumberValid(Mobile.Text)? Mobile.Text : null,
+                PostCode = AutoLayoutP.IsVisible ? null : Validate.IsPostCodeValid(PostCode.Text) ? PostCode.Text : null,
+                FullAddress = AutoLayoutP.IsVisible ? PersonAddressPicker.SelectedIndex < 0 ? null : PersonAddressPicker.SelectedItem.ToString() : null,
+                Email = Validate.IsEmailValid(Email.Text) ? Email.Text.ToLower() : null,
+                Mobile = Validate.IsPhoneNumberValid(Mobile.Text) ? Mobile.Text : null,
                 Salt = Salt,
                 HashedPassword = HashedPassword
             };
@@ -80,15 +80,18 @@ namespace Plutus.Pages
             {
                 Error(0);
                 return;
-            }else if (emp.PostCode == null && emp.FullAddress==null)
+            }
+            else if (emp.PostCode == null && emp.FullAddress==null)
             {
                 Error(2);
                 return;
-            }else if (emp.Email == null)
+            }
+            else if (emp.Email == null)
             {
                 Error(1);
                 return;
-            }else if (emp.Mobile == null)
+            }
+            else if (emp.Mobile == null)
             {
                 Error(3);
                 return;
@@ -115,7 +118,7 @@ namespace Plutus.Pages
             };
 
             FileIO.Save("App.config", fileC.ToArray());
-            if(DatabasePicker.SelectedIndex > 2 && DatabasePicker.SelectedIndex < 0)
+            if(DatabasePicker.SelectedIndex < 0)
             {
                 Error(4);
                 return;
@@ -128,7 +131,7 @@ namespace Plutus.Pages
                 emp.StoreId = store.StoreId;
                 dbContext.Add(emp);
                 dbContext.Save();
-                Application.Current.MainPage = new NavigationPage(new MainPage(emp, store));
+                Application.Current.MainPage = new NavigationPage(new MainNavigationPage(emp, store));
             }
         }
 

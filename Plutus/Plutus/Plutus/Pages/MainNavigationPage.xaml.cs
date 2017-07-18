@@ -3,15 +3,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Xamarin.Forms;
 using Plutus.Models;
+using Xamarin.Forms;
+using Xamarin.Forms.Xaml;
 
 namespace Plutus.Pages
 {
-	public partial class MainPage : ContentPage
-	{
-		public MainPage(EmployeeModel etemp, StoreModel stemp)
-		{
+    [XamlCompilation(XamlCompilationOptions.Compile)]
+    public partial class MainNavigationPage : TabbedPage
+    {
+        public MainNavigationPage (EmployeeModel etemp, StoreModel stemp)
+        {
             ToolbarItems.Add(new ToolbarItem { Text = "Users", Icon = "", });
 
             List<EmployeeModel> empsLogedin = new List<EmployeeModel>();
@@ -21,6 +23,8 @@ namespace Plutus.Pages
             stemp = null;
 
             InitializeComponent();
-		}
-	}
+
+            Children.Add(new Inventory.InventoryMangPage());
+        }
+    }
 }
