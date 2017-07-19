@@ -12,6 +12,7 @@ using Windows.UI.Xaml.Data;
 using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
+using Plugin.Media;
 
 namespace Plutus.UWP
 {
@@ -20,8 +21,14 @@ namespace Plutus.UWP
         public MainPage()
         {
             this.InitializeComponent();
+            InitMedia();
 
             LoadApplication(new Plutus.App());
+        }
+
+        private async void InitMedia()
+        {
+            await CrossMedia.Current.Initialize();
         }
     }
 }

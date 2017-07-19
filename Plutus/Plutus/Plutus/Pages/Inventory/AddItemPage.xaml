@@ -8,13 +8,13 @@
                 <TableRoot>
                     <TableSection Title="New Item">
                     <EntryCell x:Name="Id" Label="ID" />
-                    <ImageCell x:Name="Pic" ImageSource="" Tapped="ViewCell_Tapped"/>
+                    <ImageCell x:Name="Pic" Text="Image" Tapped="ViewCell_Tapped"/>
                     <EntryCell x:Name="Name" Label="Name" />
-                    <EntryCell x:Name="Cost" Label="Cost" Placeholder="Cost to Company: XX.XX" />
+                    <EntryCell x:Name="Cost" Label="Cost" Placeholder="Cost to Company: XX.XX" Keyboard="Numeric" />
                     <ViewCell>
                         <Picker x:Name="VatPicker" Title="VAT Type" Margin="15,5"/>
                     </ViewCell>
-                    <EntryCell x:Name="Price" Label="Price" Placeholder="Recomended price: XX.XX"/>
+                    <EntryCell x:Name="Price" Label="Price" Placeholder="Recomended price: XX.XX" Keyboard="Numeric" />
                     </TableSection>
                 </TableRoot>
             </TableView>
