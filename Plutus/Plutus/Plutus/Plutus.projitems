@@ -12,6 +12,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
+    <Compile Include="$(MSBuildThisFileDirectory)CustomRender\PickerCell.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\Camera.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Validate.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\ItemModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\PaymentMethodModel.cs" />

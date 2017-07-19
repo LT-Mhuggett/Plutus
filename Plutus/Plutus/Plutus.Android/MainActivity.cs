@@ -6,6 +6,7 @@ using Android.Runtime;
 using Android.Views;
 using Android.Widget;
 using Android.OS;
+using Plugin.Permissions;
 
 namespace Plutus.Droid
 {
@@ -23,6 +24,12 @@ namespace Plutus.Droid
             Xamarin.FormsMaps.Init(this, bundle);
             LoadApplication (new Plutus.App ());
 		}
-	}
+
+        public override void OnRequestPermissionsResult(int requestCode, string[] permissions, Permission[] grantResults)
+        {
+            PermissionsImplementation.Current.OnRequestPermissionsResult(requestCode, permissions, grantResults);
+        }
+
+    }
 }
 

@@ -50,5 +50,9 @@
     <string>LaunchScreen.storyboard</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Your location is for your ease of use</string>
+    <key>NSCameraUsageDescription</key>
+    <string>This app needs access to the camera to take photos.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>This app needs access to photos.</string>
   </dict>
 </plist>
