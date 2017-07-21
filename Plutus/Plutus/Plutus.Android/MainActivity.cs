@@ -11,8 +11,8 @@ using Plugin.Permissions;
 namespace Plutus.Droid
 {
 	[Activity (Label = "Plutus", Icon = "@drawable/icon", Theme="@style/MainTheme", MainLauncher = true, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation)]
-	public class MainActivity : global::Xamarin.Forms.Platform.Android.FormsAppCompatActivity
-	{
+	public class MainActivity : global::Xamarin.Forms.Platform.Android.FormsAppCompatActivity, Activity, IGooglePlayServicesClientConnectionCallbacks, IGooglePlayServicesClientOnConnectionFailedListener
+    {
 		protected override void OnCreate (Bundle bundle)
 		{
 			TabLayoutResource = Resource.Layout.Tabbar;

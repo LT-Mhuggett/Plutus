@@ -10,9 +10,38 @@
                     <EntryCell x:Name="Id" Label="ID" />
                     <ImageCell x:Name="Pic" Text="Image" Tapped="ViewCell_Tapped"/>
                     <EntryCell x:Name="Name" Label="Name" />
+                    <ViewCell x:Name="DescCell" Tapped="DescCell_Tapped">
+                        <RelativeLayout VerticalOptions="Center">
+                            <Label Text="Description">
+                                <Label.Margin>
+                                    <OnPlatform x:TypeArguments="Thickness">
+                                        <On Platform="iOS" Value="14,0,0,0" />
+                                        <On Platform="Android" Value="14,0,0,0" />
+                                        <On Platform="Windows" Value="0" />
+                                    </OnPlatform>
+                                </Label.Margin>
+                            </Label>
+                            <Label x:Name="DescLine" Text="Press to write description">
+                                <Label.Margin>
+                                    <OnPlatform x:TypeArguments="Thickness">
+                                        <On Platform="iOS" Value="112,0,0,0" />
+                                        <On Platform="Android" Value="100,0,0,0" />
+                                        <On Platform="Windows" Value="90,0,0,0" />
+                                    </OnPlatform>
+                                </Label.Margin>
+                            </Label>
+                        </RelativeLayout>
+                    </ViewCell>
                     <EntryCell x:Name="Cost" Label="Cost" Placeholder="Cost to Company: XX.XX" Keyboard="Numeric" />
                     <ViewCell>
-                        <Picker x:Name="VatPicker" Title="VAT Type" Margin="15,5"/>
+                        <Picker x:Name="VatPicker" Title="VAT Type">
+                            <Picker.Margin>
+                                <OnPlatform x:TypeArguments="Thickness">
+                                    <On Platform="iOS" Value="15,5,15,5" />
+                                    <On Platform="Android" Value="10,0,8.5,0" />
+                                </OnPlatform>
+                            </Picker.Margin>
+                        </Picker>
                     </ViewCell>
                     <EntryCell x:Name="Price" Label="Price" Placeholder="Recomended price: XX.XX" Keyboard="Numeric" />
                     </TableSection>

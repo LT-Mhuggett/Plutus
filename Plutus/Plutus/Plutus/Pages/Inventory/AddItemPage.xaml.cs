@@ -18,7 +18,7 @@ namespace Plutus.Pages.Inventory
         public AddItemPage ()
 		{
 			InitializeComponent ();
-		}
+        }
 
         private async void ViewCell_Tapped(object sender, EventArgs e)
         {
@@ -43,6 +43,11 @@ namespace Plutus.Pages.Inventory
                 case "Cancel":
                     break;
             }
+        }
+
+        private void DescCell_Tapped(object sender, EventArgs e)
+        {
+            throw new NotImplementedException();
         }
     }
 }
