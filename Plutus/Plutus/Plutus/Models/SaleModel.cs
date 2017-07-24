@@ -10,7 +10,7 @@ namespace Plutus.Models
     {
         [Key]
         public string SaleId { get; set; }
-        public double Total { get; set; }
+        public decimal Total { get; set; }
         public DateTime DateOfSale { get; set; }
         public string EmployeeId { get; set; }
         public EmployeeModel Employee { get; set; }

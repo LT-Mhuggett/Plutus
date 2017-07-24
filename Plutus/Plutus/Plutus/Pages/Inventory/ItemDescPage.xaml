@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Plutus.Pages.Inventory.ItemDescPage"
+             Title="Description">
+    <ContentPage.Content>
+        <StackLayout>
+            <Editor x:Name="Desc" VerticalOptions="FillAndExpand" HorizontalOptions="FillAndExpand" />
+            <Button x:Name="Confirm" Text="Confirm" Clicked="Confirm_Clicked" />
+        </StackLayout>
+    </ContentPage.Content>
+</ContentPage>

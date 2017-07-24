@@ -21,14 +21,8 @@ namespace Plutus.UWP
         public MainPage()
         {
             this.InitializeComponent();
-            InitMedia();
 
             LoadApplication(new Plutus.App());
-        }
-
-        private async void InitMedia()
-        {
-            await CrossMedia.Current.Initialize();
         }
     }
 }

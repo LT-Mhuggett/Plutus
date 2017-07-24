@@ -6,12 +6,13 @@ using Plutus.Models;
 using Xamarin.Forms;
 using System.IO;
 using Plugin.Media;
+using Plugin.Media.Abstractions;
 
 namespace Plutus.Helpers
 {
     class Camera
     {
-        internal static async void getPhoto(ItemModel item, ImageCell image)
+        internal static async void getPhoto(ItemModel item, Image image)
         {
             var file = await CrossMedia.Current.TakePhotoAsync(new Plugin.Media.Abstractions.StoreCameraMediaOptions
             {
@@ -23,9 +24,8 @@ namespace Plutus.Helpers
             if (file == null)
                 return;
 
-            image.ImageSource = ImageSource.FromStream(() =>
+            image.Source = ImageSource.FromStream(() =>
             {
-                Debug.Assert(file != null, "file != null", "In Camera.cs");
                 var stream = file.GetStream();
                 return stream;
             });
@@ -41,6 +41,15 @@ namespace Plutus.Helpers
         internal static bool IsCameraAval()
         {
             return CrossMedia.Current.IsCameraAvailable && CrossMedia.Current.IsTakePhotoSupported;
+        }
+
+        internal static byte[] StreamToArray(Stream stream)
+        {
+            using (MemoryStream ms = new MemoryStream())
+            {
+                stream.CopyTo(ms);
+                return ms.ToArray();
+            }
         }
     }
 }

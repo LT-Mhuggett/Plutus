@@ -4,48 +4,28 @@
              x:Class="Plutus.Pages.Inventory.AddItemPage"
              Title="Add New Inventory Item">
     <ContentPage.Content>
-            <TableView Intent="Form">
-                <TableRoot>
-                    <TableSection Title="New Item">
-                    <EntryCell x:Name="Id" Label="ID" />
-                    <ImageCell x:Name="Pic" Text="Image" Tapped="ViewCell_Tapped"/>
-                    <EntryCell x:Name="Name" Label="Name" />
-                    <ViewCell x:Name="DescCell" Tapped="DescCell_Tapped">
-                        <RelativeLayout VerticalOptions="Center">
-                            <Label Text="Description">
-                                <Label.Margin>
-                                    <OnPlatform x:TypeArguments="Thickness">
-                                        <On Platform="iOS" Value="14,0,0,0" />
-                                        <On Platform="Android" Value="14,0,0,0" />
-                                        <On Platform="Windows" Value="0" />
-                                    </OnPlatform>
-                                </Label.Margin>
-                            </Label>
-                            <Label x:Name="DescLine" Text="Press to write description">
-                                <Label.Margin>
-                                    <OnPlatform x:TypeArguments="Thickness">
-                                        <On Platform="iOS" Value="112,0,0,0" />
-                                        <On Platform="Android" Value="100,0,0,0" />
-                                        <On Platform="Windows" Value="90,0,0,0" />
-                                    </OnPlatform>
-                                </Label.Margin>
-                            </Label>
-                        </RelativeLayout>
-                    </ViewCell>
-                    <EntryCell x:Name="Cost" Label="Cost" Placeholder="Cost to Company: XX.XX" Keyboard="Numeric" />
-                    <ViewCell>
-                        <Picker x:Name="VatPicker" Title="VAT Type">
-                            <Picker.Margin>
-                                <OnPlatform x:TypeArguments="Thickness">
-                                    <On Platform="iOS" Value="15,5,15,5" />
-                                    <On Platform="Android" Value="10,0,8.5,0" />
-                                </OnPlatform>
-                            </Picker.Margin>
-                        </Picker>
-                    </ViewCell>
-                    <EntryCell x:Name="Price" Label="Price" Placeholder="Recomended price: XX.XX" Keyboard="Numeric" />
-                    </TableSection>
-                </TableRoot>
-            </TableView>
+        <ScrollView>
+            <StackLayout BackgroundColor="Transparent"
+                     HorizontalOptions="FillAndExpand"
+                     VerticalOptions="FillAndExpand"
+                     Margin="10,0,10,0">
+                <Label Text="New Item" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start" />
+                <Label Text="ID" HorizontalOptions="FillAndExpand" />
+                <Entry x:Name="Id" PropertyChanged="Id_PropertyChanged" Focused="Id_Focused" />
+                <Label Text="Name" HorizontalOptions="FillAndExpand" />
+                <Entry x:Name="Name" />
+                <Label Text="Image" HorizontalOptions="FillAndExpand" />
+                <Image x:Name="Pic" HorizontalOptions="FillAndExpand" />
+                <Button x:Name="ImageButton" Text="Take/Select Image" Clicked="Image_Clicked" IsEnabled="false" />
+                <Label Text="Description" HorizontalOptions="Start" VerticalOptions="Center"/>
+                <Button x:Name="Desc" Text="Add Description" Clicked="Desc_Clicked" />
+                <Label Text="Cost" HorizontalOptions="FillAndExpand" />
+                <Entry x:Name="Cost" PropertyChanged="Cost_Vat_PropertyChanged" />
+                <Picker x:Name="VatPicker" Title="VAT Type" PropertyChanged="Cost_Vat_PropertyChanged" />
+                <Label Text="Price" HorizontalOptions="FillAndExpand" />
+                <Entry x:Name="Price" />
+                <Button x:Name="AddItem" Text="Add Item" Clicked="AddItem_Clicked" />
+            </StackLayout>
+        </ScrollView>
     </ContentPage.Content>
 </ContentPage>

@@ -10,7 +10,7 @@ namespace Plutus.Models
         [Key]
         public int PayId { get; set; }
         public string Name { get; set; }
-        public double Charge { get; set; }
+        public decimal Charge { get; set; }
 
         public List<PaymentMethod_SaleModel> PaySales { get; set; }
     }

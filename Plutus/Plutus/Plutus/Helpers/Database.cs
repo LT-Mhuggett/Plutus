@@ -31,7 +31,7 @@ namespace Plutus.Helpers
 
         internal void Init()
         {
-            VatModel vat = new VatModel() {Name = "20%", Rate = .8};
+            VatModel vat = new VatModel() {Name = "20%", Rate = 1.2};
             Add(vat);
             VatModel vat2 = new VatModel() {Name = "0%", Rate = 1};
             Add(vat2);
@@ -40,7 +40,7 @@ namespace Plutus.Helpers
             Save();
         }
 
-        internal static EmployeeModel Login(string idEmail, string password)
+        internal EmployeeModel Login(string idEmail, string password)
         {
             var emp = _db.Employees
                 .Where(e => e.Id == idEmail || e.Email == idEmail)
@@ -55,13 +55,20 @@ namespace Plutus.Helpers
             return emp;
         }
 
-        internal static StoreModel getStore(string id)
+        internal StoreModel GetStore(string id)
         {
             var store = _db.Stores
                 .Where(s => s.StoreId == id)
                 .SingleOrDefault();
             if (store == null) return null;
             return store;
+        }
+
+        internal List<VatModel> GetVat()
+        {
+            List<VatModel> vats=_db.Vats.ToList<VatModel>();
+            if (vats == null) return null;
+            return vats;
         }
     }
 }

@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Plutus.Pages.Inventory.ItemTemplate">
+    <ContentPage.Content>
+        <StackLayout Margin="0,10,0,0"
+                     VerticalOptions="Center"
+                     HorizontalOptions="Center">
+            <Image x:Name="ItemImage" HeightRequest="80" VerticalOptions="Center" HorizontalOptions="Center" />
+            <Label x:Name="ItemName" VerticalOptions="Center" HorizontalOptions="Center" />
+            <Label x:Name="ItemDesc" VerticalOptions="Center" HorizontalOptions="Center" />
+            <Label x:Name="ItemPrice" VerticalOptions="Center" HorizontalOptions="Center" />
+            <Image x:Name="ItemId" VerticalOptions="Center" HorizontalOptions="Center" />
+            <Button x:Name="Confirm" Text="Confirm" Clicked="Confirm_Clicked" VerticalOptions="Center" HorizontalOptions="Center" />
+            <Button x:Name="Edit" Text="Edit" Clicked="Edit_Clicked" VerticalOptions="Center" HorizontalOptions="Center" />
+        </StackLayout>
+    </ContentPage.Content>
+</ContentPage>
