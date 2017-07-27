@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Plutus.Models;
 
 namespace Plutus.Data
@@ -19,6 +22,7 @@ namespace Plutus.Data
         public DbSet<Refund_SaleModel> RefundSales { get; set; }
         public DbSet<SaleModel> Sales { get; set; }
         public DbSet<TransactionModel> Trans { get; set; }
+        public DbSet<CategoryModel> Category { get; set; }
 
         private readonly string _databasePath;
 

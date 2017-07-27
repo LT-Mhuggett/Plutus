@@ -15,7 +15,11 @@ namespace Plutus
 		{
 		    InitializeComponent();
 
-		    MainPage = FileIO.Exists("App.config")&&FileIO.Exists("Database.db")?
+            //refresh all app files without data wipe or app delete
+            //File.Delete(Path.Combine(FileIO.GetLib(), "App.config"));
+            //File.Delete(Path.Combine(FileIO.GetLib(), "Database.db"));
+
+            MainPage = FileIO.Exists("App.config")&&FileIO.Exists("Database.db")?
                 new NavigationPage(new LoginPage()):
                 FileIO.Exists("Database.db")?
                     throw new NotImplementedException(): 

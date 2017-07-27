@@ -8,6 +8,7 @@
         <StackLayout VerticalOptions="Center" HorizontalOptions="Center">
             <Button x:Name="AddItem" Text="Add Item" Clicked="AddItem_Clicked"/>
             <Button x:Name="UpdateItem" Text="Update Item" Clicked="UpdateItem_Clicked"/>
+            <Button x:Name="StockUpdate" Text="Stock" Clicked="StockUpdate_Clicked"/>
         </StackLayout>
     </ContentPage.Content>
 </ContentPage>

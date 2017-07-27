@@ -11,7 +11,7 @@
                      Margin="10,0,10,0">
                 <Label Text="New Item" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start" />
                 <Label Text="ID" HorizontalOptions="FillAndExpand" />
-                <Entry x:Name="Id" PropertyChanged="Id_PropertyChanged" Focused="Id_Focused" />
+                <Entry x:Name="Id" PropertyChanged="Id_PropertyChanged" Unfocused="Id_Unfocused" Focused="Id_Focused" />
                 <Label Text="Name" HorizontalOptions="FillAndExpand" />
                 <Entry x:Name="Name" />
                 <Label Text="Image" HorizontalOptions="FillAndExpand" />
@@ -19,6 +19,9 @@
                 <Button x:Name="ImageButton" Text="Take/Select Image" Clicked="Image_Clicked" IsEnabled="false" />
                 <Label Text="Description" HorizontalOptions="Start" VerticalOptions="Center"/>
                 <Button x:Name="Desc" Text="Add Description" Clicked="Desc_Clicked" />
+                <Label Text="Brand" HorizontalOptions="FillAndExpand" />
+                <Entry x:Name="Brand" />
+                <Picker x:Name="CatPicker" Title="Category" SelectedIndexChanged="CatPicker_SelectedIndexChanged"/>
                 <Label Text="Cost" HorizontalOptions="FillAndExpand" />
                 <Entry x:Name="Cost" PropertyChanged="Cost_Vat_PropertyChanged" />
                 <Picker x:Name="VatPicker" Title="VAT Type" PropertyChanged="Cost_Vat_PropertyChanged" />

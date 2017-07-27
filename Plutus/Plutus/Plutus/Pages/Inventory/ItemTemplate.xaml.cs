@@ -33,6 +33,8 @@ namespace Plutus.Pages.Inventory
                 ItemImage.Source = ImageSource.FromStream(() => new MemoryStream(item.Image));
             }
             ItemName.Text = item.Name;
+            ItemBrand.Text = item.Brand;
+            ItemCat.Text = dbContext.getCatName(item.CatId);
             ItemDesc.Text = item.Desc;
             ItemPrice.Text = item.Price.ToString();
             //ItemId.Source = 

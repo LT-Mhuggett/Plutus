@@ -16,6 +16,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Camera.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\IPicturePicker.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Validate.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\CategoryModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\ItemModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\PaymentMethodModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\PaymentMethod_SaleModel.cs" />
@@ -37,6 +38,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\FileIO.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Location.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Password.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Pages\Inventory\AddCategoryPage.xaml.cs">
+      <DependentUpon>AddCategoryPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Pages\Inventory\AddItemPage.xaml.cs">
       <DependentUpon>AddItemPage.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -126,6 +131,12 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\Inventory\ItemTemplate.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\Inventory\AddCategoryPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
     </EmbeddedResource>

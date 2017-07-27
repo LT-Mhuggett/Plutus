@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Plutus.Pages.Inventory.AddCategoryPage"
+             Title="New Category">
+    <ContentPage.Content>
+        <StackLayout>
+            <Label Text="Name" />
+            <Entry x:Name="Name" />
+            <Label Text="Description" />
+            <Entry x:Name="Description" />
+            <Button x:Name="Confirm" Text="Confirm" Clicked="Confirm_Clicked" />
+            <Button x:Name="Cancel" Text="Cancel" Clicked="Cancel_Clicked" />
+        </StackLayout>
+    </ContentPage.Content>
+</ContentPage>

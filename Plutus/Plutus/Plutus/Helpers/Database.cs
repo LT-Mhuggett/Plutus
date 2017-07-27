@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
-using Microsoft.EntityFrameworkCore;
 using Plutus.Data;
 using Plutus.Models;
 using System.Linq;
@@ -21,12 +20,12 @@ namespace Plutus.Helpers
 
         internal void Add<T>(T tmp) where T : class
         {
-            _db.Set<T>().Add(tmp);
+            _db.Set<T>().AddAsync(tmp);
         }
 
         internal void Save()
         {
-            _db.SaveChanges();
+            _db.SaveChangesAsync();
         }
 
         internal void Init()
@@ -66,9 +65,34 @@ namespace Plutus.Helpers
 
         internal List<VatModel> GetVat()
         {
-            List<VatModel> vats=_db.Vats.ToList<VatModel>();
+            List<VatModel> vats = _db.Vats.ToList();
             if (vats == null) return null;
             return vats;
+        }
+
+        internal List<CategoryModel> GetCats()
+        {
+            List<CategoryModel> cats = _db.Category.ToList();
+            if (cats == null) return null;
+            return cats;
+        }
+
+        internal string getCatName(int id)
+        {
+            var catName = _db.Category
+                .Where(c => c.Id == id)
+                .Select(c => c.Name)
+                .SingleOrDefault();
+            if (catName == null) return null;
+            return catName;
+        }
+
+        internal bool isIdSame(string testId)
+        {
+            var test = _db.Items
+                .Where(i => i.ItemId == testId)
+                .Select(i => i).Any();
+            return test;
         }
     }
 }

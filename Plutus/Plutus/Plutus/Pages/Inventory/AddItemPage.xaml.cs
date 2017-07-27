@@ -20,6 +20,7 @@ namespace Plutus.Pages.Inventory
         internal static ItemModel item = new ItemModel();
         internal Database dbContext = new Database();
         internal List<VatModel> vats;
+        internal List<CategoryModel> cats;
 
         public AddItemPage ()
 		{
@@ -30,6 +31,7 @@ namespace Plutus.Pages.Inventory
             {
                 VatPicker.Items.Add(item.Name);
             }
+            InitCatPicker();
         }
 
         private async void Image_Clicked(object sender, EventArgs e)
@@ -73,16 +75,17 @@ namespace Plutus.Pages.Inventory
         private void Id_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
             ImageButton.IsEnabled = !String.IsNullOrWhiteSpace(Id.Text) ? true : false;
-
         }
 
         private async void AddItem_Clicked(object sender, EventArgs e)
         {
             item.ItemId = Id.Text;
             item.Name = Name.Text;
-            item.VatId = VatPicker.SelectedIndex+1;
+            item.VatId = VatPicker.SelectedIndex + 1;
+            item.CatId = VatPicker.SelectedIndex + 1;
+            item.Brand = Brand.Text;
 
-            if (item.ItemId == null || item.Name == null || item.VatId == -1)
+            if (item.ItemId == null || item.Name == null || item.Brand == null || item.VatId == 0 || item.CatId == 0)
             {
                 await DisplayAlert("OOPS!", "Please check all fields are correct", "OK");
                 return;
@@ -129,9 +132,7 @@ namespace Plutus.Pages.Inventory
             var scanner = new MobileBarcodeScanner();
             var options = new MobileBarcodeScanningOptions()
             {
-                UseNativeScanning = true,
-                PureBarcode = true,
-                TryInverted = true
+                UseNativeScanning = true
             };
             var results = await scanner.Scan(options);
 
@@ -147,6 +148,40 @@ namespace Plutus.Pages.Inventory
                 {
                     Price.Placeholder = $"Recommended price: {ToDecimal(Cost.Text) * (decimal)item.Rate}";
                 }
+            }
+        }
+
+        protected void InitCatPicker()
+        {
+            cats = dbContext.GetCats();
+            CatPicker.Items.Clear();
+            foreach (var item in cats)
+            {
+                CatPicker.Items.Add(item.Name);
+            }
+            CatPicker.Items.Add("'Create new Category'");
+        }
+
+        private async void CatPicker_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (CatPicker.SelectedIndex == CatPicker.Items.Count - 1)
+            {
+                await Navigation.PushModalAsync(new AddCategoryPage());
+                MessagingCenter.Subscribe<AddItemPage>(this, "ConfCat", async (Sender) =>
+                {
+                    InitCatPicker();
+                    await Navigation.PopModalAsync();
+                    //Currently a fix, This works but is a waste of procesor time.
+                });
+            }
+        }
+
+        private async void Id_Unfocused(object sender, FocusEventArgs e)
+        {
+            if (dbContext.isIdSame(Id.Text))
+            {
+                await DisplayAlert("Hmm...", "This item apears to already been added.\nPlease check this.", "OK");
+                Id.Text = null;
             }
         }
     }

@@ -8,7 +8,9 @@
                      HorizontalOptions="Center">
             <Image x:Name="ItemImage" HeightRequest="80" VerticalOptions="Center" HorizontalOptions="Center" />
             <Label x:Name="ItemName" VerticalOptions="Center" HorizontalOptions="Center" />
-            <Label x:Name="ItemDesc" VerticalOptions="Center" HorizontalOptions="Center" />
+            <Label x:Name="ItemBrand" VerticalOptions="Center" HorizontalOptions="Center" />
+            <Label x:Name="ItemCat" VerticalOptions="Center" HorizontalOptions="Center" />
+            <Label x:Name="ItemDesc" VerticalTextAlignment="Center" VerticalOptions="Center" HorizontalOptions="Center" />
             <Label x:Name="ItemPrice" VerticalOptions="Center" HorizontalOptions="Center" />
             <Image x:Name="ItemId" VerticalOptions="Center" HorizontalOptions="Center" />
             <Button x:Name="Confirm" Text="Confirm" Clicked="Confirm_Clicked" VerticalOptions="Center" HorizontalOptions="Center" />

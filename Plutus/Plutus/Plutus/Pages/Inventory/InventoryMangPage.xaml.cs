@@ -26,5 +26,10 @@ namespace Plutus.Pages.Inventory
         {
             await Navigation.PushAsync(new UpdateItemPage());
         }
+
+        private async void StockUpdate_Clicked(object sender, EventArgs e)
+        {
+            //await Navigation.PushAsync(new ());
+        }
     }
 }

@@ -20,6 +20,8 @@ namespace Plutus.Models
 
         [ForeignKey("VatIdFK")]
         public int VatId { get; set; }
+        [ForeignKey("CatIdFK")]
+        public int CatId { get; set; }
         public ItemModel Item { get; set; }
 
         public List<TransactionModel> Transactions { get; set; }
