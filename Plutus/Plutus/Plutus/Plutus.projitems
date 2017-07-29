@@ -15,6 +15,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)CustomRender\PickerCell.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Camera.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\IPicturePicker.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\Scanner.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Validate.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\CategoryModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\ItemModel.cs" />
@@ -23,6 +24,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Models\RefundModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\Refund_SaleModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\SaleModel.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\StockModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\TransactionModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\VatModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Pages\ConfigPage.xaml.cs">
@@ -56,6 +58,10 @@
     </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Pages\Inventory\ItemTemplate.xaml.cs">
       <DependentUpon>ItemTemplate.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="$(MSBuildThisFileDirectory)Pages\Inventory\StockUpdatePage.xaml.cs">
+      <DependentUpon>StockUpdatePage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Pages\Inventory\UpdateItemPage.xaml.cs">
@@ -137,6 +143,12 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\Inventory\AddCategoryPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\Inventory\StockUpdatePage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
     </EmbeddedResource>

@@ -85,28 +85,41 @@ namespace Plutus.Pages.Inventory
             item.CatId = VatPicker.SelectedIndex + 1;
             item.Brand = Brand.Text;
 
-            if (item.ItemId == null || item.Name == null || item.Brand == null || item.VatId == 0 || item.CatId == 0)
+            if (item.ItemId == null || item.Name == null || item.Brand == null || item.VatId == 0 || item.CatId == 0 || string.IsNullOrWhiteSpace(Stock.Text))
             {
-                await DisplayAlert("OOPS!", "Please check all fields are correct", "OK");
+                await DisplayAlert("OOPS!", "Please check all fields are correct and filled in", "OK");
                 return;
             }
 
-            item.Cost = ToDecimal(Cost.Text);
-            item.Price = ToDecimal(Price.Text);
+            item.Cost = await ToDecimal(Cost.Text);
+            item.Price = await ToDecimal(Price.Text);
 
             if (item.Cost.Equals(0.00) || item.Cost.Equals(0) || item.Price.Equals(0.00) || item.Price.Equals(0))
-            {
                 return;
-            }
+
+            var temp = await ToInterger(Stock.Text);
+
+            if (temp.Equals(-1))
+                return;
 
             await Navigation.PushModalAsync(new ItemTemplate(item));
             MessagingCenter.Subscribe<AddItemPage>(this, "Accepted", async (Sender) =>
             {
-                await Navigation.PopToRootAsync();
+                dbContext.Add(item);
+                StockModel stock = new StockModel
+                {
+                    ItemId = item.ItemId,
+                    StoreId = MainNavigationPage.store.StoreId,
+                    Quantity = temp
+                };
+                dbContext.Add(stock);
+                dbContext.Save();
+
+                await Navigation.PopAsync();
             });
         }
 
-        private decimal ToDecimal(string data)
+        private async Task<decimal> ToDecimal(string data)
         {
             try
             {
@@ -115,38 +128,50 @@ namespace Plutus.Pages.Inventory
             }
             catch (FormatException)
             {
-                DisplayAlert("OOPS!", "Somthing is wrong with your 'cost' or 'price'", "OK");
+                await DisplayAlert("OOPS!", "Somthing is wrong with your 'cost' or 'price'", "OK");
                 return 0.0m;
             }
             catch (OverflowException)
             {
-                DisplayAlert("OOPS!", "Somthing is wrong with your 'cost' or 'price'", "OK");
+                await DisplayAlert("OOPS!", "Somthing is wrong with your 'cost' or 'price'", "OK");
                 return 0.0m;
             }
 
         }
 
-        private async void Id_Focused(object sender, FocusEventArgs e)
+        private async Task<int> ToInterger(string data)
         {
-            if (Device.Idiom == TargetIdiom.Desktop) return;
-            var scanner = new MobileBarcodeScanner();
-            var options = new MobileBarcodeScanningOptions()
+            try
             {
-                UseNativeScanning = true
-            };
-            var results = await scanner.Scan(options);
-
-            Id.Text = results.Text;
+                int result = Convert.ToInt16(data);
+                return result;
+            }
+            catch (FormatException)
+            {
+                await DisplayAlert("OOPS!", "Simthing is wrong with your 'Stock'", "OK");
+                return -1;
+            }
+            catch (OverflowException)
+            {
+                await DisplayAlert("OOPS!", "Simthing is wrong with your 'Stock'", "OK");
+                return -1;
+            }
         }
 
-        private void Cost_Vat_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        private void Id_Focused(object sender, FocusEventArgs e)
+        {
+            if (Device.Idiom == TargetIdiom.Desktop) return;
+            Scanner.ShowScanner(false, Id);
+        }
+
+        private async Task Cost_Vat_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(Cost.Text) || VatPicker.SelectedIndex == -1) return;
-            foreach(var item in vats)
+            foreach (var item in vats)
             {
                 if (item.VatId == VatPicker.SelectedIndex + 1)
                 {
-                    Price.Placeholder = $"Recommended price: {ToDecimal(Cost.Text) * (decimal)item.Rate}";
+                    Price.Placeholder = $"Recommended price: {await ToDecimal(Cost.Text) * (decimal)item.Rate}";
                 }
             }
         }

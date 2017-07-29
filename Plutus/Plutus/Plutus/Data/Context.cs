@@ -23,6 +23,7 @@ namespace Plutus.Data
         public DbSet<SaleModel> Sales { get; set; }
         public DbSet<TransactionModel> Trans { get; set; }
         public DbSet<CategoryModel> Category { get; set; }
+        public DbSet<StockModel> Stocks { get; set; }
 
         private readonly string _databasePath;
 
@@ -41,6 +42,19 @@ namespace Plutus.Data
             modelBuilder.Entity<EmployeeModel>()
                 .HasIndex(u => u.Email)
                 .IsUnique();
+
+            modelBuilder.Entity<StockModel>()
+                .HasKey(k => new { k.ItemId, k.StoreId });
+
+            modelBuilder.Entity<ItemModel>()
+                .HasOne(i => i.Stock)
+                .WithOne(s => s.Item)
+                .HasForeignKey<StockModel>(s => s.ItemId);
+
+            modelBuilder.Entity<StockModel>()
+                .HasOne(s => s.Store)
+                .WithMany(st => st.Stocks)
+                .HasForeignKey(s => s.StoreId);
 
             modelBuilder.Entity<TransactionModel>()
                 .HasKey(k => new { k.SaleId, k.ItemId });

@@ -25,7 +25,15 @@ namespace Plutus.Helpers
 
         internal void Save()
         {
-            _db.SaveChangesAsync();
+            try
+            {
+                _db.SaveChangesAsync();
+            }
+            catch(Exception e)
+            {
+                Console.Write(e);
+            }
+            
         }
 
         internal void Init()
@@ -42,7 +50,7 @@ namespace Plutus.Helpers
         internal EmployeeModel Login(string idEmail, string password)
         {
             var emp = _db.Employees
-                .Where(e => e.Id == idEmail || e.Email == idEmail)
+                .Where(e => e.Id.Equals(idEmail) || e.Email.Equals(idEmail))
                 .SingleOrDefault();
             if (emp == null) return null;
             if (!Password.Verify(password, Convert.FromBase64String(emp.Salt),
@@ -57,7 +65,7 @@ namespace Plutus.Helpers
         internal StoreModel GetStore(string id)
         {
             var store = _db.Stores
-                .Where(s => s.StoreId == id)
+                .Where(s => s.StoreId.Equals(id))
                 .SingleOrDefault();
             if (store == null) return null;
             return store;
@@ -80,7 +88,7 @@ namespace Plutus.Helpers
         internal string getCatName(int id)
         {
             var catName = _db.Category
-                .Where(c => c.Id == id)
+                .Where(c => c.Id.Equals(id))
                 .Select(c => c.Name)
                 .SingleOrDefault();
             if (catName == null) return null;
@@ -90,9 +98,31 @@ namespace Plutus.Helpers
         internal bool isIdSame(string testId)
         {
             var test = _db.Items
-                .Where(i => i.ItemId == testId)
+                .Where(i => i.ItemId.Equals(testId))
                 .Select(i => i).Any();
             return test;
+        }
+
+        internal void UpdateStock(StockModel toUpdateModel)
+        {
+            var query = from stock in _db.Stocks
+                        where stock.ItemId.Equals(toUpdateModel.ItemId) &&
+                            stock.StoreId.Equals(toUpdateModel.StoreId)
+                        select stock;
+            foreach(StockModel stock in query)
+            {
+                stock.Quantity += toUpdateModel.Quantity;
+            }
+        }
+
+        internal List<ItemModel> GetItem(string temp)
+        {
+            var item = _db.Items
+                .Where(i => i.ItemId.Equals(temp) ||
+                    i.Name.Contains(temp))
+                .ToList();
+            if (item == null) return null;
+            return item;
         }
     }
 }

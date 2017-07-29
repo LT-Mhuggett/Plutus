@@ -30,11 +30,19 @@ namespace Plutus.Pages.Inventory
             dbContext.Save();
             await Navigation.PopModalAsync();
             MessagingCenter.Send(new AddItemPage(), "ConfCat");
+            MessagingCenter.Send(new UpdateItemPage(), "ConfCat");
         }
 
         private async void Cancel_Clicked(object sender, EventArgs e)
         {
             await Navigation.PopModalAsync();
+        }
+
+        protected override void OnDisappearing()
+        {
+            MessagingCenter.Unsubscribe<AddItemPage>(new AddItemPage(), "ConfCat");
+            MessagingCenter.Unsubscribe<UpdateItemPage>(new UpdateItemPage(), "ConfCat");
+            MessagingCenter.Unsubscribe<AddItemPage>(new AddItemPage(), "Accepted");
         }
     }
 }

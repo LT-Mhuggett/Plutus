@@ -12,17 +12,19 @@ namespace Plutus.Pages
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class MainNavigationPage : TabbedPage
     {
+        internal static List<EmployeeModel> empsLogged = new List<EmployeeModel>();
+        internal static StoreModel store;
         public MainNavigationPage (EmployeeModel etemp, StoreModel stemp)
         {
             ToolbarItems.Add(new ToolbarItem { Text = "Users", Icon = "", });
-
-            List<EmployeeModel> empsLogedin = new List<EmployeeModel>();
-            empsLogedin.Add(etemp);
-            StoreModel store = stemp;
+            
+            empsLogged.Add(etemp);
+            store = stemp;
             etemp = null;
             stemp = null;
 
             InitializeComponent();
+            Title = $"Plutus - {store.StoreName}";
 
             Children.Add(new Inventory.InventoryMangPage());
         }

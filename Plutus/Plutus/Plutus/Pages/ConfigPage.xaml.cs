@@ -17,8 +17,6 @@ namespace Plutus.Pages
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class ConfigPage : ContentPage
 	{
-        internal static Database dbContext = new Database();
-
         public ConfigPage ()
 		{
 			InitializeComponent();
@@ -127,6 +125,7 @@ namespace Plutus.Pages
             }
             if (DatabasePicker.SelectedIndex == 0)
             {
+                Database dbContext = new Database();
                 dbContext.Init();
                 dbContext.Add(store);
                 emp.StoreId = store.StoreId;

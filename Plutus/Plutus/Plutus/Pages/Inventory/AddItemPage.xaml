@@ -27,6 +27,8 @@
                 <Picker x:Name="VatPicker" Title="VAT Type" PropertyChanged="Cost_Vat_PropertyChanged" />
                 <Label Text="Price" HorizontalOptions="FillAndExpand" />
                 <Entry x:Name="Price" />
+                <Label Text="Current Stock" HorizontalOptions="FillAndExpand" />
+                <Entry x:Name="Stock" Placeholder="If none in stock then put 0" />
                 <Button x:Name="AddItem" Text="Add Item" Clicked="AddItem_Clicked" />
             </StackLayout>
         </ScrollView>

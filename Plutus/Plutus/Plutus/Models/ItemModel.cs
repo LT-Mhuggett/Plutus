@@ -15,15 +15,14 @@ namespace Plutus.Models
         public string Desc { get; set; }
         public decimal Cost { get; set; }
         public decimal Price { get; set; }
-        public int Stock { get; set; }
         public byte[] Image { get; set; }
 
         [ForeignKey("VatIdFK")]
         public int VatId { get; set; }
         [ForeignKey("CatIdFK")]
         public int CatId { get; set; }
-        public ItemModel Item { get; set; }
 
         public List<TransactionModel> Transactions { get; set; }
+        public StockModel Stock { get; set; }
     }
 }

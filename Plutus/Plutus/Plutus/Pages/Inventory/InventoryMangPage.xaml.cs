@@ -29,7 +29,7 @@ namespace Plutus.Pages.Inventory
 
         private async void StockUpdate_Clicked(object sender, EventArgs e)
         {
-            //await Navigation.PushAsync(new ());
+            await Navigation.PushAsync(new StockUpdatePage());
         }
     }
 }

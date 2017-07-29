@@ -1,11 +1,36 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="Plutus.Pages.Inventory.UpdateItemPage">
+             x:Class="Plutus.Pages.Inventory.UpdateItemPage"
+             Title="Update item information">
     <ContentPage.Content>
-        <StackLayout>
-            <Entry x:Name="ItemSearch"/>
-            <Button x:Name="SearchButton" Text="search" Clicked="SearchButton_Clicked"/>
-        </StackLayout>
+        <ScrollView>
+            <StackLayout BackgroundColor="Transparent"
+                        HorizontalOptions="FillAndExpand"
+                        VerticalOptions="FillAndExpand"
+                        Margin="10,0,10,0">
+                <Label Text="ID/Name" HorizontalOptions="FillAndExpand"/>
+                <Entry x:Name="ItemSearch" Completed="Item_Search" Unfocused="ItemSearch_Unfocused"/>
+                <StackLayout x:Name="ItemDetails" IsVisible="False">
+                    <Label Text="Name" HorizontalOptions="FillAndExpand" />
+                    <Entry x:Name="Name" />
+                    <Label Text="Image" HorizontalOptions="FillAndExpand" />
+                    <Image x:Name="Pic" HorizontalOptions="FillAndExpand" />
+                    <Button x:Name="ImageButton" Text="Take/Select Image" Clicked="Image_Clicked" IsEnabled="false" />
+                    <Label Text="Description" HorizontalOptions="Start" VerticalOptions="Center"/>
+                    <Button x:Name="Desc" Text="Add Description" Clicked="Desc_Clicked" />
+                    <Label Text="Brand" HorizontalOptions="FillAndExpand" />
+                    <Entry x:Name="Brand" />
+                    <Picker x:Name="CatPicker" Title="Category" SelectedIndexChanged="CatPicker_SelectedIndexChanged"/>
+                    <Label Text="Cost" HorizontalOptions="FillAndExpand" />
+                    <Entry x:Name="Cost" PropertyChanged="Cost_Vat_PropertyChanged" />
+                    <Picker x:Name="VatPicker" Title="VAT Type" PropertyChanged="Cost_Vat_PropertyChanged" />
+                    <Label Text="Price" HorizontalOptions="FillAndExpand" />
+                    <Entry x:Name="Price" />
+                    <Label Text="Current Stock" HorizontalOptions="FillAndExpand" />
+                    <Label x:Name="Stock" HorizontalOptions="FillAndExpand" />
+                </StackLayout>
+            </StackLayout>
+        </ScrollView>
     </ContentPage.Content>
 </ContentPage>

@@ -14,36 +14,29 @@ namespace Plutus.Pages.Inventory
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class ItemTemplate : ContentPage
 	{
-        internal static ItemModel item;
         internal Database dbContext = new Database();
-		public ItemTemplate (ItemModel itemtemp)
+		public ItemTemplate (ItemModel itemTemp)
 		{
 			InitializeComponent ();
+            
 
-            item = itemtemp;
-            itemtemp = null;
-
-            if (item.Image == null)
+            if (itemTemp.Image == null)
             {
-                throw new NotImplementedException();
                 //ItemImage.Source = "";
             }
             else
             {
-                ItemImage.Source = ImageSource.FromStream(() => new MemoryStream(item.Image));
+                ItemImage.Source = ImageSource.FromStream(() => new MemoryStream(itemTemp.Image));
             }
-            ItemName.Text = item.Name;
-            ItemBrand.Text = item.Brand;
-            ItemCat.Text = dbContext.getCatName(item.CatId);
-            ItemDesc.Text = item.Desc;
-            ItemPrice.Text = item.Price.ToString();
-            //ItemId.Source = 
+            ItemName.Text = itemTemp.Name;
+            ItemBrand.Text = itemTemp.Brand;
+            ItemCat.Text = dbContext.getCatName(itemTemp.CatId);
+            ItemDesc.Text = itemTemp.Desc;
+            ItemPrice.Text = itemTemp.Price.ToString();
 		}
 
         private async void Confirm_Clicked(object sender, EventArgs e)
         {
-            dbContext.Add(item);
-            dbContext.Save();
             await Navigation.PopModalAsync();
             MessagingCenter.Send(new AddItemPage(), "Accepted");
         }
