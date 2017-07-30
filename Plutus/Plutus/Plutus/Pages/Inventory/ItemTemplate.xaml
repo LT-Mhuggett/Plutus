@@ -15,6 +15,7 @@
             <Image x:Name="ItemId" VerticalOptions="Center" HorizontalOptions="Center" />
             <Button x:Name="Confirm" Text="Confirm" Clicked="Confirm_Clicked" VerticalOptions="Center" HorizontalOptions="Center" />
             <Button x:Name="Edit" Text="Edit" Clicked="Edit_Clicked" VerticalOptions="Center" HorizontalOptions="Center" />
+            <Button x:Name="Select" IsVisible="False" Text="Select" Clicked="Select_Clicked"/>
         </StackLayout>
     </ContentPage.Content>
 </ContentPage>

@@ -18,8 +18,10 @@ namespace Plutus.Pages.Inventory
 	{
         internal Database dbContext = new Database();
         internal ItemModel item;
+        internal ItemModel changeItem = new ItemModel();
         internal List<VatModel> vats;
         internal List<CategoryModel> cats;
+        internal int count = 0;
         public UpdateItemPage ()
 		{
 			InitializeComponent ();
@@ -37,27 +39,70 @@ namespace Plutus.Pages.Inventory
             ItemSearch.Unfocus();
         }
 
+
+
+        private void ItemSearch_Focused(object sender, FocusEventArgs e)
+        {
+            if (Device.Idiom == TargetIdiom.Desktop) return;
+            Scanner.ShowScanner(false, ItemSearch);
+        }
+
         private async void ItemSearch_Unfocused(object sender, FocusEventArgs e)
         {
-            List<ItemModel> items = dbContext.GetItem(ItemSearch.Text);
-            if(items.Count == 0)
+            if ((count & 1) == 0)
             {
-                await DisplayAlert("Hmm...", "Can't find a item with that ID or Name", "OK");
-                return;
-            }
-            else if(items.Count == 1)
-            {
-                item = items.LastOrDefault();
-            }
-            else
-            {
+                List<ItemModel> items = dbContext.GetItem(ItemSearch.Text);
+                if (items.Count == 0)
+                {
+                    await DisplayAlert("Hmm...", "Can't find a item with that ID or Name", "OK");
+                    count--;
+                    return;
+                }
+                else if (items.Count == 1)
+                {
+                    item = items.LastOrDefault();
+                    changeItem.ItemId = item.ItemId;
+                    changeItem.Name = item.Name;
+                    changeItem.Image = item.Image;
+                    changeItem.Desc = item.Desc;
+                    changeItem.Brand = item.Brand;
+                    changeItem.CatId = item.CatId;
+                    changeItem.VatId = item.VatId;
+                    changeItem.Cost = item.Cost;
+                    changeItem.Price = item.Price;
+                    changeItem.Stock = item.Stock;
+                    changeItem.Transactions = item.Transactions;
 
+                    Populate();
+                }
+                else
+                {
+                    var tempPage = new CarouselPage()
+                    {
+                        Title = "Search Results"
+                    };
+                    foreach (ItemModel item in items)
+                    {
+                        tempPage.Children.Add(new ItemTemplate(item, true));
+                    }
+
+                    await Navigation.PushModalAsync(tempPage);
+
+                    MessagingCenter.Subscribe<UpdateItemPage, ItemModel>(this, "SearchSelected", async (Sender, arg) =>
+                    {
+                        item = arg;
+                        Populate();
+                        ItemSearch.Text = item.ItemId;
+                        await Navigation.PopModalAsync();
+                    });
+                }
             }
-            Populate();
+            count++;
         }
 
         private void Populate()
         {
+            count = 0;
             Name.Text = item.Name;
             if (item.Image == null)
             {
@@ -78,7 +123,10 @@ namespace Plutus.Pages.Inventory
 
         private async void Desc_Clicked(object sender, EventArgs e)
         {
-            await Navigation.PushModalAsync(new NavigationPage(new ItemDescPage()));
+            await Navigation.PushModalAsync(new NavigationPage(new ItemDescPage(item.Desc)));
+            MessagingCenter.Subscribe<AddItemPage>(this, "DescDone", (Sender) => {
+                item.Desc = ItemDescPage.description;
+            });
         }
 
         private async Task Cost_Vat_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -88,29 +136,9 @@ namespace Plutus.Pages.Inventory
             {
                 if (item.VatId == VatPicker.SelectedIndex + 1)
                 {
-                    Price.Placeholder = $"Recommended price: {await ToDecimal(Cost.Text) * (decimal)item.Rate}";
+                    Price.Placeholder = $"Recommended price: {await Conversions.ToDecimal(Cost.Text) * (decimal)item.Rate}";
                 }
             }
-        }
-
-        private async Task<decimal> ToDecimal(string data)
-        {
-            try
-            {
-                decimal result = Convert.ToDecimal(data);
-                return result;
-            }
-            catch (FormatException)
-            {
-                await DisplayAlert("OOPS!", "Somthing is wrong with your 'cost' or 'price'", "OK");
-                return 0.0m;
-            }
-            catch (OverflowException)
-            {
-                await DisplayAlert("OOPS!", "Somthing is wrong with your 'cost' or 'price'", "OK");
-                return 0.0m;
-            }
-
         }
 
         protected void InitCatPicker()
@@ -138,7 +166,7 @@ namespace Plutus.Pages.Inventory
             }
         }
 
-        private async void Image_Clicked(object sender, EventArgs e)
+        private async Task Image_Clicked(object sender, EventArgs e)
         {
             string action;
             await CrossMedia.Current.Initialize();
@@ -169,6 +197,30 @@ namespace Plutus.Pages.Inventory
                 case "Cancel":
                     break;
             }
+        }
+
+        private async Task Confirm_Clicked(object sender, EventArgs e)
+        {
+            changeItem.Name = Name.Text;
+            changeItem.Brand = Brand.Text;
+            changeItem.CatId = CatPicker.SelectedIndex + 1;
+            changeItem.Cost = await Conversions.ToDecimal(Cost.Text);
+            changeItem.Price = await Conversions.ToDecimal(Price.Text);
+            changeItem.VatId = VatPicker.SelectedIndex + 1;
+
+            if (changeItem.Name==item.Name&&changeItem.Brand==item.Brand&&changeItem.CatId==item.CatId&&changeItem.Cost==item.Cost&&changeItem.Desc==item.Desc&&changeItem.Image==item.Image&&changeItem.Price==item.Price&&changeItem.VatId==item.VatId)
+            {
+                await DisplayAlert("Hmm...", "You have made no change to any of the objects values/nPlease change something or go back", "OK");
+                return;
+            }
+
+            await Navigation.PushModalAsync(new ItemTemplate(changeItem, false));
+            MessagingCenter.Subscribe<UpdateItemPage>(this, "Accepted", async (Sender) =>
+            {
+                dbContext.UpdateItem(changeItem);
+                dbContext.Save();
+                await Navigation.PopAsync();
+            });
         }
     }
 }

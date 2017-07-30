@@ -13,17 +13,26 @@ namespace Plutus.Pages.Inventory
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class ItemDescPage : ContentPage
 	{
-		public ItemDescPage ()
+        internal static string description;
+		public ItemDescPage (string tempDesc)
 		{
 			InitializeComponent ();
-
-            Desc.Text = AddItemPage.item.Desc;
+            Desc.Text = tempDesc;
 		}
 
-        private void Confirm_Clicked(object sender, EventArgs e)
+        private async void Confirm_Clicked(object sender, EventArgs e)
         {
-            AddItemPage.item.Desc = Desc.Text;
-            Navigation.PopModalAsync();
+            description = Desc.Text;
+            MessagingCenter.Send(new AddItemPage(), "DescDone");
+            MessagingCenter.Send(new UpdateItemPage(), "DescDone");
+            await Navigation.PopModalAsync();
+        }
+
+        protected override void OnDisappearing()
+        {
+            base.OnDisappearing();
+            MessagingCenter.Unsubscribe<AddItemPage>(new AddItemPage(), "DescDone");
+            MessagingCenter.Unsubscribe<UpdateItemPage>(new UpdateItemPage(), "DescDone");
         }
     }
 }

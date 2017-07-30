@@ -9,8 +9,8 @@
                         HorizontalOptions="FillAndExpand"
                         VerticalOptions="FillAndExpand"
                         Margin="10,0,10,0">
-                <Label Text="ID/Name" HorizontalOptions="FillAndExpand"/>
-                <Entry x:Name="ItemSearch" Completed="Item_Search" Unfocused="ItemSearch_Unfocused"/>
+                <Label x:Name="ISLabel" Text="ID/Name" HorizontalOptions="FillAndExpand"/>
+                <Entry x:Name="ItemSearch" Completed="Item_Search" Unfocused="ItemSearch_Unfocused" Focused="ItemSearch_Focused"/>
                 <StackLayout x:Name="ItemDetails" IsVisible="False">
                     <Label Text="Name" HorizontalOptions="FillAndExpand" />
                     <Entry x:Name="Name" />
@@ -29,6 +29,7 @@
                     <Entry x:Name="Price" />
                     <Label Text="Current Stock" HorizontalOptions="FillAndExpand" />
                     <Label x:Name="Stock" HorizontalOptions="FillAndExpand" />
+                    <Button x:Name="Confirm" Text="Confirm Changes" Clicked="Confirm_Clicked" />
                 </StackLayout>
             </StackLayout>
         </ScrollView>

@@ -124,5 +124,23 @@ namespace Plutus.Helpers
             if (item == null) return null;
             return item;
         }
+
+        internal void UpdateItem(ItemModel item)
+        {
+            var query = from fItem in _db.Items
+                        where fItem.ItemId.Equals(item.ItemId)
+                        select fItem;
+            foreach(ItemModel fItem in query)
+            {
+                fItem.Name = item.Name;
+                fItem.Image = item.Image;
+                fItem.Desc = item.Desc;
+                fItem.Brand = item.Brand;
+                fItem.CatId = item.CatId;
+                fItem.Cost = item.Cost;
+                fItem.VatId = item.VatId;
+                fItem.Price = item.Price;
+            }
+        }
     }
 }

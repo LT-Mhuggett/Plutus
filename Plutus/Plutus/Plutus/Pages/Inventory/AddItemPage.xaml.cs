@@ -24,7 +24,7 @@ namespace Plutus.Pages.Inventory
 
         public AddItemPage ()
 		{
-			InitializeComponent ();
+            InitializeComponent();
 
             vats = dbContext.GetVat();
             foreach( var item in vats)
@@ -69,7 +69,10 @@ namespace Plutus.Pages.Inventory
 
         private async void Desc_Clicked(object sender, EventArgs e)
         {
-            await Navigation.PushModalAsync(new NavigationPage(new ItemDescPage()));
+            await Navigation.PushModalAsync(new NavigationPage(new ItemDescPage(item.Desc)));
+            MessagingCenter.Subscribe<AddItemPage>(this, "DescDone", (Sender) => {
+                item.Desc = ItemDescPage.description;
+            });
         }
 
         private void Id_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -91,18 +94,18 @@ namespace Plutus.Pages.Inventory
                 return;
             }
 
-            item.Cost = await ToDecimal(Cost.Text);
-            item.Price = await ToDecimal(Price.Text);
+            item.Cost = await Conversions.ToDecimal(Cost.Text);
+            item.Price = await Conversions.ToDecimal(Price.Text);
 
             if (item.Cost.Equals(0.00) || item.Cost.Equals(0) || item.Price.Equals(0.00) || item.Price.Equals(0))
                 return;
 
-            var temp = await ToInterger(Stock.Text);
+            var temp = await Conversions.ToInterger(Stock.Text);
 
             if (temp.Equals(-1))
                 return;
 
-            await Navigation.PushModalAsync(new ItemTemplate(item));
+            await Navigation.PushModalAsync(new ItemTemplate(item, false));
             MessagingCenter.Subscribe<AddItemPage>(this, "Accepted", async (Sender) =>
             {
                 dbContext.Add(item);
@@ -119,45 +122,6 @@ namespace Plutus.Pages.Inventory
             });
         }
 
-        private async Task<decimal> ToDecimal(string data)
-        {
-            try
-            {
-                decimal result = Convert.ToDecimal(data);
-                return result;
-            }
-            catch (FormatException)
-            {
-                await DisplayAlert("OOPS!", "Somthing is wrong with your 'cost' or 'price'", "OK");
-                return 0.0m;
-            }
-            catch (OverflowException)
-            {
-                await DisplayAlert("OOPS!", "Somthing is wrong with your 'cost' or 'price'", "OK");
-                return 0.0m;
-            }
-
-        }
-
-        private async Task<int> ToInterger(string data)
-        {
-            try
-            {
-                int result = Convert.ToInt16(data);
-                return result;
-            }
-            catch (FormatException)
-            {
-                await DisplayAlert("OOPS!", "Simthing is wrong with your 'Stock'", "OK");
-                return -1;
-            }
-            catch (OverflowException)
-            {
-                await DisplayAlert("OOPS!", "Simthing is wrong with your 'Stock'", "OK");
-                return -1;
-            }
-        }
-
         private void Id_Focused(object sender, FocusEventArgs e)
         {
             if (Device.Idiom == TargetIdiom.Desktop) return;
@@ -171,7 +135,7 @@ namespace Plutus.Pages.Inventory
             {
                 if (item.VatId == VatPicker.SelectedIndex + 1)
                 {
-                    Price.Placeholder = $"Recommended price: {await ToDecimal(Cost.Text) * (decimal)item.Rate}";
+                    Price.Placeholder = $"Recommended price: {await Conversions.ToDecimal(Cost.Text) * (decimal)item.Rate}";
                 }
             }
         }
