@@ -37,7 +37,7 @@ namespace Plutus.Pages.Inventory
             }
             ItemName.Text = itemTemp.Name;
             ItemBrand.Text = itemTemp.Brand;
-            ItemCat.Text = dbContext.getCatName(itemTemp.CatId);
+            ItemCat.Text = dbContext.GetCatName(itemTemp.CatId);
             ItemDesc.Text = itemTemp.Desc;
             ItemPrice.Text = itemTemp.Price.ToString();
             item = itemTemp;

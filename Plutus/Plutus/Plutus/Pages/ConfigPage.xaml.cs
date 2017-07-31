@@ -22,21 +22,24 @@ namespace Plutus.Pages
 			InitializeComponent();
 		}
 
-        private void Create_Clicked(object sender, EventArgs e)
+        private async void Create_Clicked(object sender, EventArgs e)
         {
+            Loading.TogleLoading(LCV, LAI);
             if (string.IsNullOrEmpty(Password.Text)||string.IsNullOrEmpty(PasswordConf.Text))
             {
-                DisplayAlert("OOPS!", "Please set your password", "OK");
+                Loading.TogleLoading(LCV, LAI);
+                await DisplayAlert("OOPS!", "Please set your password", "OK");
                 return;
             }
             if (Password.Text != PasswordConf.Text||Password.Text.Length<=6)
             {
-                DisplayAlert("OOPS!", "Passwords are not the same\nOR\n Not longer than 6 characters\nPlease try again", "OK");
+                Loading.TogleLoading(LCV, LAI);
+                await DisplayAlert("OOPS!", "Passwords are not the same\nOR\n Not longer than 6 characters\nPlease try again", "OK");
                 return;
             }
 
             var Salt = Convert.ToBase64String(Helpers.Password.GenerateSalt());
-            var HashedPassword = Convert.ToBase64String(Helpers.Password.ComputeHash(Password.Text, Convert.FromBase64String(Salt)));
+            var HashedPassword = Convert.ToBase64String(await Task.Run(()=>Helpers.Password.ComputeHash(Password.Text, Convert.FromBase64String(Salt))));
 
             var store = new StoreModel()
             {
@@ -51,11 +54,13 @@ namespace Plutus.Pages
             };
             if (store.StoreName == null || store.StoreAbbr == null || store.FullAddress == null && store.AdLine1 == null)
             {
+                Loading.TogleLoading(LCV, LAI);
                 Error(0);
                 return;
             }
             else if (store.PostCode == null && store.FullAddress==null)
             {
+                Loading.TogleLoading(LCV, LAI);
                 Error(2);
                 return;
             }
@@ -78,21 +83,25 @@ namespace Plutus.Pages
             };
             if (emp.FName == null||emp.LName==null||emp.FullAddress==null&&emp.AdLine1==null)
             {
+                Loading.TogleLoading(LCV, LAI);
                 Error(0);
                 return;
             }
             else if (emp.PostCode == null && emp.FullAddress==null)
             {
+                Loading.TogleLoading(LCV, LAI);
                 Error(2);
                 return;
             }
             else if (emp.Email == null)
             {
+                Loading.TogleLoading(LCV, LAI);
                 Error(1);
                 return;
             }
             else if (emp.Mobile == null)
             {
+                Loading.TogleLoading(LCV, LAI);
                 Error(3);
                 return;
             }
@@ -120,6 +129,7 @@ namespace Plutus.Pages
             FileIO.Save("App.config", fileC.ToArray());
             if(DatabasePicker.SelectedIndex < 0)
             {
+                Loading.TogleLoading(LCV, LAI);
                 Error(4);
                 return;
             }
@@ -132,6 +142,7 @@ namespace Plutus.Pages
                 dbContext.Add(emp);
                 dbContext.Save();
                 Application.Current.MainPage = new NavigationPage(new MainNavigationPage(emp, store));
+                Loading.TogleLoading(LCV, LAI);
             }
         }
 

@@ -5,6 +5,7 @@ using System.IO;
 using Plutus.Data;
 using Plutus.Models;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Plutus.Helpers
 {
@@ -47,14 +48,14 @@ namespace Plutus.Helpers
             Save();
         }
 
-        internal EmployeeModel Login(string idEmail, string password)
+        internal async Task<EmployeeModel> Login(string idEmail, string password)
         {
             var emp = _db.Employees
                 .Where(e => e.Id.Equals(idEmail) || e.Email.Equals(idEmail))
                 .SingleOrDefault();
             if (emp == null) return null;
-            if (!Password.Verify(password, Convert.FromBase64String(emp.Salt),
-                Convert.FromBase64String(emp.HashedPassword)))
+            if (!await Task.Run(()=>Password.Verify(password, Convert.FromBase64String(emp.Salt),
+                Convert.FromBase64String(emp.HashedPassword))))
             {
                 emp = null;
                 return null;
@@ -85,7 +86,7 @@ namespace Plutus.Helpers
             return cats;
         }
 
-        internal string getCatName(int id)
+        internal string GetCatName(int id)
         {
             var catName = _db.Category
                 .Where(c => c.Id.Equals(id))
@@ -95,7 +96,7 @@ namespace Plutus.Helpers
             return catName;
         }
 
-        internal bool isIdSame(string testId)
+        internal bool IsIdSame(string testId)
         {
             var test = _db.Items
                 .Where(i => i.ItemId.Equals(testId))

@@ -167,7 +167,7 @@ namespace Plutus.Pages.Inventory
 
         private async void Id_Unfocused(object sender, FocusEventArgs e)
         {
-            if (dbContext.isIdSame(Id.Text))
+            if (dbContext.IsIdSame(Id.Text))
             {
                 await DisplayAlert("Hmm...", "This item apears to already been added.\nPlease check this.", "OK");
                 Id.Text = null;

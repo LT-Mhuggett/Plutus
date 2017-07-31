@@ -12,10 +12,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
-    <Compile Include="$(MSBuildThisFileDirectory)CustomRender\PickerCell.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Camera.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Conversions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\IPicturePicker.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\Loading.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Scanner.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Validate.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\CategoryModel.cs" />
@@ -69,18 +69,22 @@
       <DependentUpon>UpdateItemPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="$(MSBuildThisFileDirectory)Models\Address.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\EmployeeModel.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\PersonModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Pages\LoginPage.xaml.cs">
       <DependentUpon>LoginPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="$(MSBuildThisFileDirectory)Models\Address.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\EmployeeModel.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\PersonModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Pages\MainNavigationPage.xaml.cs">
       <DependentUpon>MainNavigationPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Models\StoreModel.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Pages\UsersLoggedPage.xaml.cs">
+      <DependentUpon>UsersLoggedPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)App.xaml">
@@ -96,12 +100,6 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\FirstTimeStartUpPage.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
-    </EmbeddedResource>
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\LoginPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
     </EmbeddedResource>
@@ -153,5 +151,20 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
     </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\LoginPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\UsersLoggedPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="$(MSBuildThisFileDirectory)Resources\" />
   </ItemGroup>
 </Project>

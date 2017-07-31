@@ -4,30 +4,35 @@
              x:Class="Plutus.Pages.LoginPage"
              Title="Welcome to Plutus">
     <ContentPage.Content>
-        <StackLayout HorizontalOptions="Center" VerticalOptions="Center">
-            <Grid VerticalOptions="Center" HorizontalOptions="Center" Margin="40,0,40,0">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="1*"/>
-                    <RowDefinition Height="1*"/>
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="1*" />
-                    <ColumnDefinition Width="2*" />
-                </Grid.ColumnDefinitions>
-                <Grid Grid.Row="0" Grid.Column="0">
-                    <Label Text="User ID or Email:" VerticalOptions="Center"/>
+        <Grid>
+            <StackLayout HorizontalOptions="Center" VerticalOptions="Center">
+                <Grid VerticalOptions="Center" HorizontalOptions="Center" Margin="40,0,40,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="1*"/>
+                        <RowDefinition Height="1*"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1*" />
+                        <ColumnDefinition Width="2*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid Grid.Row="0" Grid.Column="0">
+                        <Label Text="User ID or Email:" VerticalOptions="Center"/>
+                    </Grid>
+                    <Grid Grid.Row="0" Grid.Column="1">
+                        <Entry x:Name="UId"/>
+                    </Grid>
+                    <Grid Grid.Row="1" Grid.Column="0">
+                        <Label Text="Password:" VerticalOptions="Center"/>
+                    </Grid>
+                    <Grid Grid.Row="1" Grid.Column="1">
+                        <Entry x:Name="PId" IsPassword="True"/>
+                    </Grid>
                 </Grid>
-                <Grid Grid.Row="0" Grid.Column="1">
-                    <Entry x:Name="UId"/>
-                </Grid>
-                <Grid Grid.Row="1" Grid.Column="0">
-                    <Label Text="Password:" VerticalOptions="Center"/>
-                </Grid>
-                <Grid Grid.Row="1" Grid.Column="1">
-                    <Entry x:Name="PId" IsPassword="True"/>
-                </Grid>
-            </Grid>
-            <Button x:Name="LoginButton" Text="Login" Clicked="LoginButton_Clicked" VerticalOptions="Center"/>
-        </StackLayout>
+                <Button x:Name="LoginButton" Text="Login" VerticalOptions="Center"/>
+            </StackLayout>
+            <ContentView x:Name="LCV" IsVisible="false" BackgroundColor="LightGray" Opacity=".5" HorizontalOptions="FillAndExpand" VerticalOptions="FillAndExpand">
+                <ActivityIndicator x:Name="LAI" Color="Blue"  IsRunning="false" />
+            </ContentView>
+        </Grid>
     </ContentPage.Content>
 </ContentPage>
