@@ -19,6 +19,8 @@ namespace Plutus.Pages
         {
             InitializeComponent();
 
+            Title = "Active Users";
+
             Emps = new ObservableCollection<EmployeeModel>(tempEmp);
 
             BindingContext = this;

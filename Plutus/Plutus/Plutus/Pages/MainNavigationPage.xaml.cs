@@ -59,7 +59,7 @@ namespace Plutus.Pages
 
         private void ShowLoggedUsers(object obj)
         {
-            Navigation.PushModalAsync(new UsersLoggedPage(empsLogged));
+            Navigation.PushModalAsync(new NavigationPage(new UsersLoggedPage(empsLogged)));
         }
     }
 }
