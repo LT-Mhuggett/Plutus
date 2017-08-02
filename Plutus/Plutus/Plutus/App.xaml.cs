@@ -6,6 +6,9 @@ using Plutus.Helpers;
 using Xamarin.Forms;
 using System.IO;
 using Plutus.Pages;
+using I18N_L10N;
+
+#define DEBUG
 
 namespace Plutus
 {
@@ -18,6 +21,8 @@ namespace Plutus
             //refresh all app files without data wipe or app delete
             //File.Delete(Path.Combine(FileIO.GetLib(), "App.config"));
             //File.Delete(Path.Combine(FileIO.GetLib(), "Database.db"));
+
+            new I18N_L10N.I18N_L10N();
 
             MainPage = FileIO.Exists("App.config")&&FileIO.Exists("Database.db")?
                 new NavigationPage(new LoginPage()):
