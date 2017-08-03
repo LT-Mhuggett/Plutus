@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="Plutus.Pages.LoginPage"
-             Title="Welcome to Plutus POS">
+            xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+            x:Class="Plutus.Pages.LoginPage"
+            xmlns:i18n="clr-namespace:I18N_L10N;assembly=I18N_L10N"
+            Title="{i18n:Translate FWelcomeTitle}">
     <ContentPage.Content>
         <Grid>
             <StackLayout HorizontalOptions="Center" VerticalOptions="Center">
@@ -16,19 +17,19 @@
                         <ColumnDefinition Width="2*" />
                     </Grid.ColumnDefinitions>
                     <Grid Grid.Row="0" Grid.Column="0">
-                        <Label Text="User ID or Email:" VerticalOptions="Center"/>
+                        <Label Text="{i18n:Translate Email}" VerticalOptions="Center"/>
                     </Grid>
                     <Grid Grid.Row="0" Grid.Column="1">
-                        <Entry x:Name="UId"/>
+                        <Entry x:Name="UId" Keyboard="Email"/>
                     </Grid>
                     <Grid Grid.Row="1" Grid.Column="0">
-                        <Label Text="Password:" VerticalOptions="Center"/>
+                        <Label Text="{i18n:Translate PassW}" VerticalOptions="Center"/>
                     </Grid>
                     <Grid Grid.Row="1" Grid.Column="1">
                         <Entry x:Name="PId" IsPassword="True"/>
                     </Grid>
                 </Grid>
-                <Button x:Name="LoginButton" Text="Login" VerticalOptions="Center"/>
+                <Button x:Name="LoginButton" Text="{i18n:Translate Login}" VerticalOptions="Center"/>
             </StackLayout>
             <ContentView x:Name="LCV" IsVisible="false" BackgroundColor="LightGray" Opacity=".5" HorizontalOptions="FillAndExpand" VerticalOptions="FillAndExpand">
                 <ActivityIndicator x:Name="LAI" Color="Blue"  IsRunning="false" />

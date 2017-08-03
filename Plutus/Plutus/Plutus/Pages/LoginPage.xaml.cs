@@ -10,12 +10,14 @@ using Plutus.Models;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 using System.Collections.ObjectModel;
+using I18N_L10N;
 
 namespace Plutus.Pages
 {
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class LoginPage : ContentPage
 	{
+        TranslateExtension Translate = new TranslateExtension();
         internal static Database dbContext = new Database();
 
         public LoginPage ()
@@ -36,20 +38,13 @@ namespace Plutus.Pages
         {
             //must add check for if the user is already logged in during debuging this not a problem and is more of a convenience for testing
             Loading.TogleLoading(LCV, LAI);
-            var emp = await dbContext.Login(UId.Text, PId.Text);
+            var emp = await EmpLogIn();
             if (emp == null)
-            {
-                Loading.TogleLoading(LCV, LAI);
-                await DisplayAlert("Hmm...", "We can't find any user with those details\nPlease try again.", "OK");
                 return;
-            }
-            var store = dbContext.GetStore(emp.StoreId);
+
+            var store = await StoreGetWithEmp(emp);
             if (store == null)
-            {
-                Loading.TogleLoading(LCV, LAI);
-                await DisplayAlert("Hmm...", "There has been a problem on our end, please check the database for corruption.", "OK");
                 return;
-            }
             Application.Current.MainPage = new NavigationPage(new MainNavigationPage(emp, store, CurrenList));
             Loading.TogleLoading(LCV, LAI);
         }
@@ -57,28 +52,41 @@ namespace Plutus.Pages
         private async void LoginButton_Clicked_No_List()
         {
             Loading.TogleLoading(LCV, LAI);
-            var emp = await dbContext.Login(UId.Text, PId.Text);
+
+            var emp = await EmpLogIn();
             if (emp == null)
-            {
-                Loading.TogleLoading(LCV, LAI);
-                await DisplayAlert("Hmm...", "We can't find any user with those details\nPlease try again.", "OK");
                 return;
-            }
-            var store = dbContext.GetStore(emp.StoreId);
+
+            var store = await StoreGetWithEmp(emp);
             if (store == null)
-            {
-                Loading.TogleLoading(LCV, LAI);
-                await DisplayAlert("Hmm...", "There has been a problem on our end, please check the database for corruption.", "OK");
                 return;
-            }
+
             Application.Current.MainPage = new NavigationPage(new MainNavigationPage(emp, store));
             Loading.TogleLoading(LCV, LAI);
         }
 
-        /*
-        private async Task LoginButton_Clicked(object sender, EventArgs e)
+        internal async Task<EmployeeModel> EmpLogIn()
         {
-            
-        }*/
+            var emp = await dbContext.Login(UId.Text, PId.Text);
+            if (emp == null)
+            {
+                Loading.TogleLoading(LCV, LAI);
+                await DisplayAlert(Translate.ProvideValue("Hmm"), Translate.ProvideValue("DetailsNotCorrectORUserNotExistMesg"), Translate.ProvideValue("OK"));
+                return null;
+            }
+            return emp;
+        }
+
+        internal async Task<StoreModel> StoreGetWithEmp(EmployeeModel emp)
+        {
+            var store = dbContext.GetStore(emp.StoreId);
+            if (store == null)
+            {
+                Loading.TogleLoading(LCV, LAI);
+                await DisplayAlert(Translate.ProvideValue("Hmm"), Translate.ProvideValue("StoreNotReachableMesg"), Translate.ProvideValue("OK"));
+                return null;
+            }
+            return store;
+        }
     }
 }

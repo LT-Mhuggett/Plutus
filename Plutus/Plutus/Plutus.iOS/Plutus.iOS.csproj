@@ -96,6 +96,7 @@
     <CodesignEntitlements>Entitlements.plist</CodesignEntitlements>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="CloseAppImplementation.cs" />
     <Compile Include="LocalizeImplementation.cs" />
     <Compile Include="Main.cs" />
     <Compile Include="AppDelegate.cs" />

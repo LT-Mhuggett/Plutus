@@ -25,7 +25,34 @@ namespace I18N_L10N
                 ci = DependencyService.Get<ILocalize>().GetCurrentCultureInfo();
         }
 
+        public TranslateExtension(string Key)
+        {
+            if (Device.RuntimePlatform == Device.iOS || Device.RuntimePlatform == Device.Android)
+                ci = DependencyService.Get<ILocalize>().GetCurrentCultureInfo();
+            ProvideValue(Key);
+        }
+
         public string Text { get; set; }
+
+        public string ProvideValue(string Key)
+        {
+            Text = Key;
+            if (Text == null)
+                return "";
+            var translate = resMgr.Value.GetString(Text, ci);
+
+            if (translate == null)
+            {
+#if DEBUG
+                throw new ArgumentException(
+                    String.Format("Key '{0}' was not found in resources '{1}' for culture '{2}'.", Text, ResourceId, ci.Name),
+                    "Text");
+#else
+                translation = Text; // returns the key, which GETS DISPLAYED TO THE USER
+#endif
+            }
+            return translate;
+        }
 
         public object ProvideValue(IServiceProvider serviceProvider)
         {

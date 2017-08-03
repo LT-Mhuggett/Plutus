@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="Plutus.Pages.UsersLoggedPage">
+            xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+            x:Class="Plutus.Pages.UsersLoggedPage"
+            xmlns:i18n="clr-namespace:I18N_L10N;assembly=I18N_L10N">
     <StackLayout>
         <ListView ItemsSource="{Binding Emps}"
             ItemTapped="Handle_ItemTapped"
@@ -22,7 +23,7 @@
                 </DataTemplate>
             </ListView.ItemTemplate>
         </ListView>
-        <Button x:Name="NewUserLogin" Text="New User Login" Clicked="NewUserLogin_Clicked" />
-        <Button x:Name="LogoutAll" Text="Logout All" Clicked="LogoutAll_Clicked" />
+        <Button x:Name="NewUserLogin" Text="{i18n:Translate NewUserLogin}" Clicked="NewUserLogin_Clicked" />
+        <Button x:Name="LogoutAll" Text="{i18n:Translate LogoutAll}" Clicked="LogoutAll_Clicked" />
     </StackLayout>
 </ContentPage>

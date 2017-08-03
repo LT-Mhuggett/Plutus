@@ -1,35 +1,36 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="Plutus.Pages.Inventory.AddItemPage"
-             Title="Add New Inventory Item">
+            xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+            x:Class="Plutus.Pages.Inventory.AddItemPage"
+            xmlns:i18n="clr-namespace:I18N_L10N;assembly=I18N_L10N"
+            Title="{i18n:Translate NewInvetItem}">
     <ContentPage.Content>
         <ScrollView>
             <StackLayout BackgroundColor="Transparent"
                      HorizontalOptions="FillAndExpand"
                      VerticalOptions="FillAndExpand"
                      Margin="10,0,10,0">
-                <Label Text="New Item" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start" />
+                <Label Text="{i18n:Translate NewItem}" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start" />
                 <Label Text="ID" HorizontalOptions="FillAndExpand" />
                 <Entry x:Name="Id" PropertyChanged="Id_PropertyChanged" Unfocused="Id_Unfocused" Focused="Id_Focused" />
-                <Label Text="Name" HorizontalOptions="FillAndExpand" />
+                <Label Text="{i18n:Translate Name}" HorizontalOptions="FillAndExpand" />
                 <Entry x:Name="Name" />
-                <Label Text="Image" HorizontalOptions="FillAndExpand" />
+                <Label Text="{i18n:Translate Image}" HorizontalOptions="FillAndExpand" />
                 <Image x:Name="Pic" HorizontalOptions="FillAndExpand" />
-                <Button x:Name="ImageButton" Text="Take/Select Image" Clicked="Image_Clicked" IsEnabled="false" />
-                <Label Text="Description" HorizontalOptions="Start" VerticalOptions="Center"/>
-                <Button x:Name="Desc" Text="Add Description" Clicked="Desc_Clicked" />
-                <Label Text="Brand" HorizontalOptions="FillAndExpand" />
+                <Button x:Name="ImageButton" Text="{i18n:Translate ButtImage}" Clicked="Image_Clicked" IsEnabled="false" />
+                <Label Text="{i18n:Translate Desc}" HorizontalOptions="Start" VerticalOptions="Center"/>
+                <Button x:Name="Desc" Text="{i18n:Translate AddDesc}" Clicked="Desc_Clicked" />
+                <Label Text="{i18n:Translate Brand}" HorizontalOptions="FillAndExpand" />
                 <Entry x:Name="Brand" />
-                <Picker x:Name="CatPicker" Title="Category" SelectedIndexChanged="CatPicker_SelectedIndexChanged"/>
-                <Label Text="Cost" HorizontalOptions="FillAndExpand" />
+                <Picker x:Name="CatPicker" Title="{i18n:Translate Cate}" SelectedIndexChanged="CatPicker_SelectedIndexChanged"/>
+                <Label Text="{i18n:Translate Cost}" HorizontalOptions="FillAndExpand" />
                 <Entry x:Name="Cost" PropertyChanged="Cost_Vat_PropertyChanged" />
-                <Picker x:Name="VatPicker" Title="VAT Type" PropertyChanged="Cost_Vat_PropertyChanged" />
-                <Label Text="Price" HorizontalOptions="FillAndExpand" />
+                <Picker x:Name="VatPicker" Title="{i18n:Translate TaxType}" PropertyChanged="Cost_Vat_PropertyChanged" />
+                <Label Text="{i18n:Translate Price}" HorizontalOptions="FillAndExpand" />
                 <Entry x:Name="Price" />
-                <Label Text="Current Stock" HorizontalOptions="FillAndExpand" />
-                <Entry x:Name="Stock" Placeholder="If none in stock then put 0" />
-                <Button x:Name="AddItem" Text="Add Item" Clicked="AddItem_Clicked" />
+                <Label Text="{i18n:Translate CStock}" HorizontalOptions="FillAndExpand" />
+                <Entry x:Name="Stock" Placeholder="{i18n:Translate CStockPL}" />
+                <Button x:Name="AddItem" Text="{i18n:Translate AddItem}" Clicked="AddItem_Clicked" />
             </StackLayout>
         </ScrollView>
     </ContentPage.Content>

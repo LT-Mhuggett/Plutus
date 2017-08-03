@@ -11,12 +11,14 @@ using Plutus.Pages;
 using System.Reflection;
 using Plutus.Data;
 using Xamarin.Forms.Maps;
+using I18N_L10N;
 
 namespace Plutus.Pages
 {
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class ConfigPage : ContentPage
 	{
+        TranslateExtension Translate = new TranslateExtension();
         public ConfigPage ()
 		{
 			InitializeComponent();
@@ -28,13 +30,13 @@ namespace Plutus.Pages
             if (string.IsNullOrEmpty(Password.Text)||string.IsNullOrEmpty(PasswordConf.Text))
             {
                 Loading.TogleLoading(LCV, LAI);
-                await DisplayAlert("OOPS!", "Please set your password", "OK");
+                await DisplayAlert(Translate.ProvideValue("Oops"), Translate.ProvideValue("SetPassWMesg"), Translate.ProvideValue("OK"));
                 return;
             }
             if (Password.Text != PasswordConf.Text||Password.Text.Length<=6)
             {
                 Loading.TogleLoading(LCV, LAI);
-                await DisplayAlert("OOPS!", "Passwords are not the same\nOR\n Not longer than 6 characters\nPlease try again", "OK");
+                await DisplayAlert(Translate.ProvideValue("Oops"), Translate.ProvideValue("PassWNotSameMesg"), Translate.ProvideValue("OK"));
                 return;
             }
 
@@ -152,24 +154,24 @@ namespace Plutus.Pages
             switch (tester)
             {
                 case 0:
-                    message = "Please Ensure all required fields are filled in";
+                    message = Translate.ProvideValue("FieldsFilledInMesg");
                     break;
                 case 1:
-                    message = "Please Ensure your Email is valid and correct";
+                    message = Translate.ProvideValue("EmailNotCorrectMesg");
                     break;
                 case 2:
-                    message = "Please Ensure your Post Code is valid and correct";
+                    message = Translate.ProvideValue("PCNotCorrectMesg");
                     break;
                 case 3:
-                    message = "Please Ensure your Phone Number is valid and correct";
+                    message = Translate.ProvideValue("PhoneNumNotCorrectMesg");
                     break;
                 case 4:
-                    message = "Please Select a type of Database";
+                    message = Translate.ProvideValue("DatabaseNotSelectedMesg");
                     break;
                 default:
                     break;
             }
-            DisplayAlert("OOPS!", message, "OK");
+            DisplayAlert(Translate.ProvideValue("Oops"), message, Translate.ProvideValue("OK"));
             return null;
         }
         
@@ -178,7 +180,7 @@ namespace Plutus.Pages
 	        List<string> addressList = await Location.ReverseGeocde();
 	        if (addressList.Count == 0)
 	        {
-	            await DisplayAlert("OOPS!", "Something went wrong!", "OK");
+	            await DisplayAlert(Translate.ProvideValue("Oops"), Translate.ProvideValue("SomthingWentWrongMesg"), Translate.ProvideValue("OK"));
 	            return;
 	        }
 	        else
@@ -196,7 +198,7 @@ namespace Plutus.Pages
 	        List<string> addressList = await Location.ReverseGeocde();
 	        if (addressList.Count == 0)
 	        {
-	            await DisplayAlert("OOPS!", "Something went wrong!", "OK");
+	            await DisplayAlert(Translate.ProvideValue("Oops"), Translate.ProvideValue("SomthingWentWrongMesg"), Translate.ProvideValue("OK"));
 	            return;
 	        }
 	        else

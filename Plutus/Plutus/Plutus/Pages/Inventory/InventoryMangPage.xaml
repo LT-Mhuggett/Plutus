@@ -2,13 +2,14 @@
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Plutus.Pages.Inventory.InventoryMangPage"
-             Title="Inventory Management"
+             xmlns:i18n="clr-namespace:I18N_L10N;assembly=I18N_L10N"
+             Title="{i18n:Translate InvetMgr}"
              Icon="">
     <ContentPage.Content>
         <StackLayout VerticalOptions="Center" HorizontalOptions="Center">
-            <Button x:Name="AddItem" Text="Add Item" Clicked="AddItem_Clicked"/>
-            <Button x:Name="UpdateItem" Text="Update Item" Clicked="UpdateItem_Clicked"/>
-            <Button x:Name="StockUpdate" Text="Stock Update" Clicked="StockUpdate_Clicked"/>
+            <Button x:Name="AddItem" Text="{i18n:Translate AddItem}" Clicked="AddItem_Clicked"/>
+            <Button x:Name="UpdateItem" Text="{i18n:Translate UpdateItem}" Clicked="UpdateItem_Clicked"/>
+            <Button x:Name="StockUpdate" Text="{i18n:Translate StockUpdate}" Clicked="StockUpdate_Clicked"/>
         </StackLayout>
     </ContentPage.Content>
 </ContentPage>

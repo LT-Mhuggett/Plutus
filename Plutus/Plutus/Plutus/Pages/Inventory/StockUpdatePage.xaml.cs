@@ -7,6 +7,7 @@ using Plutus.Helpers;
 using Plutus.Models;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
+using I18N_L10N;
 
 namespace Plutus.Pages.Inventory
 {
@@ -14,6 +15,7 @@ namespace Plutus.Pages.Inventory
 	public partial class StockUpdatePage : ContentPage
 	{
         Database dbContext = new Database();
+        TranslateExtension Tranlate = new TranslateExtension();
         public StockUpdatePage ()
 		{
 			InitializeComponent ();
@@ -23,7 +25,7 @@ namespace Plutus.Pages.Inventory
         {
             if (!dbContext.IsIdSame(Id.Text))
             {
-                await DisplayAlert("Hmm...", "This item does not apear to have been added.\nPlease check this.", "OK");
+                await DisplayAlert(Tranlate.ProvideValue("Hmm"), Tranlate.ProvideValue("ItemNonExistMesg"), Tranlate.ProvideValue("OK"));
                 Id.Text = null;
             }
         }

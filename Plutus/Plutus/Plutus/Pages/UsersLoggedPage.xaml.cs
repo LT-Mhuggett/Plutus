@@ -7,6 +7,7 @@ using Plutus.Models;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 using System.Collections.Generic;
+using I18N_L10N;
 
 namespace Plutus.Pages
 {
@@ -14,12 +15,13 @@ namespace Plutus.Pages
     public partial class UsersLoggedPage : ContentPage
     {
         public ObservableCollection<EmployeeModel> Emps { get; set; }
+        TranslateExtension Translate = new TranslateExtension();
 
         public UsersLoggedPage(ObservableCollection<EmployeeModel> tempEmp)
         {
             InitializeComponent();
 
-            Title = "Active Users";
+            Title = Translate.ProvideValue("ActivUsers");
 
             Emps = new ObservableCollection<EmployeeModel>(tempEmp);
 
@@ -39,11 +41,12 @@ namespace Plutus.Pages
             var menuItem = (EmployeeModel)((MenuItem)sender).CommandParameter;
 
             Emps.Remove(menuItem);
+            MainNavigationPage.empsLogged.Remove(menuItem);
 
             if (Emps.Count == 0)
             {
                 MainNavigationPage.empsLogged = new ObservableCollection<EmployeeModel>();
-                await DisplayAlert("Info", "No users are logged in", "OK");
+                await DisplayAlert(Translate.ProvideValue("Info"), Translate.ProvideValue("NoActiveUsers"), Translate.ProvideValue("OK"));
                 Application.Current.MainPage = new NavigationPage(new LoginPage());
             }
         }

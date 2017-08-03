@@ -62,6 +62,33 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Active Users.
+        /// </summary>
+        internal static string ActivUsers {
+            get {
+                return ResourceManager.GetString("ActivUsers", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Add Description.
+        /// </summary>
+        internal static string AddDesc {
+            get {
+                return ResourceManager.GetString("AddDesc", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Add Item.
+        /// </summary>
+        internal static string AddItem {
+            get {
+                return ResourceManager.GetString("AddItem", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Address.
         /// </summary>
         internal static string Address {
@@ -89,6 +116,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Brand.
+        /// </summary>
+        internal static string Brand {
+            get {
+                return ResourceManager.GetString("Brand", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Auto Address.
         /// </summary>
         internal static string ButtAddressAuto {
@@ -107,11 +143,74 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Take/Select Image.
+        /// </summary>
+        internal static string ButtImage {
+            get {
+                return ResourceManager.GetString("ButtImage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Camera.
+        /// </summary>
+        internal static string Camera {
+            get {
+                return ResourceManager.GetString("Camera", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Cancel.
+        /// </summary>
+        internal static string Cancel {
+            get {
+                return ResourceManager.GetString("Cancel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Category.
+        /// </summary>
+        internal static string Cate {
+            get {
+                return ResourceManager.GetString("Cate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to City.
         /// </summary>
         internal static string City {
             get {
                 return ResourceManager.GetString("City", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Configuration.
+        /// </summary>
+        internal static string Config {
+            get {
+                return ResourceManager.GetString("Config", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Confirm.
+        /// </summary>
+        internal static string Confirm {
+            get {
+                return ResourceManager.GetString("Confirm", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Cost.
+        /// </summary>
+        internal static string Cost {
+            get {
+                return ResourceManager.GetString("Cost", resourceCulture);
             }
         }
         
@@ -134,11 +233,47 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to &apos;Create New Category&apos;.
+        /// </summary>
+        internal static string CreateNCate {
+            get {
+                return ResourceManager.GetString("CreateNCate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Current Stock.
+        /// </summary>
+        internal static string CStock {
+            get {
+                return ResourceManager.GetString("CStock", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to If no stock exist input &apos;0&apos;.
+        /// </summary>
+        internal static string CStockPL {
+            get {
+                return ResourceManager.GetString("CStockPL", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Database.
         /// </summary>
         internal static string Database {
             get {
                 return ResourceManager.GetString("Database", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Please Select a type of Database.
+        /// </summary>
+        internal static string DatabaseNotSelectedMesg {
+            get {
+                return ResourceManager.GetString("DatabaseNotSelectedMesg", resourceCulture);
             }
         }
         
@@ -152,6 +287,33 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Description.
+        /// </summary>
+        internal static string Desc {
+            get {
+                return ResourceManager.GetString("Desc", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to We can&apos;t find any user with those details\nPlease try again..
+        /// </summary>
+        internal static string DetailsNotCorrectORUserNotExistMesg {
+            get {
+                return ResourceManager.GetString("DetailsNotCorrectORUserNotExistMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Edit.
+        /// </summary>
+        internal static string Edit {
+            get {
+                return ResourceManager.GetString("Edit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to E-Mail.
         /// </summary>
         internal static string Email {
@@ -161,11 +323,74 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Please Ensure your E-Mail is valid and correct.
+        /// </summary>
+        internal static string EmailNotCorrectMesg {
+            get {
+                return ResourceManager.GetString("EmailNotCorrectMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Please Ensure all required fields are filled in.
+        /// </summary>
+        internal static string FieldsFilledInMesg {
+            get {
+                return ResourceManager.GetString("FieldsFilledInMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to First Name.
         /// </summary>
         internal static string FName {
             get {
                 return ResourceManager.GetString("FName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Welcome to Plutus POS.
+        /// </summary>
+        internal static string FWelcomeTitle {
+            get {
+                return ResourceManager.GetString("FWelcomeTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Hmm....
+        /// </summary>
+        internal static string Hmm {
+            get {
+                return ResourceManager.GetString("Hmm", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ID/Name.
+        /// </summary>
+        internal static string IDName {
+            get {
+                return ResourceManager.GetString("IDName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Image.
+        /// </summary>
+        internal static string Image {
+            get {
+                return ResourceManager.GetString("Image", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Info.
+        /// </summary>
+        internal static string Info {
+            get {
+                return ResourceManager.GetString("Info", resourceCulture);
             }
         }
         
@@ -188,11 +413,146 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Inventory Management.
+        /// </summary>
+        internal static string InvetMgr {
+            get {
+                return ResourceManager.GetString("InvetMgr", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to This item apears to already been added.\nPlease check this..
+        /// </summary>
+        internal static string ItemExistMesg {
+            get {
+                return ResourceManager.GetString("ItemExistMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to This item does not apear to have been added.\nPlease check this..
+        /// </summary>
+        internal static string ItemNonExistMesg {
+            get {
+                return ResourceManager.GetString("ItemNonExistMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Can&apos;t find a item with that ID or Name.
+        /// </summary>
+        internal static string ItemNotFoundMesg {
+            get {
+                return ResourceManager.GetString("ItemNotFoundMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Last Name.
         /// </summary>
         internal static string LName {
             get {
                 return ResourceManager.GetString("LName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Login.
+        /// </summary>
+        internal static string Login {
+            get {
+                return ResourceManager.GetString("Login", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Logout All.
+        /// </summary>
+        internal static string LogoutAll {
+            get {
+                return ResourceManager.GetString("LogoutAll", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Name.
+        /// </summary>
+        internal static string Name {
+            get {
+                return ResourceManager.GetString("Name", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to New Category.
+        /// </summary>
+        internal static string NewCate {
+            get {
+                return ResourceManager.GetString("NewCate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Add New Inventory Item.
+        /// </summary>
+        internal static string NewInvetItem {
+            get {
+                return ResourceManager.GetString("NewInvetItem", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to New Item.
+        /// </summary>
+        internal static string NewItem {
+            get {
+                return ResourceManager.GetString("NewItem", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to New User Login.
+        /// </summary>
+        internal static string NewUserLogin {
+            get {
+                return ResourceManager.GetString("NewUserLogin", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to There are currently no active users.
+        /// </summary>
+        internal static string NoActiveUsers {
+            get {
+                return ResourceManager.GetString("NoActiveUsers", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You have made no change to any of the objects values/nPlease change something or go back.
+        /// </summary>
+        internal static string NoChangeMadeMesg {
+            get {
+                return ResourceManager.GetString("NoChangeMadeMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to OK.
+        /// </summary>
+        internal static string OK {
+            get {
+                return ResourceManager.GetString("OK", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to OOPS.
+        /// </summary>
+        internal static string Oops {
+            get {
+                return ResourceManager.GetString("Oops", resourceCulture);
             }
         }
         
@@ -224,6 +584,24 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Passwords are not the same\nOR\n Not longer than 6 characters\nPlease try again.
+        /// </summary>
+        internal static string PassWNotSameMesg {
+            get {
+                return ResourceManager.GetString("PassWNotSameMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Please Ensure your Post Code is valid and correct.
+        /// </summary>
+        internal static string PCNotCorrectMesg {
+            get {
+                return ResourceManager.GetString("PCNotCorrectMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Phone Number.
         /// </summary>
         internal static string PhoneN {
@@ -233,11 +611,101 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Please Ensure your Phone Number is valid and correct.
+        /// </summary>
+        internal static string PhoneNumNotCorrectMesg {
+            get {
+                return ResourceManager.GetString("PhoneNumNotCorrectMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Post Code.
         /// </summary>
         internal static string PostCode {
             get {
                 return ResourceManager.GetString("PostCode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Price.
+        /// </summary>
+        internal static string Price {
+            get {
+                return ResourceManager.GetString("Price", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Photo Roll.
+        /// </summary>
+        internal static string PRoll {
+            get {
+                return ResourceManager.GetString("PRoll", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Quantity to Add.
+        /// </summary>
+        internal static string QuantityAdd {
+            get {
+                return ResourceManager.GetString("QuantityAdd", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Are you sure you want to quit Plutus POS?.
+        /// </summary>
+        internal static string Quit_Mesg {
+            get {
+                return ResourceManager.GetString("Quit?Mesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Recomended Price.
+        /// </summary>
+        internal static string RecPrice {
+            get {
+                return ResourceManager.GetString("RecPrice", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Select.
+        /// </summary>
+        internal static string Select {
+            get {
+                return ResourceManager.GetString("Select", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Please set your password.
+        /// </summary>
+        internal static string SetPassWMesg {
+            get {
+                return ResourceManager.GetString("SetPassWMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Something went wrong!.
+        /// </summary>
+        internal static string SomthingWentWrongMesg {
+            get {
+                return ResourceManager.GetString("SomthingWentWrongMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Search Results.
+        /// </summary>
+        internal static string SResults {
+            get {
+                return ResourceManager.GetString("SResults", resourceCulture);
             }
         }
         
@@ -269,11 +737,20 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Store Name.
+        ///   Looks up a localized string similar to Stock Update.
         /// </summary>
-        internal static string StName {
+        internal static string StockUpdate {
             get {
-                return ResourceManager.GetString("StName", resourceCulture);
+                return ResourceManager.GetString("StockUpdate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to There has been a problem on our end, please check the database for corruption..
+        /// </summary>
+        internal static string StoreNotReachableMesg {
+            get {
+                return ResourceManager.GetString("StoreNotReachableMesg", resourceCulture);
             }
         }
         
@@ -283,6 +760,42 @@ namespace I18N_L10N.Resx {
         internal static string StOwnerDetails {
             get {
                 return ResourceManager.GetString("StOwnerDetails", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Tax Type.
+        /// </summary>
+        internal static string TaxType {
+            get {
+                return ResourceManager.GetString("TaxType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Update Item.
+        /// </summary>
+        internal static string UpdateItem {
+            get {
+                return ResourceManager.GetString("UpdateItem", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Users.
+        /// </summary>
+        internal static string Users {
+            get {
+                return ResourceManager.GetString("Users", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Yes.
+        /// </summary>
+        internal static string Yes {
+            get {
+                return ResourceManager.GetString("Yes", resourceCulture);
             }
         }
     }

@@ -11,6 +11,7 @@ using Plutus.Models;
 using Plugin.Media;
 using Plutus.Helpers.Interface;
 using ZXing.Mobile;
+using I18N_L10N;
 
 namespace Plutus.Pages.Inventory
 {
@@ -21,6 +22,7 @@ namespace Plutus.Pages.Inventory
         internal Database dbContext = new Database();
         internal List<VatModel> vats;
         internal List<CategoryModel> cats;
+        TranslateExtension Translate = new TranslateExtension();
 
         public AddItemPage ()
 		{
@@ -41,29 +43,29 @@ namespace Plutus.Pages.Inventory
 
             if (Camera.IsCameraAval())
             {
-                action = await DisplayActionSheet("Picture", "Cancel", null, "Camera", "Photo Roll");
+                action = await DisplayActionSheet(Translate.ProvideValue("Image"), Translate.ProvideValue("Cancel"), null, Translate.ProvideValue("Camera"), Translate.ProvideValue("PRoll"));
             }
             else
             {
-                action = await DisplayActionSheet("Picture", "Cancel", null, "Photo Roll");
+                action = await DisplayActionSheet(Translate.ProvideValue("Image"), Translate.ProvideValue("Cancel"), null, Translate.ProvideValue("PRoll"));
             }
-            
 
-            switch (action)
+            Dictionary<string, Action> actionDic = new Dictionary<string, Action>();
+            actionDic.Add(Translate.ProvideValue("Camera"), () => Camera.getPhoto(item, Pic));
+            actionDic.Add(Translate.ProvideValue("PRoll"), () => GetImageRoll());
+            actionDic.Add(Translate.ProvideValue("Cancel"), ()=>Console.WriteLine("Escaped!"));
+
+            Action actionCall = actionDic[action];
+            actionCall();
+        }
+
+        public async void GetImageRoll()
+        {
+            Stream stream = await DependencyService.Get<IPicturePicker>().GetImageStreamAsync();
+            if (stream != null)
             {
-                case "Camera":
-                    Camera.getPhoto(item, Pic);
-                    break;
-                case "Photo Roll":
-                    Stream stream = await DependencyService.Get<IPicturePicker>().GetImageStreamAsync();
-                    if (stream != null)
-                    {
-                        Pic.Source = ImageSource.FromStream(() => stream);
-                        item.Image = Camera.StreamToArray(stream);
-                    }
-                    break;
-                case "Cancel":
-                    break;
+                Pic.Source = ImageSource.FromStream(() => stream);
+                item.Image = Camera.StreamToArray(stream);
             }
         }
 
@@ -90,7 +92,7 @@ namespace Plutus.Pages.Inventory
 
             if (item.ItemId == null || item.Name == null || item.Brand == null || item.VatId == 0 || item.CatId == 0 || string.IsNullOrWhiteSpace(Stock.Text))
             {
-                await DisplayAlert("OOPS!", "Please check all fields are correct and filled in", "OK");
+                await DisplayAlert(Translate.ProvideValue("Oops"), Translate.ProvideValue("FieldsFilledInMesg"), Translate.ProvideValue("OK"));
                 return;
             }
 
@@ -135,7 +137,7 @@ namespace Plutus.Pages.Inventory
             {
                 if (item.VatId == VatPicker.SelectedIndex + 1)
                 {
-                    Price.Placeholder = $"Recommended price: {await Conversions.ToDecimal(Cost.Text) * (decimal)item.Rate}";
+                    Price.Placeholder = $"{Translate.ProvideValue("RecPrice")}: {await Conversions.ToDecimal(Cost.Text) * (decimal)item.Rate}";
                 }
             }
         }
@@ -148,7 +150,7 @@ namespace Plutus.Pages.Inventory
             {
                 CatPicker.Items.Add(item.Name);
             }
-            CatPicker.Items.Add("'Create new Category'");
+            CatPicker.Items.Add(Translate.ProvideValue("CreateNCate"));
         }
 
         private async void CatPicker_SelectedIndexChanged(object sender, EventArgs e)
@@ -169,7 +171,7 @@ namespace Plutus.Pages.Inventory
         {
             if (dbContext.IsIdSame(Id.Text))
             {
-                await DisplayAlert("Hmm...", "This item apears to already been added.\nPlease check this.", "OK");
+                await DisplayAlert(Translate.ProvideValue("Hmm"), Translate.ProvideValue("ItemExistMesg"), Translate.ProvideValue("OK"));
                 Id.Text = null;
             }
         }

@@ -10,6 +10,7 @@ using Xamarin.Forms.Xaml;
 using Plugin.Media;
 using System.IO;
 using Plutus.Helpers.Interface;
+using I18N_L10N;
 
 namespace Plutus.Pages.Inventory
 {
@@ -22,6 +23,8 @@ namespace Plutus.Pages.Inventory
         internal List<VatModel> vats;
         internal List<CategoryModel> cats;
         internal int count = 0;
+        TranslateExtension Translate = new TranslateExtension();
+
         public UpdateItemPage ()
 		{
 			InitializeComponent ();
@@ -54,7 +57,7 @@ namespace Plutus.Pages.Inventory
                 List<ItemModel> items = dbContext.GetItem(ItemSearch.Text);
                 if (items.Count == 0)
                 {
-                    await DisplayAlert("Hmm...", "Can't find a item with that ID or Name", "OK");
+                    await DisplayAlert(Translate.ProvideValue("Hmm"), Translate.ProvideValue("ItemNotFoundMesg"), Translate.ProvideValue("OK"));
                     count--;
                     return;
                 }
@@ -79,7 +82,7 @@ namespace Plutus.Pages.Inventory
                 {
                     var tempPage = new CarouselPage()
                     {
-                        Title = "Search Results"
+                        Title = Translate.ProvideValue("SResults")
                     };
                     foreach (ItemModel item in items)
                     {
@@ -136,7 +139,7 @@ namespace Plutus.Pages.Inventory
             {
                 if (item.VatId == VatPicker.SelectedIndex + 1)
                 {
-                    Price.Placeholder = $"Recommended price: {await Conversions.ToDecimal(Cost.Text) * (decimal)item.Rate}";
+                    Price.Placeholder = $"{Translate.ProvideValue("RecPrice")}: {await Conversions.ToDecimal(Cost.Text) * (decimal)item.Rate}";
                 }
             }
         }
@@ -149,7 +152,7 @@ namespace Plutus.Pages.Inventory
             {
                 CatPicker.Items.Add(item.Name);
             }
-            CatPicker.Items.Add("'Create new Category'");
+            CatPicker.Items.Add(Translate.ProvideValue("CreateNCate"));
         }
 
         private async void CatPicker_SelectedIndexChanged(object sender, EventArgs e)
@@ -173,29 +176,29 @@ namespace Plutus.Pages.Inventory
 
             if (Camera.IsCameraAval())
             {
-                action = await DisplayActionSheet("Picture", "Cancel", null, "Camera", "Photo Roll");
+                action = await DisplayActionSheet(Translate.ProvideValue("Image"), Translate.ProvideValue("Cancel"), null, Translate.ProvideValue("Camera"), Translate.ProvideValue("PRoll"));
             }
             else
             {
-                action = await DisplayActionSheet("Picture", "Cancel", null, "Photo Roll");
+                action = await DisplayActionSheet(Translate.ProvideValue("Image"), Translate.ProvideValue("Cancel"), null, Translate.ProvideValue("PRoll"));
             }
 
+            Dictionary<string, Action> actionDic = new Dictionary<string, Action>();
+            actionDic.Add(Translate.ProvideValue("Camera"), () => Camera.getPhoto(item, Pic));
+            actionDic.Add(Translate.ProvideValue("PRoll"), () => GetImageRoll());
+            actionDic.Add(Translate.ProvideValue("Cancel"), () => Console.WriteLine("Escaped!"));
 
-            switch (action)
+            Action actionCall = actionDic[action];
+            actionCall();
+        }
+
+        public async void GetImageRoll()
+        {
+            Stream stream = await DependencyService.Get<IPicturePicker>().GetImageStreamAsync();
+            if (stream != null)
             {
-                case "Camera":
-                    Camera.getPhoto(item, Pic);
-                    break;
-                case "Photo Roll":
-                    Stream stream = await DependencyService.Get<IPicturePicker>().GetImageStreamAsync();
-                    if (stream != null)
-                    {
-                        Pic.Source = ImageSource.FromStream(() => stream);
-                        item.Image = Camera.StreamToArray(stream);
-                    }
-                    break;
-                case "Cancel":
-                    break;
+                Pic.Source = ImageSource.FromStream(() => stream);
+                item.Image = Camera.StreamToArray(stream);
             }
         }
 
@@ -210,7 +213,7 @@ namespace Plutus.Pages.Inventory
 
             if (changeItem.Name==item.Name&&changeItem.Brand==item.Brand&&changeItem.CatId==item.CatId&&changeItem.Cost==item.Cost&&changeItem.Desc==item.Desc&&changeItem.Image==item.Image&&changeItem.Price==item.Price&&changeItem.VatId==item.VatId)
             {
-                await DisplayAlert("Hmm...", "You have made no change to any of the objects values/nPlease change something or go back", "OK");
+                await DisplayAlert(Translate.ProvideValue("Hmm"), Translate.ProvideValue("NoChangeMadeMesg"), Translate.ProvideValue("OK"));
                 return;
             }
 

@@ -16,7 +16,7 @@ namespace Plutus.Pages.Inventory
         internal Database dbContext = new Database();
         public AddCategoryPage ()
 		{
-			InitializeComponent ();
+			InitializeComponent();
 		}
 
         private async void Confirm_Clicked(object sender, EventArgs e)

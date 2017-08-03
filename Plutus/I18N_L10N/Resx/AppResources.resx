@@ -106,8 +106,8 @@
   <data name="StDetails" xml:space="preserve">
     <value>Store Details</value>
   </data>
-  <data name="StName" xml:space="preserve">
-    <value>Store Name</value>
+  <data name="Name" xml:space="preserve">
+    <value>Name</value>
   </data>
   <data name="StAbbr" xml:space="preserve">
     <value>Store Name Abbreviation (4 letters)</value>
@@ -171,5 +171,176 @@
   </data>
   <data name="Create" xml:space="preserve">
     <value>Create</value>
+  </data>
+  <data name="Config" xml:space="preserve">
+    <value>Configuration</value>
+  </data>
+  <data name="Oops" xml:space="preserve">
+    <value>OOPS</value>
+  </data>
+  <data name="SetPassWMesg" xml:space="preserve">
+    <value>Please set your password</value>
+  </data>
+  <data name="OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="PassWNotSameMesg" xml:space="preserve">
+    <value>Passwords are not the same\nOR\n Not longer than 6 characters\nPlease try again</value>
+  </data>
+  <data name="FieldsFilledInMesg" xml:space="preserve">
+    <value>Please Ensure all required fields are filled in</value>
+  </data>
+  <data name="EmailNotCorrectMesg" xml:space="preserve">
+    <value>Please Ensure your E-Mail is valid and correct</value>
+  </data>
+  <data name="PCNotCorrectMesg" xml:space="preserve">
+    <value>Please Ensure your Post Code is valid and correct</value>
+  </data>
+  <data name="PhoneNumNotCorrectMesg" xml:space="preserve">
+    <value>Please Ensure your Phone Number is valid and correct</value>
+  </data>
+  <data name="DatabaseNotSelectedMesg" xml:space="preserve">
+    <value>Please Select a type of Database</value>
+  </data>
+  <data name="SomthingWentWrongMesg" xml:space="preserve">
+    <value>Something went wrong!</value>
+  </data>
+  <data name="FWelcomeTitle" xml:space="preserve">
+    <value>Welcome to Plutus POS</value>
+  </data>
+  <data name="Login" xml:space="preserve">
+    <value>Login</value>
+  </data>
+  <data name="Hmm" xml:space="preserve">
+    <value>Hmm...</value>
+  </data>
+  <data name="StoreNotReachableMesg" xml:space="preserve">
+    <value>There has been a problem on our end, please check the database for corruption.</value>
+  </data>
+  <data name="DetailsNotCorrectORUserNotExistMesg" xml:space="preserve">
+    <value>We can't find any user with those details\nPlease try again.</value>
+  </data>
+  <data name="Users" xml:space="preserve">
+    <value>Users</value>
+  </data>
+  <data name="NewUserLogin" xml:space="preserve">
+    <value>New User Login</value>
+  </data>
+  <data name="LogoutAll" xml:space="preserve">
+    <value>Logout All</value>
+  </data>
+  <data name="ActivUsers" xml:space="preserve">
+    <value>Active Users</value>
+  </data>
+  <data name="Info" xml:space="preserve">
+    <value>Info</value>
+  </data>
+  <data name="NoActiveUsers" xml:space="preserve">
+    <value>There are currently no active users</value>
+  </data>
+  <data name="NewCate" xml:space="preserve">
+    <value>New Category</value>
+  </data>
+  <data name="Desc" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="Confirm" xml:space="preserve">
+    <value>Confirm</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="NewInvetItem" xml:space="preserve">
+    <value>Add New Inventory Item</value>
+  </data>
+  <data name="NewItem" xml:space="preserve">
+    <value>New Item</value>
+  </data>
+  <data name="Image" xml:space="preserve">
+    <value>Image</value>
+  </data>
+  <data name="ButtImage" xml:space="preserve">
+    <value>Take/Select Image</value>
+  </data>
+  <data name="Brand" xml:space="preserve">
+    <value>Brand</value>
+  </data>
+  <data name="Cate" xml:space="preserve">
+    <value>Category</value>
+  </data>
+  <data name="Cost" xml:space="preserve">
+    <value>Cost</value>
+  </data>
+  <data name="TaxType" xml:space="preserve">
+    <value>Tax Type</value>
+  </data>
+  <data name="Price" xml:space="preserve">
+    <value>Price</value>
+  </data>
+  <data name="CStock" xml:space="preserve">
+    <value>Current Stock</value>
+  </data>
+  <data name="CStockPL" xml:space="preserve">
+    <value>If no stock exist input '0'</value>
+  </data>
+  <data name="AddItem" xml:space="preserve">
+    <value>Add Item</value>
+  </data>
+  <data name="Camera" xml:space="preserve">
+    <value>Camera</value>
+  </data>
+  <data name="PRoll" xml:space="preserve">
+    <value>Photo Roll</value>
+  </data>
+  <data name="RecPrice" xml:space="preserve">
+    <value>Recomended Price</value>
+  </data>
+  <data name="ItemExistMesg" xml:space="preserve">
+    <value>This item apears to already been added.\nPlease check this.</value>
+  </data>
+  <data name="CreateNCate" xml:space="preserve">
+    <value>'Create New Category'</value>
+  </data>
+  <data name="InvetMgr" xml:space="preserve">
+    <value>Inventory Management</value>
+  </data>
+  <data name="UpdateItem" xml:space="preserve">
+    <value>Update Item</value>
+  </data>
+  <data name="StockUpdate" xml:space="preserve">
+    <value>Stock Update</value>
+  </data>
+  <data name="Select" xml:space="preserve">
+    <value>Select</value>
+  </data>
+  <data name="Edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="QuantityAdd" xml:space="preserve">
+    <value>Quantity to Add</value>
+  </data>
+  <data name="ItemNonExistMesg" xml:space="preserve">
+    <value>This item does not apear to have been added.\nPlease check this.</value>
+  </data>
+  <data name="AddDesc" xml:space="preserve">
+    <value>Add Description</value>
+  </data>
+  <data name="IDName" xml:space="preserve">
+    <value>ID/Name</value>
+  </data>
+  <data name="ItemNotFoundMesg" xml:space="preserve">
+    <value>Can't find a item with that ID or Name</value>
+  </data>
+  <data name="SResults" xml:space="preserve">
+    <value>Search Results</value>
+  </data>
+  <data name="NoChangeMadeMesg" xml:space="preserve">
+    <value>You have made no change to any of the objects values/nPlease change something or go back</value>
+  </data>
+  <data name="Quit?Mesg" xml:space="preserve">
+    <value>Are you sure you want to quit Plutus POS?</value>
+  </data>
+  <data name="Yes" xml:space="preserve">
+    <value>Yes</value>
   </data>
 </root>

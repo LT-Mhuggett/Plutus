@@ -28,7 +28,6 @@ namespace Plutus
                 FileIO.Exists("Database.db")?
                     throw new NotImplementedException(): 
                     new NavigationPage(new FirstTimeStartUpPage());
-            MainPage.Title = "Welcome To Plutus";
 		}
 
 		protected override void OnStart ()

@@ -4,7 +4,7 @@
              xmlns:local="clr-namespace:Plutus"
              x:Class="Plutus.Pages.ConfigPage"
              xmlns:i18n="clr-namespace:I18N_L10N;assembly=I18N_L10N"
-             Title="Configuration"
+             Title="{i18n:Translate Config}"
              Icon="">
     <Grid>
         <ScrollView>
@@ -15,7 +15,7 @@
                 <Label Text="{i18n:Translate IntroL1}"/>
                 <Label Text="{i18n:Translate IntroL2}"/>
                 <Label Text="{i18n:Translate StDetails}" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start"/>
-                <Label Text="{i18n:Translate StName}" VerticalOptions="FillAndExpand"/>
+                <Label Text="{i18n:Translate Name}" VerticalOptions="FillAndExpand"/>
                 <Entry x:Name="StoreName"/>
                 <Label Text="{i18n:Translate StAbbr}" VerticalOptions="FillAndExpand"/>
                 <Entry x:Name="StoreAbbr" />

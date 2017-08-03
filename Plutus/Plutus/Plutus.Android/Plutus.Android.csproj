@@ -231,6 +231,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CloseAppImplementation.cs" />
     <Compile Include="LocalizeImplementation.cs" />
     <Compile Include="MainActivity.cs" />
     <Compile Include="MainApplication.cs" />

@@ -2,11 +2,12 @@
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Plutus.Pages.Inventory.ItemDescPage"
-             Title="Description">
+             xmlns:i18n="clr-namespace:I18N_L10N;assembly=I18N_L10N"
+             Title="{i18n:Translate Desc}">
     <ContentPage.Content>
         <StackLayout>
             <Editor x:Name="Desc" VerticalOptions="FillAndExpand" HorizontalOptions="FillAndExpand" />
-            <Button x:Name="Confirm" Text="Confirm" Clicked="Confirm_Clicked" />
+            <Button x:Name="Confirm" Text="{i18n:Translate Confirm}" Clicked="Confirm_Clicked" />
         </StackLayout>
     </ContentPage.Content>
 </ContentPage>

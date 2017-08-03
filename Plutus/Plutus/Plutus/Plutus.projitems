@@ -14,6 +14,7 @@
     </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Camera.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Conversions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\ICloseApp.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\IPicturePicker.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Loading.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Scanner.cs" />

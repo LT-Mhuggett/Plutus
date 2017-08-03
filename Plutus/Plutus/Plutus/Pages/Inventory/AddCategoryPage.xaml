@@ -2,15 +2,16 @@
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Plutus.Pages.Inventory.AddCategoryPage"
-             Title="New Category">
+             xmlns:i18n="clr-namespace:I18N_L10N;assembly=I18N_L10N"
+             Title="{i18n:Translate NewCate}">
     <ContentPage.Content>
         <StackLayout>
-            <Label Text="Name" />
+            <Label Text="{i18n:Translate Name}" />
             <Entry x:Name="Name" />
-            <Label Text="Description" />
+            <Label Text="{i18n:Translate Desc}" />
             <Entry x:Name="Description" />
-            <Button x:Name="Confirm" Text="Confirm" Clicked="Confirm_Clicked" />
-            <Button x:Name="Cancel" Text="Cancel" Clicked="Cancel_Clicked" />
+            <Button x:Name="Confirm" Text="{i18n:Translate Confirm}" Clicked="Confirm_Clicked" />
+            <Button x:Name="Cancel" Text="{i18n:Translate Cancel}" Clicked="Cancel_Clicked" />
         </StackLayout>
     </ContentPage.Content>
 </ContentPage>

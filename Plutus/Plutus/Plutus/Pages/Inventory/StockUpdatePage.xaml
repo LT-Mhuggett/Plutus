@@ -2,14 +2,15 @@
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Plutus.Pages.Inventory.StockUpdatePage"
-             Title="Stock Update">
+             xmlns:i18n="clr-namespace:I18N_L10N;assembly=I18N_L10N"
+             Title="{i18n:Translate StockUpdate}">
     <ContentPage.Content>
         <StackLayout>
             <Label Text="ID" HorizontalOptions="FillAndExpand" />
             <Entry x:Name="Id" Unfocused="Id_Unfocused" Focused="Id_Focused"/>
-            <Label Text="Quantity to add" HorizontalOptions="FillAndExpand" />
+            <Label Text="{i18n:Translate QuantityAdd}" HorizontalOptions="FillAndExpand" />
             <Entry x:Name="Quantity" Keyboard="Numeric"/>
-            <Button x:Name="Confirm" Text="confirm" Clicked="Confirm_Clicked" />
+            <Button x:Name="Confirm" Text="{i18n:Translate Confirm}" Clicked="Confirm_Clicked" />
         </StackLayout>
     </ContentPage.Content>
 </ContentPage>
