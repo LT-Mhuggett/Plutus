@@ -60,5 +60,230 @@ namespace I18N_L10N.Resx {
                 resourceCulture = value;
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Address.
+        /// </summary>
+        internal static string Address {
+            get {
+                return ResourceManager.GetString("Address", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Address Line 1.
+        /// </summary>
+        internal static string AdLine1 {
+            get {
+                return ResourceManager.GetString("AdLine1", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Address Line 2.
+        /// </summary>
+        internal static string AdLine2 {
+            get {
+                return ResourceManager.GetString("AdLine2", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Auto Address.
+        /// </summary>
+        internal static string ButtAddressAuto {
+            get {
+                return ResourceManager.GetString("ButtAddressAuto", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Manual Address.
+        /// </summary>
+        internal static string ButtAddressMan {
+            get {
+                return ResourceManager.GetString("ButtAddressMan", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to City.
+        /// </summary>
+        internal static string City {
+            get {
+                return ResourceManager.GetString("City", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Country.
+        /// </summary>
+        internal static string Country {
+            get {
+                return ResourceManager.GetString("Country", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Create.
+        /// </summary>
+        internal static string Create {
+            get {
+                return ResourceManager.GetString("Create", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Database.
+        /// </summary>
+        internal static string Database {
+            get {
+                return ResourceManager.GetString("Database", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Database Type.
+        /// </summary>
+        internal static string DatabaseType {
+            get {
+                return ResourceManager.GetString("DatabaseType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to E-Mail.
+        /// </summary>
+        internal static string Email {
+            get {
+                return ResourceManager.GetString("Email", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to First Name.
+        /// </summary>
+        internal static string FName {
+            get {
+                return ResourceManager.GetString("FName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to As this is the first time your using the Plutus POS System, you will have to create a new account..
+        /// </summary>
+        internal static string IntroL1 {
+            get {
+                return ResourceManager.GetString("IntroL1", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to If you already have a cloud/local system, then please switch to the store login page..
+        /// </summary>
+        internal static string IntroL2 {
+            get {
+                return ResourceManager.GetString("IntroL2", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Last Name.
+        /// </summary>
+        internal static string LName {
+            get {
+                return ResourceManager.GetString("LName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Owners Address.
+        /// </summary>
+        internal static string OwnerAddress {
+            get {
+                return ResourceManager.GetString("OwnerAddress", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Password.
+        /// </summary>
+        internal static string PassW {
+            get {
+                return ResourceManager.GetString("PassW", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Password Confirm.
+        /// </summary>
+        internal static string PassWConf {
+            get {
+                return ResourceManager.GetString("PassWConf", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Phone Number.
+        /// </summary>
+        internal static string PhoneN {
+            get {
+                return ResourceManager.GetString("PhoneN", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Post Code.
+        /// </summary>
+        internal static string PostCode {
+            get {
+                return ResourceManager.GetString("PostCode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Store Name Abbreviation (4 letters).
+        /// </summary>
+        internal static string StAbbr {
+            get {
+                return ResourceManager.GetString("StAbbr", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Store Address.
+        /// </summary>
+        internal static string StAddress {
+            get {
+                return ResourceManager.GetString("StAddress", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Store Details.
+        /// </summary>
+        internal static string StDetails {
+            get {
+                return ResourceManager.GetString("StDetails", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Store Name.
+        /// </summary>
+        internal static string StName {
+            get {
+                return ResourceManager.GetString("StName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Store Owner Details.
+        /// </summary>
+        internal static string StOwnerDetails {
+            get {
+                return ResourceManager.GetString("StOwnerDetails", resourceCulture);
+            }
+        }
     }
 }

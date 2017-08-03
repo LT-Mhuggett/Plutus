@@ -1,4 +1,5 @@
-﻿using System;
+﻿#define DEBUG
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,11 +9,9 @@ using System.IO;
 using Plutus.Pages;
 using I18N_L10N;
 
-#define DEBUG
-
 namespace Plutus
 {
-	public partial class App : Application
+    public partial class App : Application
 	{
 		public App ()
 		{

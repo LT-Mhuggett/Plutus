@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:Plutus"
              x:Class="Plutus.Pages.ConfigPage"
+             xmlns:i18n="clr-namespace:I18N_L10N;assembly=I18N_L10N"
              Title="Configuration"
              Icon="">
     <Grid>
@@ -11,73 +12,73 @@
               HorizontalOptions="FillAndExpand"
               VerticalOptions="FillAndExpand"
                      Margin="10,0,10,0">
-                <Label Text="As this is the first time your using the Plutus POS System, you will have to create a new account."/>
-                <Label Text="If you already have a cloud/local system, then please switch to the store login page."/>
-                <Label Text="Store Details" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start"/>
-                <Label Text="Store Name" VerticalOptions="FillAndExpand"/>
+                <Label Text="{i18n:Translate IntroL1}"/>
+                <Label Text="{i18n:Translate IntroL2}"/>
+                <Label Text="{i18n:Translate StDetails}" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start"/>
+                <Label Text="{i18n:Translate StName}" VerticalOptions="FillAndExpand"/>
                 <Entry x:Name="StoreName"/>
-                <Label Text="Store Name Abbreviation (4 letters)" VerticalOptions="FillAndExpand"/>
+                <Label Text="{i18n:Translate StAbbr}" VerticalOptions="FillAndExpand"/>
                 <Entry x:Name="StoreAbbr" />
-                <Label Text="Address" FontAttributes="Bold" FontSize="Medium" VerticalOptions="Start"/>
+                <Label Text="{i18n:Translate Address}" FontAttributes="Bold" FontSize="Medium" VerticalOptions="Start"/>
                 <StackLayout x:Name="AutoLayoutS" IsVisible="False">
-                    <Button x:Name="SEnterManually" Text="Manual Address" Clicked="SEnterManually_OnClicked"/>
-                    <Picker x:Name="StoreAddressPicker" Title="Store Address">
+                    <Button x:Name="SEnterManually" Text="{i18n:Translate ButtAddressMan}" Clicked="SEnterManually_OnClicked"/>
+                    <Picker x:Name="StoreAddressPicker" Title="{i18n:Translate StAddress}">
                     </Picker>
                 </StackLayout>
                 <StackLayout x:Name="ManLayoutS">
-                    <Button x:Name="AutoFillStore" Text="Auto Address" Clicked="AutoFillStore_OnClicked"/>
-                    <Label x:Name="SAdLine1L" Text="Address Line 1" VerticalOptions="FillAndExpand"/>
+                    <Button x:Name="AutoFillStore" Text="{i18n:Translate ButtAddressAuto}" Clicked="AutoFillStore_OnClicked"/>
+                    <Label x:Name="SAdLine1L" Text="{i18n:Translate AdLine1}" VerticalOptions="FillAndExpand"/>
                     <Entry x:Name="StoreAdLine1"/>
-                    <Label x:Name="SAdLine2L" Text="Address Line 2" VerticalOptions="FillAndExpand"/>
+                    <Label x:Name="SAdLine2L" Text="{i18n:Translate AdLine2}" VerticalOptions="FillAndExpand"/>
                     <Entry x:Name="StoreAdLine2"/>
-                    <Label x:Name="SCityL" Text="City" VerticalOptions="FillAndExpand"/>
+                    <Label x:Name="SCityL" Text="{i18n:Translate City}" VerticalOptions="FillAndExpand"/>
                     <Entry x:Name="StoreCity"/>
-                    <Label x:Name="SPostCodeL" Text="Post Code" VerticalOptions="FillAndExpand"/>
+                    <Label x:Name="SPostCodeL" Text="{i18n:Translate PostCode}" VerticalOptions="FillAndExpand"/>
                     <Entry x:Name="StorePostCode"/>
-                    <Label x:Name="SCountryL" Text="Country" VerticalOptions="FillAndExpand"/>
+                    <Label x:Name="SCountryL" Text="{i18n:Translate Country}" VerticalOptions="FillAndExpand"/>
                     <Entry x:Name="StoreCountry"/>
                 </StackLayout>
-                <Label Text="Store Owner Details" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start"/>
-                <Label Text="First Name" VerticalOptions="FillAndExpand"/>
+                <Label Text="{i18n:Translate StOwnerDetails}" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start"/>
+                <Label Text="{i18n:Translate FName}" VerticalOptions="FillAndExpand"/>
                 <Entry x:Name="FName"/>
-                <Label Text="Last Name" VerticalOptions="FillAndExpand"/>
+                <Label Text="{i18n:Translate LName}" VerticalOptions="FillAndExpand"/>
                 <Entry x:Name="LName"/>
-                <Label Text="Email" VerticalOptions="FillAndExpand"/>
+                <Label Text="{i18n:Translate Email}" VerticalOptions="FillAndExpand"/>
                 <Entry x:Name="Email" Keyboard="Email"/>
-                <Label Text="Phone Number"/>
+                <Label Text="{i18n:Translate PhoneN}"/>
                 <Entry x:Name="Mobile" Keyboard="Telephone"/>
-                <Label Text="Password" VerticalOptions="FillAndExpand"/>
+                <Label Text="{i18n:Translate PassW}" VerticalOptions="FillAndExpand"/>
                 <Entry x:Name="Password" IsPassword="True"/>
-                <Label Text="Password Confirm" VerticalOptions="FillAndExpand"/>
+                <Label Text="{i18n:Translate PassWConf}" VerticalOptions="FillAndExpand"/>
                 <Entry x:Name="PasswordConf" IsPassword="True"/>
-                <Label Text="Address" FontAttributes="Bold" FontSize="Medium" VerticalOptions="Start"/>
+                <Label Text="{i18n:Translate Address}" FontAttributes="Bold" FontSize="Medium" VerticalOptions="Start"/>
                 <StackLayout x:Name="AutoLayoutP" IsVisible="False">
-                    <Button x:Name="PEnterManually" Text="Manual Address" Clicked="PEnterManually_OnClicked"/>
-                    <Picker x:Name="PersonAddressPicker" Title="Store Address">
+                    <Button x:Name="PEnterManually" Text="{i18n:Translate ButtAddressMan}" Clicked="PEnterManually_OnClicked"/>
+                    <Picker x:Name="PersonAddressPicker" Title="{i18n:Translate OwnerAddress}">
                     </Picker>
                 </StackLayout>
                 <StackLayout x:Name="ManLayoutP">
-                    <Button x:Name="AutoFillPerson" Text="Auto Address" Clicked="AutoFillPerson_OnClicked"/>
-                    <Label x:Name="AdLine1L" Text="Address Line 1" VerticalOptions="FillAndExpand"/>
+                    <Button x:Name="AutoFillPerson" Text="{i18n:Translate ButtAddressAuto}" Clicked="AutoFillPerson_OnClicked"/>
+                    <Label x:Name="AdLine1L" Text="{i18n:Translate AdLine1}" VerticalOptions="FillAndExpand"/>
                     <Entry x:Name="AdLine1"/>
-                    <Label x:Name="AdLine2L" Text="Address Line 2" VerticalOptions="FillAndExpand"/>
+                    <Label x:Name="AdLine2L" Text="{i18n:Translate AdLine2}" VerticalOptions="FillAndExpand"/>
                     <Entry x:Name="AdLine2"/>
-                    <Label x:Name="CityL" Text="City" VerticalOptions="FillAndExpand"/>
+                    <Label x:Name="CityL" Text="{i18n:Translate City}" VerticalOptions="FillAndExpand"/>
                     <Entry x:Name="City"/>
-                    <Label x:Name="PostCodeL" Text="Post Code" VerticalOptions="FillAndExpand"/>
+                    <Label x:Name="PostCodeL" Text="{i18n:Translate PostCode}" VerticalOptions="FillAndExpand"/>
                     <Entry x:Name="PostCode"/>
-                    <Label x:Name="CountryL" Text="Country" VerticalOptions="FillAndExpand"/>
+                    <Label x:Name="CountryL" Text="{i18n:Translate Country}" VerticalOptions="FillAndExpand"/>
                     <Entry x:Name="Country"/>
                 </StackLayout>
-                <Label Text="Database" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start"/>
-                <Picker x:Name="DatabasePicker" Title="Database Type">
+                <Label Text="{i18n:Translate Database}" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start"/>
+                <Picker x:Name="DatabasePicker" Title="{i18n:Translate DatabaseType}">
                     <Picker.Items>
                         <x:String>Local Database</x:String>
                         <x:String>Server Database</x:String>
                         <x:String>Cloud Database</x:String>
                     </Picker.Items>
                 </Picker>
-                <Button x:Name="Create" Text="Create" VerticalOptions="Center" Clicked="Create_Clicked"/>
+                <Button x:Name="Create" Text="{i18n:Translate Create}" VerticalOptions="Center" Clicked="Create_Clicked"/>
             </StackLayout>
         </ScrollView>
         <ContentView x:Name="LCV" IsVisible="false" BackgroundColor="LightGray" Opacity=".5" HorizontalOptions="FillAndExpand" VerticalOptions="FillAndExpand">
