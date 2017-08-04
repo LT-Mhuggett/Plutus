@@ -343,4 +343,7 @@
   <data name="Yes" xml:space="preserve">
     <value>Yes</value>
   </data>
+  <data name="Logout" xml:space="preserve">
+    <value>Log Out</value>
+  </data>
 </root>

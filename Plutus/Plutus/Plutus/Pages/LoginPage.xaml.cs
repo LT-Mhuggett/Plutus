@@ -18,7 +18,6 @@ namespace Plutus.Pages
 	public partial class LoginPage : ContentPage
 	{
         TranslateExtension Translate = new TranslateExtension();
-        internal static Database dbContext = new Database();
 
         public LoginPage ()
 		{
@@ -45,7 +44,7 @@ namespace Plutus.Pages
             var store = await StoreGetWithEmp(emp);
             if (store == null)
                 return;
-            Application.Current.MainPage = new NavigationPage(new MainNavigationPage(emp, store, CurrenList));
+            Application.Current.MainPage = new NavigationPage(new MainNavigationPage(emp, CurrenList));
             Loading.TogleLoading(LCV, LAI);
         }
 
@@ -67,7 +66,7 @@ namespace Plutus.Pages
 
         internal async Task<EmployeeModel> EmpLogIn()
         {
-            var emp = await dbContext.Login(UId.Text, PId.Text);
+            var emp = await App.dbContext.Login(UId.Text, PId.Text);
             if (emp == null)
             {
                 Loading.TogleLoading(LCV, LAI);
@@ -79,7 +78,7 @@ namespace Plutus.Pages
 
         internal async Task<StoreModel> StoreGetWithEmp(EmployeeModel emp)
         {
-            var store = dbContext.GetStore(emp.StoreId);
+            var store = App.dbContext.GetStore(emp.StoreId);
             if (store == null)
             {
                 Loading.TogleLoading(LCV, LAI);

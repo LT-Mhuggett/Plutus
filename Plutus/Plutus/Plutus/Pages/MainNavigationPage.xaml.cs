@@ -15,58 +15,54 @@ namespace Plutus.Pages
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class MainNavigationPage : TabbedPage
     {
-        internal static ObservableCollection<EmployeeModel> empsLogged = new ObservableCollection<EmployeeModel>();
-        internal static StoreModel store;
-        TranslateExtension Translate = new TranslateExtension();
-
         public MainNavigationPage (EmployeeModel etemp, StoreModel stemp)
         {
-            InitPage(etemp, stemp);
+            App.Store = stemp;
+            stemp = null;
+            InitPage(etemp);
         }
 
-        public MainNavigationPage(EmployeeModel etemp, StoreModel stemp, ObservableCollection<EmployeeModel>currentList)
+        public MainNavigationPage(EmployeeModel etemp, ObservableCollection<EmployeeModel>currentList)
         {
-            empsLogged = currentList;
-            InitPage(etemp, stemp);
+            App.EmpsLogged = currentList;
+            InitPage(etemp);
         }
 
-        internal void InitPage(EmployeeModel etemp, StoreModel stemp)
+        internal void InitPage(EmployeeModel etemp)
         {
             ToolbarItems.Add(new ToolbarItem
             {
-                Text = Translate.ProvideValue("Users"),
+                Text = App.Translate.ProvideValue("Users"),
                 Icon = "",
                 Command = new Command(this.ShowLoggedUsers)
             });
 
-            empsLogged.Add(etemp);
-            store = stemp;
+            App.EmpsLogged.Add(etemp);
             etemp = null;
-            stemp = null;
 
             InitializeComponent();
-            Title = $"Plutus - {store.StoreName}";
+            Title = $"Plutus - {App.Store.StoreName}";
 
             Children.Add(new Inventory.InventoryMangPage());
         }
 
         private void ShowLoggedUsers(object obj)
         {
-            Navigation.PushModalAsync(new NavigationPage(new UsersLoggedPage(empsLogged)));
+            Navigation.PushModalAsync(new NavigationPage(new UsersLoggedPage()));
         }
 
         protected override bool OnBackButtonPressed()
         {
             Device.BeginInvokeOnMainThread(async () =>
             {
-                bool quit = await DisplayAlert(Translate.ProvideValue("Hmm"), Translate.ProvideValue("Quit?Mesg"), Translate.ProvideValue("Yes"), Translate.ProvideValue("Cancel"));
+                bool quit = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("Quit?Mesg"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
 
                 if (quit)
                 {
                     var closer = DependencyService.Get<ICloseApp>();
                     if (closer != null)
                     {
-                        empsLogged = null;
+                        App.EmpsLogged = null;
                         closer.CloseApp();
                     }
                 }

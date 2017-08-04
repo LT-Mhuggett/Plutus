@@ -8,12 +8,19 @@ using Xamarin.Forms;
 using System.IO;
 using Plutus.Pages;
 using I18N_L10N;
+using System.Collections.ObjectModel;
+using Plutus.Models;
 
 namespace Plutus
 {
     public partial class App : Application
 	{
-		public App ()
+        internal static ObservableCollection<EmployeeModel> EmpsLogged = new ObservableCollection<EmployeeModel>();
+        internal static StoreModel Store = new StoreModel();
+        internal static Database dbContext = new Database();
+        internal static TranslateExtension Translate = new TranslateExtension();
+
+        public App ()
 		{
 		    InitializeComponent();
 

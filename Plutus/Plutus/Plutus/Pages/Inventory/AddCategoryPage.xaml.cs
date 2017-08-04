@@ -13,7 +13,6 @@ namespace Plutus.Pages.Inventory
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class AddCategoryPage : ContentPage
 	{
-        internal Database dbContext = new Database();
         public AddCategoryPage ()
 		{
 			InitializeComponent();
@@ -26,8 +25,8 @@ namespace Plutus.Pages.Inventory
                 Description=Description.Text
             };
 
-            dbContext.Add(category);
-            dbContext.Save();
+            App.dbContext.Add(category);
+            App.dbContext.Save();
             await Navigation.PopModalAsync();
             MessagingCenter.Send(new AddItemPage(), "ConfCat");
             MessagingCenter.Send(new UpdateItemPage(), "ConfCat");

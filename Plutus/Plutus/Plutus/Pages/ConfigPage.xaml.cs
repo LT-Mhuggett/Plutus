@@ -18,7 +18,6 @@ namespace Plutus.Pages
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class ConfigPage : ContentPage
 	{
-        TranslateExtension Translate = new TranslateExtension();
         public ConfigPage ()
 		{
 			InitializeComponent();
@@ -30,13 +29,13 @@ namespace Plutus.Pages
             if (string.IsNullOrEmpty(Password.Text)||string.IsNullOrEmpty(PasswordConf.Text))
             {
                 Loading.TogleLoading(LCV, LAI);
-                await DisplayAlert(Translate.ProvideValue("Oops"), Translate.ProvideValue("SetPassWMesg"), Translate.ProvideValue("OK"));
+                await DisplayAlert(App.Translate.ProvideValue("Oops"), App.Translate.ProvideValue("SetPassWMesg"), App.Translate.ProvideValue("OK"));
                 return;
             }
             if (Password.Text != PasswordConf.Text||Password.Text.Length<=6)
             {
                 Loading.TogleLoading(LCV, LAI);
-                await DisplayAlert(Translate.ProvideValue("Oops"), Translate.ProvideValue("PassWNotSameMesg"), Translate.ProvideValue("OK"));
+                await DisplayAlert(App.Translate.ProvideValue("Oops"), App.Translate.ProvideValue("PassWNotSameMesg"), App.Translate.ProvideValue("OK"));
                 return;
             }
 
@@ -154,24 +153,24 @@ namespace Plutus.Pages
             switch (tester)
             {
                 case 0:
-                    message = Translate.ProvideValue("FieldsFilledInMesg");
+                    message = App.Translate.ProvideValue("FieldsFilledInMesg");
                     break;
                 case 1:
-                    message = Translate.ProvideValue("EmailNotCorrectMesg");
+                    message = App.Translate.ProvideValue("EmailNotCorrectMesg");
                     break;
                 case 2:
-                    message = Translate.ProvideValue("PCNotCorrectMesg");
+                    message = App.Translate.ProvideValue("PCNotCorrectMesg");
                     break;
                 case 3:
-                    message = Translate.ProvideValue("PhoneNumNotCorrectMesg");
+                    message = App.Translate.ProvideValue("PhoneNumNotCorrectMesg");
                     break;
                 case 4:
-                    message = Translate.ProvideValue("DatabaseNotSelectedMesg");
+                    message = App.Translate.ProvideValue("DatabaseNotSelectedMesg");
                     break;
                 default:
                     break;
             }
-            DisplayAlert(Translate.ProvideValue("Oops"), message, Translate.ProvideValue("OK"));
+            DisplayAlert(App.Translate.ProvideValue("Oops"), message, App.Translate.ProvideValue("OK"));
             return null;
         }
         
@@ -180,7 +179,7 @@ namespace Plutus.Pages
 	        List<string> addressList = await Location.ReverseGeocde();
 	        if (addressList.Count == 0)
 	        {
-	            await DisplayAlert(Translate.ProvideValue("Oops"), Translate.ProvideValue("SomthingWentWrongMesg"), Translate.ProvideValue("OK"));
+	            await DisplayAlert(App.Translate.ProvideValue("Oops"), App.Translate.ProvideValue("SomthingWentWrongMesg"), App.Translate.ProvideValue("OK"));
 	            return;
 	        }
 	        else
@@ -198,7 +197,7 @@ namespace Plutus.Pages
 	        List<string> addressList = await Location.ReverseGeocde();
 	        if (addressList.Count == 0)
 	        {
-	            await DisplayAlert(Translate.ProvideValue("Oops"), Translate.ProvideValue("SomthingWentWrongMesg"), Translate.ProvideValue("OK"));
+	            await DisplayAlert(App.Translate.ProvideValue("Oops"), App.Translate.ProvideValue("SomthingWentWrongMesg"), App.Translate.ProvideValue("OK"));
 	            return;
 	        }
 	        else

@@ -13,7 +13,7 @@
                     <ViewCell>
                         <ViewCell.ContextActions>
                             <MenuItem Clicked="OnDelete" CommandParameter="{Binding .}"
-                            Text="Log Out" IsDestructive="True" />
+                            Text="{i18n:Translate Logout}" IsDestructive="True" />
                         </ViewCell.ContextActions>
                         <StackLayout>
                             <Label Text="{Binding LName}" FontAttributes="Bold"/>

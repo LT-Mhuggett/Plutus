@@ -14,8 +14,6 @@ namespace Plutus.Pages.Inventory
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class StockUpdatePage : ContentPage
 	{
-        Database dbContext = new Database();
-        TranslateExtension Tranlate = new TranslateExtension();
         public StockUpdatePage ()
 		{
 			InitializeComponent ();
@@ -23,9 +21,9 @@ namespace Plutus.Pages.Inventory
 
         private async void Id_Unfocused(object sender, FocusEventArgs e)
         {
-            if (!dbContext.IsIdSame(Id.Text))
+            if (!App.dbContext.IsIdSame(Id.Text))
             {
-                await DisplayAlert(Tranlate.ProvideValue("Hmm"), Tranlate.ProvideValue("ItemNonExistMesg"), Tranlate.ProvideValue("OK"));
+                await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("ItemNonExistMesg"), App.Translate.ProvideValue("OK"));
                 Id.Text = null;
             }
         }
@@ -34,13 +32,13 @@ namespace Plutus.Pages.Inventory
         {
             StockModel stock = new StockModel
             {
-                StoreId = MainNavigationPage.store.StoreId,
+                StoreId = App.Store.StoreId,
                 ItemId = Id.Text,
                 Quantity = Convert.ToInt16(Quantity.Text)
             };
 
-            dbContext.UpdateStock(stock);
-            dbContext.Save();
+            App.dbContext.UpdateStock(stock);
+            App.dbContext.Save();
             await Navigation.PopAsync();
         }
 

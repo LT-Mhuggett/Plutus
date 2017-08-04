@@ -15,15 +15,14 @@ namespace Plutus.Pages
     public partial class UsersLoggedPage : ContentPage
     {
         public ObservableCollection<EmployeeModel> Emps { get; set; }
-        TranslateExtension Translate = new TranslateExtension();
 
-        public UsersLoggedPage(ObservableCollection<EmployeeModel> tempEmp)
+        public UsersLoggedPage()
         {
             InitializeComponent();
 
-            Title = Translate.ProvideValue("ActivUsers");
+            Title = App.Translate.ProvideValue("ActivUsers");
 
-            Emps = new ObservableCollection<EmployeeModel>(tempEmp);
+            Emps = new ObservableCollection<EmployeeModel>(App.EmpsLogged);
 
             BindingContext = this;
         }
@@ -41,12 +40,11 @@ namespace Plutus.Pages
             var menuItem = (EmployeeModel)((MenuItem)sender).CommandParameter;
 
             Emps.Remove(menuItem);
-            MainNavigationPage.empsLogged.Remove(menuItem);
+            App.EmpsLogged.Remove(menuItem);
 
             if (Emps.Count == 0)
             {
-                MainNavigationPage.empsLogged = new ObservableCollection<EmployeeModel>();
-                await DisplayAlert(Translate.ProvideValue("Info"), Translate.ProvideValue("NoActiveUsers"), Translate.ProvideValue("OK"));
+                await DisplayAlert(App.Translate.ProvideValue("Info"), App.Translate.ProvideValue("NoActiveUsers"), App.Translate.ProvideValue("OK"));
                 Application.Current.MainPage = new NavigationPage(new LoginPage());
             }
         }

@@ -17,19 +17,17 @@ namespace Plutus.Pages.Inventory
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class UpdateItemPage : ContentPage
 	{
-        internal Database dbContext = new Database();
         internal ItemModel item;
         internal ItemModel changeItem = new ItemModel();
         internal List<VatModel> vats;
         internal List<CategoryModel> cats;
         internal int count = 0;
-        TranslateExtension Translate = new TranslateExtension();
 
         public UpdateItemPage ()
 		{
 			InitializeComponent ();
 
-            vats = dbContext.GetVat();
+            vats = App.dbContext.GetVat();
             foreach (var item in vats)
             {
                 VatPicker.Items.Add(item.Name);
@@ -54,10 +52,10 @@ namespace Plutus.Pages.Inventory
         {
             if ((count & 1) == 0)
             {
-                List<ItemModel> items = dbContext.GetItem(ItemSearch.Text);
+                List<ItemModel> items = App.dbContext.GetItem(ItemSearch.Text);
                 if (items.Count == 0)
                 {
-                    await DisplayAlert(Translate.ProvideValue("Hmm"), Translate.ProvideValue("ItemNotFoundMesg"), Translate.ProvideValue("OK"));
+                    await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("ItemNotFoundMesg"), App.Translate.ProvideValue("OK"));
                     count--;
                     return;
                 }
@@ -82,7 +80,7 @@ namespace Plutus.Pages.Inventory
                 {
                     var tempPage = new CarouselPage()
                     {
-                        Title = Translate.ProvideValue("SResults")
+                        Title = App.Translate.ProvideValue("SResults")
                     };
                     foreach (ItemModel item in items)
                     {
@@ -139,20 +137,20 @@ namespace Plutus.Pages.Inventory
             {
                 if (item.VatId == VatPicker.SelectedIndex + 1)
                 {
-                    Price.Placeholder = $"{Translate.ProvideValue("RecPrice")}: {await Conversions.ToDecimal(Cost.Text) * (decimal)item.Rate}";
+                    Price.Placeholder = $"{App.Translate.ProvideValue("RecPrice")}: {await Conversions.ToDecimal(Cost.Text) * (decimal)item.Rate}";
                 }
             }
         }
 
         protected void InitCatPicker()
         {
-            cats = dbContext.GetCats();
+            cats = App.dbContext.GetCats();
             CatPicker.Items.Clear();
             foreach (var item in cats)
             {
                 CatPicker.Items.Add(item.Name);
             }
-            CatPicker.Items.Add(Translate.ProvideValue("CreateNCate"));
+            CatPicker.Items.Add(App.Translate.ProvideValue("CreateNCate"));
         }
 
         private async void CatPicker_SelectedIndexChanged(object sender, EventArgs e)
@@ -176,17 +174,18 @@ namespace Plutus.Pages.Inventory
 
             if (Camera.IsCameraAval())
             {
-                action = await DisplayActionSheet(Translate.ProvideValue("Image"), Translate.ProvideValue("Cancel"), null, Translate.ProvideValue("Camera"), Translate.ProvideValue("PRoll"));
+                action = await DisplayActionSheet(App.Translate.ProvideValue("Image"), App.Translate.ProvideValue("Cancel"), null, App.Translate.ProvideValue("Camera"), App.Translate.ProvideValue("PRoll"));
             }
             else
             {
-                action = await DisplayActionSheet(Translate.ProvideValue("Image"), Translate.ProvideValue("Cancel"), null, Translate.ProvideValue("PRoll"));
+                action = await DisplayActionSheet(App.Translate.ProvideValue("Image"), App.Translate.ProvideValue("Cancel"), null, App.Translate.ProvideValue("PRoll"));
             }
 
-            Dictionary<string, Action> actionDic = new Dictionary<string, Action>();
-            actionDic.Add(Translate.ProvideValue("Camera"), () => Camera.getPhoto(item, Pic));
-            actionDic.Add(Translate.ProvideValue("PRoll"), () => GetImageRoll());
-            actionDic.Add(Translate.ProvideValue("Cancel"), () => Console.WriteLine("Escaped!"));
+            Dictionary<string, Action> actionDic = new Dictionary<string, Action> {
+                { App.Translate.ProvideValue("Camera"), () => Camera.getPhoto(item, Pic)},
+                { App.Translate.ProvideValue("PRoll"), () => GetImageRoll() },
+                { App.Translate.ProvideValue("Cancel"), () => Console.WriteLine("Escaped!") }
+            };
 
             Action actionCall = actionDic[action];
             actionCall();
@@ -213,15 +212,15 @@ namespace Plutus.Pages.Inventory
 
             if (changeItem.Name==item.Name&&changeItem.Brand==item.Brand&&changeItem.CatId==item.CatId&&changeItem.Cost==item.Cost&&changeItem.Desc==item.Desc&&changeItem.Image==item.Image&&changeItem.Price==item.Price&&changeItem.VatId==item.VatId)
             {
-                await DisplayAlert(Translate.ProvideValue("Hmm"), Translate.ProvideValue("NoChangeMadeMesg"), Translate.ProvideValue("OK"));
+                await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("NoChangeMadeMesg"), App.Translate.ProvideValue("OK"));
                 return;
             }
 
             await Navigation.PushModalAsync(new ItemTemplate(changeItem, false));
             MessagingCenter.Subscribe<UpdateItemPage>(this, "Accepted", async (Sender) =>
             {
-                dbContext.UpdateItem(changeItem);
-                dbContext.Save();
+                App.dbContext.UpdateItem(changeItem);
+                App.dbContext.Save();
                 await Navigation.PopAsync();
             });
         }

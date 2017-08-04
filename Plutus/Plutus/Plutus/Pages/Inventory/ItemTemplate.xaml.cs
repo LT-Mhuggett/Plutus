@@ -14,7 +14,6 @@ namespace Plutus.Pages.Inventory
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class ItemTemplate : ContentPage
 	{
-        internal Database dbContext = new Database();
         internal ItemModel item;
 		public ItemTemplate (ItemModel itemTemp, bool isSearch)
 		{
@@ -37,7 +36,7 @@ namespace Plutus.Pages.Inventory
             }
             ItemName.Text = itemTemp.Name;
             ItemBrand.Text = itemTemp.Brand;
-            ItemCat.Text = dbContext.GetCatName(itemTemp.CatId);
+            ItemCat.Text = App.dbContext.GetCatName(itemTemp.CatId);
             ItemDesc.Text = itemTemp.Desc;
             ItemPrice.Text = itemTemp.Price.ToString();
             item = itemTemp;
