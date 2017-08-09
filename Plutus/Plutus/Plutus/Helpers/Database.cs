@@ -39,11 +39,11 @@ namespace Plutus.Helpers
 
         internal void Init()
         {
-            VatModel vat = new VatModel() {Name = "20%", Rate = 1.2};
+            var vat = new VatModel() {Name = "20%", Rate = 1.2};
             Add(vat);
-            VatModel vat2 = new VatModel() {Name = "0%", Rate = 1};
+            var vat2 = new VatModel() {Name = "0%", Rate = 1};
             Add(vat2);
-            VatModel vat3 = new VatModel() {Name = "No VAT", Rate = 1};
+            var vat3 = new VatModel() {Name = "No VAT", Rate = 1};
             Add(vat3);
             Save();
         }
@@ -51,39 +51,31 @@ namespace Plutus.Helpers
         internal async Task<EmployeeModel> Login(string idEmail, string password)
         {
             var emp = _db.Employees
-                .Where(e => e.Id.Equals(idEmail) || e.Email.Equals(idEmail))
-                .SingleOrDefault();
+                .SingleOrDefault(e => e.Id.Equals(idEmail) || e.Email.Equals(idEmail));
             if (emp == null) return null;
-            if (!await Task.Run(()=>Password.Verify(password, Convert.FromBase64String(emp.Salt),
-                Convert.FromBase64String(emp.HashedPassword))))
-            {
-                emp = null;
-                return null;
-            }
-            return emp;
+            if (await Task.Run(() => Password.Verify(password, Convert.FromBase64String(emp.Salt),
+                Convert.FromBase64String(emp.HashedPassword)))) return emp;
+            emp = null;
+            return null;
         }
 
         internal StoreModel GetStore(string id)
         {
             var store = _db.Stores
-                .Where(s => s.StoreId.Equals(id))
-                .SingleOrDefault();
-            if (store == null) return null;
-            return store;
+                .SingleOrDefault(s => s.StoreId.Equals(id));
+            return store ?? null;
         }
 
         internal List<VatModel> GetVat()
         {
-            List<VatModel> vats = _db.Vats.ToList();
-            if (vats == null) return null;
-            return vats;
+            var vats = _db.Vats.ToList();
+            return vats ?? null;
         }
 
         internal List<CategoryModel> GetCats()
         {
-            List<CategoryModel> cats = _db.Category.ToList();
-            if (cats == null) return null;
-            return cats;
+            var cats = _db.Category.ToList();
+            return cats ?? null;
         }
 
         internal string GetCatName(int id)
@@ -92,8 +84,7 @@ namespace Plutus.Helpers
                 .Where(c => c.Id.Equals(id))
                 .Select(c => c.Name)
                 .SingleOrDefault();
-            if (catName == null) return null;
-            return catName;
+            return catName ?? null;
         }
 
         internal bool IsIdSame(string testId)
@@ -122,8 +113,7 @@ namespace Plutus.Helpers
                 .Where(i => i.ItemId.Equals(temp) ||
                     i.Name.Contains(temp))
                 .ToList();
-            if (item == null) return null;
-            return item;
+            return item ?? null;
         }
 
         internal void UpdateItem(ItemModel item)

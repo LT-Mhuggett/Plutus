@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:class="Plutus.Pages.ConfigPage"
+             xmlns:i18N="clr-namespace:I18N_L10N;assembly=I18N_L10N"
+             Title="{i18N:Translate Config}"
+             Icon="">
+    <Grid>
+        <ScrollView>
+            <StackLayout BackgroundColor="Transparent"
+              HorizontalOptions="FillAndExpand"
+              VerticalOptions="FillAndExpand"
+                     Margin="10,0,10,0">
+                <Label Text="{i18N:Translate IntroL1}"/>
+                <Label Text="{i18N:Translate IntroL2}"/>
+                <Label Text="{i18N:Translate StDetails}" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start"/>
+                <Label Text="{i18N:Translate Name}" VerticalOptions="FillAndExpand"/>
+                <Entry x:Name="StoreName"/>
+                <Label Text="{i18N:Translate StAbbr}" VerticalOptions="FillAndExpand"/>
+                <Entry x:Name="StoreAbbr" />
+                <Label Text="{i18N:Translate Address}" FontAttributes="Bold" FontSize="Medium" VerticalOptions="Start"/>
+                <StackLayout x:Name="AutoLayoutS" IsVisible="False">
+                    <Button x:Name="SEnterManually" Text="{i18N:Translate ButtAddressMan}" Clicked="SEnterManually_OnClicked"/>
+                    <Picker x:Name="StoreAddressPicker" Title="{i18N:Translate StAddress}">
+                    </Picker>
+                </StackLayout>
+                <StackLayout x:Name="ManLayoutS">
+                    <Button x:Name="AutoFillStore" Text="{i18N:Translate ButtAddressAuto}" Clicked="AutoFillStore_OnClicked"/>
+                    <Label x:Name="SAdLine1L" Text="{i18N:Translate AdLine1}" VerticalOptions="FillAndExpand"/>
+                    <Entry x:Name="StoreAdLine1"/>
+                    <Label x:Name="SAdLine2L" Text="{i18N:Translate AdLine2}" VerticalOptions="FillAndExpand"/>
+                    <Entry x:Name="StoreAdLine2"/>
+                    <Label x:Name="SCityL" Text="{i18N:Translate City}" VerticalOptions="FillAndExpand"/>
+                    <Entry x:Name="StoreCity"/>
+                    <Label x:Name="SPostCodeL" Text="{i18N:Translate PostCode}" VerticalOptions="FillAndExpand"/>
+                    <Entry x:Name="StorePostCode"/>
+                    <Label x:Name="SCountryL" Text="{i18N:Translate Country}" VerticalOptions="FillAndExpand"/>
+                    <Entry x:Name="StoreCountry"/>
+                </StackLayout>
+                <Label Text="{i18N:Translate StOwnerDetails}" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start"/>
+                <Label Text="{i18N:Translate FName}" VerticalOptions="FillAndExpand"/>
+                <Entry x:Name="FName"/>
+                <Label Text="{i18N:Translate LName}" VerticalOptions="FillAndExpand"/>
+                <Entry x:Name="LName"/>
+                <Label Text="{i18N:Translate Email}" VerticalOptions="FillAndExpand"/>
+                <Entry x:Name="Email" Keyboard="Email"/>
+                <Label Text="{i18N:Translate PhoneN}"/>
+                <Entry x:Name="Mobile" Keyboard="Telephone"/>
+                <Label Text="{i18N:Translate PassW}" VerticalOptions="FillAndExpand"/>
+                <Entry x:Name="Password" IsPassword="True"/>
+                <Label Text="{i18N:Translate PassWConf}" VerticalOptions="FillAndExpand"/>
+                <Entry x:Name="PasswordConf" IsPassword="True"/>
+                <Label Text="{i18N:Translate Address}" FontAttributes="Bold" FontSize="Medium" VerticalOptions="Start"/>
+                <StackLayout x:Name="AutoLayoutP" IsVisible="False">
+                    <Button x:Name="PEnterManually" Text="{i18N:Translate ButtAddressMan}" Clicked="PEnterManually_OnClicked"/>
+                    <Picker x:Name="PersonAddressPicker" Title="{i18N:Translate OwnerAddress}">
+                    </Picker>
+                </StackLayout>
+                <StackLayout x:Name="ManLayoutP">
+                    <Button x:Name="AutoFillPerson" Text="{i18N:Translate ButtAddressAuto}" Clicked="AutoFillPerson_OnClicked"/>
+                    <Label x:Name="AdLine1L" Text="{i18N:Translate AdLine1}" VerticalOptions="FillAndExpand"/>
+                    <Entry x:Name="AdLine1"/>
+                    <Label x:Name="AdLine2L" Text="{i18N:Translate AdLine2}" VerticalOptions="FillAndExpand"/>
+                    <Entry x:Name="AdLine2"/>
+                    <Label x:Name="CityL" Text="{i18N:Translate City}" VerticalOptions="FillAndExpand"/>
+                    <Entry x:Name="City"/>
+                    <Label x:Name="PostCodeL" Text="{i18N:Translate PostCode}" VerticalOptions="FillAndExpand"/>
+                    <Entry x:Name="PostCode"/>
+                    <Label x:Name="CountryL" Text="{i18N:Translate Country}" VerticalOptions="FillAndExpand"/>
+                    <Entry x:Name="Country"/>
+                </StackLayout>
+                <Label Text="{i18N:Translate Database}" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start"/>
+                <Picker x:Name="DatabasePicker" Title="{i18N:Translate DatabaseType}">
+                    <Picker.Items>
+                        <x:String>Local Database</x:String>
+                        <x:String>Server Database</x:String>
+                        <x:String>Cloud Database</x:String>
+                    </Picker.Items>
+                </Picker>
+                <Button x:Name="Create" Text="{i18N:Translate Create}" VerticalOptions="Center" Clicked="Create_Clicked"/>
+            </StackLayout>
+        </ScrollView>
+        <ContentView x:Name="LCV" IsVisible="false" BackgroundColor="LightGray" Opacity=".5" HorizontalOptions="FillAndExpand" VerticalOptions="FillAndExpand">
+            <ActivityIndicator x:Name="LAI" IsRunning="false" />
+        </ContentView>
+    </Grid>
+</ContentPage>

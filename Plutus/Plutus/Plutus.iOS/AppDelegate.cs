@@ -24,6 +24,7 @@ namespace Plutus.iOS
 		{
 			global::Xamarin.Forms.Forms.Init ();
 		    Xamarin.FormsMaps.Init();
+		    ZXing.Net.Mobile.Forms.iOS.Platform.Init();
             LoadApplication (new Plutus.App ());
 
 			return base.FinishedLaunching (app, options);

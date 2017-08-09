@@ -2,18 +2,17 @@
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
             x:Class="Plutus.Pages.UsersLoggedPage"
-            xmlns:i18n="clr-namespace:I18N_L10N;assembly=I18N_L10N">
+            xmlns:i18N="clr-namespace:I18N_L10N;assembly=I18N_L10N">
     <StackLayout>
         <ListView ItemsSource="{Binding Emps}"
             ItemTapped="Handle_ItemTapped"
-            CachingStrategy="RecycleElement"
-            SeparatorVisibility="None">
+                  SeparatorVisibility="None">
             <ListView.ItemTemplate>
                 <DataTemplate>
                     <ViewCell>
                         <ViewCell.ContextActions>
                             <MenuItem Clicked="OnDelete" CommandParameter="{Binding .}"
-                            Text="{i18n:Translate Logout}" IsDestructive="True" />
+                            Text="{i18N:Translate Logout}" IsDestructive="True" />
                         </ViewCell.ContextActions>
                         <StackLayout>
                             <Label Text="{Binding LName}" FontAttributes="Bold"/>
@@ -23,7 +22,7 @@
                 </DataTemplate>
             </ListView.ItemTemplate>
         </ListView>
-        <Button x:Name="NewUserLogin" Text="{i18n:Translate NewUserLogin}" Clicked="NewUserLogin_Clicked" />
-        <Button x:Name="LogoutAll" Text="{i18n:Translate LogoutAll}" Clicked="LogoutAll_Clicked" />
+        <Button x:Name="NewUserLogin" Text="{i18N:Translate NewUserLogin}" Clicked="NewUserLogin_Clicked" />
+        <Button x:Name="LogoutAll" Text="{i18N:Translate LogoutAll}" Clicked="LogoutAll_Clicked" />
     </StackLayout>
 </ContentPage>

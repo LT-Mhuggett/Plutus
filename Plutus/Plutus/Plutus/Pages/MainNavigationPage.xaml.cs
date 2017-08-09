@@ -18,7 +18,6 @@ namespace Plutus.Pages
         public MainNavigationPage (EmployeeModel etemp, StoreModel stemp)
         {
             App.Store = stemp;
-            stemp = null;
             InitPage(etemp);
         }
 
@@ -37,13 +36,26 @@ namespace Plutus.Pages
                 Command = new Command(this.ShowLoggedUsers)
             });
 
-            App.EmpsLogged.Add(etemp);
-            etemp = null;
+            try
+            {
+                App.EmpsLogged.Add(etemp);
+            }
+            catch (Exception e)
+            {
+                App.EmpsLogged = new ObservableCollection<EmployeeModel>
+                {
+                    etemp
+                };
+#if DEBUG
+                Console.WriteLine($"Exception Employee Log null. Error:{e}");
+#endif
+            }
 
             InitializeComponent();
             Title = $"Plutus - {App.Store.StoreName}";
-
-            Children.Add(new Inventory.InventoryMangPage());
+            
+            Children.Add(new Till.MainPage());
+            Children.Add(new Inventory.MainPage());
         }
 
         private void ShowLoggedUsers(object obj)
@@ -55,17 +67,13 @@ namespace Plutus.Pages
         {
             Device.BeginInvokeOnMainThread(async () =>
             {
-                bool quit = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("Quit?Mesg"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
+                var quit = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("Quit?Mesg"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
 
-                if (quit)
-                {
-                    var closer = DependencyService.Get<ICloseApp>();
-                    if (closer != null)
-                    {
-                        App.EmpsLogged = null;
-                        closer.CloseApp();
-                    }
-                }
+                if (!quit) return;
+                var closer = DependencyService.Get<ICloseApp>();
+                if (closer == null) return;
+                App.EmpsLogged = null;
+                closer.CloseApp();
             });
             return true;
         }

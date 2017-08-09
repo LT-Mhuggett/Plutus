@@ -2,6 +2,6 @@
 <TabbedPage xmlns="http://xamarin.com/schemas/2014/forms"
             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
             x:Class="Plutus.Pages.FirstTimeStartUpPage"
-            xmlns:i18n="clr-namespace:I18N_L10N;assembly=I18N_L10N"
-            Title="{i18n:Translate FWelcomeTitle}">
+            xmlns:i18N="clr-namespace:I18N_L10N;assembly=I18N_L10N"
+            Title="{i18N:Translate FWelcomeTitle}">
 </TabbedPage>

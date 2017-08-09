@@ -1,91 +1,82 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Plutus.Helpers;
-using Plutus.Data;
 using Plutus.Models;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 using System.Collections.ObjectModel;
-using I18N_L10N;
 
 namespace Plutus.Pages
 {
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class LoginPage : ContentPage
 	{
-        TranslateExtension Translate = new TranslateExtension();
-
         public LoginPage ()
 		{
 			InitializeComponent ();
 
             LoginButton.Clicked += delegate { LoginButton_Clicked_No_List(); };
-		}
+            PId.Completed += delegate { LoginButton_Clicked_No_List(); };
+        }
 
-        public LoginPage(ObservableCollection<EmployeeModel> CurrenList)
+        public LoginPage(ObservableCollection<EmployeeModel> currenList)
         {
             InitializeComponent();
 
-            LoginButton.Clicked += delegate { LoginButton_Clicked_List(CurrenList); };
+            LoginButton.Clicked += delegate { LoginButton_Clicked_List(currenList); };
+            PId.Completed += delegate { LoginButton_Clicked_List(currenList); };
         }
 
-        private async void LoginButton_Clicked_List(ObservableCollection<EmployeeModel> CurrenList)
-        {
-            //must add check for if the user is already logged in during debuging this not a problem and is more of a convenience for testing
-            Loading.TogleLoading(LCV, LAI);
-            var emp = await EmpLogIn();
-            if (emp == null)
-                return;
-
-            var store = await StoreGetWithEmp(emp);
-            if (store == null)
-                return;
-            Application.Current.MainPage = new NavigationPage(new MainNavigationPage(emp, CurrenList));
-            Loading.TogleLoading(LCV, LAI);
-        }
-
-        private async void LoginButton_Clicked_No_List()
+        private void LoginButton_Clicked_List(ObservableCollection<EmployeeModel> currenList)
         {
             Loading.TogleLoading(LCV, LAI);
-
-            var emp = await EmpLogIn();
-            if (emp == null)
-                return;
-
-            var store = await StoreGetWithEmp(emp);
-            if (store == null)
-                return;
-
-            Application.Current.MainPage = new NavigationPage(new MainNavigationPage(emp, store));
-            Loading.TogleLoading(LCV, LAI);
-        }
-
-        internal async Task<EmployeeModel> EmpLogIn()
-        {
-            var emp = await App.dbContext.Login(UId.Text, PId.Text);
-            if (emp == null)
+            Device.BeginInvokeOnMainThread(async () =>
             {
+                //must add check for if the user is already logged in during debuging this not a problem and is more of a convenience for testing
+                
+                var emp = await EmpLogIn();
+                if (emp == null)
+                    return;
+
+                var store = await StoreGetWithEmp(emp);
+                if (store == null)
+                    return;
+                Application.Current.MainPage = new NavigationPage(new MainNavigationPage(emp, currenList));
                 Loading.TogleLoading(LCV, LAI);
-                await DisplayAlert(Translate.ProvideValue("Hmm"), Translate.ProvideValue("DetailsNotCorrectORUserNotExistMesg"), Translate.ProvideValue("OK"));
-                return null;
-            }
-            return emp;
+            });
+        }
+
+        private void LoginButton_Clicked_No_List()
+        {
+            Loading.TogleLoading(LCV, LAI);
+            Device.BeginInvokeOnMainThread(async () =>
+            {
+                var emp = await EmpLogIn();
+                if (emp == null) return;
+
+                var store = await StoreGetWithEmp(emp);
+                if (store == null) return;
+
+                Application.Current.MainPage = new NavigationPage(new MainNavigationPage(emp, store));
+                Loading.TogleLoading(LCV, LAI);
+            });
+        }
+
+	    internal async Task<EmployeeModel> EmpLogIn()
+        {
+            var emp = await App.DbContext.Login(UId.Text, PId.Text);
+            if (emp != null) return emp;
+            Loading.TogleLoading(LCV, LAI);
+            await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DetailsNotCorrectORUserNotExistMesg"), App.Translate.ProvideValue("OK"));
+            return null;
         }
 
         internal async Task<StoreModel> StoreGetWithEmp(EmployeeModel emp)
         {
-            var store = App.dbContext.GetStore(emp.StoreId);
-            if (store == null)
-            {
-                Loading.TogleLoading(LCV, LAI);
-                await DisplayAlert(Translate.ProvideValue("Hmm"), Translate.ProvideValue("StoreNotReachableMesg"), Translate.ProvideValue("OK"));
-                return null;
-            }
-            return store;
+            var store = App.DbContext.GetStore(emp.StoreId);
+            if (store != null) return store;
+            Loading.TogleLoading(LCV, LAI);
+            await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("StoreNotReachableMesg"), App.Translate.ProvideValue("OK"));
+            return null;
         }
     }
 }

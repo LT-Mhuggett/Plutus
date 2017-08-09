@@ -2,13 +2,16 @@
   "dependencies": {
     "Microsoft.EntityFrameworkCore": "1.1.2",
     "Microsoft.EntityFrameworkCore.Sqlite": "1.1.2",
-    "Microsoft.NETCore.UniversalWindowsPlatform": "5.3.3",
+    "Microsoft.NETCore.UniversalWindowsPlatform": "5.3.4",
+    "Plugin.MediaManager.Forms": "0.4.3",
     "System.ComponentModel.Annotations": "4.3.0",
+    "System.Reflection": "4.3.0",
     "Xam.Plugin.Geolocator": "4.0.1",
     "Xam.Plugin.Media": "3.0.1",
-    "Xamarin.Forms": "2.3.4.247",
+    "Xamarin.Forms": "2.3.5.256-pre6",
     "Xamarin.Forms.Maps": "2.3.4.247",
-    "ZXing.Net.Mobile": "2.2.9"
+    "ZXing.Net.Mobile": "2.2.9",
+    "ZXing.Net.Mobile.Forms": "2.2.9"
   },
   "frameworks": {
     "uap10.0": {}

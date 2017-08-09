@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:i18n="clr-namespace:I18N_L10N;assembly=I18N_L10N"
+             xmlns:i18N="clr-namespace:I18N_L10N;assembly=I18N_L10N"
              x:Class="Plutus.Pages.Inventory.ItemTemplate">
     <ContentPage.Content>
         <StackLayout Margin="0,10,0,0"
@@ -14,9 +14,10 @@
             <Label x:Name="ItemDesc" VerticalTextAlignment="Center" VerticalOptions="Center" HorizontalOptions="Center" />
             <Label x:Name="ItemPrice" VerticalOptions="Center" HorizontalOptions="Center" />
             <Image x:Name="ItemId" VerticalOptions="Center" HorizontalOptions="Center" />
-            <Button x:Name="Confirm" Text="{i18n:Translate Confirm}" Clicked="Confirm_Clicked" VerticalOptions="Center" HorizontalOptions="Center" />
-            <Button x:Name="Edit" Text="{i18n:Translate Edit}" Clicked="Edit_Clicked" VerticalOptions="Center" HorizontalOptions="Center" />
-            <Button x:Name="Select" IsVisible="False" Text="{i18n:Translate Select}" Clicked="Select_Clicked"/>
+            <Button x:Name="Confirm" Text="{i18N:Translate Confirm}" Clicked="Confirm_Clicked" VerticalOptions="Center" HorizontalOptions="Center" />
+            <Button x:Name="Edit" Text="{i18N:Translate Edit}" Clicked="Edit_Clicked" VerticalOptions="Center" HorizontalOptions="Center" />
+            <Button x:Name="Select" IsVisible="False" Text="{i18N:Translate Select}" Clicked="Select_Clicked"/>
+            <Button x:Name="Close" Text="Close" Clicked="Close_Clicked" />
         </StackLayout>
     </ContentPage.Content>
 </ContentPage>

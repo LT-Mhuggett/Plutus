@@ -11,129 +11,116 @@ using Plugin.Media;
 using System.IO;
 using Plutus.Helpers.Interface;
 using I18N_L10N;
+using ZXing.Net.Mobile.Forms;
+using ZXing.Mobile;
 
 namespace Plutus.Pages.Inventory
 {
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class UpdateItemPage : ContentPage
 	{
-        internal ItemModel item;
-        internal ItemModel changeItem = new ItemModel();
-        internal List<VatModel> vats;
-        internal List<CategoryModel> cats;
-        internal int count = 0;
+        internal ItemModel Item;
+        internal ItemModel ChangeItem = new ItemModel();
+        internal List<VatModel> Vats;
+        internal List<CategoryModel> Cats;
+        private ZXingScannerPage _scanPage;
 
         public UpdateItemPage ()
 		{
 			InitializeComponent ();
 
-            vats = App.dbContext.GetVat();
-            foreach (var item in vats)
+            Vats = App.DbContext.GetVat();
+            foreach (var item in Vats)
             {
                 VatPicker.Items.Add(item.Name);
             }
             InitCatPicker();
         }
 
-        private void Item_Search(object sender, EventArgs e)
+        private void ItemSearchCompleted(object sender, EventArgs e)
         {
-            ItemSearch.Unfocus();
+            ItemSearchComplete();
         }
 
-
-
-        private void ItemSearch_Focused(object sender, FocusEventArgs e)
+        private async void ItemSearchComplete()
         {
-            if (Device.Idiom == TargetIdiom.Desktop) return;
-            Scanner.ShowScanner(false, ItemSearch);
-        }
-
-        private async void ItemSearch_Unfocused(object sender, FocusEventArgs e)
-        {
-            if ((count & 1) == 0)
+            var items = App.DbContext.GetItem(ItemSearch.Text);
+            switch (items.Count)
             {
-                List<ItemModel> items = App.dbContext.GetItem(ItemSearch.Text);
-                if (items.Count == 0)
-                {
+                case 0:
                     await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("ItemNotFoundMesg"), App.Translate.ProvideValue("OK"));
-                    count--;
                     return;
-                }
-                else if (items.Count == 1)
-                {
-                    item = items.LastOrDefault();
-                    changeItem.ItemId = item.ItemId;
-                    changeItem.Name = item.Name;
-                    changeItem.Image = item.Image;
-                    changeItem.Desc = item.Desc;
-                    changeItem.Brand = item.Brand;
-                    changeItem.CatId = item.CatId;
-                    changeItem.VatId = item.VatId;
-                    changeItem.Cost = item.Cost;
-                    changeItem.Price = item.Price;
-                    changeItem.Stock = item.Stock;
-                    changeItem.Transactions = item.Transactions;
+                case 1:
+                    Item = items.LastOrDefault();
+                    ChangeItem.ItemId = Item.ItemId;
+                    ChangeItem.Name = Item.Name;
+                    ChangeItem.Image = Item.Image;
+                    ChangeItem.Desc = Item.Desc;
+                    ChangeItem.Brand = Item.Brand;
+                    ChangeItem.CatId = Item.CatId;
+                    ChangeItem.VatId = Item.VatId;
+                    ChangeItem.Cost = Item.Cost;
+                    ChangeItem.Price = Item.Price;
+                    ChangeItem.Stock = Item.Stock;
+                    ChangeItem.Transactions = Item.Transactions;
 
                     Populate();
-                }
-                else
-                {
+                    break;
+                default:
                     var tempPage = new CarouselPage()
                     {
                         Title = App.Translate.ProvideValue("SResults")
                     };
-                    foreach (ItemModel item in items)
+                    foreach (var item in items)
                     {
-                        tempPage.Children.Add(new ItemTemplate(item, true));
+                        tempPage.Children.Add(new ItemTemplate(item, 1));
                     }
 
                     await Navigation.PushModalAsync(tempPage);
 
                     MessagingCenter.Subscribe<UpdateItemPage, ItemModel>(this, "SearchSelected", async (Sender, arg) =>
                     {
-                        item = arg;
+                        Item = arg;
                         Populate();
-                        ItemSearch.Text = item.ItemId;
+                        ItemSearch.Text = Item.ItemId;
                         await Navigation.PopModalAsync();
                     });
-                }
+                    break;
             }
-            count++;
         }
 
         private void Populate()
         {
-            count = 0;
-            Name.Text = item.Name;
-            if (item.Image == null)
+            Name.Text = Item.Name;
+            if (Item.Image == null)
             {
                 //ItemImage.Source = "";
             }
             else
             {
-                Pic.Source = ImageSource.FromStream(() => new MemoryStream(item.Image));
+                Pic.Source = ImageSource.FromStream(() => new MemoryStream(Item.Image));
             }
-            Brand.Text = item.Brand;
-            CatPicker.SelectedIndex = item.CatId - 1;
-            Cost.Text = Convert.ToString(item.Cost);
-            VatPicker.SelectedIndex = item.VatId - 1;
-            Price.Text = Convert.ToString(item.Price);
-            Stock.Text = Convert.ToString(item.Stock);
+            Brand.Text = Item.Brand;
+            CatPicker.SelectedIndex = Item.CatId - 1;
+            Cost.Text = Convert.ToString(Item.Cost);
+            VatPicker.SelectedIndex = Item.VatId - 1;
+            Price.Text = Convert.ToString(Item.Price);
+            Stock.Text = Convert.ToString(Item.Stock);
             ItemDetails.IsVisible = true;
         }
 
         private async void Desc_Clicked(object sender, EventArgs e)
         {
-            await Navigation.PushModalAsync(new NavigationPage(new ItemDescPage(item.Desc)));
+            await Navigation.PushModalAsync(new NavigationPage(new ItemDescPage(Item.Desc)));
             MessagingCenter.Subscribe<AddItemPage>(this, "DescDone", (Sender) => {
-                item.Desc = ItemDescPage.description;
+                Item.Desc = ItemDescPage.description;
             });
         }
 
         private async Task Cost_Vat_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(Cost.Text) || VatPicker.SelectedIndex == -1) return;
-            foreach (var item in vats)
+            foreach (var item in Vats)
             {
                 if (item.VatId == VatPicker.SelectedIndex + 1)
                 {
@@ -144,9 +131,9 @@ namespace Plutus.Pages.Inventory
 
         protected void InitCatPicker()
         {
-            cats = App.dbContext.GetCats();
+            Cats = App.DbContext.GetCats();
             CatPicker.Items.Clear();
-            foreach (var item in cats)
+            foreach (var item in Cats)
             {
                 CatPicker.Items.Add(item.Name);
             }
@@ -155,16 +142,14 @@ namespace Plutus.Pages.Inventory
 
         private async void CatPicker_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (CatPicker.SelectedIndex == CatPicker.Items.Count - 1)
+            if (CatPicker.SelectedIndex != CatPicker.Items.Count - 1) return;
+            await Navigation.PushModalAsync(new AddCategoryPage());
+            MessagingCenter.Subscribe<UpdateItemPage>(this, "ConfCat", async (Sender) =>
             {
-                await Navigation.PushModalAsync(new AddCategoryPage());
-                MessagingCenter.Subscribe<UpdateItemPage>(this, "ConfCat", async (Sender) =>
-                {
-                    InitCatPicker();
-                    await Navigation.PopModalAsync();
-                    //Currently a fix, This works but is a waste of procesor time.
-                });
-            }
+                InitCatPicker();
+                await Navigation.PopModalAsync();
+                //Currently a fix, This works but is a waste of procesor time.
+            });
         }
 
         private async Task Image_Clicked(object sender, EventArgs e)
@@ -181,48 +166,67 @@ namespace Plutus.Pages.Inventory
                 action = await DisplayActionSheet(App.Translate.ProvideValue("Image"), App.Translate.ProvideValue("Cancel"), null, App.Translate.ProvideValue("PRoll"));
             }
 
-            Dictionary<string, Action> actionDic = new Dictionary<string, Action> {
-                { App.Translate.ProvideValue("Camera"), () => Camera.getPhoto(item, Pic)},
-                { App.Translate.ProvideValue("PRoll"), () => GetImageRoll() },
+            var actionDic = new Dictionary<string, Action> {
+                { App.Translate.ProvideValue("Camera"), () => Camera.getPhoto(Item, Pic)},
+                { App.Translate.ProvideValue("PRoll"), GetImageRoll },
                 { App.Translate.ProvideValue("Cancel"), () => Console.WriteLine("Escaped!") }
             };
 
-            Action actionCall = actionDic[action];
+            var actionCall = actionDic[action];
             actionCall();
         }
 
         public async void GetImageRoll()
         {
-            Stream stream = await DependencyService.Get<IPicturePicker>().GetImageStreamAsync();
-            if (stream != null)
-            {
-                Pic.Source = ImageSource.FromStream(() => stream);
-                item.Image = Camera.StreamToArray(stream);
-            }
+            var stream = await DependencyService.Get<IPicturePicker>().GetImageStreamAsync();
+            if (stream == null) return;
+            Pic.Source = ImageSource.FromStream(() => stream);
+            Item.Image = Camera.StreamToArray(stream);
         }
 
         private async Task Confirm_Clicked(object sender, EventArgs e)
         {
-            changeItem.Name = Name.Text;
-            changeItem.Brand = Brand.Text;
-            changeItem.CatId = CatPicker.SelectedIndex + 1;
-            changeItem.Cost = await Conversions.ToDecimal(Cost.Text);
-            changeItem.Price = await Conversions.ToDecimal(Price.Text);
-            changeItem.VatId = VatPicker.SelectedIndex + 1;
+            ChangeItem.Name = Name.Text;
+            ChangeItem.Brand = Brand.Text;
+            ChangeItem.CatId = CatPicker.SelectedIndex + 1;
+            ChangeItem.Cost = await Conversions.ToDecimal(Cost.Text);
+            ChangeItem.Price = await Conversions.ToDecimal(Price.Text);
+            ChangeItem.VatId = VatPicker.SelectedIndex + 1;
 
-            if (changeItem.Name==item.Name&&changeItem.Brand==item.Brand&&changeItem.CatId==item.CatId&&changeItem.Cost==item.Cost&&changeItem.Desc==item.Desc&&changeItem.Image==item.Image&&changeItem.Price==item.Price&&changeItem.VatId==item.VatId)
+            if (ChangeItem.Name==Item.Name&&ChangeItem.Brand==Item.Brand&&ChangeItem.CatId==Item.CatId&&ChangeItem.Cost==Item.Cost&&ChangeItem.Desc==Item.Desc&&ChangeItem.Image==Item.Image&&ChangeItem.Price==Item.Price&&ChangeItem.VatId==Item.VatId)
             {
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("NoChangeMadeMesg"), App.Translate.ProvideValue("OK"));
                 return;
             }
 
-            await Navigation.PushModalAsync(new ItemTemplate(changeItem, false));
+            await Navigation.PushModalAsync(new ItemTemplate(ChangeItem, 0));
             MessagingCenter.Subscribe<UpdateItemPage>(this, "Accepted", async (Sender) =>
             {
-                App.dbContext.UpdateItem(changeItem);
-                App.dbContext.Save();
+                App.DbContext.UpdateItem(ChangeItem);
+                App.DbContext.Save();
                 await Navigation.PopAsync();
             });
+        }
+
+        private async void ScanButt_Clicked(object sender, EventArgs e)
+        {
+            var opt = new MobileBarcodeScanningOptions
+            {
+                UseNativeScanning = true,
+                TryHarder = true,
+                TryInverted = true
+            };
+            _scanPage = new ZXingScannerPage(opt, null);
+            _scanPage.OnScanResult += (result) =>
+            {
+                Device.BeginInvokeOnMainThread(() =>
+                {
+                    Navigation.PopAsync();
+                    ItemSearch.Text = result.Text;
+                    ItemSearchComplete();
+                });
+            };
+            await Navigation.PushAsync(_scanPage);
         }
     }
 }

@@ -1,16 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 using Xamarin.Forms;
 using ZXing;
 using ZXing.Mobile;
 
 namespace Plutus.Helpers
 {
-    class Scanner
+    internal class Scanner
     {
-        public async static void ShowScanner(bool moreThanOne, Entry field)
+        public static async Task<string> ShowScanner(bool moreThanOne)
         {
+            if (Device.Idiom == TargetIdiom.Desktop) return null;
+
             var scanner = new MobileBarcodeScanner()
             {
                 UseCustomOverlay = false,
@@ -31,6 +34,7 @@ namespace Plutus.Helpers
                 };
 
                 scanner.ScanContinuously(opt, HandleMultiScanResult);
+                return null;
             }
             else
             {
@@ -41,13 +45,13 @@ namespace Plutus.Helpers
                     TryInverted = true
                 };
                 var result = await scanner.Scan(opt);
-                field.Text = result.Text;
+                return result.Text;
             }
         }
 
         private static void HandleMultiScanResult(Result obj)
         {
-            if (obj != null && !string.IsNullOrEmpty(obj.Text))
+            if (!string.IsNullOrEmpty(obj?.Text))
             {
                 throw new NotImplementedException();
             }

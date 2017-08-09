@@ -2,35 +2,36 @@
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Plutus.Pages.Inventory.UpdateItemPage"
-             xmlns:i18n="clr-namespace:I18N_L10N;assembly=I18N_L10N"
-             Title="{i18n:Translate UpdateItem}">
+             xmlns:i18N="clr-namespace:I18N_L10N;assembly=I18N_L10N"
+             Title="{i18N:Translate UpdateItem}">
     <ContentPage.Content>
         <ScrollView>
             <StackLayout BackgroundColor="Transparent"
                         HorizontalOptions="FillAndExpand"
                         VerticalOptions="FillAndExpand"
                         Margin="10,0,10,0">
-                <Label x:Name="ISLabel" Text="{i18n:Translate IDName}" HorizontalOptions="FillAndExpand"/>
-                <Entry x:Name="ItemSearch" Completed="Item_Search" Unfocused="ItemSearch_Unfocused" Focused="ItemSearch_Focused"/>
+                <Label x:Name="ISLabel" Text="{i18N:Translate IDName}" HorizontalOptions="FillAndExpand"/>
+                <Entry x:Name="ItemSearch" Completed="ItemSearchCompleted"/>
+                <Button x:Name="ScanButt" Text="Scan" Clicked="ScanButt_Clicked"/>
                 <StackLayout x:Name="ItemDetails" IsVisible="False">
-                    <Label Text="{i18n:Translate Name}" HorizontalOptions="FillAndExpand" />
+                    <Label Text="{i18N:Translate Name}" HorizontalOptions="FillAndExpand" />
                     <Entry x:Name="Name" />
-                    <Label Text="{i18n:Translate Image}" HorizontalOptions="FillAndExpand" />
+                    <Label Text="{i18N:Translate Image}" HorizontalOptions="FillAndExpand" />
                     <Image x:Name="Pic" HorizontalOptions="FillAndExpand" />
-                    <Button x:Name="ImageButton" Text="{i18n:Translate ButtImage}" Clicked="Image_Clicked" IsEnabled="false" />
-                    <Label Text="{i18n:Translate Desc}" HorizontalOptions="Start" VerticalOptions="Center"/>
-                    <Button x:Name="Desc" Text="{i18n:Translate AddDesc}" Clicked="Desc_Clicked" />
-                    <Label Text="{i18n:Translate Brand}" HorizontalOptions="FillAndExpand" />
+                    <Button x:Name="ImageButton" Text="{i18N:Translate ButtImage}" Clicked="Image_Clicked" IsEnabled="false" />
+                    <Label Text="{i18N:Translate Desc}" HorizontalOptions="Start" VerticalOptions="Center"/>
+                    <Button x:Name="Desc" Text="{i18N:Translate AddDesc}" Clicked="Desc_Clicked" />
+                    <Label Text="{i18N:Translate Brand}" HorizontalOptions="FillAndExpand" />
                     <Entry x:Name="Brand" />
-                    <Picker x:Name="CatPicker" Title="{i18n:Translate Cate}" SelectedIndexChanged="CatPicker_SelectedIndexChanged"/>
-                    <Label Text="{i18n:Translate Cost}" HorizontalOptions="FillAndExpand" />
+                    <Picker x:Name="CatPicker" Title="{i18N:Translate Cate}" SelectedIndexChanged="CatPicker_SelectedIndexChanged"/>
+                    <Label Text="{i18N:Translate Cost}" HorizontalOptions="FillAndExpand" />
                     <Entry x:Name="Cost" PropertyChanged="Cost_Vat_PropertyChanged" />
-                    <Picker x:Name="VatPicker" Title="{i18n:Translate TaxType}" PropertyChanged="Cost_Vat_PropertyChanged" />
-                    <Label Text="{i18n:Translate Price}" HorizontalOptions="FillAndExpand" />
+                    <Picker x:Name="VatPicker" Title="{i18N:Translate TaxType}" PropertyChanged="Cost_Vat_PropertyChanged" />
+                    <Label Text="{i18N:Translate Price}" HorizontalOptions="FillAndExpand" />
                     <Entry x:Name="Price" />
-                    <Label Text="{i18n:Translate CStock}" HorizontalOptions="FillAndExpand" />
+                    <Label Text="{i18N:Translate CStock}" HorizontalOptions="FillAndExpand" />
                     <Label x:Name="Stock" HorizontalOptions="FillAndExpand" />
-                    <Button x:Name="Confirm" Text="{i18n:Translate Confirm}" Clicked="Confirm_Clicked" />
+                    <Button x:Name="Confirm" Text="{i18N:Translate Confirm}" Clicked="Confirm_Clicked" />
                 </StackLayout>
             </StackLayout>
         </ScrollView>

@@ -10,9 +10,9 @@ using Xamarin.Forms.Xaml;
 namespace Plutus.Pages.Inventory
 {
 	[XamlCompilation(XamlCompilationOptions.Compile)]
-	public partial class InventoryMangPage : ContentPage
+	public partial class MainPage : ContentPage
 	{
-		public InventoryMangPage ()
+		public MainPage ()
 		{
 			InitializeComponent ();
 		}

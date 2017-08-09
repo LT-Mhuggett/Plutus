@@ -25,8 +25,8 @@ namespace Plutus.Pages.Inventory
                 Description=Description.Text
             };
 
-            App.dbContext.Add(category);
-            App.dbContext.Save();
+            App.DbContext.Add(category);
+            App.DbContext.Save();
             await Navigation.PopModalAsync();
             MessagingCenter.Send(new AddItemPage(), "ConfCat");
             MessagingCenter.Send(new UpdateItemPage(), "ConfCat");

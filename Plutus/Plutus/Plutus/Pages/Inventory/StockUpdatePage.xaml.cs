@@ -8,25 +8,20 @@ using Plutus.Models;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 using I18N_L10N;
+using ZXing.Net.Mobile.Forms;
+using ZXing.Mobile;
 
 namespace Plutus.Pages.Inventory
 {
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class StockUpdatePage : ContentPage
 	{
+        private ZXingScannerPage _scanPage;
+
         public StockUpdatePage ()
 		{
 			InitializeComponent ();
 		}
-
-        private async void Id_Unfocused(object sender, FocusEventArgs e)
-        {
-            if (!App.dbContext.IsIdSame(Id.Text))
-            {
-                await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("ItemNonExistMesg"), App.Translate.ProvideValue("OK"));
-                Id.Text = null;
-            }
-        }
 
         private async void Confirm_Clicked(object sender, EventArgs e)
         {
@@ -37,15 +32,44 @@ namespace Plutus.Pages.Inventory
                 Quantity = Convert.ToInt16(Quantity.Text)
             };
 
-            App.dbContext.UpdateStock(stock);
-            App.dbContext.Save();
+            App.DbContext.UpdateStock(stock);
+            App.DbContext.Save();
             await Navigation.PopAsync();
         }
 
-        private void Id_Focused(object sender, FocusEventArgs e)
+        private async void CheckExist()
         {
-            if (Device.Idiom == TargetIdiom.Desktop) return;
-            Scanner.ShowScanner(false, Id);
+            if (!App.DbContext.IsIdSame(Id.Text))
+            {
+                await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("ItemNonExistMesg"), App.Translate.ProvideValue("OK"));
+                Id.Text = null;
+            }
+        }
+
+        private void Id_Completed(object sender, EventArgs e)
+        {
+            CheckExist();
+        }
+
+        private async void ScanButt_Clicked(object sender, EventArgs e)
+        {
+            var opt = new MobileBarcodeScanningOptions
+            {
+                UseNativeScanning = true,
+                TryHarder = true,
+                TryInverted = true
+            };
+            _scanPage = new ZXingScannerPage(opt, null);
+            _scanPage.OnScanResult += (result) =>
+            {
+                Device.BeginInvokeOnMainThread(() =>
+                {
+                    Navigation.PopAsync();
+                    Id.Text = result.Text;
+                    CheckExist();
+                });
+            };
+            await Navigation.PushAsync(_scanPage);
         }
     }
 }

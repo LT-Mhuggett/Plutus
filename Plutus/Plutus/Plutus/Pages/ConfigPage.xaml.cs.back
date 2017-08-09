@@ -1,33 +1,31 @@
-﻿using Plutus.Helpers;
-using Plutus.Models;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
+using Plutus.Models;
+using Plutus.Helpers;
 
 namespace Plutus.Pages
 {
-	[XamlCompilation(XamlCompilationOptions.Compile)]
+    [XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class ConfigPage : ContentPage
 	{
-		public ConfigPage ()
+        public ConfigPage()
 		{
-			InitializeComponent ();
+			InitializeComponent();
 		}
 
         private async void Create_Clicked(object sender, EventArgs e)
         {
             Loading.TogleLoading(LCV, LAI);
-            if (string.IsNullOrEmpty(Password.Text) || string.IsNullOrEmpty(PasswordConf.Text))
+            if (string.IsNullOrEmpty(Password.Text)||string.IsNullOrEmpty(PasswordConf.Text))
             {
                 Loading.TogleLoading(LCV, LAI);
                 await DisplayAlert(App.Translate.ProvideValue("Oops"), App.Translate.ProvideValue("SetPassWMesg"), App.Translate.ProvideValue("OK"));
                 return;
             }
-            if (Password.Text != PasswordConf.Text || Password.Text.Length <= 6)
+            if (Password.Text != PasswordConf.Text||Password.Text.Length<=6)
             {
                 Loading.TogleLoading(LCV, LAI);
                 await DisplayAlert(App.Translate.ProvideValue("Oops"), App.Translate.ProvideValue("PassWNotSameMesg"), App.Translate.ProvideValue("OK"));
@@ -35,7 +33,7 @@ namespace Plutus.Pages
             }
 
             var Salt = Convert.ToBase64String(Helpers.Password.GenerateSalt());
-            var HashedPassword = Convert.ToBase64String(await Task.Run(() => Helpers.Password.ComputeHash(Password.Text, Convert.FromBase64String(Salt))));
+            var HashedPassword = Convert.ToBase64String(await Task.Run(()=>Helpers.Password.ComputeHash(Password.Text, Convert.FromBase64String(Salt))));
 
             var store = new StoreModel()
             {
@@ -54,7 +52,7 @@ namespace Plutus.Pages
                 Error(0);
                 return;
             }
-            else if (store.PostCode == null && store.FullAddress == null)
+            else if (store.PostCode == null && store.FullAddress==null)
             {
                 Loading.TogleLoading(LCV, LAI);
                 Error(2);
@@ -77,13 +75,13 @@ namespace Plutus.Pages
                 Salt = Salt,
                 HashedPassword = HashedPassword
             };
-            if (emp.FName == null || emp.LName == null || emp.FullAddress == null && emp.AdLine1 == null)
+            if (emp.FName == null||emp.LName==null||emp.FullAddress==null&&emp.AdLine1==null)
             {
                 Loading.TogleLoading(LCV, LAI);
                 Error(0);
                 return;
             }
-            else if (emp.PostCode == null && emp.FullAddress == null)
+            else if (emp.PostCode == null && emp.FullAddress==null)
             {
                 Loading.TogleLoading(LCV, LAI);
                 Error(2);
@@ -123,7 +121,7 @@ namespace Plutus.Pages
             };
 
             FileIO.Save("App.config", fileC.ToArray());
-            if (DatabasePicker.SelectedIndex < 0)
+            if(DatabasePicker.SelectedIndex < 0)
             {
                 Loading.TogleLoading(LCV, LAI);
                 Error(4);
@@ -168,57 +166,59 @@ namespace Plutus.Pages
             DisplayAlert(App.Translate.ProvideValue("Oops"), message, App.Translate.ProvideValue("OK"));
             return null;
         }
+        
+	    private async void AutoFillStore_OnClicked(object sender, EventArgs e)
+	    {
+	        List<string> addressList = await Location.ReverseGeocde();
+	        if (addressList.Count == 0)
+	        {
+	            await DisplayAlert(App.Translate.ProvideValue("Oops"), App.Translate.ProvideValue("SomthingWentWrongMesg"), App.Translate.ProvideValue("OK"));
+	            return;
+	        }
+	        else
+	        {
+	            foreach (var item in addressList)
+	                StoreAddressPicker.Items.Add(item);
+	            ManLayoutS.IsVisible = !ManLayoutS.IsVisible;
+	            AutoLayoutS.IsVisible = !AutoLayoutS.IsVisible;
+	            StoreAddressPicker.Focus();
+	        }
+	    }
 
-        private async void AutoFillStore_OnClicked(object sender, EventArgs e)
-        {
-            List<string> addressList = await Location.ReverseGeocde();
-            if (addressList.Count == 0)
-            {
-                await DisplayAlert(App.Translate.ProvideValue("Oops"), App.Translate.ProvideValue("SomthingWentWrongMesg"), App.Translate.ProvideValue("OK"));
-                return;
-            }
-            else
-            {
-                foreach (var item in addressList)
-                    StoreAddressPicker.Items.Add(item);
-                ManLayoutS.IsVisible = !ManLayoutS.IsVisible;
-                AutoLayoutS.IsVisible = !AutoLayoutS.IsVisible;
-                StoreAddressPicker.Focus();
-            }
-        }
-
-        private async void AutoFillPerson_OnClicked(object sender, EventArgs e)
-        {
-            List<string> addressList = await Location.ReverseGeocde();
-            if (addressList.Count == 0)
-            {
-                await DisplayAlert(App.Translate.ProvideValue("Oops"), App.Translate.ProvideValue("SomthingWentWrongMesg"), App.Translate.ProvideValue("OK"));
-                return;
-            }
-            else
-            {
-                foreach (var item in addressList)
-                    PersonAddressPicker.Items.Add(item);
-                ManLayoutP.IsVisible = !ManLayoutP.IsVisible;
-                AutoLayoutP.IsVisible = !AutoLayoutP.IsVisible;
-                PersonAddressPicker.Focus();
-            }
-        }
+	    private async void AutoFillPerson_OnClicked(object sender, EventArgs e)
+	    {
+	        List<string> addressList = await Location.ReverseGeocde();
+	        if (addressList.Count == 0)
+	        {
+	            await DisplayAlert(App.Translate.ProvideValue("Oops"), App.Translate.ProvideValue("SomthingWentWrongMesg"), App.Translate.ProvideValue("OK"));
+	            return;
+	        }
+	        else
+	        {
+	            foreach (var item in addressList)
+	                PersonAddressPicker.Items.Add(item);
+	            ManLayoutP.IsVisible = !ManLayoutP.IsVisible;
+	            AutoLayoutP.IsVisible = !AutoLayoutP.IsVisible;
+	            PersonAddressPicker.Focus();
+	        }
+	    }
 
         private void SEnterManually_OnClicked(object sender, EventArgs e)
-        {
-            ManLayoutS.IsVisible = !ManLayoutS.IsVisible;
-            AutoLayoutS.IsVisible = !AutoLayoutS.IsVisible;
+	    {
+	        ManLayoutS.IsVisible = !ManLayoutS.IsVisible;
+	        AutoLayoutS.IsVisible = !AutoLayoutS.IsVisible;
             StoreAddressPicker.Items.Clear();
-            StoreAdLine1.Focus();
-        }
+	        StoreAdLine1.Focus();
+	    }
 
-        private void PEnterManually_OnClicked(object sender, EventArgs e)
-        {
-            ManLayoutP.IsVisible = !ManLayoutP.IsVisible;
-            AutoLayoutP.IsVisible = !AutoLayoutP.IsVisible;
+	    private void PEnterManually_OnClicked(object sender, EventArgs e)
+	    {
+	        ManLayoutP.IsVisible = !ManLayoutP.IsVisible;
+	        AutoLayoutP.IsVisible = !AutoLayoutP.IsVisible;
             PersonAddressPicker.Items.Clear();
-            AdLine1.Focus();
-        }
-    }
+	        AdLine1.Focus();
+	    }
+
+	    
+	}
 }

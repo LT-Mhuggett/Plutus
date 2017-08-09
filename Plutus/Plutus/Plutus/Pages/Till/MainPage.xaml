@@ -1,0 +1,72 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Plutus.Pages.Till.MainPage"
+             xmlns:i18N="clr-namespace:I18N_L10N;assembly=I18N_L10N"
+             Title="{i18N:Translate Till}">
+    <StackLayout>
+        <Button x:Name="Scan" Text="{i18N:Translate Scan}" Clicked="Scan_Onclicked" AutomationId="scanWithDefaultOverlay"/>
+        <Entry x:Name="ManScan" IsVisible="False" Completed="ManScan_Completed"/>
+        <ListView ItemsSource="{Binding Basket}"
+            ItemTapped="Handle_ItemTapped"
+                  HasUnevenRows="True">
+            <ListView.Header>
+                <Grid Padding="5">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="20"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="60"/>
+                    </Grid.ColumnDefinitions>
+                    <Label Grid.Row="0" Grid.Column="0" Text="{i18N:Translate Amount}"/>
+                    <Label Grid.Row="0" Grid.Column="1" Text="{i18N:Translate Name}"/>
+                    <Label Grid.Row="0" Grid.Column="2" Text="{i18N:Translate Price}"/>
+                    <Label Grid.Row="0" Grid.Column="2" Text="{i18N:Translate Tax}"/>
+                </Grid>
+            </ListView.Header>
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <ViewCell>
+                        <ViewCell.ContextActions>
+                            <MenuItem Clicked="OnRemove1" CommandParameter="{Binding .}"
+                                      Text="{i18N:Translate R1}"/>
+                            <MenuItem Clicked="OnDelete" CommandParameter="{Binding .}"
+                                Text="{i18N:Translate Delete}"/>
+                        </ViewCell.ContextActions>
+                            <Grid Padding="5">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="20"/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="60"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="60"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Grid.Row="0" Grid.Column="0" Text="{Binding Amount}"
+                                    Style="{DynamicResource ListItemTextStyle}" />
+                                <Label Grid.Row="0" Grid.Column="1" Text="{Binding Name}"
+                                    Style="{DynamicResource ListItemDetailTextStyle}"/>
+                                <Label Grid.Row="0" Grid.Column="2" Text="{Binding Price}"
+                                    Style="{DynamicResource ListItemDetailTextStyle}"/>
+                                <Label Grid.Row="0" Grid.Column="3" Text="{Binding Vat.Name}"
+                                    Style="{DynamicResource ListItemDetailTextStyle}" />
+                        </Grid>
+                    </ViewCell>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+        <StackLayout>
+            <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
+                <Label Text="{i18N:Translate Sale}"/>
+                <Label x:Name="PriceCell"/>
+            </StackLayout>
+            <StackLayout>
+                <Button x:Name="Cancel" Text="{i18N:Translate Cancel}" Clicked="Cancel_Clicked"/>
+                <Button x:Name="COut" Text="{i18N:Translate COut}" Clicked="COut_Clicked"/>
+            </StackLayout>
+        </StackLayout>
+    </StackLayout>
+</ContentPage>

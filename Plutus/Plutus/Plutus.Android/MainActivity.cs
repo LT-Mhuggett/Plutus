@@ -8,7 +8,6 @@ using Android.Views;
 using Android.Widget;
 using Android.OS;
 using Plugin.Permissions;
-using ZXing.Mobile;
 using Android.Content;
 
 namespace Plutus.Droid
@@ -25,7 +24,7 @@ namespace Plutus.Droid
 
             global::Xamarin.Forms.Forms.Init (this, bundle);
             Xamarin.FormsMaps.Init(this, bundle);
-            MobileBarcodeScanner.Initialize(Application);
+		    ZXing.Net.Mobile.Forms.Android.Platform.Init();
             LoadApplication (new Plutus.App ());
 		}
 

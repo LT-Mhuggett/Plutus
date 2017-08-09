@@ -2,8 +2,8 @@
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
             x:Class="Plutus.Pages.LoginPage"
-            xmlns:i18n="clr-namespace:I18N_L10N;assembly=I18N_L10N"
-            Title="{i18n:Translate FWelcomeTitle}">
+            xmlns:i18N="clr-namespace:I18N_L10N;assembly=I18N_L10N"
+            Title="{i18N:Translate FWelcomeTitle}">
     <ContentPage.Content>
         <Grid>
             <StackLayout HorizontalOptions="Center" VerticalOptions="Center">
@@ -17,19 +17,21 @@
                         <ColumnDefinition Width="2*" />
                     </Grid.ColumnDefinitions>
                     <Grid Grid.Row="0" Grid.Column="0">
-                        <Label Text="{i18n:Translate Email}" VerticalOptions="Center"/>
+                        <Label Text="{i18N:Translate Email}" VerticalOptions="Center"/>
                     </Grid>
                     <Grid Grid.Row="0" Grid.Column="1">
                         <Entry x:Name="UId" Keyboard="Email"/>
                     </Grid>
                     <Grid Grid.Row="1" Grid.Column="0">
-                        <Label Text="{i18n:Translate PassW}" VerticalOptions="Center"/>
+                        <Label Text="{i18N:Translate PassW}" VerticalOptions="Center"/>
                     </Grid>
                     <Grid Grid.Row="1" Grid.Column="1">
-                        <Entry x:Name="PId" IsPassword="True"/>
+                        <Entry x:Name="PId" IsPassword="True" />
                     </Grid>
                 </Grid>
-                <Button x:Name="LoginButton" Text="{i18n:Translate Login}" VerticalOptions="Center"/>
+                <StackLayout HorizontalOptions="Center" VerticalOptions="Center">
+                    <Button x:Name="LoginButton" Text="{i18N:Translate Login}" VerticalOptions="Center" HorizontalOptions="Center"/>
+                </StackLayout>
             </StackLayout>
             <ContentView x:Name="LCV" IsVisible="false" BackgroundColor="LightGray" Opacity=".5" HorizontalOptions="FillAndExpand" VerticalOptions="FillAndExpand">
                 <ActivityIndicator x:Name="LAI" Color="Blue"  IsRunning="false" />
