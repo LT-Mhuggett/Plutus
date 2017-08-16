@@ -11,8 +11,7 @@ namespace Plutus.Models
     /// </summary>
     public class StoreModel : Address
     {
-        [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        [Key, DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public string StoreId { get; set; }
         public string StoreName { get; set; }
         public string StoreAbbr { get; set; }

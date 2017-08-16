@@ -6,7 +6,7 @@
              Title="{i18N:Translate InvetMgr}"
              Icon="">
     <ContentPage.Content>
-        <StackLayout VerticalOptions="Center" HorizontalOptions="Center">
+        <StackLayout VerticalOptions="Center" HorizontalOptions="FillAndExpand">
             <Button x:Name="AddItem" Text="{i18N:Translate AddItem}" Clicked="AddItem_Clicked"/>
             <Button x:Name="UpdateItem" Text="{i18N:Translate UpdateItem}" Clicked="UpdateItem_Clicked"/>
             <Button x:Name="StockUpdate" Text="{i18N:Translate StockUpdate}" Clicked="StockUpdate_Clicked"/>

@@ -19,6 +19,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Loading.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Scanner.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Validate.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\AuthActions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\AuthLevel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\Basket.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\CategoryModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\ItemModel.cs" />
@@ -83,6 +85,10 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Models\StoreModel.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Pages\Staff\MainPage.xaml.cs">
+      <DependentUpon>MainPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Pages\Till\MainPage.xaml.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -171,10 +177,13 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="$(MSBuildThisFileDirectory)Helpers\Extensions\" />
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\ConfigPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\ConfigPage.xaml">
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\Staff\MainPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
     </EmbeddedResource>

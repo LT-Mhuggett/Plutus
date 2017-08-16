@@ -125,6 +125,7 @@ namespace Plutus.Pages.Inventory
 
         private async void Id_Focused(object sender, FocusEventArgs e)
         {
+            if (Device.Idiom == TargetIdiom.Desktop) return;
             var opt = new MobileBarcodeScanningOptions
             {
                 UseNativeScanning = true,

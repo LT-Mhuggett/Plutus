@@ -17,16 +17,17 @@ namespace Plutus
 	{
         internal static ObservableCollection<EmployeeModel> EmpsLogged = new ObservableCollection<EmployeeModel>();
         internal static StoreModel Store = new StoreModel();
-        internal static Database DbContext = new Database();
+        internal static Database DbContext;
         internal static TranslateExtension Translate = new TranslateExtension();
+        internal static int TillAmmount;
 
         public App ()
 		{
 		    InitializeComponent();
 
             //refresh all app files without data wipe or app delete
-            File.Delete(Path.Combine(FileIO.GetLib(), "App.config"));
-            File.Delete(Path.Combine(FileIO.GetLib(), "Database.db"));
+            //File.Delete(Path.Combine(FileIO.GetLib(), "App.config"));
+            //File.Delete(Path.Combine(FileIO.GetLib(), "Database.db"));
 
             new I18N_L10N.I18N_L10N();
 
@@ -35,7 +36,9 @@ namespace Plutus
                 FileIO.Exists("Database.db")?
                     throw new NotImplementedException(): 
                     new NavigationPage(new FirstTimeStartUpPage());
-		}
+
+             DbContext = new Database();
+        }
 
 		protected override void OnStart ()
 		{

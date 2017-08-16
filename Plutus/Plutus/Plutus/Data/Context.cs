@@ -51,16 +51,6 @@ namespace Plutus.Data
                 .WithOne(s => s.Item)
                 .HasForeignKey<StockModel>(s => s.ItemId);
 
-            modelBuilder.Entity<VatModel>()
-                .HasMany(v => v.Items)
-                .WithOne(i => i.Vat)
-                .HasForeignKey(v => v.VatId);
-
-            modelBuilder.Entity<CategoryModel>()
-                .HasMany(c => c.Items)
-                .WithOne(i => i.Cat)
-                .HasForeignKey(c => c.CatId);
-
             modelBuilder.Entity<StockModel>()
                 .HasOne(s => s.Store)
                 .WithMany(st => st.Stocks)
@@ -80,9 +70,9 @@ namespace Plutus.Data
                 .HasForeignKey(t => t.SaleId);
 
             modelBuilder.Entity<EmployeeModel>()
-                .HasOne(e => e.Sale)
+                .HasMany(e => e.Sale)
                 .WithOne(sm => sm.Employee)
-                .HasForeignKey<SaleModel>(k => k.EmployeeId);
+                .HasForeignKey(k => k.EmployeeId);
 
             modelBuilder.Entity<SaleModel>()
                 .Property(b => b.DateOfSale)

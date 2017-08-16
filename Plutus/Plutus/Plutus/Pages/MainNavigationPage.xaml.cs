@@ -56,6 +56,7 @@ namespace Plutus.Pages
             
             Children.Add(new Till.MainPage());
             Children.Add(new Inventory.MainPage());
+            Children.Add(new Staff.MainPage());
         }
 
         private void ShowLoggedUsers(object obj)

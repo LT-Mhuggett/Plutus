@@ -205,7 +205,10 @@
     <value>OK</value>
   </data>
   <data name="PassWNotSameMesg" xml:space="preserve">
-    <value>Passwords are not the same\nOR\n Not longer than 6 characters\nPlease try again</value>
+    <value>Passwords are not the same
+OR
+Not longer than 6 characters
+Please try again</value>
   </data>
   <data name="FieldsFilledInMesg" xml:space="preserve">
     <value>Please Ensure all required fields are filled in</value>
@@ -238,7 +241,8 @@
     <value>There has been a problem on our end, please check the database for corruption.</value>
   </data>
   <data name="DetailsNotCorrectORUserNotExistMesg" xml:space="preserve">
-    <value>We can't find any user with those details\nPlease try again.</value>
+    <value>We can't find any user with those details
+Please try again.</value>
   </data>
   <data name="Users" xml:space="preserve">
     <value>Users</value>
@@ -316,13 +320,14 @@
     <value>Recomended Price</value>
   </data>
   <data name="ItemExistMesg" xml:space="preserve">
-    <value>This item apears to already been added.\nPlease check this.</value>
+    <value>This item apears to already been added.
+Please check this.</value>
   </data>
   <data name="CreateNCate" xml:space="preserve">
     <value>'Create New Category'</value>
   </data>
   <data name="InvetMgr" xml:space="preserve">
-    <value>Inventory Management</value>
+    <value>Inventory</value>
   </data>
   <data name="UpdateItem" xml:space="preserve">
     <value>Update Item</value>
@@ -340,7 +345,8 @@
     <value>Quantity to Add</value>
   </data>
   <data name="ItemNonExistMesg" xml:space="preserve">
-    <value>This item does not apear to have been added.\nPlease check this.</value>
+    <value>This item does not apear to have been added.
+Please check this.</value>
   </data>
   <data name="AddDesc" xml:space="preserve">
     <value>Add Description</value>
@@ -355,7 +361,8 @@
     <value>Search Results</value>
   </data>
   <data name="NoChangeMadeMesg" xml:space="preserve">
-    <value>You have made no change to any of the objects values/nPlease change something or go back</value>
+    <value>You have made no change to any of the objects values
+Please change something or go back</value>
   </data>
   <data name="Quit?Mesg" xml:space="preserve">
     <value>Are you sure you want to quit Plutus POS?</value>
@@ -395,5 +402,33 @@
   </data>
   <data name="Tax" xml:space="preserve">
     <value>Tax %</value>
+  </data>
+  <data name="SaleExV" xml:space="preserve">
+    <value>Sale Ex.VAT</value>
+  </data>
+  <data name="Card" xml:space="preserve">
+    <value>Card</value>
+  </data>
+  <data name="Cash" xml:space="preserve">
+    <value>Cash</value>
+  </data>
+  <data name="PayMeth" xml:space="preserve">
+    <value>Payment Method Selection</value>
+  </data>
+  <data name="BasketEmpty" xml:space="preserve">
+    <value>The basket is empty, Please add items and try again</value>
+  </data>
+  <data name="Transaction" xml:space="preserve">
+    <value>Transaction</value>
+  </data>
+  <data name="TransConfMesg" xml:space="preserve">
+    <value>Confirmed transaction complete</value>
+  </data>
+  <data name="Continue?" xml:space="preserve">
+    <value>The cost of this Transaction is £{0}
+Are you sure you wish to continue?</value>
+  </data>
+  <data name="Staff" xml:space="preserve">
+    <value>Staff</value>
   </data>
 </root>

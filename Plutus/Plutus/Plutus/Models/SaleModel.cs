@@ -8,8 +8,9 @@ namespace Plutus.Models
 {
     public class SaleModel
     {
-        [Key]
+        [Key, DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public string SaleId { get; set; }
+
         public decimal Total { get; set; }
         public DateTime DateOfSale { get; set; }
         public string EmployeeId { get; set; }

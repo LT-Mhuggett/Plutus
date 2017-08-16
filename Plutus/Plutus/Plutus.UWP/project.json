@@ -1,5 +1,6 @@
 ﻿{
   "dependencies": {
+    "Acr.XamForms.UserDialogs": "5.0.0",
     "Microsoft.EntityFrameworkCore": "1.1.2",
     "Microsoft.EntityFrameworkCore.Sqlite": "1.1.2",
     "Microsoft.NETCore.UniversalWindowsPlatform": "5.3.4",

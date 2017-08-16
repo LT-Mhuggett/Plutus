@@ -19,6 +19,7 @@ namespace Plutus.Pages.Till
     public partial class MainPage : ContentPage
     {
         public ObservableCollection<Basket> Basket { get; set; }
+        public Basket BagItem { get; set; }
         private ZXingScannerPage _scanPage;
 
         public MainPage()
@@ -34,11 +35,18 @@ namespace Plutus.Pages.Till
                 ManScan.Focus();
             }
 
-            PriceCell.Text = "0";
+            PriceCell.Text = "0.00";
+            PriceExVCell.Text = "0.00";
 
             Basket.CollectionChanged += (e, v) => UpdatePrice();
 
             BindingContext = this;
+
+            var tempIList = App.DbContext.GetItem("BAG001");
+            if (tempIList.Count != 1) return;
+            BagItem = new Basket(tempIList.First());
+            Bag.Text = BagItem.Name;
+            Bag.IsVisible = true;
         }
 
         async void Handle_ItemTapped(object sender, SelectedItemChangedEventArgs e)
@@ -54,6 +62,8 @@ namespace Plutus.Pages.Till
         private void OnDelete(object sender, EventArgs e)
         {
             var menuItem = (Basket)((MenuItem) sender).CommandParameter;
+            if (menuItem.ItemId == BagItem.ItemId)
+                BagItem.Amount = 1;
             Basket.Remove(menuItem);
         }
 
@@ -87,14 +97,7 @@ namespace Plutus.Pages.Till
                     //var s = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name;
                     //Debug.WriteLine(s);
                     var tempI = new Basket(tempIList.First());
-                    foreach (var item in Basket)
-                    {
-                        if (item.ItemId != tempI.ItemId) continue;
-                        item.Amount++;
-                        UpdatePrice();
-                        return;
-                    }
-                    Basket.Add(tempI);
+                    BasketAdd(tempI);
                 });
             };
 
@@ -105,6 +108,8 @@ namespace Plutus.Pages.Till
         {
             var price = Basket.Sum(item => item.Price * item.Amount);
             PriceCell.Text = price.ToString();
+            var ExPrice = Basket.Sum(item => (item.Price * (1.0m - (decimal)(item.Vat.Rate - 1)) * item.Amount));
+            PriceExVCell.Text = Math.Round(ExPrice, 2, MidpointRounding.AwayFromZero).ToString();
         }
 
         private void Cancel_Clicked(object sender, EventArgs e)
@@ -114,13 +119,93 @@ namespace Plutus.Pages.Till
                 var quit = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("CancelTransaction?Mesg"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
 
                 if (!quit) return;
-                Basket.Clear();
+                ClearBasket();
             });
         }
 
-        private void COut_Clicked(object sender, EventArgs e)
+        private async void COut_Clicked(object sender, EventArgs e)
         {
+            if (Basket.Count == 0)
+            {
+                await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("BasketEmpty"), App.Translate.ProvideValue("OK"));
+                return;
+            }
 
+            string Action;
+
+            Action = await DisplayActionSheet(App.Translate.ProvideValue("PayMeth"), App.Translate.ProvideValue("Cancel"), null, App.Translate.ProvideValue("Card"), App.Translate.ProvideValue("Cash"));
+
+
+            
+            GenTransaction(Action);
+        }
+
+        private async void GenTransaction(string Action)
+        {
+            
+            var actionDic = new Dictionary<string, Func<PaymentMethodModel>> {
+                { App.Translate.ProvideValue("Card"), () => App.DbContext.GetPayM(App.Translate.ProvideValue("Card"))},
+                { App.Translate.ProvideValue("Cash"), () => App.DbContext.GetPayM(App.Translate.ProvideValue("Cash")) },
+                { App.Translate.ProvideValue("Cancel"), null}
+            };
+
+            /*            
+            EmployeeModel emp = new EmployeeModel();
+            
+            if (Device.Idiom == TargetIdiom.Desktop)
+            {
+
+            }
+
+            var opt = new MobileBarcodeScanningOptions
+            {
+                UseNativeScanning = true,
+                TryHarder = true,
+                TryInverted = true
+            };
+            _scanPage = new ZXingScannerPage(opt, null);
+            _scanPage.OnScanResult += (result) =>
+            {
+                Device.BeginInvokeOnMainThread(() =>
+                {
+                    emp = App.EmpsLogged.Where(i => i.Id.Equals(result.Text)).FirstOrDefault();
+                });
+            };
+            await Navigation.PushAsync(_scanPage);
+            */
+            EmployeeModel emp = App.EmpsLogged.First();
+            if (emp == null) return;
+
+            PaymentMethod_SaleModel paySale = new PaymentMethod_SaleModel() { PayMethod = actionDic[Action]() };
+            var Total = Basket.Sum(item => item.Price * item.Amount) + paySale.PayMethod.Charge;
+            var Continue = await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("Continue?"), Total), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
+
+            if (!Continue) return;
+
+            SaleModel Sale = new SaleModel() { DateOfSale = System.DateTime.Now, Total = Total, EmployeeId = emp.Id };
+            Sale.PaySales = new List<PaymentMethod_SaleModel>();
+            Sale.Transactions = new List<TransactionModel>();
+            Sale.PaySales.Add(paySale);
+
+            foreach (var item in Basket)
+            {
+                ItemModel Item = new ItemModel(item);
+                TransactionModel Tran = new TransactionModel() { Item = Item, Sale = Sale, Amount = item.Amount };
+                Sale.Transactions.Add(Tran);
+                App.DbContext.Add(Tran);
+            }
+            App.DbContext.Add(Sale);
+            App.DbContext.Add(paySale);
+
+            App.DbContext.Save();
+            ClearBasket();
+            await DisplayAlert(App.Translate.ProvideValue("Transaction"), App.Translate.ProvideValue("TransConfMesg"), App.Translate.ProvideValue("OK"));
+        }
+
+        private void ClearBasket()
+        {
+            BagItem.Amount = 1;
+            Basket.Clear();
         }
 
         private async void ManScan_Completed(object sender, EventArgs e)
@@ -136,14 +221,24 @@ namespace Plutus.Pages.Till
             //var s = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name;
             //Debug.WriteLine(s);
             var tempI = new Basket(tempIList.First());
+            BasketAdd(tempI);
+        }
+
+        private void Bag_Clicked(object sender, EventArgs e)
+        {
+            BasketAdd(BagItem);
+        }
+
+        private void BasketAdd(Basket tempItem)
+        {
             foreach (var item in Basket)
             {
-                if (item.ItemId != tempI.ItemId) continue;
+                if (item.ItemId != tempItem.ItemId) continue;
                 item.Amount++;
                 UpdatePrice();
                 return;
             }
-            Basket.Add(tempI);
+            Basket.Add(tempItem);
         }
     }
 }

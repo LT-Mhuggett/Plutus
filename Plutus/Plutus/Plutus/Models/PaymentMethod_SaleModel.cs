@@ -11,5 +11,6 @@ namespace Plutus.Models
 
         public string SaleId { get; set; }
         public SaleModel Sale { get; set; }
+        
     }
 }

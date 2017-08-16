@@ -11,7 +11,7 @@ namespace Plutus.Models
         public int VatId { get; set; }
         public string Name { get; set; }
         public double Rate { get; set; }
-
+        
         public List<ItemModel> Items { get; set; }
     }
 }

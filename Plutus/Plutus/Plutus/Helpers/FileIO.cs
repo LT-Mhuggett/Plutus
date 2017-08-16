@@ -8,7 +8,7 @@ namespace Plutus.Helpers
     /// <summary>
     /// This handels all File Input and Output for all devices using #if defs.
     /// </summary>
-    class FileIO
+    public class FileIO
     {
         /// <summary>
         /// This handles File Saving

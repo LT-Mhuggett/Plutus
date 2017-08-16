@@ -22,6 +22,8 @@ namespace Plutus.Models
             CatId = item.CatId;
             Transactions = item.Transactions;
             Stock = item.Stock;
+            Vat = item.Vat;
+            Cat = item.Cat;
 
             _amount = 1;
         }

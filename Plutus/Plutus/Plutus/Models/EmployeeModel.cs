@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Plutus.Models
@@ -18,6 +19,8 @@ namespace Plutus.Models
         [ForeignKey("StoreIdFK")]
         public string StoreId { get; set; }
         public StoreModel Store { get; set; }
-        public SaleModel Sale { get; set; }
+        public List<SaleModel> Sale { get; set; }
+        public AuthLevel AuthLevel { get; set; }
+        public int AuthLevelId { get; set; }
     }
 }

@@ -131,12 +131,11 @@ namespace Plutus.Pages
             }
             if (DatabasePicker.SelectedIndex == 0)
             {
-                Database dbContext = new Database();
-                dbContext.Init();
-                dbContext.Add(store);
+                App.DbContext.Init();
+                App.DbContext.Add(store);
                 emp.StoreId = store.StoreId;
-                dbContext.Add(emp);
-                dbContext.Save();
+                App.DbContext.Add(emp);
+                App.DbContext.Save();
                 Application.Current.MainPage = new NavigationPage(new MainNavigationPage(emp, store));
                 Loading.TogleLoading(LCV, LAI);
             }

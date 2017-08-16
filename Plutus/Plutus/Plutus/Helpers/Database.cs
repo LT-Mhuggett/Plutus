@@ -6,6 +6,7 @@ using Plutus.Data;
 using Plutus.Models;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 
 namespace Plutus.Helpers
 {
@@ -19,16 +20,16 @@ namespace Plutus.Helpers
             _db.Database.EnsureCreated();
         }
 
-        internal void Add<T>(T tmp) where T : class
+        internal async void Add<T>(T tmp) where T : class
         {
-            _db.Set<T>().AddAsync(tmp);
+            await _db.Set<T>().AddAsync(tmp);
         }
 
-        internal void Save()
+        internal async void Save()
         {
             try
             {
-                _db.SaveChangesAsync();
+                await _db.SaveChangesAsync();
             }
             catch(Exception e)
             {
@@ -39,12 +40,25 @@ namespace Plutus.Helpers
 
         internal void Init()
         {
-            var vat = new VatModel() {Name = "20%", Rate = 1.2};
+            var vat = new VatModel() { Name = "0%", Rate = 1 };
             Add(vat);
-            var vat2 = new VatModel() {Name = "0%", Rate = 1};
+            var vat2 = new VatModel() {Name = "20%", Rate = 1.2};
             Add(vat2);
             var vat3 = new VatModel() {Name = "No VAT", Rate = 1};
             Add(vat3);
+
+            //Will be removed as only applies to UK, User will have to add manually
+            var cat = new CategoryModel() { Name = "Customer Care", Description = "Items such as Bags etc." };
+            Add(cat);
+            Save();
+            var bag = new ItemModel() { ItemId = "BAG001", Name = "Bag", Desc = "Item to allow Customers to carry things", CatId = 1, VatId = 2, Price = .05m, Cost = 0.0m };
+            Add(bag);
+
+            //There will be a more detailed setup page this temporay
+            var payM = new PaymentMethodModel() { Name = "Card", Charge = 0.5m };
+            Add(payM);
+            var payM2 = new PaymentMethodModel() { Name = "Cash", Charge = 0.0m };
+            Add(payM2);
             Save();
         }
 
@@ -110,6 +124,7 @@ namespace Plutus.Helpers
         internal List<ItemModel> GetItem(string temp)
         {
             var item = _db.Items
+                .Include(a=>a.Vat)
                 .Where(i => i.ItemId.Equals(temp) ||
                     i.Name.Contains(temp))
                 .ToList();
@@ -132,6 +147,14 @@ namespace Plutus.Helpers
                 fItem.VatId = item.VatId;
                 fItem.Price = item.Price;
             }
+        }
+
+        internal PaymentMethodModel GetPayM(string name)
+        {
+            var payM = _db.PayMethods
+                .Where(p => p.Name.Equals(name))
+                .SingleOrDefault();
+            return payM ?? null;
         }
     }
 }
