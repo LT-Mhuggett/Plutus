@@ -10,17 +10,17 @@ namespace Plutus.Models
     /// </summary>
     public class EmployeeModel : PersonModel
     {
-        public string Wage { get; set; }
-        public string Hours { get; set; }
-        public string Role { get; set; }
+        public decimal Wage { get; set; }
+        public int ContractedHours { get; set; }
         public string HashedPassword { get; set; }
         public string Salt { get; set; }
+        public string NIN { get; set; }
+        public bool Active { get; set; }
 
         [ForeignKey("StoreIdFK")]
         public string StoreId { get; set; }
         public StoreModel Store { get; set; }
         public List<SaleModel> Sale { get; set; }
-        public AuthLevel AuthLevel { get; set; }
-        public int AuthLevelId { get; set; }
+        public List<AuthActions> Actions { get; set; }
     }
 }

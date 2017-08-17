@@ -34,7 +34,7 @@
                 </StackLayout>
             </StackLayout>
             <ContentView x:Name="LCV" IsVisible="false" BackgroundColor="LightGray" Opacity=".5" HorizontalOptions="FillAndExpand" VerticalOptions="FillAndExpand">
-                <ActivityIndicator x:Name="LAI" Color="Blue"  IsRunning="false" />
+                <ActivityIndicator x:Name="LAI" IsRunning="false" />
             </ContentView>
         </Grid>
     </ContentPage.Content>

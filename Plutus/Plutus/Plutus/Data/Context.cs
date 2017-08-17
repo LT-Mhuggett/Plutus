@@ -24,6 +24,7 @@ namespace Plutus.Data
         public DbSet<TransactionModel> Trans { get; set; }
         public DbSet<CategoryModel> Category { get; set; }
         public DbSet<StockModel> Stocks { get; set; }
+        public DbSet<AuthActions> AuthActions { get; set; }
 
         private readonly string _databasePath;
 

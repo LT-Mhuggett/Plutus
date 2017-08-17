@@ -12,6 +12,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\Authorisation.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Camera.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Conversions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\ICloseApp.cs" />
@@ -20,7 +21,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Scanner.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Validate.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\AuthActions.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\AuthLevel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\Basket.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\CategoryModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\ItemModel.cs" />
@@ -85,8 +85,16 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Models\StoreModel.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Pages\Staff\AddEmployeePage.xaml.cs">
+      <DependentUpon>AddEmployeePage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Pages\Staff\MainPage.xaml.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="$(MSBuildThisFileDirectory)Pages\Staff\RiRePage.xaml.cs">
+      <DependentUpon>RiRePage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Pages\Till\MainPage.xaml.cs">
@@ -184,6 +192,18 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\Staff\MainPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\Staff\AddEmployeePage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\Staff\RiRePage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
     </EmbeddedResource>

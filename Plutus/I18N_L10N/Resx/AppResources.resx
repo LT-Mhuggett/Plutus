@@ -431,4 +431,34 @@ Are you sure you wish to continue?</value>
   <data name="Staff" xml:space="preserve">
     <value>Staff</value>
   </data>
+  <data name="AddEmp" xml:space="preserve">
+    <value>Add Employee</value>
+  </data>
+  <data name="AuthDeniedMesg" xml:space="preserve">
+    <value>You are not Authorized to access this.</value>
+  </data>
+  <data name="EmployeeDetails" xml:space="preserve">
+    <value>Employee Details</value>
+  </data>
+  <data name="EmployeeSecMesg" xml:space="preserve">
+    <value>This section is for the employee to fill out.</value>
+  </data>
+  <data name="Nin" xml:space="preserve">
+    <value>National Insurance Number</value>
+  </data>
+  <data name="ContrHours" xml:space="preserve">
+    <value>Contracted Weekly Hours</value>
+  </data>
+  <data name="Wage" xml:space="preserve">
+    <value>Wage Per Hour</value>
+  </data>
+  <data name="OfficeSec" xml:space="preserve">
+    <value>Office Section</value>
+  </data>
+  <data name="OfficeSecMesg" xml:space="preserve">
+    <value>For office use only.</value>
+  </data>
+  <data name="Ri_Re" xml:space="preserve">
+    <value>Rights and Restrictions</value>
+  </data>
 </root>

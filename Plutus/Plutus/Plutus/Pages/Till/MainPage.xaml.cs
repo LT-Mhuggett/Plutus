@@ -125,6 +125,12 @@ namespace Plutus.Pages.Till
 
         private async void COut_Clicked(object sender, EventArgs e)
         {
+            if (!Authorisation.IsAuthorised("Till"))
+            {
+                await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("AuthDeniedMesg"), App.Translate.ProvideValue("OK"));
+                return;
+            }
+
             if (Basket.Count == 0)
             {
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("BasketEmpty"), App.Translate.ProvideValue("OK"));

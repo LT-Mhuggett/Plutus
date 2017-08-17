@@ -38,6 +38,8 @@
                         <Entry x:Name="StoreCountry"/>
                     </StackLayout>
                     <Label Text="{i18N:Translate StOwnerDetails}" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start"/>
+                    <Label Text="{i18N:Translate Nin}" VerticalOptions="FillAndExpand"/>
+                    <Entry x:Name="Nin"/>
                     <Label Text="{i18N:Translate FName}" VerticalOptions="FillAndExpand"/>
                     <Entry x:Name="FName"/>
                     <Label Text="{i18N:Translate LName}" VerticalOptions="FillAndExpand"/>

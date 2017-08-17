@@ -6,10 +6,11 @@ namespace Plutus.Models
 {
     public class AuthActions
     {
-        [Key]
-        public int Id { get; set; }
+        [Key, DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public string Id { get; set; }
         public string Name { get; set; }
-        public AuthLevel AuthLevel { get; set; }
-        public int AuthLevelId { get; set; }
+        public decimal Amount { get; set; }
+        [NotMapped]
+        public bool Active { get; set; }
     }
 }

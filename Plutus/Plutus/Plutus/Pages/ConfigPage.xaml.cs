@@ -64,7 +64,7 @@ namespace Plutus.Pages
             var emp = new EmployeeModel()
             {
                 FName = !String.IsNullOrEmpty(FName.Text) ? FName.Text : null,
-                Role = "0",
+                NIN = /*Validate.IsNinValid(Nin.Text)?Nin.Text:null*/Nin.Text,
                 LName = !String.IsNullOrEmpty(LName.Text) ? LName.Text : null,
                 AdLine1 = AutoLayoutP.IsVisible ? null : !String.IsNullOrEmpty(AdLine1.Text) ? AdLine1.Text : null,
                 AdLine2 = AutoLayoutP.IsVisible ? null : AdLine2.Text,
@@ -77,7 +77,7 @@ namespace Plutus.Pages
                 Salt = Salt,
                 HashedPassword = HashedPassword
             };
-            if (emp.FName == null || emp.LName == null || emp.FullAddress == null && emp.AdLine1 == null)
+            if (emp.FName == null || emp.LName == null || emp.NIN == null || emp.FullAddress == null && emp.AdLine1 == null)
             {
                 Loading.TogleLoading(LCV, LAI);
                 Error(0);
@@ -134,6 +134,13 @@ namespace Plutus.Pages
                 App.DbContext.Init();
                 App.DbContext.Add(store);
                 emp.StoreId = store.StoreId;
+                var Actions = App.DbContext.GetAllActions();
+                emp.Actions = new List<AuthActions>();
+                foreach (var item in Actions)
+                {
+                    emp.Actions.Add(item);
+                }
+                emp.Active = true;
                 App.DbContext.Add(emp);
                 App.DbContext.Save();
                 Application.Current.MainPage = new NavigationPage(new MainNavigationPage(emp, store));

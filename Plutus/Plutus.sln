@@ -270,6 +270,8 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
+		RESX_AutoCreateNewLanguageFiles = True
+		RESX_NeutralResourcesLanguage = en-GB
 		RESX_ShowPerformanceTraces = True
 	EndGlobalSection
 EndGlobal

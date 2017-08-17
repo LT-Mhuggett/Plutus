@@ -47,6 +47,22 @@ namespace Plutus.Helpers
             var vat3 = new VatModel() {Name = "No VAT", Rate = 1};
             Add(vat3);
 
+            //AuthActions Initalization
+            var AuthAction = new AuthActions() { Id = "Till", Name = "Till" };
+            Add(AuthAction);
+            var AuthAction1 = new AuthActions() { Id = "Refund20", Name = "Refund of 20", Amount = 20 };
+            Add(AuthAction1);
+            var AuthAction2 = new AuthActions() { Id = "Refund100", Name = "Refund of 100", Amount = 100 };
+            Add(AuthAction2);
+            var AuthAction3 = new AuthActions() { Id = "StaffARU", Name = "Staff Records Add, Read, Update" };
+            Add(AuthAction3);
+            var AuthAction4 = new AuthActions() { Id = "ItemARU", Name = "ITem Records Add, Read, Update" };
+            Add(AuthAction4);
+            var AuthAction5 = new AuthActions() { Id = "StaffV", Name = "Staff Records Read" };
+            Add(AuthAction5);
+            var AuthAction6 = new AuthActions() { Id = "StockU", Name = "Stock Update" };
+            Add(AuthAction6);
+
             //Will be removed as only applies to UK, User will have to add manually
             var cat = new CategoryModel() { Name = "Customer Care", Description = "Items such as Bags etc." };
             Add(cat);
@@ -65,6 +81,7 @@ namespace Plutus.Helpers
         internal async Task<EmployeeModel> Login(string idEmail, string password)
         {
             var emp = _db.Employees
+                .Include(e=>e.Actions)
                 .SingleOrDefault(e => e.Id.Equals(idEmail) || e.Email.Equals(idEmail));
             if (emp == null) return null;
             if (await Task.Run(() => Password.Verify(password, Convert.FromBase64String(emp.Salt),
@@ -155,6 +172,12 @@ namespace Plutus.Helpers
                 .Where(p => p.Name.Equals(name))
                 .SingleOrDefault();
             return payM ?? null;
+        }
+
+        internal List<AuthActions> GetAllActions()
+        {
+            var Actions = _db.AuthActions.ToList();
+            return Actions ?? null;
         }
     }
 }

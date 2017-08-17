@@ -80,6 +80,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Add Employee.
+        /// </summary>
+        internal static string AddEmp {
+            get {
+                return ResourceManager.GetString("AddEmp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Add Item.
         /// </summary>
         internal static string AddItem {
@@ -121,6 +130,15 @@ namespace I18N_L10N.Resx {
         internal static string Amount {
             get {
                 return ResourceManager.GetString("Amount", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You are not Authorized to access this..
+        /// </summary>
+        internal static string AuthDeniedMesg {
+            get {
+                return ResourceManager.GetString("AuthDeniedMesg", resourceCulture);
             }
         }
         
@@ -257,6 +275,15 @@ namespace I18N_L10N.Resx {
         internal static string Continue_ {
             get {
                 return ResourceManager.GetString("Continue?", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Contracted Weekly Hours.
+        /// </summary>
+        internal static string ContrHours {
+            get {
+                return ResourceManager.GetString("ContrHours", resourceCulture);
             }
         }
         
@@ -402,6 +429,24 @@ namespace I18N_L10N.Resx {
         internal static string EmailNotCorrectMesg {
             get {
                 return ResourceManager.GetString("EmailNotCorrectMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Employee Details.
+        /// </summary>
+        internal static string EmployeeDetails {
+            get {
+                return ResourceManager.GetString("EmployeeDetails", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to This section is for the employee to fill out..
+        /// </summary>
+        internal static string EmployeeSecMesg {
+            get {
+                return ResourceManager.GetString("EmployeeSecMesg", resourceCulture);
             }
         }
         
@@ -615,6 +660,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to National Insurance Number.
+        /// </summary>
+        internal static string Nin {
+            get {
+                return ResourceManager.GetString("Nin", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to There are currently no active users.
         /// </summary>
         internal static string NoActiveUsers {
@@ -630,6 +684,24 @@ namespace I18N_L10N.Resx {
         internal static string NoChangeMadeMesg {
             get {
                 return ResourceManager.GetString("NoChangeMadeMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Office Section.
+        /// </summary>
+        internal static string OfficeSec {
+            get {
+                return ResourceManager.GetString("OfficeSec", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to For office use only..
+        /// </summary>
+        internal static string OfficeSecMesg {
+            get {
+                return ResourceManager.GetString("OfficeSecMesg", resourceCulture);
             }
         }
         
@@ -786,6 +858,15 @@ namespace I18N_L10N.Resx {
         internal static string RecPrice {
             get {
                 return ResourceManager.GetString("RecPrice", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Rights and Restrictions.
+        /// </summary>
+        internal static string Ri_Re {
+            get {
+                return ResourceManager.GetString("Ri_Re", resourceCulture);
             }
         }
         
@@ -975,6 +1056,15 @@ namespace I18N_L10N.Resx {
         internal static string Users {
             get {
                 return ResourceManager.GetString("Users", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Wage Per Hour.
+        /// </summary>
+        internal static string Wage {
+            get {
+                return ResourceManager.GetString("Wage", resourceCulture);
             }
         }
         

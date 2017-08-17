@@ -36,6 +36,8 @@ namespace Plutus.Pages
                 var emp = await EmpLogIn();
                 if (emp == null)
                     return;
+                else if (!emp.Active)
+                    return;
 
                 var store = await StoreGetWithEmp(emp);
                 if (store == null)
@@ -51,7 +53,10 @@ namespace Plutus.Pages
             Device.BeginInvokeOnMainThread(async () =>
             {
                 var emp = await EmpLogIn();
-                if (emp == null) return;
+                if (emp == null)
+                    return;
+                else if (!emp.Active)
+                    return;
 
                 var store = await StoreGetWithEmp(emp);
                 if (store == null) return;
