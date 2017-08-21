@@ -152,6 +152,25 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Are you sure you want to replace current basket?
+        ///If you do the current basket will be lost..
+        /// </summary>
+        internal static string BasketReplace_ {
+            get {
+                return ResourceManager.GetString("BasketReplace?", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Baskets.
+        /// </summary>
+        internal static string Baskets {
+            get {
+                return ResourceManager.GetString("Baskets", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Brand.
         /// </summary>
         internal static string Brand {
@@ -885,6 +904,15 @@ namespace I18N_L10N.Resx {
         internal static string SaleExV {
             get {
                 return ResourceManager.GetString("SaleExV", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Save Basket.
+        /// </summary>
+        internal static string SaveB {
+            get {
+                return ResourceManager.GetString("SaveB", resourceCulture);
             }
         }
         

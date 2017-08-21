@@ -8,8 +8,8 @@
         <Button x:Name="Scan" Text="{i18N:Translate Scan}" Clicked="Scan_Onclicked" AutomationId="scanWithDefaultOverlay"/>
         <Entry x:Name="ManScan" IsVisible="False" Completed="ManScan_Completed"/>
         <ListView ItemsSource="{Binding Basket}"
-            ItemTapped="Handle_ItemTapped"
-                  HasUnevenRows="True">
+                ItemTapped="Handle_ItemTapped"
+                HasUnevenRows="True">
             <ListView.Header>
                 <Grid Padding="5">
                     <Grid.RowDefinitions>
@@ -36,23 +36,23 @@
                             <MenuItem Clicked="OnDelete" CommandParameter="{Binding .}"
                                 Text="{i18N:Translate Delete}"/>
                         </ViewCell.ContextActions>
-                            <Grid Padding="5">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="20"/>
-                                </Grid.RowDefinitions>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="60"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="60"/>
-                                    <ColumnDefinition Width="60"/>
-                                </Grid.ColumnDefinitions>
-                                <Label Grid.Row="0" Grid.Column="0" Text="{Binding Amount}"
+                        <Grid Padding="5">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="20"/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="60"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Row="0" Grid.Column="0" Text="{Binding Amount}"
                                     Style="{DynamicResource ListItemTextStyle}" />
-                                <Label Grid.Row="0" Grid.Column="1" Text="{Binding Name}"
+                            <Label Grid.Row="0" Grid.Column="1" Text="{Binding Name}"
                                     Style="{DynamicResource ListItemDetailTextStyle}"/>
-                                <Label Grid.Row="0" Grid.Column="2" Text="{Binding Price}"
+                            <Label Grid.Row="0" Grid.Column="2" Text="{Binding Price}"
                                     Style="{DynamicResource ListItemDetailTextStyle}"/>
-                                <Label Grid.Row="0" Grid.Column="3" Text="{Binding Vat.Name}"
+                            <Label Grid.Row="0" Grid.Column="3" Text="{Binding Vat.Name}"
                                     Style="{DynamicResource ListItemDetailTextStyle}" />
                         </Grid>
                     </ViewCell>
@@ -71,14 +71,17 @@
                     <ColumnDefinition Width="1*" />
                     <ColumnDefinition Width="1*" />
                     <ColumnDefinition Width="1*" />
+                    <ColumnDefinition Width="1*" />
+                    <ColumnDefinition Width="1*" />
                 </Grid.ColumnDefinitions>
                 <Label Grid.Row="0"  Grid.Column="0" Text="{i18N:Translate Sale}"/>
                 <Label Grid.Row="0"  Grid.Column="1" x:Name="PriceCell"/>
-                <Label Grid.Row="0"  Grid.Column="2" Text="{i18N:Translate SaleExV}"/>
-                <Label Grid.Row="0"  Grid.Column="3" x:Name="PriceExVCell"/>
+                <Label Grid.Row="0"  Grid.Column="4" Text="{i18N:Translate SaleExV}"/>
+                <Label Grid.Row="0"  Grid.Column="5" x:Name="PriceExVCell"/>
                 <Button Grid.Row="1"  Grid.Column="0" Grid.ColumnSpan="2" x:Name="Cancel" Text="{i18N:Translate Cancel}" Clicked="Cancel_Clicked" />
                 <Button Grid.Row="1" Grid.Column="2" Grid.ColumnSpan="2" x:Name="Bag" IsVisible="False" Clicked="Bag_Clicked" />
-                <Button Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4" x:Name="COut" Text="{i18N:Translate COut}" Clicked="COut_Clicked"/>
+                <Button Grid.Row="1" Grid.Column="4" Grid.ColumnSpan="2" x:Name="StoreTrans" Text="{i18N:Translate SaveB}" Clicked="StoreTrans_Clicked" />
+                <Button Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="6" x:Name="COut" Text="{i18N:Translate COut}" Clicked="COut_Clicked"/>
             </Grid>
         </StackLayout>
     </StackLayout>

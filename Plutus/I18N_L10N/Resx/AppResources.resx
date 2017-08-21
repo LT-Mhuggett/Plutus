@@ -461,4 +461,14 @@ Are you sure you wish to continue?</value>
   <data name="Ri_Re" xml:space="preserve">
     <value>Rights and Restrictions</value>
   </data>
+  <data name="SaveB" xml:space="preserve">
+    <value>Save Basket</value>
+  </data>
+  <data name="Baskets" xml:space="preserve">
+    <value>Baskets</value>
+  </data>
+  <data name="BasketReplace?" xml:space="preserve">
+    <value>Are you sure you want to replace current basket?
+If you do the current basket will be lost.</value>
+  </data>
 </root>

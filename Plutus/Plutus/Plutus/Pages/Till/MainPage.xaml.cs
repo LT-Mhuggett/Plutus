@@ -19,14 +19,20 @@ namespace Plutus.Pages.Till
     public partial class MainPage : ContentPage
     {
         public ObservableCollection<Basket> Basket { get; set; }
-        public Basket BagItem { get; set; }
+        public static Dictionary<int, ObservableCollection<Basket>> StoredTrans { get; set; }
+        public ItemModel BagItem { get; set; }
         private ZXingScannerPage _scanPage;
+        private int CountBasketNum { get; set; }
+        private bool Sub { get; set; }
 
         public MainPage()
         {
             InitializeComponent();
 
-            Basket = new ObservableCollection<Basket>();
+            if(Basket == null)
+                Basket = new ObservableCollection<Basket>();
+            if(StoredTrans == null)
+                StoredTrans = new Dictionary<int, ObservableCollection<Basket>>();
 
             if (Device.Idiom == TargetIdiom.Desktop)
             {
@@ -47,6 +53,7 @@ namespace Plutus.Pages.Till
             BagItem = new Basket(tempIList.First());
             Bag.Text = BagItem.Name;
             Bag.IsVisible = true;
+            CountBasketNum = 1;
         }
 
         async void Handle_ItemTapped(object sender, SelectedItemChangedEventArgs e)
@@ -62,8 +69,6 @@ namespace Plutus.Pages.Till
         private void OnDelete(object sender, EventArgs e)
         {
             var menuItem = (Basket)((MenuItem) sender).CommandParameter;
-            if (menuItem.ItemId == BagItem.ItemId)
-                BagItem.Amount = 1;
             Basket.Remove(menuItem);
         }
 
@@ -119,7 +124,7 @@ namespace Plutus.Pages.Till
                 var quit = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("CancelTransaction?Mesg"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
 
                 if (!quit) return;
-                ClearBasket();
+                Basket.Clear();
             });
         }
 
@@ -204,14 +209,8 @@ namespace Plutus.Pages.Till
             App.DbContext.Add(paySale);
 
             App.DbContext.Save();
-            ClearBasket();
-            await DisplayAlert(App.Translate.ProvideValue("Transaction"), App.Translate.ProvideValue("TransConfMesg"), App.Translate.ProvideValue("OK"));
-        }
-
-        private void ClearBasket()
-        {
-            BagItem.Amount = 1;
             Basket.Clear();
+            await DisplayAlert(App.Translate.ProvideValue("Transaction"), App.Translate.ProvideValue("TransConfMesg"), App.Translate.ProvideValue("OK"));
         }
 
         private async void ManScan_Completed(object sender, EventArgs e)
@@ -232,7 +231,7 @@ namespace Plutus.Pages.Till
 
         private void Bag_Clicked(object sender, EventArgs e)
         {
-            BasketAdd(BagItem);
+            BasketAdd(new Basket(BagItem));
         }
 
         private void BasketAdd(Basket tempItem)
@@ -245,6 +244,87 @@ namespace Plutus.Pages.Till
                 return;
             }
             Basket.Add(tempItem);
+        }
+
+        private void StoreTrans_Clicked(object sender, EventArgs e)
+        {
+            if (Basket.Count == 0) return;
+            StoredTrans.Add(CountBasketNum, new ObservableCollection<Basket>(Basket));
+            Basket.Clear();
+            CheckStoreTransExist();
+            CountBasketNum++;
+        }
+
+        private void CheckStoreTransExist()
+        {
+            if (StoredTrans.Count == 1)
+            {
+                foreach(var item in App.Current.MainPage.ToolbarItems)
+                {
+                    if(item.Text == App.Translate.ProvideValue("Baskets"))
+                        return;
+                }
+                App.Current.MainPage.ToolbarItems.Add(new ToolbarItem
+                {
+                    Text=App.Translate.ProvideValue("Baskets"),
+                    Icon="",
+                    Command=new Command(this.ShowBasketList)
+                });
+            }
+            else if (StoredTrans.Count == 0)
+            {
+                App.Current.MainPage.ToolbarItems.Clear();
+            }
+        }
+
+        private async void ShowBasketList()
+        {
+            await Navigation.PushAsync(new BasketListPage());
+            if (!Sub)
+            {
+                MessagingCenter.Subscribe<MainPage, KeyValuePair<int, ObservableCollection<Basket>>>(this, "BasketData", (Sender, arg) =>
+                {
+                    Device.BeginInvokeOnMainThread(async () =>
+                    {
+                        if (Basket.Count > 0)
+                        {
+
+                            var quit = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("BasketReplace?"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
+
+                            if (quit)
+                            {
+                                Basket.Clear();
+                            }
+                            else
+                            {
+                                return;
+                            }
+                        }
+                        foreach (var item in arg.Value)
+                        {
+                            BasketAdd(item);
+                        }
+                        StoredTrans.Remove(arg.Key);
+                        if (StoredTrans.Count > 0)
+                        {
+                            for (int i = 1; i <= StoredTrans.Last().Key; i++)
+                            {
+                                if (i > arg.Key)
+                                {
+                                    var itemKey = i;
+                                    ObservableCollection<Basket> itemData = StoredTrans[i];
+                                    itemKey = itemKey - 1;
+                                    StoredTrans.Remove(i);
+                                    StoredTrans.Add(itemKey, itemData);
+                                }
+                            }
+                        }
+                        CountBasketNum--;
+                        CheckStoreTransExist();
+                    });
+                });
+                Sub = true;
+            }
         }
     }
 }
