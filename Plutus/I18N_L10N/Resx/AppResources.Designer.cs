@@ -560,6 +560,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Item.
+        /// </summary>
+        internal static string Item {
+            get {
+                return ResourceManager.GetString("Item", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to This item apears to already been added.
         ///Please check this..
         /// </summary>
@@ -872,11 +881,29 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Reason.
+        /// </summary>
+        internal static string Reason {
+            get {
+                return ResourceManager.GetString("Reason", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Recomended Price.
         /// </summary>
         internal static string RecPrice {
             get {
                 return ResourceManager.GetString("RecPrice", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Returns.
+        /// </summary>
+        internal static string Returns {
+            get {
+                return ResourceManager.GetString("Returns", resourceCulture);
             }
         }
         
@@ -904,6 +931,15 @@ namespace I18N_L10N.Resx {
         internal static string SaleExV {
             get {
                 return ResourceManager.GetString("SaleExV", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Sale ID.
+        /// </summary>
+        internal static string SaleID {
+            get {
+                return ResourceManager.GetString("SaleID", resourceCulture);
             }
         }
         

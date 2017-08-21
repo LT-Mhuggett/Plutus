@@ -471,4 +471,16 @@ Are you sure you wish to continue?</value>
     <value>Are you sure you want to replace current basket?
 If you do the current basket will be lost.</value>
   </data>
+  <data name="Item" xml:space="preserve">
+    <value>Item</value>
+  </data>
+  <data name="Reason" xml:space="preserve">
+    <value>Reason</value>
+  </data>
+  <data name="Returns" xml:space="preserve">
+    <value>Returns</value>
+  </data>
+  <data name="SaleID" xml:space="preserve">
+    <value>Sale ID</value>
+  </data>
 </root>

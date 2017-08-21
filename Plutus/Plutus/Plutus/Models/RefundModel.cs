@@ -11,6 +11,8 @@ namespace Plutus.Models
         public string Rid { get; set; }
         public string Reason { get; set; }
         public string SaleId { get; set; }
+        public string ItemId { get; set; }
+        public ItemModel Item { get; set; }
         public SaleModel Sale { get; set; }
         public List<Refund_SaleModel> RefundSales { get; set; }
     }

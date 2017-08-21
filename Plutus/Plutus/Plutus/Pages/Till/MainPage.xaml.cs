@@ -23,7 +23,6 @@ namespace Plutus.Pages.Till
         public ItemModel BagItem { get; set; }
         private ZXingScannerPage _scanPage;
         private int CountBasketNum { get; set; }
-        private bool Sub { get; set; }
 
         public MainPage()
         {
@@ -75,9 +74,9 @@ namespace Plutus.Pages.Till
         private void OnRemove1(object sender, EventArgs e)
         {
             var menuItem = (Basket)((MenuItem)sender).CommandParameter;
-            var temp = Basket.Where(i=>i.ItemId.Equals(menuItem.ItemId));
-            temp.First().Amount--;
-            if (temp.First().Amount == 0)
+            var tempInd = Basket.IndexOf(menuItem);
+            var temp = Basket.ElementAt(tempInd);
+            if (temp.Amount == 0)
                 Basket.Remove(menuItem);
             else
                 UpdatePrice();
@@ -159,7 +158,6 @@ namespace Plutus.Pages.Till
                 { App.Translate.ProvideValue("Cash"), () => App.DbContext.GetPayM(App.Translate.ProvideValue("Cash")) },
                 { App.Translate.ProvideValue("Cancel"), null}
             };
-
             /*            
             EmployeeModel emp = new EmployeeModel();
             
@@ -239,6 +237,8 @@ namespace Plutus.Pages.Till
             foreach (var item in Basket)
             {
                 if (item.ItemId != tempItem.ItemId) continue;
+                if (item.Return != tempItem.Return) continue;
+                if (item.SaleId != tempItem.SaleId) continue;
                 item.Amount++;
                 UpdatePrice();
                 return;
@@ -280,51 +280,60 @@ namespace Plutus.Pages.Till
         private async void ShowBasketList()
         {
             await Navigation.PushAsync(new BasketListPage());
-            if (!Sub)
+            MessagingCenter.Subscribe<MainPage, KeyValuePair<int, ObservableCollection<Basket>>>(this, "BasketData", (Sender, arg) =>
             {
-                MessagingCenter.Subscribe<MainPage, KeyValuePair<int, ObservableCollection<Basket>>>(this, "BasketData", (Sender, arg) =>
+                MessagingCenter.Unsubscribe<MainPage>(this, "BasketData");
+                Device.BeginInvokeOnMainThread(async () =>
                 {
-                    Device.BeginInvokeOnMainThread(async () =>
+                    if (Basket.Count > 0)
                     {
-                        if (Basket.Count > 0)
-                        {
 
-                            var quit = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("BasketReplace?"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
+                        var quit = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("BasketReplace?"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
 
-                            if (quit)
-                            {
-                                Basket.Clear();
-                            }
-                            else
-                            {
-                                return;
-                            }
-                        }
-                        foreach (var item in arg.Value)
+                        if (quit)
                         {
-                            BasketAdd(item);
+                            Basket.Clear();
                         }
-                        StoredTrans.Remove(arg.Key);
-                        if (StoredTrans.Count > 0)
+                        else
                         {
-                            for (int i = 1; i <= StoredTrans.Last().Key; i++)
+                            return;
+                        }
+                    }
+                    foreach (var item in arg.Value)
+                    {
+                        BasketAdd(item);
+                    }
+                    StoredTrans.Remove(arg.Key);
+                    if (StoredTrans.Count > 0)
+                    {
+                        for (int i = 1; i <= StoredTrans.Last().Key; i++)
+                        {
+                            if (i > arg.Key)
                             {
-                                if (i > arg.Key)
-                                {
-                                    var itemKey = i;
-                                    ObservableCollection<Basket> itemData = StoredTrans[i];
-                                    itemKey = itemKey - 1;
-                                    StoredTrans.Remove(i);
-                                    StoredTrans.Add(itemKey, itemData);
-                                }
+                                var itemKey = i;
+                                ObservableCollection<Basket> itemData = StoredTrans[i];
+                                itemKey = itemKey - 1;
+                                StoredTrans.Remove(i);
+                                StoredTrans.Add(itemKey, itemData);
                             }
                         }
-                        CountBasketNum--;
-                        CheckStoreTransExist();
-                    });
+                    }
+                    CountBasketNum--;
+                    CheckStoreTransExist();
                 });
-                Sub = true;
-            }
+            });
+        }
+
+        private async void OnReturn(object sender, EventArgs e)
+        {
+            var menuItem = (Basket)((MenuItem)sender).CommandParameter;
+            await Navigation.PushAsync(new ReturnFormPage(menuItem));
+            MessagingCenter.Subscribe<MainPage, Basket>(this, "ReturnData", (Sender, arg) =>
+            {
+                MessagingCenter.Unsubscribe<MainPage>(this, "ReturnData");
+                Basket.Remove(menuItem);
+                Basket.Add(arg);
+            });
         }
     }
 }

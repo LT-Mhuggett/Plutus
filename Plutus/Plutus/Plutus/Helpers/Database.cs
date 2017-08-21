@@ -179,5 +179,13 @@ namespace Plutus.Helpers
             var Actions = _db.AuthActions.ToList();
             return Actions ?? null;
         }
+
+        internal bool CheckSaleID(string tempId)
+        {
+            var test = _db.Sales
+                .Where(i => i.SaleId.Equals(tempId))
+                .Select(i => i).Any();
+            return test;
+        }
     }
 }
