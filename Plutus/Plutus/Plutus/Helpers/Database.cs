@@ -187,5 +187,14 @@ namespace Plutus.Helpers
                 .Select(i => i).Any();
             return test;
         }
+
+        internal TransactionModel CheckItemExistInSale(string saleId, string itemId)
+        {
+            var trans = _db.Trans
+                .Include(t=>t.Sale)
+                .Where(t => t.SaleId.Equals(saleId) && t.ItemId.Equals(itemId))
+                .FirstOrDefault();
+            return trans??null;
+        }
     }
 }

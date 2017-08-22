@@ -569,6 +569,16 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The amount of items that are trying to be returned exceeds the amount at purchase.
+        ///The amount of items at purchase for {0} was {1}, Please remove atleast {2}..
+        /// </summary>
+        internal static string ItemAmountExceedsMesg {
+            get {
+                return ResourceManager.GetString("ItemAmountExceedsMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to This item apears to already been added.
         ///Please check this..
         /// </summary>
@@ -594,6 +604,15 @@ namespace I18N_L10N.Resx {
         internal static string ItemNonExistMesg {
             get {
                 return ResourceManager.GetString("ItemNonExistMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The item you have scanned doesn&apos;t apear to have been purchased with that Sale ID, Please check and try again..
+        /// </summary>
+        internal static string ItemNotExistInSaleMesg {
+            get {
+                return ResourceManager.GetString("ItemNotExistInSaleMesg", resourceCulture);
             }
         }
         
@@ -712,6 +731,15 @@ namespace I18N_L10N.Resx {
         internal static string NoChangeMadeMesg {
             get {
                 return ResourceManager.GetString("NoChangeMadeMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to All amounts of {0} for this Sale ID have been returned already..
+        /// </summary>
+        internal static string NoRefundsLeftMesg {
+            get {
+                return ResourceManager.GetString("NoRefundsLeftMesg", resourceCulture);
             }
         }
         
@@ -940,6 +968,15 @@ namespace I18N_L10N.Resx {
         internal static string SaleID {
             get {
                 return ResourceManager.GetString("SaleID", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The provided Sale ID is does not exist, Please check and retry..
+        /// </summary>
+        internal static string SaleIDWrongMesg {
+            get {
+                return ResourceManager.GetString("SaleIDWrongMesg", resourceCulture);
             }
         }
         

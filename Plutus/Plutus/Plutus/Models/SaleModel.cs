@@ -15,9 +15,9 @@ namespace Plutus.Models
         public DateTime DateOfSale { get; set; }
         public string EmployeeId { get; set; }
         public EmployeeModel Employee { get; set; }
-        public RefundModel Refund { get; set; }
+        public List<RefundModel> Refunds { get; set; }
         public List<TransactionModel> Transactions { get; set; }
         public List<PaymentMethod_SaleModel> PaySales { get; set; }
-        public List<Refund_SaleModel> RefundSales { get; set; }
+        public List<RefundModel> Refunded { get; set; }
     }
 }

@@ -483,4 +483,17 @@ If you do the current basket will be lost.</value>
   <data name="SaleID" xml:space="preserve">
     <value>Sale ID</value>
   </data>
+  <data name="SaleIDWrongMesg" xml:space="preserve">
+    <value>The provided Sale ID is does not exist, Please check and retry.</value>
+  </data>
+  <data name="ItemAmountExceedsMesg" xml:space="preserve">
+    <value>The amount of items that are trying to be returned exceeds the amount at purchase.
+The amount of items at purchase for {0} was {1}, Please remove atleast {2}.</value>
+  </data>
+  <data name="ItemNotExistInSaleMesg" xml:space="preserve">
+    <value>The item you have scanned doesn't apear to have been purchased with that Sale ID, Please check and try again.</value>
+  </data>
+  <data name="NoRefundsLeftMesg" xml:space="preserve">
+    <value>All amounts of {0} for this Sale ID have been returned already.</value>
+  </data>
 </root>

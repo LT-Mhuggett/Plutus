@@ -19,7 +19,6 @@ namespace Plutus.Data
         public DbSet<PaymentMethodModel> PayMethods { get; set; }
         public DbSet<PaymentMethod_SaleModel> PaySales { get; set; }
         public DbSet<RefundModel> Refunds { get; set; }
-        public DbSet<Refund_SaleModel> RefundSales { get; set; }
         public DbSet<SaleModel> Sales { get; set; }
         public DbSet<TransactionModel> Trans { get; set; }
         public DbSet<CategoryModel> Category { get; set; }
@@ -79,10 +78,20 @@ namespace Plutus.Data
                 .Property(b => b.DateOfSale)
                 .ValueGeneratedOnAdd();
 
-            modelBuilder.Entity<SaleModel>()
-                .HasOne(sm => sm.Refund)
-                .WithOne(r => r.Sale)
-                .HasForeignKey<RefundModel>(k => k.SaleId);
+            modelBuilder.Entity<RefundModel>()
+                .HasOne(r => r.Item)
+                .WithMany(i => i.Refunds)
+                .HasForeignKey(r => r.ItemId);
+
+            modelBuilder.Entity<RefundModel>()
+                .HasOne(r => r.SaleReturned)
+                .WithMany(sm => sm.Refunded)
+                .HasForeignKey(r => r.SaleIdReturned);
+
+            modelBuilder.Entity<RefundModel>()
+                .HasOne(r => r.Sale)
+                .WithMany(sm => sm.Refunds)
+                .HasForeignKey(r => r.SaleId);
 
             modelBuilder.Entity<PaymentMethod_SaleModel>()
                 .HasKey(k => new { k.PayId, k.SaleId });
@@ -96,19 +105,6 @@ namespace Plutus.Data
                 .HasOne(ps => ps.Sale)
                 .WithMany(s => s.PaySales)
                 .HasForeignKey(ps => ps.SaleId);
-
-            modelBuilder.Entity<Refund_SaleModel>()
-                .HasKey(k => new { k.RId, k.SaleId });
-
-            modelBuilder.Entity<Refund_SaleModel>()
-                .HasOne(rs => rs.Refund)
-                .WithMany(r => r.RefundSales)
-                .HasForeignKey(rs => rs.RId);
-
-            modelBuilder.Entity<Refund_SaleModel>()
-                .HasOne(rs => rs.Sale)
-                .WithMany(s => s.RefundSales)
-                .HasForeignKey(rs => rs.SaleId);
         }
     }
 }

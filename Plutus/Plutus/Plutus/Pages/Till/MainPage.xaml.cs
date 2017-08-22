@@ -78,6 +78,7 @@ namespace Plutus.Pages.Till
             var menuItem = (Basket)((MenuItem)sender).CommandParameter;
             var tempInd = Basket.IndexOf(menuItem);
             var temp = Basket.ElementAt(tempInd);
+            temp.Amount--;
             if (temp.Amount == 0)
                 Basket.Remove(menuItem);
             else
@@ -160,7 +161,7 @@ namespace Plutus.Pages.Till
                 { App.Translate.ProvideValue("Cash"), () => App.DbContext.GetPayM(App.Translate.ProvideValue("Cash")) },
                 { App.Translate.ProvideValue("Cancel"), null}
             };
-            /*            
+            /*
             EmployeeModel emp = new EmployeeModel();
             
             if (Device.Idiom == TargetIdiom.Desktop)
@@ -187,6 +188,8 @@ namespace Plutus.Pages.Till
             EmployeeModel emp = App.EmpsLogged.First();
             if (emp == null) return;
 
+            if (actionDic[Action] == null) return;
+
             PaymentMethod_SaleModel paySale = new PaymentMethod_SaleModel() { PayMethod = actionDic[Action]() };
             var Total = Basket.Sum(item => item.Price * item.Amount) + paySale.PayMethod.Charge;
             var Continue = await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("Continue?"), Total), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
@@ -196,14 +199,24 @@ namespace Plutus.Pages.Till
             SaleModel Sale = new SaleModel() { DateOfSale = System.DateTime.Now, Total = Total, EmployeeId = emp.Id };
             Sale.PaySales = new List<PaymentMethod_SaleModel>();
             Sale.Transactions = new List<TransactionModel>();
+            Sale.Refunds = new List<RefundModel>();
             Sale.PaySales.Add(paySale);
 
             foreach (var item in Basket)
             {
                 ItemModel Item = new ItemModel(item);
-                TransactionModel Tran = new TransactionModel() { Item = Item, Sale = Sale, Amount = item.Amount };
-                Sale.Transactions.Add(Tran);
-                App.DbContext.Add(Tran);
+                if (item.Return)
+                {
+                    RefundModel Refund = new RefundModel() { ItemId = item.ItemId, Sale = Sale, SaleIdReturned = item.SaleId, Reason = item.Reason, Amount = item.Amount };
+                    Sale.Refunds.Add(Refund);
+                    App.DbContext.Add(Refund);
+                }
+                else
+                {
+                    TransactionModel Tran = new TransactionModel() { Item = Item, Sale = Sale, Amount = item.Amount };
+                    Sale.Transactions.Add(Tran);
+                    App.DbContext.Add(Tran);
+                }
             }
             App.DbContext.Add(Sale);
             App.DbContext.Add(paySale);
@@ -287,7 +300,7 @@ namespace Plutus.Pages.Till
         private async void OnReturn(object sender, EventArgs e)
         {
             var menuItem = (Basket)((MenuItem)sender).CommandParameter;
-            await Navigation.PushModalAsync(new ReturnFormPage(menuItem));
+            await Navigation.PushAsync(new ReturnFormPage(menuItem));
         }
 
         internal static void FetchSavedBasket(KeyValuePair<int, ObservableCollection<Basket>> selectedBasket, MainPage page)
