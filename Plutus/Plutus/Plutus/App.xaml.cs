@@ -37,7 +37,7 @@ namespace Plutus
                     throw new NotImplementedException(): 
                     new NavigationPage(new FirstTimeStartUpPage());
 
-             DbContext = new Database();
+            DbContext = new Database();
         }
 
 		protected override void OnStart ()

@@ -27,7 +27,7 @@ namespace Plutus.Pages.Till
         async void Handle_ItemTapped(object sender, ItemTappedEventArgs e)
         {
             var temp = (KeyValuePair<int, ObservableCollection<Basket>>)e.Item;
-            MessagingCenter.Send(new Till.MainPage(),"BasketData", temp);
+            MainPage.FetchSavedBasket(temp, MainPage.Instance);
             await Navigation.PopAsync();
         }
     }

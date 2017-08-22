@@ -23,6 +23,7 @@ namespace Plutus.Pages.Till
         public ItemModel BagItem { get; set; }
         private ZXingScannerPage _scanPage;
         private int CountBasketNum { get; set; }
+        internal static MainPage Instance { get; set; }
 
         public MainPage()
         {
@@ -53,6 +54,7 @@ namespace Plutus.Pages.Till
             Bag.Text = BagItem.Name;
             Bag.IsVisible = true;
             CountBasketNum = 1;
+            Instance = this;
         }
 
         async void Handle_ItemTapped(object sender, SelectedItemChangedEventArgs e)
@@ -280,60 +282,60 @@ namespace Plutus.Pages.Till
         private async void ShowBasketList()
         {
             await Navigation.PushAsync(new BasketListPage());
-            MessagingCenter.Subscribe<MainPage, KeyValuePair<int, ObservableCollection<Basket>>>(this, "BasketData", (Sender, arg) =>
-            {
-                MessagingCenter.Unsubscribe<MainPage>(this, "BasketData");
-                Device.BeginInvokeOnMainThread(async () =>
-                {
-                    if (Basket.Count > 0)
-                    {
-
-                        var quit = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("BasketReplace?"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
-
-                        if (quit)
-                        {
-                            Basket.Clear();
-                        }
-                        else
-                        {
-                            return;
-                        }
-                    }
-                    foreach (var item in arg.Value)
-                    {
-                        BasketAdd(item);
-                    }
-                    StoredTrans.Remove(arg.Key);
-                    if (StoredTrans.Count > 0)
-                    {
-                        for (int i = 1; i <= StoredTrans.Last().Key; i++)
-                        {
-                            if (i > arg.Key)
-                            {
-                                var itemKey = i;
-                                ObservableCollection<Basket> itemData = StoredTrans[i];
-                                itemKey = itemKey - 1;
-                                StoredTrans.Remove(i);
-                                StoredTrans.Add(itemKey, itemData);
-                            }
-                        }
-                    }
-                    CountBasketNum--;
-                    CheckStoreTransExist();
-                });
-            });
         }
 
         private async void OnReturn(object sender, EventArgs e)
         {
             var menuItem = (Basket)((MenuItem)sender).CommandParameter;
-            await Navigation.PushAsync(new ReturnFormPage(menuItem));
-            MessagingCenter.Subscribe<MainPage, Basket>(this, "ReturnData", (Sender, arg) =>
+            await Navigation.PushModalAsync(new ReturnFormPage(menuItem));
+        }
+
+        internal static void FetchSavedBasket(KeyValuePair<int, ObservableCollection<Basket>> selectedBasket, MainPage page)
+        {
+            Device.BeginInvokeOnMainThread(async () =>
             {
-                MessagingCenter.Unsubscribe<MainPage>(this, "ReturnData");
-                Basket.Remove(menuItem);
-                Basket.Add(arg);
+                if (page.Basket.Count > 0)
+                {
+
+                    var quit = await page.DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("BasketReplace?"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
+
+                    if (quit)
+                    {
+                        page.Basket.Clear();
+                    }
+                    else
+                    {
+                        return;
+                    }
+                }
+                foreach (var item in selectedBasket.Value)
+                {
+                    page.BasketAdd(item);
+                }
+                StoredTrans.Remove(selectedBasket.Key);
+                if (StoredTrans.Count > 0)
+                {
+                    for (int i = 1; i <= StoredTrans.Last().Key; i++)
+                    {
+                        if (i > selectedBasket.Key)
+                        {
+                            var itemKey = i;
+                            ObservableCollection<Basket> itemData = StoredTrans[i];
+                            itemKey = itemKey - 1;
+                            StoredTrans.Remove(i);
+                            StoredTrans.Add(itemKey, itemData);
+                        }
+                    }
+                }
+                page.CountBasketNum--;
+                page.CheckStoreTransExist();
             });
+        }
+
+        internal static void ReturnListener(Basket oldItem, Basket newItem, MainPage page)
+        {
+            page.Basket.Remove(oldItem);
+            page.Basket.Add(newItem);
         }
     }
 }
