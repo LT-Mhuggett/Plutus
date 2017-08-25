@@ -19,10 +19,12 @@ namespace Plutus.Pages.Inventory
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class AddItemPage : ContentPage
 	{
-        internal static ItemModel Item = new ItemModel();
+        internal ItemModel Item = new ItemModel();
         internal List<VatModel> Vats;
         internal List<CategoryModel> Cats;
         private ZXingScannerPage _scanPage;
+        internal int StockConverted;
+        internal static AddItemPage Instance { get; set; }
 
         /// <summary>
         /// Basic constructor for AddItemPage
@@ -38,6 +40,8 @@ namespace Plutus.Pages.Inventory
                 VatPicker.Items.Add(item.Name);
             }
             InitCatPicker();
+
+            Instance = this;
         }
 
         /// <summary>
@@ -130,26 +134,28 @@ namespace Plutus.Pages.Inventory
             if (Item.Cost.Equals(0) || Item.Price.Equals(0))
                 return;
 
-            var temp = await Conversions.ToInterger(Stock.Text);
+            var StockConverted = await Conversions.ToInterger(Stock.Text);
 
-            if (temp.Equals(-1))
+            if (StockConverted.Equals(-1))
                 return;
 
             await Navigation.PushModalAsync(new ItemTemplate(Item, 0));
-            MessagingCenter.Subscribe<AddItemPage>(this, "Accepted", async (Sender) =>
-            {
-                App.DbContext.Add(Item);
-                var stock = new StockModel
-                {
-                    ItemId = Item.ItemId,
-                    StoreId = App.Store.StoreId,
-                    Quantity = temp
-                };
-                App.DbContext.Add(stock);
-                App.DbContext.Save();
 
-                await Navigation.PopAsync();
-            });
+        }
+
+        public static async void FinalizeDBActions(AddItemPage page)
+        {
+            App.DbContext.Add(page.Item);
+            var stock = new StockModel
+            {
+                ItemId = page.Item.ItemId,
+                StoreId = App.Store.StoreId,
+                Quantity = page.StockConverted
+            };
+            App.DbContext.Add(stock);
+            App.DbContext.Save();
+
+            await page.Navigation.PopAsync();
         }
 
         /// <summary>

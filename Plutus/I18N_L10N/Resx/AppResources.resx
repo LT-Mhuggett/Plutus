@@ -502,4 +502,7 @@ The amount of items at purchase for {0} was {1}, Please remove atleast {2}.</val
   <data name="VAllItems" xml:space="preserve">
     <value>View All Items</value>
   </data>
+  <data name="Stock" xml:space="preserve">
+    <value>Stock</value>
+  </data>
 </root>

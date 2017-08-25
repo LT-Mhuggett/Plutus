@@ -96,7 +96,7 @@ namespace Plutus.Pages.Inventory
         private async void Confirm_Clicked(object sender, EventArgs e)
         {
             await Navigation.PopModalAsync();
-            MessagingCenter.Send(new AddItemPage(), "Accepted");
+            AddItemPage.FinalizeDBActions(AddItemPage.Instance);
             MessagingCenter.Send(new UpdateItemPage(), "Accepted");
         }
 

@@ -20,16 +20,16 @@ namespace Plutus.Helpers
             _db.Database.EnsureCreated();
         }
 
-        internal async void Add<T>(T tmp) where T : class
+        internal void Add<T>(T tmp) where T : class
         {
-            await _db.Set<T>().AddAsync(tmp);
+            _db.Set<T>().Add(tmp);
         }
 
-        internal async void Save()
+        internal void Save()
         {
             try
             {
-                await _db.SaveChangesAsync();
+                _db.SaveChangesAsync();
             }
             catch(Exception e)
             {
