@@ -496,4 +496,10 @@ The amount of items at purchase for {0} was {1}, Please remove atleast {2}.</val
   <data name="NoRefundsLeftMesg" xml:space="preserve">
     <value>All amounts of {0} for this Sale ID have been returned already.</value>
   </data>
+  <data name="EmpId" xml:space="preserve">
+    <value>Employee ID</value>
+  </data>
+  <data name="VAllItems" xml:space="preserve">
+    <value>View All Items</value>
+  </data>
 </root>

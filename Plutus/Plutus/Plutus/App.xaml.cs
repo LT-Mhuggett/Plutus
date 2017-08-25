@@ -34,7 +34,7 @@ namespace Plutus
             MainPage = FileIO.Exists("App.config")&&FileIO.Exists("Database.db")?
                 new NavigationPage(new LoginPage()):
                 FileIO.Exists("Database.db")?
-                    throw new NotImplementedException(): 
+                    new NavigationPage(OnlyDB()): 
                     new NavigationPage(new FirstTimeStartUpPage());
 
             DbContext = new Database();
@@ -54,5 +54,11 @@ namespace Plutus
 		{
 			// Handle when your app resumes
 		}
+
+        Page OnlyDB()
+        {
+            File.Delete(Path.Combine(FileIO.GetLib(), "Database.db"));
+            return new FirstTimeStartUpPage();
+        }
 	}
 }

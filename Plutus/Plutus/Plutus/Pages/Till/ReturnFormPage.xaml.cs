@@ -14,6 +14,12 @@ namespace Plutus.Pages.Till
 	{
         public Basket BItem { get; set; }
         public Basket OBItem { get; set; }
+
+        /// <summary>
+        /// Basic constructor for ReturnFromPage
+        /// initalises Bitem and OBItem
+        /// </summary>
+        /// <param name="temp">Item to return</param>
 		public ReturnFormPage (Basket temp)
 		{
 			InitializeComponent ();
@@ -22,6 +28,13 @@ namespace Plutus.Pages.Till
             ItemName.Text = BItem.Name;
 		}
 
+        /// <summary>
+        /// Ensures all fields are set, and correct using DB values and checks
+        /// then test to see if the item is viable for a return if not then throw error message detailing problem
+        /// if all are true then run MainPAge.ReturnListener and pop current page
+        /// </summary>
+        /// <param name="sender">Object that sent called the method</param>
+        /// <param name="e">Event that the object called</param>
         private async void Confirm_Clicked(object sender, EventArgs e)
         {
             if (!String.IsNullOrWhiteSpace(SaleID.Text) && !String.IsNullOrWhiteSpace(Reason.Text))

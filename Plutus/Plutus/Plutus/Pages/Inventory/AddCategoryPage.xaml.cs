@@ -13,11 +13,19 @@ namespace Plutus.Pages.Inventory
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class AddCategoryPage : ContentPage
 	{
+        /// <summary>
+        /// Basic constructor for AddCategoryPage
+        /// </summary>
         public AddCategoryPage ()
 		{
 			InitializeComponent();
 		}
 
+        /// <summary>
+        /// This method adds the new category to the DB and then returns to the page that called it
+        /// </summary>
+        /// <param name="sender">object that called the method</param>
+        /// <param name="e">Event that the sender used</param>
         private async void Confirm_Clicked(object sender, EventArgs e)
         {
             CategoryModel category = new CategoryModel {
@@ -32,11 +40,19 @@ namespace Plutus.Pages.Inventory
             MessagingCenter.Send(new UpdateItemPage(), "ConfCat");
         }
 
+        /// <summary>
+        /// Cancel adding a new category, return to previous page by popping current page
+        /// </summary>
+        /// <param name="sender">object that called the method</param>
+        /// <param name="e">Event that the sender used</param>
         private async void Cancel_Clicked(object sender, EventArgs e)
         {
             await Navigation.PopModalAsync();
         }
 
+        /// <summary>
+        /// Unsubscribe to all MessageingCenter subscriptions
+        /// </summary>
         protected override void OnDisappearing()
         {
             MessagingCenter.Unsubscribe<AddItemPage>(new AddItemPage(), "ConfCat");

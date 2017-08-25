@@ -14,17 +14,32 @@ namespace Plutus.Pages.Staff
 	public partial class AddEmployeePage : ContentPage
 	{
         public static EmployeeModel NewEmployee = new EmployeeModel();
+
+        /// <summary>
+        /// Basic constructor AddEmployeePage
+        /// </summary>
 		public AddEmployeePage ()
 		{
 			InitializeComponent ();
             NewEmployee.Actions = new List<AuthActions>();
 		}
 
+        /// <summary>
+        /// Push the Rights and Restrictions page
+        /// </summary>
+        /// <param name="sender">Object that sent called the method</param>
+        /// <param name="e">Event that the object called</param>
         private async void Ri_Re_Clicked(object sender, EventArgs e)
         {
             await Navigation.PushModalAsync(new NavigationPage(new RiRePage()));
         }
 
+        /// <summary>
+        /// Ensure all values are set and in boundaries
+        /// then save the Employee model to the DB
+        /// </summary>
+        /// <param name="sender">Object that sent called the method</param>
+        /// <param name="e">Event that the object called</param>
         private async void Create_Clicked(object sender, EventArgs e)
         {
             Loading.TogleLoading(LCV, LAI);
@@ -102,6 +117,11 @@ namespace Plutus.Pages.Staff
             await Navigation.PopAsync();
         }
 
+        /// <summary>
+        /// This method handles Error messages
+        /// </summary>
+        /// <param name="tester">Value to be used to select message</param>
+        /// <returns>null</returns>
         private string Error(int tester)
         {
             var message = "";

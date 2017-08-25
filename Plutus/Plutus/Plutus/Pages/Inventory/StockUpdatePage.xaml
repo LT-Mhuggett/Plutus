@@ -11,7 +11,7 @@
             <Button x:Name="ScanButt" Text="Scan" Clicked="ScanButt_Clicked" />
             <Label Text="{i18N:Translate QuantityAdd}" HorizontalOptions="FillAndExpand" />
             <Entry x:Name="Quantity" Keyboard="Numeric"/>
-            <Button x:Name="Confirm" Text="{i18N:Translate Confirm}" Clicked="Confirm_Clicked" />
+            <Button x:Name="Confirm" Text="{i18N:Translate Confirm}" Clicked="Confirm_Clicked" IsEnabled="False" />
         </StackLayout>
     </ContentPage.Content>
 </ContentPage>

@@ -13,24 +13,35 @@ namespace Plutus.Pages
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class ConfigPage : ContentPage
 	{
+        /// <summary>
+        /// Basic Constructor for the ConfigPage object
+        /// </summary>
 		public ConfigPage ()
 		{
 			InitializeComponent ();
 		}
 
+        /// <summary>
+        /// This method checks all user inputs and then calls methods to encrypt passwords
+        /// all values if correct and then placed inside a object of the model required.
+        /// then an App.Config file is created with the baskic required information on launch, the
+        /// database is then created and the values are inputted.
+        /// </summary>
+        /// <param name="sender">Object that sent called the method</param>
+        /// <param name="e">Event that the object called</param>
         private async void Create_Clicked(object sender, EventArgs e)
         {
             Loading.TogleLoading(LCV, LAI);
             if (string.IsNullOrEmpty(Password.Text) || string.IsNullOrEmpty(PasswordConf.Text))
             {
                 Loading.TogleLoading(LCV, LAI);
-                await DisplayAlert(App.Translate.ProvideValue("Oops"), App.Translate.ProvideValue("SetPassWMesg"), App.Translate.ProvideValue("OK"));
+                Error(6);
                 return;
             }
             if (Password.Text != PasswordConf.Text || Password.Text.Length <= 6)
             {
                 Loading.TogleLoading(LCV, LAI);
-                await DisplayAlert(App.Translate.ProvideValue("Oops"), App.Translate.ProvideValue("PassWNotSameMesg"), App.Translate.ProvideValue("OK"));
+                Error(7);
                 return;
             }
 
@@ -148,7 +159,12 @@ namespace Plutus.Pages
             }
         }
 
-        public string Error(int tester)
+        /// <summary>
+        /// This method is used as the Error message dealer
+        /// </summary>
+        /// <param name="tester">Value that is used to select the correct message</param>
+        /// <returns></returns>
+        public void Error(int tester)
         {
             var message = "";
             switch (tester)
@@ -168,19 +184,34 @@ namespace Plutus.Pages
                 case 4:
                     message = App.Translate.ProvideValue("DatabaseNotSelectedMesg");
                     break;
+                case 5:
+                    message = App.Translate.ProvideValue("SomthingWentWrongMesg");
+                    break;
+                case 6:
+                    message = App.Translate.ProvideValue("SetPassWMesg");
+                    break;
+                case 7:
+                    message = App.Translate.ProvideValue("PassWNotSameMesg");
+                    break;
                 default:
                     break;
             }
             DisplayAlert(App.Translate.ProvideValue("Oops"), message, App.Translate.ProvideValue("OK"));
-            return null;
         }
 
+        /// <summary>
+        /// This gets possible addresses based on geolocation services on the device
+        /// if there are possible addresses the manual input fields are hidden and the auto address is shown
+        /// and focused.
+        /// </summary>
+        /// <param name="sender">Object that sent called the method</param>
+        /// <param name="e">Event that the object called</param>
         private async void AutoFillStore_OnClicked(object sender, EventArgs e)
         {
             List<string> addressList = await Location.ReverseGeocde();
             if (addressList.Count == 0)
             {
-                await DisplayAlert(App.Translate.ProvideValue("Oops"), App.Translate.ProvideValue("SomthingWentWrongMesg"), App.Translate.ProvideValue("OK"));
+                Error(5);
                 return;
             }
             else
@@ -193,12 +224,19 @@ namespace Plutus.Pages
             }
         }
 
+        /// <summary>
+        /// This gets possible addresses based on geolocation services on the device
+        /// if there are possible addresses the manual input fields are hidden and the auto address is shown
+        /// and focused.
+        /// </summary>
+        /// <param name="sender">Object that sent called the method</param>
+        /// <param name="e">Event that the object called</param>
         private async void AutoFillPerson_OnClicked(object sender, EventArgs e)
         {
             List<string> addressList = await Location.ReverseGeocde();
             if (addressList.Count == 0)
             {
-                await DisplayAlert(App.Translate.ProvideValue("Oops"), App.Translate.ProvideValue("SomthingWentWrongMesg"), App.Translate.ProvideValue("OK"));
+                Error(5);
                 return;
             }
             else
@@ -211,6 +249,11 @@ namespace Plutus.Pages
             }
         }
 
+        /// <summary>
+        /// This hides the auto layour and shows the manual layout
+        /// </summary>
+        /// <param name="sender">Object that sent called the method</param>
+        /// <param name="e">Event that the object called</param>
         private void SEnterManually_OnClicked(object sender, EventArgs e)
         {
             ManLayoutS.IsVisible = !ManLayoutS.IsVisible;
@@ -219,6 +262,11 @@ namespace Plutus.Pages
             StoreAdLine1.Focus();
         }
 
+        /// <summary>
+        /// This hides the auto layour and shows the manual layout
+        /// </summary>
+        /// <param name="sender">Object that sent called the method</param>
+        /// <param name="e">Event that the object called</param>
         private void PEnterManually_OnClicked(object sender, EventArgs e)
         {
             ManLayoutP.IsVisible = !ManLayoutP.IsVisible;

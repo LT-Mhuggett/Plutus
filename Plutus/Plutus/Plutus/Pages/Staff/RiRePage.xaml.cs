@@ -14,6 +14,10 @@ namespace Plutus.Pages.Staff
     {
         public ObservableCollection<AuthActions> Items { get; set; }
 
+        /// <summary>
+        /// Basic constructor for RiRePage
+        /// initalises Items from DB AuthActions
+        /// </summary>
         public RiRePage()
         {
             InitializeComponent();
@@ -28,6 +32,11 @@ namespace Plutus.Pages.Staff
             BindingContext = this;
         }
 
+        /// <summary>
+        /// This method adds all items that are marked active to the employee Actions list in page AddEmployeePage
+        /// </summary>
+        /// <param name="sender">Object that sent called the method</param>
+        /// <param name="e">Event that the object called</param>
         private async void Confirm_Clicked(object sender, EventArgs e)
         {
             foreach (var item in Items)

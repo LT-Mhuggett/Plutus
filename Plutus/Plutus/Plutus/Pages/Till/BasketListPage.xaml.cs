@@ -15,6 +15,11 @@ namespace Plutus.Pages.Till
     {
         public Dictionary<int, ObservableCollection<Basket>> Items { get; set; }
 
+        /// <summary>
+        /// Basic constructor for BasketListPage
+        /// initalises the Items Dictionary
+        /// and the binding context
+        /// </summary>
         public BasketListPage()
         {
             InitializeComponent();
@@ -24,6 +29,12 @@ namespace Plutus.Pages.Till
             BindingContext = this;
         }
 
+        /// <summary>
+        /// Get the item that was tapped and send it to MainPage.GetchSavedBasket
+        /// then pop current page
+        /// </summary>
+        /// <param name="sender">Object that sent called the method</param>
+        /// <param name="e">Event that the object called</param>
         async void Handle_ItemTapped(object sender, ItemTappedEventArgs e)
         {
             var temp = (KeyValuePair<int, ObservableCollection<Basket>>)e.Item;

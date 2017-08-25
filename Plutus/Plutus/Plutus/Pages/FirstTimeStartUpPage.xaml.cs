@@ -12,6 +12,9 @@ namespace Plutus.Pages
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class FirstTimeStartUpPage : TabbedPage
     {
+        /// <summary>
+        /// Basic Constructor for the FirstTimeStartUpPage object
+        /// </summary>
         public FirstTimeStartUpPage ()
         {
             InitializeComponent();

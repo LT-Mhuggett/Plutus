@@ -15,9 +15,9 @@
             <Label x:Name="ItemPrice" VerticalOptions="Center" HorizontalOptions="Center" />
             <Image x:Name="ItemId" VerticalOptions="Center" HorizontalOptions="Center" />
             <Button x:Name="Confirm" Text="{i18N:Translate Confirm}" Clicked="Confirm_Clicked" VerticalOptions="Center" HorizontalOptions="Center" />
-            <Button x:Name="Edit" Text="{i18N:Translate Edit}" Clicked="Edit_Clicked" VerticalOptions="Center" HorizontalOptions="Center" />
+            <Button x:Name="Edit" Text="{i18N:Translate Edit}" Clicked="Edit_Closed_Clicked" VerticalOptions="Center" HorizontalOptions="Center" />
             <Button x:Name="Select" IsVisible="False" Text="{i18N:Translate Select}" Clicked="Select_Clicked"/>
-            <Button x:Name="Close" Text="Close" Clicked="Close_Clicked" IsVisible="False" />
+            <Button x:Name="Close" Text="Close" Clicked="Edit_Closed_Clicked" IsVisible="False" />
         </StackLayout>
     </ContentPage.Content>
 </ContentPage>

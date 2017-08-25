@@ -62,6 +62,8 @@ namespace Plutus.Helpers
             Add(AuthAction5);
             var AuthAction6 = new AuthActions() { Id = "StockU", Name = "Stock Update" };
             Add(AuthAction6);
+            var AuthAction7 = new AuthActions() { Id = "FLogoutAll", Name = "Force Loggout All Users" };
+            var AuthAction8 = new AuthActions() { Id = "FLogoutSingle", Name = "Force Loggout Single User" };
 
             //Will be removed as only applies to UK, User will have to add manually
             var cat = new CategoryModel() { Name = "Customer Care", Description = "Items such as Bags etc." };
@@ -195,6 +197,16 @@ namespace Plutus.Helpers
                 .Where(t => t.SaleId.Equals(saleId) && t.ItemId.Equals(itemId))
                 .FirstOrDefault();
             return trans??null;
+        }
+
+        internal List<ItemModel> GetAllItems()
+        {
+            var items = _db.Items
+                .Include(i => i.Vat)
+                .Include(i=>i.Cat)
+                .Include(i=>i.Transactions)
+                .ToList();
+            return items ?? null;
         }
     }
 }

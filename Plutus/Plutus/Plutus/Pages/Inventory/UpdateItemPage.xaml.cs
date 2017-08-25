@@ -25,6 +25,9 @@ namespace Plutus.Pages.Inventory
         internal List<CategoryModel> Cats;
         private ZXingScannerPage _scanPage;
 
+        /// <summary>
+        /// Basic constructor for UpdateItemPage
+        /// </summary>
         public UpdateItemPage ()
 		{
 			InitializeComponent ();
@@ -37,11 +40,22 @@ namespace Plutus.Pages.Inventory
             InitCatPicker();
         }
 
+        /// <summary>
+        /// On item search complete run ItemSearchComplete
+        /// </summary>
+        /// <param name="sender">object that called the method</param>
+        /// <param name="e">Event that the sender called</param>
         private void ItemSearchCompleted(object sender, EventArgs e)
         {
             ItemSearchComplete();
         }
 
+        /// <summary>
+        /// Get all items that fit the search critaria if no items match throw warning, 
+        /// if 1 item matches then run Populate,
+        /// if more than one exist then initalise a carouselPage using the ItemTemplate page
+        /// wait for selected item then run populate 
+        /// </summary>
         private async void ItemSearchComplete()
         {
             var items = App.DbContext.GetItem(ItemSearch.Text);
@@ -89,6 +103,9 @@ namespace Plutus.Pages.Inventory
             }
         }
 
+        /// <summary>
+        /// display all item information
+        /// </summary>
         private void Populate()
         {
             Name.Text = Item.Name;
@@ -109,6 +126,11 @@ namespace Plutus.Pages.Inventory
             ItemDetails.IsVisible = true;
         }
 
+        /// <summary>
+        /// Call ItemDescPage to change the items description
+        /// </summary>
+        /// <param name="sender">object that called the method</param>
+        /// <param name="e">Event that the sender called</param>
         private async void Desc_Clicked(object sender, EventArgs e)
         {
             await Navigation.PushModalAsync(new NavigationPage(new ItemDescPage(Item.Desc)));
@@ -117,6 +139,12 @@ namespace Plutus.Pages.Inventory
             });
         }
 
+        /// <summary>
+        /// If both Vat and Cost are set then calculate recommended price
+        /// </summary>
+        /// <param name="sender">object that called the method</param>
+        /// <param name="e">Event that the sender called</param>
+        /// <returns></returns>
         private async Task Cost_Vat_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(Cost.Text) || VatPicker.SelectedIndex == -1) return;
@@ -129,6 +157,9 @@ namespace Plutus.Pages.Inventory
             }
         }
 
+        /// <summary>
+        /// Initalises Cat Picker from DB
+        /// </summary>
         protected void InitCatPicker()
         {
             Cats = App.DbContext.GetCats();
@@ -140,6 +171,11 @@ namespace Plutus.Pages.Inventory
             CatPicker.Items.Add(App.Translate.ProvideValue("CreateNCate"));
         }
 
+        /// <summary>
+        /// Check if Cat picker selectedindex is last index then open add category page
+        /// </summary>
+        /// <param name="sender">object that called the method</param>
+        /// <param name="e">Event that the sender called</param>
         private async void CatPicker_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (CatPicker.SelectedIndex != CatPicker.Items.Count - 1) return;
@@ -152,6 +188,13 @@ namespace Plutus.Pages.Inventory
             });
         }
 
+        /// <summary>
+        /// Asks the user where to open camera or local photo storage
+        /// call the proprete mwthods
+        /// </summary>
+        /// <param name="sender">object that called the method</param>
+        /// <param name="e">Event that the sender called</param>
+        /// <returns></returns>
         private async Task Image_Clicked(object sender, EventArgs e)
         {
             string action;
@@ -176,6 +219,9 @@ namespace Plutus.Pages.Inventory
             actionCall();
         }
 
+        /// <summary>
+        /// Get image from photo library
+        /// </summary>
         public async void GetImageRoll()
         {
             var stream = await DependencyService.Get<IPicturePicker>().GetImageStreamAsync();
@@ -184,6 +230,12 @@ namespace Plutus.Pages.Inventory
             Item.Image = Camera.StreamToArray(stream);
         }
 
+        /// <summary>
+        /// Ensures all data values are set and in boudaries and then updates the item in the DB
+        /// </summary>
+        /// <param name="sender">object that called the method</param>
+        /// <param name="e">Event that the sender called</param>
+        /// <returns></returns>
         private async Task Confirm_Clicked(object sender, EventArgs e)
         {
             ChangeItem.Name = Name.Text;
@@ -208,6 +260,11 @@ namespace Plutus.Pages.Inventory
             });
         }
 
+        /// <summary>
+        /// Open mobile scanner
+        /// </summary>
+        /// <param name="sender">object that called the method</param>
+        /// <param name="e">Event that the sender called</param>
         private async void ScanButt_Clicked(object sender, EventArgs e)
         {
             var opt = new MobileBarcodeScanningOptions

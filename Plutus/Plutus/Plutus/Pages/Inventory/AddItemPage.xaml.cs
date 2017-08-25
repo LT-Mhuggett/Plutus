@@ -24,6 +24,10 @@ namespace Plutus.Pages.Inventory
         internal List<CategoryModel> Cats;
         private ZXingScannerPage _scanPage;
 
+        /// <summary>
+        /// Basic constructor for AddItemPage
+        /// and initalises Vats from the db
+        /// </summary>
         public AddItemPage ()
 		{
             InitializeComponent();
@@ -36,6 +40,12 @@ namespace Plutus.Pages.Inventory
             InitCatPicker();
         }
 
+        /// <summary>
+        /// Asks the user where to open camera or local photo storage
+        /// call the proprete mwthods
+        /// </summary>
+        /// <param name="sender">object that called the method</param>
+        /// <param name="e">Event that the sender called</param>
         private async void Image_Clicked(object sender, EventArgs e)
         {
             string action;
@@ -60,6 +70,9 @@ namespace Plutus.Pages.Inventory
             actionCall();
         }
 
+        /// <summary>
+        /// Get image from photo library
+        /// </summary>
         public async void GetImageRoll()
         {
             var stream = await DependencyService.Get<IPicturePicker>().GetImageStreamAsync();
@@ -68,6 +81,11 @@ namespace Plutus.Pages.Inventory
             Item.Image = Camera.StreamToArray(stream);
         }
 
+        /// <summary>
+        /// Open Description page and send over current description
+        /// </summary>
+        /// <param name="sender">object that called the method</param>
+        /// <param name="e">Event that the sender called</param>
         private async void Desc_Clicked(object sender, EventArgs e)
         {
             await Navigation.PushModalAsync(new NavigationPage(new ItemDescPage(Item.Desc)));
@@ -76,11 +94,22 @@ namespace Plutus.Pages.Inventory
             });
         }
 
+        /// <summary>
+        /// Test if Id.Text has text in it
+        /// </summary>
+        /// <param name="sender">object that called the method</param>
+        /// <param name="e">Event that the sender called</param>
         private void Id_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
             ImageButton.IsEnabled = !string.IsNullOrWhiteSpace(Id.Text) ? true : false;
         }
 
+        /// <summary>
+        /// This verifies all user input and ensures they are all within except boundaries
+        /// after that this method also adds the item to DB and saves DB changes
+        /// </summary>
+        /// <param name="sender">object that called the method</param>
+        /// <param name="e">Event that the sender called</param>
         private async void AddItem_Clicked(object sender, EventArgs e)
         {
             Item.ItemId = Id.Text;
@@ -123,6 +152,11 @@ namespace Plutus.Pages.Inventory
             });
         }
 
+        /// <summary>
+        /// On Id focus test if mobile if mobile then use mobile scanner else use standard barcode scanner 
+        /// </summary>
+        /// <param name="sender">object that called the method</param>
+        /// <param name="e">Event that the sender called</param>
         private async void Id_Focused(object sender, FocusEventArgs e)
         {
             if (Device.Idiom == TargetIdiom.Desktop) return;
@@ -144,6 +178,12 @@ namespace Plutus.Pages.Inventory
             await Navigation.PushAsync(_scanPage);
         }
 
+        /// <summary>
+        /// If both Vat and Cost are set then calculate recommended price
+        /// </summary>
+        /// <param name="sender">object that called the method</param>
+        /// <param name="e">Event that the sender called</param>
+        /// <returns>Recomended price as Task</returns>
         private async Task Cost_Vat_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(Cost.Text) || VatPicker.SelectedIndex == -1) return;
@@ -156,6 +196,9 @@ namespace Plutus.Pages.Inventory
             }
         }
 
+        /// <summary>
+        /// Initalises Cat Picker from DB
+        /// </summary>
         protected void InitCatPicker()
         {
             Cats = App.DbContext.GetCats();
@@ -167,6 +210,11 @@ namespace Plutus.Pages.Inventory
             CatPicker.Items.Add(App.Translate.ProvideValue("CreateNCate"));
         }
 
+        /// <summary>
+        /// Check if Cat picker selectedindex is last index then open add category page
+        /// </summary>
+        /// <param name="sender">object that called the method</param>
+        /// <param name="e">Event that the sender called</param>
         private async void CatPicker_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (CatPicker.SelectedIndex != CatPicker.Items.Count - 1) return;
@@ -179,6 +227,11 @@ namespace Plutus.Pages.Inventory
             });
         }
 
+        /// <summary>
+        /// Check if item exist on unfocus by check id given against DB 
+        /// </summary>
+        /// <param name="sender">object that called the method</param>
+        /// <param name="e">Event that the sender called</param>
         private async void Id_Unfocused(object sender, FocusEventArgs e)
         {
             if (!App.DbContext.IsIdSame(Id.Text)) return;

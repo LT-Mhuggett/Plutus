@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using Plutus.Models;
 
 namespace Plutus.Helpers
 {
@@ -24,6 +25,18 @@ namespace Plutus.Helpers
                 //implement multi user authorization
                 throw new NotImplementedException();
             }
+        }
+
+        public static bool IsAuthorised(string Action, EmployeeModel eTemp)
+        {
+            foreach (var item in eTemp.Actions)
+            {
+                if (item.Id == Action)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }

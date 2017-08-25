@@ -452,6 +452,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Employee ID.
+        /// </summary>
+        internal static string EmpId {
+            get {
+                return ResourceManager.GetString("EmpId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Employee Details.
         /// </summary>
         internal static string EmployeeDetails {
@@ -1157,6 +1166,15 @@ namespace I18N_L10N.Resx {
         internal static string Users {
             get {
                 return ResourceManager.GetString("Users", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to View All Items.
+        /// </summary>
+        internal static string VAllItems {
+            get {
+                return ResourceManager.GetString("VAllItems", resourceCulture);
             }
         }
         
