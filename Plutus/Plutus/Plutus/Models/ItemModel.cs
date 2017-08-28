@@ -9,6 +9,8 @@ namespace Plutus.Models
 {
     public class ItemModel
     {
+        private ItemModel item;
+
         [Key]
         public string ItemId { get; set; }
         public string Name { get; set; }

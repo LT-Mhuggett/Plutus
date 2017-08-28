@@ -10,7 +10,15 @@ TODO: Guide users through getting your code up and running on their own system. 
 4.	API references
 */
 #Build and Test
-TODO: Describe and show how to build your code and run the tests. 
+ **UWP Installation**
+
+To get the latest Builds go to [OneDrive](https://1drv.ms/f/s!Arg-9YjQlLPAgsphg4X5tp0xVspw9w). Then install with either of the methods below.
+1. To run right click Add-AppDevPackage file and 'run with PowerShell', this will install the App.
+
+**OR** 
+
+1. right click the .cer file and install certificate, select Local Machine, then browse for 'Trusted Root Certificate Authorites' and select, then next and finish.
+2. After that then just run the .appxbundle and follow on screen instructions
 
 #Contribute
 TODO: Explain how other users and developers can contribute to make your code better. 

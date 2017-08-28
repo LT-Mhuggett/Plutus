@@ -12,15 +12,13 @@ namespace Plutus.Pages.Inventory
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class ViewAllInventoryPage : ContentPage
     {
-        public ObservableCollection<ItemModel> Items { get; set; }
+        public ObservableCollection<InventGroup> Items { get; set; }
 
         public ViewAllInventoryPage()
         {
             InitializeComponent();
 
-            Items = new ObservableCollection<ItemModel>();
-
-            BindingContext = this;
+            Items = new ObservableCollection<InventGroup>();
 
             Device.BeginInvokeOnMainThread(() =>
             {
@@ -42,10 +40,46 @@ namespace Plutus.Pages.Inventory
         void InitItems()
         {
             var items = App.DbContext.GetAllItems();
-            foreach(var item in items)
+            foreach (var item in items.OrderBy(i=>i.Name))
             {
-                Items.Add(item);
+                if (Items.Count == 0)
+                {
+                    var title = item.Name.FirstOrDefault().ToString();
+                    InventGroup G = new InventGroup(title, title);
+                    Items.Add(G);
+                    G.Add(item);
+                }
+                else
+                {
+                    foreach (var tempItem in Items)
+                    {
+                        if (tempItem.Title == item.Name.FirstOrDefault().ToString())
+                        {
+                            tempItem.Add(item);
+                        }
+                        else
+                        {
+                            var title = item.Name.FirstOrDefault().ToString();
+                            InventGroup G = new InventGroup(title, title);
+                            Items.Add(G);
+                            G.Add(item);
+                        }
+                    }
+                }
             }
+            Items = new ObservableCollection<InventGroup>(Items);
+            BindingContext = this;
+        }
+    }
+
+    public class InventGroup : ObservableCollection<ItemModel>
+    {
+        public string Title { get; set; }
+        public string ShortName { get; set; }
+        public InventGroup(string title, string sName)
+        {
+            Title = title;
+            ShortName = sName;
         }
     }
 }
