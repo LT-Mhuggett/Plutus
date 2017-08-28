@@ -25,17 +25,18 @@ namespace Plutus.Helpers
             await _db.Set<T>().AddAsync(tmp);
         }
 
-        internal async void Save()
+        internal async Task<bool> Save()
         {
             try
             {
                 await _db.SaveChangesAsync();
+                return true;
             }
             catch(Exception e)
             {
                 Console.Write(e);
+                return false;
             }
-            
         }
 
         internal void Init()
@@ -63,12 +64,14 @@ namespace Plutus.Helpers
             var AuthAction6 = new AuthActions() { Id = "StockU", Name = "Stock Update" };
             Add(AuthAction6);
             var AuthAction7 = new AuthActions() { Id = "FLogoutAll", Name = "Force Loggout All Users" };
+            Add(AuthAction7);
             var AuthAction8 = new AuthActions() { Id = "FLogoutSingle", Name = "Force Loggout Single User" };
+            Add(AuthAction8);
 
             //Will be removed as only applies to UK, User will have to add manually
             var cat = new CategoryModel() { Name = "Customer Care", Description = "Items such as Bags etc." };
             Add(cat);
-            Save();
+            _db.SaveChanges();
             var bag = new ItemModel() { ItemId = "BAG001", Name = "Bag", Desc = "Item to allow Customers to carry things", CatId = 1, VatId = 2, Price = .05m, Cost = 0.0m };
             Add(bag);
 
@@ -77,7 +80,7 @@ namespace Plutus.Helpers
             Add(payM);
             var payM2 = new PaymentMethodModel() { Name = "Cash", Charge = 0.0m };
             Add(payM2);
-            Save();
+            _db.SaveChanges();
         }
 
         internal async Task<EmployeeModel> Login(string idEmail, string password)
@@ -142,6 +145,8 @@ namespace Plutus.Helpers
 
         internal List<ItemModel> GetItem(string temp)
         {
+            if (temp == "")
+                return null;
             var item = _db.Items
                 .Include(a=>a.Vat)
                 .Where(i => i.ItemId.Equals(temp) ||
@@ -207,6 +212,38 @@ namespace Plutus.Helpers
                 .Include(i=>i.Transactions)
                 .ToList();
             return items ?? null;
+        }
+
+        internal List<EmployeeModel> GetAllEmps()
+        {
+            var emps = _db.Employees
+                .Include(i => i.Actions)
+                .Include(i => i.Store)
+                .ToList();
+            return emps ?? null;
+        }
+
+        internal void UpdateEmp(EmployeeModel emp)
+        {
+            var query = _db.Employees
+                .Where(e => e.Id.Equals(emp.Id))
+                .Select(e=>e);
+            foreach(EmployeeModel item in query)
+            {
+                item.FullAddress = emp.FullAddress;
+                item.FName = emp.FName;
+                item.LName = emp.LName;
+                item.Mobile = emp.Mobile;
+                item.Email = emp.Email;
+                item.AdLine1 = emp.AdLine1;
+                item.AdLine2 = emp.AdLine2;
+                item.City = emp.City;
+                item.Country = emp.Country;
+                item.PostCode = emp.PostCode;
+                item.Wage = item.Wage;
+                item.Active = emp.Active;
+                item.ContractedHours = emp.ContractedHours;
+            }
         }
     }
 }

@@ -502,4 +502,19 @@ The amount of items at purchase for {0} was {1}, Please remove atleast {2}.</val
   <data name="VAllItems" xml:space="preserve">
     <value>View All Items</value>
   </data>
+  <data name="DbIssue" xml:space="preserve">
+    <value>There was a problem either accessing a DB value or there was a conflict.</value>
+  </data>
+  <data name="StaffMgnt" xml:space="preserve">
+    <value>Staff Management</value>
+  </data>
+  <data name="EmpNotLogged" xml:space="preserve">
+    <value>The employee Id you have inputted is currently not logged in</value>
+  </data>
+  <data name="StaffDeactiv" xml:space="preserve">
+    <value>Staff Deactivation</value>
+  </data>
+  <data name="Deactiv?Mesg" xml:space="preserve">
+    <value>Are you sure you want to DEACTIVATE {0}, profile?</value>
+  </data>
 </root>

@@ -255,7 +255,11 @@ namespace Plutus.Pages.Inventory
             MessagingCenter.Subscribe<UpdateItemPage>(this, "Accepted", async (Sender) =>
             {
                 App.DbContext.UpdateItem(ChangeItem);
-                App.DbContext.Save();
+                if (!await App.DbContext.Save())
+                {
+                    await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
+                    return;
+                }
                 await Navigation.PopAsync();
             });
         }

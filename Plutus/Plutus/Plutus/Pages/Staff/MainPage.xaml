@@ -3,12 +3,20 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Plutus.Pages.Staff.MainPage"
              xmlns:i18N="clr-namespace:I18N_L10N;assembly=I18N_L10N"
-             Title="{i18N:Translate Staff}">
+             Title="{i18N:Translate StaffMgnt}">
     <ContentPage.Content>
-        <StackLayout VerticalOptions="Center" HorizontalOptions="FillAndExpand">
-            <Button x:Name="AddEmp" Text="Add New Employee" Clicked="AddEmp_Clicked" />
-            <Button x:Name="DeactivateEmp" Text="Deactivate Employee" Clicked="DeactivateEmp_Clicked" />
-            <Button x:Name="EmpAccessRights" Text="Change Employee Access Rights" Clicked="EmpAccessRights_Clicked" />
-        </StackLayout>
+        <Grid>
+            <StackLayout x:Name="MPage" VerticalOptions="Center" HorizontalOptions="FillAndExpand">
+                <Button x:Name="AddEmp" Text="Add New Employee" Clicked="AddEmp_Clicked" />
+                <Button x:Name="DeactivateEmp" Text="Deactivate Employee" Clicked="DeactivateEmp_Clicked" />
+                <Button x:Name="EmpAccessRights" Text="Change Employee Access Rights" Clicked="EmpAccessRights_Clicked" />
+            </StackLayout>
+            <StackLayout x:Name="VerifyId"  IsVisible="False" BackgroundColor="White" Margin="50,100,50,200">
+                <Label Text="{i18N:Translate EmpId}" />
+                <Entry x:Name="EId" />
+                <Button x:Name="Confirm" Text="{i18N:Translate Confirm}"/>
+                <Button x:Name="CancelEmpCheck" Text="{i18N:Translate Cancel}" Clicked="CancelEmpCheck_Clicked" />
+            </StackLayout>
+        </Grid>
     </ContentPage.Content>
 </ContentPage>

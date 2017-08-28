@@ -10,12 +10,16 @@ using Plutus.Pages;
 using I18N_L10N;
 using System.Collections.ObjectModel;
 using Plutus.Models;
+using Microsoft.Azure.Mobile;
+using Microsoft.Azure.Mobile.Analytics;
+using Microsoft.Azure.Mobile.Crashes;
 
 namespace Plutus
 {
     public partial class App : Application
 	{
         internal static ObservableCollection<EmployeeModel> EmpsLogged = new ObservableCollection<EmployeeModel>();
+        internal static EmployeeModel LastAuthUser = new EmployeeModel();
         internal static StoreModel Store = new StoreModel();
         internal static Database DbContext;
         internal static TranslateExtension Translate = new TranslateExtension();
@@ -42,8 +46,11 @@ namespace Plutus
 
 		protected override void OnStart ()
 		{
-			// Handle when your app starts
-		}
+            MobileCenter.Start("uwp=6203c60a-2c30-49c5-a80f-fa96367529e7;" +
+                   "android=e4899b2e-f595-4bf7-ab33-e173c89fb21f" +
+                   "ios=59f118ee-1f83-43f9-804d-59242b97f316;",
+                   typeof(Analytics), typeof(Crashes));
+        }
 
 		protected override void OnSleep ()
 		{

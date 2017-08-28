@@ -397,6 +397,24 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to There was a problem either accessing a DB value or there was a conflict..
+        /// </summary>
+        internal static string DbIssue {
+            get {
+                return ResourceManager.GetString("DbIssue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Are you sure you want to DEACTIVATE {0}, profile?.
+        /// </summary>
+        internal static string Deactiv_Mesg {
+            get {
+                return ResourceManager.GetString("Deactiv?Mesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Delete.
         /// </summary>
         internal static string Delete {
@@ -475,6 +493,15 @@ namespace I18N_L10N.Resx {
         internal static string EmployeeSecMesg {
             get {
                 return ResourceManager.GetString("EmployeeSecMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The employee Id you have inputted is currently not logged in.
+        /// </summary>
+        internal static string EmpNotLogged {
+            get {
+                return ResourceManager.GetString("EmpNotLogged", resourceCulture);
             }
         }
         
@@ -1067,6 +1094,24 @@ namespace I18N_L10N.Resx {
         internal static string Staff {
             get {
                 return ResourceManager.GetString("Staff", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Staff Deactivation.
+        /// </summary>
+        internal static string StaffDeactiv {
+            get {
+                return ResourceManager.GetString("StaffDeactiv", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Staff Management.
+        /// </summary>
+        internal static string StaffMgnt {
+            get {
+                return ResourceManager.GetString("StaffMgnt", resourceCulture);
             }
         }
         

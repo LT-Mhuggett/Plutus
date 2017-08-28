@@ -112,7 +112,11 @@ namespace Plutus.Pages.Staff
             }
 
             App.DbContext.Add(NewEmployee);
-            App.DbContext.Save();
+            if (!await App.DbContext.Save())
+            {
+                await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
+                return;
+            }
             Loading.TogleLoading(LCV, LAI);
             await Navigation.PopAsync();
         }

@@ -34,7 +34,11 @@ namespace Plutus.Pages.Inventory
             };
 
             App.DbContext.Add(category);
-            App.DbContext.Save();
+            if(!await App.DbContext.Save())
+            {
+                await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
+                return;
+            }
             await Navigation.PopModalAsync();
             MessagingCenter.Send(new AddItemPage(), "ConfCat");
             MessagingCenter.Send(new UpdateItemPage(), "ConfCat");

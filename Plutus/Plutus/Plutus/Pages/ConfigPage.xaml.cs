@@ -153,7 +153,11 @@ namespace Plutus.Pages
                 }
                 emp.Active = true;
                 App.DbContext.Add(emp);
-                App.DbContext.Save();
+                if (!await App.DbContext.Save())
+                {
+                    await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
+                    return;
+                }
                 Application.Current.MainPage = new NavigationPage(new MainNavigationPage(emp, store));
                 Loading.TogleLoading(LCV, LAI);
             }

@@ -115,7 +115,7 @@ namespace Plutus.Pages.Inventory
             Item.ItemId = Id.Text;
             Item.Name = Name.Text;
             Item.VatId = VatPicker.SelectedIndex + 1;
-            Item.CatId = VatPicker.SelectedIndex + 1;
+            Item.CatId = CatPicker.SelectedIndex + 1;
             Item.Brand = Brand.Text;
 
             if (Item.ItemId == null || Item.Name == null || Item.Brand == null || Item.VatId == 0 || Item.CatId == 0 || string.IsNullOrWhiteSpace(Stock.Text))
@@ -146,8 +146,11 @@ namespace Plutus.Pages.Inventory
                     Quantity = temp
                 };
                 App.DbContext.Add(stock);
-                App.DbContext.Save();
-
+                if(!await App.DbContext.Save())
+                {
+                    await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
+                    return;
+                }
                 await Navigation.PopAsync();
             });
         }

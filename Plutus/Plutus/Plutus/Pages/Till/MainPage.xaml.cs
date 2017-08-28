@@ -207,9 +207,81 @@ namespace Plutus.Pages.Till
 
             Action = await DisplayActionSheet(App.Translate.ProvideValue("PayMeth"), App.Translate.ProvideValue("Cancel"), null, App.Translate.ProvideValue("Card"), App.Translate.ProvideValue("Cash"));
 
+            GetEmp(Action);
+        }
 
-            
-            GenTransaction(Action);
+        /// <summary>
+        /// This is used to get the Employee to Ensure Audit trails and Authorisation
+        /// </summary>
+        /// <param name="Action">Selected paymethod</param>
+        private void GetEmp(string Action)
+        {
+            if (App.EmpsLogged.Count != 1)
+            {
+                VerifyId.IsVisible = true;
+                MPage.IsEnabled = false;
+                if (Device.Idiom == TargetIdiom.Desktop)
+                {
+                    EId.Focus();
+                    EId.Completed += (o, e) =>
+                    {
+                        Device.BeginInvokeOnMainThread(() =>
+                        {
+                            CheckEmp(EId.Text, Action);
+                        });
+                    };
+                    Confirm.Clicked += (o, e) =>
+                    {
+                        Device.BeginInvokeOnMainThread(() =>
+                        {
+                            CheckEmp(EId.Text, Action);
+                        });
+                    };
+                }
+                else
+                {
+                    var opt = new MobileBarcodeScanningOptions
+                    {
+                        DelayBetweenContinuousScans = 3000,
+                        UseNativeScanning = true,
+                        TryHarder = true,
+                        TryInverted = true
+                    };
+                    _scanPage = new ZXingScannerPage(opt, null);
+                    _scanPage.OnScanResult += (result) =>
+                    {
+                        Device.BeginInvokeOnMainThread(() =>
+                        {
+                            CheckEmp(result.Text, Action);
+                        });
+                    };
+                }
+            }
+            else
+            {
+                EmployeeModel emp = App.EmpsLogged.First();
+                GenTransaction(emp, Action);
+                return;
+            }
+        }
+
+        /// <summary>
+        /// Loop through all active users and see if the ID provided matches any of them
+        /// if it does run GenTransaction else show error
+        /// </summary>
+        /// <param name="emp">Employee Id that user gave</param>
+        /// <param name="Action">Selected paymethod</param>
+        private async void CheckEmp(string emp, string Action)
+        {
+            foreach (var tempEmp in App.EmpsLogged)
+            {
+                if (tempEmp.Id == EId.Text)
+                {
+                    GenTransaction(tempEmp, Action);
+                    return;
+                }
+            }
+            await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("EmpNotLogged"), App.Translate.ProvideValue("OK"));
         }
 
         /// <summary>
@@ -220,41 +292,25 @@ namespace Plutus.Pages.Till
         /// then add all to DB and save
         /// then clear Basket
         /// </summary>
-        /// <param name="Action">selected paymethod</param>
-        private async void GenTransaction(string Action)
+        /// <param name="emp"><Employee that scanned the id</param>
+        /// <param name="Action">Selected paymethod</param>
+        private async void GenTransaction(EmployeeModel emp, string Action)
         {
-            
             var actionDic = new Dictionary<string, Func<PaymentMethodModel>> {
                 { App.Translate.ProvideValue("Card"), () => App.DbContext.GetPayM(App.Translate.ProvideValue("Card"))},
                 { App.Translate.ProvideValue("Cash"), () => App.DbContext.GetPayM(App.Translate.ProvideValue("Cash")) },
                 { App.Translate.ProvideValue("Cancel"), null}
             };
-            /*
-            EmployeeModel emp = new EmployeeModel();
-            
-            if (Device.Idiom == TargetIdiom.Desktop)
-            {
 
+            if (!Authorisation.IsAuthorised("Till", emp))
+            {
+                await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("AuthDeniedMesg"), App.Translate.ProvideValue("OK"));
+                return;
             }
 
-            var opt = new MobileBarcodeScanningOptions
-            {
-                UseNativeScanning = true,
-                TryHarder = true,
-                TryInverted = true
-            };
-            _scanPage = new ZXingScannerPage(opt, null);
-            _scanPage.OnScanResult += (result) =>
-            {
-                Device.BeginInvokeOnMainThread(() =>
-                {
-                    emp = App.EmpsLogged.Where(i => i.Id.Equals(result.Text)).FirstOrDefault();
-                });
-            };
-            await Navigation.PushAsync(_scanPage);
-            */
-            EmployeeModel emp = App.EmpsLogged.First();
-            if (emp == null) return;
+            EId.Text = null;
+            VerifyId.IsVisible = false;
+            MPage.IsEnabled = true;
 
             if (actionDic[Action] == null) return;
 
@@ -289,7 +345,11 @@ namespace Plutus.Pages.Till
             App.DbContext.Add(Sale);
             App.DbContext.Add(paySale);
 
-            App.DbContext.Save();
+            if (!await App.DbContext.Save())
+            {
+                await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
+                return;
+            }
             Basket.Clear();
             await DisplayAlert(App.Translate.ProvideValue("Transaction"), App.Translate.ProvideValue("TransConfMesg"), App.Translate.ProvideValue("OK"));
         }
@@ -303,7 +363,7 @@ namespace Plutus.Pages.Till
         private async void ManScan_Completed(object sender, EventArgs e)
         {
             var tempIList = App.DbContext.GetItem(ManScan.Text);
-            if (tempIList.Count != 1)
+            if (tempIList == null || tempIList.Count != 1)
             {
                 ManScan.Text = null;
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("ItemIdNotFoundMesg"), App.Translate.ProvideValue("OK"));
@@ -313,7 +373,9 @@ namespace Plutus.Pages.Till
             //var s = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name;
             //Debug.WriteLine(s);
             var tempI = new Basket(tempIList.First());
+            tempIList.Clear();
             BasketAdd(tempI);
+            tempI = null;
         }
 
         /// <summary>
@@ -331,18 +393,25 @@ namespace Plutus.Pages.Till
         /// else add the item to Basket as new 
         /// </summary>
         /// <param name="tempItem">Item to add to Basket</param>
-        private void BasketAdd(Basket tempItem)
+        private async void BasketAdd(Basket tempItem)
         {
+            var amount = await Conversions.ToInterger(AmountToAdd.Text);
+            if (amount == -1)
+            {
+                return;
+            }
             foreach (var item in Basket)
             {
                 if (item.ItemId != tempItem.ItemId) continue;
                 if (item.Return != tempItem.Return) continue;
                 if (item.SaleId != tempItem.SaleId) continue;
-                item.Amount++;
+                item.Amount=item.Amount+amount;
                 UpdatePrice();
                 return;
             }
             Basket.Add(tempItem);
+            Basket.Last().Amount = amount;
+            AmountToAdd.Text = 1.ToString();
         }
 
         /// <summary>
@@ -391,7 +460,14 @@ namespace Plutus.Pages.Till
         /// </summary>
         private async void ShowBasketList()
         {
-            await Navigation.PushAsync(new BasketListPage());
+            if (StoredTrans.Count == 1)
+            {
+                FetchSavedBasket(StoredTrans.Single(), Instance);
+            }
+            else
+            {
+                await Navigation.PushAsync(new BasketListPage());
+            }
         }
 
         /// <summary>
@@ -474,6 +550,13 @@ namespace Plutus.Pages.Till
         {
             page.Remove(oldItem);
             page.Basket.Add(newItem);
+        }
+
+        private void CancelEmpCheck_Clicked(object sender, EventArgs e)
+        {
+            EId.Text = null;
+            VerifyId.IsVisible = false;
+            MPage.IsEnabled = true;
         }
     }
 }

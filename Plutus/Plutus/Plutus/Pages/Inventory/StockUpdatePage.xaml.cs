@@ -46,7 +46,11 @@ namespace Plutus.Pages.Inventory
             }
 
             App.DbContext.UpdateStock(stock);
-            App.DbContext.Save();
+            if (!await App.DbContext.Save())
+            {
+                await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
+                return;
+            }
             await Navigation.PopAsync();
         }
 

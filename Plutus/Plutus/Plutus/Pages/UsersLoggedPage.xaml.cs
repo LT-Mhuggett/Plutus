@@ -105,11 +105,12 @@ namespace Plutus.Pages
         /// <param name="e">Event called by object</param>
         private async void LogoutAll_Clicked(object sender, EventArgs e)
         {
-            if (Authorisation.IsAuthorised("FAllLogout"))
+            if (Authorisation.IsAuthorised("FLogoutAll"))
             {
                 App.EmpsLogged = new ObservableCollection<EmployeeModel>();
                 await DisplayAlert(App.Translate.ProvideValue("Info"), App.Translate.ProvideValue("NoActiveUsers"), App.Translate.ProvideValue("OK"));
                 Application.Current.MainPage = new NavigationPage(new LoginPage());
+                return;
             }
             await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("AuthDeniedMesg"), App.Translate.ProvideValue("OK"));
         }
@@ -183,6 +184,11 @@ namespace Plutus.Pages
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("AuthDeniedMesg"), App.Translate.ProvideValue("OK"));
                 return;
             }
+        }
+
+        private async void CancelMain_Clicked(object sender, EventArgs e)
+        {
+            await Navigation.PopModalAsync();
         }
     }
 }

@@ -9,22 +9,14 @@ namespace Plutus.Helpers
     {
         public static bool IsAuthorised(string Action)
         {
-            if (App.EmpsLogged.Count == 1)
+            foreach (var item in App.EmpsLogged[0].Actions)
             {
-                foreach (var item in App.EmpsLogged[0].Actions)
+                if (item.Id == Action)
                 {
-                    if (item.Id == Action)
-                    {
-                        return true;
-                    }
+                    return true;
                 }
-                return false;
             }
-            else
-            {
-                //implement multi user authorization
-                throw new NotImplementedException();
-            }
+            return false;
         }
 
         public static bool IsAuthorised(string Action, EmployeeModel eTemp)

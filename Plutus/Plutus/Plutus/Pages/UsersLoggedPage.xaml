@@ -25,6 +25,7 @@
             </ListView>
             <Button x:Name="NewUserLogin" Text="{i18N:Translate NewUserLogin}" Clicked="NewUserLogin_Clicked" />
             <Button x:Name="LogoutAll" Text="{i18N:Translate LogoutAll}" Clicked="LogoutAll_Clicked" />
+            <Button x:Name="CancelMain" Text="{i18N:Translate Cancel}" Clicked="CancelMain_Clicked" />
         </StackLayout>
         <StackLayout x:Name="VerifyId"  IsVisible="False" BackgroundColor="White" Margin="50,100,50,200">
             <Label Text="{i18N:Translate EmpId}" />
