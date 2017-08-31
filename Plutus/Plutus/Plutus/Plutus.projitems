@@ -23,6 +23,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Models\AuthActions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\Basket.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\CategoryModel.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\Emp_AuthActions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\ItemModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\PaymentMethodModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\PaymentMethod_SaleModel.cs" />

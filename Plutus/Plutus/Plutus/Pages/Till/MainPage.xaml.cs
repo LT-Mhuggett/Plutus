@@ -72,9 +72,21 @@ namespace Plutus.Pages.Till
             if (e.SelectedItem == null)
                 return;
             var temp = e.SelectedItem as Basket;
-
-            await Navigation.PushModalAsync(new Inventory.ItemTemplate(temp));
-            ((ListView)sender).SelectedItem = null;
+            if(!Authorisation.IsAuthorised("Item", "V", App.LastAuthUser))
+            {
+                await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("AuthDeniedMesg"), App.Translate.ProvideValue("OK"));
+                Action action = async () =>
+                {
+                    await Navigation.PushModalAsync(new Inventory.ItemTemplate(temp));
+                    ((ListView)sender).SelectedItem = null;
+                };
+                Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Item", "V", Basket.Where(item => item.Return.Equals(true)).Sum(item => item.Price * item.Amount), action);
+            }
+            else
+            {
+                await Navigation.PushModalAsync(new Inventory.ItemTemplate(temp));
+                ((ListView)sender).SelectedItem = null;
+            }
         }
 
         /// <summary>
@@ -191,99 +203,23 @@ namespace Plutus.Pages.Till
         /// <param name="e">Event that the object called</param>
         private async void COut_Clicked(object sender, EventArgs e)
         {
-            if (!Authorisation.IsAuthorised("Till"))
-            {
-                await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("AuthDeniedMesg"), App.Translate.ProvideValue("OK"));
-                return;
-            }
-
             if (Basket.Count == 0)
             {
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("BasketEmpty"), App.Translate.ProvideValue("OK"));
                 return;
             }
 
-            string Action;
-
-            Action = await DisplayActionSheet(App.Translate.ProvideValue("PayMeth"), App.Translate.ProvideValue("Cancel"), null, App.Translate.ProvideValue("Card"), App.Translate.ProvideValue("Cash"));
-
-            GetEmp(Action);
-        }
-
-        /// <summary>
-        /// This is used to get the Employee to Ensure Audit trails and Authorisation
-        /// </summary>
-        /// <param name="Action">Selected paymethod</param>
-        private void GetEmp(string Action)
-        {
-            if (App.EmpsLogged.Count != 1)
+            Action action = async () =>
             {
-                VerifyId.IsVisible = true;
-                MPage.IsEnabled = false;
-                if (Device.Idiom == TargetIdiom.Desktop)
-                {
-                    EId.Focus();
-                    EId.Completed += (o, e) =>
-                    {
-                        Device.BeginInvokeOnMainThread(() =>
-                        {
-                            CheckEmp(EId.Text, Action);
-                        });
-                    };
-                    Confirm.Clicked += (o, e) =>
-                    {
-                        Device.BeginInvokeOnMainThread(() =>
-                        {
-                            CheckEmp(EId.Text, Action);
-                        });
-                    };
-                }
-                else
-                {
-                    var opt = new MobileBarcodeScanningOptions
-                    {
-                        DelayBetweenContinuousScans = 3000,
-                        UseNativeScanning = true,
-                        TryHarder = true,
-                        TryInverted = true
-                    };
-                    _scanPage = new ZXingScannerPage(opt, null);
-                    _scanPage.OnScanResult += (result) =>
-                    {
-                        Device.BeginInvokeOnMainThread(() =>
-                        {
-                            CheckEmp(result.Text, Action);
-                        });
-                    };
-                }
-            }
-            else
-            {
-                EmployeeModel emp = App.EmpsLogged.First();
-                GenTransaction(emp, Action);
-                return;
-            }
-        }
+                string Action;
 
-        /// <summary>
-        /// Loop through all active users and see if the ID provided matches any of them
-        /// if it does run GenTransaction else show error
-        /// </summary>
-        /// <param name="emp">Employee Id that user gave</param>
-        /// <param name="Action">Selected paymethod</param>
-        private async void CheckEmp(string emp, string Action)
-        {
-            foreach (var tempEmp in App.EmpsLogged)
-            {
-                if (tempEmp.Id == EId.Text)
-                {
-                    GenTransaction(tempEmp, Action);
-                    return;
-                }
-            }
-            await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("EmpNotLogged"), App.Translate.ProvideValue("OK"));
+                Action = await DisplayActionSheet(App.Translate.ProvideValue("PayMeth"), App.Translate.ProvideValue("Cancel"), null, App.Translate.ProvideValue("Card"), App.Translate.ProvideValue("Cash"));
+                
+                GenTransaction(Action);
+            };
+            Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Till", "X", action);            
         }
-
+        
         /// <summary>
         /// Create PaymentSaleModal, SaleModal.
         /// initalise all lists on SaleModal, add PaymentSaleModal to SaleModal.PaySale
@@ -292,21 +228,14 @@ namespace Plutus.Pages.Till
         /// then add all to DB and save
         /// then clear Basket
         /// </summary>
-        /// <param name="emp"><Employee that scanned the id</param>
         /// <param name="Action">Selected paymethod</param>
-        private async void GenTransaction(EmployeeModel emp, string Action)
+        private async void GenTransaction(string Action)
         {
             var actionDic = new Dictionary<string, Func<PaymentMethodModel>> {
-                { App.Translate.ProvideValue("Card"), () => App.DbContext.GetPayM(App.Translate.ProvideValue("Card"))},
+                { App.Translate.ProvideValue("Card"), () => App.DbContext.GetPayM(App.Translate.ProvideValue("Card")) },
                 { App.Translate.ProvideValue("Cash"), () => App.DbContext.GetPayM(App.Translate.ProvideValue("Cash")) },
                 { App.Translate.ProvideValue("Cancel"), null}
             };
-
-            if (!Authorisation.IsAuthorised("Till", emp))
-            {
-                await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("AuthDeniedMesg"), App.Translate.ProvideValue("OK"));
-                return;
-            }
 
             EId.Text = null;
             VerifyId.IsVisible = false;
@@ -315,12 +244,21 @@ namespace Plutus.Pages.Till
             if (actionDic[Action] == null) return;
 
             PaymentMethod_SaleModel paySale = new PaymentMethod_SaleModel() { PayMethod = actionDic[Action]() };
-            var Total = Basket.Sum(item => item.Price * item.Amount) + paySale.PayMethod.Charge;
+
+            decimal Total=0.0m;
+
+            if (Basket.Where(item => item.Return.Equals(false)).Count() == 0)
+            {
+                //add discount for when only a refund is being processed for the paymentcharge amount
+            }
+            else
+                Total = paySale.PayMethod.Charge + Basket.Sum(item => item.Price * item.Amount);
+
             var Continue = await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("Continue?"), Total), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
 
             if (!Continue) return;
 
-            SaleModel Sale = new SaleModel() { DateOfSale = System.DateTime.Now, Total = Total, EmployeeId = emp.Id };
+            SaleModel Sale = new SaleModel() { DateOfSale = System.DateTime.Now, Total = Total, EmployeeId = App.LastAuthUser.Id };
             Sale.PaySales = new List<PaymentMethod_SaleModel>();
             Sale.Transactions = new List<TransactionModel>();
             Sale.Refunds = new List<RefundModel>();
@@ -342,6 +280,21 @@ namespace Plutus.Pages.Till
                     App.DbContext.Add(Tran);
                 }
             }
+
+            if (Sale.Refunds.Count == 0)
+                FinaliseTransaction(Sale, paySale);
+            else if(!Authorisation.IsAuthorised("Refund", "X", Basket.Where(item=>item.Return.Equals(true)).Sum(item=>item.Price*item.Amount), App.LastAuthUser))
+            {
+                await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("RefundLimitTooLow"), App.Translate.ProvideValue("OK"));
+                Action action = () => FinaliseTransaction(Sale, paySale);
+                Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Refund", "X", Basket.Where(item => item.Return.Equals(true)).Sum(item => item.Price * item.Amount), action);
+            }
+            else
+                FinaliseTransaction(Sale, paySale);
+        }
+
+        private async void FinaliseTransaction(SaleModel Sale, PaymentMethod_SaleModel paySale)
+        {
             App.DbContext.Add(Sale);
             App.DbContext.Add(paySale);
 
@@ -397,9 +350,7 @@ namespace Plutus.Pages.Till
         {
             var amount = await Conversions.ToInterger(AmountToAdd.Text);
             if (amount == -1)
-            {
                 return;
-            }
             foreach (var item in Basket)
             {
                 if (item.ItemId != tempItem.ItemId) continue;
@@ -557,6 +508,7 @@ namespace Plutus.Pages.Till
             EId.Text = null;
             VerifyId.IsVisible = false;
             MPage.IsEnabled = true;
+            App.DbContext.RevertDbContextChanges();
         }
     }
 }

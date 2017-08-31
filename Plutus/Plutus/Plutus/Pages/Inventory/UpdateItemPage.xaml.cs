@@ -40,6 +40,23 @@ namespace Plutus.Pages.Inventory
             InitCatPicker();
         }
 
+        public UpdateItemPage(ItemModel tempItem)
+        {
+            InitializeComponent();
+
+            Item = tempItem;
+
+            Vats = App.DbContext.GetVat();
+            foreach (var item in Vats)
+            {
+                VatPicker.Items.Add(item.Name);
+            }
+            InitCatPicker();
+            Populate();
+            ItemSearch.IsEnabled = false;
+            ScanButt.IsVisible = false;
+        }
+
         /// <summary>
         /// On item search complete run ItemSearchComplete
         /// </summary>
@@ -117,6 +134,7 @@ namespace Plutus.Pages.Inventory
             {
                 Pic.Source = ImageSource.FromStream(() => new MemoryStream(Item.Image));
             }
+            ItemSearch.Text = Item.ItemId;
             Brand.Text = Item.Brand;
             CatPicker.SelectedIndex = Item.CatId - 1;
             Cost.Text = Convert.ToString(Item.Cost);
@@ -124,6 +142,7 @@ namespace Plutus.Pages.Inventory
             Price.Text = Convert.ToString(Item.Price);
             Stock.Text = Convert.ToString(Item.Stock);
             ItemDetails.IsVisible = true;
+            ImageButton.IsEnabled = true;
         }
 
         /// <summary>

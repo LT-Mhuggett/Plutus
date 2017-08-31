@@ -7,6 +7,8 @@ using Plutus.Models;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace Plutus.Helpers
 {
@@ -39,6 +41,27 @@ namespace Plutus.Helpers
             }
         }
 
+        internal void RevertDbContextChanges()
+        {
+            foreach(EntityEntry entry in _db.ChangeTracker.Entries())
+            {
+                switch (entry.State)
+                {
+                    case EntityState.Modified:
+                        entry.State = EntityState.Unchanged;
+                        break;
+                    case EntityState.Added:
+                        entry.State = EntityState.Detached;
+                        break;
+                    case EntityState.Deleted:
+                        entry.Reload();
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+
         internal void Init()
         {
             var vat = new VatModel() { Name = "0%", Rate = 1 };
@@ -49,24 +72,22 @@ namespace Plutus.Helpers
             Add(vat3);
 
             //AuthActions Initalization
-            var AuthAction = new AuthActions() { Id = "Till", Name = "Till" };
+            var AuthAction = new AuthActions() { Name = "Till" };
             Add(AuthAction);
-            var AuthAction1 = new AuthActions() { Id = "Refund20", Name = "Refund of 20", Amount = 20 };
+            var AuthAction1 = new AuthActions() { Name = "Refund", Amount = 20 };
             Add(AuthAction1);
-            var AuthAction2 = new AuthActions() { Id = "Refund100", Name = "Refund of 100", Amount = 100 };
+            var AuthAction2 = new AuthActions() { Name = "Refund", Amount = 100 };
             Add(AuthAction2);
-            var AuthAction3 = new AuthActions() { Id = "StaffARU", Name = "Staff Records Add, Read, Update" };
+            var AuthAction3 = new AuthActions() { Name = "Staff" };
             Add(AuthAction3);
-            var AuthAction4 = new AuthActions() { Id = "ItemARU", Name = "ITem Records Add, Read, Update" };
+            var AuthAction4 = new AuthActions() { Name = "Item" };
             Add(AuthAction4);
-            var AuthAction5 = new AuthActions() { Id = "StaffV", Name = "Staff Records Read" };
+            var AuthAction5 = new AuthActions() { Name = "Force Loggout All Users" };
             Add(AuthAction5);
-            var AuthAction6 = new AuthActions() { Id = "StockU", Name = "Stock Update" };
+            var AuthAction6 = new AuthActions() { Name = "Force Loggout Single User" };
             Add(AuthAction6);
-            var AuthAction7 = new AuthActions() { Id = "FLogoutAll", Name = "Force Loggout All Users" };
+            var AuthAction7 = new AuthActions() { Name = "Refund", Amount = 100000 };
             Add(AuthAction7);
-            var AuthAction8 = new AuthActions() { Id = "FLogoutSingle", Name = "Force Loggout Single User" };
-            Add(AuthAction8);
 
             //Will be removed as only applies to UK, User will have to add manually
             var cat = new CategoryModel() { Name = "Customer Care", Description = "Items such as Bags etc." };
@@ -86,7 +107,7 @@ namespace Plutus.Helpers
         internal async Task<EmployeeModel> Login(string idEmail, string password)
         {
             var emp = _db.Employees
-                .Include(e=>e.Actions)
+                .Include(e=>e.EmpAuths)
                 .SingleOrDefault(e => e.Id.Equals(idEmail) || e.Email.Equals(idEmail));
             if (emp == null) return null;
             if (await Task.Run(() => Password.Verify(password, Convert.FromBase64String(emp.Salt),
@@ -214,36 +235,12 @@ namespace Plutus.Helpers
             return items ?? null;
         }
 
-        internal List<EmployeeModel> GetAllEmps()
+        internal IIncludableQueryable<EmployeeModel, StoreModel> GetAllEmps()
         {
             var emps = _db.Employees
-                .Include(i => i.Actions)
-                .Include(i => i.Store)
-                .ToList();
-            return emps ?? null;
-        }
-
-        internal void UpdateEmp(EmployeeModel emp)
-        {
-            var query = _db.Employees
-                .Where(e => e.Id.Equals(emp.Id))
-                .Select(e=>e);
-            foreach(EmployeeModel item in query)
-            {
-                item.FullAddress = emp.FullAddress;
-                item.FName = emp.FName;
-                item.LName = emp.LName;
-                item.Mobile = emp.Mobile;
-                item.Email = emp.Email;
-                item.AdLine1 = emp.AdLine1;
-                item.AdLine2 = emp.AdLine2;
-                item.City = emp.City;
-                item.Country = emp.Country;
-                item.PostCode = emp.PostCode;
-                item.Wage = item.Wage;
-                item.Active = emp.Active;
-                item.ContractedHours = emp.ContractedHours;
-            }
+                .Include(i => i.EmpAuths)
+                .Include(i => i.Store);
+            return emps;
         }
     }
 }

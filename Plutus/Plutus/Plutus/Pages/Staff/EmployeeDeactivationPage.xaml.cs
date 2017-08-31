@@ -35,17 +35,17 @@ namespace Plutus.Pages.Staff
 
                     if (!quit) return;
                     emp.Active = false;
-                    App.DbContext.UpdateEmp(emp);
                     if(!await App.DbContext.Save())
                     {
                         await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
                         return;
                     }
-                    //success message
+                    await DisplayAlert(App.Translate.ProvideValue("Success"), String.Format(App.Translate.ProvideValue("EmpDeactSuc"),$"{emp.LName.ToUpper()},{emp.FName}"), App.Translate.ProvideValue("OK"));
+                    await Navigation.PopAsync();
                 }
                 else
                 {
-                    //add what to do if user that is selected is current active user
+                    await DisplayAlert(App.Translate.ProvideValue("Oops"), App.Translate.ProvideValue("DeactAuthUser"), App.Translate.ProvideValue("OK"));
                 }
             }
         }

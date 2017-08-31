@@ -8,6 +8,27 @@
         <ListView ItemsSource="{Binding Items}"
             HasUnevenRows="True"
             CachingStrategy="RecycleElement">
+            <ListView.Header>
+                <Grid Padding="5">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="40" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="40" />
+                        <ColumnDefinition Width="40" />
+                        <ColumnDefinition Width="40" />
+                        <ColumnDefinition Width="40" />
+                        <ColumnDefinition Width="40" />
+                    </Grid.ColumnDefinitions>
+                    <Label Grid.Row="0" Grid.Column="0" Text="{i18N:Translate Name}"/>
+                    <Label Grid.Row="0" Grid.Column="1" Text="{i18N:Translate V}"/>
+                    <Label Grid.Row="0" Grid.Column="1" Text="{i18N:Translate M}"/>
+                    <Label Grid.Row="0" Grid.Column="1" Text="{i18N:Translate A}"/>
+                    <Label Grid.Row="0" Grid.Column="1" Text="{i18N:Translate X}"/>
+                    <Label Grid.Row="0" Grid.Column="1" Text="{i18N:Translate R}"/>
+                </Grid>
+            </ListView.Header>
             <ListView.ItemTemplate>
                 <DataTemplate>
                     <ViewCell>

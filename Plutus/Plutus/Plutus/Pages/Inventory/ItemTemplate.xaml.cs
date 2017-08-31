@@ -85,7 +85,33 @@ namespace Plutus.Pages.Inventory
             ItemPrice.Text = itemTemp.Price.ToString();
             item = itemTemp;
         }
-#endregion
+        #endregion
+
+        #region ViewAllItemConstructor
+        public ItemTemplate(ItemModel itemTemp)
+        {
+            InitializeComponent();
+
+            Confirm.IsVisible = false;
+            Edit.IsVisible = false;
+            Close.IsVisible = true;
+
+            if (itemTemp.Image == null)
+            {
+                //ItemImage.Source = "";
+            }
+            else
+            {
+                ItemImage.Source = ImageSource.FromStream(() => new MemoryStream(itemTemp.Image));
+            }
+            ItemName.Text = itemTemp.Name;
+            ItemBrand.Text = itemTemp.Brand;
+            ItemCat.Text = App.DbContext.GetCatName(itemTemp.CatId);
+            ItemDesc.Text = itemTemp.Desc;
+            ItemPrice.Text = itemTemp.Price.ToString();
+            item = itemTemp;
+        }
+        #endregion
 
         /// <summary>
         /// Confirm item inforamtion correct
@@ -96,7 +122,7 @@ namespace Plutus.Pages.Inventory
         private async void Confirm_Clicked(object sender, EventArgs e)
         {
             await Navigation.PopModalAsync();
-            AddItemPage.FinalizeDBActions(AddItemPage.Instance);
+            MessagingCenter.Send(new AddItemPage(), "Accepted");
             MessagingCenter.Send(new UpdateItemPage(), "Accepted");
         }
 

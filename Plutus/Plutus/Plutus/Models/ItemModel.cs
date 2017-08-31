@@ -45,5 +45,17 @@ namespace Plutus.Models
             VatId = item.VatId;
             CatId = item.CatId;
         }
+        public ItemModel(ItemModel item)
+        {
+            ItemId = item.ItemId;
+            Name = item.Name;
+            Desc = item.Desc;
+            Brand = item.Brand;
+            Cost = item.Cost;
+            Price = item.Price;
+            Image = item.Image;
+            VatId = item.VatId;
+            CatId = item.CatId;
+        }
     }
 }

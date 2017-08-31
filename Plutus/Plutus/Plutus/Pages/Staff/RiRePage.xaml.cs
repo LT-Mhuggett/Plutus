@@ -12,7 +12,7 @@ namespace Plutus.Pages.Staff
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class RiRePage : ContentPage
     {
-        public ObservableCollection<AuthActions> Items { get; set; }
+        public ObservableCollection<Emp_AuthActions> Items { get; set; }
 
         /// <summary>
         /// Basic constructor for RiRePage
@@ -22,11 +22,12 @@ namespace Plutus.Pages.Staff
         {
             InitializeComponent();
 
-            Items = new ObservableCollection<AuthActions>();
+            Items = new ObservableCollection<Emp_AuthActions>();
             var tempList = App.DbContext.GetAllActions();
             foreach(var item in tempList)
             {
-                Items.Add(item);
+                Emp_AuthActions temp = new Emp_AuthActions() { Auth = item, Emp = AddEmployeePage.NewEmployee };
+                Items.Add(temp);
             }
 
             BindingContext = this;
@@ -39,11 +40,6 @@ namespace Plutus.Pages.Staff
         /// <param name="e">Event that the object called</param>
         private async void Confirm_Clicked(object sender, EventArgs e)
         {
-            foreach (var item in Items)
-            {
-                if (!item.Active) continue;
-                AddEmployeePage.NewEmployee.Actions.Add(item);
-            }
             await Navigation.PopModalAsync();
         }
     }

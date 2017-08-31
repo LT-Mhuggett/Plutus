@@ -24,6 +24,7 @@ namespace Plutus.Data
         public DbSet<CategoryModel> Category { get; set; }
         public DbSet<StockModel> Stocks { get; set; }
         public DbSet<AuthActions> AuthActions { get; set; }
+        public DbSet<Emp_AuthActions> EmpAuthActions { get; set; }
 
         private readonly string _databasePath;
 
@@ -55,6 +56,19 @@ namespace Plutus.Data
                 .HasOne(s => s.Store)
                 .WithMany(st => st.Stocks)
                 .HasForeignKey(s => s.StoreId);
+
+            modelBuilder.Entity<Emp_AuthActions>()
+                .HasKey(k => new { k.AuthAId, k.EmpId });
+
+            modelBuilder.Entity<Emp_AuthActions>()
+                .HasOne(ea => ea.Emp)
+                .WithMany(e => e.EmpAuths)
+                .HasForeignKey(ea => ea.EmpId);
+
+            modelBuilder.Entity<Emp_AuthActions>()
+                .HasOne(ea => ea.Auth)
+                .WithMany(a => a.EmpAuths)
+                .HasForeignKey(ea => ea.AuthAId);
 
             modelBuilder.Entity<TransactionModel>()
                 .HasKey(k => new { k.SaleId, k.ItemId });

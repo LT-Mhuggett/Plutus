@@ -21,6 +21,6 @@ namespace Plutus.Models
         public string StoreId { get; set; }
         public StoreModel Store { get; set; }
         public List<SaleModel> Sale { get; set; }
-        public List<AuthActions> Actions { get; set; }
+        public List<Emp_AuthActions> EmpAuths { get; set; }
     }
 }

@@ -7,10 +7,9 @@ namespace Plutus.Models
     public class AuthActions
     {
         [Key, DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public string Id { get; set; }
+        public int Id { get; set; }
         public string Name { get; set; }
         public decimal Amount { get; set; }
-        [NotMapped]
-        public bool Active { get; set; }
+        public List<Emp_AuthActions> EmpAuths { get; set; }
     }
 }

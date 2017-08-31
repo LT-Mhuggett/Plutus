@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using Plutus.Models;
+using Plutus.Helpers;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 
@@ -30,11 +31,22 @@ namespace Plutus.Pages.Inventory
         {
             if (e.SelectedItem == null)
                 return;
-
-            await DisplayAlert("Item Tapped", "An item was tapped.", "OK");
-
-            //Deselect Item
-            ((ListView)sender).SelectedItem = null;
+            ItemModel temp = (ItemModel)((ListView)sender).SelectedItem;
+            if (!Authorisation.IsAuthorised("Item", "V", App.LastAuthUser))
+            {
+                await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("AuthDeniedMesg"), App.Translate.ProvideValue("OK"));
+                Action action = async () =>
+                {
+                    await Navigation.PushModalAsync(new ItemTemplate(temp));
+                    ((ListView)sender).SelectedItem = null;
+                };
+                Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Item", "V", action);
+            }
+            else
+            {
+                await Navigation.PushModalAsync(new ItemTemplate(temp));
+                ((ListView)sender).SelectedItem = null;
+            }
         }
 
         void InitItems()
@@ -69,6 +81,24 @@ namespace Plutus.Pages.Inventory
             }
             Items = new ObservableCollection<InventGroup>(Items);
             BindingContext = this;
+        }
+
+        private async void UpdateItem_Clicked(object sender, EventArgs e)
+        {
+            var menuitem = (ItemModel)((MenuItem)sender).CommandParameter;
+            if (!Authorisation.IsAuthorised("Item", "M", App.LastAuthUser)){
+                Action action = async () => await App.Current.MainPage.Navigation.PushAsync(new UpdateItemPage(menuitem));
+                Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Item", "M", action);
+                return;
+            }
+            await Navigation.PushAsync(new UpdateItemPage(menuitem));
+        }
+
+        private void CancelEmpCheck_Clicked(object sender, EventArgs e)
+        {
+            EId.Text = null;
+            VerifyId.IsVisible = false;
+            MPage.IsEnabled = true;
         }
     }
 

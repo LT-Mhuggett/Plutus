@@ -21,7 +21,6 @@ namespace Plutus.Pages.Staff
 		public AddEmployeePage ()
 		{
 			InitializeComponent ();
-            NewEmployee.Actions = new List<AuthActions>();
 		}
 
         /// <summary>

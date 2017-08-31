@@ -517,4 +517,34 @@ The amount of items at purchase for {0} was {1}, Please remove atleast {2}.</val
   <data name="Deactiv?Mesg" xml:space="preserve">
     <value>Are you sure you want to DEACTIVATE {0}, profile?</value>
   </data>
+  <data name="EmpDeactSuc" xml:space="preserve">
+    <value>Employee Deactivation for {0} was successful</value>
+  </data>
+  <data name="Success" xml:space="preserve">
+    <value>Success</value>
+  </data>
+  <data name="DeactAuthUser" xml:space="preserve">
+    <value>You cannot deactivate the current user authorising deactivation</value>
+  </data>
+  <data name="A" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="M" xml:space="preserve">
+    <value>Modify</value>
+  </data>
+  <data name="R" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="V" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="X" xml:space="preserve">
+    <value>Use</value>
+  </data>
+  <data name="RefundLimitTooLow" xml:space="preserve">
+    <value>Please get a manager OR other employee with higher returns rights to authorise this transaction</value>
+  </data>
+  <data name="Stock" xml:space="preserve">
+    <value>Stock</value>
+  </data>
 </root>

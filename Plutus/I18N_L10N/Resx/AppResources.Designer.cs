@@ -20,7 +20,7 @@ namespace I18N_L10N.Resx {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class AppResources {
@@ -58,6 +58,15 @@ namespace I18N_L10N.Resx {
             }
             set {
                 resourceCulture = value;
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Add.
+        /// </summary>
+        internal static string A {
+            get {
+                return ResourceManager.GetString("A", resourceCulture);
             }
         }
         
@@ -406,6 +415,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to You cannot deactivate the current user authorising deactivation.
+        /// </summary>
+        internal static string DeactAuthUser {
+            get {
+                return ResourceManager.GetString("DeactAuthUser", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Are you sure you want to DEACTIVATE {0}, profile?.
         /// </summary>
         internal static string Deactiv_Mesg {
@@ -466,6 +484,15 @@ namespace I18N_L10N.Resx {
         internal static string EmailNotCorrectMesg {
             get {
                 return ResourceManager.GetString("EmailNotCorrectMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Employee Deactivation for {0} was successful.
+        /// </summary>
+        internal static string EmpDeactSuc {
+            get {
+                return ResourceManager.GetString("EmpDeactSuc", resourceCulture);
             }
         }
         
@@ -694,6 +721,15 @@ namespace I18N_L10N.Resx {
         internal static string LogoutAll {
             get {
                 return ResourceManager.GetString("LogoutAll", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Modify.
+        /// </summary>
+        internal static string M {
+            get {
+                return ResourceManager.GetString("M", resourceCulture);
             }
         }
         
@@ -936,6 +972,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Remove.
+        /// </summary>
+        internal static string R {
+            get {
+                return ResourceManager.GetString("R", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Remove 1.
         /// </summary>
         internal static string R1 {
@@ -959,6 +1004,15 @@ namespace I18N_L10N.Resx {
         internal static string RecPrice {
             get {
                 return ResourceManager.GetString("RecPrice", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Please get a manager OR other employee with higher returns rights to authorise this transaction.
+        /// </summary>
+        internal static string RefundLimitTooLow {
+            get {
+                return ResourceManager.GetString("RefundLimitTooLow", resourceCulture);
             }
         }
         
@@ -1161,6 +1215,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Success.
+        /// </summary>
+        internal static string Success {
+            get {
+                return ResourceManager.GetString("Success", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Tax %.
         /// </summary>
         internal static string Tax {
@@ -1224,6 +1287,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to View.
+        /// </summary>
+        internal static string V {
+            get {
+                return ResourceManager.GetString("V", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to View All Items.
         /// </summary>
         internal static string VAllItems {
@@ -1238,6 +1310,15 @@ namespace I18N_L10N.Resx {
         internal static string Wage {
             get {
                 return ResourceManager.GetString("Wage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Use.
+        /// </summary>
+        internal static string X {
+            get {
+                return ResourceManager.GetString("X", resourceCulture);
             }
         }
         

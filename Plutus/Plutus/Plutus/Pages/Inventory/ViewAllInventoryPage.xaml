@@ -4,60 +4,74 @@
              x:Class="Plutus.Pages.Inventory.ViewAllInventoryPage"
              xmlns:i18N="clr-namespace:I18N_L10N;assembly=I18N_L10N"
              Title="{i18N:Translate InvetMgr}">
-    <ScrollView>
-        <ListView ItemsSource="{Binding Items}"
+    <Grid>
+        <StackLayout x:Name="MPage">
+            <ScrollView>
+                <ListView ItemsSource="{Binding Items}"
               ItemTapped="Handle_ItemTapped"
               CachingStrategy="RecycleElement"
               IsGroupingEnabled="True"
               GroupDisplayBinding="{Binding Title}"
               GroupShortNameBinding="{Binding Title}">
-            <ListView.Header>
-                <Grid Padding="5">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="20"/>
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="40"/>
-                        <ColumnDefinition Width="60"/>
-                        <ColumnDefinition Width="40"/>
-                    </Grid.ColumnDefinitions>
-                    <Label Grid.Row="0" Grid.Column="0" Text="{i18N:Translate Name}"/>
-                    <Label Grid.Row="0" Grid.Column="1" Text="{i18N:Translate Brand}"/>
-                    <Label Grid.Row="0" Grid.Column="3" Text="{i18N:Translate Stock}"/>
-                    <Label Grid.Row="0" Grid.Column="4" Text="{i18N:Translate Price}"/>
-                    <Label Grid.Row="0" Grid.Column="5" Text="{i18N:Translate Tax}"/>
-                </Grid>
-            </ListView.Header>
-            <ListView.ItemTemplate>
-                <DataTemplate>
-                    <ViewCell>
+                    <ListView.Header>
                         <Grid Padding="5">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="20"/>
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*"/>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="40"/>
-                                <ColumnDefinition Width="60"/>
-                                <ColumnDefinition Width="40"/>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="80"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Row="0" Grid.Column="0" Text="{Binding Name}" 
-                            Style="{DynamicResource ListItemTextStyle}" />
-                            <Label Grid.Row="0" Grid.Column="1" Text="{Binding Brand}" 
-                            Style="{DynamicResource ListItemDetailTextStyle}"/>
-                            <Label Grid.Row="0" Grid.Column="3" Text="{Binding Stock.Quantity}"
-                            Style="{DynamicResource ListItemDetailTextStyle}"/>
-                            <Label Grid.Row="0" Grid.Column="4" Text="{Binding Price}"
-                            Style="{DynamicResource ListItemDetailTextStyle}"/>
-                            <Label Grid.Row="0" Grid.Column="5" Text="{Binding Vat.Name}"
-                            Style="{DynamicResource ListItemDetailTextStyle}"/>
+                            <Label Grid.Row="0" Grid.Column="0" Text="{i18N:Translate Name}"/>
+                            <Label Grid.Row="0" Grid.Column="1" Text="{i18N:Translate Brand}"/>
+                            <Label Grid.Row="0" Grid.Column="3" Text="{i18N:Translate Stock}"/>
+                            <Label Grid.Row="0" Grid.Column="4" Text="{i18N:Translate Price}"/>
+                            <Label Grid.Row="0" Grid.Column="5" Text="{i18N:Translate Tax}"/>
                         </Grid>
-                    </ViewCell>
-                </DataTemplate>
-            </ListView.ItemTemplate>
-        </ListView>
-    </ScrollView>
+                    </ListView.Header>
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <ViewCell>
+                                <ViewCell.ContextActions>
+                                    <MenuItem Clicked="UpdateItem_Clicked" CommandParameter="{Binding .}"
+                                          Text="Update"/>
+                                </ViewCell.ContextActions>
+                                <Grid Padding="5">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="20"/>
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="2*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="80"/>
+                                        <ColumnDefinition Width="80"/>
+                                        <ColumnDefinition Width="80"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Label Grid.Row="0" Grid.Column="0" Text="{Binding Name}" 
+                            Style="{DynamicResource ListItemTextStyle}" />
+                                    <Label Grid.Row="0" Grid.Column="1" Text="{Binding Brand}" 
+                            Style="{DynamicResource ListItemDetailTextStyle}"/>
+                                    <Label Grid.Row="0" Grid.Column="3" Text="{Binding Stock.Quantity}"
+                            Style="{DynamicResource ListItemDetailTextStyle}"/>
+                                    <Label Grid.Row="0" Grid.Column="4" Text="{Binding Price}"
+                            Style="{DynamicResource ListItemDetailTextStyle}"/>
+                                    <Label Grid.Row="0" Grid.Column="5" Text="{Binding Vat.Name}"
+                            Style="{DynamicResource ListItemDetailTextStyle}"/>
+                                </Grid>
+                            </ViewCell>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </ScrollView>
+        </StackLayout>
+        <StackLayout x:Name="VerifyId"  IsVisible="False" BackgroundColor="White" Margin="50,100,50,200">
+            <Label Text="{i18N:Translate EmpId}" />
+            <Entry x:Name="EId" />
+            <Button x:Name="Confirm" Text="{i18N:Translate Confirm}"/>
+            <Button x:Name="CancelEmpCheck" Text="{i18N:Translate Cancel}" Clicked="CancelEmpCheck_Clicked" />
+        </StackLayout>
+    </Grid>
 </ContentPage>

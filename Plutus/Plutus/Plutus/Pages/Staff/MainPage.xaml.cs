@@ -32,8 +32,8 @@ namespace Plutus.Pages.Staff
         /// <param name="e">Event that the object called</param>
         private void AddEmp_Clicked(object sender, EventArgs e)
         {
-            Confirm.CommandParameter = new AddEmployeePage();
-            Authorise("StaffARU");
+            Action action = async () => await App.Current.MainPage.Navigation.PushAsync(new AddEmployeePage());
+            Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Staff", "A", action);
         }
 
         /// <summary>
@@ -43,8 +43,8 @@ namespace Plutus.Pages.Staff
         /// <param name="e">Event that the object called</param>
         private void DeactivateEmp_Clicked(object sender, EventArgs e)
         {
-            Confirm.CommandParameter = new EmployeeDeactivationPage();
-            Authorise("StaffARU");
+            Action action = async () => await App.Current.MainPage.Navigation.PushAsync(new EmployeeDeactivationPage());
+            Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Staff", "R", action);
         }
 
         /// <summary>
@@ -52,118 +52,9 @@ namespace Plutus.Pages.Staff
         /// </summary>
         /// <param name="sender">Object that sent called the method</param>
         /// <param name="e">Event that the object called</param>
-        private async void EmpAccessRights_Clicked(object sender, EventArgs e)
+        private void EmpAccessRights_Clicked(object sender, EventArgs e)
         {
-            if (Authorisation.IsAuthorised("StaffARU"))
-            {
 
-                return;
-            }
-            await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("AuthDeniedMesg"), App.Translate.ProvideValue("OK"));
-        }
-
-        /// <summary>
-        /// This is used to get the Employee to Ensure Audit trails and Authorisation
-        /// </summary>
-        private async void Authorise(string auth)
-        {
-            if (App.EmpsLogged.Count != 1)
-            {
-                VerifyId.IsVisible = true;
-                MPage.IsEnabled = false;
-                if (Device.Idiom == TargetIdiom.Desktop)
-                {
-                    EId.Focus();
-                    EId.Completed += (o, e) =>
-                    {
-                        Device.BeginInvokeOnMainThread(async () =>
-                        {
-                            foreach (var tempEmp in App.EmpsLogged)
-                            {
-                                if (tempEmp.Id == EId.Text)
-                                {
-                                    if (Authorisation.IsAuthorised(auth, tempEmp))
-                                    {
-                                        App.LastAuthUser = tempEmp;
-                                        await Navigation.PushAsync((Page)Confirm.CommandParameter);
-                                        EId.Text = null;
-                                        VerifyId.IsVisible = false;
-                                        MPage.IsEnabled = true;
-                                        return;
-                                    }
-                                }
-                            }
-                            await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("AuthDeniedMesg"), App.Translate.ProvideValue("OK"));
-                        });
-                    };
-                    Confirm.Clicked += (o, e) =>
-                    {
-                        Device.BeginInvokeOnMainThread(async () =>
-                        {
-                            foreach (var tempEmp in App.EmpsLogged)
-                            {
-                                if (tempEmp.Id == EId.Text)
-                                {
-                                    if (Authorisation.IsAuthorised(auth, tempEmp))
-                                    {
-                                        App.LastAuthUser = tempEmp;
-                                        await Navigation.PushAsync((Page)Confirm.CommandParameter);
-                                        EId.Text = null;
-                                        VerifyId.IsVisible = false;
-                                        MPage.IsEnabled = true;
-                                        return;
-                                    }
-                                }
-                            }
-                            await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("AuthDeniedMesg"), App.Translate.ProvideValue("OK"));
-                        });
-                    };
-                }
-                else
-                {
-                    var opt = new MobileBarcodeScanningOptions
-                    {
-                        DelayBetweenContinuousScans = 3000,
-                        UseNativeScanning = true,
-                        TryHarder = true,
-                        TryInverted = true
-                    };
-                    _scanPage = new ZXingScannerPage(opt, null);
-                    _scanPage.OnScanResult += (result) =>
-                    {
-                        Device.BeginInvokeOnMainThread(async () =>
-                        {
-                            foreach (var tempEmp in App.EmpsLogged)
-                            {
-                                if (tempEmp.Id == result.Text)
-                                {
-                                    if (Authorisation.IsAuthorised(auth, tempEmp))
-                                    {
-                                        App.LastAuthUser = tempEmp;
-                                        await Navigation.PushAsync((Page)Confirm.CommandParameter);
-                                        EId.Text = null;
-                                        VerifyId.IsVisible = false;
-                                        MPage.IsEnabled = true;
-                                        return;
-                                    }
-                                }
-                            }
-                            await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("AuthDeniedMesg"), App.Translate.ProvideValue("OK"));
-                        });
-                    };
-                }
-            }
-            else
-            {
-                EmployeeModel emp = App.EmpsLogged.First();
-                if (Authorisation.IsAuthorised(auth, emp))
-                {
-                    App.LastAuthUser = emp;
-                    await Navigation.PushAsync((Page)Confirm.CommandParameter);
-                    return;
-                }
-                await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("AuthDeniedMesg"), App.Translate.ProvideValue("OK"));
-            }
         }
 
         private void CancelEmpCheck_Clicked(object sender, EventArgs e)

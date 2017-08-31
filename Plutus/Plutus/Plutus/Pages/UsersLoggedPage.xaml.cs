@@ -103,16 +103,15 @@ namespace Plutus.Pages
         /// </summary>
         /// <param name="sender">object that called method</param>
         /// <param name="e">Event called by object</param>
-        private async void LogoutAll_Clicked(object sender, EventArgs e)
+        private void LogoutAll_Clicked(object sender, EventArgs e)
         {
-            if (Authorisation.IsAuthorised("FLogoutAll"))
-            {
+            Action action = async () => {
                 App.EmpsLogged = new ObservableCollection<EmployeeModel>();
                 await DisplayAlert(App.Translate.ProvideValue("Info"), App.Translate.ProvideValue("NoActiveUsers"), App.Translate.ProvideValue("OK"));
-                Application.Current.MainPage = new NavigationPage(new LoginPage());
-                return;
-            }
-            await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("AuthDeniedMesg"), App.Translate.ProvideValue("OK"));
+                App.Current.MainPage = new NavigationPage(new LoginPage());
+            };
+
+            Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Item", "A", action);
         }
 
         /// <summary>
@@ -161,7 +160,7 @@ namespace Plutus.Pages
                     }
                 }
                 if (Emp != null)
-                    Delete = Authorisation.IsAuthorised("FLoggoutS", Emp);
+                    Delete = Authorisation.IsAuthorised("Force Loggout Single User", "X", Emp);
             }
 
             if (Delete)

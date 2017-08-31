@@ -145,12 +145,15 @@ namespace Plutus.Pages
                 App.DbContext.Init();
                 App.DbContext.Add(store);
                 emp.StoreId = store.StoreId;
-                var Actions = App.DbContext.GetAllActions();
-                emp.Actions = new List<AuthActions>();
-                foreach (var item in Actions)
+
+                var tempList = App.DbContext.GetAllActions();
+                emp.EmpAuths = new List<Emp_AuthActions>();
+                foreach (var item in tempList)
                 {
-                    emp.Actions.Add(item);
+                    Emp_AuthActions temp = new Emp_AuthActions() { Auth = item, A=true, M=true, R=true, V=true, X=true };
+                    emp.EmpAuths.Add(temp);
                 }
+
                 emp.Active = true;
                 App.DbContext.Add(emp);
                 if (!await App.DbContext.Save())
