@@ -18,29 +18,59 @@ namespace Plutus.Pages.Staff
         /// Basic constructor for RiRePage
         /// initalises Items from DB AuthActions
         /// </summary>
-        public RiRePage()
+        public RiRePage(EmployeeModel Emp)
         {
             InitializeComponent();
 
             Items = new ObservableCollection<Emp_AuthActions>();
             var tempList = App.DbContext.GetAllActions();
-            foreach(var item in tempList)
+            if (Emp.EmpAuths.Count > 0)
             {
-                Emp_AuthActions temp = new Emp_AuthActions() { Auth = item, Emp = AddEmployeePage.NewEmployee };
-                Items.Add(temp);
+                if (Emp.EmpAuths.Count == tempList.Count)
+                {
+                    foreach (var auth in Emp.EmpAuths.OrderBy(a => a.Auth.Name))
+                    {
+                        Items.Add(auth);
+                    }
+                }
+                else
+                {
+                    foreach (var item in tempList.OrderBy(a => a.Name))
+                    {
+                        var tempAuth = Emp.EmpAuths.Where(a => a.Auth.Id.Equals(item.Id)).FirstOrDefault();
+                        if (tempAuth != null)
+                            Items.Add(tempAuth);
+                        else
+                        {
+                            Emp_AuthActions temp = new Emp_AuthActions() { Auth = item, Emp = Emp };
+                            Items.Add(temp);
+                        }
+                    }
+                }
+                Confirm.Clicked += async (object sender, EventArgs e) =>
+                  {
+                      if (!await App.DbContext.Save())
+                      {
+                          await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
+                          return;
+                      }
+                      await Navigation.PopModalAsync();
+                  };
+            }
+            else
+            {
+                foreach (var item in tempList.OrderBy(a => a.Name))
+                {
+                    Emp_AuthActions temp = new Emp_AuthActions() { Auth = item, Emp = Emp };
+                    Items.Add(temp);
+                }
+                Confirm.Clicked += async (object sender, EventArgs e) =>
+                {
+                    await Navigation.PopModalAsync();
+                };
             }
 
             BindingContext = this;
-        }
-
-        /// <summary>
-        /// This method adds all items that are marked active to the employee Actions list in page AddEmployeePage
-        /// </summary>
-        /// <param name="sender">Object that sent called the method</param>
-        /// <param name="e">Event that the object called</param>
-        private async void Confirm_Clicked(object sender, EventArgs e)
-        {
-            await Navigation.PopModalAsync();
         }
     }
 }

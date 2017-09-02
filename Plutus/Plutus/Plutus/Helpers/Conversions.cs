@@ -18,12 +18,12 @@ namespace Plutus.Helpers
             catch (FormatException)
             {
                 await Application.Current.MainPage.DisplayAlert("OOPS!", "It seams that your Cost or Price have been inputed wrong/nPlease check this/nThis Message will be change in future", "OK");
-                return 0.0m;
+                return -0.1m;
             }
             catch (OverflowException)
             {
                 await Application.Current.MainPage.DisplayAlert("OOPS!", "It seams that your Cost or Price have been inputed wrong/nPlease check this/nThis Message will be change in future", "OK");
-                return 0.0m;
+                return -0.1m;
             }
 
         }

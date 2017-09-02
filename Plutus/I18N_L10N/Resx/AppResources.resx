@@ -547,4 +547,13 @@ The amount of items at purchase for {0} was {1}, Please remove atleast {2}.</val
   <data name="Stock" xml:space="preserve">
     <value>Stock</value>
   </data>
+  <data name="Emps" xml:space="preserve">
+    <value>Employees</value>
+  </data>
+  <data name="Active" xml:space="preserve">
+    <value>Active</value>
+  </data>
+  <data name="FullAddress" xml:space="preserve">
+    <value>Full Address</value>
+  </data>
 </root>

@@ -93,6 +93,10 @@
       <DependentUpon>AddEmployeePage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="$(MSBuildThisFileDirectory)Pages\Staff\AllEmployees.xaml.cs">
+      <DependentUpon>AllEmployees.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Pages\Staff\EmployeeDeactivationPage.xaml.cs">
       <DependentUpon>EmployeeDeactivationPage.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -244,6 +248,12 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\Staff\EmployeeDeactivationPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\Staff\AllEmployees.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
     </EmbeddedResource>

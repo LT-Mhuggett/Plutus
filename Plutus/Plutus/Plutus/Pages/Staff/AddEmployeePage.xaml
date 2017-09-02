@@ -24,20 +24,27 @@
                         <Entry x:Name="Email" Keyboard="Email"/>
                         <Label Text="{i18N:Translate PhoneN}"/>
                         <Entry x:Name="Mobile" Keyboard="Telephone"/>
-                        <Label Text="{i18N:Translate PassW}" VerticalOptions="FillAndExpand"/>
+                        <Label x:Name="PassWL" Text="{i18N:Translate PassW}" VerticalOptions="FillAndExpand"/>
                         <Entry x:Name="Password" IsPassword="True"/>
-                        <Label Text="{i18N:Translate PassWConf}" VerticalOptions="FillAndExpand"/>
+                        <Label x:Name="PassWConfL" Text="{i18N:Translate PassWConf}" VerticalOptions="FillAndExpand"/>
                         <Entry x:Name="PasswordConf" IsPassword="True"/>
-                        <Label x:Name="AdLine1L" Text="{i18N:Translate AdLine1}" VerticalOptions="FillAndExpand"/>
-                        <Entry x:Name="AdLine1"/>
-                        <Label x:Name="AdLine2L" Text="{i18N:Translate AdLine2}" VerticalOptions="FillAndExpand"/>
-                        <Entry x:Name="AdLine2"/>
-                        <Label x:Name="CityL" Text="{i18N:Translate City}" VerticalOptions="FillAndExpand"/>
-                        <Entry x:Name="City"/>
-                        <Label x:Name="PostCodeL" Text="{i18N:Translate PostCode}" VerticalOptions="FillAndExpand"/>
-                        <Entry x:Name="PostCode"/>
-                        <Label x:Name="CountryL" Text="{i18N:Translate Country}" VerticalOptions="FillAndExpand"/>
-                        <Entry x:Name="Country"/>
+                        <StackLayout x:Name="ManAd">
+                            <Label x:Name="AdLine1L" Text="{i18N:Translate AdLine1}" VerticalOptions="FillAndExpand"/>
+                            <Entry x:Name="AdLine1"/>
+                            <Label x:Name="AdLine2L" Text="{i18N:Translate AdLine2}" VerticalOptions="FillAndExpand"/>
+                            <Entry x:Name="AdLine2"/>
+                            <Label x:Name="CityL" Text="{i18N:Translate City}" VerticalOptions="FillAndExpand"/>
+                            <Entry x:Name="City"/>
+                            <Label x:Name="PostCodeL" Text="{i18N:Translate PostCode}" VerticalOptions="FillAndExpand"/>
+                            <Entry x:Name="PostCode"/>
+                            <Label x:Name="CountryL" Text="{i18N:Translate Country}" VerticalOptions="FillAndExpand"/>
+                            <Entry x:Name="Country"/>
+                        </StackLayout>
+                        <StackLayout x:Name="AutoAd" IsVisible="False">
+                            <Label x:Name="FullAddressL" Text="{i18N:Translate FullAddress}" VerticalOptions="FillAndExpand"/>
+                            <Editor x:Name="FullAddress"/>
+                            <Button x:Name="ToManAd" Text="Change to line by line address" Clicked="ToMan"/>
+                        </StackLayout>
                     </StackLayout>
                     <StackLayout>
                         <Label Text="{i18N:Translate OfficeSec}" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start"/>

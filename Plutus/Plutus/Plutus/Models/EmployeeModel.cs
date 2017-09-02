@@ -22,5 +22,8 @@ namespace Plutus.Models
         public StoreModel Store { get; set; }
         public List<SaleModel> Sale { get; set; }
         public List<Emp_AuthActions> EmpAuths { get; set; }
+
+        [NotMapped]
+        public string FullName => string.Format("{0} {1}", LName.ToUpper(), FName);
     }
 }

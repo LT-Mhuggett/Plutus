@@ -141,6 +141,10 @@ namespace Plutus.Pages.Inventory
             VatPicker.SelectedIndex = Item.VatId - 1;
             Price.Text = Convert.ToString(Item.Price);
             Stock.Text = Convert.ToString(Item.Stock);
+            if (string.IsNullOrEmpty(Stock.Text))
+            {
+                Stock.Text = string.Format("No stock informationavalible for {0}", Item.Name);
+            }
             ItemDetails.IsVisible = true;
             ImageButton.IsEnabled = true;
         }

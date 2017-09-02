@@ -7,7 +7,9 @@
     <StackLayout>
         <ListView ItemsSource="{Binding Items}"
             HasUnevenRows="True"
-            CachingStrategy="RecycleElement">
+            CachingStrategy="RecycleElement"
+                  SeparatorVisibility="Default"
+                  SeparatorColor="Black">
             <ListView.Header>
                 <Grid Padding="5">
                     <Grid.RowDefinitions>
@@ -15,18 +17,18 @@
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="40" />
-                        <ColumnDefinition Width="40" />
-                        <ColumnDefinition Width="40" />
-                        <ColumnDefinition Width="40" />
-                        <ColumnDefinition Width="40" />
+                        <ColumnDefinition Width="50" />
+                        <ColumnDefinition Width="50" />
+                        <ColumnDefinition Width="50" />
+                        <ColumnDefinition Width="50" />
+                        <ColumnDefinition Width="50" />
                     </Grid.ColumnDefinitions>
                     <Label Grid.Row="0" Grid.Column="0" Text="{i18N:Translate Name}"/>
                     <Label Grid.Row="0" Grid.Column="1" Text="{i18N:Translate V}"/>
-                    <Label Grid.Row="0" Grid.Column="1" Text="{i18N:Translate M}"/>
-                    <Label Grid.Row="0" Grid.Column="1" Text="{i18N:Translate A}"/>
-                    <Label Grid.Row="0" Grid.Column="1" Text="{i18N:Translate X}"/>
-                    <Label Grid.Row="0" Grid.Column="1" Text="{i18N:Translate R}"/>
+                    <Label Grid.Row="0" Grid.Column="2" Text="{i18N:Translate M}"/>
+                    <Label Grid.Row="0" Grid.Column="3" Text="{i18N:Translate A}"/>
+                    <Label Grid.Row="0" Grid.Column="4" Text="{i18N:Translate X}"/>
+                    <Label Grid.Row="0" Grid.Column="5" Text="{i18N:Translate R}"/>
                 </Grid>
             </ListView.Header>
             <ListView.ItemTemplate>
@@ -38,15 +40,23 @@
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="50" />
+                                <ColumnDefinition Width="50" />
+                                <ColumnDefinition Width="50" />
+                                <ColumnDefinition Width="50" />
+                                <ColumnDefinition Width="50" />
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Row="0" Grid.Column="0" Text="{Binding Name}"/>
-                            <Switch Grid.Row="0" Grid.Column="1" IsToggled="{Binding Active}" />
+                            <Label Grid.Row="0" Grid.Column="0" Text="{Binding Auth.Name}"/>
+                            <Switch Grid.Row="0" Grid.Column="1" IsToggled="{Binding V}" />
+                            <Switch Grid.Row="0" Grid.Column="2" IsToggled="{Binding M}" />
+                            <Switch Grid.Row="0" Grid.Column="3" IsToggled="{Binding A}" />
+                            <Switch Grid.Row="0" Grid.Column="4" IsToggled="{Binding X}" />
+                            <Switch Grid.Row="0" Grid.Column="5" IsToggled="{Binding R}" />
                         </Grid>
                     </ViewCell>
                 </DataTemplate>
             </ListView.ItemTemplate>
         </ListView>
-        <Button x:Name="Confirm" Text="{i18N:Translate Confirm}" Clicked="Confirm_Clicked" />
+        <Button x:Name="Confirm" Text="{i18N:Translate Confirm}" />
     </StackLayout>
 </ContentPage>

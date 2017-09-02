@@ -71,6 +71,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Active.
+        /// </summary>
+        internal static string Active {
+            get {
+                return ResourceManager.GetString("Active", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Active Users.
         /// </summary>
         internal static string ActivUsers {
@@ -533,6 +542,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Employees.
+        /// </summary>
+        internal static string Emps {
+            get {
+                return ResourceManager.GetString("Emps", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Please Ensure all required fields are filled in.
         /// </summary>
         internal static string FieldsFilledInMesg {
@@ -547,6 +565,15 @@ namespace I18N_L10N.Resx {
         internal static string FName {
             get {
                 return ResourceManager.GetString("FName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Full Address.
+        /// </summary>
+        internal static string FullAddress {
+            get {
+                return ResourceManager.GetString("FullAddress", resourceCulture);
             }
         }
         

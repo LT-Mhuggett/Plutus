@@ -52,9 +52,10 @@ namespace Plutus.Pages.Staff
         /// </summary>
         /// <param name="sender">Object that sent called the method</param>
         /// <param name="e">Event that the object called</param>
-        private void EmpAccessRights_Clicked(object sender, EventArgs e)
+        private void ReadAllEmployee_Clicked(object sender, EventArgs e)
         {
-
+            Action action = async () => await App.Current.MainPage.Navigation.PushAsync(new AllEmployees());
+            Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Staff", "M", action);
         }
 
         private void CancelEmpCheck_Clicked(object sender, EventArgs e)

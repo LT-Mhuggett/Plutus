@@ -40,7 +40,7 @@ namespace Plutus.Helpers
         {
             foreach (var item in eTemp.EmpAuths)
             {
-                if (item.Auth.Name == Action)
+                if (item.Auth.Name.Contains(Action))
                 {
                     if (item.Auth.Amount < amount)
                     {

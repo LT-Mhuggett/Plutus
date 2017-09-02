@@ -40,7 +40,7 @@ namespace Plutus.Pages.Staff
                         await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
                         return;
                     }
-                    await DisplayAlert(App.Translate.ProvideValue("Success"), String.Format(App.Translate.ProvideValue("EmpDeactSuc"),$"{emp.LName.ToUpper()},{emp.FName}"), App.Translate.ProvideValue("OK"));
+                    await DisplayAlert(App.Translate.ProvideValue("Success"), String.Format(App.Translate.ProvideValue("EmpDeactSuc"),$"{emp.LName.ToUpper()} {emp.FName}"), App.Translate.ProvideValue("OK"));
                     await Navigation.PopAsync();
                 }
                 else

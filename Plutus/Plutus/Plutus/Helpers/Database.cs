@@ -74,9 +74,9 @@ namespace Plutus.Helpers
             //AuthActions Initalization
             var AuthAction = new AuthActions() { Name = "Till" };
             Add(AuthAction);
-            var AuthAction1 = new AuthActions() { Name = "Refund", Amount = 20 };
+            var AuthAction1 = new AuthActions() { Name = "Refund20", Amount = 20 };
             Add(AuthAction1);
-            var AuthAction2 = new AuthActions() { Name = "Refund", Amount = 100 };
+            var AuthAction2 = new AuthActions() { Name = "Refund100", Amount = 100 };
             Add(AuthAction2);
             var AuthAction3 = new AuthActions() { Name = "Staff" };
             Add(AuthAction3);
@@ -86,7 +86,7 @@ namespace Plutus.Helpers
             Add(AuthAction5);
             var AuthAction6 = new AuthActions() { Name = "Force Loggout Single User" };
             Add(AuthAction6);
-            var AuthAction7 = new AuthActions() { Name = "Refund", Amount = 100000 };
+            var AuthAction7 = new AuthActions() { Name = "Refund Unlimited", Amount = 100000 };
             Add(AuthAction7);
 
             //Will be removed as only applies to UK, User will have to add manually

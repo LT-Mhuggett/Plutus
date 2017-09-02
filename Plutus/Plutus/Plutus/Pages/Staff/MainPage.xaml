@@ -9,7 +9,7 @@
             <StackLayout x:Name="MPage" VerticalOptions="Center" HorizontalOptions="FillAndExpand">
                 <Button x:Name="AddEmp" Text="Add New Employee" Clicked="AddEmp_Clicked" />
                 <Button x:Name="DeactivateEmp" Text="Deactivate Employee" Clicked="DeactivateEmp_Clicked" />
-                <Button x:Name="EmpAccessRights" Text="Change Employee Access Rights" Clicked="EmpAccessRights_Clicked" />
+                <Button x:Name="ReadAllEmployee" Text="Show All Eemployees" Clicked="ReadAllEmployee_Clicked" />
             </StackLayout>
             <StackLayout x:Name="VerifyId"  IsVisible="False" BackgroundColor="White" Margin="50,100,50,200">
                 <Label Text="{i18N:Translate EmpId}" />
