@@ -556,4 +556,25 @@ The amount of items at purchase for {0} was {1}, Please remove atleast {2}.</val
   <data name="FullAddress" xml:space="preserve">
     <value>Full Address</value>
   </data>
+  <data name="ValueEnteredWrong" xml:space="preserve">
+    <value>The Value you enter was not correct, Please input in the format asked</value>
+  </data>
+  <data name="CNoC" xml:space="preserve">
+    <value>CardNoCharge</value>
+  </data>
+  <data name="CardChargeNote" xml:space="preserve">
+    <value>Card Charge of {0}</value>
+  </data>
+  <data name="PaperReceipt?" xml:space="preserve">
+    <value>Print receipt?</value>
+  </data>
+  <data name="Reports" xml:space="preserve">
+    <value>Reports</value>
+  </data>
+  <data name="SReports" xml:space="preserve">
+    <value>Sales Reports</value>
+  </data>
+  <data name="EmpIdORDate" xml:space="preserve">
+    <value>Please enter the employee ID or Date of Sales you want to look up</value>
+  </data>
 </root>

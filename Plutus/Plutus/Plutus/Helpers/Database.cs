@@ -88,6 +88,8 @@ namespace Plutus.Helpers
             Add(AuthAction6);
             var AuthAction7 = new AuthActions() { Name = "Refund Unlimited", Amount = 100000 };
             Add(AuthAction7);
+            var AuthAction8 = new AuthActions() { Name = "Report" };
+            Add(AuthAction8);
 
             //Will be removed as only applies to UK, User will have to add manually
             var cat = new CategoryModel() { Name = "Customer Care", Description = "Items such as Bags etc." };
@@ -97,9 +99,9 @@ namespace Plutus.Helpers
             Add(bag);
 
             //There will be a more detailed setup page this temporay
-            var payM = new PaymentMethodModel() { Name = "Card", Charge = 0.5m };
+            var payM = new PaymentMethodModel() { Name = "Card", Charge = 0.5m, MinimumCharge = 5.0m };
             Add(payM);
-            var payM2 = new PaymentMethodModel() { Name = "Cash", Charge = 0.0m };
+            var payM2 = new PaymentMethodModel() { Name = "Cash", Charge = 0.0m, MinimumCharge = 0.0m };
             Add(payM2);
             _db.SaveChanges();
         }
@@ -225,6 +227,14 @@ namespace Plutus.Helpers
             return trans??null;
         }
 
+        internal NoteModel GetNote(string noteTemp)
+        {
+            var note = _db.Notes
+                .Where(n => n.Note.Equals(noteTemp))
+                .FirstOrDefault();
+            return note ?? null;
+        }
+
         internal List<ItemModel> GetAllItems()
         {
             var items = _db.Items
@@ -233,6 +243,29 @@ namespace Plutus.Helpers
                 .Include(i=>i.Transactions)
                 .ToList();
             return items ?? null;
+        }
+
+        internal List<DateTime> GetAllDatesOfSale()
+        {
+            var dOS = _db.Sales
+                .Select(s => s.DateOfSale)
+                .Distinct()
+                .ToList();
+            return dOS ?? null;
+        }
+
+        internal List<SaleModel> GetSales(string condition)
+        {
+            var sales = _db.Sales
+                .Include(s => s.Notes)
+                .Include(s => s.Refunded)
+                .Include(s => s.Refunds)
+                .Include(s => s.Transactions)
+                .Include(s => s.PaySales)
+                .Where(s => s.DateOfSale.ToString().Contains(condition)
+                    || s.EmployeeId.Equals(condition))
+                .ToList();
+            return sales ?? null;
         }
 
         internal IIncludableQueryable<EmployeeModel, StoreModel> GetAllEmps()

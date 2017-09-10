@@ -124,13 +124,13 @@ namespace Plutus.Pages.Inventory
                 return;
             }
 
-            Item.Cost = await Conversions.ToDecimal(Cost.Text);
-            Item.Price = await Conversions.ToDecimal(Price.Text);
+            Item.Cost = (decimal)await Conversions.ToDecimal(Cost.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
+            Item.Price = (decimal)await Conversions.ToDecimal(Price.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
 
             if (Item.Cost.Equals(0) || Item.Price.Equals(0))
                 return;
 
-            var temp = await Conversions.ToInterger(Stock.Text);
+            var temp = (int)await Conversions.ToInterger(Stock.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
 
             if (temp.Equals(-1))
                 return;
@@ -194,7 +194,7 @@ namespace Plutus.Pages.Inventory
             {
                 if (item.VatId == VatPicker.SelectedIndex + 1)
                 {
-                    Price.Placeholder = $"{App.Translate.ProvideValue("RecPrice")}: {await Conversions.ToDecimal(Cost.Text) * (decimal)item.Rate}";
+                    Price.Placeholder = $"{App.Translate.ProvideValue("RecPrice")}: {(decimal)await Conversions.ToDecimal(Cost.Text, App.Translate.ProvideValue("ValueEnteredWrong")) * (decimal)item.Rate}";
                 }
             }
         }

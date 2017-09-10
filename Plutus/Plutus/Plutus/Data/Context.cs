@@ -25,6 +25,8 @@ namespace Plutus.Data
         public DbSet<StockModel> Stocks { get; set; }
         public DbSet<AuthActions> AuthActions { get; set; }
         public DbSet<Emp_AuthActions> EmpAuthActions { get; set; }
+        public DbSet<NoteModel> Notes { get; set; }
+        public DbSet<Notes_SaleModel> NotesSales { get; set; }
 
         private readonly string _databasePath;
 
@@ -40,6 +42,19 @@ namespace Plutus.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            modelBuilder.Entity<Notes_SaleModel>()
+                .HasKey(ns => new { ns.NoteId, ns.SaleId });
+
+            modelBuilder.Entity<Notes_SaleModel>()
+                .HasOne(ns => ns.Sale)
+                .WithMany(s => s.Notes)
+                .HasForeignKey(ns => ns.SaleId);
+
+            modelBuilder.Entity<Notes_SaleModel>()
+                .HasOne(ns => ns.Note)
+                .WithMany(n => n.NoteSales)
+                .HasForeignKey(ns => ns.NoteId);
+
             modelBuilder.Entity<EmployeeModel>()
                 .HasIndex(u => u.Email)
                 .IsUnique();

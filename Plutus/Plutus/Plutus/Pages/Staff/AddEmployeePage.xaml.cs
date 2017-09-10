@@ -117,8 +117,8 @@ namespace Plutus.Pages.Staff
             Emp.Email = Validate.IsEmailValid(Email.Text) ? Email.Text.ToLower() : null;
             Emp.Mobile = Validate.IsPhoneNumberValid(Mobile.Text) ? Mobile.Text : null;
             Emp.Store = App.Store;
-            Emp.ContractedHours = await Conversions.ToInterger(ContrHours.Text);
-            Emp.Wage = await Conversions.ToDecimal(Wage.Text);
+            Emp.ContractedHours = (int)await Conversions.ToInterger(ContrHours.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
+            Emp.Wage = (decimal)await Conversions.ToDecimal(Wage.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
             Emp.Active = true;
 
             if (Emp.FName == null || Emp.LName == null || Emp.NIN == null || Emp.AdLine1 == null && Emp.FullAddress == null)

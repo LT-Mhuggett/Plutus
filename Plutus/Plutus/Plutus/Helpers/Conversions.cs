@@ -8,7 +8,7 @@ namespace Plutus.Helpers
 {
     class Conversions
     {
-        internal static async Task<decimal> ToDecimal(string data)
+        internal static async Task<decimal?> ToDecimal(string data, string ErrorMesg)
         {
             try
             {
@@ -17,18 +17,18 @@ namespace Plutus.Helpers
             }
             catch (FormatException)
             {
-                await Application.Current.MainPage.DisplayAlert("OOPS!", "It seams that your Cost or Price have been inputed wrong/nPlease check this/nThis Message will be change in future", "OK");
-                return -0.1m;
+                await Application.Current.MainPage.DisplayAlert("OOPS!", ErrorMesg, "OK");
+                return null;
             }
             catch (OverflowException)
             {
-                await Application.Current.MainPage.DisplayAlert("OOPS!", "It seams that your Cost or Price have been inputed wrong/nPlease check this/nThis Message will be change in future", "OK");
-                return -0.1m;
+                await Application.Current.MainPage.DisplayAlert("OOPS!", ErrorMesg, "OK");
+                return null;
             }
 
         }
 
-        internal static async Task<int> ToInterger(string data)
+        internal static async Task<int?> ToInterger(string data, string ErrorMesg)
         {
             try
             {
@@ -37,13 +37,13 @@ namespace Plutus.Helpers
             }
             catch (FormatException)
             {
-                await Application.Current.MainPage.DisplayAlert("OOPS!", "It seams that your Stock has been inputed wrong/nPlease check this/nThis Message will be change in future", "OK");
-                return -1;
+                await Application.Current.MainPage.DisplayAlert("OOPS!", ErrorMesg, "OK");
+                return null;
             }
             catch (OverflowException)
             {
-                await Application.Current.MainPage.DisplayAlert("OOPS!", "It seams that your Stock has been inputed wrong/nPlease check this/nThis Message will be change in future", "OK");
-                return -1;
+                await Application.Current.MainPage.DisplayAlert("OOPS!", ErrorMesg, "OK");
+                return null;
             }
         }
     }

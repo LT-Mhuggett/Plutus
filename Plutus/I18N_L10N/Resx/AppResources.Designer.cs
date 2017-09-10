@@ -261,6 +261,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Card Charge of {0}.
+        /// </summary>
+        internal static string CardChargeNote {
+            get {
+                return ResourceManager.GetString("CardChargeNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Cash.
         /// </summary>
         internal static string Cash {
@@ -284,6 +293,15 @@ namespace I18N_L10N.Resx {
         internal static string City {
             get {
                 return ResourceManager.GetString("City", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to CardNoCharge.
+        /// </summary>
+        internal static string CNoC {
+            get {
+                return ResourceManager.GetString("CNoC", resourceCulture);
             }
         }
         
@@ -511,6 +529,15 @@ namespace I18N_L10N.Resx {
         internal static string EmpId {
             get {
                 return ResourceManager.GetString("EmpId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Please enter the employee ID or Date of Sales you want to look up.
+        /// </summary>
+        internal static string EmpIdORDate {
+            get {
+                return ResourceManager.GetString("EmpIdORDate", resourceCulture);
             }
         }
         
@@ -888,6 +915,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Print receipt?.
+        /// </summary>
+        internal static string PaperReceipt_ {
+            get {
+                return ResourceManager.GetString("PaperReceipt?", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Password.
         /// </summary>
         internal static string PassW {
@@ -1044,6 +1080,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Reports.
+        /// </summary>
+        internal static string Reports {
+            get {
+                return ResourceManager.GetString("Reports", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Returns.
         /// </summary>
         internal static string Returns {
@@ -1139,6 +1184,15 @@ namespace I18N_L10N.Resx {
         internal static string SomthingWentWrongMesg {
             get {
                 return ResourceManager.GetString("SomthingWentWrongMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Sales Reports.
+        /// </summary>
+        internal static string SReports {
+            get {
+                return ResourceManager.GetString("SReports", resourceCulture);
             }
         }
         
@@ -1328,6 +1382,15 @@ namespace I18N_L10N.Resx {
         internal static string VAllItems {
             get {
                 return ResourceManager.GetString("VAllItems", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The Value you enter was not correct, Please input in the format asked.
+        /// </summary>
+        internal static string ValueEnteredWrong {
+            get {
+                return ResourceManager.GetString("ValueEnteredWrong", resourceCulture);
             }
         }
         

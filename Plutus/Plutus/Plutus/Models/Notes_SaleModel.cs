@@ -4,14 +4,12 @@ using System.Text;
 
 namespace Plutus.Models
 {
-    public class PaymentMethod_SaleModel
+    public class Notes_SaleModel
     {
-        public int PayId { get; set; }
-        public PaymentMethodModel PayMethod { get; set; }
-
         public string SaleId { get; set; }
         public SaleModel Sale { get; set; }
-        
-        public decimal Amount { get; set; }
+
+        public int NoteId { get; set; }
+        public NoteModel Note { get; set; }
     }
 }

@@ -74,7 +74,8 @@ namespace Plutus.Pages.Till
             var temp = e.SelectedItem as Basket;
             if(!Authorisation.IsAuthorised("Item", "V", App.LastAuthUser))
             {
-                await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("AuthDeniedMesg"), App.Translate.ProvideValue("OK"));
+                if (App.EmpsLogged.Count > 1)
+                    await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("AuthDeniedMesg"), App.Translate.ProvideValue("OK"));
                 Action action = async () =>
                 {
                     await Navigation.PushModalAsync(new Inventory.ItemTemplate(temp));
@@ -209,13 +210,9 @@ namespace Plutus.Pages.Till
                 return;
             }
 
-            Action action = async () =>
+            Action action = () =>
             {
-                string Action;
-
-                Action = await DisplayActionSheet(App.Translate.ProvideValue("PayMeth"), App.Translate.ProvideValue("Cancel"), null, App.Translate.ProvideValue("Card"), App.Translate.ProvideValue("Cash"));
-                
-                GenTransaction(Action);
+                GenTransaction();
             };
             Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Till", "X", action);            
         }
@@ -229,7 +226,7 @@ namespace Plutus.Pages.Till
         /// then clear Basket
         /// </summary>
         /// <param name="Action">Selected paymethod</param>
-        private async void GenTransaction(string Action)
+        private async void GenTransaction()
         {
             var actionDic = new Dictionary<string, Func<PaymentMethodModel>> {
                 { App.Translate.ProvideValue("Card"), () => App.DbContext.GetPayM(App.Translate.ProvideValue("Card")) },
@@ -241,28 +238,69 @@ namespace Plutus.Pages.Till
             VerifyId.IsVisible = false;
             MPage.IsEnabled = true;
 
-            if (actionDic[Action] == null) return;
+            decimal Total = 0.0m;
 
-            PaymentMethod_SaleModel paySale = new PaymentMethod_SaleModel() { PayMethod = actionDic[Action]() };
+            //GetCustomer Data here
 
-            decimal Total=0.0m;
+            SaleModel Sale = new SaleModel() { DateOfSale = System.DateTime.Now, Total = Total, EmployeeId = App.LastAuthUser.Id };
+            Sale.PaySales = new List<PaymentMethod_SaleModel>();
+            Sale.Notes = new List<Notes_SaleModel>();
 
             if (Basket.Where(item => item.Return.Equals(false)).Count() == 0)
             {
                 //add discount for when only a refund is being processed for the paymentcharge amount
             }
             else
-                Total = paySale.PayMethod.Charge + Basket.Sum(item => item.Price * item.Amount);
+            {
+                Total = Basket.Sum(item => item.Price * item.Amount);
+                for (decimal paid = 0.0m; paid < Total;)
+                {
+                    string Action;
+
+                    Action = await DisplayActionSheet(App.Translate.ProvideValue("PayMeth"), App.Translate.ProvideValue("Cancel"), null, App.Translate.ProvideValue("Card"), App.Translate.ProvideValue("Cash"));
+
+                    PaymentMethod_SaleModel pay = new PaymentMethod_SaleModel() { PayMethod = actionDic[Action]() };
+
+                    if (pay.PayMethod.MinimumCharge > Total)
+                    {
+                        Total += pay.PayMethod.Charge;
+                        NoteModel note = App.DbContext.GetNote(string.Format(App.Translate.ProvideValue("CardChargeNote"), pay.PayMethod.Charge));
+                        if (note == null)
+                        {
+                            note = new NoteModel() { Note = string.Format(App.Translate.ProvideValue("CardChargeNote"), pay.PayMethod.Charge) };
+                        }
+                        Notes_SaleModel NotesSale = new Notes_SaleModel() { Note = note };
+                        App.DbContext.Add(NotesSale);
+                        Sale.Notes.Add(NotesSale);
+                    }
+
+                    var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(string.Format("How much to pay with {0}, There is {1} left to pay", Action, (Total-paid).ToString()), "enter here", "confrim", "shit");
+
+                    pay.Amount = amount;
+
+                    paid += amount;
+
+                    if (paid > Total)
+                    {
+                        //overPayment
+                        paid -= amount;
+                        continue;
+                    }
+                    App.DbContext.Add(pay);
+                    Sale.PaySales.Add(pay);
+                }
+                Sale.Total = Total + Sale.PaySales.Sum(item => item.PayMethod.Charge);
+            }
 
             var Continue = await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("Continue?"), Total), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
+            if (!Continue)
+            {
+                App.DbContext.RevertDbContextChanges();
+                return;
+            }
 
-            if (!Continue) return;
-
-            SaleModel Sale = new SaleModel() { DateOfSale = System.DateTime.Now, Total = Total, EmployeeId = App.LastAuthUser.Id };
-            Sale.PaySales = new List<PaymentMethod_SaleModel>();
             Sale.Transactions = new List<TransactionModel>();
             Sale.Refunds = new List<RefundModel>();
-            Sale.PaySales.Add(paySale);
 
             foreach (var item in Basket)
             {
@@ -282,27 +320,35 @@ namespace Plutus.Pages.Till
             }
 
             if (Sale.Refunds.Count == 0)
-                FinaliseTransaction(Sale, paySale);
+                FinaliseTransaction(Sale);
             else if(!Authorisation.IsAuthorised("Refund", "X", Basket.Where(item=>item.Return.Equals(true)).Sum(item=>item.Price*item.Amount), App.LastAuthUser))
             {
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("RefundLimitTooLow"), App.Translate.ProvideValue("OK"));
-                Action action = () => FinaliseTransaction(Sale, paySale);
+                Action action = () => FinaliseTransaction(Sale);
                 Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Refund", "X", Basket.Where(item => item.Return.Equals(true)).Sum(item => item.Price * item.Amount), action);
             }
             else
-                FinaliseTransaction(Sale, paySale);
+                FinaliseTransaction(Sale);
         }
 
-        private async void FinaliseTransaction(SaleModel Sale, PaymentMethod_SaleModel paySale)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="Sale"></param>
+        private async void FinaliseTransaction(SaleModel Sale)
         {
             App.DbContext.Add(Sale);
-            App.DbContext.Add(paySale);
 
             if (!await App.DbContext.Save())
             {
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
                 return;
-            }
+            }/*
+            var Continue = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("PaperReceipt?"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
+            if (Continue)
+            {
+                //var doc = new PrintDocument();
+            }*/
             Basket.Clear();
             await DisplayAlert(App.Translate.ProvideValue("Transaction"), App.Translate.ProvideValue("TransConfMesg"), App.Translate.ProvideValue("OK"));
         }
@@ -348,7 +394,7 @@ namespace Plutus.Pages.Till
         /// <param name="tempItem">Item to add to Basket</param>
         private async void BasketAdd(Basket tempItem)
         {
-            var amount = await Conversions.ToInterger(AmountToAdd.Text);
+            var amount = (int)await Conversions.ToInterger(AmountToAdd.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
             if (amount == -1)
                 return;
             foreach (var item in Basket)
@@ -362,6 +408,7 @@ namespace Plutus.Pages.Till
             }
             Basket.Add(tempItem);
             Basket.Last().Amount = amount;
+            UpdatePrice();
             AmountToAdd.Text = 1.ToString();
         }
 

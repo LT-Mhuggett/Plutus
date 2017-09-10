@@ -19,5 +19,6 @@ namespace Plutus.Models
         public List<TransactionModel> Transactions { get; set; }
         public List<PaymentMethod_SaleModel> PaySales { get; set; }
         public List<RefundModel> Refunded { get; set; }
+        public List<Notes_SaleModel> Notes { get; set; }
     }
 }

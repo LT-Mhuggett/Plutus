@@ -175,7 +175,7 @@ namespace Plutus.Pages.Inventory
             {
                 if (item.VatId == VatPicker.SelectedIndex + 1)
                 {
-                    Price.Placeholder = $"{App.Translate.ProvideValue("RecPrice")}: {await Conversions.ToDecimal(Cost.Text) * (decimal)item.Rate}";
+                    Price.Placeholder = $"{App.Translate.ProvideValue("RecPrice")}: {(decimal)await Conversions.ToDecimal(Cost.Text, App.Translate.ProvideValue("ValueEnteredWrong")) * (decimal)item.Rate}";
                 }
             }
         }
@@ -264,8 +264,8 @@ namespace Plutus.Pages.Inventory
             ChangeItem.Name = Name.Text;
             ChangeItem.Brand = Brand.Text;
             ChangeItem.CatId = CatPicker.SelectedIndex + 1;
-            ChangeItem.Cost = await Conversions.ToDecimal(Cost.Text);
-            ChangeItem.Price = await Conversions.ToDecimal(Price.Text);
+            ChangeItem.Cost = (decimal)await Conversions.ToDecimal(Cost.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
+            ChangeItem.Price = (decimal)await Conversions.ToDecimal(Price.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
             ChangeItem.VatId = VatPicker.SelectedIndex + 1;
 
             if (ChangeItem.Name==Item.Name&&ChangeItem.Brand==Item.Brand&&ChangeItem.CatId==Item.CatId&&ChangeItem.Cost==Item.Cost&&ChangeItem.Desc==Item.Desc&&ChangeItem.Image==Item.Image&&ChangeItem.Price==Item.Price&&ChangeItem.VatId==Item.VatId)

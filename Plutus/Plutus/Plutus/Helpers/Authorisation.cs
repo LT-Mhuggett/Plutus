@@ -17,6 +17,8 @@ namespace Plutus.Helpers
 
         public static bool IsAuthorised(string Action, string RightNeeded, EmployeeModel eTemp)
         {
+            if (eTemp.Id == null)
+                return false;
             if (list == null)
             {
                 list = App.DbContext.GetAllActions();
