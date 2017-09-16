@@ -32,7 +32,7 @@ namespace Plutus
             //refresh all app files without data wipe or app delete
             //File.Delete(Path.Combine(FileIO.GetLib(), "App.config"));
             //File.Delete(Path.Combine(FileIO.GetLib(), "Database.db"));
-
+            
             new I18N_L10N.I18N_L10N();
 
             MainPage = FileIO.Exists("App.config")&&FileIO.Exists("Database.db")?

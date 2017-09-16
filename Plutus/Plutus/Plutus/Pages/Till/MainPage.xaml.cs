@@ -255,10 +255,10 @@ namespace Plutus.Pages.Till
                 Total = Basket.Sum(item => item.Price * item.Amount);
                 for (decimal paid = 0.0m; paid < Total;)
                 {
-                    string Action;
-
+                    string Action = null;
                     Action = await DisplayActionSheet(App.Translate.ProvideValue("PayMeth"), App.Translate.ProvideValue("Cancel"), null, App.Translate.ProvideValue("Card"), App.Translate.ProvideValue("Cash"));
-
+                    
+                    //Error with Action not setting from ActionSheet. it setting to "" ONLY IN RELEASE
                     PaymentMethod_SaleModel pay = new PaymentMethod_SaleModel() { PayMethod = actionDic[Action]() };
 
                     if (pay.PayMethod.MinimumCharge > Total)

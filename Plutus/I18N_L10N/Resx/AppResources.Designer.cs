@@ -143,6 +143,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Admin.
+        /// </summary>
+        internal static string Admin {
+            get {
+                return ResourceManager.GetString("Admin", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Amount.
         /// </summary>
         internal static string Amount {
@@ -157,6 +166,15 @@ namespace I18N_L10N.Resx {
         internal static string AuthDeniedMesg {
             get {
                 return ResourceManager.GetString("AuthDeniedMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to BackUp DB.
+        /// </summary>
+        internal static string BackUp {
+            get {
+                return ResourceManager.GetString("BackUp", resourceCulture);
             }
         }
         

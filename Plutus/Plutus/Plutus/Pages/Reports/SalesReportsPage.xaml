@@ -6,7 +6,7 @@
              Title="{i18N:Translate SReports}">
     <StackLayout>
         <Label Text="{i18N:Translate EmpIdORDate}" />
-        <Entry x:Name="EmpSearch" Completed="EmpSearchCompleted" />
+        <Entry x:Name="EmpSearch" Completed="EmpSearchCompleted" Placeholder="NOT YET IMPLEMENTED" />
         <Picker x:Name="DateSearch" SelectedIndexChanged="DateSearchChange" />
         <ListView ItemsSource="{Binding Sales}"
             ItemTapped="Handle_ItemTapped"

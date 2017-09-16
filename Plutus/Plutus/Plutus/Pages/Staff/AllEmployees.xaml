@@ -49,7 +49,7 @@
                    Style="{DynamicResource ListItemTextStyle}" />
                                 <Label Grid.Row="0" Grid.Column="1" Text="{Binding Mobile}" 
                    Style="{DynamicResource ListItemDetailTextStyle}"/>
-                                <Label Grid.Row="0" Grid.Column="2" Text="{Binding Mobile}" 
+                                <Label Grid.Row="0" Grid.Column="2" Text="{Binding AddressDis}" 
                    Style="{DynamicResource ListItemDetailTextStyle}"/>
                                 <Label Grid.Row="0" Grid.Column="3" Text="{Binding Active}" 
                    Style="{DynamicResource ListItemDetailTextStyle}"/>

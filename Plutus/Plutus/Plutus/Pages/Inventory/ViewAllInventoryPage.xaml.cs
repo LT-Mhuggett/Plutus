@@ -57,26 +57,28 @@ namespace Plutus.Pages.Inventory
                 if (Items.Count == 0)
                 {
                     var title = item.Name.FirstOrDefault().ToString();
-                    InventGroup G = new InventGroup(title, title);
-                    Items.Add(G);
+                    InventGroup G = new InventGroup(title.ToUpper(), title.ToUpper());
                     G.Add(item);
+                    Items.Add(G);
                 }
                 else
                 {
-                    foreach (var tempItem in Items)
+                    InventGroup G=null;
+                    foreach(var tempItem in Items)
                     {
-                        if (tempItem.Title == item.Name.FirstOrDefault().ToString())
+                        if (tempItem.Title == item.Name.FirstOrDefault().ToString().ToUpper())
                         {
                             tempItem.Add(item);
                         }
                         else
                         {
-                            var title = item.Name.FirstOrDefault().ToString();
-                            InventGroup G = new InventGroup(title, title);
-                            Items.Add(G);
+                            var title = item.Name.FirstOrDefault().ToString().ToUpper();
+                            G = new InventGroup(title, title);
                             G.Add(item);
                         }
                     }
+                    if(G != null)
+                        Items.Add(G);
                 }
             }
             Items = new ObservableCollection<InventGroup>(Items);

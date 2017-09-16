@@ -116,16 +116,6 @@ namespace Plutus.Pages
             var fileC = new List<string>
             {
                 "<Local>",
-                "<Store>",
-                "<StoreName>" + store.StoreName + "</StoreName>",
-                "<StoreAbbr>" + store.StoreAbbr + "</StoreAbbr>",
-                "</Store>",
-                "<StoreOwner>",
-                "<FName>" + emp.FName + "</FName>",
-                "<LName>" + emp.LName + "</LName>",
-                "<Salt>" + emp.Salt + "</Salt>",
-                "<PasswordHash>" + emp.HashedPassword + "</PasswordHash>",
-                "</StoreOwner>",
                 "<Database>",
                 "<Type>" + DatabasePicker.SelectedItem + "</Type>",
                 "<TypeIndex>" + DatabasePicker.SelectedIndex + "</TypeIndex>",

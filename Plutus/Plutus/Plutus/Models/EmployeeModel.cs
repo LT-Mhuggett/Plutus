@@ -25,5 +25,6 @@ namespace Plutus.Models
 
         [NotMapped]
         public string FullName => string.Format("{0} {1}", LName.ToUpper(), FName);
+        public string AddressDis => string.IsNullOrEmpty(FullAddress) ? AdLine1 : FullAddress.Split(',')[0];
     }
 }

@@ -577,4 +577,10 @@ The amount of items at purchase for {0} was {1}, Please remove atleast {2}.</val
   <data name="EmpIdORDate" xml:space="preserve">
     <value>Please enter the employee ID or Date of Sales you want to look up</value>
   </data>
+  <data name="Admin" xml:space="preserve">
+    <value>Admin</value>
+  </data>
+  <data name="BackUp" xml:space="preserve">
+    <value>BackUp DB</value>
+  </data>
 </root>

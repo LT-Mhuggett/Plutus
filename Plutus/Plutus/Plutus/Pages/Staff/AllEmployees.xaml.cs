@@ -28,7 +28,7 @@ namespace Plutus.Pages.Staff
             BindingContext = this;
         }
 
-        async void Handle_ItemTapped(object sender, SelectedItemChangedEventArgs e)
+        void Handle_ItemTapped(object sender, SelectedItemChangedEventArgs e)
         {
             if (e.SelectedItem == null)
                 return;

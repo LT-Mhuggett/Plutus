@@ -37,6 +37,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Models\TransactionModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\VatModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Data\Context.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Pages\Admin\MainPage.xaml.cs">
+      <DependentUpon>MainPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Pages\ConfigPage.xaml.cs">
       <DependentUpon>ConfigPage.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -288,6 +292,12 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\Reports\SalesReportsPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\Admin\MainPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
     </EmbeddedResource>

@@ -143,7 +143,7 @@ namespace Plutus.Pages.Inventory
             Stock.Text = Convert.ToString(Item.Stock);
             if (string.IsNullOrEmpty(Stock.Text))
             {
-                Stock.Text = string.Format("No stock informationavalible for {0}", Item.Name);
+                Stock.Text = string.Format("No stock information avalible for {0}", Item.Name);
             }
             ItemDetails.IsVisible = true;
             ImageButton.IsEnabled = true;
