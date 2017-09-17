@@ -38,7 +38,7 @@
                                 <ViewCell.ContextActions>
                                     <MenuItem Clicked="UpdateItem_Clicked" CommandParameter="{Binding .}"
                                           Text="Update"/>
-                                    <MenuItem CommandParameter="{Binding .}"
+                                    <MenuItem Clicked="StockUpdate_Clicked" CommandParameter="{Binding .}"
                                           Text="Stock Update"/>
                                 </ViewCell.ContextActions>
                                 <Grid Padding="5">

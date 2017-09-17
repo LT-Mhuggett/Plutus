@@ -38,6 +38,14 @@ namespace Plutus.Pages.Inventory
                 VatPicker.Items.Add(item.Name);
             }
             InitCatPicker();
+            if(Device.Idiom == TargetIdiom.Desktop)
+            {
+                ScanButt.IsVisible = false;
+            }
+            else
+            {
+                EnterButt.IsVisible = false;
+            }
         }
 
         public UpdateItemPage(ItemModel tempItem)
@@ -140,11 +148,10 @@ namespace Plutus.Pages.Inventory
             Cost.Text = Convert.ToString(Item.Cost);
             VatPicker.SelectedIndex = Item.VatId - 1;
             Price.Text = Convert.ToString(Item.Price);
-            Stock.Text = Convert.ToString(Item.Stock);
-            if (string.IsNullOrEmpty(Stock.Text))
-            {
+            if (Item.Stock == null)
                 Stock.Text = string.Format("No stock information avalible for {0}", Item.Name);
-            }
+            else
+                Stock.Text = Item.Stock.Quantity.ToString();
             ItemDetails.IsVisible = true;
             ImageButton.IsEnabled = true;
         }
@@ -311,6 +318,11 @@ namespace Plutus.Pages.Inventory
                 });
             };
             await Navigation.PushAsync(_scanPage);
+        }
+
+        private void EnterButt_Clicked(object sender, EventArgs e)
+        {
+            ItemSearchComplete();
         }
     }
 }

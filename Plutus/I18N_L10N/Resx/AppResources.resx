@@ -583,4 +583,7 @@ The amount of items at purchase for {0} was {1}, Please remove atleast {2}.</val
   <data name="BackUp" xml:space="preserve">
     <value>BackUp DB</value>
   </data>
+  <data name="SameAd" xml:space="preserve">
+    <value>Same Address</value>
+  </data>
 </root>

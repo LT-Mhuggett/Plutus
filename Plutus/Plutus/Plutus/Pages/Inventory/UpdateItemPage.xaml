@@ -12,6 +12,7 @@
                         Margin="10,0,10,0">
                 <Label x:Name="ISLabel" Text="{i18N:Translate IDName}" HorizontalOptions="FillAndExpand"/>
                 <Entry x:Name="ItemSearch" Completed="ItemSearchCompleted"/>
+                <Button x:Name="EnterButt" Text="Search" Clicked="EnterButt_Clicked"/>
                 <Button x:Name="ScanButt" Text="Scan" Clicked="ScanButt_Clicked"/>
                 <StackLayout x:Name="ItemDetails" IsVisible="False">
                     <Label Text="{i18N:Translate Name}" HorizontalOptions="FillAndExpand" />

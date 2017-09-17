@@ -24,7 +24,22 @@ namespace Plutus.Pages.Inventory
         public StockUpdatePage ()
 		{
 			InitializeComponent ();
+
+            if (Device.Idiom == TargetIdiom.Desktop)
+                ScanButt.IsVisible = false;
 		}
+
+        public StockUpdatePage(ItemModel item)
+        {
+            InitializeComponent();
+
+            ScanButt.IsVisible = false;
+            EnterButt.IsVisible = false;
+
+            Id.Text = item.ItemId;
+            Id.IsEnabled = false;
+            Confirm.IsEnabled = true;
+        }
 
         /// <summary>
         /// create Stock model and add to DB and save if all values are not null
@@ -51,7 +66,7 @@ namespace Plutus.Pages.Inventory
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
                 return;
             }
-            await Navigation.PopAsync();
+            await Navigation.PopToRootAsync();
         }
 
         /// <summary>
@@ -63,10 +78,10 @@ namespace Plutus.Pages.Inventory
             {
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("ItemNonExistMesg"), App.Translate.ProvideValue("OK"));
                 Id.Text = null;
-                Confirm.IsEnabled = true;
+                Confirm.IsEnabled = false;
             }
             else
-                Confirm.IsEnabled = false;
+                Confirm.IsEnabled = true;
         }
 
         /// <summary>
@@ -103,6 +118,11 @@ namespace Plutus.Pages.Inventory
                 });
             };
             await Navigation.PushAsync(_scanPage);
+        }
+
+        private void  EnterButt_Clicked(object sender, EventArgs e)
+        {
+            CheckExist();
         }
     }
 }

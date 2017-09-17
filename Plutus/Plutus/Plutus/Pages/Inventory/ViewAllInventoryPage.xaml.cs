@@ -88,12 +88,25 @@ namespace Plutus.Pages.Inventory
         private async void UpdateItem_Clicked(object sender, EventArgs e)
         {
             var menuitem = (ItemModel)((MenuItem)sender).CommandParameter;
-            if (!Authorisation.IsAuthorised("Item", "M", App.LastAuthUser)){
+            if (!Authorisation.IsAuthorised("Item", "M", App.LastAuthUser))
+            {
                 Action action = async () => await App.Current.MainPage.Navigation.PushAsync(new UpdateItemPage(menuitem));
                 Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Item", "M", action);
                 return;
             }
             await Navigation.PushAsync(new UpdateItemPage(menuitem));
+        }
+
+        private async void StockUpdate_Clicked(object sender, EventArgs e)
+        {
+            var menuitem = (ItemModel)((MenuItem)sender).CommandParameter;
+            if(!Authorisation.IsAuthorised("Item", "M", App.LastAuthUser))
+            {
+                Action action = async () => await App.Current.MainPage.Navigation.PushAsync(new StockUpdatePage(menuitem));
+                Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Item", "M", action);
+                return;
+            }
+            await Navigation.PushAsync(new StockUpdatePage(menuitem));
         }
 
         private void CancelEmpCheck_Clicked(object sender, EventArgs e)

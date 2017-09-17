@@ -241,6 +241,7 @@ namespace Plutus.Helpers
                 .Include(i => i.Vat)
                 .Include(i=>i.Cat)
                 .Include(i=>i.Transactions)
+                .Include(i=>i.Stock)
                 .ToList();
             return items ?? null;
         }

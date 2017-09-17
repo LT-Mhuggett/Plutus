@@ -1161,6 +1161,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Same Address.
+        /// </summary>
+        internal static string SameAd {
+            get {
+                return ResourceManager.GetString("SameAd", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Save Basket.
         /// </summary>
         internal static string SaveB {

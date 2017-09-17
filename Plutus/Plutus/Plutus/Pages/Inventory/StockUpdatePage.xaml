@@ -8,6 +8,7 @@
         <StackLayout>
             <Label Text="ID" HorizontalOptions="FillAndExpand" />
             <Entry x:Name="Id" Completed="Id_Completed" />
+            <Button x:Name="EnterButt" Text="Search" Clicked="EnterButt_Clicked" />
             <Button x:Name="ScanButt" Text="Scan" Clicked="ScanButt_Clicked" />
             <Label Text="{i18N:Translate QuantityAdd}" HorizontalOptions="FillAndExpand" />
             <Entry x:Name="Quantity" Keyboard="Numeric"/>
