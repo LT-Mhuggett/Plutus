@@ -2,6 +2,18 @@
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
+using System.Threading.Tasks;
+#if __ANDROID__
+using Com.Cloudrail;
+using Com.Cloudrail.SI.Types;
+using Com.Cloudrail.SI.Services;
+using Com.Cloudrail.SI;
+using Com.Cloudrail.SI.Interfaces;
+#elif __IOS__
+
+#else
+using Windows.Storage;
+#endif
 
 namespace Plutus.Helpers
 {
@@ -71,6 +83,115 @@ namespace Plutus.Helpers
 #endif
 
             return libPath;
+        }
+
+        public async static Task<bool> BackUp()
+        {
+#if __ANDROID__
+            CloudRail.AppKey = "59bff56c3d70425997876e19";
+
+            ICloudStorage service;
+
+            Box box = new Box
+                (
+                Android.App.Application.Context,
+                "yx4h29y5i1xxr6rawcjugsi49sbhurrv",
+                "aOZBqB53lFu5RvmAzS3aEr7XsWNtKcxr"
+                );
+
+            Com.Cloudrail.SI.Services.Dropbox dropbox = new Com.Cloudrail.SI.Services.Dropbox
+                (
+                Android.App.Application.Context,
+                "t8en46ucho8bzx9",
+                "cj5m2va847fgem0"
+                );
+
+            dropbox.UseAdvancedAuthentication();
+
+            GoogleDrive googleDrive = new GoogleDrive
+                (
+                Android.App.Application.Context,
+                "467494168983-jstrn11o4v7uchs2cqp8euv4riar0ta3.apps.googleusercontent.com ",
+                "",
+                "Plutus.Plutus:/oauth2redirect",
+                "state"
+                );
+
+            googleDrive.UseAdvancedAuthentication();
+
+            OneDrive oneDrive = new OneDrive
+                (
+                Android.App.Application.Context,
+                "3d2ca2df-bc21-425c-9d5d-5f38bb2b228d",
+                "Lob77ow5rkGZsCnxjRWe9U7"
+                );
+
+
+
+            var selection = await Xamarin.Forms.Application.Current.MainPage.DisplayActionSheet(App.Translate.ProvideValue("SelectCloudService"), App.Translate.ProvideValue("Cancel"), null, "box", "Dropbox", "Google Drive", "OneDrive");
+
+            switch (selection)
+            {
+                case "box":
+                    service = box;
+                    break;
+                case "Dropbox":
+                    service = dropbox;
+                    break;
+                case "Google Drive":
+                    service = googleDrive;
+                    break;
+                case "OneDrive":
+                    service = oneDrive;
+                    break;
+                default:
+                    return false;
+            }
+
+            IList<CloudMetaData> result = service.GetChildren("/");
+            return true;
+#elif __IOS__
+            return false;
+#else
+            var savePicker = new Windows.Storage.Pickers.FileSavePicker();
+            savePicker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
+            savePicker.FileTypeChoices.Add("SQL Database", new List<string> { ".db" });
+            savePicker.SuggestedFileName = String.Format("{0}-Database-{1}", App.Store.StoreName, DateTime.Now.ToString());
+
+            StorageFile file = await savePicker.PickSaveFileAsync();
+            
+            StorageFile dbFile = await StorageFile.GetFileFromPathAsync(Path.Combine(GetLib(), "Database.db"));
+            if(file != null)
+            {
+                dbFile.CopyAndReplaceAsync(file);
+
+                return true;
+            }
+            return false;
+#endif
+        }
+
+        public async static Task<bool> Restore()
+        {
+#if __ANDROID__
+            return false;
+#elif __IOS__
+            return false;
+#else
+            var dbPicker = new Windows.Storage.Pickers.FileOpenPicker();
+            dbPicker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
+            dbPicker.FileTypeFilter.Add(".db");
+            StorageFile dbFile = await dbPicker.PickSingleFileAsync();
+
+            StorageFile file = await StorageFile.GetFileFromPathAsync(Path.Combine(GetLib(), "Database.db"));
+
+            if(dbFile!=null)
+            {
+                dbFile.CopyAndReplaceAsync(file);
+                return true;
+            }
+            return false;
+#endif
         }
     }
 }

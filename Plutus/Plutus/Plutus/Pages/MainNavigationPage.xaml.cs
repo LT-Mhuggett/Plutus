@@ -77,6 +77,7 @@ namespace Plutus.Pages
             Children.Add(new Inventory.MainPage());
             Children.Add(new Reports.MainPage());
             Children.Add(new Staff.MainPage());
+            Children.Add(new Admin.MainPage());
         }
 
         /// <summary>

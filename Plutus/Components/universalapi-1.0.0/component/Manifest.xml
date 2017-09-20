@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<component format="1" id="universalapi">
+  <name>Universal API for Google Drive, Dropbox, One Drive, Box</name>
+  <publisher>CloudRail</publisher>
+  <publisher-url>https://www.cloudrail.com</publisher-url>
+  <version>1.0.0</version>
+  <summary>Universal CloudStorage SDK for Xamarin</summary>
+  <samples>
+    <sample id="UnifiedCloudStorage.iOS">
+      <name>iOS Sample</name>
+      <summary>iOS Sample</summary>
+    </sample>
+    <sample id="UnifiedCloudStorage.Android">
+      <name>Android Sample</name>
+      <summary>Android Sample</summary>
+    </sample>
+  </samples>
+</component>

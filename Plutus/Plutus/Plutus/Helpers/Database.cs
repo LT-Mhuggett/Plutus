@@ -90,6 +90,8 @@ namespace Plutus.Helpers
             Add(AuthAction7);
             var AuthAction8 = new AuthActions() { Name = "Report" };
             Add(AuthAction8);
+            var AuthAction9 = new AuthActions() { Name = "Admin" };
+            Add(AuthAction9);
 
             //Will be removed as only applies to UK, User will have to add manually
             var cat = new CategoryModel() { Name = "Customer Care", Description = "Items such as Bags etc." };

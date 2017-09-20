@@ -20,8 +20,8 @@ namespace Plutus.Pages.Admin
 
         private void Backup_Clicked(object sender, EventArgs e)
         {
-
-            //Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Report", "V", action);
+            Action action = async () => await FileIO.BackUp();
+            Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Admin", "X", action);
         }
 
         private void CancelEmpCheck_Clicked(object sender, EventArgs e)

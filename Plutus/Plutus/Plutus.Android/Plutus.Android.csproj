@@ -75,6 +75,9 @@
     <Reference Include="AndHUD, Version=1.2.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\..\packages\AndHUD.1.2.0\lib\MonoAndroid\AndHUD.dll</HintPath>
     </Reference>
+    <Reference Include="cloudrail-si-xamarin-android-sdk">
+      <HintPath>..\..\Components\universalapi-1.0.0\lib\android\cloudrail-si-xamarin-android-sdk.dll</HintPath>
+    </Reference>
     <Reference Include="Dropbox.Api, Version=4.0.0.0, Culture=neutral, PublicKeyToken=310f0e82fbb45d01, processorArchitecture=MSIL">
       <HintPath>..\..\packages\Dropbox.Api.4.3.1\lib\portable-net40+sl5+wp80+win8+wpa81\Dropbox.Api.dll</HintPath>
     </Reference>
@@ -370,6 +373,12 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Resources\Audio\" />
+  </ItemGroup>
+  <ItemGroup>
+    <XamarinComponentReference Include="universalapi">
+      <Visible>False</Visible>
+      <Version>1.0.0</Version>
+    </XamarinComponentReference>
   </ItemGroup>
   <Import Project="..\Plutus\Plutus.projitems" Label="Shared" Condition="Exists('..\Plutus\Plutus.projitems')" />
   <Import Project="$(MSBuildExtensionsPath)\Xamarin\Android\Xamarin.Android.CSharp.targets" />
