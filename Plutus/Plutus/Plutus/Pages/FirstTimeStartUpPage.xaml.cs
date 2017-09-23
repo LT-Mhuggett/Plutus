@@ -20,7 +20,6 @@ namespace Plutus.Pages
             InitializeComponent();
 
             Children.Add(new ConfigPage());
-            //this is to generate the Database on Database failure
             //Children.Add(new StoreLoginPage());
         }
     }

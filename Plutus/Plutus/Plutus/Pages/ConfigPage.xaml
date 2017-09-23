@@ -53,6 +53,7 @@
                     <Label Text="{i18N:Translate PassWConf}" VerticalOptions="FillAndExpand"/>
                     <Entry x:Name="PasswordConf" IsPassword="True"/>
                     <Label Text="{i18N:Translate Address}" FontAttributes="Bold" FontSize="Medium" VerticalOptions="Start"/>
+                    <Button x:Name="SameAdButt" Text="{i18N:Translate SameAd}" VerticalOptions="FillAndExpand" Clicked="SameAdButt_Clicked"/>
                     <StackLayout x:Name="AutoLayoutP" IsVisible="False">
                         <Button x:Name="PEnterManually" Text="{i18N:Translate ButtAddressMan}" Clicked="PEnterManually_OnClicked"/>
                         <Picker x:Name="PersonAddressPicker" Title="{i18N:Translate OwnerAddress}">
@@ -80,6 +81,7 @@
                         </Picker.Items>
                     </Picker>
                     <Button x:Name="Create" Text="{i18N:Translate Create}" VerticalOptions="Center" Clicked="Create_Clicked"/>
+                    <Button x:Name="RestoreButt" Text="{i18N:Translate Restore}" VerticalOptions="Center" Clicked="Restore_Clicked"/>
                 </StackLayout>
             </ScrollView>
             <ContentView x:Name="LCV" IsVisible="false" BackgroundColor="LightGray" Opacity=".5" HorizontalOptions="FillAndExpand" VerticalOptions="FillAndExpand">

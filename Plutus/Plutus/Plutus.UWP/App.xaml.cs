@@ -60,7 +60,7 @@ namespace Plutus.UWP
 
                 rootFrame.NavigationFailed += OnNavigationFailed;
 
-                Xamarin.Forms.Forms.Init(e);
+                Xamarin.Forms.Forms.Init(e, Rg.Plugins.Popup.Windows.Popup.GetExtraAssemblies());
                 Xamarin.FormsMaps.Init("99jcdVc1iMJ8n1Khrl9I~etP0OF8kmn-3wJOxIpsYdw~AnK0meHNtPdlka2lJqS698Ou_O3UqG4YqM5EIk6zJ3ooYIxJCFM6BQNYncYc1kLm");
                 HockeyClient.Current.Configure("d07356938d974b1ba337b2f37a91656e");
 

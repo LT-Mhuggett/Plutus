@@ -189,7 +189,7 @@ namespace Plutus.Pages.Till
         {
             Device.BeginInvokeOnMainThread(async () =>
             {
-                var quit = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("CancelTransaction?Mesg"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
+                var quit = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("CancelTransaction_Mesg"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
 
                 if (!quit) return;
                 Basket.Clear();
@@ -257,7 +257,12 @@ namespace Plutus.Pages.Till
                 {
                     string Action = null;
                     Action = await DisplayActionSheet(App.Translate.ProvideValue("PayMeth"), App.Translate.ProvideValue("Cancel"), null, App.Translate.ProvideValue("Card"), App.Translate.ProvideValue("Cash"));
-                    
+
+                    if (Action == App.Translate.ProvideValue("Cancel"))
+                    {
+                        App.DbContext.RevertDbContextChanges();
+                        return;
+                    }
                     //Error with Action not setting from ActionSheet. it setting to "" ONLY IN RELEASE
                     PaymentMethod_SaleModel pay = new PaymentMethod_SaleModel() { PayMethod = actionDic[Action]() };
 
@@ -292,7 +297,7 @@ namespace Plutus.Pages.Till
                 Sale.Total = Total + Sale.PaySales.Sum(item => item.PayMethod.Charge);
             }
 
-            var Continue = await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("Continue?"), Total), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
+            var Continue = await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("Continue"), Total), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
             if (!Continue)
             {
                 App.DbContext.RevertDbContextChanges();
@@ -344,7 +349,7 @@ namespace Plutus.Pages.Till
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
                 return;
             }/*
-            var Continue = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("PaperReceipt?"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
+            var Continue = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("PaperReceipt"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
             if (Continue)
             {
                 //var doc = new PrintDocument();
@@ -502,7 +507,7 @@ namespace Plutus.Pages.Till
             {
                 if (page.Basket.Count > 0)
                 {
-                    var quit = await page.DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("BasketReplace?"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
+                    var quit = await page.DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("BasketReplace"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
 
                     if (quit)
                     {

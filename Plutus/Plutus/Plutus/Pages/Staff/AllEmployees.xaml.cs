@@ -14,6 +14,7 @@ namespace Plutus.Pages.Staff
     public partial class AllEmployees : ContentPage
     {
         public ObservableCollection<EmployeeModel> Items { get; set; }
+        public EmployeeModel lastSelected { get; set; }
 
         public AllEmployees()
         {
@@ -38,12 +39,14 @@ namespace Plutus.Pages.Staff
         private async void ChangeAccessRights_Clicked(object sender, EventArgs e)
         {
             var tempEmp = (EmployeeModel)((MenuItem)sender).CommandParameter;
+            lastSelected = tempEmp;
             await App.Current.MainPage.Navigation.PushModalAsync(new RiRePage(tempEmp));
         }
 
         private async void ChangePersonelDetails_Clicked(object sender, EventArgs e)
         {
             var tempEmp = (EmployeeModel)((MenuItem)sender).CommandParameter;
+            lastSelected = tempEmp;
             await App.Current.MainPage.Navigation.PushAsync(new AddEmployeePage(tempEmp));
         }
 
@@ -52,6 +55,16 @@ namespace Plutus.Pages.Staff
             EId.Text = null;
             VerifyId.IsVisible = false;
             MPage.IsEnabled = true;
+        }
+
+        protected override void OnAppearing()
+        {
+            if (lastSelected != null)
+            {
+                var updatedEmp = App.DbContext.GetEmp(lastSelected.Id);
+                var itemIndex = Items.IndexOf(lastSelected);
+                Items[itemIndex] = updatedEmp;
+            }
         }
     }
 }

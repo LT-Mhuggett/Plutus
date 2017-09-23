@@ -364,7 +364,7 @@ Please check this.</value>
     <value>You have made no change to any of the objects values
 Please change something or go back</value>
   </data>
-  <data name="Quit?Mesg" xml:space="preserve">
+  <data name="Quit_Mesg" xml:space="preserve">
     <value>Are you sure you want to quit Plutus POS?</value>
   </data>
   <data name="Yes" xml:space="preserve">
@@ -397,7 +397,7 @@ Please change something or go back</value>
   <data name="ItemIdNotFoundMesg" xml:space="preserve">
     <value>Can't find a item with that ID</value>
   </data>
-  <data name="CancelTransaction?Mesg" xml:space="preserve">
+  <data name="CancelTransaction_Mesg" xml:space="preserve">
     <value>Are you sure you want to cancel this transaction?</value>
   </data>
   <data name="Tax" xml:space="preserve">
@@ -424,7 +424,7 @@ Please change something or go back</value>
   <data name="TransConfMesg" xml:space="preserve">
     <value>Confirmed transaction complete</value>
   </data>
-  <data name="Continue?" xml:space="preserve">
+  <data name="Continue" xml:space="preserve">
     <value>The cost of this Transaction is £{0}
 Are you sure you wish to continue?</value>
   </data>
@@ -467,7 +467,7 @@ Are you sure you wish to continue?</value>
   <data name="Baskets" xml:space="preserve">
     <value>Baskets</value>
   </data>
-  <data name="BasketReplace?" xml:space="preserve">
+  <data name="BasketReplace" xml:space="preserve">
     <value>Are you sure you want to replace current basket?
 If you do the current basket will be lost.</value>
   </data>
@@ -514,7 +514,7 @@ The amount of items at purchase for {0} was {1}, Please remove atleast {2}.</val
   <data name="StaffDeactiv" xml:space="preserve">
     <value>Staff Deactivation</value>
   </data>
-  <data name="Deactiv?Mesg" xml:space="preserve">
+  <data name="Deactiv_Mesg" xml:space="preserve">
     <value>Are you sure you want to DEACTIVATE {0}, profile?</value>
   </data>
   <data name="EmpDeactSuc" xml:space="preserve">
@@ -565,7 +565,7 @@ The amount of items at purchase for {0} was {1}, Please remove atleast {2}.</val
   <data name="CardChargeNote" xml:space="preserve">
     <value>Card Charge of {0}</value>
   </data>
-  <data name="PaperReceipt?" xml:space="preserve">
+  <data name="PaperReceipt" xml:space="preserve">
     <value>Print receipt?</value>
   </data>
   <data name="Reports" xml:space="preserve">
@@ -585,5 +585,17 @@ The amount of items at purchase for {0} was {1}, Please remove atleast {2}.</val
   </data>
   <data name="SameAd" xml:space="preserve">
     <value>Same Address</value>
+  </data>
+  <data name="SelectCloudService" xml:space="preserve">
+    <value>Please choose your cloud data service</value>
+  </data>
+  <data name="DbBRFailed" xml:space="preserve">
+    <value>There was a problem {0} the database.</value>
+  </data>
+  <data name="DbBRSucc" xml:space="preserve">
+    <value>Database has been {0} successfully.</value>
+  </data>
+  <data name="Restore" xml:space="preserve">
+    <value>Restore</value>
   </data>
 </root>

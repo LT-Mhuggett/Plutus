@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.IO;
 using System.Threading.Tasks;
+using Xamarin.Forms;
 #if __ANDROID__
 using Com.Cloudrail;
 using Com.Cloudrail.SI.Types;
@@ -88,7 +89,7 @@ namespace Plutus.Helpers
         public async static Task<bool> BackUp()
         {
 #if __ANDROID__
-            CloudRail.AppKey = "59bff56c3d70425997876e19";
+            /*CloudRail.AppKey = "59bff56c3d70425997876e19";
 
             ICloudStorage service;
 
@@ -128,7 +129,7 @@ namespace Plutus.Helpers
 
 
 
-            var selection = await Xamarin.Forms.Application.Current.MainPage.DisplayActionSheet(App.Translate.ProvideValue("SelectCloudService"), App.Translate.ProvideValue("Cancel"), null, "box", "Dropbox", "Google Drive", "OneDrive");
+            var selection = await App.Current.MainPage.DisplayActionSheet(App.Translate.ProvideValue("SelectCloudService"), App.Translate.ProvideValue("Cancel"), null, "box", "Dropbox", "Google Drive", "OneDrive");
 
             switch (selection)
             {
@@ -148,8 +149,10 @@ namespace Plutus.Helpers
                     return false;
             }
 
-            IList<CloudMetaData> result = service.GetChildren("/");
-            return true;
+            service.UserLogin
+
+            return true;*/
+            return false;
 #elif __IOS__
             return false;
 #else
@@ -163,9 +166,18 @@ namespace Plutus.Helpers
             StorageFile dbFile = await StorageFile.GetFileFromPathAsync(Path.Combine(GetLib(), "Database.db"));
             if(file != null)
             {
-                dbFile.CopyAndReplaceAsync(file);
-
-                return true;
+                try
+                {
+                    dbFile.CopyAndReplaceAsync(file);
+                    return true;
+                }
+                catch(Exception e)
+                {
+#if DEBUG
+                    Console.Write("File Transfer error: "+e);
+#endif
+                    return false;
+                }
             }
             return false;
 #endif
@@ -186,9 +198,19 @@ namespace Plutus.Helpers
             StorageFile file = await StorageFile.GetFileFromPathAsync(Path.Combine(GetLib(), "Database.db"));
 
             if(dbFile!=null)
-            {
-                dbFile.CopyAndReplaceAsync(file);
-                return true;
+            { 
+                try
+                {
+                    dbFile.CopyAndReplaceAsync(file);
+                    return true;
+                }
+                catch(Exception e)
+                {
+#if DEBUG
+                    Console.Write("File Transfer error: "+e);
+#endif
+                    return false;
+                }
             }
             return false;
 #endif

@@ -20,7 +20,35 @@ namespace Plutus.Pages.Admin
 
         private void Backup_Clicked(object sender, EventArgs e)
         {
-            Action action = async () => await FileIO.BackUp();
+            Action action = async () =>
+            {
+                var TransfSucc = await FileIO.BackUp();
+
+                if (TransfSucc)
+                {
+                    await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Success"), string.Format(App.Translate.ProvideValue("DbBRSucc"), "Backed Up"), App.Translate.ProvideValue("Cancel"));
+                    return;
+                }
+                await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Hmm"), string.Format(App.Translate.ProvideValue("DbBRFailed"), "Backing Up"), App.Translate.ProvideValue("Cancel"));
+            };
+            Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Admin", "X", action);
+        }
+
+        private void Restore_Clicked(object sender, EventArgs e)
+        {
+            Action action = async () =>
+            {
+                App.DbContext = null;
+                var TransfSucc = await FileIO.Restore();
+
+                if (TransfSucc)
+                {
+                    await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Success"), string.Format(App.Translate.ProvideValue("DbBRSucc"), "Restored"), App.Translate.ProvideValue("Cancel"));
+                    App.DbContext = new Database();
+                    return;
+                }
+                await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Hmm"), string.Format(App.Translate.ProvideValue("DbBRFailed"), "Restoring"), App.Translate.ProvideValue("Cancel"));
+            };
             Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Admin", "X", action);
         }
 

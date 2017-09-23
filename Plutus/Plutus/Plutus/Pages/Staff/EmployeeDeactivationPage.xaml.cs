@@ -31,7 +31,7 @@ namespace Plutus.Pages.Staff
                 if (Emps[EmpList.SelectedIndex].Id != App.LastAuthUser.Id)
                 {
                     var emp = Emps[EmpList.SelectedIndex];
-                    var quit = await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("Deactiv?Mesg"), $"{emp.LName.ToUpper()}, {emp.FName}"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
+                    var quit = await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("Deactiv_Mesg"), $"{emp.LName.ToUpper()}, {emp.FName}"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
 
                     if (!quit) return;
                     emp.Active = false;

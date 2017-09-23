@@ -278,5 +278,15 @@ namespace Plutus.Helpers
                 .Include(i => i.Store);
             return emps;
         }
+
+        internal EmployeeModel GetEmp(string id)
+        {
+            var emp = _db.Employees
+                .Include(e => e.EmpAuths)
+                .Include(e => e.Store)
+                .Where(e => e.Id.Equals(id))
+                .FirstOrDefault();
+            return emp ?? null;
+        }
     }
 }

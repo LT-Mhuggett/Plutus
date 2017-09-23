@@ -271,5 +271,57 @@ namespace Plutus.Pages
             PersonAddressPicker.Items.Clear();
             AdLine1.Focus();
         }
+
+        private async void Restore_Clicked(object sender, EventArgs e)
+        {
+            App.DbContext = null;
+            var TransfSucc = await FileIO.Restore();
+
+            if (TransfSucc)
+            {
+                await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Success"), string.Format(App.Translate.ProvideValue("DbBRSucc"), "Restored"), App.Translate.ProvideValue("Cancel"));
+                App.DbContext = new Database();
+
+                var fileC = new List<string>
+                {
+                    "<Local>",
+                    "<Database>",
+                    "<Type>" + DatabasePicker.SelectedItem + "</Type>",
+                    "<TypeIndex>" + DatabasePicker.SelectedIndex + "</TypeIndex>",
+                    "</Database>",
+                    "</Local>"
+                };
+
+                FileIO.Save("App.config", fileC.ToArray());
+                App.Current.MainPage = new NavigationPage(new LoginPage());
+                return;
+            }
+            await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Hmm"), string.Format(App.Translate.ProvideValue("DbBRFailed"), "Restoring"), App.Translate.ProvideValue("Cancel"));
+        }
+
+        private void SameAdButt_Clicked(object sender, EventArgs e)
+        {
+            AdLine1.Text = !String.IsNullOrEmpty(StoreAdLine1.Text) ? StoreAdLine1.Text : null;
+            AdLine2.Text = StoreAdLine2.Text;
+            City.Text = !String.IsNullOrEmpty(StoreCity.Text) ? StoreCity.Text : null;
+            Country.Text = !String.IsNullOrEmpty(StoreCountry.Text) ? StoreCountry.Text : null;
+            PostCode.Text = Validate.IsPostCodeValid(StorePostCode.Text) ? StorePostCode.Text : null;
+            if (AutoLayoutS.IsVisible)
+            {
+                PersonAddressPicker.Items.Add(StoreAddressPicker.SelectedItem.ToString());
+                PersonAddressPicker.SelectedIndex = 0;
+                AutoLayoutP.IsVisible = true;
+                ManLayoutP.IsVisible = false;
+            }
+            else
+            {
+                AdLine1.Text = !String.IsNullOrEmpty(StoreAdLine1.Text) ? StoreAdLine1.Text : null;
+                AdLine2.Text = StoreAdLine2.Text;
+                City.Text = !String.IsNullOrEmpty(StoreCity.Text) ? StoreCity.Text : null;
+                Country.Text = !String.IsNullOrEmpty(StoreCountry.Text) ? StoreCountry.Text : null;
+                PostCode.Text = Validate.IsPostCodeValid(StorePostCode.Text) ? StorePostCode.Text : null;
+            }
+
+        }
     }
 }

@@ -98,7 +98,7 @@ namespace Plutus.Pages
         {
             Device.BeginInvokeOnMainThread(async () =>
             {
-                var quit = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("Quit?Mesg"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
+                var quit = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("Quit_Mesg"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
 
                 if (!quit) return;
                 var closer = DependencyService.Get<ICloseApp>();
