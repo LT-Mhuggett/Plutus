@@ -36,7 +36,7 @@ namespace Plutus.Pages.Inventory
             ScanButt.IsVisible = false;
             EnterButt.IsVisible = false;
 
-            Id.Text = item.ItemId;
+            Id.Text = item.Id;
             Id.IsEnabled = false;
             Confirm.IsEnabled = true;
         }
@@ -50,7 +50,7 @@ namespace Plutus.Pages.Inventory
         {
             StockModel stock = new StockModel
             {
-                StoreId = App.Store.StoreId,
+                StoreId = App.Store.Id,
                 ItemId = String.IsNullOrWhiteSpace(Id.Text) ? null : Id.Text,
                 Quantity = Convert.ToInt16(Quantity.Text)
             };
@@ -61,7 +61,7 @@ namespace Plutus.Pages.Inventory
             }
 
             App.DbContext.UpdateStock(stock);
-            if (!await App.DbContext.Save())
+            if (!App.DbContext.Save())
             {
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
                 return;
@@ -74,7 +74,7 @@ namespace Plutus.Pages.Inventory
         /// </summary>
         private async void CheckExist()
         {
-            if (!App.DbContext.IsIdSame(Id.Text))
+            if (!App.DbContext.IsIdSame<ItemModel, string>(Id.Text))
             {
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("ItemNonExistMesg"), App.Translate.ProvideValue("OK"));
                 Id.Text = null;

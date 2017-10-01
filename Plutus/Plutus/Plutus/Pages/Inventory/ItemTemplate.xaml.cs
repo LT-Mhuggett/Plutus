@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
+using System.Linq;
 using Plutus.Models;
 using Plutus.Helpers;
 using Xamarin.Forms;
@@ -48,7 +49,9 @@ namespace Plutus.Pages.Inventory
             }
             ItemName.Text = itemTemp.Name;
             ItemBrand.Text = itemTemp.Brand;
-            ItemCat.Text = App.DbContext.GetCatName(itemTemp.CatId);
+            ItemCat.Text = App.DbContext.GetById<CategoryModel, int>(itemTemp.CatId).OfType<CategoryModel>()
+                .Select(m => m.Name)
+                .SingleOrDefault();
             ItemDesc.Text = itemTemp.Desc;
             ItemPrice.Text = itemTemp.Price.ToString();
             item = itemTemp;
@@ -80,7 +83,9 @@ namespace Plutus.Pages.Inventory
             }
             ItemName.Text = itemTemp.Name;
             ItemBrand.Text = itemTemp.Brand;
-            ItemCat.Text = App.DbContext.GetCatName(itemTemp.CatId);
+            ItemCat.Text = App.DbContext.GetById<CategoryModel, int>(itemTemp.CatId).OfType<CategoryModel>()
+                .Select(m => m.Name)
+                .SingleOrDefault();
             ItemDesc.Text = itemTemp.Desc;
             ItemPrice.Text = itemTemp.Price.ToString();
             item = itemTemp;
@@ -106,7 +111,9 @@ namespace Plutus.Pages.Inventory
             }
             ItemName.Text = itemTemp.Name;
             ItemBrand.Text = itemTemp.Brand;
-            ItemCat.Text = App.DbContext.GetCatName(itemTemp.CatId);
+            ItemCat.Text = App.DbContext.GetById<CategoryModel, int>(itemTemp.CatId).OfType<CategoryModel>()
+                .Select(m => m.Name)
+                .SingleOrDefault();
             ItemDesc.Text = itemTemp.Desc;
             ItemPrice.Text = itemTemp.Price.ToString();
             item = itemTemp;

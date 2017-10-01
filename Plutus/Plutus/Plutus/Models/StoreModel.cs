@@ -1,6 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Plutus.Models.Interface;
 
 namespace Plutus.Models
 {
@@ -9,15 +11,16 @@ namespace Plutus.Models
     /// It is used to store all sotre details and is used to get store details form DB.
     /// This is setup to allow physical expansion with keeping one united system.
     /// </summary>
-    public class StoreModel : Address
+    public class StoreModel : Address, IAuditable, IBase<string>
     {
-        [Key, DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public string StoreId { get; set; }
+        public string Id { get; set; }
         public string StoreName { get; set; }
         public string StoreAbbr { get; set; }
 
         public List<EmployeeModel> Employees { get; set; }
         public List<StockModel> Stocks { get; set; }
+
+        
     }
 
 }

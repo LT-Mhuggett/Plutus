@@ -32,7 +32,7 @@ namespace Plutus.Pages.Inventory
 		{
             InitializeComponent();
 
-            Vats = App.DbContext.GetVat();
+            Vats = App.DbContext.Get<VatModel>().ToList();
             foreach( var item in Vats)
             {
                 VatPicker.Items.Add(item.Name);
@@ -112,13 +112,13 @@ namespace Plutus.Pages.Inventory
         /// <param name="e">Event that the sender called</param>
         private async void AddItem_Clicked(object sender, EventArgs e)
         {
-            Item.ItemId = Id.Text;
+            Item.Id = Id.Text;
             Item.Name = Name.Text;
             Item.VatId = VatPicker.SelectedIndex + 1;
             Item.CatId = CatPicker.SelectedIndex + 1;
             Item.Brand = Brand.Text;
 
-            if (Item.ItemId == null || Item.Name == null || Item.Brand == null || Item.VatId == 0 || Item.CatId == 0 || string.IsNullOrWhiteSpace(Stock.Text))
+            if (Item.Id == null || Item.Name == null || Item.Brand == null || Item.VatId == 0 || Item.CatId == 0 || string.IsNullOrWhiteSpace(Stock.Text))
             {
                 await DisplayAlert(App.Translate.ProvideValue("Oops"), App.Translate.ProvideValue("FieldsFilledInMesg"), App.Translate.ProvideValue("OK"));
                 return;
@@ -141,12 +141,12 @@ namespace Plutus.Pages.Inventory
                 App.DbContext.Add(Item);
                 var stock = new StockModel
                 {
-                    ItemId = Item.ItemId,
-                    StoreId = App.Store.StoreId,
+                    ItemId = Item.Id,
+                    StoreId = App.Store.Id,
                     Quantity = temp
                 };
                 App.DbContext.Add(stock);
-                if(!await App.DbContext.Save())
+                if(!App.DbContext.Save())
                 {
                     await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
                     return;
@@ -192,7 +192,7 @@ namespace Plutus.Pages.Inventory
             if (string.IsNullOrWhiteSpace(Cost.Text) || VatPicker.SelectedIndex == -1) return;
             foreach (var item in Vats)
             {
-                if (item.VatId == VatPicker.SelectedIndex + 1)
+                if (item.Id == VatPicker.SelectedIndex + 1)
                 {
                     Price.Placeholder = $"{App.Translate.ProvideValue("RecPrice")}: {(decimal)await Conversions.ToDecimal(Cost.Text, App.Translate.ProvideValue("ValueEnteredWrong")) * (decimal)item.Rate}";
                 }
@@ -204,7 +204,7 @@ namespace Plutus.Pages.Inventory
         /// </summary>
         protected void InitCatPicker()
         {
-            Cats = App.DbContext.GetCats();
+            Cats = App.DbContext.Get<CategoryModel>().ToList();
             CatPicker.Items.Clear();
             foreach (var item in Cats)
             {
@@ -237,7 +237,7 @@ namespace Plutus.Pages.Inventory
         /// <param name="e">Event that the sender called</param>
         private async void Id_Unfocused(object sender, FocusEventArgs e)
         {
-            if (!App.DbContext.IsIdSame(Id.Text)) return;
+            if (!App.DbContext.IsIdSame<ItemModel, string>(Id.Text)) return;
             await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("ItemExistMesg"), App.Translate.ProvideValue("OK"));
             Id.Text = null;
         }

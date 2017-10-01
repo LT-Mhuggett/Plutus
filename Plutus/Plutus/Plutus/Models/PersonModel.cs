@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Plutus.Models.Interface;
 
 namespace Plutus.Models
 {
@@ -10,11 +11,9 @@ namespace Plutus.Models
     /// This is the Default model for any person related entity.
     /// e.g. employees inherit all of persons.
     /// </summary>
-    public class PersonModel : Address
+    public class PersonModel : Address, IAuditable, IBase<string>
     {
-        [Key, DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public string Id { get; set; }
-
         public string FName { get; set; }
         public string LName { get; set; }
         public string Mobile { get; set; }

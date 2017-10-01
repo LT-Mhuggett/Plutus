@@ -3,16 +3,15 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text;
-
+using Plutus.Models.Interface;
 
 namespace Plutus.Models
 {
-    public class ItemModel
+    public class ItemModel : IAuditable, IBase<string>
     {
         private ItemModel item;
-
-        [Key]
-        public string ItemId { get; set; }
+        
+        public string Id { get; set; }
         public string Name { get; set; }
         public string Brand { get; set; }
         public string Desc { get; set; }
@@ -31,11 +30,13 @@ namespace Plutus.Models
         public VatModel Vat { get; set; }
         public CategoryModel Cat { get; set; }
 
+        
+
         public ItemModel() { }
 
         public ItemModel(Basket item)
         {
-            ItemId = item.ItemId;
+            Id = item.Id;
             Name = item.Name;
             Brand = item.Brand;
             Desc = item.Desc;
@@ -47,7 +48,7 @@ namespace Plutus.Models
         }
         public ItemModel(ItemModel item)
         {
-            ItemId = item.ItemId;
+            Id = item.Id;
             Name = item.Name;
             Desc = item.Desc;
             Brand = item.Brand;

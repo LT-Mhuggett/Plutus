@@ -2,13 +2,13 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Text;
+using Plutus.Models.Interface;
 
 namespace Plutus.Models
 {
-    public class RefundModel
+    public class RefundModel : IAuditable, IBase<int>
     {
-        [Key]
-        public int Rid { get; set; }
+        public int Id { get; set; }
         public string Reason { get; set; }
         public string SaleIdReturned { get; set; }
         public string SaleId { get; set; }
@@ -18,5 +18,6 @@ namespace Plutus.Models
         public SaleModel Sale { get; set; }
         public SaleModel SaleReturned { get; set; }
 
+        
     }
 }

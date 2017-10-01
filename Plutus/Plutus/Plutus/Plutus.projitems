@@ -26,6 +26,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Models\Basket.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\CategoryModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\Emp_AuthActions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\Interface\IAuditable.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\Interface\IBase.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\ItemModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\NoteModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\Notes_SaleModel.cs" />

@@ -32,7 +32,7 @@ namespace Plutus.Pages.Inventory
 		{
 			InitializeComponent ();
 
-            Vats = App.DbContext.GetVat();
+            Vats = App.DbContext.Get<VatModel>().ToList();
             foreach (var item in Vats)
             {
                 VatPicker.Items.Add(item.Name);
@@ -54,7 +54,7 @@ namespace Plutus.Pages.Inventory
 
             Item = tempItem;
 
-            Vats = App.DbContext.GetVat();
+            Vats = App.DbContext.Get<VatModel>().ToList();
             foreach (var item in Vats)
             {
                 VatPicker.Items.Add(item.Name);
@@ -83,7 +83,7 @@ namespace Plutus.Pages.Inventory
         /// </summary>
         private async void ItemSearchComplete()
         {
-            var items = App.DbContext.GetItem(ItemSearch.Text);
+            var items = App.DbContext.Search(ItemSearch.Text).ToList();
             switch (items.Count)
             {
                 case 0:
@@ -91,7 +91,7 @@ namespace Plutus.Pages.Inventory
                     return;
                 case 1:
                     Item = items.LastOrDefault();
-                    ChangeItem.ItemId = Item.ItemId;
+                    ChangeItem.Id = Item.Id;
                     ChangeItem.Name = Item.Name;
                     ChangeItem.Image = Item.Image;
                     ChangeItem.Desc = Item.Desc;
@@ -121,7 +121,7 @@ namespace Plutus.Pages.Inventory
                     {
                         Item = arg;
                         Populate();
-                        ItemSearch.Text = Item.ItemId;
+                        ItemSearch.Text = Item.Id;
                         await Navigation.PopModalAsync();
                     });
                     break;
@@ -142,7 +142,7 @@ namespace Plutus.Pages.Inventory
             {
                 Pic.Source = ImageSource.FromStream(() => new MemoryStream(Item.Image));
             }
-            ItemSearch.Text = Item.ItemId;
+            ItemSearch.Text = Item.Id;
             Brand.Text = Item.Brand;
             CatPicker.SelectedIndex = Item.CatId - 1;
             Cost.Text = Convert.ToString(Item.Cost);
@@ -180,7 +180,7 @@ namespace Plutus.Pages.Inventory
             if (string.IsNullOrWhiteSpace(Cost.Text) || VatPicker.SelectedIndex == -1) return;
             foreach (var item in Vats)
             {
-                if (item.VatId == VatPicker.SelectedIndex + 1)
+                if (item.Id == VatPicker.SelectedIndex + 1)
                 {
                     Price.Placeholder = $"{App.Translate.ProvideValue("RecPrice")}: {(decimal)await Conversions.ToDecimal(Cost.Text, App.Translate.ProvideValue("ValueEnteredWrong")) * (decimal)item.Rate}";
                 }
@@ -192,7 +192,7 @@ namespace Plutus.Pages.Inventory
         /// </summary>
         protected void InitCatPicker()
         {
-            Cats = App.DbContext.GetCats();
+            Cats = App.DbContext.Get<CategoryModel>().ToList();
             CatPicker.Items.Clear();
             foreach (var item in Cats)
             {
@@ -285,7 +285,7 @@ namespace Plutus.Pages.Inventory
             MessagingCenter.Subscribe<UpdateItemPage>(this, "Accepted", async (Sender) =>
             {
                 App.DbContext.UpdateItem(ChangeItem);
-                if (!await App.DbContext.Save())
+                if (!App.DbContext.Save())
                 {
                     await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
                     return;

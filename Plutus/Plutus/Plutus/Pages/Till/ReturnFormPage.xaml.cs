@@ -39,9 +39,9 @@ namespace Plutus.Pages.Till
         {
             if (!String.IsNullOrWhiteSpace(SaleID.Text) && !String.IsNullOrWhiteSpace(Reason.Text))
             {
-                if (App.DbContext.CheckSaleID(SaleID.Text))
+                if (App.DbContext.IsIdSame<SaleModel, string>(SaleID.Text))
                 {
-                    TransactionModel trans = App.DbContext.CheckItemExistInSale(SaleID.Text, BItem.ItemId);
+                    TransactionModel trans = App.DbContext.CheckItemExistInSale(SaleID.Text, BItem.Id).FirstOrDefault();
                     if (trans!=null)
                     {
                         if (trans.Amount >= BItem.Amount)
@@ -49,7 +49,7 @@ namespace Plutus.Pages.Till
                             int amount=0;
                             if (trans.Sale.Refunded != null)
                             {
-                                amount = trans.Sale.Refunded.Where(r => r.ItemId.Equals(BItem.ItemId)).Sum(r => r.Amount);
+                                amount = trans.Sale.Refunded.Where(r => r.ItemId.Equals(BItem.Id)).Sum(r => r.Amount);
                             }
                             if (amount < BItem.Amount)
                             {

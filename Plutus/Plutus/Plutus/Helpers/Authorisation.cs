@@ -21,7 +21,7 @@ namespace Plutus.Helpers
                 return false;
             if (list == null)
             {
-                list = App.DbContext.GetAllActions();
+                list = App.DbContext.Get<AuthActions>().ToList();
             }
             foreach (var item in eTemp.EmpAuths)
             {

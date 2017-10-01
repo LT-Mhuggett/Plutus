@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
@@ -7,6 +8,8 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Plutus.Models;
+using System.Reflection;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace Plutus.Data
 {
@@ -42,6 +45,21 @@ namespace Plutus.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            //Audit
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes()
+                .Where(e => typeof(IAuditable).IsAssignableFrom(e.ClrType)))
+            {
+                modelBuilder.Entity(entityType.ClrType)
+                    .Property<DateTime>("Created");
+                modelBuilder.Entity(entityType.ClrType)
+                    .Property<DateTime>("Modified");
+                modelBuilder.Entity(entityType.ClrType)
+                    .Property<string>("CreatedBy");
+                modelBuilder.Entity(entityType.ClrType)
+                    .Property<string>("ModifiedBy");
+            }
+
+            //Relationships
             modelBuilder.Entity<Notes_SaleModel>()
                 .HasKey(ns => new { ns.NoteId, ns.SaleId });
 
@@ -134,6 +152,45 @@ namespace Plutus.Data
                 .HasOne(ps => ps.Sale)
                 .WithMany(s => s.PaySales)
                 .HasForeignKey(ps => ps.SaleId);
+
+            base.OnModelCreating(modelBuilder);
+        }
+
+        public override int SaveChanges()
+        {
+            ApplyAuditData();
+            return base.SaveChanges();
+        }
+
+        private void ApplyAuditData()
+        {
+            var modifiedEntries = ChangeTracker.Entries()
+                .Where(e => e.State.Equals(EntityState.Added)
+                    || e.State.Equals(EntityState.Modified));
+            foreach(EntityEntry entry in modifiedEntries)
+            {
+                var entityType = entry.Context.Model.FindEntityType(entry.Entity.GetType());
+
+                var modifiedProperty = entityType.FindProperty("Modified");
+                var modifiedByProperty = entityType.FindProperty("ModifiedBy");
+                var createdProperty = entityType.FindProperty("Created");
+                var createdByProperty = entityType.FindProperty("CreatedBy");
+
+                if (entry.State == EntityState.Modified || entry.State == EntityState.Added)
+                {
+                    if (entry.State == EntityState.Modified && (modifiedProperty != null || modifiedByProperty != null))
+                    {
+                        entry.Property("Modified").CurrentValue = DateTime.Now;
+                        entry.Property("ModifiedBy").CurrentValue = App.LastAuthUser == null ? "System" : App.LastAuthUser.FName + " " + App.LastAuthUser.LName;
+                    }
+
+                    if (entry.State == EntityState.Added && (createdProperty != null || createdByProperty != null))
+                    {
+                        entry.Property("Created").CurrentValue = DateTime.Now;
+                        entry.Property("CreatedBy").CurrentValue = App.LastAuthUser == null ? "System" : App.LastAuthUser.FName + " " + App.LastAuthUser.LName;
+                    }
+                }
+            }
         }
     }
 }

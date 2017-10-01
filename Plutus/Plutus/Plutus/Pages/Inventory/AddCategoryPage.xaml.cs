@@ -34,7 +34,7 @@ namespace Plutus.Pages.Inventory
             };
 
             App.DbContext.Add(category);
-            if(!await App.DbContext.Save())
+            if(!App.DbContext.Save())
             {
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
                 return;

@@ -18,7 +18,7 @@ namespace Plutus.Helpers
             {
                 PhotoSize = Plugin.Media.Abstractions.PhotoSize.Medium,
                 Directory = "Items",
-                Name = item.ItemId+"image.jpg"
+                Name = item.Id+"image.jpg"
             });
 
             if (file == null)

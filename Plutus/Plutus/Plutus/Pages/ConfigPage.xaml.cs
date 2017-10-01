@@ -134,9 +134,9 @@ namespace Plutus.Pages
             {
                 App.DbContext.Init();
                 App.DbContext.Add(store);
-                emp.StoreId = store.StoreId;
+                emp.StoreId = store.Id;
 
-                var tempList = App.DbContext.GetAllActions();
+                var tempList = App.DbContext.Get<AuthActions>().ToList();
                 emp.EmpAuths = new List<Emp_AuthActions>();
                 foreach (var item in tempList)
                 {
@@ -146,7 +146,7 @@ namespace Plutus.Pages
 
                 emp.Active = true;
                 App.DbContext.Add(emp);
-                if (!await App.DbContext.Save())
+                if (!App.DbContext.Save())
                 {
                     await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
                     return;

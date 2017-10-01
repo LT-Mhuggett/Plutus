@@ -14,7 +14,7 @@ namespace Plutus.Models
 
         public Basket(ItemModel item)
         {
-            ItemId = item.ItemId;
+            Id = item.Id;
             Name = item.Name;
             Desc = item.Desc;
             Brand = item.Brand;
@@ -33,7 +33,7 @@ namespace Plutus.Models
 
         public Basket(Basket item)
         {
-            ItemId = item.ItemId;
+            Id = item.Id;
             Name = item.Name;
             Desc = item.Desc;
             Brand = item.Brand;

@@ -1,12 +1,13 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Plutus.Models.Interface;
 
 namespace Plutus.Models
 {
-    public class AuthActions
+    public class AuthActions : IAuditable, IBase<int>
     {
-        [Key, DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
         public string Name { get; set; }
         public decimal Amount { get; set; }

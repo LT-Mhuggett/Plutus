@@ -53,7 +53,7 @@ namespace Plutus.Pages.Till
 
             BindingContext = this;
 
-            var tempIList = App.DbContext.GetItem("BAG001");
+            var tempIList = App.DbContext.Search("BAG001").ToList();
             if (tempIList.Count != 1) return;
             BagItem = tempIList.First();
             Bag.Text = BagItem.Name;
@@ -99,7 +99,7 @@ namespace Plutus.Pages.Till
         {
             for(int i = 0; i <= Basket.Count - 1; i++)
             {
-                if (Basket[i].ItemId == item.ItemId && Basket[i].Return == item.Return && Basket[i].SaleId == item.SaleId)
+                if (Basket[i].Id == item.Id && Basket[i].Return == item.Return && Basket[i].SaleId == item.SaleId)
                 {
                     Basket.RemoveAt(i);
                 }
@@ -129,7 +129,7 @@ namespace Plutus.Pages.Till
             var menuItem = (Basket)((MenuItem)sender).CommandParameter;
             for (int i = 0; i <= Basket.Count - 1; i++)
             {
-                if (Basket[i].ItemId == menuItem.ItemId && Basket[i].Return == menuItem.Return && Basket[i].SaleId == menuItem.SaleId)
+                if (Basket[i].Id == menuItem.Id && Basket[i].Return == menuItem.Return && Basket[i].SaleId == menuItem.SaleId)
                 {
                     Basket[i].Amount--;
                     if (Basket[i].Amount == 0)
@@ -159,7 +159,7 @@ namespace Plutus.Pages.Till
             {
                 Device.BeginInvokeOnMainThread(() =>
                 {
-                    var tempIList = App.DbContext.GetItem(result.Text);
+                    var tempIList = App.DbContext.Search(result.Text).ToList();
                     if (tempIList.Count != 1) return;
                     var tempI = new Basket(tempIList.First());
                     BasketAdd(tempI);
@@ -229,8 +229,8 @@ namespace Plutus.Pages.Till
         private async void GenTransaction()
         {
             var actionDic = new Dictionary<string, Func<PaymentMethodModel>> {
-                { App.Translate.ProvideValue("Card"), () => App.DbContext.GetPayM(App.Translate.ProvideValue("Card")) },
-                { App.Translate.ProvideValue("Cash"), () => App.DbContext.GetPayM(App.Translate.ProvideValue("Cash")) },
+                { App.Translate.ProvideValue("Card"), () => App.DbContext.GetPayM(App.Translate.ProvideValue("Card")).SingleOrDefault() },
+                { App.Translate.ProvideValue("Cash"), () => App.DbContext.GetPayM(App.Translate.ProvideValue("Cash")).SingleOrDefault() },
                 { App.Translate.ProvideValue("Cancel"), null}
             };
 
@@ -312,7 +312,7 @@ namespace Plutus.Pages.Till
                 ItemModel Item = new ItemModel(item);
                 if (item.Return)
                 {
-                    RefundModel Refund = new RefundModel() { ItemId = item.ItemId, Sale = Sale, SaleIdReturned = item.SaleId, Reason = item.Reason, Amount = item.Amount };
+                    RefundModel Refund = new RefundModel() { ItemId = item.Id, Sale = Sale, SaleIdReturned = item.SaleId, Reason = item.Reason, Amount = item.Amount };
                     Sale.Refunds.Add(Refund);
                     App.DbContext.Add(Refund);
                 }
@@ -344,7 +344,7 @@ namespace Plutus.Pages.Till
         {
             App.DbContext.Add(Sale);
 
-            if (!await App.DbContext.Save())
+            if (!App.DbContext.Save())
             {
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
                 return;
@@ -366,7 +366,7 @@ namespace Plutus.Pages.Till
         /// <param name="e">Event that the object called</param>
         private async void ManScan_Completed(object sender, EventArgs e)
         {
-            var tempIList = App.DbContext.GetItem(ManScan.Text);
+            var tempIList = App.DbContext.Search(ManScan.Text).ToList();
             if (tempIList == null || tempIList.Count != 1)
             {
                 ManScan.Text = null;
@@ -404,7 +404,7 @@ namespace Plutus.Pages.Till
                 return;
             foreach (var item in Basket)
             {
-                if (item.ItemId != tempItem.ItemId) continue;
+                if (item.Id != tempItem.Id) continue;
                 if (item.Return != tempItem.Return) continue;
                 if (item.SaleId != tempItem.SaleId) continue;
                 item.Amount=item.Amount+amount;
@@ -484,7 +484,7 @@ namespace Plutus.Pages.Till
             Basket Item = null;
             foreach (var item in Basket)
             {
-                if (item.ItemId == menuItem.ItemId && item.Return == menuItem.Return && item.SaleId == menuItem.SaleId)
+                if (item.Id == menuItem.Id && item.Return == menuItem.Return && item.SaleId == menuItem.SaleId)
                 {
                     Item = new Models.Basket(item);
                 }

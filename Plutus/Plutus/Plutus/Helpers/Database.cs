@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 using System.IO;
 using Plutus.Data;
 using Plutus.Models;
@@ -9,6 +8,8 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Plutus.Models.Interface;
+using System.Globalization;
 
 namespace Plutus.Helpers
 {
@@ -27,11 +28,11 @@ namespace Plutus.Helpers
             await _db.Set<T>().AddAsync(tmp);
         }
 
-        internal async Task<bool> Save()
+        internal bool Save()
         {
             try
             {
-                await _db.SaveChangesAsync();
+                _db.SaveChanges();
                 return true;
             }
             catch(Exception e)
@@ -61,6 +62,8 @@ namespace Plutus.Helpers
                 }
             }
         }
+
+        internal IQueryable<T> Get<T>() where T : class => _db.Set<T>();
 
         internal void Init()
         {
@@ -97,7 +100,7 @@ namespace Plutus.Helpers
             var cat = new CategoryModel() { Name = "Customer Care", Description = "Items such as Bags etc." };
             Add(cat);
             _db.SaveChanges();
-            var bag = new ItemModel() { ItemId = "BAG001", Name = "Bag", Desc = "Item to allow Customers to carry things", CatId = 1, VatId = 2, Price = .05m, Cost = 0.0m };
+            var bag = new ItemModel() { Id = "BAG001", Name = "Bag", Desc = "Item to allow Customers to carry things", CatId = 1, VatId = 2, Price = .05m, Cost = 0.0m };
             Add(bag);
 
             //There will be a more detailed setup page this temporay
@@ -110,51 +113,30 @@ namespace Plutus.Helpers
 
         internal async Task<EmployeeModel> Login(string idEmail, string password)
         {
-            var emp = _db.Employees
+            var emp = Get<EmployeeModel>()
                 .Include(e=>e.EmpAuths)
                 .SingleOrDefault(e => e.Id.Equals(idEmail) || e.Email.Equals(idEmail));
-            if (emp == null) return null;
-            if (await Task.Run(() => Password.Verify(password, Convert.FromBase64String(emp.Salt),
-                Convert.FromBase64String(emp.HashedPassword)))) return emp;
+            if (emp == null)
+                return null;
+            if (await Task.Run(() => 
+                    Password.Verify(password, Convert.FromBase64String(emp.Salt), Convert.FromBase64String(emp.HashedPassword))))
+                return emp;
             emp = null;
             return null;
         }
 
-        internal StoreModel GetStore(string id)
-        {
-            var store = _db.Stores
-                .SingleOrDefault(s => s.StoreId.Equals(id));
-            return store ?? null;
-        }
+        internal IQueryable GetById<TOne, TTwo>(TTwo id) where TOne : class => Get<TOne>()
+            .OfType<IBase<TTwo>>()
+            .Where(m => m.Id.Equals(id));
 
-        internal List<VatModel> GetVat()
-        {
-            var vats = _db.Vats.ToList();
-            return vats ?? null;
-        }
+        internal bool IsIdSame<TOne, TTwo>(TTwo id) where TOne : class => GetById<TOne, TTwo>(id)
+            .OfType<TOne>().Select(i => i).Any();
 
-        internal List<CategoryModel> GetCats()
-        {
-            var cats = _db.Category.ToList();
-            return cats ?? null;
-        }
-
-        internal string GetCatName(int id)
-        {
-            var catName = _db.Category
-                .Where(c => c.Id.Equals(id))
-                .Select(c => c.Name)
-                .SingleOrDefault();
-            return catName ?? null;
-        }
-
-        internal bool IsIdSame(string testId)
-        {
-            var test = _db.Items
-                .Where(i => i.ItemId.Equals(testId))
-                .Select(i => i).Any();
-            return test;
-        }
+        internal IQueryable<ItemModel> Search(string temp) => Get<ItemModel>()
+            .Include(a => a.Vat)
+            .Where(i => i.Id.Equals(temp) ||
+                CultureInfo.CurrentCulture.CompareInfo.IndexOf(
+                    i.Name, temp, CompareOptions.IgnoreCase) >= 0);
 
         internal void UpdateStock(StockModel toUpdateModel)
         {
@@ -168,23 +150,12 @@ namespace Plutus.Helpers
             }
         }
 
-        internal List<ItemModel> GetItem(string temp)
-        {
-            if (temp == "")
-                return null;
-            var item = _db.Items
-                .Include(a=>a.Vat)
-                .Where(i => i.ItemId.Equals(temp) ||
-                    i.Name.Contains(temp))
-                .ToList();
-            return item ?? null;
-        }
-
         internal void UpdateItem(ItemModel item)
         {
-            var query = from fItem in _db.Items
-                        where fItem.ItemId.Equals(item.ItemId)
-                        select fItem;
+            var query = GetById<ItemModel, string>(item.Id)
+                .OfType<ItemModel>()
+                .Select(i => i);
+
             foreach(ItemModel fItem in query)
             {
                 fItem.Name = item.Name;
@@ -198,64 +169,26 @@ namespace Plutus.Helpers
             }
         }
 
-        internal PaymentMethodModel GetPayM(string name)
-        {
-            var payM = _db.PayMethods
-                .Where(p => p.Name.Equals(name))
-                .SingleOrDefault();
-            return payM ?? null;
-        }
+        internal IQueryable<PaymentMethodModel> GetPayM(string name) => Get<PaymentMethodModel>()
+                .Where(p => p.Name.Equals(name));
 
-        internal List<AuthActions> GetAllActions()
-        {
-            var Actions = _db.AuthActions.ToList();
-            return Actions ?? null;
-        }
+        internal IQueryable<TransactionModel> CheckItemExistInSale(string saleId, string itemId) => Get<TransactionModel>()
+                .Include(t => t.Sale)
+                .Where(t => t.SaleId.Equals(saleId) && t.ItemId.Equals(itemId));
 
-        internal bool CheckSaleID(string tempId)
-        {
-            var test = _db.Sales
-                .Where(i => i.SaleId.Equals(tempId))
-                .Select(i => i).Any();
-            return test;
-        }
+        internal NoteModel GetNote(string noteTemp) => Get<NoteModel>()
+            .Where(n => n.Note.Equals(noteTemp))
+            .FirstOrDefault();
 
-        internal TransactionModel CheckItemExistInSale(string saleId, string itemId)
-        {
-            var trans = _db.Trans
-                .Include(t=>t.Sale)
-                .Where(t => t.SaleId.Equals(saleId) && t.ItemId.Equals(itemId))
-                .FirstOrDefault();
-            return trans??null;
-        }
+        internal IQueryable<ItemModel> GetAllItems() => Get<ItemModel>()
+            .Include(i => i.Vat)
+            .Include(i => i.Cat)
+            .Include(i => i.Transactions)
+            .Include(i => i.Stock);
 
-        internal NoteModel GetNote(string noteTemp)
-        {
-            var note = _db.Notes
-                .Where(n => n.Note.Equals(noteTemp))
-                .FirstOrDefault();
-            return note ?? null;
-        }
-
-        internal List<ItemModel> GetAllItems()
-        {
-            var items = _db.Items
-                .Include(i => i.Vat)
-                .Include(i=>i.Cat)
-                .Include(i=>i.Transactions)
-                .Include(i=>i.Stock)
-                .ToList();
-            return items ?? null;
-        }
-
-        internal List<DateTime> GetAllDatesOfSale()
-        {
-            var dOS = _db.Sales
-                .Select(s => s.DateOfSale)
-                .Distinct()
-                .ToList();
-            return dOS ?? null;
-        }
+        internal IQueryable<DateTime> GetAllDatesOfSale() => Get<SaleModel>()
+            .Select(s => s.DateOfSale)
+            .Distinct();
 
         internal List<SaleModel> GetSales(string condition)
         {

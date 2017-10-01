@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using Plutus.Models.Interface;
 
 namespace Plutus.Models
 {
-    public class TransactionModel
+    public class TransactionModel : IAuditable
     {
         public string ItemId { get; set; }
         public ItemModel Item { get; set; }
@@ -13,5 +14,7 @@ namespace Plutus.Models
         public SaleModel Sale { get; set; }
 
         public int Amount { get; set; }
+
+        
     }
 }

@@ -2,16 +2,18 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Text;
+using Plutus.Models.Interface;
 
 namespace Plutus.Models
 {
-    public class VatModel 
+    public class VatModel : IAuditable, IBase<int>
     {
-        [Key]
-        public int VatId { get; set; }
+        public int Id { get; set; }
         public string Name { get; set; }
         public double Rate { get; set; }
         
         public List<ItemModel> Items { get; set; }
+
+        
     }
 }

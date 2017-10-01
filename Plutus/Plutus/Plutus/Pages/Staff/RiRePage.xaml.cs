@@ -23,7 +23,7 @@ namespace Plutus.Pages.Staff
             InitializeComponent();
 
             Items = new ObservableCollection<Emp_AuthActions>();
-            var tempList = App.DbContext.GetAllActions();
+            var tempList = App.DbContext.Get<AuthActions>().ToList();
             if (Emp.EmpAuths.Count > 0)
             {
                 if (Emp.EmpAuths.Count == tempList.Count)
@@ -49,7 +49,7 @@ namespace Plutus.Pages.Staff
                 }
                 Confirm.Clicked += async (object sender, EventArgs e) =>
                   {
-                      if (!await App.DbContext.Save())
+                      if (!App.DbContext.Save())
                       {
                           await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
                           return;
