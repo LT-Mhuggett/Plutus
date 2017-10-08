@@ -44,18 +44,18 @@ namespace Plutus.Helpers
 
         internal void RevertDbContextChanges()
         {
-            foreach(EntityEntry entry in _db.ChangeTracker.Entries())
+            for (var i = 0; i <= _db.ChangeTracker.Entries().Count() - 1; i++)
             {
-                switch (entry.State)
+                switch (_db.ChangeTracker.Entries().ElementAt(i).State)
                 {
                     case EntityState.Modified:
-                        entry.State = EntityState.Unchanged;
+                        _db.ChangeTracker.Entries().ElementAt(i).State = EntityState.Unchanged;
                         break;
                     case EntityState.Added:
-                        entry.State = EntityState.Detached;
+                        _db.ChangeTracker.Entries().ElementAt(i).State = EntityState.Detached;
                         break;
                     case EntityState.Deleted:
-                        entry.Reload();
+                        _db.ChangeTracker.Entries().ElementAt(i).Reload();
                         break;
                     default:
                         break;
@@ -104,9 +104,9 @@ namespace Plutus.Helpers
             Add(bag);
 
             //There will be a more detailed setup page this temporay
-            var payM = new PaymentMethodModel() { Name = "Card", Charge = 0.5m, MinimumCharge = 5.0m };
+            var payM = new PaymentMethodModel() { Name = "Card", Charge = 0.5m, MinimumCharge = 5.0m, IsChangeable = false, IsCashBackable = true };
             Add(payM);
-            var payM2 = new PaymentMethodModel() { Name = "Cash", Charge = 0.0m, MinimumCharge = 0.0m };
+            var payM2 = new PaymentMethodModel() { Name = "Cash", Charge = 0.0m, MinimumCharge = 0.0m, IsChangeable = true, IsCashBackable = false };
             Add(payM2);
             _db.SaveChanges();
         }

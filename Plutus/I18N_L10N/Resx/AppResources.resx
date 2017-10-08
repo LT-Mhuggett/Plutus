@@ -598,4 +598,19 @@ The amount of items at purchase for {0} was {1}, Please remove atleast {2}.</val
   <data name="Restore" xml:space="preserve">
     <value>Restore</value>
   </data>
+  <data name="CashBack" xml:space="preserve">
+    <value>Please give {0} as cashback/change.</value>
+  </data>
+  <data name="CashBack_" xml:space="preserve">
+    <value>Does the customer want cashback?</value>
+  </data>
+  <data name="CBNote" xml:space="preserve">
+    <value>Cashback of {0}</value>
+  </data>
+  <data name="HowMuchCB" xml:space="preserve">
+    <value>How much cashback do they want?</value>
+  </data>
+  <data name="HowMuchPM" xml:space="preserve">
+    <value>How much to pay with {0}, There is {1} left to pay</value>
+  </data>
 </root>

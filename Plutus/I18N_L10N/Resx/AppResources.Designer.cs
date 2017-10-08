@@ -297,11 +297,38 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Please give {0} as cashback/change..
+        /// </summary>
+        internal static string CashBack {
+            get {
+                return ResourceManager.GetString("CashBack", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Does the customer want cashback?.
+        /// </summary>
+        internal static string CashBack_ {
+            get {
+                return ResourceManager.GetString("CashBack_", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Category.
         /// </summary>
         internal static string Cate {
             get {
                 return ResourceManager.GetString("Cate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Cashback of {0}.
+        /// </summary>
+        internal static string CBNote {
+            get {
+                return ResourceManager.GetString("CBNote", resourceCulture);
             }
         }
         
@@ -655,6 +682,24 @@ namespace I18N_L10N.Resx {
         internal static string Hmm {
             get {
                 return ResourceManager.GetString("Hmm", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to How much cashback do they want?.
+        /// </summary>
+        internal static string HowMuchCB {
+            get {
+                return ResourceManager.GetString("HowMuchCB", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to How much to pay with {0}, There is {1} left to pay.
+        /// </summary>
+        internal static string HowMuchPM {
+            get {
+                return ResourceManager.GetString("HowMuchPM", resourceCulture);
             }
         }
         

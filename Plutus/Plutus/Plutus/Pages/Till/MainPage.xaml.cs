@@ -239,6 +239,7 @@ namespace Plutus.Pages.Till
             MPage.IsEnabled = true;
 
             decimal Total = 0.0m;
+            decimal Change = 0.0m;
 
             //GetCustomer Data here
 
@@ -263,23 +264,24 @@ namespace Plutus.Pages.Till
                         App.DbContext.RevertDbContextChanges();
                         return;
                     }
-                    //Error with Action not setting from ActionSheet. it setting to "" ONLY IN RELEASE
+
                     PaymentMethod_SaleModel pay = new PaymentMethod_SaleModel() { PayMethod = actionDic[Action]() };
 
-                    if (pay.PayMethod.MinimumCharge > Total)
+                    if (pay.PayMethod.MinimumCharge < Total)
                     {
                         Total += pay.PayMethod.Charge;
                         NoteModel note = App.DbContext.GetNote(string.Format(App.Translate.ProvideValue("CardChargeNote"), pay.PayMethod.Charge));
                         if (note == null)
                         {
                             note = new NoteModel() { Note = string.Format(App.Translate.ProvideValue("CardChargeNote"), pay.PayMethod.Charge) };
+                            App.DbContext.Add(note);
                         }
                         Notes_SaleModel NotesSale = new Notes_SaleModel() { Note = note };
                         App.DbContext.Add(NotesSale);
                         Sale.Notes.Add(NotesSale);
                     }
 
-                    var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(string.Format("How much to pay with {0}, There is {1} left to pay", Action, (Total-paid).ToString()), "enter here", "confrim", "shit");
+                    var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(string.Format(App.Translate.ProvideValue("HowMuchPM"), Action, (Total-paid).ToString()), "enter here", "confrim", "shit");
 
                     pay.Amount = amount;
 
@@ -287,14 +289,47 @@ namespace Plutus.Pages.Till
 
                     if (paid > Total)
                     {
-                        //overPayment
-                        paid -= amount;
-                        continue;
+                        if (pay.PayMethod.IsChangeable)
+                        {
+                            Change = paid - Total;
+                        }
+                        else
+                        {
+                            paid -= amount;
+                            continue;
+                        }
                     }
                     App.DbContext.Add(pay);
                     Sale.PaySales.Add(pay);
                 }
-                Sale.Total = Total + Sale.PaySales.Sum(item => item.PayMethod.Charge);
+                Sale.Total = Total;
+            }
+            
+            foreach (var pay in Sale.PaySales)
+            {
+                if (pay.PayMethod.IsCashBackable)
+                {
+                    var Cashback = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("CashBack_"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
+                    if (Cashback)
+                    {
+                        var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(App.Translate.ProvideValue("HowMuchCB"), "enter here", "confrim", "shit");
+                        if (amount > 0.01m)
+                        {
+                            NoteModel CB = App.DbContext.GetNote(string.Format(App.Translate.ProvideValue("CBNote"), amount));
+                            if(CB == null)
+                            {
+                                CB = new NoteModel { Note = string.Format(App.Translate.ProvideValue("CBNote"), amount) };
+                                App.DbContext.Add(CB);
+                            }
+                            Notes_SaleModel CBNSale = new Notes_SaleModel { Note = CB };
+                            App.DbContext.Add(CBNSale);
+                            Sale.Notes.Add(CBNSale);
+                            Change += amount;
+                            Total += amount;
+                        }
+                    }
+                    break;
+                }
             }
 
             var Continue = await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("Continue"), Total), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
@@ -325,23 +360,28 @@ namespace Plutus.Pages.Till
             }
 
             if (Sale.Refunds.Count == 0)
-                FinaliseTransaction(Sale);
+                FinaliseTransaction(Sale, Change);
             else if(!Authorisation.IsAuthorised("Refund", "X", Basket.Where(item=>item.Return.Equals(true)).Sum(item=>item.Price*item.Amount), App.LastAuthUser))
             {
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("RefundLimitTooLow"), App.Translate.ProvideValue("OK"));
-                Action action = () => FinaliseTransaction(Sale);
+                Action action = () => FinaliseTransaction(Sale, Change);
                 Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Refund", "X", Basket.Where(item => item.Return.Equals(true)).Sum(item => item.Price * item.Amount), action);
             }
             else
-                FinaliseTransaction(Sale);
+                FinaliseTransaction(Sale, Change);
         }
 
         /// <summary>
         /// 
         /// </summary>
         /// <param name="Sale"></param>
-        private async void FinaliseTransaction(SaleModel Sale)
+        private async void FinaliseTransaction(SaleModel Sale, decimal cashBack)
         {
+            if (cashBack != 0.0m)
+            {
+                await DisplayAlert(App.Translate.ProvideValue("Hmm"), string.Format(App.Translate.ProvideValue("CashBack"), cashBack), App.Translate.ProvideValue("OK"));
+            }
+
             App.DbContext.Add(Sale);
 
             if (!App.DbContext.Save())

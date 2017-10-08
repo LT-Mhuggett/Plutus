@@ -18,7 +18,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\CustomViews\InputAlertHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\ICloseApp.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\IPicturePicker.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\IReceiptPrinting.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Loading.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Scanner.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Validate.cs" />
