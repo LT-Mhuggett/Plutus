@@ -8,6 +8,7 @@ using Plutus.Helpers;
 using Plutus.Models;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
+using System.Collections.Generic;
 
 namespace Plutus.Pages.Reports
 {
@@ -22,7 +23,7 @@ namespace Plutus.Pages.Reports
 
             Sales =new ObservableCollection<SaleModel>();
 
-            var dateOS = App.DbContext.GetAllDatesOfSale();
+            var dateOS = App.DbContext.GetDateOfSales();
 
             foreach(var DOS in dateOS)
             {

@@ -185,23 +185,20 @@ namespace Plutus.Helpers
             .Include(i => i.Cat)
             .Include(i => i.Transactions)
             .Include(i => i.Stock);
-
-        internal IQueryable<DateTime> GetAllDatesOfSale() => Get<SaleModel>()
-            .Select(s => s.DateOfSale)
-            .Distinct();
-
-        internal List<SaleModel> GetSales(string condition)
-        {
-            var sales = _db.Sales
+        
+        internal IQueryable<SaleModel> GetSales(string condition) => Get<SaleModel>()
                 .Include(s => s.Notes)
                 .Include(s => s.Refunded)
                 .Include(s => s.Refunds)
                 .Include(s => s.Transactions)
                 .Include(s => s.PaySales)
                 .Where(s => s.DateOfSale.ToString().Contains(condition)
-                    || s.EmployeeId.Equals(condition))
-                .ToList();
-            return sales ?? null;
+                    || s.EmployeeId.Equals(condition));
+
+        internal List<DateTime> GetDateOfSales()
+        {
+            var data = Get<SaleModel>().ToList();
+            return data.Select(s => s.DateOfSale).ToList();
         }
 
         internal IIncludableQueryable<EmployeeModel, StoreModel> GetAllEmps()

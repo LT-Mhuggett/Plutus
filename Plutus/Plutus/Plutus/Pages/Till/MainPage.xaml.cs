@@ -242,7 +242,7 @@ namespace Plutus.Pages.Till
 
             //GetCustomer Data here
 
-            SaleModel Sale = new SaleModel() { DateOfSale = System.DateTime.Now, Total = Total, EmployeeId = App.LastAuthUser.Id };
+            SaleModel Sale = new SaleModel() { DateOfSale = DateTime.Now, Total = Total, EmployeeId = App.LastAuthUser.Id };
             Sale.PaySales = new List<PaymentMethod_SaleModel>();
             Sale.Notes = new List<Notes_SaleModel>();
 
