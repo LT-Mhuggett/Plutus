@@ -26,6 +26,7 @@ namespace Plutus.Pages
         {
             App.Store = stemp;
             InitPage(etemp);
+            versionText.Text = App.version;
         }
 
         /// <summary>
@@ -38,6 +39,7 @@ namespace Plutus.Pages
         {
             App.EmpsLogged = currentList;
             InitPage(etemp);
+            versionText.Text = App.version;
         }
 
         /// <summary>

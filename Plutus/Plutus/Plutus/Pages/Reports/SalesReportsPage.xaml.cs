@@ -27,7 +27,7 @@ namespace Plutus.Pages.Reports
 
             foreach(var DOS in dateOS)
             {
-                var DOSstring=DOS.Date.ToString().Replace(" 12:00:00 AM", "");
+                var DOSstring=DOS.Date.ToString().Replace(" 12:00:00 AM", "").Replace(" 00:00:00", "");
                 if (DateSearch.Items.Contains(DOSstring))
                     continue;
                 DateSearch.Items.Add(DOSstring);
@@ -47,7 +47,7 @@ namespace Plutus.Pages.Reports
         private void InitSales(string temp)
         {
             Sales.Clear();
-            var sales = App.DbContext.GetSales(temp);
+            var sales = App.DbContext.GetSales(temp).ToList();
             foreach(var sale in sales)
             {
                 Sales.Add(sale);

@@ -13,6 +13,13 @@ using Plutus.Models;
 using Microsoft.Azure.Mobile;
 using Microsoft.Azure.Mobile.Analytics;
 using Microsoft.Azure.Mobile.Crashes;
+using System.Reflection;
+using System.Diagnostics;
+#if __ANDROID__ || __IOS__
+
+#else
+using Windows.ApplicationModel;
+#endif
 
 namespace Plutus
 {
@@ -24,6 +31,7 @@ namespace Plutus
         internal static Database DbContext;
         internal static TranslateExtension Translate = new TranslateExtension();
         internal static int TillAmmount;
+        internal static string version;
 
         public App ()
 		{
@@ -32,7 +40,14 @@ namespace Plutus
             //refresh all app files without data wipe or app delete
             //File.Delete(Path.Combine(FileIO.GetLib(), "App.config"));
             //File.Delete(Path.Combine(FileIO.GetLib(), "Database.db"));
-            
+
+#if __ANDROID__ || __IOS__
+            version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
+#else
+            PackageVersion versionP = Package.Current.Id.Version;
+            version = string.Format("{0}.{1}.{2}.{3}", versionP.Major, versionP.Minor, versionP.Build, versionP.Revision);
+#endif
+
             new I18N_L10N.I18N_L10N();
 
             MainPage = FileIO.Exists("App.config")&&FileIO.Exists("Database.db")?

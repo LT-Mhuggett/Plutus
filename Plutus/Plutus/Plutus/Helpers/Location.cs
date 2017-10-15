@@ -20,7 +20,7 @@ namespace Plutus.Helpers
                 geoCoder = new Geocoder();
                 var location = CrossGeolocator.Current;
                 location.DesiredAccuracy = 50;
-                var position = await location.GetPositionAsync();
+                var position = await location.GetPositionAsync(timeout: TimeSpan.FromMilliseconds(10000));
                 double? latitude = Convert.ToDouble(position.Latitude);
                 double? longitude = Convert.ToDouble(position.Longitude);
 
