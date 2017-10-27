@@ -20,7 +20,5 @@ namespace Plutus.Models
         public List<PaymentMethod_SaleModel> PaySales { get; set; }
         public List<RefundModel> Refunded { get; set; }
         public List<Notes_SaleModel> Notes { get; set; }
-
-        
     }
 }

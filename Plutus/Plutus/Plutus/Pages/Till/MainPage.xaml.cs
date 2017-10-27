@@ -12,6 +12,7 @@ using Xamarin.Forms.Xaml;
 using Plutus.Helpers;
 using ZXing.Net.Mobile.Forms;
 using ZXing.Mobile;
+using System.IO;
 
 namespace Plutus.Pages.Till
 {
@@ -267,7 +268,7 @@ namespace Plutus.Pages.Till
 
                     PaymentMethod_SaleModel pay = new PaymentMethod_SaleModel() { PayMethod = actionDic[Action]() };
 
-                    if (pay.PayMethod.MinimumCharge < Total)
+                    if (pay.PayMethod.MinimumCharge > Total)
                     {
                         Total += pay.PayMethod.Charge;
                         NoteModel note = App.DbContext.GetNote(string.Format(App.Translate.ProvideValue("CardChargeNote"), pay.PayMethod.Charge));
@@ -388,12 +389,10 @@ namespace Plutus.Pages.Till
             {
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
                 return;
-            }/*
-            var Continue = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("PaperReceipt"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
-            if (Continue)
-            {
-                //var doc = new PrintDocument();
-            }*/
+            }
+
+            PDFCreator pdf = new PDFCreator(App.Store, null, Sale, cashBack);
+            
             Basket.Clear();
             await DisplayAlert(App.Translate.ProvideValue("Transaction"), App.Translate.ProvideValue("TransConfMesg"), App.Translate.ProvideValue("OK"));
         }

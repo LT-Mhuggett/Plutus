@@ -10,6 +10,7 @@
     "Microsoft.NETCore.UniversalWindowsPlatform": "5.4.0",
     "Plugin.MediaManager.Forms": "0.4.3",
     "Rg.Plugins.Popup": "1.0.4",
+    "Syncfusion.Xamarin.Pdf": "15.3.0.33",
     "System.ComponentModel.Annotations": "4.3.0",
     "System.Reflection": "4.3.0",
     "Xam.Plugin.Geolocator": "4.0.1",

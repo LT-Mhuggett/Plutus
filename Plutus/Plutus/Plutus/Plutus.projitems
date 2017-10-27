@@ -18,7 +18,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\CustomViews\InputAlertHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\ICloseApp.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\IPicturePicker.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\ISavePDF.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Loading.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\PDFCreator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Scanner.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Validate.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\AuthActions.cs" />
