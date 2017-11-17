@@ -138,6 +138,7 @@ namespace Plutus.Pages.Inventory
             await Navigation.PushModalAsync(new ItemTemplate(Item, 0));
             MessagingCenter.Subscribe<AddItemPage>(this, "Accepted", async (Sender) =>
             {
+                MessagingCenter.Unsubscribe<AddItemPage>(this, "Accepted");
                 App.DbContext.Add(Item);
                 var stock = new StockModel
                 {
@@ -151,6 +152,7 @@ namespace Plutus.Pages.Inventory
                     await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
                     return;
                 }
+                Item = new ItemModel();
                 await Navigation.PopAsync();
             });
         }

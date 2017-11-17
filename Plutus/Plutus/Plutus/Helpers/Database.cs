@@ -99,6 +99,8 @@ namespace Plutus.Helpers
             //Will be removed as only applies to UK, User will have to add manually
             var cat = new CategoryModel() { Name = "Customer Care", Description = "Items such as Bags etc." };
             Add(cat);
+            var cat2 = new CategoryModel() { Name = "Book", Description = "Readable information" };
+            Add(cat2);
             _db.SaveChanges();
             var bag = new ItemModel() { Id = "BAG001", Name = "Bag", Desc = "Item to allow Customers to carry things", CatId = 1, VatId = 2, Price = .05m, Cost = 0.0m };
             Add(bag);
@@ -108,6 +110,11 @@ namespace Plutus.Helpers
             Add(payM);
             var payM2 = new PaymentMethodModel() { Name = "Cash", Charge = 0.0m, MinimumCharge = 0.0m, IsChangeable = true, IsCashBackable = false };
             Add(payM2);
+
+            var item1 = new ItemModel() { Id = "9781593072995", Name = "Sin City book 7", Brand = "Sin City", CatId = 2, VatId = 2, Price = 22.50m, Cost = 15.00m };
+            Add(item1);
+            var item2 = new ItemModel() { Id = "699788109137", Name = "Arkham horror board game", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
+            Add(item2);
             _db.SaveChanges();
         }
 

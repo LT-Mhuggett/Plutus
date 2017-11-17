@@ -119,6 +119,7 @@ namespace Plutus.Pages.Inventory
 
                     MessagingCenter.Subscribe<UpdateItemPage, ItemModel>(this, "SearchSelected", async (Sender, arg) =>
                     {
+                        MessagingCenter.Unsubscribe<UpdateItemPage>(this, "SearchSelected");
                         Item = arg;
                         Populate();
                         ItemSearch.Text = Item.Id;
@@ -165,6 +166,7 @@ namespace Plutus.Pages.Inventory
         {
             await Navigation.PushModalAsync(new NavigationPage(new ItemDescPage(Item.Desc)));
             MessagingCenter.Subscribe<AddItemPage>(this, "DescDone", (Sender) => {
+                MessagingCenter.Unsubscribe<UpdateItemPage>(this, "DescDone");
                 Item.Desc = ItemDescPage.description;
             });
         }
@@ -212,6 +214,7 @@ namespace Plutus.Pages.Inventory
             await Navigation.PushModalAsync(new AddCategoryPage());
             MessagingCenter.Subscribe<UpdateItemPage>(this, "ConfCat", async (Sender) =>
             {
+                MessagingCenter.Unsubscribe<UpdateItemPage>(this, "ConfCat");
                 InitCatPicker();
                 await Navigation.PopModalAsync();
                 //Currently a fix, This works but is a waste of procesor time.
@@ -284,6 +287,7 @@ namespace Plutus.Pages.Inventory
             await Navigation.PushModalAsync(new ItemTemplate(ChangeItem, 0));
             MessagingCenter.Subscribe<UpdateItemPage>(this, "Accepted", async (Sender) =>
             {
+                MessagingCenter.Unsubscribe<UpdateItemPage>(this, "Accepted");
                 App.DbContext.UpdateItem(ChangeItem);
                 if (!App.DbContext.Save())
                 {

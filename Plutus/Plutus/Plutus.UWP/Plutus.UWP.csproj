@@ -159,8 +159,8 @@
     </Page>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\..\..\Documents\Visual Studio 2017\Projects\CustomViews\CustomViews.csproj">
-      <Project>{86c6c80e-ccd5-49ad-91da-c3328a298c8d}</Project>
+    <ProjectReference Include="..\..\CustomViews\CustomViews.csproj">
+      <Project>{695a73eb-1295-4def-9c89-d324720428db}</Project>
       <Name>CustomViews</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\I18N_L10N\I18N_L10N.csproj">
