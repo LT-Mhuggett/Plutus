@@ -7,24 +7,87 @@ using Plutus.Models;
 using Plutus.Helpers;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
+using Syncfusion.DataSource;
+using Syncfusion.ListView.XForms;
+using Syncfusion.GridCommon.ScrollAxis;
+using System.Reflection;
 
 namespace Plutus.Pages.Inventory
 {
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class ViewAllInventoryPage : ContentPage
     {
-        public ObservableCollection<InventGroup> Items { get; set; }
+        public ObservableCollection<ItemModel> Items { get; set; }
+        private bool IsAlertShown { get; set; }
+        private ScrollAxisBase ScrollRows { get; set; }
+        private int StartLimit { get; set; }
+        private int Limit { get; set; }
+        private int TotalItemsInDB { get; set; }
 
         public ViewAllInventoryPage()
         {
             InitializeComponent();
 
-            Items = new ObservableCollection<InventGroup>();
+            ItemList.FooterSize = 40;
 
-            Device.BeginInvokeOnMainThread(() =>
+            VisualContainer visualContainer = ItemList.GetType().GetRuntimeProperties().First(p => p.Name == "VisualContainer")
+                .GetValue(ItemList) as VisualContainer;
+
+            ScrollRows = visualContainer.GetType().GetRuntimeProperties().First(p => p.Name == "ScrollRows")
+                .GetValue(visualContainer) as ScrollAxisBase;
+
+            ScrollRows.Changed += ScrollRows_changed;
+
+            Items = new ObservableCollection<ItemModel>();
+
+            StartLimit = 0;
+
+            Limit = 20;
+
+            LoadData();
+
+            ItemList.ItemsSource = Items;
+
+            ItemList.DataSource.GroupDescriptors.Add(new GroupDescriptor()
             {
-                InitItems();
+                PropertyName = "GroupKey"
             });
+        }
+
+        private void LoadData()
+        {
+            TotalItemsInDB = App.DbContext.GetAllItems().Count();
+
+            var items = App.DbContext.GetAllItems().OrderBy(item => item.Name).Skip(StartLimit).Take(Limit);
+            foreach (var item in items)
+            {
+                item.GroupKey = item.Name[0];
+                Items.Add(item);
+            }
+            StartLimit += Limit;
+        }
+
+        private void ScrollRows_changed(object sender, ScrollChangedEventArgs e)
+        {
+            var lastIndex = ScrollRows.LastBodyVisibleLineIndex;
+
+            var header = (ItemList.HeaderTemplate != null && !ItemList.IsStickyHeader) ? 1 : 0;
+
+            var footer = (ItemList.FooterTemplate != null && !ItemList.IsStickyFooter) ? 1 : 0;
+            var totalItems = ItemList.DataSource.DisplayItems.Count + header + footer;
+
+            if(lastIndex == totalItems - 1)
+            {
+                if (!IsAlertShown && TotalItemsInDB > StartLimit)
+                {
+                    IsAlertShown = !IsAlertShown;
+                    LoadData();
+                }
+                else
+                {
+                    IsAlertShown = !IsAlertShown;
+                }
+            }
         }
 
         async void Handle_ItemTapped(object sender, SelectedItemChangedEventArgs e)
@@ -47,42 +110,6 @@ namespace Plutus.Pages.Inventory
                 await Navigation.PushModalAsync(new ItemTemplate(temp));
                 ((ListView)sender).SelectedItem = null;
             }
-        }
-
-        void InitItems()
-        {
-            var items = App.DbContext.GetAllItems();
-            foreach (var item in items.OrderBy(i=>i.Name))
-            {
-                if (Items.Count == 0)
-                {
-                    var title = item.Name.FirstOrDefault().ToString();
-                    InventGroup G = new InventGroup(title.ToUpper(), title.ToUpper());
-                    G.Add(item);
-                    Items.Add(G);
-                }
-                else
-                {
-                    InventGroup G=null;
-                    foreach(var tempItem in Items)
-                    {
-                        if (tempItem.Title == item.Name.FirstOrDefault().ToString().ToUpper())
-                        {
-                            tempItem.Add(item);
-                        }
-                        else
-                        {
-                            var title = item.Name.FirstOrDefault().ToString().ToUpper();
-                            G = new InventGroup(title, title);
-                            G.Add(item);
-                        }
-                    }
-                    if(G != null)
-                        Items.Add(G);
-                }
-            }
-            Items = new ObservableCollection<InventGroup>(Items);
-            BindingContext = this;
         }
 
         private async void UpdateItem_Clicked(object sender, EventArgs e)
@@ -114,17 +141,6 @@ namespace Plutus.Pages.Inventory
             EId.Text = null;
             VerifyId.IsVisible = false;
             MPage.IsEnabled = true;
-        }
-    }
-
-    public class InventGroup : ObservableCollection<ItemModel>
-    {
-        public string Title { get; set; }
-        public string ShortName { get; set; }
-        public InventGroup(string title, string sName)
-        {
-            Title = title;
-            ShortName = sName;
         }
     }
 }

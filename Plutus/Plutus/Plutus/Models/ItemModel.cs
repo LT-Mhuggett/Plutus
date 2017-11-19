@@ -30,6 +30,9 @@ namespace Plutus.Models
         public VatModel Vat { get; set; }
         public CategoryModel Cat { get; set; }
 
+        [NotMapped]
+        public char GroupKey { get; set; }
+
         
 
         public ItemModel() { }

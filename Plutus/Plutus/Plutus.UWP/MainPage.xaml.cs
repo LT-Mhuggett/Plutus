@@ -13,6 +13,7 @@ using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
 using Plugin.Media;
+using Syncfusion.ListView.XForms.UWP;
 
 namespace Plutus.UWP
 {
@@ -23,6 +24,8 @@ namespace Plutus.UWP
             this.InitializeComponent();
 
             ZXing.Net.Mobile.Forms.WindowsUniversal.ZXingScannerViewRenderer.Init();
+
+            SfListViewRenderer.Init();
 
             LoadApplication(new Plutus.App());
         }

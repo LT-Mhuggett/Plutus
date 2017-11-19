@@ -7,6 +7,7 @@
         <StackLayout Margin="0,10,0,0"
                      VerticalOptions="Center"
                      HorizontalOptions="Center">
+            <Label x:Name="ItemID" VerticalOptions="Center" HorizontalOptions="Center" />
             <Image x:Name="ItemImage" HeightRequest="80" VerticalOptions="Center" HorizontalOptions="Center" />
             <Label x:Name="ItemName" VerticalOptions="Center" HorizontalOptions="Center" />
             <Label x:Name="ItemBrand" VerticalOptions="Center" HorizontalOptions="Center" />

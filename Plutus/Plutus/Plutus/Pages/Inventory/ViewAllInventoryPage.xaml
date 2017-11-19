@@ -1,73 +1,70 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:syncfusion="clr-namespace:Syncfusion.ListView.XForms;assembly=Syncfusion.SfListView.XForms"
              x:Class="Plutus.Pages.Inventory.ViewAllInventoryPage"
              xmlns:i18N="clr-namespace:I18N_L10N;assembly=I18N_L10N"
              Title="{i18N:Translate InvetMgr}">
     <Grid>
         <StackLayout x:Name="MPage">
-            <ScrollView>
-                <ListView ItemsSource="{Binding Items}"
-              ItemTapped="Handle_ItemTapped"
-              CachingStrategy="RecycleElement"
-              IsGroupingEnabled="True"
-              GroupDisplayBinding="{Binding Title}"
-              GroupShortNameBinding="{Binding Title}">
-                    <ListView.Header>
-                        <Grid Padding="5">
+            <syncfusion:SfListView x:Name="ItemList" ItemSize="40">
+                <syncfusion:SfListView.HeaderTemplate>
+                    <DataTemplate>
+                        <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="20"/>
                             </Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="2*"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="80"/>
-                                <ColumnDefinition Width="80"/>
-                                <ColumnDefinition Width="80"/>
-                            </Grid.ColumnDefinitions>
-                            <Label Grid.Row="0" Grid.Column="0" Text="{i18N:Translate Name}"/>
-                            <Label Grid.Row="0" Grid.Column="1" Text="{i18N:Translate Brand}"/>
-                            <Label Grid.Row="0" Grid.Column="3" Text="{i18N:Translate Stock}"/>
-                            <Label Grid.Row="0" Grid.Column="4" Text="{i18N:Translate Price}"/>
-                            <Label Grid.Row="0" Grid.Column="5" Text="{i18N:Translate Tax}"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="80"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Grid.Row="0" Grid.Column="0" Text="{i18N:Translate Name}"/>
+                                <Label Grid.Row="0" Grid.Column="1" Text="{i18N:Translate Brand}"/>
+                                <Label Grid.Row="0" Grid.Column="2" Text="{i18N:Translate Stock}"/>
+                                <Label Grid.Row="0" Grid.Column="3" Text="{i18N:Translate Price}"/>
+                                <Label Grid.Row="0" Grid.Column="4" Text="{i18N:Translate Tax}"/>
+                            </Grid>
                         </Grid>
-                    </ListView.Header>
-                    <ListView.ItemTemplate>
-                        <DataTemplate>
-                            <ViewCell>
-                                <ViewCell.ContextActions>
-                                    <MenuItem Clicked="UpdateItem_Clicked" CommandParameter="{Binding .}"
-                                          Text="Update"/>
-                                    <MenuItem Clicked="StockUpdate_Clicked" CommandParameter="{Binding .}"
-                                          Text="Stock Update"/>
-                                </ViewCell.ContextActions>
-                                <Grid Padding="5">
+                    </DataTemplate>
+                </syncfusion:SfListView.HeaderTemplate>
+                <syncfusion:SfListView.FooterTemplate>
+                    <DataTemplate>
+                        <Grid>
+                            <ActivityIndicator x:Name="activityIndicator" Color="Blue" IsRunning="True"/>
+                        </Grid>
+                    </DataTemplate>
+                </syncfusion:SfListView.FooterTemplate>
+                <syncfusion:SfListView.ItemTemplate>
+                    <DataTemplate>
+                        <ViewCell>
+                            <ViewCell.View>
+                                <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="20"/>
                                     </Grid.RowDefinitions>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="2*"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="80"/>
-                                        <ColumnDefinition Width="80"/>
-                                        <ColumnDefinition Width="80"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Label Grid.Row="0" Grid.Column="0" Text="{Binding Name}" 
-                            Style="{DynamicResource ListItemTextStyle}" />
-                                    <Label Grid.Row="0" Grid.Column="1" Text="{Binding Brand}" 
-                            Style="{DynamicResource ListItemDetailTextStyle}"/>
-                                    <Label Grid.Row="0" Grid.Column="3" Text="{Binding Stock.Quantity}"
-                            Style="{DynamicResource ListItemDetailTextStyle}"/>
-                                    <Label Grid.Row="0" Grid.Column="4" Text="{Binding Price}"
-                            Style="{DynamicResource ListItemDetailTextStyle}"/>
-                                    <Label Grid.Row="0" Grid.Column="5" Text="{Binding Vat.Name}"
-                            Style="{DynamicResource ListItemDetailTextStyle}"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="2*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="80"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Label Grid.Row="0" Grid.Column="0" Text="{Binding Name}"  />
+                                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding Brand}" />
+                                        <Label Grid.Row="0" Grid.Column="3" Text="{Binding Stock.Quantity}"/>
+                                        <Label Grid.Row="0" Grid.Column="4" Text="{Binding Price}"/>
+                                        <Label Grid.Row="0" Grid.Column="5" Text="{Binding Vat.Name}"/>
+                                    </Grid>
                                 </Grid>
-                            </ViewCell>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-            </ScrollView>
+                            </ViewCell.View>
+                        </ViewCell>
+                    </DataTemplate>
+                </syncfusion:SfListView.ItemTemplate>
+            </syncfusion:SfListView>
         </StackLayout>
         <StackLayout x:Name="VerifyId"  IsVisible="False" BackgroundColor="White" Margin="50,100,50,200">
             <Label Text="{i18N:Translate EmpId}" />

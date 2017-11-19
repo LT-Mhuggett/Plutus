@@ -47,6 +47,7 @@ namespace Plutus.Pages.Inventory
             {
                 ItemImage.Source = ImageSource.FromStream(() => new MemoryStream(itemTemp.Image));
             }
+            ItemID.Text = itemTemp.Id;
             ItemName.Text = itemTemp.Name;
             ItemBrand.Text = itemTemp.Brand;
             ItemCat.Text = App.DbContext.GetById<CategoryModel, int>(itemTemp.CatId).OfType<CategoryModel>()
@@ -81,6 +82,7 @@ namespace Plutus.Pages.Inventory
             {
                 ItemImage.Source = ImageSource.FromStream(() => new MemoryStream(itemTemp.Image));
             }
+            ItemID.Text = itemTemp.Id;
             ItemName.Text = itemTemp.Name;
             ItemBrand.Text = itemTemp.Brand;
             ItemCat.Text = App.DbContext.GetById<CategoryModel, int>(itemTemp.CatId).OfType<CategoryModel>()
@@ -109,6 +111,7 @@ namespace Plutus.Pages.Inventory
             {
                 ItemImage.Source = ImageSource.FromStream(() => new MemoryStream(itemTemp.Image));
             }
+            ItemID.Text = itemTemp.Id;
             ItemName.Text = itemTemp.Name;
             ItemBrand.Text = itemTemp.Brand;
             ItemCat.Text = App.DbContext.GetById<CategoryModel, int>(itemTemp.CatId).OfType<CategoryModel>()

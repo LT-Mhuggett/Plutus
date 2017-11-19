@@ -4,6 +4,7 @@ using System.Linq;
 using HockeyApp.iOS;
 using Foundation;
 using UIKit;
+using Syncfusion.ListView.XForms.iOS;
 
 namespace Plutus.iOS
 {
@@ -23,7 +24,8 @@ namespace Plutus.iOS
 		public override bool FinishedLaunching(UIApplication app, NSDictionary options)
 		{
 			global::Xamarin.Forms.Forms.Init ();
-		    Xamarin.FormsMaps.Init();
+            SfListViewRenderer.Init();
+            Xamarin.FormsMaps.Init();
 		    ZXing.Net.Mobile.Forms.iOS.Platform.Init();
             var manager = BITHockeyManager.SharedHockeyManager;
             manager.Configure("3250123b05a54662b341241d21b1c1b1");

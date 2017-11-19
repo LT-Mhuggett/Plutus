@@ -113,8 +113,46 @@ namespace Plutus.Helpers
 
             var item1 = new ItemModel() { Id = "9781593072995", Name = "Sin City book 7", Brand = "Sin City", CatId = 2, VatId = 2, Price = 22.50m, Cost = 15.00m };
             Add(item1);
-            var item2 = new ItemModel() { Id = "699788109137", Name = "Arkham horror board game", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
+            var item2 = new ItemModel() { Id = "69978810954137", Name = "Arkham horror board game", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
             Add(item2);
+            var item3 = new ItemModel() { Id = "699788154309137", Name = "Arkham horror board game2", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
+            Add(item3);
+            var item4 = new ItemModel() { Id = "69978813409137", Name = "Arkham horror board game3", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
+            Add(item4);
+            var item5 = new ItemModel() { Id = "6997881019137", Name = "Arkham horror board game4", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
+            Add(item5);
+            var item6 = new ItemModel() { Id = "69978t8109137", Name = "Arkham horror board game5", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
+            Add(item6);
+            var item7 = new ItemModel() { Id = "6997881n09137", Name = "Arkham horror board game6", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
+            Add(item7);
+            var item8 = new ItemModel() { Id = "6997881b09137", Name = "Arkham horror board game7", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
+            Add(item8);
+            var item9 = new ItemModel() { Id = "699788v109137", Name = "Arkham horror board game8", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
+            Add(item9);
+            var item10 = new ItemModel() { Id = "699788vn109137", Name = "Arkham horror board game9", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
+            Add(item10);
+            var item11 = new ItemModel() { Id = "699788109137", Name = "Arkham horror board game10", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
+            Add(item11);
+            var item12 = new ItemModel() { Id = "699788109k137", Name = "Arkham horror board game11", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
+            Add(item12);
+            var item13 = new ItemModel() { Id = "69a9788109137", Name = "Arkham horror board game12", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
+            Add(item13);
+            var item14 = new ItemModel() { Id = "69978810k9k137", Name = "Arkham horror board game13", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
+            Add(item14);
+            var item15 = new ItemModel() { Id = "69a978j8109137", Name = "Arkham horror board game14", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
+            Add(item15);
+            var item16 = new ItemModel() { Id = "699788fg109k137", Name = "Arkham horror board game15", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
+            Add(item16);
+            var item17 = new ItemModel() { Id = "69a97881091kj37", Name = "Arkham horror board game16", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
+            Add(item17);
+            var item18 = new ItemModel() { Id = "699788109k13hg7", Name = "Arkham horror board game17", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
+            Add(item18);
+            var item19 = new ItemModel() { Id = "69a9788109137ui", Name = "Arkham horror board game18", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
+            Add(item19);
+            var item20 = new ItemModel() { Id = "699788109k13sdfs7", Name = "Arkham horror board game19", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
+            Add(item20);
+            var item21 = new ItemModel() { Id = "69a978810913fdgg7", Name = "Arkham horror board game20", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
+            Add(item21);
             _db.SaveChanges();
         }
 
