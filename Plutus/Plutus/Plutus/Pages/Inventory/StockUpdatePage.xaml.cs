@@ -81,7 +81,11 @@ namespace Plutus.Pages.Inventory
                 Confirm.IsEnabled = false;
             }
             else
+            {
+                var item = App.DbContext.GetById<ItemModel, string>(Id.Text).OfType<ItemModel>().First();
+                ResultName.Text = item.Name;
                 Confirm.IsEnabled = true;
+            }
         }
 
         /// <summary>

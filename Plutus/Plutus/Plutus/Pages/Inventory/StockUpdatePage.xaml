@@ -10,6 +10,7 @@
             <Entry x:Name="Id" Completed="Id_Completed" />
             <Button x:Name="EnterButt" Text="Search" Clicked="EnterButt_Clicked" />
             <Button x:Name="ScanButt" Text="Scan" Clicked="ScanButt_Clicked" />
+            <Label x:Name="ResultName" HorizontalOptions="FillAndExpand"/>
             <Label Text="{i18N:Translate QuantityAdd}" HorizontalOptions="FillAndExpand" />
             <Entry x:Name="Quantity" Keyboard="Numeric"/>
             <Button x:Name="Confirm" Text="{i18N:Translate Confirm}" Clicked="Confirm_Clicked" IsEnabled="False" />
