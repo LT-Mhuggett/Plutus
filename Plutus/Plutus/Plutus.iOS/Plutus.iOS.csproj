@@ -62,7 +62,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <ConsolePause>false</ConsolePause>
-    <MtouchArch>ARMv7, ARM64</MtouchArch>
+    <MtouchArch>ARMv7s, ARM64</MtouchArch>
     <CodesignKey>iPhone Developer</CodesignKey>
     <MtouchDebug>true</MtouchDebug>
     <CodesignEntitlements>Entitlements.plist</CodesignEntitlements>
@@ -73,6 +73,7 @@
     <MtouchFastDev>false</MtouchFastDev>
     <MtouchFloat32>false</MtouchFloat32>
     <MtouchNoSymbolStrip>true</MtouchNoSymbolStrip>
+    <DeviceSpecificBuild>false</DeviceSpecificBuild>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|iPhone' ">
     <DebugType>none</DebugType>
@@ -157,35 +158,32 @@
     <Reference Include="Acr.UserDialogs.Interface, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\..\packages\Acr.UserDialogs.6.3.8\lib\Xamarin.iOS10\Acr.UserDialogs.Interface.dll</HintPath>
     </Reference>
-    <Reference Include="cloudrail-si-xamarin-ios-sdk">
-      <HintPath>..\..\Components\universalapi-1.0.0\lib\ios-unified\cloudrail-si-xamarin-ios-sdk.dll</HintPath>
-    </Reference>
     <Reference Include="Dropbox.Api, Version=4.0.0.0, Culture=neutral, PublicKeyToken=310f0e82fbb45d01, processorArchitecture=MSIL">
       <HintPath>..\..\packages\Dropbox.Api.4.3.1\lib\portable-net40+sl5+wp80+win8+wpa81\Dropbox.Api.dll</HintPath>
     </Reference>
-    <Reference Include="HockeySDK, Version=1.0.6387.33442, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\HockeySDK.Xamarin.4.1.5\lib\Xamarin.iOS10\HockeySDK.dll</HintPath>
+    <Reference Include="HockeySDK, Version=1.0.6478.33162, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\HockeySDK.Xamarin.5.0.0\lib\Xamarin.iOS10\HockeySDK.dll</HintPath>
     </Reference>
     <Reference Include="HockeySDK.iOSBindings, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\HockeySDK.Xamarin.4.1.5\lib\Xamarin.iOS10\HockeySDK.iOSBindings.dll</HintPath>
+      <HintPath>..\..\packages\HockeySDK.Xamarin.5.0.0\lib\Xamarin.iOS10\HockeySDK.iOSBindings.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Azure.Mobile, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Microsoft.Azure.Mobile.0.15.0\lib\Xamarin.iOS10\Microsoft.Azure.Mobile.dll</HintPath>
+      <HintPath>..\..\packages\Microsoft.Azure.Mobile.0.17.1\lib\Xamarin.iOS10\Microsoft.Azure.Mobile.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Azure.Mobile.Analytics, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Microsoft.Azure.Mobile.Analytics.0.15.0\lib\Xamarin.iOS10\Microsoft.Azure.Mobile.Analytics.dll</HintPath>
+      <HintPath>..\..\packages\Microsoft.Azure.Mobile.Analytics.0.17.1\lib\Xamarin.iOS10\Microsoft.Azure.Mobile.Analytics.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Azure.Mobile.Analytics.iOS.Bindings, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Microsoft.Azure.Mobile.Analytics.0.15.0\lib\Xamarin.iOS10\Microsoft.Azure.Mobile.Analytics.iOS.Bindings.dll</HintPath>
+      <HintPath>..\..\packages\Microsoft.Azure.Mobile.Analytics.0.17.1\lib\Xamarin.iOS10\Microsoft.Azure.Mobile.Analytics.iOS.Bindings.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Azure.Mobile.Crashes, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Microsoft.Azure.Mobile.Crashes.0.15.0\lib\Xamarin.iOS10\Microsoft.Azure.Mobile.Crashes.dll</HintPath>
+      <HintPath>..\..\packages\Microsoft.Azure.Mobile.Crashes.0.17.1\lib\Xamarin.iOS10\Microsoft.Azure.Mobile.Crashes.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Azure.Mobile.Crashes.iOS.Bindings, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Microsoft.Azure.Mobile.Crashes.0.15.0\lib\Xamarin.iOS10\Microsoft.Azure.Mobile.Crashes.iOS.Bindings.dll</HintPath>
+      <HintPath>..\..\packages\Microsoft.Azure.Mobile.Crashes.0.17.1\lib\Xamarin.iOS10\Microsoft.Azure.Mobile.Crashes.iOS.Bindings.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Azure.Mobile.iOS.Bindings, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Microsoft.Azure.Mobile.0.15.0\lib\Xamarin.iOS10\Microsoft.Azure.Mobile.iOS.Bindings.dll</HintPath>
+      <HintPath>..\..\packages\Microsoft.Azure.Mobile.0.17.1\lib\Xamarin.iOS10\Microsoft.Azure.Mobile.iOS.Bindings.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="Microsoft.Data.Sqlite, Version=1.1.1.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
@@ -244,18 +242,6 @@
     </Reference>
     <Reference Include="Plugin.Media.Abstractions, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\..\packages\Xam.Plugin.Media.3.0.1\lib\Xamarin.iOS10\Plugin.Media.Abstractions.dll</HintPath>
-    </Reference>
-    <Reference Include="Plugin.MediaManager, Version=0.4.3.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Plugin.MediaManager.0.4.3\lib\Xamarin.iOS10\Plugin.MediaManager.dll</HintPath>
-    </Reference>
-    <Reference Include="Plugin.MediaManager.Abstractions, Version=0.4.3.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Plugin.MediaManager.0.4.3\lib\Xamarin.iOS10\Plugin.MediaManager.Abstractions.dll</HintPath>
-    </Reference>
-    <Reference Include="Plugin.MediaManager.Forms, Version=0.4.3.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Plugin.MediaManager.Forms.0.4.3\lib\xamarinios\Plugin.MediaManager.Forms.dll</HintPath>
-    </Reference>
-    <Reference Include="Plugin.MediaManager.Forms.iOS, Version=0.4.3.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Plugin.MediaManager.Forms.0.4.3\lib\xamarinios\Plugin.MediaManager.Forms.iOS.dll</HintPath>
     </Reference>
     <Reference Include="Plugin.Permissions, Version=2.0.1.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\..\packages\Plugin.Permissions.2.0.1\lib\Xamarin.iOS10\Plugin.Permissions.dll</HintPath>

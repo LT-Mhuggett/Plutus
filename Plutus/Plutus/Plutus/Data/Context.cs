@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Plutus.Models;
 using System.Reflection;

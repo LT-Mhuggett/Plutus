@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
-using System.Linq;
 using Plutus.Models;
 using Plutus.Helpers;
 using Xamarin.Forms;

@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using HockeyApp.iOS;
+﻿using HockeyApp.iOS;
 using Foundation;
 using UIKit;
 using Syncfusion.ListView.XForms.iOS;
@@ -12,7 +9,7 @@ namespace Plutus.iOS
 	// User Interface of the application, as well as listening (and optionally responding) to 
 	// application events from iOS.
 	[Register("AppDelegate")]
-	public partial class AppDelegate : global::Xamarin.Forms.Platform.iOS.FormsApplicationDelegate
+	public class AppDelegate : Xamarin.Forms.Platform.iOS.FormsApplicationDelegate
 	{
 		//
 		// This method is invoked when the application has loaded and is ready to run. In this 
@@ -27,10 +24,10 @@ namespace Plutus.iOS
             SfListViewRenderer.Init();
             Xamarin.FormsMaps.Init();
 		    ZXing.Net.Mobile.Forms.iOS.Platform.Init();
-            var manager = BITHockeyManager.SharedHockeyManager;
+           /* var manager = BITHockeyManager.SharedHockeyManager;
             manager.Configure("3250123b05a54662b341241d21b1c1b1");
-            manager.StartManager();
-            manager.Authenticator.AuthenticateInstallation(); // This line is obsolete in crash only builds
+            manager.StartManager();*/
+            //manager.Authenticator.AuthenticateInstallation(); // This line is obsolete in crash only builds
             LoadApplication (new Plutus.App ());
             return base.FinishedLaunching (app, options);
 		}

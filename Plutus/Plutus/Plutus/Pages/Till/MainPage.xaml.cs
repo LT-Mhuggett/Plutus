@@ -5,7 +5,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using Plugin.MediaManager;
 using Plutus.Models;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;

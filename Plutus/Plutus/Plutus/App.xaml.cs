@@ -38,7 +38,7 @@ namespace Plutus
 		    InitializeComponent();
 
             //refresh all app files without data wipe or app delete
-            //File.Delete(Path.Combine(FileIO.GetLib(), "App.config"));
+            File.Delete(Path.Combine(FileIO.GetLib(), "App.config"));
             //File.Delete(Path.Combine(FileIO.GetLib(), "Database.db"));
 
 #if __ANDROID__ || __IOS__
