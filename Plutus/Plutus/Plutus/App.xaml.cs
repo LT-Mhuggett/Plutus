@@ -15,6 +15,8 @@ using Microsoft.Azure.Mobile.Analytics;
 using Microsoft.Azure.Mobile.Crashes;
 using System.Reflection;
 using System.Diagnostics;
+using Device = Xamarin.Forms.Device;
+
 #if __ANDROID__ || __IOS__
 
 #else
@@ -32,13 +34,20 @@ namespace Plutus
         internal static TranslateExtension Translate = new TranslateExtension();
         internal static int TillAmmount;
         internal static string version;
+        internal static DateTime CurrentDateTime { get; set; }
 
         public App ()
 		{
 		    InitializeComponent();
-
+            
+		    Device.StartTimer(TimeSpan.FromSeconds(1), () =>
+		    {
+		        CurrentDateTime = DateTime.Now;
+		        return true;
+		    });
+            
             //refresh all app files without data wipe or app delete
-            File.Delete(Path.Combine(FileIO.GetLib(), "App.config"));
+            //File.Delete(Path.Combine(FileIO.GetLib(), "App.config"));
             //File.Delete(Path.Combine(FileIO.GetLib(), "Database.db"));
 
 #if __ANDROID__ || __IOS__
@@ -59,7 +68,7 @@ namespace Plutus
             DbContext = new Database();
         }
 
-		protected override void OnStart ()
+	    protected override void OnStart ()
 		{
             MobileCenter.Start("uwp=6203c60a-2c30-49c5-a80f-fa96367529e7;" +
                    "android=e4899b2e-f595-4bf7-ab33-e173c89fb21f" +

@@ -16,18 +16,37 @@ namespace Plutus.Pages.CustomPages
 
         public string InputResult { get; set; }
 
-		public InputAlert (string TitleText, string PlaceholderText, string ConfirmButText, string ValidationText)
+		public InputAlert (string titleText, string placeholderText, string confirmButText, string validationText, bool cash, decimal toPay)
 		{
 			InitializeComponent ();
 
-            TitleL.Text = TitleText;
-            InputE.Placeholder = PlaceholderText;
-            ConfirmBut.Text = ConfirmButText;
-            ValidationL.Text = ValidationText;
-
+            TitleL.Text = titleText;
+            InputE.Placeholder = placeholderText;
+            ConfirmBut.Text = confirmButText;
+            ValidationL.Text = validationText;
+		    if (cash)
+		        CashOptions.IsVisible = true;
+		    else
+		    {
+		        PayExact.CommandParameter = toPay;
+		        PayExact.Clicked += PayExact_Clicked;
+		        PayExact.Text = App.Translate.ProvideValue("PayFull");
+                PayExact.IsVisible = true;
+            }
             ConfirmBut.Clicked += ConfirmBut_Clicked;
             InputE.TextChanged += InputE_TextChanged;
 		}
+
+	    private async Task Value_Clicked(object sender, EventArgs e)
+	    {
+	        var value = await Helpers.Conversions.ToDecimal(InputE.Text == "" ? "0" : InputE.Text,
+	                        App.Translate.ProvideValue("EnterCorrectValue")) ?? await Helpers.Conversions.ToDecimal(
+	                        ((Button) sender).CommandParameter.ToString(),
+	                        App.Translate.ProvideValue("EnterCorrectValue"));
+	        value += await Helpers.Conversions.ToDecimal(((Button) sender).CommandParameter.ToString(),
+	            App.Translate.ProvideValue("EnterCorrectValue"));
+            InputE.Text = value.ToString();
+	    }
 
         private void InputE_TextChanged(object sender, TextChangedEventArgs e)
         {
@@ -39,7 +58,13 @@ namespace Plutus.Pages.CustomPages
             ConfirmButtonEHandler?.Invoke(this, e);
         }
 
-        public static readonly BindableProperty IsValidationLVisibleProp = BindableProperty.Create(
+	    private void PayExact_Clicked(object sender, EventArgs e)
+	    {
+	        InputE.Text = ((Button) sender).CommandParameter.ToString();
+	        ConfirmButtonEHandler?.Invoke(this, e);
+	    }
+
+	    private static readonly BindableProperty IsValidationLVisibleProp = BindableProperty.Create(
             nameof(IsValidationLVisibleProp),
             typeof(bool),
             typeof(InputAlert),
@@ -61,14 +86,8 @@ namespace Plutus.Pages.CustomPages
 
         public bool IsValidationLVisable
         {
-            get
-            {
-                return (bool)GetValue(IsValidationLVisibleProp);
-            }
-            set
-            {
-                SetValue(IsValidationLVisibleProp, value);
-            }
+            get => (bool)GetValue(IsValidationLVisibleProp);
+            set => SetValue(IsValidationLVisibleProp, value);
         }
     }
 }

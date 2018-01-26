@@ -46,5 +46,21 @@ namespace Plutus.Helpers
                 return null;
             }
         }
+
+        internal static T ToModel<T>(object o) where T : class
+        {
+            if (o is T)
+            {
+                return (T) o;
+            }
+            try
+            {
+                return (T) Convert.ChangeType(o, typeof(T));
+            }
+            catch(InvalidCastException)
+            {
+                return default(T);
+            }
+        }
     }
 }

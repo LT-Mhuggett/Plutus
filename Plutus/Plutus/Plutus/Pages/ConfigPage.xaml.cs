@@ -52,6 +52,7 @@ namespace Plutus.Pages
             {
                 StoreName = !String.IsNullOrEmpty(StoreName.Text) ? StoreName.Text : null,
                 StoreAbbr = !String.IsNullOrEmpty(StoreAbbr.Text) ? StoreAbbr.Text : null,
+                RecMarkup = !String.IsNullOrEmpty(StoreRM.Text) ? (decimal?)await Conversions.ToInterger(StoreRM.Text, App.Translate.ProvideValue("RecMarkupError")) / 100 + 1 : null,
                 AdLine1 = AutoLayoutS.IsVisible ? null : !String.IsNullOrEmpty(StoreAdLine1.Text) ? StoreAdLine1.Text : null,
                 AdLine2 = AutoLayoutS.IsVisible ? null : StoreAdLine2.Text,
                 City = AutoLayoutS.IsVisible ? null : !String.IsNullOrEmpty(StoreCity.Text) ? StoreCity.Text : null,
@@ -59,7 +60,7 @@ namespace Plutus.Pages
                 PostCode = AutoLayoutS.IsVisible ? null : Validate.IsPostCodeValid(StorePostCode.Text) ? StorePostCode.Text : null,
                 FullAddress = AutoLayoutS.IsVisible ? StoreAddressPicker.SelectedIndex < 0 ? null : StoreAddressPicker.SelectedItem.ToString() : null
             };
-            if (store.StoreName == null || store.StoreAbbr == null || store.FullAddress == null && store.AdLine1 == null)
+            if (store.StoreName == null || store.StoreAbbr == null || store.RecMarkup == null || store.FullAddress == null && store.AdLine1 == null)
             {
                 Loading.TogleLoading(LCV, LAI);
                 Error(0);
@@ -132,6 +133,7 @@ namespace Plutus.Pages
             }
             if (DatabasePicker.SelectedIndex == 0)
             {
+                App.Store = store;
                 App.DbContext.Init();
                 App.DbContext.Add(store);
                 emp.StoreId = store.Id;

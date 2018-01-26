@@ -1,17 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Diagnostics;
 using System.Linq;
-using System.Threading.Tasks;
 using Plutus.Models;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 using Plutus.Helpers;
 using ZXing.Net.Mobile.Forms;
 using ZXing.Mobile;
-using System.IO;
+using Microsoft.EntityFrameworkCore;
 
 namespace Plutus.Pages.Till
 {
@@ -19,11 +16,11 @@ namespace Plutus.Pages.Till
     public partial class MainPage : ContentPage
     {
         public ObservableCollection<Basket> Basket { get; set; }
-        public static Dictionary<int, ObservableCollection<Basket>> StoredTrans { get; set; }
-        public ItemModel BagItem { get; set; }
+        public static Dictionary<int, ObservableCollection<Basket>> StoredTrans { get; private set; }
+        private ItemModel BagItem { get; }
         private ZXingScannerPage _scanPage;
-        private int CountBasketNum { get; set; }
-        internal static MainPage Instance { get; set; }
+        private int _countBasketNum { get; set; }
+        internal static MainPage Instance { get; private set; }
 
         /// <summary>
         /// Basic constructor for MainPage[Till]
@@ -58,7 +55,8 @@ namespace Plutus.Pages.Till
             BagItem = tempIList.First();
             Bag.Text = BagItem.Name;
             Bag.IsVisible = true;
-            CountBasketNum = 1;
+            
+            _countBasketNum = 1;
             Instance = this;
         }
 
@@ -76,12 +74,14 @@ namespace Plutus.Pages.Till
             {
                 if (App.EmpsLogged.Count > 1)
                     await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("AuthDeniedMesg"), App.Translate.ProvideValue("OK"));
-                Action action = async () =>
+
+                async void Action()
                 {
                     await Navigation.PushModalAsync(new Inventory.ItemTemplate(temp));
-                    ((ListView)sender).SelectedItem = null;
-                };
-                Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Item", "V", Basket.Where(item => item.Return.Equals(true)).Sum(item => item.Price * item.Amount), action);
+                    ((ListView) sender).SelectedItem = null;
+                }
+
+                Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Item", "V", Basket.Where(item => item.Return.Equals(true)).Sum(item => item.Price * item.Amount), Action);
             }
             else
             {
@@ -97,7 +97,7 @@ namespace Plutus.Pages.Till
         /// <param name="item">Item thats to be removed</param>
         private void Remove(Basket item)
         {
-            for(int i = 0; i <= Basket.Count - 1; i++)
+            for(var i = 0; i <= Basket.Count - 1; i++)
             {
                 if (Basket[i].Id == item.Id && Basket[i].Return == item.Return && Basket[i].SaleId == item.SaleId)
                 {
@@ -127,16 +127,15 @@ namespace Plutus.Pages.Till
         private void OnRemove1(object sender, EventArgs e)
         {
             var menuItem = (Basket)((MenuItem)sender).CommandParameter;
-            for (int i = 0; i <= Basket.Count - 1; i++)
+            for (var i = 0; i <= Basket.Count - 1; i++)
             {
-                if (Basket[i].Id == menuItem.Id && Basket[i].Return == menuItem.Return && Basket[i].SaleId == menuItem.SaleId)
-                {
-                    Basket[i].Amount--;
-                    if (Basket[i].Amount == 0)
-                        Basket.RemoveAt(i);
-                    else
-                        UpdatePrice();
-                }
+                if (Basket[i].Id != menuItem.Id || Basket[i].Return != menuItem.Return ||
+                    Basket[i].SaleId != menuItem.SaleId) continue;
+                Basket[i].Amount--;
+                if (Basket[i].Amount == 0)
+                    Basket.RemoveAt(i);
+                else
+                    UpdatePrice();
             }
         }
 
@@ -159,7 +158,7 @@ namespace Plutus.Pages.Till
             {
                 Device.BeginInvokeOnMainThread(() =>
                 {
-                    var tempIList = App.DbContext.Search(result.Text).ToList();
+                    var tempIList = FindItem(result.Text);
                     if (tempIList.Count != 1) return;
                     var tempI = new Basket(tempIList.First());
                     BasketAdd(tempI);
@@ -172,12 +171,13 @@ namespace Plutus.Pages.Till
         /// <summary>
         /// Calculate Price, ExVat Price and display
         /// </summary>
-        public void UpdatePrice()
+        private void UpdatePrice()
         {
-            var price = Basket.Sum(item => item.Price * item.Amount);
-            PriceCell.Text = price.ToString();
-            var ExPrice = Basket.Sum(item => (item.Price * (1.0m - (decimal)(item.Vat.Rate - 1)) * item.Amount));
-            PriceExVCell.Text = Math.Round(ExPrice, 2, MidpointRounding.AwayFromZero).ToString();
+            var price = Basket.Sum(item => (item.Price * item.Amount));
+                PriceCell.Text = Math.Round(price, 2, MidpointRounding.AwayFromZero).ToString();
+            var exPrice = Basket.Sum(item =>
+                item.ExPrice * item.Amount);
+            PriceExVCell.Text = Math.Round(exPrice, 2, MidpointRounding.AwayFromZero).ToString();
         }
 
         /// <summary>
@@ -210,11 +210,12 @@ namespace Plutus.Pages.Till
                 return;
             }
 
-            Action action = () =>
+            void Action()
             {
                 GenTransaction();
-            };
-            Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Till", "X", action);            
+            }
+
+            Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Till", "X", Action);            
         }
         
         /// <summary>
@@ -238,137 +239,176 @@ namespace Plutus.Pages.Till
             VerifyId.IsVisible = false;
             MPage.IsEnabled = true;
 
-            decimal Total = 0.0m;
-            decimal Change = 0.0m;
+            var total = 0.0m;
+            var change = 0.0m;
 
             //GetCustomer Data here
 
-            SaleModel Sale = new SaleModel() { DateOfSale = DateTime.Now, Total = Total, EmployeeId = App.LastAuthUser.Id };
-            Sale.PaySales = new List<PaymentMethod_SaleModel>();
-            Sale.Notes = new List<Notes_SaleModel>();
-
-            if (Basket.Where(item => item.Return.Equals(false)).Count() == 0)
+            var sale = new SaleModel
             {
-                //add discount for when only a refund is being processed for the paymentcharge amount
-            }
-            else
-            {
-                Total = Basket.Sum(item => item.Price * item.Amount);
-                for (decimal paid = 0.0m; paid < Total;)
-                {
-                    string Action = null;
-                    Action = await DisplayActionSheet(App.Translate.ProvideValue("PayMeth"), App.Translate.ProvideValue("Cancel"), null, App.Translate.ProvideValue("Card"), App.Translate.ProvideValue("Cash"));
+                DateOfSale = DateTime.Now,
+                Total = total,
+                EmployeeId = App.LastAuthUser.Id,
+                PaySales = new List<PaymentMethod_SaleModel>(),
+                Notes = new List<Notes_SaleModel>()
+            };
 
-                    if (Action == App.Translate.ProvideValue("Cancel"))
-                    {
-                        App.DbContext.RevertDbContextChanges();
-                        return;
-                    }
-
-                    PaymentMethod_SaleModel pay = new PaymentMethod_SaleModel() { PayMethod = actionDic[Action]() };
-
-                    if (pay.PayMethod.MinimumCharge > Total)
-                    {
-                        Total += pay.PayMethod.Charge;
-                        NoteModel note = App.DbContext.GetNote(string.Format(App.Translate.ProvideValue("CardChargeNote"), pay.PayMethod.Charge));
-                        if (note == null)
-                        {
-                            note = new NoteModel() { Note = string.Format(App.Translate.ProvideValue("CardChargeNote"), pay.PayMethod.Charge) };
-                            App.DbContext.Add(note);
-                        }
-                        Notes_SaleModel NotesSale = new Notes_SaleModel() { Note = note };
-                        App.DbContext.Add(NotesSale);
-                        Sale.Notes.Add(NotesSale);
-                    }
-
-                    var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(string.Format(App.Translate.ProvideValue("HowMuchPM"), Action, (Total-paid).ToString()), "enter here", "confrim", "shit");
-
-                    pay.Amount = amount;
-
-                    paid += amount;
-
-                    if (paid > Total)
-                    {
-                        if (pay.PayMethod.IsChangeable)
-                        {
-                            Change = paid - Total;
-                        }
-                        else
-                        {
-                            paid -= amount;
-                            continue;
-                        }
-                    }
-                    App.DbContext.Add(pay);
-                    Sale.PaySales.Add(pay);
-                }
-                Sale.Total = Total;
-            }
+            var refundOnly = !Basket.Any(item => item.Return.Equals(false));
             
-            foreach (var pay in Sale.PaySales)
+            var discountAmount = 0.0m;
+            var discountsUsed = new List<DiscountModel>();
+
+            foreach (var item in Basket)
             {
-                if (pay.PayMethod.IsCashBackable)
+                var disItems = new List<Discount_Item>();
+                var disCats = new List<Discount_Category>();
+
+                for (var i = 0; i < (item.DisItems?.Count ?? 0); i++)
+                    if (item.DisItems[i].StartDateTime < App.CurrentDateTime &&
+                        item.DisItems[i].EndDateTime > App.CurrentDateTime)
+                        disItems.Add(item.DisItems[i]);
+
+                for (var i = 0; i < (item.Cat.DisCats?.Count ?? 0); i++)
+                    if (item.Cat.DisCats[i].StartDateTime < App.CurrentDateTime &&
+                        item.Cat.DisCats[i].EndDateTime > App.CurrentDateTime)
+                        disCats.Add(item.Cat.DisCats[i]);
+
+                if (disItems.Count == 1)
                 {
-                    var Cashback = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("CashBack_"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
-                    if (Cashback)
+                    discountsUsed.Add(disItems.Last().Discount);
+                }
+                if (disCats.Count == 1)
+                {
+                    discountsUsed.Add(disCats.Last().Discount);
+                }
+
+                if (discountsUsed.Last().UsesPerTransaction != -1)
+                    discountsUsed.Last().UsesPerTransaction -=
+                        discountsUsed.Last().UsesPerTransaction <
+                        (item.Amount / discountsUsed.Last().RequiredNumOfItems)
+                            ? discountsUsed.Last().UsesPerTransaction
+                            : (item.Amount / discountsUsed.Last().RequiredNumOfItems);
+
+                discountAmount -= -discountsUsed.Last().Type == 0
+                    ? (item.Amount / discountsUsed.Last().RequiredNumOfItems) * discountsUsed.Last().Amount
+                    : (item.Amount / discountsUsed.Last().RequiredNumOfItems) * discountsUsed.Last().Amount *
+                      item.Price;
+            }
+
+            total = Basket.Sum(item => (item.Price * item.Amount)) + discountAmount;
+
+            for (var paid = 0.0m; paid < total;)
+            {
+                var action = await DisplayActionSheet(App.Translate.ProvideValue("PayMeth"), App.Translate.ProvideValue("Cancel"), null, App.Translate.ProvideValue("Card"), App.Translate.ProvideValue("Cash"));
+
+                if (action == App.Translate.ProvideValue("Cancel"))
+                {
+                    App.DbContext.RevertDbContextChanges();
+                    return;
+                }
+
+                var pay = new PaymentMethod_SaleModel() { PayMethod = actionDic[action]() };
+
+                if (pay.PayMethod.MinimumCharge > total || refundOnly)
+                {
+                    total += pay.PayMethod.Charge;
+                    var note = App.DbContext.GetNote(string.Format(App.Translate.ProvideValue("CardChargeNote"), pay.PayMethod.Charge));
+                    if (note == null)
                     {
-                        var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(App.Translate.ProvideValue("HowMuchCB"), "enter here", "confrim", "shit");
-                        if (amount > 0.01m)
-                        {
-                            NoteModel CB = App.DbContext.GetNote(string.Format(App.Translate.ProvideValue("CBNote"), amount));
-                            if(CB == null)
-                            {
-                                CB = new NoteModel { Note = string.Format(App.Translate.ProvideValue("CBNote"), amount) };
-                                App.DbContext.Add(CB);
-                            }
-                            Notes_SaleModel CBNSale = new Notes_SaleModel { Note = CB };
-                            App.DbContext.Add(CBNSale);
-                            Sale.Notes.Add(CBNSale);
-                            Change += amount;
-                            Total += amount;
-                        }
+                        note = new NoteModel() { Note = string.Format(App.Translate.ProvideValue("CardChargeNote"), pay.PayMethod.Charge) };
+                        App.DbContext.Add(note);
                     }
-                    break;
+                    var notesSale = new Notes_SaleModel() { Note = note };
+                    App.DbContext.Add(notesSale);
+                    sale.Notes.Add(notesSale);
+                }
+
+                var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                    string.Format(App.Translate.ProvideValue(refundOnly ? "HowMuchRefund" : "HowMuchPM"), action,
+                        Math.Round(total - paid, 2, MidpointRounding.AwayFromZero).ToString()), "enter here", "Confrim",
+                    App.Translate.ProvideValue("EnterCorrectValue"), total - paid, !pay.PayMethod.IsCashBackable);
+
+                pay.Amount = amount;
+
+                paid += amount;
+
+                if (paid > total)
+                {
+                    if (pay.PayMethod.IsChangeable)
+                    {
+                        change = paid - total;
+                    }
+                    else
+                    {
+                        paid -= amount;
+                        continue;
+                    }
+                }
+                App.DbContext.Add(pay);
+                sale.PaySales.Add(pay);
+            }
+            sale.Total = total;
+
+            if (sale.PaySales.Any(pay => pay.PayMethod.IsCashBackable))
+            {
+                var cashback = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("CashBack_"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
+                if (cashback)
+                {
+                    var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(App.Translate.ProvideValue("HowMuchCB"), "enter here", "Confrim", App.Translate.ProvideValue("EnterCorrectValue"));
+                    if (amount > 0.01m)
+                    {
+                        var cB = App.DbContext.GetNote(string.Format(App.Translate.ProvideValue("CBNote"), amount));
+                        if(cB == null)
+                        {
+                            cB = new NoteModel { Note = string.Format(App.Translate.ProvideValue("CBNote"), amount) };
+                            App.DbContext.Add(cB);
+                        }
+                        var cBNSale = new Notes_SaleModel { Note = cB };
+                        App.DbContext.Add(cBNSale);
+                        sale.Notes.Add(cBNSale);
+                        change += amount;
+                        total += amount;
+                    }
                 }
             }
 
-            var Continue = await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("Continue"), Total), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
+            var Continue = await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("Continue"), total), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
             if (!Continue)
             {
                 App.DbContext.RevertDbContextChanges();
                 return;
             }
 
-            Sale.Transactions = new List<TransactionModel>();
-            Sale.Refunds = new List<RefundModel>();
+            sale.Transactions = new List<TransactionModel>();
+            sale.Refunds = new List<RefundModel>();
 
             foreach (var item in Basket)
             {
-                ItemModel Item = new ItemModel(item);
+                var Item = new ItemModel(item);
                 if (item.Return)
                 {
-                    RefundModel Refund = new RefundModel() { ItemId = item.Id, Sale = Sale, SaleIdReturned = item.SaleId, Reason = item.Reason, Amount = item.Amount };
-                    Sale.Refunds.Add(Refund);
-                    App.DbContext.Add(Refund);
+                    var refund = new RefundModel() { ItemId = item.Id, Sale = sale, SaleIdReturned = item.SaleId, Reason = item.Reason, Amount = item.Amount };
+                    sale.Refunds.Add(refund);
+                    App.DbContext.Add(refund);
                 }
                 else
                 {
-                    TransactionModel Tran = new TransactionModel() { Item = Item, Sale = Sale, Amount = item.Amount };
-                    Sale.Transactions.Add(Tran);
-                    App.DbContext.Add(Tran);
+                    var tran = new TransactionModel() { Item = Item, Sale = sale, Amount = item.Amount };
+                    sale.Transactions.Add(tran);
+                    App.DbContext.Add(tran);
                 }
             }
 
-            if (Sale.Refunds.Count == 0)
-                FinaliseTransaction(Sale, Change);
+            if (sale.Refunds.Count == 0)
+                FinaliseTransaction(sale, change);
             else if(!Authorisation.IsAuthorised("Refund", "X", Basket.Where(item=>item.Return.Equals(true)).Sum(item=>item.Price*item.Amount), App.LastAuthUser))
             {
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("RefundLimitTooLow"), App.Translate.ProvideValue("OK"));
-                Action action = () => FinaliseTransaction(Sale, Change);
+                Action action = () => FinaliseTransaction(sale, change);
                 Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Refund", "X", Basket.Where(item => item.Return.Equals(true)).Sum(item => item.Price * item.Amount), action);
             }
             else
-                FinaliseTransaction(Sale, Change);
+                FinaliseTransaction(sale, change);
         }
 
         /// <summary>
@@ -390,10 +430,20 @@ namespace Plutus.Pages.Till
                 return;
             }
 
-            PDFCreator pdf = new PDFCreator(App.Store, null, Sale, cashBack);
+            var pdf = new PDFCreator(App.Store, null, Sale, cashBack);
             
             Basket.Clear();
             await DisplayAlert(App.Translate.ProvideValue("Transaction"), App.Translate.ProvideValue("TransConfMesg"), App.Translate.ProvideValue("OK"));
+        }
+
+        private List<ItemModel> FindItem(string needle)
+        {
+            return App.DbContext.Search(ManScan.Text)
+                .Include(i => i.DisItems)
+                    .ThenInclude(di=>di.Discount)
+                .Include(i => i.Cat.DisCats)
+                    .ThenInclude(dc => dc.Discount)
+                .ToList();
         }
 
         /// <summary>
@@ -404,8 +454,8 @@ namespace Plutus.Pages.Till
         /// <param name="e">Event that the object called</param>
         private async void ManScan_Completed(object sender, EventArgs e)
         {
-            var tempIList = App.DbContext.Search(ManScan.Text).ToList();
-            if (tempIList == null || tempIList.Count != 1)
+            var tempIList = FindItem(ManScan.Text);
+            if (tempIList.Count != 1)
             {
                 ManScan.Text = null;
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("ItemIdNotFoundMesg"), App.Translate.ProvideValue("OK"));
@@ -417,7 +467,6 @@ namespace Plutus.Pages.Till
             var tempI = new Basket(tempIList.First());
             tempIList.Clear();
             BasketAdd(tempI);
-            tempI = null;
         }
 
         /// <summary>
@@ -464,10 +513,10 @@ namespace Plutus.Pages.Till
         private void StoreTrans_Clicked(object sender, EventArgs e)
         {
             if (Basket.Count == 0) return;
-            StoredTrans.Add(CountBasketNum, new ObservableCollection<Basket>(Basket));
+            StoredTrans.Add(_countBasketNum, new ObservableCollection<Basket>(Basket));
             Basket.Clear();
             CheckStoreTransExist();
-            CountBasketNum++;
+            _countBasketNum++;
         }
 
         /// <summary>
@@ -575,7 +624,7 @@ namespace Plutus.Pages.Till
                         }
                     }
                 }
-                page.CountBasketNum--;
+                page._countBasketNum--;
                 page.CheckStoreTransExist();
             });
         }

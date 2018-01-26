@@ -29,7 +29,10 @@ namespace Plutus.Data
         public DbSet<Emp_AuthActions> EmpAuthActions { get; set; }
         public DbSet<NoteModel> Notes { get; set; }
         public DbSet<Notes_SaleModel> NotesSales { get; set; }
-
+        public DbSet<DiscountModel> Discounts { get; set; }
+        public DbSet<Discount_Item> DiscountItems { get; set; }
+        public DbSet<Discount_Category> DiscountCats { get; set; }
+        
         private readonly string _databasePath;
 
         public Context(string databasePath)
@@ -59,6 +62,23 @@ namespace Plutus.Data
             }
 
             //Relationships
+
+            modelBuilder.Entity<Discount_Item>()
+                .HasOne(di => di.Item)
+                .WithMany(i => i.DisItems);
+
+            modelBuilder.Entity<Discount_Category>()
+                .HasOne(dc => dc.Cat)
+                .WithMany(c => c.DisCats);
+
+            modelBuilder.Entity<DiscountModel>()
+                .HasMany(d => d.DisCategoryList)
+                .WithOne(dc => dc.Discount);
+
+            modelBuilder.Entity<DiscountModel>()
+                .HasMany(d => d.DisItemList)
+                .WithOne(di => di.Discount);
+
             modelBuilder.Entity<Notes_SaleModel>()
                 .HasKey(ns => new { ns.NoteId, ns.SaleId });
 
@@ -175,19 +195,17 @@ namespace Plutus.Data
                 var createdProperty = entityType.FindProperty("Created");
                 var createdByProperty = entityType.FindProperty("CreatedBy");
 
-                if (entry.State == EntityState.Modified || entry.State == EntityState.Added)
+                if (entry.State != EntityState.Modified && entry.State != EntityState.Added) continue;
+                switch (entry.State)
                 {
-                    if (entry.State == EntityState.Modified && (modifiedProperty != null || modifiedByProperty != null))
-                    {
+                    case EntityState.Modified when (modifiedProperty != null || modifiedByProperty != null):
                         entry.Property("Modified").CurrentValue = DateTime.Now;
                         entry.Property("ModifiedBy").CurrentValue = App.LastAuthUser == null ? "System" : App.LastAuthUser.FName + " " + App.LastAuthUser.LName;
-                    }
-
-                    if (entry.State == EntityState.Added && (createdProperty != null || createdByProperty != null))
-                    {
+                        break;
+                    case EntityState.Added when (createdProperty != null || createdByProperty != null):
                         entry.Property("Created").CurrentValue = DateTime.Now;
-                        entry.Property("CreatedBy").CurrentValue = App.LastAuthUser == null ? "System" : App.LastAuthUser.FName + " " + App.LastAuthUser.LName;
-                    }
+                        entry.Property("CreatedBy").CurrentValue = App.LastAuthUser.FName == null ? "System" : App.LastAuthUser.FName + " " + App.LastAuthUser.LName;
+                        break;
                 }
             }
         }

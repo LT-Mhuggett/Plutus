@@ -7,9 +7,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Plutus.Models.Interface;
 using System.Globalization;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace Plutus.Helpers
 {
@@ -63,6 +63,16 @@ namespace Plutus.Helpers
             }
         }
 
+        internal bool CheckIfChanged<T>(T obj) where T : class
+        {
+            return _db.Entry<T>(obj).State == EntityState.Modified;
+        }
+
+        internal void RevertDbContextChange(EntityEntry model)
+        {
+
+        }
+
         internal IQueryable<T> Get<T>() where T : class => _db.Set<T>();
 
         internal void Init()
@@ -95,64 +105,11 @@ namespace Plutus.Helpers
             Add(AuthAction8);
             var AuthAction9 = new AuthActions() { Name = "Admin" };
             Add(AuthAction9);
+            var AuthAction10 = new AuthActions() {Name = "Management"};
+            Add(AuthAction10);
 
-            //Will be removed as only applies to UK, User will have to add manually
-            var cat = new CategoryModel() { Name = "Customer Care", Description = "Items such as Bags etc." };
-            Add(cat);
-            var cat2 = new CategoryModel() { Name = "Book", Description = "Readable information" };
-            Add(cat2);
-            _db.SaveChanges();
-            var bag = new ItemModel() { Id = "BAG001", Name = "Bag", Desc = "Item to allow Customers to carry things", CatId = 1, VatId = 2, Price = .05m, Cost = 0.0m };
-            Add(bag);
+            tempData();
 
-            //There will be a more detailed setup page this temporay
-            var payM = new PaymentMethodModel() { Name = "Card", Charge = 0.5m, MinimumCharge = 5.0m, IsChangeable = false, IsCashBackable = true };
-            Add(payM);
-            var payM2 = new PaymentMethodModel() { Name = "Cash", Charge = 0.0m, MinimumCharge = 0.0m, IsChangeable = true, IsCashBackable = false };
-            Add(payM2);
-
-            var item1 = new ItemModel() { Id = "9781593072995", Name = "Sin City book 7", Brand = "Sin City", CatId = 2, VatId = 2, Price = 22.50m, Cost = 15.00m };
-            Add(item1);
-            var item2 = new ItemModel() { Id = "69978810954137", Name = "Arkham horror board game", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
-            Add(item2);
-            var item3 = new ItemModel() { Id = "699788154309137", Name = "Arkham horror board game2", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
-            Add(item3);
-            var item4 = new ItemModel() { Id = "69978813409137", Name = "Arkham horror board game3", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
-            Add(item4);
-            var item5 = new ItemModel() { Id = "6997881019137", Name = "Arkham horror board game4", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
-            Add(item5);
-            var item6 = new ItemModel() { Id = "69978t8109137", Name = "Arkham horror board game5", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
-            Add(item6);
-            var item7 = new ItemModel() { Id = "6997881n09137", Name = "Arkham horror board game6", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
-            Add(item7);
-            var item8 = new ItemModel() { Id = "6997881b09137", Name = "Arkham horror board game7", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
-            Add(item8);
-            var item9 = new ItemModel() { Id = "699788v109137", Name = "Arkham horror board game8", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
-            Add(item9);
-            var item10 = new ItemModel() { Id = "699788vn109137", Name = "Arkham horror board game9", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
-            Add(item10);
-            var item11 = new ItemModel() { Id = "699788109137", Name = "Arkham horror board game10", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
-            Add(item11);
-            var item12 = new ItemModel() { Id = "699788109k137", Name = "Arkham horror board game11", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
-            Add(item12);
-            var item13 = new ItemModel() { Id = "69a9788109137", Name = "Arkham horror board game12", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
-            Add(item13);
-            var item14 = new ItemModel() { Id = "69978810k9k137", Name = "Arkham horror board game13", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
-            Add(item14);
-            var item15 = new ItemModel() { Id = "69a978j8109137", Name = "Arkham horror board game14", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
-            Add(item15);
-            var item16 = new ItemModel() { Id = "699788fg109k137", Name = "Arkham horror board game15", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
-            Add(item16);
-            var item17 = new ItemModel() { Id = "69a97881091kj37", Name = "Arkham horror board game16", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
-            Add(item17);
-            var item18 = new ItemModel() { Id = "699788109k13hg7", Name = "Arkham horror board game17", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
-            Add(item18);
-            var item19 = new ItemModel() { Id = "69a9788109137ui", Name = "Arkham horror board game18", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
-            Add(item19);
-            var item20 = new ItemModel() { Id = "699788109k13sdfs7", Name = "Arkham horror board game19", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
-            Add(item20);
-            var item21 = new ItemModel() { Id = "69a978810913fdgg7", Name = "Arkham horror board game20", Brand = "Batman", CatId = 2, VatId = 2, Price = 49.99m, Cost = 30.00m };
-            Add(item21);
             _db.SaveChanges();
         }
 
@@ -222,8 +179,7 @@ namespace Plutus.Helpers
                 .Where(t => t.SaleId.Equals(saleId) && t.ItemId.Equals(itemId));
 
         internal NoteModel GetNote(string noteTemp) => Get<NoteModel>()
-            .Where(n => n.Note.Equals(noteTemp))
-            .FirstOrDefault();
+            .FirstOrDefault(n => n.Note.Equals(noteTemp));
 
         internal IQueryable<ItemModel> GetAllItems() => Get<ItemModel>()
             .Include(i => i.Vat)
@@ -259,9 +215,288 @@ namespace Plutus.Helpers
             var emp = _db.Employees
                 .Include(e => e.EmpAuths)
                 .Include(e => e.Store)
-                .Where(e => e.Id.Equals(id))
-                .FirstOrDefault();
+                .FirstOrDefault(e => e.Id.Equals(id));
             return emp ?? null;
+        }
+
+        private void tempData()
+        {
+
+            //Will be removed as only applies to UK, User will have to add manually
+            var cat = new CategoryModel() { Name = "Customer Care", Description = "Items such as Bags etc." };
+            Add(cat);
+            var cat2 = new CategoryModel() { Name = "Book", Description = "Readable information" };
+            Add(cat2);
+            _db.SaveChanges();
+            var bag = new ItemModel() { Id = "BAG001", Name = "Bag", Desc = "Item to allow Customers to carry things", CatId = 1, VatId = 2, Price = .05m, Cost = 0.0m };
+            Add(bag);
+
+            //There will be a more detailed setup page this temporay
+            var payM = new PaymentMethodModel() { Name = "Card", Charge = 0.5m, MinimumCharge = 5.0m, IsChangeable = false, IsCashBackable = true };
+            Add(payM);
+            var payM2 = new PaymentMethodModel() { Name = "Cash", Charge = 0.0m, MinimumCharge = 0.0m, IsChangeable = true, IsCashBackable = false };
+            Add(payM2);
+
+            var item1 = new ItemModel()
+            {
+                Id = "9781593072995",
+                Name = "Sin City book 7",
+                Brand = "Sin City",
+                CatId = 2,
+                VatId = 2,
+                Price = 15.00m * App.Store.RecMarkup.GetValueOrDefault() * 1.2m,
+                Cost = 15.00m,
+                ExPrice = 15.00m * App.Store.RecMarkup.GetValueOrDefault()
+            };
+            Add(item1);
+            var item2 = new ItemModel()
+            {
+                Id = "69978810954137",
+                Name = "Arkham horror board game",
+                Brand = "Batman",
+                CatId = 2,
+                VatId = 2,
+                Price = 30.00m * App.Store.RecMarkup.GetValueOrDefault() * 1.2m,
+                Cost = 30.00m,
+                ExPrice = 30.00m * App.Store.RecMarkup.GetValueOrDefault()
+            };
+            Add(item2);
+            var item3 = new ItemModel()
+            {
+                Id = "699788154309137",
+                Name = "Arkham horror board game2",
+                Brand = "Batman",
+                CatId = 2,
+                VatId = 2,
+                Price = 30.00m * App.Store.RecMarkup.GetValueOrDefault() * 1.2m,
+                Cost = 30.00m,
+                ExPrice = 30.00m * App.Store.RecMarkup.GetValueOrDefault()
+            };
+            Add(item3);
+            var item4 = new ItemModel()
+            {
+                Id = "69978813409137",
+                Name = "Arkham horror board game3",
+                Brand = "Batman",
+                CatId = 2,
+                VatId = 2,
+                Price = 30.00m * App.Store.RecMarkup.GetValueOrDefault() * 1.2m,
+                Cost = 30.00m,
+                ExPrice = 30.00m * App.Store.RecMarkup.GetValueOrDefault()
+            };
+            Add(item4);
+            var item5 = new ItemModel()
+            {
+                Id = "6997881019137",
+                Name = "Arkham horror board game4",
+                Brand = "Batman",
+                CatId = 2,
+                VatId = 2,
+                Price = 30.00m * App.Store.RecMarkup.GetValueOrDefault() * 1.2m,
+                Cost = 30.00m,
+                ExPrice = 30.00m * App.Store.RecMarkup.GetValueOrDefault()
+            };
+            Add(item5);
+            var item6 = new ItemModel()
+            {
+                Id = "69978t8109137",
+                Name = "Arkham horror board game5",
+                Brand = "Batman",
+                CatId = 2,
+                VatId = 2,
+                Price = 30.00m * App.Store.RecMarkup.GetValueOrDefault() * 1.2m,
+                Cost = 30.00m,
+                ExPrice = 30.00m * App.Store.RecMarkup.GetValueOrDefault()
+            };
+            Add(item6);
+            var item7 = new ItemModel()
+            {
+                Id = "6997881n09137",
+                Name = "Arkham horror board game6",
+                Brand = "Batman",
+                CatId = 2,
+                VatId = 2,
+                Price = 30.00m * App.Store.RecMarkup.GetValueOrDefault() * 1.2m,
+                Cost = 30.00m,
+                ExPrice = 30.00m * App.Store.RecMarkup.GetValueOrDefault()
+            };
+            Add(item7);
+            var item8 = new ItemModel()
+            {
+                Id = "6997881b09137",
+                Name = "Arkham horror board game7",
+                Brand = "Batman",
+                CatId = 2,
+                VatId = 2,
+                Price = 30.00m * App.Store.RecMarkup.GetValueOrDefault() * 1.2m,
+                Cost = 30.00m,
+                ExPrice = 30.00m * App.Store.RecMarkup.GetValueOrDefault()
+            };
+            Add(item8);
+            var item9 = new ItemModel()
+            {
+                Id = "699788v109137",
+                Name = "Arkham horror board game8",
+                Brand = "Batman",
+                CatId = 2,
+                VatId = 2,
+                Price = 30.00m * App.Store.RecMarkup.GetValueOrDefault() * 1.2m,
+                Cost = 30.00m,
+                ExPrice = 30.00m * App.Store.RecMarkup.GetValueOrDefault()
+            };
+            Add(item9);
+            var item10 = new ItemModel()
+            {
+                Id = "699788vn109137",
+                Name = "Arkham horror board game9",
+                Brand = "Batman",
+                CatId = 2,
+                VatId = 2,
+                Price = 30.00m * App.Store.RecMarkup.GetValueOrDefault() * 1.2m,
+                Cost = 30.00m,
+                ExPrice = 30.00m * App.Store.RecMarkup.GetValueOrDefault()
+            };
+            Add(item10);
+            var item11 = new ItemModel()
+            {
+                Id = "699788109137",
+                Name = "Arkham horror board game10",
+                Brand = "Batman",
+                CatId = 2,
+                VatId = 2,
+                Price = 30.00m * App.Store.RecMarkup.GetValueOrDefault() * 1.2m,
+                Cost = 30.00m,
+                ExPrice = 30.00m * App.Store.RecMarkup.GetValueOrDefault()
+            };
+            Add(item11);
+            var item12 = new ItemModel()
+            {
+                Id = "699788109k137",
+                Name = "Arkham horror board game11",
+                Brand = "Batman",
+                CatId = 2,
+                VatId = 2,
+                Price = 30.00m * App.Store.RecMarkup.GetValueOrDefault() * 1.2m,
+                Cost = 30.00m,
+                ExPrice = 30.00m * App.Store.RecMarkup.GetValueOrDefault()
+            };
+            Add(item12);
+            var item13 = new ItemModel()
+            {
+                Id = "69a9788109137",
+                Name = "Arkham horror board game12",
+                Brand = "Batman",
+                CatId = 2,
+                VatId = 2,
+                Price = 30.00m * App.Store.RecMarkup.GetValueOrDefault() * 1.2m,
+                Cost = 30.00m,
+                ExPrice = 30.00m * App.Store.RecMarkup.GetValueOrDefault()
+            };
+            Add(item13);
+            var item14 = new ItemModel()
+            {
+                Id = "69978810k9k137",
+                Name = "Arkham horror board game13",
+                Brand = "Batman",
+                CatId = 2,
+                VatId = 2,
+                Price = 30.00m * App.Store.RecMarkup.GetValueOrDefault() * 1.2m,
+                Cost = 30.00m,
+                ExPrice = 30.00m * App.Store.RecMarkup.GetValueOrDefault()
+            };
+            Add(item14);
+            var item15 = new ItemModel()
+            {
+                Id = "69a978j8109137",
+                Name = "Arkham horror board game14",
+                Brand = "Batman",
+                CatId = 2,
+                VatId = 2,
+                Price = 30.00m * App.Store.RecMarkup.GetValueOrDefault() * 1.2m,
+                Cost = 30.00m,
+                ExPrice = 30.00m * App.Store.RecMarkup.GetValueOrDefault()
+            };
+            Add(item15);
+            var item16 = new ItemModel()
+            {
+                Id = "699788fg109k137",
+                Name = "Arkham horror board game15",
+                Brand = "Batman",
+                CatId = 2,
+                VatId = 2,
+                Price = 30.00m * App.Store.RecMarkup.GetValueOrDefault() * 1.2m,
+                Cost = 30.00m,
+                ExPrice = 30.00m * App.Store.RecMarkup.GetValueOrDefault()
+            };
+            Add(item16);
+            var item17 = new ItemModel()
+            {
+                Id = "69a97881091kj37",
+                Name = "Arkham horror board game16",
+                Brand = "Batman",
+                CatId = 2,
+                VatId = 2,
+                Price = 30.00m * App.Store.RecMarkup.GetValueOrDefault() * 1.2m,
+                Cost = 30.00m,
+                ExPrice = 30.00m * App.Store.RecMarkup.GetValueOrDefault()
+            };
+            Add(item17);
+            var item18 = new ItemModel()
+            {
+                Id = "699788109k13hg7",
+                Name = "Arkham horror board game17",
+                Brand = "Batman",
+                CatId = 2,
+                VatId = 2,
+                Price = 30.00m * App.Store.RecMarkup.GetValueOrDefault() * 1.2m,
+                Cost = 30.00m,
+                ExPrice = 30.00m * App.Store.RecMarkup.GetValueOrDefault()
+            };
+            Add(item18);
+            var item19 = new ItemModel()
+            {
+                Id = "69a9788109137ui",
+                Name = "Arkham horror board game18",
+                Brand = "Batman",
+                CatId = 2,
+                VatId = 2,
+                Price = 30.00m * App.Store.RecMarkup.GetValueOrDefault() * 1.2m,
+                Cost = 30.00m,
+                ExPrice = 30.00m * App.Store.RecMarkup.GetValueOrDefault()
+            };
+            Add(item19);
+            var item20 = new ItemModel()
+            {
+                Id = "699788109k13sdfs7",
+                Name = "Arkham horror board game19",
+                Brand = "Batman",
+                CatId = 2,
+                VatId = 2,
+                Price = 30.00m * App.Store.RecMarkup.GetValueOrDefault() * 1.2m,
+                Cost = 30.00m,
+                ExPrice = 30.00m * App.Store.RecMarkup.GetValueOrDefault()
+            };
+            Add(item20);
+            var item21 = new ItemModel()
+            {
+                Id = "69a978810913fdgg7",
+                Name = "Arkham horror board game20",
+                Brand = "Batman",
+                CatId = 2,
+                VatId = 2,
+                Price = 30.00m * App.Store.RecMarkup.GetValueOrDefault() * 1.2m,
+                Cost = 30.00m,
+                ExPrice = 30.00m * App.Store.RecMarkup.GetValueOrDefault()
+            };
+            Add(item21);
+            var Dis = new DiscountModel() { Name = "BOGOF", Type = 1, Amount = 1, RequiredNumOfItems = 2, UsesPerTransaction = -1 };
+            var Cat = new Discount_Category() { Cat = cat2, StartDateTime = DateTime.ParseExact("2017-05-05", "yyyy-MM-dd", null), EndDateTime = DateTime.ParseExact("2018-12-30", "yyyy-MM-dd", null) };
+            Dis.DisCategoryList = new List<Discount_Category>
+            {
+                Cat
+            };
+            Add(Cat);
+            Add(Dis);
         }
     }
 }

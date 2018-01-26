@@ -13,6 +13,8 @@
                 <Label Text="{i18N:Translate NewItem}" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start" />
                 <Label Text="ID" HorizontalOptions="FillAndExpand" />
                 <Entry x:Name="Id" PropertyChanged="Id_PropertyChanged" Unfocused="Id_Unfocused" Focused="Id_Focused" />
+                <Label Text="{i18N:Translate Cost}" HorizontalOptions="FillAndExpand" />
+                <Entry x:Name="Cost" PropertyChanged="Cost_Vat_PropertyChanged" />
                 <Label Text="{i18N:Translate Name}" HorizontalOptions="FillAndExpand" />
                 <Entry x:Name="Name" />
                 <Label Text="{i18N:Translate Image}" HorizontalOptions="FillAndExpand" />
@@ -23,11 +25,11 @@
                 <Label Text="{i18N:Translate Brand}" HorizontalOptions="FillAndExpand" />
                 <Entry x:Name="Brand" />
                 <Picker x:Name="CatPicker" Title="{i18N:Translate Cate}" SelectedIndexChanged="CatPicker_SelectedIndexChanged"/>
-                <Label Text="{i18N:Translate Cost}" HorizontalOptions="FillAndExpand" />
-                <Entry x:Name="Cost" PropertyChanged="Cost_Vat_PropertyChanged" />
                 <Picker x:Name="VatPicker" Title="{i18N:Translate TaxType}" PropertyChanged="Cost_Vat_PropertyChanged" />
-                <Label Text="{i18N:Translate Price}" HorizontalOptions="FillAndExpand" />
-                <Entry x:Name="Price" />
+                <Label Text="{i18N:Translate ExPrice}" HorizontalOptions="FillAndExpand"/>
+                <Entry x:Name="ExPrice" PropertyChanged="Cost_Vat_PropertyChanged" />
+                <Label Text="{i18N:Translate Price}" HorizontalOptions="FillAndExpand"/>
+                <Entry x:Name="Price" IsEnabled="False"/>
                 <Label Text="{i18N:Translate CStock}" HorizontalOptions="FillAndExpand" />
                 <Entry x:Name="Stock" Placeholder="{i18N:Translate CStockPL}" />
                 <Button x:Name="AddItem" Text="{i18N:Translate AddItem}" Clicked="AddItem_Clicked" />

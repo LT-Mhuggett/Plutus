@@ -1,11 +1,12 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Text;
 
 namespace Plutus.Models
 {
-    public class Basket : ItemModel, INotifyPropertyChanged
+    public class Basket : ItemModel, INotifyPropertyChanged, IEnumerable
     {
         private int _amount { get; set; }
         private bool _return { get; set; }
@@ -49,6 +50,13 @@ namespace Plutus.Models
             _amount = item.Amount;
         }
 
+        public Basket(string name, int dId, decimal price, VatModel vat)
+        {
+            Name = name;
+            Price = price;
+            Vat = vat;
+        }
+
         public int Amount
         {
             get { return _amount; }
@@ -81,5 +89,9 @@ namespace Plutus.Models
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
+        public IEnumerator GetEnumerator()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

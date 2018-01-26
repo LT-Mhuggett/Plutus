@@ -2,16 +2,30 @@
 <ContentView xmlns="http://xamarin.com/schemas/2014/forms" 
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Plutus.Pages.CustomPages.InputAlert">
-  <ContentView.Content>
-      <StackLayout
+    <ContentView.Content>
+        <StackLayout
           Padding="10"
           BackgroundColor="White"
           HorizontalOptions="CenterAndExpand"
           Spacing="5"
           VerticalOptions="CenterAndExpand">
-          <Label x:Name="TitleL" />
-          <Label x:Name="ValidationL" FontSize="Micro" IsVisible="False" Text="ERROR" TextColor="Red"/>
-          <Entry x:Name="InputE"/>
+            <Label x:Name="TitleL" />
+            <Label x:Name="ValidationL" FontSize="Micro" IsVisible="False" Text="ERROR" TextColor="Red"/>
+            <Grid x:Name="CashOptions" IsVisible="False">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="40"/>
+                    <RowDefinition Height="40"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Button Grid.Row="0" Grid.Column="0" Text="5" Clicked="Value_Clicked" CommandParameter="5"/>
+                <Button Grid.Row="0" Grid.Column="1" Text="10" Clicked="Value_Clicked" CommandParameter="10"/>
+                <Button Grid.Row="1" Grid.Column="0" Text="20" Clicked="Value_Clicked" CommandParameter="20"/>
+                <Button Grid.Row="1" Grid.Column="1" Text="50" Clicked="Value_Clicked" CommandParameter="50"/>
+            </Grid>
+            <Entry x:Name="InputE"/>
             <Button x:Name="ConfirmBut">
                 <Button.HeightRequest>
                     <OnPlatform x:TypeArguments="x:Double">
@@ -21,6 +35,15 @@
                     </OnPlatform>
                 </Button.HeightRequest>
             </Button>
-        </StackLayout>
-  </ContentView.Content>
+            <Button x:Name="PayExact" IsVisible="False">
+                <Button.HeightRequest>
+                    <OnPlatform x:TypeArguments="x:Double">
+                        <On Platform="Android" Value="40"/>
+                        <On Platform="iOS" Value="30"/>
+                        <On Platform="UWP" Value="30"/>
+                    </OnPlatform>
+                </Button.HeightRequest>
+            </Button>
+            </StackLayout>
+    </ContentView.Content>
 </ContentView>

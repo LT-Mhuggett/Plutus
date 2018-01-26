@@ -125,6 +125,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Add to Basket.
+        /// </summary>
+        internal static string AddTB {
+            get {
+                return ResourceManager.GetString("AddTB", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Address Line 1.
         /// </summary>
         internal static string AdLine1 {
@@ -329,6 +338,15 @@ namespace I18N_L10N.Resx {
         internal static string CBNote {
             get {
                 return ResourceManager.GetString("CBNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Their were changes made do you want to save? (if you don&apos;t save changes will be lost!).
+        /// </summary>
+        internal static string ChangesMade {
+            get {
+                return ResourceManager.GetString("ChangesMade", resourceCulture);
             }
         }
         
@@ -551,6 +569,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Discount Management.
+        /// </summary>
+        internal static string DisMgnt {
+            get {
+                return ResourceManager.GetString("DisMgnt", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Edit.
         /// </summary>
         internal static string Edit {
@@ -641,6 +668,24 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Please enter an accepted value.
+        /// </summary>
+        internal static string EnterCorrectValue {
+            get {
+                return ResourceManager.GetString("EnterCorrectValue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Price (Excl. VAT).
+        /// </summary>
+        internal static string ExPrice {
+            get {
+                return ResourceManager.GetString("ExPrice", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Please Ensure all required fields are filled in.
         /// </summary>
         internal static string FieldsFilledInMesg {
@@ -700,6 +745,15 @@ namespace I18N_L10N.Resx {
         internal static string HowMuchPM {
             get {
                 return ResourceManager.GetString("HowMuchPM", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to How much to refund with {0}, There is {1} left to refund.
+        /// </summary>
+        internal static string HowMuchRefund {
+            get {
+                return ResourceManager.GetString("HowMuchRefund", resourceCulture);
             }
         }
         
@@ -869,6 +923,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Mangement.
+        /// </summary>
+        internal static string MgntTitle {
+            get {
+                return ResourceManager.GetString("MgntTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Name.
         /// </summary>
         internal static string Name {
@@ -919,6 +982,15 @@ namespace I18N_L10N.Resx {
         internal static string Nin {
             get {
                 return ResourceManager.GetString("Nin", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No.
+        /// </summary>
+        internal static string No {
+            get {
+                return ResourceManager.GetString("No", resourceCulture);
             }
         }
         
@@ -1035,6 +1107,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Pay full exact amount.
+        /// </summary>
+        internal static string PayFull {
+            get {
+                return ResourceManager.GetString("PayFull", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Payment Method Selection.
         /// </summary>
         internal static string PayMeth {
@@ -1143,11 +1224,29 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Recomended Price.
+        ///   Looks up a localized string similar to Recomended Markup % (e.g. 20% = 20).
         /// </summary>
-        internal static string RecPrice {
+        internal static string RecMarkup {
             get {
-                return ResourceManager.GetString("RecPrice", resourceCulture);
+                return ResourceManager.GetString("RecMarkup", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to There seems to be problem with the Recomended Markup value you provided..
+        /// </summary>
+        internal static string RecMarkupError {
+            get {
+                return ResourceManager.GetString("RecMarkupError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Recomended Price Excl. Vat.
+        /// </summary>
+        internal static string RecPriceExVat {
+            get {
+                return ResourceManager.GetString("RecPriceExVat", resourceCulture);
             }
         }
         

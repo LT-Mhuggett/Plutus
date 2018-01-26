@@ -124,8 +124,9 @@ namespace Plutus.Pages.Inventory
                 return;
             }
 
-            Item.Cost = (decimal)await Conversions.ToDecimal(Cost.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
-            Item.Price = (decimal)await Conversions.ToDecimal(Price.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
+            Item.Cost = (decimal) await Conversions.ToDecimal(Cost.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
+            Item.Price = (decimal) await Conversions.ToDecimal(Price.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
+            Item.ExPrice = (decimal) await Conversions.ToDecimal(ExPrice.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
 
             if (Item.Cost.Equals(0) || Item.Price.Equals(0))
                 return;
@@ -183,28 +184,30 @@ namespace Plutus.Pages.Inventory
             await Navigation.PushAsync(_scanPage);
         }
 
-        /// <summary>
-        /// If both Vat and Cost are set then calculate recommended price
-        /// </summary>
-        /// <param name="sender">object that called the method</param>
-        /// <param name="e">Event that the sender called</param>
-        /// <returns>Recomended price as Task</returns>
-        private async Task Cost_Vat_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
-        {
-            if (string.IsNullOrWhiteSpace(Cost.Text) || VatPicker.SelectedIndex == -1) return;
-            foreach (var item in Vats)
-            {
-                if (item.Id == VatPicker.SelectedIndex + 1)
-                {
-                    Price.Placeholder = $"{App.Translate.ProvideValue("RecPrice")}: {(decimal)await Conversions.ToDecimal(Cost.Text, App.Translate.ProvideValue("ValueEnteredWrong")) * (decimal)item.Rate}";
-                }
-            }
-        }
+	    /// <summary>
+	    /// If both Vat and Cost are set then calculate recommended price
+	    /// </summary>
+	    /// <param name="sender">object that called the method</param>
+	    /// <param name="e">Event that the sender called</param>
+	    /// <returns>Recomended price as Task</returns>
+	    private async Task Cost_Vat_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+	    {
+	        if (string.IsNullOrWhiteSpace(Cost.Text) || VatPicker.SelectedIndex == -1) return;
+	        foreach (var item in Vats)
+	        {
+	            if (item.Id != VatPicker.SelectedIndex + 1) continue;
+	            ExPrice.Placeholder =
+	                $"{App.Translate.ProvideValue("RecPriceExVat")}: {(decimal) await Conversions.ToDecimal(Cost.Text, App.Translate.ProvideValue("ValueEnteredWrong")) * App.Store.RecMarkup:0.00}";
+	            Price.Text = ExPrice.Text != null
+	                ? $"{(decimal) await Conversions.ToDecimal(ExPrice.Text, App.Translate.ProvideValue("valueEnteredWrong")) * (decimal) item.Rate:0.00}"
+	                : $"{(decimal) await Conversions.ToDecimal(Cost.Text, App.Translate.ProvideValue("ValueEnteredWrong")) * App.Store.RecMarkup * (decimal) item.Rate:0.00}";
+	        }
+	    }
 
-        /// <summary>
+	    /// <summary>
         /// Initalises Cat Picker from DB
         /// </summary>
-        protected void InitCatPicker()
+        private void InitCatPicker()
         {
             Cats = App.DbContext.Get<CategoryModel>().ToList();
             CatPicker.Items.Clear();

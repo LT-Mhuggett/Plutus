@@ -86,7 +86,7 @@ namespace Plutus.Helpers
             return libPath;
         }
 
-        public async static Task<bool> BackUp()
+        public static async Task<bool> BackUp()
         {
 #if __ANDROID__
             /*CloudRail.AppKey = "59bff56c3d70425997876e19";

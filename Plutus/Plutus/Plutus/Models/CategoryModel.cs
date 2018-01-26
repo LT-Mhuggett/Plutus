@@ -13,5 +13,6 @@ namespace Plutus.Models
         public string Description { get; set; }
 
         public List<ItemModel> Items { get; set; }
+        public List<Discount_Category> DisCats { get; set; }
     }
 }

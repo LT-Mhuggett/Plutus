@@ -1,28 +1,24 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using CustomViews;
-using Rg.Plugins.Popup;
-using System.Threading.Tasks;
-using Rg.Plugins.Popup.Services;
+﻿using CustomViews;
 using Plutus.Pages.CustomPages;
+using Rg.Plugins.Popup.Services;
+using System.Threading.Tasks;
 
 namespace Plutus.Helpers.CustomViews
 {
     class InputAlertHelper
     {
-        internal static async Task<decimal> LaunchInputAlertAsync(string Title, string Placeholder, string ButtonText, string ValidText)
+        internal static async Task<decimal> LaunchInputAlertAsync(string title, string placeholder, string buttonText, string validText, decimal toPay = 0.0m, bool cash = false)
         {
-            var InputAlert = new InputAlert(Title, Placeholder, ButtonText, ValidText);
-            var PopUp = new InputAlertDialogBase<string>(InputAlert);
+            var inputAlert = new InputAlert(title, placeholder, buttonText, validText, cash, toPay);
+            var popUp = new InputAlertDialogBase<string>(inputAlert);
 
-            InputAlert.ConfirmButtonEHandler += (sender, e) =>
+            inputAlert.ConfirmButtonEHandler += (sender, e) =>
               {
                   if (!string.IsNullOrEmpty(((InputAlert)sender).InputResult))
                   {
                       ((InputAlert)sender).IsValidationLVisable = false;
 
-                      PopUp.PageClosedTaskCompletionSource.SetResult(((InputAlert)sender).InputResult);
+                      popUp.PageClosedTaskCompletionSource.SetResult(((InputAlert)sender).InputResult);
                   }
                   else
                   {
@@ -31,9 +27,9 @@ namespace Plutus.Helpers.CustomViews
               };
             decimal? result=null;
             while (result == null) {
-                await PopupNavigation.PushAsync(PopUp);
+                await PopupNavigation.PushAsync(popUp);
 
-                result = await Conversions.ToDecimal(await PopUp.PageClosedTask, "test");
+                result = await Conversions.ToDecimal(await popUp.PageClosedTask, "test");
 
                 await PopupNavigation.PopAsync();
             }

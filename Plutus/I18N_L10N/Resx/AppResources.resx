@@ -316,8 +316,8 @@ Please try again.</value>
   <data name="PRoll" xml:space="preserve">
     <value>Photo Roll</value>
   </data>
-  <data name="RecPrice" xml:space="preserve">
-    <value>Recomended Price</value>
+  <data name="RecPriceExVat" xml:space="preserve">
+    <value>Recomended Price Excl. Vat</value>
   </data>
   <data name="ItemExistMesg" xml:space="preserve">
     <value>This item apears to already been added.
@@ -612,5 +612,38 @@ The amount of items at purchase for {0} was {1}, Please remove atleast {2}.</val
   </data>
   <data name="HowMuchPM" xml:space="preserve">
     <value>How much to pay with {0}, There is {1} left to pay</value>
+  </data>
+  <data name="HowMuchRefund" xml:space="preserve">
+    <value>How much to refund with {0}, There is {1} left to refund</value>
+  </data>
+  <data name="ExPrice" xml:space="preserve">
+    <value>Price (Excl. VAT)</value>
+  </data>
+  <data name="RecMarkup" xml:space="preserve">
+    <value>Recomended Markup % (e.g. 20% = 20)</value>
+  </data>
+  <data name="RecMarkupError" xml:space="preserve">
+    <value>There seems to be problem with the Recomended Markup value you provided.</value>
+  </data>
+  <data name="AddTB" xml:space="preserve">
+    <value>Add to Basket</value>
+  </data>
+  <data name="EnterCorrectValue" xml:space="preserve">
+    <value>Please enter an accepted value</value>
+  </data>
+  <data name="PayFull" xml:space="preserve">
+    <value>Pay full exact amount</value>
+  </data>
+  <data name="MgntTitle" xml:space="preserve">
+    <value>Mangement</value>
+  </data>
+  <data name="DisMgnt" xml:space="preserve">
+    <value>Discount Management</value>
+  </data>
+  <data name="ChangesMade" xml:space="preserve">
+    <value>Their were changes made do you want to save? (if you don't save changes will be lost!)</value>
+  </data>
+  <data name="No" xml:space="preserve">
+    <value>No</value>
   </data>
 </root>

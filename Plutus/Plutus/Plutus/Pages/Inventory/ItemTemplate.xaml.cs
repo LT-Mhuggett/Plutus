@@ -54,6 +54,7 @@ namespace Plutus.Pages.Inventory
                 .SingleOrDefault();
             ItemDesc.Text = itemTemp.Desc;
             ItemPrice.Text = itemTemp.Price.ToString();
+		    ItemExPrice.Text = itemTemp.ExPrice.ToString();
             item = itemTemp;
 		}
         #endregion
@@ -89,6 +90,7 @@ namespace Plutus.Pages.Inventory
                 .SingleOrDefault();
             ItemDesc.Text = itemTemp.Desc;
             ItemPrice.Text = itemTemp.Price.ToString();
+            ItemExPrice.Text = itemTemp.ExPrice.ToString();
             item = itemTemp;
         }
         #endregion
@@ -118,6 +120,7 @@ namespace Plutus.Pages.Inventory
                 .SingleOrDefault();
             ItemDesc.Text = itemTemp.Desc;
             ItemPrice.Text = itemTemp.Price.ToString();
+            ItemExPrice.Text = itemTemp.ExPrice.ToString();
             item = itemTemp;
         }
         #endregion

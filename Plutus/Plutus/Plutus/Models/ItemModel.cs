@@ -15,7 +15,14 @@ namespace Plutus.Models
         public string Name { get; set; }
         public string Brand { get; set; }
         public string Desc { get; set; }
+        [DataType(dataType: DataType.Currency)]
+        [DisplayFormat(DataFormatString = "{0:C0}", ApplyFormatInEditMode = true)]
         public decimal Cost { get; set; }
+        [DataType(dataType: DataType.Currency)]
+        [DisplayFormat(DataFormatString = "{0:C0}", ApplyFormatInEditMode = true)]
+        public decimal ExPrice { get; set; }
+        [DataType(dataType: DataType.Currency)]
+        [DisplayFormat(DataFormatString = "{0:C0}", ApplyFormatInEditMode = true)]
         public decimal Price { get; set; }
         public byte[] Image { get; set; }
 
@@ -23,7 +30,8 @@ namespace Plutus.Models
         public int VatId { get; set; }
         [ForeignKey("CatIdFK")]
         public int CatId { get; set; }
-
+        
+        public List<Discount_Item> DisItems { get; set; }
         public List<TransactionModel> Transactions { get; set; }
         public List<RefundModel> Refunds { get; set; }
         public StockModel Stock { get; set; }

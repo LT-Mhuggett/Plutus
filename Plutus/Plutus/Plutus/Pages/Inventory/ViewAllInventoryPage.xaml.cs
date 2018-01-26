@@ -11,6 +11,7 @@ using Syncfusion.DataSource;
 using Syncfusion.ListView.XForms;
 using Syncfusion.GridCommon.ScrollAxis;
 using System.Reflection;
+using ItemTappedEventArgs = Syncfusion.ListView.XForms.ItemTappedEventArgs;
 
 namespace Plutus.Pages.Inventory
 {
@@ -90,26 +91,25 @@ namespace Plutus.Pages.Inventory
             }
         }
 
-        async void Handle_ItemTapped(object sender, SelectedItemChangedEventArgs e)
+        private async void Handle_ItemTapped(object sender, ItemTappedEventArgs e)
         {
-            if (e.SelectedItem == null)
+            if (e.ItemData == null)
                 return;
-            ItemModel temp = (ItemModel)((ListView)sender).SelectedItem;
+            ItemModel temp = Conversions.ToModel<ItemModel>(e.ItemData);
             if (!Authorisation.IsAuthorised("Item", "V", App.LastAuthUser))
             {
                 await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("AuthDeniedMesg"), App.Translate.ProvideValue("OK"));
                 Action action = async () =>
                 {
                     await Navigation.PushModalAsync(new ItemTemplate(temp));
-                    ((ListView)sender).SelectedItem = null;
                 };
                 Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Item", "V", action);
             }
             else
             {
                 await Navigation.PushModalAsync(new ItemTemplate(temp));
-                ((ListView)sender).SelectedItem = null;
             }
+
         }
 
         private async void UpdateItem_Clicked(object sender, EventArgs e)

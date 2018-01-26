@@ -26,6 +26,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)Models\AuthActions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\Basket.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\CategoryModel.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\DiscountModel.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\Discount_Item.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\Discount_Category.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\Emp_AuthActions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\Interface\IAuditable.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\Interface\IBase.cs" />
@@ -104,6 +107,14 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Models\StoreModel.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Pages\Management\Discount\MainPage.xaml.cs">
+      <DependentUpon>MainPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="$(MSBuildThisFileDirectory)Pages\Management\MainPage.xaml.cs">
+      <DependentUpon>MainPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Pages\Reports\MainPage.xaml.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -301,6 +312,18 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\Admin\MainPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\Management\MainPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\Management\Discount\MainPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
     </EmbeddedResource>
