@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Text;
 using Plutus.Models.Interface;
 
@@ -15,5 +16,8 @@ namespace Plutus.Models
 
         [DisplayFormat(ApplyFormatInEditMode = true, DataFormatString = "{0:yyyy-MM-dd}")]
         public DiscountModel Discount { get; set; }
+
+        [NotMapped]
+        public string FullDateTime => string.Format("{0} - {1}", StartDateTime, EndDateTime);
     }
 }

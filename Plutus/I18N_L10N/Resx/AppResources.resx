@@ -646,4 +646,28 @@ The amount of items at purchase for {0} was {1}, Please remove atleast {2}.</val
   <data name="No" xml:space="preserve">
     <value>No</value>
   </data>
+  <data name="DisAmount" xml:space="preserve">
+    <value>How much Discount is applied based on Type (% is out of 0-1 e.g. 1 = 100%, 0.5 = 50%) (Cash is definitive cash off)</value>
+  </data>
+  <data name="DisRequired" xml:space="preserve">
+    <value>How many items that are applicable are required to use the Discount</value>
+  </data>
+  <data name="DisType" xml:space="preserve">
+    <value>Type (Off = Cash, On = %)</value>
+  </data>
+  <data name="DisUses" xml:space="preserve">
+    <value>How many time this Discount can be used in a single transaction (-1 = unlimited, 3 = 3 uses)</value>
+  </data>
+  <data name="DisSelectTitle" xml:space="preserve">
+    <value>Discount type selector</value>
+  </data>
+  <data name="S" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="SelectOrCreateNew" xml:space="preserve">
+    <value>Select a discount to edit or start a new one by filling out the form below</value>
+  </data>
+  <data name="TransCopper" xml:space="preserve">
+    <value>Transfer from Copper</value>
+  </data>
 </root>

@@ -13,18 +13,18 @@ namespace Plutus.Helpers.CustomViews
             var popUp = new InputAlertDialogBase<string>(inputAlert);
 
             inputAlert.ConfirmButtonEHandler += (sender, e) =>
-              {
-                  if (!string.IsNullOrEmpty(((InputAlert)sender).InputResult))
-                  {
-                      ((InputAlert)sender).IsValidationLVisable = false;
+            {
+                if (!string.IsNullOrEmpty(((InputAlert) sender).InputResult))
+                {
+                    ((InputAlert) sender).IsValidationLVisable = false;
 
-                      popUp.PageClosedTaskCompletionSource.SetResult(((InputAlert)sender).InputResult);
-                  }
-                  else
-                  {
-                      ((InputAlert)sender).IsValidationLVisable = true;
-                  }
-              };
+                    popUp.PageClosedTaskCompletionSource.SetResult(((InputAlert) sender).InputResult);
+                }
+                else
+                {
+                    ((InputAlert) sender).IsValidationLVisable = true;
+                }
+            };
             decimal? result=null;
             while (result == null) {
                 await PopupNavigation.PushAsync(popUp);

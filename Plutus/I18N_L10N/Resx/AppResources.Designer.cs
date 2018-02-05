@@ -569,11 +569,56 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to How much Discount is applied based on Type (% is out of 0-1 e.g. 1 = 100%, 0.5 = 50%) (Cash is definitive cash off).
+        /// </summary>
+        internal static string DisAmount {
+            get {
+                return ResourceManager.GetString("DisAmount", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Discount Management.
         /// </summary>
         internal static string DisMgnt {
             get {
                 return ResourceManager.GetString("DisMgnt", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to How many items that are applicable are required to use the Discount.
+        /// </summary>
+        internal static string DisRequired {
+            get {
+                return ResourceManager.GetString("DisRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Discount type selector.
+        /// </summary>
+        internal static string DisSelectTitle {
+            get {
+                return ResourceManager.GetString("DisSelectTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Type (Off = Cash, On = %).
+        /// </summary>
+        internal static string DisType {
+            get {
+                return ResourceManager.GetString("DisType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to How many time this Discount can be used in a single transaction (-1 = unlimited, 3 = 3 uses).
+        /// </summary>
+        internal static string DisUses {
+            get {
+                return ResourceManager.GetString("DisUses", resourceCulture);
             }
         }
         
@@ -1296,6 +1341,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Save.
+        /// </summary>
+        internal static string S {
+            get {
+                return ResourceManager.GetString("S", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Sale.
         /// </summary>
         internal static string Sale {
@@ -1373,6 +1427,15 @@ namespace I18N_L10N.Resx {
         internal static string SelectCloudService {
             get {
                 return ResourceManager.GetString("SelectCloudService", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Select a discount to edit or start a new one by filling out the form below.
+        /// </summary>
+        internal static string SelectOrCreateNew {
+            get {
+                return ResourceManager.GetString("SelectOrCreateNew", resourceCulture);
             }
         }
         
@@ -1553,6 +1616,15 @@ namespace I18N_L10N.Resx {
         internal static string TransConfMesg {
             get {
                 return ResourceManager.GetString("TransConfMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Transfer from Copper.
+        /// </summary>
+        internal static string TransCopper {
+            get {
+                return ResourceManager.GetString("TransCopper", resourceCulture);
             }
         }
         

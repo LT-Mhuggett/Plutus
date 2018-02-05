@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.IO;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using Xamarin.Forms;
 #if __ANDROID__
 using Com.Cloudrail;
@@ -214,6 +215,25 @@ namespace Plutus.Helpers
             }
             return false;
 #endif
+        }
+
+        internal static async Task<StorageFolder> GetFolderAsync()
+        {
+            var folderPicker = new Windows.Storage.Pickers.FolderPicker
+            {
+                SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary
+            };
+            folderPicker.FileTypeFilter.Add("*");
+
+            var folder = await folderPicker.PickSingleFolderAsync();
+            return folder;
+        }
+
+        internal static async Task<XDocument> GetXMLFromFile(StorageFile file)
+        {
+            var readStream = await file.OpenAsync(FileAccessMode.Read);
+            XDocument xmlDoc = XDocument.Load(readStream.AsStreamForRead());
+            return xmlDoc;
         }
     }
 }

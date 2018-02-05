@@ -82,8 +82,9 @@
                             <x:String>Cloud Database</x:String>
                         </Picker.Items>
                     </Picker>
-                    <Button x:Name="Create" Text="{i18N:Translate Create}" VerticalOptions="Center" Clicked="Create_Clicked"/>
-                    <Button x:Name="RestoreButt" Text="{i18N:Translate Restore}" VerticalOptions="Center" Clicked="Restore_Clicked"/>
+                    <Button Text="{i18N:Translate Create}" VerticalOptions="Center" Clicked="Create_Clicked"/>
+                    <Button Text="{i18N:Translate Restore}" VerticalOptions="Center" Clicked="Restore_Clicked"/>
+                    <Button Text="{i18N:Translate TransCopper}" VerticalOptions="Center" Clicked="CTrans_Clicked" />
                 </StackLayout>
             </ScrollView>
             <ContentView x:Name="LCV" IsVisible="false" BackgroundColor="LightGray" Opacity=".5" HorizontalOptions="FillAndExpand" VerticalOptions="FillAndExpand">

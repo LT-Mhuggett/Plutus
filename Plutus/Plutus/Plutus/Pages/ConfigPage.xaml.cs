@@ -5,8 +5,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Windows.Storage;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
+using FileIO = Plutus.Helpers.FileIO;
 
 namespace Plutus.Pages
 {
@@ -324,6 +326,29 @@ namespace Plutus.Pages
                 PostCode.Text = Validate.IsPostCodeValid(StorePostCode.Text) ? StorePostCode.Text : null;
             }
 
+        }
+
+        private async void CTrans_Clicked(object sender, EventArgs e)
+        {
+            var folder = await FileIO.GetFolderAsync();
+
+            IReadOnlyList<StorageFolder> folderList = await folder.GetFoldersAsync();
+
+            foreach (var tempFolder in folderList)
+            {
+                IReadOnlyList<StorageFile> fileList = await tempFolder.GetFilesAsync();
+                if (tempFolder.Name == "Items")
+                {
+                    foreach (var file in fileList)
+                    {
+                        var fileData = FileIO.GetXMLFromFile(file);
+                        if (fileData.Result != null)
+                        {
+                            Console.WriteLine(fileData.Result);
+                        }
+                    }
+                }
+            }
         }
     }
 }

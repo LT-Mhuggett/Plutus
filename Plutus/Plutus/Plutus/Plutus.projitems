@@ -15,6 +15,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Authorisation.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Camera.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Conversions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\CustomViews\DataPickerInputAlertHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\CustomViews\InputAlertHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\ICloseApp.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\IPicturePicker.cs" />
@@ -49,6 +50,10 @@
     </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Pages\ConfigPage.xaml.cs">
       <DependentUpon>ConfigPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="$(MSBuildThisFileDirectory)Pages\CustomPages\DataPickerInputAlert.xaml.cs">
+      <DependentUpon>DataPickerInputAlert.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Pages\CustomPages\InputAlert.xaml.cs">
@@ -324,6 +329,12 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\Management\Discount\MainPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\CustomPages\DataPickerInputAlert.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
     </EmbeddedResource>

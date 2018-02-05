@@ -6,23 +6,64 @@
              Title="{i18N:Translate MgntTitle}"
              Icon="">
     <ContentPage.Content>
-        <Grid>
-            <StackLayout x:Name="MPage" VerticalOptions="Center" HorizontalOptions="FillAndExpand">
-                <Picker x:Name="DisSelector"/>
-                <StackLayout x:Name="DiscountArea">
-                    <Entry Text="{Binding Name}" Completed="PropChanged"/>
-                    <Switch x:Name="DisType" IsToggled="{Binding Type}" Toggled="PropChanged"/>
-                    <Entry Text="{Binding Amount}" Completed="PropChanged"/>
-                    <Entry Text="{Binding UsesPerTransaction}" Completed="PropChanged"/>
-                    <Entry Text="{Binding RequiredNumOfItems}" Completed="PropChanged"/>
+        <ScrollView>
+            <Grid>
+                <StackLayout x:Name="MPage" VerticalOptions="Center" HorizontalOptions="FillAndExpand">
+                    <Label Text="{i18N:Translate SelectOrCreateNew}" />
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="30"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="70*"/>
+                            <ColumnDefinition Width="30*"/>
+                        </Grid.ColumnDefinitions>
+                        <Picker Grid.Row="0" Grid.Column="0" x:Name="DisSelector"/>
+                        <Button Grid.Row="0" Grid.Column="1" Text="{i18N:Translate A}" Clicked="Add_Clicked"/>
+                    </Grid>
+                    <StackLayout x:Name="DiscountArea">
+                        <Label Text="{i18N:Translate Name}"/>
+                        <Entry Text="{Binding Name}" Completed="PropChanged"/>
+                        <Label Text="{i18N:Translate DisType}"/>
+                        <Switch IsToggled="{Binding Type}" Toggled="PropChanged"/>
+                        <Label Text="{i18N:Translate DisAmount}"/>
+                        <Entry Text="{Binding Amount}" Completed="PropChanged"/>
+                        <Label Text="{i18N:Translate DisUses}"/>
+                        <Entry Text="{Binding UsesPerTransaction}" Completed="PropChanged"/>
+                        <Label Text="{i18N:Translate DisRequired}"/>
+                        <Entry Text="{Binding RequiredNumOfItems}" Completed="PropChanged"/>
+                        <Label Text="{i18N:Translate Cate}"/>
+                        <ListView ItemsSource="{Binding DisCategoryList}" HeightRequest="150">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <TextCell Text="{Binding Cat.Name}" Detail="{Binding FullDateTime}"/>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                            <ListView.Footer>
+                                <Button Text="{i18N:Translate A}" Clicked="ListView_Add" CommandParameter="Cate"/>
+                            </ListView.Footer>
+                        </ListView>
+                        <Label Text="{i18N:Translate Item}"/>
+                        <ListView ItemsSource="{Binding DisItemList}" HeightRequest="150">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <TextCell Text="{Binding Item.Name}" Detail="{Binding FullDateTime}"/>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                            <ListView.Footer>
+                                <Button Text="{i18N:Translate A}" Clicked="ListView_Add" CommandParameter="Item"/>
+                            </ListView.Footer>
+                        </ListView>
+                    </StackLayout>
+                    <Button x:Name="SaveAddBut" />
                 </StackLayout>
-            </StackLayout>
-            <StackLayout x:Name="VerifyId"  IsVisible="False" BackgroundColor="White" Margin="50,100,50,200">
-                <Label Text="{i18N:Translate EmpId}" />
-                <Entry x:Name="EId" />
-                <Button x:Name="Confirm" Text="{i18N:Translate Confirm}"/>
-                <Button x:Name="CancelEmpCheck" Text="{i18N:Translate Cancel}" Clicked="CancelEmpCheck_Clicked" />
-            </StackLayout>
-        </Grid>
+                <StackLayout x:Name="VerifyId"  IsVisible="False" BackgroundColor="White" Margin="50,100,50,200">
+                    <Label Text="{i18N:Translate EmpId}" />
+                    <Entry x:Name="EId" />
+                    <Button x:Name="Confirm" Text="{i18N:Translate Confirm}"/>
+                    <Button x:Name="CancelEmpCheck" Text="{i18N:Translate Cancel}" Clicked="CancelEmpCheck_Clicked" />
+                </StackLayout>
+            </Grid>
+        </ScrollView>
     </ContentPage.Content>
 </ContentPage>
