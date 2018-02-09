@@ -19,9 +19,9 @@ namespace Plutus.Pages.Inventory
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class AddItemPage : ContentPage
 	{
-        internal static ItemModel Item = new ItemModel();
-        internal List<VatModel> Vats;
-        internal List<CategoryModel> Cats;
+	    private static ItemModel _item = new ItemModel();
+	    private readonly List<TaxModel> _vats;
+	    private List<CategoryModel> _cats;
         private ZXingScannerPage _scanPage;
 
         /// <summary>
@@ -32,8 +32,8 @@ namespace Plutus.Pages.Inventory
 		{
             InitializeComponent();
 
-            Vats = App.DbContext.Get<VatModel>().ToList();
-            foreach( var item in Vats)
+            _vats = App.DbContext.Get<TaxModel>().ToList();
+            foreach( var item in _vats)
             {
                 VatPicker.Items.Add(item.Name);
             }
@@ -61,7 +61,7 @@ namespace Plutus.Pages.Inventory
             }
 
             var actionDic = new Dictionary<string, Action> {
-                { App.Translate.ProvideValue("Camera"), () => Camera.getPhoto(Item, Pic)},
+                { App.Translate.ProvideValue("Camera"), () => Camera.getPhoto(_item, Pic)},
                 { App.Translate.ProvideValue("PRoll"), GetImageRoll },
                 { App.Translate.ProvideValue("Cancel"), () => Console.WriteLine("Escaped!") }
             };
@@ -78,7 +78,7 @@ namespace Plutus.Pages.Inventory
             var stream = await DependencyService.Get<IPicturePicker>().GetImageStreamAsync();
             if (stream == null) return;
             Pic.Source = ImageSource.FromStream(() => stream);
-            Item.Image = Camera.StreamToArray(stream);
+            _item.Image = Camera.StreamToArray(stream);
         }
 
         /// <summary>
@@ -88,9 +88,9 @@ namespace Plutus.Pages.Inventory
         /// <param name="e">Event that the sender called</param>
         private async void Desc_Clicked(object sender, EventArgs e)
         {
-            await Navigation.PushModalAsync(new NavigationPage(new ItemDescPage(Item.Desc)));
+            await Navigation.PushModalAsync(new NavigationPage(new ItemDescPage(_item.Desc)));
             MessagingCenter.Subscribe<AddItemPage>(this, "DescDone", (Sender) => {
-                Item.Desc = ItemDescPage.description;
+                _item.Desc = ItemDescPage.description;
             });
         }
 
@@ -112,23 +112,23 @@ namespace Plutus.Pages.Inventory
         /// <param name="e">Event that the sender called</param>
         private async void AddItem_Clicked(object sender, EventArgs e)
         {
-            Item.Id = Id.Text;
-            Item.Name = Name.Text;
-            Item.VatId = VatPicker.SelectedIndex + 1;
-            Item.CatId = CatPicker.SelectedIndex + 1;
-            Item.Brand = Brand.Text;
+            _item.Id = Id.Text;
+            _item.Name = Name.Text;
+            _item.VatId = VatPicker.SelectedIndex + 1;
+            _item.CatId = CatPicker.SelectedIndex + 1;
+            _item.Brand = Brand.Text;
 
-            if (Item.Id == null || Item.Name == null || Item.Brand == null || Item.VatId == 0 || Item.CatId == 0 || string.IsNullOrWhiteSpace(Stock.Text))
+            if (_item.Id == null || _item.Name == null || _item.Brand == null || _item.VatId == 0 || _item.CatId == 0 || string.IsNullOrWhiteSpace(Stock.Text))
             {
                 await DisplayAlert(App.Translate.ProvideValue("Oops"), App.Translate.ProvideValue("FieldsFilledInMesg"), App.Translate.ProvideValue("OK"));
                 return;
             }
 
-            Item.Cost = (decimal) await Conversions.ToDecimal(Cost.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
-            Item.Price = (decimal) await Conversions.ToDecimal(Price.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
-            Item.ExPrice = (decimal) await Conversions.ToDecimal(ExPrice.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
+            _item.Cost = (decimal) await Conversions.ToDecimal(Cost.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
+            _item.Price = (decimal) await Conversions.ToDecimal(Price.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
+            _item.ExPrice = (decimal) await Conversions.ToDecimal(ExPrice.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
 
-            if (Item.Cost.Equals(0) || Item.Price.Equals(0))
+            if (_item.Cost.Equals(0) || _item.Price.Equals(0))
                 return;
 
             var temp = (int)await Conversions.ToInterger(Stock.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
@@ -136,14 +136,14 @@ namespace Plutus.Pages.Inventory
             if (temp.Equals(-1))
                 return;
 
-            await Navigation.PushModalAsync(new ItemTemplate(Item, 0));
+            await Navigation.PushModalAsync(new ItemTemplate(_item, 0));
             MessagingCenter.Subscribe<AddItemPage>(this, "Accepted", async (Sender) =>
             {
                 MessagingCenter.Unsubscribe<AddItemPage>(this, "Accepted");
-                App.DbContext.Add(Item);
+                App.DbContext.Add(_item);
                 var stock = new StockModel
                 {
-                    ItemId = Item.Id,
+                    ItemId = _item.Id,
                     StoreId = App.Store.Id,
                     Quantity = temp
                 };
@@ -153,7 +153,7 @@ namespace Plutus.Pages.Inventory
                     await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
                     return;
                 }
-                Item = new ItemModel();
+                _item = new ItemModel();
                 await Navigation.PopAsync();
             });
         }
@@ -190,10 +190,10 @@ namespace Plutus.Pages.Inventory
 	    /// <param name="sender">object that called the method</param>
 	    /// <param name="e">Event that the sender called</param>
 	    /// <returns>Recomended price as Task</returns>
-	    private async Task Cost_Vat_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+	    private async void Cost_Vat_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
 	    {
 	        if (string.IsNullOrWhiteSpace(Cost.Text) || VatPicker.SelectedIndex == -1) return;
-	        foreach (var item in Vats)
+	        foreach (var item in _vats)
 	        {
 	            if (item.Id != VatPicker.SelectedIndex + 1) continue;
 	            ExPrice.Placeholder =
@@ -209,9 +209,9 @@ namespace Plutus.Pages.Inventory
         /// </summary>
         private void InitCatPicker()
         {
-            Cats = App.DbContext.Get<CategoryModel>().ToList();
+            _cats = App.DbContext.Get<CategoryModel>().ToList();
             CatPicker.Items.Clear();
-            foreach (var item in Cats)
+            foreach (var item in _cats)
             {
                 CatPicker.Items.Add(item.Name);
             }

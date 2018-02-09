@@ -9,8 +9,10 @@
         <Entry x:Name="EmpSearch" Completed="EmpSearchCompleted" Placeholder="NOT YET IMPLEMENTED" />
         <Picker x:Name="DateSearch" SelectedIndexChanged="DateSearchChange" />
         <ListView ItemsSource="{Binding Sales}"
-            ItemTapped="Handle_ItemTapped"
-            CachingStrategy="RecycleElement">
+            ItemTapped="Handle_ItemTapped">
+            <x:Arguments>
+                <ListViewCachingStrategy>RecycleElement</ListViewCachingStrategy>
+            </x:Arguments>
             <ListView.ItemTemplate>
                 <DataTemplate>
                     <ViewCell>

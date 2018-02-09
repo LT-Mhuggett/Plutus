@@ -19,10 +19,10 @@ namespace Plutus.Pages.Inventory
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class UpdateItemPage : ContentPage
 	{
-        internal ItemModel Item;
-        internal ItemModel ChangeItem = new ItemModel();
-        internal List<VatModel> Vats;
-        internal List<CategoryModel> Cats;
+	    private ItemModel _item;
+	    private ItemModel _changeItem = new ItemModel();
+	    private readonly List<TaxModel> _vats;
+	    private List<CategoryModel> _cats;
         private ZXingScannerPage _scanPage;
 
         /// <summary>
@@ -32,8 +32,8 @@ namespace Plutus.Pages.Inventory
 		{
 			InitializeComponent ();
 
-            Vats = App.DbContext.Get<VatModel>().ToList();
-            foreach (var item in Vats)
+            _vats = App.DbContext.Get<TaxModel>().ToList();
+            foreach (var item in _vats)
             {
                 VatPicker.Items.Add(item.Name);
             }
@@ -52,10 +52,10 @@ namespace Plutus.Pages.Inventory
         {
             InitializeComponent();
 
-            Item = tempItem;
+            _item = tempItem;
 
-            Vats = App.DbContext.Get<VatModel>().ToList();
-            foreach (var item in Vats)
+            _vats = App.DbContext.Get<TaxModel>().ToList();
+            foreach (var item in _vats)
             {
                 VatPicker.Items.Add(item.Name);
             }
@@ -90,18 +90,18 @@ namespace Plutus.Pages.Inventory
                     await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("ItemNotFoundMesg"), App.Translate.ProvideValue("OK"));
                     return;
                 case 1:
-                    Item = items.LastOrDefault();
-                    ChangeItem.Id = Item.Id;
-                    ChangeItem.Name = Item.Name;
-                    ChangeItem.Image = Item.Image;
-                    ChangeItem.Desc = Item.Desc;
-                    ChangeItem.Brand = Item.Brand;
-                    ChangeItem.CatId = Item.CatId;
-                    ChangeItem.VatId = Item.VatId;
-                    ChangeItem.Cost = Item.Cost;
-                    ChangeItem.Price = Item.Price;
-                    ChangeItem.Stock = Item.Stock;
-                    ChangeItem.Transactions = Item.Transactions;
+                    _item = items.LastOrDefault();
+                    _changeItem.Id = _item.Id;
+                    _changeItem.Name = _item.Name;
+                    _changeItem.Image = _item.Image;
+                    _changeItem.Desc = _item.Desc;
+                    _changeItem.Brand = _item.Brand;
+                    _changeItem.CatId = _item.CatId;
+                    _changeItem.VatId = _item.VatId;
+                    _changeItem.Cost = _item.Cost;
+                    _changeItem.Price = _item.Price;
+                    _changeItem.Stock = _item.Stock;
+                    _changeItem.Transactions = _item.Transactions;
 
                     Populate();
                     break;
@@ -120,9 +120,9 @@ namespace Plutus.Pages.Inventory
                     MessagingCenter.Subscribe<UpdateItemPage, ItemModel>(this, "SearchSelected", async (Sender, arg) =>
                     {
                         MessagingCenter.Unsubscribe<UpdateItemPage>(this, "SearchSelected");
-                        Item = arg;
+                        _item = arg;
                         Populate();
-                        ItemSearch.Text = Item.Id;
+                        ItemSearch.Text = _item.Id;
                         await Navigation.PopModalAsync();
                     });
                     break;
@@ -134,25 +134,22 @@ namespace Plutus.Pages.Inventory
         /// </summary>
         private void Populate()
         {
-            Name.Text = Item.Name;
-            if (Item.Image == null)
+            Name.Text = _item.Name;
+            if (_item.Image == null)
             {
                 //ItemImage.Source = "";
             }
             else
             {
-                Pic.Source = ImageSource.FromStream(() => new MemoryStream(Item.Image));
+                Pic.Source = ImageSource.FromStream(() => new MemoryStream(_item.Image));
             }
-            ItemSearch.Text = Item.Id;
-            Brand.Text = Item.Brand;
-            CatPicker.SelectedIndex = Item.CatId - 1;
-            Cost.Text = Convert.ToString(Item.Cost);
-            VatPicker.SelectedIndex = Item.VatId - 1;
-            Price.Text = Convert.ToString(Item.Price);
-            if (Item.Stock == null)
-                Stock.Text = string.Format("No stock information avalible for {0}", Item.Name);
-            else
-                Stock.Text = Item.Stock.Quantity.ToString();
+            ItemSearch.Text = _item.Id;
+            Brand.Text = _item.Brand;
+            CatPicker.SelectedIndex = _item.CatId - 1;
+            Cost.Text = Convert.ToString(_item.Cost);
+            VatPicker.SelectedIndex = _item.VatId - 1;
+            Price.Text = Convert.ToString(_item.Price);
+            Stock.Text = _item.Stock?.Quantity.ToString() ?? $"No stock information avalible for {_item.Name}";
             ItemDetails.IsVisible = true;
             ImageButton.IsEnabled = true;
         }
@@ -164,10 +161,10 @@ namespace Plutus.Pages.Inventory
         /// <param name="e">Event that the sender called</param>
         private async void Desc_Clicked(object sender, EventArgs e)
         {
-            await Navigation.PushModalAsync(new NavigationPage(new ItemDescPage(Item.Desc)));
+            await Navigation.PushModalAsync(new NavigationPage(new ItemDescPage(_item.Desc)));
             MessagingCenter.Subscribe<AddItemPage>(this, "DescDone", (Sender) => {
                 MessagingCenter.Unsubscribe<UpdateItemPage>(this, "DescDone");
-                Item.Desc = ItemDescPage.description;
+                _item.Desc = ItemDescPage.description;
             });
         }
 
@@ -177,10 +174,10 @@ namespace Plutus.Pages.Inventory
         /// <param name="sender">object that called the method</param>
         /// <param name="e">Event that the sender called</param>
         /// <returns></returns>
-        private async Task Cost_Vat_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        private async void Cost_Vat_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(Cost.Text) || VatPicker.SelectedIndex == -1) return;
-            foreach (var item in Vats)
+            foreach (var item in _vats)
             {
                 if (item.Id == VatPicker.SelectedIndex + 1)
                 {
@@ -192,11 +189,11 @@ namespace Plutus.Pages.Inventory
         /// <summary>
         /// Initalises Cat Picker from DB
         /// </summary>
-        protected void InitCatPicker()
+        private void InitCatPicker()
         {
-            Cats = App.DbContext.Get<CategoryModel>().ToList();
+            _cats = App.DbContext.Get<CategoryModel>().ToList();
             CatPicker.Items.Clear();
-            foreach (var item in Cats)
+            foreach (var item in _cats)
             {
                 CatPicker.Items.Add(item.Name);
             }
@@ -228,7 +225,7 @@ namespace Plutus.Pages.Inventory
         /// <param name="sender">object that called the method</param>
         /// <param name="e">Event that the sender called</param>
         /// <returns></returns>
-        private async Task Image_Clicked(object sender, EventArgs e)
+        private async void Image_Clicked(object sender, EventArgs e)
         {
             string action;
             await CrossMedia.Current.Initialize();
@@ -243,7 +240,7 @@ namespace Plutus.Pages.Inventory
             }
 
             var actionDic = new Dictionary<string, Action> {
-                { App.Translate.ProvideValue("Camera"), () => Camera.getPhoto(Item, Pic)},
+                { App.Translate.ProvideValue("Camera"), () => Camera.getPhoto(_item, Pic)},
                 { App.Translate.ProvideValue("PRoll"), GetImageRoll },
                 { App.Translate.ProvideValue("Cancel"), () => Console.WriteLine("Escaped!") }
             };
@@ -255,12 +252,12 @@ namespace Plutus.Pages.Inventory
         /// <summary>
         /// Get image from photo library
         /// </summary>
-        public async void GetImageRoll()
+        private async void GetImageRoll()
         {
             var stream = await DependencyService.Get<IPicturePicker>().GetImageStreamAsync();
             if (stream == null) return;
             Pic.Source = ImageSource.FromStream(() => stream);
-            Item.Image = Camera.StreamToArray(stream);
+            _item.Image = Camera.StreamToArray(stream);
         }
 
         /// <summary>
@@ -269,26 +266,26 @@ namespace Plutus.Pages.Inventory
         /// <param name="sender">object that called the method</param>
         /// <param name="e">Event that the sender called</param>
         /// <returns></returns>
-        private async Task Confirm_Clicked(object sender, EventArgs e)
+        private async void Confirm_Clicked(object sender, EventArgs e)
         {
-            ChangeItem.Name = Name.Text;
-            ChangeItem.Brand = Brand.Text;
-            ChangeItem.CatId = CatPicker.SelectedIndex + 1;
-            ChangeItem.Cost = (decimal)await Conversions.ToDecimal(Cost.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
-            ChangeItem.Price = (decimal)await Conversions.ToDecimal(Price.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
-            ChangeItem.VatId = VatPicker.SelectedIndex + 1;
+            _changeItem.Name = Name.Text;
+            _changeItem.Brand = Brand.Text;
+            _changeItem.CatId = CatPicker.SelectedIndex + 1;
+            _changeItem.Cost = (decimal)await Conversions.ToDecimal(Cost.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
+            _changeItem.Price = (decimal)await Conversions.ToDecimal(Price.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
+            _changeItem.VatId = VatPicker.SelectedIndex + 1;
 
-            if (ChangeItem.Name==Item.Name&&ChangeItem.Brand==Item.Brand&&ChangeItem.CatId==Item.CatId&&ChangeItem.Cost==Item.Cost&&ChangeItem.Desc==Item.Desc&&ChangeItem.Image==Item.Image&&ChangeItem.Price==Item.Price&&ChangeItem.VatId==Item.VatId)
+            if (_changeItem.Name==_item.Name&&_changeItem.Brand==_item.Brand&&_changeItem.CatId==_item.CatId&&_changeItem.Cost==_item.Cost&&_changeItem.Desc==_item.Desc&&_changeItem.Image==_item.Image&&_changeItem.Price==_item.Price&&_changeItem.VatId==_item.VatId)
             {
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("NoChangeMadeMesg"), App.Translate.ProvideValue("OK"));
                 return;
             }
 
-            await Navigation.PushModalAsync(new ItemTemplate(ChangeItem, 0));
+            await Navigation.PushModalAsync(new ItemTemplate(_changeItem, 0));
             MessagingCenter.Subscribe<UpdateItemPage>(this, "Accepted", async (Sender) =>
             {
                 MessagingCenter.Unsubscribe<UpdateItemPage>(this, "Accepted");
-                App.DbContext.UpdateItem(ChangeItem);
+                App.DbContext.UpdateItem(_changeItem);
                 if (!App.DbContext.Save())
                 {
                     await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));

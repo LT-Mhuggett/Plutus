@@ -16,19 +16,23 @@
             <DatePicker x:Name="EDate" />
             <Button x:Name="ConfirmBut">
                 <Button.HeightRequest>
+                    <!-- ReSharper disable once Xaml.InvalidType -->
                     <OnPlatform x:TypeArguments="x:Double">
                         <On Platform="Android" Value="40" />
                         <On Platform="iOS" Value="30" />
                         <On Platform="UWP" Value="30" />
+                    <!-- ReSharper disable once Xaml.InvalidType -->
                     </OnPlatform>
                 </Button.HeightRequest>
             </Button>
             <Button x:Name="CButton" Text="Close">
                 <Button.HeightRequest>
+                    <!-- ReSharper disable once Xaml.InvalidType -->
                     <OnPlatform x:TypeArguments="x:Double">
                         <On Platform="Android" Value="40" />
                         <On Platform="iOS" Value="30" />
                         <On Platform="UWP" Value="30" />
+                    <!-- ReSharper disable once Xaml.InvalidType -->
                     </OnPlatform>
                 </Button.HeightRequest>
             </Button>

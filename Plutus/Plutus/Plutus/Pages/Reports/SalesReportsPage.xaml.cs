@@ -36,9 +36,9 @@ namespace Plutus.Pages.Reports
             BindingContext = this;
         }
 
-        void Handle_ItemTapped(object sender, SelectedItemChangedEventArgs e)
+        private void Handle_ItemTapped(object sender, ItemTappedEventArgs e)
         {
-            if (e.SelectedItem == null)
+            if (e.Item == null)
                 return;
             //Deselect Item
             ((ListView)sender).SelectedItem = null;

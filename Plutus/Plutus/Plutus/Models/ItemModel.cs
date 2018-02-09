@@ -35,7 +35,7 @@ namespace Plutus.Models
         public List<TransactionModel> Transactions { get; set; }
         public List<RefundModel> Refunds { get; set; }
         public StockModel Stock { get; set; }
-        public VatModel Vat { get; set; }
+        public TaxModel Vat { get; set; }
         public CategoryModel Cat { get; set; }
 
         [NotMapped]
@@ -69,5 +69,7 @@ namespace Plutus.Models
             VatId = item.VatId;
             CatId = item.CatId;
         }
+
+
     }
 }

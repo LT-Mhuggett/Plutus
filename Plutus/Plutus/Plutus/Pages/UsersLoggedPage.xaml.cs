@@ -42,9 +42,9 @@ namespace Plutus.Pages
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        public void Handle_ItemTapped(object sender, SelectedItemChangedEventArgs e)
+        private void Handle_ItemTapped(object sender, ItemTappedEventArgs e)
         {
-            if (e.SelectedItem == null)
+            if (e.Item == null)
                 return;
             //Deselect Item
             ((ListView)sender).SelectedItem = null;
@@ -56,7 +56,7 @@ namespace Plutus.Pages
         /// </summary>
         /// <param name="sender">object that called method</param>
         /// <param name="e">Event called by object</param>
-        public void OnDelete(object sender, EventArgs e)
+        private void OnDelete(object sender, EventArgs e)
         {
             var menuItem = (EmployeeModel)((MenuItem)sender).CommandParameter;
 

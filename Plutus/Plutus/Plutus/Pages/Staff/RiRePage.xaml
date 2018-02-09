@@ -7,9 +7,11 @@
     <StackLayout>
         <ListView ItemsSource="{Binding Items}"
             HasUnevenRows="True"
-            CachingStrategy="RecycleElement"
                   SeparatorVisibility="Default"
                   SeparatorColor="Black">
+            <x:Arguments>
+                <ListViewCachingStrategy>RecycleElement</ListViewCachingStrategy>
+            </x:Arguments>
             <ListView.Header>
                 <Grid Padding="5">
                     <Grid.RowDefinitions>

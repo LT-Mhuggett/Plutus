@@ -37,7 +37,7 @@ namespace Plutus.Pages.CustomPages
             InputE.TextChanged += InputE_TextChanged;
 		}
 
-	    private async Task Value_Clicked(object sender, EventArgs e)
+	    private async void Value_Clicked(object sender, EventArgs e)
 	    {
 	        var value = await Helpers.Conversions.ToDecimal(InputE.Text == "" ? "0" : InputE.Text,
 	                        App.Translate.ProvideValue("EnterCorrectValue")) ?? await Helpers.Conversions.ToDecimal(

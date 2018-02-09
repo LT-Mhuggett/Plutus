@@ -50,7 +50,7 @@ namespace Plutus.Models
             _amount = item.Amount;
         }
 
-        public Basket(string name, int dId, decimal price, VatModel vat)
+        public Basket(string name, int dId, decimal price, TaxModel vat)
         {
             Name = name;
             Price = price;

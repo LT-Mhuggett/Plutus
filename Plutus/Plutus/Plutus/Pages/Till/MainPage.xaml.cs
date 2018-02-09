@@ -65,11 +65,11 @@ namespace Plutus.Pages.Till
         /// </summary>
         /// <param name="sender">Object that sent called the method</param>
         /// <param name="e">Event that the object called</param>
-        async void Handle_ItemTapped(object sender, SelectedItemChangedEventArgs e)
+        private async void Handle_ItemTapped(object sender, ItemTappedEventArgs e)
         {
-            if (e.SelectedItem == null)
+            if (e.Item == null)
                 return;
-            var temp = e.SelectedItem as Basket;
+            var temp = e.Item as Basket;
             if(!Authorisation.IsAuthorised("Item", "V", App.LastAuthUser))
             {
                 if (App.EmpsLogged.Count > 1)

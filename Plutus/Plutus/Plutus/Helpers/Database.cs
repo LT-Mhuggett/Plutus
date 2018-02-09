@@ -77,11 +77,11 @@ namespace Plutus.Helpers
 
         internal void Init()
         {
-            var vat = new VatModel() { Name = "0%", Rate = 1 };
+            var vat = new TaxModel() { Name = "0%", Rate = 1 };
             Add(vat);
-            var vat2 = new VatModel() {Name = "20%", Rate = 1.2};
+            var vat2 = new TaxModel() {Name = "20%", Rate = 1.2};
             Add(vat2);
-            var vat3 = new VatModel() {Name = "No VAT", Rate = 1};
+            var vat3 = new TaxModel() {Name = "No VAT", Rate = 1};
             Add(vat3);
 
             //AuthActions Initalization

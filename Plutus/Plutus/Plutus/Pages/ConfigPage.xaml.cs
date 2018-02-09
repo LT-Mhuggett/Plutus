@@ -5,7 +5,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+#if __ANDROID__
+#elif __IOS__
+#else
 using Windows.Storage;
+#endif
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 using FileIO = Plutus.Helpers.FileIO;
@@ -327,28 +331,32 @@ namespace Plutus.Pages
             }
 
         }
-
+#if __ANDROID__
+#elif __IOS__
+#else
         private async void CTrans_Clicked(object sender, EventArgs e)
         {
             var folder = await FileIO.GetFolderAsync();
 
-            IReadOnlyList<StorageFolder> folderList = await folder.GetFoldersAsync();
+            var folderList = await folder.GetFoldersAsync();
 
             foreach (var tempFolder in folderList)
             {
-                IReadOnlyList<StorageFile> fileList = await tempFolder.GetFilesAsync();
+                var fileList = await tempFolder.GetFilesAsync();
                 if (tempFolder.Name == "Items")
                 {
                     foreach (var file in fileList)
                     {
-                        var fileData = FileIO.GetXMLFromFile(file);
-                        if (fileData.Result != null)
+                        var fileData = FileIO.GetStringsFromCsv(file, '&');
+                        var item = fileData.Select(x => new ItemModel
                         {
-                            Console.WriteLine(fileData.Result);
-                        }
+                            Name = x[0],
+                            pr
+                        });
                     }
                 }
             }
         }
+#endif
     }
 }

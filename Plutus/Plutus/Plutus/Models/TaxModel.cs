@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Text;
@@ -6,7 +6,7 @@ using Plutus.Models.Interface;
 
 namespace Plutus.Models
 {
-    public class VatModel : IAuditable, IBase<int>
+    public class TaxModel : IAuditable, IBase<int>
     {
         public int Id { get; set; }
         public string Name { get; set; }

@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 using System.IO;
 using System.Threading.Tasks;
-using System.Xml.Linq;
-using Xamarin.Forms;
+using System.Linq;
 #if __ANDROID__
 using Com.Cloudrail;
 using Com.Cloudrail.SI.Types;
@@ -216,7 +214,11 @@ namespace Plutus.Helpers
             return false;
 #endif
         }
+#if __ANDROID__
 
+#elif __IOS__
+
+#else
         internal static async Task<StorageFolder> GetFolderAsync()
         {
             var folderPicker = new Windows.Storage.Pickers.FolderPicker
@@ -229,11 +231,8 @@ namespace Plutus.Helpers
             return folder;
         }
 
-        internal static async Task<XDocument> GetXMLFromFile(StorageFile file)
-        {
-            var readStream = await file.OpenAsync(FileAccessMode.Read);
-            XDocument xmlDoc = XDocument.Load(readStream.AsStreamForRead());
-            return xmlDoc;
-        }
+        internal static IEnumerable<string[]> GetStringsFromCsv(StorageFile file, char delmiter) =>
+            File.ReadAllLines(file.Path).Select(x => x.Split(delmiter));
+#endif
     }
 }

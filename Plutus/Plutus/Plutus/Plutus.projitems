@@ -42,7 +42,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Models\SaleModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\StockModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\TransactionModel.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\VatModel.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\TaxModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Data\Context.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Pages\Admin\MainPage.xaml.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>

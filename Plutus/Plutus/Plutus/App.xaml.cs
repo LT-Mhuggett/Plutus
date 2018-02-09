@@ -1,8 +1,5 @@
 ﻿#define DEBUG
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using Plutus.Helpers;
 using Xamarin.Forms;
 using System.IO;
@@ -13,9 +10,8 @@ using Plutus.Models;
 using Microsoft.Azure.Mobile;
 using Microsoft.Azure.Mobile.Analytics;
 using Microsoft.Azure.Mobile.Crashes;
-using System.Reflection;
-using System.Diagnostics;
 using Device = Xamarin.Forms.Device;
+using System.Reflection;
 
 #if __ANDROID__ || __IOS__
 
