@@ -5,11 +5,11 @@ using System.Text;
 using System.Threading.Tasks;
 using Xamarin.Forms;
 
-namespace Plutus.Helpers
+namespace Plutus.Helpers.Extensions
 {
-    class Conversions
+    public static class StringExtenstions
     {
-        internal static async Task<decimal?> ToDecimal(string data, string ErrorMesg)
+        public static async Task<decimal?> ToDecimal(this string data, string ErrorMesg)
         {
             try
             {
@@ -29,11 +29,11 @@ namespace Plutus.Helpers
 
         }
 
-        internal static async Task<int?> ToInterger(string data, string ErrorMesg)
+        public static async Task<int?> ToInterger(this string data, string ErrorMesg)
         {
             try
             {
-                int result = Convert.ToInt16(data);
+                int result = Convert.ToInt32(data);
                 return result;
             }
             catch (FormatException)
@@ -48,20 +48,28 @@ namespace Plutus.Helpers
             }
         }
 
-        internal static T ToModel<T>(object o) where T : class
+        public static async Task<double?> ToDouble(this string data, string ErrorMesg)
         {
-            if (o is T)
-            {
-                return (T) o;
-            }
             try
             {
-                return (T) Convert.ChangeType(o, typeof(T));
+                var result = Convert.ToDouble(data);
+                return result;
             }
-            catch(InvalidCastException)
+            catch (FormatException)
             {
-                return default(T);
+                await Application.Current.MainPage.DisplayAlert("OOPS!", ErrorMesg, "OK");
+                return null;
             }
+            catch (OverflowException)
+            {
+                await Application.Current.MainPage.DisplayAlert("OOPS!", ErrorMesg, "OK");
+                return null;
+            }
+        }
+
+        public static bool IsNumeric(this string value)
+        {
+            return value.All(char.IsNumber);
         }
     }
 }

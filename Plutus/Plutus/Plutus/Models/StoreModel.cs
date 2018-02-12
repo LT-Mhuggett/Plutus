@@ -17,6 +17,7 @@ namespace Plutus.Models
         public string StoreName { get; set; }
         public string StoreAbbr { get; set; }
         public decimal? RecMarkup { get; set; }
+        public byte[] Logo { get; set; }
 
         public List<EmployeeModel> Employees { get; set; }
         public List<StockModel> Stocks { get; set; }

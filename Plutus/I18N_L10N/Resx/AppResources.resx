@@ -670,4 +670,13 @@ The amount of items at purchase for {0} was {1}, Please remove atleast {2}.</val
   <data name="TransCopper" xml:space="preserve">
     <value>Transfer from Copper</value>
   </data>
+  <data name="IsItem" xml:space="preserve">
+    <value>Is 
+ID: {0}
+Name: {1}
+an Item?</value>
+  </data>
+  <data name="AddEmp_check" xml:space="preserve">
+    <value>Do you want to add {0}, {1} to the new system?</value>
+  </data>
 </root>

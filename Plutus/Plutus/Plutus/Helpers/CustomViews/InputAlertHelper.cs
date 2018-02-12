@@ -2,12 +2,14 @@
 using Plutus.Pages.CustomPages;
 using Rg.Plugins.Popup.Services;
 using System.Threading.Tasks;
+using Plutus.Helpers.Extensions;
 
 namespace Plutus.Helpers.CustomViews
 {
     class InputAlertHelper
     {
-        internal static async Task<decimal> LaunchInputAlertAsync(string title, string placeholder, string buttonText, string validText, decimal toPay = 0.0m, bool cash = false)
+        internal static async Task<decimal> LaunchInputAlertAsync(string title, string placeholder, string buttonText,
+            string validText, decimal toPay = 0.0m, bool cash = false)
         {
             var inputAlert = new InputAlert(title, placeholder, buttonText, validText, cash, toPay);
             var popUp = new InputAlertDialogBase<string>(inputAlert);
@@ -25,15 +27,49 @@ namespace Plutus.Helpers.CustomViews
                     ((InputAlert) sender).IsValidationLVisable = true;
                 }
             };
-            decimal? result=null;
-            while (result == null) {
+            decimal? result = null;
+            while (result == null)
+            {
                 await PopupNavigation.PushAsync(popUp);
 
-                result = await Conversions.ToDecimal(await popUp.PageClosedTask, "test");
+                result = await (await popUp.PageClosedTask).ToDecimal("test");
 
                 await PopupNavigation.PopAsync();
             }
-            return (decimal)result;
-        } 
+            return (decimal) result;
+        }
+
+        internal static async Task<string> LaunchInputAlertAsync(string title, string placeholder, string buttonText,
+            string validText, bool isPass = false)
+        {
+            var inputAlert = new InputAlert(title, placeholder, buttonText, validText, isPass);
+            var popUp = new InputAlertDialogBase<string>(inputAlert);
+
+            inputAlert.ConfirmButtonEHandler += (sender, e) =>
+            {
+                if (!string.IsNullOrEmpty(((InputAlert) sender).InputResult))
+                {
+                    ((InputAlert) sender).IsValidationLVisable = false;
+
+                    popUp.PageClosedTaskCompletionSource.SetResult(((InputAlert) sender).InputResult);
+                }
+                else
+                {
+                    ((InputAlert) sender).IsValidationLVisable = true;
+                }
+            };
+
+            var result = "";
+
+            while (result == "")
+            {
+                await PopupNavigation.PushAsync(popUp);
+
+                result = await popUp.PageClosedTask;
+
+                await PopupNavigation.PopAsync();
+            }
+            return result;
+        }
     }
 }

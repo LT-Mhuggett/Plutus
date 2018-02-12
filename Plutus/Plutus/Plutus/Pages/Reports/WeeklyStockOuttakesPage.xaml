@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Plutus.Pages.Reports.WeeklyStockOuttakesPage">
+    <ContentPage.Content>
+        <StackLayout>
+            <Label Text="All items are listed in numerical order most stock outtake at the top."/>
+            <ListView ItemsSource="{Binding Sales}"
+                      CachingStrategy="RecycleElement">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <ViewCell>
+                            <StackLayout>
+                                <Label Text="{Binding Item.Name}" 
+                                       Style="{DynamicResource ListItemDetailTextStyle}"/>
+                                <Label Text="{Binding Amount}" 
+                                       Style="{DynamicResource ListItemDetailTextStyle}"/>
+                            </StackLayout>
+                        </ViewCell>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </StackLayout>
+    </ContentPage.Content>
+</ContentPage>

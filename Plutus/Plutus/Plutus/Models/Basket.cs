@@ -21,6 +21,7 @@ namespace Plutus.Models
             Brand = item.Brand;
             Cost = item.Cost;
             Price = item.Price;
+            ExPrice = item.ExPrice;
             Image = item.Image;
             VatId = item.VatId;
             CatId = item.CatId;

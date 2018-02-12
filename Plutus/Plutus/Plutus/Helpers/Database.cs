@@ -77,13 +77,13 @@ namespace Plutus.Helpers
 
         internal void Init()
         {
-            var vat = new TaxModel() { Name = "0%", Rate = 1 };
+            /*var vat = new TaxModel() { Name = "0%", Rate = 1 };
             Add(vat);
             var vat2 = new TaxModel() {Name = "20%", Rate = 1.2};
             Add(vat2);
             var vat3 = new TaxModel() {Name = "No VAT", Rate = 1};
             Add(vat3);
-
+            */
             //AuthActions Initalization
             var AuthAction = new AuthActions() { Name = "Till" };
             Add(AuthAction);
@@ -108,7 +108,11 @@ namespace Plutus.Helpers
             var AuthAction10 = new AuthActions() {Name = "Management"};
             Add(AuthAction10);
 
-            tempData();
+            var payM = new PaymentMethodModel() { Name = "Card", Charge = 0.0m, MinimumCharge = 0.0m, IsChangeable = false, IsCashBackable = true };
+            Add(payM);
+            var payM2 = new PaymentMethodModel() { Name = "Cash", Charge = 0.0m, MinimumCharge = 0.0m, IsChangeable = true, IsCashBackable = false };
+            Add(payM2);
+            //tempData();
 
             _db.SaveChanges();
         }
@@ -186,15 +190,25 @@ namespace Plutus.Helpers
             .Include(i => i.Cat)
             .Include(i => i.Transactions)
             .Include(i => i.Stock);
-        
+
         internal IQueryable<SaleModel> GetSales(string condition) => Get<SaleModel>()
-                .Include(s => s.Notes)
-                .Include(s => s.Refunded)
-                .Include(s => s.Refunds)
-                .Include(s => s.Transactions)
-                .Include(s => s.PaySales)
-                .Where(s => s.DateOfSale.ToString().Contains(condition)
-                    || s.EmployeeId.Equals(condition));
+            .Include(s => s.Notes)
+            .Include(s => s.Refunded)
+            .Include(s => s.Refunds)
+            .Include(s => s.Transactions)
+            .Include(s => s.PaySales)
+                .ThenInclude(ps => ps.PayMethod)
+            .Where(s => s.DateOfSale.ToString().Contains(condition)
+                || s.EmployeeId.Equals(condition));
+
+        internal IQueryable<SaleModel> GetSales() => Get<SaleModel>()
+            .Include(s => s.Notes)
+            .Include(s => s.Refunded)
+            .Include(s => s.Refunds)
+            .Include(s => s.Transactions)
+                .ThenInclude(t=>t.Item)
+            .Include(s => s.PaySales)
+                .ThenInclude(ps => ps.PayMethod);
 
         internal List<DateTime> GetDateOfSales()
         {

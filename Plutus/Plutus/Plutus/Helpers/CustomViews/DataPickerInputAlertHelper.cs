@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Plutus.Helpers.Extensions;
 using CustomViews;
 using Plutus.Models;
 using Plutus.Pages.CustomPages;
@@ -26,7 +27,7 @@ namespace Plutus.Helpers.CustomViews
 
                     var tuple =
                         Tuple.Create<CategoryModel, DateTime?, DateTime?>(
-                            Conversions.ToModel<CategoryModel>(obj.obj), obj.StartDate, obj.EndDate);
+                            obj.obj.ToModel<CategoryModel>(), obj.StartDate, obj.EndDate);
                     popUp.PageClosedTaskCompletionSource.SetResult(tuple);
                 }
                 else
@@ -68,7 +69,7 @@ namespace Plutus.Helpers.CustomViews
                     obj.IsValidationLVisable = false;
 
                     var tuple =
-                        Tuple.Create<ItemModel, DateTime?, DateTime?>(Conversions.ToModel<ItemModel>(obj.obj),
+                        Tuple.Create<ItemModel, DateTime?, DateTime?>(obj.obj.ToModel<ItemModel>(),
                             obj.StartDate, obj.EndDate);
                     popUp.PageClosedTaskCompletionSource.SetResult(tuple);
                 }

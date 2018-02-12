@@ -107,6 +107,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Do you want to add {0}, {1} to the new system?.
+        /// </summary>
+        internal static string AddEmp_check {
+            get {
+                return ResourceManager.GetString("AddEmp_check", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Add Item.
         /// </summary>
         internal static string AddItem {
@@ -853,6 +862,18 @@ namespace I18N_L10N.Resx {
         internal static string InvetMgr {
             get {
                 return ResourceManager.GetString("InvetMgr", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Is 
+        ///ID: {0}
+        ///Name: {1}
+        ///an Item?.
+        /// </summary>
+        internal static string IsItem {
+            get {
+                return ResourceManager.GetString("IsItem", resourceCulture);
             }
         }
         

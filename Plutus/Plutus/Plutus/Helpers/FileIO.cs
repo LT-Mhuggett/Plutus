@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using System.Linq;
+using System.Text;
 #if __ANDROID__
 using Com.Cloudrail;
 using Com.Cloudrail.SI.Types;
@@ -231,8 +232,15 @@ namespace Plutus.Helpers
             return folder;
         }
 
-        internal static IEnumerable<string[]> GetStringsFromCsv(StorageFile file, char delmiter) =>
-            File.ReadAllLines(file.Path).Select(x => x.Split(delmiter));
+        internal static async Task<string[]> GetStringsFromCsvAsync(StorageFile file, char delmiter)
+        {
+            var stream = await file.OpenStreamForReadAsync();
+            using (var strReader = new StreamReader(stream))
+            {
+                var @string = await strReader.ReadToEndAsync();
+                return @string.Split(delmiter);
+            }
+        }
 #endif
     }
 }

@@ -14,7 +14,9 @@
     </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Authorisation.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Camera.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Helpers\Conversions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\Extensions\DateTimeExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\Extensions\ObjectExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\Extensions\StringExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\CustomViews\DataPickerInputAlertHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\CustomViews\InputAlertHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\ICloseApp.cs" />
@@ -126,6 +128,10 @@
     </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Pages\Reports\SalesReportsPage.xaml.cs">
       <DependentUpon>SalesReportsPage.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="$(MSBuildThisFileDirectory)Pages\Reports\WeeklyStockOuttakesPage.xaml.cs">
+      <DependentUpon>WeeklyStockOuttakesPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Pages\Staff\AddEmployeePage.xaml.cs">
@@ -335,6 +341,12 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\CustomPages\DataPickerInputAlert.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\Reports\WeeklyStockOuttakesPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
     </EmbeddedResource>

@@ -29,5 +29,11 @@ namespace Plutus.Pages.Reports
             VerifyId.IsVisible = false;
             MPage.IsEnabled = true;
         }
+
+        private void WSOutReps_Clicked(object sender, EventArgs e)
+        {
+            Action action = async () => await App.Current.MainPage.Navigation.PushAsync(new WeeklyStockOuttakesPage());
+            Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Report", "V", action);
+        }
     }
 }

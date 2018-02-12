@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using Plutus.Models;
+using Plutus.Helpers.Extensions;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 using Plutus.Helpers;
@@ -281,7 +282,7 @@ namespace Plutus.Pages.Till
                 {
                     discountsUsed.Add(disCats.Last().Discount);
                 }
-
+                if (discountsUsed.Count == 0) continue;
                 if (discountsUsed.Last().UsesPerTransaction != -1)
                     discountsUsed.Last().UsesPerTransaction -=
                         discountsUsed.Last().UsesPerTransaction <
@@ -295,7 +296,7 @@ namespace Plutus.Pages.Till
                       item.Price;
             }
 
-            total = Basket.Sum(item => (item.Price * item.Amount)) + discountAmount;
+            total = Basket.Sum(item => item.Price * item.Amount) + discountAmount;
 
             for (var paid = 0.0m; paid < total;)
             {
@@ -325,7 +326,7 @@ namespace Plutus.Pages.Till
 
                 var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
                     string.Format(App.Translate.ProvideValue(refundOnly ? "HowMuchRefund" : "HowMuchPM"), action,
-                        Math.Round(total - paid, 2, MidpointRounding.AwayFromZero).ToString()), "enter here", "Confrim",
+                        Math.Round(total - paid, 2, MidpointRounding.AwayFromZero)), "enter here", "Confrim",
                     App.Translate.ProvideValue("EnterCorrectValue"), total - paid, !pay.PayMethod.IsCashBackable);
 
                 pay.Amount = amount;
@@ -354,7 +355,7 @@ namespace Plutus.Pages.Till
                 var cashback = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("CashBack_"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
                 if (cashback)
                 {
-                    var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(App.Translate.ProvideValue("HowMuchCB"), "enter here", "Confrim", App.Translate.ProvideValue("EnterCorrectValue"));
+                    var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(App.Translate.ProvideValue("HowMuchCB"), "enter here", "Confrim", App.Translate.ProvideValue("EnterCorrectValue"), toPay:0.0m);
                     if (amount > 0.01m)
                     {
                         var cB = App.DbContext.GetNote(string.Format(App.Translate.ProvideValue("CBNote"), amount));
@@ -486,7 +487,7 @@ namespace Plutus.Pages.Till
         /// <param name="tempItem">Item to add to Basket</param>
         private async void BasketAdd(Basket tempItem)
         {
-            var amount = (int)await Conversions.ToInterger(AmountToAdd.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
+            var amount = (int)await AmountToAdd.Text.ToInterger(App.Translate.ProvideValue("ValueEnteredWrong"));
             if (amount == -1)
                 return;
             foreach (var item in Basket)

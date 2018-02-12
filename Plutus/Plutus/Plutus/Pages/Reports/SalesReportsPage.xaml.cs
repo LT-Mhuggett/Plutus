@@ -15,13 +15,9 @@ namespace Plutus.Pages.Reports
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class SalesReportsPage : ContentPage
     {
-        public ObservableCollection<SaleModel> Sales { get; set; }
-
         public SalesReportsPage()
         {
             InitializeComponent();
-
-            Sales =new ObservableCollection<SaleModel>();
 
             var dateOS = App.DbContext.GetDateOfSales();
 
@@ -36,27 +32,18 @@ namespace Plutus.Pages.Reports
             BindingContext = this;
         }
 
-        private void Handle_ItemTapped(object sender, ItemTappedEventArgs e)
-        {
-            if (e.Item == null)
-                return;
-            //Deselect Item
-            ((ListView)sender).SelectedItem = null;
-        }
-
         private void InitSales(string temp)
         {
-            Sales.Clear();
             var sales = App.DbContext.GetSales(temp).ToList();
-            foreach(var sale in sales)
-            {
-                Sales.Add(sale);
-            }
-        }
-
-        private void EmpSearchCompleted(object sender, EventArgs e)
-        {
-            InitSales(EmpSearch.Text);
+            totalTakins.Text = sales
+                .Sum(sale => sale.PaySales.Sum(ps => ps.Amount))
+                .ToString(CultureInfo.InvariantCulture);
+            cashTakins.Text = sales
+                .Sum(sale => sale.PaySales.Where(ps => ps.PayMethod.Name.Equals("Cash")).Sum(ps => ps.Amount))
+                .ToString(CultureInfo.InvariantCulture);
+            cardTakins.Text = sales
+                .Sum(sale => sale.PaySales.Where(ps => ps.PayMethod.Name.Equals("Card")).Sum(ps => ps.Amount))
+                .ToString(CultureInfo.InvariantCulture);
         }
 
         private void DateSearchChange(object sender, EventArgs e)

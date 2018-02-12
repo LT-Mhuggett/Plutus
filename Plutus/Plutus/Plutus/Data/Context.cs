@@ -16,7 +16,7 @@ namespace Plutus.Data
     {
         public DbSet<EmployeeModel> Employees { get; set; }
         public DbSet<StoreModel> Stores { get; set; }
-        public DbSet<VatModel> Vats { get; set; }
+        public DbSet<TaxModel> Vats { get; set; }
         public DbSet<ItemModel> Items { get; set; }
         public DbSet<PaymentMethodModel> PayMethods { get; set; }
         public DbSet<PaymentMethod_SaleModel> PaySales { get; set; }

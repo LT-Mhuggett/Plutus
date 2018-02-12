@@ -5,26 +5,13 @@
              xmlns:i18N="clr-namespace:I18N_L10N;assembly=I18N_L10N"
              Title="{i18N:Translate SReports}">
     <StackLayout>
-        <Label Text="{i18N:Translate EmpIdORDate}" />
-        <Entry x:Name="EmpSearch" Completed="EmpSearchCompleted" Placeholder="NOT YET IMPLEMENTED" />
+        <Label Text="Date of Sale Takins"/>
         <Picker x:Name="DateSearch" SelectedIndexChanged="DateSearchChange" />
-        <ListView ItemsSource="{Binding Sales}"
-            ItemTapped="Handle_ItemTapped">
-            <x:Arguments>
-                <ListViewCachingStrategy>RecycleElement</ListViewCachingStrategy>
-            </x:Arguments>
-            <ListView.ItemTemplate>
-                <DataTemplate>
-                    <ViewCell>
-                        <StackLayout>
-                            <Label Text="{Binding SaleId}" 
-                            Style="{DynamicResource ListItemTextStyle}" />
-                            <Label Text="{Binding Total}" 
-                            Style="{DynamicResource ListItemDetailTextStyle}"/>
-                        </StackLayout>
-                    </ViewCell>
-                </DataTemplate>
-            </ListView.ItemTemplate>
-        </ListView>
+        <Label Text="Total"/>
+        <Label x:Name="totalTakins"/>
+        <Label Text="Card"/>
+        <Label x:Name="cardTakins"/>
+        <Label Text="Cash"/>
+        <Label x:Name="cashTakins"/>
     </StackLayout>
 </ContentPage>

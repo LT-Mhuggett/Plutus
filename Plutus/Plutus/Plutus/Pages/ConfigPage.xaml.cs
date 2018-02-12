@@ -1,5 +1,6 @@
 ﻿using Plutus.Helpers;
 using Plutus.Models;
+using Plutus.Helpers.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,16 +17,16 @@ using FileIO = Plutus.Helpers.FileIO;
 
 namespace Plutus.Pages
 {
-	[XamlCompilation(XamlCompilationOptions.Compile)]
-	public partial class ConfigPage : ContentPage
-	{
+    [XamlCompilation(XamlCompilationOptions.Compile)]
+    public partial class ConfigPage : ContentPage
+    {
         /// <summary>
         /// Basic Constructor for the ConfigPage object
         /// </summary>
-		public ConfigPage ()
-		{
-			InitializeComponent ();
-		}
+        public ConfigPage()
+        {
+            InitializeComponent();
+        }
 
         /// <summary>
         /// This method checks all user inputs and then calls methods to encrypt passwords
@@ -52,27 +53,47 @@ namespace Plutus.Pages
             }
 
             var Salt = Convert.ToBase64String(Helpers.Password.GenerateSalt());
-            var HashedPassword = Convert.ToBase64String(await Task.Run(() => Helpers.Password.ComputeHash(Password.Text, Convert.FromBase64String(Salt))));
+            var HashedPassword = Convert.ToBase64String(await Task.Run(() =>
+                Helpers.Password.ComputeHash(Password.Text, Convert.FromBase64String(Salt))));
 
             var store = new StoreModel()
             {
                 StoreName = !String.IsNullOrEmpty(StoreName.Text) ? StoreName.Text : null,
                 StoreAbbr = !String.IsNullOrEmpty(StoreAbbr.Text) ? StoreAbbr.Text : null,
-                RecMarkup = !String.IsNullOrEmpty(StoreRM.Text) ? (decimal?)await Conversions.ToInterger(StoreRM.Text, App.Translate.ProvideValue("RecMarkupError")) / 100 + 1 : null,
-                AdLine1 = AutoLayoutS.IsVisible ? null : !String.IsNullOrEmpty(StoreAdLine1.Text) ? StoreAdLine1.Text : null,
+                RecMarkup = !String.IsNullOrEmpty(StoreRM.Text)
+                    ? (decimal?) await StoreRM.Text.ToInterger(App.Translate.ProvideValue("RecMarkupError")) / 100 + 1
+                    : null,
+                AdLine1 = AutoLayoutS.IsVisible
+                    ? null
+                    : !String.IsNullOrEmpty(StoreAdLine1.Text)
+                        ? StoreAdLine1.Text
+                        : null,
                 AdLine2 = AutoLayoutS.IsVisible ? null : StoreAdLine2.Text,
                 City = AutoLayoutS.IsVisible ? null : !String.IsNullOrEmpty(StoreCity.Text) ? StoreCity.Text : null,
-                Country = AutoLayoutS.IsVisible ? null : !String.IsNullOrEmpty(StoreCountry.Text) ? StoreCountry.Text : null,
-                PostCode = AutoLayoutS.IsVisible ? null : Validate.IsPostCodeValid(StorePostCode.Text) ? StorePostCode.Text : null,
-                FullAddress = AutoLayoutS.IsVisible ? StoreAddressPicker.SelectedIndex < 0 ? null : StoreAddressPicker.SelectedItem.ToString() : null
+                Country = AutoLayoutS.IsVisible
+                    ? null
+                    : !String.IsNullOrEmpty(StoreCountry.Text)
+                        ? StoreCountry.Text
+                        : null,
+                PostCode = AutoLayoutS.IsVisible
+                    ? null
+                    : Validate.IsPostCodeValid(StorePostCode.Text)
+                        ? StorePostCode.Text
+                        : null,
+                FullAddress = AutoLayoutS.IsVisible
+                    ? StoreAddressPicker.SelectedIndex < 0
+                        ? null
+                        : StoreAddressPicker.SelectedItem.ToString()
+                    : null
             };
-            if (store.StoreName == null || store.StoreAbbr == null || store.RecMarkup == null || store.FullAddress == null && store.AdLine1 == null)
+            if (store.StoreName == null || store.StoreAbbr == null || store.RecMarkup == null ||
+                store.FullAddress == null && store.AdLine1 == null)
             {
                 Loading.TogleLoading(LCV, LAI);
                 Error(0);
                 return;
             }
-            else if (store.PostCode == null && store.FullAddress == null)
+            if (store.PostCode == null && store.FullAddress == null)
             {
                 Loading.TogleLoading(LCV, LAI);
                 Error(2);
@@ -88,32 +109,39 @@ namespace Plutus.Pages
                 AdLine2 = AutoLayoutP.IsVisible ? null : AdLine2.Text,
                 City = AutoLayoutP.IsVisible ? null : !String.IsNullOrEmpty(City.Text) ? City.Text : null,
                 Country = AutoLayoutP.IsVisible ? null : !String.IsNullOrEmpty(Country.Text) ? Country.Text : null,
-                PostCode = AutoLayoutP.IsVisible ? null : Validate.IsPostCodeValid(PostCode.Text) ? PostCode.Text : null,
-                FullAddress = AutoLayoutP.IsVisible ? PersonAddressPicker.SelectedIndex < 0 ? null : PersonAddressPicker.SelectedItem.ToString() : null,
+                PostCode =
+                    AutoLayoutP.IsVisible ? null : Validate.IsPostCodeValid(PostCode.Text) ? PostCode.Text : null,
+                FullAddress =
+                    AutoLayoutP.IsVisible
+                        ? PersonAddressPicker.SelectedIndex < 0
+                            ? null
+                            : PersonAddressPicker.SelectedItem.ToString()
+                        : null,
                 Email = Validate.IsEmailValid(Email.Text) ? Email.Text.ToLower() : null,
                 Mobile = Validate.IsPhoneNumberValid(Mobile.Text) ? Mobile.Text : null,
                 Salt = Salt,
                 HashedPassword = HashedPassword
             };
-            if (emp.FName == null || emp.LName == null || emp.NIN == null || emp.FullAddress == null && emp.AdLine1 == null)
+            if (emp.FName == null || emp.LName == null || emp.NIN == null ||
+                emp.FullAddress == null && emp.AdLine1 == null)
             {
                 Loading.TogleLoading(LCV, LAI);
                 Error(0);
                 return;
             }
-            else if (emp.PostCode == null && emp.FullAddress == null)
+            if (emp.PostCode == null && emp.FullAddress == null)
             {
                 Loading.TogleLoading(LCV, LAI);
                 Error(2);
                 return;
             }
-            else if (emp.Email == null)
+            if (emp.Email == null)
             {
                 Loading.TogleLoading(LCV, LAI);
                 Error(1);
                 return;
             }
-            else if (emp.Mobile == null)
+            if (emp.Mobile == null)
             {
                 Loading.TogleLoading(LCV, LAI);
                 Error(3);
@@ -148,7 +176,8 @@ namespace Plutus.Pages
                 emp.EmpAuths = new List<Emp_AuthActions>();
                 foreach (var item in tempList)
                 {
-                    Emp_AuthActions temp = new Emp_AuthActions() { Auth = item, A=true, M=true, R=true, V=true, X=true };
+                    Emp_AuthActions temp =
+                        new Emp_AuthActions() {Auth = item, A = true, M = true, R = true, V = true, X = true};
                     emp.EmpAuths.Add(temp);
                 }
 
@@ -156,7 +185,8 @@ namespace Plutus.Pages
                 App.DbContext.Add(emp);
                 if (!App.DbContext.Save())
                 {
-                    await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
+                    await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"),
+                        App.Translate.ProvideValue("OK"));
                     return;
                 }
                 Application.Current.MainPage = new NavigationPage(new MainNavigationPage(emp, store));
@@ -244,14 +274,11 @@ namespace Plutus.Pages
                 Error(5);
                 return;
             }
-            else
-            {
-                foreach (var item in addressList)
-                    PersonAddressPicker.Items.Add(item);
-                ManLayoutP.IsVisible = !ManLayoutP.IsVisible;
-                AutoLayoutP.IsVisible = !AutoLayoutP.IsVisible;
-                PersonAddressPicker.Focus();
-            }
+            foreach (var item in addressList)
+                PersonAddressPicker.Items.Add(item);
+            ManLayoutP.IsVisible = !ManLayoutP.IsVisible;
+            AutoLayoutP.IsVisible = !AutoLayoutP.IsVisible;
+            PersonAddressPicker.Focus();
         }
 
         /// <summary>
@@ -287,7 +314,9 @@ namespace Plutus.Pages
 
             if (TransfSucc)
             {
-                await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Success"), string.Format(App.Translate.ProvideValue("DbBRSucc"), "Restored"), App.Translate.ProvideValue("Cancel"));
+                await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Success"),
+                    string.Format(App.Translate.ProvideValue("DbBRSucc"), "Restored"),
+                    App.Translate.ProvideValue("Cancel"));
                 App.DbContext = new Database();
 
                 var fileC = new List<string>
@@ -304,7 +333,9 @@ namespace Plutus.Pages
                 App.Current.MainPage = new NavigationPage(new LoginPage());
                 return;
             }
-            await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Hmm"), string.Format(App.Translate.ProvideValue("DbBRFailed"), "Restoring"), App.Translate.ProvideValue("Cancel"));
+            await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Hmm"),
+                string.Format(App.Translate.ProvideValue("DbBRFailed"), "Restoring"),
+                App.Translate.ProvideValue("Cancel"));
         }
 
         private void SameAdButt_Clicked(object sender, EventArgs e)
@@ -338,24 +369,155 @@ namespace Plutus.Pages
         {
             var folder = await FileIO.GetFolderAsync();
 
+            Loading.TogleLoading(LCV, LAI);
+
             var folderList = await folder.GetFoldersAsync();
 
-            foreach (var tempFolder in folderList)
+            var tempFolder = folderList[2];
+
+            App.DbContext.Init();
+            var store = new StoreModel();
+
+            var taxes = new List<TaxModel>();
+            var cat = new CategoryModel()
             {
-                var fileList = await tempFolder.GetFilesAsync();
-                if (tempFolder.Name == "Items")
+                Name = "NOT EXIST",
+                Description = "Created when migrating software and category was none existent"
+            };
+            var fileList = await tempFolder.GetFilesAsync();
+            foreach (var file in fileList)
+            {
+                var fileData = await FileIO.GetStringsFromCsvAsync(file, '&');
+                var extraParse = fileData.Select(x => x.Split('=')).ToArray();
+                var name = file.Name.Replace(".dat", "");
+                switch (name)
                 {
-                    foreach (var file in fileList)
-                    {
-                        var fileData = FileIO.GetStringsFromCsv(file, '&');
-                        var item = fileData.Select(x => new ItemModel
+                    case "Company":
+                        store = new StoreModel()
                         {
-                            Name = x[0],
-                            pr
-                        });
-                    }
+                            StoreName = Uri.UnescapeDataString(extraParse.FirstOrDefault(x => x[0].Equals("Name"))?[1]),
+                            StoreAbbr = Uri.UnescapeDataString(extraParse.FirstOrDefault(x => x[0].Equals("Name"))?[1]).Trim().Remove(0, 4),
+                        };
+                        App.DbContext.Add(store);
+                        break;
+
+                    case "Tax":
+                        for (var i = 1; i < fileData.Count() - 3; i += 2)
+                        {
+                            var tax = new TaxModel()
+                            {
+                                Name = Uri.UnescapeDataString(extraParse[i][1]),
+                                Rate = (await extraParse[i + 1][1].ToDouble("Error") ?? default(double))/100+1
+                            };
+                            taxes.Add(tax);
+                            App.DbContext.Add(tax);
+                        }
+                        break;
                 }
             }
+
+            tempFolder = folderList[0];
+            fileList = await tempFolder.GetFilesAsync();
+            foreach (var file in fileList)
+            {
+                var fileData = await FileIO.GetStringsFromCsvAsync(file, '&');
+                var extraParse = fileData.Select(x => x.Split('=')).ToArray();
+                var id = file.Name.Replace(".dat", "");
+                if (!id.IsNumeric())
+                {
+                    var itemBool = await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("IsItem"), Uri.UnescapeDataString(id), Uri.UnescapeDataString(extraParse.FirstOrDefault(x => x[0].Equals("Description"))?[1])), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("No"));
+
+                    if (!itemBool) continue;
+                }
+                var value =
+                    // ReSharper disable once PossibleNullReferenceException
+                    await extraParse.FirstOrDefault(x => x[0].Equals("Value"))?[1]?.ToDecimal("Error") ??
+                    default(decimal);
+                var taxType =
+                    // ReSharper disable once PossibleNullReferenceException
+                    await extraParse.FirstOrDefault(x => x[0].Equals("TaxRate"))?[1]?.ToInterger("Error") ??
+                    default(int);
+                if (taxType == 0)
+                    taxType = 3;
+                var item = new ItemModel()
+                {
+                    Id = id,
+                    Name = Uri.UnescapeDataString(extraParse.FirstOrDefault(x => x[0].Equals("Description"))?[1]),
+                    Vat = taxes[taxType-1],
+                    Brand = "NOT EXIST",
+                    Cat = cat,
+                    Cost = 0.00m,
+                    /*
+                     * if price is excluding vat
+                     */
+                    ExPrice = value / 100,
+                    Price = value / 100 * (decimal) taxes[taxType - 1].Rate
+                    /*
+                     * if price is including vat
+                     * ExPrice = value/100 / (decimal) Taxes[taxType-1].Rate,
+                     * Price = value/100
+                     */
+                };
+                App.DbContext.Add(item);
+            }
+
+            tempFolder = folderList[4];
+            fileList = await tempFolder.GetFilesAsync();
+            foreach (var file in fileList)
+            {
+                var fileData = await FileIO.GetStringsFromCsvAsync(file, '&');
+                var extraParse = fileData.Select(x => x.Split('=')).ToArray();
+                var salt = Convert.ToBase64String(Helpers.Password.GenerateSalt());
+
+                var empBool = await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("AddEmp_check"), extraParse.FirstOrDefault(x => x[0].Equals("LastName"))?[1], extraParse.FirstOrDefault(x => x[0].Equals("FirstName"))?[1]), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("No"));
+
+                if (!empBool) continue;
+
+                var emp = new EmployeeModel()
+                {
+                    FName = extraParse.FirstOrDefault(x => x[0].Equals("FirstName"))?[1],
+                    LName = extraParse.FirstOrDefault(x => x[0].Equals("LastName"))?[1],
+                    Email = extraParse.FirstOrDefault(x => x[0].Equals("Email"))?[1] == ""
+                        ? await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                            App.Translate.ProvideValue("Email"), App.Translate.ProvideValue("EnterCorrectValue"),
+                            App.Translate.ProvideValue("Confirm"), App.Translate.ProvideValue("EmailNotCorrectMesg"),
+                            false)
+                        : extraParse.FirstOrDefault(x => x[0].Equals("Email"))?[1],
+                    Salt = salt,
+                    HashedPassword = Convert.ToBase64String(Helpers.Password.ComputeHash(
+                        await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                            App.Translate.ProvideValue("PassW"), App.Translate.ProvideValue("EnterCorrectValue"),
+                            App.Translate.ProvideValue("Confirm"), "Not Valid", true),
+                        Convert.FromBase64String(salt))),
+                    Store = store
+                };
+
+                var tempList = App.DbContext.Get<AuthActions>().ToList();
+                emp.EmpAuths = new List<Emp_AuthActions>();
+                foreach (var item in tempList)
+                {
+                    Emp_AuthActions temp =
+                        new Emp_AuthActions() { Auth = item, A = true, M = true, R = true, V = true, X = true };
+                    emp.EmpAuths.Add(temp);
+                }
+
+                emp.Active = true;
+
+                App.DbContext.Add(emp);
+            }
+            App.DbContext.Save();
+            var fileC = new List<string>
+            {
+                "<Local>",
+                "<Database>",
+                "<Type>Local Database</Type>",
+                "<TypeIndex>1</TypeIndex>",
+                "</Database>",
+                "</Local>"
+            };
+            FileIO.Save("App.config", fileC.ToArray());
+            Application.Current.MainPage = new NavigationPage(new LoginPage());
+            Loading.TogleLoading(LCV, LAI);
         }
 #endif
     }

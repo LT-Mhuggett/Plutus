@@ -11,6 +11,7 @@ using Syncfusion.DataSource;
 using Syncfusion.ListView.XForms;
 using Syncfusion.GridCommon.ScrollAxis;
 using System.Reflection;
+using Plutus.Helpers.Extensions;
 using ItemTappedEventArgs = Syncfusion.ListView.XForms.ItemTappedEventArgs;
 
 namespace Plutus.Pages.Inventory
@@ -53,7 +54,26 @@ namespace Plutus.Pages.Inventory
             {
                 PropertyName = "GroupKey"
             });
+
+            //searchBar.TextChanged += SearchBar_TextChanged;
         }
+
+        /*private void SearchBar_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (ItemList.DataSource == null) return;
+            this.ItemList.DataSource.Filter = FilterItem;
+            this.ItemList.DataSource.RefreshFilter();
+        }
+
+        private bool FilterItem(object obj)
+        {
+            if (searchBar?.Text == null)
+                return true;
+            var item = obj as ItemModel;
+            return item.Name.ToLower().Contains(searchBar.Text.ToLower()) ||
+                   item.Brand.ToLower().Contains(searchBar.Text.ToLower()) ||
+                   item.Desc.ToLower().Contains(searchBar.Text.ToLower());
+        }*/
 
         private void LoadData()
         {
@@ -95,7 +115,7 @@ namespace Plutus.Pages.Inventory
         {
             if (e.ItemData == null)
                 return;
-            ItemModel temp = Conversions.ToModel<ItemModel>(e.ItemData);
+            ItemModel temp = e.ItemData.ToModel<ItemModel>();
             if (!Authorisation.IsAuthorised("Item", "V", App.LastAuthUser))
             {
                 await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("AuthDeniedMesg"), App.Translate.ProvideValue("OK"));

@@ -13,6 +13,7 @@ using Plutus.Helpers.Interface;
 using ZXing.Mobile;
 using I18N_L10N;
 using ZXing.Net.Mobile.Forms;
+using Plutus.Helpers.Extensions;
 
 namespace Plutus.Pages.Inventory
 {
@@ -124,14 +125,14 @@ namespace Plutus.Pages.Inventory
                 return;
             }
 
-            _item.Cost = (decimal) await Conversions.ToDecimal(Cost.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
-            _item.Price = (decimal) await Conversions.ToDecimal(Price.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
-            _item.ExPrice = (decimal) await Conversions.ToDecimal(ExPrice.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
+            _item.Cost = (decimal) await Cost.Text.ToDecimal(App.Translate.ProvideValue("ValueEnteredWrong"));
+            _item.Price = (decimal) await Price.Text.ToDecimal(App.Translate.ProvideValue("ValueEnteredWrong"));
+            _item.ExPrice = (decimal) await ExPrice.Text.ToDecimal(App.Translate.ProvideValue("ValueEnteredWrong"));
 
             if (_item.Cost.Equals(0) || _item.Price.Equals(0))
                 return;
 
-            var temp = (int)await Conversions.ToInterger(Stock.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
+            var temp = (int)await Stock.Text.ToInterger(App.Translate.ProvideValue("ValueEnteredWrong"));
 
             if (temp.Equals(-1))
                 return;
@@ -197,10 +198,10 @@ namespace Plutus.Pages.Inventory
 	        {
 	            if (item.Id != VatPicker.SelectedIndex + 1) continue;
 	            ExPrice.Placeholder =
-	                $"{App.Translate.ProvideValue("RecPriceExVat")}: {(decimal) await Conversions.ToDecimal(Cost.Text, App.Translate.ProvideValue("ValueEnteredWrong")) * App.Store.RecMarkup:0.00}";
+	                $"{App.Translate.ProvideValue("RecPriceExVat")}: {(decimal) await Cost.Text.ToDecimal(App.Translate.ProvideValue("ValueEnteredWrong")) * App.Store.RecMarkup:0.00}";
 	            Price.Text = ExPrice.Text != null
-	                ? $"{(decimal) await Conversions.ToDecimal(ExPrice.Text, App.Translate.ProvideValue("valueEnteredWrong")) * (decimal) item.Rate:0.00}"
-	                : $"{(decimal) await Conversions.ToDecimal(Cost.Text, App.Translate.ProvideValue("ValueEnteredWrong")) * App.Store.RecMarkup * (decimal) item.Rate:0.00}";
+	                ? $"{(decimal) await ExPrice.Text.ToDecimal(App.Translate.ProvideValue("valueEnteredWrong")) * (decimal) item.Rate:0.00}"
+	                : $"{(decimal) await Cost.Text.ToDecimal(App.Translate.ProvideValue("ValueEnteredWrong")) * App.Store.RecMarkup * (decimal) item.Rate:0.00}";
 	        }
 	    }
 

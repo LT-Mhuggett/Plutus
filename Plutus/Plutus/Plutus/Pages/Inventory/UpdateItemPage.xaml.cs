@@ -13,6 +13,7 @@ using Plutus.Helpers.Interface;
 using I18N_L10N;
 using ZXing.Net.Mobile.Forms;
 using ZXing.Mobile;
+using Plutus.Helpers.Extensions;
 
 namespace Plutus.Pages.Inventory
 {
@@ -181,7 +182,7 @@ namespace Plutus.Pages.Inventory
             {
                 if (item.Id == VatPicker.SelectedIndex + 1)
                 {
-                    Price.Placeholder = $"{App.Translate.ProvideValue("RecPrice")}: {(decimal)await Conversions.ToDecimal(Cost.Text, App.Translate.ProvideValue("ValueEnteredWrong")) * (decimal)item.Rate}";
+                    Price.Placeholder = $"{App.Translate.ProvideValue("RecPrice")}: {(decimal)await Cost.Text.ToDecimal(App.Translate.ProvideValue("ValueEnteredWrong")) * (decimal)item.Rate}";
                 }
             }
         }
@@ -271,8 +272,8 @@ namespace Plutus.Pages.Inventory
             _changeItem.Name = Name.Text;
             _changeItem.Brand = Brand.Text;
             _changeItem.CatId = CatPicker.SelectedIndex + 1;
-            _changeItem.Cost = (decimal)await Conversions.ToDecimal(Cost.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
-            _changeItem.Price = (decimal)await Conversions.ToDecimal(Price.Text, App.Translate.ProvideValue("ValueEnteredWrong"));
+            _changeItem.Cost = (decimal)await Cost.Text.ToDecimal(App.Translate.ProvideValue("ValueEnteredWrong"));
+            _changeItem.Price = (decimal)await Price.Text.ToDecimal(App.Translate.ProvideValue("ValueEnteredWrong"));
             _changeItem.VatId = VatPicker.SelectedIndex + 1;
 
             if (_changeItem.Name==_item.Name&&_changeItem.Brand==_item.Brand&&_changeItem.CatId==_item.CatId&&_changeItem.Cost==_item.Cost&&_changeItem.Desc==_item.Desc&&_changeItem.Image==_item.Image&&_changeItem.Price==_item.Price&&_changeItem.VatId==_item.VatId)
