@@ -396,7 +396,20 @@ namespace Plutus.Pages
                         store = new StoreModel()
                         {
                             StoreName = Uri.UnescapeDataString(extraParse.FirstOrDefault(x => x[0].Equals("Name"))?[1]),
-                            StoreAbbr = Uri.UnescapeDataString(extraParse.FirstOrDefault(x => x[0].Equals("Name"))?[1]).Trim().Remove(0, 4),
+                            StoreAbbr = Uri.UnescapeDataString(extraParse.FirstOrDefault(x => x[0].Equals("Name"))?[1])
+                                .Trim().Remove(4,
+                                    Uri.UnescapeDataString(extraParse.FirstOrDefault(x => x[0].Equals("Name"))?[1])
+                                        .Length),
+                            FullAddress = Uri.UnescapeDataString(
+                                extraParse.FirstOrDefault(x => x[0].Equals("Address"))?[1] == ""
+                                    ? await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                                        App.Translate.ProvideValue("FullAddress"),
+                                        App.Translate.ProvideValue("EnterCorrectValue"),
+                                        App.Translate.ProvideValue("Confirm"),
+                                        App.Translate.ProvideValue("EmailNotCorrectMesg"),
+                                        false)
+                                    : Uri.UnescapeDataString(
+                                        extraParse.FirstOrDefault(x => x[0].Equals("Address"))?[1]))
                         };
                         App.DbContext.Add(store);
                         break;
@@ -437,7 +450,7 @@ namespace Plutus.Pages
                     // ReSharper disable once PossibleNullReferenceException
                     await extraParse.FirstOrDefault(x => x[0].Equals("TaxRate"))?[1]?.ToInterger("Error") ??
                     default(int);
-                if (taxType == 0)
+                if (taxType == 0 || taxType == 1)
                     taxType = 3;
                 var item = new ItemModel()
                 {
