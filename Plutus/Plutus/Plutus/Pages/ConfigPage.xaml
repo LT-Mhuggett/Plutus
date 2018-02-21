@@ -48,6 +48,8 @@
                     <Entry x:Name="LName"/>
                     <Label Text="{i18N:Translate Email}" VerticalOptions="FillAndExpand"/>
                     <Entry x:Name="Email" Keyboard="Email"/>
+                    <Label Text="{i18N:Translate EmailConf}" VerticalOptions="FillAndExpand"/>
+                    <Entry x:Name="EmailConf" Keyboard="Email"/>
                     <Label Text="{i18N:Translate PhoneN}"/>
                     <Entry x:Name="Mobile" Keyboard="Telephone"/>
                     <Label Text="{i18N:Translate PassW}" VerticalOptions="FillAndExpand"/>

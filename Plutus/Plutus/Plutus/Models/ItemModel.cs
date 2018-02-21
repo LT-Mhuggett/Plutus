@@ -15,14 +15,11 @@ namespace Plutus.Models
         public string Name { get; set; }
         public string Brand { get; set; }
         public string Desc { get; set; }
-        [DataType(dataType: DataType.Currency)]
-        [DisplayFormat(DataFormatString = "{0:C0}", ApplyFormatInEditMode = true)]
+        [DisplayFormat(DataFormatString = "{0:#.##}", ApplyFormatInEditMode = true)]
         public decimal Cost { get; set; }
-        [DataType(dataType: DataType.Currency)]
-        [DisplayFormat(DataFormatString = "{0:C0}", ApplyFormatInEditMode = true)]
+        [DisplayFormat(DataFormatString = "{0:#.##}", ApplyFormatInEditMode = true)]
         public decimal ExPrice { get; set; }
-        [DataType(dataType: DataType.Currency)]
-        [DisplayFormat(DataFormatString = "{0:C0}", ApplyFormatInEditMode = true)]
+        [DisplayFormat(DataFormatString = "{0:#.##}", ApplyFormatInEditMode = true)]
         public decimal Price { get; set; }
         public byte[] Image { get; set; }
 

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
+using Plugin.Clipboard;
 using Plutus.Models;
 using Plutus.Helpers;
 using Xamarin.Forms;
@@ -14,7 +15,7 @@ namespace Plutus.Pages.Inventory
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class ItemTemplate : ContentPage
 	{
-        internal ItemModel item;
+	    private readonly ItemModel _item;
         #region MainBasket
         /// <summary>
         /// Basic constructor for ItemTemplate
@@ -55,7 +56,7 @@ namespace Plutus.Pages.Inventory
             ItemDesc.Text = itemTemp.Desc;
             ItemPrice.Text = itemTemp.Price.ToString();
 		    ItemExPrice.Text = itemTemp.ExPrice.ToString();
-            item = itemTemp;
+            _item = itemTemp;
 		}
         #endregion
 
@@ -91,7 +92,7 @@ namespace Plutus.Pages.Inventory
             ItemDesc.Text = itemTemp.Desc;
             ItemPrice.Text = itemTemp.Price.ToString();
             ItemExPrice.Text = itemTemp.ExPrice.ToString();
-            item = itemTemp;
+            _item = itemTemp;
         }
         #endregion
 
@@ -103,6 +104,7 @@ namespace Plutus.Pages.Inventory
             Confirm.IsVisible = false;
             Edit.IsVisible = false;
             Close.IsVisible = true;
+            AddBasket.IsVisible = true;
 
             if (itemTemp.Image == null)
             {
@@ -121,7 +123,7 @@ namespace Plutus.Pages.Inventory
             ItemDesc.Text = itemTemp.Desc;
             ItemPrice.Text = itemTemp.Price.ToString();
             ItemExPrice.Text = itemTemp.ExPrice.ToString();
-            item = itemTemp;
+            _item = itemTemp;
         }
         #endregion
 
@@ -155,7 +157,7 @@ namespace Plutus.Pages.Inventory
         /// <param name="e">Event that the sender called</param>
         private void Select_Clicked(object sender, EventArgs e)
         {
-            MessagingCenter.Send(new UpdateItemPage(), "SearchSelected", item);
+            MessagingCenter.Send(new UpdateItemPage(), "SearchSelected", _item);
         }
 
         /// <summary>
@@ -167,6 +169,18 @@ namespace Plutus.Pages.Inventory
             MessagingCenter.Unsubscribe<AddItemPage>(new AddItemPage(), "Accepted");
             MessagingCenter.Unsubscribe<UpdateItemPage>(new UpdateItemPage(), "Accepted");
             MessagingCenter.Unsubscribe<UpdateItemPage>(new UpdateItemPage(), "SearchSelected");
+        }
+
+        private void AddBasket_Clicked(object sender, EventArgs e)
+        {
+            MessagingCenter.Send((App) Application.Current, "AddItemToBasket", _item);
+            Navigation.PopModalAsync();
+        }
+
+        private void TapGestureRecognizer_Tapped(object sender, EventArgs e)
+        {
+            CrossClipboard.Current.SetText(((Label) sender).Text);
+            DisplayAlert("Copied", "Text has been copied", "OK");
         }
     }
 }

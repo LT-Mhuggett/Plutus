@@ -19,6 +19,7 @@
     "Xam.Plugin.Media": "3.0.1",
     "Xamarin.Forms": "2.3.5.256-pre6",
     "Xamarin.Forms.Maps": "2.3.4.270",
+    "Xamarin.Plugins.Clipboard": "2.0.0",
     "ZXing.Net.Mobile": "2.2.9",
     "ZXing.Net.Mobile.Forms": "2.2.9"
   },

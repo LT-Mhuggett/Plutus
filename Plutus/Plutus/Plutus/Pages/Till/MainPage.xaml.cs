@@ -59,6 +59,12 @@ namespace Plutus.Pages.Till
             
             _countBasketNum = 1;
             Instance = this;
+
+            MessagingCenter.Subscribe<App, ItemModel>((App)Application.Current, "AddItemToBasket", (sender, arg) =>
+                {
+                    var tempItem = new Basket(arg);
+                    BasketAdd(tempItem);
+                });
         }
 
         /// <summary>
@@ -373,7 +379,7 @@ namespace Plutus.Pages.Till
                 }
             }
 
-            var Continue = await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("Continue"), total), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
+            var Continue = await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("Continue"), Math.Round(total, 2, MidpointRounding.AwayFromZero)), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
             if (!Continue)
             {
                 App.DbContext.RevertDbContextChanges();

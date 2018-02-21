@@ -14,12 +14,13 @@ using System.Diagnostics;
 
 namespace Plutus.Helpers
 {
-    class PDFCreator
+    internal class PDFCreator
     {
-        PdfDocument doc = new PdfDocument();
-        PdfGrid grid;
+        private PdfDocument doc = new PdfDocument();
+
+        private PdfGrid grid;
         //Minus padding
-        const float WIDTH = 221;
+        private const float WIDTH = 221;
         private float PdfGridHeight;
 
         public PDFCreator(StoreModel store, Stream image, SaleModel sale, decimal change)
@@ -45,17 +46,14 @@ namespace Plutus.Helpers
             cellStyle.Borders.All = new PdfPen(Syncfusion.Drawing.Color.White);
 
             //Store header
-            string storeName = string.Format("Thank you for shopping at\n{0}\n", store.StoreName);
+            var storeName = string.Format("Thank you for shopping at\n{0}\n", store.StoreName);
 
-            string storeAddress;
-            if (store.AdLine1 != null)
-                storeAddress = string.Format("{0}\n{1}\n{2}\n{3}", store.AdLine1, store.City, store.PostCode, store.Country);
-            else
-                storeAddress = store.FullAddress;
+            var storeAddress = store.AdLine1 != null ? $"{store.AdLine1}\n{store.City}\n{store.PostCode}\n{store.Country}"
+                : store.FullAddress;
 
-            PdfStringFormat sf = new PdfStringFormat(PdfTextAlignment.Center);
+            var sf = new PdfStringFormat(PdfTextAlignment.Center);
 
-            int index = 0;
+            var index = 0;
 
             //Add header
             if (image != null)
@@ -63,7 +61,7 @@ namespace Plutus.Helpers
                 grid.Headers.Add(1);
 
                 grid.Headers[index].Style = cellStyle;
-                PdfBitmap bitmap = new PdfBitmap(image);
+                var bitmap = new PdfBitmap(image);
                 grid.Headers[index].Cells[0].ColumnSpan = 3;
                 grid.Headers[index].Cells[0].Style = cellStyle;
                 grid.Headers[index].Cells[0].Style.BackgroundImage = bitmap;
@@ -94,16 +92,16 @@ namespace Plutus.Helpers
             //Populate item data
             foreach(var item in sale.Transactions)
             {
-                for(int i = 1; i <= item.Amount; i++)
+                for(var i = 1; i <= item.Amount; i++)
                 {
-                    PdfGridRow gridRow = grid.Rows.Add();
+                    var gridRow = grid.Rows.Add();
                     gridRow.Cells[0].Value = item.Item.Name;
                     gridRow.Cells[0].Style = cellStyle;
 
                     gridRow.Cells[1].Value = item.ItemId;
                     gridRow.Cells[1].Style = cellStyle;
 
-                    gridRow.Cells[2].Value = item.Item.Price.ToString();
+                    gridRow.Cells[2].Value = $"{Math.Round(item.Item.Price, 2, MidpointRounding.AwayFromZero)}";
                     gridRow.Cells[2].Style = cellStyle;
                 }
             }
@@ -170,7 +168,7 @@ namespace Plutus.Helpers
                     gridRow.Cells[1].Value = "Total:";
                     gridRow.Cells[1].Style = cellStyle;
 
-                    gridRow.Cells[2].Value = sale.Total.ToString();
+                    gridRow.Cells[2].Value = $"{Math.Round(sale.Total, 2, MidpointRounding.AwayFromZero)}";
                     gridRow.Cells[2].Style = cellStyle;
                 }
 
@@ -183,10 +181,11 @@ namespace Plutus.Helpers
                     gridRow.Cells[1].Value = item.PayMethod.Name + " Used:";
                     gridRow.Cells[1].Style = cellStyle;
 
-                    gridRow.Cells[2].Value = item.Amount.ToString();
+                    gridRow.Cells[2].Value = $"{Math.Round(item.Amount, 2, MidpointRounding.AwayFromZero)}";
                     gridRow.Cells[2].Style = cellStyle;
                 }
 
+                if(change!=0.00m)
                 {
                     PdfGridRow gridRow = grid.Rows.Add();
 
@@ -195,7 +194,7 @@ namespace Plutus.Helpers
                     gridRow.Cells[1].Value = "Change:";
                     gridRow.Cells[1].Style = cellStyle;
 
-                    gridRow.Cells[2].Value = change.ToString();
+                    gridRow.Cells[2].Value = $"{Math.Round(change, 2, MidpointRounding.AwayFromZero)}";
                     gridRow.Cells[2].Style = cellStyle;
                 }
             }

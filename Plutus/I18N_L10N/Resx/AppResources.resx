@@ -679,4 +679,10 @@ an Item?</value>
   <data name="AddEmp_check" xml:space="preserve">
     <value>Do you want to add {0}, {1} to the new system?</value>
   </data>
+  <data name="EmailConf" xml:space="preserve">
+    <value>E-Mail Confirm</value>
+  </data>
+  <data name="AddBasket" xml:space="preserve">
+    <value>Add to Basket</value>
+  </data>
 </root>

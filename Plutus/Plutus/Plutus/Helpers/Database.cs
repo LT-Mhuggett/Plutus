@@ -77,13 +77,6 @@ namespace Plutus.Helpers
 
         internal void Init()
         {
-            /*var vat = new TaxModel() { Name = "0%", Rate = 1 };
-            Add(vat);
-            var vat2 = new TaxModel() {Name = "20%", Rate = 1.2};
-            Add(vat2);
-            var vat3 = new TaxModel() {Name = "No VAT", Rate = 1};
-            Add(vat3);
-            */
             //AuthActions Initalization
             var AuthAction = new AuthActions() { Name = "Till" };
             Add(AuthAction);
@@ -107,12 +100,12 @@ namespace Plutus.Helpers
             Add(AuthAction9);
             var AuthAction10 = new AuthActions() {Name = "Management"};
             Add(AuthAction10);
-
+            /*
             var payM = new PaymentMethodModel() { Name = "Card", Charge = 0.0m, MinimumCharge = 0.0m, IsChangeable = false, IsCashBackable = true };
             Add(payM);
             var payM2 = new PaymentMethodModel() { Name = "Cash", Charge = 0.0m, MinimumCharge = 0.0m, IsChangeable = true, IsCashBackable = false };
             Add(payM2);
-            //tempData();
+            */tempData();
 
             _db.SaveChanges();
         }
@@ -235,6 +228,13 @@ namespace Plutus.Helpers
 
         private void tempData()
         {
+            
+            var vat = new TaxModel() { Name = "0%", Rate = 1 };
+            Add(vat);
+            var vat2 = new TaxModel() {Name = "20%", Rate = 1.2};
+            Add(vat2);
+            var vat3 = new TaxModel() {Name = "No VAT", Rate = 1};
+            Add(vat3);
 
             //Will be removed as only applies to UK, User will have to add manually
             var cat = new CategoryModel() { Name = "Customer Care", Description = "Items such as Bags etc." };

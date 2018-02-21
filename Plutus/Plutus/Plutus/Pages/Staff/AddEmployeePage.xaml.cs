@@ -66,7 +66,10 @@ namespace Plutus.Pages.Staff
         /// <param name="e">Event that the object called</param>
         private async void Ri_Re_Clicked(object sender, EventArgs e)
         {
-            await Navigation.PushModalAsync(new NavigationPage(new RiRePage(Emp)));
+            if (Emp.Email != null)
+            {
+                await Navigation.PushModalAsync(new NavigationPage(new RiRePage(Emp)));
+            }
         }
 
         /// <summary>

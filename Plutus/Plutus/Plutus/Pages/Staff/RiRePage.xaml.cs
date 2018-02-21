@@ -37,7 +37,7 @@ namespace Plutus.Pages.Staff
                 {
                     foreach (var item in tempList.OrderBy(a => a.Name))
                     {
-                        var tempAuth = Emp.EmpAuths.Where(a => a.Auth.Id.Equals(item.Id)).FirstOrDefault();
+                        var tempAuth = Emp.EmpAuths.FirstOrDefault(a => a.Auth.Id.Equals(item.Id));
                         if (tempAuth != null)
                             Items.Add(tempAuth);
                         else

@@ -89,6 +89,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Add to Basket.
+        /// </summary>
+        internal static string AddBasket {
+            get {
+                return ResourceManager.GetString("AddBasket", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Add Description.
         /// </summary>
         internal static string AddDesc {
@@ -646,6 +655,15 @@ namespace I18N_L10N.Resx {
         internal static string Email {
             get {
                 return ResourceManager.GetString("Email", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to E-Mail Confirm.
+        /// </summary>
+        internal static string EmailConf {
+            get {
+                return ResourceManager.GetString("EmailConf", resourceCulture);
             }
         }
         

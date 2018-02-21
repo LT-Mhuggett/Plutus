@@ -7,7 +7,14 @@
         <StackLayout Margin="0,10,0,0"
                      VerticalOptions="Center"
                      HorizontalOptions="Center">
-            <Label x:Name="ItemID" VerticalOptions="Center" HorizontalOptions="Center" />
+            <Label x:Name="ItemID" VerticalOptions="Center" HorizontalOptions="Center">
+                <Label.GestureRecognizers>
+                    <TapGestureRecognizer
+                        Tapped="TapGestureRecognizer_Tapped"
+                        NumberOfTapsRequired="1"
+                        />
+                </Label.GestureRecognizers>
+            </Label>
             <Image x:Name="ItemImage" HeightRequest="80" VerticalOptions="Center" HorizontalOptions="Center" />
             <Label x:Name="ItemName" VerticalOptions="Center" HorizontalOptions="Center" />
             <Label x:Name="ItemBrand" VerticalOptions="Center" HorizontalOptions="Center" />
@@ -18,6 +25,7 @@
             <Button x:Name="Confirm" Text="{i18N:Translate Confirm}" Clicked="Confirm_Clicked" VerticalOptions="Center" HorizontalOptions="Center" />
             <Button x:Name="Edit" Text="{i18N:Translate Edit}" Clicked="Edit_Closed_Clicked" VerticalOptions="Center" HorizontalOptions="Center" />
             <Button x:Name="Select" IsVisible="False" Text="{i18N:Translate Select}" Clicked="Select_Clicked"/>
+            <Button x:Name="AddBasket" IsVisible="True" Text="{i18N:Translate AddBasket}" Clicked="AddBasket_Clicked"/>
             <Button x:Name="Close" Text="Close" Clicked="Edit_Closed_Clicked" IsVisible="False" />
         </StackLayout>
     </ContentPage.Content>
