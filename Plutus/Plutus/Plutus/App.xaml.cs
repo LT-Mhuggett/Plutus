@@ -27,10 +27,10 @@ namespace Plutus
         internal static EmployeeModel LastAuthUser = new EmployeeModel();
         internal static StoreModel Store = new StoreModel();
         internal static Database DbContext;
-        internal static TranslateExtension Translate = new TranslateExtension();
+        internal static readonly TranslateExtension Translate = new TranslateExtension();
         internal static int TillAmmount;
         internal static string version;
-        internal static DateTime CurrentDateTime { get; set; }
+        internal static DateTime CurrentDateTime { get; private set; }
 
         public App ()
 		{
@@ -50,7 +50,7 @@ namespace Plutus
             version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
 #else
             PackageVersion versionP = Package.Current.Id.Version;
-            version = string.Format("{0}.{1}.{2}.{3}", versionP.Major, versionP.Minor, versionP.Build, versionP.Revision);
+            version = $"{versionP.Major}.{versionP.Minor}.{versionP.Build}.{versionP.Revision}";
 #endif
 
             new I18N_L10N.I18N_L10N();

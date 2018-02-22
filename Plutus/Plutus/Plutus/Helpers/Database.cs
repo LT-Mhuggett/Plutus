@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using Plutus.Data;
 using Plutus.Models;
@@ -9,10 +10,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Plutus.Models.Interface;
 using System.Globalization;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace Plutus.Helpers
 {
+    [SuppressMessage("ReSharper", "MemberCanBeMadeStatic.Global")]
     internal class Database
     {
         private static Context _db;
@@ -35,7 +36,7 @@ namespace Plutus.Helpers
                 _db.SaveChanges();
                 return true;
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Console.Write(e);
                 return false;
@@ -57,68 +58,81 @@ namespace Plutus.Helpers
                     case EntityState.Deleted:
                         _db.ChangeTracker.Entries().ElementAt(i).Reload();
                         break;
-                    default:
+                    case EntityState.Detached:
+                        break;
+                    case EntityState.Unchanged:
                         break;
                 }
             }
         }
 
-        internal bool CheckIfChanged<T>(T obj) where T : class
-        {
-            return _db.Entry<T>(obj).State == EntityState.Modified;
-        }
-
-        internal void RevertDbContextChange(EntityEntry model)
-        {
-
-        }
-
         internal IQueryable<T> Get<T>() where T : class => _db.Set<T>();
 
-        internal void Init()
+        internal void Init(bool testData)
         {
             //AuthActions Initalization
-            var AuthAction = new AuthActions() { Name = "Till" };
-            Add(AuthAction);
-            var AuthAction1 = new AuthActions() { Name = "Refund20", Amount = 20 };
-            Add(AuthAction1);
-            var AuthAction2 = new AuthActions() { Name = "Refund100", Amount = 100 };
-            Add(AuthAction2);
-            var AuthAction3 = new AuthActions() { Name = "Staff" };
-            Add(AuthAction3);
-            var AuthAction4 = new AuthActions() { Name = "Item" };
-            Add(AuthAction4);
-            var AuthAction5 = new AuthActions() { Name = "Force Loggout All Users" };
-            Add(AuthAction5);
-            var AuthAction6 = new AuthActions() { Name = "Force Loggout Single User" };
-            Add(AuthAction6);
-            var AuthAction7 = new AuthActions() { Name = "Refund Unlimited", Amount = 100000 };
-            Add(AuthAction7);
-            var AuthAction8 = new AuthActions() { Name = "Report" };
-            Add(AuthAction8);
-            var AuthAction9 = new AuthActions() { Name = "Admin" };
-            Add(AuthAction9);
-            var AuthAction10 = new AuthActions() {Name = "Management"};
-            Add(AuthAction10);
-            /*
-            var payM = new PaymentMethodModel() { Name = "Card", Charge = 0.0m, MinimumCharge = 0.0m, IsChangeable = false, IsCashBackable = true };
+            var authAction = new AuthActions() {Name = "Till"};
+            Add(authAction);
+            var authAction1 = new AuthActions() {Name = "Refund20", Amount = 20};
+            Add(authAction1);
+            var authAction2 = new AuthActions() {Name = "Refund100", Amount = 100};
+            Add(authAction2);
+            var authAction3 = new AuthActions() {Name = "Staff"};
+            Add(authAction3);
+            var authAction4 = new AuthActions() {Name = "Item"};
+            Add(authAction4);
+            var authAction5 = new AuthActions() {Name = "Force Loggout All Users"};
+            Add(authAction5);
+            var authAction6 = new AuthActions() {Name = "Force Loggout Single User"};
+            Add(authAction6);
+            var authAction7 = new AuthActions() {Name = "Refund Unlimited", Amount = 100000};
+            Add(authAction7);
+            var authAction8 = new AuthActions() {Name = "Report"};
+            Add(authAction8);
+            var authAction9 = new AuthActions() {Name = "Admin"};
+            Add(authAction9);
+            var authAction10 = new AuthActions() {Name = "Management"};
+            Add(authAction10);
+
+            
+            var payM = new PaymentMethodModel()
+            {
+                Name = "Card",
+                Charge = 0.0m,
+                MinimumCharge = 0.0m,
+                IsChangeable = false,
+                IsCashBackable = true
+            };
             Add(payM);
-            var payM2 = new PaymentMethodModel() { Name = "Cash", Charge = 0.0m, MinimumCharge = 0.0m, IsChangeable = true, IsCashBackable = false };
+            var payM2 = new PaymentMethodModel()
+            {
+                Name = "Cash",
+                Charge = 0.0m,
+                MinimumCharge = 0.0m,
+                IsChangeable = true,
+                IsCashBackable = false
+            };
             Add(payM2);
-            */tempData();
+
+            if (testData)
+            {
+                TempData();
+            }
 
             _db.SaveChanges();
         }
 
+        [SuppressMessage("ReSharper", "AccessToModifiedClosure")]
         internal async Task<EmployeeModel> Login(string idEmail, string password)
         {
             var emp = Get<EmployeeModel>()
-                .Include(e=>e.EmpAuths)
+                .Include(e => e.EmpAuths)
                 .SingleOrDefault(e => e.Id.Equals(idEmail) || e.Email.Equals(idEmail));
             if (emp == null)
                 return null;
-            if (await Task.Run(() => 
-                    Password.Verify(password, Convert.FromBase64String(emp.Salt), Convert.FromBase64String(emp.HashedPassword))))
+            if (await Task.Run(() =>
+                Password.Verify(password, Convert.FromBase64String(emp.Salt),
+                    Convert.FromBase64String(emp.HashedPassword))))
                 return emp;
             emp = null;
             return null;
@@ -134,16 +148,16 @@ namespace Plutus.Helpers
         internal IQueryable<ItemModel> Search(string temp) => Get<ItemModel>()
             .Include(a => a.Vat)
             .Where(i => i.Id.Equals(temp) ||
-                CultureInfo.CurrentCulture.CompareInfo.IndexOf(
-                    i.Name, temp, CompareOptions.IgnoreCase) >= 0);
+                        CultureInfo.CurrentCulture.CompareInfo.IndexOf(
+                            i.Name, temp, CompareOptions.IgnoreCase) >= 0);
 
         internal void UpdateStock(StockModel toUpdateModel)
         {
             var query = from stock in _db.Stocks
-                        where stock.ItemId.Equals(toUpdateModel.ItemId) &&
-                            stock.StoreId.Equals(toUpdateModel.StoreId)
-                        select stock;
-            foreach(StockModel stock in query)
+                where stock.ItemId.Equals(toUpdateModel.ItemId) &&
+                      stock.StoreId.Equals(toUpdateModel.StoreId)
+                select stock;
+            foreach (var stock in query)
             {
                 stock.Quantity += toUpdateModel.Quantity;
             }
@@ -155,7 +169,7 @@ namespace Plutus.Helpers
                 .OfType<ItemModel>()
                 .Select(i => i);
 
-            foreach(ItemModel fItem in query)
+            foreach (var fItem in query)
             {
                 fItem.Name = item.Name;
                 fItem.Image = item.Image;
@@ -169,9 +183,10 @@ namespace Plutus.Helpers
         }
 
         internal IQueryable<PaymentMethodModel> GetPayM(string name) => Get<PaymentMethodModel>()
-                .Where(p => p.Name.Equals(name));
+            .Where(p => p.Name.Equals(name));
 
-        internal IQueryable<TransactionModel> CheckItemExistInSale(string saleId, string itemId) => Get<TransactionModel>()
+        internal IQueryable<TransactionModel> CheckItemExistInSale(string saleId, string itemId) =>
+            Get<TransactionModel>()
                 .Include(t => t.Sale)
                 .Where(t => t.SaleId.Equals(saleId) && t.ItemId.Equals(itemId));
 
@@ -184,26 +199,27 @@ namespace Plutus.Helpers
             .Include(i => i.Transactions)
             .Include(i => i.Stock);
 
+        [SuppressMessage("ReSharper", "ReturnTypeCanBeEnumerable.Global")]
         internal IQueryable<SaleModel> GetSales(string condition) => Get<SaleModel>()
             .Include(s => s.Notes)
             .Include(s => s.Refunded)
             .Include(s => s.Refunds)
             .Include(s => s.Transactions)
             .Include(s => s.PaySales)
-                .ThenInclude(ps => ps.PayMethod)
-            .Where(s => s.DateOfSale.ToString().Contains(condition)
-                || s.EmployeeId.Equals(condition));
+            .ThenInclude(ps => ps.PayMethod)
+            .Where(s => s.DateOfSale.ToString(CultureInfo.InvariantCulture).Contains(condition)
+                        || s.EmployeeId.Equals(condition));
 
         internal IQueryable<SaleModel> GetSales() => Get<SaleModel>()
             .Include(s => s.Notes)
             .Include(s => s.Refunded)
             .Include(s => s.Refunds)
             .Include(s => s.Transactions)
-                .ThenInclude(t=>t.Item)
+            .ThenInclude(t => t.Item)
             .Include(s => s.PaySales)
-                .ThenInclude(ps => ps.PayMethod);
+            .ThenInclude(ps => ps.PayMethod);
 
-        internal List<DateTime> GetDateOfSales()
+        internal IEnumerable<DateTime> GetDateOfSales()
         {
             var data = Get<SaleModel>().ToList();
             return data.Select(s => s.DateOfSale).ToList();
@@ -223,13 +239,13 @@ namespace Plutus.Helpers
                 .Include(e => e.EmpAuths)
                 .Include(e => e.Store)
                 .FirstOrDefault(e => e.Id.Equals(id));
-            return emp ?? null;
+            return emp;
         }
 
-        private void tempData()
+        private void TempData()
         {
-            
-            var vat = new TaxModel() { Name = "0%", Rate = 1 };
+
+            var vat = new TaxModel() {Name = "0%", Rate = 1};
             Add(vat);
             var vat2 = new TaxModel() {Name = "20%", Rate = 1.2};
             Add(vat2);
@@ -237,18 +253,41 @@ namespace Plutus.Helpers
             Add(vat3);
 
             //Will be removed as only applies to UK, User will have to add manually
-            var cat = new CategoryModel() { Name = "Customer Care", Description = "Items such as Bags etc." };
+            var cat = new CategoryModel() {Name = "Customer Care", Description = "Items such as Bags etc."};
             Add(cat);
-            var cat2 = new CategoryModel() { Name = "Book", Description = "Readable information" };
+            var cat2 = new CategoryModel() {Name = "Book", Description = "Readable information"};
             Add(cat2);
             _db.SaveChanges();
-            var bag = new ItemModel() { Id = "BAG001", Name = "Bag", Desc = "Item to allow Customers to carry things", CatId = 1, VatId = 2, Price = .05m, Cost = 0.0m };
+            var bag = new ItemModel()
+            {
+                Id = "BAG001",
+                Name = "Bag",
+                Desc = "Item to allow Customers to carry things",
+                CatId = 1,
+                VatId = 2,
+                Price = .05m,
+                Cost = 0.0m
+            };
             Add(bag);
 
             //There will be a more detailed setup page this temporay
-            var payM = new PaymentMethodModel() { Name = "Card", Charge = 0.5m, MinimumCharge = 5.0m, IsChangeable = false, IsCashBackable = true };
+            var payM = new PaymentMethodModel()
+            {
+                Name = "Card",
+                Charge = 0.5m,
+                MinimumCharge = 5.0m,
+                IsChangeable = false,
+                IsCashBackable = true
+            };
             Add(payM);
-            var payM2 = new PaymentMethodModel() { Name = "Cash", Charge = 0.0m, MinimumCharge = 0.0m, IsChangeable = true, IsCashBackable = false };
+            var payM2 = new PaymentMethodModel()
+            {
+                Name = "Cash",
+                Charge = 0.0m,
+                MinimumCharge = 0.0m,
+                IsChangeable = true,
+                IsCashBackable = false
+            };
             Add(payM2);
 
             var item1 = new ItemModel()
@@ -503,14 +542,26 @@ namespace Plutus.Helpers
                 ExPrice = 30.00m * App.Store.RecMarkup.GetValueOrDefault()
             };
             Add(item21);
-            var Dis = new DiscountModel() { Name = "BOGOF", Type = 1, Amount = 1, RequiredNumOfItems = 2, UsesPerTransaction = -1 };
-            var Cat = new Discount_Category() { Cat = cat2, StartDateTime = DateTime.ParseExact("2017-05-05", "yyyy-MM-dd", null), EndDateTime = DateTime.ParseExact("2018-12-30", "yyyy-MM-dd", null) };
-            Dis.DisCategoryList = new List<Discount_Category>
+            var dis = new DiscountModel()
             {
-                Cat
+                Name = "BOGOF",
+                Type = 1,
+                Amount = 1,
+                RequiredNumOfItems = 2,
+                UsesPerTransaction = -1
             };
-            Add(Cat);
-            Add(Dis);
+            var catDis = new Discount_Category()
+            {
+                Cat = cat2,
+                StartDateTime = DateTime.ParseExact("2017-05-05", "yyyy-MM-dd", null),
+                EndDateTime = DateTime.ParseExact("2018-12-30", "yyyy-MM-dd", null)
+            };
+            dis.DisCategoryList = new List<Discount_Category>
+            {
+                catDis
+            };
+            Add(catDis);
+            Add(dis);
         }
     }
 }

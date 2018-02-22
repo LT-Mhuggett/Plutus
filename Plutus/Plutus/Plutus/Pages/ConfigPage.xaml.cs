@@ -3,14 +3,9 @@ using Plutus.Models;
 using Plutus.Helpers.Extensions;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
-#if __ANDROID__
-#elif __IOS__
-#else
-using Windows.Storage;
-#endif
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 using FileIO = Plutus.Helpers.FileIO;
@@ -18,14 +13,18 @@ using FileIO = Plutus.Helpers.FileIO;
 namespace Plutus.Pages
 {
     [XamlCompilation(XamlCompilationOptions.Compile)]
+    [SuppressMessage("ReSharper", "RedundantExtendsListEntry")]
     public partial class ConfigPage : ContentPage
     {
+        private bool TestData { get; set; }
+
         /// <summary>
         /// Basic Constructor for the ConfigPage object
         /// </summary>
         public ConfigPage()
         {
             InitializeComponent();
+            TestData = true;
         }
 
         /// <summary>
@@ -45,6 +44,7 @@ namespace Plutus.Pages
                 Error(6);
                 return;
             }
+
             if (Password.Text != PasswordConf.Text || Password.Text.Length <= 6)
             {
                 Loading.TogleLoading(LCV, LAI);
@@ -59,27 +59,27 @@ namespace Plutus.Pages
                 return;
             }
 
-            var Salt = Convert.ToBase64String(Helpers.Password.GenerateSalt());
-            var HashedPassword = Convert.ToBase64String(await Task.Run(() =>
-                Helpers.Password.ComputeHash(Password.Text, Convert.FromBase64String(Salt))));
+            var salt = Convert.ToBase64String(Helpers.Password.GenerateSalt());
+            var hashedPassword = Convert.ToBase64String(await Task.Run(() =>
+                Helpers.Password.ComputeHash(Password.Text, Convert.FromBase64String(salt))));
 
             var store = new StoreModel()
             {
-                StoreName = !String.IsNullOrEmpty(StoreName.Text) ? StoreName.Text : null,
-                StoreAbbr = !String.IsNullOrEmpty(StoreAbbr.Text) ? StoreAbbr.Text : null,
-                RecMarkup = !String.IsNullOrEmpty(StoreRM.Text)
+                StoreName = !string.IsNullOrEmpty(StoreName.Text) ? StoreName.Text : null,
+                StoreAbbr = !string.IsNullOrEmpty(StoreAbbr.Text) ? StoreAbbr.Text : null,
+                RecMarkup = !string.IsNullOrEmpty(StoreRM.Text)
                     ? (decimal?) await StoreRM.Text.ToInterger(App.Translate.ProvideValue("RecMarkupError")) / 100 + 1
                     : null,
                 AdLine1 = AutoLayoutS.IsVisible
                     ? null
-                    : !String.IsNullOrEmpty(StoreAdLine1.Text)
+                    : !string.IsNullOrEmpty(StoreAdLine1.Text)
                         ? StoreAdLine1.Text
                         : null,
                 AdLine2 = AutoLayoutS.IsVisible ? null : StoreAdLine2.Text,
-                City = AutoLayoutS.IsVisible ? null : !String.IsNullOrEmpty(StoreCity.Text) ? StoreCity.Text : null,
+                City = AutoLayoutS.IsVisible ? null : !string.IsNullOrEmpty(StoreCity.Text) ? StoreCity.Text : null,
                 Country = AutoLayoutS.IsVisible
                     ? null
-                    : !String.IsNullOrEmpty(StoreCountry.Text)
+                    : !string.IsNullOrEmpty(StoreCountry.Text)
                         ? StoreCountry.Text
                         : null,
                 PostCode = AutoLayoutS.IsVisible
@@ -100,6 +100,7 @@ namespace Plutus.Pages
                 Error(0);
                 return;
             }
+
             if (store.PostCode == null && store.FullAddress == null)
             {
                 Loading.TogleLoading(LCV, LAI);
@@ -109,13 +110,13 @@ namespace Plutus.Pages
 
             var emp = new EmployeeModel()
             {
-                FName = !String.IsNullOrEmpty(FName.Text) ? FName.Text : null,
+                FName = !string.IsNullOrEmpty(FName.Text) ? FName.Text : null,
                 NIN = /*Validate.IsNinValid(Nin.Text)?Nin.Text:null*/Nin.Text,
-                LName = !String.IsNullOrEmpty(LName.Text) ? LName.Text : null,
-                AdLine1 = AutoLayoutP.IsVisible ? null : !String.IsNullOrEmpty(AdLine1.Text) ? AdLine1.Text : null,
+                LName = !string.IsNullOrEmpty(LName.Text) ? LName.Text : null,
+                AdLine1 = AutoLayoutP.IsVisible ? null : !string.IsNullOrEmpty(AdLine1.Text) ? AdLine1.Text : null,
                 AdLine2 = AutoLayoutP.IsVisible ? null : AdLine2.Text,
-                City = AutoLayoutP.IsVisible ? null : !String.IsNullOrEmpty(City.Text) ? City.Text : null,
-                Country = AutoLayoutP.IsVisible ? null : !String.IsNullOrEmpty(Country.Text) ? Country.Text : null,
+                City = AutoLayoutP.IsVisible ? null : !string.IsNullOrEmpty(City.Text) ? City.Text : null,
+                Country = AutoLayoutP.IsVisible ? null : !string.IsNullOrEmpty(Country.Text) ? Country.Text : null,
                 PostCode =
                     AutoLayoutP.IsVisible ? null : Validate.IsPostCodeValid(PostCode.Text) ? PostCode.Text : null,
                 FullAddress =
@@ -126,8 +127,8 @@ namespace Plutus.Pages
                         : null,
                 Email = Validate.IsEmailValid(Email.Text) ? Email.Text.ToLower() : null,
                 Mobile = Validate.IsPhoneNumberValid(Mobile.Text) ? Mobile.Text : null,
-                Salt = Salt,
-                HashedPassword = HashedPassword
+                Salt = salt,
+                HashedPassword = hashedPassword
             };
             if (emp.FName == null || emp.LName == null || emp.NIN == null ||
                 emp.FullAddress == null && emp.AdLine1 == null)
@@ -136,18 +137,21 @@ namespace Plutus.Pages
                 Error(0);
                 return;
             }
+
             if (emp.PostCode == null && emp.FullAddress == null)
             {
                 Loading.TogleLoading(LCV, LAI);
                 Error(2);
                 return;
             }
+
             if (emp.Email == null)
             {
                 Loading.TogleLoading(LCV, LAI);
                 Error(1);
                 return;
             }
+
             if (emp.Mobile == null)
             {
                 Loading.TogleLoading(LCV, LAI);
@@ -175,7 +179,7 @@ namespace Plutus.Pages
 
             if (DatabasePicker.SelectedIndex != 0) return;
             App.Store = store;
-            App.DbContext.Init();
+            App.DbContext.Init(TestData);
             App.DbContext.Add(store);
             emp.StoreId = store.Id;
 
@@ -183,7 +187,7 @@ namespace Plutus.Pages
             emp.EmpAuths = new List<Emp_AuthActions>();
             foreach (var item in tempList)
             {
-                Emp_AuthActions temp =
+                var temp =
                     new Emp_AuthActions() {Auth = item, A = true, M = true, R = true, V = true, X = true};
                 emp.EmpAuths.Add(temp);
             }
@@ -196,6 +200,7 @@ namespace Plutus.Pages
                     App.Translate.ProvideValue("OK"));
                 return;
             }
+
             Application.Current.MainPage = new NavigationPage(new MainNavigationPage(emp, store));
             Loading.TogleLoading(LCV, LAI);
         }
@@ -234,9 +239,8 @@ namespace Plutus.Pages
                 case 7:
                     message = App.Translate.ProvideValue("PassWNotSameMesg");
                     break;
-                default:
-                    break;
             }
+
             DisplayAlert(App.Translate.ProvideValue("Oops"), message, App.Translate.ProvideValue("OK"));
         }
 
@@ -249,20 +253,17 @@ namespace Plutus.Pages
         /// <param name="e">Event that the object called</param>
         private async void AutoFillStore_OnClicked(object sender, EventArgs e)
         {
-            List<string> addressList = await Location.ReverseGeocde();
+            var addressList = await Location.ReverseGeocde();
             if (addressList.Count == 0)
             {
                 Error(5);
-                return;
             }
-            else
-            {
-                foreach (var item in addressList)
-                    StoreAddressPicker.Items.Add(item);
-                ManLayoutS.IsVisible = !ManLayoutS.IsVisible;
-                AutoLayoutS.IsVisible = !AutoLayoutS.IsVisible;
-                StoreAddressPicker.Focus();
-            }
+
+            foreach (var item in addressList)
+                StoreAddressPicker.Items.Add(item);
+            ManLayoutS.IsVisible = !ManLayoutS.IsVisible;
+            AutoLayoutS.IsVisible = !AutoLayoutS.IsVisible;
+            StoreAddressPicker.Focus();
         }
 
         /// <summary>
@@ -274,12 +275,13 @@ namespace Plutus.Pages
         /// <param name="e">Event that the object called</param>
         private async void AutoFillPerson_OnClicked(object sender, EventArgs e)
         {
-            List<string> addressList = await Location.ReverseGeocde();
+            var addressList = await Location.ReverseGeocde();
             if (addressList.Count == 0)
             {
                 Error(5);
                 return;
             }
+
             foreach (var item in addressList)
                 PersonAddressPicker.Items.Add(item);
             ManLayoutP.IsVisible = !ManLayoutP.IsVisible;
@@ -316,11 +318,11 @@ namespace Plutus.Pages
         private async void Restore_Clicked(object sender, EventArgs e)
         {
             App.DbContext = null;
-            var TransfSucc = await FileIO.Restore();
+            var transfSucc = await FileIO.Restore();
 
-            if (TransfSucc)
+            if (transfSucc)
             {
-                await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Success"),
+                await Application.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Success"),
                     string.Format(App.Translate.ProvideValue("DbBRSucc"), "Restored"),
                     App.Translate.ProvideValue("Cancel"));
                 App.DbContext = new Database();
@@ -336,20 +338,21 @@ namespace Plutus.Pages
                 };
 
                 FileIO.Save("App.config", fileC.ToArray());
-                App.Current.MainPage = new NavigationPage(new LoginPage());
+                Application.Current.MainPage = new NavigationPage(new LoginPage());
                 return;
             }
-            await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Hmm"),
+
+            await Application.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Hmm"),
                 string.Format(App.Translate.ProvideValue("DbBRFailed"), "Restoring"),
                 App.Translate.ProvideValue("Cancel"));
         }
 
         private void SameAdButt_Clicked(object sender, EventArgs e)
         {
-            AdLine1.Text = !String.IsNullOrEmpty(StoreAdLine1.Text) ? StoreAdLine1.Text : null;
+            AdLine1.Text = !string.IsNullOrEmpty(StoreAdLine1.Text) ? StoreAdLine1.Text : null;
             AdLine2.Text = StoreAdLine2.Text;
-            City.Text = !String.IsNullOrEmpty(StoreCity.Text) ? StoreCity.Text : null;
-            Country.Text = !String.IsNullOrEmpty(StoreCountry.Text) ? StoreCountry.Text : null;
+            City.Text = !string.IsNullOrEmpty(StoreCity.Text) ? StoreCity.Text : null;
+            Country.Text = !string.IsNullOrEmpty(StoreCountry.Text) ? StoreCountry.Text : null;
             PostCode.Text = Validate.IsPostCodeValid(StorePostCode.Text) ? StorePostCode.Text : null;
             if (AutoLayoutS.IsVisible)
             {
@@ -360,16 +363,18 @@ namespace Plutus.Pages
             }
             else
             {
-                AdLine1.Text = !String.IsNullOrEmpty(StoreAdLine1.Text) ? StoreAdLine1.Text : null;
+                AdLine1.Text = !string.IsNullOrEmpty(StoreAdLine1.Text) ? StoreAdLine1.Text : null;
                 AdLine2.Text = StoreAdLine2.Text;
-                City.Text = !String.IsNullOrEmpty(StoreCity.Text) ? StoreCity.Text : null;
-                Country.Text = !String.IsNullOrEmpty(StoreCountry.Text) ? StoreCountry.Text : null;
+                City.Text = !string.IsNullOrEmpty(StoreCity.Text) ? StoreCity.Text : null;
+                Country.Text = !string.IsNullOrEmpty(StoreCountry.Text) ? StoreCountry.Text : null;
                 PostCode.Text = Validate.IsPostCodeValid(StorePostCode.Text) ? StorePostCode.Text : null;
             }
 
         }
+
         private async void CTrans_Clicked(object sender, EventArgs e)
         {
+            TestData = false;
 #if __ANDROID__
             throw new NotImplementedException();
 #elif __IOS__
@@ -383,7 +388,7 @@ namespace Plutus.Pages
 
             var tempFolder = folderList[2];
 
-            App.DbContext.Init();
+            App.DbContext.Init(TestData);
             var store = new StoreModel();
 
             var taxes = new List<TaxModel>();
@@ -407,7 +412,7 @@ namespace Plutus.Pages
                             StoreAbbr = Uri.UnescapeDataString(extraParse.FirstOrDefault(x => x[0].Equals("Name"))?[1])
                                 .Trim().Remove(4,
                                     Uri.UnescapeDataString(extraParse.FirstOrDefault(x => x[0].Equals("Name"))?[1])
-                                        .Length-4),
+                                        .Length - 4),
                             FullAddress = Uri.UnescapeDataString(
                                 extraParse.FirstOrDefault(x => x[0].Equals("Address"))?[1] == ""
                                     ? await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
@@ -428,11 +433,12 @@ namespace Plutus.Pages
                             var tax = new TaxModel()
                             {
                                 Name = Uri.UnescapeDataString(extraParse[i][1]),
-                                Rate = (await extraParse[i + 1][1].ToDouble("Error") ?? default(double))/100+1
+                                Rate = (await extraParse[i + 1][1].ToDouble("Error") ?? default(double)) / 100 + 1
                             };
                             taxes.Add(tax);
                             App.DbContext.Add(tax);
                         }
+
                         break;
                 }
             }
@@ -447,10 +453,14 @@ namespace Plutus.Pages
                 if (!id.IsNumeric())
                 {
                     var itemBool =
- await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("IsItem"), Uri.UnescapeDataString(id), Uri.UnescapeDataString(extraParse.FirstOrDefault(x => x[0].Equals("Description"))?[1])), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("No"));
+                        await DisplayAlert(App.Translate.ProvideValue("Hmm"),
+                            string.Format(App.Translate.ProvideValue("IsItem"), Uri.UnescapeDataString(id),
+                                Uri.UnescapeDataString(extraParse.FirstOrDefault(x => x[0].Equals("Description"))?[1])),
+                            App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("No"));
 
                     if (!itemBool) continue;
                 }
+
                 var value =
                     // ReSharper disable once PossibleNullReferenceException
                     await extraParse.FirstOrDefault(x => x[0].Equals("Value"))?[1]?.ToDecimal("Error") ??
@@ -480,9 +490,9 @@ namespace Plutus.Pages
                        Price = value / 100 * (decimal) taxes[taxType - 1].Rate                    
                      * if price is including vat
                      */
-                    ExPrice = value/100 / (decimal) taxes[taxType].Rate,
-                    Price = value/100
-                    
+                    ExPrice = value / 100 / (decimal) taxes[taxType].Rate,
+                    Price = value / 100
+
                 };
                 App.DbContext.Add(item);
             }
@@ -496,7 +506,11 @@ namespace Plutus.Pages
                 var salt = Convert.ToBase64String(Helpers.Password.GenerateSalt());
 
                 var empBool =
- await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("AddEmp_check"), extraParse.FirstOrDefault(x => x[0].Equals("LastName"))?[1], extraParse.FirstOrDefault(x => x[0].Equals("FirstName"))?[1]), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("No"));
+                    await DisplayAlert(App.Translate.ProvideValue("Hmm"),
+                        string.Format(App.Translate.ProvideValue("AddEmp_check"),
+                            extraParse.FirstOrDefault(x => x[0].Equals("LastName"))?[1],
+                            extraParse.FirstOrDefault(x => x[0].Equals("FirstName"))?[1]),
+                        App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("No"));
 
                 if (!empBool) continue;
 
@@ -523,8 +537,8 @@ namespace Plutus.Pages
                 emp.EmpAuths = new List<Emp_AuthActions>();
                 foreach (var item in tempList)
                 {
-                    Emp_AuthActions temp =
-                        new Emp_AuthActions() { Auth = item, A = true, M = true, R = true, V = true, X = true };
+                    var temp =
+                        new Emp_AuthActions() {Auth = item, A = true, M = true, R = true, V = true, X = true};
                     emp.EmpAuths.Add(temp);
                 }
 
@@ -532,6 +546,7 @@ namespace Plutus.Pages
 
                 App.DbContext.Add(emp);
             }
+
             App.DbContext.Save();
             var fileC = new List<string>
             {
