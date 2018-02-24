@@ -7,9 +7,10 @@
              Title="{i18N:Translate InvetMgr}">
     <Grid>
         <StackLayout x:Name="MPage">
-            <!--<SearchBar x:Name="searchBar" Placeholder="Search"/>-->
+            <SearchBar x:Name="searchBar" Placeholder="Search" TextChanged="searchBar_TextChanged"/>
             <syncfusion:SfListView x:Name="ItemList" ItemSize="40"
-                ItemTapped="Handle_ItemTapped">
+                ItemTapped="Handle_ItemTapped"
+                IsStickyHeader="True" IsStickyFooter="True" IsStickyGroupHeader="false">
                 <syncfusion:SfListView.LeftSwipeTemplate>
                     <DataTemplate x:Name="LeftSwipeTemplate">
                         <Grid>
@@ -49,7 +50,7 @@
                 <syncfusion:SfListView.FooterTemplate>
                     <DataTemplate>
                         <Grid>
-                            <ActivityIndicator x:Name="activityIndicator" Color="Blue" IsRunning="True"/>
+                            <ActivityIndicator x:Name="activityIndicator" Color="Blue" IsRunning="{Binding IsAlertShown}"/>
                         </Grid>
                     </DataTemplate>
                 </syncfusion:SfListView.FooterTemplate>

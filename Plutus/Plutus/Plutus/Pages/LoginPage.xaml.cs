@@ -5,6 +5,7 @@ using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 using System.Collections.ObjectModel;
 using System.Linq;
+using Plutus.Helpers.Extensions;
 
 namespace Plutus.Pages
 {
@@ -109,6 +110,12 @@ namespace Plutus.Pages
             Loading.TogleLoading(LCV, LAI);
             await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("StoreNotReachableMesg"), App.Translate.ProvideValue("OK"));
             return null;
+        }
+
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            UId.SetFocusAfterDelay(1);
         }
     }
 }

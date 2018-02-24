@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Plutus.Models;
@@ -25,40 +26,46 @@ namespace Plutus.Pages.Inventory
         private int StartLimit { get; set; }
         private int Limit { get; set; }
         private int TotalItemsInDB { get; set; }
+        private IQueryable<ItemModel> query { get; set; }
 
         public ViewAllInventoryPage()
         {
             InitializeComponent();
+            
+            query = App.DbContext.GetAllItems();
 
-            ItemList.FooterSize = 40;
+            ItemList.FooterSize = 20;
 
-            VisualContainer visualContainer = ItemList.GetType().GetRuntimeProperties().First(p => p.Name == "VisualContainer")
-                .GetValue(ItemList) as VisualContainer;
+            if (ItemList.GetType().GetRuntimeProperties().First(p => p.Name == "VisualContainer")
+                .GetValue(ItemList) is VisualContainer visualContainer)
+                ScrollRows = visualContainer.GetType().GetRuntimeProperties().First(p => p.Name == "ScrollRows")
+                    .GetValue(visualContainer) as ScrollAxisBase;
 
-            ScrollRows = visualContainer.GetType().GetRuntimeProperties().First(p => p.Name == "ScrollRows")
-                .GetValue(visualContainer) as ScrollAxisBase;
-
+            Debug.Assert(ScrollRows != null, nameof(ScrollRows) + " != null");
             ScrollRows.Changed += ScrollRows_changed;
-
-            Items = new ObservableCollection<ItemModel>();
-
+            
             StartLimit = 0;
+            Limit = 40;
 
-            Limit = 20;
+            SetItems();
 
             LoadData();
-
-            ItemList.ItemsSource = Items;
-
+            
             ItemList.DataSource.GroupDescriptors.Add(new GroupDescriptor()
             {
                 PropertyName = "GroupKey"
             });
-
-            //searchBar.TextChanged += SearchBar_TextChanged;
         }
 
-        /*private void SearchBar_TextChanged(object sender, TextChangedEventArgs e)
+        private void SetItems()
+        {
+            StartLimit = 0;
+            Items = new ObservableCollection<ItemModel>();
+            
+            ItemList.ItemsSource = Items;
+        }
+
+        private void searchBar_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (ItemList.DataSource == null) return;
             this.ItemList.DataSource.Filter = FilterItem;
@@ -72,19 +79,19 @@ namespace Plutus.Pages.Inventory
             var item = obj as ItemModel;
             return item.Name.ToLower().Contains(searchBar.Text.ToLower()) ||
                    item.Brand.ToLower().Contains(searchBar.Text.ToLower()) ||
-                   item.Desc.ToLower().Contains(searchBar.Text.ToLower());
-        }*/
+                   (item.Desc?.ToLower().Contains(searchBar.Text.ToLower()) ?? false);
+        }
 
         private void LoadData()
         {
-            TotalItemsInDB = App.DbContext.GetAllItems().Count();
-
-            var items = App.DbContext.GetAllItems().OrderBy(item => item.Name).Skip(StartLimit).Take(Limit);
+            TotalItemsInDB = query.Count();
+            var items = query.OrderBy(item => item.Name).Skip(StartLimit).Take(Limit).ToList();
             foreach (var item in items)
             {
-                item.GroupKey = item.Name[0];
+                item.GroupKey = item.Name.ToUpper()[0];
                 Items.Add(item);
             }
+
             StartLimit += Limit;
         }
 
@@ -93,27 +100,26 @@ namespace Plutus.Pages.Inventory
             var lastIndex = ScrollRows.LastBodyVisibleLineIndex;
 
             var header = (ItemList.HeaderTemplate != null && !ItemList.IsStickyHeader) ? 1 : 0;
-
+            var groupHeader = (ItemList.GroupHeaderTemplate != null && !ItemList.IsStickyGroupHeader) ? 1 : 0;
             var footer = (ItemList.FooterTemplate != null && !ItemList.IsStickyFooter) ? 1 : 0;
-            var totalItems = ItemList.DataSource.DisplayItems.Count + header + footer;
 
-            if(lastIndex == totalItems - 1)
+            var totalItems = ItemList.DataSource.DisplayItems.Count - 1 + header + footer + groupHeader;
+
+            if (lastIndex != totalItems) return;
+            if (!IsAlertShown && TotalItemsInDB > StartLimit)
             {
-                if (!IsAlertShown && TotalItemsInDB > StartLimit)
-                {
-                    IsAlertShown = !IsAlertShown;
-                    LoadData();
-                }
-                else
-                {
-                    IsAlertShown = !IsAlertShown;
-                }
+                IsAlertShown = !IsAlertShown;
+                LoadData();
+            }
+            else
+            {
+                IsAlertShown = false;
             }
         }
 
         private async void Handle_ItemTapped(object sender, ItemTappedEventArgs e)
         {
-            if (e.ItemData == null)
+            if (e.ItemData.ToModel<ItemModel>() == null)
                 return;
             ItemModel temp = e.ItemData.ToModel<ItemModel>();
             if (!Authorisation.IsAuthorised("Item", "V", App.LastAuthUser))
@@ -129,7 +135,7 @@ namespace Plutus.Pages.Inventory
             {
                 await Navigation.PushModalAsync(new ItemTemplate(temp));
             }
-
+            e.Handled = true;
         }
 
         private async void UpdateItem_Clicked(object sender, EventArgs e)
@@ -162,5 +168,18 @@ namespace Plutus.Pages.Inventory
             VerifyId.IsVisible = false;
             MPage.IsEnabled = true;
         }
+        /*
+        private void searchBar_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (searchBar.Text != null)
+            {
+                query = App.DbContext.GetAllItems().Where(item =>
+                    item.Name.Contains(searchBar.Text) || item.Brand.Contains(searchBar.Text));
+            }
+            else
+                query = App.DbContext.GetAllItems();
+            SetItems();
+            LoadData();
+        }*/
     }
 }

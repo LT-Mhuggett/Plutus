@@ -532,23 +532,27 @@ namespace Plutus.Pages.Till
         /// </summary>
         private void CheckStoreTransExist()
         {
-            if (StoredTrans.Count == 1)
+            if (StoredTrans.Count != 1)
             {
-                foreach(var item in App.Current.MainPage.ToolbarItems)
+                if (StoredTrans.Count == 0)
                 {
-                    if(item.Text == App.Translate.ProvideValue("Baskets"))
+                    App.Current.MainPage.ToolbarItems.Clear();
+                }
+            }
+            else
+            {
+                foreach (var item in App.Current.MainPage.ToolbarItems)
+                {
+                    if (item.Text == App.Translate.ProvideValue("Baskets"))
                         return;
                 }
+
                 App.Current.MainPage.ToolbarItems.Add(new ToolbarItem
                 {
-                    Text=App.Translate.ProvideValue("Baskets"),
-                    Icon="",
-                    Command=new Command(this.ShowBasketList)
+                    Text = App.Translate.ProvideValue("Baskets"),
+                    Icon = "",
+                    Command = new Command(this.ShowBasketList)
                 });
-            }
-            else if (StoredTrans.Count == 0)
-            {
-                App.Current.MainPage.ToolbarItems.Clear();
             }
         }
 
@@ -575,15 +579,15 @@ namespace Plutus.Pages.Till
         private async void OnReturn(object sender, EventArgs e)
         {
             var menuItem = (Basket)((MenuItem)sender).CommandParameter;
-            Basket Item = null;
-            foreach (var item in Basket)
+            Basket item = null;
+            foreach (var tempItem in Basket)
             {
-                if (item.Id == menuItem.Id && item.Return == menuItem.Return && item.SaleId == menuItem.SaleId)
+                if (tempItem.Id == menuItem.Id && tempItem.Return == menuItem.Return && tempItem.SaleId == menuItem.SaleId)
                 {
-                    Item = new Models.Basket(item);
+                    item = new Models.Basket(tempItem);
                 }
             }
-            await Navigation.PushAsync(new ReturnFormPage(Item));
+            await Navigation.PushAsync(new ReturnFormPage(item));
         }
 
         /// <summary>
@@ -619,16 +623,14 @@ namespace Plutus.Pages.Till
                 StoredTrans.Remove(selectedBasket.Key);
                 if (StoredTrans.Count > 0)
                 {
-                    for (int i = 1; i <= StoredTrans.Last().Key; i++)
+                    for (var i = 1; i <= StoredTrans.Last().Key; i++)
                     {
-                        if (i > selectedBasket.Key)
-                        {
-                            var itemKey = i;
-                            ObservableCollection<Basket> itemData = StoredTrans[i];
-                            itemKey = itemKey - 1;
-                            StoredTrans.Remove(i);
-                            StoredTrans.Add(itemKey, itemData);
-                        }
+                        if (i <= selectedBasket.Key) continue;
+                        var itemKey = i;
+                        var itemData = StoredTrans[i];
+                        itemKey = itemKey - 1;
+                        StoredTrans.Remove(i);
+                        StoredTrans.Add(itemKey, itemData);
                     }
                 }
                 page._countBasketNum--;
@@ -655,6 +657,13 @@ namespace Plutus.Pages.Till
             VerifyId.IsVisible = false;
             MPage.IsEnabled = true;
             App.DbContext.RevertDbContextChanges();
+        }
+
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            if (ManScan.IsVisible)
+                ManScan.SetFocusAfterDelay(1);
         }
     }
 }
