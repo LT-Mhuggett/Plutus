@@ -7,6 +7,7 @@ using System.IO;
 using Plugin.Clipboard;
 using Plutus.Models;
 using Plutus.Helpers;
+using Plutus.Helpers.Extensions;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 
@@ -177,10 +178,13 @@ namespace Plutus.Pages.Inventory
             Navigation.PopModalAsync();
         }
 
-        private void TapGestureRecognizer_Tapped(object sender, EventArgs e)
+        private async Task TapGestureRecognizer_Tapped(object sender, EventArgs e)
         {
             CrossClipboard.Current.SetText(((Label) sender).Text);
-            DisplayAlert("Copied", "Text has been copied", "OK");
+            await ((Label) sender).ColorTo(((Label) sender).BackgroundColor, Color.FromRgba(44, 191, 221, 0.64),
+                c => ((Label) sender).BackgroundColor = c, 2000);
+            await ((Label) sender).ColorTo(Color.FromRgba(44, 191, 221, 0.64), ((Label) sender).BackgroundColor,
+                c => ((Label) sender).BackgroundColor = c, 2000);
         }
     }
 }

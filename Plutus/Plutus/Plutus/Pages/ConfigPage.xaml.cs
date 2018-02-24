@@ -490,8 +490,8 @@ namespace Plutus.Pages
                        Price = value / 100 * (decimal) taxes[taxType - 1].Rate                    
                      * if price is including vat
                      */
-                    ExPrice = value / 100 / (decimal) taxes[taxType].Rate,
-                    Price = value / 100
+                    ExPrice = Math.Round(value / 100 / (decimal) taxes[taxType].Rate, 2, MidpointRounding.AwayFromZero),
+                    Price = Math.Round(value / 100, 2, MidpointRounding.AwayFromZero)
 
                 };
                 App.DbContext.Add(item);

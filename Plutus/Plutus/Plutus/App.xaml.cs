@@ -12,7 +12,9 @@ using Microsoft.Azure.Mobile.Analytics;
 using Microsoft.Azure.Mobile.Crashes;
 using Device = Xamarin.Forms.Device;
 using System.Reflection;
-
+using Windows.UI.Xaml.Controls;
+using Plutus.Helpers.Interface;
+using Page = Xamarin.Forms.Page;
 #if __ANDROID__ || __IOS__
 
 #else
@@ -22,7 +24,7 @@ using Windows.ApplicationModel;
 namespace Plutus
 {
     public partial class App : Application
-	{
+    {
         internal static ObservableCollection<EmployeeModel> EmpsLogged = new ObservableCollection<EmployeeModel>();
         internal static EmployeeModel LastAuthUser = new EmployeeModel();
         internal static StoreModel Store = new StoreModel();
@@ -32,7 +34,7 @@ namespace Plutus
         internal static string version;
         internal static DateTime CurrentDateTime { get; private set; }
 
-        public App ()
+    public App ()
 		{
 		    InitializeComponent();
             
@@ -62,9 +64,9 @@ namespace Plutus
                     new NavigationPage(new FirstTimeStartUpPage());
 
             DbContext = new Database();
-        }
-
-	    protected override void OnStart ()
+		}
+        
+        protected override void OnStart ()
 		{
             MobileCenter.Start("uwp=6203c60a-2c30-49c5-a80f-fa96367529e7;" +
                    "android=e4899b2e-f595-4bf7-ab33-e173c89fb21f" +
@@ -87,5 +89,5 @@ namespace Plutus
             File.Delete(Path.Combine(FileIO.GetLib(), "Database.db"));
             return new FirstTimeStartUpPage();
         }
-	}
+    }
 }
