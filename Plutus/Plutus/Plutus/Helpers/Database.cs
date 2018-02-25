@@ -264,7 +264,7 @@ namespace Plutus.Helpers
                 Name = "Bag",
                 Desc = "Item to allow Customers to carry things",
                 CatId = 1,
-                VatId = 2,
+                VatId = 3,
                 Price = .05m,
                 Cost = 0.0m
             };

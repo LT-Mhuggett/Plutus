@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Plutus.Pages.FirstTimeStartUp.WelcomePage"
+             xmlns:i18N="clr-namespace:I18N_L10N;assembly=I18N_L10N"
+             Title="{i18N:Translate WelcomeTitle}">
+    <ContentPage.Content>
+        <StackLayout>
+            <Label Text="{i18N:Translate FWelcomeTitle}"
+                   HorizontalOptions="CenterAndExpand"/>
+            <Label Text="Use the left tab 'Configuration' page to start a new store from fresh"
+                   HorizontalOptions="CenterAndExpand"/>
+            <Label Text="Use the Right tab 'External Source' page to start a new store from a previous store setup in a different application"
+                   HorizontalOptions="CenterAndExpand"/>
+            <Label Text="Use the button Below to restore from an existing store setup with Plutus"
+                   HorizontalOptions="CenterAndExpand"/>
+            <Button Text="{i18N:Translate Restore}" VerticalOptions="Center" Clicked="Restore_Clicked"/>
+        </StackLayout>
+    </ContentPage.Content>
+</ContentPage>

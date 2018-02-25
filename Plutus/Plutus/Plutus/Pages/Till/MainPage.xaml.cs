@@ -52,8 +52,26 @@ namespace Plutus.Pages.Till
             BindingContext = this;
 
             var tempIList = App.DbContext.Search("BAG001").ToList();
-            if (tempIList.Count != 1) return;
-            BagItem = tempIList.First();
+            if (tempIList.Count < 1)
+            {
+                var cat = new CategoryModel() {Name = "Customer Care", Description = "Items such as Bags etc."};
+                App.DbContext.Add(cat);
+                var bag = new ItemModel()
+                {
+                    Id = "BAG001",
+                    Name = "Bag",
+                    Desc = "Item to allow Customers to carry things",
+                    CatId = 2,
+                    VatId = 3,
+                    Price = .05m,
+                    Cost = 0.0m
+                };
+                App.DbContext.Add(bag);
+                App.DbContext.Save();
+                BagItem = bag;
+            }
+            else
+                BagItem = tempIList.First();
             Bag.Text = BagItem.Name;
             Bag.IsVisible = true;
             

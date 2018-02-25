@@ -12,7 +12,6 @@ using Microsoft.Azure.Mobile.Analytics;
 using Microsoft.Azure.Mobile.Crashes;
 using Device = Xamarin.Forms.Device;
 using System.Reflection;
-using Windows.UI.Xaml.Controls;
 using Plutus.Helpers.Interface;
 using Page = Xamarin.Forms.Page;
 #if __ANDROID__ || __IOS__
@@ -45,7 +44,7 @@ namespace Plutus
 		    });
             
             //refresh all app files without data wipe or app delete
-            //File.Delete(Path.Combine(FileIO.GetLib(), "App.config"));
+            File.Delete(Path.Combine(FileIO.GetLib(), "App.config"));
             //File.Delete(Path.Combine(FileIO.GetLib(), "Database.db"));
 
 #if __ANDROID__ || __IOS__
@@ -61,7 +60,7 @@ namespace Plutus
                 new NavigationPage(new LoginPage()):
                 FileIO.Exists("Database.db")?
                     new NavigationPage(OnlyDB()): 
-                    new NavigationPage(new FirstTimeStartUpPage());
+                    new NavigationPage(new Pages.FirstTimeStartUp.MainPage());
 
             DbContext = new Database();
 		}
@@ -87,7 +86,7 @@ namespace Plutus
         Page OnlyDB()
         {
             File.Delete(Path.Combine(FileIO.GetLib(), "Database.db"));
-            return new FirstTimeStartUpPage();
+            return new Pages.FirstTimeStartUp.MainPage();
         }
     }
 }

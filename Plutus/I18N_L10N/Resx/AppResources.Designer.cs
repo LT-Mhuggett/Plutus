@@ -758,6 +758,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to External Source.
+        /// </summary>
+        internal static string ExternalSTitle {
+            get {
+                return ResourceManager.GetString("ExternalSTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Please Ensure all required fields are filled in.
         /// </summary>
         internal static string FieldsFilledInMesg {
@@ -1718,6 +1727,15 @@ namespace I18N_L10N.Resx {
         internal static string Wage {
             get {
                 return ResourceManager.GetString("Wage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Welcome.
+        /// </summary>
+        internal static string WelcomeTitle {
+            get {
+                return ResourceManager.GetString("WelcomeTitle", resourceCulture);
             }
         }
         

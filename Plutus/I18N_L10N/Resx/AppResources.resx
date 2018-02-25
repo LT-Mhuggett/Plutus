@@ -685,4 +685,10 @@ an Item?</value>
   <data name="AddBasket" xml:space="preserve">
     <value>Add to Basket</value>
   </data>
+  <data name="ExternalSTitle" xml:space="preserve">
+    <value>External Source</value>
+  </data>
+  <data name="WelcomeTitle" xml:space="preserve">
+    <value>Welcome</value>
+  </data>
 </root>

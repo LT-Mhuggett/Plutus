@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="Plutus.Pages.ConfigPage"
+             x:Class="Plutus.Pages.FirstTimeStartUp.ConfigPage"
              xmlns:i18N="clr-namespace:I18N_L10N;assembly=I18N_L10N"
              Title="{i18N:Translate Config}">
     <ContentPage.Content>
@@ -85,8 +85,6 @@
                         </Picker.Items>
                     </Picker>
                     <Button Text="{i18N:Translate Create}" VerticalOptions="Center" Clicked="Create_Clicked"/>
-                    <Button Text="{i18N:Translate Restore}" VerticalOptions="Center" Clicked="Restore_Clicked"/>
-                    <Button Text="{i18N:Translate TransCopper}" VerticalOptions="Center" Clicked="CTrans_Clicked" />
                 </StackLayout>
             </ScrollView>
             <ContentView x:Name="LCV" IsVisible="false" BackgroundColor="LightGray" Opacity=".5" HorizontalOptions="FillAndExpand" VerticalOptions="FillAndExpand">
