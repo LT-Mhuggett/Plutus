@@ -78,7 +78,7 @@ namespace Plutus.Pages.Inventory
                 return true;
             var item = obj as ItemModel;
             return item.Name.ToLower().Contains(searchBar.Text.ToLower()) ||
-                   item.Brand.ToLower().Contains(searchBar.Text.ToLower()) ||
+                   (item.Brand?.ToLower().Contains(searchBar.Text.ToLower()) ?? false) ||
                    (item.Desc?.ToLower().Contains(searchBar.Text.ToLower()) ?? false);
         }
 
