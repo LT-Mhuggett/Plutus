@@ -206,8 +206,6 @@
   </data>
   <data name="PassWNotSameMesg" xml:space="preserve">
     <value>Passwords are not the same
-OR
-Not longer than 6 characters
 Please try again</value>
   </data>
   <data name="FieldsFilledInMesg" xml:space="preserve">
@@ -690,5 +688,11 @@ an Item?</value>
   </data>
   <data name="WelcomeTitle" xml:space="preserve">
     <value>Welcome</value>
+  </data>
+  <data name="PassWNotStrong" xml:space="preserve">
+    <value>Not longer than 8 characters
+OR
+Does not contain atleast 1 number, special character and capital letter
+Please Try Again</value>
   </data>
 </root>

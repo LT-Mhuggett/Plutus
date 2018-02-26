@@ -35,17 +35,10 @@ namespace Plutus.Pages.FirstTimeStartUp
         private async void Create_Clicked(object sender, EventArgs e)
         {
             Loading.TogleLoading(LCV, LAI);
-            if (string.IsNullOrEmpty(Password.Text) || string.IsNullOrEmpty(PasswordConf.Text))
+            
+            if (!await Password.Text.PasswordCheck(PasswordConf.Text))
             {
                 Loading.TogleLoading(LCV, LAI);
-                Error(6);
-                return;
-            }
-
-            if (Password.Text != PasswordConf.Text || Password.Text.Length <= 6)
-            {
-                Loading.TogleLoading(LCV, LAI);
-                Error(7);
                 return;
             }
 
@@ -229,12 +222,6 @@ namespace Plutus.Pages.FirstTimeStartUp
                     break;
                 case 5:
                     message = App.Translate.ProvideValue("SomthingWentWrongMesg");
-                    break;
-                case 6:
-                    message = App.Translate.ProvideValue("SetPassWMesg");
-                    break;
-                case 7:
-                    message = App.Translate.ProvideValue("PassWNotSameMesg");
                     break;
             }
 

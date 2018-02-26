@@ -127,7 +127,8 @@ namespace Plutus.Helpers
         {
             var emp = Get<EmployeeModel>()
                 .Include(e => e.EmpAuths)
-                .SingleOrDefault(e => e.Id.Equals(idEmail) || e.Email.Equals(idEmail));
+                .SingleOrDefault(e =>
+                    e.Id.Equals(idEmail) || e.Email.Equals(idEmail, StringComparison.CurrentCultureIgnoreCase));
             if (emp == null)
                 return null;
             if (await Task.Run(() =>

@@ -13,7 +13,7 @@ namespace Plutus.Helpers.Extensions
         {
             try
             {
-                decimal result = Convert.ToDecimal(data);
+                var result = Convert.ToDecimal(data);
                 return result;
             }
             catch (FormatException)
@@ -70,6 +70,32 @@ namespace Plutus.Helpers.Extensions
         public static bool IsNumeric(this string value)
         {
             return value.All(char.IsNumber);
+        }
+
+        internal static async Task<bool> PasswordCheck(this string pass1, string pass2)
+        {
+            if (pass1 != null && pass2 != null)
+                if (pass1.Equals(pass2))
+                {
+                    if (Validate.IsValidPassword(pass1))
+                        return true;
+                    await Application.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Oops"),
+                        App.Translate.ProvideValue("PassWNotStrong"),
+                        App.Translate.ProvideValue("OK"));
+                    return false;
+                }
+                else
+                {
+                    await Application.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Oops"),
+                        App.Translate.ProvideValue("PassWNotSameMesg"),
+                        App.Translate.ProvideValue("OK"));
+                    return false;
+                }
+
+            await Application.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Oops"),
+                App.Translate.ProvideValue("SetPassWMesg"),
+                App.Translate.ProvideValue("OK"));
+            return false;
         }
     }
 }

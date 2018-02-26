@@ -35,7 +35,7 @@ namespace Plutus.Pages.CustomPages
 	            PayExact.Text = App.Translate.ProvideValue("PayFull");
 	            PayExact.IsVisible = true;
 	        }
-	        ConfirmBut.Clicked += ConfirmBut_Clicked;
+	        ConfirmBut.Clicked += ConfirmBut_ClickedAsync;
 	        InputE.TextChanged += InputE_TextChanged;
 
 	    }
@@ -50,7 +50,9 @@ namespace Plutus.Pages.CustomPages
 	        ConfirmBut.Text = confirmButText;
 	        ValidationL.Text = validationText;
 	        InputE.IsPassword = isPass;
-	        ConfirmBut.Clicked += ConfirmBut_Clicked;
+	        InputEConf.IsPassword = isPass;
+	        InputEConf.IsVisible = isPass;
+	        ConfirmBut.Clicked += ConfirmBut_ClickedAsync;
 	        InputE.TextChanged += InputE_TextChanged;
 	    }
 
@@ -69,8 +71,15 @@ namespace Plutus.Pages.CustomPages
             InputResult = InputE.Text;
         }
 
-        private void ConfirmBut_Clicked(object sender, EventArgs e)
+        private async void ConfirmBut_ClickedAsync(object sender, EventArgs e)
         {
+            if (InputEConf.IsVisible)
+            {
+                if (!await InputE.Text.PasswordCheck(InputEConf.Text))
+                {
+                    return;
+                }
+            }
             ConfirmButtonEHandler?.Invoke(this, e);
         }
 

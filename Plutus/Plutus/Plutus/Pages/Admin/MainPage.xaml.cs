@@ -17,7 +17,7 @@ namespace Plutus.Pages.Admin
 		{
 			InitializeComponent ();
 
-            VersionLabel.Text = string.Format("Version: Beta", App.version);
+            VersionLabel.Text = string.Format("Version: Beta", App.Version);
 		}
 
         private void Backup_Clicked(object sender, EventArgs e)

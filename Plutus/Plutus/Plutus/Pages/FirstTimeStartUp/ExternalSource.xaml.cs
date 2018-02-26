@@ -165,11 +165,11 @@ namespace Plutus.Pages.FirstTimeStartUp
                     FName = extraParse.FirstOrDefault(x => x[0].Equals("FirstName"))?[1],
                     LName = extraParse.FirstOrDefault(x => x[0].Equals("LastName"))?[1],
                     Email = extraParse.FirstOrDefault(x => x[0].Equals("Email"))?[1] == ""
-                        ? await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                        ? (await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
                             App.Translate.ProvideValue("Email"), App.Translate.ProvideValue("EnterCorrectValue"),
                             App.Translate.ProvideValue("Confirm"), App.Translate.ProvideValue("EmailNotCorrectMesg"),
-                            false)
-                        : extraParse.FirstOrDefault(x => x[0].Equals("Email"))?[1],
+                            false)).ToLower()
+                        : extraParse.FirstOrDefault(x => x[0].Equals("Email"))?[1].ToLower(),
                     Salt = salt,
                     HashedPassword = Convert.ToBase64String(Helpers.Password.ComputeHash(
                         await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(

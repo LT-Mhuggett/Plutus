@@ -2,13 +2,15 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Security.Cryptography;
+using System.Threading.Tasks;
+using Xamarin.Forms;
 
 namespace Plutus.Helpers
 {
     /// <summary>
     /// This deals with all password encryption, decryption and comparison
     /// </summary>
-    class Password
+    internal static class Password
     {
         private const int SaltByteSize = 64;
         private const int HashByteSize = 64;

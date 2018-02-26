@@ -1189,13 +1189,23 @@ namespace I18N_L10N.Resx {
         
         /// <summary>
         ///   Looks up a localized string similar to Passwords are not the same
-        ///OR
-        ///Not longer than 6 characters
         ///Please try again.
         /// </summary>
         internal static string PassWNotSameMesg {
             get {
                 return ResourceManager.GetString("PassWNotSameMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Not longer than 8 characters
+        ///OR
+        ///Does not contain atleast 1 number, special character and capital letter
+        ///Please Try Again.
+        /// </summary>
+        internal static string PassWNotStrong {
+            get {
+                return ResourceManager.GetString("PassWNotStrong", resourceCulture);
             }
         }
         
