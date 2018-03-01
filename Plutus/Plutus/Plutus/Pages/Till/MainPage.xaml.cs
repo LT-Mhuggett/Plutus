@@ -254,11 +254,10 @@ namespace Plutus.Pages.Till
         /// <param name="Action">Selected paymethod</param>
         private async void GenTransaction()
         {
-            var actionDic = new Dictionary<string, Func<PaymentMethodModel>> {
-                { App.Translate.ProvideValue("Card"), () => App.DbContext.GetPayM(App.Translate.ProvideValue("Card")).SingleOrDefault() },
-                { App.Translate.ProvideValue("Cash"), () => App.DbContext.GetPayM(App.Translate.ProvideValue("Cash")).SingleOrDefault() },
-                { App.Translate.ProvideValue("Cancel"), null}
-            };
+            var actionDic = App.DbContext.Get<PaymentMethodModel>().OrderBy(p => p.Name)
+                .ToDictionary<PaymentMethodModel, string, Func<PaymentMethodModel>>(tempPayMeth => tempPayMeth.Name,
+                    tempPayMeth => (() => tempPayMeth));
+            actionDic.Add(App.Translate.ProvideValue("Cancel"), null);
 
             EId.Text = null;
             VerifyId.IsVisible = false;
@@ -351,7 +350,7 @@ namespace Plutus.Pages.Till
                 var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
                     string.Format(App.Translate.ProvideValue(refundOnly ? "HowMuchRefund" : "HowMuchPM"), action,
                         Math.Round(total - paid, 2, MidpointRounding.AwayFromZero)), "enter here", "Confrim",
-                    App.Translate.ProvideValue("EnterCorrectValue"), total - paid, !pay.PayMethod.IsCashBackable);
+                    App.Translate.ProvideValue("EnterCorrectValue"), total - paid, pay.PayMethod.IsCashBackable);
 
                 pay.Amount = amount;
 
@@ -362,6 +361,7 @@ namespace Plutus.Pages.Till
                     if (pay.PayMethod.IsChangeable)
                     {
                         change = paid - total;
+                        pay.Amount -= change;
                     }
                     else
                     {

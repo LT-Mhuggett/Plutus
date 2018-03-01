@@ -97,6 +97,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- A reference to the entire .Net Framework and Windows SDK are automatically included -->
+    <Content Include="Assets\Fonts\Font-Awesome-5.otf" />
     <None Include="Connected Services\HockeyApp\ConnectedService.json" />
     <None Include="newPlutusCert.pfx" />
     <None Include="PlutusCert.snk" />

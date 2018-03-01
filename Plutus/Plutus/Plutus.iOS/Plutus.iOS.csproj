@@ -112,6 +112,9 @@
     <CodesignKey>iPhone Distribution</CodesignKey>
     <CodesignEntitlements>Entitlements.plist</CodesignEntitlements>
   </PropertyGroup>
+  <PropertyGroup Condition=" '$(RunConfiguration)' == 'Default' ">
+    <AppExtensionDebugBundleId />
+  </PropertyGroup>
   <ItemGroup>
     <Compile Include="CloseAppImplementation.cs" />
     <Compile Include="LocalizeImplementation.cs" />
@@ -122,6 +125,7 @@
     <Compile Include="SavePDFImplementation.cs" />
     <None Include="app.config" />
     <None Include="Entitlements.plist" />
+    <BundleResource Include="Resources\Fonts\Font-Awesome-5.otf" />
     <None Include="Info.plist">
       <SubType>Designer</SubType>
     </None>

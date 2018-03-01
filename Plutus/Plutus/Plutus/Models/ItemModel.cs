@@ -37,6 +37,8 @@ namespace Plutus.Models
 
         [NotMapped]
         public char GroupKey { get; set; }
+        [NotMapped]
+        public int Amount { get; set; }
 
         
 

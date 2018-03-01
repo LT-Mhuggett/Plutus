@@ -208,7 +208,7 @@ namespace Plutus.Helpers
             .Include(s => s.Transactions)
             .Include(s => s.PaySales)
             .ThenInclude(ps => ps.PayMethod)
-            .Where(s => s.DateOfSale.ToString(CultureInfo.InvariantCulture).Contains(condition)
+            .Where(s => s.DateOfSale.ToString().Contains(condition)
                         || s.EmployeeId.Equals(condition));
 
         internal IQueryable<SaleModel> GetSales() => Get<SaleModel>()

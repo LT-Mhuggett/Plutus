@@ -10,7 +10,7 @@
             <Grid>
                 <StackLayout x:Name="MPage" VerticalOptions="Center" HorizontalOptions="FillAndExpand">
                     <Button x:Name="SalesReps" Text="{i18N:Translate SReports}" Clicked="SalesReps_Clicked"/>
-                    <Button x:Name="WSOutReps" Text="Weekly Stock Outtakes" Clicked="WSOutReps_Clicked"/>
+                    <Button x:Name="WSOutReps" Text="Weekly stock to be Reordered" Clicked="WSOutReps_Clicked"/>
                 </StackLayout>
                 <StackLayout x:Name="VerifyId"  IsVisible="False" BackgroundColor="White" Margin="50,100,50,200">
                     <Label Text="{i18N:Translate EmpId}" />

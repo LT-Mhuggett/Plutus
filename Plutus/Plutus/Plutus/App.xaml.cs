@@ -41,15 +41,14 @@ namespace Plutus
             });
 
             //refresh all app files without data wipe or app delete
-            //File.Delete(Path.Combine(FileIO.GetLib(), "App.config"));
+            File.Delete(Path.Combine(FileIO.GetLib(), "App.config"));
             //File.Delete(Path.Combine(FileIO.GetLib(), "Database.db"));
 #if __ANDROID__ || __IOS__
             Version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
 #else
-            PackageVersion versionP = Package.Current.Id.Version;
+            var versionP = Package.Current.Id.Version;
             Version = $"{versionP.Major}.{versionP.Minor}.{versionP.Build}.{versionP.Revision}";
 #endif
-            new I18N_L10N.I18N_L10N();
             MainPage = FileIO.Exists("App.config") && FileIO.Exists("Database.db")
                 ?
                 new NavigationPage(new LoginPage())

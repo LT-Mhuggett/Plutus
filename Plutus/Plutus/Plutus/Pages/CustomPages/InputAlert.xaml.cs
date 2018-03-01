@@ -18,7 +18,7 @@ namespace Plutus.Pages.CustomPages
         public string InputResult { get; set; }
 
 	    public InputAlert(string titleText, string placeholderText, string confirmButText, string validationText,
-	        bool cash, decimal toPay)
+	        bool cashBack, decimal toPay)
 	    {
 	        InitializeComponent();
 
@@ -26,15 +26,16 @@ namespace Plutus.Pages.CustomPages
 	        InputE.Placeholder = placeholderText;
 	        ConfirmBut.Text = confirmButText;
 	        ValidationL.Text = validationText;
-	        if (cash)
-	            CashOptions.IsVisible = true;
-	        else
+	        if (cashBack)
 	        {
 	            PayExact.CommandParameter = toPay;
 	            PayExact.Clicked += PayExact_Clicked;
 	            PayExact.Text = App.Translate.ProvideValue("PayFull");
 	            PayExact.IsVisible = true;
 	        }
+	        else
+	            CashOptions.IsVisible = true;
+
 	        ConfirmBut.Clicked += ConfirmBut_ClickedAsync;
 	        InputE.TextChanged += InputE_TextChanged;
 
