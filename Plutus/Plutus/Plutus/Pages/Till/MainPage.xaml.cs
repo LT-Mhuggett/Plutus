@@ -360,8 +360,7 @@ namespace Plutus.Pages.Till
                 {
                     if (pay.PayMethod.IsChangeable)
                     {
-                        change = paid - total;
-                        pay.Amount -= change;
+                        change = pay.Change = paid - total;
                     }
                     else
                     {

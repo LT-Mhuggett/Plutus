@@ -38,7 +38,7 @@ namespace Plutus.Pages.Reports
         {
             var sales = App.DbContext.GetSales(temp).ToList();
             totalTakins.Text = sales
-                .Sum(sale => sale.PaySales.Sum(ps => ps.Amount))
+                .Sum(sale => sale.PaySales.Sum(ps => ps.Amount-ps.Change))
                 .ToString(CultureInfo.InvariantCulture);
             foreach (var tempPayMeth in App.DbContext.Get<PaymentMethodModel>())
             {
@@ -51,7 +51,7 @@ namespace Plutus.Pages.Reports
                     {
                         if (tempPayMeth.Id.Equals(tempTakin.PayMethod.Id))
                         {
-                            amount += tempTakin.Amount;
+                            amount += tempTakin.Amount - tempTakin.Change;
                         }
                     }
                 }

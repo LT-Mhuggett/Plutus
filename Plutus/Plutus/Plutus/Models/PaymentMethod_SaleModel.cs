@@ -14,5 +14,6 @@ namespace Plutus.Models
         public SaleModel Sale { get; set; }
         
         public decimal Amount { get; set; }
+        public decimal Change { get; set; }
     }
 }
