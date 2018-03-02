@@ -30,6 +30,7 @@ namespace Plutus
         internal static int TillAmmount;
         internal static string Version;
         internal static DateTime CurrentDateTime { get; private set; }
+        internal static bool OneTimeStockWarning { get; set; }
 
         public App()
         {
@@ -39,6 +40,8 @@ namespace Plutus
                 CurrentDateTime = DateTime.Now;
                 return true;
             });
+
+            OneTimeStockWarning = false;
 
             //refresh all app files without data wipe or app delete
             //File.Delete(Path.Combine(FileIO.GetLib(), "App.config"));

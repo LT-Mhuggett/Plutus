@@ -14,6 +14,7 @@ using I18N_L10N;
 using ZXing.Net.Mobile.Forms;
 using ZXing.Mobile;
 using Plutus.Helpers.Extensions;
+using Microsoft.EntityFrameworkCore;
 
 namespace Plutus.Pages.Inventory
 {
@@ -84,7 +85,9 @@ namespace Plutus.Pages.Inventory
         /// </summary>
         private async void ItemSearchComplete()
         {
-            var items = App.DbContext.Search(ItemSearch.Text).ToList();
+            var items = App.DbContext.Search(ItemSearch.Text)
+                .Include(i=>i.Stock)
+                .ToList();
             switch (items.Count)
             {
                 case 0:

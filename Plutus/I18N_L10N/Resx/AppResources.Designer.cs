@@ -1025,6 +1025,21 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to An Item in the last transaction didn&apos;t have a stock value, Plutus cannot keep an accurate stock of items with a stock amount attached to them.
+        ///Advice:
+        ///Either add stock to individual items that don&apos;t have a current stock value to them
+        ///OR
+        ///Use the mass stock take fucntionality of Plutus to add stock at a mass scale
+        ///
+        ///This message will only appear once untill the Plutus restarts, of whcih it will appear once again..
+        /// </summary>
+        internal static string MissingStock {
+            get {
+                return ResourceManager.GetString("MissingStock", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Name.
         /// </summary>
         internal static string Name {
@@ -1737,6 +1752,15 @@ namespace I18N_L10N.Resx {
         internal static string Wage {
             get {
                 return ResourceManager.GetString("Wage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Warning!.
+        /// </summary>
+        internal static string Warning {
+            get {
+                return ResourceManager.GetString("Warning", resourceCulture);
             }
         }
         

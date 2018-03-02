@@ -60,13 +60,6 @@ namespace Plutus.Pages.Reports
                 AddToLayout(ContentLayout, label);
                 AddToLayout(ContentLayout, labelAmount);
             }
-            /*
-            cashTakins.Text = sales
-                .Sum(sale => sale.PaySales.Where(ps => ps.PayMethod.Name.Equals("Cash")).Sum(ps => ps.Amount))
-                .ToString(CultureInfo.InvariantCulture);
-            cardTakins.Text = sales
-                .Sum(sale => sale.PaySales.Where(ps => ps.PayMethod.Name.Equals("Card")).Sum(ps => ps.Amount))
-                .ToString(CultureInfo.InvariantCulture);*/
         }
 
         private void AddToLayout(StackLayout layout, Label label)

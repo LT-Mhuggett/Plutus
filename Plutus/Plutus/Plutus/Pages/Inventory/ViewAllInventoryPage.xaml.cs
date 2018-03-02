@@ -12,6 +12,7 @@ using Syncfusion.DataSource;
 using Syncfusion.ListView.XForms;
 using Syncfusion.GridCommon.ScrollAxis;
 using System.Reflection;
+using Microsoft.EntityFrameworkCore;
 using Plutus.Helpers.Extensions;
 using ItemTappedEventArgs = Syncfusion.ListView.XForms.ItemTappedEventArgs;
 
@@ -32,7 +33,12 @@ namespace Plutus.Pages.Inventory
         {
             InitializeComponent();
             
-            query = App.DbContext.GetAllItems();
+            query = App.DbContext.GetAllItems()
+                .Include(i => i.DisItems)
+                    .ThenInclude(di=>di.Discount)
+                .Include(i => i.Cat.DisCats)
+                    .ThenInclude(dc => dc.Discount)
+                .Include(i=>i.Stock);
 
             ItemList.FooterSize = 20;
 

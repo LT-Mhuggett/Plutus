@@ -183,10 +183,9 @@ namespace Plutus.Pages.Till
             {
                 Device.BeginInvokeOnMainThread(() =>
                 {
-                    var tempIList = FindItem(result.Text);
-                    if (tempIList.Count != 1) return;
-                    var tempI = new Basket(tempIList.First());
-                    BasketAdd(tempI);
+                    var tempItem = FindItem(result.Text);
+                    if (tempItem == null) return;
+                    BasketAdd(new Basket(tempItem));
                 });
             };
 
@@ -446,6 +445,14 @@ namespace Plutus.Pages.Till
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), string.Format(App.Translate.ProvideValue("CashBack"), cashBack), App.Translate.ProvideValue("OK"));
             }
 
+            var itemHasNoStock = false;
+            
+            foreach (var trans in Sale.Transactions)
+            {
+                if (trans.Item.Stock != null) trans.Item.Stock.Quantity -= trans.Amount;
+                else itemHasNoStock = true;
+            }
+
             App.DbContext.Add(Sale);
 
             if (!App.DbContext.Save())
@@ -458,16 +465,25 @@ namespace Plutus.Pages.Till
             
             Basket.Clear();
             await DisplayAlert(App.Translate.ProvideValue("Transaction"), App.Translate.ProvideValue("TransConfMesg"), App.Translate.ProvideValue("OK"));
+
+            if (App.OneTimeStockWarning == false)
+                if(itemHasNoStock == false)
+                    return;
+
+            await DisplayAlert(App.Translate.ProvideValue("Warning"), App.Translate.ProvideValue("MissingStock"),
+                App.Translate.ProvideValue("OK"));
+            App.OneTimeStockWarning = true;
         }
 
-        private List<ItemModel> FindItem(string needle)
+        private ItemModel FindItem(string needle)
         {
-            return App.DbContext.Search(ManScan.Text)
+            return App.DbContext.SearchId(ManScan.Text)
                 .Include(i => i.DisItems)
                     .ThenInclude(di=>di.Discount)
                 .Include(i => i.Cat.DisCats)
                     .ThenInclude(dc => dc.Discount)
-                .ToList();
+                .Include(i=>i.Stock)
+                .SingleOrDefault();
         }
 
         /// <summary>
@@ -478,8 +494,8 @@ namespace Plutus.Pages.Till
         /// <param name="e">Event that the object called</param>
         private async void ManScan_Completed(object sender, EventArgs e)
         {
-            var tempIList = FindItem(ManScan.Text);
-            if (tempIList.Count != 1)
+            var tempItem = FindItem(ManScan.Text);
+            if (tempItem == null)
             {
                 ManScan.Text = null;
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("ItemIdNotFoundMesg"), App.Translate.ProvideValue("OK"));
@@ -488,9 +504,7 @@ namespace Plutus.Pages.Till
             ManScan.Text = null;
             //var s = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name;
             //Debug.WriteLine(s);
-            var tempI = new Basket(tempIList.First());
-            tempIList.Clear();
-            BasketAdd(tempI);
+            BasketAdd(new Basket(tempItem));
         }
 
         /// <summary>

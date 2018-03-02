@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Plutus.Models.Interface;
 using System.Globalization;
+using Plutus.Helpers.Extensions;
 
 namespace Plutus.Helpers
 {
@@ -151,6 +152,10 @@ namespace Plutus.Helpers
             .Where(i => i.Id.Equals(temp) ||
                         CultureInfo.CurrentCulture.CompareInfo.IndexOf(
                             i.Name, temp, CompareOptions.IgnoreCase) >= 0);
+
+        internal IQueryable<ItemModel> SearchId(string needle) => Get<ItemModel>()
+            .Include(a => a.Vat)
+            .Where(i => i.Id.Equals(needle));
 
         internal void UpdateStock(StockModel toUpdateModel)
         {
