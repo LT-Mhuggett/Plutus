@@ -51,7 +51,9 @@ namespace Plutus.Pages.Inventory
             ScrollRows.Changed += ScrollRows_changed;
             
             StartLimit = 0;
-            Limit = 40;
+
+            //Testing use of loading all data
+            Limit = 40000;
 
             SetItems();
 
@@ -84,7 +86,7 @@ namespace Plutus.Pages.Inventory
                 return true;
             var item = obj as ItemModel;
             return item.Name.ToLower().Contains(searchBar.Text.ToLower()) ||
-                   item.Brand.ToLower().Contains(searchBar.Text.ToLower()) ||
+                   (item.Brand?.ToLower().Contains(searchBar.Text.ToLower()) ?? false) ||
                    (item.Desc?.ToLower().Contains(searchBar.Text.ToLower()) ?? false);
         }
 
