@@ -10,6 +10,7 @@
             <StackLayout x:Name="MPage" VerticalOptions="Center" HorizontalOptions="FillAndExpand">
                 <Button x:Name="BackUpButt" Text="{i18N:Translate BackUp}" Clicked="Backup_Clicked"/>
                 <Button x:Name="RestoreButt" Text="{i18N:Translate Restore}" Clicked="Restore_Clicked"/>
+                <Button x:Name="DeleteDBButt" Text="Delete DB" Clicked="DeleteDBButt_Clicked"/>
                 <Label x:Name="VersionLabel" Text=""/>
             </StackLayout>
             <StackLayout x:Name="VerifyId"  IsVisible="False" BackgroundColor="White" Margin="50,100,50,200">

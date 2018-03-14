@@ -1,9 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Plutus.Helpers;
 using Plutus.Helpers.Extensions;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
@@ -38,7 +33,6 @@ namespace Plutus.Pages.CustomPages
 
 	        ConfirmBut.Clicked += ConfirmBut_ClickedAsync;
 	        InputE.TextChanged += InputE_TextChanged;
-
 	    }
 
 	    public InputAlert(string titleText, string placeholderText, string confirmButText, string validationText,
@@ -110,10 +104,10 @@ namespace Plutus.Pages.CustomPages
             }
         );
 
-        public bool IsValidationLVisable
-        {
-            get => (bool)GetValue(IsValidationLVisibleProp);
-            set => SetValue(IsValidationLVisibleProp, value);
-        }
-    }
+	    public bool IsValidationLVisable
+	    {
+	        get => (bool) GetValue(IsValidationLVisibleProp);
+	        set => SetValue(IsValidationLVisibleProp, value);
+	    }
+	}
 }

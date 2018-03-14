@@ -6,7 +6,7 @@ using Xamarin.Forms;
 
 namespace Plutus.Helpers.Extensions
 {
-    public static class EntryExtension
+    public static class EntryExtensions
     {
         public static async void SetFocusAfterDelay (this Entry entry, int delay)
         {

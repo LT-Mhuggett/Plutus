@@ -8,6 +8,7 @@ using Plutus.Models;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 using I18N_L10N;
+using Plutus.Helpers.Extensions;
 using ZXing.Net.Mobile.Forms;
 using ZXing.Mobile;
 
@@ -127,6 +128,12 @@ namespace Plutus.Pages.Inventory
         private void  EnterButt_Clicked(object sender, EventArgs e)
         {
             CheckExist();
+        }
+
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            Id.SetFocusAfterDelay(1);
         }
     }
 }

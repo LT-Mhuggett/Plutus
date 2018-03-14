@@ -22,7 +22,7 @@ namespace Plutus.Pages.Reports
 			InitializeComponent ();
 
 		    var dateStart = DateTime.Now.StartOfWeek(DayOfWeek.Monday);
-		    var dateEnd = dateStart.AddDays(6);
+		    var dateEnd = dateStart.AddDays(7);
 
 		    var tempSale = App.DbContext.GetSales().Where(s => s.DateOfSale > dateStart && s.DateOfSale < dateEnd).AsNoTracking().ToList();
 		    Sales = new ObservableCollection<ItemModel>();

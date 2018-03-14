@@ -65,5 +65,11 @@ namespace Plutus.Pages.Inventory
             VerifyId.IsVisible = false;
             MPage.IsEnabled = true;
         }
+
+        private void MassUpdate_Clicked(object sender, EventArgs e)
+        {
+            Action action = async () => await App.Current.MainPage.Navigation.PushAsync(new MassStockUpdateMainPage());
+            Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Item", "V", action);
+        }
     }
 }

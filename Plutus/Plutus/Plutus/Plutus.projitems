@@ -14,8 +14,9 @@
     </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Authorisation.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Camera.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\Csv.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Extensions\DateTimeExtensions.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Helpers\Extensions\EntryExtension.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\Extensions\EntryExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Extensions\ObjectExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Extensions\StringExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\CustomViews\DataPickerInputAlertHelper.cs" />
@@ -52,6 +53,7 @@
       <DependentUpon>MainPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="$(MSBuildThisFileDirectory)Pages\CustomPages\SelectMultipleBasePage.xaml.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Pages\FirstTimeStartUp\ConfigPage.xaml.cs">
       <DependentUpon>ConfigPage.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -98,6 +100,10 @@
     </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Pages\Inventory\ItemTemplate.xaml.cs">
       <DependentUpon>ItemTemplate.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="$(MSBuildThisFileDirectory)Pages\Inventory\MassStockUpdateMainPage.xaml.cs">
+      <DependentUpon>MassStockUpdateMainPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Pages\Inventory\StockUpdatePage.xaml.cs">
@@ -369,6 +375,12 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\FirstTimeStartUp\WelcomePage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\Inventory\MassStockUpdateMainPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
     </EmbeddedResource>

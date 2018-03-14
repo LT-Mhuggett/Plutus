@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Plutus.Models;
 using Plutus.Helpers.Extensions;
@@ -51,8 +53,8 @@ namespace Plutus.Pages.Till
 
             BindingContext = this;
 
-            var tempIList = App.DbContext.Search("BAG001").ToList();
-            if (tempIList.Count < 1)
+            var tempBag = FindItem("BAG001");
+            if (tempBag == null)
             {
                 var cat = new CategoryModel() {Name = "Customer Care", Description = "Items such as Bags etc."};
                 App.DbContext.Add(cat);
@@ -67,11 +69,14 @@ namespace Plutus.Pages.Till
                     Cost = 0.0m
                 };
                 App.DbContext.Add(bag);
-                App.DbContext.Save();
-                BagItem = bag;
+                if (!App.DbContext.Save())
+                {
+                    Debug.WriteLine("Error!");
+                }
+                BagItem = FindItem("BAG001");
             }
             else
-                BagItem = tempIList.First();
+                BagItem = tempBag;
             Bag.Text = BagItem.Name;
             Bag.IsVisible = true;
             
@@ -251,6 +256,7 @@ namespace Plutus.Pages.Till
         /// then clear Basket
         /// </summary>
         /// <param name="Action">Selected paymethod</param>
+        [SuppressMessage("ReSharper", "PossibleLossOfFraction")]
         private async void GenTransaction()
         {
             var actionDic = App.DbContext.Get<PaymentMethodModel>().OrderBy(p => p.Name)
@@ -287,23 +293,25 @@ namespace Plutus.Pages.Till
                 var disCats = new List<Discount_Category>();
 
                 for (var i = 0; i < (item.DisItems?.Count ?? 0); i++)
-                    if (item.DisItems[i].StartDateTime < App.CurrentDateTime &&
-                        item.DisItems[i].EndDateTime > App.CurrentDateTime)
+                    if (item.DisItems != null && (item.DisItems[i].StartDateTime < App.CurrentDateTime &&
+                                                  item.DisItems[i].EndDateTime > App.CurrentDateTime))
                         disItems.Add(item.DisItems[i]);
 
                 for (var i = 0; i < (item.Cat.DisCats?.Count ?? 0); i++)
-                    if (item.Cat.DisCats[i].StartDateTime < App.CurrentDateTime &&
-                        item.Cat.DisCats[i].EndDateTime > App.CurrentDateTime)
+                    if (item.Cat.DisCats != null && (item.Cat.DisCats[i].StartDateTime < App.CurrentDateTime &&
+                                                     item.Cat.DisCats[i].EndDateTime > App.CurrentDateTime))
                         disCats.Add(item.Cat.DisCats[i]);
 
                 if (disItems.Count == 1)
                 {
                     discountsUsed.Add(disItems.Last().Discount);
                 }
+
                 if (disCats.Count == 1)
                 {
                     discountsUsed.Add(disCats.Last().Discount);
                 }
+
                 if (discountsUsed.Count == 0) continue;
                 if (discountsUsed.Last().UsesPerTransaction != -1)
                     discountsUsed.Last().UsesPerTransaction -=
@@ -313,8 +321,8 @@ namespace Plutus.Pages.Till
                             : (item.Amount / discountsUsed.Last().RequiredNumOfItems);
 
                 discountAmount -= -discountsUsed.Last().Type == 0
-                    ? (item.Amount / discountsUsed.Last().RequiredNumOfItems) * discountsUsed.Last().Amount
-                    : (item.Amount / discountsUsed.Last().RequiredNumOfItems) * discountsUsed.Last().Amount *
+                    ? item.Amount / discountsUsed.Last().RequiredNumOfItems * discountsUsed.Last().Amount
+                    : item.Amount / discountsUsed.Last().RequiredNumOfItems * discountsUsed.Last().Amount *
                       item.Price;
             }
 
@@ -477,7 +485,7 @@ namespace Plutus.Pages.Till
 
         private ItemModel FindItem(string needle)
         {
-            return App.DbContext.SearchId(ManScan.Text)
+            return App.DbContext.SearchId(needle)
                 .Include(i => i.DisItems)
                     .ThenInclude(di=>di.Discount)
                 .Include(i => i.Cat.DisCats)

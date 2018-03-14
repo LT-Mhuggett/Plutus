@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using Plutus.Data;
@@ -11,6 +12,7 @@ using Microsoft.EntityFrameworkCore.Query;
 using Plutus.Models.Interface;
 using System.Globalization;
 using Plutus.Helpers.Extensions;
+using Xamarin.Forms;
 
 namespace Plutus.Helpers
 {
@@ -39,7 +41,7 @@ namespace Plutus.Helpers
             }
             catch (Exception e)
             {
-                Console.Write(e);
+                Debug.WriteLine(e);
                 return false;
             }
         }
@@ -95,7 +97,7 @@ namespace Plutus.Helpers
             var authAction10 = new AuthActions() {Name = "Management"};
             Add(authAction10);
 
-            
+
             var payM = new PaymentMethodModel()
             {
                 Name = "Card",
@@ -140,6 +142,42 @@ namespace Plutus.Helpers
             return null;
         }
 
+        internal async Task SaveKVPAsync<TOne, TTwo>(List<KeyValuePair<string, string[]>> valuePairs,
+            List<string> header) where TOne : class
+        {
+            var data = Get<TOne>().OfType<IBase<TTwo>>().ToList();
+            var failedList = new List<KeyValuePair<string, string>>();
+            foreach (var pair in valuePairs)
+            {
+                if (pair.Value[0] == string.Empty && pair.Value[1] == string.Empty)
+                    continue;
+                var tempdata = data.Single(e => e.Id.Equals(pair.Key));
+                for (var i = 1; i < header.Count; i++)
+                {
+                    var modified = tempdata.TrySetProperty(header[i], pair.Value[i - 1]);
+                    if (!modified)
+                    {
+                        failedList.Add(new KeyValuePair<string, string>(valuePairs.IndexOf(pair) + 1.ToString(),
+                            pair.Value[i - 1]));
+                    }
+                }
+            }
+
+            Save();
+            if (failedList.Count > 0)
+            {
+                var failedString = "\nRow\t\t\t\tColumn";
+                foreach (var failedItem in failedList)
+                {
+                    failedString += $"\n{failedItem.Key}\t\t\t\t{failedItem.Value}";
+                }
+
+                await Application.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Oops"),
+                    string.Format("There was an issue at the folling Rows and Columns{0}", failedString),
+                    App.Translate.ProvideValue("OK"));
+            }
+        }
+
         internal IQueryable GetById<TOne, TTwo>(TTwo id) where TOne : class => Get<TOne>()
             .OfType<IBase<TTwo>>()
             .Where(m => m.Id.Equals(id));
@@ -163,6 +201,13 @@ namespace Plutus.Helpers
                 where stock.ItemId.Equals(toUpdateModel.ItemId) &&
                       stock.StoreId.Equals(toUpdateModel.StoreId)
                 select stock;
+            if (!query.Any())
+            {
+                _db.Add(toUpdateModel);
+                Save();
+                return;
+            }
+
             foreach (var stock in query)
             {
                 stock.Quantity += toUpdateModel.Quantity;

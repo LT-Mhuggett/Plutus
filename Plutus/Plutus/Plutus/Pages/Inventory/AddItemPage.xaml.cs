@@ -231,6 +231,7 @@ namespace Plutus.Pages.Inventory
             MessagingCenter.Subscribe<AddItemPage>(this, "ConfCat", async (Sender) =>
             {
                 InitCatPicker();
+                CatPicker.SelectedIndex = CatPicker.Items.Count-2;
                 await Navigation.PopModalAsync();
                 //Currently a fix, This works but is a waste of procesor time.
             });
@@ -246,6 +247,12 @@ namespace Plutus.Pages.Inventory
             if (!App.DbContext.IsIdSame<ItemModel, string>(Id.Text)) return;
             await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("ItemExistMesg"), App.Translate.ProvideValue("OK"));
             Id.Text = null;
+        }
+
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            Id.SetFocusAfterDelay(1);
         }
     }
 }
