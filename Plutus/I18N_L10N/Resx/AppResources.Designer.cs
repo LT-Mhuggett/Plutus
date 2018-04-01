@@ -1657,6 +1657,24 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Please enter the Tax name for the tax rate of {0}%.
+        /// </summary>
+        internal static string TaxName {
+            get {
+                return ResourceManager.GetString("TaxName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Please enter a correct Tax name.
+        /// </summary>
+        internal static string TaxNotCorrectMesg {
+            get {
+                return ResourceManager.GetString("TaxNotCorrectMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Tax Type.
         /// </summary>
         internal static string TaxType {

@@ -413,12 +413,6 @@
   <ItemGroup>
     <Folder Include="Resources\Audio\" />
   </ItemGroup>
-  <ItemGroup>
-    <XamarinComponentReference Include="universalapi">
-      <Visible>False</Visible>
-      <Version>1.0.0</Version>
-    </XamarinComponentReference>
-  </ItemGroup>
   <Import Project="..\Plutus\Plutus.projitems" Label="Shared" Condition="Exists('..\Plutus\Plutus.projitems')" />
   <Import Project="$(MSBuildExtensionsPath)\Xamarin\Android\Xamarin.Android.CSharp.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

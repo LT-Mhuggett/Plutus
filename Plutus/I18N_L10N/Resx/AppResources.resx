@@ -707,4 +707,10 @@ This message will only appear once untill the Plutus restarts, of whcih it will 
   <data name="Warning" xml:space="preserve">
     <value>Warning!</value>
   </data>
+  <data name="TaxName" xml:space="preserve">
+    <value>Please enter the Tax name for the tax rate of {0}%</value>
+  </data>
+  <data name="TaxNotCorrectMesg" xml:space="preserve">
+    <value>Please enter a correct Tax name</value>
+  </data>
 </root>

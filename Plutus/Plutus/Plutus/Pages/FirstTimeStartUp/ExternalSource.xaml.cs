@@ -57,8 +57,8 @@ namespace Plutus.Pages.FirstTimeStartUp
             {
                 var fileData = await FileIO.GetStringsFromCsvAsync(file, '&');
                 var extraParse = fileData.Select(x => x.Split('=')).ToArray();
-                var name = file.Name.Replace(".dat", "");
-                switch (name)
+                var fileName = file.Name.Replace(".dat", "");
+                switch (fileName)
                 {
                     case "Company":
                         store = new StoreModel()
@@ -85,10 +85,19 @@ namespace Plutus.Pages.FirstTimeStartUp
                     case "Tax":
                         for (var i = 1; i < fileData.Count() - 3; i += 2)
                         {
+                            var rate = (await extraParse[i + 1][1].ToDouble("Error") ?? default(double));
+
+                            var name = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                                string.Format(App.Translate.ProvideValue("TaxName"), rate),
+                                App.Translate.ProvideValue("EnterCorrectValue"),
+                                App.Translate.ProvideValue("Confirm"),
+                                App.Translate.ProvideValue("TaxNotCorrectMesg"),
+                                false);
+
                             var tax = new TaxModel()
                             {
-                                Name = Uri.UnescapeDataString(extraParse[i][1]),
-                                Rate = (await extraParse[i + 1][1].ToDouble("Error") ?? default(double)) / 100 + 1
+                                Name = name,
+                                Rate = rate / 100 + 1
                             };
                             taxes.Add(tax);
                             App.DbContext.Add(tax);

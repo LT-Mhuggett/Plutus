@@ -24,6 +24,8 @@ namespace Plutus.Pages.Staff
 		{
 			InitializeComponent ();
             IsNew = true;
+
+		    BindingContext = Emp;
 		}
 
         public AddEmployeePage(EmployeeModel tempEmp)
