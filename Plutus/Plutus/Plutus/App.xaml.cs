@@ -1,11 +1,13 @@
 ﻿#define DEBUG
 using System;
+using System.Collections.Generic;
 using Plutus.Helpers;
 using Xamarin.Forms;
 using System.IO;
 using Plutus.Pages;
 using I18N_L10N;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using Plutus.Models;
 using Microsoft.Azure.Mobile;
 using Microsoft.Azure.Mobile.Analytics;
@@ -70,7 +72,32 @@ namespace Plutus
 
         protected override void OnSleep()
         {
-            // Handle when your app sleeps
+            if (Pages.Till.MainPage.StoredTrans == null) return;
+            foreach (var tempTran in Pages.Till.MainPage.StoredTrans)
+            {
+                var items = new List<SavedItemModel>();
+                foreach (var tempItem in tempTran.Value.Item2)
+                {
+                    var item = new SavedItemModel
+                    {
+                        Item = tempItem,
+                        Amount = tempItem.Amount
+                    };
+                    items.Add(item);
+                }
+
+                var tran = new SavedTransactionModel
+                {
+                    Name = tempTran.Value.Item1,
+                    SavedItems = items
+                };
+                DbContext.Add(tran);
+            }
+
+            if (!DbContext.Save())
+            {
+                Debug.WriteLine("Save Failed On Close/Sleep!");
+            }
         }
 
         protected override void OnResume()

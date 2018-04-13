@@ -13,7 +13,7 @@ namespace Plutus.Pages.Till
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class BasketListPage : ContentPage
     {
-        public Dictionary<int, ObservableCollection<Basket>> Items { get; set; }
+        public Dictionary<int, Tuple<string, ObservableCollection<ItemModel>>> Items { get; set; }
 
         /// <summary>
         /// Basic constructor for BasketListPage
@@ -24,7 +24,7 @@ namespace Plutus.Pages.Till
         {
             InitializeComponent();
 
-            Items = new Dictionary<int, ObservableCollection<Basket>>(MainPage.StoredTrans);
+            Items = new Dictionary<int, Tuple<string, ObservableCollection<ItemModel>>>(MainPage.StoredTrans);
             
             BindingContext = this;
         }
@@ -37,7 +37,7 @@ namespace Plutus.Pages.Till
         /// <param name="e">Event that the object called</param>
         async void Handle_ItemTapped(object sender, ItemTappedEventArgs e)
         {
-            var temp = (KeyValuePair<int, ObservableCollection<Basket>>)e.Item;
+            var temp = (KeyValuePair<int, Tuple<string, ObservableCollection<ItemModel>>>)e.Item;
             MainPage.FetchSavedBasket(temp, MainPage.Instance);
             await Navigation.PopAsync();
         }

@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Threading.Tasks;
 using Plutus.Models;
 using Plutus.Helpers.Extensions;
 using Xamarin.Forms;
@@ -18,8 +19,8 @@ namespace Plutus.Pages.Till
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class MainPage : ContentPage
     {
-        public ObservableCollection<Basket> Basket { get; set; }
-        public static Dictionary<int, ObservableCollection<Basket>> StoredTrans { get; private set; }
+        public ObservableCollection<ItemModel> Basket { get; set; }
+        public static Dictionary<int, Tuple<string, ObservableCollection<ItemModel>>> StoredTrans { get; private set; }
         private ItemModel BagItem { get; }
         private ZXingScannerPage _scanPage;
         private int _countBasketNum { get; set; }
@@ -34,10 +35,10 @@ namespace Plutus.Pages.Till
         {
             InitializeComponent();
 
-            if(Basket == null)
-                Basket = new ObservableCollection<Basket>();
-            if(StoredTrans == null)
-                StoredTrans = new Dictionary<int, ObservableCollection<Basket>>();
+            if (Basket == null)
+                Basket = new ObservableCollection<ItemModel>();
+            if (StoredTrans == null)
+                StoredTrans = new Dictionary<int, Tuple<string, ObservableCollection<ItemModel>>>();
 
             if (Device.Idiom == TargetIdiom.Desktop)
             {
@@ -73,21 +74,20 @@ namespace Plutus.Pages.Till
                 {
                     Debug.WriteLine("Error!");
                 }
+
                 BagItem = FindItem("BAG001");
             }
             else
                 BagItem = tempBag;
+
             Bag.Text = BagItem.Name;
             Bag.IsVisible = true;
-            
+
             _countBasketNum = 1;
             Instance = this;
 
-            MessagingCenter.Subscribe<App, ItemModel>((App)Application.Current, "AddItemToBasket", (sender, arg) =>
-                {
-                    var tempItem = new Basket(arg);
-                    BasketAdd(tempItem);
-                });
+            MessagingCenter.Subscribe<App, ItemModel>((App) Application.Current, "AddItemToBasket",
+                (sender, arg) => { BasketAdd(arg); });
         }
 
         /// <summary>
@@ -99,7 +99,7 @@ namespace Plutus.Pages.Till
         {
             if (e.Item == null)
                 return;
-            var temp = e.Item as Basket;
+            var temp = e.Item as ItemModel;
             if(!Authorisation.IsAuthorised("Item", "V", App.LastAuthUser))
             {
                 if (App.EmpsLogged.Count > 1)
@@ -125,7 +125,7 @@ namespace Plutus.Pages.Till
         /// where itemId, Return and SaleID are same remove the whole item from the Basket
         /// </summary>
         /// <param name="item">Item thats to be removed</param>
-        private void Remove(Basket item)
+        private void Remove(ItemModel item)
         {
             for(var i = 0; i <= Basket.Count - 1; i++)
             {
@@ -143,7 +143,7 @@ namespace Plutus.Pages.Till
         /// <param name="e">Event that the object called</param>
         private void OnDelete(object sender, EventArgs e)
         {
-            var menuItem = (Basket)((MenuItem)sender).CommandParameter;
+            var menuItem = (ItemModel)((MenuItem)sender).CommandParameter;
             Remove(menuItem);
         }
 
@@ -156,7 +156,7 @@ namespace Plutus.Pages.Till
         /// <param name="e">Event that the object called</param>
         private void OnRemove1(object sender, EventArgs e)
         {
-            var menuItem = (Basket)((MenuItem)sender).CommandParameter;
+            var menuItem = (ItemModel)((MenuItem)sender).CommandParameter;
             for (var i = 0; i <= Basket.Count - 1; i++)
             {
                 if (Basket[i].Id != menuItem.Id || Basket[i].Return != menuItem.Return ||
@@ -190,7 +190,7 @@ namespace Plutus.Pages.Till
                 {
                     var tempItem = FindItem(result.Text);
                     if (tempItem == null) return;
-                    BasketAdd(new Basket(tempItem));
+                    BasketAdd(tempItem);
                 });
             };
 
@@ -297,7 +297,7 @@ namespace Plutus.Pages.Till
                                                   item.DisItems[i].EndDateTime > App.CurrentDateTime))
                         disItems.Add(item.DisItems[i]);
 
-                for (var i = 0; i < (item.Cat.DisCats?.Count ?? 0); i++)
+                for (var i = 0; i < (item.Cat?.DisCats?.Count ?? 0); i++)
                     if (item.Cat.DisCats != null && (item.Cat.DisCats[i].StartDateTime < App.CurrentDateTime &&
                                                      item.Cat.DisCats[i].EndDateTime > App.CurrentDateTime))
                         disCats.Add(item.Cat.DisCats[i]);
@@ -469,7 +469,9 @@ namespace Plutus.Pages.Till
                 return;
             }
 
-            var pdf = new PDFCreator(App.Store, null, Sale, cashBack);
+            var pdf = new PDFCreator();
+
+            await pdf.GenRecipt(App.Store, null, Sale, cashBack);
             
             Basket.Clear();
             await DisplayAlert(App.Translate.ProvideValue("Transaction"), App.Translate.ProvideValue("TransConfMesg"), App.Translate.ProvideValue("OK"));
@@ -488,9 +490,12 @@ namespace Plutus.Pages.Till
             return App.DbContext.SearchId(needle)
                 .Include(i => i.DisItems)
                     .ThenInclude(di=>di.Discount)
-                .Include(i => i.Cat.DisCats)
-                    .ThenInclude(dc => dc.Discount)
+                .Include(i => i.Cat)
+                    .ThenInclude(c=>c.DisCats)
+                        .ThenInclude(dc => dc.Discount)
                 .Include(i=>i.Stock)
+                .Include(i=>i.Vat)
+                .AsNoTracking()
                 .SingleOrDefault();
         }
 
@@ -512,7 +517,7 @@ namespace Plutus.Pages.Till
             ManScan.Text = null;
             //var s = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name;
             //Debug.WriteLine(s);
-            BasketAdd(new Basket(tempItem));
+            BasketAdd(tempItem);
         }
 
         /// <summary>
@@ -522,7 +527,7 @@ namespace Plutus.Pages.Till
         /// <param name="e">Event that the object called</param>
         private void Bag_Clicked(object sender, EventArgs e)
         {
-            BasketAdd(new Basket(BagItem));
+            BasketAdd(new ItemModel(BagItem));
         }
 
         /// <summary>
@@ -530,17 +535,28 @@ namespace Plutus.Pages.Till
         /// else add the item to Basket as new 
         /// </summary>
         /// <param name="tempItem">Item to add to Basket</param>
-        private async void BasketAdd(Basket tempItem)
+        private async void BasketAdd(ItemModel tempItem, int amountToAdd = 1)
         {
-            var amount = (int)await AmountToAdd.Text.ToInterger(App.Translate.ProvideValue("ValueEnteredWrong"));
-            if (amount == -1)
+            #region Get amount to add
+            //Get either the till manual input amount or get the amount automatically sent via basket recovery
+            var amountNullable = amountToAdd == 1
+                ? await AmountToAdd.Text.ToInterger(App.Translate.ProvideValue("ValueEnteredWrong"))
+                : amountToAdd;
+            //Ensure the amount is not null
+            if (amountNullable == null)
                 return;
+            //pass to a non-nullable int var
+            var amount = (int) amountNullable;
+            #endregion
+
+            #region Check wether to add new or increment amount 
+            //Search current basket if adding item already is present
             foreach (var item in Basket)
             {
                 if (item.Id != tempItem.Id) continue;
                 if (item.Return != tempItem.Return) continue;
                 if (item.SaleId != tempItem.SaleId) continue;
-                item.Amount=item.Amount+amount;
+                item.Amount = item.Amount + amount;
                 UpdatePrice();
                 return;
             }
@@ -548,6 +564,7 @@ namespace Plutus.Pages.Till
             Basket.Last().Amount = amount;
             UpdatePrice();
             AmountToAdd.Text = 1.ToString();
+            #endregion
         }
 
         /// <summary>
@@ -556,11 +573,21 @@ namespace Plutus.Pages.Till
         /// </summary>
         /// <param name="sender">Object that sent called the method</param>
         /// <param name="e">Event that the object called</param>
-        private void StoreTrans_Clicked(object sender, EventArgs e)
+        private async Task StoreTrans_Clicked(object sender, EventArgs e)
         {
             if (Basket.Count == 0) return;
-            StoredTrans.Add(_countBasketNum, new ObservableCollection<Basket>(Basket));
+            var nameStoreTrans = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync("Name the transction for easy identifiability", "Name of Transaction", App.Translate.ProvideValue("Confirm"), "Name not valid", false);
+            StoredTrans.Add(_countBasketNum,
+                new Tuple<string, ObservableCollection<ItemModel>>(nameStoreTrans,
+                    new ObservableCollection<ItemModel>(Basket)));
             Basket.Clear();
+            CheckStoreTransExist();
+            _countBasketNum++;
+        }
+
+        public void StoreTrans_DB(Tuple<string, ObservableCollection<ItemModel>> Trans)
+        {
+            StoredTrans.Add(_countBasketNum, Trans);
             CheckStoreTransExist();
             _countBasketNum++;
         }
@@ -580,13 +607,9 @@ namespace Plutus.Pages.Till
             }
             else
             {
-                foreach (var item in App.Current.MainPage.ToolbarItems)
-                {
-                    if (item.Text == App.Translate.ProvideValue("Baskets"))
-                        return;
-                }
-
-                App.Current.MainPage.ToolbarItems.Add(new ToolbarItem
+                if (Application.Current.MainPage.ToolbarItems.Any(item => item.Text == App.Translate.ProvideValue("Baskets")))
+                    return;
+                Application.Current.MainPage.ToolbarItems.Add(new ToolbarItem
                 {
                     Text = App.Translate.ProvideValue("Baskets"),
                     Icon = "",
@@ -617,13 +640,13 @@ namespace Plutus.Pages.Till
         /// <param name="e">Event that the object called</param>
         private async void OnReturn(object sender, EventArgs e)
         {
-            var menuItem = (Basket)((MenuItem)sender).CommandParameter;
-            Basket item = null;
+            var menuItem = (ItemModel)((MenuItem)sender).CommandParameter;
+            ItemModel item = null;
             foreach (var tempItem in Basket)
             {
                 if (tempItem.Id == menuItem.Id && tempItem.Return == menuItem.Return && tempItem.SaleId == menuItem.SaleId)
                 {
-                    item = new Models.Basket(tempItem);
+                    item = new ItemModel(tempItem);
                 }
             }
             await Navigation.PushAsync(new ReturnFormPage(item));
@@ -638,13 +661,16 @@ namespace Plutus.Pages.Till
         /// </summary>
         /// <param name="selectedBasket">Basket Selected from BasketListPage</param>
         /// <param name="page">Current page instance to access non static methods and variables</param>
-        internal static void FetchSavedBasket(KeyValuePair<int, ObservableCollection<Basket>> selectedBasket, MainPage page)
+        internal static void FetchSavedBasket(
+            KeyValuePair<int, Tuple<string, ObservableCollection<ItemModel>>> selectedBasket, MainPage page)
         {
             Device.BeginInvokeOnMainThread(async () =>
             {
                 if (page.Basket.Count > 0)
                 {
-                    var quit = await page.DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("BasketReplace"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
+                    var quit = await page.DisplayAlert(App.Translate.ProvideValue("Hmm"),
+                        App.Translate.ProvideValue("BasketReplace"), App.Translate.ProvideValue("Yes"),
+                        App.Translate.ProvideValue("Cancel"));
 
                     if (quit)
                     {
@@ -655,10 +681,12 @@ namespace Plutus.Pages.Till
                         return;
                     }
                 }
-                foreach (var item in selectedBasket.Value)
+
+                foreach (var item in selectedBasket.Value.Item2)
                 {
-                    page.BasketAdd(item);
+                    page.BasketAdd(item, item.Amount);
                 }
+
                 StoredTrans.Remove(selectedBasket.Key);
                 if (StoredTrans.Count > 0)
                 {
@@ -672,6 +700,7 @@ namespace Plutus.Pages.Till
                         StoredTrans.Add(itemKey, itemData);
                     }
                 }
+
                 page._countBasketNum--;
                 page.CheckStoreTransExist();
             });
@@ -684,7 +713,7 @@ namespace Plutus.Pages.Till
         /// <param name="oldItem">Item to remove from Basket</param>
         /// <param name="newItem">Item to add to Basket</param>
         /// <param name="page">Current page instance to access non static methods and variables</param>
-        internal static void ReturnListener(Basket oldItem, Basket newItem, MainPage page)
+        internal static void ReturnListener(ItemModel oldItem, ItemModel newItem, MainPage page)
         {
             page.Remove(oldItem);
             page.Basket.Add(newItem);
@@ -703,6 +732,25 @@ namespace Plutus.Pages.Till
             base.OnAppearing();
             if (ManScan.IsVisible)
                 ManScan.SetFocusAfterDelay(1);
+
+            if (!App.DbContext.Get<SavedTransactionModel>().Any()) return;
+            foreach (var tempTran in App.DbContext.Get<SavedTransactionModel>()
+                .Include(st => st.SavedItems)
+                .ThenInclude(si=>si.Item))
+            {
+                var items = new ObservableCollection<ItemModel>();
+                foreach (var tempItem in tempTran.SavedItems)
+                {
+                    var itemForTuple = tempItem.Item;
+                    itemForTuple.Amount = tempItem.Amount;
+                    items.Add(itemForTuple);
+                }
+
+                var tuple = new Tuple<string, ObservableCollection<ItemModel>>(tempTran.Name, items);
+                StoreTrans_DB(tuple);
+                App.DbContext.Delete(tempTran);
+            }
+            App.DbContext.Save();
         }
     }
 }

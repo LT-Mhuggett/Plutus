@@ -10,7 +10,7 @@ using Plutus.Models;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 using FileIO = Plutus.Helpers.FileIO;
-#if __ANDROID__ && __IOS__
+#if __ANDROID__ || __IOS__
 
 #else
 using Windows.Storage;

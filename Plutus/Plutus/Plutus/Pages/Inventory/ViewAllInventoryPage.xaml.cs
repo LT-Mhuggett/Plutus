@@ -36,9 +36,11 @@ namespace Plutus.Pages.Inventory
             Query = App.DbContext.GetAllItems()
                 .Include(i => i.DisItems)
                     .ThenInclude(di=>di.Discount)
-                .Include(i => i.Cat.DisCats)
+                .Include(i => i.Cat)
+                    .ThenInclude(c=>c.DisCats)
                     .ThenInclude(dc => dc.Discount)
-                .Include(i=>i.Stock);
+                .Include(i=>i.Stock)
+                .Include(i=>i.Vat);
 
             ItemList.FooterSize = 20;
 

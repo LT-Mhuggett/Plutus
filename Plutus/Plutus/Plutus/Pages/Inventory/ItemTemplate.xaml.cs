@@ -61,42 +61,6 @@ namespace Plutus.Pages.Inventory
 		}
         #endregion
 
-        #region BasketConstructor
-        /// <summary>
-        /// Constructor for ItemTemplate
-        /// Sets specific view for the action the page is doing
-        /// initalise item with itemTemp
-        /// </summary>
-        /// <param name="itemTemp">Item to Dsiplay</param>
-        public ItemTemplate(Basket itemTemp)
-        {
-            InitializeComponent();
-
-            Confirm.IsVisible = false;
-            Edit.IsVisible = false;
-            Close.IsVisible = true;
-
-            if (itemTemp.Image == null)
-            {
-                //ItemImage.Source = "";
-            }
-            else
-            {
-                ItemImage.Source = ImageSource.FromStream(() => new MemoryStream(itemTemp.Image));
-            }
-            ItemID.Text = itemTemp.Id;
-            ItemName.Text = itemTemp.Name;
-            ItemBrand.Text = itemTemp.Brand;
-            ItemCat.Text = App.DbContext.GetById<CategoryModel, int>(itemTemp.CatId).OfType<CategoryModel>()
-                .Select(m => m.Name)
-                .SingleOrDefault();
-            ItemDesc.Text = itemTemp.Desc;
-            ItemPrice.Text = itemTemp.Price.ToString();
-            ItemExPrice.Text = itemTemp.ExPrice.ToString();
-            _item = itemTemp;
-        }
-        #endregion
-
         #region ViewAllItemConstructor
         public ItemTemplate(ItemModel itemTemp)
         {

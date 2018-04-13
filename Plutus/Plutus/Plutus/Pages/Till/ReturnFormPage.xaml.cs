@@ -12,18 +12,18 @@ namespace Plutus.Pages.Till
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class ReturnFormPage : ContentPage
 	{
-        public Basket BItem { get; set; }
-        public Basket OBItem { get; set; }
+        public ItemModel BItem { get; set; }
+        public ItemModel OBItem { get; set; }
 
         /// <summary>
         /// Basic constructor for ReturnFromPage
         /// initalises Bitem and OBItem
         /// </summary>
         /// <param name="temp">Item to return</param>
-		public ReturnFormPage (Basket temp)
+		public ReturnFormPage (ItemModel temp)
 		{
 			InitializeComponent ();
-            BItem = new Basket(temp);
+            BItem = new ItemModel(temp);
             OBItem = temp;
             ItemName.Text = BItem.Name;
 		}

@@ -30,7 +30,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Scanner.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Validate.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\AuthActions.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\Basket.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\CategoryModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\DiscountModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\Discount_Item.cs" />
@@ -45,6 +44,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Models\PaymentMethod_SaleModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\RefundModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\SaleModel.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\SavedItemModel.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\SavedTransactionModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\StockModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\TransactionModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\TaxModel.cs" />

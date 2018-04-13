@@ -46,6 +46,11 @@ namespace Plutus.Helpers
             }
         }
 
+        internal void Delete<T>(T temp) where T:class
+        {
+            _db.Set<T>().Remove(temp);
+        }
+
         internal void RevertDbContextChanges()
         {
             for (var i = 0; i <= _db.ChangeTracker.Entries().Count() - 1; i++)
