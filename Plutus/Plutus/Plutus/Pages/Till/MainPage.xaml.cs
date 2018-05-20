@@ -21,7 +21,8 @@ namespace Plutus.Pages.Till
     {
         public ObservableCollection<ItemModel> Basket { get; set; }
         public static Dictionary<int, Tuple<string, ObservableCollection<ItemModel>>> StoredTrans { get; private set; }
-        private ItemModel BagItem { get; }
+        internal static Database TillDbContext { get; set; }
+        private string BagItem { get; }
         private ZXingScannerPage _scanPage;
         private int _countBasketNum { get; set; }
         internal static MainPage Instance { get; private set; }
@@ -34,6 +35,8 @@ namespace Plutus.Pages.Till
         public MainPage()
         {
             InitializeComponent();
+
+            TillDbContext = new Database();
 
             if (Basket == null)
                 Basket = new ObservableCollection<ItemModel>();
@@ -58,7 +61,7 @@ namespace Plutus.Pages.Till
             if (tempBag == null)
             {
                 var cat = new CategoryModel() {Name = "Customer Care", Description = "Items such as Bags etc."};
-                App.DbContext.Add(cat);
+                TillDbContext.Add(cat);
                 var bag = new ItemModel()
                 {
                     Id = "BAG001",
@@ -69,25 +72,27 @@ namespace Plutus.Pages.Till
                     Price = .05m,
                     Cost = 0.0m
                 };
-                App.DbContext.Add(bag);
-                if (!App.DbContext.Save())
+                TillDbContext.Add(bag);
+                if (!TillDbContext.Save())
                 {
                     Debug.WriteLine("Error!");
                 }
 
-                BagItem = FindItem("BAG001");
+                tempBag = FindItem("BAG001");
             }
-            else
-                BagItem = tempBag;
 
-            Bag.Text = BagItem.Name;
+            Bag.Text = tempBag.Name;
+            BagItem = tempBag.Id;
             Bag.IsVisible = true;
 
             _countBasketNum = 1;
             Instance = this;
 
-            MessagingCenter.Subscribe<App, ItemModel>((App) Application.Current, "AddItemToBasket",
-                (sender, arg) => { BasketAdd(arg); });
+            MessagingCenter.Subscribe<App, string>((App) Application.Current, "AddItemToBasket",
+                (sender, arg) =>
+                {
+                    BasketAdd(FindItem(arg));
+                });
         }
 
         /// <summary>
@@ -202,10 +207,10 @@ namespace Plutus.Pages.Till
         /// </summary>
         private void UpdatePrice()
         {
-            var price = Basket.Sum(item => (item.Price * item.Amount));
+            var price = Basket.Sum(item => (item.Price * (item.Return ? -1 : 1)) * item.Amount);
                 PriceCell.Text = Math.Round(price, 2, MidpointRounding.AwayFromZero).ToString();
             var exPrice = Basket.Sum(item =>
-                item.ExPrice * item.Amount);
+                (item.ExPrice * (item.Return? -1 : 1)) * item.Amount);
             PriceExVCell.Text = Math.Round(exPrice, 2, MidpointRounding.AwayFromZero).ToString();
         }
 
@@ -259,7 +264,7 @@ namespace Plutus.Pages.Till
         [SuppressMessage("ReSharper", "PossibleLossOfFraction")]
         private async void GenTransaction()
         {
-            var actionDic = App.DbContext.Get<PaymentMethodModel>().OrderBy(p => p.Name)
+            var actionDic = TillDbContext.Get<PaymentMethodModel>().OrderBy(p => p.Name)
                 .ToDictionary<PaymentMethodModel, string, Func<PaymentMethodModel>>(tempPayMeth => tempPayMeth.Name,
                     tempPayMeth => (() => tempPayMeth));
             actionDic.Add(App.Translate.ProvideValue("Cancel"), null);
@@ -326,15 +331,18 @@ namespace Plutus.Pages.Till
                       item.Price;
             }
 
-            total = Basket.Sum(item => item.Price * item.Amount) + discountAmount;
+            total = Basket.Sum(item => (item.Price * (item.Return? -1 : 1)) * item.Amount) + discountAmount;
 
-            for (var paid = 0.0m; paid < total;)
+            for (var paid = 0.0m; paid != total;)
             {
+                if (!Basket.Any(i => i.Return))
+                    if(paid > total)
+                        break;
                 var action = await DisplayActionSheet(App.Translate.ProvideValue("PayMeth"), App.Translate.ProvideValue("Cancel"), null, App.Translate.ProvideValue("Card"), App.Translate.ProvideValue("Cash"));
 
                 if (action == App.Translate.ProvideValue("Cancel"))
                 {
-                    App.DbContext.RevertDbContextChanges();
+                    TillDbContext.RevertDbContextChanges();
                     return;
                 }
 
@@ -343,20 +351,20 @@ namespace Plutus.Pages.Till
                 if (pay.PayMethod.MinimumCharge > total || refundOnly)
                 {
                     total += pay.PayMethod.Charge;
-                    var note = App.DbContext.GetNote(string.Format(App.Translate.ProvideValue("CardChargeNote"), pay.PayMethod.Charge));
+                    var note = TillDbContext.GetNote(string.Format(App.Translate.ProvideValue("CardChargeNote"), pay.PayMethod.Charge));
                     if (note == null)
                     {
                         note = new NoteModel() { Note = string.Format(App.Translate.ProvideValue("CardChargeNote"), pay.PayMethod.Charge) };
-                        App.DbContext.Add(note);
+                        TillDbContext.Add(note);
                     }
                     var notesSale = new Notes_SaleModel() { Note = note };
-                    App.DbContext.Add(notesSale);
+                    TillDbContext.Add(notesSale);
                     sale.Notes.Add(notesSale);
                 }
 
                 var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
                     string.Format(App.Translate.ProvideValue(refundOnly ? "HowMuchRefund" : "HowMuchPM"), action,
-                        Math.Round(total - paid, 2, MidpointRounding.AwayFromZero)), "enter here", "Confrim",
+                        Math.Round(total - paid, 2, MidpointRounding.AwayFromZero)), "Enter Here", App.Translate.ProvideValue("Confirm"),
                     App.Translate.ProvideValue("EnterCorrectValue"), total - paid, pay.PayMethod.IsCashBackable);
 
                 pay.Amount = amount;
@@ -375,7 +383,7 @@ namespace Plutus.Pages.Till
                         continue;
                     }
                 }
-                App.DbContext.Add(pay);
+                TillDbContext.Add(pay);
                 sale.PaySales.Add(pay);
             }
             sale.Total = total;
@@ -385,17 +393,17 @@ namespace Plutus.Pages.Till
                 var cashback = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("CashBack_"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
                 if (cashback)
                 {
-                    var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(App.Translate.ProvideValue("HowMuchCB"), "enter here", "Confrim", App.Translate.ProvideValue("EnterCorrectValue"), toPay:0.0m);
+                    var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(App.Translate.ProvideValue("HowMuchCB"), "Enter Here", App.Translate.ProvideValue("Confirm"), App.Translate.ProvideValue("EnterCorrectValue"), toPay:0.0m);
                     if (amount > 0.01m)
                     {
-                        var cB = App.DbContext.GetNote(string.Format(App.Translate.ProvideValue("CBNote"), amount));
+                        var cB = TillDbContext.GetNote(string.Format(App.Translate.ProvideValue("CBNote"), amount));
                         if(cB == null)
                         {
                             cB = new NoteModel { Note = string.Format(App.Translate.ProvideValue("CBNote"), amount) };
-                            App.DbContext.Add(cB);
+                            TillDbContext.Add(cB);
                         }
                         var cBNSale = new Notes_SaleModel { Note = cB };
-                        App.DbContext.Add(cBNSale);
+                        TillDbContext.Add(cBNSale);
                         sale.Notes.Add(cBNSale);
                         change += amount;
                         total += amount;
@@ -406,7 +414,7 @@ namespace Plutus.Pages.Till
             var Continue = await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("Continue"), Math.Round(total, 2, MidpointRounding.AwayFromZero)), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
             if (!Continue)
             {
-                App.DbContext.RevertDbContextChanges();
+                TillDbContext.RevertDbContextChanges();
                 return;
             }
 
@@ -415,18 +423,18 @@ namespace Plutus.Pages.Till
 
             foreach (var item in Basket)
             {
-                var Item = new ItemModel(item);
+                TillDbContext.AttachEntityWithoutTracking(item);
                 if (item.Return)
                 {
-                    var refund = new RefundModel() { ItemId = item.Id, Sale = sale, SaleIdReturned = item.SaleId, Reason = item.Reason, Amount = item.Amount };
+                    var refund = new RefundModel() { Item = item, Sale = sale, SaleIdReturned = item.SaleId, Reason = item.Reason, Amount = item.Amount };
                     sale.Refunds.Add(refund);
-                    App.DbContext.Add(refund);
+                    TillDbContext.Add(refund);
                 }
                 else
                 {
-                    var tran = new TransactionModel() { Item = Item, Sale = sale, Amount = item.Amount };
+                    var tran = new TransactionModel() { Item = item, Sale = sale, Amount = item.Amount };
                     sale.Transactions.Add(tran);
-                    App.DbContext.Add(tran);
+                    TillDbContext.Add(tran);
                 }
             }
 
@@ -461,18 +469,28 @@ namespace Plutus.Pages.Till
                 else itemHasNoStock = true;
             }
 
-            App.DbContext.Add(Sale);
+            TillDbContext.Add(Sale);
 
-            if (!App.DbContext.Save())
+            if (!TillDbContext.Save())
             {
+                TillDbContext.RevertDbContextChanges();
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
                 return;
             }
+
+            TillDbContext = new Database();
 
             var pdf = new PDFCreator();
 
             await pdf.GenRecipt(App.Store, null, Sale, cashBack);
             
+                /*
+#if WINDOWS_UWP
+            var printerMgr = new PosPrinterManager();
+            await printerMgr.EnablePrinter();
+            printerMgr.PrintManagment(Sale, App.Store);
+#endif
+*/
             Basket.Clear();
             await DisplayAlert(App.Translate.ProvideValue("Transaction"), App.Translate.ProvideValue("TransConfMesg"), App.Translate.ProvideValue("OK"));
 
@@ -485,19 +503,16 @@ namespace Plutus.Pages.Till
             App.OneTimeStockWarning = true;
         }
 
-        private ItemModel FindItem(string needle)
-        {
-            return App.DbContext.SearchId(needle)
-                .Include(i => i.DisItems)
-                    .ThenInclude(di=>di.Discount)
-                .Include(i => i.Cat)
-                    .ThenInclude(c=>c.DisCats)
-                        .ThenInclude(dc => dc.Discount)
-                .Include(i=>i.Stock)
-                .Include(i=>i.Vat)
-                .AsNoTracking()
-                .SingleOrDefault();
-        }
+        private ItemModel FindItem(string needle) => TillDbContext.SearchId(needle)
+            .Include(i => i.DisItems)
+                .ThenInclude(di => di.Discount)
+            .Include(i => i.Cat)
+                .ThenInclude(c => c.DisCats)
+                .ThenInclude(dc => dc.Discount)
+            .Include(i => i.Stock)
+            .Include(i => i.Vat)
+            .AsNoTracking()
+            .SingleOrDefault();
 
         /// <summary>
         /// On ManScan complete
@@ -527,7 +542,7 @@ namespace Plutus.Pages.Till
         /// <param name="e">Event that the object called</param>
         private void Bag_Clicked(object sender, EventArgs e)
         {
-            BasketAdd(new ItemModel(BagItem));
+            BasketAdd(FindItem(BagItem));
         }
 
         /// <summary>
@@ -555,6 +570,8 @@ namespace Plutus.Pages.Till
             {
                 if (item.Id != tempItem.Id) continue;
                 if (item.Return != tempItem.Return) continue;
+                if (!String.Equals(item.Reason ?? "Default", tempItem.Reason??"Default",
+                    StringComparison.OrdinalIgnoreCase)) continue;
                 if (item.SaleId != tempItem.SaleId) continue;
                 item.Amount = item.Amount + amount;
                 UpdatePrice();
@@ -644,12 +661,13 @@ namespace Plutus.Pages.Till
             ItemModel item = null;
             foreach (var tempItem in Basket)
             {
-                if (tempItem.Id == menuItem.Id && tempItem.Return == menuItem.Return && tempItem.SaleId == menuItem.SaleId)
+                if (tempItem.Id == menuItem.Id && tempItem.Return == menuItem.Return &&
+                    tempItem.SaleId == menuItem.SaleId)
                 {
-                    item = new ItemModel(tempItem);
+                    item = FindItem(tempItem.Id);
                 }
             }
-            await Navigation.PushAsync(new ReturnFormPage(item));
+            await Navigation.PushAsync(new ReturnFormPage(item, menuItem));
         }
 
         /// <summary>
@@ -716,7 +734,7 @@ namespace Plutus.Pages.Till
         internal static void ReturnListener(ItemModel oldItem, ItemModel newItem, MainPage page)
         {
             page.Remove(oldItem);
-            page.Basket.Add(newItem);
+            page.BasketAdd(newItem);
         }
 
         private void CancelEmpCheck_Clicked(object sender, EventArgs e)
@@ -724,7 +742,7 @@ namespace Plutus.Pages.Till
             EId.Text = null;
             VerifyId.IsVisible = false;
             MPage.IsEnabled = true;
-            App.DbContext.RevertDbContextChanges();
+            TillDbContext.RevertDbContextChanges();
         }
 
         protected override void OnAppearing()
@@ -733,8 +751,8 @@ namespace Plutus.Pages.Till
             if (ManScan.IsVisible)
                 ManScan.SetFocusAfterDelay(1);
 
-            if (!App.DbContext.Get<SavedTransactionModel>().Any()) return;
-            foreach (var tempTran in App.DbContext.Get<SavedTransactionModel>()
+            if (!TillDbContext.Get<SavedTransactionModel>().Any()) return;
+            foreach (var tempTran in TillDbContext.Get<SavedTransactionModel>()
                 .Include(st => st.SavedItems)
                 .ThenInclude(si=>si.Item))
             {
@@ -748,9 +766,9 @@ namespace Plutus.Pages.Till
 
                 var tuple = new Tuple<string, ObservableCollection<ItemModel>>(tempTran.Name, items);
                 StoreTrans_DB(tuple);
-                App.DbContext.Delete(tempTran);
+                TillDbContext.Delete(tempTran);
             }
-            App.DbContext.Save();
+            TillDbContext.Save();
         }
     }
 }

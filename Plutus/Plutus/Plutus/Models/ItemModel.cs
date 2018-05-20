@@ -54,31 +54,13 @@ namespace Plutus.Models
         public string SaleId { get; set; }
 
 
-        public ItemModel() { }
+        public ItemModel()
+        {
+        }
 
-        /*public ItemModel(Basket item)
+        public ItemModel ShallowCopy()
         {
-            Id = item.Id;
-            Name = item.Name;
-            Brand = item.Brand;
-            Desc = item.Desc;
-            Cost = item.Cost;
-            Price = item.Price;
-            Image = item.Image;
-            VatId = item.VatId;
-            CatId = item.CatId;
-        }*/
-        public ItemModel(ItemModel item)
-        {
-            Id = item.Id;
-            Name = item.Name;
-            Desc = item.Desc;
-            Brand = item.Brand;
-            Cost = item.Cost;
-            Price = item.Price;
-            Image = item.Image;
-            VatId = item.VatId;
-            CatId = item.CatId;
+            return (ItemModel) this.MemberwiseClone();
         }
 
         [NotMapped]

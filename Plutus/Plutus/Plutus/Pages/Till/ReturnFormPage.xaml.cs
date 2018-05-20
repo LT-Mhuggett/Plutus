@@ -20,11 +20,11 @@ namespace Plutus.Pages.Till
         /// initalises Bitem and OBItem
         /// </summary>
         /// <param name="temp">Item to return</param>
-		public ReturnFormPage (ItemModel temp)
+		public ReturnFormPage (ItemModel temp, ItemModel oldTemp)
 		{
-			InitializeComponent ();
-            BItem = new ItemModel(temp);
-            OBItem = temp;
+			InitializeComponent();
+            BItem = temp;
+            OBItem = oldTemp;
             ItemName.Text = BItem.Name;
 		}
 
@@ -51,21 +51,18 @@ namespace Plutus.Pages.Till
                             {
                                 amount = trans.Sale.Refunded.Where(r => r.ItemId.Equals(BItem.Id)).Sum(r => r.Amount);
                             }
-                            if (amount < BItem.Amount)
-                            {
 
-                                BItem.SaleId = SaleID.Text;
-                                BItem.Reason = Reason.Text;
-                                BItem.Price = Decimal.Negate(BItem.Price);
-                                BItem.Return = true;
-                                MainPage.ReturnListener(OBItem, BItem, MainPage.Instance);
-                                await Navigation.PopAsync();
-                            }
-                            else
+                            if (amount > BItem.Amount)
                             {
                                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("NoRefundsLeftMesg"), BItem.Name), App.Translate.ProvideValue("OK"));
                                 return;
                             }
+
+                            BItem.SaleId = SaleID.Text;
+                            BItem.Reason = Reason.Text;
+                            BItem.Return = true;
+                            MainPage.ReturnListener(OBItem, BItem, MainPage.Instance);
+                            await Navigation.PopAsync();
                         }
                         else
                         {

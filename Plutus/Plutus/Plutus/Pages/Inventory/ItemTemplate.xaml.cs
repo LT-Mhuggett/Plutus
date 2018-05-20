@@ -51,7 +51,7 @@ namespace Plutus.Pages.Inventory
             ItemID.Text = itemTemp.Id;
             ItemName.Text = itemTemp.Name;
             ItemBrand.Text = itemTemp.Brand;
-            ItemCat.Text = App.DbContext.GetById<CategoryModel, int>(itemTemp.CatId).OfType<CategoryModel>()
+            ItemCat.Text = MainPage.InventDbContext.GetById<CategoryModel, int>(itemTemp.CatId).OfType<CategoryModel>()
                 .Select(m => m.Name)
                 .SingleOrDefault();
             ItemDesc.Text = itemTemp.Desc;
@@ -134,11 +134,13 @@ namespace Plutus.Pages.Inventory
             MessagingCenter.Unsubscribe<AddItemPage>(new AddItemPage(), "Accepted");
             MessagingCenter.Unsubscribe<UpdateItemPage>(new UpdateItemPage(), "Accepted");
             MessagingCenter.Unsubscribe<UpdateItemPage>(new UpdateItemPage(), "SearchSelected");
+            App.DbContext.DetachEntity(_item);
         }
 
         private void AddBasket_Clicked(object sender, EventArgs e)
         {
-            MessagingCenter.Send((App) Application.Current, "AddItemToBasket", _item);
+            App.DbContext.DetachEntity(_item);
+            MessagingCenter.Send((App) Application.Current, "AddItemToBasket", _item.Id);
             Navigation.PopModalAsync();
         }
 

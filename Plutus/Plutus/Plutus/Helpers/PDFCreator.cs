@@ -11,7 +11,9 @@ using Plutus.Models;
 using Syncfusion.Pdf.Lists;
 using Syncfusion.Pdf.Grid;
 using System.Diagnostics;
+using System.Reflection;
 using System.Threading.Tasks;
+using Syncfusion.Pdf.Barcode;
 
 namespace Plutus.Helpers
 {
@@ -72,11 +74,21 @@ namespace Plutus.Helpers
                 _grid.Headers[index].Cells[0].Style.BackgroundImage = bitmap;
                 index++;
             }
-            _grid.Headers.Add(2);
+            _grid.Headers.Add(4);
 
             _grid.Headers[index].Style = cellStyle;
             _grid.Headers[index].Cells[0].ColumnSpan = 3;
             _grid.Headers[index].Cells[0].Value = storeName + storeAddress;
+            _grid.Headers[index].Cells[0].StringFormat = sf;
+            _grid.Headers[index].Cells[0].Style = cellStyle;
+            index++;
+            _grid.Headers[index].Cells[0].ColumnSpan = 3;
+            _grid.Headers[index].Cells[0].Value = App.CurrentDateTime.ToLocalTime().ToString();
+            _grid.Headers[index].Cells[0].StringFormat = sf;
+            _grid.Headers[index].Cells[0].Style = cellStyle;
+            index++;
+            _grid.Headers[index].Cells[0].ColumnSpan = 3;
+            _grid.Headers[index].Cells[0].Value = sale.Id;
             _grid.Headers[index].Cells[0].StringFormat = sf;
             _grid.Headers[index].Cells[0].Style = cellStyle;
             index++;
@@ -136,13 +148,14 @@ namespace Plutus.Helpers
                 foreach(var item in sale.Refunds)
                 {
                     PdfGridRow gridRow = _grid.Rows.Add();
-                    gridRow.Cells[0].Value = item.Id;
+                    gridRow.Cells[0].Value = item.Item.Name;
                     gridRow.Cells[0].Style = cellStyle;
 
-                    gridRow.Cells[1].Value = item.Item.Name;
+                    gridRow.Cells[1].Value = item.Item.Id;
                     gridRow.Cells[1].Style = cellStyle;
 
-                    gridRow.Cells[2].Value = item.Item.Price;
+                    gridRow.Cells[2].Value = $"{Math.Round(item.Item.Price, 2, MidpointRounding.AwayFromZero)}";
+                    gridRow.Cells[2].Style = cellStyle;
                 }
             }
 

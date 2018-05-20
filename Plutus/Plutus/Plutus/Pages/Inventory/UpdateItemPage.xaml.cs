@@ -34,7 +34,7 @@ namespace Plutus.Pages.Inventory
 		{
 			InitializeComponent ();
 
-            _vats = App.DbContext.Get<TaxModel>().ToList();
+            _vats = MainPage.InventDbContext.Get<TaxModel>().ToList();
             foreach (var item in _vats)
             {
                 VatPicker.Items.Add(item.Name);
@@ -56,7 +56,7 @@ namespace Plutus.Pages.Inventory
 
             _item = tempItem;
 
-            _vats = App.DbContext.Get<TaxModel>().ToList();
+            _vats = MainPage.InventDbContext.Get<TaxModel>().ToList();
             foreach (var item in _vats)
             {
                 VatPicker.Items.Add(item.Name);
@@ -85,7 +85,7 @@ namespace Plutus.Pages.Inventory
         /// </summary>
         private async void ItemSearchComplete()
         {
-            var items = App.DbContext.Search(ItemSearch.Text)
+            var items = MainPage.InventDbContext.Search(ItemSearch.Text)
                 .Include(i=>i.Stock)
                 .ToList();
             switch (items.Count)
@@ -181,7 +181,7 @@ namespace Plutus.Pages.Inventory
         /// </summary>
         private void InitCatPicker()
         {
-            _cats = App.DbContext.Get<CategoryModel>().ToList();
+            _cats = MainPage.InventDbContext.Get<CategoryModel>().ToList();
             CatPicker.Items.Clear();
             foreach (var item in _cats)
             {
@@ -275,8 +275,8 @@ namespace Plutus.Pages.Inventory
             MessagingCenter.Subscribe<UpdateItemPage>(this, "Accepted", async (Sender) =>
             {
                 MessagingCenter.Unsubscribe<UpdateItemPage>(this, "Accepted");
-                App.DbContext.UpdateItem(_changeItem);
-                if (!App.DbContext.Save())
+                MainPage.InventDbContext.UpdateItem(_changeItem);
+                if (!MainPage.InventDbContext.Save())
                 {
                     await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
                     return;

@@ -42,7 +42,7 @@ namespace Plutus.Pages.Inventory
 	            {
 	                var selectedProps = multiSelectPage.GetSelection();
 	                if (selectedProps.Count <= 0) return;
-	                var items = App.DbContext.Get<ItemModel>().Select(i => i.Id).ToList();
+	                var items = MainPage.InventDbContext.Get<ItemModel>().Select(i => i.Id).ToList();
 	                var csv = new Csv(selectedProps, items);
 	                csv.CreateFile();
 	            });
@@ -78,7 +78,7 @@ namespace Plutus.Pages.Inventory
 	        }
 
 	        var readLines = await csv.ReadFile();
-	        App.DbContext.SaveKVPAsync<ItemModel, string>(readLines.Skip(1).ToList(), validHeaders);
+	        MainPage.InventDbContext.SaveKVPAsync<ItemModel, string>(readLines.Skip(1).ToList(), validHeaders);
 
 	    }
 

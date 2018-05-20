@@ -12,12 +12,15 @@ namespace Plutus.Pages.Inventory
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class MainPage : ContentPage
 	{
-        /// <summary>
+	    internal static Database InventDbContext { get; set; }
+
+	    /// <summary>
         /// Basic constructor for MainPage[Inventory]
         /// </summary>
 		public MainPage ()
 		{
 			InitializeComponent ();
+		    InventDbContext = new Database();
 		}
 
         /// <summary>

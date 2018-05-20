@@ -33,7 +33,7 @@ namespace Plutus.Pages.Inventory
 		{
             InitializeComponent();
 
-            _vats = App.DbContext.Get<TaxModel>().ToList();
+            _vats = MainPage.InventDbContext.Get<TaxModel>().ToList();
             foreach( var item in _vats)
             {
                 VatPicker.Items.Add(item.Name);
@@ -141,15 +141,15 @@ namespace Plutus.Pages.Inventory
             MessagingCenter.Subscribe<AddItemPage>(this, "Accepted", async (Sender) =>
             {
                 MessagingCenter.Unsubscribe<AddItemPage>(this, "Accepted");
-                App.DbContext.Add(_item);
+                MainPage.InventDbContext.Add(_item);
                 var stock = new StockModel
                 {
                     ItemId = _item.Id,
                     StoreId = App.Store.Id,
                     Quantity = temp
                 };
-                App.DbContext.Add(stock);
-                if(!App.DbContext.Save())
+                MainPage.InventDbContext.Add(stock);
+                if(!MainPage.InventDbContext.Save())
                 {
                     await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
                     return;
@@ -210,7 +210,7 @@ namespace Plutus.Pages.Inventory
         /// </summary>
         private void InitCatPicker()
         {
-            _cats = App.DbContext.Get<CategoryModel>().ToList();
+            _cats = MainPage.InventDbContext.Get<CategoryModel>().ToList();
             CatPicker.Items.Clear();
             foreach (var item in _cats)
             {
@@ -244,7 +244,7 @@ namespace Plutus.Pages.Inventory
         /// <param name="e">Event that the sender called</param>
         private async void Id_Unfocused(object sender, FocusEventArgs e)
         {
-            if (!App.DbContext.IsIdSame<ItemModel, string>(Id.Text)) return;
+            if (!MainPage.InventDbContext.IsIdSame<ItemModel, string>(Id.Text)) return;
             await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("ItemExistMesg"), App.Translate.ProvideValue("OK"));
             Id.Text = null;
         }

@@ -33,7 +33,7 @@ namespace Plutus.Pages.Inventory
         {
             InitializeComponent();
             
-            Query = App.DbContext.GetAllItems()
+            Query = MainPage.InventDbContext.GetAllItems()
                 .Include(i => i.DisItems)
                     .ThenInclude(di=>di.Discount)
                 .Include(i => i.Cat)

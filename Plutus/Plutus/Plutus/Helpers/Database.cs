@@ -27,10 +27,7 @@ namespace Plutus.Helpers
             _db.Database.EnsureCreated();
         }
 
-        internal async void Add<T>(T tmp) where T : class
-        {
-            await _db.Set<T>().AddAsync(tmp);
-        }
+        internal async void Add<T>(T tmp) where T : class => await _db.Set<T>().AddAsync(tmp);
 
         internal bool Save()
         {
@@ -46,10 +43,7 @@ namespace Plutus.Helpers
             }
         }
 
-        internal void Delete<T>(T temp) where T:class
-        {
-            _db.Set<T>().Remove(temp);
-        }
+        internal void Delete<T>(T temp) where T:class =>  _db.Set<T>().Remove(temp);
 
         internal void RevertDbContextChanges()
         {
@@ -71,6 +65,23 @@ namespace Plutus.Helpers
                     case EntityState.Unchanged:
                         break;
                 }
+            }
+        }
+
+        internal void DetachEntity(object obj) => _db.Entry(obj).State = EntityState.Detached;
+
+        internal void AttachEntityWithoutTracking(object obj) => _db.Attach(obj);
+
+        internal void DetachAllEntities()
+        {
+            var changedEntriesCopy = _db.ChangeTracker.Entries()
+                .Where(e => e.State == EntityState.Added ||
+                            e.State == EntityState.Modified ||
+                            e.State == EntityState.Deleted)
+                .ToList();
+            foreach (var entity in changedEntriesCopy)
+            {
+                _db.Entry(entity.Entity).State = EntityState.Detached;
             }
         }
 

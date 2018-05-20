@@ -61,7 +61,7 @@ namespace Plutus.Pages.Inventory
                 return;
             }
 
-            App.DbContext.UpdateStock(stock);
+            MainPage.InventDbContext.UpdateStock(stock);
             if (!App.DbContext.Save())
             {
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));

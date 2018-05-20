@@ -29,7 +29,13 @@ namespace Plutus.Pages.CustomPages
 	            PayExact.IsVisible = true;
 	        }
 	        else
+	        {
+	            PayExact.CommandParameter = toPay;
+	            PayExact.Clicked += PayExact_Clicked;
+	            PayExact.Text = App.Translate.ProvideValue("PayFull");
+	            PayExact.IsVisible = true;
 	            CashOptions.IsVisible = true;
+	        }
 
 	        ConfirmBut.Clicked += ConfirmBut_ClickedAsync;
 	        InputE.TextChanged += InputE_TextChanged;

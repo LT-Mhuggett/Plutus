@@ -220,6 +220,8 @@ namespace Plutus.Pages.FirstTimeStartUp
             }
 
             App.DbContext.Save();
+            App.DbContext.DetachAllEntities();
+            App.DbContext = new Database();
             var fileC = new List<string>
             {
                 "<Local>",

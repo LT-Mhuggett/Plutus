@@ -16,7 +16,7 @@ using Device = Xamarin.Forms.Device;
 using Page = Xamarin.Forms.Page;
 #if __ANDROID__ || __IOS__
 using System.Reflection;
-#else
+#elif WINDOWS_UWP
 using Windows.ApplicationModel;
 #endif
 
