@@ -4,14 +4,10 @@
              x:Class="Plutus.Pages.Reports.SalesReportsPage"
              xmlns:i18N="clr-namespace:I18N_L10N;assembly=I18N_L10N"
              Title="{i18N:Translate SReports}">
-    <StackLayout>
+    <StackLayout x:Name="ContentLayout">
         <Label Text="Date of Sale Takins"/>
         <Picker x:Name="DateSearch" SelectedIndexChanged="DateSearchChange" />
         <Label Text="Total"/>
         <Label x:Name="totalTakins"/>
-        <Label Text="Card"/>
-        <Label x:Name="cardTakins"/>
-        <Label Text="Cash"/>
-        <Label x:Name="cashTakins"/>
     </StackLayout>
 </ContentPage>

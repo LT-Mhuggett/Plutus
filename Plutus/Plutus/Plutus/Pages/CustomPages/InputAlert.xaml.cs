@@ -1,9 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Plutus.Helpers;
 using Plutus.Helpers.Extensions;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
@@ -18,7 +13,7 @@ namespace Plutus.Pages.CustomPages
         public string InputResult { get; set; }
 
 	    public InputAlert(string titleText, string placeholderText, string confirmButText, string validationText,
-	        bool cash, decimal toPay)
+	        bool cashBack, decimal toPay)
 	    {
 	        InitializeComponent();
 
@@ -26,18 +21,24 @@ namespace Plutus.Pages.CustomPages
 	        InputE.Placeholder = placeholderText;
 	        ConfirmBut.Text = confirmButText;
 	        ValidationL.Text = validationText;
-	        if (cash)
-	            CashOptions.IsVisible = true;
-	        else
+	        if (cashBack)
 	        {
 	            PayExact.CommandParameter = toPay;
 	            PayExact.Clicked += PayExact_Clicked;
 	            PayExact.Text = App.Translate.ProvideValue("PayFull");
 	            PayExact.IsVisible = true;
 	        }
-	        ConfirmBut.Clicked += ConfirmBut_Clicked;
-	        InputE.TextChanged += InputE_TextChanged;
+	        else
+	        {
+	            PayExact.CommandParameter = toPay;
+	            PayExact.Clicked += PayExact_Clicked;
+	            PayExact.Text = App.Translate.ProvideValue("PayFull");
+	            PayExact.IsVisible = true;
+	            CashOptions.IsVisible = true;
+	        }
 
+	        ConfirmBut.Clicked += ConfirmBut_ClickedAsync;
+	        InputE.TextChanged += InputE_TextChanged;
 	    }
 
 	    public InputAlert(string titleText, string placeholderText, string confirmButText, string validationText,
@@ -50,7 +51,9 @@ namespace Plutus.Pages.CustomPages
 	        ConfirmBut.Text = confirmButText;
 	        ValidationL.Text = validationText;
 	        InputE.IsPassword = isPass;
-	        ConfirmBut.Clicked += ConfirmBut_Clicked;
+	        InputEConf.IsPassword = isPass;
+	        InputEConf.IsVisible = isPass;
+	        ConfirmBut.Clicked += ConfirmBut_ClickedAsync;
 	        InputE.TextChanged += InputE_TextChanged;
 	    }
 
@@ -69,8 +72,15 @@ namespace Plutus.Pages.CustomPages
             InputResult = InputE.Text;
         }
 
-        private void ConfirmBut_Clicked(object sender, EventArgs e)
+        private async void ConfirmBut_ClickedAsync(object sender, EventArgs e)
         {
+            if (InputEConf.IsVisible)
+            {
+                if (!await InputE.Text.PasswordCheck(InputEConf.Text))
+                {
+                    return;
+                }
+            }
             ConfirmButtonEHandler?.Invoke(this, e);
         }
 
@@ -100,10 +110,10 @@ namespace Plutus.Pages.CustomPages
             }
         );
 
-        public bool IsValidationLVisable
-        {
-            get => (bool)GetValue(IsValidationLVisibleProp);
-            set => SetValue(IsValidationLVisibleProp, value);
-        }
-    }
+	    public bool IsValidationLVisable
+	    {
+	        get => (bool) GetValue(IsValidationLVisibleProp);
+	        set => SetValue(IsValidationLVisibleProp, value);
+	    }
+	}
 }

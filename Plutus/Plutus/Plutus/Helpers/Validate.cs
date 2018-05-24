@@ -37,6 +37,12 @@ namespace Plutus.Helpers
             var regex = @"^(((\+44\s?\d{4}|\(?0\d{4}\)?)\s?\d{3}\s?\d{3})|((\+44\s?\d{3}|\(?0\d{3}\)?)\s?\d{3}\s?\d{4})|((\+44\s?\d{2}|\(?0\d{2}\)?)\s?\d{4}\s?\d{4}))(\s?\#(\d{4}|\d{3}))?$";
             return Regex.IsMatch(number, regex);
         }
+
+        internal static bool IsValidPassword(string pass)
+        {
+            var regex = @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\da-zA-Z]).{8,}$";
+            return Regex.IsMatch(pass, regex);
+        }
         /*
         public static bool IsNinValid(string nin)
         {

@@ -21,14 +21,16 @@ namespace Plutus.Pages.Reports
 
             var dateOS = App.DbContext.GetDateOfSales();
 
-            foreach(var DOS in dateOS)
+            foreach(var DOS in dateOS.OrderBy(d=>d.Date))
             {
                 var DOSstring=DOS.Date.ToString().Replace(" 12:00:00 AM", "").Replace(" 00:00:00", "");
                 if (DateSearch.Items.Contains(DOSstring))
                     continue;
                 DateSearch.Items.Add(DOSstring);
             }
-            
+
+            if(DateSearch.Items.Any())
+                DateSearch.SelectedIndex = 0;
             BindingContext = this;
         }
 
@@ -36,14 +38,33 @@ namespace Plutus.Pages.Reports
         {
             var sales = App.DbContext.GetSales(temp).ToList();
             totalTakins.Text = sales
-                .Sum(sale => sale.PaySales.Sum(ps => ps.Amount))
+                .Sum(sale => sale.PaySales.Sum(ps => ps.Amount-ps.Change))
                 .ToString(CultureInfo.InvariantCulture);
-            cashTakins.Text = sales
-                .Sum(sale => sale.PaySales.Where(ps => ps.PayMethod.Name.Equals("Cash")).Sum(ps => ps.Amount))
-                .ToString(CultureInfo.InvariantCulture);
-            cardTakins.Text = sales
-                .Sum(sale => sale.PaySales.Where(ps => ps.PayMethod.Name.Equals("Card")).Sum(ps => ps.Amount))
-                .ToString(CultureInfo.InvariantCulture);
+            foreach (var tempPayMeth in App.DbContext.Get<PaymentMethodModel>())
+            {
+                var label = new Label {Text = tempPayMeth.Name};
+                var labelAmount = new Label();
+                var amount = 0.0m;
+                foreach (var tempSale in sales)
+                {
+                    foreach (var tempTakin in tempSale.PaySales)
+                    {
+                        if (tempPayMeth.Id.Equals(tempTakin.PayMethod.Id))
+                        {
+                            amount += tempTakin.Amount - tempTakin.Change;
+                        }
+                    }
+                }
+
+                labelAmount.Text = amount.ToString(CultureInfo.InvariantCulture);
+                AddToLayout(ContentLayout, label);
+                AddToLayout(ContentLayout, labelAmount);
+            }
+        }
+
+        private void AddToLayout(StackLayout layout, Label label)
+        {
+            layout.Children.Add(label);
         }
 
         private void DateSearchChange(object sender, EventArgs e)

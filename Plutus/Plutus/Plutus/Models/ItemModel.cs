@@ -1,13 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Plutus.Models.Interface;
 
 namespace Plutus.Models
 {
-    public class ItemModel : IAuditable, IBase<string>
+    public class ItemModel : INotifyPropertyChanged, IAuditable, IBase<string>
     {
         private ItemModel item;
         
@@ -31,6 +33,7 @@ namespace Plutus.Models
         public List<Discount_Item> DisItems { get; set; }
         public List<TransactionModel> Transactions { get; set; }
         public List<RefundModel> Refunds { get; set; }
+        public List<SavedItemModel> SavedItems { get; set; }
         public StockModel Stock { get; set; }
         public TaxModel Vat { get; set; }
         public CategoryModel Cat { get; set; }
@@ -38,35 +41,57 @@ namespace Plutus.Models
         [NotMapped]
         public char GroupKey { get; set; }
 
+        /**
+         * Properties to incorperate Basket Model
+         */
+        [NotMapped]
+        private int _amount { get; set; }
+        [NotMapped]
+        private bool _return { get; set; }
+        [NotMapped]
+        public string Reason { get; set; }
+        [NotMapped]
+        public string SaleId { get; set; }
+
+
+        public ItemModel()
+        {
+        }
+
+        public ItemModel ShallowCopy()
+        {
+            return (ItemModel) this.MemberwiseClone();
+        }
+
+        [NotMapped]
+        public int Amount
+        {
+            get => _amount;
+            set
+            {
+                if (_amount == value) return;
+                _amount = value;
+                OnPropertyChanged(nameof(Amount));
+            }
+        }
+
+        [NotMapped]
+        public bool Return
+        {
+            get => _return;
+            set
+            {
+                if(_return==value) return;
+                _return=value;
+                OnPropertyChanged(nameof(Return));
+            }
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
         
-
-        public ItemModel() { }
-
-        public ItemModel(Basket item)
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
-            Id = item.Id;
-            Name = item.Name;
-            Brand = item.Brand;
-            Desc = item.Desc;
-            Cost = item.Cost;
-            Price = item.Price;
-            Image = item.Image;
-            VatId = item.VatId;
-            CatId = item.CatId;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
-        public ItemModel(ItemModel item)
-        {
-            Id = item.Id;
-            Name = item.Name;
-            Desc = item.Desc;
-            Brand = item.Brand;
-            Cost = item.Cost;
-            Price = item.Price;
-            Image = item.Image;
-            VatId = item.VatId;
-            CatId = item.CatId;
-        }
-
-
     }
 }

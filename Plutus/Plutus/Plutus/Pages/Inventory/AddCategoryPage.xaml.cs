@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Plutus.Helpers;
+using Plutus.Helpers.Extensions;
 using Plutus.Models;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
@@ -33,8 +34,8 @@ namespace Plutus.Pages.Inventory
                 Description=Description.Text
             };
 
-            App.DbContext.Add(category);
-            if(!App.DbContext.Save())
+            MainPage.InventDbContext.Add(category);
+            if(!MainPage.InventDbContext.Save())
             {
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
                 return;
@@ -62,6 +63,12 @@ namespace Plutus.Pages.Inventory
             MessagingCenter.Unsubscribe<AddItemPage>(new AddItemPage(), "ConfCat");
             MessagingCenter.Unsubscribe<UpdateItemPage>(new UpdateItemPage(), "ConfCat");
             MessagingCenter.Unsubscribe<AddItemPage>(new AddItemPage(), "Accepted");
+        }
+
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            Name.SetFocusAfterDelay(1);
         }
     }
 }

@@ -217,8 +217,8 @@
     <Reference Include="Splat, Version=1.6.2.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\..\packages\Splat.1.6.2\lib\monoandroid\Splat.dll</HintPath>
     </Reference>
-    <Reference Include="Syncfusion.Compression.Portable, Version=15.3451.0.33, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Syncfusion.Xamarin.Compression.15.3.0.33\lib\portable-win+net45+wp80+wpa81+MonoAndroid10+MonoTouch10+Xamarin.iOS10\Syncfusion.Compression.Portable.dll</HintPath>
+    <Reference Include="Syncfusion.Compression.Portable, Version=16.1451.0.26, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Syncfusion.Xamarin.Compression.16.1.0.26\lib\MonoAndroid10\Syncfusion.Compression.Portable.dll</HintPath>
     </Reference>
     <Reference Include="Syncfusion.Core.XForms, Version=15.4451.0.17, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\..\packages\Syncfusion.Xamarin.Core.15.4.0.17\lib\MonoAndroid10\Syncfusion.Core.XForms.dll</HintPath>
@@ -372,12 +372,14 @@
     <Compile Include="MainActivity.cs" />
     <Compile Include="MainApplication.cs" />
     <Compile Include="PicturePickerImplementation.cs" />
+    <Compile Include="Properties\Annotations.cs" />
     <Compile Include="Resources\Resource.Designer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SavePDFImplementation.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
+    <AndroidAsset Include="Assets\Font-Awesome-5.otf" />
     <None Include="packages.config" />
     <None Include="Resources\AboutResources.txt" />
     <None Include="Assets\AboutAssets.txt" />
@@ -410,12 +412,6 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Resources\Audio\" />
-  </ItemGroup>
-  <ItemGroup>
-    <XamarinComponentReference Include="universalapi">
-      <Visible>False</Visible>
-      <Version>1.0.0</Version>
-    </XamarinComponentReference>
   </ItemGroup>
   <Import Project="..\Plutus\Plutus.projitems" Label="Shared" Condition="Exists('..\Plutus\Plutus.projitems')" />
   <Import Project="$(MSBuildExtensionsPath)\Xamarin\Android\Xamarin.Android.CSharp.targets" />

@@ -8,41 +8,41 @@
         <Grid>
             <ScrollView>
                 <StackLayout BackgroundColor="Transparent"
-              HorizontalOptions="FillAndExpand"
-              VerticalOptions="FillAndExpand"
-                     Margin="10,0,10,0">
+                    HorizontalOptions="FillAndExpand"
+                    VerticalOptions="FillAndExpand"
+                    Margin="10,0,10,0">
                     <StackLayout>
                         <Label Text="{i18N:Translate EmployeeDetails}" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start"/>
                         <Label Text="{i18N:Translate EmployeeSecMesg}" VerticalOptions="FillAndExpand"/>
                         <Label Text="{i18N:Translate Nin}" VerticalOptions="FillAndExpand"/>
-                        <Entry x:Name="Nin"/>
+                        <Entry x:Name="Nin" Text="{Binding NIN}"/>
                         <Label Text="{i18N:Translate FName}" VerticalOptions="FillAndExpand"/>
-                        <Entry x:Name="FName"/>
+                        <Entry x:Name="FName" Text="{Binding FName}"/>
                         <Label Text="{i18N:Translate LName}" VerticalOptions="FillAndExpand"/>
-                        <Entry x:Name="LName"/>
+                        <Entry x:Name="LName" Text="{Binding LName}"/>
                         <Label Text="{i18N:Translate Email}" VerticalOptions="FillAndExpand"/>
-                        <Entry x:Name="Email" Keyboard="Email"/>
+                        <Entry x:Name="Email" Keyboard="Email" Text="{Binding Email}"/>
                         <Label Text="{i18N:Translate PhoneN}"/>
-                        <Entry x:Name="Mobile" Keyboard="Telephone"/>
+                        <Entry x:Name="Mobile" Keyboard="Telephone" Text="{Binding Mobile}"/>
                         <Label x:Name="PassWL" Text="{i18N:Translate PassW}" VerticalOptions="FillAndExpand"/>
                         <Entry x:Name="Password" IsPassword="True"/>
                         <Label x:Name="PassWConfL" Text="{i18N:Translate PassWConf}" VerticalOptions="FillAndExpand"/>
                         <Entry x:Name="PasswordConf" IsPassword="True"/>
                         <StackLayout x:Name="ManAd">
                             <Label x:Name="AdLine1L" Text="{i18N:Translate AdLine1}" VerticalOptions="FillAndExpand"/>
-                            <Entry x:Name="AdLine1"/>
+                            <Entry x:Name="AdLine1" Text="{Binding AdLine1}"/>
                             <Label x:Name="AdLine2L" Text="{i18N:Translate AdLine2}" VerticalOptions="FillAndExpand"/>
-                            <Entry x:Name="AdLine2"/>
+                            <Entry x:Name="AdLine2" Text="{Binding AdLine2}"/>
                             <Label x:Name="CityL" Text="{i18N:Translate City}" VerticalOptions="FillAndExpand"/>
-                            <Entry x:Name="City"/>
+                            <Entry x:Name="City" Text="{Binding City}"/>
                             <Label x:Name="PostCodeL" Text="{i18N:Translate PostCode}" VerticalOptions="FillAndExpand"/>
-                            <Entry x:Name="PostCode"/>
+                            <Entry x:Name="PostCode" Text="{Binding PostCode}"/>
                             <Label x:Name="CountryL" Text="{i18N:Translate Country}" VerticalOptions="FillAndExpand"/>
-                            <Entry x:Name="Country"/>
+                            <Entry x:Name="Country" Text="{Binding Country}"/>
                         </StackLayout>
                         <StackLayout x:Name="AutoAd" IsVisible="False">
                             <Label x:Name="FullAddressL" Text="{i18N:Translate FullAddress}" VerticalOptions="FillAndExpand"/>
-                            <Editor x:Name="FullAddress"/>
+                            <Editor x:Name="FullAddress" Text="{Binding FullAddress}"/>
                             <Button x:Name="ToManAd" Text="Change to line by line address" Clicked="ToMan"/>
                         </StackLayout>
                     </StackLayout>

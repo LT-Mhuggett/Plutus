@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -8,6 +9,12 @@ using Plutus.Helpers.Extensions;
 using Plutus.Models;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
+using FileIO = Plutus.Helpers.FileIO;
+#if __ANDROID__ || __IOS__
+
+#else
+using Windows.Storage;
+#endif
 
 namespace Plutus.Pages.FirstTimeStartUp
 {
@@ -27,6 +34,8 @@ namespace Plutus.Pages.FirstTimeStartUp
             throw new NotImplementedException();
 #else
             var folder = await FileIO.GetFolderAsync();
+
+            var itemIssues = new List<StorageFile>();
 
             Loading.TogleLoading(LCV, LAI);
 
@@ -48,8 +57,8 @@ namespace Plutus.Pages.FirstTimeStartUp
             {
                 var fileData = await FileIO.GetStringsFromCsvAsync(file, '&');
                 var extraParse = fileData.Select(x => x.Split('=')).ToArray();
-                var name = file.Name.Replace(".dat", "");
-                switch (name)
+                var fileName = file.Name.Replace(".dat", "");
+                switch (fileName)
                 {
                     case "Company":
                         store = new StoreModel()
@@ -76,10 +85,19 @@ namespace Plutus.Pages.FirstTimeStartUp
                     case "Tax":
                         for (var i = 1; i < fileData.Count() - 3; i += 2)
                         {
+                            var rate = (await extraParse[i + 1][1].ToDouble("Error") ?? default(double));
+
+                            var name = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                                string.Format(App.Translate.ProvideValue("TaxName"), rate),
+                                App.Translate.ProvideValue("EnterCorrectValue"),
+                                App.Translate.ProvideValue("Confirm"),
+                                App.Translate.ProvideValue("TaxNotCorrectMesg"),
+                                false);
+
                             var tax = new TaxModel()
                             {
-                                Name = Uri.UnescapeDataString(extraParse[i][1]),
-                                Rate = (await extraParse[i + 1][1].ToDouble("Error") ?? default(double)) / 100 + 1
+                                Name = name,
+                                Rate = rate / 100 + 1
                             };
                             taxes.Add(tax);
                             App.DbContext.Add(tax);
@@ -107,40 +125,48 @@ namespace Plutus.Pages.FirstTimeStartUp
                     if (!itemBool) continue;
                 }
 
-                var value =
-                    // ReSharper disable once PossibleNullReferenceException
-                    await extraParse.FirstOrDefault(x => x[0].Equals("Value"))?[1]?.ToDecimal("Error") ??
-                    default(decimal);
-                var taxType =
-                    // ReSharper disable once PossibleNullReferenceException
-                    await extraParse.FirstOrDefault(x => x[0].Equals("TaxRate"))?[1]?.ToInterger("Error") ??
-                    default(int);
-                if (taxType == 0 || taxType == 1)
-                    taxType = 2;
-                else if (taxType == 2)
-                    taxType = 0;
-                else if (taxType == 3)
-                    taxType = 2;
-                var item = new ItemModel()
+                try
                 {
-                    Id = id,
-                    Name = Uri.UnescapeDataString(extraParse.FirstOrDefault(x => x[0].Equals("Description"))?[1]),
-                    Vat = taxes[taxType],
-                    Brand = "NOT EXIST",
-                    Cat = cat,
-                    Cost = 0.00m,
-                    /*
-                     * if price is excluding vat
-                     *
-                       ExPrice = value / 100,
-                       Price = value / 100 * (decimal) taxes[taxType - 1].Rate                    
-                     * if price is including vat
-                     */
-                    ExPrice = Math.Round(value / 100 / (decimal) taxes[taxType].Rate, 2, MidpointRounding.AwayFromZero),
-                    Price = Math.Round(value / 100, 2, MidpointRounding.AwayFromZero)
+                    var value =
+                        // ReSharper disable once PossibleNullReferenceException
+                        await extraParse.FirstOrDefault(x => x[0].Equals("Value"))?[1]?.ToDecimal("Error") ??
+                        default(decimal);
+                    var taxType =
+                        // ReSharper disable once PossibleNullReferenceException
+                        await extraParse.FirstOrDefault(x => x[0].Equals("TaxRate"))?[1]?.ToInterger("Error") ??
+                        default(int);
+                    if (taxType == 0 || taxType == 1)
+                        taxType = 2;
+                    else if (taxType == 2)
+                        taxType = 0;
+                    else if (taxType == 3)
+                        taxType = 2;
+                    var item = new ItemModel()
+                    {
+                        Id = id,
+                        Name = Uri.UnescapeDataString(extraParse.FirstOrDefault(x => x[0].Equals("Description"))?[1]),
+                        Vat = taxes[taxType],
+                        Brand = "NOT EXIST",
+                        Cat = cat,
+                        Cost = 0.00m,
+                        /*
+                         * if price is excluding vat
+                         *
+                           ExPrice = value / 100,
+                           Price = value / 100 * (decimal) taxes[taxType - 1].Rate                    
+                         * if price is including vat
+                         */
+                        ExPrice = Math.Round(value / 100 / (decimal) taxes[taxType].Rate, 2,
+                            MidpointRounding.AwayFromZero),
+                        Price = Math.Round(value / 100, 2, MidpointRounding.AwayFromZero)
 
-                };
-                App.DbContext.Add(item);
+                    };
+                    App.DbContext.Add(item);
+                }
+                catch (Exception)
+                {
+                    itemIssues.Add(file);
+                }
             }
 
             tempFolder = folderList[4];
@@ -165,11 +191,11 @@ namespace Plutus.Pages.FirstTimeStartUp
                     FName = extraParse.FirstOrDefault(x => x[0].Equals("FirstName"))?[1],
                     LName = extraParse.FirstOrDefault(x => x[0].Equals("LastName"))?[1],
                     Email = extraParse.FirstOrDefault(x => x[0].Equals("Email"))?[1] == ""
-                        ? await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                        ? (await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
                             App.Translate.ProvideValue("Email"), App.Translate.ProvideValue("EnterCorrectValue"),
                             App.Translate.ProvideValue("Confirm"), App.Translate.ProvideValue("EmailNotCorrectMesg"),
-                            false)
-                        : extraParse.FirstOrDefault(x => x[0].Equals("Email"))?[1],
+                            false)).ToLower()
+                        : extraParse.FirstOrDefault(x => x[0].Equals("Email"))?[1].ToLower(),
                     Salt = salt,
                     HashedPassword = Convert.ToBase64String(Helpers.Password.ComputeHash(
                         await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
@@ -194,6 +220,8 @@ namespace Plutus.Pages.FirstTimeStartUp
             }
 
             App.DbContext.Save();
+            App.DbContext.DetachAllEntities();
+            App.DbContext = new Database();
             var fileC = new List<string>
             {
                 "<Local>",
@@ -203,6 +231,15 @@ namespace Plutus.Pages.FirstTimeStartUp
                 "</Database>",
                 "</Local>"
             };
+
+            if (itemIssues.Count > 0)
+            {
+                foreach (var item in itemIssues)
+                {
+                    Debug.WriteLine(item.ToString());
+                }
+            }
+
             FileIO.Save("App.config", fileC.ToArray());
             Application.Current.MainPage = new NavigationPage(new LoginPage());
             Loading.TogleLoading(LCV, LAI);

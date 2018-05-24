@@ -8,6 +8,7 @@ using Plutus.Models;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 using I18N_L10N;
+using Plutus.Helpers.Extensions;
 using ZXing.Net.Mobile.Forms;
 using ZXing.Mobile;
 
@@ -60,7 +61,7 @@ namespace Plutus.Pages.Inventory
                 return;
             }
 
-            App.DbContext.UpdateStock(stock);
+            MainPage.InventDbContext.UpdateStock(stock);
             if (!App.DbContext.Save())
             {
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
@@ -127,6 +128,12 @@ namespace Plutus.Pages.Inventory
         private void  EnterButt_Clicked(object sender, EventArgs e)
         {
             CheckExist();
+        }
+
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            Id.SetFocusAfterDelay(1);
         }
     }
 }

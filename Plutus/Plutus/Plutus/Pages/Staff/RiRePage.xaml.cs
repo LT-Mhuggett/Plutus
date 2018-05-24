@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
@@ -24,50 +25,60 @@ namespace Plutus.Pages.Staff
 
             Items = new ObservableCollection<Emp_AuthActions>();
             var tempList = App.DbContext.Get<AuthActions>().ToList();
-            if (Emp.EmpAuths.Count > 0)
+            tryAgain:
+            try
             {
-                if (Emp.EmpAuths.Count == tempList.Count)
+                if (Emp.EmpAuths.Count > 0)
                 {
-                    foreach (var auth in Emp.EmpAuths.OrderBy(a => a.Auth.Name))
+                    if (Emp.EmpAuths.Count == tempList.Count)
                     {
-                        Items.Add(auth);
+                        foreach (var auth in Emp.EmpAuths.OrderBy(a => a.Auth.Name))
+                        {
+                            Items.Add(auth);
+                        }
                     }
+                    else
+                    {
+                        foreach (var item in tempList.OrderBy(a => a.Name))
+                        {
+                            var tempAuth = Emp.EmpAuths.FirstOrDefault(a => a.Auth.Id.Equals(item.Id));
+                            if (tempAuth != null)
+                                Items.Add(tempAuth);
+                            else
+                            {
+                                Emp_AuthActions temp = new Emp_AuthActions() {Auth = item, Emp = Emp};
+                                Items.Add(temp);
+                            }
+                        }
+                    }
+
+                    Confirm.Clicked += async (object sender, EventArgs e) =>
+                    {
+                        if (!App.DbContext.Save())
+                        {
+                            await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"),
+                                App.Translate.ProvideValue("OK"));
+                            return;
+                        }
+
+                        await Navigation.PopModalAsync();
+                    };
                 }
                 else
                 {
                     foreach (var item in tempList.OrderBy(a => a.Name))
                     {
-                        var tempAuth = Emp.EmpAuths.FirstOrDefault(a => a.Auth.Id.Equals(item.Id));
-                        if (tempAuth != null)
-                            Items.Add(tempAuth);
-                        else
-                        {
-                            Emp_AuthActions temp = new Emp_AuthActions() { Auth = item, Emp = Emp };
-                            Items.Add(temp);
-                        }
+                        Emp_AuthActions temp = new Emp_AuthActions() {Auth = item, Emp = Emp};
+                        Items.Add(temp);
                     }
+
+                    Confirm.Clicked += async (object sender, EventArgs e) => { await Navigation.PopModalAsync(); };
                 }
-                Confirm.Clicked += async (object sender, EventArgs e) =>
-                  {
-                      if (!App.DbContext.Save())
-                      {
-                          await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
-                          return;
-                      }
-                      await Navigation.PopModalAsync();
-                  };
             }
-            else
+            catch (Exception)
             {
-                foreach (var item in tempList.OrderBy(a => a.Name))
-                {
-                    Emp_AuthActions temp = new Emp_AuthActions() { Auth = item, Emp = Emp };
-                    Items.Add(temp);
-                }
-                Confirm.Clicked += async (object sender, EventArgs e) =>
-                {
-                    await Navigation.PopModalAsync();
-                };
+                Emp.EmpAuths = new List<Emp_AuthActions>();
+                goto tryAgain;
             }
 
             BindingContext = this;

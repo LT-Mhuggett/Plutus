@@ -11,32 +11,38 @@ using Plutus.Models;
 using Syncfusion.Pdf.Lists;
 using Syncfusion.Pdf.Grid;
 using System.Diagnostics;
+using System.Reflection;
+using System.Threading.Tasks;
+using Syncfusion.Pdf.Barcode;
 
 namespace Plutus.Helpers
 {
     internal class PDFCreator
     {
         private PdfDocument doc = new PdfDocument();
-
-        private PdfGrid grid;
+        private readonly PdfGrid _grid;
         //Minus padding
         private const float WIDTH = 221;
         private float PdfGridHeight;
 
-        public PDFCreator(StoreModel store, Stream image, SaleModel sale, decimal change)
+        public PDFCreator()
         {
             //Create pdfgrid
-            grid = new PdfGrid();
+            _grid = new PdfGrid();
 
+        }
+
+        public Task GenRecipt(StoreModel store, Stream image, SaleModel sale, decimal change)
+        {
             //Add columns to grid
-            grid.Columns.Add(3);
+            _grid.Columns.Add(3);
 
             //Set collunm width
-            grid.Style.CellPadding = new PdfPaddings(2, 2, 2, 2);
+            _grid.Style.CellPadding = new PdfPaddings(2, 2, 2, 2);
             
-            grid.Columns[0].Width = (WIDTH / 5)*2;
-            grid.Columns[1].Width = (WIDTH / 5)*2;
-            grid.Columns[2].Width = WIDTH / 5;
+            _grid.Columns[0].Width = (WIDTH / 5)*2;
+            _grid.Columns[1].Width = (WIDTH / 5)*2;
+            _grid.Columns[2].Width = WIDTH / 5;
 
             PdfGridCellStyle cellStyle = new PdfGridCellStyle
             {
@@ -58,24 +64,35 @@ namespace Plutus.Helpers
             //Add header
             if (image != null)
             {
-                grid.Headers.Add(1);
+                _grid.Headers.Add(1);
 
-                grid.Headers[index].Style = cellStyle;
+                _grid.Headers[index].Style = cellStyle;
+                image = File.OpenRead(@"C:\Users\seank\Downloads\rndImage.png");
                 var bitmap = new PdfBitmap(image);
-                grid.Headers[index].Cells[0].ColumnSpan = 3;
-                grid.Headers[index].Cells[0].Style = cellStyle;
-                grid.Headers[index].Cells[0].Style.BackgroundImage = bitmap;
+                _grid.Headers[index].Cells[0].ColumnSpan = 3;
+                _grid.Headers[index].Cells[0].Style = cellStyle;
+                _grid.Headers[index].Cells[0].Style.BackgroundImage = bitmap;
                 index++;
             }
-            grid.Headers.Add(2);
+            _grid.Headers.Add(4);
 
-            grid.Headers[index].Style = cellStyle;
-            grid.Headers[index].Cells[0].ColumnSpan = 3;
-            grid.Headers[index].Cells[0].Value = storeName + storeAddress;
-            grid.Headers[index].Cells[0].StringFormat = sf;
-            grid.Headers[index].Cells[0].Style = cellStyle;
+            _grid.Headers[index].Style = cellStyle;
+            _grid.Headers[index].Cells[0].ColumnSpan = 3;
+            _grid.Headers[index].Cells[0].Value = storeName + storeAddress;
+            _grid.Headers[index].Cells[0].StringFormat = sf;
+            _grid.Headers[index].Cells[0].Style = cellStyle;
             index++;
-            grid.Headers[index].Style = cellStyle;
+            _grid.Headers[index].Cells[0].ColumnSpan = 3;
+            _grid.Headers[index].Cells[0].Value = App.CurrentDateTime.ToLocalTime().ToString();
+            _grid.Headers[index].Cells[0].StringFormat = sf;
+            _grid.Headers[index].Cells[0].Style = cellStyle;
+            index++;
+            _grid.Headers[index].Cells[0].ColumnSpan = 3;
+            _grid.Headers[index].Cells[0].Value = sale.Id;
+            _grid.Headers[index].Cells[0].StringFormat = sf;
+            _grid.Headers[index].Cells[0].Style = cellStyle;
+            index++;
+            _grid.Headers[index].Style = cellStyle;
 
             //Grid headers
             string[] headers = new string[] { "Item Name", "Item ID", "Price" };
@@ -83,8 +100,8 @@ namespace Plutus.Helpers
                 int i = 0;
                 foreach (var head in headers)
                 {
-                    grid.Headers[index].Cells[i].Value = head;
-                    grid.Headers[index].Cells[i].Style = cellStyle;
+                    _grid.Headers[index].Cells[i].Value = head;
+                    _grid.Headers[index].Cells[i].Style = cellStyle;
                     i++;
                 }
             }
@@ -94,7 +111,7 @@ namespace Plutus.Helpers
             {
                 for(var i = 1; i <= item.Amount; i++)
                 {
-                    var gridRow = grid.Rows.Add();
+                    var gridRow = _grid.Rows.Add();
                     gridRow.Cells[0].Value = item.Item.Name;
                     gridRow.Cells[0].Style = cellStyle;
 
@@ -110,7 +127,7 @@ namespace Plutus.Helpers
             if(sale.Refunds.Count > 0)
             {
                 {
-                    PdfGridRow gridRow = grid.Rows.Add();
+                    PdfGridRow gridRow = _grid.Rows.Add();
                     gridRow.Cells[0].Value = "Returns";
                     gridRow.Cells[0].ColumnSpan = 3;
                     gridRow.Cells[0].Style = cellStyle;
@@ -119,7 +136,7 @@ namespace Plutus.Helpers
                 //Returns headers
                 {
                     int i = 0;
-                    PdfGridRow gridRow = grid.Rows.Add();
+                    PdfGridRow gridRow = _grid.Rows.Add();
                     foreach (var head in headers)
                     {
                         gridRow.Cells[i].Value = head;
@@ -130,28 +147,29 @@ namespace Plutus.Helpers
 
                 foreach(var item in sale.Refunds)
                 {
-                    PdfGridRow gridRow = grid.Rows.Add();
-                    gridRow.Cells[0].Value = item.Id;
+                    PdfGridRow gridRow = _grid.Rows.Add();
+                    gridRow.Cells[0].Value = item.Item.Name;
                     gridRow.Cells[0].Style = cellStyle;
 
-                    gridRow.Cells[1].Value = item.Item.Name;
+                    gridRow.Cells[1].Value = item.Item.Id;
                     gridRow.Cells[1].Style = cellStyle;
 
-                    gridRow.Cells[2].Value = item.Item.Price;
+                    gridRow.Cells[2].Value = $"{Math.Round(item.Item.Price, 2, MidpointRounding.AwayFromZero)}";
+                    gridRow.Cells[2].Style = cellStyle;
                 }
             }
 
             if (sale.Notes.Count > 0)
             {
                 {
-                    PdfGridRow gridRow = grid.Rows.Add();
+                    PdfGridRow gridRow = _grid.Rows.Add();
                     gridRow.Cells[0].Value = "Notes";
                     gridRow.Cells[0].ColumnSpan = 3;
                     gridRow.Cells[0].Style = cellStyle;
                 }
                 foreach (var item in sale.Notes)
                 {
-                    PdfGridRow gridRow = grid.Rows.Add();
+                    PdfGridRow gridRow = _grid.Rows.Add();
                     gridRow.Cells[0].ColumnSpan = 3;
                     gridRow.Cells[0].Value = item.Note.Note;
                     gridRow.Cells[0].Style = cellStyle;
@@ -161,7 +179,7 @@ namespace Plutus.Helpers
             //Set up footer
             {
                 {
-                    PdfGridRow gridRow = grid.Rows.Add();
+                    PdfGridRow gridRow = _grid.Rows.Add();
 
                     gridRow.Cells[0].Style = cellStyle;
 
@@ -174,7 +192,7 @@ namespace Plutus.Helpers
 
                 foreach(var item in sale.PaySales)
                 {
-                    PdfGridRow gridRow = grid.Rows.Add();
+                    PdfGridRow gridRow = _grid.Rows.Add();
 
                     gridRow.Cells[0].Style = cellStyle;
 
@@ -187,7 +205,7 @@ namespace Plutus.Helpers
 
                 if(change!=0.00m)
                 {
-                    PdfGridRow gridRow = grid.Rows.Add();
+                    PdfGridRow gridRow = _grid.Rows.Add();
 
                     gridRow.Cells[0].Style = cellStyle;
 
@@ -199,17 +217,17 @@ namespace Plutus.Helpers
                 }
             }
             //Calculate grid height
-            float gridHeight = CalculateGridHeight(grid);
+            float gridHeight = CalculateGridHeight(_grid);
 
             doc.PageSettings.Margins.All = 10;
 
             //Set page width and height
             doc.PageSettings.Width = WIDTH + (doc.PageSettings.Margins.Left*2);
-            doc.PageSettings.Height = gridHeight + (doc.PageSettings.Margins.Top*2);
+            doc.PageSettings.Height = gridHeight + 10 + (doc.PageSettings.Margins.Top*2);
 
             PdfPage page = doc.Pages.Add();
 
-            grid.Draw(page, PointF.Empty);            
+            _grid.Draw(page, PointF.Empty);            
 
             MemoryStream memoryStream2 = new MemoryStream();
 
@@ -218,6 +236,7 @@ namespace Plutus.Helpers
             doc.Close();
 
             DependencyService.Get<ISavePDF>().Save("test.pdf", "application/pdf", memoryStream2);
+            return Task.CompletedTask;
         }
 
         public float CalculateGridHeight(PdfGrid pdfGrid)

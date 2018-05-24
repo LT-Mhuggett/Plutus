@@ -12,12 +12,15 @@ namespace Plutus.Pages.Inventory
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class MainPage : ContentPage
 	{
-        /// <summary>
+	    internal static Database InventDbContext { get; set; }
+
+	    /// <summary>
         /// Basic constructor for MainPage[Inventory]
         /// </summary>
 		public MainPage ()
 		{
 			InitializeComponent ();
+		    InventDbContext = new Database();
 		}
 
         /// <summary>
@@ -64,6 +67,12 @@ namespace Plutus.Pages.Inventory
             EId.Text = null;
             VerifyId.IsVisible = false;
             MPage.IsEnabled = true;
+        }
+
+        private void MassUpdate_Clicked(object sender, EventArgs e)
+        {
+            Action action = async () => await App.Current.MainPage.Navigation.PushAsync(new MassStockUpdateMainPage());
+            Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Item", "V", action);
         }
     }
 }

@@ -24,6 +24,8 @@ namespace Plutus.Pages.Staff
 		{
 			InitializeComponent ();
             IsNew = true;
+
+		    BindingContext = Emp;
 		}
 
         public AddEmployeePage(EmployeeModel tempEmp)
@@ -31,31 +33,9 @@ namespace Plutus.Pages.Staff
             InitializeComponent();
 
             Emp = tempEmp;
-
-            FName.Text = Emp.FName;
-            LName.Text = Emp.LName;
-            if (String.IsNullOrEmpty(Emp.FullAddress))
-            {
-                AdLine1.Text = Emp.AdLine1;
-                AdLine2.Text = Emp.AdLine2;
-                City.Text = Emp.City;
-                PostCode.Text = Emp.PostCode;
-                Country.Text = Emp.Country;
-            }
-            else
-            {
-                FullAddress.Text = Emp.FullAddress;
-            }
-            Email.Text = Emp.Email;
-            Mobile.Text = Emp.Mobile;
-            Nin.Text = Emp.NIN;
-            ContrHours.Text = Emp.ContractedHours.ToString();
-            Wage.Text = Emp.Wage.ToString();
-            Password.IsVisible = false;
-            PassWL.IsVisible = false;
-            PasswordConf.IsVisible = false;
-            PassWConfL.IsVisible = false;
             IsNew = false;
+
+            BindingContext = Emp;
             Create.Text = "Change Details";
         }
 
@@ -166,6 +146,7 @@ namespace Plutus.Pages.Staff
                 if (!App.DbContext.Save())
                 {
                     await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
+                    Loading.TogleLoading(LCV, LAI);
                     return;
                 }
             }
@@ -209,6 +190,13 @@ namespace Plutus.Pages.Staff
         {
             AutoAd.IsVisible = false;
             ManAd.IsVisible = true;
+        }
+
+        protected override void OnDisappearing()
+        {
+            Emp = null;
+            App.DbContext.RevertDbContextChanges();
+            base.OnDisappearing();
         }
     }
 }

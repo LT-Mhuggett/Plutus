@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using Plutus.Data;
@@ -10,6 +11,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Plutus.Models.Interface;
 using System.Globalization;
+using Plutus.Helpers.Extensions;
+using Xamarin.Forms;
 
 namespace Plutus.Helpers
 {
@@ -24,10 +27,7 @@ namespace Plutus.Helpers
             _db.Database.EnsureCreated();
         }
 
-        internal async void Add<T>(T tmp) where T : class
-        {
-            await _db.Set<T>().AddAsync(tmp);
-        }
+        internal async void Add<T>(T tmp) where T : class => await _db.Set<T>().AddAsync(tmp);
 
         internal bool Save()
         {
@@ -38,10 +38,12 @@ namespace Plutus.Helpers
             }
             catch (Exception e)
             {
-                Console.Write(e);
+                Debug.WriteLine(e);
                 return false;
             }
         }
+
+        internal void Delete<T>(T temp) where T:class =>  _db.Set<T>().Remove(temp);
 
         internal void RevertDbContextChanges()
         {
@@ -63,6 +65,23 @@ namespace Plutus.Helpers
                     case EntityState.Unchanged:
                         break;
                 }
+            }
+        }
+
+        internal void DetachEntity(object obj) => _db.Entry(obj).State = EntityState.Detached;
+
+        internal void AttachEntityWithoutTracking(object obj) => _db.Attach(obj);
+
+        internal void DetachAllEntities()
+        {
+            var changedEntriesCopy = _db.ChangeTracker.Entries()
+                .Where(e => e.State == EntityState.Added ||
+                            e.State == EntityState.Modified ||
+                            e.State == EntityState.Deleted)
+                .ToList();
+            foreach (var entity in changedEntriesCopy)
+            {
+                _db.Entry(entity.Entity).State = EntityState.Detached;
             }
         }
 
@@ -94,7 +113,7 @@ namespace Plutus.Helpers
             var authAction10 = new AuthActions() {Name = "Management"};
             Add(authAction10);
 
-            
+
             var payM = new PaymentMethodModel()
             {
                 Name = "Card",
@@ -127,7 +146,8 @@ namespace Plutus.Helpers
         {
             var emp = Get<EmployeeModel>()
                 .Include(e => e.EmpAuths)
-                .SingleOrDefault(e => e.Id.Equals(idEmail) || e.Email.Equals(idEmail));
+                .SingleOrDefault(e =>
+                    e.Id.Equals(idEmail) || e.Email.Equals(idEmail, StringComparison.CurrentCultureIgnoreCase));
             if (emp == null)
                 return null;
             if (await Task.Run(() =>
@@ -136,6 +156,42 @@ namespace Plutus.Helpers
                 return emp;
             emp = null;
             return null;
+        }
+
+        internal async Task SaveKVPAsync<TOne, TTwo>(List<KeyValuePair<string, string[]>> valuePairs,
+            List<string> header) where TOne : class
+        {
+            var data = Get<TOne>().OfType<IBase<TTwo>>().ToList();
+            var failedList = new List<KeyValuePair<string, string>>();
+            foreach (var pair in valuePairs)
+            {
+                if (pair.Value[0] == string.Empty && pair.Value[1] == string.Empty)
+                    continue;
+                var tempdata = data.Single(e => e.Id.Equals(pair.Key));
+                for (var i = 1; i < header.Count; i++)
+                {
+                    var modified = tempdata.TrySetProperty(header[i], pair.Value[i - 1]);
+                    if (!modified)
+                    {
+                        failedList.Add(new KeyValuePair<string, string>(valuePairs.IndexOf(pair) + 1.ToString(),
+                            pair.Value[i - 1]));
+                    }
+                }
+            }
+
+            Save();
+            if (failedList.Count > 0)
+            {
+                var failedString = "\nRow\t\t\t\tColumn";
+                foreach (var failedItem in failedList)
+                {
+                    failedString += $"\n{failedItem.Key}\t\t\t\t{failedItem.Value}";
+                }
+
+                await Application.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Oops"),
+                    string.Format("There was an issue at the folling Rows and Columns{0}", failedString),
+                    App.Translate.ProvideValue("OK"));
+            }
         }
 
         internal IQueryable GetById<TOne, TTwo>(TTwo id) where TOne : class => Get<TOne>()
@@ -151,12 +207,23 @@ namespace Plutus.Helpers
                         CultureInfo.CurrentCulture.CompareInfo.IndexOf(
                             i.Name, temp, CompareOptions.IgnoreCase) >= 0);
 
+        internal IQueryable<ItemModel> SearchId(string needle) => Get<ItemModel>()
+            .Include(a => a.Vat)
+            .Where(i => i.Id.Equals(needle));
+
         internal void UpdateStock(StockModel toUpdateModel)
         {
             var query = from stock in _db.Stocks
                 where stock.ItemId.Equals(toUpdateModel.ItemId) &&
                       stock.StoreId.Equals(toUpdateModel.StoreId)
                 select stock;
+            if (!query.Any())
+            {
+                _db.Add(toUpdateModel);
+                Save();
+                return;
+            }
+
             foreach (var stock in query)
             {
                 stock.Quantity += toUpdateModel.Quantity;
@@ -207,7 +274,7 @@ namespace Plutus.Helpers
             .Include(s => s.Transactions)
             .Include(s => s.PaySales)
             .ThenInclude(ps => ps.PayMethod)
-            .Where(s => s.DateOfSale.ToString(CultureInfo.InvariantCulture).Contains(condition)
+            .Where(s => s.DateOfSale.ToString().Contains(condition)
                         || s.EmployeeId.Equals(condition));
 
         internal IQueryable<SaleModel> GetSales() => Get<SaleModel>()

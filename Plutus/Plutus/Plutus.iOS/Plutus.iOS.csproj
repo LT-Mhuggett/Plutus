@@ -112,6 +112,9 @@
     <CodesignKey>iPhone Distribution</CodesignKey>
     <CodesignEntitlements>Entitlements.plist</CodesignEntitlements>
   </PropertyGroup>
+  <PropertyGroup Condition=" '$(RunConfiguration)' == 'Default' ">
+    <AppExtensionDebugBundleId />
+  </PropertyGroup>
   <ItemGroup>
     <Compile Include="CloseAppImplementation.cs" />
     <Compile Include="LocalizeImplementation.cs" />
@@ -122,6 +125,7 @@
     <Compile Include="SavePDFImplementation.cs" />
     <None Include="app.config" />
     <None Include="Entitlements.plist" />
+    <BundleResource Include="Resources\Fonts\Font-Awesome-5.otf" />
     <None Include="Info.plist">
       <SubType>Designer</SubType>
     </None>
@@ -271,8 +275,8 @@
     <Reference Include="Splat, Version=1.6.2.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\..\packages\Splat.1.6.2\lib\Xamarin.iOS10\Splat.dll</HintPath>
     </Reference>
-    <Reference Include="Syncfusion.Compression.Portable, Version=15.4451.0.20, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Syncfusion.Xamarin.Compression.15.4.0.20\lib\Xamarin.iOS10\Syncfusion.Compression.Portable.dll</HintPath>
+    <Reference Include="Syncfusion.Compression.Portable, Version=16.1451.0.26, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Syncfusion.Xamarin.Compression.16.1.0.26\lib\Xamarin.iOS10\Syncfusion.Compression.Portable.dll</HintPath>
     </Reference>
     <Reference Include="Syncfusion.Core.XForms, Version=15.4451.0.17, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\..\packages\Syncfusion.Xamarin.Core.15.4.0.17\lib\Xamarin.iOS10\Syncfusion.Core.XForms.dll</HintPath>
@@ -371,12 +375,6 @@
       <ProductName>.NET Framework 3.5 SP1</ProductName>
       <Install>true</Install>
     </BootstrapperPackage>
-  </ItemGroup>
-  <ItemGroup>
-    <XamarinComponentReference Include="universalapi">
-      <Visible>False</Visible>
-      <Version>1.0.0</Version>
-    </XamarinComponentReference>
   </ItemGroup>
   <Import Project="..\Plutus\Plutus.projitems" Label="Shared" Condition="Exists('..\Plutus\Plutus.projitems')" />
   <Import Project="$(MSBuildExtensionsPath)\Xamarin\iOS\Xamarin.iOS.CSharp.targets" />

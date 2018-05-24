@@ -206,8 +206,6 @@
   </data>
   <data name="PassWNotSameMesg" xml:space="preserve">
     <value>Passwords are not the same
-OR
-Not longer than 6 characters
 Please try again</value>
   </data>
   <data name="FieldsFilledInMesg" xml:space="preserve">
@@ -690,5 +688,29 @@ an Item?</value>
   </data>
   <data name="WelcomeTitle" xml:space="preserve">
     <value>Welcome</value>
+  </data>
+  <data name="PassWNotStrong" xml:space="preserve">
+    <value>Not longer than 8 characters
+OR
+Does not contain atleast 1 number, special character and capital letter
+Please Try Again</value>
+  </data>
+  <data name="MissingStock" xml:space="preserve">
+    <value>An Item in the last transaction didn't have a stock value, Plutus cannot keep an accurate stock of items with a stock amount attached to them.
+Advice:
+Either add stock to individual items that don't have a current stock value to them
+OR
+Use the mass stock take fucntionality of Plutus to add stock at a mass scale
+
+This message will only appear once untill the Plutus restarts, of whcih it will appear once again.</value>
+  </data>
+  <data name="Warning" xml:space="preserve">
+    <value>Warning!</value>
+  </data>
+  <data name="TaxName" xml:space="preserve">
+    <value>Please enter the Tax name for the tax rate of {0}%</value>
+  </data>
+  <data name="TaxNotCorrectMesg" xml:space="preserve">
+    <value>Please enter a correct Tax name</value>
   </data>
 </root>

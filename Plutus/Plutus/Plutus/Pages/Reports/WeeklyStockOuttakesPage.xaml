@@ -4,18 +4,37 @@
              x:Class="Plutus.Pages.Reports.WeeklyStockOuttakesPage">
     <ContentPage.Content>
         <StackLayout>
-            <Label Text="All items are listed in numerical order most stock outtake at the top."/>
+            <Label Text="Overall weekly stock to be reordered"/>
             <ListView ItemsSource="{Binding Sales}"
                       CachingStrategy="RecycleElement">
+                <ListView.Header>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width=".5*"/>
+                            <ColumnDefinition Width="1*"/>
+                            <ColumnDefinition Width="3*"/>
+                        </Grid.ColumnDefinitions>
+                        <Label Grid.Column="0" Text="Stock Out"/>
+                        <Label Grid.Column="1" Text="Item ID"/>
+                        <Label Grid.Column="2" Text="Name"/>
+                    </Grid>
+                </ListView.Header>
                 <ListView.ItemTemplate>
                     <DataTemplate>
                         <ViewCell>
-                            <StackLayout>
-                                <Label Text="{Binding Item.Name}" 
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width=".5*"/>
+                                    <ColumnDefinition Width="1*"/>
+                                    <ColumnDefinition Width="3*"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Grid.Column="0" Text="{Binding Amount}" 
                                        Style="{DynamicResource ListItemDetailTextStyle}"/>
-                                <Label Text="{Binding Amount}" 
+                                <Label Grid.Column="1" Text="{Binding Id}" 
                                        Style="{DynamicResource ListItemDetailTextStyle}"/>
-                            </StackLayout>
+                                <Label Grid.Column="2" Text="{Binding Name}" 
+                                       Style="{DynamicResource ListItemDetailTextStyle}"/>
+                            </Grid>
                         </ViewCell>
                     </DataTemplate>
                 </ListView.ItemTemplate>

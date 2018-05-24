@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -7,6 +8,7 @@ using Dropbox.Api;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 using Plutus.Helpers;
+using Plutus.Helpers.Interface;
 
 namespace Plutus.Pages.Admin
 {
@@ -17,7 +19,7 @@ namespace Plutus.Pages.Admin
 		{
 			InitializeComponent ();
 
-            VersionLabel.Text = string.Format("Version: Beta", App.version);
+            VersionLabel.Text = string.Format("Version: Beta {0}", App.Version);
 		}
 
         private void Backup_Clicked(object sender, EventArgs e)
@@ -45,7 +47,7 @@ namespace Plutus.Pages.Admin
 
                 if (TransfSucc)
                 {
-                    await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Success"), string.Format(App.Translate.ProvideValue("DbBRSucc"), "Restored"), App.Translate.ProvideValue("Cancel"));
+                    await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Success"), string.Format(App.Translate.ProvideValue("DbBRSucc"), "Restored"), App.Translate.ProvideValue("OK"));
                     App.DbContext = new Database();
                     return;
                 }
@@ -59,6 +61,18 @@ namespace Plutus.Pages.Admin
             EId.Text = null;
             VerifyId.IsVisible = false;
             MPage.IsEnabled = true;
+        }
+
+        private async void DeleteDBButt_Clicked(object sender, EventArgs e)
+        {
+            var quit = await DisplayAlert(App.Translate.ProvideValue("Hmm"), "Are you sure you want to Delete the DB?(This is for quick testing only), App will shutdown after.", App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
+
+            if (!quit) return;
+            File.Delete(Path.Combine(FileIO.GetLib(), "App.config"));
+            var closer = DependencyService.Get<ICloseApp>();
+            if (closer == null) return;
+            App.EmpsLogged = null;
+            closer.CloseApp();
         }
     }
 }

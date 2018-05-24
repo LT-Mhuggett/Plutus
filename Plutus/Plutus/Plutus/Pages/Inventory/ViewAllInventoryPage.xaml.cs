@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Threading.Tasks;
 using Plutus.Models;
 using Plutus.Helpers;
 using Xamarin.Forms;
@@ -12,27 +11,36 @@ using Syncfusion.DataSource;
 using Syncfusion.ListView.XForms;
 using Syncfusion.GridCommon.ScrollAxis;
 using System.Reflection;
+using Microsoft.EntityFrameworkCore;
 using Plutus.Helpers.Extensions;
 using ItemTappedEventArgs = Syncfusion.ListView.XForms.ItemTappedEventArgs;
 
 namespace Plutus.Pages.Inventory
 {
     [XamlCompilation(XamlCompilationOptions.Compile)]
+    [SuppressMessage("ReSharper", "RedundantExtendsListEntry")]
     public partial class ViewAllInventoryPage : ContentPage
     {
         public ObservableCollection<ItemModel> Items { get; set; }
         private bool IsAlertShown { get; set; }
-        private ScrollAxisBase ScrollRows { get; set; }
+        private ScrollAxisBase ScrollRows { get; }
         private int StartLimit { get; set; }
-        private int Limit { get; set; }
-        private int TotalItemsInDB { get; set; }
-        private IQueryable<ItemModel> query { get; set; }
+        private int Limit { get; }
+        private int TotalItemsInDb { get; set; }
+        private IQueryable<ItemModel> Query { get; }
 
         public ViewAllInventoryPage()
         {
             InitializeComponent();
             
-            query = App.DbContext.GetAllItems();
+            Query = MainPage.InventDbContext.GetAllItems()
+                .Include(i => i.DisItems)
+                    .ThenInclude(di=>di.Discount)
+                .Include(i => i.Cat)
+                    .ThenInclude(c=>c.DisCats)
+                    .ThenInclude(dc => dc.Discount)
+                .Include(i=>i.Stock)
+                .Include(i=>i.Vat);
 
             ItemList.FooterSize = 20;
 
@@ -45,7 +53,9 @@ namespace Plutus.Pages.Inventory
             ScrollRows.Changed += ScrollRows_changed;
             
             StartLimit = 0;
-            Limit = 40;
+
+            //Testing use of loading all data
+            Limit = 40000;
 
             SetItems();
 
@@ -68,24 +78,24 @@ namespace Plutus.Pages.Inventory
         private void searchBar_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (ItemList.DataSource == null) return;
-            this.ItemList.DataSource.Filter = FilterItem;
-            this.ItemList.DataSource.RefreshFilter();
+            ItemList.DataSource.Filter = FilterItem;
+            ItemList.DataSource.RefreshFilter();
         }
 
         private bool FilterItem(object obj)
         {
             if (searchBar?.Text == null)
                 return true;
-            var item = obj as ItemModel;
-            return item.Name.ToLower().Contains(searchBar.Text.ToLower()) ||
-                   (item.Brand?.ToLower().Contains(searchBar.Text.ToLower()) ?? false) ||
-                   (item.Desc?.ToLower().Contains(searchBar.Text.ToLower()) ?? false);
+            return obj is ItemModel item &&
+                   (item.Name.ToLower().Contains(searchBar.Text.ToLower()) ||
+                        (item.Brand?.ToLower().Contains(searchBar.Text.ToLower()) ?? false) ||
+                        (item.Desc?.ToLower().Contains(searchBar.Text.ToLower()) ?? false));
         }
 
         private void LoadData()
         {
-            TotalItemsInDB = query.Count();
-            var items = query.OrderBy(item => item.Name).Skip(StartLimit).Take(Limit).ToList();
+            TotalItemsInDb = Query.Count();
+            var items = Query.OrderBy(item => item.Name).Skip(StartLimit).Take(Limit).ToList();
             foreach (var item in items)
             {
                 item.GroupKey = item.Name.ToUpper()[0];
@@ -106,7 +116,7 @@ namespace Plutus.Pages.Inventory
             var totalItems = ItemList.DataSource.DisplayItems.Count - 1 + header + footer + groupHeader;
 
             if (lastIndex != totalItems) return;
-            if (!IsAlertShown && TotalItemsInDB > StartLimit)
+            if (!IsAlertShown && TotalItemsInDb > StartLimit)
             {
                 IsAlertShown = !IsAlertShown;
                 LoadData();
@@ -121,15 +131,17 @@ namespace Plutus.Pages.Inventory
         {
             if (e.ItemData.ToModel<ItemModel>() == null)
                 return;
-            ItemModel temp = e.ItemData.ToModel<ItemModel>();
+            var temp = e.ItemData.ToModel<ItemModel>();
             if (!Authorisation.IsAuthorised("Item", "V", App.LastAuthUser))
             {
-                await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("AuthDeniedMesg"), App.Translate.ProvideValue("OK"));
-                Action action = async () =>
+                await Application.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("AuthDeniedMesg"), App.Translate.ProvideValue("OK"));
+
+                async void Action()
                 {
                     await Navigation.PushModalAsync(new ItemTemplate(temp));
-                };
-                Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Item", "V", action);
+                }
+
+                Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Item", "V", Action);
             }
             else
             {
@@ -143,8 +155,8 @@ namespace Plutus.Pages.Inventory
             var menuitem = (ItemModel)((MenuItem)sender).CommandParameter;
             if (!Authorisation.IsAuthorised("Item", "M", App.LastAuthUser))
             {
-                Action action = async () => await App.Current.MainPage.Navigation.PushAsync(new UpdateItemPage(menuitem));
-                Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Item", "M", action);
+                async void Action() => await Application.Current.MainPage.Navigation.PushAsync(new UpdateItemPage(menuitem));
+                Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Item", "M", Action);
                 return;
             }
             await Navigation.PushAsync(new UpdateItemPage(menuitem));
@@ -155,8 +167,8 @@ namespace Plutus.Pages.Inventory
             var menuitem = (ItemModel)((MenuItem)sender).CommandParameter;
             if(!Authorisation.IsAuthorised("Item", "M", App.LastAuthUser))
             {
-                Action action = async () => await App.Current.MainPage.Navigation.PushAsync(new StockUpdatePage(menuitem));
-                Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Item", "M", action);
+                async void Action() => await Application.Current.MainPage.Navigation.PushAsync(new StockUpdatePage(menuitem));
+                Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Item", "M", Action);
                 return;
             }
             await Navigation.PushAsync(new StockUpdatePage(menuitem));

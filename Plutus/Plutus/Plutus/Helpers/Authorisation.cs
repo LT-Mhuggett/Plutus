@@ -7,22 +7,18 @@ using Xamarin.Forms;
 using ZXing.Mobile;
 using System.Linq;
 using ZXing.Net.Mobile.Forms;
+using Microsoft.EntityFrameworkCore;
 
 namespace Plutus.Helpers
 {
     public class Authorisation
     {
         public static ZXingScannerPage _scanPage { get; private set; }
-        public static List<AuthActions> list { get; set; }
 
         public static bool IsAuthorised(string Action, string RightNeeded, EmployeeModel eTemp)
         {
             if (eTemp.Id == null)
                 return false;
-            if (list == null)
-            {
-                list = App.DbContext.Get<AuthActions>().ToList();
-            }
             foreach (var item in eTemp.EmpAuths)
             {
                 if (item.Auth.Name == Action)

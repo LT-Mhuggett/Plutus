@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Threading.Tasks;
 using Plutus.Models;
 using Plutus.Helpers.Extensions;
 using Xamarin.Forms;
@@ -16,9 +19,10 @@ namespace Plutus.Pages.Till
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class MainPage : ContentPage
     {
-        public ObservableCollection<Basket> Basket { get; set; }
-        public static Dictionary<int, ObservableCollection<Basket>> StoredTrans { get; private set; }
-        private ItemModel BagItem { get; }
+        public ObservableCollection<ItemModel> Basket { get; set; }
+        public static Dictionary<int, Tuple<string, ObservableCollection<ItemModel>>> StoredTrans { get; private set; }
+        internal static Database TillDbContext { get; set; }
+        private string BagItem { get; }
         private ZXingScannerPage _scanPage;
         private int _countBasketNum { get; set; }
         internal static MainPage Instance { get; private set; }
@@ -32,10 +36,12 @@ namespace Plutus.Pages.Till
         {
             InitializeComponent();
 
-            if(Basket == null)
-                Basket = new ObservableCollection<Basket>();
-            if(StoredTrans == null)
-                StoredTrans = new Dictionary<int, ObservableCollection<Basket>>();
+            TillDbContext = new Database();
+
+            if (Basket == null)
+                Basket = new ObservableCollection<ItemModel>();
+            if (StoredTrans == null)
+                StoredTrans = new Dictionary<int, Tuple<string, ObservableCollection<ItemModel>>>();
 
             if (Device.Idiom == TargetIdiom.Desktop)
             {
@@ -51,11 +57,11 @@ namespace Plutus.Pages.Till
 
             BindingContext = this;
 
-            var tempIList = App.DbContext.Search("BAG001").ToList();
-            if (tempIList.Count < 1)
+            var tempBag = FindItem("BAG001");
+            if (tempBag == null)
             {
                 var cat = new CategoryModel() {Name = "Customer Care", Description = "Items such as Bags etc."};
-                App.DbContext.Add(cat);
+                TillDbContext.Add(cat);
                 var bag = new ItemModel()
                 {
                     Id = "BAG001",
@@ -66,22 +72,26 @@ namespace Plutus.Pages.Till
                     Price = .05m,
                     Cost = 0.0m
                 };
-                App.DbContext.Add(bag);
-                App.DbContext.Save();
-                BagItem = bag;
+                TillDbContext.Add(bag);
+                if (!TillDbContext.Save())
+                {
+                    Debug.WriteLine("Error!");
+                }
+
+                tempBag = FindItem("BAG001");
             }
-            else
-                BagItem = tempIList.First();
-            Bag.Text = BagItem.Name;
+
+            Bag.Text = tempBag.Name;
+            BagItem = tempBag.Id;
             Bag.IsVisible = true;
-            
+
             _countBasketNum = 1;
             Instance = this;
 
-            MessagingCenter.Subscribe<App, ItemModel>((App)Application.Current, "AddItemToBasket", (sender, arg) =>
+            MessagingCenter.Subscribe<App, string>((App) Application.Current, "AddItemToBasket",
+                (sender, arg) =>
                 {
-                    var tempItem = new Basket(arg);
-                    BasketAdd(tempItem);
+                    BasketAdd(FindItem(arg));
                 });
         }
 
@@ -94,7 +104,7 @@ namespace Plutus.Pages.Till
         {
             if (e.Item == null)
                 return;
-            var temp = e.Item as Basket;
+            var temp = e.Item as ItemModel;
             if(!Authorisation.IsAuthorised("Item", "V", App.LastAuthUser))
             {
                 if (App.EmpsLogged.Count > 1)
@@ -120,7 +130,7 @@ namespace Plutus.Pages.Till
         /// where itemId, Return and SaleID are same remove the whole item from the Basket
         /// </summary>
         /// <param name="item">Item thats to be removed</param>
-        private void Remove(Basket item)
+        private void Remove(ItemModel item)
         {
             for(var i = 0; i <= Basket.Count - 1; i++)
             {
@@ -138,7 +148,7 @@ namespace Plutus.Pages.Till
         /// <param name="e">Event that the object called</param>
         private void OnDelete(object sender, EventArgs e)
         {
-            var menuItem = (Basket)((MenuItem)sender).CommandParameter;
+            var menuItem = (ItemModel)((MenuItem)sender).CommandParameter;
             Remove(menuItem);
         }
 
@@ -151,7 +161,7 @@ namespace Plutus.Pages.Till
         /// <param name="e">Event that the object called</param>
         private void OnRemove1(object sender, EventArgs e)
         {
-            var menuItem = (Basket)((MenuItem)sender).CommandParameter;
+            var menuItem = (ItemModel)((MenuItem)sender).CommandParameter;
             for (var i = 0; i <= Basket.Count - 1; i++)
             {
                 if (Basket[i].Id != menuItem.Id || Basket[i].Return != menuItem.Return ||
@@ -183,10 +193,9 @@ namespace Plutus.Pages.Till
             {
                 Device.BeginInvokeOnMainThread(() =>
                 {
-                    var tempIList = FindItem(result.Text);
-                    if (tempIList.Count != 1) return;
-                    var tempI = new Basket(tempIList.First());
-                    BasketAdd(tempI);
+                    var tempItem = FindItem(result.Text);
+                    if (tempItem == null) return;
+                    BasketAdd(tempItem);
                 });
             };
 
@@ -198,10 +207,10 @@ namespace Plutus.Pages.Till
         /// </summary>
         private void UpdatePrice()
         {
-            var price = Basket.Sum(item => (item.Price * item.Amount));
+            var price = Basket.Sum(item => (item.Price * (item.Return ? -1 : 1)) * item.Amount);
                 PriceCell.Text = Math.Round(price, 2, MidpointRounding.AwayFromZero).ToString();
             var exPrice = Basket.Sum(item =>
-                item.ExPrice * item.Amount);
+                (item.ExPrice * (item.Return? -1 : 1)) * item.Amount);
             PriceExVCell.Text = Math.Round(exPrice, 2, MidpointRounding.AwayFromZero).ToString();
         }
 
@@ -252,13 +261,13 @@ namespace Plutus.Pages.Till
         /// then clear Basket
         /// </summary>
         /// <param name="Action">Selected paymethod</param>
+        [SuppressMessage("ReSharper", "PossibleLossOfFraction")]
         private async void GenTransaction()
         {
-            var actionDic = new Dictionary<string, Func<PaymentMethodModel>> {
-                { App.Translate.ProvideValue("Card"), () => App.DbContext.GetPayM(App.Translate.ProvideValue("Card")).SingleOrDefault() },
-                { App.Translate.ProvideValue("Cash"), () => App.DbContext.GetPayM(App.Translate.ProvideValue("Cash")).SingleOrDefault() },
-                { App.Translate.ProvideValue("Cancel"), null}
-            };
+            var actionDic = TillDbContext.Get<PaymentMethodModel>().OrderBy(p => p.Name)
+                .ToDictionary<PaymentMethodModel, string, Func<PaymentMethodModel>>(tempPayMeth => tempPayMeth.Name,
+                    tempPayMeth => (() => tempPayMeth));
+            actionDic.Add(App.Translate.ProvideValue("Cancel"), null);
 
             EId.Text = null;
             VerifyId.IsVisible = false;
@@ -289,23 +298,25 @@ namespace Plutus.Pages.Till
                 var disCats = new List<Discount_Category>();
 
                 for (var i = 0; i < (item.DisItems?.Count ?? 0); i++)
-                    if (item.DisItems[i].StartDateTime < App.CurrentDateTime &&
-                        item.DisItems[i].EndDateTime > App.CurrentDateTime)
+                    if (item.DisItems != null && (item.DisItems[i].StartDateTime < App.CurrentDateTime &&
+                                                  item.DisItems[i].EndDateTime > App.CurrentDateTime))
                         disItems.Add(item.DisItems[i]);
 
-                for (var i = 0; i < (item.Cat.DisCats?.Count ?? 0); i++)
-                    if (item.Cat.DisCats[i].StartDateTime < App.CurrentDateTime &&
-                        item.Cat.DisCats[i].EndDateTime > App.CurrentDateTime)
+                for (var i = 0; i < (item.Cat?.DisCats?.Count ?? 0); i++)
+                    if (item.Cat.DisCats != null && (item.Cat.DisCats[i].StartDateTime < App.CurrentDateTime &&
+                                                     item.Cat.DisCats[i].EndDateTime > App.CurrentDateTime))
                         disCats.Add(item.Cat.DisCats[i]);
 
                 if (disItems.Count == 1)
                 {
                     discountsUsed.Add(disItems.Last().Discount);
                 }
+
                 if (disCats.Count == 1)
                 {
                     discountsUsed.Add(disCats.Last().Discount);
                 }
+
                 if (discountsUsed.Count == 0) continue;
                 if (discountsUsed.Last().UsesPerTransaction != -1)
                     discountsUsed.Last().UsesPerTransaction -=
@@ -315,20 +326,23 @@ namespace Plutus.Pages.Till
                             : (item.Amount / discountsUsed.Last().RequiredNumOfItems);
 
                 discountAmount -= -discountsUsed.Last().Type == 0
-                    ? (item.Amount / discountsUsed.Last().RequiredNumOfItems) * discountsUsed.Last().Amount
-                    : (item.Amount / discountsUsed.Last().RequiredNumOfItems) * discountsUsed.Last().Amount *
+                    ? item.Amount / discountsUsed.Last().RequiredNumOfItems * discountsUsed.Last().Amount
+                    : item.Amount / discountsUsed.Last().RequiredNumOfItems * discountsUsed.Last().Amount *
                       item.Price;
             }
 
-            total = Basket.Sum(item => item.Price * item.Amount) + discountAmount;
+            total = Basket.Sum(item => (item.Price * (item.Return? -1 : 1)) * item.Amount) + discountAmount;
 
-            for (var paid = 0.0m; paid < total;)
+            for (var paid = 0.0m; paid != total;)
             {
+                if (!Basket.Any(i => i.Return))
+                    if(paid > total)
+                        break;
                 var action = await DisplayActionSheet(App.Translate.ProvideValue("PayMeth"), App.Translate.ProvideValue("Cancel"), null, App.Translate.ProvideValue("Card"), App.Translate.ProvideValue("Cash"));
 
                 if (action == App.Translate.ProvideValue("Cancel"))
                 {
-                    App.DbContext.RevertDbContextChanges();
+                    TillDbContext.RevertDbContextChanges();
                     return;
                 }
 
@@ -337,21 +351,21 @@ namespace Plutus.Pages.Till
                 if (pay.PayMethod.MinimumCharge > total || refundOnly)
                 {
                     total += pay.PayMethod.Charge;
-                    var note = App.DbContext.GetNote(string.Format(App.Translate.ProvideValue("CardChargeNote"), pay.PayMethod.Charge));
+                    var note = TillDbContext.GetNote(string.Format(App.Translate.ProvideValue("CardChargeNote"), pay.PayMethod.Charge));
                     if (note == null)
                     {
                         note = new NoteModel() { Note = string.Format(App.Translate.ProvideValue("CardChargeNote"), pay.PayMethod.Charge) };
-                        App.DbContext.Add(note);
+                        TillDbContext.Add(note);
                     }
                     var notesSale = new Notes_SaleModel() { Note = note };
-                    App.DbContext.Add(notesSale);
+                    TillDbContext.Add(notesSale);
                     sale.Notes.Add(notesSale);
                 }
 
                 var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
                     string.Format(App.Translate.ProvideValue(refundOnly ? "HowMuchRefund" : "HowMuchPM"), action,
-                        Math.Round(total - paid, 2, MidpointRounding.AwayFromZero)), "enter here", "Confrim",
-                    App.Translate.ProvideValue("EnterCorrectValue"), total - paid, !pay.PayMethod.IsCashBackable);
+                        Math.Round(total - paid, 2, MidpointRounding.AwayFromZero)), "Enter Here", App.Translate.ProvideValue("Confirm"),
+                    App.Translate.ProvideValue("EnterCorrectValue"), total - paid, pay.PayMethod.IsCashBackable);
 
                 pay.Amount = amount;
 
@@ -361,7 +375,7 @@ namespace Plutus.Pages.Till
                 {
                     if (pay.PayMethod.IsChangeable)
                     {
-                        change = paid - total;
+                        change = pay.Change = paid - total;
                     }
                     else
                     {
@@ -369,7 +383,7 @@ namespace Plutus.Pages.Till
                         continue;
                     }
                 }
-                App.DbContext.Add(pay);
+                TillDbContext.Add(pay);
                 sale.PaySales.Add(pay);
             }
             sale.Total = total;
@@ -379,17 +393,17 @@ namespace Plutus.Pages.Till
                 var cashback = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("CashBack_"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
                 if (cashback)
                 {
-                    var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(App.Translate.ProvideValue("HowMuchCB"), "enter here", "Confrim", App.Translate.ProvideValue("EnterCorrectValue"), toPay:0.0m);
+                    var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(App.Translate.ProvideValue("HowMuchCB"), "Enter Here", App.Translate.ProvideValue("Confirm"), App.Translate.ProvideValue("EnterCorrectValue"), toPay:0.0m);
                     if (amount > 0.01m)
                     {
-                        var cB = App.DbContext.GetNote(string.Format(App.Translate.ProvideValue("CBNote"), amount));
+                        var cB = TillDbContext.GetNote(string.Format(App.Translate.ProvideValue("CBNote"), amount));
                         if(cB == null)
                         {
                             cB = new NoteModel { Note = string.Format(App.Translate.ProvideValue("CBNote"), amount) };
-                            App.DbContext.Add(cB);
+                            TillDbContext.Add(cB);
                         }
                         var cBNSale = new Notes_SaleModel { Note = cB };
-                        App.DbContext.Add(cBNSale);
+                        TillDbContext.Add(cBNSale);
                         sale.Notes.Add(cBNSale);
                         change += amount;
                         total += amount;
@@ -400,7 +414,7 @@ namespace Plutus.Pages.Till
             var Continue = await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("Continue"), Math.Round(total, 2, MidpointRounding.AwayFromZero)), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
             if (!Continue)
             {
-                App.DbContext.RevertDbContextChanges();
+                TillDbContext.RevertDbContextChanges();
                 return;
             }
 
@@ -409,18 +423,18 @@ namespace Plutus.Pages.Till
 
             foreach (var item in Basket)
             {
-                var Item = new ItemModel(item);
+                TillDbContext.AttachEntityWithoutTracking(item);
                 if (item.Return)
                 {
-                    var refund = new RefundModel() { ItemId = item.Id, Sale = sale, SaleIdReturned = item.SaleId, Reason = item.Reason, Amount = item.Amount };
+                    var refund = new RefundModel() { Item = item, Sale = sale, SaleIdReturned = item.SaleId, Reason = item.Reason, Amount = item.Amount };
                     sale.Refunds.Add(refund);
-                    App.DbContext.Add(refund);
+                    TillDbContext.Add(refund);
                 }
                 else
                 {
-                    var tran = new TransactionModel() { Item = Item, Sale = sale, Amount = item.Amount };
+                    var tran = new TransactionModel() { Item = item, Sale = sale, Amount = item.Amount };
                     sale.Transactions.Add(tran);
-                    App.DbContext.Add(tran);
+                    TillDbContext.Add(tran);
                 }
             }
 
@@ -447,29 +461,58 @@ namespace Plutus.Pages.Till
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), string.Format(App.Translate.ProvideValue("CashBack"), cashBack), App.Translate.ProvideValue("OK"));
             }
 
-            App.DbContext.Add(Sale);
-
-            if (!App.DbContext.Save())
+            var itemHasNoStock = false;
+            
+            foreach (var trans in Sale.Transactions)
             {
+                if (trans.Item.Stock != null) trans.Item.Stock.Quantity -= trans.Amount;
+                else itemHasNoStock = true;
+            }
+
+            TillDbContext.Add(Sale);
+
+            if (!TillDbContext.Save())
+            {
+                TillDbContext.RevertDbContextChanges();
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
                 return;
             }
 
-            var pdf = new PDFCreator(App.Store, null, Sale, cashBack);
+            TillDbContext = new Database();
+
+            var pdf = new PDFCreator();
+
+            await pdf.GenRecipt(App.Store, null, Sale, cashBack);
             
+                /*
+#if WINDOWS_UWP
+            var printerMgr = new PosPrinterManager();
+            await printerMgr.EnablePrinter();
+            printerMgr.PrintManagment(Sale, App.Store);
+#endif
+*/
             Basket.Clear();
             await DisplayAlert(App.Translate.ProvideValue("Transaction"), App.Translate.ProvideValue("TransConfMesg"), App.Translate.ProvideValue("OK"));
+
+            if (App.OneTimeStockWarning == false)
+                if(itemHasNoStock == false)
+                    return;
+
+            await DisplayAlert(App.Translate.ProvideValue("Warning"), App.Translate.ProvideValue("MissingStock"),
+                App.Translate.ProvideValue("OK"));
+            App.OneTimeStockWarning = true;
         }
 
-        private List<ItemModel> FindItem(string needle)
-        {
-            return App.DbContext.Search(ManScan.Text)
-                .Include(i => i.DisItems)
-                    .ThenInclude(di=>di.Discount)
-                .Include(i => i.Cat.DisCats)
-                    .ThenInclude(dc => dc.Discount)
-                .ToList();
-        }
+        private ItemModel FindItem(string needle) => TillDbContext.SearchId(needle)
+            .Include(i => i.DisItems)
+                .ThenInclude(di => di.Discount)
+            .Include(i => i.Cat)
+                .ThenInclude(c => c.DisCats)
+                .ThenInclude(dc => dc.Discount)
+            .Include(i => i.Stock)
+            .Include(i => i.Vat)
+            .AsNoTracking()
+            .SingleOrDefault();
 
         /// <summary>
         /// On ManScan complete
@@ -479,8 +522,8 @@ namespace Plutus.Pages.Till
         /// <param name="e">Event that the object called</param>
         private async void ManScan_Completed(object sender, EventArgs e)
         {
-            var tempIList = FindItem(ManScan.Text);
-            if (tempIList.Count != 1)
+            var tempItem = FindItem(ManScan.Text);
+            if (tempItem == null)
             {
                 ManScan.Text = null;
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("ItemIdNotFoundMesg"), App.Translate.ProvideValue("OK"));
@@ -489,9 +532,7 @@ namespace Plutus.Pages.Till
             ManScan.Text = null;
             //var s = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name;
             //Debug.WriteLine(s);
-            var tempI = new Basket(tempIList.First());
-            tempIList.Clear();
-            BasketAdd(tempI);
+            BasketAdd(tempItem);
         }
 
         /// <summary>
@@ -501,7 +542,7 @@ namespace Plutus.Pages.Till
         /// <param name="e">Event that the object called</param>
         private void Bag_Clicked(object sender, EventArgs e)
         {
-            BasketAdd(new Basket(BagItem));
+            BasketAdd(FindItem(BagItem));
         }
 
         /// <summary>
@@ -509,17 +550,30 @@ namespace Plutus.Pages.Till
         /// else add the item to Basket as new 
         /// </summary>
         /// <param name="tempItem">Item to add to Basket</param>
-        private async void BasketAdd(Basket tempItem)
+        private async void BasketAdd(ItemModel tempItem, int amountToAdd = 1)
         {
-            var amount = (int)await AmountToAdd.Text.ToInterger(App.Translate.ProvideValue("ValueEnteredWrong"));
-            if (amount == -1)
+            #region Get amount to add
+            //Get either the till manual input amount or get the amount automatically sent via basket recovery
+            var amountNullable = amountToAdd == 1
+                ? await AmountToAdd.Text.ToInterger(App.Translate.ProvideValue("ValueEnteredWrong"))
+                : amountToAdd;
+            //Ensure the amount is not null
+            if (amountNullable == null)
                 return;
+            //pass to a non-nullable int var
+            var amount = (int) amountNullable;
+            #endregion
+
+            #region Check wether to add new or increment amount 
+            //Search current basket if adding item already is present
             foreach (var item in Basket)
             {
                 if (item.Id != tempItem.Id) continue;
                 if (item.Return != tempItem.Return) continue;
+                if (!String.Equals(item.Reason ?? "Default", tempItem.Reason??"Default",
+                    StringComparison.OrdinalIgnoreCase)) continue;
                 if (item.SaleId != tempItem.SaleId) continue;
-                item.Amount=item.Amount+amount;
+                item.Amount = item.Amount + amount;
                 UpdatePrice();
                 return;
             }
@@ -527,6 +581,7 @@ namespace Plutus.Pages.Till
             Basket.Last().Amount = amount;
             UpdatePrice();
             AmountToAdd.Text = 1.ToString();
+            #endregion
         }
 
         /// <summary>
@@ -535,11 +590,21 @@ namespace Plutus.Pages.Till
         /// </summary>
         /// <param name="sender">Object that sent called the method</param>
         /// <param name="e">Event that the object called</param>
-        private void StoreTrans_Clicked(object sender, EventArgs e)
+        private async Task StoreTrans_Clicked(object sender, EventArgs e)
         {
             if (Basket.Count == 0) return;
-            StoredTrans.Add(_countBasketNum, new ObservableCollection<Basket>(Basket));
+            var nameStoreTrans = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync("Name the transction for easy identifiability", "Name of Transaction", App.Translate.ProvideValue("Confirm"), "Name not valid", false);
+            StoredTrans.Add(_countBasketNum,
+                new Tuple<string, ObservableCollection<ItemModel>>(nameStoreTrans,
+                    new ObservableCollection<ItemModel>(Basket)));
             Basket.Clear();
+            CheckStoreTransExist();
+            _countBasketNum++;
+        }
+
+        public void StoreTrans_DB(Tuple<string, ObservableCollection<ItemModel>> Trans)
+        {
+            StoredTrans.Add(_countBasketNum, Trans);
             CheckStoreTransExist();
             _countBasketNum++;
         }
@@ -559,13 +624,9 @@ namespace Plutus.Pages.Till
             }
             else
             {
-                foreach (var item in App.Current.MainPage.ToolbarItems)
-                {
-                    if (item.Text == App.Translate.ProvideValue("Baskets"))
-                        return;
-                }
-
-                App.Current.MainPage.ToolbarItems.Add(new ToolbarItem
+                if (Application.Current.MainPage.ToolbarItems.Any(item => item.Text == App.Translate.ProvideValue("Baskets")))
+                    return;
+                Application.Current.MainPage.ToolbarItems.Add(new ToolbarItem
                 {
                     Text = App.Translate.ProvideValue("Baskets"),
                     Icon = "",
@@ -596,16 +657,17 @@ namespace Plutus.Pages.Till
         /// <param name="e">Event that the object called</param>
         private async void OnReturn(object sender, EventArgs e)
         {
-            var menuItem = (Basket)((MenuItem)sender).CommandParameter;
-            Basket item = null;
+            var menuItem = (ItemModel)((MenuItem)sender).CommandParameter;
+            ItemModel item = null;
             foreach (var tempItem in Basket)
             {
-                if (tempItem.Id == menuItem.Id && tempItem.Return == menuItem.Return && tempItem.SaleId == menuItem.SaleId)
+                if (tempItem.Id == menuItem.Id && tempItem.Return == menuItem.Return &&
+                    tempItem.SaleId == menuItem.SaleId)
                 {
-                    item = new Models.Basket(tempItem);
+                    item = FindItem(tempItem.Id);
                 }
             }
-            await Navigation.PushAsync(new ReturnFormPage(item));
+            await Navigation.PushAsync(new ReturnFormPage(item, menuItem));
         }
 
         /// <summary>
@@ -617,13 +679,16 @@ namespace Plutus.Pages.Till
         /// </summary>
         /// <param name="selectedBasket">Basket Selected from BasketListPage</param>
         /// <param name="page">Current page instance to access non static methods and variables</param>
-        internal static void FetchSavedBasket(KeyValuePair<int, ObservableCollection<Basket>> selectedBasket, MainPage page)
+        internal static void FetchSavedBasket(
+            KeyValuePair<int, Tuple<string, ObservableCollection<ItemModel>>> selectedBasket, MainPage page)
         {
             Device.BeginInvokeOnMainThread(async () =>
             {
                 if (page.Basket.Count > 0)
                 {
-                    var quit = await page.DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("BasketReplace"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
+                    var quit = await page.DisplayAlert(App.Translate.ProvideValue("Hmm"),
+                        App.Translate.ProvideValue("BasketReplace"), App.Translate.ProvideValue("Yes"),
+                        App.Translate.ProvideValue("Cancel"));
 
                     if (quit)
                     {
@@ -634,10 +699,12 @@ namespace Plutus.Pages.Till
                         return;
                     }
                 }
-                foreach (var item in selectedBasket.Value)
+
+                foreach (var item in selectedBasket.Value.Item2)
                 {
-                    page.BasketAdd(item);
+                    page.BasketAdd(item, item.Amount);
                 }
+
                 StoredTrans.Remove(selectedBasket.Key);
                 if (StoredTrans.Count > 0)
                 {
@@ -651,6 +718,7 @@ namespace Plutus.Pages.Till
                         StoredTrans.Add(itemKey, itemData);
                     }
                 }
+
                 page._countBasketNum--;
                 page.CheckStoreTransExist();
             });
@@ -663,10 +731,10 @@ namespace Plutus.Pages.Till
         /// <param name="oldItem">Item to remove from Basket</param>
         /// <param name="newItem">Item to add to Basket</param>
         /// <param name="page">Current page instance to access non static methods and variables</param>
-        internal static void ReturnListener(Basket oldItem, Basket newItem, MainPage page)
+        internal static void ReturnListener(ItemModel oldItem, ItemModel newItem, MainPage page)
         {
             page.Remove(oldItem);
-            page.Basket.Add(newItem);
+            page.BasketAdd(newItem);
         }
 
         private void CancelEmpCheck_Clicked(object sender, EventArgs e)
@@ -674,7 +742,7 @@ namespace Plutus.Pages.Till
             EId.Text = null;
             VerifyId.IsVisible = false;
             MPage.IsEnabled = true;
-            App.DbContext.RevertDbContextChanges();
+            TillDbContext.RevertDbContextChanges();
         }
 
         protected override void OnAppearing()
@@ -682,6 +750,25 @@ namespace Plutus.Pages.Till
             base.OnAppearing();
             if (ManScan.IsVisible)
                 ManScan.SetFocusAfterDelay(1);
+
+            if (!TillDbContext.Get<SavedTransactionModel>().Any()) return;
+            foreach (var tempTran in TillDbContext.Get<SavedTransactionModel>()
+                .Include(st => st.SavedItems)
+                .ThenInclude(si=>si.Item))
+            {
+                var items = new ObservableCollection<ItemModel>();
+                foreach (var tempItem in tempTran.SavedItems)
+                {
+                    var itemForTuple = tempItem.Item;
+                    itemForTuple.Amount = tempItem.Amount;
+                    items.Add(itemForTuple);
+                }
+
+                var tuple = new Tuple<string, ObservableCollection<ItemModel>>(tempTran.Name, items);
+                StoreTrans_DB(tuple);
+                TillDbContext.Delete(tempTran);
+            }
+            TillDbContext.Save();
         }
     }
 }

@@ -26,6 +26,7 @@
                 <Button Grid.Row="1" Grid.Column="1" Text="50" Clicked="Value_Clicked" CommandParameter="50"/>
             </Grid>
             <Entry x:Name="InputE"/>
+            <Entry x:Name="InputEConf" IsVisible="False"/>
             <Button x:Name="ConfirmBut">
                 <Button.HeightRequest>
                     <!-- ReSharper disable once Xaml.InvalidType -->

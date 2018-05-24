@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
 
 namespace Plutus.Helpers.Extensions
@@ -20,6 +21,21 @@ namespace Plutus.Helpers.Extensions
             {
                 return default(T);
             }
+        }
+
+        public static bool TrySetProperty(this object obj, string property, object value)
+        {
+            var prop = obj.GetType().GetProperty(property);
+            if (prop == null || !prop.CanWrite) return false;
+            try
+            {
+                prop.SetValue(obj, Convert.ChangeType(value, prop.PropertyType), null);
+            }
+            catch(ArgumentException)
+            {
+                return false;
+            }
+            return true;
         }
     }
 }
