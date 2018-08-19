@@ -18,7 +18,7 @@ namespace Plutus.Helpers
         }
 
         /// <summary>
-        /// This uses the UK Government provided regex to ensure that the email provided is logically correct
+        /// This uses the UK Government provided regex to ensure that the postcode provided is logically correct
         /// </summary>
         /// <param name="PC">PostCode to test</param>
         /// <returns>True or false depending of test outcome</returns>

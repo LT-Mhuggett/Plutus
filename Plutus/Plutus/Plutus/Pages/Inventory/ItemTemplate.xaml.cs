@@ -82,9 +82,7 @@ namespace Plutus.Pages.Inventory
             ItemID.Text = itemTemp.Id;
             ItemName.Text = itemTemp.Name;
             ItemBrand.Text = itemTemp.Brand;
-            ItemCat.Text = App.DbContext.GetById<CategoryModel, int>(itemTemp.CatId).OfType<CategoryModel>()
-                .Select(m => m.Name)
-                .SingleOrDefault();
+            ItemCat.Text = itemTemp.Cat.Name;
             ItemDesc.Text = itemTemp.Desc;
             ItemPrice.Text = itemTemp.Price.ToString();
             ItemExPrice.Text = itemTemp.ExPrice.ToString();

@@ -1,19 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Reflection;
-using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
+using Windows.ApplicationModel.AppService;
+using Windows.ApplicationModel.Background;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Controls.Primitives;
-using Windows.UI.Xaml.Data;
-using Windows.UI.Xaml.Input;
-using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
 using Microsoft.HockeyApp;
 using Syncfusion.ListView.XForms.UWP;
@@ -25,6 +18,8 @@ namespace Plutus.UWP
     /// </summary>
     sealed partial class App : Application
     {
+        //public static POSIntegrator POSIntegratorObj = null;
+
         /// <summary>
         /// Initializes the singleton application object.  This is the first line of authored code
         /// executed, and as such is the logical equivalent of main() or WinMain().
@@ -33,6 +28,26 @@ namespace Plutus.UWP
         {
             this.InitializeComponent();
             this.Suspending += OnSuspending;
+        }
+
+        public static AppServiceConnection connection = null;
+
+        BackgroundTaskDeferral appServiceDefferal = null;
+
+        protected override void OnBackgroundActivated(BackgroundActivatedEventArgs args)
+        {
+            base.OnBackgroundActivated(args);
+            if (!(args.TaskInstance.TriggerDetails is AppServiceTriggerDetails)) return;
+            appServiceDefferal = args.TaskInstance.GetDeferral();
+            args.TaskInstance.Canceled += OnTaskCanceled;
+
+            AppServiceTriggerDetails details = args.TaskInstance.TriggerDetails as AppServiceTriggerDetails;
+            connection = details.AppServiceConnection;
+        }
+
+        private void OnTaskCanceled(IBackgroundTaskInstance sender, BackgroundTaskCancellationReason reason)
+        {
+            appServiceDefferal?.Complete();
         }
 
         /// <summary>
@@ -90,6 +105,9 @@ namespace Plutus.UWP
                 // parameter
                 rootFrame.Navigate(typeof(MainPage), e.Arguments);
             }
+
+            //POSIntegratorObj = new POSIntegrator();
+
             // Ensure the current window is active
             Window.Current.Activate();
         }

@@ -12,6 +12,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\AppSettings.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Authorisation.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Camera.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Csv.cs" />
@@ -24,6 +25,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Extensions\ViewExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\ICloseApp.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\IPicturePicker.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\IPOSCommunication.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\ISavePDF.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Loading.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\PDFCreator.cs" />

@@ -241,6 +241,27 @@ namespace Plutus.Pages.FirstTimeStartUp
             }
 
             FileIO.Save("App.config", fileC.ToArray());
+
+            var printerMgr = new PosPrinterManager();
+            var printerList = await printerMgr.GetPrinterList();
+
+            if (printerList.Count > 0)
+            {
+                var result = await App.Current.MainPage.DisplayActionSheet(App.Translate.ProvideValue("PrinterList_"), App.Translate.ProvideValue("Cancel"), null, printerList.Keys.ToArray());
+                if (result != App.Translate.ProvideValue("Cancel"))
+                {
+                    App.AppSettings.PrinterLogicalName = result;
+                }
+                else
+                {
+                    await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Warning"), App.Translate.ProvideValue("NoPrinter"), App.Translate.ProvideValue("Cancel"));
+                }
+            }
+            else
+            {
+                await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Warning"), App.Translate.ProvideValue("NoPrinter"), App.Translate.ProvideValue("Cancel"));
+            }
+
             Application.Current.MainPage = new NavigationPage(new LoginPage());
             Loading.TogleLoading(LCV, LAI);
 #endif

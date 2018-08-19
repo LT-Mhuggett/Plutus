@@ -5,11 +5,11 @@ using Windows.Storage;
 using Windows.Storage.Pickers;
 using Windows.Storage.Streams;
 using Plutus.Helpers.Interface;
-using Plutus.UWP;
+using Plutus.Implementations;
 using Xamarin.Forms;
 
 [assembly: Dependency(typeof(PicturePickerImplementation))]
-namespace Plutus.UWP
+namespace Plutus.Implementations
 {
     public class PicturePickerImplementation : IPicturePicker
     {

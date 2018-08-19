@@ -713,4 +713,19 @@ This message will only appear once untill the Plutus restarts, of whcih it will 
   <data name="TaxNotCorrectMesg" xml:space="preserve">
     <value>Please enter a correct Tax name</value>
   </data>
+  <data name="Id" xml:space="preserve">
+    <value>ID</value>
+  </data>
+  <data name="Total" xml:space="preserve">
+    <value>Total</value>
+  </data>
+  <data name="Change" xml:space="preserve">
+    <value>Change</value>
+  </data>
+  <data name="Printerlist_" xml:space="preserve">
+    <value>Which printer do you use?</value>
+  </data>
+  <data name="NoPrinter" xml:space="preserve">
+    <value>No printer found/selected PDFs will be created for receipts</value>
+  </data>
 </root>

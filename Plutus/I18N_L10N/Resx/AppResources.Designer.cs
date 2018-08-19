@@ -360,6 +360,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Change.
+        /// </summary>
+        internal static string Change {
+            get {
+                return ResourceManager.GetString("Change", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Their were changes made do you want to save? (if you don&apos;t save changes will be lost!).
         /// </summary>
         internal static string ChangesMade {
@@ -839,6 +848,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to ID.
+        /// </summary>
+        internal static string Id {
+            get {
+                return ResourceManager.GetString("Id", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to ID/Name.
         /// </summary>
         internal static string IDName {
@@ -1122,6 +1140,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to No printer found/selected PDFs will be created for receipts.
+        /// </summary>
+        internal static string NoPrinter {
+            get {
+                return ResourceManager.GetString("NoPrinter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to All amounts of {0} for this Sale ID have been returned already..
         /// </summary>
         internal static string NoRefundsLeftMesg {
@@ -1284,6 +1311,15 @@ namespace I18N_L10N.Resx {
         internal static string Price {
             get {
                 return ResourceManager.GetString("Price", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Which printer do you use?.
+        /// </summary>
+        internal static string Printerlist_ {
+            get {
+                return ResourceManager.GetString("Printerlist_", resourceCulture);
             }
         }
         
@@ -1689,6 +1725,15 @@ namespace I18N_L10N.Resx {
         internal static string Till {
             get {
                 return ResourceManager.GetString("Till", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Total.
+        /// </summary>
+        internal static string Total {
+            get {
+                return ResourceManager.GetString("Total", resourceCulture);
             }
         }
         

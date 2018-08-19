@@ -85,6 +85,8 @@ namespace Plutus.Pages.Till
             BagItem = tempBag.Id;
             Bag.IsVisible = true;
 
+            TillDbContext.DetachEntity(tempBag);
+
             _countBasketNum = 1;
             Instance = this;
 
@@ -426,13 +428,13 @@ namespace Plutus.Pages.Till
                 TillDbContext.AttachEntityWithoutTracking(item);
                 if (item.Return)
                 {
-                    var refund = new RefundModel() { Item = item, Sale = sale, SaleIdReturned = item.SaleId, Reason = item.Reason, Amount = item.Amount };
+                    var refund = new RefundModel() { ItemId = item.Id, Sale = sale, SaleIdReturned = item.SaleId, Reason = item.Reason, Amount = item.Amount };
                     sale.Refunds.Add(refund);
                     TillDbContext.Add(refund);
                 }
                 else
                 {
-                    var tran = new TransactionModel() { Item = item, Sale = sale, Amount = item.Amount };
+                    var tran = new TransactionModel() { ItemId = item.Id, Sale = sale, Amount = item.Amount };
                     sale.Transactions.Add(tran);
                     TillDbContext.Add(tran);
                 }
@@ -465,7 +467,10 @@ namespace Plutus.Pages.Till
             
             foreach (var trans in Sale.Transactions)
             {
-                if (trans.Item.Stock != null) trans.Item.Stock.Quantity -= trans.Amount;
+                if (Basket.First(i => i.Id.Equals(trans.ItemId)).Stock != null)
+                {
+                    TillDbContext.UpdateStock(trans.ItemId, trans.Amount);
+                }
                 else itemHasNoStock = true;
             }
 
@@ -480,17 +485,11 @@ namespace Plutus.Pages.Till
 
             TillDbContext = new Database();
 
-            var pdf = new PDFCreator();
-
-            await pdf.GenRecipt(App.Store, null, Sale, cashBack);
-            
-                /*
 #if WINDOWS_UWP
             var printerMgr = new PosPrinterManager();
-            await printerMgr.EnablePrinter();
-            printerMgr.PrintManagment(Sale, App.Store);
+            await printerMgr.ExecuteOposOrPdfAsync(App.Store, null, Sale, cashBack);
 #endif
-*/
+
             Basket.Clear();
             await DisplayAlert(App.Translate.ProvideValue("Transaction"), App.Translate.ProvideValue("TransConfMesg"), App.Translate.ProvideValue("OK"));
 

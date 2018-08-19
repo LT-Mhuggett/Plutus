@@ -146,6 +146,7 @@ namespace Plutus.Helpers
         {
             var emp = Get<EmployeeModel>()
                 .Include(e => e.EmpAuths)
+                .ThenInclude(ea=>ea.Auth)
                 .SingleOrDefault(e =>
                     e.Id.Equals(idEmail) || e.Email.Equals(idEmail, StringComparison.CurrentCultureIgnoreCase));
             if (emp == null)
@@ -307,6 +308,16 @@ namespace Plutus.Helpers
                 .Include(e => e.Store)
                 .FirstOrDefault(e => e.Id.Equals(id));
             return emp;
+        }
+
+        internal void UpdateStock(string id, int quant)
+        {
+            using (var StockDatabase = new Context(Path.Combine(FileIO.GetLib(), "Database.db")))
+            {
+                var stock = StockDatabase.Set<StockModel>().First(s => s.ItemId.Equals(id) && s.StoreId.Equals(App.Store.Id));
+                stock.Quantity -= quant;
+                StockDatabase.SaveChanges();
+            }
         }
 
         private void TempData()

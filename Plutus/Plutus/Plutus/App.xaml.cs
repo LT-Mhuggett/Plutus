@@ -12,24 +12,36 @@ using Plutus.Models;
 using Microsoft.Azure.Mobile;
 using Microsoft.Azure.Mobile.Analytics;
 using Microsoft.Azure.Mobile.Crashes;
-using Device = Xamarin.Forms.Device;
-using Page = Xamarin.Forms.Page;
+using Plutus.Helpers.Interface;
 #if __ANDROID__ || __IOS__
 using System.Reflection;
 #elif WINDOWS_UWP
 using Windows.ApplicationModel;
+using Windows.Foundation.Metadata;
 #endif
 
 namespace Plutus
 {
     public partial class App : Application
     {
+        /**
+         * App Globals 
+         */
+        //App Settings Context
+        internal static AppSettings AppSettings = new AppSettings();
+        //Current Logged Users
         internal static ObservableCollection<EmployeeModel> EmpsLogged = new ObservableCollection<EmployeeModel>();
+        //Last Authorized User
         internal static EmployeeModel LastAuthUser = new EmployeeModel();
+        //Current Store
         internal static StoreModel Store = new StoreModel();
+        //App DB Context
         internal static Database DbContext;
+        //I8N_L10N
         internal static readonly TranslateExtension Translate = new TranslateExtension();
+        //Till Monatary Total
         internal static int TillAmmount;
+        //Current Version
         internal static string Version;
         internal static DateTime CurrentDateTime { get; private set; }
         internal static bool OneTimeStockWarning { get; set; }
@@ -37,7 +49,7 @@ namespace Plutus
         public App()
         {
             InitializeComponent();
-            Device.StartTimer(TimeSpan.FromSeconds(1), () =>
+            Xamarin.Forms.Device.StartTimer(TimeSpan.FromSeconds(1), () =>
             {
                 CurrentDateTime = DateTime.Now;
                 return true;
@@ -63,14 +75,20 @@ namespace Plutus
             DbContext = new Database();
         }
 
-        protected override void OnStart()
+        protected override async void OnStart()
         {
             MobileCenter.Start(
                 "uwp=6203c60a-2c30-49c5-a80f-fa96367529e7;" + "android=e4899b2e-f595-4bf7-ab33-e173c89fb21f" +
                 "ios=59f118ee-1f83-43f9-804d-59242b97f316;", typeof(Analytics), typeof(Crashes));
+#if WINDOWS_UWP
+            if (ApiInformation.IsApiContractPresent("Windows.ApplicationModel.FullTrustAppContract", 1, 0))
+            {
+                await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
+            }
+#endif
         }
 
-        protected override void OnSleep()
+        protected override async void OnSleep()
         {
             if (Pages.Till.MainPage.StoredTrans == null) return;
             foreach (var tempTran in Pages.Till.MainPage.StoredTrans)
@@ -93,11 +111,17 @@ namespace Plutus
                 };
                 DbContext.Add(tran);
             }
-
+#if WINDOWS_UWP
             if (!DbContext.Save())
             {
                 Debug.WriteLine("Save Failed On Close/Sleep!");
             }
+            if (await DependencyService.Get<IPOSCommunication>().CloseCommunicationAsync())
+                Debug.WriteLine("Trust App Closed!");
+            else
+                Debug.WriteLine("Trust App already closed or failed to close!!!!");
+            
+#endif
         }
 
         protected override void OnResume()

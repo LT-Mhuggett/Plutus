@@ -1,5 +1,5 @@
 ﻿using Plutus.Helpers.Interface;
-using Plutus.UWP;
+using Plutus.UWP.Implementations;
 using System;
 using System.IO;
 using System.Threading.Tasks;
@@ -7,7 +7,7 @@ using Windows.Storage;
 using Xamarin.Forms;
 
 [assembly: Dependency(typeof(SavePDFImplementation))]
-namespace Plutus.UWP
+namespace Plutus.UWP.Implementations
 {
     class SavePDFImplementation : ISavePDF
     {

@@ -14,22 +14,20 @@ namespace Plutus.Helpers
     public class Authorisation
     {
         public static ZXingScannerPage _scanPage { get; private set; }
+        public static List<AuthActions> list { get; set; }
 
         public static bool IsAuthorised(string Action, string RightNeeded, EmployeeModel eTemp)
         {
             if (eTemp.Id == null)
                 return false;
+            if (list == null)
+                list = App.DbContext.Get<AuthActions>().ToList();
             foreach (var item in eTemp.EmpAuths)
             {
-                if (item.Auth.Name == Action)
-                {
-                    var propertyInfo = typeof(Emp_AuthActions).GetProperties().Where(p => p.Name == RightNeeded).Single();
-                    var test = propertyInfo.GetValue(item, null);
-                    if ((bool)test)
-                    {
-                        return true;
-                    }
-                }
+                if (item.Auth.Name != Action) continue;
+                var propertyInfo = typeof(Emp_AuthActions).GetProperties().Single(p => p.Name == RightNeeded);
+                var test = propertyInfo.GetValue(item);
+                if ((bool)test) return true;
             }
             return false;
         }
