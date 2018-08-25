@@ -148,9 +148,16 @@ namespace Plutus.Helpers
 
         internal async Task ExecuteOposOrPdfAsync(StoreModel store, System.IO.Stream image, SaleModel sale, decimal cashBack)
         {
+            if(App.AppSettings.PrinterLogicalName == null)
+            {
+                var pdf = new PDFCreator();
+                await pdf.GenRecipt(store, null, sale, cashBack);
+            }
             _printers = await GetPrinterList();
             if(_printers.Count == 0)
             {
+                await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Hmm"), "No Printers found defaulting to PDF, Please fix this issue within the Admin control area.", App.Translate.ProvideValue("Cancel"));
+                App.AppSettings.PrinterLogicalName = null;
                 var pdf = new PDFCreator();
                 await pdf.GenRecipt(store, null, sale, cashBack);
             }
@@ -167,7 +174,10 @@ namespace Plutus.Helpers
                 }
                 if(!printerFound)
                 {
-                    Debug.Write("Printer not found");
+                    await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Hmm"), "No Printer could not be found defaulting to PDF, Please fix this issue within the Admin control area.", App.Translate.ProvideValue("Cancel"));
+                    App.AppSettings.PrinterLogicalName = null;
+                    var pdf = new PDFCreator();
+                    await pdf.GenRecipt(store, null, sale, cashBack);
                 }
                 await SetupAndExecutePrint(sale, store);
                 await CloseConnection();
