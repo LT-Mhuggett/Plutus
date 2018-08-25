@@ -8,7 +8,6 @@ using Windows.ApplicationModel.Background;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
-using Microsoft.HockeyApp;
 using Syncfusion.ListView.XForms.UWP;
 
 namespace Plutus.UWP
@@ -87,7 +86,6 @@ namespace Plutus.UWP
 
                 Xamarin.Forms.Forms.Init(e, assembliesToInclude);
                 Xamarin.FormsMaps.Init("99jcdVc1iMJ8n1Khrl9I~etP0OF8kmn-3wJOxIpsYdw~AnK0meHNtPdlka2lJqS698Ou_O3UqG4YqM5EIk6zJ3ooYIxJCFM6BQNYncYc1kLm");
-                HockeyClient.Current.Configure("d07356938d974b1ba337b2f37a91656e");
 
                 if (e.PreviousExecutionState == ApplicationExecutionState.Terminated)
                 {

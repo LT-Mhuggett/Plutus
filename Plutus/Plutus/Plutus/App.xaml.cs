@@ -8,11 +8,14 @@ using Plutus.Pages;
 using I18N_L10N;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using Plutus.Models;
+using Plutus.Models;/*
 using Microsoft.Azure.Mobile;
 using Microsoft.Azure.Mobile.Analytics;
-using Microsoft.Azure.Mobile.Crashes;
+using Microsoft.Azure.Mobile.Crashes;*/
 using Plutus.Helpers.Interface;
+using Microsoft.AppCenter.Analytics;
+using Microsoft.AppCenter;
+using Microsoft.AppCenter.Crashes;
 #if __ANDROID__ || __IOS__
 using System.Reflection;
 #elif WINDOWS_UWP
@@ -77,9 +80,13 @@ namespace Plutus
 
         protected override async void OnStart()
         {
+            AppCenter.Start("uwp=85e2fee4-7bf1-4180-872a-040e636a3a60;" +
+                "android={b20338a6-19b9-4f57-a923-c4efec1fa0a1}" +
+                "ios={81d0ebb5-e7cf-40b2-bcdf-b8f5f13f65dc}", typeof(Analytics), typeof(Crashes));
+            /*
             MobileCenter.Start(
                 "uwp=6203c60a-2c30-49c5-a80f-fa96367529e7;" + "android=e4899b2e-f595-4bf7-ab33-e173c89fb21f" +
-                "ios=59f118ee-1f83-43f9-804d-59242b97f316;", typeof(Analytics), typeof(Crashes));
+                "ios=59f118ee-1f83-43f9-804d-59242b97f316;", typeof(Analytics), typeof(Crashes));*/
 #if WINDOWS_UWP
             if (ApiInformation.IsApiContractPresent("Windows.ApplicationModel.FullTrustAppContract", 1, 0))
             {

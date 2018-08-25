@@ -152,6 +152,7 @@ namespace Plutus.Helpers
             {
                 var pdf = new PDFCreator();
                 await pdf.GenRecipt(store, null, sale, cashBack);
+                return;
             }
             _printers = await GetPrinterList();
             if(_printers.Count == 0)
