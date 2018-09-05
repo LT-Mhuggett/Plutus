@@ -46,6 +46,15 @@
       <string>Icon-Small@2x.png</string>
       <string>Icon-Small@3x.png</string>
     </array>
+    <key>CFBundleURLTypes</key>
+    <array>
+      <dict>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>appcenter-81d0ebb5-e7cf-40b2-bcdf-b8f5f13f65dc</string>
+        </array>
+      </dict>
+    </array>
     <Key>UIAppFonts</Key>
     <array>
       <string>Font-Awesome-5.otf</string>

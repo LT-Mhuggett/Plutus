@@ -16,6 +16,7 @@ using Plutus.Helpers.Interface;
 using Microsoft.AppCenter.Analytics;
 using Microsoft.AppCenter;
 using Microsoft.AppCenter.Crashes;
+using Microsoft.AppCenter.Distribute;
 #if __ANDROID__ || __IOS__
 using System.Reflection;
 #elif WINDOWS_UWP
@@ -80,9 +81,10 @@ namespace Plutus
 
         protected override async void OnStart()
         {
+            AppCenter.LogLevel = LogLevel.Verbose;
             AppCenter.Start("uwp=85e2fee4-7bf1-4180-872a-040e636a3a60;" +
                 "android={b20338a6-19b9-4f57-a923-c4efec1fa0a1}" +
-                "ios={81d0ebb5-e7cf-40b2-bcdf-b8f5f13f65dc}", typeof(Analytics), typeof(Crashes));
+                "ios={81d0ebb5-e7cf-40b2-bcdf-b8f5f13f65dc}", typeof(Analytics), typeof(Crashes), typeof(Distribute));
             /*
             MobileCenter.Start(
                 "uwp=6203c60a-2c30-49c5-a80f-fa96367529e7;" + "android=e4899b2e-f595-4bf7-ab33-e173c89fb21f" +

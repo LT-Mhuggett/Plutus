@@ -52,28 +52,30 @@ namespace POSIntegration.POS
         public string GetPrinterList()
         {
             var printersData = new Dictionary<string, Dictionary<string, object>>();
-            var printers = posExplorer.GetDevices(DeviceType.PosPrinter);
-            foreach(DeviceInfo printerInfo in printers)
+            if (printersData.Count > 0)
             {
-                var tempPrinter = posExplorer.CreateInstance(printerInfo) as PosPrinter;
-                var wasOpened = false;
-                if(tempPrinter.State == ControlState.Closed)
+                var printers = posExplorer.GetDevices(DeviceType.PosPrinter);
+                foreach (DeviceInfo printerInfo in printers)
                 {
-                    tempPrinter.Open();
-                    wasOpened = true;
-                }
-                var capabilites = POSPrinter.GetCapabilites(tempPrinter);
-                if(wasOpened)
-                    tempPrinter.Close();
-                var info = new Dictionary<string, object>()
+                    var tempPrinter = posExplorer.CreateInstance(printerInfo) as PosPrinter;
+                    var wasOpened = false;
+                    if (tempPrinter.State == ControlState.Closed)
+                    {
+                        tempPrinter.Open();
+                        wasOpened = true;
+                    }
+                    var capabilites = POSPrinter.GetCapabilites(tempPrinter);
+                    if (wasOpened)
+                        tempPrinter.Close();
+                    var info = new Dictionary<string, object>()
                 {
                     {"Manufacture Name", printerInfo.ManufacturerName },
                     {"Description", printerInfo.Description},
                 };
-                var combinedDic = info.Concat(capabilites).GroupBy(d=>d.Key).ToDictionary(d=>d.Key, d=>d.First().Value);
-                printersData.Add(printerInfo.LogicalNames.FirstOrDefault()??"", combinedDic);
+                    var combinedDic = info.Concat(capabilites).GroupBy(d => d.Key).ToDictionary(d => d.Key, d => d.First().Value);
+                    printersData.Add(printerInfo.LogicalNames.FirstOrDefault() ?? "", combinedDic);
+                }
             }
-            if(printersData.Count==0)
                 Debug.WriteLine("No Printers found!");
             return JsonConvert.SerializeObject(printersData);
         }

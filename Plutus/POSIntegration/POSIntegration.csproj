@@ -101,4 +101,8 @@
     <Content Include="FodyWeavers.xml" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>xcopy /Y /R "$(ProjectDir)$(OutDir)POSIntegration.exe" "$(SolutionDir)Plutus\Plutus.UWP\Assets\Exes"
+xcopy /Y /R "$(ProjectDir)$(OutDir)POSIntegration.exe.config" "$(SolutionDir)Plutus\Plutus.UWP\Assets\Exes"</PostBuildEvent>
+  </PropertyGroup>
 </Project>

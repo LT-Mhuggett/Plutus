@@ -2,6 +2,7 @@
 using Foundation;
 using UIKit;
 using Syncfusion.ListView.XForms.iOS;
+using Microsoft.AppCenter.Distribute;
 
 namespace Plutus.iOS
 {
@@ -24,6 +25,7 @@ namespace Plutus.iOS
             SfListViewRenderer.Init();
             Xamarin.FormsMaps.Init();
 		    ZXing.Net.Mobile.Forms.iOS.Platform.Init();
+            Distribute.DontCheckForUpdatesInDebug();
            /* var manager = BITHockeyManager.SharedHockeyManager;
             manager.Configure("3250123b05a54662b341241d21b1c1b1");
             manager.StartManager();*/
