@@ -62,7 +62,7 @@ namespace POSIntegration
             switch (keyArray[1])
             {
                 case "POS":
-                    var posManager = GetPosManager(keyArray[0]);
+                    var posManager = GetOrCreatePosManager(keyArray[0]);
                     if(keyArray[2].Equals("releaseObject"))
                         _posManagers.Remove(posManager);
                     var sendBack = posManager.POSCommandSelection(keyArray[2], value);
@@ -71,13 +71,29 @@ namespace POSIntegration
                     args.Request.SendResponseAsync(valueSet).Completed += delegate { };
                     valueSet.Clear();
                     break;
-                case "endProcess":
-                    valueSet.Add("response", "processEnded");
+
+                case "closeCommunication":
+                    RemovePosManager(keyArray[0]);
+                    valueSet.Add("response", "true");
                     args.Request.SendResponseAsync(valueSet).Completed += delegate { };
-                    _posManagers = null;
-                    keepRunning = false;
                     valueSet.Clear();
-                    return;
+                    break;
+
+                case "endProcess":
+                    RemovePosManager(keyArray[0]);
+                    if(_posManagers.Count==0)
+                    {
+                        keepRunning = false;
+                        valueSet.Add("response", "true");
+                    }
+                    else
+                    {
+                        valueSet.Add("response", "false");
+                    }
+                    args.Request.SendResponseAsync(valueSet).Completed += delegate { };
+                    valueSet.Clear();
+                    break;
+
                 default:
                     Debug.WriteLine("MISSING COMMAND IN PROGRAM!!!!");
                     valueSet.Add("response", "missingCommand");
@@ -87,7 +103,7 @@ namespace POSIntegration
             }
         }
 
-        private static PosManager GetPosManager(string cId)
+        private static PosManager FindPosManager(string cId)
         {
             foreach (var tempPosManager in _posManagers)
             {
@@ -96,9 +112,23 @@ namespace POSIntegration
                     return tempPosManager;
                 }
             }
-            var posManager = new PosManager(cId);
+            return null;
+        }
+
+        private static PosManager GetOrCreatePosManager(string cId)
+        {
+            var posManager = FindPosManager(cId) ?? new PosManager(cId);
             _posManagers.Add(posManager);
             return posManager;
+        }
+
+        private static void RemovePosManager(string cId)
+        {
+            var posManager = FindPosManager(cId);
+            if(posManager != null)
+            {
+                _posManagers.Remove(posManager);
+            }
         }
     }
 }

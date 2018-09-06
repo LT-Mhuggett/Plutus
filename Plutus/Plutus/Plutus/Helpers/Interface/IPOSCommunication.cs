@@ -11,6 +11,6 @@ namespace Plutus.Helpers.Interface
 
         Task<object> SendAndGetReponseAsync(List<KeyValuePair<string, object>> keyValue);
 
-        Task<bool> CloseCommunicationAsync();
+        Task<bool> CloseCommunicationAsync(string Id);
     }
 }

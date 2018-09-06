@@ -13,16 +13,41 @@ namespace Plutus.UWP.Implementations
 {
     public class POSCommunicationImplementation : IPOSCommunication
     {
-        public async Task<bool> CloseCommunicationAsync()
+        public async Task<bool> CloseCommunicationAsync(string Id)
         {
             /*
             throw new NotImplementedException();
             */
             ValueSet valueSet = new ValueSet();
-            valueSet.Add("endProcess", "null");
+            valueSet.Add($"{Id}.closeCommunication", "null");
             if(App.connection == null) return true;
             AppServiceResponse serviceResponse = await App.connection.SendMessageAsync(valueSet);
-            return serviceResponse.Message["response"] as string == "processEnded";
+            if(Boolean.Parse(serviceResponse.Message["response"] as string))
+            {
+                App.appServiceDefferal.Complete();
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        public static async Task<bool> CloseServiceAsync(string Id)
+        {
+            ValueSet valueSet = new ValueSet();
+            valueSet.Add($"{Id}.endProcess", "null");
+            if (App.connection == null) return true;
+            AppServiceResponse serviceResponse = await App.connection.SendMessageAsync(valueSet);
+            if (Boolean.Parse(serviceResponse.Message["response"] as string))
+            {
+                App.appServiceDefferal.Complete();
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
 
         public async Task<bool> OpenCommunicationAsync()

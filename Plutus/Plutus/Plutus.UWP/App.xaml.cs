@@ -31,7 +31,7 @@ namespace Plutus.UWP
 
         public static AppServiceConnection connection = null;
 
-        BackgroundTaskDeferral appServiceDefferal = null;
+        public static BackgroundTaskDeferral appServiceDefferal = null;
 
         protected override void OnBackgroundActivated(BackgroundActivatedEventArgs args)
         {

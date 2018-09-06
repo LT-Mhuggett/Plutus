@@ -97,7 +97,7 @@ namespace Plutus
 #endif
         }
 
-        protected override async void OnSleep()
+        protected override void OnSleep()
         {
             if (Pages.Till.MainPage.StoredTrans == null) return;
             foreach (var tempTran in Pages.Till.MainPage.StoredTrans)
@@ -120,17 +120,10 @@ namespace Plutus
                 };
                 DbContext.Add(tran);
             }
-#if WINDOWS_UWP
             if (!DbContext.Save())
             {
                 Debug.WriteLine("Save Failed On Close/Sleep!");
             }
-            if (await DependencyService.Get<IPOSCommunication>().CloseCommunicationAsync())
-                Debug.WriteLine("Trust App Closed!");
-            else
-                Debug.WriteLine("Trust App already closed or failed to close!!!!");
-            
-#endif
         }
 
         protected override void OnResume()

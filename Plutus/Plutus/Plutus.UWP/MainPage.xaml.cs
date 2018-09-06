@@ -28,6 +28,20 @@ namespace Plutus.UWP
             SfListViewRenderer.Init();
 
             LoadApplication(new Plutus.App());
+
+            Windows.UI.Core.Preview.SystemNavigationManagerPreview.GetForCurrentView().CloseRequested +=
+                async (sender, args) =>
+                {
+                    if (await Implementations.POSCommunicationImplementation.CloseServiceAsync($"{Plutus.App.Store.Id}-32134"))
+                    {
+                        args.Handled = false;
+                    }
+                    else
+                    {
+                        await Plutus.App.Current.MainPage.DisplayAlert("Wait!", "There is another till using printer, Please try again later.", "OK");
+                        args.Handled = true;
+                    }
+                };
         }
     }
 }
