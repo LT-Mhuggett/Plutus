@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Plutus.Helpers;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
-using Plutus.Models;
+using Database.Models;
 using Plugin.Media;
 using Plutus.Helpers.Interface;
 using ZXing.Mobile;

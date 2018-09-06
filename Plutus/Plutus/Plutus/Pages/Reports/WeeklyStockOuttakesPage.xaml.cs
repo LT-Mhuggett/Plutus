@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Plutus.Helpers.Extensions;
-using Plutus.Models;
+using Database.Models;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 

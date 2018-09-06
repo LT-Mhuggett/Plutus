@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using Plugin.Clipboard;
-using Plutus.Models;
+using Database.Models;
 using Plutus.Helpers;
 using Plutus.Helpers.Extensions;
 using Xamarin.Forms;

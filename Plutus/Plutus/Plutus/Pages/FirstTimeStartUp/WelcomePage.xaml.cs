@@ -28,7 +28,7 @@ namespace Plutus.Pages.FirstTimeStartUp
 	            await Application.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Success"),
 	                string.Format(App.Translate.ProvideValue("DbBRSucc"), "Restored"),
 	                App.Translate.ProvideValue("Cancel"));
-	            App.DbContext = new Database();
+	            App.DbContext = new Helpers.Database();
 
 	            var fileC = new List<string>
 	            {

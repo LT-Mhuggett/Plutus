@@ -8,7 +8,7 @@ using Plutus.Pages;
 using I18N_L10N;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using Plutus.Models;/*
+using Database.Models;/*
 using Microsoft.Azure.Mobile;
 using Microsoft.Azure.Mobile.Analytics;
 using Microsoft.Azure.Mobile.Crashes;*/
@@ -40,7 +40,7 @@ namespace Plutus
         //Current Store
         internal static StoreModel Store = new StoreModel();
         //App DB Context
-        internal static Database DbContext;
+        internal static Helpers.Database DbContext;
         //I8N_L10N
         internal static readonly TranslateExtension Translate = new TranslateExtension();
         //Till Monatary Total
@@ -76,7 +76,7 @@ namespace Plutus
                 : FileIO.Exists("Database.db")
                     ? new NavigationPage(OnlyDB())
                     : new NavigationPage(new Pages.FirstTimeStartUp.MainPage());
-            DbContext = new Database();
+            DbContext = new Helpers.Database();
         }
 
         protected override async void OnStart()

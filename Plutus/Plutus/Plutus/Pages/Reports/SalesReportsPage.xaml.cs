@@ -5,7 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Globalization;
 using Plutus.Helpers;
-using Plutus.Models;
+using Database.Models;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 using System.Collections.Generic;

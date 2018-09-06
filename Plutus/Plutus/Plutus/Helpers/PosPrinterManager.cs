@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Plutus.Helpers.Interface;
-using Plutus.Models;
+using Database.Models;
 using Xamarin.Forms;
 using Newtonsoft.Json;
 using System.Linq;

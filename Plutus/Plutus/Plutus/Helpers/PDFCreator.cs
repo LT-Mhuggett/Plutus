@@ -7,7 +7,7 @@ using Syncfusion.Pdf.Graphics;
 using Syncfusion.Drawing;
 using System.IO;
 using Plutus.Helpers.Interface;
-using Plutus.Models;
+using Database.Models;
 using Syncfusion.Pdf.Lists;
 using Syncfusion.Pdf.Grid;
 using System.Diagnostics;

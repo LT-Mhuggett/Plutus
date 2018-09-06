@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Plutus.Helpers;
 using Plutus.Helpers.Extensions;
-using Plutus.Models;
+using Database.Models;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 using FileIO = Plutus.Helpers.FileIO;
@@ -221,7 +221,7 @@ namespace Plutus.Pages.FirstTimeStartUp
 
             App.DbContext.Save();
             App.DbContext.DetachAllEntities();
-            App.DbContext = new Database();
+            App.DbContext = new Helpers.Database();
             var fileC = new List<string>
             {
                 "<Local>",

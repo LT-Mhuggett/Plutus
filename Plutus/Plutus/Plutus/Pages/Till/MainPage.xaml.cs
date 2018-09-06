@@ -5,7 +5,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
-using Plutus.Models;
+using Database.Models;
 using Plutus.Helpers.Extensions;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
@@ -21,7 +21,7 @@ namespace Plutus.Pages.Till
     {
         public ObservableCollection<ItemModel> Basket { get; set; }
         public static Dictionary<int, Tuple<string, ObservableCollection<ItemModel>>> StoredTrans { get; private set; }
-        internal static Database TillDbContext { get; set; }
+        internal static Helpers.Database TillDbContext { get; set; }
         private string BagItem { get; }
         private ZXingScannerPage _scanPage;
         private int _countBasketNum { get; set; }
@@ -36,7 +36,7 @@ namespace Plutus.Pages.Till
         {
             InitializeComponent();
 
-            TillDbContext = new Database();
+            TillDbContext = new Helpers.Database();
 
             if (Basket == null)
                 Basket = new ObservableCollection<ItemModel>();
@@ -483,7 +483,7 @@ namespace Plutus.Pages.Till
                 return;
             }
 
-            TillDbContext = new Database();
+            TillDbContext = new Helpers.Database();
 
 #if WINDOWS_UWP
             var printerMgr = new PosPrinterManager();

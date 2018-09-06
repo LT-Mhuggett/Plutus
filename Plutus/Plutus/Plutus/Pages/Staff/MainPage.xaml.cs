@@ -8,7 +8,7 @@ using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 using ZXing.Mobile;
 using ZXing.Net.Mobile.Forms;
-using Plutus.Models;
+using Database.Models;
 
 namespace Plutus.Pages.Staff
 {

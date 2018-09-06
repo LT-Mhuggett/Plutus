@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using Plutus.Data;
-using Plutus.Models;
+using Database;
+using Database.Models;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
-using Plutus.Models.Interface;
+using Database.Models.Interface;
 using System.Globalization;
 using Plutus.Helpers.Extensions;
 using Xamarin.Forms;
@@ -19,12 +19,12 @@ namespace Plutus.Helpers
     [SuppressMessage("ReSharper", "MemberCanBeMadeStatic.Global")]
     internal class Database
     {
-        private static Context _db;
+        private static SqliteContext _db;
 
         internal Database()
         {
-            _db = new Context(Path.Combine(FileIO.GetLib(), "Database.db"));
-            _db.Database.EnsureCreated();
+            _db = new SqliteContext(Path.Combine(FileIO.GetLib(), "Database.db"));
+            _db.Database.Migrate();
         }
 
         internal async void Add<T>(T tmp) where T : class => await _db.Set<T>().AddAsync(tmp);
@@ -312,7 +312,7 @@ namespace Plutus.Helpers
 
         internal void UpdateStock(string id, int quant)
         {
-            using (var StockDatabase = new Context(Path.Combine(FileIO.GetLib(), "Database.db")))
+            using (var StockDatabase = new SqliteContext(Path.Combine(FileIO.GetLib(), "Database.db")))
             {
                 var stock = StockDatabase.Set<StockModel>().First(s => s.ItemId.Equals(id) && s.StoreId.Equals(App.Store.Id));
                 stock.Quantity -= quant;

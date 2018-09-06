@@ -1,5 +1,5 @@
 ﻿using Plutus.Helpers;
-using Plutus.Models;
+using Database.Models;
 using Plutus.Helpers.Extensions;
 using System;
 using System.Collections.Generic;

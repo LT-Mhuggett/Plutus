@@ -48,7 +48,7 @@ namespace Plutus.Pages.Admin
                 if (TransfSucc)
                 {
                     await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Success"), string.Format(App.Translate.ProvideValue("DbBRSucc"), "Restored"), App.Translate.ProvideValue("OK"));
-                    App.DbContext = new Database();
+                    App.DbContext = new Helpers.Database();
                     return;
                 }
                 await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Hmm"), string.Format(App.Translate.ProvideValue("DbBRFailed"), "Restoring"), App.Translate.ProvideValue("Cancel"));

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Plutus.Helpers.Extensions;
 using CustomViews;
-using Plutus.Models;
+using Database.Models;
 using Plutus.Pages.CustomPages;
 using Rg.Plugins.Popup.Services;
 

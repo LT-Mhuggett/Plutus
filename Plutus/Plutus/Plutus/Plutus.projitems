@@ -32,27 +32,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\PosPrinterManager.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Scanner.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Validate.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\AuthActions.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\CategoryModel.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\DiscountModel.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\Discount_Item.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\Discount_Category.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\Emp_AuthActions.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\Interface\IAuditable.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\Interface\IBase.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\ItemModel.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\NoteModel.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\Notes_SaleModel.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\PaymentMethodModel.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\PaymentMethod_SaleModel.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\RefundModel.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\SaleModel.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\SavedItemModel.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\SavedTransactionModel.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\StockModel.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\TransactionModel.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\TaxModel.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Data\Context.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Pages\Admin\MainPage.xaml.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -118,9 +97,6 @@
       <DependentUpon>UpdateItemPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="$(MSBuildThisFileDirectory)Models\Address.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\EmployeeModel.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Models\PersonModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Pages\Inventory\ViewAllInventoryPage.xaml.cs">
       <DependentUpon>ViewAllInventoryPage.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -133,7 +109,6 @@
       <DependentUpon>MainNavigationPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="$(MSBuildThisFileDirectory)Models\StoreModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Pages\Management\Discount\MainPage.xaml.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>
       <SubType>Code</SubType>

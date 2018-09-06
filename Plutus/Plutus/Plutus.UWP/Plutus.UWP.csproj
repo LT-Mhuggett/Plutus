@@ -171,6 +171,10 @@
       <Project>{695a73eb-1295-4def-9c89-d324720428db}</Project>
       <Name>CustomViews</Name>
     </ProjectReference>
+    <ProjectReference Include="..\..\Database\Database.csproj">
+      <Project>{45d390e4-ae4a-4776-a141-0b8d2dd7e9fc}</Project>
+      <Name>Database</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\I18N_L10N\I18N_L10N.csproj">
       <Project>{67f9d3a8-f71e-4428-913f-c37ae82cdb24}</Project>
       <Name>I18N_L10N</Name>
@@ -210,10 +214,15 @@
       <Version>1.0.168</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore">
-      <Version>2.1.1</Version>
+      <Version>2.1.2</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite">
-      <Version>2.1.1</Version>
+      <Version>2.1.2</Version>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools">
+      <Version>2.1.2</Version>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.NETCore.UniversalWindowsPlatform">
       <Version>6.1.7</Version>

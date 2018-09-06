@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
-using Plutus.Models;
+using Database.Models;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 
@@ -11,8 +11,8 @@ namespace Plutus.Pages.Management.Discount
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class MainPage : ContentPage
     {
-        private List<Models.DiscountModel> _allDiscounts = new List<Models.DiscountModel>();
-        private Models.DiscountModel _discount = new DiscountModel();
+        private List<DiscountModel> _allDiscounts = new List<DiscountModel>();
+        private DiscountModel _discount = new DiscountModel();
         private bool blockEvent = false;
 
         public MainPage()
@@ -30,7 +30,7 @@ namespace Plutus.Pages.Management.Discount
 
         private void LoadDisData()
         {
-            _allDiscounts = App.DbContext.Get<Models.DiscountModel>()
+            _allDiscounts = App.DbContext.Get<DiscountModel>()
                 .Include(d => d.DisCategoryList)
                 .Include(d => d.DisItemList)
                 .ToList();
@@ -122,7 +122,7 @@ namespace Plutus.Pages.Management.Discount
                     var returnedData = await Helpers.CustomViews.DataPickerInputAlertHelper
                         .LaunchDataPickerInputAlertAsync(
                             App.Translate.ProvideValue("DisSelectTitle"), "Confirm", "Somthing is not valid",
-                            App.DbContext.Get<Models.CategoryModel>().ToList());
+                            App.DbContext.Get<CategoryModel>().ToList());
                     if (returnedData.Item1 == null)
                     {
                         return;
@@ -152,7 +152,7 @@ namespace Plutus.Pages.Management.Discount
                     var returnedData = await Helpers.CustomViews.DataPickerInputAlertHelper
                         .LaunchDataPickerInputAlertAsync(
                             App.Translate.ProvideValue("DisSelectTitle"), "Confirm", "Somthing is not valid",
-                            App.DbContext.Get<Models.ItemModel>().ToList());
+                            App.DbContext.Get<ItemModel>().ToList());
                     if (returnedData.Item1 == null)
                     {
                         return;

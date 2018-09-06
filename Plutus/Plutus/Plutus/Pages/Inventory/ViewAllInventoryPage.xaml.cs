@@ -3,7 +3,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using Plutus.Models;
+using Database.Models;
 using Plutus.Helpers;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
