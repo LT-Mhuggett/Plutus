@@ -33,6 +33,9 @@ namespace Plutus.Pages.FirstTimeStartUp
 #elif __IOS__
             throw new NotImplementedException();
 #else
+            App.AppSettings.DatabaseProvider = "Sqlite";
+            App.DbContext = new Helpers.Database(App.AppSettings.DatabaseProvider);
+
             var folder = await FileIO.GetFolderAsync();
 
             var itemIssues = new List<StorageFile>();
@@ -221,16 +224,7 @@ namespace Plutus.Pages.FirstTimeStartUp
 
             App.DbContext.Save();
             App.DbContext.DetachAllEntities();
-            App.DbContext = new Helpers.Database();
-            var fileC = new List<string>
-            {
-                "<Local>",
-                "<Database>",
-                "<Type>Local Database</Type>",
-                "<TypeIndex>1</TypeIndex>",
-                "</Database>",
-                "</Local>"
-            };
+            App.DbContext = new Helpers.Database(App.AppSettings.DatabaseProvider);
 
             if (itemIssues.Count > 0)
             {
@@ -239,8 +233,6 @@ namespace Plutus.Pages.FirstTimeStartUp
                     Debug.WriteLine(item.ToString());
                 }
             }
-
-            FileIO.Save("App.config", fileC.ToArray());
 
             var printerMgr = new PosPrinterManager();
             var printerList = await printerMgr.GetPrinterList();

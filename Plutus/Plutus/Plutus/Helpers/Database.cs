@@ -21,9 +21,16 @@ namespace Plutus.Helpers
     {
         private static SqliteContext _db;
 
-        internal Database()
+        internal Database(string providerNeeded)
         {
-            _db = new SqliteContext(Path.Combine(FileIO.GetLib(), "Database.db"));
+            switch(providerNeeded)
+            {
+                case "Sqlite":
+                    _db = new SqliteContext(Path.Combine(FileIO.GetLib(), "Database.db"));
+                    break;
+                default:
+                    throw new Exception("No DB Provider specified");
+            }
             _db.Database.Migrate();
         }
 

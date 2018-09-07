@@ -149,25 +149,17 @@ namespace Plutus.Pages.FirstTimeStartUp
                 return;
             }
 
-            var fileC = new List<string>
+            switch (DatabasePicker.SelectedIndex)
             {
-                "<Local>",
-                "<Database>",
-                "<Type>" + DatabasePicker.SelectedItem + "</Type>",
-                "<TypeIndex>" + DatabasePicker.SelectedIndex + "</TypeIndex>",
-                "</Database>",
-                "</Local>"
-            };
-
-            FileIO.Save("App.config", fileC.ToArray());
-            if (DatabasePicker.SelectedIndex < 0)
-            {
-                Loading.TogleLoading(LCV, LAI);
-                Error(4);
-                return;
+                case 1:
+                    App.AppSettings.DatabaseProvider = "Sqlite";
+                    break;
+                default:
+                    Loading.TogleLoading(LCV, LAI);
+                    Error(4);
+                    return;
             }
 
-            if (DatabasePicker.SelectedIndex != 0) return;
             App.Store = store;
             App.DbContext.Init(true);
             App.DbContext.Add(store);

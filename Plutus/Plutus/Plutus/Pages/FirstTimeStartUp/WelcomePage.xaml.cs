@@ -21,6 +21,7 @@ namespace Plutus.Pages.FirstTimeStartUp
 	    private async void Restore_Clicked(object sender, EventArgs e)
 	    {
 	        App.DbContext = null;
+            
 	        var transfSucc = await FileIO.Restore();
 
 	        if (transfSucc)
@@ -28,20 +29,9 @@ namespace Plutus.Pages.FirstTimeStartUp
 	            await Application.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Success"),
 	                string.Format(App.Translate.ProvideValue("DbBRSucc"), "Restored"),
 	                App.Translate.ProvideValue("Cancel"));
-	            App.DbContext = new Helpers.Database();
-
-	            var fileC = new List<string>
-	            {
-	                "<Local>",
-	                "<Database>",
-	                "<Type>Local Database</Type>",
-	                "<TypeIndex>1</TypeIndex>",
-	                "</Database>",
-	                "</Local>"
-	            };
-
-	            FileIO.Save("App.config", fileC.ToArray());
-	            Application.Current.MainPage = new NavigationPage(new LoginPage());
+                App.AppSettings.DatabaseProvider = "Sqlite";
+	            App.DbContext = new Helpers.Database(App.AppSettings.DatabaseProvider);
+                Application.Current.MainPage = new NavigationPage(new LoginPage());
 	            return;
 	        }
 

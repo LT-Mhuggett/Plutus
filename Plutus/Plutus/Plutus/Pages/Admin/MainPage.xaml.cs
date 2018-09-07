@@ -48,7 +48,7 @@ namespace Plutus.Pages.Admin
                 if (TransfSucc)
                 {
                     await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Success"), string.Format(App.Translate.ProvideValue("DbBRSucc"), "Restored"), App.Translate.ProvideValue("OK"));
-                    App.DbContext = new Helpers.Database();
+                    App.DbContext = new Helpers.Database(App.AppSettings.DatabaseProvider);
                     return;
                 }
                 await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Hmm"), string.Format(App.Translate.ProvideValue("DbBRFailed"), "Restoring"), App.Translate.ProvideValue("Cancel"));
@@ -68,7 +68,8 @@ namespace Plutus.Pages.Admin
             var quit = await DisplayAlert(App.Translate.ProvideValue("Hmm"), "Are you sure you want to Delete the DB?(This is for quick testing only), App will shutdown after.", App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
 
             if (!quit) return;
-            File.Delete(Path.Combine(FileIO.GetLib(), "App.config"));
+            File.Delete(Path.Combine(FileIO.GetLib(), "Database.db"));
+            App.AppSettings.DatabaseProvider = null;
             var closer = DependencyService.Get<ICloseApp>();
             if (closer == null) return;
             App.EmpsLogged = null;

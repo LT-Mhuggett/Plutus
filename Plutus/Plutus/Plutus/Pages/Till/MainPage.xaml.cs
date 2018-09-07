@@ -36,7 +36,7 @@ namespace Plutus.Pages.Till
         {
             InitializeComponent();
 
-            TillDbContext = new Helpers.Database();
+            TillDbContext = new Helpers.Database(App.AppSettings.DatabaseProvider);
 
             if (Basket == null)
                 Basket = new ObservableCollection<ItemModel>();
@@ -483,7 +483,7 @@ namespace Plutus.Pages.Till
                 return;
             }
 
-            TillDbContext = new Helpers.Database();
+            TillDbContext = new Helpers.Database(App.AppSettings.DatabaseProvider);
 
 #if WINDOWS_UWP
             var printerMgr = new PosPrinterManager();

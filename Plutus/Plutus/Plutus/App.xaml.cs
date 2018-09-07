@@ -70,13 +70,14 @@ namespace Plutus
             var versionP = Package.Current.Id.Version;
             Version = $"{versionP.Major}.{versionP.Minor}.{versionP.Build}.{versionP.Revision}";
 #endif
-            MainPage = FileIO.Exists("App.config") && FileIO.Exists("Database.db")
-                ?
-                new NavigationPage(new LoginPage())
-                : FileIO.Exists("Database.db")
-                    ? new NavigationPage(OnlyDB())
-                    : new NavigationPage(new Pages.FirstTimeStartUp.MainPage());
-            DbContext = new Helpers.Database();
+            if (AppSettings.DatabaseProvider == null)
+            {
+                MainPage = new NavigationPage(new Pages.FirstTimeStartUp.MainPage());
+                return;
+            }
+            MainPage = new NavigationPage(new LoginPage());
+            DbContext = new Helpers.Database(AppSettings.DatabaseProvider);
+            
         }
 
         protected override async void OnStart()
@@ -129,12 +130,6 @@ namespace Plutus
         protected override void OnResume()
         {
             // Handle when your app resumes
-        }
-
-        Page OnlyDB()
-        {
-            File.Delete(Path.Combine(FileIO.GetLib(), "Database.db"));
-            return new Pages.FirstTimeStartUp.MainPage();
         }
     }
 }

@@ -15,5 +15,11 @@ namespace Plutus.Helpers
             get => Settings.GetValueOrDefault(nameof(PrinterLogicalName), null);
             set => Settings.AddOrUpdateValue(nameof(PrinterLogicalName), value);
         }
+
+        public string DatabaseProvider
+        {
+            get => Settings.GetValueOrDefault(nameof(DatabaseProvider), null);
+            set => Settings.AddOrUpdateValue(nameof(DatabaseProvider), value);
+        }
     }
 }
