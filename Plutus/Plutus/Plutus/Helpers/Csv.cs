@@ -4,14 +4,25 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
-using Windows.Storage;
+#if __ANDROID__
 
+#elif __IOS__
+
+#else
+using Windows.Storage;
+#endif
 namespace Plutus.Helpers
 {
     public class Csv
     {
         private List<string> data { get; set; }
+#if __ANDROID__
+
+#elif __IOS__
+
+#else
         private StorageFile file { get; set; }
+#endif
 
         public Csv(List<PropertyInfo> hList, List<string> dList , string delimiter = ",")
         {
@@ -36,6 +47,11 @@ namespace Plutus.Helpers
 
         public async void CreateFile()
         {
+#if __ANDROID__
+            throw new NotImplementedException();
+#elif __IOS__
+            throw new NotImplementedException();
+#else
             var file = await FileIO.GetFileSavePicker(
                 new List<KeyValuePair<string, List<string>>>
                 {
@@ -44,19 +60,31 @@ namespace Plutus.Helpers
                 string.Format("{0}-MassStockUpdate-{1}", App.Store.StoreName,
                     DateTime.Now.ToString(CultureInfo.CurrentCulture))).PickSaveFileAsync();
             await Windows.Storage.FileIO.WriteLinesAsync(file, data);
+#endif
         }
 
         public async Task<List<string>> ValidateHeaderOfFile()
         {
+#if __ANDROID__
+            throw new NotImplementedException();
+#elif __IOS__
+            throw new NotImplementedException();
+#else
             file = await FileIO.GetFileOpenPicker(new List<string>
             {
                 ".csv"
             }).PickSingleFileAsync();
             return await FileIO.GetFirstLineCsvAsync(file);
+#endif
         }
 
         public async Task<List<KeyValuePair<string, string[]>>> ReadFile(bool skipHead = true)
         {
+#if __ANDROID__
+            throw new NotImplementedException();
+#elif __IOS__
+            throw new NotImplementedException();
+#else
             var csvData = await FileIO.GetAllLinesCsvAsync(file);
             if (csvData == null)
             {
@@ -66,6 +94,7 @@ namespace Plutus.Helpers
             return skipHead
                 ?  csvData
                 :  (csvData ?? throw new InvalidOperationException()).Skip(1).ToList();
+#endif
         }
     }
 }

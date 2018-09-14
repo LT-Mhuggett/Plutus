@@ -25,7 +25,7 @@ namespace Plutus.Pages
         public MainNavigationPage (EmployeeModel etemp, StoreModel stemp)
         {
             App.Store = stemp;
-            InitPage(etemp);
+            InitPageAsync(etemp);
         }
 
         /// <summary>
@@ -37,7 +37,7 @@ namespace Plutus.Pages
         public MainNavigationPage(EmployeeModel etemp, ObservableCollection<EmployeeModel>currentList)
         {
             App.EmpsLogged = currentList;
-            InitPage(etemp);
+            InitPageAsync(etemp);
         }
 
         /// <summary>
@@ -46,7 +46,7 @@ namespace Plutus.Pages
         /// it is re-initalised and etemp is added
         /// </summary>
         /// <param name="etemp">Employee object from LoginPage</param>
-        internal void InitPage(EmployeeModel etemp)
+        internal async void InitPageAsync(EmployeeModel etemp)
         {
             ToolbarItems.Add(new ToolbarItem
             {

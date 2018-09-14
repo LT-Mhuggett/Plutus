@@ -392,7 +392,7 @@ namespace Plutus.Pages.Till
 
             if (sale.PaySales.Any(pay => pay.PayMethod.IsCashBackable))
             {
-                var cashback = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("CashBack_"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
+                var cashback = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("CashBack_"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("No"));
                 if (cashback)
                 {
                     var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(App.Translate.ProvideValue("HowMuchCB"), "Enter Here", App.Translate.ProvideValue("Confirm"), App.Translate.ProvideValue("EnterCorrectValue"), toPay:0.0m);

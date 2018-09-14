@@ -54,6 +54,7 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <EmbeddedResource Include="PosForDotNet-1.14.1.msi" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="POS\PosManager.cs" />
@@ -100,9 +101,21 @@
   <ItemGroup>
     <Content Include="FodyWeavers.xml" />
   </ItemGroup>
+  <ItemGroup>
+    <COMReference Include="WindowsInstaller">
+      <Guid>{000C1092-0000-0000-C000-000000000046}</Guid>
+      <VersionMajor>1</VersionMajor>
+      <VersionMinor>0</VersionMinor>
+      <Lcid>1033</Lcid>
+      <WrapperTool>tlbimp</WrapperTool>
+      <Isolated>False</Isolated>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </COMReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>xcopy /Y /R "$(ProjectDir)$(OutDir)POSIntegration.exe" "$(SolutionDir)Plutus\Plutus.UWP\Assets\Exes"
-xcopy /Y /R "$(ProjectDir)$(OutDir)POSIntegration.exe.config" "$(SolutionDir)Plutus\Plutus.UWP\Assets\Exes"</PostBuildEvent>
+xcopy /Y /R "$(ProjectDir)$(OutDir)POSIntegration.exe.config" "$(SolutionDir)Plutus\Plutus.UWP\Assets\Exes"
+</PostBuildEvent>
   </PropertyGroup>
 </Project>

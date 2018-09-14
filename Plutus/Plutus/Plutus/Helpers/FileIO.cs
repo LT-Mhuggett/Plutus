@@ -228,8 +228,8 @@ return true;*/
                 Debug.WriteLine($"File Transfer error: {e}");
                 return false;
             }
-        }
 #endif
+        }
 
         public static async Task<bool> Restore()
         {

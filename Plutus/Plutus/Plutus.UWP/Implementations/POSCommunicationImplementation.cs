@@ -15,9 +15,6 @@ namespace Plutus.UWP.Implementations
     {
         public async Task<bool> CloseCommunicationAsync(string Id)
         {
-            /*
-            throw new NotImplementedException();
-            */
             ValueSet valueSet = new ValueSet();
             valueSet.Add($"{Id}.closeCommunication", "null");
             if(App.connection == null) return true;
@@ -52,9 +49,6 @@ namespace Plutus.UWP.Implementations
 
         public async Task<bool> OpenCommunicationAsync()
         {
-            /*
-            throw new NotImplementedException();
-            */
             try
             {
                 await Windows.ApplicationModel.FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
@@ -71,9 +65,15 @@ namespace Plutus.UWP.Implementations
         
         public async Task<object> SendAndGetReponseAsync(List<KeyValuePair<string, object>> keyValue)
         {
-            /*
-            return App.POSIntegratorObj.LocalReceive(keyValue).Value;
-            */
+            ValueSet valueSet = new ValueSet();
+            keyValue.ForEach(kV => valueSet.Add(kV));
+            if (App.connection == null) return "App Closed!";
+            AppServiceResponse serviceResponse = await App.connection.SendMessageAsync(valueSet);
+            return serviceResponse.Message["response"];
+        }
+
+        public async static Task<object> SendAndGetReponseStaticAsync(List<KeyValuePair<string, object>> keyValue)
+        {
             ValueSet valueSet = new ValueSet();
             keyValue.ForEach(kV => valueSet.Add(kV));
             if (App.connection == null) return "App Closed!";

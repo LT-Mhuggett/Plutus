@@ -193,6 +193,25 @@ namespace Plutus.Droid
 			global::HockeyApp.Resource.Style.HockeyApp_ButtonStyle = global::Plutus.Droid.Resource.Style.HockeyApp_ButtonStyle;
 			global::HockeyApp.Resource.Style.HockeyApp_EditTextStyle = global::Plutus.Droid.Resource.Style.HockeyApp_EditTextStyle;
 			global::HockeyApp.Resource.Style.HockeyApp_SingleLineInputStyle = global::Plutus.Droid.Resource.Style.HockeyApp_SingleLineInputStyle;
+			global::Microsoft.AppCenter.Distribute.Resource.String.appcenter_distribute_dialog_actioned_on_disabled_toast = global::Plutus.Droid.Resource.String.appcenter_distribute_dialog_actioned_on_disabled_toast;
+			global::Microsoft.AppCenter.Distribute.Resource.String.appcenter_distribute_download_progress_number_format = global::Plutus.Droid.Resource.String.appcenter_distribute_download_progress_number_format;
+			global::Microsoft.AppCenter.Distribute.Resource.String.appcenter_distribute_downloading_mandatory_update = global::Plutus.Droid.Resource.String.appcenter_distribute_downloading_mandatory_update;
+			global::Microsoft.AppCenter.Distribute.Resource.String.appcenter_distribute_install = global::Plutus.Droid.Resource.String.appcenter_distribute_install;
+			global::Microsoft.AppCenter.Distribute.Resource.String.appcenter_distribute_install_ready_message = global::Plutus.Droid.Resource.String.appcenter_distribute_install_ready_message;
+			global::Microsoft.AppCenter.Distribute.Resource.String.appcenter_distribute_install_ready_title = global::Plutus.Droid.Resource.String.appcenter_distribute_install_ready_title;
+			global::Microsoft.AppCenter.Distribute.Resource.String.appcenter_distribute_notification_category = global::Plutus.Droid.Resource.String.appcenter_distribute_notification_category;
+			global::Microsoft.AppCenter.Distribute.Resource.String.appcenter_distribute_unknown_sources_dialog_message = global::Plutus.Droid.Resource.String.appcenter_distribute_unknown_sources_dialog_message;
+			global::Microsoft.AppCenter.Distribute.Resource.String.appcenter_distribute_unknown_sources_dialog_settings = global::Plutus.Droid.Resource.String.appcenter_distribute_unknown_sources_dialog_settings;
+			global::Microsoft.AppCenter.Distribute.Resource.String.appcenter_distribute_update_dialog_download = global::Plutus.Droid.Resource.String.appcenter_distribute_update_dialog_download;
+			global::Microsoft.AppCenter.Distribute.Resource.String.appcenter_distribute_update_dialog_message_mandatory = global::Plutus.Droid.Resource.String.appcenter_distribute_update_dialog_message_mandatory;
+			global::Microsoft.AppCenter.Distribute.Resource.String.appcenter_distribute_update_dialog_message_optional = global::Plutus.Droid.Resource.String.appcenter_distribute_update_dialog_message_optional;
+			global::Microsoft.AppCenter.Distribute.Resource.String.appcenter_distribute_update_dialog_postpone = global::Plutus.Droid.Resource.String.appcenter_distribute_update_dialog_postpone;
+			global::Microsoft.AppCenter.Distribute.Resource.String.appcenter_distribute_update_dialog_title = global::Plutus.Droid.Resource.String.appcenter_distribute_update_dialog_title;
+			global::Microsoft.AppCenter.Distribute.Resource.String.appcenter_distribute_update_dialog_view_release_notes = global::Plutus.Droid.Resource.String.appcenter_distribute_update_dialog_view_release_notes;
+			global::Microsoft.AppCenter.Distribute.Resource.String.appcenter_distribute_update_failed_dialog_ignore = global::Plutus.Droid.Resource.String.appcenter_distribute_update_failed_dialog_ignore;
+			global::Microsoft.AppCenter.Distribute.Resource.String.appcenter_distribute_update_failed_dialog_message = global::Plutus.Droid.Resource.String.appcenter_distribute_update_failed_dialog_message;
+			global::Microsoft.AppCenter.Distribute.Resource.String.appcenter_distribute_update_failed_dialog_reinstall = global::Plutus.Droid.Resource.String.appcenter_distribute_update_failed_dialog_reinstall;
+			global::Microsoft.AppCenter.Distribute.Resource.String.appcenter_distribute_update_failed_dialog_title = global::Plutus.Droid.Resource.String.appcenter_distribute_update_failed_dialog_title;
 			global::Plugin.MediaManager.Forms.Android.Resource.Animation.abc_fade_in = global::Plutus.Droid.Resource.Animation.abc_fade_in;
 			global::Plugin.MediaManager.Forms.Android.Resource.Animation.abc_fade_out = global::Plutus.Droid.Resource.Animation.abc_fade_out;
 			global::Plugin.MediaManager.Forms.Android.Resource.Animation.abc_grow_fade_in_from_bottom = global::Plutus.Droid.Resource.Animation.abc_grow_fade_in_from_bottom;
@@ -6417,11 +6436,68 @@ namespace Plutus.Droid
 			// aapt resource value: 0x7f080039
 			public const int abc_toolbar_collapse_description = 2131230777;
 			
-			// aapt resource value: 0x7f0800a3
-			public const int app_name = 2131230883;
+			// aapt resource value: 0x7f0800b6
+			public const int app_name = 2131230902;
 			
 			// aapt resource value: 0x7f080048
 			public const int appbar_scrolling_view_behavior = 2131230792;
+			
+			// aapt resource value: 0x7f080052
+			public const int appcenter_distribute_dialog_actioned_on_disabled_toast = 2131230802;
+			
+			// aapt resource value: 0x7f080053
+			public const int appcenter_distribute_download_progress_number_format = 2131230803;
+			
+			// aapt resource value: 0x7f080054
+			public const int appcenter_distribute_downloading_mandatory_update = 2131230804;
+			
+			// aapt resource value: 0x7f080055
+			public const int appcenter_distribute_install = 2131230805;
+			
+			// aapt resource value: 0x7f080056
+			public const int appcenter_distribute_install_ready_message = 2131230806;
+			
+			// aapt resource value: 0x7f080057
+			public const int appcenter_distribute_install_ready_title = 2131230807;
+			
+			// aapt resource value: 0x7f080058
+			public const int appcenter_distribute_notification_category = 2131230808;
+			
+			// aapt resource value: 0x7f080059
+			public const int appcenter_distribute_unknown_sources_dialog_message = 2131230809;
+			
+			// aapt resource value: 0x7f08005a
+			public const int appcenter_distribute_unknown_sources_dialog_settings = 2131230810;
+			
+			// aapt resource value: 0x7f08005b
+			public const int appcenter_distribute_update_dialog_download = 2131230811;
+			
+			// aapt resource value: 0x7f08005c
+			public const int appcenter_distribute_update_dialog_message_mandatory = 2131230812;
+			
+			// aapt resource value: 0x7f08005d
+			public const int appcenter_distribute_update_dialog_message_optional = 2131230813;
+			
+			// aapt resource value: 0x7f08005e
+			public const int appcenter_distribute_update_dialog_postpone = 2131230814;
+			
+			// aapt resource value: 0x7f08005f
+			public const int appcenter_distribute_update_dialog_title = 2131230815;
+			
+			// aapt resource value: 0x7f080060
+			public const int appcenter_distribute_update_dialog_view_release_notes = 2131230816;
+			
+			// aapt resource value: 0x7f080061
+			public const int appcenter_distribute_update_failed_dialog_ignore = 2131230817;
+			
+			// aapt resource value: 0x7f080062
+			public const int appcenter_distribute_update_failed_dialog_message = 2131230818;
+			
+			// aapt resource value: 0x7f080063
+			public const int appcenter_distribute_update_failed_dialog_reinstall = 2131230819;
+			
+			// aapt resource value: 0x7f080064
+			public const int appcenter_distribute_update_failed_dialog_title = 2131230820;
 			
 			// aapt resource value: 0x7f080049
 			public const int bottom_sheet_behavior = 2131230793;
@@ -6480,248 +6556,248 @@ namespace Plutus.Droid
 			// aapt resource value: 0x7f080011
 			public const int common_signin_button_text_long = 2131230737;
 			
-			// aapt resource value: 0x7f080052
-			public const int hockeyapp_crash_dialog_app_name_fallback = 2131230802;
-			
-			// aapt resource value: 0x7f080053
-			public const int hockeyapp_crash_dialog_message = 2131230803;
-			
-			// aapt resource value: 0x7f080054
-			public const int hockeyapp_crash_dialog_negative_button = 2131230804;
-			
-			// aapt resource value: 0x7f080055
-			public const int hockeyapp_crash_dialog_neutral_button = 2131230805;
-			
-			// aapt resource value: 0x7f080056
-			public const int hockeyapp_crash_dialog_positive_button = 2131230806;
-			
-			// aapt resource value: 0x7f080057
-			public const int hockeyapp_crash_dialog_title = 2131230807;
-			
-			// aapt resource value: 0x7f080058
-			public const int hockeyapp_dialog_error_message = 2131230808;
-			
-			// aapt resource value: 0x7f080059
-			public const int hockeyapp_dialog_error_title = 2131230809;
-			
-			// aapt resource value: 0x7f08005a
-			public const int hockeyapp_dialog_negative_button = 2131230810;
-			
-			// aapt resource value: 0x7f08005b
-			public const int hockeyapp_dialog_positive_button = 2131230811;
-			
-			// aapt resource value: 0x7f08005c
-			public const int hockeyapp_download_failed_dialog_message = 2131230812;
-			
-			// aapt resource value: 0x7f08005d
-			public const int hockeyapp_download_failed_dialog_negative_button = 2131230813;
-			
-			// aapt resource value: 0x7f08005e
-			public const int hockeyapp_download_failed_dialog_positive_button = 2131230814;
-			
-			// aapt resource value: 0x7f08005f
-			public const int hockeyapp_download_failed_dialog_title = 2131230815;
-			
-			// aapt resource value: 0x7f080060
-			public const int hockeyapp_error_no_network_message = 2131230816;
-			
-			// aapt resource value: 0x7f080061
-			public const int hockeyapp_expiry_info_text = 2131230817;
-			
-			// aapt resource value: 0x7f080062
-			public const int hockeyapp_expiry_info_title = 2131230818;
-			
-			// aapt resource value: 0x7f080063
-			public const int hockeyapp_feedback_attach_file = 2131230819;
-			
-			// aapt resource value: 0x7f080064
-			public const int hockeyapp_feedback_attach_picture = 2131230820;
-			
 			// aapt resource value: 0x7f080065
-			public const int hockeyapp_feedback_attachment_added = 2131230821;
+			public const int hockeyapp_crash_dialog_app_name_fallback = 2131230821;
 			
 			// aapt resource value: 0x7f080066
-			public const int hockeyapp_feedback_attachment_button_text = 2131230822;
+			public const int hockeyapp_crash_dialog_message = 2131230822;
 			
 			// aapt resource value: 0x7f080067
-			public const int hockeyapp_feedback_attachment_error = 2131230823;
+			public const int hockeyapp_crash_dialog_negative_button = 2131230823;
 			
 			// aapt resource value: 0x7f080068
-			public const int hockeyapp_feedback_attachment_loading = 2131230824;
+			public const int hockeyapp_crash_dialog_neutral_button = 2131230824;
 			
 			// aapt resource value: 0x7f080069
-			public const int hockeyapp_feedback_attachment_remove_description = 2131230825;
+			public const int hockeyapp_crash_dialog_positive_button = 2131230825;
 			
 			// aapt resource value: 0x7f08006a
-			public const int hockeyapp_feedback_attachment_removed = 2131230826;
+			public const int hockeyapp_crash_dialog_title = 2131230826;
 			
 			// aapt resource value: 0x7f08006b
-			public const int hockeyapp_feedback_email_hint = 2131230827;
+			public const int hockeyapp_dialog_error_message = 2131230827;
 			
 			// aapt resource value: 0x7f08006c
-			public const int hockeyapp_feedback_email_hint_required = 2131230828;
+			public const int hockeyapp_dialog_error_title = 2131230828;
 			
 			// aapt resource value: 0x7f08006d
-			public const int hockeyapp_feedback_failed_text = 2131230829;
+			public const int hockeyapp_dialog_negative_button = 2131230829;
 			
 			// aapt resource value: 0x7f08006e
-			public const int hockeyapp_feedback_failed_title = 2131230830;
+			public const int hockeyapp_dialog_positive_button = 2131230830;
 			
 			// aapt resource value: 0x7f08006f
-			public const int hockeyapp_feedback_fetching_feedback_text = 2131230831;
+			public const int hockeyapp_download_failed_dialog_message = 2131230831;
 			
 			// aapt resource value: 0x7f080070
-			public const int hockeyapp_feedback_generic_error = 2131230832;
+			public const int hockeyapp_download_failed_dialog_negative_button = 2131230832;
 			
 			// aapt resource value: 0x7f080071
-			public const int hockeyapp_feedback_last_updated_text = 2131230833;
+			public const int hockeyapp_download_failed_dialog_positive_button = 2131230833;
 			
 			// aapt resource value: 0x7f080072
-			public const int hockeyapp_feedback_max_attachments_allowed = 2131230834;
+			public const int hockeyapp_download_failed_dialog_title = 2131230834;
 			
 			// aapt resource value: 0x7f080073
-			public const int hockeyapp_feedback_message_hint = 2131230835;
+			public const int hockeyapp_error_no_network_message = 2131230835;
 			
 			// aapt resource value: 0x7f080074
-			public const int hockeyapp_feedback_message_hint_required = 2131230836;
+			public const int hockeyapp_expiry_info_text = 2131230836;
 			
 			// aapt resource value: 0x7f080075
-			public const int hockeyapp_feedback_name_hint = 2131230837;
+			public const int hockeyapp_expiry_info_title = 2131230837;
 			
 			// aapt resource value: 0x7f080076
-			public const int hockeyapp_feedback_name_hint_required = 2131230838;
+			public const int hockeyapp_feedback_attach_file = 2131230838;
 			
 			// aapt resource value: 0x7f080077
-			public const int hockeyapp_feedback_refresh_button_text = 2131230839;
+			public const int hockeyapp_feedback_attach_picture = 2131230839;
 			
 			// aapt resource value: 0x7f080078
-			public const int hockeyapp_feedback_response_button_text = 2131230840;
+			public const int hockeyapp_feedback_attachment_added = 2131230840;
 			
 			// aapt resource value: 0x7f080079
-			public const int hockeyapp_feedback_select_file = 2131230841;
+			public const int hockeyapp_feedback_attachment_button_text = 2131230841;
 			
 			// aapt resource value: 0x7f08007a
-			public const int hockeyapp_feedback_select_picture = 2131230842;
+			public const int hockeyapp_feedback_attachment_error = 2131230842;
 			
 			// aapt resource value: 0x7f08007b
-			public const int hockeyapp_feedback_send_button_text = 2131230843;
+			public const int hockeyapp_feedback_attachment_loading = 2131230843;
 			
 			// aapt resource value: 0x7f08007c
-			public const int hockeyapp_feedback_send_generic_error = 2131230844;
+			public const int hockeyapp_feedback_attachment_remove_description = 2131230844;
 			
 			// aapt resource value: 0x7f08007d
-			public const int hockeyapp_feedback_send_network_error = 2131230845;
+			public const int hockeyapp_feedback_attachment_removed = 2131230845;
 			
 			// aapt resource value: 0x7f08007e
-			public const int hockeyapp_feedback_sending_feedback_text = 2131230846;
+			public const int hockeyapp_feedback_email_hint = 2131230846;
 			
 			// aapt resource value: 0x7f08007f
-			public const int hockeyapp_feedback_sent_toast = 2131230847;
+			public const int hockeyapp_feedback_email_hint_required = 2131230847;
 			
 			// aapt resource value: 0x7f080080
-			public const int hockeyapp_feedback_subject_hint = 2131230848;
+			public const int hockeyapp_feedback_failed_text = 2131230848;
 			
 			// aapt resource value: 0x7f080081
-			public const int hockeyapp_feedback_subject_hint_required = 2131230849;
+			public const int hockeyapp_feedback_failed_title = 2131230849;
 			
 			// aapt resource value: 0x7f080082
-			public const int hockeyapp_feedback_title = 2131230850;
+			public const int hockeyapp_feedback_fetching_feedback_text = 2131230850;
 			
 			// aapt resource value: 0x7f080083
-			public const int hockeyapp_feedback_validate_email_empty = 2131230851;
+			public const int hockeyapp_feedback_generic_error = 2131230851;
 			
 			// aapt resource value: 0x7f080084
-			public const int hockeyapp_feedback_validate_email_error = 2131230852;
+			public const int hockeyapp_feedback_last_updated_text = 2131230852;
 			
 			// aapt resource value: 0x7f080085
-			public const int hockeyapp_feedback_validate_name_error = 2131230853;
+			public const int hockeyapp_feedback_max_attachments_allowed = 2131230853;
 			
 			// aapt resource value: 0x7f080086
-			public const int hockeyapp_feedback_validate_subject_error = 2131230854;
+			public const int hockeyapp_feedback_message_hint = 2131230854;
 			
 			// aapt resource value: 0x7f080087
-			public const int hockeyapp_feedback_validate_text_error = 2131230855;
+			public const int hockeyapp_feedback_message_hint_required = 2131230855;
 			
 			// aapt resource value: 0x7f080088
-			public const int hockeyapp_login_email_hint = 2131230856;
+			public const int hockeyapp_feedback_name_hint = 2131230856;
 			
 			// aapt resource value: 0x7f080089
-			public const int hockeyapp_login_email_hint_required = 2131230857;
+			public const int hockeyapp_feedback_name_hint_required = 2131230857;
 			
 			// aapt resource value: 0x7f08008a
-			public const int hockeyapp_login_headline_text = 2131230858;
+			public const int hockeyapp_feedback_refresh_button_text = 2131230858;
 			
 			// aapt resource value: 0x7f08008b
-			public const int hockeyapp_login_headline_text_email_only = 2131230859;
+			public const int hockeyapp_feedback_response_button_text = 2131230859;
 			
 			// aapt resource value: 0x7f08008c
-			public const int hockeyapp_login_login_button_text = 2131230860;
+			public const int hockeyapp_feedback_select_file = 2131230860;
 			
 			// aapt resource value: 0x7f08008d
-			public const int hockeyapp_login_missing_credentials_toast = 2131230861;
+			public const int hockeyapp_feedback_select_picture = 2131230861;
 			
 			// aapt resource value: 0x7f08008e
-			public const int hockeyapp_login_password_hint = 2131230862;
+			public const int hockeyapp_feedback_send_button_text = 2131230862;
 			
 			// aapt resource value: 0x7f08008f
-			public const int hockeyapp_login_password_hint_required = 2131230863;
+			public const int hockeyapp_feedback_send_generic_error = 2131230863;
 			
 			// aapt resource value: 0x7f080090
-			public const int hockeyapp_paint_dialog_message = 2131230864;
+			public const int hockeyapp_feedback_send_network_error = 2131230864;
 			
 			// aapt resource value: 0x7f080091
-			public const int hockeyapp_paint_dialog_negative_button = 2131230865;
+			public const int hockeyapp_feedback_sending_feedback_text = 2131230865;
 			
 			// aapt resource value: 0x7f080092
-			public const int hockeyapp_paint_dialog_neutral_button = 2131230866;
+			public const int hockeyapp_feedback_sent_toast = 2131230866;
 			
 			// aapt resource value: 0x7f080093
-			public const int hockeyapp_paint_dialog_positive_button = 2131230867;
+			public const int hockeyapp_feedback_subject_hint = 2131230867;
 			
 			// aapt resource value: 0x7f080094
-			public const int hockeyapp_paint_indicator_toast = 2131230868;
+			public const int hockeyapp_feedback_subject_hint_required = 2131230868;
 			
 			// aapt resource value: 0x7f080095
-			public const int hockeyapp_paint_menu_clear = 2131230869;
+			public const int hockeyapp_feedback_title = 2131230869;
 			
 			// aapt resource value: 0x7f080096
-			public const int hockeyapp_paint_menu_save = 2131230870;
+			public const int hockeyapp_feedback_validate_email_empty = 2131230870;
 			
 			// aapt resource value: 0x7f080097
-			public const int hockeyapp_paint_menu_undo = 2131230871;
+			public const int hockeyapp_feedback_validate_email_error = 2131230871;
 			
 			// aapt resource value: 0x7f080098
-			public const int hockeyapp_permission_dialog_negative_button = 2131230872;
+			public const int hockeyapp_feedback_validate_name_error = 2131230872;
 			
 			// aapt resource value: 0x7f080099
-			public const int hockeyapp_permission_dialog_positive_button = 2131230873;
+			public const int hockeyapp_feedback_validate_subject_error = 2131230873;
 			
 			// aapt resource value: 0x7f08009a
-			public const int hockeyapp_permission_update_message = 2131230874;
+			public const int hockeyapp_feedback_validate_text_error = 2131230874;
 			
 			// aapt resource value: 0x7f08009b
-			public const int hockeyapp_permission_update_title = 2131230875;
+			public const int hockeyapp_login_email_hint = 2131230875;
 			
 			// aapt resource value: 0x7f08009c
-			public const int hockeyapp_update_button = 2131230876;
+			public const int hockeyapp_login_email_hint_required = 2131230876;
 			
 			// aapt resource value: 0x7f08009d
-			public const int hockeyapp_update_dialog_message = 2131230877;
+			public const int hockeyapp_login_headline_text = 2131230877;
 			
 			// aapt resource value: 0x7f08009e
-			public const int hockeyapp_update_dialog_negative_button = 2131230878;
+			public const int hockeyapp_login_headline_text_email_only = 2131230878;
 			
 			// aapt resource value: 0x7f08009f
-			public const int hockeyapp_update_dialog_positive_button = 2131230879;
+			public const int hockeyapp_login_login_button_text = 2131230879;
 			
 			// aapt resource value: 0x7f0800a0
-			public const int hockeyapp_update_dialog_title = 2131230880;
+			public const int hockeyapp_login_missing_credentials_toast = 2131230880;
 			
 			// aapt resource value: 0x7f0800a1
-			public const int hockeyapp_update_mandatory_toast = 2131230881;
+			public const int hockeyapp_login_password_hint = 2131230881;
 			
 			// aapt resource value: 0x7f0800a2
-			public const int hockeyapp_update_version_details_label = 2131230882;
+			public const int hockeyapp_login_password_hint_required = 2131230882;
+			
+			// aapt resource value: 0x7f0800a3
+			public const int hockeyapp_paint_dialog_message = 2131230883;
+			
+			// aapt resource value: 0x7f0800a4
+			public const int hockeyapp_paint_dialog_negative_button = 2131230884;
+			
+			// aapt resource value: 0x7f0800a5
+			public const int hockeyapp_paint_dialog_neutral_button = 2131230885;
+			
+			// aapt resource value: 0x7f0800a6
+			public const int hockeyapp_paint_dialog_positive_button = 2131230886;
+			
+			// aapt resource value: 0x7f0800a7
+			public const int hockeyapp_paint_indicator_toast = 2131230887;
+			
+			// aapt resource value: 0x7f0800a8
+			public const int hockeyapp_paint_menu_clear = 2131230888;
+			
+			// aapt resource value: 0x7f0800a9
+			public const int hockeyapp_paint_menu_save = 2131230889;
+			
+			// aapt resource value: 0x7f0800aa
+			public const int hockeyapp_paint_menu_undo = 2131230890;
+			
+			// aapt resource value: 0x7f0800ab
+			public const int hockeyapp_permission_dialog_negative_button = 2131230891;
+			
+			// aapt resource value: 0x7f0800ac
+			public const int hockeyapp_permission_dialog_positive_button = 2131230892;
+			
+			// aapt resource value: 0x7f0800ad
+			public const int hockeyapp_permission_update_message = 2131230893;
+			
+			// aapt resource value: 0x7f0800ae
+			public const int hockeyapp_permission_update_title = 2131230894;
+			
+			// aapt resource value: 0x7f0800af
+			public const int hockeyapp_update_button = 2131230895;
+			
+			// aapt resource value: 0x7f0800b0
+			public const int hockeyapp_update_dialog_message = 2131230896;
+			
+			// aapt resource value: 0x7f0800b1
+			public const int hockeyapp_update_dialog_negative_button = 2131230897;
+			
+			// aapt resource value: 0x7f0800b2
+			public const int hockeyapp_update_dialog_positive_button = 2131230898;
+			
+			// aapt resource value: 0x7f0800b3
+			public const int hockeyapp_update_dialog_title = 2131230899;
+			
+			// aapt resource value: 0x7f0800b4
+			public const int hockeyapp_update_mandatory_toast = 2131230900;
+			
+			// aapt resource value: 0x7f0800b5
+			public const int hockeyapp_update_version_details_label = 2131230901;
 			
 			// aapt resource value: 0x7f080000
 			public const int library_name = 2131230720;

@@ -9,6 +9,7 @@ using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
 using Syncfusion.ListView.XForms.UWP;
+using System.Threading.Tasks;
 
 namespace Plutus.UWP
 {
@@ -54,7 +55,7 @@ namespace Plutus.UWP
         /// will be used such as when the application is launched to open a specific file.
         /// </summary>
         /// <param name="e">Details about the launch request and process.</param>
-        protected override void OnLaunched(LaunchActivatedEventArgs e)
+        protected async override void OnLaunched(LaunchActivatedEventArgs e)
         {
 
 #if DEBUG
@@ -104,10 +105,24 @@ namespace Plutus.UWP
                 rootFrame.Navigate(typeof(MainPage), e.Arguments);
             }
 
-            //POSIntegratorObj = new POSIntegrator();
+
+            var keyValues = new List<KeyValuePair<string, object>>
+            {
+                new KeyValuePair<string, object>("TestSupport-32134.POS.testPosForDotNetIsPresent", "null")
+            };
+            await Task.Delay(3000);
+            if (!(bool)await Implementations.POSCommunicationImplementation.SendAndGetReponseStaticAsync(keyValues))
+            {
+                if(await Implementations.POSCommunicationImplementation.CloseServiceAsync("TestSupport-32134"))
+                {
+                    await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
+                }
+            }
+
 
             // Ensure the current window is active
             Window.Current.Activate();
+
         }
 
         /// <summary>

@@ -52,7 +52,14 @@ namespace Plutus
 
         public App()
         {
-            InitializeComponent();
+            try
+            {
+                InitializeComponent();
+            }
+            catch(Exception e)
+            {
+                Debug.Write(e);
+            }
             Xamarin.Forms.Device.StartTimer(TimeSpan.FromSeconds(1), () =>
             {
                 CurrentDateTime = DateTime.Now;

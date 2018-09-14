@@ -3,11 +3,11 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Windows.ApplicationModel.AppService;
+using System.Reflection;
 using Windows.Foundation.Collections;
+using WindowsInstaller;
 
 namespace POSIntegration.POS
 {
@@ -19,13 +19,34 @@ namespace POSIntegration.POS
 
         internal PosExplorer posExplorer
         {
-            get{ return _explorer??(_explorer=new PosExplorer()); }
+            get => _explorer;
+            set => _explorer = value;
         }
 
         public PosManager(string cId)
         {
             ClientId = cId;
+            try
+            {
+                posExplorer = new PosExplorer();
+            }
+            catch (NullReferenceException e)
+            {
+                var tempFilePath = Path.GetTempFileName();
+                using (var resource = Assembly.GetExecutingAssembly().GetManifestResourceStream("POSIntegration.PosForDotNet-1.14.1.msi"))
+                {
+                    using (var tempFile = new FileStream(tempFilePath, FileMode.Open, FileAccess.ReadWrite))
+                    {
+                        resource.CopyTo(tempFile);
+                    }
+                }
+                Type type = Type.GetTypeFromProgID("WindowsInstaller.Installer");
+                Installer installer = (Installer)Activator.CreateInstance(type);
+                installer.InstallProduct(tempFilePath, "ACTION=INSTALL ALLUSERS=2 MSIINSTALLPERUSER=");
+                File.Delete(tempFilePath);
+            }
         }
+
         public object POSCommandSelection(string option, object value)
         {
             ValueSet valueSet = new ValueSet();
@@ -43,6 +64,11 @@ namespace POSIntegration.POS
                 case "closePrinter":
                     ClosePrinterInstance();
                     return true;
+                case "testPosForDotNetIsPresent":
+                    if (posExplorer != null)
+                        return true;
+                    else
+                        return false;
                 default:
                     Debug.WriteLine("MISSING COMMAND IN POS MANAGER!!!!");
                     return "missingCommand";
@@ -52,9 +78,9 @@ namespace POSIntegration.POS
         public string GetPrinterList()
         {
             var printersData = new Dictionary<string, Dictionary<string, object>>();
-            if (printersData.Count > 0)
+            var printers = posExplorer.GetDevices(DeviceType.PosPrinter);
+            if (printers.Count > 0)
             {
-                var printers = posExplorer.GetDevices(DeviceType.PosPrinter);
                 foreach (DeviceInfo printerInfo in printers)
                 {
                     var tempPrinter = posExplorer.CreateInstance(printerInfo) as PosPrinter;
@@ -76,7 +102,6 @@ namespace POSIntegration.POS
                     printersData.Add(printerInfo.LogicalNames.FirstOrDefault() ?? "", combinedDic);
                 }
             }
-                Debug.WriteLine("No Printers found!");
             return JsonConvert.SerializeObject(printersData);
         }
 

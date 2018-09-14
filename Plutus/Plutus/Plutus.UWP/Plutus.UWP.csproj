@@ -101,9 +101,13 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- A reference to the entire .Net Framework and Windows SDK are automatically included -->
-    <Content Include="Assets\Exes\POSIntegration.exe" />
+    <Content Include="Assets\Exes\POSIntegration.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Assets\Fonts\Font-Awesome-5.otf" />
-    <Content Include="Assets\Exes\POSIntegration.exe.config" />
+    <Content Include="Assets\Exes\POSIntegration.exe.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <None Include="Connected Services\HockeyApp\ConnectedService.json" />
     <None Include="PlutusCert.snk" />
   </ItemGroup>
