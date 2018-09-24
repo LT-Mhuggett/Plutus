@@ -9,6 +9,7 @@ using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
 using Syncfusion.ListView.XForms.UWP;
+using Syncfusion.SfChart.XForms.UWP;
 using System.Threading.Tasks;
 
 namespace Plutus.UWP
@@ -79,11 +80,8 @@ namespace Plutus.UWP
                 List<Assembly> assembliesToInclude = new List<Assembly>();
 
                 assembliesToInclude.Add(typeof(SfListViewRenderer).GetTypeInfo().Assembly);
-
-                foreach(var rgAssembly in Rg.Plugins.Popup.Windows.Popup.GetExtraAssemblies())
-                {
-                    assembliesToInclude.Add(rgAssembly);
-                }
+                assembliesToInclude.Add(typeof(SfChartRenderer).GetTypeInfo().Assembly);
+                assembliesToInclude.AddRange(Rg.Plugins.Popup.Windows.Popup.GetExtraAssemblies());
 
                 Xamarin.Forms.Forms.Init(e, assembliesToInclude);
                 Xamarin.FormsMaps.Init("99jcdVc1iMJ8n1Khrl9I~etP0OF8kmn-3wJOxIpsYdw~AnK0meHNtPdlka2lJqS698Ou_O3UqG4YqM5EIk6zJ3ooYIxJCFM6BQNYncYc1kLm");

@@ -6,15 +6,20 @@ using System.Threading.Tasks;
 using Plutus.Helpers;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
+using Database.Models;
+using System.Collections.ObjectModel;
+using Plutus.Helpers.Extensions;
 
 namespace Plutus.Pages.Reports
 {
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class MainPage : ContentPage
 	{
+        public ObservableCollection<SaleModel> SalesData { get; set; }
+
 		public MainPage ()
 		{
-			InitializeComponent ();
+			InitializeComponent();
 		}
 
         private void SalesReps_Clicked(object sender, EventArgs e)
@@ -34,6 +39,12 @@ namespace Plutus.Pages.Reports
         {
             Action action = async () => await App.Current.MainPage.Navigation.PushAsync(new WeeklyStockOuttakesPage());
             Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Report", "V", action);
+        }
+
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            SalesData = App.DbContext.Get<SaleModel>().ToModel<ObservableCollection<SaleModel>>();
         }
     }
 }

@@ -52,14 +52,8 @@ namespace Plutus
 
         public App()
         {
-            try
-            {
-                InitializeComponent();
-            }
-            catch(Exception e)
-            {
-                Debug.Write(e);
-            }
+            Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense("MjU2NzZAMzEzNjJlMzMyZTMwU2llYmNZU3Nic0R2Z1IxQ3J0bi9LRjhYVHpQaDBCdnhEdEdDakc4WTdsbz0=");
+            InitializeComponent();
             Xamarin.Forms.Device.StartTimer(TimeSpan.FromSeconds(1), () =>
             {
                 CurrentDateTime = DateTime.Now;
@@ -73,7 +67,7 @@ namespace Plutus
             //File.Delete(Path.Combine(FileIO.GetLib(), "Database.db"));
 #if __ANDROID__ || __IOS__
             Version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
-#else
+#elif WINDOWS_UWP
             var versionP = Package.Current.Id.Version;
             Version = $"{versionP.Major}.{versionP.Minor}.{versionP.Build}.{versionP.Revision}";
 #endif

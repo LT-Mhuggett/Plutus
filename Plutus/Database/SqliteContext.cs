@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.Sqlite;
 using Database.Models;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 
@@ -30,15 +31,38 @@ namespace Database
         public DbSet<SavedTransactionModel> SavedTransactions { get; set; }
 
         private readonly string _databasePath;
+        private readonly string _password;
+        private readonly EmployeeModel _lastAuthUser;
         
-        public SqliteContext(string databasePath)
+        public SqliteContext(string databasePath, string password)
         {
             _databasePath = databasePath;
+            _password = password;
         }
-
+        public SqliteContext(string databasePath, string oldPassword, string newPassword)
+        {
+            _databasePath = databasePath;
+            _password = oldPassword;
+        }
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            optionsBuilder.UseSqlite($"Data Source={_databasePath}");
+            var connection = InitializeSQLiteConnection();
+            optionsBuilder.UseSqlite(connection);
+        }
+
+        private SqliteConnection InitializeSQLiteConnection()
+        {
+            var conn = new SqliteConnection($"Data Source={_databasePath}");
+            conn.Open();
+            var command = conn.CreateCommand();
+            command.CommandText = "SELECT quote($password)";
+            command.Parameters.AddWithValue("$password", _password);
+            var quotedPass = (string)command.ExecuteScalar();
+
+            command.CommandText = $"PRAGMA key = {quotedPass}";
+            command.Parameters.Clear();
+            command.ExecuteNonQuery();
+            return conn;
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -179,7 +203,7 @@ namespace Database
             base.OnModelCreating(modelBuilder);
         }
 
-        /*
+        
         public override int SaveChanges()
         {
             ApplyAuditData();
@@ -204,14 +228,14 @@ namespace Database
                 {
                     case EntityState.Modified when (modifiedProperty != null || modifiedByProperty != null):
                         entry.Property("Modified").CurrentValue = DateTime.Now;
-                        entry.Property("ModifiedBy").CurrentValue = App.LastAuthUser == null ? "System" : App.LastAuthUser.FName + " " + App.LastAuthUser.LName;
+                        entry.Property("ModifiedBy").CurrentValue = _lastAuthUser.FName == null ? "System" : _lastAuthUser.FName + " " + _lastAuthUser.LName;
                         break;
                     case EntityState.Added when (createdProperty != null || createdByProperty != null):
                         entry.Property("Created").CurrentValue = DateTime.Now;
-                        entry.Property("CreatedBy").CurrentValue = App.LastAuthUser.FName == null ? "System" : App.LastAuthUser.FName + " " + App.LastAuthUser.LName;
+                        entry.Property("CreatedBy").CurrentValue = _lastAuthUser.FName == null ? "System" : _lastAuthUser.FName + " " + _lastAuthUser.LName;
                         break;
                 }
             }
-        }*/
+        }
     }
 }

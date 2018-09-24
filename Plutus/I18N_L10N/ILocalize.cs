@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Text;
+﻿using System.Globalization;
 
 namespace I18N_L10N
 {

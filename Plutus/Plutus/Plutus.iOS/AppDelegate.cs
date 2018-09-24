@@ -1,6 +1,7 @@
 ﻿using Foundation;
 using UIKit;
 using Syncfusion.ListView.XForms.iOS;
+using Syncfusion.SfChart.XForms.iOS.Renderers;
 using Microsoft.AppCenter.Distribute;
 
 namespace Plutus.iOS
@@ -22,6 +23,7 @@ namespace Plutus.iOS
 		{
 			global::Xamarin.Forms.Forms.Init ();
             SfListViewRenderer.Init();
+            SfChartRenderer.Init();
             Xamarin.FormsMaps.Init();
 		    ZXing.Net.Mobile.Forms.iOS.Platform.Init();
             Distribute.DontCheckForUpdatesInDebug();

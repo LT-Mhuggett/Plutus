@@ -21,5 +21,21 @@ namespace Plutus.Helpers
             get => Settings.GetValueOrDefault(nameof(DatabaseProvider), null);
             set => Settings.AddOrUpdateValue(nameof(DatabaseProvider), value);
         }
+
+        public string DbPass
+        {
+            get
+            {
+                var pass = Settings.GetValueOrDefault(nameof(DbPass), null);
+                if (pass != null)
+                    return pass;
+                else
+                {
+                    DbPass = Guid.NewGuid().ToString("n").Substring(0, 20);
+                    return DbPass;
+                }
+            }
+            set => Settings.AddOrUpdateValue(nameof(DbPass), value);
+        }
     }
 }

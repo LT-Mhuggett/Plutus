@@ -9,8 +9,6 @@ using Android.Widget;
 using Android.OS;
 using Plugin.Permissions;
 using Android.Content;
-using HockeyApp.Android;
-using HockeyApp.Android.Metrics;
 
 namespace Plutus.Droid
 {
@@ -23,23 +21,19 @@ namespace Plutus.Droid
 			ToolbarResource = Resource.Layout.Toolbar; 
 
 			base.OnCreate (bundle);
-
             global::Xamarin.Forms.Forms.Init (this, bundle);
             Xamarin.FormsMaps.Init(this, bundle);
 		    ZXing.Net.Mobile.Forms.Android.Platform.Init();
-            MetricsManager.Register(Application, "97188f13df4342b78f80a0e0625e3754");
             LoadApplication (new Plutus.App ());
             CheckUpdates();
 		}
 
         private void CheckUpdates()
         {
-            UpdateManager.Register(this, "97188f13df4342b78f80a0e0625e3754");
         }
 
         private void UnregisterManagers()
         {
-            UpdateManager.Unregister();
         }
 
         protected override void OnPause()
@@ -57,7 +51,6 @@ namespace Plutus.Droid
         protected override void OnResume()
         {
             base.OnResume();
-            CrashManager.Register(this, "97188f13df4342b78f80a0e0625e3754");
 
         }
 
