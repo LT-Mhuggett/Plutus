@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Text;
 using Database.Models;
-using System.Reflection;
 using Xamarin.Forms;
 using ZXing.Mobile;
 using System.Linq;

@@ -8,6 +8,7 @@ using Android.Views;
 using Android.Widget;
 using Android.OS;
 using Plugin.Permissions;
+using Plugin.Permissions.Abstractions;
 using Android.Content;
 
 namespace Plutus.Droid
@@ -23,7 +24,8 @@ namespace Plutus.Droid
 			base.OnCreate (bundle);
             global::Xamarin.Forms.Forms.Init (this, bundle);
             Xamarin.FormsMaps.Init(this, bundle);
-		    ZXing.Net.Mobile.Forms.Android.Platform.Init();
+		    Plugin.CurrentActivity.CrossCurrentActivity.Current.Init(this, bundle);
+            ZXing.Net.Mobile.Forms.Android.Platform.Init();
             LoadApplication (new Plutus.App ());
             CheckUpdates();
 		}
@@ -54,9 +56,10 @@ namespace Plutus.Droid
 
         }
 
-        public override void OnRequestPermissionsResult(int requestCode, string[] permissions, Permission[] grantResults)
+        public override void OnRequestPermissionsResult(int requestCode, string[] permissions, [GeneratedEnum] Android.Content.PM.Permission[] grantResults)
         {
             PermissionsImplementation.Current.OnRequestPermissionsResult(requestCode, permissions, grantResults);
+            base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
         }
 
         public static readonly int PickImageId = 1000;

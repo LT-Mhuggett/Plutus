@@ -51,9 +51,7 @@ namespace Plutus.Pages.Inventory
             ItemID.Text = itemTemp.Id;
             ItemName.Text = itemTemp.Name;
             ItemBrand.Text = itemTemp.Brand;
-            ItemCat.Text = MainPage.InventDbContext.GetById<CategoryModel, int>(itemTemp.CatId).OfType<CategoryModel>()
-                .Select(m => m.Name)
-                .SingleOrDefault();
+		    ItemCat.Text = MainPage.InventDbContext.GetById<CategoryModel, int>(itemTemp.CatId).OfType<CategoryModel>().Single().Name;
             ItemDesc.Text = itemTemp.Desc;
             ItemPrice.Text = itemTemp.Price.ToString();
 		    ItemExPrice.Text = itemTemp.ExPrice.ToString();
@@ -142,7 +140,7 @@ namespace Plutus.Pages.Inventory
             Navigation.PopModalAsync();
         }
 
-        private async Task TapGestureRecognizer_Tapped(object sender, EventArgs e)
+        private async void TapGestureRecognizer_Tapped(object sender, EventArgs e)
         {
             CrossClipboard.Current.SetText(((Label) sender).Text);
             await ((Label) sender).ColorTo(((Label) sender).BackgroundColor, Color.FromRgba(44, 191, 221, 0.64),

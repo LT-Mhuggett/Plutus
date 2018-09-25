@@ -177,7 +177,7 @@ namespace Plutus.Pages.FirstTimeStartUp
             {
                 var fileData = await FileIO.GetStringsFromCsvAsync(file, '&');
                 var extraParse = fileData.Select(x => x.Split('=')).ToArray();
-                var salt = Convert.ToBase64String(Helpers.Password.GenerateSalt());
+                var salt = Convert.ToBase64String(Password.GenerateSalt());
 
                 var empBool =
                     await DisplayAlert(App.Translate.ProvideValue("Hmm"),

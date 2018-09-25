@@ -589,7 +589,7 @@ namespace Plutus.Pages.Till
         /// </summary>
         /// <param name="sender">Object that sent called the method</param>
         /// <param name="e">Event that the object called</param>
-        private async Task StoreTrans_Clicked(object sender, EventArgs e)
+        private async void StoreTrans_Clicked(object sender, EventArgs e)
         {
             if (Basket.Count == 0) return;
             var nameStoreTrans = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync("Name the transction for easy identifiability", "Name of Transaction", App.Translate.ProvideValue("Confirm"), "Name not valid", false);
