@@ -32,7 +32,7 @@ namespace Database
 
         private readonly string _databasePath;
         private readonly string _password;
-        private readonly EmployeeModel _lastAuthUser;
+        private readonly EmployeeModel _lastAuthUser = new EmployeeModel();
         
         public SqliteContext(string databasePath, string password)
         {

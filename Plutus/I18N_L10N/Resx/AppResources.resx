@@ -728,4 +728,11 @@ This message will only appear once untill the Plutus restarts, of whcih it will 
   <data name="NoPrinter" xml:space="preserve">
     <value>No printer found/selected PDFs will be created for receipts</value>
   </data>
+  <data name="FailedToAddItem" xml:space="preserve">
+    <value>The following items failed to be added to the system:
+
+{0}
+
+This is most likely because the item is actually a discount or it doesn't fit Plutus definition of an item.</value>
+  </data>
 </root>

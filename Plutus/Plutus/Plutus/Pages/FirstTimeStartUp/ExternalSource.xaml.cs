@@ -112,65 +112,64 @@ namespace Plutus.Pages.FirstTimeStartUp
 
             tempFolder = folderList[0];
             fileList = await tempFolder.GetFilesAsync();
+            //var itemsToCheck = new List<StorageFile>();
             foreach (var file in fileList)
             {
                 var fileData = await FileIO.GetStringsFromCsvAsync(file, '&');
                 var extraParse = fileData.Select(x => x.Split('=')).ToArray();
                 var id = file.Name.Replace(".dat", "");
+                /*
                 if (!id.IsNumeric())
                 {
-                    var itemBool =
-                        await DisplayAlert(App.Translate.ProvideValue("Hmm"),
-                            string.Format(App.Translate.ProvideValue("IsItem"), Uri.UnescapeDataString(id),
-                                Uri.UnescapeDataString(extraParse.FirstOrDefault(x => x[0].Equals("Description"))?[1])),
-                            App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("No"));
-
-                    if (!itemBool) continue;
+                    itemsToCheck.Add(file);
                 }
-
-                try
-                {
-                    var value =
-                        // ReSharper disable once PossibleNullReferenceException
-                        await extraParse.FirstOrDefault(x => x[0].Equals("Value"))?[1]?.ToDecimal("Error") ??
-                        default(decimal);
-                    var taxType =
-                        // ReSharper disable once PossibleNullReferenceException
-                        await extraParse.FirstOrDefault(x => x[0].Equals("TaxRate"))?[1]?.ToInterger("Error") ??
-                        default(int);
-                    if (taxType == 0 || taxType == 1)
-                        taxType = 2;
-                    else if (taxType == 2)
-                        taxType = 0;
-                    else if (taxType == 3)
-                        taxType = 2;
-                    var item = new ItemModel()
+                else
+                {*/
+                    try
                     {
-                        Id = id,
-                        Name = Uri.UnescapeDataString(extraParse.FirstOrDefault(x => x[0].Equals("Description"))?[1]),
-                        Vat = taxes[taxType],
-                        Brand = "NOT EXIST",
-                        Cat = cat,
-                        Cost = 0.00m,
-                        /*
-                         * if price is excluding vat
-                         *
-                           ExPrice = value / 100,
-                           Price = value / 100 * (decimal) taxes[taxType - 1].Rate                    
-                         * if price is including vat
-                         */
-                        ExPrice = Math.Round(value / 100 / (decimal) taxes[taxType].Rate, 2,
-                            MidpointRounding.AwayFromZero),
-                        Price = Math.Round(value / 100, 2, MidpointRounding.AwayFromZero)
+                        var value =
+                            // ReSharper disable once PossibleNullReferenceException
+                            await extraParse.FirstOrDefault(x => x[0].Equals("Value"))?[1]?.ToDecimal("Error") ??
+                            default(decimal);
+                        var taxType =
+                            // ReSharper disable once PossibleNullReferenceException
+                            await extraParse.FirstOrDefault(x => x[0].Equals("TaxRate"))?[1]?.ToInterger("Error") ??
+                            default(int);
+                        if (taxType == 0 || taxType == 1)
+                            taxType = 2;
+                        else if (taxType == 2)
+                            taxType = 0;
+                        else if (taxType == 3)
+                            taxType = 2;
+                        var item = new ItemModel()
+                        {
+                            Id = id,
+                            Name = Uri.UnescapeDataString(
+                                extraParse.FirstOrDefault(x => x[0].Equals("Description"))?[1]),
+                            Vat = taxes[taxType],
+                            Brand = "NOT EXIST",
+                            Cat = cat,
+                            Cost = 0.00m,
+                            /*
+                             * if price is excluding vat
+                             *
+                               ExPrice = value / 100,
+                               Price = value / 100 * (decimal) taxes[taxType - 1].Rate                    
+                             * if price is including vat
+                             */
+                            ExPrice = Math.Round(value / 100 / (decimal) taxes[taxType].Rate, 2,
+                                MidpointRounding.AwayFromZero),
+                            Price = Math.Round(value / 100, 2, MidpointRounding.AwayFromZero)
 
-                    };
-                    App.DbContext.Add(item);
+                        };
+                        App.DbContext.Add(item);
+                    }
+                    catch (Exception)
+                    {
+                        itemIssues.Add(file);
+                    }
                 }
-                catch (Exception)
-                {
-                    itemIssues.Add(file);
-                }
-            }
+            //}
 
             tempFolder = folderList[4];
             fileList = await tempFolder.GetFilesAsync();
@@ -228,10 +227,12 @@ namespace Plutus.Pages.FirstTimeStartUp
 
             if (itemIssues.Count > 0)
             {
+                var itemsText = "";
                 foreach (var item in itemIssues)
                 {
-                    Debug.WriteLine(item.ToString());
+                    itemsText += $"  \u2022 {item.DisplayName}\n";
                 }
+                await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("FailedToAddItem"), itemsText), App.Translate.ProvideValue("OK"));
             }
 
             var printerMgr = new PosPrinterManager();

@@ -776,6 +776,19 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The following items failed to be added to the system:
+        ///
+        ///{0}
+        ///
+        ///This is most likely because the item is actually a discount or it doesn&apos;t fit Plutus definition of an item..
+        /// </summary>
+        internal static string FailedToAddItem {
+            get {
+                return ResourceManager.GetString("FailedToAddItem", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Please Ensure all required fields are filled in.
         /// </summary>
         internal static string FieldsFilledInMesg {
