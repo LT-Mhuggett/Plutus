@@ -57,6 +57,7 @@
     <EmbeddedResource Include="PosForDotNet-1.14.1.msi" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="POS\CashDrawer.cs" />
     <Compile Include="POS\PosManager.cs" />
     <Compile Include="POS\Printer.cs" />
     <Compile Include="Program.cs" />

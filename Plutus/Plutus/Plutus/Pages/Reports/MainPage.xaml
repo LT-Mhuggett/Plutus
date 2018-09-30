@@ -8,9 +8,10 @@
              Icon="">
     <ContentPage.Content>
         <StackLayout>
+            <!--
             <chart:SfChart>
                 <chart:DoughnutSeries ItemsSource="{Binding SaleData}" XBindingPath="DateOfSale" YBindingPath="Total" />
-            </chart:SfChart>
+            </chart:SfChart>-->
             <Grid>
                 <StackLayout x:Name="MPage" VerticalOptions="Center" HorizontalOptions="FillAndExpand">
                     <Button x:Name="SalesReps" Text="{i18N:Translate SReports}" Clicked="SalesReps_Clicked"/>

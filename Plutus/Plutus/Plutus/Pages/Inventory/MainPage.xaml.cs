@@ -20,8 +20,8 @@ namespace Plutus.Pages.Inventory
 		public MainPage ()
 		{
 			InitializeComponent ();
-		    InventDbContext = new Helpers.Database(App.AppSettings.DatabaseProvider);
-		}
+            InventDbContext = new Helpers.Database(App.AppSettings.DatabaseProvider);
+        }
 
         /// <summary>
         /// Check user authorisation

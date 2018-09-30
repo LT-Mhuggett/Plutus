@@ -493,9 +493,10 @@ namespace Plutus.Pages.Till
             Basket.Clear();
             await DisplayAlert(App.Translate.ProvideValue("Transaction"), App.Translate.ProvideValue("TransConfMesg"), App.Translate.ProvideValue("OK"));
 
-            if (App.OneTimeStockWarning == false)
-                if(itemHasNoStock == false)
-                    return;
+            if (itemHasNoStock == false)
+                return;
+            if (App.OneTimeStockWarning)
+                return;
 
             await DisplayAlert(App.Translate.ProvideValue("Warning"), App.Translate.ProvideValue("MissingStock"),
                 App.Translate.ProvideValue("OK"));

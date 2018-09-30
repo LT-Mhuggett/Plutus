@@ -8,12 +8,24 @@
     <ContentPage.Content>
         <Grid>
             <StackLayout x:Name="MPage" VerticalOptions="Center" HorizontalOptions="FillAndExpand">
-            <Button x:Name="AddItem" Text="{i18N:Translate AddItem}" Clicked="AddItem_Clicked" />
-            <Button x:Name="UpdateItem" Text="{i18N:Translate UpdateItem}" Clicked="UpdateItem_Clicked" />
-            <Button x:Name="StockUpdate" Text="{i18N:Translate StockUpdate}" Clicked="StockUpdate_Clicked" />
-            <Button x:Name="ViewAllI" Text="{i18N:Translate VAllItems}" Clicked="ViewAllI_Clicked" />
-            <Button x:Name="MassUpdate" Text="Mass Update" Clicked="MassUpdate_Clicked"/>
-        </StackLayout>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Button Grid.Column="0" Grid.Row="0" x:Name="AddItem" Text="{i18N:Translate AddItem}" Clicked="AddItem_Clicked" />
+                    <Button Grid.Column="1" Grid.Row="0" x:Name="UpdateItem" Text="{i18N:Translate UpdateItem}" Clicked="UpdateItem_Clicked" />
+                    <Button Grid.Column="0" Grid.Row="1" x:Name="StockUpdate" Text="{i18N:Translate StockUpdate}" Clicked="StockUpdate_Clicked" />
+                    <Button Grid.Column="1" Grid.Row="1" x:Name="ViewAllI" Text="{i18N:Translate VAllItems}" Clicked="ViewAllI_Clicked" />
+                    <Button Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="2" x:Name="MassUpdate" Text="Mass Update" Clicked="MassUpdate_Clicked"/>
+                </Grid>
+            </StackLayout>
         <StackLayout x:Name="VerifyId"  IsVisible="False" BackgroundColor="White" Margin="50,100,50,200">
             <Label Text="{i18N:Translate EmpId}" />
             <Entry x:Name="EId" />

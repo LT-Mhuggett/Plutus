@@ -45,6 +45,13 @@ namespace Plutus.Helpers
             return (bool) await DependencyService.Get<IPOSCommunication>().SendAndGetReponseAsync(keyValues);        
         }
 
+        private async Task<bool> OpenCashDrawer()
+        {
+            var keyValues = new List<KeyValuePair<string, object>>();
+            keyValues.Add(new KeyValuePair<string, object>($"{App.Store.Id}-32134.POS.openCashDrawer", "null"));
+            return DeviceEnabled = (bool)await DependencyService.Get<IPOSCommunication>().SendAndGetReponseAsync(keyValues);
+        }
+
         private async Task<bool> CloseConnection()
         {
             if(!DeviceEnabled)
@@ -181,6 +188,8 @@ namespace Plutus.Helpers
                     await pdf.GenRecipt(store, null, sale, cashBack);
                 }
                 await SetupAndExecutePrint(sale, store);
+                if (sale.PaySales.Exists(pay => pay.PayMethod.IsChangeable.Equals(true)))
+                    await OpenCashDrawer();
                 await CloseConnection();
                 DeviceEnabled = false;
             }

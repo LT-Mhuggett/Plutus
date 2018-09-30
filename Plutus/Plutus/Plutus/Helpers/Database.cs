@@ -13,6 +13,7 @@ using Database.Models.Interface;
 using System.Globalization;
 using Plutus.Helpers.Extensions;
 using Xamarin.Forms;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace Plutus.Helpers
 {
@@ -77,6 +78,8 @@ namespace Plutus.Helpers
 
         internal void DetachEntity(object obj) => _db.Entry(obj).State = EntityState.Detached;
 
+        internal void DetachEntries(List<object> objs) => objs.ForEach(entity => _db.Entry(entity).State = EntityState.Detached);
+
         internal void AttachEntityWithoutTracking(object obj) => _db.Attach(obj);
 
         internal void DetachAllEntities()
@@ -88,7 +91,7 @@ namespace Plutus.Helpers
                 .ToList();
             foreach (var entity in changedEntriesCopy)
             {
-                _db.Entry(entity.Entity).State = EntityState.Detached;
+                DetachEntity(entity);
             }
         }
 

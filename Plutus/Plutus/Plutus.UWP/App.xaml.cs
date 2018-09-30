@@ -11,6 +11,7 @@ using Windows.UI.Xaml.Navigation;
 using Syncfusion.ListView.XForms.UWP;
 using Syncfusion.SfChart.XForms.UWP;
 using System.Threading.Tasks;
+using Windows.UI.Popups;
 
 namespace Plutus.UWP
 {
@@ -103,7 +104,6 @@ namespace Plutus.UWP
                 rootFrame.Navigate(typeof(MainPage), e.Arguments);
             }
 
-
             var keyValues = new List<KeyValuePair<string, object>>
             {
                 new KeyValuePair<string, object>("TestSupport-32134.POS.testPosForDotNetIsPresent", "null")
@@ -111,7 +111,7 @@ namespace Plutus.UWP
             await Task.Delay(3000);
             if (!(bool)await Implementations.POSCommunicationImplementation.SendAndGetReponseStaticAsync(keyValues))
             {
-                if(await Implementations.POSCommunicationImplementation.CloseServiceAsync("TestSupport-32134"))
+                if (await Implementations.POSCommunicationImplementation.CloseServiceAsync("TestSupport-32134"))
                 {
                     await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
                 }

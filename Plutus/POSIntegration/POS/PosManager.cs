@@ -16,6 +16,7 @@ namespace POSIntegration.POS
         internal readonly string ClientId;
         private PosExplorer _explorer;
         private POSPrinter _POSPrinter;
+        private POSCashDrawer _cashDrawer;
 
         internal PosExplorer posExplorer
         {
@@ -64,6 +65,10 @@ namespace POSIntegration.POS
                 case "closePrinter":
                     ClosePrinterInstance();
                     return true;
+                case "openCashDrawer":
+                    if(CreateCashDrawerInstance())
+                        _cashDrawer.OpenCashDrawer();
+                    return true;
                 case "testPosForDotNetIsPresent":
                     if (posExplorer != null)
                         return true;
@@ -108,6 +113,20 @@ namespace POSIntegration.POS
         public void CreatePrinterInstance(string logicalPrinterName)
         {
             _POSPrinter = new POSPrinter(ref _explorer, logicalPrinterName);
+        }
+
+        public bool CreateCashDrawerInstance()
+        {
+            try
+            {
+                _cashDrawer = new POSCashDrawer(ref _explorer);
+                return true;
+            }
+            catch(Exception e)
+            {
+                Debug.WriteLine("CashDrawer Not Present! " + e);
+                return false;
+            }
         }
 
         public void ClosePrinterInstance()

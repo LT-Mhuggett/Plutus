@@ -51,7 +51,7 @@ namespace Plutus.Pages.Inventory
             ItemID.Text = itemTemp.Id;
             ItemName.Text = itemTemp.Name;
             ItemBrand.Text = itemTemp.Brand;
-		    ItemCat.Text = MainPage.InventDbContext.GetById<CategoryModel, int>(itemTemp.CatId).OfType<CategoryModel>().Single().Name;
+            ItemCat.Text = itemTemp.Cat.Name??MainPage.InventDbContext.GetById<CategoryModel, int>(itemTemp.CatId).OfType<CategoryModel>().Single().Name;
             ItemDesc.Text = itemTemp.Desc;
             ItemPrice.Text = itemTemp.Price.ToString();
 		    ItemExPrice.Text = itemTemp.ExPrice.ToString();

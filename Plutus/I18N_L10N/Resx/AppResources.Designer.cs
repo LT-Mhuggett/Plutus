@@ -897,6 +897,16 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Plutus requires an install of Microsoft Point of Service 1.14.1 to run.
+        ///This will be installed automatically..
+        /// </summary>
+        internal static string InstallRequired {
+            get {
+                return ResourceManager.GetString("InstallRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to As this is the first time your using the Plutus POS System, you will have to create a new account..
         /// </summary>
         internal static string IntroL1 {
@@ -1167,6 +1177,15 @@ namespace I18N_L10N.Resx {
         internal static string NoRefundsLeftMesg {
             get {
                 return ResourceManager.GetString("NoRefundsLeftMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Notice:.
+        /// </summary>
+        internal static string Note {
+            get {
+                return ResourceManager.GetString("Note", resourceCulture);
             }
         }
         

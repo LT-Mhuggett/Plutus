@@ -258,14 +258,21 @@ namespace Plutus.Pages.Inventory
         /// <returns></returns>
         private async void Confirm_Clicked(object sender, EventArgs e)
         {
+            _changeItem.Id = _item.Id;
             _changeItem.Name = Name.Text;
             _changeItem.Brand = Brand.Text;
             _changeItem.CatId = CatPicker.SelectedIndex + 1;
+            _changeItem.Cat = _cats.ElementAt(CatPicker.SelectedIndex);
             _changeItem.Cost = (decimal)await Cost.Text.ToDecimal(App.Translate.ProvideValue("ValueEnteredWrong"));
+            _changeItem.ExPrice = (decimal)await ExPrice.Text.ToDecimal(App.Translate.ProvideValue("ValueEnteredWrong"));
             _changeItem.Price = (decimal)await Price.Text.ToDecimal(App.Translate.ProvideValue("ValueEnteredWrong"));
+            _changeItem.Vat = _vats.ElementAt(VatPicker.SelectedIndex);
             _changeItem.VatId = VatPicker.SelectedIndex + 1;
 
-            if (_changeItem.Name==_item.Name&&_changeItem.Brand==_item.Brand&&_changeItem.CatId==_item.CatId&&_changeItem.Cost==_item.Cost&&_changeItem.Desc==_item.Desc&&_changeItem.Image==_item.Image&&_changeItem.Price==_item.Price&&_changeItem.VatId==_item.VatId)
+            if (_changeItem.Name == _item.Name && _changeItem.Brand == _item.Brand 
+                && _changeItem.CatId == _item.CatId && _changeItem.Cost == _item.Cost 
+                && _changeItem.Desc == _item.Desc && _changeItem.Image == _item.Image 
+                && _changeItem.Price == _item.Price && _changeItem.VatId == _item.VatId)
             {
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("NoChangeMadeMesg"), App.Translate.ProvideValue("OK"));
                 return;

@@ -15,7 +15,7 @@ namespace Plutus.Pages.Reports
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class MainPage : ContentPage
 	{
-        public ObservableCollection<SaleModel> SalesData { get; set; }
+        //public ObservableCollection<SaleModel> SalesData { get; set; }
 
 		public MainPage ()
 		{
@@ -44,7 +44,7 @@ namespace Plutus.Pages.Reports
         protected override void OnAppearing()
         {
             base.OnAppearing();
-            SalesData = App.DbContext.Get<SaleModel>().ToModel<ObservableCollection<SaleModel>>();
+            //SalesData = App.DbContext.Get<SaleModel>().ToModel<ObservableCollection<SaleModel>>();
         }
     }
 }

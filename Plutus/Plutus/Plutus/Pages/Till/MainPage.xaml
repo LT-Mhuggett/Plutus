@@ -85,6 +85,7 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="1*" />
@@ -98,10 +99,10 @@
                     <Label Grid.Row="0"  Grid.Column="1" x:Name="PriceCell"/>
                     <Label Grid.Row="0"  Grid.Column="4" Text="{i18N:Translate SaleExV}"/>
                     <Label Grid.Row="0"  Grid.Column="5" x:Name="PriceExVCell"/>
-                    <Button Grid.Row="1"  Grid.Column="0" Grid.ColumnSpan="2" x:Name="Cancel" Text="{i18N:Translate Cancel}" Clicked="Cancel_Clicked" />
-                    <Button Grid.Row="1" Grid.Column="2" Grid.ColumnSpan="2" x:Name="Bag" IsVisible="False" Clicked="Bag_Clicked" />
-                    <Button Grid.Row="1" Grid.Column="4" Grid.ColumnSpan="2" x:Name="StoreTrans" Text="{i18N:Translate SaveB}" Clicked="StoreTrans_Clicked" />
-                    <Button Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="6" x:Name="COut" Text="{i18N:Translate COut}" Clicked="COut_Clicked"/>
+                    <Button Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" x:Name="Bag" IsVisible="False" Clicked="Bag_Clicked" />
+                    <Button Grid.Row="1" Grid.Column="2" Grid.ColumnSpan="2" x:Name="StoreTrans" Text="{i18N:Translate SaveB}" Clicked="StoreTrans_Clicked" />
+                    <Button Grid.Row="1" Grid.Column="4" Grid.ColumnSpan="2" Grid.RowSpan="2" x:Name="COut" Text="{i18N:Translate COut}" Clicked="COut_Clicked"/>
+                    <Button Grid.Row="2"  Grid.Column="0" Grid.ColumnSpan="4" x:Name="Cancel" Text="{i18N:Translate Cancel}" Clicked="Cancel_Clicked" />
                 </Grid>
             </StackLayout>
         </StackLayout>

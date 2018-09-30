@@ -40,7 +40,8 @@ namespace Plutus.Pages.Inventory
                     .ThenInclude(c=>c.DisCats)
                     .ThenInclude(dc => dc.Discount)
                 .Include(i=>i.Stock)
-                .Include(i=>i.Vat);
+                .Include(i=>i.Vat)
+                .OrderBy(item=>item.Name);
 
             ItemList.FooterSize = 20;
 
@@ -55,7 +56,7 @@ namespace Plutus.Pages.Inventory
             StartLimit = 0;
 
             //Testing use of loading all data
-            Limit = 40000;
+            Limit = 40;
 
             SetItems();
 
@@ -95,7 +96,7 @@ namespace Plutus.Pages.Inventory
         private void LoadData()
         {
             TotalItemsInDb = Query.Count();
-            var items = Query.OrderBy(item => item.Name).Skip(StartLimit).Take(Limit).ToList();
+            var items = Query.Skip(StartLimit).Take(Limit).ToList();
             foreach (var item in items)
             {
                 item.GroupKey = item.Name.ToUpper()[0];

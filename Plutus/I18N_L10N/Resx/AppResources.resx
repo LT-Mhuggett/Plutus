@@ -735,4 +735,11 @@ This message will only appear once untill the Plutus restarts, of whcih it will 
 
 This is most likely because the item is actually a discount or it doesn't fit Plutus definition of an item.</value>
   </data>
+  <data name="InstallRequired" xml:space="preserve">
+    <value>Plutus requires an install of Microsoft Point of Service 1.14.1 to run.
+This will be installed automatically.</value>
+  </data>
+  <data name="Note" xml:space="preserve">
+    <value>Notice:</value>
+  </data>
 </root>
