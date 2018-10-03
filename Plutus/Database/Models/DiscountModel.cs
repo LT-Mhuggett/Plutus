@@ -15,6 +15,10 @@ namespace Database.Models
         public string Name { get; set; }
         public List<Discount_Category> DisCategoryList { get; set; }
         public List<Discount_Item> DisItemList { get; set; }
+        public bool AllApplicable { get; set; }
+        public bool CanUseWithOtherDiscounts { get; set; }
+        public bool OneTimeUse { get; set; }
+        public bool AutoApply { get; set; }
         /**
          * Type = 0 = Fixed $$$ off
          * 

@@ -742,4 +742,7 @@ This will be installed automatically.</value>
   <data name="Note" xml:space="preserve">
     <value>Notice:</value>
   </data>
+  <data name="AltTransaction" xml:space="preserve">
+    <value>Alter Transaction</value>
+  </data>
 </root>

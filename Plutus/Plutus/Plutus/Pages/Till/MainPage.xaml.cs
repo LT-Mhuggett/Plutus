@@ -21,6 +21,7 @@ namespace Plutus.Pages.Till
     {
         public ObservableCollection<ItemModel> Basket { get; set; }
         public static Dictionary<int, Tuple<string, ObservableCollection<ItemModel>>> StoredTrans { get; private set; }
+        public List<DiscountModel> Discounts { get; set; }
         internal static Helpers.Database TillDbContext { get; set; }
         private string BagItem { get; }
         private ZXingScannerPage _scanPage;
@@ -86,6 +87,8 @@ namespace Plutus.Pages.Till
             Bag.IsVisible = true;
 
             TillDbContext.DetachEntity(tempBag);
+
+            Discounts = TillDbContext.Get<DiscountModel>().ToList();
 
             _countBasketNum = 1;
             Instance = this;
@@ -769,6 +772,39 @@ namespace Plutus.Pages.Till
                 TillDbContext.Delete(tempTran);
             }
             TillDbContext.Save();
+        }
+
+        private void AltTransaction_OnClicked(object sender, EventArgs e)
+        {
+            
+            DiscountPanel.IsVisible = true;
+            Discounts = TillDbContext.Get<DiscountModel>().ToList();
+            var discount = new DiscountModel
+            {
+                Name = "Manager Adjustments",
+                OneTimeUse = true,
+                AllApplicable = true,
+                AutoApply = false,
+                CanUseWithOtherDiscounts = true
+            };
+            Discounts.Add(discount);
+            AltTransacPicker.ItemsSource = Discounts;
+            AltTransacPicker.ItemDisplayBinding = new Binding("Name");
+        }
+
+        private async void AltTransacPicker_OnSelectedIndexChanged(object sender, EventArgs e)
+        {
+            var item = (DiscountModel)(sender as Picker)?.SelectedItem;
+
+            Debug.Assert(item != null, nameof(item) + " != null");
+            if (item.OneTimeUse)
+            {
+                var data =
+                    await Helpers.CustomViews.InputWithMultiSelection.LaunchInputWithMultiSelectionAsync(
+                        "Discounts", new List<string> {"Input"}, "Confirm", new List<string>{"Error"}, 
+                        new List<List<ItemModel>> {new List<ItemModel>(Basket.ToList())}, new List<string> {"Name"});
+                Debug.WriteLine(data);
+            }
         }
     }
 }

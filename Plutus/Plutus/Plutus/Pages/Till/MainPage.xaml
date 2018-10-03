@@ -101,7 +101,8 @@
                     <Label Grid.Row="0"  Grid.Column="5" x:Name="PriceExVCell"/>
                     <Button Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" x:Name="Bag" IsVisible="False" Clicked="Bag_Clicked" />
                     <Button Grid.Row="1" Grid.Column="2" Grid.ColumnSpan="2" x:Name="StoreTrans" Text="{i18N:Translate SaveB}" Clicked="StoreTrans_Clicked" />
-                    <Button Grid.Row="1" Grid.Column="4" Grid.ColumnSpan="2" Grid.RowSpan="2" x:Name="COut" Text="{i18N:Translate COut}" Clicked="COut_Clicked"/>
+                    <Button Grid.Row="1" Grid.Column="4" Grid.RowSpan="2" x:Name="COut" Text="{i18N:Translate COut}" Clicked="COut_Clicked"/>
+                    <Button Grid.Row="1" Grid.Column="5" Grid.RowSpan="2" x:Name="AltTransaction" Text="{i18N:Translate AltTransaction}" Clicked="AltTransaction_OnClicked"/>
                     <Button Grid.Row="2"  Grid.Column="0" Grid.ColumnSpan="4" x:Name="Cancel" Text="{i18N:Translate Cancel}" Clicked="Cancel_Clicked" />
                 </Grid>
             </StackLayout>
@@ -111,6 +112,9 @@
             <Entry x:Name="EId" />
             <Button x:Name="Confirm" Text="{i18N:Translate Confirm}"/>
             <Button x:Name="CancelEmpCheck" Text="{i18N:Translate Cancel}" Clicked="CancelEmpCheck_Clicked" />
+        </StackLayout>
+        <StackLayout x:Name="DiscountPanel" IsVisible="False" BackgroundColor="White" Margin="50,100,50,200">
+            <Picker x:Name="AltTransacPicker" SelectedIndexChanged="AltTransacPicker_OnSelectedIndexChanged" />
         </StackLayout>
     </Grid>
 </ContentPage>

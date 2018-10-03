@@ -16,6 +16,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Authorisation.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Camera.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Csv.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\CustomViews\InputWithMultiSelection.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Extensions\DateTimeExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Extensions\EntryExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Extensions\ObjectExtensions.cs" />
@@ -23,6 +24,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\CustomViews\DataPickerInputAlertHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\CustomViews\InputAlertHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Extensions\ViewExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\Extensions\XAML\MultiSelectListView.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\ICloseApp.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\IPicturePicker.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\IPOSCommunication.cs" />
@@ -36,6 +38,7 @@
       <DependentUpon>MainPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="$(MSBuildThisFileDirectory)Pages\CustomPages\InputWithListMultiSelection.xaml.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Pages\CustomPages\SelectMultipleBasePage.xaml.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Pages\FirstTimeStartUp\ConfigPage.xaml.cs">
       <DependentUpon>ConfigPage.xaml</DependentUpon>

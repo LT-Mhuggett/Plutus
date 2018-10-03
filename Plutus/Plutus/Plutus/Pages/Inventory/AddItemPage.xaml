@@ -29,7 +29,7 @@
                 <Label Text="{i18N:Translate ExPrice}" HorizontalOptions="FillAndExpand"/>
                 <Entry x:Name="ExPrice" PropertyChanged="Cost_Vat_PropertyChanged" />
                 <Label Text="{i18N:Translate Price}" HorizontalOptions="FillAndExpand"/>
-                <Entry x:Name="Price" IsEnabled="False"/>
+                <Entry x:Name="Price" IsEnabled="true"/>
                 <Label Text="{i18N:Translate CStock}" HorizontalOptions="FillAndExpand" />
                 <Entry x:Name="Stock" Placeholder="{i18N:Translate CStockPL}" />
                 <Button x:Name="AddItem" Text="{i18N:Translate AddItem}" Clicked="AddItem_Clicked" />

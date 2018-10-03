@@ -44,12 +44,16 @@ namespace Database
             _databasePath = databasePath;
             _password = oldPassword;
         }
+
+        
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             var connection = InitializeSQLiteConnection();
             optionsBuilder.UseSqlite(connection);
+            //To use for Mgrations
+            //optionsBuilder.UseSqlite("Data Source=db.db");
         }
-
+        
         private SqliteConnection InitializeSQLiteConnection()
         {
             var conn = new SqliteConnection($"Data Source={_databasePath}");
@@ -202,7 +206,6 @@ namespace Database
 
             base.OnModelCreating(modelBuilder);
         }
-
         
         public override int SaveChanges()
         {

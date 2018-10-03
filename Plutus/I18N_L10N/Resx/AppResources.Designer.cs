@@ -179,6 +179,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Alter Transaction.
+        /// </summary>
+        internal static string AltTransaction {
+            get {
+                return ResourceManager.GetString("AltTransaction", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Amount.
         /// </summary>
         internal static string Amount {
