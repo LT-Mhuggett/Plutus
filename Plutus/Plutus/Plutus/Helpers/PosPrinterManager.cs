@@ -38,6 +38,10 @@ namespace Plutus.Helpers
                 throw new Exception("No printer is enabled!!");
             var text = PrintHeaderOfReceipt(store, sale);
             text = PrintTransactionAndRefunds(sale, ref text);
+            if(sale.Notes.Count > 0)
+            {
+                text = PrintNotes(sale, ref text);
+            }
             text = PrintFooterOfReceipt(sale, ref text);
             text.Add(new KeyValuePair<string, object>("cut...", ""));
             var textToSend = JsonConvert.SerializeObject(text);
@@ -122,6 +126,16 @@ namespace Plutus.Helpers
                         text.Add(new KeyValuePair<string, object>("str...", $"{refund.Item.Price:c}\tR18.75"));
                     }
                 }
+            }
+            return text;
+        }
+
+        private List<KeyValuePair<string, object>> PrintNotes(SaleModel sale, ref List<KeyValuePair<string, object>> text)
+        {
+            text.Add(new KeyValuePair<string, object>("str..true.", "Notes"));
+            foreach(var noteSale in sale.Notes)
+            {
+                text.Add(new KeyValuePair<string, object>("str...", noteSale.Note.Note));
             }
             return text;
         }

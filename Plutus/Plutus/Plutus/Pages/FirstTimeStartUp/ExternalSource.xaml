@@ -8,7 +8,7 @@
     <ContentPage.Content>
 
         <Grid>
-            <ScrollView>
+            <ScrollView x:Name="MainView">
                 <StackLayout>
                     <Button Text="{i18N:Translate TransCopper}" VerticalOptions="Center" Clicked="CTrans_Clicked" />
                 </StackLayout>

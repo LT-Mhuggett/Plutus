@@ -6,7 +6,7 @@
              Title="{i18N:Translate AddEmp}">
     <ContentPage.Content>
         <Grid>
-            <ScrollView>
+            <ScrollView x:Name="MainView">
                 <StackLayout BackgroundColor="Transparent"
                     HorizontalOptions="FillAndExpand"
                     VerticalOptions="FillAndExpand"

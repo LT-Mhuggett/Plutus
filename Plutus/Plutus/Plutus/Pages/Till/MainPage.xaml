@@ -114,6 +114,7 @@
             <Button x:Name="CancelEmpCheck" Text="{i18N:Translate Cancel}" Clicked="CancelEmpCheck_Clicked" />
         </StackLayout>
         <StackLayout x:Name="DiscountPanel" IsVisible="False" BackgroundColor="White" Margin="50,100,50,200">
+            <Label Text="Select Adjustment"/>
             <Picker x:Name="AltTransacPicker" SelectedIndexChanged="AltTransacPicker_OnSelectedIndexChanged" />
         </StackLayout>
     </Grid>

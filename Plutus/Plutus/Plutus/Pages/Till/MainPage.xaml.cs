@@ -27,6 +27,7 @@ namespace Plutus.Pages.Till
         private ZXingScannerPage _scanPage;
         private int _countBasketNum { get; set; }
         internal static MainPage Instance { get; private set; }
+        private List<Tuple<string, decimal>> Adjustments { get; set; } = new List<Tuple<string, decimal>>();
 
         /// <summary>
         /// Basic constructor for MainPage[Till]
@@ -212,10 +213,10 @@ namespace Plutus.Pages.Till
         /// </summary>
         private void UpdatePrice()
         {
-            var price = Basket.Sum(item => (item.Price * (item.Return ? -1 : 1)) * item.Amount);
-                PriceCell.Text = Math.Round(price, 2, MidpointRounding.AwayFromZero).ToString();
-            var exPrice = Basket.Sum(item =>
-                (item.ExPrice * (item.Return? -1 : 1)) * item.Amount);
+            decimal price = Basket.Sum(item => (item.Price * (item.Return ? -1 : 1)) * item.Amount) - Adjustments.Sum(adj => adj.Item2);
+            PriceCell.Text = Math.Round(price, 2, MidpointRounding.AwayFromZero).ToString();
+            decimal exPrice = Basket.Sum(item =>
+                (item.ExPrice * (item.Return ? -1 : 1)) * item.Amount) - Adjustments.Sum(adj => adj.Item2);
             PriceExVCell.Text = Math.Round(exPrice, 2, MidpointRounding.AwayFromZero).ToString();
         }
 
@@ -336,7 +337,7 @@ namespace Plutus.Pages.Till
                       item.Price;
             }
 
-            total = Basket.Sum(item => (item.Price * (item.Return? -1 : 1)) * item.Amount) + discountAmount;
+            total = (Basket.Sum(item => (item.Price * (item.Return? -1 : 1)) * item.Amount) + discountAmount) - Adjustments.Sum(adj=>adj.Item2);
 
             for (var paid = 0.0m; paid != total;)
             {
@@ -413,6 +414,18 @@ namespace Plutus.Pages.Till
                         change += amount;
                         total += amount;
                     }
+                }
+            }
+
+            if(Adjustments.Count > 0)
+            {
+                foreach(var adj in Adjustments)
+                {
+                    var adjNote = new NoteModel { Note = adj.Item1 };
+                    TillDbContext.Add(adjNote);
+                    var adjSNote = new Notes_SaleModel { Note = adjNote };
+                    TillDbContext.Add(adjSNote);
+                    sale.Notes.Add(adjSNote);
                 }
             }
 
@@ -493,6 +506,7 @@ namespace Plutus.Pages.Till
             await printerMgr.ExecuteOposOrPdfAsync(App.Store, null, Sale, cashBack);
 #endif
 
+            Adjustments = new List<Tuple<string, decimal>>();
             Basket.Clear();
             await DisplayAlert(App.Translate.ProvideValue("Transaction"), App.Translate.ProvideValue("TransConfMesg"), App.Translate.ProvideValue("OK"));
 
@@ -794,16 +808,30 @@ namespace Plutus.Pages.Till
 
         private async void AltTransacPicker_OnSelectedIndexChanged(object sender, EventArgs e)
         {
-            var item = (DiscountModel)(sender as Picker)?.SelectedItem;
+            var disItem = (DiscountModel)(sender as Picker)?.SelectedItem;
 
-            Debug.Assert(item != null, nameof(item) + " != null");
-            if (item.OneTimeUse)
+            Debug.Assert(disItem != null, nameof(disItem) + " != null");
+            if (disItem.OneTimeUse)
             {
+                var itemsSeperated = new List<dynamic>();
+                foreach (var item in Basket.ToList())
+                {
+                    for (int i = 1; i <= item.Amount; i++)
+                        itemsSeperated.Add(item);
+                }
+                DiscountPanel.IsVisible = false;
                 var data =
                     await Helpers.CustomViews.InputWithMultiSelection.LaunchInputWithMultiSelectionAsync(
-                        "Discounts", new List<string> {"Input"}, "Confirm", new List<string>{"Error"}, 
-                        new List<List<ItemModel>> {new List<ItemModel>(Basket.ToList())}, new List<string> {"Name"});
-                Debug.WriteLine(data);
+                        "Discounts", new List<string> { "Input" }, "Confirm", new List<string> { "Error" },
+                        itemsSeperated, new List<string> { "Name" });
+
+                foreach (var item in data.Item2)
+                {
+                    var tempItem = item as ItemModel;
+                    var adjustmentTuple = Tuple.Create($"{tempItem.Name} adujusted by -{Decimal.Parse(data.Item1[0])}", Decimal.Parse(data.Item1[0]));
+                    Adjustments.Add(adjustmentTuple);
+                }
+                UpdatePrice();
             }
         }
     }

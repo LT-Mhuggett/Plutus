@@ -40,7 +40,7 @@ namespace Plutus.Pages.FirstTimeStartUp
 
             var itemIssues = new List<StorageFile>();
 
-            Loading.TogleLoading(LCV, LAI);
+            MainView.TogleLoading(LCV, LAI);
 
             var folderList = await folder.GetFoldersAsync();
 
@@ -256,7 +256,7 @@ namespace Plutus.Pages.FirstTimeStartUp
             }
 
             Application.Current.MainPage = new NavigationPage(new LoginPage());
-            Loading.TogleLoading(LCV, LAI);
+            MainView.TogleLoading(LCV, LAI);
 #endif
         }
 	}

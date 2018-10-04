@@ -30,7 +30,7 @@ namespace Plutus.Pages
         /// </summary>
         private void LoginButton_Clicked_No_List()
         {
-            Loading.TogleLoading(LCV, LAI);
+            MainView.TogleLoading(LCV, LAI);
             Device.BeginInvokeOnMainThread(async () =>
             {
                 var emp = await EmpLogIn();
@@ -43,7 +43,7 @@ namespace Plutus.Pages
                 if (store == null) return;
 
                 Application.Current.MainPage = new NavigationPage(new MainNavigationPage(emp, store));
-                Loading.TogleLoading(LCV, LAI);
+                MainView.TogleLoading(LCV, LAI);
             });
         }
 #endregion
@@ -68,7 +68,7 @@ namespace Plutus.Pages
         /// <param name="currenList">Current Logged in user list</param>
         private void LoginButton_Clicked_List(ObservableCollection<EmployeeModel> currenList)
         {
-            Loading.TogleLoading(LCV, LAI);
+            MainView.TogleLoading(LCV, LAI);
             Device.BeginInvokeOnMainThread(async () =>
             {
                 //must add check for if the user is already logged in during debuging this not a problem and is more of a convenience for testing
@@ -79,7 +79,7 @@ namespace Plutus.Pages
                 else if (!emp.Active)
                     return;
                 Application.Current.MainPage = new NavigationPage(new MainNavigationPage(emp, currenList));
-                Loading.TogleLoading(LCV, LAI);
+                MainView.TogleLoading(LCV, LAI);
             });
         }
         #endregion
@@ -92,7 +92,7 @@ namespace Plutus.Pages
         {
             var emp = await App.DbContext.Login(UId.Text, PId.Text);
             if (emp != null) return emp;
-            Loading.TogleLoading(LCV, LAI);
+            MainView.TogleLoading(LCV, LAI);
             await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DetailsNotCorrectORUserNotExistMesg"), App.Translate.ProvideValue("OK"));
             return null;
         }
@@ -107,7 +107,7 @@ namespace Plutus.Pages
             var store = App.DbContext.Get<StoreModel>()
                 .SingleOrDefault(s => s.Id.Equals(emp.StoreId));
             if (store != null) return store;
-            Loading.TogleLoading(LCV, LAI);
+            MainView.TogleLoading(LCV, LAI);
             await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("StoreNotReachableMesg"), App.Translate.ProvideValue("OK"));
             return null;
         }

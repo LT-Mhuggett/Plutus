@@ -6,7 +6,7 @@
             Title="{i18N:Translate FWelcomeTitle}">
     <ContentPage.Content>
         <Grid>
-            <StackLayout HorizontalOptions="Center" VerticalOptions="Center">
+            <StackLayout x:Name="MainView" HorizontalOptions="Center" VerticalOptions="Center">
                 <Grid VerticalOptions="Center" HorizontalOptions="Center" Margin="40,0,40,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="1*"/>

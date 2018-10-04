@@ -38,7 +38,9 @@
       <DependentUpon>MainPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="$(MSBuildThisFileDirectory)Pages\CustomPages\InputWithListMultiSelection.xaml.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Pages\CustomPages\InputWithListMultiSelection.xaml.cs">
+      <DependentUpon>InputWithListMultiSelection.xaml</DependentUpon>
+    </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)Pages\CustomPages\SelectMultipleBasePage.xaml.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Pages\FirstTimeStartUp\ConfigPage.xaml.cs">
       <DependentUpon>ConfigPage.xaml</DependentUpon>
@@ -365,6 +367,12 @@
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\Inventory\MassStockUpdateMainPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Pages\CustomPages\InputWithListMultiSelection.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
     </EmbeddedResource>
   </ItemGroup>
 </Project>

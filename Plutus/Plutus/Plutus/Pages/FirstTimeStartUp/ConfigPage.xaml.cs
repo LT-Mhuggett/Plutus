@@ -34,17 +34,17 @@ namespace Plutus.Pages.FirstTimeStartUp
         /// <param name="e">Event that the object called</param>
         private async void Create_Clicked(object sender, EventArgs e)
         {
-            Loading.TogleLoading(LCV, LAI);
+            MainView.TogleLoading(LCV, LAI);
             
             if (!await Password.Text.PasswordCheck(PasswordConf.Text))
             {
-                Loading.TogleLoading(LCV, LAI);
+                MainView.TogleLoading(LCV, LAI);
                 return;
             }
 
             if (Email.Text != EmailConf.Text)
             {
-                Loading.TogleLoading(LCV, LAI);
+                MainView.TogleLoading(LCV, LAI);
                 Error(1);
                 return;
             }
@@ -86,14 +86,14 @@ namespace Plutus.Pages.FirstTimeStartUp
             if (store.StoreName == null || store.StoreAbbr == null || store.RecMarkup == null ||
                 store.FullAddress == null && store.AdLine1 == null)
             {
-                Loading.TogleLoading(LCV, LAI);
+                MainView.TogleLoading(LCV, LAI);
                 Error(0);
                 return;
             }
 
             if (store.PostCode == null && store.FullAddress == null)
             {
-                Loading.TogleLoading(LCV, LAI);
+                MainView.TogleLoading(LCV, LAI);
                 Error(2);
                 return;
             }
@@ -123,28 +123,28 @@ namespace Plutus.Pages.FirstTimeStartUp
             if (emp.FName == null || emp.LName == null || emp.NIN == null ||
                 emp.FullAddress == null && emp.AdLine1 == null)
             {
-                Loading.TogleLoading(LCV, LAI);
+                MainView.TogleLoading(LCV, LAI);
                 Error(0);
                 return;
             }
 
             if (emp.PostCode == null && emp.FullAddress == null)
             {
-                Loading.TogleLoading(LCV, LAI);
+                MainView.TogleLoading(LCV, LAI);
                 Error(2);
                 return;
             }
 
             if (emp.Email == null)
             {
-                Loading.TogleLoading(LCV, LAI);
+                MainView.TogleLoading(LCV, LAI);
                 Error(1);
                 return;
             }
 
             if (emp.Mobile == null)
             {
-                Loading.TogleLoading(LCV, LAI);
+                MainView.TogleLoading(LCV, LAI);
                 Error(3);
                 return;
             }
@@ -155,7 +155,7 @@ namespace Plutus.Pages.FirstTimeStartUp
                     App.AppSettings.DatabaseProvider = "Sqlite";
                     break;
                 default:
-                    Loading.TogleLoading(LCV, LAI);
+                    MainView.TogleLoading(LCV, LAI);
                     Error(4);
                     return;
             }
@@ -204,7 +204,7 @@ namespace Plutus.Pages.FirstTimeStartUp
             }
 
             Application.Current.MainPage = new NavigationPage(new MainNavigationPage(emp, store));
-            Loading.TogleLoading(LCV, LAI);
+            MainView.TogleLoading(LCV, LAI);
         }
 
         /// <summary>

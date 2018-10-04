@@ -60,18 +60,18 @@ namespace Plutus.Pages.Staff
         /// <param name="e">Event that the object called</param>
         private async void Create_Clicked(object sender, EventArgs e)
         {
-            Loading.TogleLoading(LCV, LAI);
+            MainView.TogleLoading(LCV, LAI);
             if (Password.IsVisible && PasswordConf.IsVisible)
             {
                 if (string.IsNullOrEmpty(Password.Text) || string.IsNullOrEmpty(PasswordConf.Text))
                 {
-                    Loading.TogleLoading(LCV, LAI);
+                    MainView.TogleLoading(LCV, LAI);
                     await DisplayAlert(App.Translate.ProvideValue("Oops"), App.Translate.ProvideValue("SetPassWMesg"), App.Translate.ProvideValue("OK"));
                     return;
                 }
                 if (Password.Text != PasswordConf.Text || Password.Text.Length <= 6)
                 {
-                    Loading.TogleLoading(LCV, LAI);
+                    MainView.TogleLoading(LCV, LAI);
                     await DisplayAlert(App.Translate.ProvideValue("Oops"), App.Translate.ProvideValue("PassWNotSameMesg"), App.Translate.ProvideValue("OK"));
                     return;
                 }
@@ -107,36 +107,36 @@ namespace Plutus.Pages.Staff
 
             if (Emp.FName == null || Emp.LName == null || Emp.NIN == null || Emp.AdLine1 == null && Emp.FullAddress == null)
             {
-                Loading.TogleLoading(LCV, LAI);
+                MainView.TogleLoading(LCV, LAI);
                 Error(0);
                 return;
             }
             else if (Emp.PostCode == null)
             {
-                Loading.TogleLoading(LCV, LAI);
+                MainView.TogleLoading(LCV, LAI);
                 Error(2);
                 return;
             }
             else if (Emp.Email == null)
             {
-                Loading.TogleLoading(LCV, LAI);
+                MainView.TogleLoading(LCV, LAI);
                 Error(1);
                 return;
             }
             else if (Emp.Mobile == null)
             {
-                Loading.TogleLoading(LCV, LAI);
+                MainView.TogleLoading(LCV, LAI);
                 Error(3);
                 return;
             }
             else if (Emp.Wage == -0.1m)
             {
-                Loading.TogleLoading(LCV, LAI);
+                MainView.TogleLoading(LCV, LAI);
                 return;
             }
             else if (Emp.ContractedHours < 0)
             {
-                Loading.TogleLoading(LCV, LAI);
+                MainView.TogleLoading(LCV, LAI);
                 return;
             }
 
@@ -146,11 +146,11 @@ namespace Plutus.Pages.Staff
                 if (!App.DbContext.Save())
                 {
                     await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
-                    Loading.TogleLoading(LCV, LAI);
+                    MainView.TogleLoading(LCV, LAI);
                     return;
                 }
             }
-            Loading.TogleLoading(LCV, LAI);
+            MainView.TogleLoading(LCV, LAI);
             await Navigation.PopAsync();
         }
 
