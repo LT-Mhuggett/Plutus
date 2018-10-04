@@ -24,6 +24,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\CustomViews\DataPickerInputAlertHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\CustomViews\InputAlertHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Extensions\ViewExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\Extensions\XAML\CollectionEmptyBoolConverter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Extensions\XAML\MultiSelectListView.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\ICloseApp.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Interface\IPicturePicker.cs" />

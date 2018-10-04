@@ -13,6 +13,7 @@ using Plutus.Helpers;
 using ZXing.Net.Mobile.Forms;
 using ZXing.Mobile;
 using Microsoft.EntityFrameworkCore;
+using Database = Plutus.Helpers.Database;
 
 namespace Plutus.Pages.Till
 {
@@ -27,7 +28,7 @@ namespace Plutus.Pages.Till
         private ZXingScannerPage _scanPage;
         private int _countBasketNum { get; set; }
         internal static MainPage Instance { get; private set; }
-        private List<Tuple<string, decimal>> Adjustments { get; set; } = new List<Tuple<string, decimal>>();
+        public ObservableCollection<Tuple<string, decimal>> Adjustments { get; set; } = new ObservableCollection<Tuple<string, decimal>>();
 
         /// <summary>
         /// Basic constructor for MainPage[Till]
@@ -432,7 +433,8 @@ namespace Plutus.Pages.Till
             var Continue = await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("Continue"), Math.Round(total, 2, MidpointRounding.AwayFromZero)), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("Cancel"));
             if (!Continue)
             {
-                TillDbContext.RevertDbContextChanges();
+                TillDbContext = null;
+                TillDbContext = new Helpers.Database(App.AppSettings.DatabaseProvider);
                 return;
             }
 
@@ -506,7 +508,7 @@ namespace Plutus.Pages.Till
             await printerMgr.ExecuteOposOrPdfAsync(App.Store, null, Sale, cashBack);
 #endif
 
-            Adjustments = new List<Tuple<string, decimal>>();
+            Adjustments = new ObservableCollection<Tuple<string, decimal>>();
             Basket.Clear();
             await DisplayAlert(App.Translate.ProvideValue("Transaction"), App.Translate.ProvideValue("TransConfMesg"), App.Translate.ProvideValue("OK"));
 
@@ -824,13 +826,17 @@ namespace Plutus.Pages.Till
                     await Helpers.CustomViews.InputWithMultiSelection.LaunchInputWithMultiSelectionAsync(
                         "Discounts", new List<string> { "Input" }, "Confirm", new List<string> { "Error" },
                         itemsSeperated, new List<string> { "Name" });
-
+                
                 foreach (var item in data.Item2)
                 {
                     var tempItem = item as ItemModel;
-                    var adjustmentTuple = Tuple.Create($"{tempItem.Name} adujusted by -{Decimal.Parse(data.Item1[0])}", Decimal.Parse(data.Item1[0]));
+                    //var adjustmentTuple = Tuple.Create($"{tempItem.Name} adujusted by -{Decimal.Parse(data.Item1[0])}", Decimal.Parse(data.Item1[0]));
+                    var adjustmentTuple = Tuple.Create($"{disItem.Name}, {tempItem.Name} -{Decimal.Parse(data.Item1[0]):c}", Decimal.Parse(data.Item1[0]));
                     Adjustments.Add(adjustmentTuple);
                 }
+                
+                //var adjustmentTuple = Tuple.Create($"{disItem.Name} -{Decimal.Parse(data.Item1[0])*data.Item2.Count:c}", Decimal.Parse(data.Item1[0]));
+                //Adjustments.Add(adjustmentTuple);
                 UpdatePrice();
             }
         }

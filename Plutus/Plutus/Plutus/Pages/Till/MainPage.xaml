@@ -3,9 +3,13 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Plutus.Pages.Till.MainPage"
              xmlns:i18N="clr-namespace:I18N_L10N;assembly=I18N_L10N"
+             xmlns:xaml="clr-namespace:Plutus.Helpers.Extensions.XAML;assembly=Plutus.UWP"
              Title="{i18N:Translate Till}">
     <Grid>
         <StackLayout x:Name="MPage">
+            <StackLayout.Resources>
+                <xaml:CollectionEmptyBoolConverter x:Key="CollectionEmptyBoolConverter" />
+            </StackLayout.Resources>
             <Grid Padding="5">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="50"/>
@@ -76,6 +80,17 @@
                                 </Grid>
                             </StackLayout>
                         </ViewCell>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+            <ListView IsVisible="{Binding Adjustments, Converter={StaticResource CollectionEmptyBoolConverter}}"
+                      ItemsSource="{Binding Adjustments}">
+                <ListView.Header>
+                    <Label>Notes</Label>
+                </ListView.Header>
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <Label Text="{Binding Item1}" />
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
