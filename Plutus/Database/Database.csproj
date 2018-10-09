@@ -7,6 +7,8 @@
 
   <ItemGroup>
     <Compile Remove="Migrations\SqliteMigrations\20180906194346_InitCreate.cs" />
+    <Compile Remove="Migrations\SqliteMigrations\20181002163722_v1_0_1.cs" />
+    <Compile Remove="Migrations\SqliteMigrations\20181004200746_v1_0_2.cs" />
   </ItemGroup>
 
   <ItemGroup>

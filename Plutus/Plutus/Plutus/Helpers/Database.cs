@@ -27,7 +27,7 @@ namespace Plutus.Helpers
             switch(providerNeeded)
             {
                 case "Sqlite":
-                    _db = new SqliteContext(Path.Combine(FileIO.GetLib(), "Database.db"), App.AppSettings.DbPass);
+                    _db = new SqliteContext(Path.Combine(FileIO.GetLib(), "Database.db"));
                     break;
                 default:
                     throw new Exception("No DB Provider specified");
@@ -322,7 +322,7 @@ namespace Plutus.Helpers
 
         internal void UpdateStock(string id, int quant)
         {
-            using (var StockDatabase = new SqliteContext(Path.Combine(FileIO.GetLib(), "Database.db"), App.AppSettings.DbPass))
+            using (var StockDatabase = new SqliteContext(Path.Combine(FileIO.GetLib(), "Database.db")))
             {
                 var stock = StockDatabase.Set<StockModel>().First(s => s.ItemId.Equals(id) && s.StoreId.Equals(App.Store.Id));
                 stock.Quantity -= quant;

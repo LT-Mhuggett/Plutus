@@ -11,6 +11,8 @@
                 <Button x:Name="BackUpButt" Text="{i18N:Translate BackUp}" Clicked="Backup_Clicked"/>
                 <Button x:Name="RestoreButt" Text="{i18N:Translate Restore}" Clicked="Restore_Clicked"/>
                 <Button x:Name="DeleteDBButt" Text="Delete DB" Clicked="DeleteDBButt_Clicked"/>
+                <Button x:Name="ChangePrinter" Text="Change Printer" Clicked="ChangePrinter_Clicked"/>
+                <Button x:Name="AddPayMeth" Text="Add Payment Method" Clicked="AddPayMeth_Clicked"/>
                 <Label x:Name="VersionLabel" Text=""/>
             </StackLayout>
             <StackLayout x:Name="VerifyId"  IsVisible="False" BackgroundColor="White" Margin="50,100,50,200">

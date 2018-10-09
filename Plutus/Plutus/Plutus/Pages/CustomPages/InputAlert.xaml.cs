@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Plutus.Helpers.Extensions;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
@@ -10,9 +11,71 @@ namespace Plutus.Pages.CustomPages
 	{
         public EventHandler ConfirmButtonEHandler { get; set; }
 
-        public string InputResult { get; set; }
+        public List<string> InputResults { get; set; }
+        public List<Tuple<Label, Entry, Label>> ViewElements { get; set; } = new List<Tuple<Label, Entry, Label>>();
 
-	    public InputAlert(string titleText, string placeholderText, string confirmButText, string validationText,
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="titleText"></param>
+        /// <param name="viewElements">Tuple<label, placeholder, validation, isPass></param>
+        /// <param name="confirmButText"></param>
+        public InputAlert(string titleText, Tuple<string, string, string, bool>[] viewElements, string confirmButText)
+        {
+            InitializeComponent();
+
+            MainLayout.Children.Add(new Label { Text = titleText });
+
+            foreach(Tuple<string, string, string, bool> viewData in viewElements)
+            {
+                this.ViewElements.Add(CreateLabelEntry(viewData));
+            }
+            var confButton = new Button { Text = confirmButText };
+            confButton.Clicked += ConfirmBut_ClickedAsync;
+            MainLayout.Children.Add(confButton);
+
+            var i = 0;
+            foreach (var item in MainLayout.Children)
+            {
+                if (item is Entry)
+                {
+                    InputResults[i] = (item as Entry).Text;
+                    i++;
+                }
+            }
+        }
+        public InputAlert(string titleText, Tuple<string, string, string, bool>[] viewElements, string confirmButText, bool cash, decimal toPay)
+        {
+
+        }
+
+        public Tuple<Label, Entry, Label> CreateLabelEntry(Tuple<string, string, string, bool> elementValues)
+        {
+            Label label = new Label { Text = elementValues.Item1 };
+            Entry entry = new Entry { Placeholder = elementValues.Item2, IsPassword = elementValues.Item4 };
+            entry.TextChanged += Entry_TextChanged;
+            Label labelValid = new Label { Text = elementValues.Item3, IsVisible = false };
+            return Tuple.Create(label, entry, labelValid);
+        }
+
+        private void Entry_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            var updatedEntry = (sender as Entry);
+            var i = 0;
+            foreach (var item in MainLayout.Children)
+            {
+                if (item is Entry)
+                {
+                    if (item == updatedEntry)
+                    {
+                        InputResults[i] = (item as Entry).Text;
+                    }
+                    i++;
+                }
+            }
+        }
+
+        public InputAlert(string titleText, string placeholderText, string confirmButText, string validationText,
 	        bool cashBack, decimal toPay)
 	    {
 	        InitializeComponent();
@@ -74,9 +137,10 @@ namespace Plutus.Pages.CustomPages
 
         private async void ConfirmBut_ClickedAsync(object sender, EventArgs e)
         {
-            if (InputEConf.IsVisible)
+            var passElements = ViewElements.FindAll(elements => elements.Item2.IsPassword);
+            if (passElements.Count > 0)
             {
-                if (!await InputE.Text.PasswordCheck(InputEConf.Text))
+                if (!await passElements[0].Item2.Text.PasswordCheck(passElements[1].Item2.Text))
                 {
                     return;
                 }

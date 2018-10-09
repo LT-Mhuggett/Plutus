@@ -26,6 +26,9 @@
                         </ViewCell>
                     </DataTemplate>
                 </ListView.ItemTemplate>
+                <ListView.Footer>
+                    <Button Clicked="SelectAll_Clicked" Text="Select All"/>
+                </ListView.Footer>
             </ListView>
             <Button x:Name="confirmBut"/>
         </StackLayout>

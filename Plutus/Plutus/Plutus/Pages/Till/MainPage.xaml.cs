@@ -4,7 +4,6 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Threading.Tasks;
 using Database.Models;
 using Plutus.Helpers.Extensions;
 using Xamarin.Forms;
@@ -13,7 +12,6 @@ using Plutus.Helpers;
 using ZXing.Net.Mobile.Forms;
 using ZXing.Mobile;
 using Microsoft.EntityFrameworkCore;
-using Database = Plutus.Helpers.Database;
 
 namespace Plutus.Pages.Till
 {
@@ -29,6 +27,7 @@ namespace Plutus.Pages.Till
         private int _countBasketNum { get; set; }
         internal static MainPage Instance { get; private set; }
         public ObservableCollection<Tuple<string, decimal>> Adjustments { get; set; } = new ObservableCollection<Tuple<string, decimal>>();
+        public List<CheckoutItemChangeModel> checkoutItemChanges { get; set; } = new List<CheckoutItemChangeModel>();
 
         /// <summary>
         /// Basic constructor for MainPage[Till]
@@ -234,6 +233,7 @@ namespace Plutus.Pages.Till
 
                 if (!quit) return;
                 Basket.Clear();
+                Adjustments.Clear();
             });
         }
 
@@ -274,7 +274,6 @@ namespace Plutus.Pages.Till
             var actionDic = TillDbContext.Get<PaymentMethodModel>().OrderBy(p => p.Name)
                 .ToDictionary<PaymentMethodModel, string, Func<PaymentMethodModel>>(tempPayMeth => tempPayMeth.Name,
                     tempPayMeth => (() => tempPayMeth));
-            actionDic.Add(App.Translate.ProvideValue("Cancel"), null);
 
             EId.Text = null;
             VerifyId.IsVisible = false;
@@ -345,11 +344,14 @@ namespace Plutus.Pages.Till
                 if (!Basket.Any(i => i.Return))
                     if(paid > total)
                         break;
-                var action = await DisplayActionSheet(App.Translate.ProvideValue("PayMeth"), App.Translate.ProvideValue("Cancel"), null, App.Translate.ProvideValue("Card"), App.Translate.ProvideValue("Cash"));
+                string[] payMs = new string[actionDic.Count];
+                for (var i = 0; i <= actionDic.Count - 1; i++)
+                    payMs[i] = actionDic.ElementAt(i).Key;
+                var action = await DisplayActionSheet(App.Translate.ProvideValue("PayMeth"), App.Translate.ProvideValue("Cancel"), null, payMs);
 
                 if (action == App.Translate.ProvideValue("Cancel"))
                 {
-                    TillDbContext.RevertDbContextChanges();
+                    TillDbContext = new Helpers.Database(App.AppSettings.DatabaseProvider);
                     return;
                 }
 
@@ -372,7 +374,7 @@ namespace Plutus.Pages.Till
                 var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
                     string.Format(App.Translate.ProvideValue(refundOnly ? "HowMuchRefund" : "HowMuchPM"), action,
                         Math.Round(total - paid, 2, MidpointRounding.AwayFromZero)), "Enter Here", App.Translate.ProvideValue("Confirm"),
-                    App.Translate.ProvideValue("EnterCorrectValue"), total - paid, pay.PayMethod.IsCashBackable);
+                    App.Translate.ProvideValue("EnterCorrectValue"), total - paid, pay.PayMethod.IsCashBackable ? true : pay.PayMethod.IsChangeable ? false : true );
 
                 pay.Amount = amount;
 
@@ -397,7 +399,7 @@ namespace Plutus.Pages.Till
 
             if (sale.PaySales.Any(pay => pay.PayMethod.IsCashBackable))
             {
-                var cashback = await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("CashBack_"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("No"));
+                var cashback = /*await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("CashBack_"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("No"));*/false;
                 if (cashback)
                 {
                     var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(App.Translate.ProvideValue("HowMuchCB"), "Enter Here", App.Translate.ProvideValue("Confirm"), App.Translate.ProvideValue("EnterCorrectValue"), toPay:0.0m);
@@ -476,11 +478,7 @@ namespace Plutus.Pages.Till
         /// <param name="Sale"></param>
         private async void FinaliseTransaction(SaleModel Sale, decimal cashBack)
         {
-            if (cashBack != 0.0m)
-            {
-                await DisplayAlert(App.Translate.ProvideValue("Hmm"), string.Format(App.Translate.ProvideValue("CashBack"), cashBack), App.Translate.ProvideValue("OK"));
-            }
-
+            
             var itemHasNoStock = false;
             
             foreach (var trans in Sale.Transactions)
@@ -494,11 +492,24 @@ namespace Plutus.Pages.Till
 
             TillDbContext.Add(Sale);
 
-            if (!TillDbContext.Save())
+            try
             {
-                TillDbContext.RevertDbContextChanges();
-                await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
-                return;
+                if (!TillDbContext.Save())
+                {
+                    TillDbContext.RevertDbContextChanges();
+                    await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("DbIssue"), App.Translate.ProvideValue("OK"));
+                    return;
+                }
+            }
+            catch(Exception)
+            {
+                await DisplayAlert(App.Translate.ProvideValue("Hmm"), "There was an issue, please try the transaction again.", App.Translate.ProvideValue("OK"));
+                TillDbContext = new Helpers.Database(App.AppSettings.DatabaseProvider);
+            }
+
+            if (cashBack != 0.0m)
+            {
+                await DisplayAlert(App.Translate.ProvideValue("Hmm"), string.Format(App.Translate.ProvideValue("CashBack"), cashBack), App.Translate.ProvideValue("OK"));
             }
 
             TillDbContext = new Helpers.Database(App.AppSettings.DatabaseProvider);
@@ -508,8 +519,9 @@ namespace Plutus.Pages.Till
             await printerMgr.ExecuteOposOrPdfAsync(App.Store, null, Sale, cashBack);
 #endif
 
-            Adjustments = new ObservableCollection<Tuple<string, decimal>>();
+            Adjustments.Clear();
             Basket.Clear();
+            UpdatePrice();
             await DisplayAlert(App.Translate.ProvideValue("Transaction"), App.Translate.ProvideValue("TransConfMesg"), App.Translate.ProvideValue("OK"));
 
             if (itemHasNoStock == false)
@@ -761,7 +773,7 @@ namespace Plutus.Pages.Till
             EId.Text = null;
             VerifyId.IsVisible = false;
             MPage.IsEnabled = true;
-            TillDbContext.RevertDbContextChanges();
+            TillDbContext = new Helpers.Database(App.AppSettings.DatabaseProvider);
         }
 
         protected override void OnAppearing()
@@ -792,18 +804,9 @@ namespace Plutus.Pages.Till
 
         private void AltTransaction_OnClicked(object sender, EventArgs e)
         {
-            
-            DiscountPanel.IsVisible = true;
             Discounts = TillDbContext.Get<DiscountModel>().ToList();
-            var discount = new DiscountModel
-            {
-                Name = "Manager Adjustments",
-                OneTimeUse = true,
-                AllApplicable = true,
-                AutoApply = false,
-                CanUseWithOtherDiscounts = true
-            };
-            Discounts.Add(discount);
+            if (Discounts.Count == 0) return;
+            DiscountPanel.IsVisible = true;
             AltTransacPicker.ItemsSource = Discounts;
             AltTransacPicker.ItemDisplayBinding = new Binding("Name");
         }
@@ -811,9 +814,10 @@ namespace Plutus.Pages.Till
         private async void AltTransacPicker_OnSelectedIndexChanged(object sender, EventArgs e)
         {
             var disItem = (DiscountModel)(sender as Picker)?.SelectedItem;
-
+            if (disItem == null)
+                return;
             Debug.Assert(disItem != null, nameof(disItem) + " != null");
-            if (disItem.OneTimeUse)
+            if (!disItem.AutoApply)
             {
                 var itemsSeperated = new List<dynamic>();
                 foreach (var item in Basket.ToList())
@@ -822,23 +826,71 @@ namespace Plutus.Pages.Till
                         itemsSeperated.Add(item);
                 }
                 DiscountPanel.IsVisible = false;
-                var data =
-                    await Helpers.CustomViews.InputWithMultiSelection.LaunchInputWithMultiSelectionAsync(
-                        "Discounts", new List<string> { "Input" }, "Confirm", new List<string> { "Error" },
-                        itemsSeperated, new List<string> { "Name" });
-                
-                foreach (var item in data.Item2)
+                Tuple<List<string>, List<dynamic>> data;
+                if (disItem.Amount == 0.0m)
                 {
-                    var tempItem = item as ItemModel;
-                    //var adjustmentTuple = Tuple.Create($"{tempItem.Name} adujusted by -{Decimal.Parse(data.Item1[0])}", Decimal.Parse(data.Item1[0]));
-                    var adjustmentTuple = Tuple.Create($"{disItem.Name}, {tempItem.Name} -{Decimal.Parse(data.Item1[0]):c}", Decimal.Parse(data.Item1[0]));
+                    data =
+                        await Helpers.CustomViews.InputWithMultiSelection.LaunchInputWithMultiSelectionAsync(
+                            "Discounts", new List<string> { "Input" }, "Confirm", new List<string> { "Error" },
+                            itemsSeperated, new List<string> { "Name" });
+                }
+                else
+                {
+                    data = await Helpers.CustomViews.InputWithMultiSelection.LaunchInputWithMultiSelectionAsync(
+                        "Discounts", new List<string> { "Input" }, "Confirm", new List<string> { "Error" },
+                        itemsSeperated, new List<string> { "Name" }, disItem.Amount.ToString());
+                }
+                Tuple<string, decimal> adjustmentTuple;
+
+                if (data.Item2.Count() < itemsSeperated.Count())
+                {
+                    foreach (var item in data.Item2)
+                    {
+                        var tempItem = item as ItemModel;
+                        if (disItem.Type == 0)
+                            //var adjustmentTuple = Tuple.Create($"{tempItem.Name} adujusted by -{Decimal.Parse(data.Item1[0])}", Decimal.Parse(data.Item1[0]));
+                            adjustmentTuple = Tuple.Create($"{disItem.Name}, {tempItem.Name} -{Math.Round(Decimal.Parse(data.Item1[0]), 2, MidpointRounding.AwayFromZero)}", Math.Round(Decimal.Parse(data.Item1[0]), 2, MidpointRounding.AwayFromZero));
+                        else
+                            adjustmentTuple = Tuple.Create($"{disItem.Name}, {tempItem.Name} -{Math.Round(tempItem.Price * Decimal.Parse(data.Item1[0]), 2, MidpointRounding.AwayFromZero)}", tempItem.Price * Math.Round(Decimal.Parse(data.Item1[0]), 2, MidpointRounding.AwayFromZero));
+                        Adjustments.Add(adjustmentTuple);
+                    }
+                }
+                else
+                {
+                    if (disItem.Type == 0)
+                        adjustmentTuple = Tuple.Create($"{disItem.Name} -{Math.Round(Decimal.Parse(data.Item1[0]) * data.Item2.Count, 2, MidpointRounding.AwayFromZero)}", Math.Round(Decimal.Parse(data.Item1[0]), 2, MidpointRounding.AwayFromZero));
+                    else
+                        adjustmentTuple = Tuple.Create($"{disItem.Name} -{Math.Round(data.Item2.Sum(item => (item as ItemModel).Price) * (Decimal.Parse(data.Item1[0])),2, MidpointRounding.AwayFromZero)}", Math.Round(data.Item2.Sum(item => (item as ItemModel).Price) * (Decimal.Parse(data.Item1[0])), 2, MidpointRounding.AwayFromZero));
                     Adjustments.Add(adjustmentTuple);
                 }
-                
-                //var adjustmentTuple = Tuple.Create($"{disItem.Name} -{Decimal.Parse(data.Item1[0])*data.Item2.Count:c}", Decimal.Parse(data.Item1[0]));
-                //Adjustments.Add(adjustmentTuple);
                 UpdatePrice();
+
+                (sender as Picker).SelectedIndex = -1;
             }
+        }
+
+        private void DeleteAdjustment_Clicked(object sender, EventArgs e)
+        {
+            var menuItem = (Tuple<string, decimal>)((MenuItem)sender).CommandParameter;
+            Remove(menuItem);
+            UpdatePrice();
+        }
+
+        private void Remove(Tuple<string, decimal> item)
+        {
+            for (var i = 0; i <= Adjustments.Count - 1; i++)
+            {
+                if (Adjustments[i].Item1 == item.Item1 && Adjustments[i].Item2 == item.Item2)
+                {
+                    Adjustments.RemoveAt(i);
+                }
+            }
+        }
+
+        private void ChangePrice_Clicked(object sender, EventArgs e)
+        {
+            var item = ((MenuItem)sender).CommandParameter;
+
         }
     }
 }

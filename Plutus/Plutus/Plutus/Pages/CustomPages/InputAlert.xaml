@@ -4,11 +4,10 @@
              x:Class="Plutus.Pages.CustomPages.InputAlert">
     <ContentView.Content>
         <StackLayout
-          Padding="10"
-          BackgroundColor="White"
-          HorizontalOptions="CenterAndExpand"
-          Spacing="5"
-          VerticalOptions="CenterAndExpand">
+            x:Name="MainLayout" Padding="10"
+            Spacing="5" BackgroundColor="White"
+            HorizontalOptions="CenterAndExpand"
+            VerticalOptions="CenterAndExpand">
             <Label x:Name="TitleL" />
             <Label x:Name="ValidationL" FontSize="Micro" IsVisible="False" Text="ERROR" TextColor="Red"/>
             <Grid x:Name="CashOptions" IsVisible="False">

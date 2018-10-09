@@ -31,9 +31,10 @@ namespace Database
         public DbSet<SavedTransactionModel> SavedTransactions { get; set; }
 
         private readonly string _databasePath;
-        private readonly string _password;
+        //private readonly string _password;
         private readonly EmployeeModel _lastAuthUser = new EmployeeModel();
         
+        /*
         public SqliteContext(string databasePath, string password)
         {
             _databasePath = databasePath;
@@ -44,16 +45,23 @@ namespace Database
             _databasePath = databasePath;
             _password = oldPassword;
         }
+        */
 
-        
+        public SqliteContext(string databasePath)
+        {
+            _databasePath = databasePath;
+        }
+
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            var connection = InitializeSQLiteConnection();
-            optionsBuilder.UseSqlite(connection);
+            //var connection = InitializeSQLiteConnection();
+            //optionsBuilder.UseSqlite(connection);
             //To use for Mgrations
             //optionsBuilder.UseSqlite("Data Source=db.db");
+            optionsBuilder.UseSqlite($"Data Source={_databasePath}");
         }
         
+        /*
         private SqliteConnection InitializeSQLiteConnection()
         {
             var conn = new SqliteConnection($"Data Source={_databasePath}");
@@ -67,7 +75,7 @@ namespace Database
             command.Parameters.Clear();
             command.ExecuteNonQuery();
             return conn;
-        }
+        }*/
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -203,6 +211,16 @@ namespace Database
                 .HasOne(ps => ps.Sale)
                 .WithMany(s => s.PaySales)
                 .HasForeignKey(ps => ps.SaleId);
+
+            modelBuilder.Entity<CheckoutItemChangeModel>()
+                .HasOne(cIC => cIC.Item)
+                .WithMany(i => i.CheckoutItemChanges)
+                .HasForeignKey(cIC => cIC.ItemId);
+
+            modelBuilder.Entity<CheckoutItemChangeModel>()
+                .HasOne(cIC => cIC.Sale)
+                .WithMany(s => s.CheckoutItemChanges)
+                .HasForeignKey(cIC => cIC.SaleId);
 
             base.OnModelCreating(modelBuilder);
         }

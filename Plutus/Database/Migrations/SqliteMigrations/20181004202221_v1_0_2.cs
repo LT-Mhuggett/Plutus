@@ -2,7 +2,7 @@
 
 namespace Database.Migrations.SqliteMigrations
 {
-    public partial class v1_0_1 : Migration
+    public partial class v1_0_2 : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -23,12 +23,6 @@ namespace Database.Migrations.SqliteMigrations
                 table: "Discounts",
                 nullable: false,
                 defaultValue: false);
-
-            migrationBuilder.AddColumn<bool>(
-                name: "OneTimeUse",
-                table: "Discounts",
-                nullable: false,
-                defaultValue: false);
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
@@ -43,10 +37,6 @@ namespace Database.Migrations.SqliteMigrations
 
             migrationBuilder.DropColumn(
                 name: "CanUseWithOtherDiscounts",
-                table: "Discounts");
-
-            migrationBuilder.DropColumn(
-                name: "OneTimeUse",
                 table: "Discounts");
         }
     }

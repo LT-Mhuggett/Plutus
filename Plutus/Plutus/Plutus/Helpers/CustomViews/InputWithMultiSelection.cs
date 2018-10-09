@@ -12,11 +12,11 @@ namespace Plutus.Helpers.CustomViews
     {
         internal static async Task<Tuple<List<string>, List<dynamic>>> LaunchInputWithMultiSelectionAsync(
             string title, List<string> placeholders, string buttonText, List<string> validationList, List<dynamic> selections,
-            List<string> bindingNames)
+            List<string> bindingNames, string staticInput = null)
         {
             var dPInputWithListMultiSelection = new InputWithListMultiSelection(title, placeholders, 
                 buttonText, validationList,
-                selections, bindingNames);
+                selections, bindingNames, staticInput);
             var popUp = new InputAlertDialogBase<Tuple<List<string>, List<dynamic>>>(dPInputWithListMultiSelection);
             dPInputWithListMultiSelection.ConfirmButtonEHandler += (sender, e) =>
             {

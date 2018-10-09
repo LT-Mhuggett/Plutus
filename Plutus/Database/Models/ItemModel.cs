@@ -34,6 +34,7 @@ namespace Database.Models
         public List<TransactionModel> Transactions { get; set; }
         public List<RefundModel> Refunds { get; set; }
         public List<SavedItemModel> SavedItems { get; set; }
+        public List<CheckoutItemChangeModel> CheckoutItemChanges { get; set; }
         public StockModel Stock { get; set; }
         public TaxModel Vat { get; set; }
         public CategoryModel Cat { get; set; }

@@ -9,8 +9,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Database.Migrations.SqliteMigrations
 {
     [DbContext(typeof(SqliteContext))]
-    [Migration("20181002163722_v1_0_1")]
-    partial class v1_0_1
+    [Migration("20181004202221_v1_0_2")]
+    partial class v1_0_2
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -145,8 +145,6 @@ namespace Database.Migrations.SqliteMigrations
 
                     b.Property<string>("Name")
                         .HasColumnName("Name");
-
-                    b.Property<bool>("OneTimeUse");
 
                     b.Property<int>("RequiredNumOfItems");
 

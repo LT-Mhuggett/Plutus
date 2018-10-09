@@ -9,7 +9,7 @@ namespace Database.Models
 {
     public class SaleModel : IAuditable, IBase<string>
     {
-        public string Id { get; set; }
+        public string Id { get; set; } = $"{DateTime.Now.Year}{DateTime.Now.Month}{DateTime.Now.Day}{DateTime.Now.Hour}{DateTime.Now.Minute}{DateTime.Now.Second}{DateTime.Now.Millisecond}";
 
         public decimal Total { get; set; }
         public DateTime DateOfSale { get; set; }
@@ -20,5 +20,6 @@ namespace Database.Models
         public List<PaymentMethod_SaleModel> PaySales { get; set; }
         public List<RefundModel> Refunded { get; set; }
         public List<Notes_SaleModel> Notes { get; set; }
+        public List<CheckoutItemChangeModel> CheckoutItemChanges { get; set; }
     }
 }

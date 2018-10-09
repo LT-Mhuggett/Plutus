@@ -17,7 +17,6 @@ namespace Database.Models
         public List<Discount_Item> DisItemList { get; set; }
         public bool AllApplicable { get; set; }
         public bool CanUseWithOtherDiscounts { get; set; }
-        public bool OneTimeUse { get; set; }
         public bool AutoApply { get; set; }
         /**
          * Type = 0 = Fixed $$$ off

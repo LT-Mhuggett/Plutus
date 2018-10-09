@@ -30,6 +30,12 @@
                         <Entry Text="{Binding Amount}" Completed="PropChanged"/>
                         <Label Text="{i18N:Translate DisUses}"/>
                         <Entry Text="{Binding UsesPerTransaction}" Completed="PropChanged"/>
+                        <Label Text="Applicable to all items"/>
+                        <Switch IsToggled="{Binding AllApplicable}"/>
+                        <Label Text="Can this be used in tamdem with over discounts"/>
+                        <Switch IsToggled="{Binding CanUseWithOtherDiscounts}"/>
+                        <Label Text="Should this Auto Apply to transactions where applicable"/>
+                        <Switch IsToggled="{Binding AutoApply}"/>
                         <Label Text="{i18N:Translate DisRequired}"/>
                         <Entry Text="{Binding RequiredNumOfItems}" Completed="PropChanged"/>
                         <Label Text="{i18N:Translate Cate}"/>

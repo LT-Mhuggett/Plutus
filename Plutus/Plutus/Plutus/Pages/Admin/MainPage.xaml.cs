@@ -74,5 +74,39 @@ namespace Plutus.Pages.Admin
             App.EmpsLogged = null;
             closer.CloseApp();
         }
+
+        private void ChangePrinter_Clicked(object sender, EventArgs e)
+        {
+            Action action = async () =>
+            {
+                var printerMgr = new PosPrinterManager();
+                var printerList = await printerMgr.GetPrinterList();
+
+                if (printerList.Count > 0)
+                {
+                    var result = await App.Current.MainPage.DisplayActionSheet(App.Translate.ProvideValue("PrinterList_"), App.Translate.ProvideValue("Cancel"), null, printerList.Keys.ToArray());
+                    if (result != App.Translate.ProvideValue("Cancel"))
+                    {
+                        App.AppSettings.PrinterLogicalName = result;
+                    }
+                    else
+                    {
+                        await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Warning"), App.Translate.ProvideValue("NoPrinter"), App.Translate.ProvideValue("Cancel"));
+                        App.AppSettings.PrinterLogicalName = null;
+                    }
+                }
+                else
+                {
+                    await App.Current.MainPage.DisplayAlert(App.Translate.ProvideValue("Warning"), App.Translate.ProvideValue("NoPrinter"), App.Translate.ProvideValue("Cancel"));
+                }
+            };
+            Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Admin", "X", action);
+        }
+
+        private void AddPayMeth_Clicked(object sender, EventArgs e)
+        {
+            Action action = async () => await App.Current.MainPage.Navigation.PushAsync(new AddPaymentMeth());
+            Authorisation.CheckAuthentication(VerifyId, MPage, EId, Confirm, "Admin", "X", action);
+        }
     }
 }

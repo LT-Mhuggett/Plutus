@@ -104,7 +104,7 @@ namespace Plutus.Helpers
                     { 
                         text.Add(new KeyValuePair<string, object>("str...", trans.ItemId + "\t33.35"));
                         text.Add(new KeyValuePair<string, object>("str...", trans.Item.Name + "\t47.90"));
-                        text.Add(new KeyValuePair<string, object>("str...", $"{trans.Item.Price:c}\tR18.75"));
+                        text.Add(new KeyValuePair<string, object>("str...", $"{trans.Item.Price}\tR18.75"));
                     }
                 }
             }
@@ -123,7 +123,7 @@ namespace Plutus.Helpers
                     { 
                         text.Add(new KeyValuePair<string, object>("str...", refund.Id + "\t33.35"));
                         text.Add(new KeyValuePair<string, object>("str...", refund.Item.Name + "\t47.90"));
-                        text.Add(new KeyValuePair<string, object>("str...", $"{refund.Item.Price:c}\tR18.75"));
+                        text.Add(new KeyValuePair<string, object>("str...", $"{refund.Item.Price}\tR18.75"));
                     }
                 }
             }
@@ -145,23 +145,24 @@ namespace Plutus.Helpers
             text.Add(new KeyValuePair<string, object>("score...", ""));
             text.Add(new KeyValuePair<string, object>("str...", "\t50"));
             text.Add(new KeyValuePair<string, object>("str...", $"{App.Translate.ProvideValue("Total")}\t25"));
-            text.Add(new KeyValuePair<string, object>("str.rght..", $"{sale.Total:c}\tR25"));
+            text.Add(new KeyValuePair<string, object>("str.rght..", $"{sale.Total}\tR25"));
             text.Add(new KeyValuePair<string, object>("score...", ""));
             var change = 0.0m;
             foreach(var payM in sale.PaySales)
             {
                 text.Add(new KeyValuePair<string, object>("str...", $"{payM.PayMethod.Name}\t25"));
-                text.Add(new KeyValuePair<string, object>("str...", $"{payM.Amount:c}\tR20"));
+                text.Add(new KeyValuePair<string, object>("str...", $"{payM.Amount}\tR20"));
                 text.Add(new KeyValuePair<string, object>("str...", "\t55"));
                 change += payM.Change;
             }
-            if(change>0)
+            if(change > 0)
             {
                 text.Add(new KeyValuePair<string, object>("score...", ""));
                 text.Add(new KeyValuePair<string, object>("str...", "\t50"));
                 text.Add(new KeyValuePair<string, object>("str...", $"{App.Translate.ProvideValue("Change")}\t25"));
-                text.Add(new KeyValuePair<string, object>("str...", $"{change:c}\tR25"));
+                text.Add(new KeyValuePair<string, object>("str...", $"{change}\tR25"));
             }
+            text.Add(new KeyValuePair<string, object>("str...", "\n"));
             text.Add(new KeyValuePair<string, object>("brc.cntr.100.belw", sale.Id));
             return text;
         }

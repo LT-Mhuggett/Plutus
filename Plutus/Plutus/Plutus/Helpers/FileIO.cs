@@ -241,12 +241,12 @@ return true;*/
             var dbPicker = GetFileOpenPicker(new List<string>() {".db"});
             var dbFile = await dbPicker.PickSingleFileAsync();
 
-            var file = await StorageFile.GetFileFromPathAsync(Path.Combine(GetLib(), "Database.db"));
+            var file = ApplicationData.Current.LocalFolder.CreateFileAsync("Database.db", CreationCollisionOption.ReplaceExisting);
 
             if (dbFile == null) return false;
             try
             {
-                await dbFile.CopyAndReplaceAsync(file);
+                await dbFile.CopyAndReplaceAsync(await file);
                 return true;
             }
             catch (Exception e)

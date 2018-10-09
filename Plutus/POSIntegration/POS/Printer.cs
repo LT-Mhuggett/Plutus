@@ -238,8 +238,7 @@ namespace POSIntegration.POS
         /// <param name="height"></param>
         /// <param name="barCodeTextPosition"></param>
         private void PrintBarcode(string text, int alignment, int height, BarCodeTextPosition barCodeTextPosition) {
-            Printer.PrintBarCode(PrinterStation.Receipt, text, BarCodeSymbology.Pdf417, height, (int)(Printer.RecLineWidth / 1.2), alignment, barCodeTextPosition);
-            Printer.PrintBarCode(PrinterStation.Receipt, text, BarCodeSymbology.QRCode, 40, 40, alignment, barCodeTextPosition);
+            Printer.PrintBarCode(PrinterStation.Receipt, text, BarCodeSymbology.Code128, height, (int)(Printer.RecLineWidth / 1.2), alignment, barCodeTextPosition);
         }
 
         private void PrintImage(Bitmap bmp, int alignment, int width = PosPrinter.PrinterBitmapAsIs)

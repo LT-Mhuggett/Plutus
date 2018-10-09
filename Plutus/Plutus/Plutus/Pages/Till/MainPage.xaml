@@ -22,78 +22,90 @@
                 <Button Grid.Row="0" Grid.Column="1" x:Name="Scan" Text="{i18N:Translate Scan}" Clicked="Scan_Onclicked" AutomationId="scanWithDefaultOverlay"/>
                 <Entry Grid.Row="0" Grid.Column="1" x:Name="ManScan" IsVisible="False" Completed="ManScan_Completed"/>
             </Grid>
-            <ListView ItemsSource="{Binding Basket}"
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height=".2*"/>
+                </Grid.RowDefinitions>
+                <ListView ItemsSource="{Binding Basket}"
                 ItemTapped="Handle_ItemTapped"
                 HasUnevenRows="True">
-                <ListView.Header>
-                    <Grid Padding="5">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="20"/>
-                        </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="60"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="60"/>
-                            <ColumnDefinition Width="60"/>
-                        </Grid.ColumnDefinitions>
-                        <Label Grid.Row="0" Grid.Column="0" Text="{i18N:Translate Amount}"/>
-                        <Label Grid.Row="0" Grid.Column="1" Text="{i18N:Translate Name}"/>
-                        <Label Grid.Row="0" Grid.Column="2" Text="{i18N:Translate Price}"/>
-                        <Label Grid.Row="0" Grid.Column="3" Text="{i18N:Translate Tax}"/>
-                    </Grid>
-                </ListView.Header>
-                <ListView.ItemTemplate>
-                    <DataTemplate>
-                        <ViewCell>
-                            <ViewCell.ContextActions>
-                                <MenuItem Clicked="OnReturn" CommandParameter="{Binding .}"
-                                      Text="{i18N:Translate Returns}"/>
-                                <MenuItem Clicked="OnRemove1" CommandParameter="{Binding .}"
-                                      Text="{i18N:Translate R1}"/>
-                                <MenuItem Clicked="OnDelete" CommandParameter="{Binding .}"
-                                      Text="{i18N:Translate Delete}"/>
-                            </ViewCell.ContextActions>
-                            <StackLayout>
-                                <StackLayout.Triggers>
-                                    <DataTrigger TargetType="StackLayout" Binding="{Binding Return}" Value="True">
-                                        <Setter Property="BackgroundColor" Value="Red"/>
-                                    </DataTrigger>
-                                </StackLayout.Triggers>
-                                <Grid Padding="5">
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="20"/>
-                                    </Grid.RowDefinitions>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="60"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="60"/>
-                                        <ColumnDefinition Width="60"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Label Grid.Row="0" Grid.Column="0" Text="{Binding Amount}"
+                    <ListView.Header>
+                        <Grid Padding="5">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="20"/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="60"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Row="0" Grid.Column="0" Text="{i18N:Translate Amount}"/>
+                            <Label Grid.Row="0" Grid.Column="1" Text="{i18N:Translate Name}"/>
+                            <Label Grid.Row="0" Grid.Column="2" Text="{i18N:Translate Price}"/>
+                            <Label Grid.Row="0" Grid.Column="3" Text="{i18N:Translate Tax}"/>
+                        </Grid>
+                    </ListView.Header>
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <ViewCell>
+                                <ViewCell.ContextActions>
+                                    <MenuItem Clicked="OnReturn" CommandParameter="{Binding .}"
+                                              Text="{i18N:Translate Returns}"/>
+                                    <MenuItem Clicked="OnRemove1" CommandParameter="{Binding .}"
+                                              Text="{i18N:Translate R1}"/>
+                                    <MenuItem Clicked="OnDelete" CommandParameter="{Binding .}"
+                                              Text="{i18N:Translate Delete}"/>
+                                    <MenuItem Clicked="ChangePrice_Clicked" CommandParameter="{Binding .}"
+                                              Text="Price Change"/>
+                                </ViewCell.ContextActions>
+                                <StackLayout>
+                                    <StackLayout.Triggers>
+                                        <DataTrigger TargetType="StackLayout" Binding="{Binding Return}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="Red"/>
+                                        </DataTrigger>
+                                    </StackLayout.Triggers>
+                                    <Grid Padding="5">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="20"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="60"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="60"/>
+                                            <ColumnDefinition Width="60"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Label Grid.Row="0" Grid.Column="0" Text="{Binding Amount}"
                                     Style="{DynamicResource ListItemTextStyle}" />
-                                    <Label Grid.Row="0" Grid.Column="1" Text="{Binding Name}"
+                                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding Name}"
                                     Style="{DynamicResource ListItemDetailTextStyle}"/>
-                                    <Label Grid.Row="0" Grid.Column="2" Text="{Binding Price, StringFormat='{0:#.##}'}"
+                                        <Label Grid.Row="0" Grid.Column="2" Text="{Binding Price, StringFormat='{0:#.##}'}"
                                     Style="{DynamicResource ListItemDetailTextStyle}"/>
-                                    <Label Grid.Row="0" Grid.Column="3" Text="{Binding Vat.Name}"
+                                        <Label Grid.Row="0" Grid.Column="3" Text="{Binding Vat.Name}"
                                     Style="{DynamicResource ListItemDetailTextStyle}" />
-                                </Grid>
-                            </StackLayout>
-                        </ViewCell>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
-            <ListView IsVisible="{Binding Adjustments, Converter={StaticResource CollectionEmptyBoolConverter}}"
-                      ItemsSource="{Binding Adjustments}">
-                <ListView.Header>
-                    <Label>Notes</Label>
-                </ListView.Header>
-                <ListView.ItemTemplate>
-                    <DataTemplate>
-                        <Label Text="{Binding Item1}" />
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
+                                    </Grid>
+                                </StackLayout>
+                            </ViewCell>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <StackLayout Grid.Row="1">
+                    <Label>Notes:</Label>
+                    <ListView ItemsSource="{Binding Adjustments}">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <TextCell Text="{Binding Item1}">
+                                    <TextCell.ContextActions>
+                                        <MenuItem Clicked="DeleteAdjustment_Clicked" CommandParameter="{Binding .}"
+                                            Text="{i18N:Translate Delete}"/>
+                                    </TextCell.ContextActions>
+                                </TextCell>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackLayout>
+            </Grid>
             <StackLayout>
                 <Grid>
                     <Grid.RowDefinitions>
@@ -110,15 +122,15 @@
                         <ColumnDefinition Width="1*" />
                         <ColumnDefinition Width="1*" />
                     </Grid.ColumnDefinitions>
-                    <Label Grid.Row="0"  Grid.Column="0" Text="{i18N:Translate Sale}"/>
-                    <Label Grid.Row="0"  Grid.Column="1" x:Name="PriceCell"/>
-                    <Label Grid.Row="0"  Grid.Column="4" Text="{i18N:Translate SaleExV}"/>
-                    <Label Grid.Row="0"  Grid.Column="5" x:Name="PriceExVCell"/>
-                    <Button Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" x:Name="Bag" IsVisible="False" Clicked="Bag_Clicked" />
-                    <Button Grid.Row="1" Grid.Column="2" Grid.ColumnSpan="2" x:Name="StoreTrans" Text="{i18N:Translate SaveB}" Clicked="StoreTrans_Clicked" />
-                    <Button Grid.Row="1" Grid.Column="4" Grid.RowSpan="2" x:Name="COut" Text="{i18N:Translate COut}" Clicked="COut_Clicked"/>
-                    <Button Grid.Row="1" Grid.Column="5" Grid.RowSpan="2" x:Name="AltTransaction" Text="{i18N:Translate AltTransaction}" Clicked="AltTransaction_OnClicked"/>
-                    <Button Grid.Row="2"  Grid.Column="0" Grid.ColumnSpan="4" x:Name="Cancel" Text="{i18N:Translate Cancel}" Clicked="Cancel_Clicked" />
+                    <Label Grid.Row="0"  Grid.Column="0" Text="{i18N:Translate SaleExV}"/>
+                    <Label Grid.Row="0"  Grid.Column="1" x:Name="PriceExVCell"/>
+                    <Label Grid.Row="0"  Grid.Column="4" Text="{i18N:Translate Sale}"/>
+                    <Label Grid.Row="0"  Grid.Column="5" x:Name="PriceCell"/>
+                    <Button Grid.Row="1" Grid.Column="0" Grid.RowSpan="2" x:Name="AltTransaction" Text="{i18N:Translate AltTransaction}" Clicked="AltTransaction_OnClicked"/>
+                    <Button Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" x:Name="Bag" IsVisible="False" Clicked="Bag_Clicked" />
+                    <Button Grid.Row="1" Grid.Column="3" Grid.ColumnSpan="2" x:Name="StoreTrans" Text="{i18N:Translate SaveB}" Clicked="StoreTrans_Clicked" />
+                    <Button Grid.Row="1" Grid.Column="5" Grid.RowSpan="2" x:Name="COut" Text="{i18N:Translate COut}" Clicked="COut_Clicked"/>
+                    <Button Grid.Row="2"  Grid.Column="1" Grid.ColumnSpan="4" x:Name="Cancel" Text="{i18N:Translate Cancel}" Clicked="Cancel_Clicked" />
                 </Grid>
             </StackLayout>
         </StackLayout>
