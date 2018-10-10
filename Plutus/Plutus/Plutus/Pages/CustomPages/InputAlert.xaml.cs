@@ -10,8 +10,8 @@ namespace Plutus.Pages.CustomPages
 	public partial class InputAlert : ContentView
 	{
         public EventHandler ConfirmButtonEHandler { get; set; }
-
-        public List<string> InputResults { get; set; }
+        public string InputResult { get; set; }
+        public List<Tuple<string, bool>> InputResults { get; set; }
         public List<Tuple<Label, Entry, Label>> ViewElements { get; set; } = new List<Tuple<Label, Entry, Label>>();
 
         /// <summary>
@@ -20,39 +20,39 @@ namespace Plutus.Pages.CustomPages
         /// <param name="titleText"></param>
         /// <param name="viewElements">Tuple<label, placeholder, validation, isPass></param>
         /// <param name="confirmButText"></param>
-        public InputAlert(string titleText, Tuple<string, string, string, bool>[] viewElements, string confirmButText)
+        public InputAlert(string titleText, Tuple<string, string, string, bool, bool>[] viewElements, string confirmButText)
         {
             InitializeComponent();
 
             MainLayout.Children.Add(new Label { Text = titleText });
 
-            foreach(Tuple<string, string, string, bool> viewData in viewElements)
+            for(int n = 0; n <= viewElements.Length-1; n++)
             {
-                this.ViewElements.Add(CreateLabelEntry(viewData));
+                this.ViewElements.Add(CreateLabelEntry(viewElements[n], n));
             }
+
             var confButton = new Button { Text = confirmButText };
             confButton.Clicked += ConfirmBut_ClickedAsync;
             MainLayout.Children.Add(confButton);
-
-            var i = 0;
+            
             foreach (var item in MainLayout.Children)
             {
                 if (item is Entry)
                 {
-                    InputResults[i] = (item as Entry).Text;
-                    i++;
+                    InputResults[((item as Entry).ReturnCommandParameter as Tuple<bool, int>).Item2] = 
+                        Tuple.Create((item as Entry).Text, ((item as Entry).ReturnCommandParameter as Tuple<bool, int>).Item1);
                 }
             }
         }
-        public InputAlert(string titleText, Tuple<string, string, string, bool>[] viewElements, string confirmButText, bool cash, decimal toPay)
+        public InputAlert(string titleText, Tuple<string, string, string, bool, bool>[] viewElements, string confirmButText, bool cash, decimal toPay)
         {
 
         }
 
-        public Tuple<Label, Entry, Label> CreateLabelEntry(Tuple<string, string, string, bool> elementValues)
+        public Tuple<Label, Entry, Label> CreateLabelEntry(Tuple<string, string, string, bool, bool> elementValues, int position)
         {
             Label label = new Label { Text = elementValues.Item1 };
-            Entry entry = new Entry { Placeholder = elementValues.Item2, IsPassword = elementValues.Item4 };
+            Entry entry = new Entry { Placeholder = elementValues.Item2, IsPassword = elementValues.Item4, ReturnCommandParameter = Tuple.Create(elementValues.Item5, position) };
             entry.TextChanged += Entry_TextChanged;
             Label labelValid = new Label { Text = elementValues.Item3, IsVisible = false };
             return Tuple.Create(label, entry, labelValid);
@@ -61,18 +61,8 @@ namespace Plutus.Pages.CustomPages
         private void Entry_TextChanged(object sender, TextChangedEventArgs e)
         {
             var updatedEntry = (sender as Entry);
-            var i = 0;
-            foreach (var item in MainLayout.Children)
-            {
-                if (item is Entry)
-                {
-                    if (item == updatedEntry)
-                    {
-                        InputResults[i] = (item as Entry).Text;
-                    }
-                    i++;
-                }
-            }
+            InputResults[(updatedEntry.ReturnCommandParameter as Tuple<bool, int>).Item2] =
+                Tuple.Create(updatedEntry.Text, InputResults[(updatedEntry.ReturnCommandParameter as Tuple<bool, int>).Item2].Item2);
         }
 
         public InputAlert(string titleText, string placeholderText, string confirmButText, string validationText,
