@@ -371,10 +371,19 @@ namespace Plutus.Pages.Till
                     sale.Notes.Add(notesSale);
                 }
 
-                var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
-                    string.Format(App.Translate.ProvideValue(refundOnly ? "HowMuchRefund" : "HowMuchPM"), action,
-                        Math.Round(total - paid, 2, MidpointRounding.AwayFromZero)), "Enter Here", App.Translate.ProvideValue("Confirm"),
-                    App.Translate.ProvideValue("EnterCorrectValue"), total - paid, pay.PayMethod.IsCashBackable ? true : pay.PayMethod.IsChangeable ? false : true );
+                Tuple<string, string, Type, string, bool, bool>[] viewElementsAmount = {
+                    Tuple.Create(
+                        "Amount", "Enter Here", typeof(decimal), App.Translate.ProvideValue("EnterCorrectValue"), false, true
+                    )
+                };
+
+                var amount = (decimal)(await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                        string.Format(App.Translate.ProvideValue(refundOnly ? "HowMuchRefund" : "HowMuchPM"), action, Math.Round(total - paid, 2, MidpointRounding.AwayFromZero)),
+                        viewElementsAmount,
+                        App.Translate.ProvideValue("Confirm"),
+                        pay.PayMethod.IsCashBackable ? true : pay.PayMethod.IsChangeable ? false : true,
+                        total - paid
+                    )).First();
 
                 pay.Amount = amount;
 
@@ -887,10 +896,14 @@ namespace Plutus.Pages.Till
             }
         }
 
-        private void ChangePrice_Clicked(object sender, EventArgs e)
+        private async void ChangePrice_Clicked(object sender, EventArgs e)
         {
             var item = ((MenuItem)sender).CommandParameter;
-
+            Tuple<string, string, Type, string, bool, bool>[] viewElements = {
+                Tuple.Create("Ex Price", "E.g. 12.78", typeof(decimal), "This value is not valid", false, true),
+                Tuple.Create("Price", "E.g. 12.78", typeof(decimal), "This value is not valid", false, true),
+            };
+            var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync("Change Price", viewElements, App.Translate.ProvideValue("Confirm"));
         }
     }
 }

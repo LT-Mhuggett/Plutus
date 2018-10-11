@@ -12,15 +12,15 @@ namespace Plutus.Pages.CustomPages
         public EventHandler ConfirmButtonEHandler { get; set; }
         public string InputResult { get; set; }
         public List<Tuple<string, bool>> InputResults { get; set; }
-        public List<Tuple<Label, Entry, Label>> ViewElements { get; set; } = new List<Tuple<Label, Entry, Label>>();
-
+        public List<Tuple<Label, Entry, Type, Label>> ViewElements { get; set; } = new List<Tuple<Label, Entry, Type, Label>>();
+        
         /// <summary>
         /// 
         /// </summary>
         /// <param name="titleText"></param>
         /// <param name="viewElements">Tuple<label, placeholder, validation, isPass></param>
         /// <param name="confirmButText"></param>
-        public InputAlert(string titleText, Tuple<string, string, string, bool, bool>[] viewElements, string confirmButText)
+        public InputAlert(string titleText, Tuple<string, string, Type, string, bool, bool>[] viewElements, string confirmButText)
         {
             InitializeComponent();
 
@@ -44,18 +44,78 @@ namespace Plutus.Pages.CustomPages
                 }
             }
         }
-        public InputAlert(string titleText, Tuple<string, string, string, bool, bool>[] viewElements, string confirmButText, bool cash, decimal toPay)
+        public InputAlert(string titleText, Tuple<string, string, Type, string, bool, bool>[] viewElements, string confirmButText, bool cash, decimal toPay)
         {
+            InitializeComponent();
 
+            MainLayout.Children.Add(new Label { Text = titleText });
+
+            for (int n = 0; n <= viewElements.Length - 1; n++)
+            {
+                this.ViewElements.Add(CreateLabelEntry(viewElements[n], n));
+            }
+
+            if(cash)
+                MainLayout.Children.Add(CreateCashGrid());
+
+            var payAllButton = new Button { Text = App.Translate.ProvideValue("PayFull"), CommandParameter = toPay };
+            payAllButton.Clicked += PayExact_Clicked;
+            MainLayout.Children.Add(payAllButton);
+
+            var confButton = new Button { Text = confirmButText };
+            confButton.Clicked += ConfirmBut_ClickedAsync;
+            MainLayout.Children.Add(confButton);
+
+            foreach (var item in MainLayout.Children)
+            {
+                if (item is Entry)
+                {
+                    InputResults[((item as Entry).ReturnCommandParameter as Tuple<bool, int>).Item2] =
+                        Tuple.Create((item as Entry).Text, ((item as Entry).ReturnCommandParameter as Tuple<bool, int>).Item1);
+                }
+            }
         }
 
-        public Tuple<Label, Entry, Label> CreateLabelEntry(Tuple<string, string, string, bool, bool> elementValues, int position)
+        public Tuple<Label, Entry, Type, Label> CreateLabelEntry(Tuple<string, string, Type, string, bool, bool> elementValues, int position)
         {
             Label label = new Label { Text = elementValues.Item1 };
-            Entry entry = new Entry { Placeholder = elementValues.Item2, IsPassword = elementValues.Item4, ReturnCommandParameter = Tuple.Create(elementValues.Item5, position) };
+            Entry entry = new Entry { Placeholder = elementValues.Item2, IsPassword = elementValues.Item5, ReturnCommandParameter = Tuple.Create(elementValues.Item6, position) };
             entry.TextChanged += Entry_TextChanged;
-            Label labelValid = new Label { Text = elementValues.Item3, IsVisible = false };
-            return Tuple.Create(label, entry, labelValid);
+            Label labelValid = new Label { Text = elementValues.Item4, IsVisible = false };
+            return Tuple.Create(label, entry, elementValues.Item3, labelValid);
+        }
+
+        public Grid CreateCashGrid()
+        {
+            var button1 = new Button { Text = "5", CommandParameter = 5 };
+            var button2 = new Button { Text = "10", CommandParameter = 10 };
+            var button3 = new Button { Text = "20", CommandParameter = 20 };
+            var button4 = new Button { Text = "50", CommandParameter = 50 };
+
+            button1.Clicked += Value_Clicked;
+            button2.Clicked += Value_Clicked;
+            button3.Clicked += Value_Clicked;
+            button4.Clicked += Value_Clicked;
+
+            var grid = new Grid
+            {
+                RowDefinitions = {
+                    new RowDefinition{Height = new GridLength(60)},
+                    new RowDefinition{Height = new GridLength(60)}
+                },
+                ColumnDefinitions =
+                {
+                    new ColumnDefinition{Width = new GridLength(1, GridUnitType.Star)},
+                    new ColumnDefinition{Width = new GridLength(1, GridUnitType.Star)}
+                }
+            };
+
+            grid.Children.Add(button1, 0, 0);
+            grid.Children.Add(button2, 0, 1);
+            grid.Children.Add(button3, 0, 0);
+            grid.Children.Add(button4, 1, 0);
+
+            return grid;
         }
 
         private void Entry_TextChanged(object sender, TextChangedEventArgs e)
@@ -64,7 +124,7 @@ namespace Plutus.Pages.CustomPages
             InputResults[(updatedEntry.ReturnCommandParameter as Tuple<bool, int>).Item2] =
                 Tuple.Create(updatedEntry.Text, InputResults[(updatedEntry.ReturnCommandParameter as Tuple<bool, int>).Item2].Item2);
         }
-
+        /*
         public InputAlert(string titleText, string placeholderText, string confirmButText, string validationText,
 	        bool cashBack, decimal toPay)
 	    {
@@ -93,22 +153,7 @@ namespace Plutus.Pages.CustomPages
 	        ConfirmBut.Clicked += ConfirmBut_ClickedAsync;
 	        InputE.TextChanged += InputE_TextChanged;
 	    }
-
-	    public InputAlert(string titleText, string placeholderText, string confirmButText, string validationText,
-	        bool isPass)
-	    {
-	        InitializeComponent();
-
-	        TitleL.Text = titleText;
-	        InputE.Placeholder = placeholderText;
-	        ConfirmBut.Text = confirmButText;
-	        ValidationL.Text = validationText;
-	        InputE.IsPassword = isPass;
-	        InputEConf.IsPassword = isPass;
-	        InputEConf.IsVisible = isPass;
-	        ConfirmBut.Clicked += ConfirmBut_ClickedAsync;
-	        InputE.TextChanged += InputE_TextChanged;
-	    }
+        */
 
 	    private async void Value_Clicked(object sender, EventArgs e)
 	    {

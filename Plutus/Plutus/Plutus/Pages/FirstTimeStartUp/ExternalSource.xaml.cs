@@ -18,13 +18,13 @@ using Windows.Storage;
 
 namespace Plutus.Pages.FirstTimeStartUp
 {
-	[XamlCompilation(XamlCompilationOptions.Compile)]
-	public partial class ExternalSource : ContentPage
-	{
-		public ExternalSource ()
-		{
-			InitializeComponent ();
-		}
+    [XamlCompilation(XamlCompilationOptions.Compile)]
+    public partial class ExternalSource : ContentPage
+    {
+        public ExternalSource()
+        {
+            InitializeComponent();
+        }
 
         private async void CTrans_Clicked(object sender, EventArgs e)
         {
@@ -64,6 +64,10 @@ namespace Plutus.Pages.FirstTimeStartUp
                 switch (fileName)
                 {
                     case "Company":
+                        Tuple<string, string, Type, string, bool, bool>[] viewElementsFullAddress = {
+                            Tuple.Create(App.Translate.ProvideValue("EnterCorrectValue"), "Enter Here", typeof(string),
+                            "Enter valid value", false, true)
+                        };
                         store = new StoreModel()
                         {
                             StoreName = Uri.UnescapeDataString(extraParse.FirstOrDefault(x => x[0].Equals("Name"))?[1]),
@@ -73,12 +77,10 @@ namespace Plutus.Pages.FirstTimeStartUp
                                         .Length - 4),
                             FullAddress = Uri.UnescapeDataString(
                                 extraParse.FirstOrDefault(x => x[0].Equals("Address"))?[1] == ""
-                                    ? await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                                    ? (await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
                                         App.Translate.ProvideValue("FullAddress"),
-                                        App.Translate.ProvideValue("EnterCorrectValue"),
-                                        App.Translate.ProvideValue("Confirm"),
-                                        App.Translate.ProvideValue("EmailNotCorrectMesg"),
-                                        false)
+                                        viewElementsFullAddress,
+                                        App.Translate.ProvideValue("Confirm"))).First() as string
                                     : Uri.UnescapeDataString(
                                         extraParse.FirstOrDefault(x => x[0].Equals("Address"))?[1]))
                         };
@@ -89,13 +91,14 @@ namespace Plutus.Pages.FirstTimeStartUp
                         for (var i = 1; i < fileData.Count() - 3; i += 2)
                         {
                             var rate = (await extraParse[i + 1][1].ToDouble("Error") ?? default(double));
-
-                            var name = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                            Tuple<string, string, Type, string, bool, bool>[] viewElementsTax = {
+                                Tuple.Create("Tax Name", "Enter Here", typeof(string),
+                                App.Translate.ProvideValue("TaxNotCorrectMesg"), false, true)
+                            };
+                            var name = (await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
                                 string.Format(App.Translate.ProvideValue("TaxName"), rate),
-                                App.Translate.ProvideValue("EnterCorrectValue"),
-                                App.Translate.ProvideValue("Confirm"),
-                                App.Translate.ProvideValue("TaxNotCorrectMesg"),
-                                false);
+                                viewElementsTax,
+                                App.Translate.ProvideValue("Confirm"))).First() as string;
 
                             var tax = new TaxModel()
                             {
@@ -125,50 +128,50 @@ namespace Plutus.Pages.FirstTimeStartUp
                 }
                 else
                 {*/
-                    try
+                try
+                {
+                    var value =
+                        // ReSharper disable once PossibleNullReferenceException
+                        await extraParse.FirstOrDefault(x => x[0].Equals("Value"))?[1]?.ToDecimal("Error") ??
+                        default(decimal);
+                    var taxType =
+                        // ReSharper disable once PossibleNullReferenceException
+                        await extraParse.FirstOrDefault(x => x[0].Equals("TaxRate"))?[1]?.ToInterger("Error") ??
+                        default(int);
+                    if (taxType == 0 || taxType == 1)
+                        taxType = 2;
+                    else if (taxType == 2)
+                        taxType = 0;
+                    else if (taxType == 3)
+                        taxType = 2;
+                    var item = new ItemModel()
                     {
-                        var value =
-                            // ReSharper disable once PossibleNullReferenceException
-                            await extraParse.FirstOrDefault(x => x[0].Equals("Value"))?[1]?.ToDecimal("Error") ??
-                            default(decimal);
-                        var taxType =
-                            // ReSharper disable once PossibleNullReferenceException
-                            await extraParse.FirstOrDefault(x => x[0].Equals("TaxRate"))?[1]?.ToInterger("Error") ??
-                            default(int);
-                        if (taxType == 0 || taxType == 1)
-                            taxType = 2;
-                        else if (taxType == 2)
-                            taxType = 0;
-                        else if (taxType == 3)
-                            taxType = 2;
-                        var item = new ItemModel()
-                        {
-                            Id = id,
-                            Name = Uri.UnescapeDataString(
-                                extraParse.FirstOrDefault(x => x[0].Equals("Description"))?[1]),
-                            Vat = taxes[taxType],
-                            Brand = "NOT EXIST",
-                            Cat = cat,
-                            Cost = 0.00m,
-                            /*
-                             * if price is excluding vat
-                             *
-                               ExPrice = value / 100,
-                               Price = value / 100 * (decimal) taxes[taxType - 1].Rate                    
-                             * if price is including vat
-                             */
-                            ExPrice = Math.Round(value / 100 / (decimal) taxes[taxType].Rate, 2,
-                                MidpointRounding.AwayFromZero),
-                            Price = Math.Round(value / 100, 2, MidpointRounding.AwayFromZero)
+                        Id = id,
+                        Name = Uri.UnescapeDataString(
+                            extraParse.FirstOrDefault(x => x[0].Equals("Description"))?[1]),
+                        Vat = taxes[taxType],
+                        Brand = "NOT EXIST",
+                        Cat = cat,
+                        Cost = 0.00m,
+                        /*
+                         * if price is excluding vat
+                         *
+                           ExPrice = value / 100,
+                           Price = value / 100 * (decimal) taxes[taxType - 1].Rate                    
+                         * if price is including vat
+                         */
+                        ExPrice = Math.Round(value / 100 / (decimal)taxes[taxType].Rate, 2,
+                            MidpointRounding.AwayFromZero),
+                        Price = Math.Round(value / 100, 2, MidpointRounding.AwayFromZero)
 
-                        };
-                        App.DbContext.Add(item);
-                    }
-                    catch (Exception)
-                    {
-                        itemIssues.Add(file);
-                    }
+                    };
+                    App.DbContext.Add(item);
                 }
+                catch (Exception)
+                {
+                    itemIssues.Add(file);
+                }
+            }
             //}
 
             tempFolder = folderList[4];
@@ -188,21 +191,30 @@ namespace Plutus.Pages.FirstTimeStartUp
 
                 if (!empBool) continue;
 
+                Tuple<string, string, Type, string, bool, bool>[] viewElementsEmail = {
+                    Tuple.Create(App.Translate.ProvideValue("Email"), "Enter Here",
+                        typeof(string), App.Translate.ProvideValue("EmailNotCorrectMesg"), false, true)
+                };
+
+                Tuple<string, string, Type, string, bool, bool>[] viewElementsPass = {
+                    Tuple.Create("Password", "Enter Here", typeof(string), "", true, true),
+                    Tuple.Create("Confirm Password", "Enter Confirmation Here", typeof(string), "", true, true),
+                };
+
                 var emp = new EmployeeModel()
                 {
                     FName = extraParse.FirstOrDefault(x => x[0].Equals("FirstName"))?[1],
                     LName = extraParse.FirstOrDefault(x => x[0].Equals("LastName"))?[1],
                     Email = extraParse.FirstOrDefault(x => x[0].Equals("Email"))?[1] == ""
-                        ? (await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
-                            App.Translate.ProvideValue("Email"), App.Translate.ProvideValue("EnterCorrectValue"),
-                            App.Translate.ProvideValue("Confirm"), App.Translate.ProvideValue("EmailNotCorrectMesg"),
-                            false)).ToLower()
+                        ? ((await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                            App.Translate.ProvideValue("Email"), viewElementsEmail,
+                            App.Translate.ProvideValue("Confirm"))).First() as string).ToLower()
                         : extraParse.FirstOrDefault(x => x[0].Equals("Email"))?[1].ToLower(),
                     Salt = salt,
-                    HashedPassword = Convert.ToBase64String(Helpers.Password.ComputeHash(
-                        await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
-                            App.Translate.ProvideValue("PassW"), App.Translate.ProvideValue("EnterCorrectValue"),
-                            App.Translate.ProvideValue("Confirm"), "Not Valid", true),
+                    HashedPassword = Convert.ToBase64String(Password.ComputeHash(
+                        (await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                            App.Translate.ProvideValue("PassW"), viewElementsPass,
+                            App.Translate.ProvideValue("Confirm"))).First() as string,
                         Convert.FromBase64String(salt))),
                     Store = store
                 };
@@ -212,7 +224,7 @@ namespace Plutus.Pages.FirstTimeStartUp
                 foreach (var item in tempList)
                 {
                     var temp =
-                        new Emp_AuthActions() {Auth = item, A = true, M = true, R = true, V = true, X = true};
+                        new Emp_AuthActions() { Auth = item, A = true, M = true, R = true, V = true, X = true };
                     emp.EmpAuths.Add(temp);
                 }
 
@@ -259,5 +271,5 @@ namespace Plutus.Pages.FirstTimeStartUp
             MainView.TogleLoading(LCV, LAI);
 #endif
         }
-	}
+    }
 }
