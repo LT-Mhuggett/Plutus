@@ -411,11 +411,21 @@ namespace Plutus.Pages.Till
                 var cashback = /*await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("CashBack_"), App.Translate.ProvideValue("Yes"), App.Translate.ProvideValue("No"));*/false;
                 if (cashback)
                 {
-                    var amount = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(App.Translate.ProvideValue("HowMuchCB"), "Enter Here", App.Translate.ProvideValue("Confirm"), App.Translate.ProvideValue("EnterCorrectValue"), toPay:0.0m);
+                    Tuple<string, string, Type, string, bool, bool>[] viewElementsAmount = {
+                        Tuple.Create(
+                            "Amount", "Enter Here", typeof(decimal), App.Translate.ProvideValue("EnterCorrectValue"), false, true
+                        )
+                    };
+                    var amount = (decimal)(await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                        App.Translate.ProvideValue("HowMuchCB"),
+                        viewElementsAmount,
+                        App.Translate.ProvideValue("Confirm"),
+                        true,
+                        0.0m)).First();
                     if (amount > 0.01m)
                     {
                         var cB = TillDbContext.GetNote(string.Format(App.Translate.ProvideValue("CBNote"), amount));
-                        if(cB == null)
+                        if (cB == null)
                         {
                             cB = new NoteModel { Note = string.Format(App.Translate.ProvideValue("CBNote"), amount) };
                             TillDbContext.Add(cB);
@@ -633,7 +643,15 @@ namespace Plutus.Pages.Till
         private async void StoreTrans_Clicked(object sender, EventArgs e)
         {
             if (Basket.Count == 0) return;
-            var nameStoreTrans = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync("Name the transction for easy identifiability", "Name of Transaction", App.Translate.ProvideValue("Confirm"), "Name not valid", false);
+            Tuple<string, string, Type, string, bool, bool>[] viewElementsNameTransac = {
+                        Tuple.Create(
+                            "Name of Transaction", "Enter Here", typeof(string), App.Translate.ProvideValue("EnterCorrectValue"), false, true
+                        )
+                    };
+            var nameStoreTrans = (await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                "Name the transction for easy identifiability",
+                viewElementsNameTransac,
+                App.Translate.ProvideValue("Confirm"))).First() as string;
             StoredTrans.Add(_countBasketNum,
                 new Tuple<string, ObservableCollection<ItemModel>>(nameStoreTrans,
                     new ObservableCollection<ItemModel>(Basket)));
@@ -904,6 +922,8 @@ namespace Plutus.Pages.Till
                 Tuple.Create("Price", "E.g. 12.78", typeof(decimal), "This value is not valid", false, true),
             };
             var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync("Change Price", viewElements, App.Translate.ProvideValue("Confirm"));
+            if (data != null)
+                return;
         }
     }
 }

@@ -93,7 +93,6 @@ namespace Plutus.Helpers.CustomViews
                     var inputResult = page.InputResults[i];
                     foreach (var viewElement in page.ViewElements)
                     {
-                        data.Add(inputResult.Item1);
                         if (viewElement.Item2 != null && (viewElement.Item2.ReturnCommandParameter as Tuple<bool, int>).Item2 == i)
                         {
                             if (!string.IsNullOrEmpty(inputResult.Item1))

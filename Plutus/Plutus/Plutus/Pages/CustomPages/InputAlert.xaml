@@ -8,47 +8,6 @@
             Spacing="5" BackgroundColor="White"
             HorizontalOptions="CenterAndExpand"
             VerticalOptions="CenterAndExpand">
-            <Label x:Name="TitleL" />
-            <Label x:Name="ValidationL" FontSize="Micro" IsVisible="False" Text="ERROR" TextColor="Red"/>
-            <Grid x:Name="CashOptions" IsVisible="False">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="40"/>
-                    <RowDefinition Height="40"/>
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Button Grid.Row="0" Grid.Column="0" Text="5" Clicked="Value_Clicked" CommandParameter="5"/>
-                <Button Grid.Row="0" Grid.Column="1" Text="10" Clicked="Value_Clicked" CommandParameter="10"/>
-                <Button Grid.Row="1" Grid.Column="0" Text="20" Clicked="Value_Clicked" CommandParameter="20"/>
-                <Button Grid.Row="1" Grid.Column="1" Text="50" Clicked="Value_Clicked" CommandParameter="50"/>
-            </Grid>
-            <Entry x:Name="InputE"/>
-            <Entry x:Name="InputEConf" IsVisible="False"/>
-            <Button x:Name="ConfirmBut">
-                <Button.HeightRequest>
-                    <!-- ReSharper disable once Xaml.InvalidType -->
-                    <OnPlatform x:TypeArguments="x:Double">
-                        <On Platform="Android" Value="40" />
-                        <On Platform="iOS" Value="30" />
-                        <On Platform="UWP" Value="30" />
-
-                    <!-- ReSharper disable once Xaml.InvalidType -->
-                    </OnPlatform>
-                </Button.HeightRequest>
-            </Button>
-            <Button x:Name="PayExact" IsVisible="False">
-                <Button.HeightRequest>
-                    <!-- ReSharper disable once Xaml.InvalidType -->
-                    <OnPlatform x:TypeArguments="x:Double">
-                        <On Platform="Android" Value="40"/>
-                        <On Platform="iOS" Value="30"/>
-                        <On Platform="UWP" Value="30"/>
-                    <!-- ReSharper disable once Xaml.InvalidType -->
-                    </OnPlatform>
-                </Button.HeightRequest>
-            </Button>
-            </StackLayout>
+        </StackLayout>
     </ContentView.Content>
 </ContentView>

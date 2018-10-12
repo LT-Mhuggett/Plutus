@@ -10,8 +10,7 @@ namespace Plutus.Pages.CustomPages
 	public partial class InputAlert : ContentView
 	{
         public EventHandler ConfirmButtonEHandler { get; set; }
-        public string InputResult { get; set; }
-        public List<Tuple<string, bool>> InputResults { get; set; }
+        public List<Tuple<string, bool>> InputResults { get; set; } = new List<Tuple<string, bool>>();
         public List<Tuple<Label, Entry, Type, Label>> ViewElements { get; set; } = new List<Tuple<Label, Entry, Type, Label>>();
         
         /// <summary>
@@ -28,7 +27,7 @@ namespace Plutus.Pages.CustomPages
 
             for(int n = 0; n <= viewElements.Length-1; n++)
             {
-                this.ViewElements.Add(CreateLabelEntry(viewElements[n], n));
+                this.ViewElements.Add(CreateLabelEntry(viewElements[n], n, this.MainLayout));
             }
 
             var confButton = new Button { Text = confirmButText };
@@ -39,8 +38,7 @@ namespace Plutus.Pages.CustomPages
             {
                 if (item is Entry)
                 {
-                    InputResults[((item as Entry).ReturnCommandParameter as Tuple<bool, int>).Item2] = 
-                        Tuple.Create((item as Entry).Text, ((item as Entry).ReturnCommandParameter as Tuple<bool, int>).Item1);
+                    InputResults.Add(Tuple.Create((item as Entry).Text, ((item as Entry).ReturnCommandParameter as Tuple<bool, int>).Item1));
                 }
             }
         }
@@ -52,7 +50,7 @@ namespace Plutus.Pages.CustomPages
 
             for (int n = 0; n <= viewElements.Length - 1; n++)
             {
-                this.ViewElements.Add(CreateLabelEntry(viewElements[n], n));
+                this.ViewElements.Add(CreateLabelEntry(viewElements[n], n, this.MainLayout));
             }
 
             if(cash)
@@ -70,18 +68,20 @@ namespace Plutus.Pages.CustomPages
             {
                 if (item is Entry)
                 {
-                    InputResults[((item as Entry).ReturnCommandParameter as Tuple<bool, int>).Item2] =
-                        Tuple.Create((item as Entry).Text, ((item as Entry).ReturnCommandParameter as Tuple<bool, int>).Item1);
+                    InputResults.Add(Tuple.Create((item as Entry).Text, ((item as Entry).ReturnCommandParameter as Tuple<bool, int>).Item1));
                 }
             }
         }
 
-        public Tuple<Label, Entry, Type, Label> CreateLabelEntry(Tuple<string, string, Type, string, bool, bool> elementValues, int position)
+        public Tuple<Label, Entry, Type, Label> CreateLabelEntry(Tuple<string, string, Type, string, bool, bool> elementValues, int position, StackLayout layout)
         {
             Label label = new Label { Text = elementValues.Item1 };
             Entry entry = new Entry { Placeholder = elementValues.Item2, IsPassword = elementValues.Item5, ReturnCommandParameter = Tuple.Create(elementValues.Item6, position) };
             entry.TextChanged += Entry_TextChanged;
             Label labelValid = new Label { Text = elementValues.Item4, IsVisible = false };
+            layout.Children.Add(label);
+            layout.Children.Add(entry);
+            layout.Children.Add(labelValid);
             return Tuple.Create(label, entry, elementValues.Item3, labelValid);
         }
 
@@ -111,9 +111,9 @@ namespace Plutus.Pages.CustomPages
             };
 
             grid.Children.Add(button1, 0, 0);
-            grid.Children.Add(button2, 0, 1);
-            grid.Children.Add(button3, 0, 0);
-            grid.Children.Add(button4, 1, 0);
+            grid.Children.Add(button2, 1, 0);
+            grid.Children.Add(button3, 0, 1);
+            grid.Children.Add(button4, 1, 1);
 
             return grid;
         }
@@ -157,18 +157,19 @@ namespace Plutus.Pages.CustomPages
 
 	    private async void Value_Clicked(object sender, EventArgs e)
 	    {
-	        var value = await InputE.Text.ToDecimal(App.Translate.ProvideValue("EnterCorrectValue")) ??
-	                    await ((Button) sender).CommandParameter.ToString()
-	                        .ToDecimal(App.Translate.ProvideValue("EnterCorrectValue"));
-	        value += await ((Button) sender).CommandParameter.ToString()
-	            .ToDecimal(App.Translate.ProvideValue("EnterCorrectValue"));
-            InputE.Text = value.ToString();
+            foreach (var input in ViewElements)
+            {
+                if (input.Item3 == typeof(decimal))
+                {
+                    var value = await input.Item2.Text.ToDecimal(App.Translate.ProvideValue("EnterCorrectValue")) ??
+                                await ((Button)sender).CommandParameter.ToString()
+                                    .ToDecimal(App.Translate.ProvideValue("EnterCorrectValue"));
+                    value += await ((Button)sender).CommandParameter.ToString()
+                        .ToDecimal(App.Translate.ProvideValue("EnterCorrectValue"));
+                    input.Item2.Text = value.ToString();
+                }
+            }
 	    }
-
-        private void InputE_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            InputResult = InputE.Text;
-        }
 
         private async void ConfirmBut_ClickedAsync(object sender, EventArgs e)
         {
@@ -185,34 +186,14 @@ namespace Plutus.Pages.CustomPages
 
 	    private void PayExact_Clicked(object sender, EventArgs e)
 	    {
-	        InputE.Text = ((Button) sender).CommandParameter.ToString();
-	        ConfirmButtonEHandler?.Invoke(this, e);
-	    }
-
-	    private static readonly BindableProperty IsValidationLVisibleProp = BindableProperty.Create(
-            nameof(IsValidationLVisibleProp),
-            typeof(bool),
-            typeof(InputAlert),
-            false,
-            BindingMode.OneWay,
-            null,
-            (bindable, value, newValue) =>
+            foreach(var input in ViewElements)
             {
-                if ((bool)newValue)
+                if(input.Item3 == typeof(decimal))
                 {
-                    ((InputAlert)bindable).ValidationL.IsVisible = true;
-                }
-                else
-                {
-                    ((InputAlert)bindable).ValidationL.IsVisible = false;
+                    input.Item2.Text = ((Button)sender).CommandParameter.ToString();
+                    ConfirmButtonEHandler?.Invoke(this, e);
                 }
             }
-        );
-
-	    public bool IsValidationLVisable
-	    {
-	        get => (bool) GetValue(IsValidationLVisibleProp);
-	        set => SetValue(IsValidationLVisibleProp, value);
 	    }
 	}
 }
