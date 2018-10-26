@@ -12,7 +12,7 @@ namespace Database.Models
         public ItemModel Item { get; set; }
         public decimal Price { get; set; }
         public decimal ExPrice { get; set; }
-        public string SaleId { get; set; } 
-        public SaleModel Sale { get; set; }
+        public TransactionModel Tran { get; set; }
+        public RefundModel Refund { get; set; }
     }
 }

@@ -29,8 +29,8 @@ namespace Plutus.Pages.Reports
                 DateSearch.Items.Add(DOSstring);
             }
 
-            if(DateSearch.Items.Any())
-                DateSearch.SelectedIndex = 0;
+            if (DateSearch.Items.Any())
+                DateSearch.SelectedIndex = DateSearch.Items.Count - 1;
             BindingContext = this;
         }
 

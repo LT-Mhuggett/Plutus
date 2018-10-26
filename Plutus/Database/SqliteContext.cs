@@ -31,51 +31,19 @@ namespace Database
         public DbSet<SavedTransactionModel> SavedTransactions { get; set; }
 
         private readonly string _databasePath;
-        //private readonly string _password;
         private readonly EmployeeModel _lastAuthUser = new EmployeeModel();
         
-        /*
-        public SqliteContext(string databasePath, string password)
-        {
-            _databasePath = databasePath;
-            _password = password;
-        }
-        public SqliteContext(string databasePath, string oldPassword, string newPassword)
-        {
-            _databasePath = databasePath;
-            _password = oldPassword;
-        }
-        */
-
         public SqliteContext(string databasePath)
         {
             _databasePath = databasePath;
         }
-
+        
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            //var connection = InitializeSQLiteConnection();
-            //optionsBuilder.UseSqlite(connection);
             //To use for Mgrations
             //optionsBuilder.UseSqlite("Data Source=db.db");
             optionsBuilder.UseSqlite($"Data Source={_databasePath}");
         }
-        
-        /*
-        private SqliteConnection InitializeSQLiteConnection()
-        {
-            var conn = new SqliteConnection($"Data Source={_databasePath}");
-            conn.Open();
-            var command = conn.CreateCommand();
-            command.CommandText = "SELECT quote($password)";
-            command.Parameters.AddWithValue("$password", _password);
-            var quotedPass = (string)command.ExecuteScalar();
-
-            command.CommandText = $"PRAGMA key = {quotedPass}";
-            command.Parameters.Clear();
-            command.ExecuteNonQuery();
-            return conn;
-        }*/
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -94,7 +62,6 @@ namespace Database
             }
 
             //Relationships
-
             modelBuilder.Entity<SavedItemModel>()
                 .HasOne(si => si.SavedTrans)
                 .WithMany(st => st.SavedItems);
@@ -161,10 +128,7 @@ namespace Database
                 .HasOne(ea => ea.Auth)
                 .WithMany(a => a.EmpAuths)
                 .HasForeignKey(ea => ea.AuthAId);
-
-            modelBuilder.Entity<TransactionModel>()
-                .HasKey(k => new { k.SaleId, k.ItemId });
-
+            
             modelBuilder.Entity<TransactionModel>()
                 .HasOne(t => t.Item)
                 .WithMany(i => i.Transactions)
@@ -218,9 +182,16 @@ namespace Database
                 .HasForeignKey(cIC => cIC.ItemId);
 
             modelBuilder.Entity<CheckoutItemChangeModel>()
-                .HasOne(cIC => cIC.Sale)
-                .WithMany(s => s.CheckoutItemChanges)
-                .HasForeignKey(cIC => cIC.SaleId);
+                .HasOne(cIC => cIC.Tran)
+                .WithOne(t => t.CheckoutItemChange)
+                .HasForeignKey<TransactionModel>(t => t.CheckoutItemChangeId)
+                .IsRequired(false);
+
+            modelBuilder.Entity<CheckoutItemChangeModel>()
+                .HasOne(cIC => cIC.Refund)
+                .WithOne(r => r.CheckoutItemChange)
+                .HasForeignKey<RefundModel>(r => r.CheckoutItemChangeId)
+                .IsRequired(false);
 
             base.OnModelCreating(modelBuilder);
         }

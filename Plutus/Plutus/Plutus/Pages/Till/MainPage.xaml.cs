@@ -132,22 +132,6 @@ namespace Plutus.Pages.Till
         }
 
         /// <summary>
-        /// run through all items in Basket
-        /// where itemId, Return and SaleID are same remove the whole item from the Basket
-        /// </summary>
-        /// <param name="item">Item thats to be removed</param>
-        private void Remove(ItemModel item)
-        {
-            for(var i = 0; i <= Basket.Count - 1; i++)
-            {
-                if (Basket[i].Id == item.Id && Basket[i].Return == item.Return && Basket[i].SaleId == item.SaleId)
-                {
-                    Basket.RemoveAt(i);
-                }
-            }
-        }
-
-        /// <summary>
         /// Get the item that needs to be removed as Basket type, then run Remove
         /// </summary>
         /// <param name="sender">Object that sent called the method</param>
@@ -155,7 +139,7 @@ namespace Plutus.Pages.Till
         private void OnDelete(object sender, EventArgs e)
         {
             var menuItem = (ItemModel)((MenuItem)sender).CommandParameter;
-            Remove(menuItem);
+            Basket.Remove(menuItem);
         }
 
         /// <summary>
@@ -168,16 +152,11 @@ namespace Plutus.Pages.Till
         private void OnRemove1(object sender, EventArgs e)
         {
             var menuItem = (ItemModel)((MenuItem)sender).CommandParameter;
-            for (var i = 0; i <= Basket.Count - 1; i++)
-            {
-                if (Basket[i].Id != menuItem.Id || Basket[i].Return != menuItem.Return ||
-                    Basket[i].SaleId != menuItem.SaleId) continue;
-                Basket[i].Amount--;
-                if (Basket[i].Amount == 0)
-                    Basket.RemoveAt(i);
-                else
-                    UpdatePrice();
-            }
+            menuItem.Amount--;
+            if (menuItem.Amount == 0)
+                Basket.Remove(menuItem);
+            else
+                UpdatePrice();
         }
 
         /// <summary>
@@ -359,16 +338,19 @@ namespace Plutus.Pages.Till
 
                 if (pay.PayMethod.MinimumCharge > total || refundOnly)
                 {
-                    total += pay.PayMethod.Charge;
-                    var note = TillDbContext.GetNote(string.Format(App.Translate.ProvideValue("CardChargeNote"), pay.PayMethod.Charge));
-                    if (note == null)
+                    if (pay.PayMethod.Charge != 0.0m)
                     {
-                        note = new NoteModel() { Note = string.Format(App.Translate.ProvideValue("CardChargeNote"), pay.PayMethod.Charge) };
-                        TillDbContext.Add(note);
+                        total += pay.PayMethod.Charge;
+                        var note = TillDbContext.GetNote(string.Format(App.Translate.ProvideValue("CardChargeNote"), pay.PayMethod.Charge));
+                        if (note == null)
+                        {
+                            note = new NoteModel() { Note = string.Format(App.Translate.ProvideValue("CardChargeNote"), pay.PayMethod.Charge) };
+                            TillDbContext.Add(note);
+                        }
+                        var notesSale = new Notes_SaleModel() { Note = note };
+                        TillDbContext.Add(notesSale);
+                        sale.Notes.Add(notesSale);
                     }
-                    var notesSale = new Notes_SaleModel() { Note = note };
-                    TillDbContext.Add(notesSale);
-                    sale.Notes.Add(notesSale);
                 }
 
                 Tuple<string, string, Type, string, bool, bool>[] viewElementsAmount = {
@@ -381,7 +363,7 @@ namespace Plutus.Pages.Till
                         string.Format(App.Translate.ProvideValue(refundOnly ? "HowMuchRefund" : "HowMuchPM"), action, Math.Round(total - paid, 2, MidpointRounding.AwayFromZero)),
                         viewElementsAmount,
                         App.Translate.ProvideValue("Confirm"),
-                        pay.PayMethod.IsCashBackable ? true : pay.PayMethod.IsChangeable ? false : true,
+                        pay.PayMethod.IsCashBackable ? pay.PayMethod.IsChangeable ? true : false : true,
                         total - paid
                     )).First();
 
@@ -464,18 +446,29 @@ namespace Plutus.Pages.Till
 
             foreach (var item in Basket)
             {
-                TillDbContext.AttachEntityWithoutTracking(item);
                 if (item.Return)
                 {
-                    var refund = new RefundModel() { ItemId = item.Id, Sale = sale, SaleIdReturned = item.SaleId, Reason = item.Reason, Amount = item.Amount };
+                    var refund = new RefundModel() { ItemId = item.Id, Sale = sale, SaleIdReturned = item.SaleId, Reason = item.Reason, Amount = item.Amount, TempItem = item };
                     sale.Refunds.Add(refund);
                     TillDbContext.Add(refund);
+                    if(item.OGPrices != null)
+                    {
+                        var itemChange = new CheckoutItemChangeModel() { ItemId = item.Id, ExPrice = item.ExPrice, Price = item.Price, Refund = refund };
+                        refund.CheckoutItemChange = itemChange;
+                        TillDbContext.Add(itemChange);
+                    }
                 }
                 else
                 {
-                    var tran = new TransactionModel() { ItemId = item.Id, Sale = sale, Amount = item.Amount };
+                    var tran = new TransactionModel() { ItemId = item.Id, Sale = sale, Amount = item.Amount, ItemCostExPrice = item.OGPrices == null ? item.ExPrice : item.OGPrices.Item1, ItemCostPrice = item.OGPrices == null ? item.ExPrice : item.OGPrices.Item2, TempItem = item };
                     sale.Transactions.Add(tran);
                     TillDbContext.Add(tran);
+                    if(item.OGPrices != null)
+                    {
+                        var itemChange = new CheckoutItemChangeModel() { ItemId = item.Id, ExPrice = item.ExPrice, Price = item.Price, Tran = tran };
+                        tran.CheckoutItemChange = itemChange;
+                        TillDbContext.Add(itemChange);
+                    }
                 }
             }
 
@@ -526,17 +519,17 @@ namespace Plutus.Pages.Till
                 TillDbContext = new Helpers.Database(App.AppSettings.DatabaseProvider);
             }
 
-            if (cashBack != 0.0m)
-            {
-                await DisplayAlert(App.Translate.ProvideValue("Hmm"), string.Format(App.Translate.ProvideValue("CashBack"), cashBack), App.Translate.ProvideValue("OK"));
-            }
-
             TillDbContext = new Helpers.Database(App.AppSettings.DatabaseProvider);
 
 #if WINDOWS_UWP
             var printerMgr = new PosPrinterManager();
             await printerMgr.ExecuteOposOrPdfAsync(App.Store, null, Sale, cashBack);
 #endif
+
+            if (cashBack != 0.0m)
+            {
+                await DisplayAlert(App.Translate.ProvideValue("Hmm"), string.Format(App.Translate.ProvideValue("CashBack"), cashBack), App.Translate.ProvideValue("OK"));
+            }
 
             Adjustments.Clear();
             Basket.Clear();
@@ -623,6 +616,7 @@ namespace Plutus.Pages.Till
                 if (!String.Equals(item.Reason ?? "Default", tempItem.Reason??"Default",
                     StringComparison.OrdinalIgnoreCase)) continue;
                 if (item.SaleId != tempItem.SaleId) continue;
+                if (item.OGPrices != null) continue;
                 item.Amount = item.Amount + amount;
                 UpdatePrice();
                 return;
@@ -791,7 +785,7 @@ namespace Plutus.Pages.Till
         /// <param name="page">Current page instance to access non static methods and variables</param>
         internal static void ReturnListener(ItemModel oldItem, ItemModel newItem, MainPage page)
         {
-            page.Remove(oldItem);
+            page.Basket.Remove(oldItem);
             page.BasketAdd(newItem);
         }
 
@@ -899,31 +893,29 @@ namespace Plutus.Pages.Till
         private void DeleteAdjustment_Clicked(object sender, EventArgs e)
         {
             var menuItem = (Tuple<string, decimal>)((MenuItem)sender).CommandParameter;
-            Remove(menuItem);
+            Adjustments.Remove(menuItem);
             UpdatePrice();
-        }
-
-        private void Remove(Tuple<string, decimal> item)
-        {
-            for (var i = 0; i <= Adjustments.Count - 1; i++)
-            {
-                if (Adjustments[i].Item1 == item.Item1 && Adjustments[i].Item2 == item.Item2)
-                {
-                    Adjustments.RemoveAt(i);
-                }
-            }
         }
 
         private async void ChangePrice_Clicked(object sender, EventArgs e)
         {
-            var item = ((MenuItem)sender).CommandParameter;
+            var item = ((MenuItem)sender).CommandParameter as ItemModel;
             Tuple<string, string, Type, string, bool, bool>[] viewElements = {
                 Tuple.Create("Ex Price", "E.g. 12.78", typeof(decimal), "This value is not valid", false, true),
                 Tuple.Create("Price", "E.g. 12.78", typeof(decimal), "This value is not valid", false, true),
             };
-            var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync("Change Price", viewElements, App.Translate.ProvideValue("Confirm"));
-            if (data != null)
-                return;
+            var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                "Change Price",
+                viewElements,
+                App.Translate.ProvideValue("Confirm"));
+            
+            if(item.OGPrices == null)
+                item.OGPrices = Tuple.Create(item.ExPrice, item.Price);
+
+            item.ExPrice = (decimal)data.ElementAt(0);
+            item.Price = (decimal)data.ElementAt(1);
+
+            UpdatePrice();
         }
     }
 }

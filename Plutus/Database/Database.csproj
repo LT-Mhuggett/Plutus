@@ -6,9 +6,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Migrations\20181019194756_InitCreate.cs" />
+    <Compile Remove="Migrations\20181021160046_InitCreate.cs" />
+    <Compile Remove="Migrations\20181021163630_InitCreate.cs" />
     <Compile Remove="Migrations\SqliteMigrations\20180906194346_InitCreate.cs" />
+    <Compile Remove="Migrations\SqliteMigrations\20180906194510_InitCreate.cs" />
     <Compile Remove="Migrations\SqliteMigrations\20181002163722_v1_0_1.cs" />
     <Compile Remove="Migrations\SqliteMigrations\20181004200746_v1_0_2.cs" />
+    <Compile Remove="Migrations\SqliteMigrations\20181004202221_v1_0_2.cs" />
+    <Compile Remove="Migrations\SqliteMigrations\20181006140645_v1_0_3.cs" />
+    <Compile Remove="Migrations\SqliteMigrations\20181019170714_v1_0_3.cs" />
+    <Compile Remove="Migrations\SqliteMigrations\20181019173710_v1_0_3.cs" />
+    <Compile Remove="Migrations\SqliteMigrations\20181019190109_v1_0_3.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -18,5 +27,9 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Migrations\SqliteMigrations\" />
   </ItemGroup>
 </Project>

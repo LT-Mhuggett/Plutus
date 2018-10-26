@@ -41,10 +41,26 @@ namespace Plutus.Pages.Till
             {
                 if (App.DbContext.IsIdSame<SaleModel, string>(SaleID.Text))
                 {
-                    TransactionModel trans = App.DbContext.CheckItemExistInSale(SaleID.Text, BItem.Id).FirstOrDefault();
+                    List<TransactionModel> transList = App.DbContext.CheckItemExistInSale(SaleID.Text, BItem.Id).ToList();
+                    TransactionModel trans = null;
+                    if (transList.Count > 1)
+                    {
+                        foreach (var transTemp in transList)
+                        {
+                            if (transTemp.CheckoutItemChange != null && transTemp.CheckoutItemChange.Price == OBItem.Price ||
+                                transTemp.ItemCostPrice == OBItem.Price && transTemp.ItemCostExPrice == OBItem.ExPrice)
+                            {
+                                trans = transTemp;
+                                break;
+                            }
+                        }
+                    }
+                    else
+                        trans = transList.Last();
+
                     if (trans!=null)
                     {
-                        if (trans.Amount >= BItem.Amount)
+                        if (trans.Amount >= OBItem.Amount)
                         {
                             int amount=0;
                             if (trans.Sale.Refunded != null)
@@ -52,12 +68,17 @@ namespace Plutus.Pages.Till
                                 amount = trans.Sale.Refunded.Where(r => r.ItemId.Equals(BItem.Id)).Sum(r => r.Amount);
                             }
 
-                            if (amount > BItem.Amount)
+                            if (amount > OBItem.Amount)
                             {
                                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), String.Format(App.Translate.ProvideValue("NoRefundsLeftMesg"), BItem.Name), App.Translate.ProvideValue("OK"));
                                 return;
                             }
-
+                            if (BItem.Price != OBItem.Price || BItem.Price != trans.ItemCostPrice)
+                            {
+                                BItem.OGPrices = new Tuple<decimal, decimal>(BItem.ExPrice, BItem.Price);
+                                BItem.ExPrice = trans.CheckoutItemChange == null ? trans.ItemCostExPrice : trans.CheckoutItemChange.ExPrice;
+                                BItem.Price = trans.CheckoutItemChange == null ? trans.ItemCostPrice : trans.CheckoutItemChange.Price;
+                            }
                             BItem.SaleId = SaleID.Text;
                             BItem.Reason = Reason.Text;
                             BItem.Return = true;

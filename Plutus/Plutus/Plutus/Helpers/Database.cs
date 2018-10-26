@@ -266,6 +266,7 @@ namespace Plutus.Helpers
         internal IQueryable<TransactionModel> CheckItemExistInSale(string saleId, string itemId) =>
             Get<TransactionModel>()
                 .Include(t => t.Sale)
+                .Include(t=>t.CheckoutItemChange)
                 .Where(t => t.SaleId.Equals(saleId) && t.ItemId.Equals(itemId));
 
         internal NoteModel GetNote(string noteTemp) => Get<NoteModel>()

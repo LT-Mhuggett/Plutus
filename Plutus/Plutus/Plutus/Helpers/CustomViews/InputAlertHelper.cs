@@ -13,71 +13,13 @@ namespace Plutus.Helpers.CustomViews
 {
     class InputAlertHelper
     {
-        /*
-        internal static async Task<decimal> LaunchInputAlertAsync(string title, string placeholder, string buttonText,
-            string validText, decimal toPay = 0.0m, bool cash = false)
-        {
-            var inputAlert = new InputAlert(title, placeholder, buttonText, validText, cash, toPay);
-            var popUp = new InputAlertDialogBase<string>(inputAlert);
-
-            inputAlert.ConfirmButtonEHandler += (sender, e) =>
-            {
-                if (!string.IsNullOrEmpty(((InputAlert) sender).InputResult))
-                {
-                    ((InputAlert) sender).IsValidationLVisable = false;
-
-                    popUp.PageClosedTaskCompletionSource.SetResult(((InputAlert) sender).InputResult);
-                }
-                else
-                {
-                    ((InputAlert) sender).IsValidationLVisable = true;
-                }
-            };
-            decimal? result = null;
-            while (result == null)
-            {
-                await PopupNavigation.PushAsync(popUp);
-
-                result = await (await popUp.PageClosedTask).ToDecimal("test");
-
-                await PopupNavigation.PopAsync();
-            }
-            return (decimal) result;
-        }*/
-        /*
-        internal static async Task<string> LaunchInputAlertAsync(string title, string placeholder, string buttonText,
-            string validText, bool isPass = false)
-        {
-            var inputAlert = new InputAlert(title, placeholder, buttonText, validText, isPass);
-            var popUp = new InputAlertDialogBase<string>(inputAlert);
-
-            inputAlert.ConfirmButtonEHandler += (sender, e) =>
-            {
-                if (!string.IsNullOrEmpty(((InputAlert) sender).InputResult))
-                {
-                    ((InputAlert) sender).IsValidationLVisable = false;
-
-                    popUp.PageClosedTaskCompletionSource.SetResult(((InputAlert) sender).InputResult);
-                }
-                else
-                {
-                    ((InputAlert) sender).IsValidationLVisable = true;
-                }
-            };
-
-            var result = "";
-
-            while (result == "")
-            {
-                await PopupNavigation.PushAsync(popUp);
-
-                result = await popUp.PageClosedTask;
-
-                await PopupNavigation.PopAsync();
-            }
-            return result;
-        }
-        */
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="titleText"></param>
+        /// <param name="viewElements"></param>
+        /// <param name="confirmButText"></param>
+        /// <returns></returns>
         internal static async Task<List<object>> LaunchInputAlertAsync(string titleText, Tuple<string, string, Type, string, bool, bool>[] viewElements, string confirmButText)
         {
             var inputAlert = new InputAlert(titleText, viewElements, confirmButText);
@@ -98,7 +40,7 @@ namespace Plutus.Helpers.CustomViews
                             if (!string.IsNullOrEmpty(inputResult.Item1))
                             {
                                 data.Add(AddToDataResult(viewElement.Item3, inputResult.Item1, ref issue));
-                                if (data[data.Count - 1] != null)
+                                if (data[data.Count - 1] == null)
                                     viewElement.Item4.IsVisible = true;
                                 else
                                     viewElement.Item4.IsVisible = false;
@@ -114,7 +56,7 @@ namespace Plutus.Helpers.CustomViews
                                 else
                                 {
                                     data.Add(AddToDataResult(viewElement.Item3, inputResult.Item1, ref issue));
-                                    if (data[data.Count - 1] != null)
+                                    if (data[data.Count - 1] == null)
                                         viewElement.Item4.IsVisible = true;
                                     else
                                         viewElement.Item4.IsVisible = false;
@@ -132,9 +74,19 @@ namespace Plutus.Helpers.CustomViews
 
             var result = new List<object>();
 
-            while(result.Count == 0/*Add check to ensure that all required fields are set*/)
+            while (result.Count == 0/*Add check to ensure that all required fields are set*/)
             {
                 await PopupNavigation.PushAsync(popUp);
+
+                bool isFirstEntry = true;
+
+                foreach (var item in inputAlert.ViewElements)
+                    if (item.Item2 != null)
+                        if (isFirstEntry)
+                        {
+                            item.Item2.Focus();
+                            isFirstEntry = false;
+                        }
 
                 result = await popUp.PageClosedTask;
 
@@ -144,6 +96,15 @@ namespace Plutus.Helpers.CustomViews
             return result;
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="titleText"></param>
+        /// <param name="viewElements"></param>
+        /// <param name="confirmButText"></param>
+        /// <param name="cash"></param>
+        /// <param name="toPay"></param>
+        /// <returns></returns>
         internal static async Task<List<object>> LaunchInputAlertAsync(string titleText, Tuple<string, string, Type, string, bool, bool>[] viewElements, string confirmButText, bool cash, decimal toPay)
         {
             var inputAlert = new InputAlert(titleText, viewElements, confirmButText, cash, toPay);
@@ -159,7 +120,6 @@ namespace Plutus.Helpers.CustomViews
                     var inputResult = page.InputResults[i];
                     foreach (var viewElement in page.ViewElements)
                     {
-                        data.Add(inputResult.Item1);
                         if (viewElement.Item2 != null && (viewElement.Item2.ReturnCommandParameter as Tuple<bool, int>).Item2 == i)
                         {
                             if (!string.IsNullOrEmpty(inputResult.Item1))
@@ -203,6 +163,16 @@ namespace Plutus.Helpers.CustomViews
             {
                 await PopupNavigation.PushAsync(popUp);
 
+                bool isFirstEntry = true;
+
+                foreach (var item in inputAlert.ViewElements)
+                    if (item.Item2 != null)
+                        if (isFirstEntry)
+                        {
+                            item.Item2.Focus();
+                            isFirstEntry = false;
+                        }
+                
                 result = await popUp.PageClosedTask;
 
                 await PopupNavigation.PopAsync();
@@ -211,6 +181,13 @@ namespace Plutus.Helpers.CustomViews
             return result;
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="type"></param>
+        /// <param name="value"></param>
+        /// <param name="issue"></param>
+        /// <returns></returns>
         private static object AddToDataResult(Type type, string value, ref bool issue)
         {
             object result;

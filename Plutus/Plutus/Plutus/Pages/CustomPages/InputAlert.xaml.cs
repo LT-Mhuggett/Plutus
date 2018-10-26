@@ -6,13 +6,13 @@ using Xamarin.Forms.Xaml;
 
 namespace Plutus.Pages.CustomPages
 {
-	[XamlCompilation(XamlCompilationOptions.Compile)]
-	public partial class InputAlert : ContentView
-	{
+    [XamlCompilation(XamlCompilationOptions.Compile)]
+    public partial class InputAlert : ContentView
+    {
         public EventHandler ConfirmButtonEHandler { get; set; }
         public List<Tuple<string, bool>> InputResults { get; set; } = new List<Tuple<string, bool>>();
         public List<Tuple<Label, Entry, Type, Label>> ViewElements { get; set; } = new List<Tuple<Label, Entry, Type, Label>>();
-        
+
         /// <summary>
         /// 
         /// </summary>
@@ -23,28 +23,7 @@ namespace Plutus.Pages.CustomPages
         {
             InitializeComponent();
 
-            MainLayout.Children.Add(new Label { Text = titleText });
-
-            for(int n = 0; n <= viewElements.Length-1; n++)
-            {
-                this.ViewElements.Add(CreateLabelEntry(viewElements[n], n, this.MainLayout));
-            }
-
-            var confButton = new Button { Text = confirmButText };
-            confButton.Clicked += ConfirmBut_ClickedAsync;
-            MainLayout.Children.Add(confButton);
-            
-            foreach (var item in MainLayout.Children)
-            {
-                if (item is Entry)
-                {
-                    InputResults.Add(Tuple.Create((item as Entry).Text, ((item as Entry).ReturnCommandParameter as Tuple<bool, int>).Item1));
-                }
-            }
-        }
-        public InputAlert(string titleText, Tuple<string, string, Type, string, bool, bool>[] viewElements, string confirmButText, bool cash, decimal toPay)
-        {
-            InitializeComponent();
+            MainLayout.WidthRequest = App.Current.MainPage.Width / 2;
 
             MainLayout.Children.Add(new Label { Text = titleText });
 
@@ -53,12 +32,47 @@ namespace Plutus.Pages.CustomPages
                 this.ViewElements.Add(CreateLabelEntry(viewElements[n], n, this.MainLayout));
             }
 
-            if(cash)
-                MainLayout.Children.Add(CreateCashGrid());
+            var confButton = new Button { Text = confirmButText };
+            confButton.Clicked += ConfirmBut_ClickedAsync;
+            MainLayout.Children.Add(confButton);
+
+            foreach (var item in MainLayout.Children)
+            {
+                if (item is Entry)
+                {
+                    InputResults.Add(Tuple.Create((item as Entry).Text, ((item as Entry).ReturnCommandParameter as Tuple<bool, int>).Item1));
+                }
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="titleText"></param>
+        /// <param name="viewElements"></param>
+        /// <param name="confirmButText"></param>
+        /// <param name="cash"></param>
+        /// <param name="toPay"></param>
+        public InputAlert(string titleText, Tuple<string, string, Type, string, bool, bool>[] viewElements, string confirmButText, bool cash, decimal toPay)
+        {
+            InitializeComponent();
+
+            MainLayout.WidthRequest = App.Current.MainPage.Width / 2;
+
+            MainLayout.Children.Add(new Label { Text = titleText });
+
+            if (cash)
+                MainLayout.Children.Add(CreateCashGrid(toPay < 0.0m ? true : false));
 
             var payAllButton = new Button { Text = App.Translate.ProvideValue("PayFull"), CommandParameter = toPay };
             payAllButton.Clicked += PayExact_Clicked;
             MainLayout.Children.Add(payAllButton);
+
+            for (int n = 0; n <= viewElements.Length - 1; n++)
+            {
+                this.ViewElements.Add(CreateLabelEntry(viewElements[n], n, this.MainLayout));
+            }
+
 
             var confButton = new Button { Text = confirmButText };
             confButton.Clicked += ConfirmBut_ClickedAsync;
@@ -73,6 +87,13 @@ namespace Plutus.Pages.CustomPages
             }
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="elementValues"></param>
+        /// <param name="position"></param>
+        /// <param name="layout"></param>
+        /// <returns></returns>
         public Tuple<Label, Entry, Type, Label> CreateLabelEntry(Tuple<string, string, Type, string, bool, bool> elementValues, int position, StackLayout layout)
         {
             Label label = new Label { Text = elementValues.Item1 };
@@ -85,12 +106,17 @@ namespace Plutus.Pages.CustomPages
             return Tuple.Create(label, entry, elementValues.Item3, labelValid);
         }
 
-        public Grid CreateCashGrid()
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="negative"></param>
+        /// <returns></returns>
+        public Grid CreateCashGrid(bool negative)
         {
-            var button1 = new Button { Text = "5", CommandParameter = 5 };
-            var button2 = new Button { Text = "10", CommandParameter = 10 };
-            var button3 = new Button { Text = "20", CommandParameter = 20 };
-            var button4 = new Button { Text = "50", CommandParameter = 50 };
+            var button1 = new Button { Text = "5", CommandParameter = negative ? -5 : 5 };
+            var button2 = new Button { Text = "10", CommandParameter = negative ? -10 : 10 };
+            var button3 = new Button { Text = "20", CommandParameter = negative ? -20 : 20 };
+            var button4 = new Button { Text = "50", CommandParameter = negative ? -50 : 50 };
 
             button1.Clicked += Value_Clicked;
             button2.Clicked += Value_Clicked;
@@ -118,45 +144,20 @@ namespace Plutus.Pages.CustomPages
             return grid;
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void Entry_TextChanged(object sender, TextChangedEventArgs e)
         {
             var updatedEntry = (sender as Entry);
             InputResults[(updatedEntry.ReturnCommandParameter as Tuple<bool, int>).Item2] =
                 Tuple.Create(updatedEntry.Text, InputResults[(updatedEntry.ReturnCommandParameter as Tuple<bool, int>).Item2].Item2);
         }
-        /*
-        public InputAlert(string titleText, string placeholderText, string confirmButText, string validationText,
-	        bool cashBack, decimal toPay)
-	    {
-	        InitializeComponent();
 
-	        TitleL.Text = titleText;
-	        InputE.Placeholder = placeholderText;
-	        ConfirmBut.Text = confirmButText;
-	        ValidationL.Text = validationText;
-	        if (cashBack)
-	        {
-	            PayExact.CommandParameter = toPay;
-	            PayExact.Clicked += PayExact_Clicked;
-	            PayExact.Text = App.Translate.ProvideValue("PayFull");
-	            PayExact.IsVisible = true;
-	        }
-	        else
-	        {
-	            PayExact.CommandParameter = toPay;
-	            PayExact.Clicked += PayExact_Clicked;
-	            PayExact.Text = App.Translate.ProvideValue("PayFull");
-	            PayExact.IsVisible = true;
-	            CashOptions.IsVisible = true;
-	        }
-
-	        ConfirmBut.Clicked += ConfirmBut_ClickedAsync;
-	        InputE.TextChanged += InputE_TextChanged;
-	    }
-        */
-
-	    private async void Value_Clicked(object sender, EventArgs e)
-	    {
+        private async void Value_Clicked(object sender, EventArgs e)
+        {
             foreach (var input in ViewElements)
             {
                 if (input.Item3 == typeof(decimal))
@@ -169,8 +170,13 @@ namespace Plutus.Pages.CustomPages
                     input.Item2.Text = value.ToString();
                 }
             }
-	    }
+        }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private async void ConfirmBut_ClickedAsync(object sender, EventArgs e)
         {
             var passElements = ViewElements.FindAll(elements => elements.Item2.IsPassword);
@@ -184,16 +190,21 @@ namespace Plutus.Pages.CustomPages
             ConfirmButtonEHandler?.Invoke(this, e);
         }
 
-	    private void PayExact_Clicked(object sender, EventArgs e)
-	    {
-            foreach(var input in ViewElements)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void PayExact_Clicked(object sender, EventArgs e)
+        {
+            foreach (var input in ViewElements)
             {
-                if(input.Item3 == typeof(decimal))
+                if (input.Item3 == typeof(decimal))
                 {
                     input.Item2.Text = ((Button)sender).CommandParameter.ToString();
                     ConfirmButtonEHandler?.Invoke(this, e);
                 }
             }
-	    }
-	}
+        }
+    }
 }

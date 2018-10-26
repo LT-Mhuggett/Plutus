@@ -12,7 +12,7 @@ namespace Database.Models
     public class ItemModel : INotifyPropertyChanged, IAuditable, IBase<string>
     {
         private ItemModel item;
-        
+
         public string Id { get; set; }
         public string Name { get; set; }
         public string Brand { get; set; }
@@ -29,7 +29,7 @@ namespace Database.Models
         public int VatId { get; set; }
         [ForeignKey("CatIdFK")]
         public int CatId { get; set; }
-        
+
         public List<Discount_Item> DisItems { get; set; }
         public List<TransactionModel> Transactions { get; set; }
         public List<RefundModel> Refunds { get; set; }
@@ -53,7 +53,8 @@ namespace Database.Models
         public string Reason { get; set; }
         [NotMapped]
         public string SaleId { get; set; }
-
+        [NotMapped]
+        public Tuple<decimal, decimal> OGPrices { get; set; }
 
         public ItemModel()
         {

@@ -1,7 +1,7 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
-namespace Database.Migrations.SqliteMigrations
+namespace Database.Migrations
 {
     public partial class InitCreate : Migration
     {
@@ -50,6 +50,9 @@ namespace Database.Migrations.SqliteMigrations
                     Id = table.Column<int>(nullable: false)
                         .Annotation("Sqlite:Autoincrement", true),
                     Name = table.Column<string>(nullable: true),
+                    AllApplicable = table.Column<bool>(nullable: false),
+                    CanUseWithOtherDiscounts = table.Column<bool>(nullable: false),
+                    AutoApply = table.Column<bool>(nullable: false),
                     Type = table.Column<int>(nullable: false),
                     Amount = table.Column<decimal>(nullable: false),
                     UsesPerTransaction = table.Column<int>(nullable: false),
@@ -322,6 +325,31 @@ namespace Database.Migrations.SqliteMigrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "CheckoutItemChangeModel",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    ItemId = table.Column<string>(nullable: true),
+                    Price = table.Column<decimal>(nullable: false),
+                    ExPrice = table.Column<decimal>(nullable: false),
+                    Created = table.Column<DateTime>(nullable: false),
+                    CreatedBy = table.Column<string>(nullable: true),
+                    Modified = table.Column<DateTime>(nullable: false),
+                    ModifiedBy = table.Column<string>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_CheckoutItemChangeModel", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_CheckoutItemChangeModel_Items_ItemId",
+                        column: x => x.ItemId,
+                        principalTable: "Items",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "DiscountItems",
                 columns: table => new
                 {
@@ -478,6 +506,7 @@ namespace Database.Migrations.SqliteMigrations
                     SaleId = table.Column<string>(nullable: true),
                     ItemId = table.Column<string>(nullable: true),
                     Amount = table.Column<int>(nullable: false),
+                    CheckoutItemChangeId = table.Column<int>(nullable: true),
                     Created = table.Column<DateTime>(nullable: false),
                     CreatedBy = table.Column<string>(nullable: true),
                     Modified = table.Column<DateTime>(nullable: false),
@@ -486,6 +515,12 @@ namespace Database.Migrations.SqliteMigrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Refunds", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Refunds_CheckoutItemChangeModel_CheckoutItemChangeId",
+                        column: x => x.CheckoutItemChangeId,
+                        principalTable: "CheckoutItemChangeModel",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Refunds_Items_ItemId",
                         column: x => x.ItemId,
@@ -510,9 +545,14 @@ namespace Database.Migrations.SqliteMigrations
                 name: "Trans",
                 columns: table => new
                 {
-                    ItemId = table.Column<string>(nullable: false),
-                    SaleId = table.Column<string>(nullable: false),
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    ItemId = table.Column<string>(nullable: true),
+                    SaleId = table.Column<string>(nullable: true),
                     Amount = table.Column<int>(nullable: false),
+                    ItemCostExPrice = table.Column<decimal>(nullable: false),
+                    ItemCostPrice = table.Column<decimal>(nullable: false),
+                    CheckoutItemChangeId = table.Column<int>(nullable: true),
                     Created = table.Column<DateTime>(nullable: false),
                     CreatedBy = table.Column<string>(nullable: true),
                     Modified = table.Column<DateTime>(nullable: false),
@@ -520,20 +560,31 @@ namespace Database.Migrations.SqliteMigrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Trans", x => new { x.SaleId, x.ItemId });
+                    table.PrimaryKey("PK_Trans", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Trans_CheckoutItemChangeModel_CheckoutItemChangeId",
+                        column: x => x.CheckoutItemChangeId,
+                        principalTable: "CheckoutItemChangeModel",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Trans_Items_ItemId",
                         column: x => x.ItemId,
                         principalTable: "Items",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Trans_Sales_SaleId",
                         column: x => x.SaleId,
                         principalTable: "Sales",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CheckoutItemChangeModel_ItemId",
+                table: "CheckoutItemChangeModel",
+                column: "ItemId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_DiscountCats_CatId",
@@ -592,6 +643,12 @@ namespace Database.Migrations.SqliteMigrations
                 column: "SaleId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Refunds_CheckoutItemChangeId",
+                table: "Refunds",
+                column: "CheckoutItemChangeId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Refunds_ItemId",
                 table: "Refunds",
                 column: "ItemId");
@@ -633,9 +690,20 @@ namespace Database.Migrations.SqliteMigrations
                 column: "StoreId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Trans_CheckoutItemChangeId",
+                table: "Trans",
+                column: "CheckoutItemChangeId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Trans_ItemId",
                 table: "Trans",
                 column: "ItemId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Trans_SaleId",
+                table: "Trans",
+                column: "SaleId");
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
@@ -683,19 +751,22 @@ namespace Database.Migrations.SqliteMigrations
                 name: "SavedTransactions");
 
             migrationBuilder.DropTable(
-                name: "Items");
+                name: "CheckoutItemChangeModel");
 
             migrationBuilder.DropTable(
                 name: "Sales");
+
+            migrationBuilder.DropTable(
+                name: "Items");
+
+            migrationBuilder.DropTable(
+                name: "Employees");
 
             migrationBuilder.DropTable(
                 name: "Category");
 
             migrationBuilder.DropTable(
                 name: "Vats");
-
-            migrationBuilder.DropTable(
-                name: "Employees");
 
             migrationBuilder.DropTable(
                 name: "Stores");

@@ -3,16 +3,14 @@ using System;
 using Database;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
-namespace Database.Migrations.SqliteMigrations
+namespace Database.Migrations
 {
     [DbContext(typeof(SqliteContext))]
-    [Migration("20181004202221_v1_0_2")]
-    partial class v1_0_2
+    partial class SqliteContextModelSnapshot : ModelSnapshot
     {
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -60,6 +58,32 @@ namespace Database.Migrations.SqliteMigrations
                     b.HasKey("Id");
 
                     b.ToTable("Category");
+                });
+
+            modelBuilder.Entity("Database.Models.CheckoutItemChangeModel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<DateTime>("Created");
+
+                    b.Property<string>("CreatedBy");
+
+                    b.Property<decimal>("ExPrice");
+
+                    b.Property<string>("ItemId");
+
+                    b.Property<DateTime>("Modified");
+
+                    b.Property<string>("ModifiedBy");
+
+                    b.Property<decimal>("Price");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId");
+
+                    b.ToTable("CheckoutItemChangeModel");
                 });
 
             modelBuilder.Entity("Database.Models.Discount_Category", b =>
@@ -388,6 +412,8 @@ namespace Database.Migrations.SqliteMigrations
 
                     b.Property<int>("Amount");
 
+                    b.Property<int?>("CheckoutItemChangeId");
+
                     b.Property<DateTime>("Created");
 
                     b.Property<string>("CreatedBy");
@@ -405,6 +431,9 @@ namespace Database.Migrations.SqliteMigrations
                     b.Property<string>("SaleIdReturned");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CheckoutItemChangeId")
+                        .IsUnique();
 
                     b.HasIndex("ItemId");
 
@@ -562,25 +591,46 @@ namespace Database.Migrations.SqliteMigrations
 
             modelBuilder.Entity("Database.Models.TransactionModel", b =>
                 {
-                    b.Property<string>("SaleId");
-
-                    b.Property<string>("ItemId");
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
 
                     b.Property<int>("Amount");
+
+                    b.Property<int?>("CheckoutItemChangeId");
 
                     b.Property<DateTime>("Created");
 
                     b.Property<string>("CreatedBy");
 
+                    b.Property<decimal>("ItemCostExPrice");
+
+                    b.Property<decimal>("ItemCostPrice");
+
+                    b.Property<string>("ItemId");
+
                     b.Property<DateTime>("Modified");
 
                     b.Property<string>("ModifiedBy");
 
-                    b.HasKey("SaleId", "ItemId");
+                    b.Property<string>("SaleId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CheckoutItemChangeId")
+                        .IsUnique();
 
                     b.HasIndex("ItemId");
 
+                    b.HasIndex("SaleId");
+
                     b.ToTable("Trans");
+                });
+
+            modelBuilder.Entity("Database.Models.CheckoutItemChangeModel", b =>
+                {
+                    b.HasOne("Database.Models.ItemModel", "Item")
+                        .WithMany("CheckoutItemChanges")
+                        .HasForeignKey("ItemId");
                 });
 
             modelBuilder.Entity("Database.Models.Discount_Category", b =>
@@ -666,6 +716,10 @@ namespace Database.Migrations.SqliteMigrations
 
             modelBuilder.Entity("Database.Models.RefundModel", b =>
                 {
+                    b.HasOne("Database.Models.CheckoutItemChangeModel", "CheckoutItemChange")
+                        .WithOne("Refund")
+                        .HasForeignKey("Database.Models.RefundModel", "CheckoutItemChangeId");
+
                     b.HasOne("Database.Models.ItemModel", "Item")
                         .WithMany("Refunds")
                         .HasForeignKey("ItemId");
@@ -713,15 +767,17 @@ namespace Database.Migrations.SqliteMigrations
 
             modelBuilder.Entity("Database.Models.TransactionModel", b =>
                 {
+                    b.HasOne("Database.Models.CheckoutItemChangeModel", "CheckoutItemChange")
+                        .WithOne("Tran")
+                        .HasForeignKey("Database.Models.TransactionModel", "CheckoutItemChangeId");
+
                     b.HasOne("Database.Models.ItemModel", "Item")
                         .WithMany("Transactions")
-                        .HasForeignKey("ItemId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .HasForeignKey("ItemId");
 
                     b.HasOne("Database.Models.SaleModel", "Sale")
                         .WithMany("Transactions")
-                        .HasForeignKey("SaleId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .HasForeignKey("SaleId");
                 });
 #pragma warning restore 612, 618
         }
