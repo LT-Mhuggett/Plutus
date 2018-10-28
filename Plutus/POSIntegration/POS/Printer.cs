@@ -72,6 +72,8 @@ namespace POSIntegration.POS
             };
         }
 
+        public int PageChars() => Printer.RecLineChars;
+
         #region Heads of Sections
         /// <summary>
         /// Takes multiple combinations that fire seperate events based on the <c>key</c> 

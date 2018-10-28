@@ -99,6 +99,7 @@ namespace Plutus.Pages.CustomPages
             Label label = new Label { Text = elementValues.Item1 };
             Entry entry = new Entry { Placeholder = elementValues.Item2, IsPassword = elementValues.Item5, ReturnCommandParameter = Tuple.Create(elementValues.Item6, position) };
             entry.TextChanged += Entry_TextChanged;
+            entry.Completed += Entry_Completed;
             Label labelValid = new Label { Text = elementValues.Item4, IsVisible = false };
             layout.Children.Add(label);
             layout.Children.Add(entry);
@@ -154,6 +155,21 @@ namespace Plutus.Pages.CustomPages
             var updatedEntry = (sender as Entry);
             InputResults[(updatedEntry.ReturnCommandParameter as Tuple<bool, int>).Item2] =
                 Tuple.Create(updatedEntry.Text, InputResults[(updatedEntry.ReturnCommandParameter as Tuple<bool, int>).Item2].Item2);
+        }
+
+        private void Entry_Completed(object sender, EventArgs e)
+        {
+            var entry = (sender as Entry);
+            var viewE = ViewElements.Find(en => en.Item2.Equals(entry));
+
+            if (ViewElements.FindAll(ve => ve.Item2 != null).Count - 1 == ViewElements.FindAll(ve => ve.Item2 != null).IndexOf(viewE))
+            {
+                ConfirmBut_ClickedAsync(null, null);
+            }
+            else
+            {
+                ViewElements.FindAll(ve => ve.Item2 != null)[ViewElements.IndexOf(viewE) + 1].Item2.SetFocusAfterDelay(1);
+            }
         }
 
         private async void Value_Clicked(object sender, EventArgs e)
