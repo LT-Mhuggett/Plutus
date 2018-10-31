@@ -164,7 +164,7 @@ namespace Plutus.Pages.Inventory
         /// <returns></returns>
         private async void Cost_Vat_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(Cost.Text) || VatPicker.SelectedIndex == -1) return;
+            if (string.IsNullOrWhiteSpace(Cost.Text) || VatPicker.SelectedIndex == -1 || string.IsNullOrWhiteSpace(ExPrice.Text)) return;
             foreach (var item in _vats)
             {
                 if (item.Id != VatPicker.SelectedIndex + 1) continue;
@@ -268,7 +268,7 @@ namespace Plutus.Pages.Inventory
             _changeItem.Price = (decimal)await Price.Text.ToDecimal(App.Translate.ProvideValue("ValueEnteredWrong"));
             _changeItem.Vat = _vats.ElementAt(VatPicker.SelectedIndex);
             _changeItem.VatId = VatPicker.SelectedIndex + 1;
-
+            /*
             if (_changeItem.Name == _item.Name && _changeItem.Brand == _item.Brand 
                 && _changeItem.CatId == _item.CatId && _changeItem.Cost == _item.Cost 
                 && _changeItem.Desc == _item.Desc && _changeItem.Image == _item.Image 
@@ -277,7 +277,7 @@ namespace Plutus.Pages.Inventory
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("NoChangeMadeMesg"), App.Translate.ProvideValue("OK"));
                 return;
             }
-
+            */
             await Navigation.PushModalAsync(new ItemTemplate(_changeItem, 0));
             MessagingCenter.Subscribe<UpdateItemPage>(this, "Accepted", async (Sender) =>
             {

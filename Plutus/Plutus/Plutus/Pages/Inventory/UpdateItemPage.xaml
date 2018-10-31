@@ -31,7 +31,7 @@
                     <Label Text="{i18N:Translate ExPrice}" HorizontalOptions="FillAndExpand"/>
                     <Entry x:Name="ExPrice" Text="{Binding ExPrice}" PropertyChanged="Cost_Vat_PropertyChanged" />
                     <Label Text="{i18N:Translate Price}" HorizontalOptions="FillAndExpand" />
-                    <Entry x:Name="Price" Text="{Binding Price}"/>
+                    <Entry x:Name="Price" Text="{Binding Price}" PropertyChanged="Cost_Vat_PropertyChanged"/>
                     <Label Text="{i18N:Translate CStock}" HorizontalOptions="FillAndExpand" />
                     <Label x:Name="Stock" HorizontalOptions="FillAndExpand" />
                     <Button x:Name="Confirm" Text="{i18N:Translate Confirm}" Clicked="Confirm_Clicked" />

@@ -112,13 +112,13 @@ namespace Plutus.Helpers
                 for(var i = 1; i <= item.Amount; i++)
                 {
                     var gridRow = _grid.Rows.Add();
-                    gridRow.Cells[0].Value = item.Item.Name;
+                    gridRow.Cells[0].Value = item.TempItem.Name;
                     gridRow.Cells[0].Style = cellStyle;
 
                     gridRow.Cells[1].Value = item.ItemId;
                     gridRow.Cells[1].Style = cellStyle;
 
-                    gridRow.Cells[2].Value = $"{Math.Round(item.Item.Price, 2, MidpointRounding.AwayFromZero)}";
+                    gridRow.Cells[2].Value = $"{Math.Round(item.TempItem.Price, 2, MidpointRounding.AwayFromZero)}";
                     gridRow.Cells[2].Style = cellStyle;
                 }
             }
@@ -148,13 +148,13 @@ namespace Plutus.Helpers
                 foreach(var item in sale.Refunds)
                 {
                     PdfGridRow gridRow = _grid.Rows.Add();
-                    gridRow.Cells[0].Value = item.Item.Name;
+                    gridRow.Cells[0].Value = item.TempItem.Name;
                     gridRow.Cells[0].Style = cellStyle;
 
-                    gridRow.Cells[1].Value = item.Item.Id;
+                    gridRow.Cells[1].Value = item.TempItem.Id;
                     gridRow.Cells[1].Style = cellStyle;
 
-                    gridRow.Cells[2].Value = $"{Math.Round(item.Item.Price, 2, MidpointRounding.AwayFromZero)}";
+                    gridRow.Cells[2].Value = $"{Math.Round(item.TempItem.Price, 2, MidpointRounding.AwayFromZero)}";
                     gridRow.Cells[2].Style = cellStyle;
                 }
             }

@@ -136,9 +136,9 @@ namespace Plutus.Helpers
                     refundsMaxChar = refund.TempItem.Id.Length > refundsMaxChar ? refund.TempItem.Id.Length : refundsMaxChar;
                 }
 
-                double refundPercent = (double)refundsMaxChar / PageCharsMax * 100;
-                double qtyPercent = (double)3 / PageCharsMax * 100;
-                double namePercent = (PageCharsMax - refundsMaxChar - 3 - (PageCharsMax / 100) * 18.75) / PageCharsMax * 100;
+                double refundPercent = ((double)refundsMaxChar + 1) / PageCharsMax * 100;
+                double qtyPercent = (double)4 / PageCharsMax * 100;
+                double namePercent = (PageCharsMax - (refundsMaxChar + 1) - 4 - ((double)PageCharsMax / 100) * 18.75) / PageCharsMax * 100;
 
                 text.Add(new KeyValuePair<string, object>("str..true.", App.Translate.ProvideValue("Returns")));
                 text.Add(new KeyValuePair<string, object>("str..true.", App.Translate.ProvideValue("Id") + "\t" + refundPercent));
