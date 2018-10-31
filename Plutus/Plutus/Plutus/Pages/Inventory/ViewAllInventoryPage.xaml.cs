@@ -56,7 +56,7 @@ namespace Plutus.Pages.Inventory
             StartLimit = 0;
 
             //Testing use of loading all data
-            Limit = 40;
+            Limit = 4000000;
 
             SetItems();
 

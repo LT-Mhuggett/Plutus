@@ -93,7 +93,7 @@ namespace Plutus.Helpers
         {
             var keyValues = new List<KeyValuePair<string, object>>
             {
-                new KeyValuePair<string, object>("{App.Store.Id}-32134.POS.getPageChars", "null")
+                new KeyValuePair<string, object>($"{App.Store.Id}-32134.POS.getPageChars", "null")
             };
             int PageCharsMax = (int)await DependencyService.Get<IPOSCommunication>().SendAndGetReponseAsync(keyValues);
 
@@ -107,30 +107,27 @@ namespace Plutus.Helpers
                     transMaxChar = trans.TempItem.Id.Length > transMaxChar ? trans.TempItem.Id.Length : transMaxChar;
                 }
 
-                double transPercent = (transMaxChar / PageCharsMax) * 100;
-                double qtyPercent = (3 / PageCharsMax) * 100;
-                double namePercent = ((PageCharsMax - transMaxChar - 3 - (PageCharsMax / 100) * 18.75) / PageCharsMax) * 100;
+                double transPercent = (double)(transMaxChar+1) / PageCharsMax * 100;
+                double qtyPercent = (double)4 / PageCharsMax * 100;
+                double namePercent = (PageCharsMax - (transMaxChar + 1) - 4 - ((double)PageCharsMax / 100) * 18.75) / PageCharsMax * 100;
 
                 text.Add(new KeyValuePair<string, object>("str..true.", App.Translate.ProvideValue("Transaction")));
-                text.Add(new KeyValuePair<string, object>("str..true.", App.Translate.ProvideValue("Id") + $"\t{transPercent}"));
-                text.Add(new KeyValuePair<string, object>("str..true.", App.Translate.ProvideValue("Name") + $"\t{namePercent}"));
-                text.Add(new KeyValuePair<string, object>("str..true.", App.Translate.ProvideValue("Price") + $"\t{pricePercent}"));
-                text.Add(new KeyValuePair<string, object>("str..true.", "qty" + $"\t{qtyPercent}"));
+                text.Add(new KeyValuePair<string, object>("str..true.", App.Translate.ProvideValue("Id") + "\t" + transPercent));
+                text.Add(new KeyValuePair<string, object>("str..true.", App.Translate.ProvideValue("Name") + "\t" + namePercent));
+                text.Add(new KeyValuePair<string, object>("str..true.", App.Translate.ProvideValue("Price") + "\t" + pricePercent));
+                text.Add(new KeyValuePair<string, object>("str..true.", "qty\t" + qtyPercent));
 
-                foreach(var trans in sale.Transactions)
+                foreach (var trans in sale.Transactions)
                 {
-                    for(int i = 0; i < trans.Amount; i++)
-                    { 
-                        text.Add(new KeyValuePair<string, object>("str...", trans.ItemId + $"\t{transPercent}"));
-                        text.Add(new KeyValuePair<string, object>("str...", trans.TempItem.Name + $"\t{namePercent}"));
-                        text.Add(new KeyValuePair<string, object>("str...", $"{trans.TempItem.Price}\tR{pricePercent}"));
-                        text.Add(new KeyValuePair<string, object>("str...", $"{trans.Amount}\tR{qtyPercent}"));
-                    }
+                    text.Add(new KeyValuePair<string, object>("str...", trans.ItemId + "\t" + transPercent));
+                    text.Add(new KeyValuePair<string, object>("str...", trans.TempItem.Name + "\t" + namePercent));
+                    text.Add(new KeyValuePair<string, object>("str...", trans.TempItem.Price + "\tR" + pricePercent));
+                    text.Add(new KeyValuePair<string, object>("str...", trans.Amount + "\tR" + qtyPercent));
                 }
                 text.Add(new KeyValuePair<string, object>("score...", ""));
             }
 
-            if(sale.Refunds.Count > 0)
+            if (sale.Refunds.Count > 0)
             {
 
                 int refundsMaxChar = 0;
@@ -139,28 +136,22 @@ namespace Plutus.Helpers
                     refundsMaxChar = refund.TempItem.Id.Length > refundsMaxChar ? refund.TempItem.Id.Length : refundsMaxChar;
                 }
 
-                double refundPercent = (refundsMaxChar / PageCharsMax) * 100;
-                double qtyPercent = (3 / PageCharsMax) * 100;
-                double namePercent = ((PageCharsMax - refundsMaxChar - 3 - (PageCharsMax / 100) * 18.75) / PageCharsMax) * 100;
-
-
-                decimal refundsPercent = (refundsMaxChar / PageCharsMax) * 100;
+                double refundPercent = (double)refundsMaxChar / PageCharsMax * 100;
+                double qtyPercent = (double)3 / PageCharsMax * 100;
+                double namePercent = (PageCharsMax - refundsMaxChar - 3 - (PageCharsMax / 100) * 18.75) / PageCharsMax * 100;
 
                 text.Add(new KeyValuePair<string, object>("str..true.", App.Translate.ProvideValue("Returns")));
-                text.Add(new KeyValuePair<string, object>("str..true.", App.Translate.ProvideValue("Id") + $"\t{refundsPercent}"));
-                text.Add(new KeyValuePair<string, object>("str..true.", App.Translate.ProvideValue("Name") + $"\t{namePercent}"));
-                text.Add(new KeyValuePair<string, object>("str..true.", App.Translate.ProvideValue("Price") + $"\t{pricePercent}"));
-                text.Add(new KeyValuePair<string, object>("str..true.", "qty" + $"\t{qtyPercent}"));
+                text.Add(new KeyValuePair<string, object>("str..true.", App.Translate.ProvideValue("Id") + "\t" + refundPercent));
+                text.Add(new KeyValuePair<string, object>("str..true.", App.Translate.ProvideValue("Name") + "\t" + namePercent));
+                text.Add(new KeyValuePair<string, object>("str..true.", App.Translate.ProvideValue("Price") + "\t" + pricePercent));
+                text.Add(new KeyValuePair<string, object>("str..true.", "qty\t" + qtyPercent));
 
                 foreach (var refund in sale.Refunds)
                 {
-                    for(int i = 0; i < refund.Amount;i++)
-                    { 
-                        text.Add(new KeyValuePair<string, object>("str...", refund.TempItem.Id + $"\t33.35"));
-                        text.Add(new KeyValuePair<string, object>("str...", refund.TempItem.Name + $"\t47.90"));
-                        text.Add(new KeyValuePair<string, object>("str...", $"{refund.TempItem.Price}\tR18.75"));
-                        text.Add(new KeyValuePair<string, object>("str...", refund.Amount + $"\tR{qtyPercent}"));
-                    }
+                    text.Add(new KeyValuePair<string, object>("str...", refund.TempItem.Id + "\t" + refundPercent));
+                    text.Add(new KeyValuePair<string, object>("str...", refund.TempItem.Name + "\t" + namePercent));
+                    text.Add(new KeyValuePair<string, object>("str...", refund.TempItem.Price + "\tR" + pricePercent));
+                    text.Add(new KeyValuePair<string, object>("str...", refund.Amount + "\tR" + qtyPercent));
                 }
                 text.Add(new KeyValuePair<string, object>("score...", ""));
             }

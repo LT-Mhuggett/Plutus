@@ -74,7 +74,6 @@ namespace POSIntegration.POS
                         return true;
                     else
                         return false;
-
                 case "getPageChars":
                     return _POSPrinter.PageChars();
                 default:
