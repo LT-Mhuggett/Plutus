@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -8,6 +9,7 @@ namespace Database.Models
     /// This is the employee model to store all employee data and interact with the employee section of DB.
     /// it inherits PersonModel to improve code efficiency
     /// </summary>
+    [Serializable]
     public class EmployeeModel : PersonModel
     {
         public decimal Wage { get; set; }

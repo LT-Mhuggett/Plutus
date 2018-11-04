@@ -86,7 +86,8 @@ namespace Plutus.Pages.Inventory
         private async void ItemSearchComplete()
         {
             var items = MainPage.InventDbContext.Search(ItemSearch.Text)
-                .Include(i=>i.Stock)
+                .Include(i => i.Stock)
+                .AsNoTracking()
                 .ToList();
             switch (items.Count)
             {
@@ -137,7 +138,8 @@ namespace Plutus.Pages.Inventory
             CatPicker.SelectedIndex = _item.CatId - 1;
             VatPicker.SelectedIndex = _item.VatId - 1;
             Stock.Text = _item.Stock?.Quantity.ToString() ?? $"No stock information avalible for {_item.Name}";
-            BindingContext = _item;
+            _changeItem = _item.DeepClone();
+            this.BindingContext = _changeItem;
             ItemDetails.IsVisible = true;
             ImageButton.IsEnabled = true;
         }
@@ -258,9 +260,6 @@ namespace Plutus.Pages.Inventory
         /// <returns></returns>
         private async void Confirm_Clicked(object sender, EventArgs e)
         {
-            _changeItem.Id = _item.Id;
-            _changeItem.Name = Name.Text;
-            _changeItem.Brand = Brand.Text;
             _changeItem.CatId = CatPicker.SelectedIndex + 1;
             _changeItem.Cat = _cats.ElementAt(CatPicker.SelectedIndex);
             _changeItem.Cost = (decimal)await Cost.Text.ToDecimal(App.Translate.ProvideValue("ValueEnteredWrong"));
@@ -268,7 +267,7 @@ namespace Plutus.Pages.Inventory
             _changeItem.Price = (decimal)await Price.Text.ToDecimal(App.Translate.ProvideValue("ValueEnteredWrong"));
             _changeItem.Vat = _vats.ElementAt(VatPicker.SelectedIndex);
             _changeItem.VatId = VatPicker.SelectedIndex + 1;
-            /*
+
             if (_changeItem.Name == _item.Name && _changeItem.Brand == _item.Brand 
                 && _changeItem.CatId == _item.CatId && _changeItem.Cost == _item.Cost 
                 && _changeItem.Desc == _item.Desc && _changeItem.Image == _item.Image 
@@ -277,11 +276,12 @@ namespace Plutus.Pages.Inventory
                 await DisplayAlert(App.Translate.ProvideValue("Hmm"), App.Translate.ProvideValue("NoChangeMadeMesg"), App.Translate.ProvideValue("OK"));
                 return;
             }
-            */
+            
             await Navigation.PushModalAsync(new ItemTemplate(_changeItem, 0));
             MessagingCenter.Subscribe<UpdateItemPage>(this, "Accepted", async (Sender) =>
             {
                 MessagingCenter.Unsubscribe<UpdateItemPage>(this, "Accepted");
+                MainPage.InventDbContext.AttachEntityWithTracking(_changeItem);
                 MainPage.InventDbContext.UpdateItem(_changeItem);
                 if (!MainPage.InventDbContext.Save())
                 {

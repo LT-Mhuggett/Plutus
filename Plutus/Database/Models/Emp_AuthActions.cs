@@ -7,6 +7,7 @@ using Database.Models.Interface;
 
 namespace Database.Models
 {
+    [Serializable]
     public class Emp_AuthActions : IAuditable
     {
         public int AuthAId { get; set; }

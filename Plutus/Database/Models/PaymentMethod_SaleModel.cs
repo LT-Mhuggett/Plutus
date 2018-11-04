@@ -5,6 +5,7 @@ using Database.Models.Interface;
 
 namespace Database.Models
 {
+    [Serializable]
     public class PaymentMethod_SaleModel : IAuditable
     {
         public int PayId { get; set; }

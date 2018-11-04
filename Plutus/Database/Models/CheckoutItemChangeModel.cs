@@ -5,6 +5,7 @@ using System.Text;
 
 namespace Database.Models
 {
+    [Serializable]
     public class CheckoutItemChangeModel : IAuditable, IBase<int>
     {
         public int Id { get; set; }

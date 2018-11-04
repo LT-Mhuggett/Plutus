@@ -11,6 +11,7 @@ namespace Database.Models
     /// It is used to store all sotre details and is used to get store details form DB.
     /// This is setup to allow physical expansion with keeping one united system.
     /// </summary>
+    [Serializable]
     public class StoreModel : Address, IAuditable, IBase<string>
     {
         public string Id { get; set; }

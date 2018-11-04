@@ -5,6 +5,7 @@ using Database.Models.Interface;
 
 namespace Database.Models
 {
+    [Serializable]
     public class SavedItemModel : IBase<int>
     {
         public int Id { get; set; }

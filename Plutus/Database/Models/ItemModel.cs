@@ -9,6 +9,7 @@ using Database.Models.Interface;
 
 namespace Database.Models
 {
+    [Serializable]
     public class ItemModel : INotifyPropertyChanged, IAuditable, IBase<string>
     {
         private ItemModel item;

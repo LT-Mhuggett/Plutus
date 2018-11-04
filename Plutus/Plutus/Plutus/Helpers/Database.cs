@@ -82,6 +82,8 @@ namespace Plutus.Helpers
 
         internal void AttachEntityWithoutTracking(object obj) => _db.Attach(obj);
 
+        internal void AttachEntityWithTracking(object obj) => _db.Attach(obj).State = EntityState.Modified;
+
         internal void DetachAllEntities()
         {
             var changedEntriesCopy = _db.ChangeTracker.Entries()

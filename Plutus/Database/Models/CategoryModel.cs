@@ -6,6 +6,7 @@ using Database.Models.Interface;
 
 namespace Database.Models
 {
+    [Serializable]
     public class CategoryModel : IAuditable, IBase<int>
     {
         public int Id { get; set; }

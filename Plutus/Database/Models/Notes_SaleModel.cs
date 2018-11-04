@@ -5,6 +5,7 @@ using Database.Models.Interface;
 
 namespace Database.Models
 {
+    [Serializable]
     public class Notes_SaleModel : IAuditable
     {
         public string SaleId { get; set; }
