@@ -18,7 +18,7 @@
                     <Label Text="{i18N:Translate Name}" HorizontalOptions="FillAndExpand" />
                     <Entry x:Name="Name" Text="{Binding Name}"/>
                     <Label Text="{i18N:Translate Cost}" HorizontalOptions="FillAndExpand" />
-                    <Entry x:Name="Cost" Text="{Binding Cost}" PropertyChanged="Cost_Vat_PropertyChanged" />
+                    <Entry x:Name="Cost" Text="{Binding Cost}" TextChanged="Cost_Vat_PropertyChanged" />
                     <Label Text="{i18N:Translate Image}" HorizontalOptions="FillAndExpand" />
                     <Image x:Name="Pic" HorizontalOptions="FillAndExpand" />
                     <Button x:Name="ImageButton" Text="{i18N:Translate ButtImage}" Clicked="Image_Clicked" IsEnabled="false" />
@@ -27,11 +27,11 @@
                     <Label Text="{i18N:Translate Brand}" HorizontalOptions="FillAndExpand" />
                     <Entry x:Name="Brand" Text="{Binding Brand}"/>
                     <Picker x:Name="CatPicker" Title="{i18N:Translate Cate}" SelectedIndexChanged="CatPicker_SelectedIndexChanged"/>
-                    <Picker x:Name="VatPicker" Title="{i18N:Translate TaxType}" PropertyChanged="Cost_Vat_PropertyChanged" />
+                    <Picker x:Name="VatPicker" Title="{i18N:Translate TaxType}" SelectedIndexChanged="Cost_Vat_PropertyChanged" />
                     <Label Text="{i18N:Translate ExPrice}" HorizontalOptions="FillAndExpand"/>
-                    <Entry x:Name="ExPrice" Text="{Binding ExPrice}" PropertyChanged="Cost_Vat_PropertyChanged" />
+                    <Entry x:Name="ExPrice" Text="{Binding ExPrice}" TextChanged="Cost_Vat_PropertyChanged" />
                     <Label Text="{i18N:Translate Price}" HorizontalOptions="FillAndExpand" />
-                    <Entry x:Name="Price" Text="{Binding Price}" PropertyChanged="Cost_Vat_PropertyChanged"/>
+                    <Entry x:Name="Price" Text="{Binding Price}" TextChanged="Cost_Vat_PropertyChanged"/>
                     <Label Text="{i18N:Translate CStock}" HorizontalOptions="FillAndExpand" />
                     <Label x:Name="Stock" HorizontalOptions="FillAndExpand" />
                     <Button x:Name="Confirm" Text="{i18N:Translate Confirm}" Clicked="Confirm_Clicked" />

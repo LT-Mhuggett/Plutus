@@ -166,15 +166,24 @@ namespace Plutus.Pages.Inventory
         /// <returns></returns>
         private async void Cost_Vat_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
+            if((sender as Entry) == Price)
+            {
+                var price = await Price.Text.ToDecimal(App.Translate.ProvideValue("ValueEnteredWrong")) ?? default(decimal);
+                if (price == default(decimal))
+                    Price.Text = price.ToString();
+                return;
+            }
             if (string.IsNullOrWhiteSpace(Cost.Text) || VatPicker.SelectedIndex == -1 || string.IsNullOrWhiteSpace(ExPrice.Text)) return;
             foreach (var item in _vats)
             {
                 if (item.Id != VatPicker.SelectedIndex + 1) continue;
                 ExPrice.Placeholder =
                     $"{App.Translate.ProvideValue("RecPriceExVat")}: {(decimal) await Cost.Text.ToDecimal(App.Translate.ProvideValue("ValueEnteredWrong")) * App.Store.RecMarkup:0.00}";
+                var exPrice = await ExPrice.Text.ToDecimal(App.Translate.ProvideValue("ValueEnteredWrong")) ?? default(decimal);
+                var costPrice = await Cost.Text.ToDecimal(App.Translate.ProvideValue("ValueEnteredWrong")) ?? default(decimal);
                 Price.Text = ExPrice.Text != null
-                    ? $"{(decimal) await ExPrice.Text.ToDecimal(App.Translate.ProvideValue("valueEnteredWrong")) * (decimal) item.Rate:0.00}"
-                    : $"{(decimal) await Cost.Text.ToDecimal(App.Translate.ProvideValue("ValueEnteredWrong")) * App.Store.RecMarkup * (decimal) item.Rate:0.00}";
+                    ? $"{exPrice * (decimal)item.Rate:0.00}"
+                    : $"{costPrice * App.Store.RecMarkup * (decimal)item.Rate:0.00}";
             }
         }
 

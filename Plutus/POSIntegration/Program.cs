@@ -88,6 +88,7 @@ namespace POSIntegration
                     }
                     else
                     {
+                        _posManagers.ForEach(mgr => Debug.WriteLine(mgr.ClientId));
                         valueSet.Add("response", "false");
                     }
                     args.Request.SendResponseAsync(valueSet).Completed += delegate { };

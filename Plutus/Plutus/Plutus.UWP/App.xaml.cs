@@ -116,6 +116,10 @@ namespace Plutus.UWP
                     await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
                 }
             }
+            else
+            {
+                await Implementations.POSCommunicationImplementation.CloseCommunicationAsyncStatic("TestSupport-32134");
+            }
 
 
             // Ensure the current window is active

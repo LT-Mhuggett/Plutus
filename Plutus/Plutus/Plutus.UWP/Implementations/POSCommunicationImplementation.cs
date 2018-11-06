@@ -30,7 +30,23 @@ namespace Plutus.UWP.Implementations
             }
         }
 
-        public static async Task<bool> CloseServiceAsync(string Id)
+        public static async Task<bool> CloseCommunicationAsyncStatic(string Id)
+        {
+            ValueSet valueSet = new ValueSet();
+            valueSet.Add($"{Id}.closeCommunication", "null");
+            if (App.connection == null) return true;
+            AppServiceResponse serviceResponse = await App.connection.SendMessageAsync(valueSet);
+            if (Boolean.Parse(serviceResponse.Message["response"] as string))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+            public static async Task<bool> CloseServiceAsync(string Id)
         {
             ValueSet valueSet = new ValueSet();
             valueSet.Add($"{Id}.endProcess", "null");
