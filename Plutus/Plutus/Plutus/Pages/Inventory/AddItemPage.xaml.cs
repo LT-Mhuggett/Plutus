@@ -20,7 +20,7 @@ namespace Plutus.Pages.Inventory
 	[XamlCompilation(XamlCompilationOptions.Compile)]
 	public partial class AddItemPage : ContentPage
 	{
-	    private static ItemModel _item = new ItemModel();
+	    public static ItemModel _item = new ItemModel();
 	    private readonly List<TaxModel> _vats;
 	    private List<CategoryModel> _cats;
         private ZXingScannerPage _scanPage;
@@ -119,10 +119,10 @@ namespace Plutus.Pages.Inventory
         private async void AddItem_Clicked(object sender, EventArgs e)
         {
             _item.Id = Id.Text;
-            _item.Name = Name.Text;
+            _item.Name = SecondScrollInMain.IsVisible ? SecondName.Text : Name.Text;
             _item.VatId = VatPicker.SelectedIndex + 1;
             _item.CatId = CatPicker.SelectedIndex + 1;
-            _item.Brand = Brand.Text;
+            _item.Brand = SecondScrollInMain.IsVisible ? SecondBrand.Text : Brand.Text;
 
             if (_item.Id == null || _item.Name == null || _item.Brand == null || _item.VatId == 0 || _item.CatId == 0 || string.IsNullOrWhiteSpace(Stock.Text))
             {
@@ -268,9 +268,21 @@ namespace Plutus.Pages.Inventory
                 _width = width;
                 _height = height;
                 if (width > height)
+                {
                     MainStackLayout.Orientation = StackOrientation.Horizontal;
+                    SecondScrollInMain.IsVisible = false;
+                    SecondScroll.IsVisible = true;
+                    SecondName.Text = Name.Text;
+                    SecondBrand.Text = Brand.Text;
+                }
                 else
+                {
                     MainStackLayout.Orientation = StackOrientation.Vertical;
+                    SecondScrollInMain.IsVisible = true;
+                    SecondScroll.IsVisible = false;
+                    Name.Text = SecondName.Text;
+                    Brand.Text = SecondBrand.Text;
+                }
             }
 
         }

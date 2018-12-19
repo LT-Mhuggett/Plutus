@@ -5,11 +5,9 @@
              xmlns:i18N="clr-namespace:I18N_L10N;assembly=I18N_L10N"
              Title="{i18N:Translate SReports}">
     <StackLayout x:Name="ContentLayout">
-        <StackLayout x:Name="WeeklyChartArea" />
-        <Label Text="Date of Sale Takins"/>
+        <!--<StackLayout x:Name="WeeklyChartArea" />
+        <Label Text="Date of Sale Takins"/>-->
         <Picker x:Name="DateSearch" SelectedIndexChanged="DateSearchChange" />
-        <StackLayout x:Name="DailyChartArea" />
-        <Label Text="Total"/>
-        <Label x:Name="totalTakins"/>
+        <!--<StackLayout x:Name="DailyChartArea" />-->
     </StackLayout>
 </ContentPage>

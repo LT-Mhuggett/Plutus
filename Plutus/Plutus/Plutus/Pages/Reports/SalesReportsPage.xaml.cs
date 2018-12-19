@@ -21,12 +21,26 @@ namespace Plutus.Pages.Reports
         public ChartController DailyChart { get; set; }
         private List<Label> oldTypeLabels = new List<Label>();
         private List<Label> oldValueLabels = new List<Label>();
+        private Dictionary<string, Label> PayMethLabels = new Dictionary<string, Label>();
 
         public SalesReportsPage()
         {
             InitializeComponent();
 
             var dateOS = App.DbContext.GetDateOfSales();
+
+            var payMethods = App.DbContext.Get<PaymentMethodModel>().Select(pM=>pM.Name).ToList();
+
+            foreach(var payMethod in payMethods)
+            {
+                ContentLayout.Children.Add(new Label() { Text = payMethod});
+                PayMethLabels.Add(payMethod, new Label() { Text = "0.00" });
+                ContentLayout.Children.Add(PayMethLabels.First(pML=>pML.Key.Equals(payMethod)).Value);
+            }
+
+            ContentLayout.Children.Add(new Label() { Text = "Total" });
+            PayMethLabels.Add("Total", new Label() { Text = "0.00" });
+            ContentLayout.Children.Add(PayMethLabels.First(pML => pML.Key.Equals("Total")).Value);
 
             foreach (var DOS in dateOS.OrderBy(d => d.Date))
             {
@@ -39,11 +53,11 @@ namespace Plutus.Pages.Reports
             if (DateSearch.Items.Any())
             {
                 DateSearch.SelectedIndex = DateSearch.Items.Count - 1;
-
+                /*
                 WeeklyChart = new ChartController();
                 WeeklyChart.SetPrimaryAxis(new DateTimeAxis() { Minimum = dateOS.First(), Maximum = dateOS.Last(), IntervalType = DateTimeIntervalType.Days, Interval = 1 });
                 WeeklyChart.SetSecondaryAxis(new NumericalAxis());
-                WeeklyChartArea.Children.Add(WeeklyChart.Chart);
+                WeeklyChartArea.Children.Add(WeeklyChart.Chart);*/
             }
             BindingContext = this;
         }
@@ -51,13 +65,8 @@ namespace Plutus.Pages.Reports
         private void InitSales(string temp)
         {
             var sales = App.DbContext.GetSales(temp).ToList();
-            totalTakins.Text = sales
-                .Sum(sale => sale.PaySales.Sum(ps => ps.Amount-ps.Change))
-                .ToString(CultureInfo.InvariantCulture);
             foreach (var tempPayMeth in App.DbContext.Get<PaymentMethodModel>())
             {
-                var label = new Label { Text = tempPayMeth.Name};
-                var labelAmount = new Label();
                 var amount = 0.0m;
                 foreach (var tempSale in sales)
                 {
@@ -70,30 +79,17 @@ namespace Plutus.Pages.Reports
                     }
                 }
 
-                labelAmount.Text = amount.ToString(CultureInfo.InvariantCulture);
-                AddToLayout(ContentLayout, label);
-                AddToLayout(ContentLayout, labelAmount);
-
-                oldTypeLabels.Add(label);
-                oldValueLabels.Add(labelAmount);
-            }
-        }
-
-        private void AddToLayout(StackLayout layout, Label label)
-        {
-            for(int i = 0; i <= oldTypeLabels.Count-1; i++)
-            {
-                if (layout.Children.FirstOrDefault(v => v.Equals(oldTypeLabels.ElementAt(i))) != null)
-                {
-                    layout.Children.Remove(oldTypeLabels.ElementAt(i));
-                    layout.Children.Remove(oldValueLabels.ElementAt(i));
+                if(PayMethLabels.TryGetValue(tempPayMeth.Name, out Label payMethLabel)){
+                    payMethLabel.Text = amount.ToString();
                 }
             }
 
-            oldTypeLabels = new List<Label>();
-            oldValueLabels = new List<Label>();
-
-            layout.Children.Add(label);
+            if(PayMethLabels.TryGetValue("Total", out Label totalLabel))
+            {
+                totalLabel.Text = sales
+                    .Sum(sale => sale.PaySales.Sum(ps => ps.Amount - ps.Change))
+                    .ToString(CultureInfo.InvariantCulture);
+            }
         }
 
         private void DateSearchChange(object sender, EventArgs e)
@@ -104,7 +100,7 @@ namespace Plutus.Pages.Reports
         protected override async void OnAppearing()
         {
             base.OnAppearing();
-
+            /*
             var weeklySales = new List<SaleModel>();
 
             foreach(var dateText in DateSearch.Items)
@@ -114,7 +110,7 @@ namespace Plutus.Pages.Reports
 
             }
 
-            WeeklyChart.AddDataSet("Total", weeklySales, "Total", "DateOfSale");
+            WeeklyChart.AddDataSet("Total", weeklySales, "Total", "DateOfSale");*/
         }
     }
 }

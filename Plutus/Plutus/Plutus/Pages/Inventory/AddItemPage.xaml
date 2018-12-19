@@ -7,7 +7,10 @@
     <ContentPage.Content>
         <StackLayout>
             <Label Text="{i18N:Translate NewItem}" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start" />
-            <StackLayout x:Name="MainStackLayout" Spacing="10" Padding="5" Orientation="Vertical" HorizontalOptions="FillAndExpand">
+            <StackLayout x:Name="MainStackLayout" 
+                         Spacing="10" Padding="5" 
+                         Orientation="Vertical" 
+                         HorizontalOptions="FillAndExpand">
                 <ScrollView BackgroundColor="Transparent"
                             VerticalOptions="FillAndExpand"
                             HorizontalOptions="FillAndExpand"
@@ -39,16 +42,37 @@
                             <Label Text="{i18N:Translate CStock}" HorizontalOptions="FillAndExpand" />
                             <Entry x:Name="Stock" Placeholder="{i18N:Translate CStockPL}" />
                         </StackLayout>
+                        <StackLayout x:Name="SecondScrollInMain"
+                                     IsVisible="False">
+                            <StackLayout>
+                                <Label Text="{i18N:Translate Name}" HorizontalOptions="FillAndExpand" />
+                                <Entry x:Name="SecondName"/>
+                            </StackLayout>
+                            <StackLayout>
+                                <Label Text="{i18N:Translate Image}" HorizontalOptions="FillAndExpand" />
+                                <Image x:Name="SecondPic" HorizontalOptions="FillAndExpand" />
+                                <Button x:Name="SecondImageButton" Text="{i18N:Translate ButtImage}" Clicked="Image_Clicked" IsEnabled="false" />
+                            </StackLayout>
+                            <StackLayout>
+                                <Label Text="{i18N:Translate Desc}" HorizontalOptions="Start" VerticalOptions="Center"/>
+                                <Button x:Name="SecondDesc" Text="{i18N:Translate AddDesc}" Clicked="Desc_Clicked" />
+                            </StackLayout>
+                            <StackLayout>
+                                <Label Text="{i18N:Translate Brand}" HorizontalOptions="FillAndExpand" />
+                                <Entry x:Name="SecondBrand"/>
+                            </StackLayout>
+                        </StackLayout>
                     </StackLayout>
                 </ScrollView>
-                <ScrollView BackgroundColor="Transparent"
+                <ScrollView x:Name="SecondScroll"
+                            BackgroundColor="Transparent"
                             HorizontalOptions="FillAndExpand"
                             VerticalOptions="FillAndExpand"
                             Margin="10,0,10,0">
                     <StackLayout HorizontalOptions="FillAndExpand">
                         <StackLayout>
                             <Label Text="{i18N:Translate Name}" HorizontalOptions="FillAndExpand" />
-                            <Entry x:Name="Name" />
+                            <Entry x:Name="Name"/>
                         </StackLayout>
                         <StackLayout>
                             <Label Text="{i18N:Translate Image}" HorizontalOptions="FillAndExpand" />
@@ -61,7 +85,7 @@
                         </StackLayout>
                         <StackLayout>
                             <Label Text="{i18N:Translate Brand}" HorizontalOptions="FillAndExpand" />
-                            <Entry x:Name="Brand" />
+                            <Entry x:Name="Brand"/>
                         </StackLayout>
                     </StackLayout>
                 </ScrollView>
