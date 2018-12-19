@@ -24,6 +24,9 @@ namespace Plutus.Pages.Inventory
 	    private readonly List<TaxModel> _vats;
 	    private List<CategoryModel> _cats;
         private ZXingScannerPage _scanPage;
+        private double _width { get; set; }
+        private double _height { get; set; }
+
 
         /// <summary>
         /// Basic constructor for AddItemPage
@@ -39,6 +42,8 @@ namespace Plutus.Pages.Inventory
                 VatPicker.Items.Add(item.Name);
             }
             InitCatPicker();
+            _width = Width;
+            _height = Height;
         }
 
         /// <summary>
@@ -253,6 +258,21 @@ namespace Plutus.Pages.Inventory
         {
             base.OnAppearing();
             Id.SetFocusAfterDelay(1);
+        }
+
+        protected override void OnSizeAllocated(double width, double height)
+        {
+            base.OnSizeAllocated(width, height);
+            if (width != _width || height != _height)
+            {
+                _width = width;
+                _height = height;
+                if (width > height)
+                    MainStackLayout.Orientation = StackOrientation.Horizontal;
+                else
+                    MainStackLayout.Orientation = StackOrientation.Vertical;
+            }
+
         }
     }
 }

@@ -5,35 +5,68 @@
             xmlns:i18N="clr-namespace:I18N_L10N;assembly=I18N_L10N"
             Title="{i18N:Translate NewInvetItem}">
     <ContentPage.Content>
-        <ScrollView>
-            <StackLayout BackgroundColor="Transparent"
-                     HorizontalOptions="FillAndExpand"
-                     VerticalOptions="FillAndExpand"
-                     Margin="10,0,10,0">
-                <Label Text="{i18N:Translate NewItem}" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start" />
-                <Label Text="ID" HorizontalOptions="FillAndExpand" />
-                <Entry x:Name="Id" PropertyChanged="Id_PropertyChanged" Unfocused="Id_Unfocused" Focused="Id_Focused" />
-                <Label Text="{i18N:Translate Cost}" HorizontalOptions="FillAndExpand" />
-                <Entry x:Name="Cost" PropertyChanged="Cost_Vat_PropertyChanged" />
-                <Label Text="{i18N:Translate Name}" HorizontalOptions="FillAndExpand" />
-                <Entry x:Name="Name" />
-                <Label Text="{i18N:Translate Image}" HorizontalOptions="FillAndExpand" />
-                <Image x:Name="Pic" HorizontalOptions="FillAndExpand" />
-                <Button x:Name="ImageButton" Text="{i18N:Translate ButtImage}" Clicked="Image_Clicked" IsEnabled="false" />
-                <Label Text="{i18N:Translate Desc}" HorizontalOptions="Start" VerticalOptions="Center"/>
-                <Button x:Name="Desc" Text="{i18N:Translate AddDesc}" Clicked="Desc_Clicked" />
-                <Label Text="{i18N:Translate Brand}" HorizontalOptions="FillAndExpand" />
-                <Entry x:Name="Brand" />
-                <Picker x:Name="CatPicker" Title="{i18N:Translate Cate}" SelectedIndexChanged="CatPicker_SelectedIndexChanged"/>
-                <Picker x:Name="VatPicker" Title="{i18N:Translate TaxType}" PropertyChanged="Cost_Vat_PropertyChanged" />
-                <Label Text="{i18N:Translate ExPrice}" HorizontalOptions="FillAndExpand"/>
-                <Entry x:Name="ExPrice" PropertyChanged="Cost_Vat_PropertyChanged" />
-                <Label Text="{i18N:Translate Price}" HorizontalOptions="FillAndExpand"/>
-                <Entry x:Name="Price" IsEnabled="true"/>
-                <Label Text="{i18N:Translate CStock}" HorizontalOptions="FillAndExpand" />
-                <Entry x:Name="Stock" Placeholder="{i18N:Translate CStockPL}" />
-                <Button x:Name="AddItem" Text="{i18N:Translate AddItem}" Clicked="AddItem_Clicked" />
+        <StackLayout>
+            <Label Text="{i18N:Translate NewItem}" FontAttributes="Bold" FontSize="Large" VerticalOptions="Start" />
+            <StackLayout x:Name="MainStackLayout" Spacing="10" Padding="5" Orientation="Vertical" HorizontalOptions="FillAndExpand">
+                <ScrollView BackgroundColor="Transparent"
+                            VerticalOptions="FillAndExpand"
+                            HorizontalOptions="FillAndExpand"
+                            Margin="10,0,10,0">
+                    <StackLayout>
+                        <StackLayout>
+                            <Label Text="ID" HorizontalOptions="FillAndExpand" />
+                            <Entry x:Name="Id" PropertyChanged="Id_PropertyChanged" Unfocused="Id_Unfocused" Focused="Id_Focused" />
+                        </StackLayout>
+                        <StackLayout>
+                            <Label Text="{i18N:Translate Cost}" HorizontalOptions="FillAndExpand" />
+                            <Entry x:Name="Cost" PropertyChanged="Cost_Vat_PropertyChanged" />
+                        </StackLayout>
+                        <StackLayout>
+                            <Picker x:Name="CatPicker" Title="{i18N:Translate Cate}" SelectedIndexChanged="CatPicker_SelectedIndexChanged"/>
+                        </StackLayout>
+                        <StackLayout>
+                            <Picker x:Name="VatPicker" Title="{i18N:Translate TaxType}" PropertyChanged="Cost_Vat_PropertyChanged" />
+                        </StackLayout>
+                        <StackLayout>
+                            <Label Text="{i18N:Translate ExPrice}" HorizontalOptions="FillAndExpand"/>
+                            <Entry x:Name="ExPrice" PropertyChanged="Cost_Vat_PropertyChanged" />
+                        </StackLayout>
+                        <StackLayout>
+                            <Label Text="{i18N:Translate Price}" HorizontalOptions="FillAndExpand"/>
+                            <Entry x:Name="Price" IsEnabled="true"/>
+                        </StackLayout>
+                        <StackLayout>
+                            <Label Text="{i18N:Translate CStock}" HorizontalOptions="FillAndExpand" />
+                            <Entry x:Name="Stock" Placeholder="{i18N:Translate CStockPL}" />
+                        </StackLayout>
+                    </StackLayout>
+                </ScrollView>
+                <ScrollView BackgroundColor="Transparent"
+                            HorizontalOptions="FillAndExpand"
+                            VerticalOptions="FillAndExpand"
+                            Margin="10,0,10,0">
+                    <StackLayout HorizontalOptions="FillAndExpand">
+                        <StackLayout>
+                            <Label Text="{i18N:Translate Name}" HorizontalOptions="FillAndExpand" />
+                            <Entry x:Name="Name" />
+                        </StackLayout>
+                        <StackLayout>
+                            <Label Text="{i18N:Translate Image}" HorizontalOptions="FillAndExpand" />
+                            <Image x:Name="Pic" HorizontalOptions="FillAndExpand" />
+                            <Button x:Name="ImageButton" Text="{i18N:Translate ButtImage}" Clicked="Image_Clicked" IsEnabled="false" />
+                        </StackLayout>
+                        <StackLayout>
+                            <Label Text="{i18N:Translate Desc}" HorizontalOptions="Start" VerticalOptions="Center"/>
+                            <Button x:Name="Desc" Text="{i18N:Translate AddDesc}" Clicked="Desc_Clicked" />
+                        </StackLayout>
+                        <StackLayout>
+                            <Label Text="{i18N:Translate Brand}" HorizontalOptions="FillAndExpand" />
+                            <Entry x:Name="Brand" />
+                        </StackLayout>
+                    </StackLayout>
+                </ScrollView>
             </StackLayout>
-        </ScrollView>
+            <Button x:Name="AddItem" Text="{i18N:Translate AddItem}" Clicked="AddItem_Clicked" />
+        </StackLayout>
     </ContentPage.Content>
 </ContentPage>

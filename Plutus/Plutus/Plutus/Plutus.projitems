@@ -15,6 +15,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\AppSettings.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Authorisation.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Camera.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Helpers\ChartController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Csv.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\CustomViews\InputWithMultiSelection.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Helpers\Extensions\DateTimeExtensions.cs" />
