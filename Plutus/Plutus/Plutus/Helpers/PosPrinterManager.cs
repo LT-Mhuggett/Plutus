@@ -230,9 +230,9 @@ namespace Plutus.Helpers
                     var pdf = new PDFCreator();
                     await pdf.GenRecipt(store, null, sale, cashBack);
                 }
-                await SetupAndExecutePrint(sale, store);
                 if (sale.PaySales.Exists(pay => pay.PayMethod.IsChangeable.Equals(true)))
                     await OpenCashDrawer();
+                await SetupAndExecutePrint(sale, store);
                 await CloseConnection();
                 DeviceEnabled = false;
             }
