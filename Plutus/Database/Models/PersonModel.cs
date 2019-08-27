@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-using Database.Models.Interface;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Database.Models
 {
@@ -11,13 +6,37 @@ namespace Database.Models
     /// This is the Default model for any person related entity.
     /// e.g. employees inherit all of persons.
     /// </summary>
-    public class PersonModel : Address, IAuditable, IBase<string>
+    public class PersonModel : Address<string>, IAuditable
     {
-        public string Id { get; set; }
-        public string FName { get; set; }
-        public string LName { get; set; }
-        public string Mobile { get; set; }
+        #region Fields
+        private string _fName;
+        private string _lName;
+        private string _mobile;
+        private string _eMail;
+        #endregion
+
+        #region Properties
+        public string FName
+        {
+            get => _fName;
+            set => SetProperty(ref _fName, value);
+        }
+        public string LName
+        {
+            get => _lName;
+            set => SetProperty(ref _lName, value);
+        }
+        public string Mobile
+        {
+            get => _mobile;
+            set => SetProperty(ref _mobile, value);
+        }
         [Required]
-        public string Email { get; set; }
+        public string Email
+        {
+            get => _eMail;
+            set => SetProperty(ref _eMail, value);
+        }
+        #endregion
     }
 }

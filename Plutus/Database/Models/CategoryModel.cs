@@ -1,19 +1,31 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-using Database.Models.Interface;
 
 namespace Database.Models
 {
     [Serializable]
-    public class CategoryModel : IAuditable, IBase<int>
+    public class CategoryModel : BaseModel<int>, IAuditable
     {
-        public int Id { get; set; }
-        public string Name { get; set; }
-        public string Description { get; set; }
+        #region Fields
+        private string _name;
+        private string _description;
+        #endregion
 
-        public List<ItemModel> Items { get; set; }
-        public List<Discount_Category> DisCats { get; set; }
+        #region Properties
+        public string Name
+        {
+            get => _name;
+            set => SetProperty(ref _name, value);
+        }
+        public string Description
+        {
+            get => _description;
+            set => SetProperty(ref _description, value);
+        }
+        #region Collections
+        public virtual ICollection<ItemModel> Items { get; set; }
+        public virtual ICollection<Discount_Category> DisCats { get; set; }
+        #endregion
+        #endregion
     }
 }

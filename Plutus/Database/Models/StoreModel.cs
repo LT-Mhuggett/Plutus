@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-using Database.Models.Interface;
 
 namespace Database.Models
 {
@@ -12,18 +9,44 @@ namespace Database.Models
     /// This is setup to allow physical expansion with keeping one united system.
     /// </summary>
     [Serializable]
-    public class StoreModel : Address, IAuditable, IBase<string>
+    public class StoreModel : Address<string>, IAuditable
     {
-        public string Id { get; set; }
-        public string StoreName { get; set; }
-        public string StoreAbbr { get; set; }
-        public decimal? RecMarkup { get; set; }
-        public byte[] Logo { get; set; }
+        #region Fields
+        private string _storeName;
+        private string _storeAbbr;
+        private decimal? _recMarkup;
+        private byte[] _logo;
+        #endregion
 
-        public List<EmployeeModel> Employees { get; set; }
-        public List<StockModel> Stocks { get; set; }
+        #region Properties
+        public string StoreName
+        {
+            get => _storeName;
+            set => SetProperty(ref _storeName, value);
+        }
+        public string StoreAbbr
+        {
+            get => _storeAbbr;
+            set => SetProperty(ref _storeAbbr, value);
+        }
+        public decimal? RecMarkup
+        {
+            get => _recMarkup;
+            set => SetProperty(ref _recMarkup, value);
+        }
+        public byte[] Logo
+        {
+            get => _logo;
+            set => SetProperty(ref _logo, value);
+        }
 
-        
+        #region Relationships
+        public virtual ICollection<EmployeeModel> Employees { get; set; }
+        public virtual ICollection<StockModel> Stocks { get; set; }
+        #endregion
+        #endregion
+
+
     }
 
 }

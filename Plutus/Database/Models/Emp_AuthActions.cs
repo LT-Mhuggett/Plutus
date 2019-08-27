@@ -1,30 +1,50 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Database.Enums;
+using System;
 using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-using Database.Models.Interface;
 
 namespace Database.Models
 {
     [Serializable]
-    public class Emp_AuthActions : IAuditable
+    public class Emp_AuthActions : NotifyModelChanged, IAuditable
     {
-        public int AuthAId { get; set; }
-        public AuthActions Auth { get; set; }
+        #region Fields
+        private Permissions _permissions;
 
-        public string EmpId { get; set; }
-        public EmployeeModel Emp { get; set; }
+        #region Relationships
+        private int _authAID;
+        private AuthActions _authA;
+        private string _empId;
+        private EmployeeModel _emp;
+        #endregion
+        #endregion
 
-        [DefaultValue(false)]
-        public bool V { get; set; }
-        [DefaultValue(false)]
-        public bool A { get; set; }
-        [DefaultValue(false)]
-        public bool M { get; set; }
-        [DefaultValue(false)]
-        public bool R { get; set; }
-        [DefaultValue(false)]
-        public bool X { get; set; }
+        #region Properties
+        [DefaultValue(Permissions.None)]
+        public Permissions Permissions { get; set; }
+
+        #region Relationships
+        public int AuthAId
+        {
+            get => _authAID;
+            set => SetProperty(ref _authAID, value);
+        }
+        public virtual AuthActions Auth
+        {
+            get => _authA;
+            set => SetProperty(ref _authA, value);
+        }
+
+        public string EmpId
+        {
+            get => _empId;
+            set => SetProperty(ref _empId, value);
+        }
+        public virtual EmployeeModel Emp
+        {
+            get => _emp;
+            set => SetProperty(ref _emp, value);
+        }
+        #endregion
+        #endregion
     }
 }

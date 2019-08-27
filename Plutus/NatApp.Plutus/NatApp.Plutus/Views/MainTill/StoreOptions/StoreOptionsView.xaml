@@ -1,0 +1,58 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:d="http://xamarin.com/schemas/2014/forms/design"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ext="clr-namespace:NatApp.Plutus.Helpers.Extensions.XAML"
+             xmlns:i18n="clr-namespace:I18N_L10N.Extensions;assembly=I18N_L10N"
+             mc:Ignorable="d"
+             x:Class="NatApp.Plutus.Views.MainTill.StoreOptions.StoreOptionsView"
+             Title="{Binding Title}"
+             IconImageSource="{Binding Icon}">
+    <ContentPage.Resources>
+        <ext:ByteArrayToImageSourceConverter x:Key="ImageSourceConverter"/>
+    </ContentPage.Resources>
+    <ContentPage.Content>
+        <ScrollView>
+            <Grid Margin="5,0">
+                <!--Grid Definitions-->
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="5*"/>
+                    <ColumnDefinition Width="5*"/>
+                </Grid.ColumnDefinitions>
+                <!--End of Grid Definitions-->
+                <!--Content-->
+                <!--Top Bar-->
+                <Grid Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" BackgroundColor="LightGray">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width=".5*"/>
+                        <ColumnDefinition Width=".5*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackLayout Grid.Column="0" HorizontalOptions="FillAndExpand">
+                        <Label Text="{i18n:Translate Store}" FontSize="Small" FontAttributes="Bold"/>
+                        <Image Source="{Binding Store.Logo, Converter={StaticResource ImageSourceConverter}}" IsVisible="{Binding DisplayLogo}"/>
+                        <Label Text="{Binding Store.StoreName}"/>
+                        <Label Text="{Binding Store.ReadableAddress}"/>
+                    </StackLayout>
+                    <StackLayout Grid.Column="1" HorizontalOptions="FillAndExpand">
+                        <Label Text="{i18n:Translate Region}" FontSize="Small" FontAttributes="Bold"/>
+                        <Label Text="{Binding CultureInfo.DateTimeFormat.FirstDayOfWeek, StringFormat={i18n:Translate StartOfWeekArg}}"/>
+                        <Label Text="{Binding CurrencyDisplay, StringFormat={i18n:Translate CurrencyDisplayArg}}"/>
+                    </StackLayout>
+                </Grid>
+                <!--Left Column-->
+                <StackLayout x:Name="LeftColumn" Grid.Column="0" Grid.Row="1"/>
+                <!--End of Left Column-->
+                <!--Right Column-->
+                <StackLayout x:Name="RightColumn" Grid.Column="1" Grid.Row="1"/>
+                <!--End of Right Column-->
+                <!--End of Content-->
+            </Grid>
+        </ScrollView>
+    </ContentPage.Content>
+</ContentPage>

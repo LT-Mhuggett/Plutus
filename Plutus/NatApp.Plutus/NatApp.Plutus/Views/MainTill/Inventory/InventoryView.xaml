@@ -1,0 +1,37 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:d="http://xamarin.com/schemas/2014/forms/design"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             x:Class="NatApp.Plutus.Views.MainTill.Inventory.InventoryView"
+             Title="{Binding Title}"
+             IconImageSource="{Binding Icon}">
+    <ContentPage.Content>
+        <StackLayout>
+            <ScrollView>
+                <Grid Margin="5,0,5,0">
+                    <!--Grid Definitions-->
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="5*"/>
+                        <ColumnDefinition Width="5*"/>
+                    </Grid.ColumnDefinitions>
+                    <!--End of Grid Definitions-->
+                    <!--Content-->
+                    <!--Left Column-->
+                    <StackLayout x:Name="LeftColumn" Grid.Column="0" Grid.Row="0"/>
+                    <!--End of Left Column-->
+                    
+                    <!--Right Column-->
+                    <StackLayout x:Name="RightColumn" Grid.Column="1" Grid.Row="0"/>
+                    <!--End of Right Column-->
+                </Grid>
+            </ScrollView>
+        </StackLayout>
+    </ContentPage.Content>
+</ContentPage>

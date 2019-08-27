@@ -16,7 +16,7 @@ namespace Plutus.Helpers.CustomViews
                 buttonText, string validText, List<CategoryModel> list)
         {
             var dPInputAlert = new DataPickerInputAlert(title, buttonText, validText, list);
-            var popUp = new InputAlertDialogBase<Tuple<CategoryModel, DateTime?, DateTime?>>(dPInputAlert);
+            var popUp = new AlertDialogBase<Tuple<CategoryModel, DateTime?, DateTime?>>(dPInputAlert);
 
             dPInputAlert.ConfirmButtonEHandler += (sender, e) =>
             {
@@ -59,7 +59,7 @@ namespace Plutus.Helpers.CustomViews
                 buttonText, string validText, List<ItemModel> list)
         {
             var dPInputAlert = new DataPickerInputAlert(title, buttonText, validText, list);
-            var popUp = new InputAlertDialogBase<Tuple<ItemModel, DateTime?, DateTime?>>(dPInputAlert);
+            var popUp = new AlertDialogBase<Tuple<ItemModel, DateTime?, DateTime?>>(dPInputAlert);
 
             dPInputAlert.ConfirmButtonEHandler += (sender, e) =>
             {

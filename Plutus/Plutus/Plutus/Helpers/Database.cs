@@ -20,14 +20,14 @@ namespace Plutus.Helpers
     [SuppressMessage("ReSharper", "MemberCanBeMadeStatic.Global")]
     internal class Database
     {
-        private static SqliteContext _db;
+        private static AppDBContext _db;
 
         internal Database(string providerNeeded)
         {
             switch(providerNeeded)
             {
                 case "Sqlite":
-                    _db = new SqliteContext(Path.Combine(FileIO.GetLib(), "Database.db"));
+                    _db = new AppDBContext(Path.Combine(FileIO.GetLib(), "Database.db"));
                     break;
                 default:
                     throw new Exception("No DB Provider specified");
@@ -325,7 +325,7 @@ namespace Plutus.Helpers
 
         internal void UpdateStock(string id, int quant)
         {
-            using (var StockDatabase = new SqliteContext(Path.Combine(FileIO.GetLib(), "Database.db")))
+            using (var StockDatabase = new AppDBContext(Path.Combine(FileIO.GetLib(), "Database.db")))
             {
                 var stock = StockDatabase.Set<StockModel>().First(s => s.ItemId.Equals(id) && s.StoreId.Equals(App.Store.Id));
                 stock.Quantity -= quant;

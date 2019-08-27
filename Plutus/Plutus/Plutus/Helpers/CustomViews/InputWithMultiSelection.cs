@@ -17,7 +17,7 @@ namespace Plutus.Helpers.CustomViews
             var dPInputWithListMultiSelection = new InputWithListMultiSelection(title, placeholders, 
                 buttonText, validationList,
                 selections, bindingNames, staticInput);
-            var popUp = new InputAlertDialogBase<Tuple<List<string>, List<dynamic>>>(dPInputWithListMultiSelection);
+            var popUp = new AlertDialogBase<Tuple<List<string>, List<dynamic>>>(dPInputWithListMultiSelection);
             dPInputWithListMultiSelection.ConfirmButtonEHandler += (sender, e) =>
             {
                 var items = new List<dynamic>();

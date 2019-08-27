@@ -6318,9 +6318,6 @@ namespace Plutus.Droid
 			// aapt resource value: 0x7f080039
 			public const int abc_toolbar_collapse_description = 2131230777;
 			
-			// aapt resource value: 0x7f08006f
-			public const int app_name = 2131230831;
-			
 			// aapt resource value: 0x7f080048
 			public const int appbar_scrolling_view_behavior = 2131230792;
 			

@@ -1,0 +1,748 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="IntroL1" xml:space="preserve">
+    <value>As this is the first time your using the Plutus POS System, you will have to create a new account.</value>
+  </data>
+  <data name="IntroL2" xml:space="preserve">
+    <value>If you already have a cloud/local system, then please switch to the store login page.</value>
+  </data>
+  <data name="StDetails" xml:space="preserve">
+    <value>Store Details</value>
+  </data>
+  <data name="Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="StAbbr" xml:space="preserve">
+    <value>Store Name Abbreviation (4 letters)</value>
+  </data>
+  <data name="Address" xml:space="preserve">
+    <value>Address</value>
+  </data>
+  <data name="ButtAddressMan" xml:space="preserve">
+    <value>Manual Address</value>
+  </data>
+  <data name="StAddress" xml:space="preserve">
+    <value>Store Address</value>
+  </data>
+  <data name="ButtAddressAuto" xml:space="preserve">
+    <value>Auto Address</value>
+  </data>
+  <data name="AdLine1" xml:space="preserve">
+    <value>Address Line 1</value>
+  </data>
+  <data name="AdLine2" xml:space="preserve">
+    <value>Address Line 2</value>
+  </data>
+  <data name="City" xml:space="preserve">
+    <value>City</value>
+  </data>
+  <data name="PostCode" xml:space="preserve">
+    <value>Post Code</value>
+  </data>
+  <data name="Country" xml:space="preserve">
+    <value>Country</value>
+  </data>
+  <data name="StOwnerDetails" xml:space="preserve">
+    <value>Store Owner Details</value>
+  </data>
+  <data name="FName" xml:space="preserve">
+    <value>First Name</value>
+  </data>
+  <data name="LName" xml:space="preserve">
+    <value>Last Name</value>
+  </data>
+  <data name="Email" xml:space="preserve">
+    <value>E-Mail</value>
+  </data>
+  <data name="PhoneN" xml:space="preserve">
+    <value>Phone Number</value>
+  </data>
+  <data name="PassW" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="PassWConf" xml:space="preserve">
+    <value>Password Confirm</value>
+  </data>
+  <data name="OwnerAddress" xml:space="preserve">
+    <value>Owners Address</value>
+  </data>
+  <data name="Database" xml:space="preserve">
+    <value>Database</value>
+  </data>
+  <data name="DatabaseType" xml:space="preserve">
+    <value>Database Type</value>
+  </data>
+  <data name="Create" xml:space="preserve">
+    <value>Create</value>
+  </data>
+  <data name="Config" xml:space="preserve">
+    <value>Configuration</value>
+  </data>
+  <data name="Oops" xml:space="preserve">
+    <value>OOPS</value>
+  </data>
+  <data name="SetPassWMesg" xml:space="preserve">
+    <value>Please set your password</value>
+  </data>
+  <data name="OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="PassWNotSameMesg" xml:space="preserve">
+    <value>Passwords are not the same
+Please try again</value>
+  </data>
+  <data name="FieldsFilledInMesg" xml:space="preserve">
+    <value>Please Ensure all required fields are filled in</value>
+  </data>
+  <data name="EmailNotCorrectMesg" xml:space="preserve">
+    <value>Please Ensure your E-Mail is valid and correct</value>
+  </data>
+  <data name="PCNotCorrectMesg" xml:space="preserve">
+    <value>Please Ensure your Post Code is valid and correct</value>
+  </data>
+  <data name="PhoneNumNotCorrectMesg" xml:space="preserve">
+    <value>Please Ensure your Phone Number is valid and correct</value>
+  </data>
+  <data name="DatabaseNotSelectedMesg" xml:space="preserve">
+    <value>Please Select a type of Database</value>
+  </data>
+  <data name="SomthingWentWrongMesg" xml:space="preserve">
+    <value>Something went wrong!</value>
+  </data>
+  <data name="FWelcomeTitle" xml:space="preserve">
+    <value>Welcome to Plutus POS</value>
+  </data>
+  <data name="Login" xml:space="preserve">
+    <value>Login</value>
+  </data>
+  <data name="Hmm" xml:space="preserve">
+    <value>Hmm...</value>
+  </data>
+  <data name="StoreNotReachableMesg" xml:space="preserve">
+    <value>There has been a problem on our end, please check the database for corruption.</value>
+  </data>
+  <data name="DetailsNotCorrectORUserNotExistMesg" xml:space="preserve">
+    <value>We can't find any user with those details
+Please try again.</value>
+  </data>
+  <data name="Users" xml:space="preserve">
+    <value>Users</value>
+  </data>
+  <data name="NewUserLogin" xml:space="preserve">
+    <value>New User Login</value>
+  </data>
+  <data name="LogoutAll" xml:space="preserve">
+    <value>Logout All</value>
+  </data>
+  <data name="ActivUsers" xml:space="preserve">
+    <value>Active Users</value>
+  </data>
+  <data name="Info" xml:space="preserve">
+    <value>Info</value>
+  </data>
+  <data name="NoActiveUsers" xml:space="preserve">
+    <value>There are currently no active users</value>
+  </data>
+  <data name="NewCate" xml:space="preserve">
+    <value>New Category</value>
+  </data>
+  <data name="Desc" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="Confirm" xml:space="preserve">
+    <value>Confirm</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="NewInvetItem" xml:space="preserve">
+    <value>Add New Inventory Item</value>
+  </data>
+  <data name="NewItem" xml:space="preserve">
+    <value>New Item</value>
+  </data>
+  <data name="Image" xml:space="preserve">
+    <value>Image</value>
+  </data>
+  <data name="ButtImage" xml:space="preserve">
+    <value>Take/Select Image</value>
+  </data>
+  <data name="Brand" xml:space="preserve">
+    <value>Brand</value>
+  </data>
+  <data name="Cate" xml:space="preserve">
+    <value>Category</value>
+  </data>
+  <data name="Cost" xml:space="preserve">
+    <value>Cost</value>
+  </data>
+  <data name="TaxType" xml:space="preserve">
+    <value>Tax Type</value>
+  </data>
+  <data name="Price" xml:space="preserve">
+    <value>Price</value>
+  </data>
+  <data name="CStock" xml:space="preserve">
+    <value>Current Stock</value>
+  </data>
+  <data name="CStockPL" xml:space="preserve">
+    <value>If no stock exist input '0'</value>
+  </data>
+  <data name="AddItem" xml:space="preserve">
+    <value>Add Item</value>
+  </data>
+  <data name="Camera" xml:space="preserve">
+    <value>Camera</value>
+  </data>
+  <data name="PRoll" xml:space="preserve">
+    <value>Photo Roll</value>
+  </data>
+  <data name="RecPriceExVat" xml:space="preserve">
+    <value>Recomended Price Excl. Vat</value>
+  </data>
+  <data name="ItemExistMesg" xml:space="preserve">
+    <value>This item apears to already been added.
+Please check this.</value>
+  </data>
+  <data name="CreateNCate" xml:space="preserve">
+    <value>'Create New Category'</value>
+  </data>
+  <data name="InvetMgr" xml:space="preserve">
+    <value>Inventory</value>
+  </data>
+  <data name="UpdateItem" xml:space="preserve">
+    <value>Update Item</value>
+  </data>
+  <data name="StockUpdate" xml:space="preserve">
+    <value>Stock Update</value>
+  </data>
+  <data name="Select" xml:space="preserve">
+    <value>Select</value>
+  </data>
+  <data name="Edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="QuantityAdd" xml:space="preserve">
+    <value>Quantity to Add</value>
+  </data>
+  <data name="ItemNonExistMesg" xml:space="preserve">
+    <value>This item does not apear to have been added.
+Please check this.</value>
+  </data>
+  <data name="AddDesc" xml:space="preserve">
+    <value>Add Description</value>
+  </data>
+  <data name="IDName" xml:space="preserve">
+    <value>ID/Name</value>
+  </data>
+  <data name="ItemNotFoundMesg" xml:space="preserve">
+    <value>Can't find a item with that ID or Name</value>
+  </data>
+  <data name="SResults" xml:space="preserve">
+    <value>Search Results</value>
+  </data>
+  <data name="NoChangeMadeMesg" xml:space="preserve">
+    <value>You have made no change to any of the objects values
+Please change something or go back</value>
+  </data>
+  <data name="Quit_Mesg" xml:space="preserve">
+    <value>Are you sure you want to quit Plutus POS?</value>
+  </data>
+  <data name="Yes" xml:space="preserve">
+    <value>Yes</value>
+  </data>
+  <data name="Logout" xml:space="preserve">
+    <value>Log Out</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Till" xml:space="preserve">
+    <value>Till</value>
+  </data>
+  <data name="Scan" xml:space="preserve">
+    <value>Scan</value>
+  </data>
+  <data name="Sale" xml:space="preserve">
+    <value>Sale</value>
+  </data>
+  <data name="COut" xml:space="preserve">
+    <value>Check Out</value>
+  </data>
+  <data name="R1" xml:space="preserve">
+    <value>Remove 1</value>
+  </data>
+  <data name="Amount" xml:space="preserve">
+    <value>Amount</value>
+  </data>
+  <data name="ItemIdNotFoundMesg" xml:space="preserve">
+    <value>Can't find a item with that ID</value>
+  </data>
+  <data name="CancelTransaction_Mesg" xml:space="preserve">
+    <value>Are you sure you want to cancel this transaction?</value>
+  </data>
+  <data name="Tax" xml:space="preserve">
+    <value>Tax %</value>
+  </data>
+  <data name="SaleExV" xml:space="preserve">
+    <value>Sale Ex.VAT</value>
+  </data>
+  <data name="Card" xml:space="preserve">
+    <value>Card</value>
+  </data>
+  <data name="Cash" xml:space="preserve">
+    <value>Cash</value>
+  </data>
+  <data name="PayMeth" xml:space="preserve">
+    <value>Payment Method Selection</value>
+  </data>
+  <data name="BasketEmpty" xml:space="preserve">
+    <value>The basket is empty, Please add items and try again</value>
+  </data>
+  <data name="Transaction" xml:space="preserve">
+    <value>Transaction</value>
+  </data>
+  <data name="TransConfMesg" xml:space="preserve">
+    <value>Confirmed transaction complete</value>
+  </data>
+  <data name="Continue" xml:space="preserve">
+    <value>The cost of this Transaction is £{0}
+Are you sure you wish to continue?</value>
+  </data>
+  <data name="Staff" xml:space="preserve">
+    <value>Staff</value>
+  </data>
+  <data name="AddEmp" xml:space="preserve">
+    <value>Add Employee</value>
+  </data>
+  <data name="AuthDeniedMesg" xml:space="preserve">
+    <value>You are not Authorized to access this.</value>
+  </data>
+  <data name="EmployeeDetails" xml:space="preserve">
+    <value>Employee Details</value>
+  </data>
+  <data name="EmployeeSecMesg" xml:space="preserve">
+    <value>This section is for the employee to fill out.</value>
+  </data>
+  <data name="Nin" xml:space="preserve">
+    <value>National Insurance Number</value>
+  </data>
+  <data name="ContrHours" xml:space="preserve">
+    <value>Contracted Weekly Hours</value>
+  </data>
+  <data name="Wage" xml:space="preserve">
+    <value>Wage Per Hour</value>
+  </data>
+  <data name="OfficeSec" xml:space="preserve">
+    <value>Office Section</value>
+  </data>
+  <data name="OfficeSecMesg" xml:space="preserve">
+    <value>For office use only.</value>
+  </data>
+  <data name="Ri_Re" xml:space="preserve">
+    <value>Rights and Restrictions</value>
+  </data>
+  <data name="SaveB" xml:space="preserve">
+    <value>Save Basket</value>
+  </data>
+  <data name="Baskets" xml:space="preserve">
+    <value>Baskets</value>
+  </data>
+  <data name="BasketReplace" xml:space="preserve">
+    <value>Are you sure you want to replace current basket?
+If you do the current basket will be lost.</value>
+  </data>
+  <data name="Item" xml:space="preserve">
+    <value>Item</value>
+  </data>
+  <data name="Reason" xml:space="preserve">
+    <value>Reason</value>
+  </data>
+  <data name="Returns" xml:space="preserve">
+    <value>Returns</value>
+  </data>
+  <data name="SaleID" xml:space="preserve">
+    <value>Sale ID</value>
+  </data>
+  <data name="SaleIDWrongMesg" xml:space="preserve">
+    <value>The provided Sale ID is does not exist, Please check and retry.</value>
+  </data>
+  <data name="ItemAmountExceedsMesg" xml:space="preserve">
+    <value>The amount of items that are trying to be returned exceeds the amount at purchase.
+The amount of items at purchase for {0} was {1}, Please remove atleast {2}.</value>
+  </data>
+  <data name="ItemNotExistInSaleMesg" xml:space="preserve">
+    <value>The item you have scanned doesn't apear to have been purchased with that Sale ID, Please check and try again.</value>
+  </data>
+  <data name="NoRefundsLeftMesg" xml:space="preserve">
+    <value>All amounts of {0} for this Sale ID have been returned already.</value>
+  </data>
+  <data name="EmpId" xml:space="preserve">
+    <value>Employee ID</value>
+  </data>
+  <data name="VAllItems" xml:space="preserve">
+    <value>View All Items</value>
+  </data>
+  <data name="DbIssue" xml:space="preserve">
+    <value>There was a problem either accessing a DB value or there was a conflict.</value>
+  </data>
+  <data name="StaffMgnt" xml:space="preserve">
+    <value>Staff Management</value>
+  </data>
+  <data name="EmpNotLogged" xml:space="preserve">
+    <value>The employee Id you have inputted is currently not logged in</value>
+  </data>
+  <data name="StaffDeactiv" xml:space="preserve">
+    <value>Staff Deactivation</value>
+  </data>
+  <data name="Deactiv_Mesg" xml:space="preserve">
+    <value>Are you sure you want to DEACTIVATE {0}, profile?</value>
+  </data>
+  <data name="EmpDeactSuc" xml:space="preserve">
+    <value>Employee Deactivation for {0} was successful</value>
+  </data>
+  <data name="Success" xml:space="preserve">
+    <value>Success</value>
+  </data>
+  <data name="DeactAuthUser" xml:space="preserve">
+    <value>You cannot deactivate the current user authorising deactivation</value>
+  </data>
+  <data name="A" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="M" xml:space="preserve">
+    <value>Modify</value>
+  </data>
+  <data name="R" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="V" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="X" xml:space="preserve">
+    <value>Use</value>
+  </data>
+  <data name="RefundLimitTooLow" xml:space="preserve">
+    <value>Please get a manager OR other employee with higher returns rights to authorise this transaction</value>
+  </data>
+  <data name="Stock" xml:space="preserve">
+    <value>Stock</value>
+  </data>
+  <data name="Emps" xml:space="preserve">
+    <value>Employees</value>
+  </data>
+  <data name="Active" xml:space="preserve">
+    <value>Active</value>
+  </data>
+  <data name="FullAddress" xml:space="preserve">
+    <value>Full Address</value>
+  </data>
+  <data name="ValueEnteredWrong" xml:space="preserve">
+    <value>The Value you enter was not correct, Please input in the format asked</value>
+  </data>
+  <data name="CNoC" xml:space="preserve">
+    <value>CardNoCharge</value>
+  </data>
+  <data name="CardChargeNote" xml:space="preserve">
+    <value>Card Charge of {0}</value>
+  </data>
+  <data name="PaperReceipt" xml:space="preserve">
+    <value>Print receipt?</value>
+  </data>
+  <data name="Reports" xml:space="preserve">
+    <value>Reports</value>
+  </data>
+  <data name="SReports" xml:space="preserve">
+    <value>Sales Reports</value>
+  </data>
+  <data name="EmpIdORDate" xml:space="preserve">
+    <value>Please enter the employee ID or Date of Sales you want to look up</value>
+  </data>
+  <data name="Admin" xml:space="preserve">
+    <value>Admin</value>
+  </data>
+  <data name="BackUp" xml:space="preserve">
+    <value>BackUp DB</value>
+  </data>
+  <data name="SameAd" xml:space="preserve">
+    <value>Same Address</value>
+  </data>
+  <data name="SelectCloudService" xml:space="preserve">
+    <value>Please choose your cloud data service</value>
+  </data>
+  <data name="DbBRFailed" xml:space="preserve">
+    <value>There was a problem {0} the database.</value>
+  </data>
+  <data name="DbBRSucc" xml:space="preserve">
+    <value>Database has been {0} successfully.</value>
+  </data>
+  <data name="Restore" xml:space="preserve">
+    <value>Restore</value>
+  </data>
+  <data name="CashBack" xml:space="preserve">
+    <value>Please give {0} as cashback/change.</value>
+  </data>
+  <data name="CashBack_" xml:space="preserve">
+    <value>Does the customer want cashback?</value>
+  </data>
+  <data name="CBNote" xml:space="preserve">
+    <value>Cashback of {0}</value>
+  </data>
+  <data name="HowMuchCB" xml:space="preserve">
+    <value>How much cashback do they want?</value>
+  </data>
+  <data name="HowMuchPM" xml:space="preserve">
+    <value>How much to pay with {0}, There is {1} left to pay</value>
+  </data>
+  <data name="HowMuchRefund" xml:space="preserve">
+    <value>How much to refund with {0}, There is {1} left to refund</value>
+  </data>
+  <data name="ExPrice" xml:space="preserve">
+    <value>Price (Excl. VAT)</value>
+  </data>
+  <data name="RecMarkup" xml:space="preserve">
+    <value>Recomended Markup % (e.g. 20% = 20)</value>
+  </data>
+  <data name="RecMarkupError" xml:space="preserve">
+    <value>There seems to be problem with the Recomended Markup value you provided.</value>
+  </data>
+  <data name="AddTB" xml:space="preserve">
+    <value>Add to Basket</value>
+  </data>
+  <data name="EnterCorrectValue" xml:space="preserve">
+    <value>Please enter an accepted value</value>
+  </data>
+  <data name="PayFull" xml:space="preserve">
+    <value>Pay full exact amount</value>
+  </data>
+  <data name="MgntTitle" xml:space="preserve">
+    <value>Mangement</value>
+  </data>
+  <data name="DisMgnt" xml:space="preserve">
+    <value>Discount Management</value>
+  </data>
+  <data name="ChangesMade" xml:space="preserve">
+    <value>Their were changes made do you want to save? (if you don't save changes will be lost!)</value>
+  </data>
+  <data name="No" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="DisAmount" xml:space="preserve">
+    <value>How much Discount is applied based on Type (% is out of 0-1 e.g. 1 = 100%, 0.5 = 50%) (Cash is definitive cash off)</value>
+  </data>
+  <data name="DisRequired" xml:space="preserve">
+    <value>How many items that are applicable are required to use the Discount</value>
+  </data>
+  <data name="DisType" xml:space="preserve">
+    <value>Type (Off = Cash, On = %)</value>
+  </data>
+  <data name="DisUses" xml:space="preserve">
+    <value>How many time this Discount can be used in a single transaction (-1 = unlimited, 3 = 3 uses)</value>
+  </data>
+  <data name="DisSelectTitle" xml:space="preserve">
+    <value>Discount type selector</value>
+  </data>
+  <data name="S" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="SelectOrCreateNew" xml:space="preserve">
+    <value>Select a discount to edit or start a new one by filling out the form below</value>
+  </data>
+  <data name="TransCopper" xml:space="preserve">
+    <value>Transfer from Copper</value>
+  </data>
+  <data name="IsItem" xml:space="preserve">
+    <value>Is 
+ID: {0}
+Name: {1}
+an Item?</value>
+  </data>
+  <data name="AddEmp_check" xml:space="preserve">
+    <value>Do you want to add {0}, {1} to the new system?</value>
+  </data>
+  <data name="EmailConf" xml:space="preserve">
+    <value>E-Mail Confirm</value>
+  </data>
+  <data name="AddBasket" xml:space="preserve">
+    <value>Add to Basket</value>
+  </data>
+  <data name="ExternalSTitle" xml:space="preserve">
+    <value>External Source</value>
+  </data>
+  <data name="WelcomeTitle" xml:space="preserve">
+    <value>Welcome</value>
+  </data>
+  <data name="PassWNotStrong" xml:space="preserve">
+    <value>Not longer than 8 characters
+OR
+Does not contain atleast 1 number, special character and capital letter
+Please Try Again</value>
+  </data>
+  <data name="MissingStock" xml:space="preserve">
+    <value>An Item in the last transaction didn't have a stock value, Plutus cannot keep an accurate stock of items with a stock amount attached to them.
+Advice:
+Either add stock to individual items that don't have a current stock value to them
+OR
+Use the mass stock take fucntionality of Plutus to add stock at a mass scale
+
+This message will only appear once untill the Plutus restarts, of whcih it will appear once again.</value>
+  </data>
+  <data name="Warning" xml:space="preserve">
+    <value>Warning!</value>
+  </data>
+  <data name="TaxName" xml:space="preserve">
+    <value>Please enter the Tax name for the tax rate of {0}%</value>
+  </data>
+  <data name="TaxNotCorrectMesg" xml:space="preserve">
+    <value>Please enter a correct Tax name</value>
+  </data>
+  <data name="Id" xml:space="preserve">
+    <value>ID</value>
+  </data>
+  <data name="Total" xml:space="preserve">
+    <value>Total</value>
+  </data>
+  <data name="Change" xml:space="preserve">
+    <value>Change</value>
+  </data>
+  <data name="Printerlist_" xml:space="preserve">
+    <value>Which printer do you use?</value>
+  </data>
+  <data name="NoPrinter" xml:space="preserve">
+    <value>No printer found/selected PDFs will be created for receipts</value>
+  </data>
+  <data name="FailedToAddItem" xml:space="preserve">
+    <value>The following items failed to be added to the system:
+
+{0}
+
+This is most likely because the item is actually a discount or it doesn't fit Plutus definition of an item.</value>
+  </data>
+  <data name="InstallRequired" xml:space="preserve">
+    <value>Plutus requires an install of Microsoft Point of Service 1.14.1 to run.
+This will be installed automatically.</value>
+  </data>
+  <data name="Note" xml:space="preserve">
+    <value>Notice:</value>
+  </data>
+  <data name="AltTransaction" xml:space="preserve">
+    <value>Alter Transaction</value>
+  </data>
+</root>

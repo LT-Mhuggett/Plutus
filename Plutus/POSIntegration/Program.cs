@@ -1,12 +1,11 @@
-﻿using System;
-using System.Threading;
-using Windows.ApplicationModel.AppService;
+﻿using POSIntegration.POS;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
+using Windows.ApplicationModel.AppService;
 using Windows.Foundation.Collections;
-using System.Collections.Generic;
-using POSIntegration.POS;
-using Newtonsoft.Json;
 
 namespace POSIntegration
 {
@@ -14,7 +13,7 @@ namespace POSIntegration
     {
         static AppServiceConnection connection = null;
         static bool keepRunning = true;
-        private static List<PosManager> _posManagers =  new List<PosManager>();
+        private static List<PosManager> _posManagers = new List<PosManager>();
 
 
         static void Main(string[] args)
@@ -53,54 +52,61 @@ namespace POSIntegration
             }
         }
 
-        private static void Connection_RequestReceived(AppServiceConnection sender, AppServiceRequestReceivedEventArgs args)
+        private static async void Connection_RequestReceived(AppServiceConnection sender, AppServiceRequestReceivedEventArgs args)
         {
+            var messageDeferral = args.GetDeferral();
             string key = args.Request.Message.First().Key;
             string value = args.Request.Message.First().Value.ToString();
             ValueSet valueSet = new ValueSet();
-            var keyArray = key.Split(new[]{'.'}, StringSplitOptions.None);
+            var keyArray = key.Split(new[] { '.' }, StringSplitOptions.None);
             switch (keyArray[1])
             {
                 case "POS":
                     var posManager = GetOrCreatePosManager(keyArray[0]);
-                    if(keyArray[2].Equals("releaseObject"))
+                    if (keyArray[2].Equals("releaseObject"))
                         _posManagers.Remove(posManager);
                     var sendBack = posManager.POSCommandSelection(keyArray[2], value);
 
                     valueSet.Add("response", sendBack);
-                    args.Request.SendResponseAsync(valueSet).Completed += delegate { };
-                    valueSet.Clear();
                     break;
 
                 case "closeCommunication":
                     RemovePosManager(keyArray[0]);
                     valueSet.Add("response", "true");
-                    args.Request.SendResponseAsync(valueSet).Completed += delegate { };
-                    valueSet.Clear();
                     break;
 
                 case "endProcess":
                     RemovePosManager(keyArray[0]);
-                    if(_posManagers.Count==0)
+                    if (_posManagers.Count == 0)
                     {
                         keepRunning = false;
                         valueSet.Add("response", "true");
                     }
                     else
                     {
-                        _posManagers.ForEach(mgr => Debug.WriteLine(mgr.ClientId));
-                        valueSet.Add("response", "false");
+                        var @string = "";
+                        _posManagers.ForEach(mgr => @string += $"{mgr.ClientId}, ");
+                        valueSet.Add("response", @string);
                     }
-                    args.Request.SendResponseAsync(valueSet).Completed += delegate { };
-                    valueSet.Clear();
                     break;
 
                 default:
                     Debug.WriteLine("MISSING COMMAND IN PROGRAM!!!!");
                     valueSet.Add("response", "missingCommand");
-                    args.Request.SendResponseAsync(valueSet).Completed += delegate { };
-                    valueSet.Clear();
                     break;
+            }
+
+            try
+            {
+                await args.Request.SendResponseAsync(valueSet);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex.Message);
+            }
+            finally
+            {
+                messageDeferral.Complete();
             }
         }
 
@@ -118,15 +124,19 @@ namespace POSIntegration
 
         private static PosManager GetOrCreatePosManager(string cId)
         {
-            var posManager = FindPosManager(cId) ?? new PosManager(cId);
-            _posManagers.Add(posManager);
+            var posManager = FindPosManager(cId);
+            if (posManager == null)
+            {
+                posManager = new PosManager(cId);
+                _posManagers.Add(posManager);
+            }
             return posManager;
         }
 
         private static void RemovePosManager(string cId)
         {
             var posManager = FindPosManager(cId);
-            if(posManager != null)
+            if (posManager != null)
             {
                 _posManagers.Remove(posManager);
             }

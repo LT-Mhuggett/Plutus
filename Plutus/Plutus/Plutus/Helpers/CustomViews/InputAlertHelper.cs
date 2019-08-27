@@ -23,7 +23,7 @@ namespace Plutus.Helpers.CustomViews
         internal static async Task<List<object>> LaunchInputAlertAsync(string titleText, Tuple<string, string, Type, string, bool, bool>[] viewElements, string confirmButText)
         {
             var inputAlert = new InputAlert(titleText, viewElements, confirmButText);
-            var popUp = new InputAlertDialogBase<List<object>>(inputAlert);
+            var popUp = new AlertDialogBase<List<object>>(inputAlert);
 
             inputAlert.ConfirmButtonEHandler += (sender, e) =>
             {
@@ -108,7 +108,7 @@ namespace Plutus.Helpers.CustomViews
         internal static async Task<List<object>> LaunchInputAlertAsync(string titleText, Tuple<string, string, Type, string, bool, bool>[] viewElements, string confirmButText, bool cash, decimal toPay)
         {
             var inputAlert = new InputAlert(titleText, viewElements, confirmButText, cash, toPay);
-            var popUp = new InputAlertDialogBase<List<object>>(inputAlert);
+            var popUp = new AlertDialogBase<List<object>>(inputAlert);
 
             inputAlert.ConfirmButtonEHandler += (sender, e) =>
             {

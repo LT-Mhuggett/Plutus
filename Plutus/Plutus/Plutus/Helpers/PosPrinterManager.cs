@@ -107,7 +107,7 @@ namespace Plutus.Helpers
                     transMaxChar = trans.TempItem.Id.Length > transMaxChar ? trans.TempItem.Id.Length : transMaxChar;
                 }
 
-                double transPercent = (double)(transMaxChar+1) / PageCharsMax * 100;
+                double transPercent = ((double)transMaxChar+1) / PageCharsMax * 100;
                 double qtyPercent = (double)4 / PageCharsMax * 100;
                 double namePercent = (PageCharsMax - (transMaxChar + 1) - 4 - ((double)PageCharsMax / 100) * 18.75) / PageCharsMax * 100;
 

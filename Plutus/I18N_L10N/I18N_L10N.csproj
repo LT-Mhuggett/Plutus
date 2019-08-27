@@ -46,12 +46,24 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>AppResources.resx</DependentUpon>
     </Compile>
-    <Compile Include="TranslateExtension.cs" />
+    <Compile Include="Resx\AppResources.resx.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>AppResources.resx.old</DependentUpon>
+    </Compile>
+    <Compile Include="Extensions\TranslateExtension.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Xamarin.Forms">
-      <Version>3.2.0.839982</Version>
+      <Version>4.1.0.618606</Version>
     </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resx\AppResources.resx.old">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>AppResources.resx.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resx\AppResources.resx">

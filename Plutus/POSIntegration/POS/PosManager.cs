@@ -41,6 +41,7 @@ namespace POSIntegration.POS
                         resource.CopyTo(tempFile);
                     }
                 }
+                Debug.WriteLine(e.Message);
                 Type type = Type.GetTypeFromProgID("WindowsInstaller.Installer");
                 Installer installer = (Installer)Activator.CreateInstance(type);
                 installer.InstallProduct(tempFilePath, "ACTION=INSTALL ALLUSERS=2 MSIINSTALLPERUSER=");

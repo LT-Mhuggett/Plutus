@@ -1,100 +1,112 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Runtime.CompilerServices;
-using System.Text;
-using Database.Models.Interface;
 
 namespace Database.Models
 {
     [Serializable]
-    public class ItemModel : INotifyPropertyChanged, IAuditable, IBase<string>
+    public class ItemModel : BaseModel<string>, IAuditable
     {
         private ItemModel item;
+        #region Fields
+        private string _name;
+        private string _brand;
+        private string _desc;
+        private decimal _cost;
+        private decimal _exPrice;
+        private decimal _price;
+        private byte[] _image;
+        private int _amount;
+        #region Relationships
+        private int _vatId;
+        private int _catId;
+        private StockModel _stock;
+        private TaxModel _vat;
+        private CategoryModel _cat;
+        #endregion
+        #endregion
 
-        public string Id { get; set; }
-        public string Name { get; set; }
-        public string Brand { get; set; }
-        public string Desc { get; set; }
-        [DisplayFormat(DataFormatString = "{0:#.##}", ApplyFormatInEditMode = true)]
-        public decimal Cost { get; set; }
-        [DisplayFormat(DataFormatString = "{0:#.##}", ApplyFormatInEditMode = true)]
-        public decimal ExPrice { get; set; }
-        [DisplayFormat(DataFormatString = "{0:#.##}", ApplyFormatInEditMode = true)]
-        public decimal Price { get; set; }
-        public byte[] Image { get; set; }
-
-        [ForeignKey("VatIdFK")]
-        public int VatId { get; set; }
-        [ForeignKey("CatIdFK")]
-        public int CatId { get; set; }
-
-        public List<Discount_Item> DisItems { get; set; }
-        public List<TransactionModel> Transactions { get; set; }
-        public List<RefundModel> Refunds { get; set; }
-        public List<SavedItemModel> SavedItems { get; set; }
-        public List<CheckoutItemChangeModel> CheckoutItemChanges { get; set; }
-        public StockModel Stock { get; set; }
-        public TaxModel Vat { get; set; }
-        public CategoryModel Cat { get; set; }
-
-        [NotMapped]
-        public char GroupKey { get; set; }
-
-        /**
-         * Properties to incorperate Basket Model
-         */
-        [NotMapped]
-        private int _amount { get; set; }
-        [NotMapped]
-        private bool _return { get; set; }
-        [NotMapped]
-        public string Reason { get; set; }
-        [NotMapped]
-        public string SaleId { get; set; }
-        [NotMapped]
-        public Tuple<decimal, decimal> OGPrices { get; set; }
-
-        public ItemModel()
+        #region Properties
+        public string Name
         {
+            get => _name;
+            set => SetProperty(ref _name, value);
         }
-
-        public ItemModel ShallowCopy()
+        public string Brand
         {
-            return (ItemModel) this.MemberwiseClone();
+            get => _brand;
+            set => SetProperty(ref _brand, value);
+        }
+        public string Desc
+        {
+            get => _desc;
+            set => SetProperty(ref _desc, value);
+        }
+        public decimal Cost
+        {
+            get => _cost;
+            set => SetProperty(ref _cost, value);
+        }
+        public decimal ExPrice
+        {
+            get => _exPrice;
+            set => SetProperty(ref _exPrice, value);
+        }
+        public decimal Price
+        {
+            get => _price;
+            set => SetProperty(ref _price, value);
+        }
+        public byte[] Image
+        {
+            get => _image;
+            set => SetProperty(ref _image, value);
         }
 
         [NotMapped]
         public int Amount
         {
             get => _amount;
-            set
-            {
-                if (_amount == value) return;
-                _amount = value;
-                OnPropertyChanged(nameof(Amount));
-            }
+            set => SetProperty(ref _amount, value);
         }
 
-        [NotMapped]
-        public bool Return
+        #region Relationships
+        [ForeignKey("VatIdFK")]
+        public int VatId
         {
-            get => _return;
-            set
-            {
-                if(_return==value) return;
-                _return=value;
-                OnPropertyChanged(nameof(Return));
-            }
+            get => _vatId;
+            set => SetProperty(ref _vatId, value);
+        }
+        [ForeignKey("CatIdFK")]
+        public int CatId
+        {
+            get => _catId;
+            set => SetProperty(ref _catId, value);
+        }
+        public virtual StockModel Stock
+        {
+            get => _stock;
+            set => SetProperty(ref _stock, value);
+        }
+        public virtual TaxModel Vat
+        {
+            get => _vat;
+            set => SetProperty(ref _vat, value);
+        }
+        public virtual CategoryModel Cat
+        {
+            get => _cat;
+            set => SetProperty(ref _cat, value);
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
-        
-        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
+        #region Collections
+        public virtual ICollection<Discount_Item> DisItems { get; set; }
+        public virtual ICollection<TransactionModel> Transactions { get; set; }
+        public virtual ICollection<RefundModel> Refunds { get; set; }
+        public virtual ICollection<SavedItemModel> SavedItems { get; set; }
+        public virtual ICollection<CheckoutItemChangeModel> CheckoutItemChanges { get; set; }
+        #endregion
+        #endregion
+        #endregion
     }
 }

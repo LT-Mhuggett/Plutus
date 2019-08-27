@@ -1,19 +1,53 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Database.Models.Interface;
 
 namespace Database.Models
 {
     [Serializable]
-    public class StockModel : IAuditable
+    public class StockModel : NotifyModelChanged, IAuditable
     {
-        public string ItemId { get; set; }
-        public ItemModel Item { get; set; }
+        #region Fields
+        private int _quantity;
 
-        public string StoreId { get; set; }
-        public StoreModel Store { get; set; }
+        #region Relationships
+        private string _itemId;
+        private ItemModel _item;
 
-        public int Quantity { get; set; }
+        private string _storeId;
+        private StoreModel _store;
+        #endregion
+        #endregion
+
+        #region Properties
+        public int Quantity
+        {
+            get => _quantity;
+            set => SetProperty(ref _quantity, value);
+        }
+
+        #region Relationships
+        public string ItemId
+        {
+            get => _itemId;
+            set => SetProperty(ref _itemId, value);
+        }
+        public virtual ItemModel Item
+        {
+            get => _item;
+            set => SetProperty(ref _item, value);
+        }
+
+        public string StoreId
+        {
+            get => _storeId;
+            set => SetProperty(ref _storeId, value);
+        }
+        public virtual StoreModel Store
+        {
+            get => _store;
+            set => SetProperty(ref _store, value);
+        }
+        #endregion
+        #endregion
+
     }
 }

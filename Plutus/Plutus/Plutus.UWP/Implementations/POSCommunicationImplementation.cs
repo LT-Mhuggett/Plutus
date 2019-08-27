@@ -46,7 +46,7 @@ namespace Plutus.UWP.Implementations
             }
         }
 
-            public static async Task<bool> CloseServiceAsync(string Id)
+        public static async Task<bool> CloseServiceAsync(string Id)
         {
             ValueSet valueSet = new ValueSet();
             valueSet.Add($"{Id}.endProcess", "null");

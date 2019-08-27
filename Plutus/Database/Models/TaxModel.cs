@@ -1,20 +1,31 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Text;
-using Database.Models.Interface;
 
 namespace Database.Models
 {
     [Serializable]
-    public class TaxModel : IAuditable, IBase<int>
+    public class TaxModel : BaseModel<int>, IAuditable
     {
-        public int Id { get; set; }
-        public string Name { get; set; }
-        public double Rate { get; set; }
-        
-        public List<ItemModel> Items { get; set; }
+        #region Fields
+        private string _name;
+        private double _rate;
+        #endregion
 
-        
+        #region Properties
+        public string Name
+        {
+            get => _name;
+            set => SetProperty(ref _name, value);
+        }
+        public double Rate
+        {
+            get => _rate;
+            set => SetProperty(ref _rate, value);
+        }
+
+        #region Relationships
+        public virtual ICollection<ItemModel> Items { get; set; }
+        #endregion
+        #endregion
     }
 }

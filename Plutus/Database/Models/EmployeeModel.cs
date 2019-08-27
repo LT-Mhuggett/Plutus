@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Database.Models
@@ -12,21 +11,72 @@ namespace Database.Models
     [Serializable]
     public class EmployeeModel : PersonModel
     {
-        public decimal Wage { get; set; }
-        public int ContractedHours { get; set; }
-        public string HashedPassword { get; set; }
-        public string Salt { get; set; }
-        public string NIN { get; set; }
-        public bool Active { get; set; }
+        #region Fields
+        private decimal _wage;
+        private int _contractedHours;
+        private string _hashedPassword;
+        private string _salt;
+        private string _nIN;
+        private bool _active;
 
-        [ForeignKey("StoreIdFK")]
-        public string StoreId { get; set; }
-        public StoreModel Store { get; set; }
-        public List<SaleModel> Sale { get; set; }
-        public List<Emp_AuthActions> EmpAuths { get; set; }
+        #region Relationships
+        private string _storeId;
+        private StoreModel _store;
+        #endregion
+        #endregion
 
+        #region Properties
+        public decimal Wage
+        {
+            get => _wage;
+            set => SetProperty(ref _wage, value);
+        }
+        public int ContractedHours
+        {
+            get => _contractedHours;
+            set => SetProperty(ref _contractedHours, value);
+        }
+        public string HashedPassword
+        {
+            get => _hashedPassword;
+            set => SetProperty(ref _hashedPassword, value);
+        }
+        public string Salt
+        {
+            get => _salt;
+            set => SetProperty(ref _salt, value);
+        }
+        public string NIN
+        {
+            get => _nIN;
+            set => SetProperty(ref _nIN, value);
+        }
+        public bool Active
+        {
+            get => _active;
+            set => SetProperty(ref _active, value);
+        }
         [NotMapped]
         public string FullName => string.Format("{0} {1}", LName.ToUpper(), FName);
+        [NotMapped]
         public string AddressDis => string.IsNullOrEmpty(FullAddress) ? AdLine1 : FullAddress.Split(',')[0];
+
+        #region Relationships
+        [ForeignKey("StoreIdFK")]
+        public string StoreId
+        {
+            get => _storeId;
+            set => SetProperty(ref _storeId, value);
+        }
+        public virtual StoreModel Store
+        {
+            get => _store;
+            set => SetProperty(ref _store, value);
+        }
+        public virtual ICollection<SaleModel> Sale { get; set; }
+        public virtual ICollection<Emp_AuthActions> EmpAuths { get; set; }
+        public virtual ICollection<RefundModel> RefundsAuthorised { get; set; }
+        #endregion
+        #endregion
     }
 }

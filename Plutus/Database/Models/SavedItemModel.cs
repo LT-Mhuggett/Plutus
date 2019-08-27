@@ -1,22 +1,52 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Database.Models.Interface;
 
 namespace Database.Models
 {
     [Serializable]
-    public class SavedItemModel : IBase<int>
+    public class SavedItemModel : BaseModel<int>
     {
-        public int Id { get; set; }
+        #region Fields
+        private int _amount;
 
-        public int Amount { get; set; }
+        #region Relationships
+        private string _itemId;
+        private ItemModel _item;
 
-        public string ItemId { get; set; }
-        public ItemModel Item { get; set; }
+        private int _savedTransId;
+        private SavedTransactionModel _savedTrans;
+        #endregion
+        #endregion
 
-        public int SavedTransId { get; set; }
+        #region Properties
+        public int Amount
+        {
+            get => _amount;
+            set => SetProperty(ref _amount, value);
+        }
 
-        public SavedTransactionModel SavedTrans { get; set; }
+        #region Relationships
+        public string ItemId
+        {
+            get => _itemId;
+            set => SetProperty(ref _itemId, value);
+        }
+        public virtual ItemModel Item
+        {
+            get => _item;
+            set => SetProperty(ref _item, value);
+        }
+
+        public int SavedTransId
+        {
+            get => _savedTransId;
+            set => SetProperty(ref _savedTransId, value);
+        }
+        public virtual SavedTransactionModel SavedTrans
+        {
+            get => _savedTrans;
+            set => SetProperty(ref _savedTrans, value);
+        }
+        #endregion
+        #endregion
     }
 }

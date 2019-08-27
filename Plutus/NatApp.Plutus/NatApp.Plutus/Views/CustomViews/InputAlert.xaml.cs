@@ -1,0 +1,419 @@
+﻿using NatApp.Plutus.Behaviors;
+using NatApp.Plutus.Helpers.Extensions;
+using NatApp.Plutus.Helpers.Validators;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using Xamarin.Forms;
+using Xamarin.Forms.Xaml;
+
+namespace NatApp.Plutus.Pages.CustomViews
+{
+    [XamlCompilation(XamlCompilationOptions.Compile)]
+    public partial class InputAlert : ContentView
+    {
+        #region Properties
+        public EventHandler ConfirmButtonEHandler { get; set; }
+        public SortedDictionary<int, string> InputResults { get; set; } = new SortedDictionary<int, string>();
+        public List<Tuple<Label, Entry>> ViewElements { get; set; } = new List<Tuple<Label, Entry>>();
+        public ValidationGroupBehavior ValidationGroup;
+        private decimal _targetAmount;
+        public Button ConfBut;
+        public Button CancelBut;
+        #endregion
+
+        #region Constructors
+        /// <summary>
+        /// Creates an InuptAlert window with unlimited amount of viewElements
+        /// </summary>
+        /// <param name="viewElements"><see cref="CreateLabelEntry(Tuple{string, string, IEnumerable{IValidator}, bool, bool}, StackLayout)"/></param>
+        /// <param name="confirmButText">Text for button</param>
+        /// <param name="title">Title for the view; Can be nullable</param>
+        public InputAlert(IEnumerable<Tuple<string, string, IEnumerable<IValidator>, bool, bool>> viewElements, string confirmButText, string title = null, string cancelButText = null)
+        {
+            InitializeComponent();
+
+            if (title != null)
+                MainLayout.Children.Add(new Label()
+                {
+                    Text = title,
+                    HorizontalOptions = LayoutOptions.FillAndExpand,
+                    FontSize = Device.GetNamedSize(NamedSize.Medium, typeof(Label)),
+                    FontAttributes = FontAttributes.Bold
+                });
+
+            //Create entire form validation group
+            ValidationGroup = new ValidationGroupBehavior();
+            MainLayout.Behaviors.Add(ValidationGroup);
+
+            //Loop through all queue and create elements for form
+            for (int n = 0; n < viewElements.Count(); n++)
+            {
+                ViewElements.Add(CreateLabelEntry(viewElements.Skip(n).First(), MainLayout));
+
+                if (ViewElements.Count > 1)
+                    SetOnComplete(ViewElements.ElementAt(ViewElements.Count - 2).Item2, ViewElements.Last().Item2);
+
+                if (viewElements.Skip(n).Any())
+                    SetOnComplete(ViewElements.Last().Item2);
+            }
+
+
+            //Create confirm button
+            ConfBut = new Button { Text = confirmButText };
+            ConfBut.Clicked += ConfirmBut_Clicked;
+            ConfBut.SetBinding(IsEnabledProperty, "ValidationGroup.IsValid");
+            MainLayout.Children.Add(ConfBut);
+
+            //Cancel button
+            if (cancelButText != null)
+            {
+                CancelBut = new Button { Text = cancelButText };
+                CancelBut.Clicked += CancelBut_Clicked;
+                MainLayout.Children.Add(CancelBut);
+            }
+
+            //init input results 
+            foreach (var view in MainLayout.Children)
+            {
+                if (view is Entry)
+                    InputResults.Add(MainLayout.Children.IndexOf(view), (view as Entry).Text ?? "");
+            }
+        }
+
+        /// <summary>
+        /// Creates an InputAlert window with unlimited ViewElements, with a view inbetween
+        /// </summary>
+        /// <param name="viewElementsBefore">ViewElements before View<see cref="CreateLabelEntry(Tuple{string, string, IEnumerable{IValidator}, bool, bool}, StackLayout)"/></param>
+        /// <param name="view">View to place in</param>
+        /// <param name="viewElementsAfter">ViewElements after View<see cref="CreateLabelEntry(Tuple{string, string, IEnumerable{IValidator}, bool, bool}, StackLayout)"/></param>
+        /// <param name="confirmButText">Confirm button text</param>
+        /// <param name="title">Title of window</param>
+        public InputAlert(
+            IEnumerable<Tuple<string, string, IEnumerable<IValidator>, bool, bool>> viewElementsBefore,
+            View view,
+            IEnumerable<Tuple<string, string, IEnumerable<IValidator>, bool, bool>> viewElementsAfter,
+            string confirmButText, string title = null, string cancelButText = null)
+        {
+            InitializeComponent();
+
+            if(title!=null)
+                MainLayout.Children.Add(new Label()
+                {
+                    Text = title,
+                    HorizontalOptions = LayoutOptions.FillAndExpand,
+                    FontSize = Device.GetNamedSize(NamedSize.Medium, typeof(Label)),
+                    FontAttributes = FontAttributes.Bold
+                });
+
+            //Create entire form validation group
+            ValidationGroup = new ValidationGroupBehavior();
+            MainLayout.Behaviors.Add(ValidationGroup);
+
+
+            if (viewElementsBefore != default)
+            {
+                //Loop through all queue and create elements for form
+                for (int n = 0; n < viewElementsBefore.Count(); n++)
+                {
+                    ViewElements.Add(CreateLabelEntry(viewElementsBefore.Skip(n).First(), MainLayout));
+
+                    if (ViewElements.Count() > 1)
+                        SetOnComplete(ViewElements.ElementAt(ViewElements.Count - 2).Item2, ViewElements.Last().Item2);
+
+                    if (viewElementsBefore.Skip(n).Any())
+                        SetOnComplete(ViewElements.Last().Item2);
+                }
+            }
+
+            //Add the View to MainLayout
+            MainLayout.Children.Add(view);
+
+            if (viewElementsAfter != default)
+            {
+                //Loop through all queue and create elements for form
+                for (int n = 0; n < viewElementsAfter.Count(); n++)
+                {
+                    ViewElements.Add(CreateLabelEntry(viewElementsAfter.Skip(n).First(), MainLayout));
+
+                    if (ViewElements.Count() > 1)
+                        SetOnComplete(ViewElements.ElementAt(ViewElements.Count - 2).Item2, ViewElements.Last().Item2);
+
+                    if (viewElementsAfter.Skip(n).Any())
+                        SetOnComplete(ViewElements.Last().Item2);
+                }
+            }
+
+            //Create confirm button
+            ConfBut = new Button { Text = confirmButText };
+            ConfBut.Clicked += ConfirmBut_Clicked;
+            ConfBut.SetBinding(IsEnabledProperty, "ValidationGroup.IsValid");
+            MainLayout.Children.Add(ConfBut);
+
+            //Cancel button
+            if (cancelButText != null)
+            {
+                CancelBut = new Button { Text = cancelButText };
+                CancelBut.Clicked += CancelBut_Clicked;
+                MainLayout.Children.Add(CancelBut);
+            }
+
+            ValidationGroup.Update();
+
+            //init input results 
+            foreach (var tempView in MainLayout.Children)
+            {
+                if (tempView is Entry)
+                    InputResults.Add(MainLayout.Children.IndexOf(tempView), (tempView as Entry).Text ?? "");
+            }
+        }
+
+        /// <summary>
+        /// Creates an InuptAlert window with unlimited amount of viewElements,
+        /// also generates a Grid for cash transactions and pay all option
+        /// </summary>
+        /// <remarks>
+        /// First viewElemnt must be the decimal return value
+        /// </remarks>
+        /// <param name="viewElements"><see cref="CreateLabelEntry(Tuple{string, string, IEnumerable{IValidator}, bool, bool}, StackLayout)"/></param>
+        /// <param name="confirmButText">Text for Button</param>
+        /// <param name="cash">Is this a cash transaction</param>
+        /// <param name="toPay">Amount to pay or be returned</param>
+        /// <param name="title">Title for the view; Can be nullable</param>
+        public InputAlert(IEnumerable<Tuple<string, string, IEnumerable<IValidator>, bool, bool>> viewElements, string confirmButText, bool cash, decimal toPay, string title = null, string cancelButText = null)
+        {
+            InitializeComponent();
+
+            if (title != null)
+                MainLayout.Children.Add(new Label()
+                {
+                    Text = title,
+                    HorizontalOptions = LayoutOptions.FillAndExpand,
+                    FontSize = Device.GetNamedSize(NamedSize.Medium, typeof(Label)),
+                    FontAttributes = FontAttributes.Bold
+                });
+
+            //Create entire form validation group
+            ValidationGroup = new ValidationGroupBehavior();
+            MainLayout.Behaviors.Add(ValidationGroup);
+
+            if (cash)
+                MainLayout.Children.Add(CreateCashGrid(toPay < 0.0m ? true : false));
+            var payAllBut = new Button { Text = "PayFull".Translate(), CommandParameter = _targetAmount = toPay };
+            payAllBut.Clicked += PayExact_Clicked;
+            MainLayout.Children.Add(payAllBut);
+
+            //Loop through all queue and create elements for form
+            for (int n = 0; n < viewElements.Count(); n++)
+            {
+                ViewElements.Add(CreateLabelEntry(viewElements.Skip(n).First(), MainLayout));
+
+                if (ViewElements.Count > 1)
+                    SetOnComplete(ViewElements.ElementAt(ViewElements.Count - 2).Item2, ViewElements.Last().Item2);
+
+                if (viewElements.Skip(n).Any())
+                    SetOnComplete(ViewElements.Last().Item2);
+            }
+
+            //Create confirm button
+            ConfBut = new Button { Text = confirmButText };
+            ConfBut.Clicked += ConfirmBut_Clicked;
+            ConfBut.SetBinding(IsEnabledProperty, "ValidationGroup.IsValid");
+            MainLayout.Children.Add(ConfBut);
+
+            //Cancel button
+            if (cancelButText != null)
+            {
+                CancelBut = new Button { Text = cancelButText };
+                CancelBut.Clicked += CancelBut_Clicked;
+                MainLayout.Children.Add(CancelBut);
+            }
+
+            //init input results 
+            foreach (var view in MainLayout.Children)
+            {
+                if (view is Entry element)
+                    InputResults.Add(MainLayout.Children.IndexOf(element), element.Text ?? "");
+            }
+        }
+        #endregion
+
+        #region Element Generators
+        /// <summary>
+        /// Create Label and Entry pair for inputs
+        /// </summary>
+        /// <param name="elementValues">Label, Placeholder, Validators, IsPassword, IsEnabled</param>
+        /// <param name="layout">Layout to add elements to</param>
+        /// <returns>Label, Entry pair</returns>
+        public Tuple<Label, Entry> CreateLabelEntry(Tuple<string, string, IEnumerable<IValidator>, bool, bool> elementValues, StackLayout layout)
+        {
+            var label = new Label { Text = elementValues.Item1 };
+            Entry entry;
+            if (elementValues.Item5)
+            {
+                entry = new Entry { Placeholder = elementValues.Item2, IsPassword = elementValues.Item4, IsEnabled = elementValues.Item5 };
+            }
+            else
+            {
+                entry = new Entry { Text = elementValues.Item2, IsPassword = elementValues.Item4, IsEnabled = elementValues.Item5 };
+            }
+            if (elementValues.Item3.Count() != 0)
+            {
+                var vBehavior = new ValidationBehavior
+                {
+                    Group = ValidationGroup,
+                    PropertyName = "Text"
+                };
+                entry.Behaviors.Add(vBehavior);
+                foreach (var validator in elementValues.Item3)
+                {
+                    if (validator is IValidatorReqReference validatorReq)
+                        validatorReq.ReferenceEntry = ViewElements.Last().Item2;
+                    (entry.Behaviors.Last() as ValidationBehavior).Validators.Add(validator);
+                }
+            }
+
+            entry.TextChanged += Entry_TextChanged;
+
+            layout.Children.Add(label);
+            layout.Children.Add(entry);
+            return Tuple.Create(label, entry);
+        }
+
+        /// <summary>
+        /// Setup OnComplete Events
+        /// </summary>
+        /// <param name="fromEntry"></param>
+        /// <param name="toEntry"></param>
+        private void SetOnComplete(Entry fromEntry, Entry toEntry = null)
+        {
+            if (toEntry == null)
+                fromEntry.Completed += ConfirmBut_Clicked;
+            else
+                fromEntry.Completed += (sender, e) => ToNextEntryEvent(sender, e, toEntry);
+        }
+
+        /// <summary>
+        /// Set focus on next entry
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        /// <param name="toEntry"></param>
+        private void ToNextEntryEvent(object sender, EventArgs e, Entry toEntry)
+        {
+            toEntry.Focus();
+        }
+
+        /// <summary>
+        /// Creates a cash selection grid
+        /// </summary>
+        /// <param name="negative">Is the value negative</param>
+        /// <returns>Cash selection grid</returns>
+        public Grid CreateCashGrid(bool negative)
+        {
+            var button1 = new Button { Text = "5", CommandParameter = negative ? -5 : 5 };
+            var button2 = new Button { Text = "10", CommandParameter = negative ? -10 : 10 };
+            var button3 = new Button { Text = "20", CommandParameter = negative ? -20 : 20 };
+            var button4 = new Button { Text = "50", CommandParameter = negative ? -50 : 50 };
+
+            button1.Clicked += Value_Clicked;
+            button2.Clicked += Value_Clicked;
+            button3.Clicked += Value_Clicked;
+            button4.Clicked += Value_Clicked;
+
+            var grid = new Grid
+            {
+                RowDefinitions = {
+                    new RowDefinition{Height = new GridLength(60)},
+                    new RowDefinition{Height = new GridLength(60)}
+                },
+                ColumnDefinitions =
+                {
+                    new ColumnDefinition{Width = new GridLength(1, GridUnitType.Star)},
+                    new ColumnDefinition{Width = new GridLength(1, GridUnitType.Star)}
+                }
+            };
+
+            grid.Children.Add(button1, 0, 0);
+            grid.Children.Add(button2, 1, 0);
+            grid.Children.Add(button3, 0, 1);
+            grid.Children.Add(button4, 1, 1);
+
+            return grid;
+        }
+        #endregion
+
+        #region Events
+        /// <summary>
+        /// Update InputResult value when entry is changed
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void Entry_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            var updatedEntry = sender as Entry;
+            InputResults[MainLayout.Children.IndexOf(updatedEntry)] = e.NewTextValue;
+        }
+
+        /// <summary>
+        /// Update the decimal return value with the cash button return,
+        /// if amount is above of equals required auto submit form
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void Value_Clicked(object sender, EventArgs e)
+        {
+            try
+            {
+                var input = ViewElements.First().Item2;
+                var tempVal = decimal.Parse(string.IsNullOrEmpty(input.Text) ? "0" : input.Text);
+                tempVal += decimal.Parse((sender as Button).CommandParameter.ToString());
+                input.Text = tempVal.ToString();
+                if (tempVal >= _targetAmount && ValidationGroup.IsValid)
+                    ConfirmButtonEHandler?.Invoke(this, e);
+            }
+            catch(Exception ex)
+            {
+                Debug.WriteLine(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Trigger Confirmation of form
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void ConfirmBut_Clicked(object sender, EventArgs e)
+        {
+            if (ValidationGroup.IsValid)
+                ConfirmButtonEHandler?.Invoke(this, e);
+        }
+
+        private void CancelBut_Clicked(object sender, EventArgs e)
+        {
+            ViewElements.ForEach(vE => vE.Item2.Text = default);
+            ConfirmButtonEHandler?.Invoke(this, e);
+        }
+
+        /// <summary>
+        /// Overide the input value and auto, submit form
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void PayExact_Clicked(object sender, EventArgs e)
+        {
+            ViewElements.First().Item2.Text = (sender as Button).CommandParameter.ToString();
+            if (ValidationGroup.IsValid)
+                ConfirmButtonEHandler?.Invoke(this, e);
+        }
+        #endregion
+        protected override void OnSizeAllocated(double width, double height)
+        {
+            base.OnSizeAllocated(width, height);
+
+            MainLayout.WidthRequest = Application.Current.MainPage.Width / 2;
+            MainLayout.HeightRequest = Application.Current.MainPage.Height / 2;
+        }
+    }
+}

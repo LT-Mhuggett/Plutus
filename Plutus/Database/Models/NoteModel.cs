@@ -1,16 +1,32 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
-using Database.Models.Interface;
 
 namespace Database.Models
 {
     [Serializable]
-    public class NoteModel : IAuditable, IBase<int>
+    public class NoteModel : BaseModel<int>, IAuditable
     {
-        public int Id { get; set; }
-        public string Note { get; set; }
+        #region Fields
+        private string _note;
+        #endregion
 
-        public List<Notes_SaleModel> NoteSales { get; set; }
+        #region Properties
+        public string Note
+        {
+            get => _note;
+            set => SetProperty(ref _note, value);
+        }
+
+        #region Relationships
+        public virtual ICollection<Notes_SaleModel> NoteSales { get; set; }
+        #endregion
+        #endregion
+
+        public NoteModel() { }
+
+        public NoteModel(string note)
+        {
+            Note = note;
+        }
     }
 }

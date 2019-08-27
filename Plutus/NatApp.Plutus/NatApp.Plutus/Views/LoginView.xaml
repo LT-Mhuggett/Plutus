@@ -1,0 +1,58 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:Validators="clr-namespace:NatApp.Plutus.Helpers.Validators"
+             xmlns:Behaviors="clr-namespace:NatApp.Plutus.Behaviors"
+             x:Class="NatApp.Plutus.Views.LoginView"
+             xmlns:i18N="clr-namespace:I18N_L10N.Extensions;assembly=I18N_L10N"
+             Title="{Binding Title}"
+             Icon="{Binding Icon}">
+    <ContentPage.Content>
+        <StackLayout VerticalOptions="Center" HorizontalOptions="Center">
+            <StackLayout.Behaviors>
+                <Behaviors:ValidationGroupBehavior x:Name="form"/>
+            </StackLayout.Behaviors>
+            <Label Text="{i18N:Translate Login}" FontSize="Medium"/>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width=".3*"/>
+                    <ColumnDefinition Width=".7*"/>
+                </Grid.ColumnDefinitions>
+                <Label Grid.Column="0" Grid.Row="0" Text="{i18N:Translate EMail}"/>
+                <StackLayout Grid.Column="1" Grid.Row="0">
+                    <Entry Placeholder="{Binding Path=Email_UserId_Placeholder, StringFormat={i18N:Translate EnterHere}}" Text="{Binding Email_Userid}">
+                        <Entry.Behaviors>
+                            <Behaviors:ValidationBehavior Group="{x:Reference form}"
+                                                          PropertyName="Text">
+                                <Behaviors:ValidationBehavior.Validators>
+                                    <Validators:RequiredValidator/>
+                                    <Validators:EmailValidator/>
+                                </Behaviors:ValidationBehavior.Validators>
+                            </Behaviors:ValidationBehavior>
+                        </Entry.Behaviors>
+                    </Entry>
+                </StackLayout>
+                <Label Grid.Column="0" Grid.Row="1" Text="{i18N:Translate Password}"/>
+                <StackLayout Grid.Column="1" Grid.Row="1">
+                    <Entry IsPassword="True"
+                           Placeholder="{Binding Source={i18N:Translate Password}, StringFormat={i18N:Translate EnterHere}}" Text="{Binding Password}">
+                        <Entry.Behaviors>
+                            <Behaviors:ValidationBehavior Group="{x:Reference form}"
+                                                      PropertyName="Text">
+                                <Behaviors:ValidationBehavior.Validators>
+                                    <Validators:RequiredValidator/>
+                                    <Validators:PasswordValidator/>
+                                </Behaviors:ValidationBehavior.Validators>
+                            </Behaviors:ValidationBehavior>
+                        </Entry.Behaviors>
+                    </Entry>
+                </StackLayout>
+            </Grid>
+            <Button Text="{i18N:Translate Submit}" Command="{Binding LoginCommand}" IsEnabled="{Binding Source={x:Reference form}, Path=IsValid}"/>
+        </StackLayout>
+    </ContentPage.Content>
+</ContentPage>

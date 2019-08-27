@@ -1,0 +1,90 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:d="http://xamarin.com/schemas/2014/forms/design"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:listViewCM="clr-namespace:NatApp.Plutus.Helpers.Extensions.XAML.ListViewWithContextMenu"
+             xmlns:Behaviors="clr-namespace:NatApp.Plutus.Behaviors"
+             xmlns:viewModels="clr-namespace:NatApp.Plutus.ViewModels.MainTill.Inventory.Items"
+             xmlns:i18n="clr-namespace:I18N_L10N.Extensions;assembly=I18N_L10N"
+             mc:Ignorable="d"
+             x:Class="NatApp.Plutus.Views.MainTill.Inventory.Items.ViewAllView"
+             Title="{Binding Title}">
+    <ContentPage.BindingContext>
+        <viewModels:ViewAllViewModel/>
+    </ContentPage.BindingContext>
+    <ContentPage.Content>
+        <StackLayout>
+            <SearchBar Placeholder="{Binding Source={i18n:Translate Items}, StringFormat={i18n:Translate SearchArg}}"
+                       Text="{Binding SearchText}" SearchCommand="{Binding SearchItemsCommand}"/>
+            <listViewCM:ListViewWithContextMenu x:Name="ItemsListView" ItemsSource="{Binding Items}"
+                                   LoadMoreOption="AutoOnScroll" LoadMoreCommand="{Binding LoadMoreItemsCommand}"
+                                   AutoFitMode="DynamicHeight" IsStickyHeader="True" IsStickyGroupHeader="True"
+                                   AllowGroupExpandCollapse="True" DataSource="{Binding SfListViewDataSource, Mode=OneWayToSource}">
+                <listViewCM:ListViewWithContextMenu.Behaviors>
+                    <Behaviors:SfListViewContextMenuBehavior>
+                        <Behaviors:SfListViewContextMenuBehavior.Buttons>
+                            <Button Text="{i18n:Translate AddToBasket}" HeightRequest="40"
+                                    Command="{Binding Path=BindingContext.AddToBasketCommandArg, Source={x:Reference ItemsListView}}"/>
+                            <Button Text="{i18n:Translate Edit}" HeightRequest="40"
+                                    Command="{Binding Path=BindingContext.OpenEditItemCommandArg, Source={x:Reference ItemsListView}}"/>
+                            <Button Text="{i18n:Translate UpdateStock}" HeightRequest="40"
+                                    Command="{Binding Path=BindingContext.UpdateItemStockCommandArg, Source={x:Reference ItemsListView}}"/>
+                        </Behaviors:SfListViewContextMenuBehavior.Buttons>
+                        <Behaviors:SfListViewContextMenuBehavior.ItemBindings>
+                            <x:String>.Id</x:String>
+                            <x:String>.Id</x:String>
+                            <x:String>.Id</x:String>
+                        </Behaviors:SfListViewContextMenuBehavior.ItemBindings>
+                    </Behaviors:SfListViewContextMenuBehavior>
+                </listViewCM:ListViewWithContextMenu.Behaviors>
+                <listViewCM:ListViewWithContextMenu.HeaderTemplate>
+                    <DataTemplate>
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width=".8*"/>
+                                <ColumnDefinition Width=".1*"/>
+                                <ColumnDefinition Width=".1*"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Row="0" Grid.Column="0" FontSize="Medium" FontAttributes="Bold" Text="{i18n:Translate Name}"/>
+                            <Label Grid.Row="0" Grid.Column="1" FontSize="Medium" FontAttributes="Bold" Text="{i18n:Translate Price}"/>
+                            <Label Grid.Row="0" Grid.Column="2" FontSize="Medium" FontAttributes="Bold" Text="{i18n:Translate Stock}"/>
+                        </Grid>
+                    </DataTemplate>
+                </listViewCM:ListViewWithContextMenu.HeaderTemplate>
+                <listViewCM:ListViewWithContextMenu.ItemTemplate>
+                    <DataTemplate>
+                        <ViewCell>
+                            <ViewCell.View>
+                                <Frame CornerRadius="2" Padding="1" Margin="1">
+                                    <Frame.HasShadow>
+                                        <OnPlatform x:TypeArguments="x:Boolean">
+                                            <On Platform="Android, Windows">True</On>
+                                            <On Platform="iOS">False</On>
+                                        </OnPlatform>
+                                    </Frame.HasShadow>
+                                    <Grid VerticalOptions="FillAndExpand" HorizontalOptions="FillAndExpand">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width=".8*"/>
+                                            <ColumnDefinition Width=".1*"/>
+                                            <ColumnDefinition Width=".1*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Label Grid.Row="0" Grid.Column="0" Text="{Binding Name}"/>
+                                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding Price, StringFormat='{0:C}'}"/>
+                                        <Label Grid.Row="0" Grid.Column="2" Text="{Binding Stock.Quantity}"/>
+                                    </Grid>
+                                </Frame>
+                            </ViewCell.View>
+                        </ViewCell>
+                    </DataTemplate>
+                </listViewCM:ListViewWithContextMenu.ItemTemplate>
+            </listViewCM:ListViewWithContextMenu>
+        </StackLayout>
+    </ContentPage.Content>
+</ContentPage>
