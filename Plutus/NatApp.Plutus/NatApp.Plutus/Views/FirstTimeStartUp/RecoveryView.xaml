@@ -33,7 +33,7 @@
 
                     <!--Left data column-->
                     <StackLayout x:Name="LeftDataColumn" Grid.Column="0" Grid.Row="1" Grid.RowSpan="3" VerticalOptions="Center" HorizontalOptions="FillAndExpand" >
-                        <Button Text="{i18N:Translate RecoverDB}"/>
+                        <Button Text="{i18N:Translate RecoverDB}" Command="{Binding RecoverDbCommand}"/>
                     </StackLayout>
                     <!--End of Left data column-->
 
