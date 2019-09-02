@@ -62,8 +62,9 @@ namespace NatApp.Plutus.ViewModels.MainTill.StoreOptions
             {
                 Tuple.Create("Store".Translate(), ""),
                 Tuple.Create("Name".Translate(), "StoreNameChangeCommand"),
-                /*Tuple.Create("Address".Translate(), "StoreAddressChangeCommand"),
-                Tuple.Create("Region".Translate(), ""),
+                //Tuple.Create("Address".Translate(), "StoreAddressChangeCommand"),
+                Tuple.Create("Bag".Translate(), "StoreDefaultBagChangeCommand"),
+                /*Tuple.Create("Region".Translate(), ""),
                 Tuple.Create("Currency", "CurrencySettingsChangeCommand"),
                 Tuple.Create("Date", "DateSettingsChangeCommand"),
                 Tuple.Create("Employee".Translate(), ""),
@@ -130,11 +131,19 @@ namespace NatApp.Plutus.ViewModels.MainTill.StoreOptions
         {
             get => _storeNameChangeCommand ?? (_storeNameChangeCommand = new Command(ExecuteStoreNameChange));
         }
+
         Command _storeAddressChangeCommand;
 
         public Command StoreAddressChangeCommand
         {
             get => _storeAddressChangeCommand ?? (_storeAddressChangeCommand = new Command(ExecuteStoreAddressChange));
+        }
+
+        Command _storeDefaultBagChangeCommand;
+
+        public Command StoreDefaultBagChangeCommand
+        {
+            get => _storeDefaultBagChangeCommand ?? (_storeDefaultBagChangeCommand = new Command(ExecuteStoreDefaultBagChange));
         }
         #endregion
         #region Region
@@ -191,7 +200,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.StoreOptions
                         Tuple.Create("Abbreviation".Translate(), App.GetViewModel().Store.StoreAbbr, validators.AsEnumerable(), false, true)
                     };
 
-                    var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(viewElements, "Confirm".Translate(), false, "Test", "Cancel".Translate());
+                    var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(viewElements, "Confirm".Translate(), false, cancelText: "Cancel".Translate());
 
                     if (data.Any(d => d as string == null || string.IsNullOrEmpty(d as string)))
                     {
@@ -224,6 +233,52 @@ namespace NatApp.Plutus.ViewModels.MainTill.StoreOptions
         private void ExecuteStoreAddressChange()
         {
 
+        }
+
+        private async void ExecuteStoreDefaultBagChange()
+        {
+            var empId = App.GetViewModel().EmployeeId;
+            bool escape = false;
+            do
+            {
+                Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
+                if (empId.IsAuthorised("Admin", Database.Enums.Permissions.Write, databaseProvider))
+                {
+                    var validators = new IValidator[]
+                    {
+                        new RequiredValidator()
+                    };
+
+                    var viewElements = new Tuple<string, string, IEnumerable<IValidator>, bool, bool>[]
+                    {
+                        Tuple.Create(string.Format("IdArg".Translate(), "Bag".Translate()), DefaultBagId, validators.AsEnumerable(), false, true),
+                    };
+
+                    var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(viewElements, "Confirm".Translate(), false, cancelText: "Cancel".Translate());
+
+                    if (data.Any(d => d as string == null || string.IsNullOrEmpty(d as string)))
+                    {
+                        return;
+                    }
+
+                    using(var db = new Helpers.Database.Database(databaseProvider))
+                    {
+                        if (db.IsExists<ItemModel, string>(data[0] as string))
+                        {
+                            DefaultBagId = data[0] as string;
+                            return;
+                        }
+                        else
+                        {
+                            await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "ItemNotFoundMesg".Translate(), "OK".Translate());
+                            continue;
+                        }
+                    }
+                }
+                var empAuthoriser = await Authorisation.RequestAuthorisedUserInput(databaseProvider);
+                if (empAuthoriser == default)
+                    escape = true;
+            } while (!escape);
         }
         #endregion
         #region Region

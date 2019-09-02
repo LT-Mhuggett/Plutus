@@ -8,7 +8,7 @@ namespace NatApp.Plutus.ViewModels
 {
     public class Settings
     {
-        static ISettings AppSettings => CrossSettings.Current;
+        protected static ISettings AppSettings => CrossSettings.Current;
 
         public string PrinterLogicalNameSetting
         {
@@ -32,6 +32,12 @@ namespace NatApp.Plutus.ViewModels
         {
             get => AppSettings.GetValueOrDefault(nameof(CustomCultureInfo), null);
             set => AppSettings.AddOrUpdateValue(nameof(CustomCultureInfo), value);
+        }
+
+        public string DefaultBagId
+        {
+            get => AppSettings.GetValueOrDefault(nameof(DefaultBagId), null);
+            set => AppSettings.AddOrUpdateValue(nameof(DefaultBagId), value);
         }
     }
 }

@@ -12,7 +12,7 @@ namespace NatApp.Plutus.ViewModels
 
         private string _icon;
 
-        private bool _isBusy;
+        private static bool _isBusy;
         #endregion
 
         #region Public Properties
@@ -37,10 +37,10 @@ namespace NatApp.Plutus.ViewModels
         /// <summary>
         /// Is page busy
         /// </summary>
-        public bool IsBusy
+        public static bool IsBusy
         {
             get => _isBusy;
-            set { SetProperty(ref _isBusy, value); }
+            set { StaticSetProperty(ref _isBusy, value); }
         }
         #endregion
         
@@ -51,6 +51,7 @@ namespace NatApp.Plutus.ViewModels
 
         #region INotifyPropertyChanged
         public event PropertyChangedEventHandler PropertyChanged;
+        public static event PropertyChangedEventHandler StaticPropertyChanged; 
 
         /// <summary>
         /// Actions the change to the Variable(Property), fires the OnPropertyChanged event.
@@ -72,10 +73,25 @@ namespace NatApp.Plutus.ViewModels
             return true;
         }
 
+        protected static bool StaticSetProperty<T>(ref T backingStore, T value, [CallerMemberName]string propertyName = "", Action onChanged = null)
+        {
+            if (EqualityComparer<T>.Default.Equals(backingStore, value))
+                return false;
+            backingStore = value;
+            onChanged?.Invoke();
+            StaticOnPropertyChanged(propertyName);
+            return true;
+        }
+
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
+
+        protected static void StaticOnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            StaticPropertyChanged?.Invoke(null, new PropertyChangedEventArgs(propertyName));
+        } 
         #endregion
 
         #region IDisposable Support

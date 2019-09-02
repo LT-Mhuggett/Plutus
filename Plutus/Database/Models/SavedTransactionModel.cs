@@ -4,10 +4,11 @@ using System.Collections.Generic;
 namespace Database.Models
 {
     [Serializable]
-    public class SavedTransactionModel : BaseModel<int>
+    public class SavedTransactionModel : BaseModel<string>
     {
         #region Fields
         private string _name;
+        private string _data;
         #endregion
 
         #region Properties
@@ -16,10 +17,11 @@ namespace Database.Models
             get => _name;
             set => SetProperty(ref _name, value);
         }
-
-        #region Relationships
-        public virtual ICollection<SavedItemModel> SavedItems { get; set; }
-        #endregion
+        public string Data
+        {
+            get => _data;
+            set => SetProperty(ref _data, value);
+        }
         #endregion
     }
 }

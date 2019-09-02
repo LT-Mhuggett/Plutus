@@ -103,7 +103,6 @@ namespace Database.Models
         public virtual ICollection<Discount_Item> DisItems { get; set; }
         public virtual ICollection<TransactionModel> Transactions { get; set; }
         public virtual ICollection<RefundModel> Refunds { get; set; }
-        public virtual ICollection<SavedItemModel> SavedItems { get; set; }
         public virtual ICollection<CheckoutItemChangeModel> CheckoutItemChanges { get; set; }
         #endregion
         #endregion

@@ -1,4 +1,5 @@
-﻿using Database.Models;
+﻿using Database.Enums;
+using Database.Models;
 using Microsoft.EntityFrameworkCore;
 using NatApp.Plutus.Helpers.Extensions;
 using NatApp.Plutus.Helpers.Security;
@@ -25,7 +26,6 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
         private bool _isDesktop;
         private string _itemId;
         private int _quantity;
-        private string _bagId;
         private bool _pickerIsOpen;
         private IBasketRecord _selectedBasketRecord;
         #endregion
@@ -48,12 +48,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
             get => _quantity;
             set => SetProperty(ref _quantity, value);
         }
-        public string BagId
-        {
-            get => _bagId;
-            set => SetProperty(ref _bagId, value);
-        }
-        public ObservableCollection<KeyValuePair<Guid, Tuple<string, string>>> StoredTransactions { get; private set; } = new ObservableCollection<KeyValuePair<Guid, Tuple<string, string>>>();
+        public ObservableCollection<SavedTransactionModel> StoredTransactions { get; private set; } = new ObservableCollection<SavedTransactionModel>();
         public ObservableCollection<IBasketRecord> Basket { get; } = new ObservableCollection<IBasketRecord>();
         public IBasketRecord SelectedBasketRecord
         {
@@ -94,7 +89,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
             #region Init
             Title = "Till".Translate();
             Icon = "md-store";
-
+            
             #region Events
             StoredTransactions.CollectionChanged += (sender, e) =>
             {
@@ -140,6 +135,22 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 OnPropertyChanged("AlterationNames");
             };
             #endregion
+            Device.BeginInvokeOnMainThread(() =>
+            {
+                //Load SavedTranasactions
+                Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
+                using (var db = new Helpers.Database.Database(databaseProvider))
+                {
+                    if (db.Get<SavedTransactionModel>().Any())
+                    {
+                        var savedTransactions = db.Get<SavedTransactionModel>();
+                        foreach (var savedTransaction in savedTransactions)
+                        {
+                            StoredTransactions.Add(savedTransaction);
+                        }
+                    }
+                }
+            });
 
             MessagingCenter.Subscribe<Inventory.Items.ViewAllViewModel, string>(
             this,
@@ -152,7 +163,6 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
             #endregion
             IsDesktop = Device.Idiom == TargetIdiom.Desktop ? true : false;
             Quantity = 1;
-            BagId = "";
         }
 
         #region Commands
@@ -583,7 +593,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
             {
                 Alterations.Clear();
 
-                Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
+                Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
                 using (var db = new Helpers.Database.Database(databaseProvider, App.GetViewModel().EmployeeId))
                 {
                     foreach (var discount in db.Get<DiscountModel>())
@@ -700,7 +710,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         return;
 
                     firstRun = false;
-                } while (StoredTransactions.Any(kvp => kvp.Value.Item1.Equals(data)));
+                } while (StoredTransactions.Any(sT => sT.Name.Equals(data)));
 
 
                 var basketRecords = new IBasketRecord[Basket.Count];
@@ -708,21 +718,30 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 Basket.CopyTo(basketRecords, 0);
 
                 StoredTransactions.Add(
-                    new KeyValuePair<Guid, Tuple<string, string>>(
-                        Guid.NewGuid(),
-                        Tuple.Create(
-                            data,
-                            JsonConvert.SerializeObject(
-                                basketRecords,
-                                Formatting.Indented,
-                                new JsonSerializerSettings
-                                {
-                                    ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
-                                    TypeNameHandling = TypeNameHandling.Auto
-                                })
-                            )
-                        )
-                    );
+                    new SavedTransactionModel
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Name = data,
+                        Data = JsonConvert.SerializeObject(
+                            basketRecords,
+                            Formatting.Indented,
+                            new JsonSerializerSettings
+                            {
+                                ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+                                TypeNameHandling = TypeNameHandling.Auto
+                            })
+                    });
+                Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
+                using(var db = new Helpers.Database.Database(databaseProvider))
+                {
+                    db.Add(StoredTransactions.Last());
+                    if(!db.Save())
+                    {
+                        await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "CriticalIssue".Translate(), "OK".Translate());
+                        StoredTransactions.RemoveAt(StoredTransactions.Count());
+                        return;
+                    }
+                }
                 Basket.Clear();
             }
             finally
@@ -738,16 +757,16 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
             IsBusy = true;
             try
             {
-                KeyValuePair<Guid, Tuple<string, string>> storedTransaction;
+                SavedTransactionModel storedTransaction;
                 if (StoredTransactions.Count > 1)
                 {
                     var baskets = new string[StoredTransactions.Count];
                     for (int i = 0; i < StoredTransactions.Count; i++)
-                        baskets[i] = StoredTransactions.ElementAt(i).Value.Item1;
+                        baskets[i] = StoredTransactions.ElementAt(i).Name;
                     var action = await App.Current.MainPage.DisplayActionSheet("Baskets".Translate(), "Cancel".Translate(), null, baskets);
                     if (action == "Cancel".Translate())
                         return;
-                    storedTransaction = StoredTransactions.First(kvp => kvp.Value.Item1.Equals(action));
+                    storedTransaction = StoredTransactions.First(sT=>sT.Name.Equals(action));
                 }
                 else
                 {
@@ -758,13 +777,24 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     if (!await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "BasketWillBeClearedMesg".Translate(), "OK".Translate(), "Cancel".Translate()))
                         return;
 
+                Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
+                using(var db = new Helpers.Database.Database(databaseProvider))
+                {
+                    db.Delete(new SavedTransactionModel { Id = storedTransaction.Id });
+                    if (!db.Save())
+                    {
+                        await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "CriticalIssue".Translate(), "OK".Translate());
+                        return;
+                    }
+                }
                 StoredTransactions.Remove(storedTransaction);
-                var storedTransactionData = storedTransaction.Value.Item2;
+                var storedTransactionData = storedTransaction.Data;
                 var basket = JsonConvert.DeserializeObject<IBasketRecord[]>(
                     storedTransactionData, new JsonSerializerSettings
                     {
                         TypeNameHandling = TypeNameHandling.Auto
                     });
+
                 Basket.Clear();
                 foreach (var item in basket)
                     Basket.Add(item);

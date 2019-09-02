@@ -21,15 +21,15 @@
     <PackageReference Include="SkiaSharp.Svg" Version="1.60.0" />
     <PackageReference Include="SkiaSharp.Views" Version="1.68.0" />
     <PackageReference Include="SkiaSharp.Views.Forms" Version="1.68.0" />
-    <PackageReference Include="Syncfusion.Xamarin.SfCalendar" Version="17.2.0.34" />
-    <PackageReference Include="Syncfusion.Xamarin.SfChart" Version="17.2.0.34" />
-    <PackageReference Include="Syncfusion.Xamarin.SfListView" Version="17.2.0.34" />
-    <PackageReference Include="Syncfusion.Xamarin.SfNumericUpDown" Version="17.2.0.34" />
-    <PackageReference Include="Syncfusion.Xamarin.SfPicker" Version="17.2.0.34" />
-    <PackageReference Include="Syncfusion.Xamarin.SfPopupLayout" Version="17.2.0.39" />
-    <PackageReference Include="Syncfusion.Xamarin.SfSunburstChart" Version="17.2.0.34" />
-    <PackageReference Include="Syncfusion.Xamarin.XlsIO" Version="17.2.0.34" />
-    <PackageReference Include="Syncfusion.Xamarin.XlsIORenderer" Version="16.4.0.52" />
+    <PackageReference Include="Syncfusion.Xamarin.SfCalendar" Version="17.2.0.47" />
+    <PackageReference Include="Syncfusion.Xamarin.SfChart" Version="17.2.0.47" />
+    <PackageReference Include="Syncfusion.Xamarin.SfListView" Version="17.2.0.47" />
+    <PackageReference Include="Syncfusion.Xamarin.SfNumericUpDown" Version="17.2.0.47" />
+    <PackageReference Include="Syncfusion.Xamarin.SfPicker" Version="17.2.0.47" />
+    <PackageReference Include="Syncfusion.Xamarin.SfPopupLayout" Version="17.2.0.47" />
+    <PackageReference Include="Syncfusion.Xamarin.SfSunburstChart" Version="17.2.0.47" />
+    <PackageReference Include="Syncfusion.Xamarin.XlsIO" Version="17.2.0.47" />
+    <PackageReference Include="Syncfusion.Xamarin.XlsIORenderer" Version="17.2.0.47" />
     <PackageReference Include="Xam.Plugin.Iconize" Version="3.5.0.129" />
     <PackageReference Include="Xam.Plugin.Iconize.FontAwesome" Version="3.5.0.129" />
     <PackageReference Include="Xam.Plugin.Iconize.Material" Version="3.5.0.129" />

@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 using Xamarin.Forms;
 
 namespace NatApp.Plutus.ViewModels.MainTill.Inventory.Items
@@ -42,11 +43,6 @@ namespace NatApp.Plutus.ViewModels.MainTill.Inventory.Items
         {
             Title = "View All Items";
             #region Init
-            Items.CollectionChanged += (sender, e) =>
-            {
-                OnPropertyChanged("Items");
-            };
-
             Device.BeginInvokeOnMainThread(() =>
             {
                 SfListViewDataSource.GroupDescriptors.Add(new GroupDescriptor()
@@ -72,14 +68,13 @@ namespace NatApp.Plutus.ViewModels.MainTill.Inventory.Items
             {
                 _limit = db.Get<ItemModel>().Count();
                 db.SetTrackingBehavior(QueryTrackingBehavior.NoTracking);
-                foreach (var item in db.Get<ItemModel>()
+                var data = db.Get<ItemModel>()
                     .Include(i => i.Stock)
                     .Include(i => i.Vat)
-                    .OrderBy(i => i.Name).Take(_limit))
-                {
-                    Items.Add(item);
-                }
+                    .OrderBy(i => i.Name).Take(_limit).ToList();
+                Items = new ObservableCollection<ItemModel>(data);
             }
+            OnPropertyChanged("Items");
             App.SetLoading(false);
         }
 

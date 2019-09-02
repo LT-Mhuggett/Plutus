@@ -37,7 +37,6 @@ namespace Database
         public DbSet<DiscountModel> Discounts { get; set; }
         public DbSet<Discount_Item> DiscountItems { get; set; }
         public DbSet<Discount_Category> DiscountCats { get; set; }
-        public DbSet<SavedItemModel> SavedItems { get; set; }
         public DbSet<SavedTransactionModel> SavedTransactions { get; set; }
         public DbSet<TransactionModel_DiscountModel> Transaction_Discounts { get; set; }
         #endregion
@@ -46,6 +45,8 @@ namespace Database
         {
             _connString = "Data Source=db.db";
             _provider = DatabaseProvider.Sqlite;
+            _empId = null;
+            _storeId = null;
         }
 
         public AppDBContext(string connString, DatabaseProvider provider, string empId, string storeId)
@@ -101,14 +102,6 @@ namespace Database
                 modelBuilder.Entity<StockModel>().HasQueryFilter(s => s.StoreId == _storeId);
 
             //Relationships
-            modelBuilder.Entity<SavedItemModel>()
-                .HasOne(si => si.SavedTrans)
-                .WithMany(st => st.SavedItems);
-
-            modelBuilder.Entity<SavedItemModel>()
-                .HasOne(si => si.Item)
-                .WithMany(i => i.SavedItems);
-
             modelBuilder.Entity<Discount_Item>()
                 .HasOne(di => di.Item)
                 .WithMany(i => i.DisItems);

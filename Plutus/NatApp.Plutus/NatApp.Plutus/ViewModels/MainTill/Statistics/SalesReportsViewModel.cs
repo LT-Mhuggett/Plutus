@@ -284,6 +284,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
 
         private async Task GenerateTable(StackLayout stack)
         {
+            /*
             var salesDataByDate = new List<ExpandoObject>();
 
             for (int days = 0;
@@ -328,7 +329,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
                 stream.Position = 0;
 
                 await DependencyService.Get<IFile>().SaveAndView("Test-TableExcel-Export.xlsx", "application/msexcel", stream, new Dictionary<string, List<string>> { { "Excel", new List<string>() { ".xlsx" } } });
-            }
+            }*/
         }
         #endregion
     }

@@ -24,7 +24,7 @@ namespace NatApp.Plutus.Views.MainTill.Inventory.Items
         protected override void OnAppearing()
         {
             base.OnAppearing();
-            ((ViewAllViewModel)BindingContext).InitItems();
+           ((ViewAllViewModel)BindingContext).InitItems();
         }
     }
 }

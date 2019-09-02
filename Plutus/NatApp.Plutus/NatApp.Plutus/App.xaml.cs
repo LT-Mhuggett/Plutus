@@ -10,6 +10,9 @@ using Xamarin.Forms.Xaml;
 using System;
 using NatApp.Plutus.Models;
 using Plugin.Iconize;
+using Database.Enums;
+using Database.Models;
+using System.Linq;
 
 [assembly: XamlCompilation(XamlCompilationOptions.Compile)]
 namespace NatApp.Plutus
@@ -50,8 +53,8 @@ namespace NatApp.Plutus
 
         protected override void OnStart()
         {
-            //AppCenter.LogLevel = LogLevel.Verbose;
-            //AppCenter.Start("ios=81d0ebb5-e7cf-40b2-bcdf-b8f5f13f65dc;android=b20338a6-19b9-4f57-a923-c4efec1fa0a1;uwp=85e2fee4-7bf1-4180-872a-040e636a3a60", typeof(Analytics), typeof(Crashes));
+            AppCenter.LogLevel = LogLevel.Verbose;
+            AppCenter.Start("ios=81d0ebb5-e7cf-40b2-bcdf-b8f5f13f65dc;android=b20338a6-19b9-4f57-a923-c4efec1fa0a1;uwp=85e2fee4-7bf1-4180-872a-040e636a3a60", typeof(Analytics), typeof(Crashes));
         }
 
         protected override void OnSleep()

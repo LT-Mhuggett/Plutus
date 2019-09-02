@@ -19,6 +19,8 @@
     <Compile Remove="Migrations\20190805131027_NotifyPropertyChanged.Designer.cs" />
     <Compile Remove="Migrations\20190805131136_NotifyPropertyChanged.cs" />
     <Compile Remove="Migrations\20190805131136_NotifyPropertyChanged.Designer.cs" />
+    <Compile Remove="Migrations\20190829150337_SavedTransactionsRedesign.cs" />
+    <Compile Remove="Migrations\20190829150337_SavedTransactionsRedesign.Designer.cs" />
   </ItemGroup>
 
   <ItemGroup>

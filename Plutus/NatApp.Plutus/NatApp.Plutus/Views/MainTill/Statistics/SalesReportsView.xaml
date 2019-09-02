@@ -51,7 +51,7 @@
                         <Label Text="{Binding Source={i18n:Translate Total}, StringFormat='{0}:'}" FontSize="Medium" FontAttributes="Bold"/>
                         <Label Text="{Binding SalesTotal}" FontSize="Medium"/>
                     </StackLayout>
-                    <iconize:IconButton Text="md-table-chart" Command="{Binding DisplayTableCommand}" CommandParameter="{x:Reference _gridStack}"/>
+                    <!--<iconize:IconButton Text="md-table-chart" Command="{Binding DisplayTableCommand}" CommandParameter="{x:Reference _gridStack}"/>-->
                 </StackLayout>
             </StackLayout>
             <StackLayout x:Name="_gridStack" HorizontalOptions="FillAndExpand" IsVisible="{Binding TableView}"/>
