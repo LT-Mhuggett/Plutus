@@ -36,7 +36,7 @@ namespace NatApp.Plutus.ViewModels
 
         public string DefaultBagId
         {
-            get => AppSettings.GetValueOrDefault(nameof(DefaultBagId), null);
+            get => AppSettings.GetValueOrDefault(nameof(DefaultBagId), string.Empty);
             set => AppSettings.AddOrUpdateValue(nameof(DefaultBagId), value);
         }
     }
