@@ -4,6 +4,8 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.0</TargetFramework>
     <RootNamespace>Plutus_Database_updater</RootNamespace>
+    <StartupObject>Plutus_Database_updater.Program</StartupObject>
+    <ApplicationIcon />
   </PropertyGroup>
 
   <ItemGroup>
