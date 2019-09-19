@@ -148,7 +148,8 @@ namespace Plutus_Database_updater
                                 var numberOfDiscounts = value / decimal.Parse(discount.Amount);
                                 if (itemsData.Any(i => i.ItemId.Equals(transDatum.ItemId) && i.VatId.Equals(3.ToString())) && numberOfDiscounts != 0)
                                 {
-                                    transaction_Discounts.Add(new { transDatum.TransId, discount.DiscountId });
+                                    if (!transaction_Discounts.Contains(new { transDatum.TransId, discount.DiscountId }))
+                                        transaction_Discounts.Add(new { transDatum.TransId, discount.DiscountId });
                                     numberOfDiscounts--;
                                 }
                             }
@@ -158,7 +159,8 @@ namespace Plutus_Database_updater
                                 if (noteSplit.Length == 2)
                                     if (itemsData.Any(i => i.Name.Equals(noteSplit[1])))
                                     {
-                                        transaction_Discounts.Add(new { transDatum.TransId, discount.DiscountId });
+                                        if (!transaction_Discounts.Contains(new { transDatum.TransId, discount.DiscountId }))
+                                            transaction_Discounts.Add(new { transDatum.TransId, discount.DiscountId });
                                         continue;
                                     }
                                 if (string.IsNullOrEmpty(transDatum.CheckoutItemChangeId))
@@ -206,10 +208,31 @@ namespace Plutus_Database_updater
                 salesExTotalTemp += saleExTotal;
                 salesTotalTemp += decimal.Parse(saleDatum.Total);
             }
-            var jsonData = JsonConvert.SerializeObject(salesExTotal);
-            /*var debugFolder = 
-            var debugFile = await debugFolder.CreateFileAsync("dumpForItemsAfterConversion.txt", CreationCollisionOption.GenerateUniqueName);
-            await FileIO.WriteTextAsync(debugFile, Newtonsoft.Json.JsonConvert.SerializeObject(itemQueue));*/
+
+            var filePath = Path.GetTempFileName();
+            var filePath2 = Path.GetTempFileName();
+            var filePath3 = Path.GetTempFileName();
+            {
+                var file = File.Create(filePath);
+                var jsonData = JsonConvert.SerializeObject(salesExTotal);
+                using (var fileWriter = new StreamWriter(file))
+                    fileWriter.Write(jsonData);
+            }
+            {
+                var file = File.Create(filePath2);
+                using (var fileWriter = new StreamWriter(file))
+                {
+                    fileWriter.WriteLine($"Sale Total: {salesTotalTemp}");
+                    fileWriter.WriteLine($"Sale Ex Total: {salesExTotalTemp}");
+                }
+            }
+            {
+                var file = File.Create(filePath3);
+                var jsonData = JsonConvert.SerializeObject(transaction_Discounts);
+                using (var fileWriter = new StreamWriter(file))
+                    fileWriter.Write(jsonData);
+            }
+            Console.WriteLine($"data files located: \n{filePath}\n{filePath2}\n{filePath3}");
             return;
         }
 
