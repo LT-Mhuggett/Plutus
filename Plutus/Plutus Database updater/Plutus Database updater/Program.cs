@@ -214,9 +214,13 @@ namespace Plutus_Database_updater
             var filePath3 = Path.GetTempFileName();
             {
                 var file = File.Create(filePath);
-                var jsonData = JsonConvert.SerializeObject(salesExTotal);
                 using (var fileWriter = new StreamWriter(file))
-                    fileWriter.Write(jsonData);
+                {
+                    foreach(var datum in salesExTotal)
+                    {
+                        fileWriter.WriteLine($"UPDATE Sales SET TotalExTax = \"{datum.Item2}\" WHERE Id = \"{datum.Item1}\";");
+                    }
+                }
             }
             {
                 var file = File.Create(filePath2);
@@ -228,11 +232,17 @@ namespace Plutus_Database_updater
             }
             {
                 var file = File.Create(filePath3);
-                var jsonData = JsonConvert.SerializeObject(transaction_Discounts);
                 using (var fileWriter = new StreamWriter(file))
-                    fileWriter.Write(jsonData);
+                {
+                    fileWriter.WriteLine("INSERT INTO Transaction_Discounts (TransactionId, DiscountId) VALUES");
+                    foreach(var datum in transaction_Discounts)
+                    {
+                        fileWriter.WriteLine($"(\"{datum.TransId}\",\"{datum.DiscountId}\"),");
+                    }
+                }
             }
             Console.WriteLine($"data files located: \n{filePath}\n{filePath2}\n{filePath3}");
+            Console.ReadKey();
             return;
         }
 
