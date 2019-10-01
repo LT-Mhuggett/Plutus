@@ -940,8 +940,12 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     var tran = new TransactionModel() { ItemId = item.Item.Id, Sale = sale, Amount = item.Quantity, ItemCostExPrice = item.Item.ExPrice, ItemCostPrice = item.Item.Price, Transaction_Discounts = new ObservableCollection<TransactionModel_DiscountModel>() };
                     if (Basket.Where(bR => bR is BasketAlteration).Cast<BasketAlteration>().Any())
                     {
-                        var tranDisc = new TransactionModel_DiscountModel { DiscountId = Basket.Where(bR => bR is BasketAlteration).Cast<BasketAlteration>().Where(bA => bA.ItemsAssocitated.Any(iA => iA.Item.Id.Equals(item.Item.Id))).First().Discount.Id };
-                        tran.Transaction_Discounts.Add(tranDisc);
+                        var tempIA = Basket.Where(bR => bR is BasketAlteration).Cast<BasketAlteration>().Where(bA => bA.ItemsAssocitated.Any(iA => iA.Item.Id.Equals(item.Item.Id))).FirstOrDefault();
+                        if (tempIA != default)
+                        {
+                            var tranDisc = new TransactionModel_DiscountModel { DiscountId = tempIA.Discount.Id };
+                            tran.Transaction_Discounts.Add(tranDisc);
+                        }
                     }
                     sale.Transactions.Add(tran);
                     if (item.PriceExTax != item.Item.ExPrice || item.Price != item.Item.Price)
@@ -1054,11 +1058,13 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
 
                 Task[] tasks = new Task[2];
 
+#if DEBUG == FALSE
                 if (Device.Idiom == TargetIdiom.Desktop)
                 {
                     var printerMgr = new PosPrinterManager();
                     tasks[0] = printerMgr.ExecuteOposOrPdfAsync(sale, Basket, App.GetViewModel().Store, null, change);
                 }
+#endif
 
                 if (change != default)
                 {
@@ -1112,15 +1118,15 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 return null;
             }
         }
-        #endregion
+#endregion
 
-        #region INotifyPropertyChanged
+#region INotifyPropertyChanged
         private void BasketRecordOnPropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             OnPropertyChanged("Basket");
             OnPropertyChanged("SaleExTax");
             OnPropertyChanged("SaleIncTax");
         }
-        #endregion
+#endregion
     }
 }

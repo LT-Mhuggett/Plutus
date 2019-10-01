@@ -202,6 +202,9 @@ namespace NatApp.Plutus.ViewModels.MainTill.Inventory.Items
                         CreateUpdateStock();
                         using (var db = new Helpers.Database.Database(databaseProvider, empId))
                         {
+                            //Ensures that old relationship data doesn't overide new changed relationship data
+                            Item.Vat = null;
+                            Item.Cat = null;
                             Item.VatId = Tax.Id;
                             Item.CatId = Category.Id;
 
