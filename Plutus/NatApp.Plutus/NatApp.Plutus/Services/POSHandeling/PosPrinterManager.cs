@@ -86,7 +86,7 @@ namespace NatApp.Plutus.Services.POSHandeling
             text = await PrintTransactionAndRefundsAsync(text, basketRecords);
             if (basketRecords.Where(bR=>bR is BasketNote).Count() > 0)
                 PrintNotes(ref text, basketRecords);
-            PrintFooterOfReceipt(ref text, sale);
+            PrintFooterOfReceipt(ref text, sale, store);
             text.Add(new KeyValuePair<string, object>("cut...", ""));
             var textToSend = JsonConvert.SerializeObject(text);
             keyValues.Add(new KeyValuePair<string, object>($"{App.GetViewModel().SessionId.ToString()}.POS.printMultiLines", textToSend));
@@ -133,6 +133,9 @@ namespace NatApp.Plutus.Services.POSHandeling
         {
             text.Add(new KeyValuePair<string, object>("str.cntr.true.", "ThankYouShopping".Translate()));
             text.Add(new KeyValuePair<string, object>("str.cntr.true.", store.StoreName));
+            if (!string.IsNullOrEmpty(store.ContactNumber))
+                text.Add(new KeyValuePair<string, object>("str.cntr.true", store.ContactNumber));
+
             if (string.IsNullOrEmpty(store.FullAddress))
             {
                 text.Add(new KeyValuePair<string, object>("str.cntr.true.", store.AdLine1));
@@ -142,6 +145,7 @@ namespace NatApp.Plutus.Services.POSHandeling
             }
             else
                 text.Add(new KeyValuePair<string, object>("str.cntr.true.", store.FullAddress));
+
             text.Add(new KeyValuePair<string, object>("str.cntr.true.", $"{sale.DateOfSale:D}"));
             text.Add(new KeyValuePair<string, object>("str.cntr.true.", $"{sale.DateOfSale:T}"));
             return text;
@@ -239,10 +243,12 @@ namespace NatApp.Plutus.Services.POSHandeling
         /// <param name="text"></param>
         /// <param name="sale"></param>
         /// <returns></returns>
-        private List<KeyValuePair<string, object>> PrintFooterOfReceipt(ref List<KeyValuePair<string, object>> text, SaleModel sale)
+        private List<KeyValuePair<string, object>> PrintFooterOfReceipt(ref List<KeyValuePair<string, object>> text, SaleModel sale, StoreModel store)
         {
             text.Add(new KeyValuePair<string, object>("str...", "\t50"));
             text.Add(new KeyValuePair<string, object>("str...", $"{"Total".Translate()}\t25"));
+            text.Add(new KeyValuePair<string, object>("str.rght..", $"{sale.TotalExTax}"));
+            text.Add(new KeyValuePair<string, object>("str.rght..", $"{sale.Total - sale.TotalExTax}"));
             text.Add(new KeyValuePair<string, object>("str.rght..", $"{sale.Total}"));
             text.Add(new KeyValuePair<string, object>("score...", ""));
 
@@ -262,6 +268,10 @@ namespace NatApp.Plutus.Services.POSHandeling
                 text.Add(new KeyValuePair<string, object>("str...", $"{"Change".Translate()}\t25"));
                 text.Add(new KeyValuePair<string, object>("str...", $"{change}\tR25"));
             }
+
+            if (!string.IsNullOrEmpty(store.VatIN))
+                text.Add(new KeyValuePair<string, object>("str.cntr.true.", store.VatIN));
+
             text.Add(new KeyValuePair<string, object>("str...", "\n"));
             text.Add(new KeyValuePair<string, object>("brc.cntr.100.belw", sale.Id));
             return text;

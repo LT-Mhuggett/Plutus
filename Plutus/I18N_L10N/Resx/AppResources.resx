@@ -657,4 +657,7 @@ The application will need to be restarted after this process.</value>
   <data name="IncTax" xml:space="preserve">
     <value>Inc. Tax</value>
   </data>
+  <data name="VatIN" xml:space="preserve">
+    <value>VAT</value>
+  </data>
 </root>

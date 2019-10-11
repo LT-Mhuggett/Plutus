@@ -63,6 +63,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.StoreOptions
                 Tuple.Create("Store".Translate(), ""),
                 Tuple.Create("Name".Translate(), "StoreNameChangeCommand"),
                 //Tuple.Create("Address".Translate(), "StoreAddressChangeCommand"),
+                Tuple.Create("VatIN".Translate(), "VatINChangeCommand"),
                 Tuple.Create("Bag".Translate(), "StoreDefaultBagChangeCommand"),
                 /*Tuple.Create("Region".Translate(), ""),
                 Tuple.Create("Currency", "CurrencySettingsChangeCommand"),
@@ -137,6 +138,13 @@ namespace NatApp.Plutus.ViewModels.MainTill.StoreOptions
         public Command StoreAddressChangeCommand
         {
             get => _storeAddressChangeCommand ?? (_storeAddressChangeCommand = new Command(ExecuteStoreAddressChange));
+        }
+
+        Command _vatINChangeCommand;
+
+        public Command VatINChangeCommand
+        {
+            get => _vatINChangeCommand ?? (_vatINChangeCommand = new Command(ExecuteVatINChangeAsync));
         }
 
         Command _storeDefaultBagChangeCommand;
@@ -233,6 +241,51 @@ namespace NatApp.Plutus.ViewModels.MainTill.StoreOptions
         private void ExecuteStoreAddressChange()
         {
 
+        }
+
+        private async void ExecuteVatINChangeAsync()
+        {
+            var empId = App.GetViewModel().EmployeeId;
+            bool escape = false;
+            do
+            {
+                Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
+                if (empId.IsAuthorised("Admin", Database.Enums.Permissions.Write, databaseProvider))
+                {
+                    var validators = new IValidator[]
+                    {
+                        new RequiredValidator()
+                    };
+
+                    var viewElements = new Tuple<string, string, IEnumerable<IValidator>, bool, bool>[]
+                    {
+                        Tuple.Create("VatIN".Translate(), Store.VatIN, validators.AsEnumerable(), false, true)
+                    };
+
+                    var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(viewElements, "Confirm".Translate(), false, cancelText: "Cancel".Translate());
+
+                    if (data.Any(d => d as string == null || string.IsNullOrEmpty(d as string)))
+                        return;
+                    using(var db = new Helpers.Database.Database(databaseProvider))
+                    {
+                        var tempStore = db.Get<StoreModel>().Where(s => s.Id == Store.Id).First();
+                        tempStore.VatIN = data[0] as string;
+                        db.Update(tempStore);
+                        if(!db.Save())
+                        {
+                            Debug.Write("Save Failed!");
+                            return;
+                        }
+                        App.GetViewModel().Store = db.Get<StoreModel>().FirstOrDefault(s => s.Id.Equals(App.GetViewModel().Store.Id));
+                        return;
+                    }
+                }
+                var empAuthoriser = await Authorisation.RequestAuthorisedUserInput(databaseProvider);
+                if (empAuthoriser == default)
+                {
+                    escape = true;
+                }
+            } while (!escape);
         }
 
         private async void ExecuteStoreDefaultBagChange()

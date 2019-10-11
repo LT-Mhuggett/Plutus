@@ -14,6 +14,8 @@ namespace Database.Models
         #region Fields
         private string _storeName;
         private string _storeAbbr;
+        private string _vatIN;
+        private string _contactNumber;
         private decimal? _recMarkup;
         private byte[] _logo;
         #endregion
@@ -28,6 +30,16 @@ namespace Database.Models
         {
             get => _storeAbbr;
             set => SetProperty(ref _storeAbbr, value);
+        }
+        public string VatIN
+        {
+            get => _vatIN;
+            set => SetProperty(ref _vatIN, value);
+        }
+        public string ContactNumber
+        {
+            get => _contactNumber;
+            set => SetProperty(ref _contactNumber, value);
         }
         public decimal? RecMarkup
         {
