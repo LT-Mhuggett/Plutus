@@ -1,12 +1,15 @@
 ﻿using NatApp.Plutus.Services.IOHandeling;
 using NatApp.Plutus.UWP.Implementations.Services;
+using NatApp.Plutus.Helpers.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using Windows.Storage;
 using Windows.Storage.Pickers;
+using Windows.Storage.Provider;
 using Windows.Storage.Streams;
 using Xamarin.Forms;
 
@@ -15,7 +18,7 @@ namespace NatApp.Plutus.UWP.Implementations.Services
 {
     class FileUWP : IFile
     {
-        public async Task<bool> Copy(string srcPath, List<KeyValuePair<string, List<string>>> fileTypeChoices, string suggestedName)
+        public async Task<bool> Copy(string srcPath, IDictionary<string, IList<string>> fileTypeChoices, string suggestedName)
         {
             var savePicker = new FileSavePicker();
             savePicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
@@ -62,15 +65,25 @@ namespace NatApp.Plutus.UWP.Implementations.Services
             throw new ArgumentException("File is not of type StorageFile");
         }
 
-        public async Task<object> GetFile(List<string> listFileTypes)
+        public async Task<object> GetFile(IList<string> listFileTypes)
         {
             var filePicker = GetFileOpenPicker(listFileTypes);
 
             var file = await filePicker.PickSingleFileAsync();
             return file;
         }
+        public async Task<byte[]> GetFileAsByteArray(IList<string> listFileTypes)
+        {
+            var filePicker = GetFileOpenPicker(listFileTypes);
 
-        public async Task<string> GetFilePath(List<string> listFileTypes)
+            var file = await filePicker.PickSingleFileAsync();
+            if (file == null)
+                return default;
+            IBuffer buffer = await FileIO.ReadBufferAsync(file);
+            return buffer.ToArray();
+        }
+
+        public async Task<string> GetFilePath(IList<string> listFileTypes)
         {
             var filePicker = GetFileOpenPicker(listFileTypes);
 
@@ -108,7 +121,7 @@ namespace NatApp.Plutus.UWP.Implementations.Services
             return false;
         }
 
-        public async Task<bool> SaveAndView(string fileName, string contentType, MemoryStream stream, IDictionary<string, List<string>> listFileTypes)
+        public async Task<bool> SaveAndView(string fileName, string contentType, MemoryStream stream, IDictionary<string, IList<string>> listFileTypes)
         {
             StorageFile outFile = await GetFileSavePicker(listFileTypes, fileName).PickSaveFileAsync();
             if (outFile != null)
@@ -124,8 +137,8 @@ namespace NatApp.Plutus.UWP.Implementations.Services
                         await outputStream.FlushAsync();
                     }
                 }
-                Windows.Storage.Provider.FileUpdateStatus status = await CachedFileManager.CompleteUpdatesAsync(outFile);
-                if (status == Windows.Storage.Provider.FileUpdateStatus.Complete)
+                FileUpdateStatus status = await CachedFileManager.CompleteUpdatesAsync(outFile);
+                if (status == FileUpdateStatus.Complete)
                 {
                     await Windows.System.Launcher.LaunchFileAsync(outFile);
                     return true;
@@ -136,7 +149,51 @@ namespace NatApp.Plutus.UWP.Implementations.Services
             return false;
         }
 
-        private FileOpenPicker GetFileOpenPicker(List<string> listFileTypes)
+        public async Task<IList<(string fileName, bool status)>> SaveFiles(IList<(string fileName, string contentType, MemoryStream stream, string extension)> fileData)
+        {
+            var folderPicker = new FolderPicker();
+            fileData.ForEach(fD =>
+            {
+                if (!folderPicker.FileTypeFilter.Contains(fD.extension))
+                    folderPicker.FileTypeFilter.Add(fD.extension);
+            });
+
+            var folderToSaveIn = await folderPicker.PickSingleFolderAsync();
+
+            var results = new List<(string fileName, bool status)>();
+
+            foreach (var fileDatum in fileData)
+            {
+                var outFile = await folderToSaveIn.CreateFileAsync(fileDatum.fileName);
+                if (outFile != null)
+                {
+                    CachedFileManager.DeferUpdates(outFile);
+                    var outFileStream = await outFile.OpenAsync(FileAccessMode.ReadWrite);
+                    using (var outputStream = outFileStream.GetOutputStreamAt(0))
+                    {
+                        using (var dataWriter = new DataWriter(outputStream))
+                        {
+                            dataWriter.WriteBytes(fileDatum.stream.ToArray());
+                            await dataWriter.StoreAsync();
+                            await outputStream.FlushAsync();
+                        }
+                    }
+                    FileUpdateStatus status = await CachedFileManager.CompleteUpdatesAsync(outFile);
+                    if (status == FileUpdateStatus.Complete)
+                        results.Add((fileDatum.fileName, true));
+                    else
+                        results.Add((fileDatum.fileName, false));
+                    outFile = null;
+                }
+                else
+                    results.Add((fileDatum.fileName, false));
+            }
+            await Windows.System.Launcher.LaunchFolderAsync(folderToSaveIn);
+            folderToSaveIn = null;
+            return results;
+        }
+
+        private FileOpenPicker GetFileOpenPicker(IList<string> listFileTypes)
         {
             var filePicker = new FileOpenPicker();
             filePicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
@@ -145,7 +202,7 @@ namespace NatApp.Plutus.UWP.Implementations.Services
             return filePicker;
         }
 
-        private FileSavePicker GetFileSavePicker(IDictionary<string, List<string>> listFileTypes, string suggestedFileName)
+        private FileSavePicker GetFileSavePicker(IDictionary<string, IList<string>> listFileTypes, string suggestedFileName)
         {
             var filePicker = new FileSavePicker();
             filePicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;

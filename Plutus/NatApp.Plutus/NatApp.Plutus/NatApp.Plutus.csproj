@@ -12,14 +12,15 @@
 
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="8.1.1" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="2.10.1" />
     <PackageReference Include="Microsoft.AppCenter.Analytics" Version="2.0.0" />
     <PackageReference Include="Microsoft.AppCenter.Crashes" Version="2.0.0" />
     <PackageReference Include="Microsoft.AppCenter.Distribute" Version="2.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="2.2.4" />
     <PackageReference Include="Rg.Plugins.Popup" Version="1.1.5.188" />
+    <PackageReference Include="SkiaSharp" Version="1.68.0" />
     <PackageReference Include="SkiaSharp.Extended" Version="1.60.0" />
     <PackageReference Include="SkiaSharp.Svg" Version="1.60.0" />
-    <PackageReference Include="SkiaSharp.Views" Version="1.68.0" />
     <PackageReference Include="SkiaSharp.Views.Forms" Version="1.68.0" />
     <PackageReference Include="Syncfusion.Xamarin.SfCalendar" Version="17.2.0.47" />
     <PackageReference Include="Syncfusion.Xamarin.SfChart" Version="17.2.0.47" />
@@ -40,6 +41,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\CommonPOSLibrary\CommonPOSLibrary.csproj" />
     <ProjectReference Include="..\..\CustomViews\CustomViews.csproj" />
     <ProjectReference Include="..\..\Database\Database.csproj" />
     <ProjectReference Include="..\..\I18N_L10N\I18N_L10N.csproj" />
@@ -119,7 +121,6 @@
 
   <ItemGroup>
     <Folder Include="Effects\" />
-    <Folder Include="Helpers\Enums\" />
     <Folder Include="Resources\" />
   </ItemGroup>
 </Project>

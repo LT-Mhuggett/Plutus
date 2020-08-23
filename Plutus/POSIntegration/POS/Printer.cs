@@ -1,8 +1,9 @@
-﻿using System;
+﻿using Microsoft.PointOfService;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Text;
-using Microsoft.PointOfService;
 
 namespace POSIntegration.POS
 {
@@ -37,7 +38,7 @@ namespace POSIntegration.POS
         {
             _explorer = posExplorer;
             LogicalName = logicalName;
-            { 
+            {
                 var device = _explorer.GetDevice(DeviceType.PosPrinter, LogicalName);
                 if (device == null)
                     throw new NullReferenceException($"Can't find the device by logicalName: {LogicalName}");
@@ -83,7 +84,7 @@ namespace POSIntegration.POS
         /// String:
         /// Key:<c>"str.algn?.bold?.udrl?"</c>
         /// Barcode:
-        /// Key:<c>"brc.algn?.wdth.hght.txtp?"</c>
+        /// Key:<c>"brc.bcsymbol.algn?.hght.txtp?"</c>
         /// Image:
         /// Key:<c>"img.algn?.wdth?"</c>
         /// Cut:
@@ -104,42 +105,56 @@ namespace POSIntegration.POS
         /// <param name="keyValuePairs"></param>
         public void PrintMultiLine(List<KeyValuePair<string, object>> keyValuePairs)
         {
-            foreach(var kvp in keyValuePairs)
+            foreach (var kvp in keyValuePairs)
             {
                 var keyArray = kvp.Key.Split(new[] { '.' }, StringSplitOptions.None);
                 switch (keyArray[0])
                 {
                     case "str":
-                    {
-                        var val = kvp.Value as string;
-                        PrintLineNoCut($"{GetStrOffset(keyArray[1])}{GetStrBold(keyArray[2])}{GetStrUnderline(keyArray[3])}", val);
-                        break;
-                    }
+                        {
+                            var val = kvp.Value as string;
+                            PrintLineNoCut($"{GetStrOffset(keyArray[1])}{GetStrBold(keyArray[2])}{GetStrUnderline(keyArray[3])}", val);
+                            break;
+                        }
                     case "brc":
-                    {
-                        var val = kvp.Value as string;
-                        PrintBarcode(val, GetBarcodeOffset(keyArray[1]),int.Parse(keyArray[2]), GetBarCodeTextPosition(keyArray[3]));
-                        break;
-                    }
+                        {
+                            try
+                            {
+                                var val = kvp.Value as string;
+                                PrintBarcode(val, (BarCodeSymbology)Enum.Parse(typeof(BarCodeSymbology), keyArray[1]), GetBarcodeOffset(keyArray[2]), int.Parse(keyArray[3]), GetBarCodeTextPosition(keyArray[4]));
+                            }
+                            catch (PosControlException pCEx)
+                            {
+                                PrintLineNoCut("", kvp.Value as string);
+                            }
+                            break;
+                        }
                     case "img":
-                    {
-                        var val = kvp.Value as Bitmap;
-                        if(keyArray[2].Length==0)
-                            PrintImage(val, GetImageOffset(keyArray[1]));
-                        else
-                            PrintImage(val, GetImageOffset(keyArray[1]), int.Parse(keyArray[2]));
-                        break;
-                    }
+                        {
+                            try
+                            {
+                                var imageData = Encoding.UTF8.GetBytes(kvp.Value as string);
+                                /*if (keyArray[2].Length == 0)
+                                    PrintImage(image, GetImageOffset(keyArray[1]));
+                                else
+                                    PrintImage(image, GetImageOffset(keyArray[1]), int.Parse(keyArray[2]));*/
+                            }
+                            catch (PosControlException pCEx)
+                            {
+                                PrintLineNoCut("", "Image Printing Error");
+                            }
+                            break;
+                        }
                     case "score":
-                    {
-                        PrintLineNoCut(new string('-', Printer.RecLineChars)+"\n");
-                        break;
-                    }
+                        {
+                            PrintLineNoCut(new string('-', Printer.RecLineChars) + "\n");
+                            break;
+                        }
                     case "cut":
-                    {
-                        PrintLineCut("\n\n\n");
-                        break;
-                    }
+                        {
+                            PrintLineCut("\n\n\n");
+                            break;
+                        }
                 }
             }
         }
@@ -175,11 +190,11 @@ namespace POSIntegration.POS
         /// <param name="formatting">The Line to be printed</param>
         private void PrintLineNoCut(string formatting, string lineContent = "")
         {
-            if(Printer.RecLineChars != 0)
+            if (Printer.RecLineChars != 0)
             {
                 string toPrint = "";
-                var split = lineContent.Split(new []{ "\t" }, StringSplitOptions.None);
-                if(split.Length > 1)
+                var split = lineContent.Split(new[] { "\t" }, StringSplitOptions.None);
+                if (split.Length > 1)
                 {
                     var rightJust = false;
                     if (split[1][0] == 'R')
@@ -188,12 +203,12 @@ namespace POSIntegration.POS
                         split[1] = split[1].Replace("R", "");
                     }
                     int charsToAdd = (int)Math.Round(((Convert.ToDecimal(split[1]) / 100) * Printer.RecLineChars) - split[0].Length, MidpointRounding.AwayFromZero);
-                    if(charsToAdd<0)
+                    if (charsToAdd < 0)
                     {
                         toPrint = TruncateAt(split[0], (int)Math.Round(((Convert.ToDecimal(split[1]) / 100) * Printer.RecLineChars), MidpointRounding.AwayFromZero) - 1);
                         if (rightJust)
                             toPrint = new string(' ', charsToAdd) + toPrint;
-                        else 
+                        else
                             toPrint += new string(' ', 1);
                     }
                     else
@@ -210,13 +225,13 @@ namespace POSIntegration.POS
                 toPrint = formatting + lineContent;
                 if (toPrint.Length < Printer.RecLineChars)
                     Printer.PrintNormal(PrinterStation.Receipt, toPrint + Environment.NewLine);
-                else if(toPrint.Length> Printer.RecLineChars)
+                else if (toPrint.Length > Printer.RecLineChars)
                     Printer.PrintNormal(PrinterStation.Receipt, TruncateAt(toPrint, Printer.RecLineChars));
                 else
                     Printer.PrintNormal(PrinterStation.Receipt, toPrint);
             }
             else
-                Printer.PrintNormal(PrinterStation.Receipt, formatting+lineContent);
+                Printer.PrintNormal(PrinterStation.Receipt, formatting + lineContent);
         }
 
         /// <summary>
@@ -225,7 +240,7 @@ namespace POSIntegration.POS
         /// <param name="text">Text to be printed</param>
         private void PrintTextNoCut(string text)
         {
-            if(text.Length<= Printer.RecLineChars)
+            if (text.Length <= Printer.RecLineChars)
                 Printer.PrintNormal(PrinterStation.Receipt, text);
             else
                 Printer.PrintNormal(PrinterStation.Receipt, TruncateAt(text, Printer.RecLineChars));
@@ -239,8 +254,9 @@ namespace POSIntegration.POS
         /// <param name="width"></param>
         /// <param name="height"></param>
         /// <param name="barCodeTextPosition"></param>
-        private void PrintBarcode(string text, int alignment, int height, BarCodeTextPosition barCodeTextPosition) {
-            Printer.PrintBarCode(PrinterStation.Receipt, text, BarCodeSymbology.Code128, height, (int)(Printer.RecLineWidth / 1.2), alignment, barCodeTextPosition);
+        private void PrintBarcode(string text, BarCodeSymbology barCodeSymbology, int alignment, int height, BarCodeTextPosition barCodeTextPosition)
+        {
+            Printer.PrintBarCode(PrinterStation.Receipt, text, barCodeSymbology, height, (int)(Printer.RecLineWidth / 1.2), alignment, barCodeTextPosition);
         }
 
         private void PrintImage(Bitmap bmp, int alignment, int width = PosPrinter.PrinterBitmapAsIs)
@@ -254,7 +270,7 @@ namespace POSIntegration.POS
             switch (option)
             {
                 case "true":
-                    if(Printer.CapRecBold)
+                    if (Printer.CapRecBold)
                         return BoldOn;
                     else
                         return "";
@@ -352,7 +368,7 @@ namespace POSIntegration.POS
         /// <param name="text"></param>
         /// <param name="maxLength"></param>
         /// <returns></returns>
-        private static int RightAlignOffset(string text, int maxLength) => maxLength-text.Length;
+        private static int RightAlignOffset(string text, int maxLength) => maxLength - text.Length;
 
         /// <summary>
         /// Truncate <c>line</c> to remove overflow
@@ -363,7 +379,7 @@ namespace POSIntegration.POS
         private string TruncateAt(string text, int maxLength)
         {
             var retVal = text;
-            if(text.Length>maxLength)
+            if (text.Length > maxLength)
                 retVal = text.Substring(0, maxLength);
             return retVal;
         }

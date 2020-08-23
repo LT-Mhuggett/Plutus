@@ -2,14 +2,12 @@
 using NatApp.Plutus.Helpers.Security;
 using NatApp.Plutus.Services.IOHandeling;
 using NatApp.Plutus.Services.POSHandeling;
-using Plugin.FilePicker;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
 using Xamarin.Essentials;
 using Xamarin.Forms;
 
@@ -24,7 +22,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Settings
         #region Properties
         public string Version
         {
-            get=> _version;
+            get => _version;
             set => SetProperty(ref _version, value);
         }
         #endregion
@@ -42,14 +40,15 @@ namespace NatApp.Plutus.ViewModels.MainTill.Settings
                 Tuple.Create("RestoreDb".Translate(), "RestoreDbCommand"),
                 Tuple.Create("DeleteDb".Translate(), "DeleteDbCommand"),
                 Tuple.Create("Other", ""),
-                Tuple.Create("ChangePrinter".Translate(), "ChangePrinter"),
+                Tuple.Create("ChangePrinter".Translate(), "ChangePrinterCommand"),
+                Tuple.Create("ChangeBarcodeType".Translate(), "ChangeBarcodeTypeCommand"),
                 Tuple.Create("","")
             };
             StackLayout stack = null;
             int? n = null;
-            for(int i = 0; i < buttonsAndSubHeadings.Count; i++)
+            for (int i = 0; i < buttonsAndSubHeadings.Count; i++)
             {
-                if(buttonsAndSubHeadings[i].Item2 == "")
+                if (buttonsAndSubHeadings[i].Item2 == "")
                 {
                     if (n == null)
                         n = 0;
@@ -100,11 +99,19 @@ namespace NatApp.Plutus.ViewModels.MainTill.Settings
         }
         #endregion
 
-        Command _changePrinter;
-        public Command ChangePrinter
+        #region Printer
+        Command _changePrinterCommand;
+        public Command ChangePrinterCommand
         {
-            get => _changePrinter ?? (_changePrinter = new Command(ExecuteChangePrinter));
+            get => _changePrinterCommand ?? (_changePrinterCommand = new Command(ExecuteChangePrinter));
         }
+
+        Command _changeBarcodeTypeCommand;
+        public Command ChangeBarcodeTypeCommand
+        {
+            get => _changeBarcodeTypeCommand ?? (_changeBarcodeTypeCommand = new Command(ExecuteChangeBarcodeType));
+        }
+        #endregion
         #endregion
 
         #region Execute Commands
@@ -123,11 +130,11 @@ namespace NatApp.Plutus.ViewModels.MainTill.Settings
                     Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
                     if (empId.IsAuthorised("Admin", Database.Enums.Permissions.Execute, databaseProvider))
                     {
-                        await DependencyService.Get<IFile>().Copy(
+                        _ = await DependencyService.Get<IFile>().Copy(
                             Path.Combine(FileSystem.AppDataDirectory, "Database.db"),
-                            new List<KeyValuePair<string, List<string>>>
+                            new Dictionary<string, IList<string>>
                             {
-                                new KeyValuePair<string, List<string>>("SQL Database", new List<string> {".db"})
+                                { "SQL Database", new List<string> {".db"} }
                             },
                             string.Format("{0} - Database - {1}", App.GetViewModel().Store.StoreName,
                                 DateTime.Now.ToString(CultureInfo.CurrentCulture))
@@ -139,7 +146,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Settings
                         escape = true;
                 } while (!escape);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Debug.WriteLine(ex);
             }
@@ -221,6 +228,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Settings
         }
         #endregion
 
+        #region Printer
         private async void ExecuteChangePrinter()
         {
             if (IsBusy)
@@ -268,6 +276,72 @@ namespace NatApp.Plutus.ViewModels.MainTill.Settings
                 IsBusy = false;
             }
         }
+
+        private async void ExecuteChangeBarcodeType()
+        {
+            if (IsBusy)
+                return;
+            IsBusy = true;
+            try
+            {
+                var empId = App.GetViewModel().EmployeeId;
+                bool escape = false;
+                do
+                {
+                    Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
+                    if (empId.IsAuthorised("Admin", Database.Enums.Permissions.Execute, databaseProvider))
+                    {
+                        bool tryAgain;
+                        do
+                        {
+                            tryAgain = false;
+                            using (var printerMgr = new PosPrinterManager())
+                            {
+                                var barcodeTypes = await printerMgr.GetBarcodeSymbols();
+                                var selectedType = await App.Current.MainPage.DisplayActionSheet("ChangeBarcodeType".Translate(), "Cancel".Translate(), null, barcodeTypes);
+                                if (selectedType != "Cancel".Translate())
+                                {
+                                    var barcodeTestID = $"{DateTime.Now.Year}" +
+                                        $"{DateTime.Now.Month}" +
+                                        $"{DateTime.Now.Day}" +
+                                        $"{DateTime.Now.Hour}" +
+                                        $"{DateTime.Now.Minute}" +
+                                        $"{DateTime.Now.Second}" +
+                                        $"{DateTime.Now.Millisecond}";
+                                    if (await printerMgr.InitPrinter())
+                                    {
+                                        printerMgr.WriteText("TestPrint".Translate(), "cntr", "true");
+                                        printerMgr.BlankLine();
+                                        printerMgr.WriteText("TestPrint".Translate(), "cntr", "true");
+                                        printerMgr.WriteBarcode(barcodeTestID, selectedType, 100, "cntr");
+                                        printerMgr.CutPaper();
+                                        await printerMgr.SetupExecutePrintMultiLine();
+                                        if (!await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "CheckReceiptCorrect".Translate(), "Correct".Translate(), "TryAgain".Translate()))
+                                            tryAgain = true;
+                                        else
+                                            BarcodeSymbologySetting = selectedType;
+                                    }
+                                    else
+                                        await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "PrinterNotFound".Translate(), "OK".Translate());
+                                }
+                                escape = true;
+                            }
+                        } while (tryAgain);
+                    }
+                    if (!escape)
+                    {
+                        var empAuthoriser = await Authorisation.RequestAuthorisedUserInput(databaseProvider);
+                        if (empAuthoriser == default)
+                            escape = true;
+                    }
+                } while (!escape);
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+        #endregion
         #endregion
     }
 }

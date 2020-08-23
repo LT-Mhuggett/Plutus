@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Database.Attributes;
+using Database.Enums;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -26,11 +28,13 @@ namespace Database.Models
         #endregion
 
         #region Properties
+        [Exportable]
         public decimal Wage
         {
             get => _wage;
             set => SetProperty(ref _wage, value);
         }
+        [Exportable]
         public int ContractedHours
         {
             get => _contractedHours;
@@ -46,6 +50,7 @@ namespace Database.Models
             get => _salt;
             set => SetProperty(ref _salt, value);
         }
+        [Exportable]
         public string NIN
         {
             get => _nIN;
@@ -62,6 +67,7 @@ namespace Database.Models
         public string AddressDis => string.IsNullOrEmpty(FullAddress) ? AdLine1 : FullAddress.Split(',')[0];
 
         #region Relationships
+        [Exportable]
         [ForeignKey("StoreIdFK")]
         public string StoreId
         {

@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Database.Attributes;
+using Database.Enums;
+using System;
 using System.Collections.Generic;
 
 namespace Database.Models
@@ -11,6 +13,12 @@ namespace Database.Models
         private decimal _totalExTax;
         private DateTime _dateofSale;
 
+        #region Auditable
+        private DateTime _created;
+        private DateTime _modified;
+        private string _createdBy;
+        private string _modifiedBy;
+        #endregion
         #region Relationships
         private string _employeeId;
         private EmployeeModel _employee;
@@ -18,23 +26,53 @@ namespace Database.Models
         #endregion
 
         #region Properties
+        [Exportable]
         public decimal Total
         {
             get => _total;
             set => SetProperty(ref _total, value);
         }
+        [Exportable]
         public decimal TotalExTax
         {
             get => _totalExTax;
             set => SetProperty(ref _totalExTax, value);
         }
+        [Exportable]
         public DateTime DateOfSale
         {
             get => _dateofSale;
             set => SetProperty(ref _dateofSale, value);
         }
 
+        #region Auditable
+        [Exportable]
+        public DateTime Created
+        {
+            get => _created;
+            set => SetProperty(ref _created, value);
+        }
+        [Exportable]
+        public DateTime Modified
+        {
+            get => _modified;
+            set => SetProperty(ref _modified, value);
+        }
+        [Exportable(ExportLevels.NonUserFriendly)]
+        public string CreatedBy
+        {
+            get => _createdBy;
+            set => SetProperty(ref _createdBy, value);
+        }
+        [Exportable(ExportLevels.NonUserFriendly)]
+        public string ModifiedBy
+        {
+            get => _modifiedBy;
+            set => SetProperty(ref _modifiedBy, value);
+        }
+        #endregion
         #region Relationships
+        [Exportable]
         public string EmployeeId
         {
             get => _employeeId;
@@ -46,6 +84,9 @@ namespace Database.Models
             set => SetProperty(ref _employee, value);
         }
         #region Collections
+        /// <summary>
+        /// Refunds performed within this sale
+        /// </summary>
         public virtual ICollection<RefundModel> Refunds { get; set; }
         public virtual ICollection<TransactionModel> Transactions { get; set; }
         public virtual ICollection<PaymentMethod_SaleModel> PaySales { get; set; }

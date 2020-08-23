@@ -254,6 +254,13 @@ namespace NatApp.Plutus.Helpers.Database
             .OfType<IBase<TTwo>>()
             .Where(m => m.Id.Equals(id)).Cast<TOne>();
 
+        internal IQueryable<SaleModel> GetAllBetweenDates(DateTime startDate, DateTime endDate) => Get<SaleModel>()
+            .Where(entity => entity.DateOfSale.Date >= startDate.Date && entity.DateOfSale.Date <= endDate.Date);
+
+        internal IQueryable<T> GetAllBetweenDates<T>(DateTime startDate, DateTime endDate) where T : class => Get<T>()
+            .OfType<IAuditable>()
+            .Where(entity => entity.Created.Date >= startDate.Date && entity.Created.Date <= endDate.Date).Cast<T>();
+
         /// <summary>
         /// check to see if item exists in database, does not load into context
         /// </summary>

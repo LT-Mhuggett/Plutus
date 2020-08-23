@@ -53,6 +53,7 @@
                     </StackLayout>
                     <!--<iconize:IconButton Text="md-table-chart" Command="{Binding DisplayTableCommand}" CommandParameter="{x:Reference _gridStack}"/>-->
                 </StackLayout>
+                <Button Text="{i18n:Translate Export}" Command="{Binding ExportSelectedDataCommand}"/>
             </StackLayout>
             <StackLayout x:Name="_gridStack" HorizontalOptions="FillAndExpand" IsVisible="{Binding TableView}"/>
         </StackLayout>

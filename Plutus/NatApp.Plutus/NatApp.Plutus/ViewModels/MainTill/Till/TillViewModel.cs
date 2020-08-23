@@ -89,7 +89,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
             #region Init
             Title = "Till".Translate();
             Icon = "md-store";
-            
+
             #region Events
             StoredTransactions.CollectionChanged += (sender, e) =>
             {
@@ -159,7 +159,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
             {
                 ExecuteItemAddArg(arg);
             });
-            
+
             #endregion
             IsDesktop = Device.Idiom == TargetIdiom.Desktop ? true : false;
             Quantity = 1;
@@ -578,7 +578,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
         #endregion
         private async void ExecuteAutoScan()
         {
-
+            throw new NotImplementedException();
         }
 
         #region Transaction
@@ -647,7 +647,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         {
                             var alterationAmount = Math.Abs(Math.Round(Decimal.Parse(data.Item1.First()), 2, MidpointRounding.AwayFromZero)) * -1;
                             adjustment = new BasketAlteration(new NoteModel($"{alteration.Name}, {item.Name} {alterationAmount.ToString("C2", CultureInfo.CurrentCulture)}"), alteration, item, alterationAmount, alterationAmount);
-                            
+
                         }
                         else
                         {
@@ -663,7 +663,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     {
                         var alterationAmount = Math.Abs(Math.Round(Decimal.Parse(data.Item1.First()) * data.Item2.Count(), 2, MidpointRounding.AwayFromZero)) * -1;
                         adjustment = new BasketAlteration(new NoteModel($"{alteration.Name}, {alterationAmount.ToString("C2", CultureInfo.CurrentCulture)}"), alteration, data.Item2, alterationAmount, alterationAmount);
-                                            }
+                    }
                     else
                     {
                         var alterationAmount = Tuple.Create(Math.Abs(Math.Round(data.Item2.Sum(tempItem => tempItem.Price) * Decimal.Parse(data.Item1.First()), 2, MidpointRounding.AwayFromZero)) * -1, Math.Abs(Math.Round(data.Item2.Sum(tempItem => tempItem.PriceExTax) * Decimal.Parse(data.Item1.First()), 2, MidpointRounding.AwayFromZero)) * -1);
@@ -732,10 +732,10 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                             })
                     });
                 Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
-                using(var db = new Helpers.Database.Database(databaseProvider))
+                using (var db = new Helpers.Database.Database(databaseProvider))
                 {
                     db.Add(StoredTransactions.Last());
-                    if(!db.Save())
+                    if (!db.Save())
                     {
                         await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "CriticalIssue".Translate(), "OK".Translate());
                         StoredTransactions.RemoveAt(StoredTransactions.Count());
@@ -766,7 +766,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     var action = await App.Current.MainPage.DisplayActionSheet("Baskets".Translate(), "Cancel".Translate(), null, baskets);
                     if (action == "Cancel".Translate())
                         return;
-                    storedTransaction = StoredTransactions.First(sT=>sT.Name.Equals(action));
+                    storedTransaction = StoredTransactions.First(sT => sT.Name.Equals(action));
                 }
                 else
                 {
@@ -778,7 +778,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         return;
 
                 Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
-                using(var db = new Helpers.Database.Database(databaseProvider))
+                using (var db = new Helpers.Database.Database(databaseProvider))
                 {
                     db.Delete(new SavedTransactionModel { Id = storedTransaction.Id });
                     if (!db.Save())
@@ -830,7 +830,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 var refundOnly = !Basket.Any(bR => bR is BasketItem && !(bR is BasketReturnItem));
 
                 var payMeths = GenPaymentMethodActions();
-                Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
+                Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
 
                 sale.Total = Basket.Sum(bR => bR.Price * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
                 sale.TotalExTax = Basket.Sum(bR => bR.PriceExTax * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
@@ -940,7 +940,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     var tran = new TransactionModel() { ItemId = item.Item.Id, Sale = sale, Amount = item.Quantity, ItemCostExPrice = item.Item.ExPrice, ItemCostPrice = item.Item.Price, Transaction_Discounts = new ObservableCollection<TransactionModel_DiscountModel>() };
                     if (Basket.Where(bR => bR is BasketAlteration).Cast<BasketAlteration>().Any())
                     {
-                        var tempIA = Basket.Where(bR => bR is BasketAlteration).Cast<BasketAlteration>().Where(bA => bA.ItemsAssocitated.Any(iA => iA.Item.Id.Equals(item.Item.Id))).FirstOrDefault();
+                        var tempIA = Basket.Where(bR => bR is BasketAlteration && !(bR is BasketReturnItem)).Cast<BasketAlteration>().Where(bA => bA.ItemsAssocitated.Any(iA => iA.Item.Id.Equals(item.Item.Id))).FirstOrDefault();
                         if (tempIA != default)
                         {
                             var tranDisc = new TransactionModel_DiscountModel { DiscountId = tempIA.Discount.Id };
@@ -970,7 +970,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
 
                 do
                 {
-                    if (empId.IsAuthorised("Till", Database.Enums.Permissions.Execute, databaseProvider))
+                    if (empId.IsAuthorised("Till", Permissions.Execute, databaseProvider))
                     {
                         if (!sale.Refunds.Any())
                         {
@@ -980,7 +980,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         var refundAmount = Basket.Where(bR => bR is BasketReturnItem).Sum(bRI => bRI.Price);
                         if (refundAmount <= 20m)
                         {
-                            if (empId.IsAuthorised("Refund20", Database.Enums.Permissions.Execute, databaseProvider))
+                            if (empId.IsAuthorised("Refund20", Permissions.Execute, databaseProvider))
                             {
                                 FinaliseTransation(sale, change);
                                 return;
@@ -988,7 +988,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         }
                         else if (refundAmount <= 100)
                         {
-                            if (empId.IsAuthorised("Refund100", Database.Enums.Permissions.Execute, databaseProvider))
+                            if (empId.IsAuthorised("Refund100", Permissions.Execute, databaseProvider))
                             {
                                 FinaliseTransation(sale, change);
                                 return;
@@ -996,7 +996,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         }
                         else
                         {
-                            if (empId.IsAuthorised("Refund Unlimited", Database.Enums.Permissions.Execute, databaseProvider))
+                            if (empId.IsAuthorised("Refund Unlimited", Permissions.Execute, databaseProvider))
                             {
                                 FinaliseTransation(sale, change);
                                 return;
@@ -1026,7 +1026,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
         #region Operations
         private async void FinaliseTransation(SaleModel sale, decimal change)
         {
-            Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
+            Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
             using (var db = new Helpers.Database.Database(databaseProvider, App.GetViewModel().EmployeeId))
             {
                 var itemHasNoStock = false;
@@ -1058,13 +1058,13 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
 
                 Task[] tasks = new Task[2];
 
-#if DEBUG == FALSE
+                //#if DEBUG == FALSE
                 if (Device.Idiom == TargetIdiom.Desktop)
                 {
                     var printerMgr = new PosPrinterManager();
                     tasks[0] = printerMgr.ExecuteOposOrPdfAsync(sale, Basket, App.GetViewModel().Store, null, change);
                 }
-#endif
+                //#endif
 
                 if (change != default)
                 {
@@ -1118,15 +1118,15 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 return null;
             }
         }
-#endregion
+        #endregion
 
-#region INotifyPropertyChanged
+        #region INotifyPropertyChanged
         private void BasketRecordOnPropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             OnPropertyChanged("Basket");
             OnPropertyChanged("SaleExTax");
             OnPropertyChanged("SaleIncTax");
         }
-#endregion
+        #endregion
     }
 }

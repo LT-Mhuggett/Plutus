@@ -263,4 +263,9 @@
     <VisualStudioVersion>14.0</VisualStudioVersion>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\Microsoft\WindowsXaml\v$(VisualStudioVersion)\Microsoft.Windows.UI.Xaml.CSharp.targets" />
+  <PropertyGroup>
+    <PreBuildEvent>"$(DevEnvDir)devenv" "$(SolutionDir)Plutus$(SolutionExt)" /Rebuild $(configuration) /project "$(SolutionDir)POSIntegration\POSIntegration$(ProjectExt)"
+copy /Y "$(SolutionDir)POSIntegration\bin\$(Configuration)\POSIntegration.exe" "$(ProjectDir)Assets\Exes"
+copy /Y "$(SolutionDir)POSIntegration\bin\$(Configuration)\POSIntegration.exe.config" "$(ProjectDir)Assets\Exes"</PreBuildEvent>
+  </PropertyGroup>
 </Project>

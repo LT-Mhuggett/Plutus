@@ -56,6 +56,8 @@ namespace POSIntegration.POS
             {
                 case "getPrinters":
                     return GetPrinterList();
+                case "getBarcodeSymbols":
+                    return JsonConvert.SerializeObject(Enum.GetNames(typeof(BarCodeSymbology)));
                 case "initPrinter":
                     CreatePrinterInstance(value as string);
                     return true;
@@ -67,7 +69,7 @@ namespace POSIntegration.POS
                     ClosePrinterInstance();
                     return true;
                 case "openCashDrawer":
-                    if(CreateCashDrawerInstance())
+                    if (CreateCashDrawerInstance())
                         _cashDrawer.OpenCashDrawer();
                     return true;
                 case "testPosForDotNetIsPresent":
@@ -89,25 +91,34 @@ namespace POSIntegration.POS
             var printers = posExplorer.GetDevices(DeviceType.PosPrinter);
             if (printers.Count > 0)
             {
+                var i = 0;
                 foreach (DeviceInfo printerInfo in printers)
                 {
-                    var tempPrinter = posExplorer.CreateInstance(printerInfo) as PosPrinter;
-                    var wasOpened = false;
-                    if (tempPrinter.State == ControlState.Closed)
+                    try
                     {
-                        tempPrinter.Open();
-                        wasOpened = true;
+                        var tempPrinter = posExplorer.CreateInstance(printerInfo) as PosPrinter;
+                        var wasOpened = false;
+                        if (tempPrinter.State == ControlState.Closed)
+                        {
+                            tempPrinter.Open();
+                            wasOpened = true;
+                        }
+                        var capabilites = POSPrinter.GetCapabilites(tempPrinter);
+                        if (wasOpened)
+                            tempPrinter.Close();
+                        var info = new Dictionary<string, object>()
+                        {
+                            {"Manufacture Name", printerInfo.ManufacturerName },
+                            {"Description", printerInfo.Description},
+                        };
+                        var combinedDic = info.Concat(capabilites).GroupBy(d => d.Key).ToDictionary(d => d.Key, d => d.First().Value);
+                        printersData.Add(printerInfo.LogicalNames.FirstOrDefault() ?? "", combinedDic);
                     }
-                    var capabilites = POSPrinter.GetCapabilites(tempPrinter);
-                    if (wasOpened)
-                        tempPrinter.Close();
-                    var info = new Dictionary<string, object>()
-                {
-                    {"Manufacture Name", printerInfo.ManufacturerName },
-                    {"Description", printerInfo.Description},
-                };
-                    var combinedDic = info.Concat(capabilites).GroupBy(d => d.Key).ToDictionary(d => d.Key, d => d.First().Value);
-                    printersData.Add(printerInfo.LogicalNames.FirstOrDefault() ?? "", combinedDic);
+                    catch (Exception ex)
+                    {
+                        i++;
+                        printersData.Add(printerInfo.LogicalNames.FirstOrDefault() + $"ERROR - Reading Printer; please check printer instalation! - {i}" ?? $"ERROR - Reading Printer; please check printer instalation! - {i}", new Dictionary<string, object> { { "", "" } });
+                    }
                 }
             }
             return JsonConvert.SerializeObject(printersData);
@@ -125,7 +136,7 @@ namespace POSIntegration.POS
                 _cashDrawer = new POSCashDrawer(ref _explorer);
                 return true;
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Debug.WriteLine("CashDrawer Not Present! " + e);
                 return false;

@@ -616,6 +616,8 @@ namespace Database.Migrations
 
                     b.Property<int>("DiscountId");
 
+                    b.Property<decimal>("DiscountRate");
+
                     b.HasKey("TransactionId", "DiscountId");
 
                     b.HasIndex("DiscountId");

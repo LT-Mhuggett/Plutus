@@ -16,6 +16,12 @@ namespace NatApp.Plutus.ViewModels
             set => AppSettings.AddOrUpdateValue(nameof(PrinterLogicalNameSetting), value);
         }
 
+        public string BarcodeSymbologySetting
+        {
+            get => AppSettings.GetValueOrDefault(nameof(BarcodeSymbologySetting), default(string));
+            set => AppSettings.AddOrUpdateValue(nameof(BarcodeSymbologySetting), value);
+        }
+
         public string DatabaseProviderSetting
         {
             get => AppSettings.GetValueOrDefault(nameof(DatabaseProviderSetting), null);

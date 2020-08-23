@@ -21,6 +21,12 @@
     <Compile Remove="Migrations\20190805131136_NotifyPropertyChanged.Designer.cs" />
     <Compile Remove="Migrations\20190829150337_SavedTransactionsRedesign.cs" />
     <Compile Remove="Migrations\20190829150337_SavedTransactionsRedesign.Designer.cs" />
+    <Compile Remove="Migrations\20200224195601_ReworkAudit.cs" />
+    <Compile Remove="Migrations\20200224195601_ReworkAudit.Designer.cs" />
+    <Compile Remove="Migrations\20200412121719_DiscountAmountRecording_RefundTransactionDuplicationFix.cs" />
+    <Compile Remove="Migrations\20200412121719_DiscountAmountRecording_RefundTransactionDuplicationFix.Designer.cs" />
+    <Compile Remove="Migrations\20200412133717_DiscountAmountRecording.cs" />
+    <Compile Remove="Migrations\20200412133717_DiscountAmountRecording.Designer.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Database.Attributes;
+using Database.Enums;
+using System;
 using System.Collections.Generic;
 
 namespace Database.Models
@@ -12,11 +14,13 @@ namespace Database.Models
         #endregion
 
         #region Properties
+        [Exportable]
         public string Name
         {
             get => _name;
             set => SetProperty(ref _name, value);
         }
+        [Exportable(ExportLevels.NonUserFriendly)]
         public string Data
         {
             get => _data;
