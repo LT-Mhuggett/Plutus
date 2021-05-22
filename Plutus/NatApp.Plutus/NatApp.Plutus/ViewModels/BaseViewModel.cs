@@ -51,7 +51,7 @@ namespace NatApp.Plutus.ViewModels
 
         #region INotifyPropertyChanged
         public event PropertyChangedEventHandler PropertyChanged;
-        public static event PropertyChangedEventHandler StaticPropertyChanged; 
+        public static event PropertyChangedEventHandler StaticPropertyChanged;
 
         /// <summary>
         /// Actions the change to the Variable(Property), fires the OnPropertyChanged event.

@@ -614,6 +614,8 @@ Global
 		{FB612C79-1193-48B5-99D9-A3F0F185273A}.AppStore|x86.Build.0 = Release|x86
 		{FB612C79-1193-48B5-99D9-A3F0F185273A}.AppStore|x86.Deploy.0 = Release|x86
 		{FB612C79-1193-48B5-99D9-A3F0F185273A}.Debug|Any CPU.ActiveCfg = Debug|x86
+		{FB612C79-1193-48B5-99D9-A3F0F185273A}.Debug|Any CPU.Build.0 = Debug|x86
+		{FB612C79-1193-48B5-99D9-A3F0F185273A}.Debug|Any CPU.Deploy.0 = Debug|x86
 		{FB612C79-1193-48B5-99D9-A3F0F185273A}.Debug|ARM.ActiveCfg = Debug|ARM
 		{FB612C79-1193-48B5-99D9-A3F0F185273A}.Debug|ARM.Build.0 = Debug|ARM
 		{FB612C79-1193-48B5-99D9-A3F0F185273A}.Debug|ARM.Deploy.0 = Debug|ARM
@@ -626,6 +628,8 @@ Global
 		{FB612C79-1193-48B5-99D9-A3F0F185273A}.Debug|x86.Build.0 = Debug|x86
 		{FB612C79-1193-48B5-99D9-A3F0F185273A}.Debug|x86.Deploy.0 = Debug|x86
 		{FB612C79-1193-48B5-99D9-A3F0F185273A}.Release|Any CPU.ActiveCfg = Release|x86
+		{FB612C79-1193-48B5-99D9-A3F0F185273A}.Release|Any CPU.Build.0 = Release|x86
+		{FB612C79-1193-48B5-99D9-A3F0F185273A}.Release|Any CPU.Deploy.0 = Release|x86
 		{FB612C79-1193-48B5-99D9-A3F0F185273A}.Release|ARM.ActiveCfg = Release|ARM
 		{FB612C79-1193-48B5-99D9-A3F0F185273A}.Release|ARM.Build.0 = Release|ARM
 		{FB612C79-1193-48B5-99D9-A3F0F185273A}.Release|ARM.Deploy.0 = Release|ARM
@@ -834,9 +838,9 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {E380D658-A835-41C0-A63A-D65A9C92844F}
-		RESX_AutoCreateNewLanguageFiles = True
-		RESX_NeutralResourcesLanguage = en-GB
 		RESX_ShowPerformanceTraces = True
+		RESX_NeutralResourcesLanguage = en-GB
+		RESX_AutoCreateNewLanguageFiles = True
+		SolutionGuid = {E380D658-A835-41C0-A63A-D65A9C92844F}
 	EndGlobalSection
 EndGlobal
