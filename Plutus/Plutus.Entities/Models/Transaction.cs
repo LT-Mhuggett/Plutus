@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 
 namespace Plutus.Entities.Models
-{
+{ 
     [Serializable]
     public class Transaction : Base<int>, ITransaction
     {

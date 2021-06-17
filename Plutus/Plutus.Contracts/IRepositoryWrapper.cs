@@ -12,6 +12,7 @@ namespace Plutus.Contracts
         IItemRepository ItemRepository { get; }
         INoteRepository NoteRepository { get; }
         IPaymentMethodRepository PaymentMethodRepository { get; }
+        IPaymentMethod_SaleRepository PaymentMethod_SaleRepository { get; }
         IRefundRepository RefundRepository { get; }
         ISaleRepository SaleRepository { get; }
         ISavedTransactionRepository SavedTransactionRepository { get; }

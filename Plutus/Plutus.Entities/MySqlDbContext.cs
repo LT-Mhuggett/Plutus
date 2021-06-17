@@ -5,12 +5,16 @@ namespace Plutus.Entities
     public class MySqlDbContext : RepositoryContext
     {
         #region Fields
-        private readonly string _connString = "Data Source=db.db";
+        private readonly string _connString = @"Server=127.0.0.1;User=root;Password=root;Database=plutus;Port=3306;Persist Security Info=false;Connect Timeout=300";
         #endregion
 
         #region DbSets for MySql DB only
 
         #endregion
+        public MySqlDbContext() : base()
+        {
+            _systemName = "Plutus.DBService";
+        }
         public MySqlDbContext(DbContextOptions options) : base(options)
         {
             _systemName = "Plutus.DBService";
@@ -20,7 +24,8 @@ namespace Plutus.Entities
         {
             if (!optionsBuilder.IsConfigured)
             {
-                optionsBuilder.UseMySql(_connString, ServerVersion.AutoDetect(_connString));
+                var serverVersion = new MySqlServerVersion(new System.Version(8, 0, 23));
+                optionsBuilder.UseMySql(_connString, serverVersion);
             }
             base.OnConfiguring(optionsBuilder);
         }

@@ -70,5 +70,10 @@ namespace Plutus.Repository.Base
 
         /// <inheritdoc/>
         public virtual void SetState(TEntity entity, EntityState entityState = EntityState.Modified) => RepositoryContext.Entry(entity).State = entityState;
+
+        public IQueryable<TEntity> FindAll()
+        {
+            return RepositoryContext.Set<TEntity>().AsNoTracking();
+        }
     }
 }

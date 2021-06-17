@@ -119,7 +119,7 @@ namespace Plutus.Entities
                 .IsUnique();
 
             modelBuilder.Entity<Stock>()
-                .HasKey(k => Tuple.Create(k.ItemId, k.StoreId));
+                .HasKey(k => new { k.ItemId, k.StoreId });
 
             modelBuilder.Entity<Item>()
                 .HasOne(i => i.Stock)

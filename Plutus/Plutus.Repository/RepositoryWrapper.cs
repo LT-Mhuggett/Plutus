@@ -23,6 +23,7 @@ namespace Plutus.Repository
         protected IStoreRepository storeRepository;
         protected ITaxRepository taxRepository;
         protected ITransactionRepository transactionRepository;
+        protected IPaymentMethod_SaleRepository paymentMethod_SaleRepository;
         #endregion
 
         #region Properties
@@ -41,6 +42,7 @@ namespace Plutus.Repository
         public virtual IStoreRepository StoreRepository => storeRepository ??= new StoreRepository(repositoryContext);
         public virtual ITaxRepository TaxRepository => taxRepository ??= new TaxRepository(repositoryContext);
         public virtual ITransactionRepository TransactionRepository => transactionRepository ??= new TransactionRepository(repositoryContext);
+        public virtual IPaymentMethod_SaleRepository PaymentMethod_SaleRepository => paymentMethod_SaleRepository ??= new PaymentMethod_SaleRepository(repositoryContext);       
         #endregion
 
         public RepositoryWrapper(RepositoryContext repositoryContext)

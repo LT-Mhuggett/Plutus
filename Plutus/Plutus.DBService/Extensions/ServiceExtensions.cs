@@ -19,9 +19,16 @@ namespace Plutus.DBService.Extensions
 
         public static void ConfigureDBContext(this IServiceCollection services, IConfiguration configuration)
         {
-            var connectionString = configuration["connection:connectionString"];
+            var connectionString = configuration["ConnectionString"];
 
             services.AddDbContext<MySqlDbContext>(o => o.UseMySql(ServerVersion.AutoDetect(connectionString)));
+        }
+
+        public static void ConfigureMySqlDBContext(this IServiceCollection services, IConfiguration configuration)
+        {
+            var connectionString = configuration["ConnectionString"];
+
+            services.AddDbContext<RepositoryContext>(o => o.UseMySql(connectionString, MySqlServerVersion.LatestSupportedServerVersion));
         }
 
         public static void ConfigureRepositoryWrapper(this IServiceCollection services)

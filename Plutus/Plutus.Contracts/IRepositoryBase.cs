@@ -16,6 +16,8 @@ namespace Plutus.Contracts
         /// <returns>Enumerable List of <see cref="TEntity"/></returns>
         Task<IEnumerable<TEntity>> GetAll();
 
+        IQueryable<TEntity> FindAll();
+
         /// <summary>
         /// Async GET all records from table, denoted by <see cref="TEntity"/>, as IQueryable
         /// </summary>
