@@ -8,6 +8,7 @@ using System.Linq;
 using System.Collections.Generic;
 using Plutus.Entities.Models;
 using Plutus.Repository.QueryParameters;
+using System.Data;
 
 namespace Plutus.DBService.Controllers
 {
@@ -29,7 +30,7 @@ namespace Plutus.DBService.Controllers
             
             //Check Min and Max date are viable
             var entities = Repository.FindAllByConditionQueryable(queryParameters.GetExpression());
-
+            var dataSet = new DataSet();
             var data = entities
                 .Include(s => s.Transactions)
                     .ThenInclude(t => t.Item)
@@ -149,10 +150,24 @@ namespace Plutus.DBService.Controllers
                 currentDate = currentDate.AddDays(1);
             } while (currentDate <= endDate);
 
-            //dataSet.Tables.Add(dailySalesSummaries.ToDataTable("DailySales"));
-            //dataSet.Tables.Add(salesBreakdowns.ToDataTable("SalesBreakdown"));
+            dataSet.Tables.Add(dailySalesSummaries.ToDataTable("DailySales"));
+            dataSet.Tables.Add(salesBreakdowns.ToDataTable("SalesBreakdown"));
 
-            throw new NotImplementedException();
+            return await new SalesReport().createExcel(dataSet, startDate, endDate); ;
+
+            /*using (var docHandler = new ExcelHandling())
+            {
+                docHandler.DataTableToWorksheet(dataSet);
+                var fileStream = docHandler.Finalize();
+                await DependencyService.Get<IFile>().SaveAndView(
+                        $"{"SalesReports".Translate()} - {startDate.ToShortDateString()}-{endDate.ToShortDateString()}",
+                        "application/vnd.ms-excel",
+                        fileStream,
+                        new Dictionary<string, IList<string>>() { { "Excel", new List<string>() { ".xlsx", ".xls" } } }
+                        );
+            }*/
+
+            //throw new NotImplementedException();
         }
     }
 }
