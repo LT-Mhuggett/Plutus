@@ -3,13 +3,13 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Plutus.Entities.Models.Interface
 {
-    public interface ICompositeBase<T, E> : IAuditable
+    public interface ICompositeBase<T1, T2> : IAuditable
     {
         /// <summary>
         /// The records Database ID
         /// </summary>
-        T IdOne { get; set; }
+        T1 IdOne { get; set; }
 
-        E IdTwo { get; set; }
+        T2 IdTwo { get; set; }
     }
 }
