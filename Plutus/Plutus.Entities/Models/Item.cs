@@ -7,8 +7,9 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace Plutus.Entities.Models
 {
     [Serializable]
-    public class Item : Base<string>, IItem
+    public class Item : CompositeBase<string, string>, IItem
     {
+        // Generic Base with 2 Generic Parameters
         #region Properties
         [Exportable]
         public string Name { get; set; }
@@ -36,7 +37,11 @@ namespace Plutus.Entities.Models
         public int CatId { get; set; }
         public virtual Category Cat { get; set; }
         public virtual Stock Stock { get; set; }
+        [Exportable]
+        public string BussinessId { get; set; }
+        public virtual Bussiness Bussiness { get; set; }
 
+        //BussinessId, Id => composite key
         #region Collections
         public virtual ICollection<Discount_Item> DisItems { get; set; }
         public virtual ICollection<Transaction> Transactions { get; set; }

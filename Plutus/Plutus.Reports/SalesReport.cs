@@ -58,7 +58,7 @@ namespace Plutus.Reports
                         {
                             RecordDate = currentDate.ToShortDateString(),
                             SaleId = salesData.Id,
-                            ItemId = trans.Item.Id,
+                            ItemId = trans.Item.IdOne,
                             ItemName = trans.Item.Name,
                             UnitPriceAtCheckout = trans.CheckoutItemChangeId == null ? trans.ItemsCostPrice : trans.CheckoutItemChange.Price,
                             UnitPriceAtCheckoutExTax = trans.CheckoutItemChangeId == null ? trans.ItemsCostExPrice : trans.CheckoutItemChange.ExPrice,
@@ -88,7 +88,7 @@ namespace Plutus.Reports
                                 RecordDate = currentDate.ToShortDateString(),
                                 SaleId = salesData.Id,
                                 ItemId = $"{"Discount"}",
-                                ItemName = $"{transDiscount.Discount.Name}, {trans.Item.Id}",
+                                ItemName = $"{transDiscount.Discount.Name}, {trans.Item.IdOne}",
                                 UnitPriceAtCheckout = discountPrice,
                                 UnitPriceAtCheckoutExTax = discountExPrice,
                                 Qty = trans.Amount,
@@ -103,7 +103,7 @@ namespace Plutus.Reports
                         {
                             RecordDate = currentDate.ToShortDateString(),
                             SaleId = salesData.Id,
-                            ItemId = refund.Item.Id,
+                            ItemId = refund.Item.IdOne,
                             ItemName = refund.Item.Name,
                             UnitPriceAtCheckout = -Math.Abs(refund.CheckoutItemChangeId == null ? refund.Item.Price : refund.CheckoutItemChange.Price),
                             UnitPriceAtCheckoutExTax = -Math.Abs(refund.CheckoutItemChangeId == null ? refund.Item.ExPrice : refund.CheckoutItemChange.ExPrice),

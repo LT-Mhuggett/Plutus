@@ -36,6 +36,9 @@ namespace Plutus.Entities.Models
         public string StoreId { get; set; }
         public virtual Store Store { get; set; }
 
+        [Exportable]
+        public string BussinessId { get; set; }
+        public virtual Bussiness Bussiness { get; set; }
         #region Collections
         public virtual ICollection<Sale> Sale { get; set; }
         public virtual ICollection<Emp_AuthActions> EmpAuths { get; set; }

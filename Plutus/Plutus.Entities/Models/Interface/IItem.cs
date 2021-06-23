@@ -1,6 +1,6 @@
 ﻿namespace Plutus.Entities.Models.Interface
 {
-    public interface IItem : IBase<string>
+    public interface IItem : ICompositeBase<string, string>
     {
         string Name { get; set; }
         string Brand { get; set; }

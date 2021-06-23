@@ -2,15 +2,17 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Plutus.Entities;
 
 namespace Plutus.Entities.Migrations.MySqlMigrations
 {
     [DbContext(typeof(MySqlDbContext))]
-    partial class MySqlDbContextModelSnapshot : ModelSnapshot
+    [Migration("20210623140705_Create-Bussiness")]
+    partial class CreateBussiness
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -128,10 +130,7 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
                     b.Property<decimal>("ExPrice")
                         .HasColumnType("decimal(65,30)");
 
-                    b.Property<string>("ItemIdOne")
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<string>("ItemIdTwo")
+                    b.Property<string>("ItemId")
                         .HasColumnType("varchar(255)");
 
                     b.Property<DateTime>("ModifiedAt")
@@ -145,7 +144,7 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ItemIdOne", "ItemIdTwo");
+                    b.HasIndex("ItemId");
 
                     b.ToTable("CheckoutItemChange");
                 });
@@ -255,10 +254,7 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
                     b.Property<DateTime>("EndDateTime")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<string>("ItemIdOne")
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<string>("ItemIdTwo")
+                    b.Property<string>("ItemId")
                         .HasColumnType("varchar(255)");
 
                     b.Property<DateTime>("ModifiedAt")
@@ -274,7 +270,7 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
 
                     b.HasIndex("DiscountId");
 
-                    b.HasIndex("ItemIdOne", "ItemIdTwo");
+                    b.HasIndex("ItemId");
 
                     b.ToTable("DiscountItems");
                 });
@@ -323,9 +319,6 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
 
                     b.Property<string>("AdLine2")
                         .HasColumnType("longtext");
-
-                    b.Property<string>("BussinessId")
-                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("City")
                         .HasColumnType("longtext");
@@ -384,8 +377,6 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BussinessId");
-
                     b.HasIndex("Email")
                         .IsUnique();
 
@@ -396,11 +387,7 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
 
             modelBuilder.Entity("Plutus.Entities.Models.Item", b =>
                 {
-                    b.Property<string>("IdOne")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<string>("IdTwo")
+                    b.Property<string>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("varchar(255)");
 
@@ -408,7 +395,7 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
                         .HasColumnType("longtext");
 
                     b.Property<string>("BussinessId")
-                        .HasColumnType("longtext");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<int>("CatId")
                         .HasColumnType("int");
@@ -446,11 +433,11 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
                     b.Property<int>("VatId")
                         .HasColumnType("int");
 
-                    b.HasKey("IdOne", "IdTwo");
+                    b.HasKey("Id");
+
+                    b.HasIndex("BussinessId");
 
                     b.HasIndex("CatId");
-
-                    b.HasIndex("IdTwo");
 
                     b.HasIndex("VatId");
 
@@ -603,10 +590,7 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("longtext");
 
-                    b.Property<string>("ItemIdOne")
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<string>("ItemIdTwo")
+                    b.Property<string>("ItemId")
                         .HasColumnType("varchar(255)");
 
                     b.Property<DateTime>("ModifiedAt")
@@ -631,11 +615,11 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
                     b.HasIndex("CheckoutItemChangeId")
                         .IsUnique();
 
+                    b.HasIndex("ItemId");
+
                     b.HasIndex("SaleId");
 
                     b.HasIndex("SaleIdReturned");
-
-                    b.HasIndex("ItemIdOne", "ItemIdTwo");
 
                     b.ToTable("Refunds");
                 });
@@ -714,10 +698,7 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
 
             modelBuilder.Entity("Plutus.Entities.Models.Stock", b =>
                 {
-                    b.Property<string>("ItemIdOne")
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<string>("ItemIdTwo")
+                    b.Property<string>("ItemId")
                         .HasColumnType("varchar(255)");
 
                     b.Property<string>("StoreId")
@@ -738,12 +719,12 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
 
-                    b.HasKey("ItemIdOne", "ItemIdTwo", "StoreId");
+                    b.HasKey("ItemId", "StoreId");
+
+                    b.HasIndex("ItemId")
+                        .IsUnique();
 
                     b.HasIndex("StoreId");
-
-                    b.HasIndex("ItemIdOne", "ItemIdTwo")
-                        .IsUnique();
 
                     b.ToTable("Stocks");
                 });
@@ -844,10 +825,7 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("longtext");
 
-                    b.Property<string>("ItemIdOne")
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<string>("ItemIdTwo")
+                    b.Property<string>("ItemId")
                         .HasColumnType("varchar(255)");
 
                     b.Property<decimal>("ItemsCostExPrice")
@@ -870,9 +848,9 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
                     b.HasIndex("CheckoutItemChangeId")
                         .IsUnique();
 
-                    b.HasIndex("SaleId");
+                    b.HasIndex("ItemId");
 
-                    b.HasIndex("ItemIdOne", "ItemIdTwo");
+                    b.HasIndex("SaleId");
 
                     b.ToTable("Trans");
                 });
@@ -911,7 +889,7 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
                 {
                     b.HasOne("Plutus.Entities.Models.Item", "Item")
                         .WithMany("CheckoutItemChanges")
-                        .HasForeignKey("ItemIdOne", "ItemIdTwo");
+                        .HasForeignKey("ItemId");
 
                     b.Navigation("Item");
                 });
@@ -939,7 +917,7 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
 
                     b.HasOne("Plutus.Entities.Models.Item", "Item")
                         .WithMany("DisItems")
-                        .HasForeignKey("ItemIdOne", "ItemIdTwo");
+                        .HasForeignKey("ItemId");
 
                     b.Navigation("Discount");
 
@@ -967,30 +945,22 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
 
             modelBuilder.Entity("Plutus.Entities.Models.Employee", b =>
                 {
-                    b.HasOne("Plutus.Entities.Models.Bussiness", "Bussiness")
-                        .WithMany("Employees")
-                        .HasForeignKey("BussinessId");
-
                     b.HasOne("Plutus.Entities.Models.Store", "Store")
                         .WithMany("Employees")
                         .HasForeignKey("StoreId");
-
-                    b.Navigation("Bussiness");
 
                     b.Navigation("Store");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Item", b =>
                 {
+                    b.HasOne("Plutus.Entities.Models.Bussiness", "Bussiness")
+                        .WithMany("Items")
+                        .HasForeignKey("BussinessId");
+
                     b.HasOne("Plutus.Entities.Models.Category", "Cat")
                         .WithMany("Items")
                         .HasForeignKey("CatId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Plutus.Entities.Models.Bussiness", "Bussiness")
-                        .WithMany("Items")
-                        .HasForeignKey("IdTwo")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -1055,6 +1025,10 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
                         .WithOne("Refund")
                         .HasForeignKey("Plutus.Entities.Models.Refund", "CheckoutItemChangeId");
 
+                    b.HasOne("Plutus.Entities.Models.Item", "Item")
+                        .WithMany("Refunds")
+                        .HasForeignKey("ItemId");
+
                     b.HasOne("Plutus.Entities.Models.Sale", "Sale")
                         .WithMany("Refunds")
                         .HasForeignKey("SaleId");
@@ -1062,10 +1036,6 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
                     b.HasOne("Plutus.Entities.Models.Sale", "SaleReturned")
                         .WithMany("Refunded")
                         .HasForeignKey("SaleIdReturned");
-
-                    b.HasOne("Plutus.Entities.Models.Item", "Item")
-                        .WithMany("Refunds")
-                        .HasForeignKey("ItemIdOne", "ItemIdTwo");
 
                     b.Navigation("Authoriser");
 
@@ -1095,15 +1065,15 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
 
             modelBuilder.Entity("Plutus.Entities.Models.Stock", b =>
                 {
-                    b.HasOne("Plutus.Entities.Models.Store", "Store")
-                        .WithMany("Stocks")
-                        .HasForeignKey("StoreId")
+                    b.HasOne("Plutus.Entities.Models.Item", "Item")
+                        .WithOne("Stock")
+                        .HasForeignKey("Plutus.Entities.Models.Stock", "ItemId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Plutus.Entities.Models.Item", "Item")
-                        .WithOne("Stock")
-                        .HasForeignKey("Plutus.Entities.Models.Stock", "ItemIdOne", "ItemIdTwo")
+                    b.HasOne("Plutus.Entities.Models.Store", "Store")
+                        .WithMany("Stocks")
+                        .HasForeignKey("StoreId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -1127,13 +1097,13 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
                         .WithOne("Transaction")
                         .HasForeignKey("Plutus.Entities.Models.Transaction", "CheckoutItemChangeId");
 
+                    b.HasOne("Plutus.Entities.Models.Item", "Item")
+                        .WithMany("Transactions")
+                        .HasForeignKey("ItemId");
+
                     b.HasOne("Plutus.Entities.Models.Sale", "Sale")
                         .WithMany("Transactions")
                         .HasForeignKey("SaleId");
-
-                    b.HasOne("Plutus.Entities.Models.Item", "Item")
-                        .WithMany("Transactions")
-                        .HasForeignKey("ItemIdOne", "ItemIdTwo");
 
                     b.Navigation("CheckoutItemChange");
 
@@ -1168,8 +1138,6 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
 
             modelBuilder.Entity("Plutus.Entities.Models.Bussiness", b =>
                 {
-                    b.Navigation("Employees");
-
                     b.Navigation("Items");
 
                     b.Navigation("Stores");

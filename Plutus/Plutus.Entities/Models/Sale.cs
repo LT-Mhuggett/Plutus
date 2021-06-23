@@ -19,6 +19,11 @@ namespace Plutus.Entities.Models
         [Exportable]
         public string EmployeeId { get; set; }
         public virtual Employee Employee { get; set; }
+
+        [Exportable]
+        public string StoreId { get; set; }
+        public virtual Store Store { get; set; }
+
         #region Collections
 
         /// <summary>

@@ -4,7 +4,8 @@
     {
         int Quantity { get; set; }
 
-        string ItemId { get; set; }
+        string ItemIdOne { get; set; }
+        string ItemIdTwo { get; set; }
         string StoreId { get; set; }
     }
 }

@@ -16,20 +16,16 @@ namespace Plutus.Entities.Models
     {
         #region Properties
         [Exportable]
-        public string StoreName { get; set; }
-        [Exportable]
-        public string StoreAbbr{get;set;}
-        [Exportable]
-        public string VatIN{get;set;}
-        [Exportable]
         public string ContactNumber{get;set;}
-        [Exportable]
-        public decimal? RecMarkup{get;set;}
-        [Exportable(ExportLevels.NonUserFriendly)]
-        public byte[] Logo{get;set; }
 
         #region Relationships
+
+        [Exportable]
+        public string BussinessId { get; set; }
+        public virtual Bussiness Bussiness { get; set; }
+
         #region Collections
+        public virtual ICollection<Sale> Sales { get; set; }
         public virtual ICollection<Employee> Employees { get; set; }
         public virtual ICollection<Stock> Stocks { get; set; }
         #endregion

@@ -3,9 +3,7 @@ using Plutus.Reports;
 using System;
 using Plutus.Contracts;
 using Microsoft.EntityFrameworkCore;
-using System.Threading.Tasks;
 using System.Linq;
-using System.Collections.Generic;
 using Plutus.Entities.Models;
 using Plutus.Repository.QueryParameters;
 using System.Data;
@@ -25,9 +23,8 @@ namespace Plutus.DBService.Controllers
         [HttpGet]
         [ApiConventionMethod(typeof(DefaultApiConventions),
                              nameof(DefaultApiConventions.Get))]
-        public async Task<FileResult> salesReport([FromQuery] SaleParameters queryParameters, [FromQuery(Name = "minDate")] DateTime startDate, [FromQuery(Name = "maxDate")] DateTime endDate)
+        public FileResult salesReport([FromQuery] SaleParameters queryParameters, [FromQuery(Name = "minDate")] DateTime startDate, [FromQuery(Name = "maxDate")] DateTime endDate)
         {
-            
             //Check Min and Max date are viable
             var entities = Repository.FindAllByConditionQueryable(queryParameters.GetExpression());
             var dataSet = new DataSet();
@@ -60,7 +57,7 @@ namespace Plutus.DBService.Controllers
             // Generate and get File Stream for Excel File containing Sales Breakdowns and Sales Summaries
             var stream = new SalesReport().fetchSalesReportStream(dataSet, dailySalesSummaries, salesBreakdowns);
 
-            string fileName = $"{"SalesReports"} - {startDate.ToShortDateString()}-{endDate.ToShortDateString()}";
+            string fileName = $"{startDate.ToString("yyyy-MM-dd")}-{endDate.ToString("yyyy-MM-dd")}-SalesReport";
             string fileType = "application/vnd.ms-excel";
             
             return File(stream.ToArray(), fileType, fileName);

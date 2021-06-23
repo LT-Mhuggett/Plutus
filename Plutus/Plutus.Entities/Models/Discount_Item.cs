@@ -17,6 +17,10 @@ namespace Plutus.Entities.Models
         public string FullDateTime => string.Format("{0} - {1}", StartDateTime, EndDateTime);
 
         #region Relationships 
+        [Exportable]
+        public string ItemIdOne { get; set; }
+        [Exportable]
+        public string ItemIdTwo { get; set; }
         public virtual Item Item { get; set; }
         public virtual Discount Discount { get; set; }
         #endregion

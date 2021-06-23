@@ -43,8 +43,9 @@ namespace Plutus.Entities
         public DbSet<Discount_Category> DiscountCats { get; set; }
         public DbSet<SavedTransaction> SavedTransactions { get; set; }
         public DbSet<Transaction_Discount> Transaction_Discounts { get; set; }
+        public DbSet<Bussiness> Bussiness { get; set; }
         #endregion
-        
+
         public RepositoryContext()
         {
         }
@@ -72,6 +73,29 @@ namespace Plutus.Entities
                 modelBuilder.Entity<StockModel>().HasQueryFilter(s => s.StoreId == _storeId);
             */
             //Relationships
+            modelBuilder.Entity<Bussiness>()
+                .HasMany(b => b.Stores)
+                .WithOne(s => s.Bussiness)
+                .HasForeignKey(s => s.BussinessId);
+            
+            modelBuilder.Entity<Bussiness>()
+                .HasMany(b => b.Items)
+                .WithOne(i => i.Bussiness)
+                .HasForeignKey(i => i.IdTwo);
+
+            modelBuilder.Entity<Bussiness>()
+                .HasMany(b => b.Employees)
+                .WithOne(e => e.Bussiness)
+                .HasForeignKey(e => e.BussinessId);
+
+            modelBuilder.Entity<Item>()
+                .HasKey(i => new { i.IdOne, i.IdTwo });
+
+            modelBuilder.Entity<Store>()
+                .HasMany(s => s.Sales)
+                .WithOne(sa => sa.Store)
+                .HasForeignKey(sa => sa.StoreId);
+                
             modelBuilder.Entity<Discount_Item>()
                 .HasOne(di => di.Item)
                 .WithMany(i => i.DisItems);
@@ -119,12 +143,12 @@ namespace Plutus.Entities
                 .IsUnique();
 
             modelBuilder.Entity<Stock>()
-                .HasKey(k => new { k.ItemId, k.StoreId });
+                .HasKey(k => new { k.ItemIdOne, k.ItemIdTwo, k.StoreId });
 
             modelBuilder.Entity<Item>()
                 .HasOne(i => i.Stock)
                 .WithOne(s => s.Item)
-                .HasForeignKey<Stock>(s => s.ItemId);
+                .HasForeignKey<Stock>(s => new { s.ItemIdOne, s.ItemIdTwo } );
 
             modelBuilder.Entity<Stock>()
                 .HasOne(s => s.Store)
@@ -143,11 +167,11 @@ namespace Plutus.Entities
                 .HasOne(ea => ea.AuthA)
                 .WithMany(a => a.EmpAuths)
                 .HasForeignKey(ea => ea.AuthAId);
-            
+
             modelBuilder.Entity<Transaction>()
                 .HasOne(t => t.Item)
                 .WithMany(i => i.Transactions)
-                .HasForeignKey(t => t.ItemId);
+                .HasForeignKey(t => new { t.ItemIdOne, t.ItemIdTwo });
 
             modelBuilder.Entity<Transaction>()
                 .HasOne(t => t.Sale)
@@ -166,7 +190,7 @@ namespace Plutus.Entities
             modelBuilder.Entity<Refund>()
                 .HasOne(r => r.Item)
                 .WithMany(i => i.Refunds)
-                .HasForeignKey(r => r.ItemId);
+                .HasForeignKey(r => new { r.ItemIdOne, r.ItemIdTwo } );
 
             modelBuilder.Entity<Refund>()
                 .HasOne(r => r.SaleReturned)
@@ -199,7 +223,7 @@ namespace Plutus.Entities
             modelBuilder.Entity<CheckoutItemChange>()
                 .HasOne(cIC => cIC.Item)
                 .WithMany(i => i.CheckoutItemChanges)
-                .HasForeignKey(cIC => cIC.ItemId);
+                .HasForeignKey(cIC =>  new { cIC.ItemIdOne, cIC.ItemIdTwo });
 
             modelBuilder.Entity<CheckoutItemChange>()
                 .HasOne(cIC => cIC.Transaction)
@@ -213,6 +237,13 @@ namespace Plutus.Entities
                 .HasForeignKey<Refund>(r => r.CheckoutItemChangeId)
                 .IsRequired(false);
 
+            // modelBuilder.Entity<Actor>()
+            //.HasKey(nameof(Actor.FirstName), nameof(Actor.LastName));
+
+            /*builder.Entity<OrderDetail>().HasKey(table => new {
+                table.OrderID,
+                table.ProductID
+            });*/
             base.OnModelCreating(modelBuilder);
         }
 

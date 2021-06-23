@@ -6,7 +6,8 @@
         decimal ItemsCostPrice { get; set; }
         decimal ItemsCostExPrice { get; set; }
 
-        string ItemId { get; set; }
+        string ItemIdOne { get; set; }
+        string ItemIdTwo { get; set; }
         string SaleId { get; set; }
         int? CheckoutItemChangeId { get; set; }
     }

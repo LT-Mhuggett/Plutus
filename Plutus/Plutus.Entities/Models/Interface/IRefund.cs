@@ -5,7 +5,8 @@
         string Reason { get; set; }
         int Amount { get; set; }
 
-        string ItemId { get; set; }
+        string ItemIdOne { get; set; }
+        string ItemIdTwo { get; set; }
         string AuthoriserId { get; set; }
         string SaleId { get; set; }
         string SaleIdReturned { get; set; }

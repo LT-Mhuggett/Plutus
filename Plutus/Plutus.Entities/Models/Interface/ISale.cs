@@ -7,7 +7,5 @@ namespace Plutus.Entities.Models.Interface
         decimal Total { get; set; }
         decimal TotalExTax { get; set; }
         DateTime DateOfSale { get; set; }
-
-        string EmployeeId { get; set; }
     }
 }
