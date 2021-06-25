@@ -6,16 +6,17 @@ using Plutus.Repository.Extensions;
 using Plutus.Repository.QueryParameters;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Plutus.DBService.Controllers
 {
     [ApiController]
-    public abstract class ApiControllerReadOnlyBase<TEntity, TId, TQueryParameters> : ControllerBase where TEntity: Base<TId> where TQueryParameters: QueryParameters<TEntity, TId>
+    public abstract class ApiControllerBaseR<TEntity, TId, TQueryParameters> : ControllerBase where TEntity : Base<TId> where TQueryParameters : QueryParameters<TEntity, TId>
     {
         protected readonly IRepositoryWrapper repositoryWrapper;
         protected virtual IRepositoryBase<TEntity, TId> Repository { get; }
 
-        public ApiControllerReadOnlyBase(IRepositoryWrapper repositoryWrapper)
+        public ApiControllerBaseR(IRepositoryWrapper repositoryWrapper)
         {
             this.repositoryWrapper = repositoryWrapper;
         }
@@ -38,6 +39,21 @@ namespace Plutus.DBService.Controllers
             Response.Headers.Add("X-Pagination", JsonConvert.SerializeObject(entities.MetaData));
             Response.Headers.Add("X-Queryable", JsonConvert.SerializeObject(new { queryParameters.MinCreatedDate, queryParameters.MaxCreatedDate }));
             return Ok(entities);
+        }
+
+        [HttpGet("{id}")]
+        [ApiConventionMethod(typeof(DefaultApiConventions),
+            nameof(DefaultApiConventions.Find))]
+        
+        public virtual async Task<ActionResult<TEntity>> FindById([FromRoute] TId id)
+        {
+            var entity = await Repository.FindById(id);
+            if(entity == default)
+            {
+                return NotFound();
+            }
+
+            return Ok(entity);
         }
     }
 }

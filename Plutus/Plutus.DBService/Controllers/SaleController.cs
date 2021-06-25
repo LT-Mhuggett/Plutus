@@ -12,7 +12,7 @@ namespace Plutus.DBService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class SaleController : ApiControllerReadOnlyBase<Sale, string, SaleParameters>
+    public class SaleController : ApiControllerBaseR<Sale, string, SaleParameters>
     {
         protected override IRepositoryBase<Sale, string> Repository => repositoryWrapper.SaleRepository;
 

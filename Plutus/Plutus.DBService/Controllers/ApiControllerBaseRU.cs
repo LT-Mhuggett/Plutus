@@ -11,9 +11,9 @@ using Plutus.Repository.QueryParameters;
 
 namespace Plutus.DBService.Controllers
 {
-    public abstract class ApiControllerReadAndUpdate<TEntity, TId, TQueryParameters> : ApiControllerReadOnlyBase<TEntity, TId, TQueryParameters> where TEntity : Base<TId> where TQueryParameters : QueryParameters<TEntity, TId>
+    public abstract class ApiControllerBaseRU<TEntity, TId, TQueryParameters> : ApiControllerBaseR<TEntity, TId, TQueryParameters> where TEntity : Base<TId> where TQueryParameters : QueryParameters<TEntity, TId>
     {
-        public ApiControllerReadAndUpdate(IRepositoryWrapper repositoryWrapper) : base(repositoryWrapper)
+        public ApiControllerBaseRU(IRepositoryWrapper repositoryWrapper) : base(repositoryWrapper)
         {
         }
 

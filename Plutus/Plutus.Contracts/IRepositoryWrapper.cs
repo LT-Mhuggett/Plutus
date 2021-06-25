@@ -19,6 +19,7 @@ namespace Plutus.Contracts
         IStoreRepository StoreRepository { get; }
         ITaxRepository TaxRepository { get; }
         ITransactionRepository TransactionRepository { get; }
+        IBussinessRepository BussinessRepository { get; }
 
         int Save();
 
