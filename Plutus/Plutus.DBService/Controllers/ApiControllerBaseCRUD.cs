@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Plutus.DBService.Controllers
 {
-    public abstract class ApiControllerBaseCRUD<TEntity, TId, TQueryParameters> : APIControllerBaseCRU<TEntity, TId, TQueryParameters> where TEntity : Base<TId> where TQueryParameters : QueryParameters<TEntity, TId>
+    public abstract class ApiControllerBaseCRUD<TEntity, TId, TQueryParameters> : ApiControllerBaseCRU<TEntity, TId, TQueryParameters> where TEntity : Base<TId> where TQueryParameters : QueryParameters<TEntity, TId>
     {
 
         public ApiControllerBaseCRUD(IRepositoryWrapper repositoryWrapper) : base(repositoryWrapper)

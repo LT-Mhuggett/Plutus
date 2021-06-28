@@ -49,12 +49,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Endpoints", "Endpoints", "{
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Plutus.DBService", "Plutus.DBService\Plutus.DBService.csproj", "{1B56105E-6971-4BBF-AF8D-65C1AA207003}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Plutus.Entities.Startup", "Plutus.Entities.Startup\Plutus.Entities.Startup.csproj", "{462B9788-1B8D-40CB-B186-EB1EF24910A5}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Plutus.Reports", "Plutus.Reports\Plutus.Reports.csproj", "{4A00030E-49A0-4F93-9045-9E5E1A8A7731}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Plutus.Reports", "Plutus.Reports\Plutus.Reports.csproj", "{4A00030E-49A0-4F93-9045-9E5E1A8A7731}"
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		Plutus\Plutus\Plutus.projitems*{4ecb5881-9e0a-44e3-8dec-27e419b54a18}*SharedItemsImports = 13
 		Plutus\Plutus\Plutus.projitems*{e3fadfe3-6f51-4444-b3d2-74ebd9e726b9}*SharedItemsImports = 4
 		Plutus\Plutus\Plutus.projitems*{e5838bc8-d859-4941-9696-6e600ab87f8a}*SharedItemsImports = 4
 	EndGlobalSection
@@ -1041,54 +1040,6 @@ Global
 		{1B56105E-6971-4BBF-AF8D-65C1AA207003}.Release|x64.Build.0 = Release|Any CPU
 		{1B56105E-6971-4BBF-AF8D-65C1AA207003}.Release|x86.ActiveCfg = Release|Any CPU
 		{1B56105E-6971-4BBF-AF8D-65C1AA207003}.Release|x86.Build.0 = Release|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Ad-Hoc|Any CPU.ActiveCfg = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Ad-Hoc|Any CPU.Build.0 = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Ad-Hoc|ARM.ActiveCfg = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Ad-Hoc|ARM.Build.0 = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Ad-Hoc|iPhone.ActiveCfg = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Ad-Hoc|iPhone.Build.0 = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Ad-Hoc|iPhoneSimulator.ActiveCfg = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Ad-Hoc|iPhoneSimulator.Build.0 = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Ad-Hoc|x64.ActiveCfg = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Ad-Hoc|x64.Build.0 = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Ad-Hoc|x86.ActiveCfg = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Ad-Hoc|x86.Build.0 = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.AppStore|Any CPU.ActiveCfg = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.AppStore|Any CPU.Build.0 = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.AppStore|ARM.ActiveCfg = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.AppStore|ARM.Build.0 = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.AppStore|iPhone.ActiveCfg = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.AppStore|iPhone.Build.0 = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.AppStore|iPhoneSimulator.ActiveCfg = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.AppStore|iPhoneSimulator.Build.0 = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.AppStore|x64.ActiveCfg = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.AppStore|x64.Build.0 = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.AppStore|x86.ActiveCfg = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.AppStore|x86.Build.0 = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Debug|ARM.ActiveCfg = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Debug|ARM.Build.0 = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Debug|iPhone.ActiveCfg = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Debug|iPhone.Build.0 = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Debug|iPhoneSimulator.ActiveCfg = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Debug|iPhoneSimulator.Build.0 = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Debug|x64.Build.0 = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Debug|x86.Build.0 = Debug|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Release|Any CPU.Build.0 = Release|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Release|ARM.ActiveCfg = Release|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Release|ARM.Build.0 = Release|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Release|iPhone.ActiveCfg = Release|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Release|iPhone.Build.0 = Release|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Release|iPhoneSimulator.ActiveCfg = Release|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Release|iPhoneSimulator.Build.0 = Release|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Release|x64.ActiveCfg = Release|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Release|x64.Build.0 = Release|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Release|x86.ActiveCfg = Release|Any CPU
-		{462B9788-1B8D-40CB-B186-EB1EF24910A5}.Release|x86.Build.0 = Release|Any CPU
 		{4A00030E-49A0-4F93-9045-9E5E1A8A7731}.Ad-Hoc|Any CPU.ActiveCfg = Debug|Any CPU
 		{4A00030E-49A0-4F93-9045-9E5E1A8A7731}.Ad-Hoc|Any CPU.Build.0 = Debug|Any CPU
 		{4A00030E-49A0-4F93-9045-9E5E1A8A7731}.Ad-Hoc|ARM.ActiveCfg = Debug|Any CPU
@@ -1154,9 +1105,9 @@ Global
 		{4A00030E-49A0-4F93-9045-9E5E1A8A7731} = {963727F9-05FC-4953-9C7D-F456FE69F689}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {E380D658-A835-41C0-A63A-D65A9C92844F}
-		RESX_AutoCreateNewLanguageFiles = True
-		RESX_NeutralResourcesLanguage = en-GB
 		RESX_ShowPerformanceTraces = True
+		RESX_NeutralResourcesLanguage = en-GB
+		RESX_AutoCreateNewLanguageFiles = True
+		SolutionGuid = {E380D658-A835-41C0-A63A-D65A9C92844F}
 	EndGlobalSection
 EndGlobal
