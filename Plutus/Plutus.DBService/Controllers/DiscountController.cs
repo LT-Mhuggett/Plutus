@@ -7,7 +7,7 @@ namespace Plutus.DBService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class DiscountController : ApiControllerBaseCRUD<Discount, int, QueryParameters<Discount, int>>
+    public class DiscountController : ApiControllerBaseCRUD<Discount, int, DiscountParameters>
     {
         protected override IRepositoryBase<Discount, int> Repository => repositoryWrapper.DiscountRepository;
 

@@ -7,7 +7,7 @@ namespace Plutus.DBService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class PaymentMethodController : ApiControllerBaseCRU<PaymentMethod, int, QueryParameters<PaymentMethod, int>>
+    public class PaymentMethodController : ApiControllerBaseCRU<PaymentMethod, int, PaymentMethodsParameters>
     {
         protected override IRepositoryBase<PaymentMethod, int> Repository => repositoryWrapper.PaymentMethodRepository;
 

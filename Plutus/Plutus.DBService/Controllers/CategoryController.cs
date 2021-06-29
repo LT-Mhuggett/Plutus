@@ -7,7 +7,7 @@ namespace Plutus.DBService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class CategoryController : ApiControllerBaseCRUD<Category, int, QueryParameters<Category, int>>
+    public class CategoryController : ApiControllerBaseCRUD<Category, int, CategoryParameters>
     {
         protected override IRepositoryBase<Category, int> Repository => repositoryWrapper.CategoryRepository;
 

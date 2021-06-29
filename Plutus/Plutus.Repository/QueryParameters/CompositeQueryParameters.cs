@@ -1,12 +1,10 @@
-﻿using Newtonsoft.Json;
-using NSwag.Annotations;
+﻿using NSwag.Annotations;
 using Plutus.Entities.Models.Interface;
 using System;
-using System.Linq.Expressions;
 
 namespace Plutus.Repository.QueryParameters
 {
-    public abstract class QueryParameters<TEntity, TId> where TEntity : IBase<TId>
+    public abstract class CompositeQueryParameters<TEntity, TIdOne, TIdTwo> where TEntity : ICompositeBase<TIdOne, TIdTwo>
     {
         private const int MaxPageSize = 50;
         public int PageNumber { get; set; } = 1;
@@ -24,11 +22,10 @@ namespace Plutus.Repository.QueryParameters
         public DateTime MinCreatedDate { get; set; } = DateTime.UnixEpoch;
         public DateTime MaxCreatedDate { get; set; } = DateTime.Now;
 
-        [JsonIgnore]
         [OpenApiIgnore]
         public bool ValidCreatedDates => MaxCreatedDate > MinCreatedDate;
 
-        public virtual Expression<Func<TEntity, bool>> GetExpression() => qP => qP.CreatedAt.Date >= MinCreatedDate.Date &&
-                                                                                qP.CreatedAt.Date <= MaxCreatedDate.Date;
+        /*public virtual Expression<Func<TEntity, bool>> GetExpression() => qP => qP.CreatedAt.Date >= MinCreatedDate.Date &&
+                                                                                qP.CreatedAt.Date <= MaxCreatedDate.Date;*/
     }
 }

@@ -7,7 +7,7 @@ namespace Plutus.DBService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class EmployeeController : ApiControllerBaseCRU<Employee, string, QueryParameters<Employee, string>>
+    public class EmployeeController : ApiControllerBaseCRU<Employee, string, EmployeeParameters>
     {
         protected override IRepositoryBase<Employee, string> Repository => repositoryWrapper.EmployeeRepository;
 

@@ -7,7 +7,7 @@ namespace Plutus.DBService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class NoteController : ApiControllerBaseCR<Note, int, QueryParameters<Note, int>>
+    public class NoteController : ApiControllerBaseCR<Note, int, NoteParameters>
     {
         protected override IRepositoryBase<Note, int> Repository => repositoryWrapper.NoteRepository;
 

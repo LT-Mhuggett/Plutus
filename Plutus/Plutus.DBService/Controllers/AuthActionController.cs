@@ -7,7 +7,7 @@ namespace Plutus.DBService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class AuthActionController : ApiControllerBaseCRUD<AuthActions, int, QueryParameters<AuthActions, int>>
+    public class AuthActionController : ApiControllerBaseCRUD<AuthActions, int, AuthActionParameters>
     {
         protected override IRepositoryBase<AuthActions, int> Repository => repositoryWrapper.AuthActionRepository;
 

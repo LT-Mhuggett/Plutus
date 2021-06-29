@@ -7,7 +7,7 @@ namespace Plutus.DBService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class TaxController : ApiControllerBaseCRU<Tax, int, QueryParameters<Tax, int>>
+    public class TaxController : ApiControllerBaseCRU<Tax, int, TaxParameters>
     {
         protected override IRepositoryBase<Tax, int> Repository => repositoryWrapper.TaxRepository;
 

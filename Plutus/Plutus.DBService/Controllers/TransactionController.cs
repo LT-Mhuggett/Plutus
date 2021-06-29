@@ -7,7 +7,7 @@ namespace Plutus.DBService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class TransactionController : ApiControllerBaseCR<Transaction, int, QueryParameters<Transaction, int>>
+    public class TransactionController : ApiControllerBaseCR<Transaction, int, TransactionParameters>
     {
         protected override IRepositoryBase<Transaction, int> Repository => repositoryWrapper.TransactionRepository;
 

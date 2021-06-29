@@ -7,7 +7,7 @@ namespace Plutus.DBService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class SavedTransactionController : ApiControllerBaseCRUD<SavedTransaction, string, QueryParameters<SavedTransaction, string>>
+    public class SavedTransactionController : ApiControllerBaseCRUD<SavedTransaction, string, SavedTransactionsParameters>
     {
         protected override IRepositoryBase<SavedTransaction, string> Repository => repositoryWrapper.SavedTransactionRepository;
 

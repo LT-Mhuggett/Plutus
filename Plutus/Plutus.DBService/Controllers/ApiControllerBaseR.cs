@@ -30,7 +30,7 @@ namespace Plutus.DBService.Controllers
         [ProducesResponseType(200)]
         public virtual ActionResult<IEnumerable<TEntity>> Index([FromQuery] TQueryParameters queryParameters)
         {
-            if (queryParameters.ValidCreatedDates)
+            if (!queryParameters.ValidCreatedDates)
                 return BadRequest("Created Max date cannot be less than Created min date");
 
             var entities = PagedList<TEntity>.ToPagedList(Repository.FindAllByConditionQueryable(queryParameters.GetExpression()).OrderBy(e => e.CreatedAt),

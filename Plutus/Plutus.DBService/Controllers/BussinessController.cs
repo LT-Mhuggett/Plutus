@@ -7,7 +7,7 @@ namespace Plutus.DBService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class BussinessController : ApiControllerBaseCRU<Bussiness, string, QueryParameters<Bussiness, string>>
+    public class BussinessController : ApiControllerBaseCRU<Bussiness, string, BussinessParameters>
     {
         protected override IRepositoryBase<Bussiness, string> Repository => repositoryWrapper.BussinessRepository;
 
