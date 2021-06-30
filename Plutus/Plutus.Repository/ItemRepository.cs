@@ -5,7 +5,7 @@ using Plutus.Repository.Base;
 
 namespace Plutus.Repository
 {
-    public class ItemRepository : RepositoryBase<Item, string>, IItemRepository
+    public class ItemRepository : CompositeRepositoryBase<Item, string, string>, IItemRepository
     {
         public ItemRepository(RepositoryContext repositoryContext) : base(repositoryContext)
         {

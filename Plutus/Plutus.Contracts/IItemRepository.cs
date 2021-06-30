@@ -2,7 +2,7 @@
 
 namespace Plutus.Contracts
 {
-    public interface IItemRepository : IRepositoryBase<Item, string>
+    public interface IItemRepository : ICompositeRepositoryBase<Item, string, string>
     {
     }
 }

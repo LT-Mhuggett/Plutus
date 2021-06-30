@@ -1,6 +1,7 @@
 ﻿using NSwag.Annotations;
 using Plutus.Entities.Models.Interface;
 using System;
+using System.Linq.Expressions;
 
 namespace Plutus.Repository.QueryParameters
 {
@@ -25,7 +26,7 @@ namespace Plutus.Repository.QueryParameters
         [OpenApiIgnore]
         public bool ValidCreatedDates => MaxCreatedDate > MinCreatedDate;
 
-        /*public virtual Expression<Func<TEntity, bool>> GetExpression() => qP => qP.CreatedAt.Date >= MinCreatedDate.Date &&
-                                                                                qP.CreatedAt.Date <= MaxCreatedDate.Date;*/
+        public virtual Expression<Func<TEntity, bool>> GetExpression() => qP => qP.CreatedAt.Date >= MinCreatedDate.Date &&
+                                                                                qP.CreatedAt.Date <= MaxCreatedDate.Date;
     }
 }

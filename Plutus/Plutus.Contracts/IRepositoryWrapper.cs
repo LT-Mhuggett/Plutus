@@ -21,6 +21,7 @@ namespace Plutus.Contracts
         ITransactionRepository TransactionRepository { get; }
         IBussinessRepository BussinessRepository { get; }
 
+
         int Save();
 
         Task<int> SaveAsync();
