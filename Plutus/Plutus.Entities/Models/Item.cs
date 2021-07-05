@@ -37,8 +37,6 @@ namespace Plutus.Entities.Models
         public int CatId { get; set; }
         public virtual Category Cat { get; set; }
         public virtual Stock Stock { get; set; }
-        [Exportable]
-        public string BussinessId { get; set; }
         public virtual Bussiness Bussiness { get; set; }
 
         //BussinessId, Id => composite key

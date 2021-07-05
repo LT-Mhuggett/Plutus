@@ -2,7 +2,7 @@
 
 namespace Plutus.Contracts
 {
-    public interface IStockRepository : IRepositoryBase<Stock, object>
+    public interface IStockRepository : ITriCompositeRepositoryBase<Stock, string, string, string>
     {
     }
 }

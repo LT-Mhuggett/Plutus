@@ -5,21 +5,14 @@ using System;
 namespace Plutus.Entities.Models
 {
     [Serializable]
-    public class Stock : Auditable, IStock
+    public class Stock : TriCompositeBase<string, string, string>, IStock
     {
         #region Properties
-        [Exportable]
+        [Exportable] 
         public int Quantity { get; set; }
 
         #region Relationships
-        [Exportable]
-        public string ItemIdOne { get; set; }
-        [Exportable]
-        public string ItemIdTwo { get; set; }
         public virtual Item Item { get; set; }
-
-        [Exportable]
-        public string StoreId { get; set; }
         public virtual Store Store { get; set; }
         #endregion
         #endregion

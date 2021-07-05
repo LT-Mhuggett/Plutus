@@ -73,6 +73,7 @@ namespace Plutus.Entities
                 modelBuilder.Entity<StockModel>().HasQueryFilter(s => s.StoreId == _storeId);
             */
             //Relationships
+
             modelBuilder.Entity<Bussiness>()
                 .HasMany(b => b.Stores)
                 .WithOne(s => s.Bussiness)
@@ -82,7 +83,7 @@ namespace Plutus.Entities
                 .HasMany(b => b.Items)
                 .WithOne(i => i.Bussiness)
                 .HasForeignKey(i => i.IdTwo);
-
+             
             modelBuilder.Entity<Bussiness>()
                 .HasMany(b => b.Employees)
                 .WithOne(e => e.Bussiness)
@@ -90,6 +91,9 @@ namespace Plutus.Entities
 
             modelBuilder.Entity<Item>()
                 .HasKey(i => new { i.IdOne, i.IdTwo });
+
+            modelBuilder.Entity<Stock>()
+                .HasKey(s => new { s.IdOne, s.IdTwo, s.IdThree });
 
             modelBuilder.Entity<Store>()
                 .HasMany(s => s.Sales)
@@ -142,18 +146,18 @@ namespace Plutus.Entities
                 .HasIndex(u => u.Email)
                 .IsUnique();
 
-            modelBuilder.Entity<Stock>()
-                .HasKey(k => new { k.ItemIdOne, k.ItemIdTwo, k.StoreId });
+            /*modelBuilder.Entity<Stock>()
+                .HasKey(k => new { k.ItemIdOne, k.ItemIdTwo, k.StoreId });*/
 
             modelBuilder.Entity<Item>()
                 .HasOne(i => i.Stock)
                 .WithOne(s => s.Item)
-                .HasForeignKey<Stock>(s => new { s.ItemIdOne, s.ItemIdTwo } );
+                .HasForeignKey<Stock>(s => new { s.IdOne, s.IdTwo });
 
             modelBuilder.Entity<Stock>()
                 .HasOne(s => s.Store)
                 .WithMany(st => st.Stocks)
-                .HasForeignKey(s => s.StoreId);
+                .HasForeignKey(s => s.IdThree);
 
             modelBuilder.Entity<Emp_AuthActions>()
                 .HasKey(k => new { k.AuthAId, k.EmpId });

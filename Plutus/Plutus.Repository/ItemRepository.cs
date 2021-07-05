@@ -9,7 +9,7 @@ namespace Plutus.Repository
     {
         public ItemRepository(RepositoryContext repositoryContext) : base(repositoryContext)
         {
-
+           
         }
     }
 }

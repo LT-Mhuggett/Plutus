@@ -49,8 +49,7 @@ namespace Plutus.DBService.Controllers
                 Image = itemBody.Image,
                 Amount = itemBody.Amount,
                 VatId = itemBody.VatId,
-                CatId = itemBody.CatId,
-                BussinessId = itemBody.BussinessId
+                CatId = itemBody.CatId
             };
 
             if (!TryValidateModel(item))
@@ -63,11 +62,11 @@ namespace Plutus.DBService.Controllers
             return CreatedAtAction("FindById", new { idOne = item.IdOne, idTwo = item.IdTwo  }, item);
         }
 
-        [HttpGet("{idOne},{idTwo}")]
+        [HttpGet("{idOne}")]
         [ApiConventionMethod(typeof(DefaultApiConventions),
             nameof(DefaultApiConventions.Find))]
 
-        public virtual async Task<ActionResult<Item>> FindById([FromRoute] string idOne, [FromRoute] string idTwo)
+        public virtual async Task<ActionResult<Item>> FindById([FromRoute] string idOne, [FromHeader] string idTwo)
         {
             var item = await Repository.FindById(idOne, idTwo);
             if (item == default)

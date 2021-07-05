@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Plutus.Contracts;
@@ -29,6 +30,11 @@ namespace Plutus.DBService.Extensions
             var connectionString = configuration["ConnectionString"];
 
             services.AddDbContext<RepositoryContext>(o => o.UseMySql(connectionString, MySqlServerVersion.LatestSupportedServerVersion));
+
+            //BussinessIdProvider bussinessIdProvider = new BussinessIdProvider("1");
+            //services.AddSingleton<BussinessIdProvider>(bussinessIdProvider);
+
+            //HttpContextAccessor 
         }
 
         public static void ConfigureRepositoryWrapper(this IServiceCollection services)

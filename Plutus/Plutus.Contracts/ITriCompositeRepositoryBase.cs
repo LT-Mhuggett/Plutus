@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Plutus.Entities.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Plutus.Contracts
 {
-    public interface ICompositeRepositoryBase<TEntity, TIdOne, TIdTwo>
+    public interface ITriCompositeRepositoryBase<TEntity, TIdOne, TIdTwo, TIdThree>
     {
 
         /// <summary>
@@ -51,7 +52,7 @@ namespace Plutus.Contracts
         /// <param name="idOne">IDOne of the record</param>
         /// <param name="idTwo">IDTwo of the record</param>
         /// <returns>Single <see cref="TEntity"/></returns>
-        Task<TEntity> FindById(TIdOne idOne, TIdTwo idTwo);
+        Task<TEntity> FindById(TIdOne idOne, TIdTwo idTwo, TIdThree idThree);
 
         //Task<TEntity> FindById(TIdOne idOne);
 
@@ -68,6 +69,7 @@ namespace Plutus.Contracts
         /// <param name="entity">Entity to update in table</param>
         /// <returns>Success of update</returns>
         Task<bool> Update(TEntity entity);
+        //object FindAllByConditionQueryable(Expression<Func<Item, bool>> expression);
 
         /// <summary>
         /// Async DELETE entity from table, denoted by <see cref="TEntity"/>
@@ -81,7 +83,7 @@ namespace Plutus.Contracts
         /// </summary>
         /// <param name="id">id to check</param>
         /// <returns>Entity exists or not</returns>
-        Task<bool> Exists(TIdOne idOne, TIdTwo idTwo);
+        Task<bool> Exists(TIdOne idOne, TIdTwo idTwo, TIdThree idThree);
 
         /// <summary>
         /// Manually set the state of an Entity

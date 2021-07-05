@@ -8,14 +8,14 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
- 
+
 namespace Plutus.Repository.Base
 {
-    public abstract class CompositeRepositoryBase<TEntity, TIdOne, TIdTwo> : ICompositeRepositoryBase<TEntity, TIdOne, TIdTwo> where TEntity : class
+    public abstract class TriCompositeRepositoryBase<TEntity, TIdOne, TIdTwo, TIdThree> : ITriCompositeRepositoryBase<TEntity, TIdOne, TIdTwo, TIdThree> where TEntity : class
     {
         protected RepositoryContext RepositoryContext { get; set; }
 
-        public CompositeRepositoryBase(RepositoryContext repositoryContext)
+        public TriCompositeRepositoryBase(RepositoryContext repositoryContext)
         {
             RepositoryContext = repositoryContext;
         }
@@ -53,7 +53,7 @@ namespace Plutus.Repository.Base
         public async virtual Task<TEntity> FindFirstByCondition(Expression<Func<TEntity, bool>> expression) => await RepositoryContext.Set<TEntity>().AsNoTracking().FirstOrDefaultAsync(expression);
 
         /// <inheritdoc/>
-        public async virtual Task<TEntity> FindById(TIdOne idOne, TIdTwo idTwo) => await RepositoryContext.Set<TEntity>().FindAsync(idOne, idTwo);
+        public async virtual Task<TEntity> FindById(TIdOne idOne, TIdTwo idTwo, TIdThree idThree) => await RepositoryContext.Set<TEntity>().FindAsync(idOne, idTwo, idThree);
 
         //public async virtual Task<TEntity> FindById(TIdOne idOne) => await RepositoryContext.Set<TEntity>().Where(i => i.Id);
 
@@ -68,7 +68,7 @@ namespace Plutus.Repository.Base
         }
 
         /// <inheritdoc/>
-        public async virtual Task<bool> Exists(TIdOne idOne, TIdTwo idTwo) => await RepositoryContext.Set<TEntity>().OfType<ICompositeBase<TIdOne, TIdTwo>>().AnyAsync(entity => entity.IdOne.Equals(idOne) && entity.IdTwo.Equals(idTwo));
+        public async virtual Task<bool> Exists(TIdOne idOne, TIdTwo idTwo, TIdThree idThree) => await RepositoryContext.Set<TEntity>().OfType<ITriCompositeBase<TIdOne, TIdTwo, TIdThree>>().AnyAsync(entity => entity.IdOne.Equals(idOne) && entity.IdTwo.Equals(idTwo) && entity.IdTwo.Equals(idThree));
 
         /// <inheritdoc/>
         public virtual void SetState(TEntity entity, EntityState entityState = EntityState.Modified) => RepositoryContext.Entry(entity).State = entityState;
