@@ -2,15 +2,17 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Plutus.Entities;
 
 namespace Plutus.Entities.Migrations.MySqlMigrations
 {
     [DbContext(typeof(MySqlDbContext))]
-    partial class MySqlDbContextModelSnapshot : ModelSnapshot
+    [Migration("20210706172656_CompositeTax")]
+    partial class CompositeTax
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -440,7 +442,7 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(65,30)");
 
-                    b.Property<Guid>("TaxId")
+                    b.Property<Guid>("VatId")
                         .HasColumnType("char(36)");
 
                     b.HasKey("IdOne", "IdTwo");
@@ -449,7 +451,7 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
 
                     b.HasIndex("IdTwo");
 
-                    b.HasIndex("TaxId", "IdTwo");
+                    b.HasIndex("VatId", "IdTwo");
 
                     b.ToTable("Items");
                 });
@@ -829,7 +831,7 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
 
                     b.HasIndex("IdTwo");
 
-                    b.ToTable("Taxes");
+                    b.ToTable("Vats");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Transaction", b =>
@@ -1000,9 +1002,9 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Plutus.Entities.Models.Tax", "Tax")
+                    b.HasOne("Plutus.Entities.Models.Tax", "Vat")
                         .WithMany("Items")
-                        .HasForeignKey("TaxId", "IdTwo")
+                        .HasForeignKey("VatId", "IdTwo")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -1010,7 +1012,7 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
 
                     b.Navigation("Cat");
 
-                    b.Navigation("Tax");
+                    b.Navigation("Vat");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Notes_Sale", b =>
@@ -1130,7 +1132,7 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
             modelBuilder.Entity("Plutus.Entities.Models.Tax", b =>
                 {
                     b.HasOne("Plutus.Entities.Models.Bussiness", "Bussiness")
-                        .WithMany("Taxes")
+                        .WithMany("Vats")
                         .HasForeignKey("IdTwo")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1191,7 +1193,7 @@ namespace Plutus.Entities.Migrations.MySqlMigrations
 
                     b.Navigation("Stores");
 
-                    b.Navigation("Taxes");
+                    b.Navigation("Vats");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Category", b =>

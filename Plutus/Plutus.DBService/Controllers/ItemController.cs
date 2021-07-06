@@ -48,7 +48,7 @@ namespace Plutus.DBService.Controllers
                 Price = itemBody.Price,
                 Image = itemBody.Image,
                 Amount = itemBody.Amount,
-                VatId = itemBody.VatId,
+                TaxId = itemBody.VatId,
                 CatId = itemBody.CatId
             };
 

@@ -29,9 +29,9 @@ namespace Plutus.Entities.Models
         public int Amount { get; set; }
         #region Relationships
         [Exportable]
-        [ForeignKey("VatIdFK")]
-        public int VatId { get; set; }
-        public virtual Tax Vat { get; set; }
+        public Guid TaxId { get; set; }
+        
+        public virtual Tax Tax { get; set; }
         [Exportable]
         [ForeignKey("CatIdFK")]
         public int CatId { get; set; }

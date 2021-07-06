@@ -8,6 +8,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Threading;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Plutus.Entities
 {
@@ -25,7 +26,7 @@ namespace Plutus.Entities
         #region DbSets
         public DbSet<Employee> Employees { get; set; }
         public DbSet<Store> Stores { get; set; }
-        public DbSet<Tax> Vats { get; set; }
+        public DbSet<Tax> Taxes { get; set; }
         public DbSet<Item> Items { get; set; }
         public DbSet<PaymentMethod> PayMethods { get; set; }
         public DbSet<PaymentMethod_Sale> PaySales { get; set; }
@@ -73,6 +74,22 @@ namespace Plutus.Entities
                 modelBuilder.Entity<StockModel>().HasQueryFilter(s => s.StoreId == _storeId);
             */
             //Relationships
+            modelBuilder.Entity<Tax>()
+                .HasKey(t => new { t.IdOne, t.IdTwo });
+
+            modelBuilder.Entity<Tax>()
+                .Property(t => t.IdOne)
+                .ValueGeneratedOnAdd();
+
+            modelBuilder.Entity<Item>()
+                .HasOne(i => i.Tax)
+                .WithMany(t => t.Items)
+                .HasForeignKey(i => new { i.TaxId, i.IdTwo });
+
+            modelBuilder.Entity<Tax>() 
+                .HasOne(t => t.Bussiness)
+                .WithMany(b => b.Taxes)
+                .HasForeignKey(t => t.IdTwo);
 
             modelBuilder.Entity<Bussiness>()
                 .HasMany(b => b.Stores)

@@ -30,6 +30,7 @@ namespace Plutus.Entities.Models
         #region Collections
         public virtual ICollection<Store> Stores { get; set; }
         public virtual ICollection<Item> Items { get; set; }
+        public virtual ICollection<Tax> Taxes { get; set; }
         public virtual ICollection<Employee> Employees { get; set; }
 
         #endregion 

@@ -1,4 +1,6 @@
-﻿namespace Plutus.Entities.Models.Interface
+﻿using System;
+
+namespace Plutus.Entities.Models.Interface
 {
     public interface IItem : ICompositeBase<string, string>
     {
@@ -11,7 +13,7 @@
         byte[] Image { get; set; }
         int Amount { get; set; }
 
-        int VatId { get; set; }
+        Guid TaxId { get; set; }
         int CatId { get; set; }
     }
 }

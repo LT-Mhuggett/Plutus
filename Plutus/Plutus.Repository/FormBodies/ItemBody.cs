@@ -22,7 +22,7 @@ namespace Plutus.Repository.FormBodies
         
         public int Amount { get; set; }
 
-        public int VatId { get; set; }
+        public Guid VatId { get; set; }
 
         public int CatId { get; set; }
 

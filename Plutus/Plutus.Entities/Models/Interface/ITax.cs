@@ -1,6 +1,8 @@
-﻿namespace Plutus.Entities.Models.Interface
+﻿using System;
+
+namespace Plutus.Entities.Models.Interface
 {
-    public interface ITax : IBase<int>
+    public interface ITax : ICompositeBase<Guid, string>
     {
         string Name { get; set; }
         double Rate { get; set; }
