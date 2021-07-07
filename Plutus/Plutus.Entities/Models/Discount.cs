@@ -12,7 +12,7 @@ namespace Plutus.Entities.Models
     {
         #region Properties
         [Exportable]
-        [Column("Name")]
+        [Column("Name")] 
         public string Name { get; set; }
         [Exportable]
         public bool AllApplicable { get; set; }
@@ -28,11 +28,15 @@ namespace Plutus.Entities.Models
         public int UsesPerTransaction { get; set; }
         [Exportable]
         public int RequiredNumOfItems { get; set; }
-        [NotMapped]
+        [NotMapped] 
         [DefaultValue(false)]
         public bool Changed { get; set; }
 
         #region Relationships
+        [Exportable]
+        public string BussinessId { get; set; }
+        public virtual Bussiness Bussiness { get; set; }
+
         #region Collections
         public virtual ICollection<Discount_Category> DisCategoryList { get; set; }
         public virtual ICollection<Discount_Item> DisItemList { get; set; }
