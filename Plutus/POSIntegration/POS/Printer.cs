@@ -81,19 +81,28 @@ namespace POSIntegration.POS
         /// of the KeyValuePair suplied.
         /// </summary>
         /// <remarks>
+        /// <para>
         /// String:
         /// Key:<c>"str.algn?.bold?.udrl?"</c>
+        /// </para>
+        /// <para>
         /// Barcode:
         /// Key:<c>"brc.bcsymbol.algn?.hght.txtp?"</c>
+        /// </para>
+        /// <para>
         /// Image:
         /// Key:<c>"img.algn?.wdth?"</c>
+        /// </para>
         /// Cut:
+        /// <para>
         /// Key:<c>"cut"</c>
-        /// 
+        /// </para>
+        /// <para>
         /// Options:
         /// algn: "cntr" = center align, "rght" = right align, "" = left align
         /// bold: "true" = bold on, "" = bold off
         /// udrl: "true" = underline on, "" = underline off
+        /// </para>
         /// </remarks>
         /// <example>
         /// <code>
@@ -272,8 +281,9 @@ namespace POSIntegration.POS
                 case "true":
                     if (Printer.CapRecBold)
                         return BoldOn;
-                    else
-                        return "";
+
+                    return "";
+
                 default:
                     return "";
             }

@@ -1,4 +1,4 @@
-﻿using NatApp.Plutus.UWP.Implementations.Services;
+﻿using NatApp.Plutus.UWP.Services.POS;
 using Syncfusion.ListView.XForms.UWP;
 using Syncfusion.SfCalendar.XForms.UWP;
 using Syncfusion.SfChart.XForms.UWP;
@@ -9,11 +9,8 @@ using Syncfusion.XForms.UWP.PopupLayout;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
-using Windows.ApplicationModel.AppService;
-using Windows.ApplicationModel.Background;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
@@ -25,8 +22,9 @@ namespace NatApp.Plutus.UWP
     /// </summary>
     sealed partial class App : Application
     {
-        internal static AppServiceConnection _appServiceConnection = null;
-        internal static BackgroundTaskDeferral _appServiceDeferral = null;
+        private static POSManager _pOSManager;
+
+        internal static POSManager POSManager => _pOSManager ?? (_pOSManager = new POSManager());
 
         /// <summary>
         /// Initializes the singleton application object.  This is the first line of authored code
@@ -39,39 +37,11 @@ namespace NatApp.Plutus.UWP
         }
 
         /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="args"></param>
-        protected override void OnBackgroundActivated(BackgroundActivatedEventArgs args)
-        {
-            base.OnBackgroundActivated(args);
-            if (args.TaskInstance is IBackgroundTaskInstance taskInstance &&
-                taskInstance.TriggerDetails is AppServiceTriggerDetails appService)
-            {
-                _appServiceDeferral = taskInstance.GetDeferral();
-                taskInstance.Canceled += OnAppServiceCanceled;
-                _appServiceConnection = appService.AppServiceConnection;
-                _appServiceConnection.ServiceClosed += _appServiceConnection_ServiceClosed;
-            }
-            return;
-        }
-
-        private void _appServiceConnection_ServiceClosed(AppServiceConnection sender, AppServiceClosedEventArgs args)
-        {
-            _appServiceDeferral?.Complete();
-        }
-
-        private void OnAppServiceCanceled(IBackgroundTaskInstance sender, BackgroundTaskCancellationReason reason)
-        {
-            _appServiceDeferral?.Complete();
-        }
-
-        /// <summary>
         /// Invoked when the application is launched normally by the end user.  Other entry points
         /// will be used such as when the application is launched to open a specific file.
         /// </summary>
         /// <param name="e">Details about the launch request and process.</param>
-        protected override async void OnLaunched(LaunchActivatedEventArgs e)
+        protected override void OnLaunched(LaunchActivatedEventArgs e)
         {
             Frame rootFrame = Window.Current.Content as Frame;
 
@@ -122,26 +92,6 @@ namespace NatApp.Plutus.UWP
             // Set Map Service Token
             Xamarin.Essentials.Platform.MapServiceToken = "Iz0xESGTUjiH540qrYnE~SjdvnyKXJDqicQiaDjhWeA~AplyAwSoZpyJXxosSd25lX_HxArpXGG_eQvTIJHjmwQWqE8mRGlErib-KpxQBsiq";
 
-            //Start FullTrustProcess
-            await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
-
-            await Task.Delay(3000);
-
-            //Check for PosForDotNet
-            var keyValues = new List<KeyValuePair<string, object>>
-            {
-                new KeyValuePair<string, object>("TestSupport-000001.POS.testPosForDotNetIsPresent", "null")
-            };
-
-            if (!(bool)await POSCommunicationUWP.SendAndGetResponseStaticAsync(keyValues))
-            {
-                if (await POSCommunicationUWP.CloseServiceAsync("TestSupport-000001"))
-                {
-                    await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
-                }
-            }
-            else
-                await POSCommunicationUWP.CloseCommunicationStaticAsync("TestSupport-000001");
 
             // Ensure the current window is active
             Window.Current.Activate();

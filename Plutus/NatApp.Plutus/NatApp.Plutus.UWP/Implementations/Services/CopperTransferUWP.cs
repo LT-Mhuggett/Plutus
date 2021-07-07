@@ -12,6 +12,7 @@ using Xamarin.Forms;
 using NatApp.Plutus.Helpers.Validators;
 using System.Diagnostics;
 using NatApp.Plutus.Services.ThirdPartyTransfer;
+using NatApp.Plutus.Helpers.CustomViews;
 
 [assembly: Dependency(typeof(CopperTransferUWP))]
 namespace NatApp.Plutus.UWP.Implementations.Services
@@ -189,7 +190,7 @@ namespace NatApp.Plutus.UWP.Implementations.Services
                             .Length - 4),
                 FullAddress = Uri.UnescapeDataString(
                     completeParsing.Item1.FirstOrDefault(x => x[0].Equals("Address"))?[1] == "" ?
-                    (await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(viewElementsFullAddress,
+                    (await InputAlertHelper.LaunchInputAlertAsync(viewElementsFullAddress,
                         "Confirm".Translate(),
                         false)).First() as string :
                     Uri.UnescapeDataString(completeParsing.Item1.FirstOrDefault(x => x[0].Equals("Address"))?[1]))
@@ -216,7 +217,7 @@ namespace NatApp.Plutus.UWP.Implementations.Services
                         false, true));
                 var tax = new TaxModel
                 {
-                    Name = (await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                    Name = (await InputAlertHelper.LaunchInputAlertAsync(
                         viewElementsTax,
                         "Confirm".Translate(),
                         false,
@@ -289,14 +290,14 @@ namespace NatApp.Plutus.UWP.Implementations.Services
                     FName = completeParsing.Item1.FirstOrDefault(x => x[0].Equals("FirstName"))?[1],
                     LName = completeParsing.Item1.FirstOrDefault(x => x[0].Equals("LastName"))?[1],
                     Email = completeParsing.Item1.FirstOrDefault(x => x[0].Equals("Email"))?[1] == "" ?
-                        ((await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                        ((await InputAlertHelper.LaunchInputAlertAsync(
                             viewElementsEmpE,
                             "Confirm".Translate(),
                             false)).First() as string).ToLower()
                         : completeParsing.Item1.FirstOrDefault(x => x[0].Equals("Email"))?[1].ToLower(),
                     Salt = salt
                 };
-                var password = (await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                var password = (await InputAlertHelper.LaunchInputAlertAsync(
                     viewElementsEmpP,
                     "Confirm".Translate(),
                     false)).First() as string;

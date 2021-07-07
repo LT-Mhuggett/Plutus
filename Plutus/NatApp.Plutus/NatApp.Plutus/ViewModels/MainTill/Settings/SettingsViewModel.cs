@@ -245,23 +245,14 @@ namespace NatApp.Plutus.ViewModels.MainTill.Settings
                     {
                         using (var printerMgr = new PosPrinterManager())
                         {
-                            await printerMgr.GetPrinterList();
+                            var printerId = await printerMgr.SelectPrinterAndGetPrinterId();
 
-                            if (printerMgr.Printers.Count > 0)
-                            {
-                                var result = await Application.Current.MainPage.DisplayActionSheet("PrinterList".Translate(), "Cancel".Translate(), null, printerMgr.Printers.Keys.ToArray());
-                                if (result != "Cancel".Translate())
-                                    PrinterLogicalNameSetting = result;
-                                else
-                                {
-                                    await Application.Current.MainPage.DisplayAlert("Warning".Translate(), "NoPrinter".Translate(), "Cancel".Translate());
-                                    PrinterLogicalNameSetting = null;
-                                }
-                            }
+                            if (!string.IsNullOrEmpty(printerId))
+                                PrinterLogicalNameSetting = printerId;
                             else
                             {
                                 await Application.Current.MainPage.DisplayAlert("Warning".Translate(), "NoPrinter".Translate(), "Cancel".Translate());
-                                PrinterLogicalNameSetting = null;
+                                PrinterLogicalNameSetting = printerId;
                             }
                         }
                         return;

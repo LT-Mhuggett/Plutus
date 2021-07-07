@@ -1,4 +1,5 @@
 ﻿using CommonPOSLibrary;
+using CommonPOSLibrary.Exceptions;
 using Database.Models;
 using NatApp.Plutus.Helpers.Extensions;
 using NatApp.Plutus.Models;
@@ -21,11 +22,6 @@ namespace NatApp.Plutus.Services.POSHandeling
         private bool DeviceEnabled { get; set; }
 
         /// <summary>
-        /// The list of available POS Printers
-        /// </summary>
-        internal Dictionary<string, Dictionary<string, object>> Printers { get; private set; }
-
-        /// <summary>
         /// Constructor
         /// </summary>
         public PosPrinterManager()
@@ -34,19 +30,16 @@ namespace NatApp.Plutus.Services.POSHandeling
         }
 
         /// <summary>
-        /// Retrieve all POS printers
+        /// Trigger the select printer device picker and return the printer Id
         /// </summary>
-        /// <returns>Printers in Dictionary format</returns>
-        public async Task<Dictionary<string, Dictionary<string, object>>> GetPrinterList()
+        /// <returns>Printer logical Id</returns>
+        public async Task<string> SelectPrinterAndGetPrinterId()
         {
-            var keyValues = new List<KeyValuePair<string, object>>()
-            {
-                new KeyValuePair<string, object>($"{App.GetViewModel().SessionId.ToString()}.POS.getPrinters", "null")
-            };
+            var keyValue = new KeyValuePair<string, object>("selectPrinter", "null");
             try
             {
-                var stringResult = (string)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValues);
-                return Printers = JsonConvert.DeserializeObject<Dictionary<string, Dictionary<string, object>>>(stringResult);
+                return (string)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
+
             }
             catch (Exception ex)
             {
@@ -58,13 +51,10 @@ namespace NatApp.Plutus.Services.POSHandeling
 
         public async Task<string[]> GetBarcodeSymbols()
         {
-            var keyValues = new List<KeyValuePair<string, object>>()
-            {
-                new KeyValuePair<string, object>($"{App.GetViewModel().SessionId.ToString()}.POS.getBarcodeSymbols", "null")
-            };
+            var keyValue = new KeyValuePair<string, object>("getBarcodeSymbols", "null");
             try
             {
-                var stringResult = (string)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValues);
+                var stringResult = (string)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
                 return JsonConvert.DeserializeObject<string[]>(stringResult);
             }
             catch (Exception ex)
@@ -77,11 +67,8 @@ namespace NatApp.Plutus.Services.POSHandeling
         {
             if (!DeviceEnabled)
                 throw new PrinterException("Printer is not Initalized", DeviceEnabled);
-            var keyValues = new List<KeyValuePair<string, object>>()
-            {
-                new KeyValuePair<string, object>($"{App.GetViewModel().SessionId.ToString()}.POS.printMultiLines", JsonConvert.SerializeObject(Lines))
-            };
-            await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValues);
+            var keyValue = new KeyValuePair<string, object>("printMultiLines", Lines);
+            await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
             await CloseConnection();
         }
 
@@ -93,33 +80,18 @@ namespace NatApp.Plutus.Services.POSHandeling
         {
             if (!string.IsNullOrEmpty(App.GetViewModel().PrinterLogicalNameSetting))
             {
-                await GetPrinterList();
-                if (Printers.Count == 0)
+                try
                 {
-                    return false;
+                    var keyValue = new KeyValuePair<string, object>("initPrinter", App.GetViewModel().PrinterLogicalNameSetting);
+                    DeviceEnabled = (bool)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
+                    return DeviceEnabled;
                 }
-                bool printerFound = false;
-                foreach (var printer in Printers)
+                catch (POSObjectException pOSObjectException)
                 {
-                    if (printer.Key.Equals(App.GetViewModel().PrinterLogicalNameSetting))
-                    {
-                        printerFound = true;
-
-                        var keyValues = new List<KeyValuePair<string, object>>()
-                        {
-                            new KeyValuePair<string, object>($"{App.GetViewModel().SessionId.ToString()}.POS.initPrinter", printer.Key)
-                        };
-                        DeviceEnabled = (bool)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValues);
-                        break;
-                    }
+                    Console.WriteLine(pOSObjectException.Message);
                 }
-                if (!printerFound)
-                {
-                    App.GetViewModel().PrinterLogicalNameSetting = null;
-                    return false;
-                }
-                return DeviceEnabled;
             }
+
             return false;
         }
 
@@ -131,7 +103,6 @@ namespace NatApp.Plutus.Services.POSHandeling
         /// <returns></returns>
         private async Task SetUpExecutePrint(SaleModel sale, IEnumerable<IBasketRecord> basketRecords, StoreModel store)
         {
-            var keyValues = new List<KeyValuePair<string, object>>();
             if (!DeviceEnabled)
                 throw new PrinterException("Printer is not Initalized", DeviceEnabled);
             var text = new List<KeyValuePair<string, object>>();
@@ -141,9 +112,8 @@ namespace NatApp.Plutus.Services.POSHandeling
                 PrintNotes(basketRecords);
             PrintFooterOfReceipt(sale, store);
             CutPaper();
-            var textToSend = JsonConvert.SerializeObject(Lines);
-            keyValues.Add(new KeyValuePair<string, object>($"{App.GetViewModel().SessionId.ToString()}.POS.printMultiLines", textToSend));
-            await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValues);
+            var keyValue = new KeyValuePair<string, object>("printMultiLines", Lines);
+            await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
         }
 
         /// <summary>
@@ -152,11 +122,8 @@ namespace NatApp.Plutus.Services.POSHandeling
         /// <returns>Successful or Not</returns>
         private async Task<bool> OpenCashDrawer()
         {
-            var keyValues = new List<KeyValuePair<string, object>>()
-            {
-                new KeyValuePair<string, object>($"{App.GetViewModel().SessionId.ToString()}.POS.openCashDrawer", "null")
-            };
-            return (bool)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValues);
+            var keyValue = new KeyValuePair<string, object>("openCashDrawer", "null");
+            return (bool)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
         }
 
         /// <summary>
@@ -167,11 +134,8 @@ namespace NatApp.Plutus.Services.POSHandeling
         {
             if (!DeviceEnabled)
                 throw new PrinterException("Printer is not Initalized", DeviceEnabled);
-            var keyValues = new List<KeyValuePair<string, object>>()
-            {
-                new KeyValuePair<string, object>($"{App.GetViewModel().SessionId.ToString()}.POS.closePrinter", "null")
-            };
-            return (bool)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValues);
+            var keyValue = new KeyValuePair<string, object>("closePrinter", "null");
+            return (bool)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
         }
 
         #region Format data for printing
@@ -183,7 +147,7 @@ namespace NatApp.Plutus.Services.POSHandeling
         private void PrintHeaderofReceipt(SaleModel sale, StoreModel store)
         {
             WriteText("ThankYouShopping".Translate(), "cntr", "true");
-            if (store.Logo.Length != 0)
+            if (store.Logo != null && store.Logo.Length != 0)
                 WriteImage(store.Logo, "cntr");
             WriteText(store.StoreName, "cntr", "true");
             BlankLine();
@@ -219,11 +183,8 @@ namespace NatApp.Plutus.Services.POSHandeling
         /// <returns></returns>
         private async Task PrintTransactionAndRefundsAsync(IEnumerable<IBasketRecord> basketRecords)
         {
-            var keyValues = new List<KeyValuePair<string, object>>
-            {
-                new KeyValuePair<string, object>($"{App.GetViewModel().SessionId.ToString()}.POS.getPageChars", "null")
-            };
-            int pageCharsMax = (int)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValues);
+            var keyValue = new KeyValuePair<string, object>("getPageChars", "null");
+            uint pageCharsMax = (uint)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
 
             double pricePercent = 18.77;
             if (basketRecords.Where(bR => bR is BasketItem && !(bR is BasketReturnItem)).Count() > 0)
@@ -234,7 +195,7 @@ namespace NatApp.Plutus.Services.POSHandeling
 
                 double itemPercent = (double)(basketItemMaxChar + 1) / pageCharsMax * 100;
                 double qtyPercent = (double)4 / pageCharsMax * 100;
-                double namePercent = (pageCharsMax - (basketItemMaxChar + 1) - 4 - ((double)pageCharsMax / 100) * 18.75) / pageCharsMax * 100;
+                double namePercent = (pageCharsMax - (basketItemMaxChar + 1) - 4 - (double)pageCharsMax / 100 * 18.75) / pageCharsMax * 100;
 
                 WriteText("Sale".Translate(), bold: "true");
                 WriteText($"{"Id".Translate()}\t{itemPercent}", bold: "true");
@@ -260,7 +221,7 @@ namespace NatApp.Plutus.Services.POSHandeling
 
                 double returnItemPercent = ((double)basketReturnItemMaxChar + 1) / pageCharsMax * 100;
                 double qtyPercent = (double)4 / pageCharsMax * 100;
-                double namePercent = (pageCharsMax - (basketReturnItemMaxChar + 1) - 4 - ((double)pageCharsMax / 100) * 18.75) / pageCharsMax * 100;
+                double namePercent = (pageCharsMax - (basketReturnItemMaxChar + 1) - 4 - (double)pageCharsMax / 100 * 18.75) / pageCharsMax * 100;
 
                 WriteText("Returns".Translate(), bold: "true");
                 WriteText($"{"Id".Translate()}\t{returnItemPercent}", bold: "true");
@@ -368,9 +329,8 @@ namespace NatApp.Plutus.Services.POSHandeling
             {
                 if (disposing)
                 {
-                    Printers = null;
-                }
 
+                }
                 disposedValue = true;
             }
         }

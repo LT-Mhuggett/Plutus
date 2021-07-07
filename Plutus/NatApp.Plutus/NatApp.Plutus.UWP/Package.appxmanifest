@@ -25,18 +25,12 @@
         </uap:DefaultTile>
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
-      <Extensions>
-        <desktop:Extension Category="windows.fullTrustProcess" Executable="Assets\Exes\POSIntegration.exe"/>
-        <uap:Extension Category="windows.appService">
-          <uap:AppService Name="POSIntegrationService"/>
-        </uap:Extension>
-      </Extensions>
     </Application>
   </Applications>
   <Capabilities>
     <Capability Name="internetClient" />
-    <rescap:Capability Name="runFullTrust" />
     <rescap:Capability Name="confirmAppClose" />
     <DeviceCapability Name="location" />
+    <DeviceCapability Name="pointOfService"/>
   </Capabilities>
 </Package>
