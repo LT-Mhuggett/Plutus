@@ -41,7 +41,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Settings
                 Tuple.Create("DeleteDb".Translate(), "DeleteDbCommand"),
                 Tuple.Create("Other", ""),
                 Tuple.Create("ChangePrinter".Translate(), "ChangePrinterCommand"),
-                Tuple.Create("ChangeBarcodeType".Translate(), "ChangeBarcodeTypeCommand"),
+                //Tuple.Create("ChangeBarcodeType".Translate(), "ChangeBarcodeTypeCommand"),
                 Tuple.Create("","")
             };
             StackLayout stack = null;
@@ -105,12 +105,12 @@ namespace NatApp.Plutus.ViewModels.MainTill.Settings
         {
             get => _changePrinterCommand ?? (_changePrinterCommand = new Command(ExecuteChangePrinter));
         }
-
+        /*
         Command _changeBarcodeTypeCommand;
         public Command ChangeBarcodeTypeCommand
         {
             get => _changeBarcodeTypeCommand ?? (_changeBarcodeTypeCommand = new Command(ExecuteChangeBarcodeType));
-        }
+        }*/
         #endregion
         #endregion
 
@@ -267,7 +267,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Settings
                 IsBusy = false;
             }
         }
-
+        /*
         private async void ExecuteChangeBarcodeType()
         {
             if (IsBusy)
@@ -332,6 +332,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Settings
                 IsBusy = false;
             }
         }
+        */
         #endregion
         #endregion
     }

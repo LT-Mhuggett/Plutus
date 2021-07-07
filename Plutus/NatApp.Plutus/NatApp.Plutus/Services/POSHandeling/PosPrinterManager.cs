@@ -1,4 +1,5 @@
 ﻿using CommonPOSLibrary;
+using CommonPOSLibrary.Enums;
 using CommonPOSLibrary.Exceptions;
 using Database.Models;
 using NatApp.Plutus.Helpers.Extensions;
@@ -49,24 +50,10 @@ namespace NatApp.Plutus.Services.POSHandeling
             }
         }
 
-        public async Task<string[]> GetBarcodeSymbols()
-        {
-            var keyValue = new KeyValuePair<string, object>("getBarcodeSymbols", "null");
-            try
-            {
-                var stringResult = (string)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
-                return JsonConvert.DeserializeObject<string[]>(stringResult);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine(ex.Message);
-                return default;
-            }
-        }
         internal async Task SetupExecutePrintMultiLine()
         {
             if (!DeviceEnabled)
-                throw new PrinterException("Printer is not Initalized", DeviceEnabled);
+                throw new POSPrinterException(POSPrinterExceptionType.PrinterNotEnabled, "Printer is not Enabled!");
             var keyValue = new KeyValuePair<string, object>("printMultiLines", Lines);
             await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
             await CloseConnection();
@@ -89,9 +76,9 @@ namespace NatApp.Plutus.Services.POSHandeling
                 catch (POSObjectException pOSObjectException)
                 {
                     Console.WriteLine(pOSObjectException.Message);
+                    throw pOSObjectException;
                 }
             }
-
             return false;
         }
 
@@ -104,7 +91,7 @@ namespace NatApp.Plutus.Services.POSHandeling
         private async Task SetUpExecutePrint(SaleModel sale, IEnumerable<IBasketRecord> basketRecords, StoreModel store)
         {
             if (!DeviceEnabled)
-                throw new PrinterException("Printer is not Initalized", DeviceEnabled);
+                throw new POSPrinterException(POSPrinterExceptionType.PrinterNotEnabled, "Printer is not Enabled!");
             var text = new List<KeyValuePair<string, object>>();
             PrintHeaderofReceipt(sale, store);
             await PrintTransactionAndRefundsAsync(basketRecords);
@@ -133,7 +120,7 @@ namespace NatApp.Plutus.Services.POSHandeling
         private async Task<bool> CloseConnection()
         {
             if (!DeviceEnabled)
-                throw new PrinterException("Printer is not Initalized", DeviceEnabled);
+                return true;
             var keyValue = new KeyValuePair<string, object>("closePrinter", "null");
             return (bool)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
         }
@@ -343,30 +330,5 @@ namespace NatApp.Plutus.Services.POSHandeling
             Dispose(true);
         }
         #endregion
-    }
-
-    [Serializable]
-    internal class PrinterException : Exception
-    {
-        public bool DeviceEnabled;
-
-        public PrinterException(bool deviceEnabled)
-        {
-            DeviceEnabled = deviceEnabled;
-        }
-
-        public PrinterException(string message, bool deviceEnabled) : base(message)
-        {
-            DeviceEnabled = deviceEnabled;
-        }
-
-        public PrinterException(string message, bool deviceEnabled, Exception innerException) : base(message, innerException)
-        {
-            DeviceEnabled = deviceEnabled;
-        }
-
-        protected PrinterException(SerializationInfo info, StreamingContext context) : base(info, context)
-        {
-        }
     }
 }

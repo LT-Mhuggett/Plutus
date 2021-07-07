@@ -1,4 +1,5 @@
-﻿using Database.Enums;
+﻿using CommonPOSLibrary.Exceptions;
+using Database.Enums;
 using Database.Models;
 using Microsoft.EntityFrameworkCore;
 using NatApp.Plutus.Helpers.Extensions;
@@ -1071,8 +1072,14 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     tasks[1] = App.Current.MainPage.DisplayAlert("Hmm".Translate(), string.Format("CashBack".Translate(), change), "OK".Translate());
                 }
 
-                await Task.WhenAll(tasks.Where(t => t != null));
-
+                try
+                {
+                    await Task.WhenAll(tasks.Where(t => t != null));
+                }
+                catch(POSObjectException pOSObjectException)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "There was a problem with the POS Printer. Transaction has succeeded but a receipt is currently unavailble.", "OK".Translate());
+                }
                 Basket.Clear();
                 await App.Current.MainPage.DisplayAlert("Transaction".Translate(), "TransConfMesg".Translate(), "OK".Translate());
 
