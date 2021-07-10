@@ -18,6 +18,18 @@ namespace Plutus.DBService.Extensions
             });
         }
 
+        // ConfigureAuthentication
+        //
+        // 
+        // The runtime calls this method. Use this method to configure the HTTP request pipeline.
+        /*public static void ConfigureAuthentication(IApplicationBuilder app, IHostingEnvironment env)
+        {
+            // more code
+            app.UseAuthentication();
+            app.UseAuthorization();
+            // more code
+        }
+*/
         public static void ConfigureDBContext(this IServiceCollection services, IConfiguration configuration)
         {
             var connectionString = configuration["ConnectionString"];

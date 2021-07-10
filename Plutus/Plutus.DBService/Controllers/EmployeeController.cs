@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Plutus.Contracts;
 using Plutus.Entities.Models;
 using Plutus.Repository.QueryParameters;
 
 namespace Plutus.DBService.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class EmployeeController : ApiControllerBaseCRU<Employee, string, EmployeeParameters>
