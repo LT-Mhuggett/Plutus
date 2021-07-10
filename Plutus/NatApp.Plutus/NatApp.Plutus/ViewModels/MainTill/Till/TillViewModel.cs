@@ -1104,7 +1104,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
         {
             try
             {
-                Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
+                Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
                 using (var db = new Helpers.Database.Database(databaseProvider))
                 {
                     return db.SearchId(needle)
