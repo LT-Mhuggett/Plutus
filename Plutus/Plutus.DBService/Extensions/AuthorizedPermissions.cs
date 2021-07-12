@@ -1,0 +1,32 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace Plutus.DBService.Extensions
+{
+    internal static class AuthorizedPermissions
+    {
+        /// <summary>
+        /// Contains the allowed delegated permissions for each action.
+        /// If the caller has one of the allowed ones, they should be allowed
+        /// to perform the action.
+        /// </summary>
+        public static IReadOnlyDictionary<string, string[]> DelegatedPermissionsForActions = new Dictionary<string, string[]>
+        {
+            [Actions.ReadThings] = new[] { DelegatedPermissions.ReadThings },
+            [Actions.ReadOtherThings] = new[] { DelegatedPermissions.ReadOtherThings }
+        };
+
+        /// <summary>
+        /// Contains the allowed application permissions for each action.
+        /// If the caller has one of the allowed ones, they should be allowed
+        /// to perform the action.
+        /// </summary>
+        public static IReadOnlyDictionary<string, string[]> ApplicationPermissionsForActions = new Dictionary<string, string[]>
+        {
+            [Actions.ReadThings] = new[] { ApplicationPermissions.ReadAllThings },
+            [Actions.ReadOtherThings] = new[] { ApplicationPermissions.ReadAllOtherThings }
+        };
+    }
+}

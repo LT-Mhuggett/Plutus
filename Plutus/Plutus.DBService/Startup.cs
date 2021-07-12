@@ -1,22 +1,14 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.HttpsPolicy;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Microsoft.Identity.Web;
-using Microsoft.OpenApi.Models;
 using Plutus.DBService.Extensions;
 using Plutus.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using AuthenticationOptions = Plutus.DBService.Extensions.AuthenticationOptions;
 
 namespace Plutus.DBService
 {
@@ -36,13 +28,19 @@ namespace Plutus.DBService
             services.ConfigureDBContext(Configuration);
             services.ConfigureRepositoryWrapper();
             services.ConfigureMySqlDBContext(Configuration);
-            services.AddSwaggerGen(c =>
+            AuthenticationOptions authenticationOptions = Configuration.GetSection("Authentication").Get<AuthenticationOptions>();
+
+            /*services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "Plutus.DBService", Version = "v1" });
-            });
+            });*/
+
             services.ConfigureControllers();
-            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-                    .AddMicrosoftIdentityWebApi(Configuration, "AzureAd");
+
+            ServiceExtensions.ConfigureAuthentication(services, Configuration, authenticationOptions);
+            ServiceExtensions.ConfigureAuthorization(services);
+            ServiceExtensions.ConfigureSwaggerDocumentation(services, authenticationOptions);
+
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -72,7 +70,18 @@ namespace Plutus.DBService
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
-            }); 
+            });
+
+            AuthenticationOptions authenticationOptions = Configuration.GetSection("Authentication").Get<AuthenticationOptions>();
+
+            // Swagger / OpenAPI document
+            app.UseSwagger();
+            // The interactive documentation
+            app.UseSwaggerUI(o =>
+            {
+                o.SwaggerEndpoint("/swagger/v1/swagger.json", "v1");
+                o.OAuthClientId(authenticationOptions.ClientId);
+            });
         }
 
         private static void MigrateDatase(IApplicationBuilder app)

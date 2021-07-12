@@ -6,7 +6,6 @@ using Plutus.Repository.QueryParameters;
 
 namespace Plutus.DBService.Controllers
 {
-    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class EmployeeController : ApiControllerBaseCRU<Employee, string, EmployeeParameters>

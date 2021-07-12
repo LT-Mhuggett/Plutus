@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using Plutus.Contracts;
+using Plutus.DBService.Extensions;
 using Plutus.Entities.Models;
 using Plutus.Repository.Extensions;
 using Plutus.Repository.QueryParameters;
@@ -26,6 +28,7 @@ namespace Plutus.DBService.Controllers
         /// </summary>
         /// <param name="queryParameters">The parameters to satisfy</param>
         /// <returns>List of records satisfied</returns>
+        [Authorize(Actions.ReadThings)]
         [HttpGet("Index")]
         [ProducesResponseType(200)]
         public virtual ActionResult<IEnumerable<TEntity>> Index([FromQuery] TQueryParameters queryParameters)
