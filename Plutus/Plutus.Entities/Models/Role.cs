@@ -7,23 +7,20 @@ using System.Collections.Generic;
 namespace Plutus.Entities.Models
 {
     [Serializable]
-    public class AuthActions : Base<int>, IAuthActions
+    public class Role : Base<int>, IRole
     {
         #region Properties
         [Exportable(ExportLevels.NonUserFriendly)]
         public string Name { get; set; }
 
-        [Exportable(ExportLevels.NonUserFriendly)]
-        public decimal Amount { get; set; }
-
-        public string Module { get; set; }
-
         #region Relationships
+        [Exportable]
+        public int ParentId { get; set; }
+        public virtual Role ParentRole { get; set; }
+
         #region Collections
-        /// <summary>
-        /// Employee -> Auth Actions Relationship
-        /// </summary>
-        public virtual ICollection<Emp_AuthActions> EmpAuths { get; set; }
+
+        public virtual ICollection<Employee> Employees { get; set; }
 
         public virtual ICollection<AuthActionAPIMapping> AuthActionAPIMappings { get; set; }
 

@@ -74,8 +74,28 @@ namespace Plutus.Entities
                 modelBuilder.Entity<StockModel>().HasQueryFilter(s => s.StoreId == _storeId);
             */
             //Relationships
+
             modelBuilder.Entity<Tax>()
                 .HasKey(t => new { t.IdOne, t.IdTwo });
+
+            modelBuilder.Entity<AuthActionAPIMapping>()
+                .HasKey(t => new { t.IdOne, t.IdTwo });
+
+            modelBuilder.Entity<AuthActionAPIMapping>()
+                .HasOne(am => am.Role)
+                .WithMany(r => r.AuthActionAPIMappings)
+                .HasForeignKey(am => am.IdOne);
+
+            modelBuilder.Entity<AuthActionAPIMapping>()
+                .HasOne(am => am.AuthAction)
+                .WithMany(a => a.AuthActionAPIMappings)
+                .HasForeignKey(am => am.IdTwo);
+
+            modelBuilder.Entity<Employee>()
+               .HasOne(e => e.ParentUser);
+
+            modelBuilder.Entity<Role>()
+               .HasOne(r => r.ParentRole);
 
             modelBuilder.Entity<Tax>()
                 .Property(t => t.IdOne)
@@ -95,6 +115,16 @@ namespace Plutus.Entities
                 .HasMany(b => b.Discounts)
                 .WithOne(d => d.Bussiness)
                 .HasForeignKey(d => d.BussinessId);
+
+            modelBuilder.Entity<Role>()
+                .HasMany(r => r.Employees)
+                .WithOne(e => e.Role)
+                .HasForeignKey(e => e.RoleId);
+
+            modelBuilder.Entity<Role>()
+                .HasMany(r => r.Employees)
+                .WithOne(e => e.Role)
+                .HasForeignKey(e => e.RoleId);
 
             modelBuilder.Entity<Bussiness>()
                 .HasMany(b => b.Stores)

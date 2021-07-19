@@ -22,7 +22,7 @@ namespace NatApp.Plutus.Helpers.Security
 
                 foreach(var empAuth in emp.EmpAuths)
                 {
-                    if (!empAuth.AuthAId.Equals(authRequired.Id))
+                    if (!empAuth.AuthAId.Equals(authRequired.Id)) 
                         continue;
                     return empAuth.Permissions.HasFlag(rightNeeded);
                 }

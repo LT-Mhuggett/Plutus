@@ -39,6 +39,17 @@ namespace Plutus.Entities.Models
         [Exportable]
         public string BussinessId { get; set; }
         public virtual Bussiness Bussiness { get; set; }
+
+        public virtual Employee ParentUser { get; set; }
+
+        [Exportable]
+        public string ParentUserId { get; set; }
+
+        public virtual Role Role { get; set; }
+
+        [Exportable]
+        public int RoleId { get; set; }
+
         #region Collections
         public virtual ICollection<Sale> Sale { get; set; }
         public virtual ICollection<Emp_AuthActions> EmpAuths { get; set; }
