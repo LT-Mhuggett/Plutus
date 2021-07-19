@@ -48,7 +48,7 @@ namespace Plutus.Entities.Models
         public virtual Role Role { get; set; }
 
         [Exportable]
-        public int RoleId { get; set; }
+        public string RoleId { get; set; }
 
         #region Collections
         public virtual ICollection<Sale> Sale { get; set; }

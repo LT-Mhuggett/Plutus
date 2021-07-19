@@ -79,7 +79,7 @@ namespace Plutus.Entities
                 .HasKey(t => new { t.IdOne, t.IdTwo });
 
             modelBuilder.Entity<AuthActionAPIMapping>()
-                .HasKey(t => new { t.IdOne, t.IdTwo });
+                .HasKey(a => new { a.IdOne, a.IdTwo });
 
             modelBuilder.Entity<AuthActionAPIMapping>()
                 .HasOne(am => am.Role)
@@ -115,11 +115,6 @@ namespace Plutus.Entities
                 .HasMany(b => b.Discounts)
                 .WithOne(d => d.Bussiness)
                 .HasForeignKey(d => d.BussinessId);
-
-            modelBuilder.Entity<Role>()
-                .HasMany(r => r.Employees)
-                .WithOne(e => e.Role)
-                .HasForeignKey(e => e.RoleId);
 
             modelBuilder.Entity<Role>()
                 .HasMany(r => r.Employees)

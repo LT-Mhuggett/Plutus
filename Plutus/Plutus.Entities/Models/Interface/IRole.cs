@@ -1,6 +1,6 @@
 ﻿namespace Plutus.Entities.Models.Interface
 {
-    public interface IRole : IBase<int>
+    public interface IRole : IBase<string>
     {
     }
 }

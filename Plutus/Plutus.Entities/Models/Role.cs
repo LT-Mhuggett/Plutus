@@ -7,7 +7,7 @@ using System.Collections.Generic;
 namespace Plutus.Entities.Models
 {
     [Serializable]
-    public class Role : Base<int>, IRole
+    public class Role : Base<string>, IRole
     {
         #region Properties
         [Exportable(ExportLevels.NonUserFriendly)]
