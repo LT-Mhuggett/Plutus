@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace Plutus.DBService.Extensions
+namespace Plutus.Authentication
 {
-    internal static class AuthorizedPermissions
+    public static class AuthorizedPermissions
     {
         /// <summary>
         /// Contains the allowed delegated permissions for each action.

@@ -125,7 +125,17 @@ namespace Plutus.Entities
                 .HasMany(b => b.Stores)
                 .WithOne(s => s.Bussiness)
                 .HasForeignKey(s => s.BussinessId);
-            
+
+            modelBuilder.Entity<Store>()
+                .HasMany(s => s.Tills)
+                .WithOne(t => t.Store)
+                .HasForeignKey(t => t.StoreId);
+
+            modelBuilder.Entity<Till>()
+                .HasMany(till => till.Transactions)
+                .WithOne(trans => trans.Till)
+                .HasForeignKey(trans => trans.TillId);
+
             modelBuilder.Entity<Bussiness>()
                 .HasMany(b => b.Items)
                 .WithOne(i => i.Bussiness)

@@ -1,8 +1,8 @@
 ﻿using System.Security.Claims;
 
-namespace Plutus.DBService.Extensions
+namespace Plutus.Authentication
 {
-    internal static class Claims
+    public static class Claims
     {
         internal const string ScopeClaimType = "http://schemas.microsoft.com/identity/claims/scope";
         internal const string AppPermissionOrRolesClaimType = ClaimTypes.Role;

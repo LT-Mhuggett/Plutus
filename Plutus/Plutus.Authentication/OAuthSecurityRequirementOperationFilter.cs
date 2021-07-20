@@ -4,12 +4,12 @@ using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Linq;
 
-namespace Plutus.DBService.Extensions
+namespace Plutus.Authentication
 {
     /// <summary>
     /// Adds security requirements to API operations
     /// </summary>
-    internal class OAuthSecurityRequirementOperationFilter : IOperationFilter
+    public class OAuthSecurityRequirementOperationFilter : IOperationFilter
     {
         private readonly string AppIdUri;
 

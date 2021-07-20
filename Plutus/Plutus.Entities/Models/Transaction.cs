@@ -24,6 +24,10 @@ namespace Plutus.Entities.Models
         public Item Item { get; set; }
 
         [Exportable]
+        public string TillId { get; set; }
+        public Till Till { get; set; }
+
+        [Exportable]
         public string SaleId { get; set; }
         public Sale Sale { get; set; }
 

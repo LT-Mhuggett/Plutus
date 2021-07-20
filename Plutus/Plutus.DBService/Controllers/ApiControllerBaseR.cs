@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 using Plutus.Contracts;
 using Plutus.DBService.Extensions;
 using Plutus.Entities.Models;
+using Plutus.Authentication;
 using Plutus.Repository.Extensions;
 using Plutus.Repository.QueryParameters;
 using System.Collections.Generic;

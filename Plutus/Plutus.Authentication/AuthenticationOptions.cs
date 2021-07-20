@@ -1,4 +1,4 @@
-﻿namespace Plutus.DBService.Extensions
+﻿namespace Plutus.Authentication
 {
     public class AuthenticationOptions
     {

@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace Plutus.DBService.Extensions
+namespace Plutus.Authentication
 {
-    internal static class ApplicationPermissions
+    public static class ApplicationPermissions
     {
         public const string ReadAllThings = "Things.Read.All";
         public const string ReadAllOtherThings = "OtherThings.Read.All";

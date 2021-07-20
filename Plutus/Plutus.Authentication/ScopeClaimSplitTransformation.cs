@@ -5,9 +5,9 @@ using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 
-namespace Plutus.DBService.Extensions
+namespace Plutus.Authentication
 {
-    internal class ScopeClaimSplitTransformation : IClaimsTransformation
+    public class ScopeClaimSplitTransformation : IClaimsTransformation
     {
         public Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
         {

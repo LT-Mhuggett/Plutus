@@ -28,6 +28,9 @@ namespace Plutus.Entities.Models
         public virtual ICollection<Sale> Sales { get; set; }
         public virtual ICollection<Employee> Employees { get; set; }
         public virtual ICollection<Stock> Stocks { get; set; }
+
+        public virtual ICollection<Till> Tills { get; set; }
+
         #endregion
         #endregion
         #endregion

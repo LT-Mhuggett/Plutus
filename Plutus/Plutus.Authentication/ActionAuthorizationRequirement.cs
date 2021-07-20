@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 
-namespace Plutus.DBService.Extensions
+namespace Plutus.Authentication
 {
-    internal class ActionAuthorizationRequirement : IAuthorizationRequirement
+    public class ActionAuthorizationRequirement : IAuthorizationRequirement
     {
         public ActionAuthorizationRequirement(string action)
         {

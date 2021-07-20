@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace Plutus.DBService.Extensions
+namespace Plutus.Authentication
 {
-    internal class AnyValidPermissionRequirementHandler : AuthorizationHandler<AnyValidPermissionRequirement>
+    public class AnyValidPermissionRequirementHandler : AuthorizationHandler<AnyValidPermissionRequirement>
     {
         protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, AnyValidPermissionRequirement requirement)
         {

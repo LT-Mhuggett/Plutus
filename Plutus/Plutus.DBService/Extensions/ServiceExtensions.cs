@@ -10,13 +10,14 @@ using Microsoft.Extensions.PlatformAbstractions;
 using Microsoft.Identity.Web;
 using Microsoft.OpenApi.Models;
 using Plutus.Contracts;
+using Plutus.Authentication;
 using Plutus.Entities;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Xamarin.Forms;
-using AuthenticationOptions = Plutus.DBService.Extensions.AuthenticationOptions;
+using AuthenticationOptions = Plutus.Authentication.AuthenticationOptions;
 
 
 namespace Plutus.DBService.Extensions
@@ -36,19 +37,6 @@ namespace Plutus.DBService.Extensions
 
         public static void ConfigureSwaggerDocumentation(this IServiceCollection services, AuthenticationOptions authenticationOptions)
         {
-            /*services.Configure<JwtBearerOptions>(AzureADDefaults.JwtBearerAuthenticationScheme, options =>
-            {
-                // This is an Azure AD v2.0 Web API
-                options.Authority += "/v2.0";
-
-                // The valid audiences are both the Client ID (options.Audience) and api://{ClientID}
-                options.TokenValidationParameters.ValidAudiences = new string[] { options.Audience, $"api://{options.Audience}" };
-
-
-                options.TokenValidationParameters.ValidateIssuer = false;
-            });
-*/
-
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo

@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Plutus.DBService.Extensions;
 using Plutus.Entities;
-using AuthenticationOptions = Plutus.DBService.Extensions.AuthenticationOptions;
+using AuthenticationOptions = Plutus.Authentication.AuthenticationOptions;
 
 namespace Plutus.DBService
 {

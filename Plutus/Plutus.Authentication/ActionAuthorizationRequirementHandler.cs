@@ -2,9 +2,9 @@
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace Plutus.DBService.Extensions
+namespace Plutus.Authentication
 {
-    internal class ActionAuthorizationRequirementHandler : AuthorizationHandler<ActionAuthorizationRequirement>
+    public class ActionAuthorizationRequirementHandler : AuthorizationHandler<ActionAuthorizationRequirement>
     {
         protected override Task HandleRequirementAsync(
             AuthorizationHandlerContext context,

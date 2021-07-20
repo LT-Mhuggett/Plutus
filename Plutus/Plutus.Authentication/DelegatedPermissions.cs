@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace Plutus.DBService.Extensions
+namespace Plutus.Authentication
 {
-    internal static class DelegatedPermissions
+    public static class DelegatedPermissions
     {
         public const string ReadThings = "Things.Read";
         public const string ReadOtherThings = "OtherThings.Read";
