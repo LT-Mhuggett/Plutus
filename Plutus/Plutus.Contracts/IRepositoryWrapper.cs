@@ -9,6 +9,8 @@ namespace Plutus.Contracts
         ICheckoutItemChangeRepository CheckoutItemChangeRepository { get; }
         IDiscountRepository DiscountRepository { get; }
         IEmployeeRepository EmployeeRepository { get; }
+        ITillRepository TillRepository { get; }
+
         IItemRepository ItemRepository { get; }
         INoteRepository NoteRepository { get; }
         IPaymentMethodRepository PaymentMethodRepository { get; }

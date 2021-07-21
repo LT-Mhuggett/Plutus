@@ -45,6 +45,7 @@ namespace Plutus.DBService.Controllers
             return Ok(entities);
         }
 
+        [Authorize(Actions.ReadThings)]
         [HttpGet("{id}")]
         [ApiConventionMethod(typeof(DefaultApiConventions),
             nameof(DefaultApiConventions.Find))]

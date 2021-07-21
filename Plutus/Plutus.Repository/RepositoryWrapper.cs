@@ -13,6 +13,7 @@ namespace Plutus.Repository
         protected ICheckoutItemChangeRepository checkoutItemChangeRepository;
         protected IDiscountRepository discountRepository;
         protected IEmployeeRepository employeeRepository;
+        protected ITillRepository tillRepository;
         protected IItemRepository itemRepository;
         protected INoteRepository noteRepository;
         protected IPaymentMethodRepository paymentMethodRepository;
@@ -33,6 +34,7 @@ namespace Plutus.Repository
         public virtual ICheckoutItemChangeRepository CheckoutItemChangeRepository => checkoutItemChangeRepository ??= new CheckoutItemChangeRepository(repositoryContext);
         public virtual IDiscountRepository DiscountRepository => discountRepository ??= new DiscountRepository(repositoryContext);
         public virtual IEmployeeRepository EmployeeRepository => employeeRepository ??= new EmployeeRepository(repositoryContext);
+        public virtual ITillRepository TillRepository => tillRepository ??= new TillRepository(repositoryContext);
         public virtual IItemRepository ItemRepository => itemRepository ??= new ItemRepository(repositoryContext);
         public virtual INoteRepository NoteRepository => noteRepository ??= new NoteRepository(repositoryContext);
         public virtual IPaymentMethodRepository PaymentMethodRepository => paymentMethodRepository ??= new PaymentMethodRepository(repositoryContext);

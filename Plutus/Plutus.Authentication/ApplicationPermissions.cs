@@ -9,6 +9,7 @@ namespace Plutus.Authentication
     {
         public const string ReadAllThings = "Things.Read.All";
         public const string ReadAllOtherThings = "OtherThings.Read.All";
+        public const string WritePermission = "Permission.Write";
 
         public static string[] All => typeof(ApplicationPermissions)
             .GetFields()

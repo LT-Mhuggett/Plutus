@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Plutus.Authentication;
 using Plutus.Contracts;
 using Plutus.Entities.Models;
 using Plutus.Repository.QueryParameters;
@@ -19,6 +21,7 @@ namespace Plutus.DBService.Controllers
         /// </summary>
         /// <param name="id">Id of entity to delete, of type <see cref="TId"/></param>
         /// <returns>entity of type <see cref="TEntity"/></returns>
+        [Authorize(Actions.WritePermission)]
         [HttpDelete("{id}")]
         [ApiConventionMethod(typeof(DefaultApiConventions),
                              nameof(DefaultApiConventions.Delete))]

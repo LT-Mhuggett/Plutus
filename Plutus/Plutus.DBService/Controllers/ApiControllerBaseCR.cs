@@ -1,5 +1,7 @@
 ﻿using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Plutus.Authentication;
 using Plutus.Contracts;
 using Plutus.Entities.Models;
 using Plutus.Repository.QueryParameters;
@@ -18,6 +20,7 @@ namespace Plutus.DBService.Controllers
         /// <param name="entity">Entity to add to database</param>
         /// <param name="isSync">States that this is a sync only request</param>
         /// <returns>Created Entity</returns>
+        [Authorize(Actions.WritePermission)]
         [HttpPost]
         [ApiConventionMethod(typeof(DefaultApiConventions),
                              nameof(DefaultApiConventions.Post))]

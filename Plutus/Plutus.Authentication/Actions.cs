@@ -12,6 +12,7 @@ namespace Plutus.Authentication
     {
         public const string ReadThings = "Things/Read";
         public const string ReadOtherThings = "OtherThings/Read";
+        public const string WritePermission = "WritePermission/Write"; // For Create, Update and Delete
 
         public static string[] All => typeof(Actions)
             .GetFields()

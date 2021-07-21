@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.JsonPatch;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Plutus.Authentication;
 using Plutus.Contracts;
 using Plutus.Entities.Models;
 using Plutus.Entities.Models.Interface;
@@ -23,6 +25,7 @@ namespace Plutus.DBService.Controllers
         /// <param name="entity">Entity to save, of type <see cref="TEntity"/></param>
         /// <param name="IsSync">States that this is a sync only request</param>
         /// <returns>Entity of type <see cref="TEntity"/></returns>
+        [Authorize(Actions.WritePermission)]
         [HttpPut("{id}")]
         [ApiConventionMethod(typeof(DefaultApiConventions),
                              nameof(DefaultApiConventions.Put))]
@@ -67,6 +70,7 @@ namespace Plutus.DBService.Controllers
         /// <param name="patchDocument">Data to update entity</param>
         /// <param name="IsSync">States that this is a sync only request</param>
         /// <returns></returns>
+        [Authorize(Actions.WritePermission)]
         [HttpPatch("{id}")]
         [ApiConventionMethod(typeof(DefaultApiConventions),
                              nameof(DefaultApiConventions.Update))]

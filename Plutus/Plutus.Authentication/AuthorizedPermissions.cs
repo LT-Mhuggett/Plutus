@@ -15,7 +15,8 @@ namespace Plutus.Authentication
         public static IReadOnlyDictionary<string, string[]> DelegatedPermissionsForActions = new Dictionary<string, string[]>
         {
             [Actions.ReadThings] = new[] { DelegatedPermissions.ReadThings },
-            [Actions.ReadOtherThings] = new[] { DelegatedPermissions.ReadOtherThings }
+            [Actions.ReadOtherThings] = new[] { DelegatedPermissions.ReadOtherThings },
+            [Actions.WritePermission] = new[] { DelegatedPermissions.WritePermission }
         };
 
         /// <summary>
@@ -26,7 +27,8 @@ namespace Plutus.Authentication
         public static IReadOnlyDictionary<string, string[]> ApplicationPermissionsForActions = new Dictionary<string, string[]>
         {
             [Actions.ReadThings] = new[] { ApplicationPermissions.ReadAllThings },
-            [Actions.ReadOtherThings] = new[] { ApplicationPermissions.ReadAllOtherThings }
+            [Actions.ReadOtherThings] = new[] { ApplicationPermissions.ReadAllOtherThings },
+            [Actions.WritePermission] = new[] { ApplicationPermissions.WritePermission}
         };
     }
 }
