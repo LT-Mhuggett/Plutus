@@ -7,6 +7,7 @@ using System.Linq;
 using Plutus.Entities.Models;
 using Plutus.Repository.QueryParameters;
 using System.Data;
+using Microsoft.AspNetCore.Http;
 
 namespace Plutus.DBService.Controllers
 {
@@ -16,7 +17,7 @@ namespace Plutus.DBService.Controllers
     {
         protected override IRepositoryBase<Sale, string> Repository => repositoryWrapper.SaleRepository;
 
-        public SaleController(IRepositoryWrapper repositoryWrapper) : base(repositoryWrapper)
+        public SaleController(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor htthttpContextAccessor) : base(repositoryWrapper, htthttpContextAccessor)
         {
         }
 

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Plutus.Contracts;
 using Plutus.Entities.Models;
 using Plutus.Repository.FormBodies;
@@ -14,7 +15,7 @@ namespace Plutus.DBService.Controllers
     {
         protected override IRepositoryBase<Store, string> Repository => repositoryWrapper.StoreRepository;
 
-        public StoreController(IRepositoryWrapper repositoryWrapper) : base(repositoryWrapper)
+        public StoreController(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor htthttpContextAccessor) : base(repositoryWrapper, htthttpContextAccessor)
         {
         }
         

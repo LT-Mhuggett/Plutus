@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Threading;
 using System.ComponentModel.DataAnnotations.Schema;
+using Plutus.Entities.Exceptions;
 
 namespace Plutus.Entities
 {
@@ -322,6 +323,9 @@ namespace Plutus.Entities
             return base.SaveChanges(acceptAllChangesOnSuccess);
         }
 
+        // send current user to context
+        // sending the current user
+
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             SaveMethods();
@@ -336,6 +340,9 @@ namespace Plutus.Entities
 
         private void SaveMethods()
         {
+            if  (string.IsNullOrEmpty(CurrentUser))
+                throw new ObjectIdMissingException("CurrentUser not defined!");
+
             if (!_syncState)
             {
                 //Set Audit data if IAuditable Entity

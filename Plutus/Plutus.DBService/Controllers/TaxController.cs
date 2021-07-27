@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.JsonPatch;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
@@ -21,9 +22,15 @@ namespace Plutus.DBService.Controllers
         protected readonly IRepositoryWrapper repositoryWrapper;
         protected virtual ICompositeRepositoryBase<Tax, Guid, string> Repository => repositoryWrapper.TaxRepository;
 
-        public TaxController(IRepositoryWrapper repositoryWrapper)
+        protected readonly IHttpContextAccessor httpContextAccessor;
+
+        public TaxController(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor httpContextAccessor)
         {
+            this.httpContextAccessor = httpContextAccessor;
             this.repositoryWrapper = repositoryWrapper;
+
+            /*var objectId = this.httpContextAccessor.HttpContext.User.Claims.First(c => c.Type == "http://schemas.microsoft.com/identity/claims/objectidentifier").Value;
+            repositoryWrapper.SetCurrentUser(objectId);*/
         }
 
         /// <summary>

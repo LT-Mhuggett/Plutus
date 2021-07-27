@@ -58,5 +58,7 @@ namespace Plutus.Repository
         public Task<int> SaveAsync() => repositoryContext.SaveChangesAsync();
 
         public void SetSyncState(bool syncState = false) => repositoryContext.SetSyncState(syncState);
+
+        public void SetCurrentUser(string currentUserUbjectId) => repositoryContext.CurrentUser = currentUserUbjectId;
     }
 }

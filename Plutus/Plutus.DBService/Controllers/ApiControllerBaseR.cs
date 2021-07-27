@@ -10,6 +10,10 @@ using Plutus.Repository.QueryParameters;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Http;
+using System.Net.Http;
+using System;
 
 namespace Plutus.DBService.Controllers
 {
@@ -18,10 +22,15 @@ namespace Plutus.DBService.Controllers
     {
         protected readonly IRepositoryWrapper repositoryWrapper;
         protected virtual IRepositoryBase<TEntity, TId> Repository { get; }
+        protected readonly IHttpContextAccessor httpContextAccessor;
 
-        public ApiControllerBaseR(IRepositoryWrapper repositoryWrapper)
+        public ApiControllerBaseR(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor httpContextAccessor)
         {
+            this.httpContextAccessor = httpContextAccessor;
             this.repositoryWrapper = repositoryWrapper;
+
+            var objectId = this.httpContextAccessor.HttpContext.User.Claims.First(c => c.Type == "http://schemas.microsoft.com/identity/claims/objectidentifier").Value;
+            repositoryWrapper.SetCurrentUser(objectId);
         }
 
         /// <summary>

@@ -51,11 +51,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Plutus.DBService", "Plutus.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Plutus.Reports", "Plutus.Reports\Plutus.Reports.csproj", "{4A00030E-49A0-4F93-9045-9E5E1A8A7731}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Plutus.Authentication", "Plutus.Authentication\Plutus.Authentication.csproj", "{C0E39E68-8DC6-40A3-A99E-184524F9E5D4}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Plutus.Authentication", "Plutus.Authentication\Plutus.Authentication.csproj", "{C0E39E68-8DC6-40A3-A99E-184524F9E5D4}"
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
-		Plutus\Plutus\Plutus.projitems*{4ecb5881-9e0a-44e3-8dec-27e419b54a18}*SharedItemsImports = 13
 		Plutus\Plutus\Plutus.projitems*{e3fadfe3-6f51-4444-b3d2-74ebd9e726b9}*SharedItemsImports = 4
 		Plutus\Plutus\Plutus.projitems*{e5838bc8-d859-4941-9696-6e600ab87f8a}*SharedItemsImports = 4
 	EndGlobalSection
@@ -1156,9 +1155,9 @@ Global
 		{C0E39E68-8DC6-40A3-A99E-184524F9E5D4} = {963727F9-05FC-4953-9C7D-F456FE69F689}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {E380D658-A835-41C0-A63A-D65A9C92844F}
-		RESX_AutoCreateNewLanguageFiles = True
-		RESX_NeutralResourcesLanguage = en-GB
 		RESX_ShowPerformanceTraces = True
+		RESX_NeutralResourcesLanguage = en-GB
+		RESX_AutoCreateNewLanguageFiles = True
+		SolutionGuid = {E380D658-A835-41C0-A63A-D65A9C92844F}
 	EndGlobalSection
 EndGlobal

@@ -1,5 +1,6 @@
 ﻿using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Plutus.Authentication;
 using Plutus.Contracts;
@@ -10,7 +11,8 @@ namespace Plutus.DBService.Controllers
 {
     public abstract class ApiControllerBaseCR<TEntity, TId, TQueryParameters> : ApiControllerBaseR<TEntity, TId, TQueryParameters> where TEntity : Base<TId> where TQueryParameters : QueryParameters<TEntity, TId>
     {
-        public ApiControllerBaseCR(IRepositoryWrapper repositoryWrapper) : base(repositoryWrapper)
+        // objectId from tenant
+        public ApiControllerBaseCR(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor htthttpContextAccessor) : base(repositoryWrapper, htthttpContextAccessor)
         {
         }
 

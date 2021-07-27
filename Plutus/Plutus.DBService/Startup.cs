@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Plutus.DBService.Extensions;
 using Plutus.Entities;
-using AuthenticationOptions = Plutus.Authentication.AuthenticationOptions;
+using System.Net.Http;
 
 namespace Plutus.DBService
 {
@@ -28,7 +28,7 @@ namespace Plutus.DBService
             services.ConfigureDBContext(Configuration);
             services.ConfigureRepositoryWrapper();
             services.ConfigureMySqlDBContext(Configuration);
-            AuthenticationOptions authenticationOptions = Configuration.GetSection("Authentication").Get<AuthenticationOptions>();
+            Plutus.Authentication.AuthenticationOptions authenticationOptions = Configuration.GetSection("Authentication").Get<Plutus.Authentication.AuthenticationOptions>();
 
             /*services.AddSwaggerGen(c =>
             {
@@ -37,9 +37,10 @@ namespace Plutus.DBService
 
             services.ConfigureControllers();
 
-            ServiceExtensions.ConfigureAuthentication(services, Configuration, authenticationOptions);
-            ServiceExtensions.ConfigureAuthorization(services);
-            ServiceExtensions.ConfigureSwaggerDocumentation(services, authenticationOptions);
+            services.ConfigureAuthentication(Configuration, authenticationOptions);
+            services.ConfigureAuthorization();
+            services.ConfigureSwaggerDocumentation(authenticationOptions);
+            services.ConfigureHttpAccessor();
 
         }
 
@@ -72,7 +73,7 @@ namespace Plutus.DBService
                 endpoints.MapControllers();
             });
 
-            AuthenticationOptions authenticationOptions = Configuration.GetSection("Authentication").Get<AuthenticationOptions>();
+            Plutus.Authentication.AuthenticationOptions authenticationOptions = Configuration.GetSection("Authentication").Get<Plutus.Authentication.AuthenticationOptions>();
 
             // Swagger / OpenAPI document
             app.UseSwagger();

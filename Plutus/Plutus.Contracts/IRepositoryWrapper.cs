@@ -29,5 +29,7 @@ namespace Plutus.Contracts
         Task<int> SaveAsync();
 
         void SetSyncState(bool syncState = false);
+
+        void SetCurrentUser(string currentUserObjectId);
     }
 }

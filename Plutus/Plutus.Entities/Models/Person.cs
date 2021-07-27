@@ -10,6 +10,7 @@ namespace Plutus.Entities.Models
     /// </summary>
     public class Person : Address<string>, IAuditable
     {
+        // object ID => Guid
         #region Properties
         [Exportable]
         public string FName { get; set; }
@@ -18,6 +19,7 @@ namespace Plutus.Entities.Models
         [Exportable]
         public string Mobile { get; set; }
         [Exportable]
+      
         [Required]
         public string Email { get; set; }
         #endregion

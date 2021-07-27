@@ -1,24 +1,16 @@
 ﻿using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.AzureAD.UI;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.PlatformAbstractions;
-using Microsoft.Identity.Web;
 using Microsoft.OpenApi.Models;
 using Plutus.Contracts;
 using Plutus.Authentication;
 using Plutus.Entities;
 using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using Xamarin.Forms;
-using AuthenticationOptions = Plutus.Authentication.AuthenticationOptions;
-
+using Microsoft.AspNetCore.Http;
 
 namespace Plutus.DBService.Extensions
 {
@@ -35,7 +27,7 @@ namespace Plutus.DBService.Extensions
             });
         }
 
-        public static void ConfigureSwaggerDocumentation(this IServiceCollection services, AuthenticationOptions authenticationOptions)
+        public static void ConfigureSwaggerDocumentation(this IServiceCollection services, Plutus.Authentication.AuthenticationOptions authenticationOptions)
         {
             services.AddSwaggerGen(c =>
             {
@@ -65,16 +57,16 @@ namespace Plutus.DBService.Extensions
 
                 // Add security requirements to operations based on [Authorize] attributes
                 c.OperationFilter<OAuthSecurityRequirementOperationFilter>();
-
-                // Include XML comments to documentation
-               /* string xmlDocFilePath = Path.Combine(PlatformServices.Default.Application.ApplicationBasePath, "Plutus.DBService.xml");
-                c.IncludeXmlComments(xmlDocFilePath);*/
             });
+
+            // Include XML comments to documentation
+           /* string xmlDocFilePath = Path.Combine(PlatformServices.Default.Application.ApplicationBasePath, "Joonasw.AadTestingDemo.API.xml");
+            o.IncludeXmlComments(xmlDocFilePath);*/
         }
 
-        public static void ConfigureAuthentication(this IServiceCollection services, IConfiguration Configuration, AuthenticationOptions authenticationOptions)
+        public static void ConfigureAuthentication(this IServiceCollection services, IConfiguration Configuration, Plutus.Authentication.AuthenticationOptions authenticationOptions)
         {
-            services.Configure<AuthenticationOptions>(Configuration.GetSection("Authentication"));
+            services.Configure<Plutus.Authentication.AuthenticationOptions>(Configuration.GetSection("Authentication"));
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(o =>
                 {
@@ -86,7 +78,7 @@ namespace Plutus.DBService.Extensions
                      .AddMicrosoftIdentityWebApi(Configuration, "AzureAd");*/
         }
 
-        public static void ConfigureAuthorization(IServiceCollection services)
+        public static void ConfigureAuthorization(this IServiceCollection services)
         {
             services.AddAuthorization(o =>
             {
@@ -117,8 +109,8 @@ namespace Plutus.DBService.Extensions
 
             services.AddDbContext<RepositoryContext>(o => o.UseMySql(connectionString, MySqlServerVersion.LatestSupportedServerVersion));
 
-            //BussinessIdProvider bussinessIdProvider = new BussinessIdProvider("1");
-            //services.AddSingleton<BussinessIdProvider>(bussinessIdProvider);
+           /* ObjectIdProvider objectIdProvider = new ObjectIdProvider("1232423");
+            services.AddSingleton<ObjectIdProvider>(objectIdProvider);*/
 
             //HttpContextAccessor 
         }
@@ -136,6 +128,11 @@ namespace Plutus.DBService.Extensions
         public static void ConfigureControllers(this IServiceCollection services)
         {
             services.AddControllers().AddNewtonsoftJson(options => options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore);
+        }
+
+        public static void ConfigureHttpAccessor(this IServiceCollection services)
+        {
+            services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
         }
     }
 }

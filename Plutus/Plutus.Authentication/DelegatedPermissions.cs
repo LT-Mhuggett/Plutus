@@ -11,7 +11,7 @@ namespace Plutus.Authentication
         public const string ReadOtherThings = "OtherThings.Read";
         public const string WritePermission = "Permission.Write";
 
-        public static string[] All => typeof(DelegatedPermissions)
+        public static string[] All => typeof(Plutus.Authentication.DelegatedPermissions)
             .GetFields()
             .Where(f => f.Name != nameof(All))
             .Select(f => f.GetValue(null) as string)

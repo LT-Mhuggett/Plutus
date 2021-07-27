@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Plutus.Contracts;
 using Plutus.Entities.Models;
@@ -12,7 +13,7 @@ namespace Plutus.DBService.Controllers
     {
         protected override IRepositoryBase<Employee, string> Repository => repositoryWrapper.EmployeeRepository;
 
-        public EmployeeController(IRepositoryWrapper repositoryWrapper) : base(repositoryWrapper)
+        public EmployeeController(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor htthttpContextAccessor) : base(repositoryWrapper, htthttpContextAccessor)
         {
         }
     }

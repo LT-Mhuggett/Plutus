@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Plutus.Entities.Models;
+using System.Net.Http;
 
 namespace Plutus.Entities
 {
@@ -9,8 +10,8 @@ namespace Plutus.Entities
         #region Fields
         private readonly string _connString = @"Server=127.0.0.1;User=root;Password=root;Database=plutus;Port=3306;Persist Security Info=false;Connect Timeout=300";
         //public int? BussinessId;
-        //public readonly BussinessIdProvider _bussinessIdProvider;
-        
+        //public readonly ObjectIdProvider _objectIdProvider;
+
         #endregion
 
         #region DbSets for MySql DB only
@@ -24,7 +25,8 @@ namespace Plutus.Entities
         public MySqlDbContext(DbContextOptions options) : base(options)
         {
             _systemName = "Plutus.DBService";
-            //_bussinessIdProvider = bussinessIdProvider;
+            //CurrentUser = "Sean";
+            //_objectIdProvider = objectIdProvider;
         }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -40,42 +42,44 @@ namespace Plutus.Entities
         /*protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            var test = _objectIdProvider.ObjectId;
 
+            //RefreshUserDataAsync
             // Works as expected
-            modelBuilder.Entity<Item>().HasQueryFilter(_ => _.IdTwo == _bussinessIdProvider.BussinessId);
+            //modelBuilder.Entity<Item>().HasQueryFilter(_ => _.IdTwo == _bussinessIdProvider.ObjectId);
 
             // Does not work
-            //modelBuilder.ApplyConfiguration(new BussinessConfiguration(_bussinessIdProvider));
+            // modelBuilder.ApplyConfiguration(new BussinessConfiguration(_bussinessIdProvider));
         }*/
     }
 
-   /* public class BussinessIdProvider : IBussinessIdProvider
+   /* public class ObjectIdProvider : IObjectIdProvider
     {
-        public string BussinessId { get; set; }
+        public string ObjectId { get; set; }
 
-        public BussinessIdProvider(string bussinessId)
+        public ObjectIdProvider(string objectId)
         {
-            BussinessId = bussinessId;
+            ObjectId = objectId;
         }
+    }
+*/
+    /*public interface IObjectIdProvider
+    {
+        public string ObjectId { get; set; }
     }*/
 
-    /*public interface IBussinessIdProvider
+    /*public class ObjectConfiguration : IEntityTypeConfiguration<Employee>
     {
-        public string BussinessId { get; set; }
-    }
+        private readonly ObjectIdProvider _objectIdProvider;
 
-    public class BussinessConfiguration : IEntityTypeConfiguration<Bussiness>
-    {
-        private readonly BussinessIdProvider _bussinessIdProvider;
-
-        public BussinessConfiguration(BussinessIdProvider bussinessIdProvider)
+        public ObjectConfiguration(ObjectIdProvider objectIdProvider)
         {
-            _bussinessIdProvider = bussinessIdProvider;
+            _objectIdProvider = objectIdProvider;
         }
 
-        public void Configure(EntityTypeBuilder<Bussiness> builder)
+        public void Configure(EntityTypeBuilder<Employee> builder)
         {
-            builder.HasQueryFilter(_ => _.Id == _bussinessIdProvider.BussinessId);
+            builder.HasQueryFilter(_ => _.Id == _objectIdProvider.ObjectId);
         }
     }*/
 }

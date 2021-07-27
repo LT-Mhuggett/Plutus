@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.JsonPatch;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
@@ -7,6 +8,7 @@ using Plutus.Entities.Models;
 using Plutus.Repository.Extensions;
 using Plutus.Repository.FormBodies;
 using Plutus.Repository.QueryParameters;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -20,9 +22,17 @@ namespace Plutus.DBService.Controllers
         protected readonly IRepositoryWrapper repositoryWrapper;
         protected virtual ICompositeRepositoryBase<Item, string, string> Repository => repositoryWrapper.ItemRepository;
 
-        public ItemController(IRepositoryWrapper repositoryWrapper)
+        protected readonly IHttpContextAccessor httpContextAccessor;
+
+        public ItemController(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor httpContextAccessor)
         {
+            this.httpContextAccessor = httpContextAccessor;
             this.repositoryWrapper = repositoryWrapper;
+
+            /*var objectId = this.httpContextAccessor.HttpContext.User.Claims.First(c => c.Type == "http://schemas.microsoft.com/identity/claims/objectidentifier").Value;
+            repositoryWrapper.SetCurrentUser(objectId);*/
+
+            //this.repositoryWrapper = repositoryWrapper;
         }
 
         /// <summary>

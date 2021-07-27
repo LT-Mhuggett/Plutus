@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Plutus.Contracts;
 using Plutus.Entities.Models;
@@ -12,7 +13,7 @@ namespace Plutus.DBService.Controllers
     {
         protected override IRepositoryBase<Till, string> Repository => repositoryWrapper.TillRepository;
 
-        public TillController(IRepositoryWrapper repositoryWrapper) : base(repositoryWrapper)
+        public TillController(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor htthttpContextAccessor) : base(repositoryWrapper, htthttpContextAccessor)
         {
         }
     }

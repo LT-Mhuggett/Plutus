@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Plutus.Authentication;
 using Plutus.Contracts;
@@ -11,7 +12,7 @@ namespace Plutus.DBService.Controllers
     public abstract class ApiControllerBaseCRUD<TEntity, TId, TQueryParameters> : ApiControllerBaseCRU<TEntity, TId, TQueryParameters> where TEntity : Base<TId> where TQueryParameters : QueryParameters<TEntity, TId>
     {
 
-        public ApiControllerBaseCRUD(IRepositoryWrapper repositoryWrapper) : base(repositoryWrapper)
+        public ApiControllerBaseCRUD(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor htthttpContextAccessor) : base(repositoryWrapper, htthttpContextAccessor)
         {
         }
 

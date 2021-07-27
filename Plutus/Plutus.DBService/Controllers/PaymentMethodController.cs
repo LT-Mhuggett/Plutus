@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Plutus.Contracts;
 using Plutus.Entities.Models;
 using Plutus.Repository.QueryParameters;
@@ -11,7 +12,7 @@ namespace Plutus.DBService.Controllers
     {
         protected override IRepositoryBase<PaymentMethod, int> Repository => repositoryWrapper.PaymentMethodRepository;
 
-        public PaymentMethodController(IRepositoryWrapper repositoryWrapper) : base(repositoryWrapper)
+        public PaymentMethodController(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor htthttpContextAccessor) : base(repositoryWrapper, htthttpContextAccessor)
         {
         }
     }
