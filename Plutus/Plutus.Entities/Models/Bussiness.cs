@@ -3,6 +3,7 @@ using Plutus.Entities.Enums;
 using Plutus.Entities.Models.Interface;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace Plutus.Entities.Models
 {

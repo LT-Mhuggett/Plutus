@@ -55,6 +55,7 @@ namespace Plutus.Entities
         public RepositoryContext(DbContextOptions options) : base(options)
         {
         }
+
         /*
         public bool CurrentVersion()
         {
@@ -340,7 +341,7 @@ namespace Plutus.Entities
 
         private void SaveMethods()
         {
-            if  (string.IsNullOrEmpty(CurrentUser))
+            if (string.IsNullOrEmpty(CurrentUser))
                 throw new ObjectIdMissingException("CurrentUser not defined!");
 
             if (!_syncState)

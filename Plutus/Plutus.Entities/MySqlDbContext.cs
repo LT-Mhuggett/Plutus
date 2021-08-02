@@ -29,6 +29,16 @@ namespace Plutus.Entities
             //_objectIdProvider = objectIdProvider;
         }
 
+        public MySqlDbContext(string connString) : base()
+        {
+            _systemName = "Plutus.DBService";
+            _connString = connString;
+            //CurrentUser = "Sean";
+            //_objectIdProvider = objectIdProvider;
+        }
+
+        public object Business { get; set; }
+
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             if (!optionsBuilder.IsConfigured)
