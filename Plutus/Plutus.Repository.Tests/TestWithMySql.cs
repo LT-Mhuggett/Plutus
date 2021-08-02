@@ -3,22 +3,26 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using NUnit.Framework;
 using Plutus.Entities;
+using MySqlConnector;
 
 namespace Plutus.Repository.Tests
 {
     public abstract class TestWithMySql : IDisposable
     {
-        private const string InMemoryConnectionString = "DataSource=:memory:";
-        private readonly SqliteConnection _Connection;
+        //private const string InMemoryConnectionString = "DataSource=:memory:";
+        //private const string InMemoryConnectionString = @"Server=127.0.0.1;User=root;Password=root;Database=plutus;Port=3306;Persist Security Info=false;Connect Timeout=300";
 
+        //private readonly SqliteConnection _Connection;
+        private readonly MySqlConnection _Connection;
         protected readonly MySqlDbContext DbContext;
 
         protected TestWithMySql()
         {
-            _Connection = new SqliteConnection(InMemoryConnectionString);
+            //_Connection = new MySqlConnection(InMemoryConnectionString);
+            _Connection = new MySqlConnection();
             _Connection.Open();
             var options = new DbContextOptionsBuilder<RepositoryContext>()
-                .UseSqlite(_Connection)
+                .UseMySql(_Connection, MySqlServerVersion.LatestSupportedServerVersion)
                 .Options;
             DbContext = new MySqlDbContext(options);
             DbContext.Database.Migrate();

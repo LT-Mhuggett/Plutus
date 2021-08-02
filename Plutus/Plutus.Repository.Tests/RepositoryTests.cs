@@ -5,10 +5,10 @@ namespace Plutus.Repository.Tests
 {
     public class RepositoryTests : TestWithMySql
     {
-        [SetUp]
+        /*[SetUp]
         public void Setup()
         {
-        }
+        }*/
 
         protected RepositoryWrapper RepositoryWrapper { get; set; }
 
@@ -30,6 +30,7 @@ namespace Plutus.Repository.Tests
         {
             var bussiness = new Bussiness()
             {
+                Id = "2",
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
