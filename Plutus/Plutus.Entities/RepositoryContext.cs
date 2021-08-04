@@ -46,6 +46,9 @@ namespace Plutus.Entities
         public DbSet<SavedTransaction> SavedTransactions { get; set; }
         public DbSet<Transaction_Discount> Transaction_Discounts { get; set; }
         public DbSet<Bussiness> Bussiness { get; set; }
+        public DbSet<Role> Role { get; set; }
+        public DbSet<Till> Till { get; set; }
+
         #endregion
 
         public RepositoryContext()

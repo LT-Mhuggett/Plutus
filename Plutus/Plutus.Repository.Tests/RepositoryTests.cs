@@ -64,6 +64,24 @@ namespace Plutus.Repository.Tests
 
         [Test]
         [Category("RecordPersistance")]
+        public void RolePersists()
+        {
+            var role = new Role()
+            {
+                Name = "Test Role"
+            };
+
+            RepositoryWrapper.RoleRepository.Create(role);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            Assert.AreEqual(role, DbContext.Role.Find(role.Id));
+            //Assert.AreEqual(1, DbContext.Category.Count());
+        }
+
+
+        [Test]
+        [Category("RecordPersistance")]
         public void StorePersists()
         {
             var bussiness = new Bussiness()
@@ -93,6 +111,119 @@ namespace Plutus.Repository.Tests
 
             Assert.AreEqual(bussiness, DbContext.Bussiness.Find(bussiness.Id));
             Assert.AreEqual(store, DbContext.Stores.Find(store.Id));
+        }
+
+        [Test]
+        [Category("RecordPersistance")]
+        public void TillPersists()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var store = new Store()
+            {
+                ContactNumber = "+449672513556",
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "Test City",
+                PostCode = "201304",
+                Country = "England",
+                BussinessId = bussiness.Id
+            };
+
+            RepositoryWrapper.StoreRepository.Create(store);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var till = new Till()
+            {
+                MachineId = "1",
+                StoreId = store.Id,
+                CashFloat = 100,
+                LastOnline = DateTime.Now
+            };
+
+            RepositoryWrapper.TillRepository.Create(till);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            Assert.AreEqual(bussiness, DbContext.Bussiness.Find(bussiness.Id));
+            Assert.AreEqual(store, DbContext.Stores.Find(store.Id));
+            Assert.AreEqual(till, DbContext.Till.Find(till.Id));
+        }
+
+        [Test]
+        [Category("RecordPersistance")]
+        public void EmployeePersists()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var store = new Store()
+            {
+                ContactNumber = "+449672513556",
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "Test City",
+                PostCode = "201304",
+                Country = "England",
+                BussinessId = bussiness.Id
+            };
+
+            RepositoryWrapper.StoreRepository.Create(store);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var role = new Role()
+            {
+                Name = "Employee Role"
+            };
+
+            RepositoryWrapper.RoleRepository.Create(role);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var employee = new Employee()
+            {
+                Wage = 1000,
+                ContractedHours = 40,
+                Active = true,
+                StoreId = store.Id,
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "London",
+                PostCode = "203440",
+                Country = "England",
+                FName = "John",
+                LName = "Doe",
+                Mobile = "+449672513556",
+                Email = store.Id + "@test.com",
+                BussinessId = bussiness.Id,
+                RoleId = role.Id
+            };
+
+            RepositoryWrapper.EmployeeRepository.Create(employee);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            Assert.AreEqual(bussiness, DbContext.Bussiness.Find(bussiness.Id));
+            Assert.AreEqual(store, DbContext.Stores.Find(store.Id));
+            Assert.AreEqual(role, DbContext.Role.Find(role.Id));
+            Assert.AreEqual(employee, DbContext.Employees.Find(employee.Id));
         }
 
         [Test]
@@ -276,6 +407,158 @@ namespace Plutus.Repository.Tests
 
         [Test]
         [Category("SyncHandling")]
+        public async Task TillSyncOnly()
+        {
+            var currentTime = DateTime.UtcNow;
+            var systemName = "Plutus.Repository.Tests";
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN",
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var store = new Store()
+            {
+                ContactNumber = "+449672513556",
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "Test City",
+                PostCode = "201304",
+                Country = "England",
+                BussinessId = bussiness.Id,
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.StoreRepository.Create(store);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var till = new Till()
+            {
+                MachineId = "1",
+                StoreId = store.Id,
+                CashFloat = 100,
+                LastOnline = DateTime.Now,
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            RepositoryWrapper.SetSyncState(true);
+            await Task.Delay(10);
+            RepositoryWrapper.SetCurrentUser(systemName);
+            await RepositoryWrapper.TillRepository.Create(till);
+            RepositoryWrapper.Save();
+            RepositoryWrapper.SetSyncState();
+
+            Assert.AreEqual(till.CreatedBy, systemName);
+            Assert.AreEqual(till.ModifiedBy, systemName);
+            Assert.AreEqual(till.CreatedAt, currentTime);
+            Assert.AreEqual(till.ModifiedAt, currentTime);
+        }
+
+        [Test]
+        [Category("SyncHandling")]
+        public async Task EmployeeSyncOnly()
+        {
+            var currentTime = DateTime.UtcNow;
+            var systemName = "Plutus.Repository.Tests";
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN",
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var store = new Store()
+            {
+                ContactNumber = "+449672513556",
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "Test City",
+                PostCode = "201304",
+                Country = "England",
+                BussinessId = bussiness.Id,
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.StoreRepository.Create(store);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var role = new Role()
+            {
+                Name = "Test Role",
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.RoleRepository.Create(role);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var employee = new Employee()
+            {
+                Wage = 1000,
+                ContractedHours = 40,
+                Active = true,
+                StoreId = store.Id,
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "London",
+                PostCode = "203440",
+                Country = "England",
+                FName = "John",
+                LName = "Doe",
+                Mobile = "+449672513556",
+                Email = store.Id+"@test.com",
+                BussinessId = bussiness.Id,
+                RoleId = role.Id,
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            RepositoryWrapper.SetSyncState(true);
+            await Task.Delay(10);
+            RepositoryWrapper.SetCurrentUser(systemName);
+            await RepositoryWrapper.EmployeeRepository.Create(employee);
+            RepositoryWrapper.Save();
+            RepositoryWrapper.SetSyncState();
+
+            Assert.AreEqual(employee.CreatedBy, systemName);
+            Assert.AreEqual(employee.ModifiedBy, systemName);
+            Assert.AreEqual(employee.CreatedAt, currentTime);
+            Assert.AreEqual(employee.ModifiedAt, currentTime);
+        }
+
+        [Test]
+        [Category("SyncHandling")]
         public async Task DiscountSyncOnly()
         {
             var currentTime = DateTime.UtcNow;
@@ -325,5 +608,35 @@ namespace Plutus.Repository.Tests
         }
 
         #endregion
+
+        [TearDown]
+        public void DeleteDb()
+        {
+            foreach (var entry in DbContext.ChangeTracker.Entries())
+            {
+                switch (entry.State)
+                {
+                    case EntityState.Modified:
+                    case EntityState.Deleted:
+                        entry.State = EntityState.Modified;
+                        entry.State = EntityState.Unchanged;
+                        break;
+
+                    case EntityState.Added:
+                        entry.State = EntityState.Detached;
+                        break;
+                }
+            }
+
+            DbContext.Employees.RemoveRange(DbContext.Employees);
+            DbContext.Category.RemoveRange(DbContext.Category);
+            DbContext.Till.RemoveRange(DbContext.Till);
+            DbContext.Stores.RemoveRange(DbContext.Stores);
+            DbContext.Role.RemoveRange(DbContext.Role);
+            DbContext.Discounts.RemoveRange(DbContext.Discounts);
+            DbContext.Bussiness.RemoveRange(DbContext.Bussiness);
+
+            DbContext.SaveChanges();
+        }
     }
 }

@@ -21,7 +21,7 @@ namespace Plutus.Entities.Tests
         [Category("TableAreCreated")]
         public void BusinessTableIsCreated()
         {
-            Assert.True(DbContext.Bussiness.Any());
+            Assert.False(DbContext.Bussiness.Any());
         }
 
         #endregion Tables are created tests

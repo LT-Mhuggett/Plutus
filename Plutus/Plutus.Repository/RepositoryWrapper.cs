@@ -25,12 +25,16 @@ namespace Plutus.Repository
         protected ITaxRepository taxRepository;
         protected ITransactionRepository transactionRepository;
         protected IBussinessRepository bussinessRepository;
+        protected IRoleRepository roleRepository;
 
         #endregion
 
         #region Properties
         public virtual IAuthActionRepository AuthActionRepository => authActionRepository ??= new AuthActionRepository(repositoryContext);
         public virtual ICategoryRepository CategoryRepository => categoryRepository ??= new CategoryRepository(repositoryContext);
+
+        public virtual IRoleRepository RoleRepository => roleRepository ??= new RoleRepository(repositoryContext);
+
         public virtual ICheckoutItemChangeRepository CheckoutItemChangeRepository => checkoutItemChangeRepository ??= new CheckoutItemChangeRepository(repositoryContext);
         public virtual IDiscountRepository DiscountRepository => discountRepository ??= new DiscountRepository(repositoryContext);
         public virtual IEmployeeRepository EmployeeRepository => employeeRepository ??= new EmployeeRepository(repositoryContext);
