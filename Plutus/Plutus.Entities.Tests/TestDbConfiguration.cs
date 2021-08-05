@@ -24,6 +24,55 @@ namespace Plutus.Entities.Tests
             Assert.False(DbContext.Bussiness.Any());
         }
 
+        [Test]
+        [Category("TableAreCreated")]
+        public void StoreTableIsCreated()
+        {
+            Assert.False(DbContext.Stores.Any());
+        }
+
+        [Test]
+        [Category("TableAreCreated")]
+        public void RoleTableIsCreated()
+        {
+            Assert.False(DbContext.Role.Any());
+        }
+
+        [Test]
+        [Category("TableAreCreated")]
+        public void DiscountTableIsCreated()
+        {
+            Assert.False(DbContext.Discounts.Any());
+        }
+
+        [Test]
+        [Category("TableAreCreated")]
+        public void TillTableIsCreated()
+        {
+            Assert.False(DbContext.Till.Any());
+        }
+
+        [Test]
+        [Category("TableAreCreated")]
+        public void CategoryTableIsCreated()
+        {
+            Assert.False(DbContext.Category.Any());
+        }
+
+        [Test]
+        [Category("TableAreCreated")]
+        public void EmployeesTableIsCreated()
+        {
+            Assert.False(DbContext.Employees.Any());
+        }
+
+        [Test]
+        [Category("TableAreCreated")]
+        public void TaxesTableIsCreated()
+        {
+            Assert.False(DbContext.Taxes.Any());
+        }
+
         #endregion Tables are created tests
     }
 }

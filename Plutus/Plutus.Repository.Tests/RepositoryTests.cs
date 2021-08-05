@@ -79,7 +79,6 @@ namespace Plutus.Repository.Tests
             //Assert.AreEqual(1, DbContext.Category.Count());
         }
 
-
         [Test]
         [Category("RecordPersistance")]
         public void StorePersists()
@@ -259,6 +258,94 @@ namespace Plutus.Repository.Tests
 
             Assert.AreEqual(bussiness, DbContext.Bussiness.Find(bussiness.Id));
             Assert.AreEqual(discount, DbContext.Discounts.Find(discount.Id));
+        }
+
+        [Test]
+        [Category("RecordPersistance")]
+        public void TaxPersists()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var tax = new Tax()
+            {
+                Name = "Tax Name",
+                Rate = 4.8,
+                IdTwo = bussiness.Id
+            };
+
+            RepositoryWrapper.TaxRepository.Create(tax);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            Assert.AreEqual(bussiness, DbContext.Bussiness.Find(bussiness.Id));
+            Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, bussiness.Id));
+        }
+
+        [Test]
+        [Category("RecordPersistance")]
+        public void ItemPersists()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var tax = new Tax()
+            {
+                Name = "Tax Name",
+                Rate = 4.8,
+                IdTwo = bussiness.Id
+            };
+
+            RepositoryWrapper.TaxRepository.Create(tax);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var category = new Category()
+            {
+                Name = "Test Name",
+                Description = "Test Description"
+            };
+
+            RepositoryWrapper.CategoryRepository.Create(category);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+
+            var item = new Item()
+            {
+                Name = "Item Name",
+                Brand = "Item Brand Name",
+                Desc = "Y",
+                Cost = 9999,
+                ExPrice = 9999,
+                Price = 9999,
+                TaxId = tax.IdOne,
+                CatId = category.Id,
+                IdTwo = bussiness.Id
+            };
+
+            RepositoryWrapper.ItemRepository.Create(item);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            Assert.AreEqual(bussiness, DbContext.Bussiness.Find(bussiness.Id));
+            Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, bussiness.Id));
+            Assert.AreEqual(category, DbContext.Category.Find(category.Id));
+            Assert.AreEqual(item, DbContext.Items.Find(item.IdOne, bussiness.Id));
         }
 
         #endregion
@@ -605,6 +692,129 @@ namespace Plutus.Repository.Tests
             Assert.AreEqual(discount.ModifiedBy, systemName);
             Assert.AreEqual(discount.CreatedAt, currentTime);
             Assert.AreEqual(discount.ModifiedAt, currentTime);
+        }
+
+        [Test]
+        [Category("SyncHandling")]
+        public async Task TaxesSyncOnly()
+        {
+            var currentTime = DateTime.UtcNow;
+            var systemName = "Plutus.Repository.Tests";
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN",
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var tax = new Tax()
+            {
+                Name = "Tax Name",
+                Rate = 4.8,
+                IdTwo = bussiness.Id,
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            RepositoryWrapper.SetSyncState(true);
+            await Task.Delay(10);
+            RepositoryWrapper.SetCurrentUser(systemName);
+            await RepositoryWrapper.TaxRepository.Create(tax);
+            RepositoryWrapper.Save();
+            RepositoryWrapper.SetSyncState();
+
+            Assert.AreEqual(tax.CreatedBy, systemName);
+            Assert.AreEqual(tax.ModifiedBy, systemName);
+            Assert.AreEqual(tax.CreatedAt, currentTime);
+            Assert.AreEqual(tax.ModifiedAt, currentTime);
+        }
+
+        [Test]
+        [Category("SyncHandling")]
+        public async Task ItemSyncOnly()
+        {
+            var currentTime = DateTime.UtcNow;
+            var systemName = "Plutus.Repository.Tests";
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN",
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var tax = new Tax()
+            {
+                Name = "Tax Name",
+                Rate = 4.8,
+                IdTwo = bussiness.Id,
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.TaxRepository.Create(tax);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var category = new Category()
+            {
+                Name = "Test Name",
+                Description = "Test Description",
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.CategoryRepository.Create(category);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var item = new Item()
+            {
+                Name = "Item Name",
+                Brand = "Item Brand Name",
+                Desc = "Y",
+                Cost = 9999,
+                ExPrice = 9999,
+                Price = 9999,
+                TaxId = tax.IdOne,
+                CatId = category.Id,
+                IdTwo = bussiness.Id,
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            RepositoryWrapper.SetSyncState(true);
+            await Task.Delay(10);
+            RepositoryWrapper.SetCurrentUser(systemName);
+            await RepositoryWrapper.ItemRepository.Create(item);
+            RepositoryWrapper.Save();
+            RepositoryWrapper.SetSyncState();
+
+            Assert.AreEqual(item.CreatedBy, systemName);
+            Assert.AreEqual(item.ModifiedBy, systemName);
+            Assert.AreEqual(item.CreatedAt, currentTime);
+            Assert.AreEqual(item.ModifiedAt, currentTime);
         }
 
         #endregion
