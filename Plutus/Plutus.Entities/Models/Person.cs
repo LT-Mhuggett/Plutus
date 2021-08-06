@@ -12,14 +12,20 @@ namespace Plutus.Entities.Models
     {
         // object ID => Guid
         #region Properties
+
         [Exportable]
+        [Required]
         public string FName { get; set; }
+
         [Exportable]
+        [Required]
         public string LName { get; set; }
+
         [Exportable]
+        [Required]
         public string Mobile { get; set; }
+
         [Exportable]
-      
         [Required]
         public string Email { get; set; }
         #endregion

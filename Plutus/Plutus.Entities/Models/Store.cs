@@ -3,6 +3,7 @@ using Plutus.Entities.Enums;
 using Plutus.Entities.Models.Interface;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace Plutus.Entities.Models
 {
@@ -16,11 +17,13 @@ namespace Plutus.Entities.Models
     {
         #region Properties
         [Exportable]
+        [Required]
         public string ContactNumber{get;set;}
 
         #region Relationships
 
         [Exportable]
+        [Required]
         public string BussinessId { get; set; }
         public virtual Bussiness Bussiness { get; set; }
 

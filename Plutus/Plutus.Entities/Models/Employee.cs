@@ -2,6 +2,7 @@
 using Plutus.Entities.Models.Interface;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Plutus.Entities.Models
@@ -33,6 +34,7 @@ namespace Plutus.Entities.Models
         #region Relationships
         [Exportable]
         [ForeignKey("StoreIdFK")]
+        [Required]
         public string StoreId { get; set; }
         public virtual Store Store { get; set; }
 

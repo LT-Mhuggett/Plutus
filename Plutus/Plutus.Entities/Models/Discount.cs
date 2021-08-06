@@ -3,6 +3,7 @@ using Plutus.Entities.Models.Interface;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Plutus.Entities.Models
@@ -13,15 +14,21 @@ namespace Plutus.Entities.Models
         #region Properties
         [Exportable]
         [Column("Name")] 
+        [Required]
         public string Name { get; set; }
+
         [Exportable]
         public bool AllApplicable { get; set; }
+
         [Exportable]
         public bool CanUseWithOtherDiscounts { get; set; }
+
         [Exportable]
         public bool AutoApply { get; set; }
+
         [Exportable]
         public int Type { get; set; }
+
         [Exportable]
         public decimal Amount { get; set; }
         [Exportable]
@@ -33,7 +40,9 @@ namespace Plutus.Entities.Models
         public bool Changed { get; set; }
 
         #region Relationships
+
         [Exportable]
+        [Required]
         public string BussinessId { get; set; }
         public virtual Bussiness Bussiness { get; set; }
 

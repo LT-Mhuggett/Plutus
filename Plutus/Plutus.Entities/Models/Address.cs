@@ -1,5 +1,6 @@
 ﻿using Plutus.Entities.Attributes;
 using Plutus.Entities.Models.Interface;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Plutus.Entities.Models
@@ -13,7 +14,9 @@ namespace Plutus.Entities.Models
         public string AdLine2 { get; set; }
         [Exportable]
         public string City { get; set; }
+
         [Exportable]
+        [Required]
         public string PostCode { get; set; }
         [Exportable]
         public string Country { get; set; }

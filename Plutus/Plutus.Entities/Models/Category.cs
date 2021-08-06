@@ -2,6 +2,7 @@
 using Plutus.Entities.Models.Interface;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace Plutus.Entities.Models
 {
@@ -10,8 +11,11 @@ namespace Plutus.Entities.Models
     {
         #region Properties
         [Exportable]
+        [Required]
         public string Name { get; set; }
+
         [Exportable]
+        [Required]
         public string Description { get; set; }
 
         #region Relationships

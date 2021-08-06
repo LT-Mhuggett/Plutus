@@ -353,33 +353,789 @@ namespace Plutus.Repository.Tests
         #region Record Property Constraint Tests
 
         #region Business
-        /* [Test]
-         [Category("RecordPropertyConstraint")]
-         public void BusinessRecordNameIsRequired()
-         {
-             var bussiness = new Bussiness()
-             {
-                 NameAbbr = "TN"
-             };
-             RepositoryWrapper.BussinessRepository.Create(bussiness);
-             RepositoryWrapper.SetCurrentUser("Test");
-             Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
-         }
 
-         [Test]
-         [Category("RecordPropertyConstraint")]
-         public void BusinessRecordNameAbbrIsRequired()
-         {
-             var bussiness = new Bussiness()
-             {
-                 Name = "Test Name"
-             };
-             RepositoryWrapper.BussinessRepository.Create(bussiness);
-             RepositoryWrapper.SetCurrentUser("Test");
-             Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
-         }*/
+        [Test]
+        [Category("RecordPropertyConstraint")]
+        public void BusinessRecordNameIsRequired()
+        {
+            var bussiness = new Bussiness()
+            {
+                NameAbbr = "TN"
+            };
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        }
+
+        [Test]
+        [Category("RecordPropertyConstraint")]
+        public void BusinessRecordNameAbbrIsRequired()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name"
+            };
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        }
 
         #endregion Business
+
+        #region Category
+        [Test]
+        [Category("RecordPersistance")]
+        public void CategoryRecordNameIsRequired()
+        {
+            var category = new Category()
+            {
+                Description = "Test Description"
+            };
+
+            RepositoryWrapper.CategoryRepository.Create(category);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        }
+
+        [Test]
+        [Category("RecordPersistance")]
+        public void CategoryRecordDescriptionIsRequired()
+        {
+            var category = new Category()
+            {
+                Name = "Test Name"
+            };
+
+            RepositoryWrapper.CategoryRepository.Create(category);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        }
+        #endregion Category
+
+        #region Store
+        [Test]
+        [Category("RecordPersistance")]
+        public void StoreRecordContactNumberIsRequired()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var store = new Store()
+            {
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "Test City",
+                PostCode = "201304",
+                Country = "England",
+                BussinessId = bussiness.Id
+            };
+
+            RepositoryWrapper.StoreRepository.Create(store);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        }
+
+        [Test]
+        [Category("RecordPersistance")]
+        public void StoreRecordPostcodeIsRequired()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var store = new Store()
+            {
+                ContactNumber = "+449672513556",
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "Test City",
+                Country = "England",
+                BussinessId = bussiness.Id
+            };
+
+            RepositoryWrapper.StoreRepository.Create(store);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        }
+
+        [Test]
+        [Category("RecordPersistance")]
+        public void StoreRecordBussinessIdIsRequired()
+        {
+
+            var store = new Store()
+            {
+                ContactNumber = "+449672513556",
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "Test City",
+                PostCode = "201304",
+                Country = "England",
+            };
+
+            RepositoryWrapper.StoreRepository.Create(store);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        }
+        #endregion Store
+
+        #region Till
+        [Test]
+        [Category("RecordPersistance")]
+        public void TillRecordMachineIdIsRequired()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var store = new Store()
+            {
+                ContactNumber = "+449672513556",
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "Test City",
+                PostCode = "201304",
+                Country = "England",
+                BussinessId = bussiness.Id
+            };
+
+            RepositoryWrapper.StoreRepository.Create(store);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var till = new Till()
+            {
+                StoreId = store.Id,
+                CashFloat = 100,
+                LastOnline = DateTime.Now
+            };
+
+            RepositoryWrapper.TillRepository.Create(till);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        }
+
+        [Test]
+        [Category("RecordPersistance")]
+        public void TillRecordStoreIdIsRequired()
+        {
+            var till = new Till()
+            {
+                MachineId = "1",
+                CashFloat = 100,
+                LastOnline = DateTime.Now
+            };
+
+            RepositoryWrapper.TillRepository.Create(till);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        }
+
+        #endregion Till
+
+        #region Item
+        [Test]
+        [Category("RecordPropertyConstraint")]
+        public void ItemRecordNameIsRequired()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var tax = new Tax()
+            {
+                Name = "Tax Name",
+                Rate = 4.8,
+                IdTwo = bussiness.Id
+            };
+
+            RepositoryWrapper.TaxRepository.Create(tax);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var category = new Category()
+            {
+                Name = "Test Name",
+                Description = "Test Description"
+            };
+
+            RepositoryWrapper.CategoryRepository.Create(category);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+
+            var item = new Item()
+            {
+                Brand = "Item Brand Name",
+                Desc = "Y",
+                Cost = 9999,
+                ExPrice = 9999,
+                Price = 9999,
+                TaxId = tax.IdOne,
+                CatId = category.Id,
+                IdTwo = bussiness.Id
+            };
+
+            RepositoryWrapper.ItemRepository.Create(item);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+
+        }
+
+        [Test]
+        [Category("RecordPropertyConstraint")]
+        public void ItemRecordBrandIsRequired()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var tax = new Tax()
+            {
+                Name = "Tax Name",
+                Rate = 4.8,
+                IdTwo = bussiness.Id
+            };
+
+            RepositoryWrapper.TaxRepository.Create(tax);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var category = new Category()
+            {
+                Name = "Test Name",
+                Description = "Test Description"
+            };
+
+            RepositoryWrapper.CategoryRepository.Create(category);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+
+            var item = new Item()
+            {
+                Name = "Item Name",
+                Desc = "Y",
+                Cost = 9999,
+                ExPrice = 9999,
+                Price = 9999,
+                TaxId = tax.IdOne,
+                CatId = category.Id,
+                IdTwo = bussiness.Id
+            };
+
+            RepositoryWrapper.ItemRepository.Create(item);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+
+        }
+
+        [Test]
+        [Category("RecordPropertyConstraint")]
+        public void ItemRecordTaxIdIsRequired()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var category = new Category()
+            {
+                Name = "Test Name",
+                Description = "Test Description"
+            };
+
+            RepositoryWrapper.CategoryRepository.Create(category);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+
+            var item = new Item()
+            {
+                Name = "Item Name",
+                Brand = "Item Brand Name",
+                Desc = "Y",
+                Cost = 9999,
+                ExPrice = 9999,
+                Price = 9999,
+                CatId = category.Id,
+                IdTwo = bussiness.Id
+            };
+
+            RepositoryWrapper.ItemRepository.Create(item);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+
+        }
+
+        [Test]
+        [Category("RecordPropertyConstraint")]
+        public void ItemRecordCatIdIsRequired()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var tax = new Tax()
+            {
+                Name = "Tax Name",
+                Rate = 4.8,
+                IdTwo = bussiness.Id
+            };
+
+            RepositoryWrapper.TaxRepository.Create(tax);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var item = new Item()
+            {
+                Name = "Item Name",
+                Brand = "Item Brand Name",
+                Desc = "Y",
+                Cost = 9999,
+                ExPrice = 9999,
+                Price = 9999,
+                TaxId = tax.IdOne,
+                IdTwo = bussiness.Id
+            };
+
+            RepositoryWrapper.ItemRepository.Create(item);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+
+        }
+        #endregion Item
+
+        #region Tax
+        [Test]
+        [Category("RecordPropertyConstraint")]
+        public void TaxRecordNameIsRequired()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var tax = new Tax()
+            {
+                Rate = 4.8,
+                IdTwo = bussiness.Id
+            };
+
+            RepositoryWrapper.TaxRepository.Create(tax);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        }
+        #endregion Tax
+
+        #region Discount
+        [Test]
+        [Category("RecordPropertyConstraint")]
+        public void DiscountRecordNameIsRequired()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var discount = new Discount()
+            {
+                AllApplicable = true,
+                CanUseWithOtherDiscounts = false,
+                AutoApply = true,
+                Type = 1,
+                Amount = 13556,
+                UsesPerTransaction = 1,
+                RequiredNumOfItems = 1,
+                BussinessId = bussiness.Id
+            };
+
+            RepositoryWrapper.DiscountRepository.Create(discount);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        }
+
+        [Test]
+        [Category("RecordPropertyConstraint")]
+        public void DiscountRecordBussinessIdIsRequired()
+        {
+            var discount = new Discount()
+            {
+                Name = "Test Name",
+                AllApplicable = true,
+                CanUseWithOtherDiscounts = false,
+                AutoApply = true,
+                Type = 1,
+                Amount = 13556,
+                UsesPerTransaction = 1,
+                RequiredNumOfItems = 1
+            };
+
+            RepositoryWrapper.DiscountRepository.Create(discount);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        }
+
+        #endregion Discount
+
+        #region Employee
+        [Test]
+        [Category("RecordPropertyConstraint")]
+        public void EmployeeRecordFNameIsRequired()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var store = new Store()
+            {
+                ContactNumber = "+449672513556",
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "Test City",
+                PostCode = "201304",
+                Country = "England",
+                BussinessId = bussiness.Id
+            };
+
+            RepositoryWrapper.StoreRepository.Create(store);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var role = new Role()
+            {
+                Name = "Employee Role"
+            };
+
+            RepositoryWrapper.RoleRepository.Create(role);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var employee = new Employee()
+            {
+                Wage = 1000,
+                ContractedHours = 40,
+                Active = true,
+                StoreId = store.Id,
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "London",
+                PostCode = "203440",
+                Country = "England",
+                LName = "Doe",
+                Mobile = "+449672513556",
+                Email = store.Id + "@test.com",
+                BussinessId = bussiness.Id,
+                RoleId = role.Id
+            };
+
+            RepositoryWrapper.EmployeeRepository.Create(employee);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        }
+
+        [Test]
+        [Category("RecordPropertyConstraint")]
+        public void EmployeeRecordLNameIsRequired()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var store = new Store()
+            {
+                ContactNumber = "+449672513556",
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "Test City",
+                PostCode = "201304",
+                Country = "England",
+                BussinessId = bussiness.Id
+            };
+
+            RepositoryWrapper.StoreRepository.Create(store);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var role = new Role()
+            {
+                Name = "Employee Role"
+            };
+
+            RepositoryWrapper.RoleRepository.Create(role);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var employee = new Employee()
+            {
+                Wage = 1000,
+                ContractedHours = 40,
+                Active = true,
+                StoreId = store.Id,
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "London",
+                PostCode = "203440",
+                Country = "England",
+                FName = "John",
+                Mobile = "+449672513556",
+                Email = store.Id + "@test.com",
+                BussinessId = bussiness.Id,
+                RoleId = role.Id
+            };
+
+            RepositoryWrapper.EmployeeRepository.Create(employee);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        }
+
+        [Test]
+        [Category("RecordPropertyConstraint")]
+        public void EmployeeRecordStoreIdIsRequired()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var store = new Store()
+            {
+                ContactNumber = "+449672513556",
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "Test City",
+                PostCode = "201304",
+                Country = "England",
+                BussinessId = bussiness.Id
+            };
+
+            RepositoryWrapper.StoreRepository.Create(store);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var role = new Role()
+            {
+                Name = "Employee Role"
+            };
+
+            RepositoryWrapper.RoleRepository.Create(role);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var employee = new Employee()
+            {
+                Wage = 1000,
+                ContractedHours = 40,
+                Active = true,
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "London",
+                PostCode = "203440",
+                Country = "England",
+                FName = "John",
+                LName = "Doe",
+                Mobile = "+449672513556",
+                Email = store.Id + "@test.com",
+                BussinessId = bussiness.Id,
+                RoleId = role.Id
+            };
+
+            RepositoryWrapper.EmployeeRepository.Create(employee);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        }
+
+        [Test]
+        [Category("RecordPropertyConstraint")]
+        public void EmployeeRecordMobileIsRequired()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var store = new Store()
+            {
+                ContactNumber = "+449672513556",
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "Test City",
+                PostCode = "201304",
+                Country = "England",
+                BussinessId = bussiness.Id
+            };
+
+            RepositoryWrapper.StoreRepository.Create(store);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var role = new Role()
+            {
+                Name = "Employee Role"
+            };
+
+            RepositoryWrapper.RoleRepository.Create(role);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var employee = new Employee()
+            {
+                Wage = 1000,
+                ContractedHours = 40,
+                Active = true,
+                StoreId = store.Id,
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "London",
+                PostCode = "203440",
+                Country = "England",
+                FName = "John",
+                LName = "Doe",
+                Email = store.Id + "@test.com",
+                BussinessId = bussiness.Id,
+                RoleId = role.Id
+            };
+
+            RepositoryWrapper.EmployeeRepository.Create(employee);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        }
+
+        [Test]
+        [Category("RecordPropertyConstraint")]
+        public void EmployeeRecordEmailIsRequired()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var store = new Store()
+            {
+                ContactNumber = "+449672513556",
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "Test City",
+                PostCode = "201304",
+                Country = "England",
+                BussinessId = bussiness.Id
+            };
+
+            RepositoryWrapper.StoreRepository.Create(store);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var role = new Role()
+            {
+                Name = "Employee Role"
+            };
+
+            RepositoryWrapper.RoleRepository.Create(role);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var employee = new Employee()
+            {
+                Wage = 1000,
+                ContractedHours = 40,
+                Active = true,
+                StoreId = store.Id,
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "London",
+                PostCode = "203440",
+                Country = "England",
+                FName = "John",
+                LName = "Doe",
+                Mobile = "+449672513556",
+                BussinessId = bussiness.Id,
+                RoleId = role.Id
+            };
+
+            RepositoryWrapper.EmployeeRepository.Create(employee);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        }
+        #endregion Employee
 
         #endregion Record Property Constraint Tests
 

@@ -12,13 +12,16 @@ namespace Plutus.Entities.Models
     {
         #region Properties
 
+        
         [Exportable]
         public string VatIN { get; set; }
 
         [Exportable]
+        [Required]
         public string Name { get; set; }
 
         [Exportable]
+        [Required]
         public string NameAbbr { get; set; }
 
         [Exportable(ExportLevels.NonUserFriendly)]
