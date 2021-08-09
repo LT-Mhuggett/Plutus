@@ -46,6 +46,23 @@ namespace Plutus.Repository.Tests
 
         [Test]
         [Category("RecordPersistance")]
+        public void NotePersists()
+        {
+            var note = new Note()
+            {
+                Text = "Note Text"
+            };
+
+            RepositoryWrapper.NoteRepository.Create(note);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            Assert.AreEqual(note, DbContext.Notes.Find(note.Id));
+            //Assert.AreEqual(1, DbContext.Bussiness.Count());
+        }
+
+        [Test]
+        [Category("RecordPersistance")]
         public void CategoryPersists()
         {
             var category = new Category()
@@ -347,6 +364,242 @@ namespace Plutus.Repository.Tests
             Assert.AreEqual(category, DbContext.Category.Find(category.Id));
             Assert.AreEqual(item, DbContext.Items.Find(item.IdOne, bussiness.Id));
         }
+
+        [Test]
+        [Category("RecordPersistance")]
+        public void TransactionPersists()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var tax = new Tax()
+            {
+                Name = "Tax Name",
+                Rate = 4.8,
+                IdTwo = bussiness.Id
+            };
+
+            RepositoryWrapper.TaxRepository.Create(tax);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var category = new Category()
+            {
+                Name = "Test Name",
+                Description = "Test Description"
+            };
+
+            RepositoryWrapper.CategoryRepository.Create(category);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+
+            var item = new Item()
+            {
+                Name = "Item Name",
+                Brand = "Item Brand Name",
+                Desc = "Y",
+                Cost = 9999,
+                ExPrice = 9999,
+                Price = 9999,
+                TaxId = tax.IdOne,
+                CatId = category.Id,
+                IdTwo = bussiness.Id
+            };
+
+            RepositoryWrapper.ItemRepository.Create(item);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var store = new Store()
+            {
+                ContactNumber = "+449672513556",
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "Test City",
+                PostCode = "201304",
+                Country = "England",
+                BussinessId = bussiness.Id
+            };
+
+            RepositoryWrapper.StoreRepository.Create(store);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var till = new Till()
+            {
+                MachineId = "1",
+                StoreId = store.Id,
+                CashFloat = 100,
+                LastOnline = DateTime.Now
+            };
+
+            RepositoryWrapper.TillRepository.Create(till);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var role = new Role()
+            {
+                Name = "Employee Role"
+            };
+
+            RepositoryWrapper.RoleRepository.Create(role);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var employee = new Employee()
+            {
+                Wage = 1000,
+                ContractedHours = 40,
+                Active = true,
+                StoreId = store.Id,
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "London",
+                PostCode = "203440",
+                Country = "England",
+                FName = "John",
+                LName = "Doe",
+                Mobile = "+449672513556",
+                Email = store.Id + "@test.com",
+                BussinessId = bussiness.Id,
+                RoleId = role.Id
+            };
+
+            RepositoryWrapper.EmployeeRepository.Create(employee);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var sale = new Sale()
+            {
+                Total = 2000,
+                TotalExTax = 2000,
+                DateOfSale = DateTime.Now,
+                StoreId = store.Id,
+                EmployeeId = employee.Id
+            };
+
+            RepositoryWrapper.SaleRepository.Create(sale);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var transaction = new Transaction()
+            {
+                Amount = 20000,
+                ItemsCostExPrice = 20000,
+                ItemsCostPrice = 20000,
+                TillId = till.Id,
+                SaleId = sale.Id,
+                ItemIdOne = item.IdOne,
+                ItemIdTwo = item.IdTwo,
+            };
+
+            RepositoryWrapper.TransactionRepository.Create(transaction);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            Assert.AreEqual(bussiness, DbContext.Bussiness.Find(bussiness.Id));
+            Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, bussiness.Id));
+            Assert.AreEqual(category, DbContext.Category.Find(category.Id));
+            Assert.AreEqual(item, DbContext.Items.Find(item.IdOne, bussiness.Id));
+            Assert.AreEqual(transaction, DbContext.Trans.Find(transaction.Id));
+        }
+
+        [Test]
+        [Category("RecordPersistance")]
+        public void StockPersists()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var tax = new Tax()
+            {
+                Name = "Tax Name",
+                Rate = 4.8,
+                IdTwo = bussiness.Id
+            };
+
+            RepositoryWrapper.TaxRepository.Create(tax);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var category = new Category()
+            {
+                Name = "Test Name",
+                Description = "Test Description"
+            };
+
+            RepositoryWrapper.CategoryRepository.Create(category);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+
+            var item = new Item()
+            {
+                Name = "Item Name",
+                Brand = "Item Brand Name",
+                Desc = "Y",
+                Cost = 9999,
+                ExPrice = 9999,
+                Price = 9999,
+                TaxId = tax.IdOne,
+                CatId = category.Id,
+                IdTwo = bussiness.Id
+            };
+
+            RepositoryWrapper.ItemRepository.Create(item);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var store = new Store()
+            {
+                ContactNumber = "+449672513556",
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "Test City",
+                PostCode = "201304",
+                Country = "England",
+                BussinessId = bussiness.Id
+            };
+
+            RepositoryWrapper.StoreRepository.Create(store);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var stock = new Stock()
+            {
+                IdOne = item.IdOne,
+                IdTwo = item.IdTwo,
+                IdThree = store.Id,
+                Quantity = 12
+            };
+
+            RepositoryWrapper.StockRepository.Create(stock);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            Assert.AreEqual(bussiness, DbContext.Bussiness.Find(bussiness.Id));
+            Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, bussiness.Id));
+            Assert.AreEqual(category, DbContext.Category.Find(category.Id));
+            Assert.AreEqual(item, DbContext.Items.Find(item.IdOne, bussiness.Id));
+            Assert.AreEqual(store, DbContext.Stores.Find(store.Id));
+            Assert.AreEqual(stock, DbContext.Stocks.Find(stock.IdOne, stock.IdTwo, stock.IdThree));
+        }
+
 
         #endregion
 
@@ -1137,6 +1390,324 @@ namespace Plutus.Repository.Tests
         }
         #endregion Employee
 
+        #region Transaction
+
+        [Test]
+        [Category("RecordPropertyConstraint")]
+        public void TransactionRecordTillIdIsRequired()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var tax = new Tax()
+            {
+                Name = "Tax Name",
+                Rate = 4.8,
+                IdTwo = bussiness.Id
+            };
+
+            RepositoryWrapper.TaxRepository.Create(tax);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var category = new Category()
+            {
+                Name = "Test Name",
+                Description = "Test Description"
+            };
+
+            RepositoryWrapper.CategoryRepository.Create(category);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+
+            var item = new Item()
+            {
+                Name = "Item Name",
+                Brand = "Item Brand Name",
+                Desc = "Y",
+                Cost = 9999,
+                ExPrice = 9999,
+                Price = 9999,
+                TaxId = tax.IdOne,
+                CatId = category.Id,
+                IdTwo = bussiness.Id
+            };
+
+            RepositoryWrapper.ItemRepository.Create(item);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var store = new Store()
+            {
+                ContactNumber = "+449672513556",
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "Test City",
+                PostCode = "201304",
+                Country = "England",
+                BussinessId = bussiness.Id
+            };
+
+            RepositoryWrapper.StoreRepository.Create(store);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var role = new Role()
+            {
+                Name = "Employee Role"
+            };
+
+            RepositoryWrapper.RoleRepository.Create(role);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var employee = new Employee()
+            {
+                Wage = 1000,
+                ContractedHours = 40,
+                Active = true,
+                StoreId = store.Id,
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "London",
+                PostCode = "203440",
+                Country = "England",
+                FName = "John",
+                LName = "Doe",
+                Mobile = "+449672513556",
+                Email = store.Id + "@test.com",
+                BussinessId = bussiness.Id,
+                RoleId = role.Id
+            };
+
+            RepositoryWrapper.EmployeeRepository.Create(employee);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var sale = new Sale()
+            {
+                Total = 2000,
+                TotalExTax = 2000,
+                DateOfSale = DateTime.Now,
+                StoreId = store.Id,
+                EmployeeId = employee.Id
+            };
+
+            RepositoryWrapper.SaleRepository.Create(sale);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var transaction = new Transaction()
+            {
+                Amount = 20000,
+                ItemsCostExPrice = 20000,
+                ItemsCostPrice = 20000,
+                SaleId = sale.Id,
+                ItemIdOne = item.IdOne,
+                ItemIdTwo = item.IdTwo,
+            };
+
+            RepositoryWrapper.TransactionRepository.Create(transaction);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        }
+
+        [Test]
+        [Category("RecordPropertyConstraint")]
+        public void TransactionRecordSaleIdIsRequired()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var tax = new Tax()
+            {
+                Name = "Tax Name",
+                Rate = 4.8,
+                IdTwo = bussiness.Id
+            };
+
+            RepositoryWrapper.TaxRepository.Create(tax);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var category = new Category()
+            {
+                Name = "Test Name",
+                Description = "Test Description"
+            };
+
+            RepositoryWrapper.CategoryRepository.Create(category);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+
+            var item = new Item()
+            {
+                Name = "Item Name",
+                Brand = "Item Brand Name",
+                Desc = "Y",
+                Cost = 9999,
+                ExPrice = 9999,
+                Price = 9999,
+                TaxId = tax.IdOne,
+                CatId = category.Id,
+                IdTwo = bussiness.Id
+            };
+
+            RepositoryWrapper.ItemRepository.Create(item);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var store = new Store()
+            {
+                ContactNumber = "+449672513556",
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "Test City",
+                PostCode = "201304",
+                Country = "England",
+                BussinessId = bussiness.Id
+            };
+
+            RepositoryWrapper.StoreRepository.Create(store);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var till = new Till()
+            {
+                MachineId = "1",
+                StoreId = store.Id,
+                CashFloat = 100,
+                LastOnline = DateTime.Now
+            };
+
+            RepositoryWrapper.TillRepository.Create(till);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var role = new Role()
+            {
+                Name = "Employee Role"
+            };
+
+            RepositoryWrapper.RoleRepository.Create(role);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var transaction = new Transaction()
+            {
+                Amount = 20000,
+                ItemsCostExPrice = 20000,
+                ItemsCostPrice = 20000,
+                TillId = till.Id,
+                ItemIdOne = item.IdOne,
+                ItemIdTwo = item.IdTwo,
+            };
+
+            RepositoryWrapper.TransactionRepository.Create(transaction);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        }
+
+        #endregion Transaction
+
+        /*#region Stock
+        [Test]
+        [Category("RecordPropertyConstraint")]
+        public void StockRecordStoreIdIsRequired()
+        {
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
+            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var tax = new Tax()
+            {
+                Name = "Tax Name",
+                Rate = 4.8,
+                IdTwo = bussiness.Id
+            };
+
+            RepositoryWrapper.TaxRepository.Create(tax);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var category = new Category()
+            {
+                Name = "Test Name",
+                Description = "Test Description"
+            };
+
+            RepositoryWrapper.CategoryRepository.Create(category);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+
+            var item = new Item()
+            {
+                Name = "Item Name",
+                Brand = "Item Brand Name",
+                Desc = "Y",
+                Cost = 9999,
+                ExPrice = 9999,
+                Price = 9999,
+                TaxId = tax.IdOne,
+                CatId = category.Id,
+                IdTwo = bussiness.Id
+            };
+
+            RepositoryWrapper.ItemRepository.Create(item);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var store = new Store()
+            {
+                ContactNumber = "+449672513556",
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "Test City",
+                PostCode = "201304",
+                Country = "England",
+                BussinessId = bussiness.Id
+            };
+
+            RepositoryWrapper.StoreRepository.Create(store);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var stock = new Stock()
+            {
+                IdOne = item.IdOne,
+                IdTwo = item.IdTwo,
+                Quantity = 12
+            };
+
+            RepositoryWrapper.StockRepository.Create(stock);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        }
+        #endregion Stock*/
+
         #endregion Record Property Constraint Tests
 
         #region Sync Only Data Storage
@@ -1168,6 +1739,35 @@ namespace Plutus.Repository.Tests
             Assert.AreEqual(bussiness.ModifiedBy, systemName);
             Assert.AreEqual(bussiness.CreatedAt, currentTime);
             Assert.AreEqual(bussiness.ModifiedAt, currentTime);
+        }
+
+        [Test]
+        [Category("SyncHandling")]
+        public async Task NoteSyncOnly()
+        {
+            var currentTime = DateTime.UtcNow;
+            var systemName = "Plutus.Repository.Tests";
+
+            var note = new Note()
+            {
+                Text = "Note Text",
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            RepositoryWrapper.SetSyncState(true);
+            await Task.Delay(10);
+            RepositoryWrapper.SetCurrentUser(systemName);
+            await RepositoryWrapper.NoteRepository.Create(note);
+            RepositoryWrapper.Save();
+            RepositoryWrapper.SetSyncState();
+
+            Assert.AreEqual(note.CreatedBy, systemName);
+            Assert.AreEqual(note.ModifiedBy, systemName);
+            Assert.AreEqual(note.CreatedAt, currentTime);
+            Assert.AreEqual(note.ModifiedAt, currentTime);
         }
 
         [Test]
@@ -1573,6 +2173,311 @@ namespace Plutus.Repository.Tests
             Assert.AreEqual(item.ModifiedAt, currentTime);
         }
 
+        [Test]
+        [Category("SyncHandling")]
+        public async Task TransactionSyncOnly()
+        {
+            var currentTime = DateTime.UtcNow;
+            var systemName = "Plutus.Repository.Tests";
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN",
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var tax = new Tax()
+            {
+                Name = "Tax Name",
+                Rate = 4.8,
+                IdTwo = bussiness.Id,
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.TaxRepository.Create(tax);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var category = new Category()
+            {
+                Name = "Test Name",
+                Description = "Test Description",
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.CategoryRepository.Create(category);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var item = new Item()
+            {
+                Name = "Item Name",
+                Brand = "Item Brand Name",
+                Desc = "Y",
+                Cost = 9999,
+                ExPrice = 9999,
+                Price = 9999,
+                TaxId = tax.IdOne,
+                CatId = category.Id,
+                IdTwo = bussiness.Id,
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.ItemRepository.Create(item);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var store = new Store()
+            {
+                ContactNumber = "+449672513556",
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "Test City",
+                PostCode = "201304",
+                Country = "England",
+                BussinessId = bussiness.Id,
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.StoreRepository.Create(store);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var till = new Till()
+            {
+                MachineId = "1",
+                StoreId = store.Id,
+                CashFloat = 100,
+                LastOnline = DateTime.Now,
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.TillRepository.Create(till);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var role = new Role()
+            {
+                Name = "Employee Role",
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.RoleRepository.Create(role);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var employee = new Employee()
+            {
+                Wage = 1000,
+                ContractedHours = 40,
+                Active = true,
+                StoreId = store.Id,
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "London",
+                PostCode = "203440",
+                Country = "England",
+                FName = "John",
+                LName = "Doe",
+                Mobile = "+449672513556",
+                Email = store.Id + "@test.com",
+                BussinessId = bussiness.Id,
+                RoleId = role.Id,
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.EmployeeRepository.Create(employee);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var sale = new Sale()
+            {
+                Total = 2000,
+                TotalExTax = 2000,
+                DateOfSale = DateTime.Now,
+                StoreId = store.Id,
+                EmployeeId = employee.Id,
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.SaleRepository.Create(sale);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var transaction = new Transaction()
+            {
+                Amount = 20000,
+                ItemsCostExPrice = 20000,
+                ItemsCostPrice = 20000,
+                TillId = till.Id,
+                SaleId = sale.Id,
+                ItemIdOne = item.IdOne,
+                ItemIdTwo = item.IdTwo,
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            RepositoryWrapper.SetSyncState(true);
+            await Task.Delay(10);
+            RepositoryWrapper.SetCurrentUser(systemName);
+
+            await RepositoryWrapper.TransactionRepository.Create(transaction);
+            RepositoryWrapper.Save();
+            RepositoryWrapper.SetSyncState();
+
+            Assert.AreEqual(transaction.CreatedBy, systemName);
+            Assert.AreEqual(transaction.ModifiedBy, systemName);
+            Assert.AreEqual(transaction.CreatedAt, currentTime);
+            Assert.AreEqual(transaction.ModifiedAt, currentTime);
+        }
+
+        [Test]
+        [Category("SyncHandling")]
+        public async Task StockSyncOnly()
+        {
+            var currentTime = DateTime.UtcNow;
+            var systemName = "Plutus.Repository.Tests";
+            var bussiness = new Bussiness()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN",
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var tax = new Tax()
+            {
+                Name = "Tax Name",
+                Rate = 4.8,
+                IdTwo = bussiness.Id,
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.TaxRepository.Create(tax);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var category = new Category()
+            {
+                Name = "Test Name",
+                Description = "Test Description",
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.CategoryRepository.Create(category);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var item = new Item()
+            {
+                Name = "Item Name",
+                Brand = "Item Brand Name",
+                Desc = "Y",
+                Cost = 9999,
+                ExPrice = 9999,
+                Price = 9999,
+                TaxId = tax.IdOne,
+                CatId = category.Id,
+                IdTwo = bussiness.Id,
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.ItemRepository.Create(item);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var store = new Store()
+            {
+                ContactNumber = "+449672513556",
+                AdLine1 = "Address Line 1",
+                AdLine2 = "Address Line 2",
+                City = "Test City",
+                PostCode = "201304",
+                Country = "England",
+                BussinessId = bussiness.Id,
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            await RepositoryWrapper.StoreRepository.Create(store);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            var stock = new Stock()
+            {
+                IdOne = item.IdOne,
+                IdTwo = item.IdTwo,
+                IdThree = store.Id,
+                Quantity = 12,
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            RepositoryWrapper.SetSyncState(true);
+            await Task.Delay(10);
+            RepositoryWrapper.SetCurrentUser(systemName);
+            await RepositoryWrapper.StockRepository.Create(stock);
+            RepositoryWrapper.Save();
+            RepositoryWrapper.SetSyncState();
+
+            Assert.AreEqual(stock.CreatedBy, systemName);
+            Assert.AreEqual(stock.ModifiedBy, systemName);
+            Assert.AreEqual(stock.CreatedAt, currentTime);
+            Assert.AreEqual(stock.ModifiedAt, currentTime);
+        }
+
         #endregion
 
         [TearDown]
@@ -1594,12 +2499,15 @@ namespace Plutus.Repository.Tests
                 }
             }
 
+            DbContext.Trans.RemoveRange(DbContext.Trans);
+            DbContext.Sales.RemoveRange(DbContext.Sales);
             DbContext.Employees.RemoveRange(DbContext.Employees);
             DbContext.Category.RemoveRange(DbContext.Category);
             DbContext.Till.RemoveRange(DbContext.Till);
             DbContext.Stores.RemoveRange(DbContext.Stores);
             DbContext.Role.RemoveRange(DbContext.Role);
             DbContext.Discounts.RemoveRange(DbContext.Discounts);
+            DbContext.Notes.RemoveRange(DbContext.Notes);
             DbContext.Bussiness.RemoveRange(DbContext.Bussiness);
 
             DbContext.SaveChanges();

@@ -2,6 +2,7 @@
 using Plutus.Entities.Models.Interface;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace Plutus.Entities.Models
 { 
@@ -9,14 +10,18 @@ namespace Plutus.Entities.Models
     public class Transaction : Base<int>, ITransaction
     {
         #region Properties
+
         [Exportable]
         public int Amount { get; set; }
+
         [Exportable]
         public decimal ItemsCostExPrice { get; set; }
+
         [Exportable]
         public decimal ItemsCostPrice { get; set; }
 
         #region Relationships
+
         [Exportable]
         public string ItemIdOne { get; set; }
         [Exportable]
@@ -24,10 +29,12 @@ namespace Plutus.Entities.Models
         public Item Item { get; set; }
 
         [Exportable]
+        [Required]
         public string TillId { get; set; }
         public Till Till { get; set; }
 
         [Exportable]
+        [Required]
         public string SaleId { get; set; }
         public Sale Sale { get; set; }
 
