@@ -63,6 +63,45 @@ namespace Plutus.Repository.Tests
 
         [Test]
         [Category("RecordPersistance")]
+        public void SavedTransactionsPersists()
+        {
+            var savedTransaction = new SavedTransaction()
+            {
+                Name = "Transaction Name",
+                Data = "Transaction Data"
+            };
+
+            RepositoryWrapper.SavedTransactionRepository.Create(savedTransaction);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            Assert.AreEqual(savedTransaction, DbContext.SavedTransactions.Find(savedTransaction.Id));
+            //Assert.AreEqual(1, DbContext.Bussiness.Count());
+        }
+
+        [Test]
+        [Category("RecordPersistance")]
+        public void PaymentMethodsPersists()
+        {
+            var paymentMethod = new PaymentMethod()
+            {
+                Name = "Payment Method Name",
+                Charge = 1999,
+                MinimumCharge = 1999,
+                IsChangeable = false,
+                IsCashBackable = false
+            };
+
+            RepositoryWrapper.PaymentMethodRepository.Create(paymentMethod);
+            RepositoryWrapper.SetCurrentUser("Test");
+            RepositoryWrapper.Save();
+
+            Assert.AreEqual(paymentMethod, DbContext.PayMethods.Find(paymentMethod.Id));
+            //Assert.AreEqual(1, DbContext.Bussiness.Count());
+        }
+
+        [Test]
+        [Category("RecordPersistance")]
         public void CategoryPersists()
         {
             var category = new Category()
@@ -1626,6 +1665,47 @@ namespace Plutus.Repository.Tests
 
         #endregion Transaction
 
+        #region PaymentMethod
+        
+        [Test]
+        [Category("RecordPropertyConstraint")]
+        public void PaymentMethodRecordNameIsRequired()
+        {
+            var paymentMethod = new PaymentMethod()
+            {
+                Charge = 1999,
+                MinimumCharge = 1999,
+                IsChangeable = false,
+                IsCashBackable = false
+            };
+
+            RepositoryWrapper.PaymentMethodRepository.Create(paymentMethod);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        }
+
+        #endregion PaymentMethod
+
+
+
+
+        #region SavedTransaction
+
+        [Test]
+        [Category("RecordPropertyConstraint")]
+        public void SavedTransactionRecordNameIsRequired()
+        {
+            var savedTransaction = new SavedTransaction()
+            {
+                Data = "Transaction Data"
+            };
+
+            RepositoryWrapper.SavedTransactionRepository.Create(savedTransaction);
+            RepositoryWrapper.SetCurrentUser("Test");
+            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        }
+        #endregion SavedTransaction
+
         /*#region Stock
         [Test]
         [Category("RecordPropertyConstraint")]
@@ -1768,6 +1848,68 @@ namespace Plutus.Repository.Tests
             Assert.AreEqual(note.ModifiedBy, systemName);
             Assert.AreEqual(note.CreatedAt, currentTime);
             Assert.AreEqual(note.ModifiedAt, currentTime);
+        }
+
+        [Test]
+        [Category("SyncHandling")]
+        public async Task PaymentMethodsSyncOnly()
+        {
+            var currentTime = DateTime.UtcNow;
+            var systemName = "Plutus.Repository.Tests";
+
+            var paymentMethod = new PaymentMethod()
+            {
+                Name = "Payment Method Name",
+                Charge = 1999,
+                MinimumCharge = 1999,
+                IsChangeable = false,
+                IsCashBackable = false,
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            RepositoryWrapper.SetSyncState(true);
+            await Task.Delay(10);
+            RepositoryWrapper.SetCurrentUser(systemName);
+            await RepositoryWrapper.PaymentMethodRepository.Create(paymentMethod);
+            RepositoryWrapper.Save();
+            RepositoryWrapper.SetSyncState();
+
+            Assert.AreEqual(paymentMethod.CreatedBy, systemName);
+            Assert.AreEqual(paymentMethod.ModifiedBy, systemName);
+            Assert.AreEqual(paymentMethod.CreatedAt, currentTime);
+            Assert.AreEqual(paymentMethod.ModifiedAt, currentTime);
+        }
+
+        [Test]
+        [Category("SyncHandling")]
+        public async Task SavedTransactionSyncOnly()
+        {
+            var currentTime = DateTime.UtcNow;
+            var systemName = "Plutus.Repository.Tests";
+            var savedTransaction = new SavedTransaction()
+            {
+                Name = "Transaction Name",
+                Data = "Transaction Data",
+                CreatedAt = currentTime,
+                CreatedBy = systemName,
+                ModifiedAt = currentTime,
+                ModifiedBy = systemName
+            };
+
+            RepositoryWrapper.SetSyncState(true);
+            await Task.Delay(10);
+            RepositoryWrapper.SetCurrentUser(systemName);
+            await RepositoryWrapper.SavedTransactionRepository.Create(savedTransaction);
+            RepositoryWrapper.Save();
+            RepositoryWrapper.SetSyncState();
+
+            Assert.AreEqual(savedTransaction.CreatedBy, systemName);
+            Assert.AreEqual(savedTransaction.ModifiedBy, systemName);
+            Assert.AreEqual(savedTransaction.CreatedAt, currentTime);
+            Assert.AreEqual(savedTransaction.ModifiedAt, currentTime);
         }
 
         [Test]
