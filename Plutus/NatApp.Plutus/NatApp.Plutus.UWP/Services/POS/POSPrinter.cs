@@ -27,7 +27,11 @@ namespace NatApp.Plutus.UWP.Services.POS
                 else
                 {
                     if (_claimedPrinter != null)
-                        return (_printJob = _claimedPrinter.Receipt.CreateJob());
+                    {
+                        _printJob = _claimedPrinter.Receipt.CreateJob();
+                        _printJob.Print(EscPosComands.InitializePrinter);
+                        return _printJob;
+                    }
                     else
                         throw new POSPrinterException(POSPrinterExceptionType.PrinterNotClaimed, $"Printer has not be claimed, to create a PrintJob the printer must be claimed first.");
                 }
@@ -45,7 +49,7 @@ namespace NatApp.Plutus.UWP.Services.POS
         {
             _printer = await PosPrinter.FromIdAsync(DeviceId);
             if (_printer == null)
-                throw new POSObjectException(POSObjectExceptionType.NotFound, $"Printer with Id: {DeviceId}, not found.");
+                throw new POSObjectException(POSObjectExceptionType.NotFound, POSTargetObjectType.Printer, $"Printer with Id: {DeviceId}, not found.");
         }
 
         public async override Task InitPOSObject()
@@ -62,11 +66,11 @@ namespace NatApp.Plutus.UWP.Services.POS
                     }
 
                     _claimedPrinter.Dispose();
-                    throw new POSObjectException(POSObjectExceptionType.NotEnableable, $"Printer with Id: {DeviceId}, is currently not enableable.");
+                    throw new POSObjectException(POSObjectExceptionType.NotEnableable, POSTargetObjectType.Printer, $"Printer with Id: {DeviceId}, is currently not enableable.");
                 }
-                throw new POSObjectException(POSObjectExceptionType.NotClaimable, $"Printer with Id: {DeviceId}, is currently in use by another process. Please wait.");
+                throw new POSObjectException(POSObjectExceptionType.NotClaimable, POSTargetObjectType.Printer, $"Printer with Id: {DeviceId}, is currently in use by another process. Please wait.");
             }
-            throw new POSObjectException(POSObjectExceptionType.OffOrOffline, $"Printer with Id: {DeviceId}, is off/offline.");
+            throw new POSObjectException(POSObjectExceptionType.OffOrOffline, POSTargetObjectType.Printer, $"Printer with Id: {DeviceId}, is off/offline.");
         }
 
         protected override Task<PosPrinter> GetFirstPOSObjectAsync(PosConnectionTypes posConnectionTypes = PosConnectionTypes.All)
@@ -174,7 +178,10 @@ namespace NatApp.Plutus.UWP.Services.POS
                 }
             }
 
-            await PrintJob.ExecuteAsync();
+            var currentCharSet = _claimedPrinter.CharacterSet;
+           
+
+             await PrintJob.ExecuteAsync();
         }
         #endregion
 

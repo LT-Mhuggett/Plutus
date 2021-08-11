@@ -94,17 +94,20 @@ namespace NatApp.Plutus.ViewModels
                 using (var dbHelper = new Helpers.Database.Database(databaseProvider))
                 {
                     var tempUser = await dbHelper.Get<EmployeeModel>()
-                        .Include(e=>e.Store)
-                        .SingleOrDefaultAsync(e =>
-                            e.Id.Equals(_email_UserId) || e.Email.Equals(_email_UserId, StringComparison.CurrentCultureIgnoreCase));
+                        .Include(e => e.Store)
+                        .Where(e => e.Id.Equals(_email_UserId) || 
+                            EF.Functions.Like(e.Email.ToLower(), _email_UserId.ToLower())).FirstOrDefaultAsync();
                     if (tempUser == null || !await Task.Run(() =>
                         Helpers.Security.Password.Verify(_password, Convert.FromBase64String(tempUser.Salt),
                             Convert.FromBase64String(tempUser.HashedPassword))))
                     {
+
+                        Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Login", new Dictionary<string, string> { { "Authorised", "False" } });
                         await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "DetailsNotCorrectORUserNotExistMesg".Translate(), "OK".Translate());
                         return;
                     }
 
+                    Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Login", new Dictionary<string, string> { { "Authorised", "True" } });
                     var store = tempUser.Store;
 
                     App.GetViewModel().Employees.Add(tempUser);
@@ -123,6 +126,7 @@ namespace NatApp.Plutus.ViewModels
             }
             catch (Exception ex)
             {
+                Microsoft.AppCenter.Crashes.Crashes.TrackError(ex);
                 Debug.WriteLine(ex.Message);
             }
             

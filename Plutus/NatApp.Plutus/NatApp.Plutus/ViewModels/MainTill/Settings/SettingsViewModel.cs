@@ -1,4 +1,5 @@
-﻿using NatApp.Plutus.Helpers.Extensions;
+﻿using CommonPOSLibrary.Exceptions;
+using NatApp.Plutus.Helpers.Extensions;
 using NatApp.Plutus.Helpers.Security;
 using NatApp.Plutus.Services.IOHandeling;
 using NatApp.Plutus.Services.POSHandeling;
@@ -39,8 +40,11 @@ namespace NatApp.Plutus.ViewModels.MainTill.Settings
                 Tuple.Create("BackupDb".Translate(), "BackupDbCommand"),
                 Tuple.Create("RestoreDb".Translate(), "RestoreDbCommand"),
                 Tuple.Create("DeleteDb".Translate(), "DeleteDbCommand"),
-                Tuple.Create("Other", ""),
+                Tuple.Create("Printer", ""),
                 Tuple.Create("ChangePrinter".Translate(), "ChangePrinterCommand"),
+                Tuple.Create("PrintTestPage".Translate(), "PrintTestPageCommand"),
+                Tuple.Create("CheckoutOptions", ""),
+                Tuple.Create("AskForReceiptOption".Translate(), "ChangeAskForReceiptOptionCommand"),
                 //Tuple.Create("ChangeBarcodeType".Translate(), "ChangeBarcodeTypeCommand"),
                 Tuple.Create("","")
             };
@@ -104,6 +108,18 @@ namespace NatApp.Plutus.ViewModels.MainTill.Settings
         public Command ChangePrinterCommand
         {
             get => _changePrinterCommand ?? (_changePrinterCommand = new Command(ExecuteChangePrinter));
+        }
+
+        Command _printTestPageCommand;
+        public Command PrintTestPageCommand
+        {
+            get => _printTestPageCommand ?? (_printTestPageCommand = new Command(ExecutePrintTestPage));
+        }
+
+        Command _changeAskForReceiptOptionCommand;
+        public Command ChangeAskForReceiptOptionCommand
+        {
+            get => _changeAskForReceiptOptionCommand ?? (_changeAskForReceiptOptionCommand = new Command(ExecuteChangeAskForReceiptOption));
         }
         /*
         Command _changeBarcodeTypeCommand;
@@ -267,6 +283,66 @@ namespace NatApp.Plutus.ViewModels.MainTill.Settings
                 IsBusy = false;
             }
         }
+
+        private async void ExecutePrintTestPage()
+        {
+            if (IsBusy)
+                return;
+            IsBusy = true;
+            try
+            {
+                if(Device.Idiom == TargetIdiom.Desktop)
+                {
+                    using (var printMgr = new PosPrinterManager())
+                    {
+                        if(await printMgr.InitPrinter())
+                        {
+                            printMgr.WriteText("Test Nomral text");
+                            printMgr.WriteText("Test Bold On", bold: "true");
+                            printMgr.WriteText("Test Underline On", underline: "true");
+                            printMgr.WriteText("Test align Center", align: "cntr");
+                            printMgr.WriteText("Test align Right", align: "rght");
+                            printMgr.WriteText("test Bold + Underline", bold: "true", underline: "true");
+                            printMgr.WriteText("test Bold + Algin Center", bold: "true", align: "cntr");
+                            printMgr.WriteText("test Bold + Algin Right", bold: "true", align: "rght");
+                            printMgr.WriteText("test Underline + Algin Center", underline: "true", align: "cntr");
+                            printMgr.WriteText("test Underline + Algin Right", underline: "true", align: "rght");
+                            printMgr.ScoreReceipt();
+                            printMgr.WriteBarcode("123456789", App.GetViewModel().BarcodeSymbologySetting, 100, "cntr");
+                            printMgr.ScoreReceipt();
+                            printMgr.WriteText("Blank Line Test (3)");
+                            printMgr.BlankLine();
+                            printMgr.BlankLine();
+                            printMgr.BlankLine();
+                            printMgr.WriteText("End of Test Print!");
+                            printMgr.CutPaper();
+                            await printMgr.ExecuteOposOrPdfAsync();
+                            await printMgr.CloseConnection();
+                        }
+                    }
+                }
+            }
+            catch(POSObjectException pOSObjectException)
+            {
+                Debug.WriteLine(pOSObjectException.Message);
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+        private async void ExecuteChangeAskForReceiptOption()
+        {
+            if (IsBusy)
+                return;
+            IsBusy = true;
+
+            AskForReceipt = await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "AskForReceiptPrintingText".Translate(), "Yes".Translate(), "No".Translate());
+
+            IsBusy = false;
+        }
+
         /*
         private async void ExecuteChangeBarcodeType()
         {

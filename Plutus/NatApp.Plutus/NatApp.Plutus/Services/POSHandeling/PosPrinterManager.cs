@@ -4,12 +4,10 @@ using CommonPOSLibrary.Exceptions;
 using Database.Models;
 using NatApp.Plutus.Helpers.Extensions;
 using NatApp.Plutus.Models;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Runtime.Serialization;
 using System.Threading.Tasks;
 using Xamarin.Forms;
 
@@ -88,7 +86,7 @@ namespace NatApp.Plutus.Services.POSHandeling
         /// <param name="sale"></param>
         /// <param name="store"></param>
         /// <returns></returns>
-        private async Task SetUpExecutePrint(SaleModel sale, IEnumerable<IBasketRecord> basketRecords, StoreModel store)
+        public async Task SetUpSalePrint(SaleModel sale, IEnumerable<IBasketRecord> basketRecords, StoreModel store)
         {
             if (!DeviceEnabled)
                 throw new POSPrinterException(POSPrinterExceptionType.PrinterNotEnabled, "Printer is not Enabled!");
@@ -99,15 +97,13 @@ namespace NatApp.Plutus.Services.POSHandeling
                 PrintNotes(basketRecords);
             PrintFooterOfReceipt(sale, store);
             CutPaper();
-            var keyValue = new KeyValuePair<string, object>("printMultiLines", Lines);
-            await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
         }
 
         /// <summary>
         /// Open the Cash drawer
         /// </summary>
         /// <returns>Successful or Not</returns>
-        private async Task<bool> OpenCashDrawer()
+        public async Task<bool> OpenCashDrawer()
         {
             var keyValue = new KeyValuePair<string, object>("openCashDrawer", "null");
             return (bool)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
@@ -117,12 +113,18 @@ namespace NatApp.Plutus.Services.POSHandeling
         /// Release the printers lock
         /// </summary>
         /// <returns>Successful of Not</returns>
-        private async Task<bool> CloseConnection()
+        public async Task<bool> CloseConnection()
         {
             if (!DeviceEnabled)
                 return true;
             var keyValue = new KeyValuePair<string, object>("closePrinter", "null");
-            return (bool)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
+            if ((bool)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue))
+            {
+                DeviceEnabled = false;
+                return true;
+            }
+
+            return false;
         }
 
         #region Format data for printing
@@ -281,18 +283,18 @@ namespace NatApp.Plutus.Services.POSHandeling
         }
         #endregion
 
-        internal async Task ExecuteOposOrPdfAsync(SaleModel sale, IEnumerable<IBasketRecord> basketRecords, StoreModel store, System.IO.Stream image, decimal cashBack)
+        internal async Task ExecuteOposOrPdfAsync(bool cashDrawer = false)
         {
-            if (await InitPrinter())
+            if (Lines.Count == 0)
+                throw new Exception("No lines have set to print!");
+
+            if (DeviceEnabled)
             {
-                if (sale.PaySales.Any(pay => pay.TempPayMethod.IsChangeable.Equals(true)))
-                    await OpenCashDrawer();
-                await SetUpExecutePrint(sale, basketRecords, store);
-                await CloseConnection();
-                DeviceEnabled = false;
+                var keyValue = new KeyValuePair<string, object>("printMultiLines", Lines);
+                await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
             }
-            else
-                await PdfGeneration(sale, store, image, cashBack);
+            //else
+                //await PdfGeneration(sale, store, image, cashBack);
         }
 
 
@@ -316,7 +318,8 @@ namespace NatApp.Plutus.Services.POSHandeling
             {
                 if (disposing)
                 {
-
+                    if (DeviceEnabled)
+                        throw new Exception("Printer has not been disposed of");
                 }
                 disposedValue = true;
             }

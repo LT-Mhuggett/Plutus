@@ -22,12 +22,12 @@ namespace NatApp.Plutus.UWP.Services.POS
 
         public override async Task CreatePOSObject()
         {
-            if (string.IsNullOrEmpty(DeviceId))
+            if (!string.IsNullOrEmpty(DeviceId))
             {
                 _cashDrawer = await CashDrawer.FromIdAsync(DeviceId);
                 if (_cashDrawer == null)
                 {
-                    throw new POSObjectException(POSObjectExceptionType.NotFound, $"Cash Drawer with Id: {DeviceId}, not found.");
+                    throw new POSObjectException(POSObjectExceptionType.NotFound, POSTargetObjectType.CashDrawer, $"Cash Drawer with Id: {DeviceId}, not found.");
                 }
             }
             else
@@ -35,7 +35,7 @@ namespace NatApp.Plutus.UWP.Services.POS
                 _cashDrawer = await GetFirstPOSObjectAsync();
                 if (_cashDrawer == null)
                 {
-                    throw new POSObjectException(POSObjectExceptionType.NotFound, $"No Cash Drawer has been found.");
+                    throw new POSObjectException(POSObjectExceptionType.NotFound, POSTargetObjectType.CashDrawer, $"No Cash Drawer has been found.");
                 }
             }
         }
@@ -50,12 +50,12 @@ namespace NatApp.Plutus.UWP.Services.POS
                     if (!await _claimedCashDrawer.EnableAsync())
                     {
                         _claimedCashDrawer.Dispose();
-                        throw new POSObjectException(POSObjectExceptionType.NotEnableable, $"Cash Drawer with Id: {DeviceId}, is not currently enableable.");
+                        throw new POSObjectException(POSObjectExceptionType.NotEnableable, POSTargetObjectType.CashDrawer, $"Cash Drawer with Id: {DeviceId}, is not currently enableable.");
                     }
                 }
-                throw new POSObjectException(POSObjectExceptionType.NotClaimable, $"Caash Drawer with Id: {DeviceId}, is currently in use by another process. Please wait.");
+                throw new POSObjectException(POSObjectExceptionType.NotClaimable, POSTargetObjectType.CashDrawer, $"Caash Drawer with Id: {DeviceId}, is currently in use by another process. Please wait.");
             }
-            throw new POSObjectException(POSObjectExceptionType.OffOrOffline, $"Cash Drawer with Id: {DeviceId}, is off/offline.");
+            throw new POSObjectException(POSObjectExceptionType.OffOrOffline, POSTargetObjectType.CashDrawer, $"Cash Drawer with Id: {DeviceId}, is off/offline.");
         }
 
         protected override async Task<CashDrawer> GetFirstPOSObjectAsync(PosConnectionTypes posConnectionTypes = PosConnectionTypes.All)

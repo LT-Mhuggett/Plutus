@@ -208,6 +208,24 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Change Ask for Receipt Option.
+        /// </summary>
+        internal static string AskForReceiptOption {
+            get {
+                return ResourceManager.GetString("AskForReceiptOption", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Ask for receipt printing at checkout (save the environment)?.
+        /// </summary>
+        internal static string AskForReceiptPrintingText {
+            get {
+                return ResourceManager.GetString("AskForReceiptPrintingText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Authorisation Required.
         /// </summary>
         internal static string AuthReq {
@@ -321,6 +339,16 @@ namespace I18N_L10N.Resx {
         internal static string CashBack {
             get {
                 return ResourceManager.GetString("CashBack", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to There was a problem with the POS Cash Drawer. Transaction has succeeded but the Cash Drawer could not be accessed.
+        ///Silence this warning (you will no longer get any warnings when the Cash Drawer is no longer available)? .
+        /// </summary>
+        internal static string CashDrawerErrorWarning {
+            get {
+                return ResourceManager.GetString("CashDrawerErrorWarning", resourceCulture);
             }
         }
         
@@ -1186,6 +1214,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Print Test Page.
+        /// </summary>
+        internal static string PrintTestPage {
+            get {
+                return ResourceManager.GetString("PrintTestPage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to qty.
         /// </summary>
         internal static string qty {
@@ -1209,6 +1246,15 @@ namespace I18N_L10N.Resx {
         internal static string Reason {
             get {
                 return ResourceManager.GetString("Reason", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Is a receipt required?.
+        /// </summary>
+        internal static string ReceiptRequired {
+            get {
+                return ResourceManager.GetString("ReceiptRequired", resourceCulture);
             }
         }
         
@@ -1452,6 +1498,24 @@ namespace I18N_L10N.Resx {
         internal static string SetUpTitle {
             get {
                 return ResourceManager.GetString("SetUpTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to silence.
+        /// </summary>
+        internal static string Silence {
+            get {
+                return ResourceManager.GetString("Silence", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Silence.
+        /// </summary>
+        internal static string SileneceButton {
+            get {
+                return ResourceManager.GetString("SileneceButton", resourceCulture);
             }
         }
         

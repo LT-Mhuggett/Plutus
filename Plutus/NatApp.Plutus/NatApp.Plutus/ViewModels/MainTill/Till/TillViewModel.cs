@@ -162,7 +162,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
             });
 
             #endregion
-            IsDesktop = Device.Idiom == TargetIdiom.Desktop ? true : false;
+            IsDesktop = Device.Idiom == TargetIdiom.Desktop;
             Quantity = 1;
         }
 
@@ -881,7 +881,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         elements,
                         "Confirm".Translate(),
                         false,
-                        pay.TempPayMethod.IsCashBackable ? pay.TempPayMethod.IsChangeable ? true : false : true,
+                        !pay.TempPayMethod.IsCashBackable || (pay.TempPayMethod.IsChangeable),
                         sale.Total - paid,
                         string.Format(
                             refundOnly ? "HowMuchRefund".Translate() : "HowMuchPM".Translate(),
@@ -1027,7 +1027,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
         #region Operations
         private async void FinaliseTransation(SaleModel sale, decimal change)
         {
-            Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
+            _ = Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
             using (var db = new Helpers.Database.Database(databaseProvider, App.GetViewModel().EmployeeId))
             {
                 var itemHasNoStock = false;
@@ -1057,41 +1057,64 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     return;
                 }
 
-                Task[] tasks = new Task[2];
+                Task[] tasks = new Task[3];
 
-                //#if DEBUG == FALSE
+                var printerMgr = new PosPrinterManager();
+
                 if (Device.Idiom == TargetIdiom.Desktop)
                 {
-                    var printerMgr = new PosPrinterManager();
-                    tasks[0] = printerMgr.ExecuteOposOrPdfAsync(sale, Basket, App.GetViewModel().Store, null, change);
+                    if (!AskForReceipt || await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "ReceiptRequired".Translate(), "Yes".Translate(), "No".Translate()))
+                    {
+                        tasks[0] = Task.Run(async () =>
+                        {
+                            _ = await printerMgr.InitPrinter();
+                            await printerMgr.SetUpSalePrint(sale, Basket, App.GetViewModel().Store);
+                            await printerMgr.ExecuteOposOrPdfAsync();
+                        });
+                    }
+
+                    if (sale.PaySales.Any(pay => pay.TempPayMethod.IsChangeable.Equals(true)))
+                    {
+                        tasks[1] = printerMgr.OpenCashDrawer();
+                    }
                 }
-                //#endif
 
                 if (change != default)
                 {
-                    tasks[1] = App.Current.MainPage.DisplayAlert("Hmm".Translate(), string.Format("CashBack".Translate(), change), "OK".Translate());
+                    tasks[2] = App.Current.MainPage.DisplayAlert("Hmm".Translate(), string.Format("CashBack".Translate(), change), "OK".Translate());
                 }
 
                 try
                 {
                     await Task.WhenAll(tasks.Where(t => t != null));
+                    _ = await printerMgr.CloseConnection();
+                    printerMgr.Dispose();
                 }
-                catch(POSObjectException pOSObjectException)
+                catch (POSObjectException pOSObjectException)
                 {
-                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "There was a problem with the POS Printer. Transaction has succeeded but a receipt is currently unavailble.", "OK".Translate());
+                    if (pOSObjectException.POSTargetObjectType == CommonPOSLibrary.Enums.POSTargetObjectType.Printer)
+                    {
+                        await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "There was a problem with the POS Printer. Transaction has succeeded but a receipt is currently unavailble.", "OK".Translate());
+                    }
+                    else if (pOSObjectException.POSTargetObjectType == CommonPOSLibrary.Enums.POSTargetObjectType.CashDrawer)
+                    {
+                        CashDrawerWarningSilenced = !await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "CashDrawerErrorWarning".Translate(), "OK".Translate(), "Silence".Translate());
+                    }
                 }
                 Basket.Clear();
                 await App.Current.MainPage.DisplayAlert("Transaction".Translate(), "TransConfMesg".Translate(), "OK".Translate());
 
                 if (!itemHasNoStock)
+                {
                     return;
+                }
                 //put in stockwarning
             }
         }
 
         private Dictionary<string, Func<PaymentMethodModel>> GenPaymentMethodActions()
         {
-            Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
+            _ = Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
             using (var db = new Helpers.Database.Database(databaseProvider))
             {
                 return db.Get<PaymentMethodModel>()

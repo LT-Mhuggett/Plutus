@@ -705,4 +705,26 @@ The application will need to be restarted after this process.</value>
   <data name="Discount" xml:space="preserve">
     <value>Discount</value>
   </data>
+  <data name="PrintTestPage" xml:space="preserve">
+    <value>Print Test Page</value>
+  </data>
+  <data name="CashDrawerErrorWarning" xml:space="preserve">
+    <value>There was a problem with the POS Cash Drawer. Transaction has succeeded but the Cash Drawer could not be accessed.
+Silence this warning (you will no longer get any warnings when the Cash Drawer is no longer available)? </value>
+  </data>
+  <data name="SileneceButton" xml:space="preserve">
+    <value>Silence</value>
+  </data>
+  <data name="ReceiptRequired" xml:space="preserve">
+    <value>Is a receipt required?</value>
+  </data>
+  <data name="AskForReceiptOption" xml:space="preserve">
+    <value>Change Ask for Receipt Option</value>
+  </data>
+  <data name="AskForReceiptPrintingText" xml:space="preserve">
+    <value>Ask for receipt printing at checkout (save the environment)?</value>
+  </data>
+  <data name="Silence" xml:space="preserve">
+    <value>silence</value>
+  </data>
 </root>
