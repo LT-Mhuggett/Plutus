@@ -34,4 +34,8 @@
     <ProjectReference Include="..\Plutus.Repository\Plutus.Repository.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Tests\" />
+  </ItemGroup>
+
 </Project>
