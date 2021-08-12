@@ -162,6 +162,11 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
             {
                 db.SetTrackingBehavior(QueryTrackingBehavior.NoTracking);
                 await LoadRequiredExportDataAsync(SelectionRange.StartDate, SelectionRange.EndDate, db);
+                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Export Sales Report", new Dictionary<string, string> 
+                {
+                    { "Start Date", SelectionRange.StartDate.ToString("MM-dd-yyyy") },
+                    { "End Date", SelectionRange.EndDate.ToString("MM-dd-yyyy") } 
+                });
             }
 
             //DependencyService.Get<IFile>().SaveFiles();
@@ -239,6 +244,11 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
                 TotalTax = (SalesTotal - SalesTotalExTax);
             }
             CreateSeries(salesData);
+            Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Sales Report Generated", new Dictionary<string, string>
+                {
+                    { "Start Date", startDate.ToString("MM-dd-yyyy") },
+                    { "End Date", endDate.ToString("MM-dd-yyyy") }
+                });
         }
 
         /// <summary>

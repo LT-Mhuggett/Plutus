@@ -123,6 +123,11 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
             using (var db = new Helpers.Database.Database(databaseProvider))
             {
                 ItemDataLoading(db);
+                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Stock Outtake Report Generated", new Dictionary<string, string>
+                {
+                    { "Start Date", SelectionRange.StartDate.ToString("MM-dd-yyyy") },
+                    { "End Date", SelectionRange.EndDate.ToString("MM-dd-yyyy") }
+                });
             }
         }
         #endregion
