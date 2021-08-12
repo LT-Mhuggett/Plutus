@@ -12,7 +12,9 @@ namespace NatApp.Plutus.ViewModels
 
         private string _icon;
 
+#pragma warning disable IDE1006 // Naming Styles
         private static bool _isBusy;
+#pragma warning restore IDE1006 // Naming Styles
         #endregion
 
         #region Public Properties
@@ -95,11 +97,11 @@ namespace NatApp.Plutus.ViewModels
         #endregion
 
         #region IDisposable Support
-        private bool disposedValue = false;
+        private bool _disposedValue = false;
 
         protected virtual void Dispose(bool disposing)
         {
-            if (!disposedValue)
+            if (!_disposedValue)
             {
                 if (disposing)
                 {
@@ -107,7 +109,7 @@ namespace NatApp.Plutus.ViewModels
                     _icon = null;
                 }
 
-                disposedValue = true;
+                _disposedValue = true;
             }
         }
 

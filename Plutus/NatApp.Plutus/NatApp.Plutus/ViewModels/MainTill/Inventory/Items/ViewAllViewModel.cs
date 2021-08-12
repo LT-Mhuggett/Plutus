@@ -154,7 +154,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Inventory.Items
             }
         }*/
 
-        private async void ExecuteItemFilter()
+        private void ExecuteItemFilter()
         {
             if (SfListViewDataSource != null)
             {
@@ -168,7 +168,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Inventory.Items
             LoadItems();
         }*/
         #endregion
-        private async void ExecuteAddToBasket(string itemId)
+        private void ExecuteAddToBasket(string itemId)
         {
             MessagingCenter.Send(this, "AddToBasket", itemId);
         }

@@ -45,6 +45,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Settings
                 Tuple.Create("PrintTestPage".Translate(), "PrintTestPageCommand"),
                 Tuple.Create("CheckoutOptions", ""),
                 Tuple.Create("AskForReceiptOption".Translate(), "ChangeAskForReceiptOptionCommand"),
+                Tuple.Create("ChangeCashDrawerExists".Translate(), "ChangeCashDrawerExistsCommand"),
                 //Tuple.Create("ChangeBarcodeType".Translate(), "ChangeBarcodeTypeCommand"),
                 Tuple.Create("","")
             };
@@ -120,6 +121,12 @@ namespace NatApp.Plutus.ViewModels.MainTill.Settings
         public Command ChangeAskForReceiptOptionCommand
         {
             get => _changeAskForReceiptOptionCommand ?? (_changeAskForReceiptOptionCommand = new Command(ExecuteChangeAskForReceiptOption));
+        }
+
+        Command _changeCashDrawerExistsCommand;
+        public Command ChangeCashDrawerExistsCommand
+        {
+            get => _changeCashDrawerExistsCommand ?? (_changeCashDrawerExistsCommand = new Command(ExecuteChangeCashDrawerExists));
         }
         /*
         Command _changeBarcodeTypeCommand;
@@ -339,6 +346,17 @@ namespace NatApp.Plutus.ViewModels.MainTill.Settings
             IsBusy = true;
 
             AskForReceipt = await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "AskForReceiptPrintingText".Translate(), "Yes".Translate(), "No".Translate());
+
+            IsBusy = false;
+        }
+
+        private async void ExecuteChangeCashDrawerExists()
+        {
+            if (IsBusy)
+                return;
+            IsBusy = true;
+
+            TryCashDrawer = await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "ChangeCashDrawerExistsText".Translate(), "Yes".Translate(), "No".Translate());
 
             IsBusy = false;
         }

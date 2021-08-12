@@ -22,11 +22,11 @@ namespace NatApp.Plutus.Helpers.Extensions
             if(valueArray == null)
             {
 
-                return App.translateExtension.ProvideValue(str);
+                return App.TranslateExtension.ProvideValue(str);
             }
             else
             {
-                return string.Format(App.translateExtension.ProvideValue(str), valueArray);
+                return string.Format(App.TranslateExtension.ProvideValue(str), valueArray);
             }
         }
 

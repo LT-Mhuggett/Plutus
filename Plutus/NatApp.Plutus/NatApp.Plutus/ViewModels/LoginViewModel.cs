@@ -66,8 +66,9 @@ namespace NatApp.Plutus.ViewModels
         #endregion
 
         #region Command Execution
-        private async void ExecuteShowLoggedUsers()
+        private void ExecuteShowLoggedUsers()
         {
+            throw new NotImplementedException();
             //Implement Show Logged Users Page
         }
         #endregion

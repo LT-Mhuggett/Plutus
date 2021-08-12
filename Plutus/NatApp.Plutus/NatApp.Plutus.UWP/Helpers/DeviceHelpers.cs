@@ -31,7 +31,14 @@ namespace NatApp.Plutus.UWP.Helpers
 
             watcher.EnumerationCompleted += async (DeviceWatcher sender, object args) =>
             {
-                await Task.WhenAll(pendingTasks);
+                try
+                {
+                    await Task.WhenAll(pendingTasks);
+                }
+                catch(Exception ex)
+                {
+                    Microsoft.AppCenter.Crashes.Crashes.TrackError(ex);
+                }
 
                 completionSource.TrySetResult(null);
             };

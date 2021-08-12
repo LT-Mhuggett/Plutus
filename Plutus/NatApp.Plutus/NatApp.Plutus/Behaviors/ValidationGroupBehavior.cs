@@ -70,6 +70,6 @@ namespace NatApp.Plutus.Behaviors
             }
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public new event PropertyChangedEventHandler PropertyChanged;
     }
 }

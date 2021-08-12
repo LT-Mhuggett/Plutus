@@ -18,14 +18,14 @@ namespace NatApp.Plutus.Services.POSHandeling
         /// <summary>
         /// Is the Printer Device enabled
         /// </summary>
-        private bool DeviceEnabled { get; set; }
+        private bool _deviceEnabled { get; set; }
 
         /// <summary>
         /// Constructor
         /// </summary>
         public PosPrinterManager()
         {
-            DeviceEnabled = false;
+            _deviceEnabled = false;
         }
 
         /// <summary>
@@ -50,7 +50,7 @@ namespace NatApp.Plutus.Services.POSHandeling
 
         internal async Task SetupExecutePrintMultiLine()
         {
-            if (!DeviceEnabled)
+            if (!_deviceEnabled)
                 throw new POSPrinterException(POSPrinterExceptionType.PrinterNotEnabled, "Printer is not Enabled!");
             var keyValue = new KeyValuePair<string, object>("printMultiLines", Lines);
             await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
@@ -68,8 +68,7 @@ namespace NatApp.Plutus.Services.POSHandeling
                 try
                 {
                     var keyValue = new KeyValuePair<string, object>("initPrinter", App.GetViewModel().PrinterLogicalNameSetting);
-                    DeviceEnabled = (bool)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
-                    return DeviceEnabled;
+                    return _deviceEnabled = (bool)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
                 }
                 catch (POSObjectException pOSObjectException)
                 {
@@ -88,14 +87,15 @@ namespace NatApp.Plutus.Services.POSHandeling
         /// <returns></returns>
         public async Task SetUpSalePrint(SaleModel sale, IEnumerable<IBasketRecord> basketRecords, StoreModel store)
         {
-            if (!DeviceEnabled)
+            if (!_deviceEnabled)
                 throw new POSPrinterException(POSPrinterExceptionType.PrinterNotEnabled, "Printer is not Enabled!");
             var text = new List<KeyValuePair<string, object>>();
             PrintHeaderofReceipt(sale, store);
             await PrintTransactionAndRefundsAsync(basketRecords);
-            if (basketRecords.Where(bR => bR is BasketNote).Count() > 0)
-                PrintNotes(basketRecords);
-            PrintFooterOfReceipt(sale, store);
+            if (sale.Notes.Count() > 0)
+                PrintNotes(sale.Notes.Select(saleNote => saleNote.Note));
+
+            PrintFooterOfReceipt(sale);
             CutPaper();
         }
 
@@ -115,12 +115,12 @@ namespace NatApp.Plutus.Services.POSHandeling
         /// <returns>Successful of Not</returns>
         public async Task<bool> CloseConnection()
         {
-            if (!DeviceEnabled)
+            if (!_deviceEnabled)
                 return true;
             var keyValue = new KeyValuePair<string, object>("closePrinter", "null");
             if ((bool)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue))
             {
-                DeviceEnabled = false;
+                _deviceEnabled = false;
                 return true;
             }
 
@@ -234,11 +234,12 @@ namespace NatApp.Plutus.Services.POSHandeling
         /// 
         /// </summary>
         /// <param name="sale"></param>
-        private void PrintNotes(IEnumerable<IBasketRecord> basketRecords)
+        private void PrintNotes(IEnumerable<NoteModel> notes)
         {
             WriteText("Notes".Translate(), bold: "true");
-            foreach (var note in basketRecords.Where(bR => bR is BasketNote).Cast<BasketNote>())
-                WriteText(note.Note.Note);
+            foreach (var note in notes)
+                WriteText(note.Note);
+
             ScoreReceipt();
         }
 
@@ -248,7 +249,7 @@ namespace NatApp.Plutus.Services.POSHandeling
         /// <param name="text"></param>
         /// <param name="sale"></param>
         /// <returns></returns>
-        private void PrintFooterOfReceipt(SaleModel sale, StoreModel store)
+        private void PrintFooterOfReceipt(SaleModel sale)
         {
             WriteText("\t50");
             WriteText($"{"SubTotal".Translate()}\t25");
@@ -283,12 +284,12 @@ namespace NatApp.Plutus.Services.POSHandeling
         }
         #endregion
 
-        internal async Task ExecuteOposOrPdfAsync(bool cashDrawer = false)
+        internal async Task ExecuteOposOrPdfAsync()
         {
             if (Lines.Count == 0)
                 throw new Exception("No lines have set to print!");
 
-            if (DeviceEnabled)
+            if (_deviceEnabled)
             {
                 var keyValue = new KeyValuePair<string, object>("printMultiLines", Lines);
                 await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
@@ -300,13 +301,11 @@ namespace NatApp.Plutus.Services.POSHandeling
 
         private Task PdfGeneration(SaleModel sale, StoreModel store, System.IO.Stream image, decimal cashBack)
         {
-            //Create PDF
-            Debug.WriteLine("PDF Creator Here");
             throw new NotImplementedException();
         }
 
         #region IDisposable Support
-        private bool disposedValue = false; // To detect redundant calls
+        private bool _disposedValue = false; // To detect redundant calls
 
         /// <summary>
         /// Ensure all resources are disposed of
@@ -314,14 +313,14 @@ namespace NatApp.Plutus.Services.POSHandeling
         /// <param name="disposing"></param>
         protected virtual void Dispose(bool disposing)
         {
-            if (!disposedValue)
+            if (!_disposedValue)
             {
                 if (disposing)
                 {
-                    if (DeviceEnabled)
+                    if (_deviceEnabled)
                         throw new Exception("Printer has not been disposed of");
                 }
-                disposedValue = true;
+                _disposedValue = true;
             }
         }
 

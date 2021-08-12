@@ -380,6 +380,25 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Change Cash Drawer Exists.
+        /// </summary>
+        internal static string ChangeCashDrawerExists {
+            get {
+                return ResourceManager.GetString("ChangeCashDrawerExists", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Should Plutus attempt to use a Cash Drawer on checkout?
+        ///If no Cash Drawer exists on the system checkout times will exceed 3 minuets per transaction..
+        /// </summary>
+        internal static string ChangeCashDrawerExistsText {
+            get {
+                return ResourceManager.GetString("ChangeCashDrawerExistsText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Change Printer.
         /// </summary>
         internal static string ChangePrinter {

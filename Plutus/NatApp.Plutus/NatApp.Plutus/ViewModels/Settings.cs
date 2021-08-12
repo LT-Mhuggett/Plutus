@@ -68,6 +68,15 @@ namespace NatApp.Plutus.ViewModels
         }
 
         /// <summary>
+        /// Try to use Cash Drawer if exists
+        /// </summary>
+        public bool TryCashDrawer
+        {
+            get => Preferences.Get(nameof(TryCashDrawer), false);
+            set => Preferences.Set(nameof(TryCashDrawer), value);
+        }
+
+        /// <summary>
         /// Ask for receipt at checkout
         /// </summary>
         public bool AskForReceipt

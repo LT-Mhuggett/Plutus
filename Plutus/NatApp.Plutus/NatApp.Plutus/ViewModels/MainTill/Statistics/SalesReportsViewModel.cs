@@ -8,7 +8,6 @@ using Syncfusion.SfChart.XForms;
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Xamarin.Forms;
@@ -156,14 +155,14 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
         /// </summary>
         public async void ExecuteExportData()
         {
-            var FileData = new List<(string fileName, string contentType, MemoryStream stream)>();
+            //var FileData = new List<(string fileName, string contentType, MemoryStream stream)>();
 
             Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
             using (var db = new Helpers.Database.Database(databaseProvider))
             {
                 db.SetTrackingBehavior(QueryTrackingBehavior.NoTracking);
                 await LoadRequiredExportDataAsync(SelectionRange.StartDate, SelectionRange.EndDate, db);
-            }            
+            }
 
             //DependencyService.Get<IFile>().SaveFiles();
         }
@@ -250,7 +249,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
         {
             Series.Clear();
 
-            foreach(var salesDatum in salesData)
+            foreach (var salesDatum in salesData)
             {
                 Series.Add(new ColumnSeries
                 {
@@ -394,33 +393,36 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
                     .ThenInclude(r => r.Item)
                 .Include(s => s.Refunds)
                     .ThenInclude(r => r.Authoriser)
-                .Include(s=>s.Refunds)
-                    .ThenInclude(r=>r.CheckoutItemChange)
+                .Include(s => s.Refunds)
+                    .ThenInclude(r => r.CheckoutItemChange)
                 .Include(s => s.Employee).ToList();
 
-            var dailySalesSummaries = new List<IDictionary<string, Object>>();
+            var dailySalesSummaries = new List<IDictionary<string, object>>();
 
             var salesBreakdowns = new List<SalesBreakdown>();
 
             var currentDate = startDate;
-            do {
-                var dailySalesSummary = new Dictionary<string, Object>();
-                dailySalesSummary.Add("Date".Translate(), currentDate.ToShortDateString());
+            do
+            {
+                var dailySalesSummary = new Dictionary<string, object>
+                {
+                    { "Date".Translate(), currentDate.ToShortDateString() }
+                };
 
                 foreach (var payMethod in db.Get<PaymentMethodModel>())
                 {
                     dailySalesSummary.Add(
-                        payMethod.Name + $" ({"ExTax".Translate()})", 
-                            data.Where(s=>s.DateOfSale.Date.Equals(currentDate.Date) && s.Total != decimal.Zero && s.TotalExTax != decimal.Zero)
-                                .Sum(s=>s.TotalExTax*(s.PaySales.Where(ps=>ps.PayMethod.Id.Equals(payMethod.Id)).Sum(ps=>ps.Amount-ps.Change)/s.Total)).Normalize());
+                        payMethod.Name + $" ({"ExTax".Translate()})",
+                            data.Where(s => s.DateOfSale.Date.Equals(currentDate.Date) && s.Total != decimal.Zero && s.TotalExTax != decimal.Zero)
+                                .Sum(s => s.TotalExTax * (s.PaySales.Where(ps => ps.PayMethod.Id.Equals(payMethod.Id)).Sum(ps => ps.Amount - ps.Change) / s.Total)).Normalize());
                 }
 
                 dailySalesSummary.Add(
                     "Daily (ex Tax)",
-                        data.Where(s => s.DateOfSale.Date.Equals(currentDate.Date)).Sum(s=>s.TotalExTax));
+                        data.Where(s => s.DateOfSale.Date.Equals(currentDate.Date)).Sum(s => s.TotalExTax));
                 dailySalesSummary.Add(
                     "Daily (inc Tax)",
-                        data.Where(s => s.DateOfSale.Date.Equals(currentDate.Date)).Sum(s=>s.Total));
+                        data.Where(s => s.DateOfSale.Date.Equals(currentDate.Date)).Sum(s => s.Total));
 
                 dailySalesSummaries.Add(dailySalesSummary);
 
@@ -449,15 +451,15 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
                             EmployeeName = salesData.Employee.FullName
                         });
 
-                        foreach (var transDiscount in trans.Transaction_Discounts) 
+                        foreach (var transDiscount in trans.Transaction_Discounts)
                         {
-                            var discountPrice = -decimal.Round(Math.Abs(transDiscount.Discount.Type == 0 ? 
-                                transDiscount.DiscountRate : 
+                            var discountPrice = -decimal.Round(Math.Abs(transDiscount.Discount.Type == 0 ?
+                                transDiscount.DiscountRate :
                                 (trans.CheckoutItemChangeId == null ?
                                     trans.ItemCostPrice :
                                     trans.CheckoutItemChange.Price)
                                 * transDiscount.DiscountRate), 2, MidpointRounding.AwayFromZero);
-                            var discountExPrice = -decimal.Round(Math.Abs(transDiscount.Discount.Type == 0 ? 
+                            var discountExPrice = -decimal.Round(Math.Abs(transDiscount.Discount.Type == 0 ?
                                 transDiscount.DiscountRate :
                                 (trans.CheckoutItemChangeId == null ?
                                     trans.ItemCostExPrice :
@@ -579,7 +581,8 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
         public decimal Monies { get; set; }
     }
 
-    public class SalesBreakdown {
+    public class SalesBreakdown
+    {
         public string RecordDate { get; set; }
         public string SaleId { get; set; }
         public string ItemId { get; set; }

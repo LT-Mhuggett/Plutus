@@ -382,7 +382,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
         }
         #endregion
         #region Remove
-        private async void ExecuteRemoveOne(IBasketRecord basketRecord)
+        private void ExecuteRemoveOne(IBasketRecord basketRecord)
         {
             if (IsBusy)
                 return;
@@ -400,7 +400,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
             }
         }
 
-        private async void ExecuteRemoveAll(IBasketRecord basketRecord)
+        private void ExecuteRemoveAll(IBasketRecord basketRecord)
         {
             if (IsBusy)
                 return;
@@ -557,7 +557,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
             }
         }
 
-        private async void ExecuteRevertReturn(BasketReturnItem basketReturnItem)
+        private void ExecuteRevertReturn(BasketReturnItem basketReturnItem)
         {
             if (IsBusy)
                 return;
@@ -577,14 +577,14 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
         }
         #endregion
         #endregion
-        private async void ExecuteAutoScan()
+        private void ExecuteAutoScan()
         {
             throw new NotImplementedException();
         }
 
         #region Transaction
         #region Alter
-        private async void ExecuteAlterTransactionSelector()
+        private void ExecuteAlterTransactionSelector()
         {
             if (IsBusy)
                 return;
@@ -1017,7 +1017,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
             }
         }
 
-        private async void ExecuteCancelTransaction()
+        private void ExecuteCancelTransaction()
         {
             Basket.Clear();
         }
@@ -1073,9 +1073,12 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         });
                     }
 
-                    if (sale.PaySales.Any(pay => pay.TempPayMethod.IsChangeable.Equals(true)))
+                    if (TryCashDrawer)
                     {
-                        tasks[1] = printerMgr.OpenCashDrawer();
+                        if (sale.PaySales.Any(pay => pay.TempPayMethod.IsChangeable.Equals(true)))
+                        {
+                            tasks[1] = printerMgr.OpenCashDrawer();
+                        }
                     }
                 }
 

@@ -16,9 +16,9 @@
     <ContentPage.Content>
         <StackLayout>
             <SearchBar Placeholder="{Binding Source={i18n:Translate Items}, StringFormat={i18n:Translate SearchArg}}"
-                       Text="{Binding SearchText}" SearchCommand="{Binding SearchItemsCommand}"/>
+                       Text="{Binding SearchText}"/>
             <listViewCM:ListViewWithContextMenu x:Name="ItemsListView" ItemsSource="{Binding Items}"
-                                   LoadMoreOption="AutoOnScroll" LoadMoreCommand="{Binding LoadMoreItemsCommand}"
+                                   LoadMoreOption="AutoOnScroll"
                                    AutoFitMode="DynamicHeight" IsStickyHeader="True" IsStickyGroupHeader="True"
                                    AllowGroupExpandCollapse="True" DataSource="{Binding SfListViewDataSource, Mode=OneWayToSource}">
                 <listViewCM:ListViewWithContextMenu.Behaviors>
