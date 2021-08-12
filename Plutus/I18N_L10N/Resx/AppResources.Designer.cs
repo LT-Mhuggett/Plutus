@@ -208,6 +208,24 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Change Ask for Receipt Option.
+        /// </summary>
+        internal static string AskForReceiptOption {
+            get {
+                return ResourceManager.GetString("AskForReceiptOption", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Ask for receipt printing at checkout (save the environment)?.
+        /// </summary>
+        internal static string AskForReceiptPrintingText {
+            get {
+                return ResourceManager.GetString("AskForReceiptPrintingText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Authorisation Required.
         /// </summary>
         internal static string AuthReq {
@@ -325,6 +343,16 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to There was a problem with the POS Cash Drawer. Transaction has succeeded but the Cash Drawer could not be accessed.
+        ///Silence this warning (you will no longer get any warnings when the Cash Drawer is no longer available)? .
+        /// </summary>
+        internal static string CashDrawerErrorWarning {
+            get {
+                return ResourceManager.GetString("CashDrawerErrorWarning", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Category.
         /// </summary>
         internal static string Category {
@@ -343,6 +371,34 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Change Barcode Type.
+        /// </summary>
+        internal static string ChangeBarcodeType {
+            get {
+                return ResourceManager.GetString("ChangeBarcodeType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Change Cash Drawer Exists.
+        /// </summary>
+        internal static string ChangeCashDrawerExists {
+            get {
+                return ResourceManager.GetString("ChangeCashDrawerExists", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Should Plutus attempt to use a Cash Drawer on checkout?
+        ///If no Cash Drawer exists on the system checkout times will exceed 3 minuets per transaction..
+        /// </summary>
+        internal static string ChangeCashDrawerExistsText {
+            get {
+                return ResourceManager.GetString("ChangeCashDrawerExistsText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Change Printer.
         /// </summary>
         internal static string ChangePrinter {
@@ -357,6 +413,15 @@ namespace I18N_L10N.Resx {
         internal static string CheckoutTransaction {
             get {
                 return ResourceManager.GetString("CheckoutTransaction", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Please verify if the printed receipt is correctly printed, if not try again or another option as your printer may not support the options you selected.
+        /// </summary>
+        internal static string CheckReceiptCorrect {
+            get {
+                return ResourceManager.GetString("CheckReceiptCorrect", resourceCulture);
             }
         }
         
@@ -393,6 +458,33 @@ namespace I18N_L10N.Resx {
         internal static string ConfPassword {
             get {
                 return ResourceManager.GetString("ConfPassword", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Contact Number.
+        /// </summary>
+        internal static string ContactNumber {
+            get {
+                return ResourceManager.GetString("ContactNumber", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Correct.
+        /// </summary>
+        internal static string Correct {
+            get {
+                return ResourceManager.GetString("Correct", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Correct/Cancel.
+        /// </summary>
+        internal static string Correct_Cancel {
+            get {
+                return ResourceManager.GetString("Correct_Cancel", resourceCulture);
             }
         }
         
@@ -460,6 +552,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Daily Sales.
+        /// </summary>
+        internal static string DailySales {
+            get {
+                return ResourceManager.GetString("DailySales", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to {0} Data.
         /// </summary>
         internal static string DataArg {
@@ -474,6 +575,15 @@ namespace I18N_L10N.Resx {
         internal static string Database {
             get {
                 return ResourceManager.GetString("Database", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Date.
+        /// </summary>
+        internal static string Date {
+            get {
+                return ResourceManager.GetString("Date", resourceCulture);
             }
         }
         
@@ -520,6 +630,15 @@ namespace I18N_L10N.Resx {
         internal static string DeviceNotSupported {
             get {
                 return ResourceManager.GetString("DeviceNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Discount.
+        /// </summary>
+        internal static string Discount {
+            get {
+                return ResourceManager.GetString("Discount", resourceCulture);
             }
         }
         
@@ -601,6 +720,15 @@ namespace I18N_L10N.Resx {
         internal static string EnterHereOptional {
             get {
                 return ResourceManager.GetString("EnterHereOptional", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Export.
+        /// </summary>
+        internal static string Export {
+            get {
+                return ResourceManager.GetString("Export", resourceCulture);
             }
         }
         
@@ -1096,6 +1224,24 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Printer Not Found!.
+        /// </summary>
+        internal static string PrinterNotFound {
+            get {
+                return ResourceManager.GetString("PrinterNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Print Test Page.
+        /// </summary>
+        internal static string PrintTestPage {
+            get {
+                return ResourceManager.GetString("PrintTestPage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to qty.
         /// </summary>
         internal static string qty {
@@ -1119,6 +1265,15 @@ namespace I18N_L10N.Resx {
         internal static string Reason {
             get {
                 return ResourceManager.GetString("Reason", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Is a receipt required?.
+        /// </summary>
+        internal static string ReceiptRequired {
+            get {
+                return ResourceManager.GetString("ReceiptRequired", resourceCulture);
             }
         }
         
@@ -1267,6 +1422,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Sales Breakdown.
+        /// </summary>
+        internal static string SalesBreakdown {
+            get {
+                return ResourceManager.GetString("SalesBreakdown", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Sales Reports.
         /// </summary>
         internal static string SalesReports {
@@ -1357,6 +1521,24 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to silence.
+        /// </summary>
+        internal static string Silence {
+            get {
+                return ResourceManager.GetString("Silence", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Silence.
+        /// </summary>
+        internal static string SileneceButton {
+            get {
+                return ResourceManager.GetString("SileneceButton", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Store Name.
         /// </summary>
         internal static string SName {
@@ -1429,6 +1611,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Store Logo.
+        /// </summary>
+        internal static string StoreLogo {
+            get {
+                return ResourceManager.GetString("StoreLogo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Save Transaction.
         /// </summary>
         internal static string StoreTransaction {
@@ -1443,6 +1634,15 @@ namespace I18N_L10N.Resx {
         internal static string Submit {
             get {
                 return ResourceManager.GetString("Submit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Sub Total.
+        /// </summary>
+        internal static string SubTotal {
+            get {
+                return ResourceManager.GetString("SubTotal", resourceCulture);
             }
         }
         
@@ -1479,6 +1679,15 @@ namespace I18N_L10N.Resx {
         internal static string TaxNameArg {
             get {
                 return ResourceManager.GetString("TaxNameArg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Test Print.
+        /// </summary>
+        internal static string TestPrint {
+            get {
+                return ResourceManager.GetString("TestPrint", resourceCulture);
             }
         }
         
@@ -1565,6 +1774,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Try Again.
+        /// </summary>
+        internal static string TryAgain {
+            get {
+                return ResourceManager.GetString("TryAgain", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unselect All.
         /// </summary>
         internal static string UnselectAll {
@@ -1606,6 +1824,15 @@ namespace I18N_L10N.Resx {
         internal static string Users {
             get {
                 return ResourceManager.GetString("Users", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to VAT.
+        /// </summary>
+        internal static string VatIN {
+            get {
+                return ResourceManager.GetString("VatIN", resourceCulture);
             }
         }
         

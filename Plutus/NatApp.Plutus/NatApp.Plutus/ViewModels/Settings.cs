@@ -1,43 +1,88 @@
-﻿using Plugin.Settings;
-using Plugin.Settings.Abstractions;
-using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using Xamarin.Essentials;
 
 namespace NatApp.Plutus.ViewModels
 {
     public class Settings
     {
-        protected static ISettings AppSettings => CrossSettings.Current;
-
+        /// <summary>
+        /// Printer logical name
+        /// </summary>
         public string PrinterLogicalNameSetting
         {
-            get => AppSettings.GetValueOrDefault(nameof(PrinterLogicalNameSetting), null);
-            set => AppSettings.AddOrUpdateValue(nameof(PrinterLogicalNameSetting), value);
+            get => Preferences.Get(nameof(PrinterLogicalNameSetting), default(string));
+            set => Preferences.Set(nameof(PrinterLogicalNameSetting), value);
         }
 
+        /// <summary>
+        /// User defined barcode symbology
+        /// </summary>
+        public string BarcodeSymbologySetting
+        {
+            get => Preferences.Get(nameof(BarcodeSymbologySetting), default(string));
+            set => Preferences.Set(nameof(BarcodeSymbologySetting), value);
+        }
+
+        /// <summary>
+        /// Current database provider
+        /// </summary>
         public string DatabaseProviderSetting
         {
-            get => AppSettings.GetValueOrDefault(nameof(DatabaseProviderSetting), null);
-            set => AppSettings.AddOrUpdateValue(nameof(DatabaseProviderSetting), value); 
+            get => Preferences.Get(nameof(DatabaseProviderSetting), null);
+            set => Preferences.Set(nameof(DatabaseProviderSetting), value);
         }
 
+        /// <summary>
+        /// Cashback enabeld for card transactions
+        /// </summary>
         public bool CashbackEnabled
         {
-            get => AppSettings.GetValueOrDefault(nameof(CashbackEnabled), false);
-            set => AppSettings.AddOrUpdateValue(nameof(CashbackEnabled), value);
+            get => Preferences.Get(nameof(CashbackEnabled), false);
+            set => Preferences.Set(nameof(CashbackEnabled), value);
         }
 
+        /// <summary>
+        /// User defined culture infomration
+        /// </summary>
         public string CustomCultureInfo
         {
-            get => AppSettings.GetValueOrDefault(nameof(CustomCultureInfo), null);
-            set => AppSettings.AddOrUpdateValue(nameof(CustomCultureInfo), value);
+            get => Preferences.Get(nameof(CustomCultureInfo), null);
+            set => Preferences.Set(nameof(CustomCultureInfo), value);
         }
 
+        /// <summary>
+        /// User defined default BagId
+        /// </summary>
         public string DefaultBagId
         {
-            get => AppSettings.GetValueOrDefault(nameof(DefaultBagId), null);
-            set => AppSettings.AddOrUpdateValue(nameof(DefaultBagId), value);
+            get => Preferences.Get(nameof(DefaultBagId), string.Empty);
+            set => Preferences.Set(nameof(DefaultBagId), value);
+        }
+
+        /// <summary>
+        /// Cash Drawer warning silenced status
+        /// </summary>
+        public bool CashDrawerWarningSilenced
+        {
+            get => Preferences.Get(nameof(CashDrawerWarningSilenced), false);
+            set => Preferences.Set(nameof(CashDrawerWarningSilenced), value);
+        }
+
+        /// <summary>
+        /// Try to use Cash Drawer if exists
+        /// </summary>
+        public bool TryCashDrawer
+        {
+            get => Preferences.Get(nameof(TryCashDrawer), false);
+            set => Preferences.Set(nameof(TryCashDrawer), value);
+        }
+
+        /// <summary>
+        /// Ask for receipt at checkout
+        /// </summary>
+        public bool AskForReceipt
+        {
+            get => Preferences.Get(nameof(AskForReceipt), false);
+            set => Preferences.Set(nameof(AskForReceipt), value);
         }
     }
 }

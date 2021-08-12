@@ -1,14 +1,13 @@
 ﻿using Database.Models;
 using Microsoft.EntityFrameworkCore;
 using NatApp.Plutus.Helpers.Extensions;
+using NatApp.Plutus.Helpers.FileIO;
 using NatApp.Plutus.Services.IOHandeling;
 using Syncfusion.SfCalendar.XForms;
 using Syncfusion.SfChart.XForms;
-using Syncfusion.XlsIO;
 using System;
 using System.Collections.Generic;
-using System.Dynamic;
-using System.IO;
+using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 using Xamarin.Forms;
@@ -132,26 +131,63 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
             get => _displayTableCommand ?? (_displayTableCommand = new Command<StackLayout>(ExecuteDisplayTable));
         }
 
+        Command _exportSelectedDataCommand;
+
+        public Command ExportSelectedDataCommand
+        {
+            get => _exportSelectedDataCommand ?? (_exportSelectedDataCommand = new Command(ExecuteExportData));
+        }
+
         #endregion
 
         #region ExecuteCommand
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="stackLayout"></param>
         private async void ExecuteDisplayTable(StackLayout stackLayout)
         {
             await GenerateTable(stackLayout);
         }
+
+        /// <summary>
+        /// Start the execution process of exporting the data in the selected range
+        /// </summary>
+        public async void ExecuteExportData()
+        {
+            //var FileData = new List<(string fileName, string contentType, MemoryStream stream)>();
+
+            Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
+            using (var db = new Helpers.Database.Database(databaseProvider))
+            {
+                db.SetTrackingBehavior(QueryTrackingBehavior.NoTracking);
+                await LoadRequiredExportDataAsync(SelectionRange.StartDate, SelectionRange.EndDate, db);
+                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Export Sales Report", new Dictionary<string, string> 
+                {
+                    { "Start Date", SelectionRange.StartDate.ToString("MM-dd-yyyy") },
+                    { "End Date", SelectionRange.EndDate.ToString("MM-dd-yyyy") } 
+                });
+            }
+
+            //DependencyService.Get<IFile>().SaveFiles();
+        }
         #endregion
 
         #region Operation
-        private void SalesDataLoading(Helpers.Database.Database db)
+        /// <summary>
+        /// Loads in the selected data
+        /// </summary>
+        /// <param name="db"></param>
+        private void SalesDataLoading(DateTime startDate, DateTime endDate, Helpers.Database.Database db)
         {
             SalesTotalExTax = 0m;
             SalesTotal = 0m;
             var salesData = new List<Tuple<string, List<SalesDataByPayMethod>>>();
             for (int days = 0;
-                days <= Math.Abs((SelectionRange.StartDate - SelectionRange.EndDate).TotalDays);
+                days <= Math.Abs((startDate - endDate).TotalDays);
                 days++)
             {
-                var date = SelectionRange.StartDate.AddDays(days);
+                var date = startDate.AddDays(days);
                 var payMethods = db.Get<PaymentMethodModel>().Select(pM => pM.Name).ToList();
 
                 foreach (var payMethod in payMethods)
@@ -164,7 +200,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
                         ps.Sale.DateOfSale.Date.Equals(date.Date) &&
                         ps.PayMethod.Name.Equals(payMethod)).ToList();
 
-                    var exVat = paySales.Sum(ps => ps.Sale.TotalExTax * ((ps.Amount - ps.Change) / ps.Sale.Total));
+                    var exVat = paySales.Sum(ps => ps.Sale.TotalExTax * ((ps.Amount - ps.Change) / ps.Sale.Total)).Normalize();
 
                     var datumExVat = new SalesDataByPayMethod
                     {
@@ -201,13 +237,18 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
                             new List<SalesDataByPayMethod> { datumIncVat }));
                     }
 
-                    paySales.ForEach(ps => SalesTotalExTax += ps.Sale.TotalExTax);
-                    paySales.ForEach(ps => SalesTotal += ps.Sale.Total);
+                    SalesTotalExTax += exVat;
+                    SalesTotal += paySales.Sum(ps => ps.Amount - ps.Change);
                 }
 
-                TotalTax = (SalesTotal - SalesTotalExTax) < 0 ? 0 : (SalesTotal - SalesTotalExTax);
+                TotalTax = (SalesTotal - SalesTotalExTax);
             }
             CreateSeries(salesData);
+            Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Sales Report Generated", new Dictionary<string, string>
+                {
+                    { "Start Date", startDate.ToString("MM-dd-yyyy") },
+                    { "End Date", endDate.ToString("MM-dd-yyyy") }
+                });
         }
 
         /// <summary>
@@ -218,7 +259,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
         {
             Series.Clear();
 
-            foreach(var salesDatum in salesData)
+            foreach (var salesDatum in salesData)
             {
                 Series.Add(new ColumnSeries
                 {
@@ -268,6 +309,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
             Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
             using (var db = new Helpers.Database.Database(databaseProvider))
             {
+                db.SetTrackingBehavior(QueryTrackingBehavior.NoTracking);
                 /*
                 if (Math.Abs((_selectionRange.StartDate - _selectionRange.EndDate).TotalDays) % 6 != 0)
                 {
@@ -278,10 +320,15 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
                         _selectionRange.StartDate = _selectionRange.StartDate.AddDays(diff);
                     OnPropertyChanged("SelectionRange");
                 }*/
-                SalesDataLoading(db);
+                SalesDataLoading(SelectionRange.StartDate, SelectionRange.EndDate, db);
             }
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="stack"></param>
+        /// <returns></returns>
         private async Task GenerateTable(StackLayout stack)
         {
             /*
@@ -331,6 +378,208 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
                 await DependencyService.Get<IFile>().SaveAndView("Test-TableExcel-Export.xlsx", "application/msexcel", stream, new Dictionary<string, List<string>> { { "Excel", new List<string>() { ".xlsx" } } });
             }*/
         }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="startDate"></param>
+        /// <param name="endDate"></param>
+        /// <param name="db"></param>
+        private async Task LoadRequiredExportDataAsync(DateTime startDate, DateTime endDate, Helpers.Database.Database db)
+        {
+            var dataSet = new DataSet();
+
+            var data = db.GetAllBetweenDates(startDate, endDate)
+                .Include(s => s.Transactions)
+                    .ThenInclude(t => t.Item)
+                .Include(s => s.Transactions)
+                    .ThenInclude(t => t.CheckoutItemChange)
+                .Include(s => s.Transactions)
+                    .ThenInclude(t => t.Transaction_Discounts)
+                        .ThenInclude(td => td.Discount)
+                .Include(s => s.PaySales)
+                    .ThenInclude(ps => ps.PayMethod)
+                .Include(s => s.Refunds)
+                    .ThenInclude(r => r.Item)
+                .Include(s => s.Refunds)
+                    .ThenInclude(r => r.Authoriser)
+                .Include(s => s.Refunds)
+                    .ThenInclude(r => r.CheckoutItemChange)
+                .Include(s => s.Employee).ToList();
+
+            var dailySalesSummaries = new List<IDictionary<string, object>>();
+
+            var salesBreakdowns = new List<SalesBreakdown>();
+
+            var currentDate = startDate;
+            do
+            {
+                var dailySalesSummary = new Dictionary<string, object>
+                {
+                    { "Date".Translate(), currentDate.ToShortDateString() }
+                };
+
+                foreach (var payMethod in db.Get<PaymentMethodModel>())
+                {
+                    dailySalesSummary.Add(
+                        payMethod.Name + $" ({"ExTax".Translate()})",
+                            data.Where(s => s.DateOfSale.Date.Equals(currentDate.Date) && s.Total != decimal.Zero && s.TotalExTax != decimal.Zero)
+                                .Sum(s => s.TotalExTax * (s.PaySales.Where(ps => ps.PayMethod.Id.Equals(payMethod.Id)).Sum(ps => ps.Amount - ps.Change) / s.Total)).Normalize());
+                }
+
+                dailySalesSummary.Add(
+                    "Daily (ex Tax)",
+                        data.Where(s => s.DateOfSale.Date.Equals(currentDate.Date)).Sum(s => s.TotalExTax));
+                dailySalesSummary.Add(
+                    "Daily (inc Tax)",
+                        data.Where(s => s.DateOfSale.Date.Equals(currentDate.Date)).Sum(s => s.Total));
+
+                dailySalesSummaries.Add(dailySalesSummary);
+
+                currentDate = currentDate.AddDays(1);
+            } while (currentDate <= endDate);
+
+            currentDate = startDate;
+            do
+            {
+                foreach (var salesData in data.Where(s => s.DateOfSale.Date.Equals(currentDate.Date)))
+                {
+                    foreach (var trans in salesData.Transactions)
+                    {
+                        //Record Transaction
+                        salesBreakdowns.Add(new SalesBreakdown()
+                        {
+                            RecordDate = currentDate.ToShortDateString(),
+                            SaleId = salesData.Id,
+                            ItemId = trans.Item.Id,
+                            ItemName = trans.Item.Name,
+                            UnitPriceAtCheckout = trans.CheckoutItemChangeId == null ? trans.ItemCostPrice : trans.CheckoutItemChange.Price,
+                            UnitPriceAtCheckoutExTax = trans.CheckoutItemChangeId == null ? trans.ItemCostExPrice : trans.CheckoutItemChange.ExPrice,
+                            Qty = trans.Amount,
+                            TotalSalePrice = (trans.CheckoutItemChangeId == null ? trans.ItemCostPrice : trans.CheckoutItemChange.Price) * trans.Amount,
+                            TotalSalePriceExTax = (trans.CheckoutItemChangeId == null ? trans.ItemCostExPrice : trans.CheckoutItemChange.ExPrice) * trans.Amount,
+                            EmployeeName = salesData.Employee.FullName
+                        });
+
+                        foreach (var transDiscount in trans.Transaction_Discounts)
+                        {
+                            var discountPrice = -decimal.Round(Math.Abs(transDiscount.Discount.Type == 0 ?
+                                transDiscount.DiscountRate :
+                                (trans.CheckoutItemChangeId == null ?
+                                    trans.ItemCostPrice :
+                                    trans.CheckoutItemChange.Price)
+                                * transDiscount.DiscountRate), 2, MidpointRounding.AwayFromZero);
+                            var discountExPrice = -decimal.Round(Math.Abs(transDiscount.Discount.Type == 0 ?
+                                transDiscount.DiscountRate :
+                                (trans.CheckoutItemChangeId == null ?
+                                    trans.ItemCostExPrice :
+                                    trans.CheckoutItemChange.ExPrice)
+                                * transDiscount.DiscountRate), 2, MidpointRounding.AwayFromZero);
+                            //Record Discount
+                            salesBreakdowns.Add(new SalesBreakdown()
+                            {
+                                RecordDate = currentDate.ToShortDateString(),
+                                SaleId = salesData.Id,
+                                ItemId = $"{"Discount".Translate()}",
+                                ItemName = $"{transDiscount.Discount.Name}, {trans.Item.Id}",
+                                UnitPriceAtCheckout = discountPrice,
+                                UnitPriceAtCheckoutExTax = discountExPrice,
+                                Qty = trans.Amount,
+                                TotalSalePrice = discountPrice * trans.Amount,
+                                TotalSalePriceExTax = discountExPrice * trans.Amount
+                            });
+                        }
+                    }
+
+                    foreach (var refund in salesData.Refunds)
+                        salesBreakdowns.Add(new SalesBreakdown()
+                        {
+                            RecordDate = currentDate.ToShortDateString(),
+                            SaleId = salesData.Id,
+                            ItemId = refund.Item.Id,
+                            ItemName = refund.Item.Name,
+                            UnitPriceAtCheckout = -Math.Abs(refund.CheckoutItemChangeId == null ? refund.Item.Price : refund.CheckoutItemChange.Price),
+                            UnitPriceAtCheckoutExTax = -Math.Abs(refund.CheckoutItemChangeId == null ? refund.Item.ExPrice : refund.CheckoutItemChange.ExPrice),
+                            Qty = refund.Amount,
+                            TotalSalePrice = -Math.Abs((refund.CheckoutItemChangeId == null ? refund.Item.Price : refund.CheckoutItemChange.Price)) * refund.Amount,
+                            TotalSalePriceExTax = -Math.Abs((refund.CheckoutItemChangeId == null ? refund.Item.ExPrice : refund.CheckoutItemChange.ExPrice)) * refund.Amount,
+                            EmployeeName = refund.AuthoriserId == null ? salesData.Employee.FullName : refund.Authoriser.FullName
+                        });
+                }
+
+                currentDate = currentDate.AddDays(1);
+            } while (currentDate <= endDate);
+
+            dataSet.Tables.Add(dailySalesSummaries.ToDataTable("DailySales".Translate()));
+            dataSet.Tables.Add(salesBreakdowns.ToDataTable("SalesBreakdown".Translate()));
+
+            using (var docHandler = new ExcelHandling())
+            {
+                docHandler.DataTableToWorksheet(dataSet);
+                var fileStream = docHandler.Finalize();
+                await DependencyService.Get<IFile>().SaveAndView(
+                        $"{"SalesReports".Translate()} - {startDate.ToShortDateString()}-{endDate.ToShortDateString()}",
+                        "application/vnd.ms-excel",
+                        fileStream,
+                        new Dictionary<string, IList<string>>() { { "Excel", new List<string>() { ".xlsx", ".xls" } } }
+                        );
+            }
+            /*
+            var tablesInCSVFormat = new List<(string, string, MemoryStream, string)>();
+
+            do
+            {
+                var table = tablesToLoad.Dequeue();
+
+                var tableInCSVFormat = "";
+
+                var orderOfProperty = new List<string>();
+
+                foreach (var property in table.GetProperties())
+                {
+                    if (property.CustomAttributes.Any(cA => cA.AttributeType.IsEquivalentTo(typeof(Database.Attributes.Exportable))))
+                    {
+                        tableInCSVFormat += property.Name + ",";
+                        orderOfProperty.Add(property.Name);
+                    }
+                }
+
+                tableInCSVFormat = tableInCSVFormat.Remove(tableInCSVFormat.Length - 1);
+
+                dynamic data;
+
+                if (table == typeof(PaymentMethodModel))
+                {
+                    data = typeof(Helpers.Database.Database)
+                        .GetMethod("Get", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                        .MakeGenericMethod(table)
+                        .Invoke(db, null);
+                }
+                else
+                {
+                    data = typeof(Helpers.Database.Database)
+                        .GetMethod("GetAllBetweenDates", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                        .MakeGenericMethod(table)
+                        .Invoke(db, new object[] { startDate, endDate });
+                }
+
+                foreach (var property in data)
+                {
+                    tableInCSVFormat += "\n";
+                    foreach (var stringProptery in orderOfProperty)
+                    {
+                        tableInCSVFormat += property.GetType().GetProperty(stringProptery).GetValue(property, null) + ",";
+                    }
+
+                    tableInCSVFormat = tableInCSVFormat.Remove(tableInCSVFormat.Length - 1);
+                }
+                tablesInCSVFormat.Add((table.Name+".csv", "text/plain", tableInCSVFormat.ToStream(), "*"));
+
+            } while (tablesToLoad.Count() > 0);
+
+            var filesAndStatus = await DependencyService.Get<IFile>().SaveFiles(tablesInCSVFormat);
+            */
+        }
         #endregion
     }
 
@@ -340,5 +589,19 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
         public string Day { get; set; }
         public string Date { get; set; }
         public decimal Monies { get; set; }
+    }
+
+    public class SalesBreakdown
+    {
+        public string RecordDate { get; set; }
+        public string SaleId { get; set; }
+        public string ItemId { get; set; }
+        public string ItemName { get; set; }
+        public decimal UnitPriceAtCheckout { get; set; }
+        public decimal UnitPriceAtCheckoutExTax { get; set; }
+        public int Qty { get; set; }
+        public decimal TotalSalePrice { get; set; }
+        public decimal TotalSalePriceExTax { get; set; }
+        public string EmployeeName { get; set; }
     }
 }

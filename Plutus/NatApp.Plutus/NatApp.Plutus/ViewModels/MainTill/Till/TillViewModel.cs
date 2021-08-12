@@ -1,4 +1,5 @@
-﻿using Database.Enums;
+﻿using CommonPOSLibrary.Exceptions;
+using Database.Enums;
 using Database.Models;
 using Microsoft.EntityFrameworkCore;
 using NatApp.Plutus.Helpers.Extensions;
@@ -89,7 +90,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
             #region Init
             Title = "Till".Translate();
             Icon = "md-store";
-            
+
             #region Events
             StoredTransactions.CollectionChanged += (sender, e) =>
             {
@@ -152,16 +153,13 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 }
             });
 
-            MessagingCenter.Subscribe<Inventory.Items.ViewAllViewModel, string>(
-            this,
-            "AddToBasket",
-            (sender, arg) =>
+            MessagingCenter.Subscribe<Inventory.Items.ViewAllViewModel, string>(this, "AddToBasket", (sender, arg) => 
             {
                 ExecuteItemAddArg(arg);
             });
-            
+
             #endregion
-            IsDesktop = Device.Idiom == TargetIdiom.Desktop ? true : false;
+            IsDesktop = Device.Idiom == TargetIdiom.Desktop;
             Quantity = 1;
         }
 
@@ -328,6 +326,8 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     tempItem.IncrementQuantity(Quantity);
                 ItemId = string.Empty;
                 Quantity = 1;
+
+                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Added To Basket (from TillViewModel)");
             }
             finally
             {
@@ -347,6 +347,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 if (item == null)
                 {
                     await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "ItemNotFoundMesg".Translate(), "OK".Translate());
+                    Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Added To Basket (from Request)", new Dictionary<string, string> { { "Success", "False" } });
                     return;
                 }
 
@@ -373,6 +374,8 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     Basket.Add(new BasketItem(item, Quantity));
                 else
                     tempItem.IncrementQuantity(Quantity);
+
+                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Added To Basket (from Request)", new Dictionary<string, string> { { "Success", "True"} });
             }
             finally
             {
@@ -381,7 +384,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
         }
         #endregion
         #region Remove
-        private async void ExecuteRemoveOne(IBasketRecord basketRecord)
+        private void ExecuteRemoveOne(IBasketRecord basketRecord)
         {
             if (IsBusy)
                 return;
@@ -399,7 +402,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
             }
         }
 
-        private async void ExecuteRemoveAll(IBasketRecord basketRecord)
+        private void ExecuteRemoveAll(IBasketRecord basketRecord)
         {
             if (IsBusy)
                 return;
@@ -436,6 +439,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(elements, "Confirm".Translate(), true, "Adjust".Translate());
                 basketItem.PriceExTax = decimal.Parse((string)data.ElementAt(0), numstyle, CultureInfo.CurrentCulture);
                 basketItem.Price = decimal.Parse((string)data.ElementAt(1), numstyle, CultureInfo.CurrentCulture);
+                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Adjustment");
             }
             finally
             {
@@ -549,6 +553,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 //finalize change
                 Basket.Remove(basketItem);
                 Basket.Add(returnItem);
+                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Return");
             }
             finally
             {
@@ -556,7 +561,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
             }
         }
 
-        private async void ExecuteRevertReturn(BasketReturnItem basketReturnItem)
+        private void ExecuteRevertReturn(BasketReturnItem basketReturnItem)
         {
             if (IsBusy)
                 return;
@@ -576,14 +581,14 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
         }
         #endregion
         #endregion
-        private async void ExecuteAutoScan()
+        private void ExecuteAutoScan()
         {
-
+            throw new NotImplementedException();
         }
 
         #region Transaction
         #region Alter
-        private async void ExecuteAlterTransactionSelector()
+        private void ExecuteAlterTransactionSelector()
         {
             if (IsBusy)
                 return;
@@ -593,6 +598,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
             {
                 Alterations.Clear();
 
+                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Transaction Alteration (Discounts)");
                 Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
                 using (var db = new Helpers.Database.Database(databaseProvider, App.GetViewModel().EmployeeId))
                 {
@@ -647,7 +653,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         {
                             var alterationAmount = Math.Abs(Math.Round(Decimal.Parse(data.Item1.First()), 2, MidpointRounding.AwayFromZero)) * -1;
                             adjustment = new BasketAlteration(new NoteModel($"{alteration.Name}, {item.Name} {alterationAmount.ToString("C2", CultureInfo.CurrentCulture)}"), alteration, item, alterationAmount, alterationAmount);
-                            
+
                         }
                         else
                         {
@@ -663,7 +669,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     {
                         var alterationAmount = Math.Abs(Math.Round(Decimal.Parse(data.Item1.First()) * data.Item2.Count(), 2, MidpointRounding.AwayFromZero)) * -1;
                         adjustment = new BasketAlteration(new NoteModel($"{alteration.Name}, {alterationAmount.ToString("C2", CultureInfo.CurrentCulture)}"), alteration, data.Item2, alterationAmount, alterationAmount);
-                                            }
+                    }
                     else
                     {
                         var alterationAmount = Tuple.Create(Math.Abs(Math.Round(data.Item2.Sum(tempItem => tempItem.Price) * Decimal.Parse(data.Item1.First()), 2, MidpointRounding.AwayFromZero)) * -1, Math.Abs(Math.Round(data.Item2.Sum(tempItem => tempItem.PriceExTax) * Decimal.Parse(data.Item1.First()), 2, MidpointRounding.AwayFromZero)) * -1);
@@ -707,8 +713,11 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     data = (string)(await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(elements, "Confirm".Translate(), false, "TransactionName".Translate(), "Cancel".Translate())).First();
 
                     if (data == default)
-                        return;
+                    {
 
+                        Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Transaction Store (Saving)", new Dictionary<string, string> { { "Canceled", "True" } });
+                        return;
+                    }
                     firstRun = false;
                 } while (StoredTransactions.Any(sT => sT.Name.Equals(data)));
 
@@ -732,10 +741,10 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                             })
                     });
                 Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
-                using(var db = new Helpers.Database.Database(databaseProvider))
+                using (var db = new Helpers.Database.Database(databaseProvider))
                 {
                     db.Add(StoredTransactions.Last());
-                    if(!db.Save())
+                    if (!db.Save())
                     {
                         await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "CriticalIssue".Translate(), "OK".Translate());
                         StoredTransactions.RemoveAt(StoredTransactions.Count());
@@ -743,6 +752,8 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     }
                 }
                 Basket.Clear();
+
+                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Transaction Store (Saving)", new Dictionary<string, string> { { "Canceled", "False" } });
             }
             finally
             {
@@ -765,8 +776,11 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         baskets[i] = StoredTransactions.ElementAt(i).Name;
                     var action = await App.Current.MainPage.DisplayActionSheet("Baskets".Translate(), "Cancel".Translate(), null, baskets);
                     if (action == "Cancel".Translate())
+                    {
+                        Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Transaction Retreived", new Dictionary<string, string> { { "Canceled", "True" } });
                         return;
-                    storedTransaction = StoredTransactions.First(sT=>sT.Name.Equals(action));
+                    }
+                    storedTransaction = StoredTransactions.First(sT => sT.Name.Equals(action));
                 }
                 else
                 {
@@ -778,7 +792,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         return;
 
                 Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
-                using(var db = new Helpers.Database.Database(databaseProvider))
+                using (var db = new Helpers.Database.Database(databaseProvider))
                 {
                     db.Delete(new SavedTransactionModel { Id = storedTransaction.Id });
                     if (!db.Save())
@@ -798,6 +812,8 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 Basket.Clear();
                 foreach (var item in basket)
                     Basket.Add(item);
+
+                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Transaction Store (Saving)", new Dictionary<string, string> { { "Canceled", "False" } });
             }
             finally
             {
@@ -830,7 +846,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 var refundOnly = !Basket.Any(bR => bR is BasketItem && !(bR is BasketReturnItem));
 
                 var payMeths = GenPaymentMethodActions();
-                Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
+                Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
 
                 sale.Total = Basket.Sum(bR => bR.Price * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
                 sale.TotalExTax = Basket.Sum(bR => bR.PriceExTax * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
@@ -845,7 +861,10 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     var payMeth = await App.Current.MainPage.DisplayActionSheet("PayMeth".Translate(), "Cancel".Translate(), null, payMethNames);
 
                     if (payMeth == "Cancel".Translate())
+                    {
+                        Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Sale Processing", new Dictionary<string, string> { { "Canceled", "True" } });
                         return;
+                    }
 
                     var pay = new PaymentMethod_SaleModel() { TempPayMethod = payMeths[payMeth]() };
 
@@ -880,7 +899,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         elements,
                         "Confirm".Translate(),
                         false,
-                        pay.TempPayMethod.IsCashBackable ? pay.TempPayMethod.IsChangeable ? true : false : true,
+                        !pay.TempPayMethod.IsCashBackable || (pay.TempPayMethod.IsChangeable),
                         sale.Total - paid,
                         string.Format(
                             refundOnly ? "HowMuchRefund".Translate() : "HowMuchPM".Translate(),
@@ -940,8 +959,12 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     var tran = new TransactionModel() { ItemId = item.Item.Id, Sale = sale, Amount = item.Quantity, ItemCostExPrice = item.Item.ExPrice, ItemCostPrice = item.Item.Price, Transaction_Discounts = new ObservableCollection<TransactionModel_DiscountModel>() };
                     if (Basket.Where(bR => bR is BasketAlteration).Cast<BasketAlteration>().Any())
                     {
-                        var tranDisc = new TransactionModel_DiscountModel { DiscountId = Basket.Where(bR => bR is BasketAlteration).Cast<BasketAlteration>().Where(bA => bA.ItemsAssocitated.Any(iA => iA.Item.Id.Equals(item.Item.Id))).First().Discount.Id };
-                        tran.Transaction_Discounts.Add(tranDisc);
+                        var tempIA = Basket.Where(bR => bR is BasketAlteration && !(bR is BasketReturnItem)).Cast<BasketAlteration>().Where(bA => bA.ItemsAssocitated.Any(iA => iA.Item.Id.Equals(item.Item.Id))).FirstOrDefault();
+                        if (tempIA != default)
+                        {
+                            var tranDisc = new TransactionModel_DiscountModel { DiscountId = tempIA.Discount.Id };
+                            tran.Transaction_Discounts.Add(tranDisc);
+                        }
                     }
                     sale.Transactions.Add(tran);
                     if (item.PriceExTax != item.Item.ExPrice || item.Price != item.Item.Price)
@@ -966,7 +989,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
 
                 do
                 {
-                    if (empId.IsAuthorised("Till", Database.Enums.Permissions.Execute, databaseProvider))
+                    if (empId.IsAuthorised("Till", Permissions.Execute, databaseProvider))
                     {
                         if (!sale.Refunds.Any())
                         {
@@ -976,7 +999,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         var refundAmount = Basket.Where(bR => bR is BasketReturnItem).Sum(bRI => bRI.Price);
                         if (refundAmount <= 20m)
                         {
-                            if (empId.IsAuthorised("Refund20", Database.Enums.Permissions.Execute, databaseProvider))
+                            if (empId.IsAuthorised("Refund20", Permissions.Execute, databaseProvider))
                             {
                                 FinaliseTransation(sale, change);
                                 return;
@@ -984,7 +1007,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         }
                         else if (refundAmount <= 100)
                         {
-                            if (empId.IsAuthorised("Refund100", Database.Enums.Permissions.Execute, databaseProvider))
+                            if (empId.IsAuthorised("Refund100", Permissions.Execute, databaseProvider))
                             {
                                 FinaliseTransation(sale, change);
                                 return;
@@ -992,7 +1015,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         }
                         else
                         {
-                            if (empId.IsAuthorised("Refund Unlimited", Database.Enums.Permissions.Execute, databaseProvider))
+                            if (empId.IsAuthorised("Refund Unlimited", Permissions.Execute, databaseProvider))
                             {
                                 FinaliseTransation(sale, change);
                                 return;
@@ -1012,7 +1035,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
             }
         }
 
-        private async void ExecuteCancelTransaction()
+        private void ExecuteCancelTransaction()
         {
             Basket.Clear();
         }
@@ -1022,7 +1045,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
         #region Operations
         private async void FinaliseTransation(SaleModel sale, decimal change)
         {
-            Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
+            _ = Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
             using (var db = new Helpers.Database.Database(databaseProvider, App.GetViewModel().EmployeeId))
             {
                 var itemHasNoStock = false;
@@ -1052,33 +1075,79 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     return;
                 }
 
-                Task[] tasks = new Task[2];
+                Task[] tasks = new Task[3];
+
+                var printerMgr = new PosPrinterManager();
+
+                var trackEventArgs = new Dictionary<string, string>();
+                trackEventArgs.Add("Canceled", "False");
 
                 if (Device.Idiom == TargetIdiom.Desktop)
                 {
-                    var printerMgr = new PosPrinterManager();
-                    tasks[0] = printerMgr.ExecuteOposOrPdfAsync(sale, Basket, App.GetViewModel().Store, null, change);
+                    if (!AskForReceipt || await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "ReceiptRequired".Translate(), "Yes".Translate(), "No".Translate()))
+                    {
+                        trackEventArgs.Add("Receipt Requested", "True");
+                        tasks[0] = Task.Run(async () =>
+                        {
+                            _ = await printerMgr.InitPrinter();
+                            await printerMgr.SetUpSalePrint(sale, Basket, App.GetViewModel().Store);
+                            await printerMgr.ExecuteOposOrPdfAsync();
+                            trackEventArgs.Add("Receipt Printed Succesfully", "True");
+                        });
+                    }
+
+                    if (TryCashDrawer)
+                    {
+                        trackEventArgs.Add("Cash Drawer Open Requested", "True");
+                        if (sale.PaySales.Any(pay => pay.TempPayMethod.IsChangeable.Equals(true)))
+                        {
+                            tasks[1] = printerMgr.OpenCashDrawer();
+                            trackEventArgs.Add("Cash Drawer Opened Successfully", "True");
+                        }
+                    }
                 }
 
                 if (change != default)
                 {
-                    tasks[1] = App.Current.MainPage.DisplayAlert("Hmm".Translate(), string.Format("CashBack".Translate(), change), "OK".Translate());
+                    tasks[2] = App.Current.MainPage.DisplayAlert("Hmm".Translate(), string.Format("CashBack".Translate(), change), "OK".Translate());
                 }
 
-                await Task.WhenAll(tasks.Where(t => t != null));
-
+                try
+                {
+                    await Task.WhenAll(tasks.Where(t => t != null));
+                    _ = await printerMgr.CloseConnection();
+                    printerMgr.Dispose();
+                }
+                catch (POSObjectException pOSObjectException)
+                {
+                    Microsoft.AppCenter.Crashes.Crashes.TrackError(pOSObjectException);
+                    if (pOSObjectException.POSTargetObjectType == CommonPOSLibrary.Enums.POSTargetObjectType.Printer)
+                    {
+                        trackEventArgs.Add("Receipt Printed Succesfully", "False");
+                        await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "There was a problem with the POS Printer. Transaction has succeeded but a receipt is currently unavailble.", "OK".Translate());
+                    }
+                    else if (pOSObjectException.POSTargetObjectType == CommonPOSLibrary.Enums.POSTargetObjectType.CashDrawer)
+                    {
+                        trackEventArgs.Add("Cash Drawer Opened Successfully", "False");
+                        CashDrawerWarningSilenced = !await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "CashDrawerErrorWarning".Translate(), "OK".Translate(), "Silence".Translate());
+                    }
+                }
                 Basket.Clear();
                 await App.Current.MainPage.DisplayAlert("Transaction".Translate(), "TransConfMesg".Translate(), "OK".Translate());
 
+                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Sale Processing", trackEventArgs);
+
                 if (!itemHasNoStock)
+                {
                     return;
+                }
                 //put in stockwarning
             }
         }
 
         private Dictionary<string, Func<PaymentMethodModel>> GenPaymentMethodActions()
         {
-            Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
+            _ = Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
             using (var db = new Helpers.Database.Database(databaseProvider))
             {
                 return db.Get<PaymentMethodModel>()
@@ -1091,7 +1160,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
         {
             try
             {
-                Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
+                Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
                 using (var db = new Helpers.Database.Database(databaseProvider))
                 {
                     return db.SearchId(needle)

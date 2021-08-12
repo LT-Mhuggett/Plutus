@@ -167,6 +167,8 @@ namespace NatApp.Plutus.ViewModels.MainTill.Inventory.Items
                                 Debug.Write("Save Failed!");
                             }
 
+                            Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Created (from AddEditViewModel)");
+
                             //await DisplayPopup();
                             await App.Current.MainPage.DisplayAlert("Success".Translate(), "Saved".Translate(), "OK".Translate());
 
@@ -202,6 +204,9 @@ namespace NatApp.Plutus.ViewModels.MainTill.Inventory.Items
                         CreateUpdateStock();
                         using (var db = new Helpers.Database.Database(databaseProvider, empId))
                         {
+                            //Ensures that old relationship data doesn't overide new changed relationship data
+                            Item.Vat = null;
+                            Item.Cat = null;
                             Item.VatId = Tax.Id;
                             Item.CatId = Category.Id;
 
@@ -210,6 +215,8 @@ namespace NatApp.Plutus.ViewModels.MainTill.Inventory.Items
                             {
                                 Debug.Write("Save Failed!");
                             }
+
+                            Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Updated (from AddEditViewModel)");
 
                             //await DisplayPopup();
                             await App.Current.MainPage.DisplayAlert("Success".Translate(), "Saved".Translate(), "OK".Translate());
@@ -279,6 +286,8 @@ namespace NatApp.Plutus.ViewModels.MainTill.Inventory.Items
                                 return;
                             }
 
+
+                            Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Category Created (from AddEditViewModel)");
                             //await DisplayPopup();
                             await App.Current.MainPage.DisplayAlert("Success".Translate(), "Saved".Translate(), "OK".Translate());
 

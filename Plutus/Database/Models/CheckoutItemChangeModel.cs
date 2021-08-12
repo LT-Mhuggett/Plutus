@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Database.Attributes;
+using Database.Enums;
+using System;
 
 namespace Database.Models
 {
@@ -9,6 +11,12 @@ namespace Database.Models
         private decimal _price;
         private decimal _exPrice;
 
+        #region Auditable
+        private DateTime _created;
+        private DateTime _modified;
+        private string _createdBy;
+        private string _modifiedBy;
+        #endregion
         #region Relationships
         private string _itemId;
         private ItemModel _item;
@@ -18,18 +26,47 @@ namespace Database.Models
         #endregion
 
         #region Properties
+        [Exportable]
         public decimal Price
         {
             get => _price;
             set => SetProperty(ref _price, value);
         }
+        [Exportable]
         public decimal ExPrice
         {
             get => _exPrice;
             set => SetProperty(ref _exPrice, value);
         }
 
+        #region Auditable
+        [Exportable]
+        public DateTime Created
+        {
+            get => _created;
+            set => SetProperty(ref _created, value);
+        }
+        [Exportable]
+        public DateTime Modified
+        {
+            get => _modified;
+            set => SetProperty(ref _modified, value);
+        }
+        [Exportable(ExportLevels.NonUserFriendly)]
+        public string CreatedBy
+        {
+            get => _createdBy;
+            set => SetProperty(ref _createdBy, value);
+        }
+        [Exportable(ExportLevels.NonUserFriendly)]
+        public string ModifiedBy
+        {
+            get => _modifiedBy;
+            set => SetProperty(ref _modifiedBy, value);
+        }
+        #endregion
         #region Relationships
+        [Exportable]
         public string ItemId
         {
             get => _itemId;

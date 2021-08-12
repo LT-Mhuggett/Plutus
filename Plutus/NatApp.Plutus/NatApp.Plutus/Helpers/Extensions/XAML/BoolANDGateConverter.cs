@@ -17,7 +17,7 @@ namespace NatApp.Plutus.Helpers.Extensions.XAML
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            throw new NotSupportedException("This converter is onweay from source only");
+            throw new NotSupportedException("This converter is oneway from source only");
         }
     }
 }

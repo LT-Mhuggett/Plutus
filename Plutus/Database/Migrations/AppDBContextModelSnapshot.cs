@@ -520,6 +520,8 @@ namespace Database.Migrations
 
                     b.Property<string>("City");
 
+                    b.Property<string>("ContactNumber");
+
                     b.Property<string>("Country");
 
                     b.Property<DateTime>("Created");
@@ -541,6 +543,8 @@ namespace Database.Migrations
                     b.Property<string>("StoreAbbr");
 
                     b.Property<string>("StoreName");
+
+                    b.Property<string>("VatIN");
 
                     b.HasKey("Id");
 
@@ -611,6 +615,8 @@ namespace Database.Migrations
                     b.Property<int>("TransactionId");
 
                     b.Property<int>("DiscountId");
+
+                    b.Property<decimal>("DiscountRate");
 
                     b.HasKey("TransactionId", "DiscountId");
 

@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Database.Attributes;
+using Database.Enums;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -23,40 +25,53 @@ namespace Database.Models
         private StockModel _stock;
         private TaxModel _vat;
         private CategoryModel _cat;
+        #region Auditable
+        private DateTime _created;
+        private DateTime _modified;
+        private string _createdBy;
+        private string _modifiedBy;
+        #endregion
         #endregion
         #endregion
 
         #region Properties
+        [Exportable]
         public string Name
         {
             get => _name;
             set => SetProperty(ref _name, value);
         }
+        [Exportable]
         public string Brand
         {
             get => _brand;
             set => SetProperty(ref _brand, value);
         }
+        [Exportable]
         public string Desc
         {
             get => _desc;
             set => SetProperty(ref _desc, value);
         }
+        [Exportable]
         public decimal Cost
         {
             get => _cost;
             set => SetProperty(ref _cost, value);
         }
+        [Exportable]
         public decimal ExPrice
         {
             get => _exPrice;
             set => SetProperty(ref _exPrice, value);
         }
+        [Exportable]
         public decimal Price
         {
             get => _price;
             set => SetProperty(ref _price, value);
         }
+        [Exportable(ExportLevels.NonUserFriendly)]
         public byte[] Image
         {
             get => _image;
@@ -70,13 +85,41 @@ namespace Database.Models
             set => SetProperty(ref _amount, value);
         }
 
+        #region Auditable
+        [Exportable]
+        public DateTime Created
+        {
+            get => _created;
+            set => SetProperty(ref _created, value);
+        }
+        [Exportable]
+        public DateTime Modified
+        {
+            get => _modified;
+            set => SetProperty(ref _modified, value);
+        }
+        [Exportable(ExportLevels.NonUserFriendly)]
+        public string CreatedBy
+        {
+            get => _createdBy;
+            set => SetProperty(ref _createdBy, value);
+        }
+        [Exportable(ExportLevels.NonUserFriendly)]
+        public string ModifiedBy
+        {
+            get => _modifiedBy;
+            set => SetProperty(ref _modifiedBy, value);
+        }
+        #endregion
         #region Relationships
+        [Exportable]
         [ForeignKey("VatIdFK")]
         public int VatId
         {
             get => _vatId;
             set => SetProperty(ref _vatId, value);
         }
+        [Exportable]
         [ForeignKey("CatIdFK")]
         public int CatId
         {
@@ -98,7 +141,6 @@ namespace Database.Models
             get => _cat;
             set => SetProperty(ref _cat, value);
         }
-
         #region Collections
         public virtual ICollection<Discount_Item> DisItems { get; set; }
         public virtual ICollection<TransactionModel> Transactions { get; set; }

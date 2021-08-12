@@ -18,107 +18,11 @@ namespace NatApp.Plutus.UWP.Implementations.Services
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="Id"></param>
-        /// <returns></returns>
-        public async Task<bool> CloseCommunicationAsync(string Id)
-        {
-            ValueSet valueSet = new ValueSet();
-            valueSet.Add($"{Id}.closeCommunication", "null");
-            if (App._appServiceConnection == null) return true;
-            AppServiceResponse serviceResponce = await App._appServiceConnection.SendMessageAsync(valueSet);
-            if (bool.Parse(serviceResponce.Message["response"] as string))
-            {
-                return true;
-            }
-            else
-                return false;
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="Id"></param>
-        /// <returns></returns>
-        public static async Task<bool> CloseCommunicationStaticAsync(string Id)
-        {
-            ValueSet valueSet = new ValueSet();
-            valueSet.Add($"{Id}.closeCommunication", "null");
-            if (App._appServiceConnection == null) return true;
-            AppServiceResponse serviceResponce = await App._appServiceConnection.SendMessageAsync(valueSet);
-            if (bool.Parse(serviceResponce.Message["response"] as string))
-            {
-                return true;
-            }
-            else
-                return false;
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="Id"></param>
-        /// <returns></returns>
-        public static async Task<bool> CloseServiceAsync(string Id)
-        {
-            ValueSet valueSet = new ValueSet();
-            valueSet.Add($"{Id}.endProcess", "null");
-            if (App._appServiceConnection == null) return true;
-            AppServiceResponse serviceResponce = await App._appServiceConnection.SendMessageAsync(valueSet);
-            if (bool.Parse(serviceResponce.Message["response"] as string))
-            {
-                App._appServiceDeferral.Complete();
-                return true;
-            }
-            else
-                return false;
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
-        public async Task<bool> OpenCommunicationAsync()
-        {
-            try
-            {
-                await Windows.ApplicationModel.FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
-                await Task.Delay(3000);
-                return true;
-            }
-            catch(Exception ex)
-            {
-                Debug.WriteLine("Rebuild the solution and make sure the BackgroundProcess is in the AppX folder");
-                Debug.WriteLine(ex.Message);
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
         /// <param name="keyValue"></param>
         /// <returns></returns>
-        public async Task<object> SendAndGetResponseAsync(List<KeyValuePair<string, object>> keyValue)
+        public async Task<object> SendAndGetResponseAsync(KeyValuePair<string, object> keyValue)
         {
-            ValueSet valueSet = new ValueSet();
-            keyValue.ForEach(kV => valueSet.Add(kV));
-            if (App._appServiceConnection == null) return "App Closed!";
-            AppServiceResponse serviceResponse = await App._appServiceConnection.SendMessageAsync(valueSet);
-            return serviceResponse.Message["response"];
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="keyValue"></param>
-        /// <returns></returns>
-        public static async Task<object> SendAndGetResponseStaticAsync(List<KeyValuePair<string, object>> keyValue)
-        {
-            ValueSet valueSet = new ValueSet();
-            keyValue.ForEach(kV => valueSet.Add(kV));
-            if (App._appServiceConnection == null) return "App Closed!";
-            AppServiceResponse serviceResponse = await App._appServiceConnection.SendMessageAsync(valueSet);
-            return serviceResponse.Message["response"];
+            return await App.POSManager.POSCommandSelection(keyValue.Key, keyValue.Value);
         }
     }
 }

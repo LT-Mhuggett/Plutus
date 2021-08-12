@@ -1,38 +1,35 @@
 ﻿using I18N_L10N.Extensions;
-using NatApp.Plutus.Services.Loading;
-using NatApp.Plutus.ViewModels;
-using NatApp.Plutus.Views;
 using Microsoft.AppCenter;
 using Microsoft.AppCenter.Analytics;
 using Microsoft.AppCenter.Crashes;
+using NatApp.Plutus.Services.Loading;
+using NatApp.Plutus.ViewModels;
+using NatApp.Plutus.Views;
+using Plugin.Iconize;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
-using System;
-using NatApp.Plutus.Models;
-using Plugin.Iconize;
-using Database.Enums;
-using Database.Models;
-using System.Linq;
 
 [assembly: XamlCompilation(XamlCompilationOptions.Compile)]
 namespace NatApp.Plutus
 {
     public partial class App : Application
     {
-        private static bool _isLoading;
-        internal static TranslateExtension translateExtension = null;
+        private static bool IsLoading;
+        internal static TranslateExtension TranslateExtension = null;
+#pragma warning disable IDE1006 // Naming Styles
         private static App _app;
+#pragma warning restore IDE1006 // Naming Styles
 
         public App()
         {
             //Register the syncfusion license
             Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense(
-                "MTE1NjUwQDMxMzcyZTMyMmUzMFpiVU9HUExTczJEejQ5SFpGSk14ckxYWnUzNW9hN3ZadnV1UlNNcTgwdEU9");
-            
+                "NDg3MzQ2QDMxMzkyZTMyMmUzMGxFd1VHR3l1ekdldEJSbjQyQ2NRTHhyakorOVZ6cmF6NSszNkNPTmtJNEk9");
+
             //Set culture for AppResources
             I18N_L10N.I18N_L10N.SetCulture();
             //Create transaleExtension for code behind translation
-            translateExtension = new TranslateExtension();
+            TranslateExtension = new TranslateExtension();
 
             Iconize.With(new Plugin.Iconize.Fonts.MaterialModule());
 
@@ -76,16 +73,16 @@ namespace NatApp.Plutus
             return (AppViewModel)_app.BindingContext;
         }
 
-#region Global Loading Methods
+        #region Global Loading Methods
         /// <summary>
         /// Sets loading attribute directly and triggers the correct UI response
         /// </summary>
         /// <param name="isLoading">value to set loading indicator</param>
         internal protected static void SetLoading(bool isLoading)
         {
-            if (isLoading == _isLoading)
+            if (isLoading == IsLoading)
                 return;
-            _isLoading = isLoading;
+            IsLoading = isLoading;
             TriggerLoadingUI();
         }
 
@@ -94,7 +91,7 @@ namespace NatApp.Plutus
         /// </summary>
         internal protected static void ToggleLoading()
         {
-            _isLoading = !_isLoading;
+            IsLoading = !IsLoading;
             TriggerLoadingUI();
         }
 
@@ -103,7 +100,7 @@ namespace NatApp.Plutus
         /// </summary>
         private protected static void TriggerLoadingUI()
         {
-            if (_isLoading)
+            if (IsLoading)
             {
                 DependencyService.Get<ILoadingViewService>().ShowLoadingPage();
             }
@@ -114,6 +111,6 @@ namespace NatApp.Plutus
 
             }
         }
-#endregion
+        #endregion
     }
 }

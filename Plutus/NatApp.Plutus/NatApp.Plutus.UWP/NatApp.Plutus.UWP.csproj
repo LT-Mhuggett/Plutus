@@ -11,8 +11,8 @@
     <AssemblyName>NatApp.Plutus.UWP</AssemblyName>
     <DefaultLanguage>en-US</DefaultLanguage>
     <TargetPlatformIdentifier>UAP</TargetPlatformIdentifier>
-    <TargetPlatformVersion>10.0.17134.0</TargetPlatformVersion>
-    <TargetPlatformMinVersion>10.0.16299.0</TargetPlatformMinVersion>
+    <TargetPlatformVersion>10.0.18362.0</TargetPlatformVersion>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <MinimumVisualStudioVersion>14</MinimumVisualStudioVersion>
     <EnableDotNetNativeCompatibleProfile>true</EnableDotNetNativeCompatibleProfile>
     <FileAlignment>512</FileAlignment>
@@ -22,11 +22,14 @@
     <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
     <AppxBundle>Always</AppxBundle>
     <AppxBundlePlatforms>x86|x64|arm</AppxBundlePlatforms>
-    <PackageCertificateThumbprint>C17DC6D50C650E7DC1A67B412EED2278B5D32CF9</PackageCertificateThumbprint>
+    <PackageCertificateThumbprint>
+    </PackageCertificateThumbprint>
     <AppInstallerUpdateFrequency>0</AppInstallerUpdateFrequency>
     <AppInstallerCheckForUpdateFrequency>OnApplicationRun</AppInstallerCheckForUpdateFrequency>
     <GenerateTestArtifacts>True</GenerateTestArtifacts>
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
+    <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
+    <AppxSymbolPackageEnabled>True</AppxSymbolPackageEnabled>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|ARM'">
     <DebugSymbols>true</DebugSymbols>
@@ -50,7 +53,7 @@
     <UseVSHostingProcess>false</UseVSHostingProcess>
     <ErrorReport>prompt</ErrorReport>
     <Prefer32Bit>true</Prefer32Bit>
-    <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
+    <UseDotNetNativeToolchain>false</UseDotNetNativeToolchain>
     <LangVersion>7.3</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
@@ -74,7 +77,7 @@
     <UseVSHostingProcess>false</UseVSHostingProcess>
     <ErrorReport>prompt</ErrorReport>
     <Prefer32Bit>true</Prefer32Bit>
-    <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
+    <UseDotNetNativeToolchain>false</UseDotNetNativeToolchain>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
     <DebugSymbols>true</DebugSymbols>
@@ -90,19 +93,21 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
     <OutputPath>bin\x86\Release\</OutputPath>
     <DefineConstants>TRACE;NETFX_CORE;WINDOWS_UWP</DefineConstants>
-    <Optimize>true</Optimize>
+    <Optimize>false</Optimize>
     <NoWarn>;2008</NoWarn>
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>x86</PlatformTarget>
     <UseVSHostingProcess>false</UseVSHostingProcess>
     <ErrorReport>prompt</ErrorReport>
     <Prefer32Bit>true</Prefer32Bit>
-    <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
+    <UseDotNetNativeToolchain>false</UseDotNetNativeToolchain>
+    <EnableGatekeeperAnalysis>false</EnableGatekeeperAnalysis>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Helpers\DeviceHelpers.cs" />
     <Compile Include="Implementations\Services\CopperTransferUWP.cs" />
     <Compile Include="Implementations\Services\FileUWP.cs" />
     <Compile Include="Implementations\Services\FolderPickerUWP.cs" />
@@ -114,6 +119,11 @@
       <DependentUpon>MainPage.xaml</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Services\POS\Contracts\POSObjectContract.cs" />
+    <Compile Include="Services\POS\EscPosComands.cs" />
+    <Compile Include="Services\POS\POSCashDrawer.cs" />
+    <Compile Include="Services\POS\POSManager.cs" />
+    <Compile Include="Services\POS\POSPrinter.cs" />
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest">
@@ -121,7 +131,6 @@
     </AppxManifest>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Assets\Exes\POSIntegration.exe" />
     <Content Include="Assets\LargeTile.scale-100.png" />
     <Content Include="Assets\LargeTile.scale-200.png" />
     <Content Include="Assets\LargeTile.scale-400.png" />
@@ -163,19 +172,19 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="AutoMapper">
-      <Version>8.1.1</Version>
+      <Version>10.1.1</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.AppCenter.Analytics">
-      <Version>2.0.0</Version>
+      <Version>4.3.0</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.AppCenter.Crashes">
-      <Version>2.0.0</Version>
+      <Version>4.3.0</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.AppCenter.Distribute">
-      <Version>2.0.0</Version>
+      <Version>4.3.0</Version>
     </PackageReference>
     <PackageReference Include="Rg.Plugins.Popup">
-      <Version>1.1.5.188</Version>
+      <Version>2.0.0.12</Version>
     </PackageReference>
     <PackageReference Include="SkiaSharp.Extended">
       <Version>1.60.0</Version>
@@ -184,37 +193,37 @@
       <Version>1.60.0</Version>
     </PackageReference>
     <PackageReference Include="SkiaSharp.Views">
-      <Version>1.68.0</Version>
+      <Version>2.80.3</Version>
     </PackageReference>
     <PackageReference Include="SkiaSharp.Views.Forms">
-      <Version>1.68.0</Version>
+      <Version>2.80.3</Version>
     </PackageReference>
     <PackageReference Include="Syncfusion.Xamarin.SfCalendar">
-      <Version>17.2.0.47</Version>
+      <Version>19.2.0.48</Version>
     </PackageReference>
     <PackageReference Include="Syncfusion.Xamarin.SfChart">
-      <Version>17.2.0.47</Version>
+      <Version>19.2.0.48</Version>
     </PackageReference>
     <PackageReference Include="Syncfusion.Xamarin.SfListView">
-      <Version>17.2.0.47</Version>
+      <Version>19.2.0.48</Version>
     </PackageReference>
     <PackageReference Include="Syncfusion.Xamarin.SfNumericUpDown">
-      <Version>17.2.0.47</Version>
+      <Version>19.2.0.48</Version>
     </PackageReference>
     <PackageReference Include="Syncfusion.Xamarin.SfPicker">
-      <Version>17.2.0.47</Version>
+      <Version>19.2.0.48</Version>
     </PackageReference>
     <PackageReference Include="Syncfusion.Xamarin.SfPopupLayout">
-      <Version>17.2.0.47</Version>
+      <Version>19.2.0.48</Version>
     </PackageReference>
     <PackageReference Include="Syncfusion.Xamarin.SfSunburstChart">
-      <Version>17.2.0.47</Version>
+      <Version>19.2.0.48</Version>
     </PackageReference>
     <PackageReference Include="Syncfusion.Xamarin.XlsIO">
-      <Version>17.2.0.47</Version>
+      <Version>19.2.0.48</Version>
     </PackageReference>
     <PackageReference Include="Syncfusion.Xamarin.XlsIORenderer">
-      <Version>17.2.0.47</Version>
+      <Version>19.2.0.48</Version>
     </PackageReference>
     <PackageReference Include="Xam.Plugin.Iconize">
       <Version>3.5.0.129</Version>
@@ -229,15 +238,19 @@
       <Version>3.1.1</Version>
     </PackageReference>
     <PackageReference Include="Xamarin.Essentials">
-      <Version>1.2.0</Version>
+      <Version>1.7.0</Version>
     </PackageReference>
-    <PackageReference Include="Xamarin.Forms" Version="4.1.0.618606" />
-    <PackageReference Include="Microsoft.NETCore.UniversalWindowsPlatform" Version="6.2.8" />
+    <PackageReference Include="Xamarin.Forms" Version="5.0.0.2083" />
+    <PackageReference Include="Microsoft.NETCore.UniversalWindowsPlatform" Version="6.2.12" />
     <PackageReference Include="Xamarin.Plugin.FilePicker">
-      <Version>2.1.18</Version>
+      <Version>2.1.41</Version>
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\CommonPOSLibrary\CommonPOSLibrary.csproj">
+      <Project>{D1D47930-CEA0-4A76-AFF1-AC8025E31C8B}</Project>
+      <Name>CommonPOSLibrary</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\Database\Database.csproj">
       <Project>{45D390E4-AE4A-4776-A141-0B8D2DD7E9FC}</Project>
       <Name>Database</Name>
@@ -248,19 +261,29 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <SDKReference Include="WindowsDesktop, Version=10.0.17134.0">
-      <Name>Windows Desktop Extensions for the UWP</Name>
-    </SDKReference>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Assets\Exes\POSIntegration.exe.config" />
     <None Include="NatApp.Plutus.UWP_TemporaryKey.pfx" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Implementations\UI\Effects\" />
   </ItemGroup>
+  <ItemGroup>
+    <SDKReference Include="WindowsDesktop, Version=10.0.18362.0">
+      <Name>Windows Desktop Extensions for the UWP</Name>
+    </SDKReference>
+  </ItemGroup>
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '14.0' ">
     <VisualStudioVersion>14.0</VisualStudioVersion>
   </PropertyGroup>
+  <PropertyGroup>
+    <SignAssembly>true</SignAssembly>
+  </PropertyGroup>
+  <PropertyGroup>
+    <AssemblyOriginatorKeyFile>
+    </AssemblyOriginatorKeyFile>
+  </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\Microsoft\WindowsXaml\v$(VisualStudioVersion)\Microsoft.Windows.UI.Xaml.CSharp.targets" />
+  <PropertyGroup>
+    <PreBuildEvent>
+    </PreBuildEvent>
+  </PropertyGroup>
 </Project>

@@ -1,4 +1,5 @@
-﻿using Database.Models.Interface;
+﻿using Database.Attributes;
+using Database.Models.Interface;
 
 namespace Database.Models
 {
@@ -9,6 +10,7 @@ namespace Database.Models
         #endregion
 
         #region Properties
+        [Exportable]
         public T Id
         {
             get => _id;

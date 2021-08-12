@@ -83,20 +83,6 @@ namespace Database
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            //Audit
-            foreach (var entityType in modelBuilder.Model.GetEntityTypes()
-                .Where(e => typeof(IAuditable).IsAssignableFrom(e.ClrType)))
-            {
-                modelBuilder.Entity(entityType.ClrType)
-                    .Property<DateTime>("Created");
-                modelBuilder.Entity(entityType.ClrType)
-                    .Property<DateTime>("Modified");
-                modelBuilder.Entity(entityType.ClrType)
-                    .Property<string>("CreatedBy");
-                modelBuilder.Entity(entityType.ClrType)
-                    .Property<string>("ModifiedBy");
-            }
-
             //Filters
             if(!string.IsNullOrEmpty(_storeId))
                 modelBuilder.Entity<StockModel>().HasQueryFilter(s => s.StoreId == _storeId);

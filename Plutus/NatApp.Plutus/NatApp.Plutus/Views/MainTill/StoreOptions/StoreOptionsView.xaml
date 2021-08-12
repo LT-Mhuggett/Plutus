@@ -38,6 +38,8 @@
                         <Image Source="{Binding Store.Logo, Converter={StaticResource ImageSourceConverter}}" IsVisible="{Binding DisplayLogo}"/>
                         <Label Text="{Binding Store.StoreName}"/>
                         <Label Text="{Binding Store.ReadableAddress}"/>
+                        <Label Text="{Binding Store.ContactNumber}"/>
+                        <Label Text="{Binding Store.VatIN}"/>
                     </StackLayout>
                     <StackLayout Grid.Column="1" HorizontalOptions="FillAndExpand">
                         <Label Text="{i18n:Translate Region}" FontSize="Small" FontAttributes="Bold"/>

@@ -1,52 +1,44 @@
-﻿using Database.Models;
+﻿using CommonPOSLibrary;
+using CommonPOSLibrary.Enums;
+using CommonPOSLibrary.Exceptions;
+using Database.Models;
 using NatApp.Plutus.Helpers.Extensions;
 using NatApp.Plutus.Models;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.Linq;
-using System.Runtime.Serialization;
 using System.Threading.Tasks;
 using Xamarin.Forms;
 
 namespace NatApp.Plutus.Services.POSHandeling
 {
-    internal class PosPrinterManager : IDisposable
+    internal class PosPrinterManager : PrinterBaseOperations, IDisposable
     {
         /// <summary>
         /// Is the Printer Device enabled
         /// </summary>
-        private bool DeviceEnabled { get; set; }
-
-        /// <summary>
-        /// The list of available POS Printers
-        /// </summary>
-        internal Dictionary<string, Dictionary<string, object>> Printers { get; private set; }
+        private bool _deviceEnabled { get; set; }
 
         /// <summary>
         /// Constructor
         /// </summary>
         public PosPrinterManager()
         {
-            DeviceEnabled = false;
+            _deviceEnabled = false;
         }
 
         /// <summary>
-        /// Retrieve all POS printers
+        /// Trigger the select printer device picker and return the printer Id
         /// </summary>
-        /// <returns>Printers in Dictionary format</returns>
-        public async Task<Dictionary<string, Dictionary<string, object>>> GetPrinterList()
+        /// <returns>Printer logical Id</returns>
+        public async Task<string> SelectPrinterAndGetPrinterId()
         {
-            var keyValues = new List<KeyValuePair<string, object>>()
-            {
-                new KeyValuePair<string, object>($"{App.GetViewModel().SessionId.ToString()}.POS.getPrinters", "null")
-            };
+            var keyValue = new KeyValuePair<string, object>("selectPrinter", "null");
             try
             {
-                var stringResult = (string)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValues);
-                return Printers = JsonConvert.DeserializeObject<Dictionary<string, Dictionary<string, object>>>(stringResult);
+                return (string)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
+
             }
             catch (Exception ex)
             {
@@ -56,18 +48,35 @@ namespace NatApp.Plutus.Services.POSHandeling
             }
         }
 
+        internal async Task SetupExecutePrintMultiLine()
+        {
+            if (!_deviceEnabled)
+                throw new POSPrinterException(POSPrinterExceptionType.PrinterNotEnabled, "Printer is not Enabled!");
+            var keyValue = new KeyValuePair<string, object>("printMultiLines", Lines);
+            await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
+            await CloseConnection();
+        }
+
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="logicalName"></param>
         /// <returns></returns>
-        private async Task<bool> InitPrinter(string logicalName)
+        internal async Task<bool> InitPrinter()
         {
-            var keyValues = new List<KeyValuePair<string, object>>()
+            if (!string.IsNullOrEmpty(App.GetViewModel().PrinterLogicalNameSetting))
             {
-                new KeyValuePair<string, object>($"{App.GetViewModel().SessionId.ToString()}.POS.initPrinter", logicalName)
-            };
-            return DeviceEnabled = (bool)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValues);
+                try
+                {
+                    var keyValue = new KeyValuePair<string, object>("initPrinter", App.GetViewModel().PrinterLogicalNameSetting);
+                    return _deviceEnabled = (bool)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
+                }
+                catch (POSObjectException pOSObjectException)
+                {
+                    Console.WriteLine(pOSObjectException.Message);
+                    throw pOSObjectException;
+                }
+            }
+            return false;
         }
 
         /// <summary>
@@ -76,49 +85,46 @@ namespace NatApp.Plutus.Services.POSHandeling
         /// <param name="sale"></param>
         /// <param name="store"></param>
         /// <returns></returns>
-        private async Task<bool> SetUpExecutePrint(SaleModel sale, IEnumerable<IBasketRecord> basketRecords, StoreModel store)
+        public async Task SetUpSalePrint(SaleModel sale, IEnumerable<IBasketRecord> basketRecords, StoreModel store)
         {
-            var keyValues = new List<KeyValuePair<string, object>>();
-            if (!DeviceEnabled)
-                throw new PrinterException("Printer is not Initalized", DeviceEnabled);
+            if (!_deviceEnabled)
+                throw new POSPrinterException(POSPrinterExceptionType.PrinterNotEnabled, "Printer is not Enabled!");
             var text = new List<KeyValuePair<string, object>>();
-            PrintHeaderofReceipt(ref text, sale, store);
-            text = await PrintTransactionAndRefundsAsync(text, basketRecords);
-            if (basketRecords.Where(bR=>bR is BasketNote).Count() > 0)
-                PrintNotes(ref text, basketRecords);
-            PrintFooterOfReceipt(ref text, sale);
-            text.Add(new KeyValuePair<string, object>("cut...", ""));
-            var textToSend = JsonConvert.SerializeObject(text);
-            keyValues.Add(new KeyValuePair<string, object>($"{App.GetViewModel().SessionId.ToString()}.POS.printMultiLines", textToSend));
-            return (bool)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValues);
+            PrintHeaderofReceipt(sale, store);
+            await PrintTransactionAndRefundsAsync(basketRecords);
+            if (sale.Notes.Count() > 0)
+                PrintNotes(sale.Notes.Select(saleNote => saleNote.Note));
+
+            PrintFooterOfReceipt(sale);
+            CutPaper();
         }
 
         /// <summary>
         /// Open the Cash drawer
         /// </summary>
         /// <returns>Successful or Not</returns>
-        private async Task<bool> OpenCashDrawer()
+        public async Task<bool> OpenCashDrawer()
         {
-            var keyValues = new List<KeyValuePair<string, object>>()
-            {
-                new KeyValuePair<string, object>($"{App.GetViewModel().SessionId.ToString()}.POS.openCashDrawer", "null")
-            };
-            return (bool)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValues);
+            var keyValue = new KeyValuePair<string, object>("openCashDrawer", "null");
+            return (bool)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
         }
 
         /// <summary>
         /// Release the printers lock
         /// </summary>
         /// <returns>Successful of Not</returns>
-        private async Task<bool> CloseConnection()
+        public async Task<bool> CloseConnection()
         {
-            if (!DeviceEnabled)
-                throw new PrinterException("Printer is not Initalized", DeviceEnabled);
-            var keyValues = new List<KeyValuePair<string, object>>()
+            if (!_deviceEnabled)
+                return true;
+            var keyValue = new KeyValuePair<string, object>("closePrinter", "null");
+            if ((bool)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue))
             {
-                new KeyValuePair<string, object>($"{App.GetViewModel().SessionId.ToString()}.POS.closePrinter", "null")
-            };
-            return (bool)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValues);
+                _deviceEnabled = false;
+                return true;
+            }
+
+            return false;
         }
 
         #region Format data for printing
@@ -127,24 +133,35 @@ namespace NatApp.Plutus.Services.POSHandeling
         /// </summary>
         /// <param name="sale">The current Sale to print</param>
         /// <param name="store">The current Store transaction is occuring at</param>
-        /// <returns></returns>
-        private List<KeyValuePair<string, object>> PrintHeaderofReceipt(ref List<KeyValuePair<string, object>> text,
-            SaleModel sale, StoreModel store)
+        private void PrintHeaderofReceipt(SaleModel sale, StoreModel store)
         {
-            text.Add(new KeyValuePair<string, object>("str.cntr.true.", "ThankYouShopping".Translate()));
-            text.Add(new KeyValuePair<string, object>("str.cntr.true.", store.StoreName));
+            WriteText("ThankYouShopping".Translate(), "cntr", "true");
+            if (store.Logo != null && store.Logo.Length != 0)
+                WriteImage(store.Logo, "cntr");
+            WriteText(store.StoreName, "cntr", "true");
+            BlankLine();
+            if (!string.IsNullOrEmpty(store.ContactNumber))
+                WriteText(store.ContactNumber, "cntr");
+
             if (string.IsNullOrEmpty(store.FullAddress))
             {
-                text.Add(new KeyValuePair<string, object>("str.cntr.true.", store.AdLine1));
-                text.Add(new KeyValuePair<string, object>("str.cntr.true.", store.AdLine2));
-                text.Add(new KeyValuePair<string, object>("str.cntr.true.", store.PostCode));
-                text.Add(new KeyValuePair<string, object>("str.cntr.true.", store.Country));
+                WriteText(store.AdLine1, "cntr");
+                WriteText(store.AdLine2, "cntr");
+                WriteText(store.PostCode, "cntr");
+                WriteText(store.Country, "cntr");
             }
             else
-                text.Add(new KeyValuePair<string, object>("str.cntr.true.", store.FullAddress));
-            text.Add(new KeyValuePair<string, object>("str.cntr.true.", $"{sale.DateOfSale:D}"));
-            text.Add(new KeyValuePair<string, object>("str.cntr.true.", $"{sale.DateOfSale:T}"));
-            return text;
+                WriteText(store.FullAddress, "cntr");
+
+            BlankLine();
+            if (!string.IsNullOrEmpty(store.VatIN))
+            {
+                BlankLine();
+                WriteText($"{"VatIN".Translate()}: {store.VatIN}", "cntr", "true");
+            }
+            BlankLine();
+            WriteText($"{sale.DateOfSale:D}", "cntr");
+            WriteText($"{sale.DateOfSale:T}", "cntr");
         }
 
         /// <summary>
@@ -153,43 +170,39 @@ namespace NatApp.Plutus.Services.POSHandeling
         /// <param name="text"></param>
         /// <param name="sale"></param>
         /// <returns></returns>
-        private async Task<List<KeyValuePair<string, object>>> PrintTransactionAndRefundsAsync(List<KeyValuePair<string, object>> text,
-            IEnumerable<IBasketRecord> basketRecords)
+        private async Task PrintTransactionAndRefundsAsync(IEnumerable<IBasketRecord> basketRecords)
         {
-            var keyValues = new List<KeyValuePair<string, object>>
-            {
-                new KeyValuePair<string, object>($"{App.GetViewModel().SessionId.ToString()}.POS.getPageChars", "null")
-            };
-            int pageCharsMax = (int)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValues);
+            var keyValue = new KeyValuePair<string, object>("getPageChars", "null");
+            uint pageCharsMax = (uint)await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
 
             double pricePercent = 18.77;
-            if (basketRecords.Where(bR=>bR is BasketItem && !(bR is BasketReturnItem)).Count() > 0)
+            if (basketRecords.Where(bR => bR is BasketItem && !(bR is BasketReturnItem)).Count() > 0)
             {
                 int basketItemMaxChar = 0;
-                foreach (var basketItem in basketRecords.Where(bR=>bR is BasketItem && !(bR is BasketReturnItem)).Cast<BasketItem>())
+                foreach (var basketItem in basketRecords.Where(bR => bR is BasketItem && !(bR is BasketReturnItem)).Cast<BasketItem>())
                     basketItemMaxChar = basketItem.Item.Id.Length > basketItemMaxChar ? basketItem.Item.Id.Length : basketItemMaxChar;
 
                 double itemPercent = (double)(basketItemMaxChar + 1) / pageCharsMax * 100;
                 double qtyPercent = (double)4 / pageCharsMax * 100;
-                double namePercent = (pageCharsMax - (basketItemMaxChar + 1) - 4 - ((double)pageCharsMax / 100) * 18.75) / pageCharsMax * 100;
+                double namePercent = (pageCharsMax - (basketItemMaxChar + 1) - 4 - (double)pageCharsMax / 100 * 18.75) / pageCharsMax * 100;
 
-                text.Add(new KeyValuePair<string, object>("str..true.", "Sale".Translate()));
-                text.Add(new KeyValuePair<string, object>("str..true.", "Id".Translate() + "\t" + itemPercent));
-                text.Add(new KeyValuePair<string, object>("str..true.", "Name".Translate() + "\t" + namePercent));
-                text.Add(new KeyValuePair<string, object>("str..true.", "Price".Translate() + "\t" + pricePercent));
-                text.Add(new KeyValuePair<string, object>("str..true.", "qty".Translate() + "\t" + qtyPercent));
+                WriteText("Sale".Translate(), bold: "true");
+                WriteText($"{"Id".Translate()}\t{itemPercent}", bold: "true");
+                WriteText($"{"Name".Translate()}\t{namePercent}", bold: "true");
+                WriteText($"{"Price".Translate()}\t{pricePercent}", bold: "true");
+                WriteText($"{"qty".Translate()}\t{qtyPercent}", bold: "true");
 
                 foreach (var basketItem in basketRecords.Where(bR => bR is BasketItem && !(bR is BasketReturnItem)).Cast<BasketItem>())
                 {
-                    text.Add(new KeyValuePair<string, object>("str...", basketItem.Item.Id + "\t" + itemPercent));
-                    text.Add(new KeyValuePair<string, object>("str...", basketItem.Name + "\t" + namePercent));
-                    text.Add(new KeyValuePair<string, object>("str...", basketItem.Price + "\tR" + pricePercent));
-                    text.Add(new KeyValuePair<string, object>("str...", basketItem.Quantity + "\tR" + qtyPercent));
+                    WriteText($"{basketItem.Item.Id}\t{itemPercent}");
+                    WriteText($"{basketItem.Name}\t{namePercent}");
+                    WriteText($"{string.Format("{0:0.00}", basketItem.Price)}\tR{pricePercent}");
+                    WriteText($"{basketItem.Quantity}\tR{qtyPercent}");
                 }
-                text.Add(new KeyValuePair<string, object>("score...", ""));
+                ScoreReceipt();
             }
 
-            if (basketRecords.Where(bR=>bR is BasketReturnItem).Count() > 0)
+            if (basketRecords.Where(bR => bR is BasketReturnItem).Count() > 0)
             {
                 int basketReturnItemMaxChar = 0;
                 foreach (var basketReturnItem in basketRecords.Where(bR => bR is BasketReturnItem).Cast<BasketReturnItem>())
@@ -197,25 +210,37 @@ namespace NatApp.Plutus.Services.POSHandeling
 
                 double returnItemPercent = ((double)basketReturnItemMaxChar + 1) / pageCharsMax * 100;
                 double qtyPercent = (double)4 / pageCharsMax * 100;
-                double namePercent = (pageCharsMax - (basketReturnItemMaxChar + 1) - 4 - ((double)pageCharsMax / 100) * 18.75) / pageCharsMax * 100;
+                double namePercent = (pageCharsMax - (basketReturnItemMaxChar + 1) - 4 - (double)pageCharsMax / 100 * 18.75) / pageCharsMax * 100;
 
-                text.Add(new KeyValuePair<string, object>("str..true.", "Returns".Translate()));
-                text.Add(new KeyValuePair<string, object>("str..true.", "Id".Translate() + "\t" + returnItemPercent));
-                text.Add(new KeyValuePair<string, object>("str..true.", "Name".Translate() + "\t" + namePercent));
-                text.Add(new KeyValuePair<string, object>("str..true.", "Price".Translate() + "\t" + pricePercent));
-                text.Add(new KeyValuePair<string, object>("str..true.", "qty".Translate() + "\t" + qtyPercent));
+                WriteText("Returns".Translate(), bold: "true");
+                WriteText($"{"Id".Translate()}\t{returnItemPercent}", bold: "true");
+                WriteText($"{"Name".Translate()}\t{namePercent}", bold: "true");
+                WriteText($"{"Price".Translate()}\t{pricePercent}", bold: "true");
+                WriteText($"{"qty".Translate()}\t{qtyPercent}", bold: "true");
 
 
                 foreach (var basketReturnItem in basketRecords.Where(bR => bR is BasketReturnItem).Cast<BasketReturnItem>())
                 {
-                    text.Add(new KeyValuePair<string, object>("str...", basketReturnItem.Item.Id + "\t" + returnItemPercent));
-                    text.Add(new KeyValuePair<string, object>("str...", basketReturnItem.Name + "\t" + namePercent));
-                    text.Add(new KeyValuePair<string, object>("str...", Math.Abs(basketReturnItem.Price) * -1 + "\tR" + pricePercent));
-                    text.Add(new KeyValuePair<string, object>("str...", basketReturnItem.Quantity + "\tR" + qtyPercent));
+                    WriteText($"{basketReturnItem.Item.Id}\t{returnItemPercent}");
+                    WriteText($"{basketReturnItem.Name}\t{namePercent}");
+                    WriteText($"{string.Format("{0:0.00}", Math.Abs(basketReturnItem.Price))}\tR{pricePercent}");
+                    WriteText($"{basketReturnItem.Quantity}\tR{qtyPercent}");
                 }
-                text.Add(new KeyValuePair<string, object>("score...", ""));
+                ScoreReceipt();
             }
-            return text;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sale"></param>
+        private void PrintNotes(IEnumerable<NoteModel> notes)
+        {
+            WriteText("Notes".Translate(), bold: "true");
+            foreach (var note in notes)
+                WriteText(note.Note);
+
+            ScoreReceipt();
         }
 
         /// <summary>
@@ -224,95 +249,63 @@ namespace NatApp.Plutus.Services.POSHandeling
         /// <param name="text"></param>
         /// <param name="sale"></param>
         /// <returns></returns>
-        private List<KeyValuePair<string, object>> PrintNotes(ref List<KeyValuePair<string, object>> text, IEnumerable<IBasketRecord> basketRecords)
+        private void PrintFooterOfReceipt(SaleModel sale)
         {
-            text.Add(new KeyValuePair<string, object>("str..true.", "Notes".Translate()));
-            foreach (var note in basketRecords.Where(bR=>bR is BasketNote).Cast<BasketNote>())
-                text.Add(new KeyValuePair<string, object>("str...", note.Note.Note));
-            text.Add(new KeyValuePair<string, object>("score...", ""));
-            return text;
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="text"></param>
-        /// <param name="sale"></param>
-        /// <returns></returns>
-        private List<KeyValuePair<string, object>> PrintFooterOfReceipt(ref List<KeyValuePair<string, object>> text, SaleModel sale)
-        {
-            text.Add(new KeyValuePair<string, object>("str...", "\t50"));
-            text.Add(new KeyValuePair<string, object>("str...", $"{"Total".Translate()}\t25"));
-            text.Add(new KeyValuePair<string, object>("str.rght..", $"{sale.Total}"));
-            text.Add(new KeyValuePair<string, object>("score...", ""));
+            WriteText("\t50");
+            WriteText($"{"SubTotal".Translate()}\t25");
+            WriteText($"{string.Format("{0:0.00}", sale.TotalExTax)}", "rght");
+            WriteText("\t50");
+            WriteText($"{"Tax".Translate()}\t25");
+            WriteText($"{string.Format("{0:0.00}", sale.Total - sale.TotalExTax)}", "rght");
+            WriteText("\t50");
+            WriteText($"{"Total".Translate()}\t25");
+            WriteText($"{string.Format("{0:0.00}", sale.Total)}", "rght");
+            ScoreReceipt();
 
             var change = 0.0m;
             foreach (var payM in sale.PaySales)
             {
-                text.Add(new KeyValuePair<string, object>("str...", $"{payM.TempPayMethod.Name}\t25"));
-                text.Add(new KeyValuePair<string, object>("str...", $"{payM.Amount}\tR20"));
-                text.Add(new KeyValuePair<string, object>("str...", "\t55"));
+                WriteText($"{payM.TempPayMethod.Name}\t25");
+                WriteText($"{string.Format("{0:0.00}", payM.Amount)}\tR20");
+                WriteText($"\t55");
                 change += payM.Change;
             }
 
             if (change > 0)
             {
-                text.Add(new KeyValuePair<string, object>("score...", ""));
-                text.Add(new KeyValuePair<string, object>("str...", "\t50"));
-                text.Add(new KeyValuePair<string, object>("str...", $"{"Change".Translate()}\t25"));
-                text.Add(new KeyValuePair<string, object>("str...", $"{change}\tR25"));
+                ScoreReceipt();
+                WriteText("\t50");
+                WriteText($"{"Change".Translate()}\t25");
+                WriteText($"{string.Format("{0:0.00}", change)}\tR25");
             }
-            text.Add(new KeyValuePair<string, object>("str...", "\n"));
-            text.Add(new KeyValuePair<string, object>("brc.cntr.100.belw", sale.Id));
-            return text;
+
+            BlankLine();
+            WriteBarcode(sale.Id, App.GetViewModel().BarcodeSymbologySetting, 100, "cntr");
         }
         #endregion
 
-        internal async Task ExecuteOposOrPdfAsync(SaleModel sale, IEnumerable<IBasketRecord> basketRecords, StoreModel store, System.IO.Stream image, decimal cashBack)
+        internal async Task ExecuteOposOrPdfAsync()
         {
-            if (string.IsNullOrEmpty(App.GetViewModel().PrinterLogicalNameSetting))
+            if (Lines.Count == 0)
+                throw new Exception("No lines have set to print!");
+
+            if (_deviceEnabled)
             {
-                await PdfGeneration(sale, store, image, cashBack);
-                return;
+                var keyValue = new KeyValuePair<string, object>("printMultiLines", Lines);
+                await DependencyService.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
             }
-            await GetPrinterList();
-            if (Printers.Count == 0)
-            {
-                App.GetViewModel().PrinterLogicalNameSetting = null;
-                await PdfGeneration(sale, store, image, cashBack);
-                return;
-            }
-            var printerFound = false;
-            foreach (var printer in Printers)
-            {
-                if (printer.Key.Equals(App.GetViewModel().PrinterLogicalNameSetting))
-                {
-                    printerFound = true;
-                    await InitPrinter(printer.Key);
-                }
-            }
-            if (!printerFound)
-            {
-                App.GetViewModel().PrinterLogicalNameSetting = null;
-                await PdfGeneration(sale, store, image, cashBack);
-                return;
-            }
-            if (sale.PaySales.Any(pay => pay.TempPayMethod.IsChangeable.Equals(true)))
-                await OpenCashDrawer();
-            await SetUpExecutePrint(sale, basketRecords, store);
-            await CloseConnection();
-            DeviceEnabled = false;
+            //else
+                //await PdfGeneration(sale, store, image, cashBack);
         }
+
 
         private Task PdfGeneration(SaleModel sale, StoreModel store, System.IO.Stream image, decimal cashBack)
         {
-            //Create PDF
-            Debug.WriteLine("PDF Creator Here");
             throw new NotImplementedException();
         }
 
         #region IDisposable Support
-        private bool disposedValue = false; // To detect redundant calls
+        private bool _disposedValue = false; // To detect redundant calls
 
         /// <summary>
         /// Ensure all resources are disposed of
@@ -320,14 +313,14 @@ namespace NatApp.Plutus.Services.POSHandeling
         /// <param name="disposing"></param>
         protected virtual void Dispose(bool disposing)
         {
-            if (!disposedValue)
+            if (!_disposedValue)
             {
                 if (disposing)
                 {
-                    Printers = null;
+                    if (_deviceEnabled)
+                        throw new Exception("Printer has not been disposed of");
                 }
-
-                disposedValue = true;
+                _disposedValue = true;
             }
         }
 
@@ -339,30 +332,5 @@ namespace NatApp.Plutus.Services.POSHandeling
             Dispose(true);
         }
         #endregion
-    }
-
-    [Serializable]
-    internal class PrinterException : Exception
-    {
-        public bool DeviceEnabled;
-
-        public PrinterException(bool deviceEnabled)
-        {
-            DeviceEnabled = deviceEnabled;
-        }
-
-        public PrinterException(string message, bool deviceEnabled) : base(message)
-        {
-            DeviceEnabled = deviceEnabled;
-        }
-
-        public PrinterException(string message, bool deviceEnabled, Exception innerException) : base(message, innerException)
-        {
-            DeviceEnabled = deviceEnabled;
-        }
-
-        protected PrinterException(SerializationInfo info, StreamingContext context) : base(info, context)
-        {
-        }
     }
 }
