@@ -171,11 +171,13 @@ namespace NatApp.Plutus.ViewModels.MainTill.Inventory.Items
         private void ExecuteAddToBasket(string itemId)
         {
             MessagingCenter.Send(this, "AddToBasket", itemId);
+            Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Added To Basket Requested (from ViewAllViewModel)");
         }
 
         private async void ExecuteOpenEditItem(string itemId)
         {
             await App.Current.MainPage.Navigation.PushAsync(new AddEditView(itemId));
+            Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Edit Opened (from ViewAllViewModel)");
         }
 
         private async void ExecuteUpdateItemStock(string itemId)

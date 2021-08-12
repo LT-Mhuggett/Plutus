@@ -153,10 +153,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 }
             });
 
-            MessagingCenter.Subscribe<Inventory.Items.ViewAllViewModel, string>(
-            this,
-            "AddToBasket",
-            (sender, arg) =>
+            MessagingCenter.Subscribe<Inventory.Items.ViewAllViewModel, string>(this, "AddToBasket", (sender, arg) => 
             {
                 ExecuteItemAddArg(arg);
             });
@@ -329,6 +326,8 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     tempItem.IncrementQuantity(Quantity);
                 ItemId = string.Empty;
                 Quantity = 1;
+
+                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Added To Basket (from TillViewModel)");
             }
             finally
             {
@@ -348,6 +347,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 if (item == null)
                 {
                     await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "ItemNotFoundMesg".Translate(), "OK".Translate());
+                    Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Added To Basket (from Request)", new Dictionary<string, string> { { "Success", "False" } });
                     return;
                 }
 
@@ -374,6 +374,8 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     Basket.Add(new BasketItem(item, Quantity));
                 else
                     tempItem.IncrementQuantity(Quantity);
+
+                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Added To Basket (from Request)", new Dictionary<string, string> { { "Success", "True"} });
             }
             finally
             {

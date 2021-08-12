@@ -167,6 +167,8 @@ namespace NatApp.Plutus.ViewModels.MainTill.Inventory.Items
                                 Debug.Write("Save Failed!");
                             }
 
+                            Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Created (from AddEditViewModel)");
+
                             //await DisplayPopup();
                             await App.Current.MainPage.DisplayAlert("Success".Translate(), "Saved".Translate(), "OK".Translate());
 
@@ -213,6 +215,8 @@ namespace NatApp.Plutus.ViewModels.MainTill.Inventory.Items
                             {
                                 Debug.Write("Save Failed!");
                             }
+
+                            Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Updated (from AddEditViewModel)");
 
                             //await DisplayPopup();
                             await App.Current.MainPage.DisplayAlert("Success".Translate(), "Saved".Translate(), "OK".Translate());
@@ -282,6 +286,8 @@ namespace NatApp.Plutus.ViewModels.MainTill.Inventory.Items
                                 return;
                             }
 
+
+                            Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Category Created (from AddEditViewModel)");
                             //await DisplayPopup();
                             await App.Current.MainPage.DisplayAlert("Success".Translate(), "Saved".Translate(), "OK".Translate());
 
