@@ -437,6 +437,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(elements, "Confirm".Translate(), true, "Adjust".Translate());
                 basketItem.PriceExTax = decimal.Parse((string)data.ElementAt(0), numstyle, CultureInfo.CurrentCulture);
                 basketItem.Price = decimal.Parse((string)data.ElementAt(1), numstyle, CultureInfo.CurrentCulture);
+                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Adjustment");
             }
             finally
             {
@@ -550,6 +551,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 //finalize change
                 Basket.Remove(basketItem);
                 Basket.Add(returnItem);
+                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Return");
             }
             finally
             {
@@ -594,6 +596,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
             {
                 Alterations.Clear();
 
+                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Transaction Alteration (Discounts)");
                 Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
                 using (var db = new Helpers.Database.Database(databaseProvider, App.GetViewModel().EmployeeId))
                 {
@@ -708,8 +711,11 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     data = (string)(await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(elements, "Confirm".Translate(), false, "TransactionName".Translate(), "Cancel".Translate())).First();
 
                     if (data == default)
-                        return;
+                    {
 
+                        Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Transaction Store (Saving)", new Dictionary<string, string> { { "Canceled", "True" } });
+                        return;
+                    }
                     firstRun = false;
                 } while (StoredTransactions.Any(sT => sT.Name.Equals(data)));
 
@@ -744,6 +750,8 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     }
                 }
                 Basket.Clear();
+
+                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Transaction Store (Saving)", new Dictionary<string, string> { { "Canceled", "False" } });
             }
             finally
             {
@@ -766,7 +774,10 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         baskets[i] = StoredTransactions.ElementAt(i).Name;
                     var action = await App.Current.MainPage.DisplayActionSheet("Baskets".Translate(), "Cancel".Translate(), null, baskets);
                     if (action == "Cancel".Translate())
+                    {
+                        Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Transaction Retreived", new Dictionary<string, string> { { "Canceled", "True" } });
                         return;
+                    }
                     storedTransaction = StoredTransactions.First(sT => sT.Name.Equals(action));
                 }
                 else
@@ -799,6 +810,8 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 Basket.Clear();
                 foreach (var item in basket)
                     Basket.Add(item);
+
+                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Transaction Store (Saving)", new Dictionary<string, string> { { "Canceled", "False" } });
             }
             finally
             {
@@ -846,7 +859,10 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     var payMeth = await App.Current.MainPage.DisplayActionSheet("PayMeth".Translate(), "Cancel".Translate(), null, payMethNames);
 
                     if (payMeth == "Cancel".Translate())
+                    {
+                        Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Sale Processing", new Dictionary<string, string> { { "Canceled", "True" } });
                         return;
+                    }
 
                     var pay = new PaymentMethod_SaleModel() { TempPayMethod = payMeths[payMeth]() };
 
@@ -1061,23 +1077,30 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
 
                 var printerMgr = new PosPrinterManager();
 
+                var trackEventArgs = new Dictionary<string, string>();
+                trackEventArgs.Add("Canceled", "False");
+
                 if (Device.Idiom == TargetIdiom.Desktop)
                 {
                     if (!AskForReceipt || await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "ReceiptRequired".Translate(), "Yes".Translate(), "No".Translate()))
                     {
+                        trackEventArgs.Add("Receipt Requested", "True");
                         tasks[0] = Task.Run(async () =>
                         {
                             _ = await printerMgr.InitPrinter();
                             await printerMgr.SetUpSalePrint(sale, Basket, App.GetViewModel().Store);
                             await printerMgr.ExecuteOposOrPdfAsync();
+                            trackEventArgs.Add("Receipt Printed Succesfully", "True");
                         });
                     }
 
                     if (TryCashDrawer)
                     {
+                        trackEventArgs.Add("Cash Drawer Open Requested", "True");
                         if (sale.PaySales.Any(pay => pay.TempPayMethod.IsChangeable.Equals(true)))
                         {
                             tasks[1] = printerMgr.OpenCashDrawer();
+                            trackEventArgs.Add("Cash Drawer Opened Successfully", "True");
                         }
                     }
                 }
@@ -1095,17 +1118,22 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 }
                 catch (POSObjectException pOSObjectException)
                 {
+                    Microsoft.AppCenter.Crashes.Crashes.TrackError(pOSObjectException);
                     if (pOSObjectException.POSTargetObjectType == CommonPOSLibrary.Enums.POSTargetObjectType.Printer)
                     {
+                        trackEventArgs.Add("Receipt Printed Succesfully", "False");
                         await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "There was a problem with the POS Printer. Transaction has succeeded but a receipt is currently unavailble.", "OK".Translate());
                     }
                     else if (pOSObjectException.POSTargetObjectType == CommonPOSLibrary.Enums.POSTargetObjectType.CashDrawer)
                     {
+                        trackEventArgs.Add("Cash Drawer Opened Successfully", "False");
                         CashDrawerWarningSilenced = !await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "CashDrawerErrorWarning".Translate(), "OK".Translate(), "Silence".Translate());
                     }
                 }
                 Basket.Clear();
                 await App.Current.MainPage.DisplayAlert("Transaction".Translate(), "TransConfMesg".Translate(), "OK".Translate());
+
+                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Sale Processing", trackEventArgs);
 
                 if (!itemHasNoStock)
                 {
