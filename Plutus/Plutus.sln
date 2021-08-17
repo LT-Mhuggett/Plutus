@@ -61,6 +61,19 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Plutus.Repository.Tests", "
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Plutus.Entities.Tests", "Plutus.Entities.Tests\Plutus.Entities.Tests.csproj", "{6E787153-4921-42D8-9F20-EE6535BC8586}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Endpoints", "Endpoints", "{70794143-C02A-436A-84F7-BE4BFE93D950}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DBService", "DBService", "{E1FA57B5-4B88-415E-B894-E6A3B29D1C1D}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Load", "Load", "{50B8F846-DDB0-4A0C-A0A0-D6C04FDB26D0}"
+	ProjectSection(SolutionItems) = preProject
+		Plutus.DBService\Tests\Stress\LoadTesting.js = Plutus.DBService\Tests\Stress\LoadTesting.js
+		Plutus.DBService\Tests\Stress\sample.js = Plutus.DBService\Tests\Stress\sample.js
+		Plutus.DBService\Tests\Stress\SoakTesting.js = Plutus.DBService\Tests\Stress\SoakTesting.js
+		Plutus.DBService\Tests\Stress\SpikeTesting.js = Plutus.DBService\Tests\Stress\SpikeTesting.js
+		Plutus.DBService\Tests\Stress\StressTest.js = Plutus.DBService\Tests\Stress\StressTest.js
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		Plutus\Plutus\Plutus.projitems*{e3fadfe3-6f51-4444-b3d2-74ebd9e726b9}*SharedItemsImports = 4
@@ -1260,6 +1273,9 @@ Global
 		{048942AB-FDE3-4631-8B96-038D6DC24750} = {E61004C5-F7CA-4DF5-B162-13A814970197}
 		{4BC759A4-EF65-4CEC-98FC-23C9FC111D2A} = {048942AB-FDE3-4631-8B96-038D6DC24750}
 		{6E787153-4921-42D8-9F20-EE6535BC8586} = {048942AB-FDE3-4631-8B96-038D6DC24750}
+		{70794143-C02A-436A-84F7-BE4BFE93D950} = {E61004C5-F7CA-4DF5-B162-13A814970197}
+		{E1FA57B5-4B88-415E-B894-E6A3B29D1C1D} = {70794143-C02A-436A-84F7-BE4BFE93D950}
+		{50B8F846-DDB0-4A0C-A0A0-D6C04FDB26D0} = {E1FA57B5-4B88-415E-B894-E6A3B29D1C1D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		RESX_ShowPerformanceTraces = True
