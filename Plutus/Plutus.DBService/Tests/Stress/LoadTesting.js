@@ -120,5 +120,14 @@ export default (data) => {
     http.get('http://localhost:58559/api/Tax/Index', params);
     http.get('http://localhost:58559/api/Till/Index', params);
     http.get('http://localhost:58559/api/Transaction/Index', params);
+    http.get('http://localhost:58559/api/Bussiness/1', params);
+    http.get('http://localhost:58559/api/Category/355', params);
+    http.get('http://localhost:58559/api/Discount/133', params);
+    http.get('http://localhost:58559/api/Employee/296a9bd3-bf50-43c2-b4f8-65bfbab13cf0', params);
+    http.get('http://localhost:58559/api/Note/1001', params);
+    http.get('http://localhost:58559/api/PaymentMethod/1', params);
+    http.get('http://localhost:58559/api/SavedTransaction/8eb12f3d-1fdb-4c94-8607-9d3f29c963d2', params);
+    http.get('http://localhost:58559/api/Store/cdb57cad-9b07-4a74-8983-2a226d220ab7', params);
+    http.get('http://localhost:58559/api/Till/228cc3f7-1220-41d4-a21b-c19ed10dca7f', params);
     sleep(1);
 };

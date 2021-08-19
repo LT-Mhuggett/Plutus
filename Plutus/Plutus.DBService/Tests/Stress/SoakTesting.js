@@ -97,6 +97,60 @@ export default function (data) {
     let responses = http.batch([
         [
             'GET',
+            `${BASE_URL}/Till/228cc3f7-1220-41d4-a21b-c19ed10dca7f/`,
+            null,
+            { headers: params },
+        ],
+        [
+            'GET',
+            `${BASE_URL}/Store/cdb57cad-9b07-4a74-8983-2a226d220ab7/`,
+            null,
+            { headers: params },
+        ],
+        [
+            'GET',
+            `${BASE_URL}/SavedTransaction/8eb12f3d-1fdb-4c94-8607-9d3f29c963d2/`,
+            null,
+            { headers: params },
+        ],
+        [
+            'GET',
+            `${BASE_URL}/PaymentMethod/1/`,
+            null,
+            { headers: params },
+        ],
+        [
+            'GET',
+            `${BASE_URL}/Note/1001/`,
+            null,
+            { headers: params },
+        ],
+        [
+            'GET',
+            `${BASE_URL}/Employee/296a9bd3-bf50-43c2-b4f8-65bfbab13cf0/`,
+            null,
+            { headers: params },
+        ],
+        [
+            'GET',
+            `${BASE_URL}/Discount/133/`,
+            null,
+            { headers: params },
+        ],
+        [
+            'GET',
+            `${BASE_URL}/Category/355/`,
+            null,
+            { headers: params },
+        ],
+        [
+            'GET',
+            `${BASE_URL}/Bussiness/1/`,
+            null,
+            { headers: params },
+        ],
+        [
+            'GET',
             `${BASE_URL}/AuthAction/Index/`,
             null,
             { headers: params },
