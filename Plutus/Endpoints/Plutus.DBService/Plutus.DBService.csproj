@@ -33,9 +33,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Plutus.Authentication\Plutus.Authentication.csproj" />
-    <ProjectReference Include="..\Plutus.Reports\Plutus.Reports.csproj" />
-    <ProjectReference Include="..\Plutus.Repository\Plutus.Repository.csproj" />
+    <ProjectReference Include="..\..\Commons\Plutus.Reports\Plutus.Reports.csproj" />
+    <ProjectReference Include="..\..\Commons\Plutus.Repository\Plutus.Repository.csproj" />
   </ItemGroup>
 
 </Project>
