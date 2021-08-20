@@ -1,5 +1,4 @@
 ﻿using CommonPOSLibrary.Exceptions;
-using CustomViews;
 using CustomViews.Structs;
 using Database.Enums;
 using Database.Models;
@@ -1100,7 +1099,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                             await printerMgr.SetUpSalePrint(sale, Basket, App.GetViewModel().Store);
                             await printerMgr.ExecuteOposOrPdfAsync();
                             trackEventArgs.Add("Receipt Printed Succesfully", "True");
-                        });
+                        })
                     }
 
                     if (TryCashDrawer)
@@ -1138,6 +1137,16 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         trackEventArgs.Add("Cash Drawer Opened Successfully", "False");
                         CashDrawerWarningSilenced = !await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "CashDrawerErrorWarning".Translate(), "OK".Translate(), "Silence".Translate());
                     }
+                }
+                catch (POSPrinterException pOSPrinterException)
+                {
+                    if(pOSPrinterException.POSPrinterExceptionType == CommonPOSLibrary.Enums.POSPrinterExceptionType.PrinterNotClaimed)
+                    {
+                        Microsoft.AppCenter.Crashes.Crashes.TrackError(pOSPrinterException);
+                    }
+                    trackEventArgs.Add("Receipt Printed Succesfully", "False");
+                    trackEventArgs.Add("Printed Not Sellected", "True");
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "There is no POS Printer selected. Transaction has succeeded but a receipt is currently unavailble.", "OK".Translate());
                 }
                 Basket.Clear();
                 await App.Current.MainPage.DisplayAlert("Transaction".Translate(), "TransConfMesg".Translate(), "OK".Translate());
