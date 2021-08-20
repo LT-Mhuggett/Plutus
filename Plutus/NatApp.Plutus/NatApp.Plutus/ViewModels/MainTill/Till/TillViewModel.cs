@@ -1,4 +1,6 @@
 ﻿using CommonPOSLibrary.Exceptions;
+using CustomViews;
+using CustomViews.Structs;
 using Database.Enums;
 using Database.Models;
 using Microsoft.EntityFrameworkCore;
@@ -153,7 +155,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 }
             });
 
-            MessagingCenter.Subscribe<Inventory.Items.ViewAllViewModel, string>(this, "AddToBasket", (sender, arg) => 
+            MessagingCenter.Subscribe<Inventory.Items.ViewAllViewModel, string>(this, "AddToBasket", (sender, arg) =>
             {
                 ExecuteItemAddArg(arg);
             });
@@ -375,7 +377,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 else
                     tempItem.IncrementQuantity(Quantity);
 
-                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Added To Basket (from Request)", new Dictionary<string, string> { { "Success", "True"} });
+                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Added To Basket (from Request)", new Dictionary<string, string> { { "Success", "True" } });
             }
             finally
             {
@@ -431,14 +433,17 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     new RequiredValidator(),
                     new CurrencyValueValidator(numstyle)
                 };
-                var elements = new Tuple<string, string, IEnumerable<IValidator>, bool, bool>[]
+                var elements = new ViewElementData[]
                 {
-                    Tuple.Create("PriceExTax".Translate(), basketItem.PriceExTax.ToString("C", CultureInfo.CurrentCulture), validators.AsEnumerable(), false, true),
-                    Tuple.Create("Price".Translate(), basketItem.Price.ToString("C", CultureInfo.CurrentCulture), validators.AsEnumerable(), false, true)
+                    new ViewElementData(1, "PriceExTax".Translate(), basketItem.PriceExTax.ToString("C", CultureInfo.CurrentCulture), validators.AsEnumerable(), false, true),
+                    new ViewElementData(2, "Price".Translate(), basketItem.Price.ToString("C", CultureInfo.CurrentCulture), validators.AsEnumerable(), false, true)
                 };
                 var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(elements, "Confirm".Translate(), true, "Adjust".Translate());
-                basketItem.PriceExTax = decimal.Parse((string)data.ElementAt(0), numstyle, CultureInfo.CurrentCulture);
-                basketItem.Price = decimal.Parse((string)data.ElementAt(1), numstyle, CultureInfo.CurrentCulture);
+
+                _ = data.TryGetValue(1, out var priceExTax);
+                _ = data.TryGetValue(2, out var priceTax);
+                basketItem.PriceExTax = decimal.Parse(priceExTax, numstyle, CultureInfo.CurrentCulture);
+                basketItem.Price = decimal.Parse(priceTax, numstyle, CultureInfo.CurrentCulture);
                 Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Adjustment");
             }
             finally
@@ -461,10 +466,10 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     new RequiredValidator()
                 };
 
-                var elements = new Tuple<string, string, IEnumerable<IValidator>, bool, bool>[2]
+                var elements = new ViewElementData[2]
                 {
-                    Tuple.Create(string.Format("IdArg".Translate(), "Sale".Translate()), "", stringValidators.AsEnumerable(), false, true),
-                    Tuple.Create("Reason".Translate(), "ReturnReasonExample".Translate(), stringValidators.AsEnumerable(), false, true)
+                    new ViewElementData(1, string.Format("IdArg".Translate(), "Sale".Translate()), "", stringValidators.AsEnumerable(), false, true),
+                    new ViewElementData(2, "Reason".Translate(), "ReturnReasonExample".Translate(), stringValidators.AsEnumerable(), false, true)
                 };
                 #endregion
 
@@ -474,10 +479,10 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 do
                 {
                     var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(elements, "Confirm".Translate(), true, "Returns".Translate(), "Cancel".Translate());
-                    if (data[0].ToString() == default && data[1].ToString() == default)
+                    if (data.TryGetValue(1, out var saleIdText) || data.TryGetValue(1, out var reasonText))
                         return;
 
-                    if (string.IsNullOrEmpty(data[0].ToString()) || string.IsNullOrEmpty(data[1].ToString()))
+                    if (string.IsNullOrEmpty(saleIdText) || string.IsNullOrEmpty(reasonText))
                     {
                         _continueLoop = true;
                         continue;
@@ -486,7 +491,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
                     using (var db = new Helpers.Database.Database(databaseProvider))
                     {
-                        if (!db.IsExists<SaleModel, string>(data[0].ToString()))
+                        if (!db.IsExists<SaleModel, string>(saleIdText))
                         {
                             _continueLoop = true;
                             await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "SaleIDWrongMesg".Translate(), "OK".Translate());
@@ -497,7 +502,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                             .Include(t => t.Sale)
                                 .ThenInclude(s => s.Refunded)
                             .Include(t => t.CheckoutItemChange)
-                            .Where(t => t.SaleId.Equals(data[0].ToString()) && t.ItemId.Equals(basketItem.Item.Id));
+                            .Where(t => t.SaleId.Equals(saleIdText) && t.ItemId.Equals(basketItem.Item.Id));
                         TransactionModel tran = null;
 
                         if (trans.Count() > 1)
@@ -544,7 +549,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
 
                                 returnItem.PriceExTax = tran.CheckoutItemChange == null ? tran.ItemCostExPrice : tran.CheckoutItemChange.ExPrice;
                                 returnItem.Price = tran.CheckoutItemChange == null ? tran.ItemCostPrice : tran.CheckoutItemChange.Price;
-                                returnItem.SetItemReturn(data[1].ToString(), data[0].ToString());
+                                returnItem.SetItemReturn(reasonText, saleIdText);
                             }
                         }
                     }
@@ -630,14 +635,14 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         items.Add((BasketItem)item.Clone());
                 }
 
-                var entries = new List<Tuple<string, string, IEnumerable<IValidator>, bool, bool>>();
+                var entries = new List<ViewElementData>();
 
                 if (alteration.Amount == 0.0m)
-                    entries.Add(new Tuple<string, string, IEnumerable<IValidator>, bool, bool>(
+                    entries.Add(new ViewElementData(1,
                         alteration.Type == 0 ? "Cash".Translate() : "Percent".Translate(), "0", new List<IValidator>(), false, true));
 
                 else
-                    entries.Add(new Tuple<string, string, IEnumerable<IValidator>, bool, bool>(
+                    entries.Add(new ViewElementData(2,
                         alteration.Type == 0 ? "Cash".Translate() : "Percent".Translate(), alteration.Amount.ToString(), new List<IValidator>(), false, false));
 
                 //data type -> Tuple<List<string>, List<BasketItem>>
@@ -698,28 +703,28 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 {
                     new RequiredValidator()
                 };
-                var elements = new Tuple<string, string, IEnumerable<IValidator>, bool, bool>[]
+                var elements = new ViewElementData[]
                 {
-                    Tuple.Create("Name".Translate(), "", validators.AsEnumerable(), false, true)
+                    new ViewElementData(1, "Name".Translate(), "", validators.AsEnumerable(), false, true)
                 };
 
-                string data;
+                string transName;
                 bool firstRun = true;
                 do
                 {
                     if (!firstRun)
                         await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "NameMustBeUniqueMesg".Translate(), "OK".Translate());
 
-                    data = (string)(await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(elements, "Confirm".Translate(), false, "TransactionName".Translate(), "Cancel".Translate())).First();
+                    _ = (await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(elements, "Confirm".Translate(), false, "TransactionName".Translate(), "Cancel".Translate())).TryGetValue(1, out transName);
 
-                    if (data == default)
+                    if (string.IsNullOrEmpty(transName))
                     {
 
                         Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Transaction Store (Saving)", new Dictionary<string, string> { { "Canceled", "True" } });
                         return;
                     }
                     firstRun = false;
-                } while (StoredTransactions.Any(sT => sT.Name.Equals(data)));
+                } while (StoredTransactions.Any(sT => sT.Name.Equals(transName)));
 
 
                 var basketRecords = new IBasketRecord[Basket.Count];
@@ -730,7 +735,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     new SavedTransactionModel
                     {
                         Id = Guid.NewGuid().ToString(),
-                        Name = data,
+                        Name = transName,
                         Data = JsonConvert.SerializeObject(
                             basketRecords,
                             Formatting.Indented,
@@ -890,12 +895,12 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                             new RequiredValidator(),
                             new CurrencyValueValidator(numstyle)
                         };
-                    var elements = new Tuple<string, string, IEnumerable<IValidator>, bool, bool>[1]
+                    var elements = new ViewElementData[1]
                     {
-                            Tuple.Create("Amount", "", validators.AsEnumerable(), false, true)
+                        new ViewElementData(1, "Amount", "", validators.AsEnumerable(), false, true)
                     };
 
-                    var datum = (await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                    _ = (await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
                         elements,
                         "Confirm".Translate(),
                         false,
@@ -904,9 +909,9 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         string.Format(
                             refundOnly ? "HowMuchRefund".Translate() : "HowMuchPM".Translate(),
                             payMeth,
-                            Math.Round(sale.Total - paid, 2, MidpointRounding.AwayFromZero)))).First();
+                            Math.Round(sale.Total - paid, 2, MidpointRounding.AwayFromZero)))).TryGetValue(1, out var amountText);
 
-                    var amount = decimal.Parse((string)datum, numstyle, CultureInfo.CurrentCulture);
+                    var amount = decimal.Parse(amountText, numstyle, CultureInfo.CurrentCulture);
                     #endregion
                     pay.Amount = amount;
                     paid += amount;
@@ -1079,8 +1084,10 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
 
                 var printerMgr = new PosPrinterManager();
 
-                var trackEventArgs = new Dictionary<string, string>();
-                trackEventArgs.Add("Canceled", "False");
+                var trackEventArgs = new Dictionary<string, string>
+                {
+                    { "Canceled", "False" }
+                };
 
                 if (Device.Idiom == TargetIdiom.Desktop)
                 {

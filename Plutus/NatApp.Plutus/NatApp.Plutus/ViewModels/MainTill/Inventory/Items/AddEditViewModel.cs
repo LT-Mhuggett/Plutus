@@ -1,10 +1,11 @@
-﻿using Database.Models;
+﻿using CustomViews;
+using CustomViews.Structs;
+using Database.Models;
 using Microsoft.EntityFrameworkCore;
 using NatApp.Plutus.Helpers.Extensions;
 using NatApp.Plutus.Helpers.Security;
 using NatApp.Plutus.Helpers.Validators;
 using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
@@ -258,14 +259,14 @@ namespace NatApp.Plutus.ViewModels.MainTill.Inventory.Items
                             new RequiredValidator()
                         };
 
-                        var viewElements = new Tuple<string, string, IEnumerable<IValidator>, bool, bool>[]
+                        var viewElements = new ViewElementData[]
                         {
-                            Tuple.Create("Name".Translate(), "", validators.AsEnumerable(), false, true),
-                            Tuple.Create("Description".Translate(), "", validators.AsEnumerable(), false, true)
+                            new ViewElementData(1, "Name".Translate(), "", validators.AsEnumerable(), false, true),
+                            new ViewElementData(2, "Description".Translate(), "", validators.AsEnumerable(), false, true)
                         };
                         var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(viewElements, "Confirm".Translate(), false, "Category".Translate(), "Cancel".Translate());
 
-                        if (data.Any(d => d as string == null || string.IsNullOrEmpty(d as string)))
+                        if (data.Any(d => string.IsNullOrEmpty(d.Value)))
                         {
                             Category = Categories.First();
                             return;

@@ -1,4 +1,6 @@
-﻿using NatApp.Plutus.Behaviors;
+﻿using CustomViews.Control;
+using CustomViews.Structs;
+using NatApp.Plutus.Behaviors;
 using NatApp.Plutus.Helpers.Extensions;
 using NatApp.Plutus.Helpers.Validators;
 using System;
@@ -15,10 +17,10 @@ namespace NatApp.Plutus.Pages.CustomViews
     {
         #region Properties
         public EventHandler ConfirmButtonEHandler { get; set; }
-        public SortedDictionary<int, string> InputResults { get; set; } = new SortedDictionary<int, string>();
-        public List<Tuple<Label, Entry>> ViewElements { get; set; } = new List<Tuple<Label, Entry>>();
+        public Dictionary<uint, string> InputResults { get; set; } = new Dictionary<uint, string>();
+        public List<ViewElement> ViewElements { get; set; } = new List<ViewElement>();
         public ValidationGroupBehavior ValidationGroup;
-        private decimal _targetAmount;
+        private readonly decimal _targetAmount;
         public Button ConfBut;
         public Button CancelBut;
         #endregion
@@ -30,7 +32,7 @@ namespace NatApp.Plutus.Pages.CustomViews
         /// <param name="viewElements"><see cref="CreateLabelEntry(Tuple{string, string, IEnumerable{IValidator}, bool, bool}, StackLayout)"/></param>
         /// <param name="confirmButText">Text for button</param>
         /// <param name="title">Title for the view; Can be nullable</param>
-        public InputAlert(IEnumerable<Tuple<string, string, IEnumerable<IValidator>, bool, bool>> viewElements, string confirmButText, string title = null, string cancelButText = null)
+        public InputAlert(IEnumerable<ViewElementData> viewElements, string confirmButText, string title = null, string cancelButText = null)
         {
             InitializeComponent();
 
@@ -53,10 +55,10 @@ namespace NatApp.Plutus.Pages.CustomViews
                 ViewElements.Add(CreateLabelEntry(viewElements.Skip(n).First(), MainLayout));
 
                 if (ViewElements.Count > 1)
-                    SetOnComplete(ViewElements.ElementAt(ViewElements.Count - 2).Item2, ViewElements.Last().Item2);
+                    SetOnComplete(ViewElements.ElementAt(ViewElements.Count - 2).Entry, ViewElements.Last().Entry);
 
                 if (viewElements.Skip(n).Any())
-                    SetOnComplete(ViewElements.Last().Item2);
+                    SetOnComplete(ViewElements.Last().Entry);
             }
 
 
@@ -77,8 +79,8 @@ namespace NatApp.Plutus.Pages.CustomViews
             //init input results 
             foreach (var view in MainLayout.Children)
             {
-                if (view is Entry)
-                    InputResults.Add(MainLayout.Children.IndexOf(view), (view as Entry).Text ?? "");
+                if (view is IdentifiableEntry entry)
+                    InputResults.Add(entry.UserDefinedId, entry.Text ?? "");
             }
         }
 
@@ -91,14 +93,14 @@ namespace NatApp.Plutus.Pages.CustomViews
         /// <param name="confirmButText">Confirm button text</param>
         /// <param name="title">Title of window</param>
         public InputAlert(
-            IEnumerable<Tuple<string, string, IEnumerable<IValidator>, bool, bool>> viewElementsBefore,
+            IEnumerable<ViewElementData> viewElementsBefore,
             View view,
-            IEnumerable<Tuple<string, string, IEnumerable<IValidator>, bool, bool>> viewElementsAfter,
+            IEnumerable<ViewElementData> viewElementsAfter,
             string confirmButText, string title = null, string cancelButText = null)
         {
             InitializeComponent();
 
-            if(title!=null)
+            if (title != null)
                 MainLayout.Children.Add(new Label()
                 {
                     Text = title,
@@ -120,10 +122,10 @@ namespace NatApp.Plutus.Pages.CustomViews
                     ViewElements.Add(CreateLabelEntry(viewElementsBefore.Skip(n).First(), MainLayout));
 
                     if (ViewElements.Count() > 1)
-                        SetOnComplete(ViewElements.ElementAt(ViewElements.Count - 2).Item2, ViewElements.Last().Item2);
+                        SetOnComplete(ViewElements.ElementAt(ViewElements.Count - 2).Entry, ViewElements.Last().Entry);
 
                     if (viewElementsBefore.Skip(n).Any())
-                        SetOnComplete(ViewElements.Last().Item2);
+                        SetOnComplete(ViewElements.Last().Entry);
                 }
             }
 
@@ -138,10 +140,10 @@ namespace NatApp.Plutus.Pages.CustomViews
                     ViewElements.Add(CreateLabelEntry(viewElementsAfter.Skip(n).First(), MainLayout));
 
                     if (ViewElements.Count() > 1)
-                        SetOnComplete(ViewElements.ElementAt(ViewElements.Count - 2).Item2, ViewElements.Last().Item2);
+                        SetOnComplete(ViewElements.ElementAt(ViewElements.Count - 2).Entry, ViewElements.Last().Entry);
 
                     if (viewElementsAfter.Skip(n).Any())
-                        SetOnComplete(ViewElements.Last().Item2);
+                        SetOnComplete(ViewElements.Last().Entry);
                 }
             }
 
@@ -162,10 +164,10 @@ namespace NatApp.Plutus.Pages.CustomViews
             ValidationGroup.Update();
 
             //init input results 
-            foreach (var tempView in MainLayout.Children)
+            foreach (var tmpView in MainLayout.Children)
             {
-                if (tempView is Entry)
-                    InputResults.Add(MainLayout.Children.IndexOf(tempView), (tempView as Entry).Text ?? "");
+                if (tmpView is IdentifiableEntry element)
+                    InputResults.Add(element.UserDefinedId, element.Text ?? "");
             }
         }
 
@@ -181,7 +183,7 @@ namespace NatApp.Plutus.Pages.CustomViews
         /// <param name="cash">Is this a cash transaction</param>
         /// <param name="toPay">Amount to pay or be returned</param>
         /// <param name="title">Title for the view; Can be nullable</param>
-        public InputAlert(IEnumerable<Tuple<string, string, IEnumerable<IValidator>, bool, bool>> viewElements, string confirmButText, bool cash, decimal toPay, string title = null, string cancelButText = null)
+        public InputAlert(IEnumerable<ViewElementData> viewElements, string confirmButText, bool cash, decimal toPay, string title = null, string cancelButText = null)
         {
             InitializeComponent();
 
@@ -199,7 +201,7 @@ namespace NatApp.Plutus.Pages.CustomViews
             MainLayout.Behaviors.Add(ValidationGroup);
 
             if (cash)
-                MainLayout.Children.Add(CreateCashGrid(toPay < 0.0m ? true : false));
+                MainLayout.Children.Add(CreateCashGrid(toPay < 0.0m));
             var payAllBut = new Button { Text = "PayFull".Translate(), CommandParameter = _targetAmount = toPay };
             payAllBut.Clicked += PayExact_Clicked;
             MainLayout.Children.Add(payAllBut);
@@ -210,10 +212,10 @@ namespace NatApp.Plutus.Pages.CustomViews
                 ViewElements.Add(CreateLabelEntry(viewElements.Skip(n).First(), MainLayout));
 
                 if (ViewElements.Count > 1)
-                    SetOnComplete(ViewElements.ElementAt(ViewElements.Count - 2).Item2, ViewElements.Last().Item2);
+                    SetOnComplete(ViewElements.ElementAt(ViewElements.Count - 2).Entry, ViewElements.Last().Entry);
 
                 if (viewElements.Skip(n).Any())
-                    SetOnComplete(ViewElements.Last().Item2);
+                    SetOnComplete(ViewElements.Last().Entry);
             }
 
             //Create confirm button
@@ -233,8 +235,8 @@ namespace NatApp.Plutus.Pages.CustomViews
             //init input results 
             foreach (var view in MainLayout.Children)
             {
-                if (view is Entry element)
-                    InputResults.Add(MainLayout.Children.IndexOf(element), element.Text ?? "");
+                if (view is IdentifiableEntry element)
+                    InputResults.Add(element.UserDefinedId, element.Text ?? "");
             }
         }
         #endregion
@@ -243,22 +245,16 @@ namespace NatApp.Plutus.Pages.CustomViews
         /// <summary>
         /// Create Label and Entry pair for inputs
         /// </summary>
-        /// <param name="elementValues">Label, Placeholder, Validators, IsPassword, IsEnabled</param>
+        /// <param name="elementValue">Label, Placeholder, Validators, IsPassword, IsEnabled</param>
         /// <param name="layout">Layout to add elements to</param>
         /// <returns>Label, Entry pair</returns>
-        public Tuple<Label, Entry> CreateLabelEntry(Tuple<string, string, IEnumerable<IValidator>, bool, bool> elementValues, StackLayout layout)
+        public ViewElement CreateLabelEntry(ViewElementData elementValue, StackLayout layout)
         {
-            var label = new Label { Text = elementValues.Item1 };
-            Entry entry;
-            if (elementValues.Item5)
-            {
-                entry = new Entry { Placeholder = elementValues.Item2, IsPassword = elementValues.Item4, IsEnabled = elementValues.Item5 };
-            }
-            else
-            {
-                entry = new Entry { Text = elementValues.Item2, IsPassword = elementValues.Item4, IsEnabled = elementValues.Item5 };
-            }
-            if (elementValues.Item3.Count() != 0)
+            var label = new Label { Text = elementValue.LabelText };
+            IdentifiableEntry entry = elementValue.IsEnabled
+                ? new IdentifiableEntry { UserDefinedId = elementValue.Id, Placeholder = elementValue.PlaceholderText, IsPassword = elementValue.IsPassword, IsEnabled = elementValue.IsEnabled }
+                : new IdentifiableEntry { UserDefinedId = elementValue.Id, Text = elementValue.PlaceholderText, IsPassword = elementValue.IsPassword, IsEnabled = elementValue.IsEnabled };
+            if (elementValue.Validators.Count() != 0)
             {
                 var vBehavior = new ValidationBehavior
                 {
@@ -266,11 +262,11 @@ namespace NatApp.Plutus.Pages.CustomViews
                     PropertyName = "Text"
                 };
                 entry.Behaviors.Add(vBehavior);
-                foreach (var validator in elementValues.Item3)
+                foreach (var validator in elementValue.Validators)
                 {
                     if (validator is IValidatorReqReference validatorReq)
-                        validatorReq.ReferenceEntry = ViewElements.Last().Item2;
-                    (entry.Behaviors.Last() as ValidationBehavior).Validators.Add(validator);
+                        validatorReq.ReferenceEntry = ViewElements.Last().Entry;
+                    (entry.Behaviors.Last() as ValidationBehavior).Validators.Add((IValidator)validator);
                 }
             }
 
@@ -278,7 +274,7 @@ namespace NatApp.Plutus.Pages.CustomViews
 
             layout.Children.Add(label);
             layout.Children.Add(entry);
-            return Tuple.Create(label, entry);
+            return new ViewElement(label, entry);
         }
 
         /// <summary>
@@ -352,8 +348,8 @@ namespace NatApp.Plutus.Pages.CustomViews
         /// <param name="e"></param>
         private void Entry_TextChanged(object sender, TextChangedEventArgs e)
         {
-            var updatedEntry = sender as Entry;
-            InputResults[MainLayout.Children.IndexOf(updatedEntry)] = e.NewTextValue;
+            var updatedEntry = sender as IdentifiableEntry;
+            InputResults[updatedEntry.UserDefinedId] = e.NewTextValue;
         }
 
         /// <summary>
@@ -366,14 +362,14 @@ namespace NatApp.Plutus.Pages.CustomViews
         {
             try
             {
-                var input = ViewElements.First().Item2;
+                var input = ViewElements.First().Entry;
                 var tempVal = decimal.Parse(string.IsNullOrEmpty(input.Text) ? "0" : input.Text);
                 tempVal += decimal.Parse((sender as Button).CommandParameter.ToString());
                 input.Text = tempVal.ToString();
                 if (tempVal >= _targetAmount && ValidationGroup.IsValid)
                     ConfirmButtonEHandler?.Invoke(this, e);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Debug.WriteLine(ex.Message);
             }
@@ -392,7 +388,7 @@ namespace NatApp.Plutus.Pages.CustomViews
 
         private void CancelBut_Clicked(object sender, EventArgs e)
         {
-            ViewElements.ForEach(vE => vE.Item2.Text = default);
+            ViewElements.ForEach(vE => vE.Entry.Text = default);
             ConfirmButtonEHandler?.Invoke(this, e);
         }
 
@@ -403,7 +399,7 @@ namespace NatApp.Plutus.Pages.CustomViews
         /// <param name="e"></param>
         private void PayExact_Clicked(object sender, EventArgs e)
         {
-            ViewElements.First().Item2.Text = (sender as Button).CommandParameter.ToString();
+            ViewElements.First().Entry.Text = (sender as Button).CommandParameter.ToString();
             if (ValidationGroup.IsValid)
                 ConfirmButtonEHandler?.Invoke(this, e);
         }

@@ -1,9 +1,9 @@
-﻿using Database.Enums;
+﻿using CustomViews.Structs;
+using Database.Enums;
 using Database.Models;
 using Microsoft.EntityFrameworkCore;
 using NatApp.Plutus.Helpers.Extensions;
 using NatApp.Plutus.Helpers.Validators;
-using NatApp.Plutus.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,7 +20,7 @@ namespace NatApp.Plutus.Helpers.Security
                 var emp = dbHelper.GetEmployee(eIdTemp);
                 var authRequired = dbHelper.Get<AuthActions>().Where(aA => aA.Name.Equals(action)).SingleOrDefault();
 
-                foreach(var empAuth in emp.EmpAuths)
+                foreach (var empAuth in emp.EmpAuths)
                 {
                     if (!empAuth.AuthAId.Equals(authRequired.Id))
                         continue;
@@ -37,7 +37,7 @@ namespace NatApp.Plutus.Helpers.Security
                 var emp = dbHelper.GetEmployee(eIdTemp);
                 var authRequired = dbHelper.Get<AuthActions>().Where(aA => aA.Name.Equals(action)).SingleOrDefault();
 
-                foreach(var empAuth in emp.EmpAuths)
+                foreach (var empAuth in emp.EmpAuths)
                 {
                     if (!empAuth.AuthAId.Equals(authRequired.Id))
                         continue;
@@ -56,21 +56,21 @@ namespace NatApp.Plutus.Helpers.Security
                 new RequiredValidator()
             };
 
-            var idElements = new Tuple<string, string, IEnumerable<IValidator>, bool, bool>[]
+            var idElements = new ViewElementData[]
             {
-                Tuple.Create(string.Format("IdArg".Translate(), "Employee".Translate()), "", empIDValidators.AsEnumerable(), false, true)
+                new ViewElementData(1, string.Format("IdArg".Translate(), "Employee".Translate()), "", empIDValidators.AsEnumerable(), false, true)
             };
 
             string authEmpId = default;
 
             do
             {
-                var datumId = (await CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                (await CustomViews.InputAlertHelper.LaunchInputAlertAsync(
                     idElements,
                     "Confirm".Translate(),
                     true,
                     "AuthReq".Translate(),
-                    "Cancel".Translate())).First().ToString();
+                    "Cancel".Translate())).TryGetValue(1, out var datumId);
 
                 if (datumId == default)
                     break;
@@ -78,7 +78,7 @@ namespace NatApp.Plutus.Helpers.Security
                 var authEmp = App.GetViewModel().Employees.FirstOrDefault(e => e.Id.Equals(datumId));
                 if (authEmp == null)
                 {
-                    using(var db = new Database.Database(databaseProvider))
+                    using (var db = new Database.Database(databaseProvider))
                     {
                         authEmp = await db.Get<EmployeeModel>()
                                     .SingleOrDefaultAsync(e =>

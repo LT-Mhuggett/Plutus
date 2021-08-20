@@ -7,7 +7,7 @@ namespace CustomViews
     public class AlertDialogBase<T> : PopupPage
     {
 
-        private bool _interuptable;
+        private readonly bool _interuptable;
 
         public Task<T> PageClosedTask
         {

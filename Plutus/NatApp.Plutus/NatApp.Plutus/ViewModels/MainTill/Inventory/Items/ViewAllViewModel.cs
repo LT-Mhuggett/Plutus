@@ -1,4 +1,5 @@
-﻿using Database.Models;
+﻿using CustomViews.Structs;
+using Database.Models;
 using Microsoft.EntityFrameworkCore;
 using NatApp.Plutus.Helpers.Extensions;
 using NatApp.Plutus.Helpers.Security;
@@ -6,11 +7,9 @@ using NatApp.Plutus.Helpers.Validators;
 using NatApp.Plutus.Views.MainTill.Inventory.Items;
 using Syncfusion.DataSource;
 using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
-using System.Threading.Tasks;
 using Xamarin.Forms;
 
 namespace NatApp.Plutus.ViewModels.MainTill.Inventory.Items
@@ -206,15 +205,15 @@ namespace NatApp.Plutus.ViewModels.MainTill.Inventory.Items
                         new IntegerValidator()
                         };
 
-                        var viewElements = new Tuple<string, string, IEnumerable<IValidator>, bool, bool>[]
+                        var viewElements = new ViewElementData[]
                         {
-                        Tuple.Create(string.Format("IdArg".Translate(), "Item".Translate()), itemId, idValidtors.AsEnumerable(), false, false),
-                        Tuple.Create(string.Format("ToIncrement/Decrement".Translate(), "Quantity".Translate()), "", qtyValidators.AsEnumerable(), false, true)
+                            new ViewElementData(1, string.Format("IdArg".Translate(), "Item".Translate()), itemId, idValidtors.AsEnumerable(), false, false),
+                            new ViewElementData(2, string.Format("ToIncrement/Decrement".Translate(), "Quantity".Translate()), "", qtyValidators.AsEnumerable(), false, true)
                         };
 
                         var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(viewElements, "Confirm".Translate(), false, "UpdateStock".Translate(), "Cancel".Translate());
 
-                        if (data.Any(d => d as string == null || string.IsNullOrEmpty(d as string)))
+                        if (data.Any(d => string.IsNullOrEmpty(d.Value)))
                             return;
 
                         using (var db = new Helpers.Database.Database(databaseProvider, empId))
@@ -225,7 +224,8 @@ namespace NatApp.Plutus.ViewModels.MainTill.Inventory.Items
                                 stock = new StockModel { ItemId = itemId, StoreId = App.GetViewModel().Store.Id };
                                 db.Add(stock);
                             }
-                            stock.Quantity += int.Parse(data[1].ToString());
+                            data.TryGetValue(2, out var quatityText);
+                            stock.Quantity += int.Parse(quatityText);
                             if (!db.Save())
                                 Debug.Write("Database save issue!");
                         }
