@@ -395,7 +395,11 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 if (basketRecord.Quantity > 1)
                     basketRecord.Quantity--;
                 else
+                {
                     Basket.Remove(basketRecord);
+                    if (SelectedBasketRecord == basketRecord)
+                        SelectedBasketRecord = null;
+                }
             }
             finally
             {
@@ -411,6 +415,8 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
             try
             {
                 Basket.Remove(basketRecord);
+                if (SelectedBasketRecord == basketRecord)
+                    SelectedBasketRecord = null;
             }
             finally
             {
@@ -1099,7 +1105,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                             await printerMgr.SetUpSalePrint(sale, Basket, App.GetViewModel().Store);
                             await printerMgr.ExecuteOposOrPdfAsync();
                             trackEventArgs.Add("Receipt Printed Succesfully", "True");
-                        })
+                        });
                     }
 
                     if (TryCashDrawer)
