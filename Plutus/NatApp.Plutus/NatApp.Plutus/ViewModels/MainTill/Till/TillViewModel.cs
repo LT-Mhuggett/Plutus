@@ -1119,6 +1119,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                             await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "There was a problem with the POS Printer. Transaction has succeeded but a receipt is currently unavailable.", "OK".Translate());
                             break;
                         case CommonPOSLibrary.Enums.POSTargetObjectType.CashDrawer:
+                            trackEventArgs.Remove("Cash Drawer Opened Successfully");
                             trackEventArgs.Add("Cash Drawer Opened Successfully", "False");
                             CashDrawerWarningSilenced = !await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "CashDrawerErrorWarning".Translate(), "OK".Translate(), "Silence".Translate());
                             break;
