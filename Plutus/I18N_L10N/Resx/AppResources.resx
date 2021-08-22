@@ -734,4 +734,8 @@ Silence this warning (you will no longer get any warnings when the Cash Drawer i
     <value>Should Plutus attempt to use a Cash Drawer on checkout?
 If no Cash Drawer exists on the system checkout times will exceed 3 minuets per transaction.</value>
   </data>
+  <data name="CriticalErrorReportedMesg" xml:space="preserve">
+    <value>There was a critical error, this has been reported to the developer.
+Please try again.</value>
+  </data>
 </root>

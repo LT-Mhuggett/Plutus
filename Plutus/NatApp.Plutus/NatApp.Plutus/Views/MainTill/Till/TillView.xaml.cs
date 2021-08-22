@@ -9,7 +9,7 @@ namespace NatApp.Plutus.Views.MainTill.Till
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class TillView : ContentPage
     {
-        private object _lastSelectedItem { get; set; }
+        private object _lastSelectedItem;
         public TillView()
         {
             InitializeComponent();
