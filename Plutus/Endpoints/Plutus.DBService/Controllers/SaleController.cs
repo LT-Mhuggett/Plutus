@@ -8,6 +8,8 @@ using Plutus.Entities.Models;
 using Plutus.Repository.QueryParameters;
 using System.Data;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authorization;
+using Plutus.Authentication;
 
 namespace Plutus.DBService.Controllers
 {
@@ -22,6 +24,7 @@ namespace Plutus.DBService.Controllers
         }
 
         [HttpGet]
+        [Authorize(Actions.ReadThings)]
         [ApiConventionMethod(typeof(DefaultApiConventions),
                              nameof(DefaultApiConventions.Get))]
         public FileResult salesReport([FromQuery] SaleParameters queryParameters, [FromQuery(Name = "minDate")] DateTime startDate, [FromQuery(Name = "maxDate")] DateTime endDate)
@@ -29,6 +32,7 @@ namespace Plutus.DBService.Controllers
             //Check Min and Max date are viable
             var entities = Repository.FindAllByConditionQueryable(queryParameters.GetExpression());
             var dataSet = new DataSet();
+
             var data = entities
                 .Include(s => s.Transactions)
                     .ThenInclude(t => t.Item)
