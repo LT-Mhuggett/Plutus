@@ -1,4 +1,5 @@
-﻿using Database.Models;
+﻿using CustomViews.Structs;
+using Database.Models;
 using NatApp.Plutus.Helpers.Extensions;
 using NatApp.Plutus.Helpers.Security;
 using NatApp.Plutus.Helpers.Validators;
@@ -8,7 +9,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using System.Text;
 using Xamarin.Forms;
 
 namespace NatApp.Plutus.ViewModels.MainTill.StoreOptions
@@ -55,7 +55,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.StoreOptions
             Title = "StoreInformation".Translate();
             Icon = "md-store";
 
-            DisplayLogo = Store.Logo != null ? true : false;
+            DisplayLogo = Store.Logo != null;
 
             SetCurrencyDisplays();
 
@@ -174,10 +174,10 @@ namespace NatApp.Plutus.ViewModels.MainTill.StoreOptions
         }
 
         Command _dateSettingsChangeCommand;
-        
+
         public Command DateSettingsChangeCommand
         {
-            get=>_dateSettingsChangeCommand??(_dateSettingsChangeCommand=new Command(ExecuteDateSettingsChange));
+            get => _dateSettingsChangeCommand ?? (_dateSettingsChangeCommand = new Command(ExecuteDateSettingsChange));
         }
         #endregion
         #region Employee
@@ -213,32 +213,36 @@ namespace NatApp.Plutus.ViewModels.MainTill.StoreOptions
                         new RequiredValidator()
                     };
 
-                    var viewElements = new Tuple<string, string, IEnumerable<IValidator>, bool, bool>[]
+                    var viewElements = new ViewElementData[]
                     {
-                        Tuple.Create("Name".Translate(), App.GetViewModel().Store.StoreName, validators.AsEnumerable(), false, true),
-                        Tuple.Create("Abbreviation".Translate(), App.GetViewModel().Store.StoreAbbr, validators.AsEnumerable(), false, true)
+                        new ViewElementData(1, "Name".Translate(), App.GetViewModel().Store.StoreName, validators.AsEnumerable(), false, true),
+                        new ViewElementData(2, "Abbreviation".Translate(), App.GetViewModel().Store.StoreAbbr, validators.AsEnumerable(), false, true)
                     };
 
                     var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(viewElements, "Confirm".Translate(), false, cancelText: "Cancel".Translate());
 
-                    if (data.Any(d => d as string == null || string.IsNullOrEmpty(d as string)))
+                    if (data.Any(d => string.IsNullOrEmpty(d.Value)))
                     {
                         return;
                     }
 
-                    using(var db = new Helpers.Database.Database(databaseProvider))
+                    using (var db = new Helpers.Database.Database(databaseProvider))
                     {
                         var tempStore = db.Get<StoreModel>().FirstOrDefault(s => s.Id.Equals(App.GetViewModel().Store.Id));
-                        if (!string.IsNullOrEmpty(data[0].ToString()))
-                            tempStore.StoreName = data[0].ToString();
-                        if (!string.IsNullOrEmpty(data[1].ToString()))
-                            tempStore.StoreAbbr = data[1].ToString();
+
+                        _ = data.TryGetValue(1, out var storeName);
+                        _ = data.TryGetValue(2, out var storeAbbr);
+
+                        tempStore.StoreName = storeName;
+                        tempStore.StoreAbbr = storeAbbr;
+
                         db.Update(tempStore);
                         if (!db.Save())
                         {
                             Debug.Write("Save Failed!");
                             return;
                         }
+
                         App.GetViewModel().Store = db.Get<StoreModel>().FirstOrDefault(s => s.Id.Equals(App.GetViewModel().Store.Id));
                         OnPropertyChanged("Store");
                         return;
@@ -262,7 +266,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.StoreOptions
             do
             {
                 Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
-                if(empId.IsAuthorised("Admin", Database.Enums.Permissions.Write, databaseProvider))
+                if (empId.IsAuthorised("Admin", Database.Enums.Permissions.Write, databaseProvider))
                 {
                     var image = await DependencyService.Get<IFile>().GetFileAsByteArray(new List<string> { ".bmp", ".gif", ".exif", ".jpg", ".jpeg", ".png", ".tiff" });
                     if (image.Length == 0)
@@ -271,7 +275,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.StoreOptions
                     {
                         var store = db.Get<StoreModel>().First(s => s.Id.Equals(Store.Id));
                         store.Logo = image;
-                        if(!db.Save())
+                        if (!db.Save())
                         {
                             Debug.Write("Save Failed!");
                             return;
@@ -301,19 +305,20 @@ namespace NatApp.Plutus.ViewModels.MainTill.StoreOptions
                         new RequiredValidator()
                     };
 
-                    var viewElements = new Tuple<string, string, IEnumerable<IValidator>, bool, bool>[]
+                    var viewElements = new ViewElementData[]
                     {
-                        Tuple.Create("ContactNumber".Translate(), Store.ContactNumber, validators.AsEnumerable(), false, true)
+                        new ViewElementData(1, "ContactNumber".Translate(), Store.ContactNumber, validators.AsEnumerable(), false, true)
                     };
 
                     var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(viewElements, "Confirm".Translate(), false, cancelText: "Cancel".Translate());
 
-                    if (data.Any(d => d as string == null || string.IsNullOrEmpty(d as string)))
+                    if (data.Any(d => string.IsNullOrEmpty(d.Value)))
                         return;
                     using (var db = new Helpers.Database.Database(databaseProvider))
                     {
                         var tempStore = db.Get<StoreModel>().Where(s => s.Id == Store.Id).First();
-                        tempStore.ContactNumber = data[0] as string;
+                        _ = data.TryGetValue(1, out var contactNumberText);
+                        tempStore.ContactNumber = contactNumberText;
                         db.Update(tempStore);
                         if (!db.Save())
                         {
@@ -345,21 +350,22 @@ namespace NatApp.Plutus.ViewModels.MainTill.StoreOptions
                         new RequiredValidator()
                     };
 
-                    var viewElements = new Tuple<string, string, IEnumerable<IValidator>, bool, bool>[]
+                    var viewElements = new ViewElementData[]
                     {
-                        Tuple.Create("VatIN".Translate(), Store.VatIN, validators.AsEnumerable(), false, true)
+                        new ViewElementData(1, "VatIN".Translate(), Store.VatIN, validators.AsEnumerable(), false, true)
                     };
 
                     var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(viewElements, "Confirm".Translate(), false, cancelText: "Cancel".Translate());
 
-                    if (data.Any(d => d as string == null || string.IsNullOrEmpty(d as string)))
+                    if (data.Any(d => string.IsNullOrEmpty(d.Value)))
                         return;
-                    using(var db = new Helpers.Database.Database(databaseProvider))
+                    using (var db = new Helpers.Database.Database(databaseProvider))
                     {
                         var tempStore = db.Get<StoreModel>().Where(s => s.Id == Store.Id).First();
-                        tempStore.VatIN = data[0] as string;
+                        data.TryGetValue(1, out var vatINText);
+                        tempStore.VatIN = vatINText;
                         db.Update(tempStore);
-                        if(!db.Save())
+                        if (!db.Save())
                         {
                             Debug.Write("Save Failed!");
                             return;
@@ -391,23 +397,24 @@ namespace NatApp.Plutus.ViewModels.MainTill.StoreOptions
                         new RequiredValidator()
                     };
 
-                    var viewElements = new Tuple<string, string, IEnumerable<IValidator>, bool, bool>[]
+                    var viewElements = new ViewElementData[]
                     {
-                        Tuple.Create(string.Format("IdArg".Translate(), "Bag".Translate()), DefaultBagId, validators.AsEnumerable(), false, true),
+                        new ViewElementData(1, string.Format("IdArg".Translate(), "Bag".Translate()), DefaultBagId, validators.AsEnumerable(), false, true),
                     };
 
                     var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(viewElements, "Confirm".Translate(), false, cancelText: "Cancel".Translate());
 
-                    if (data.Any(d => d as string == null || string.IsNullOrEmpty(d as string)))
+                    if (data.Any(d => string.IsNullOrEmpty(d.Value)))
                     {
                         return;
                     }
 
-                    using(var db = new Helpers.Database.Database(databaseProvider))
+                    using (var db = new Helpers.Database.Database(databaseProvider))
                     {
-                        if (db.IsExists<ItemModel, string>(data[0] as string))
+                        _ = data.TryGetValue(1, out var bagIdText);
+                        if (db.IsExists<ItemModel, string>(bagIdText))
                         {
-                            DefaultBagId = data[0] as string;
+                            DefaultBagId = bagIdText;
                             return;
                         }
                         else

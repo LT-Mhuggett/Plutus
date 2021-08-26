@@ -1,13 +1,10 @@
-﻿using NatApp.Plutus.Helpers.Extensions;
-using NatApp.Plutus.Helpers.Validators;
+﻿using CustomViews.Structs;
+using NatApp.Plutus.Helpers.Extensions;
 using NatApp.Plutus.Pages.CustomViews;
 using Syncfusion.ListView.XForms;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
 using Xamarin.Forms;
 
 namespace NatApp.Plutus.Views.CustomViews
@@ -38,9 +35,9 @@ namespace NatApp.Plutus.Views.CustomViews
         /// <param name="confirmButText">Confirm button text</param>
         /// <param name="title">Title of window</param>
         private InputMultiSelectAlert(
-            IEnumerable<Tuple<string, string, IEnumerable<IValidator>, bool, bool>> viewElementsBefore, 
-            View sfListView, 
-            IEnumerable<Tuple<string, string, IEnumerable<IValidator>, bool, bool>> viewElementsAfter, 
+            IEnumerable<ViewElementData> viewElementsBefore,
+            View sfListView,
+            IEnumerable<ViewElementData> viewElementsAfter,
             string confirmButText, string title = null) : base(viewElementsBefore, sfListView, viewElementsAfter, confirmButText, title)
         {
         }
@@ -55,9 +52,9 @@ namespace NatApp.Plutus.Views.CustomViews
         /// <param name="title">Title of window</param>
         /// <returns></returns>
         public static InputMultiSelectAlert<T> InputMultiSelectAlertFactory(
-            IEnumerable<Tuple<string, string, IEnumerable<IValidator>, bool, bool>> viewElementsBefore,
+            IEnumerable<ViewElementData> viewElementsBefore,
             Tuple<IEnumerable<T>, string> itemsForList,
-            IEnumerable<Tuple<string, string, IEnumerable<IValidator>, bool, bool>> viewElementsAfter,
+            IEnumerable<ViewElementData> viewElementsAfter,
             string confirmButText, string title = null)
         {
 
@@ -90,7 +87,7 @@ namespace NatApp.Plutus.Views.CustomViews
                 {
                     Text = "Items",
                     FontSize = Device.GetNamedSize(NamedSize.Medium, typeof(Label)),
-                   
+
                 };
                 return new ViewCell() { View = label };
             });
@@ -149,7 +146,7 @@ namespace NatApp.Plutus.Views.CustomViews
         public IEnumerable<T> SelectedItems()
         {
             var selectedItems = new List<T>();
-            foreach(var item in SfListView.SelectedItems)
+            foreach (var item in SfListView.SelectedItems)
             {
                 if (item is T confItem)
                     selectedItems.Add(confItem);

@@ -1,18 +1,19 @@
-﻿using Database.Models;
-using NatApp.Plutus.UWP.Implementations.Services;
-using NatApp.Plutus.Helpers.FileIO;
+﻿using CustomViews.Structs;
+using Database.Models;
+using NatApp.Plutus.Helpers.CustomViews;
 using NatApp.Plutus.Helpers.Extensions;
+using NatApp.Plutus.Helpers.FileIO;
+using NatApp.Plutus.Helpers.Validators;
+using NatApp.Plutus.Services.ThirdPartyTransfer;
+using NatApp.Plutus.UWP.Implementations.Services;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Windows.Storage;
 using Xamarin.Forms;
-using NatApp.Plutus.Helpers.Validators;
-using System.Diagnostics;
-using NatApp.Plutus.Services.ThirdPartyTransfer;
-using NatApp.Plutus.Helpers.CustomViews;
 
 [assembly: Dependency(typeof(CopperTransferUWP))]
 namespace NatApp.Plutus.UWP.Implementations.Services
@@ -27,7 +28,7 @@ namespace NatApp.Plutus.UWP.Implementations.Services
         /// </remarks>
         /// <param name="sFolder">Folder to look in</param>
         /// <returns>Folders of interest</returns>
-        public async Task<Tuple<Queue<object>,int>> GetFoldersForProcessing(object sFolder)
+        public async Task<Tuple<Queue<object>, int>> GetFoldersForProcessing(object sFolder)
         {
             StorageFolder folder = (StorageFolder)sFolder;
 
@@ -100,7 +101,7 @@ namespace NatApp.Plutus.UWP.Implementations.Services
 #if DEBUG
                     debugItemsListNonConversion.Add(
                         Tuple.Create(
-                            id, 
+                            id,
                             Uri.UnescapeDataString(completeParsing.Item1.FirstOrDefault(x => x[0].Equals("Description"))?[1]),
                             taxType,
                             value));
@@ -156,7 +157,7 @@ namespace NatApp.Plutus.UWP.Implementations.Services
                 switch (fileName)
                 {
                     case "Company":
-                        store  = await GetStoreAsync(miscFile);
+                        store = await GetStoreAsync(miscFile);
                         break;
                     case "Tax":
                         taxes = await GetTaxDataAsync(miscFile);
@@ -175,9 +176,9 @@ namespace NatApp.Plutus.UWP.Implementations.Services
         {
             var completeParsing = await ExecuteParsingAsync(storeFile);
 
-            var viewElementsFullAddress = new Queue<Tuple<string, string, IEnumerable<IValidator>, bool, bool>>();
+            var viewElementsFullAddress = new Queue<ViewElementData>();
             viewElementsFullAddress.Enqueue(
-                Tuple.Create("FullAddress".Translate(),
+                new ViewElementData(1, "FullAddress".Translate(),
                     string.Format("EnterHere".Translate(), "FullAddress".Translate()),
                     new IValidator[] { new RequiredValidator() }.AsEnumerable(),
                     false, true));
@@ -192,7 +193,7 @@ namespace NatApp.Plutus.UWP.Implementations.Services
                     completeParsing.Item1.FirstOrDefault(x => x[0].Equals("Address"))?[1] == "" ?
                     (await InputAlertHelper.LaunchInputAlertAsync(viewElementsFullAddress,
                         "Confirm".Translate(),
-                        false)).First() as string :
+                        false))[1] :
                     Uri.UnescapeDataString(completeParsing.Item1.FirstOrDefault(x => x[0].Equals("Address"))?[1]))
             };
         }
@@ -209,9 +210,9 @@ namespace NatApp.Plutus.UWP.Implementations.Services
             for (var i = 1; i < completeParsing.Item2 - 3; i += 2)
             {
                 var rate = double.Parse(completeParsing.Item1[i + 1][1]);
-                var viewElementsTax = new Queue<Tuple<string, string, IEnumerable<IValidator>, bool, bool>>();
+                var viewElementsTax = new Queue<ViewElementData>();
                 viewElementsTax.Enqueue(
-                    Tuple.Create("TaxName".Translate(),
+                    new ViewElementData(1, "TaxName".Translate(),
                         string.Format("EnterHere".Translate(), "TaxName".Translate()),
                         new IValidator[] { new RequiredValidator() }.AsEnumerable(),
                         false, true));
@@ -221,7 +222,7 @@ namespace NatApp.Plutus.UWP.Implementations.Services
                         viewElementsTax,
                         "Confirm".Translate(),
                         false,
-                        string.Format("TaxNameArg".Translate(), rate))).First() as string,
+                        string.Format("TaxNameArg".Translate(), rate)))[1],
                     Rate = rate / 100 + 1
                 };
                 taxes.Add(tax);
@@ -252,11 +253,11 @@ namespace NatApp.Plutus.UWP.Implementations.Services
                         "Yes".Translate(), "No".Translate());
                 if (!empBool) continue;
 
-                var viewElementsEmpE = new Queue<Tuple<string, string, IEnumerable<IValidator>, bool, bool>>();
-                var viewElementsEmpP = new Queue<Tuple<string, string, IEnumerable<IValidator>, bool, bool>>();
+                var viewElementsEmpE = new Queue<ViewElementData>();
+                var viewElementsEmpP = new Queue<ViewElementData>();
 
                 viewElementsEmpE.Enqueue(
-                    Tuple.Create("EMail".Translate(),
+                    new ViewElementData(1, "EMail".Translate(),
                         string.Format("EnterHere".Translate(), "EMail".Translate()),
                         new IValidator[]
                         {
@@ -266,7 +267,7 @@ namespace NatApp.Plutus.UWP.Implementations.Services
                         false, true)
                     );
                 viewElementsEmpP.Enqueue(
-                    Tuple.Create("Password".Translate(),
+                    new ViewElementData(1, "Password".Translate(),
                         string.Format("EnterHere".Translate(), "Password".Translate()),
                         new IValidator[]
                         {
@@ -276,7 +277,7 @@ namespace NatApp.Plutus.UWP.Implementations.Services
                         true, true)
                     );
                 viewElementsEmpP.Enqueue(
-                    Tuple.Create("ConfPassword".Translate(),
+                    new ViewElementData(2, "ConfPassword".Translate(),
                         string.Format("EnterHere".Translate(), "ConfPassword".Translate()),
                         new IValidator[]
                         {
@@ -290,17 +291,17 @@ namespace NatApp.Plutus.UWP.Implementations.Services
                     FName = completeParsing.Item1.FirstOrDefault(x => x[0].Equals("FirstName"))?[1],
                     LName = completeParsing.Item1.FirstOrDefault(x => x[0].Equals("LastName"))?[1],
                     Email = completeParsing.Item1.FirstOrDefault(x => x[0].Equals("Email"))?[1] == "" ?
-                        ((await InputAlertHelper.LaunchInputAlertAsync(
+                        (await InputAlertHelper.LaunchInputAlertAsync(
                             viewElementsEmpE,
                             "Confirm".Translate(),
-                            false)).First() as string).ToLower()
+                            false))[1].ToLower()
                         : completeParsing.Item1.FirstOrDefault(x => x[0].Equals("Email"))?[1].ToLower(),
                     Salt = salt
                 };
                 var password = (await InputAlertHelper.LaunchInputAlertAsync(
                     viewElementsEmpP,
                     "Confirm".Translate(),
-                    false)).First() as string;
+                    false))[1];
                 data.Add(Tuple.Create(emp, password));
             }
             return data;

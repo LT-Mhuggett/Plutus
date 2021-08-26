@@ -525,6 +525,16 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to There was a critical error, this has been reported to the developer.
+        ///Please try again..
+        /// </summary>
+        internal static string CriticalErrorReportedMesg {
+            get {
+                return ResourceManager.GetString("CriticalErrorReportedMesg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Critical Issue has casued the operatoin to fail, Please try again..
         /// </summary>
         internal static string CriticalIssue {

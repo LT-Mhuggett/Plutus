@@ -1,5 +1,5 @@
 ﻿using CustomViews;
-using NatApp.Plutus.Helpers.Validators;
+using CustomViews.Structs;
 using NatApp.Plutus.Pages.CustomViews;
 using Rg.Plugins.Popup.Services;
 using System;
@@ -20,21 +20,18 @@ namespace NatApp.Plutus.Helpers.CustomViews
         /// <param name="interuptable"></param>
         /// <param name="titleText"></param>
         /// <returns></returns>
-        public static async Task<List<object>> LaunchInputAlertAsync(IEnumerable<Tuple<string, string, IEnumerable<IValidator>, bool, bool>> viewElements, string confirmButText, bool interuptable, string titleText = null, string cancelText = null)
+        public static async Task<Dictionary<uint, string>> LaunchInputAlertAsync(IEnumerable<ViewElementData> viewElements, string confirmButText, bool interuptable, string titleText = null, string cancelText = null)
         {
             var inputAlert = new InputAlert(viewElements, confirmButText, titleText, cancelText);
-            var popUp = new AlertDialogBase<List<object>>(inputAlert, interuptable);
+            var popUp = new AlertDialogBase<Dictionary<uint, string>>(inputAlert, interuptable);
 
             inputAlert.ConfirmButtonEHandler += (sender, e) =>
             {
                 var page = (sender as InputAlert);
-                var data = new List<object>();
-                foreach (var inputResult in page.InputResults.Values)
-                    data.Add(inputResult);
-                popUp.PageClosedTaskCompletionSource.SetResult(data);
+                popUp.PageClosedTaskCompletionSource.SetResult(page.InputResults);
             };
 
-            var result = new List<object>();
+            var result = new Dictionary<uint, string>();
 
             while (result.Count == 0/*Add check to ensure that all required fields are set*/)
             {
@@ -43,10 +40,10 @@ namespace NatApp.Plutus.Helpers.CustomViews
                 bool isFirstEntry = true;
 
                 foreach (var item in inputAlert.ViewElements)
-                    if (item.Item2 != null)
+                    if (item.Entry != null)
                         if (isFirstEntry)
                         {
-                            item.Item2.Focus();
+                            item.Entry.Focus();
                             isFirstEntry = false;
                         }
 
@@ -67,21 +64,18 @@ namespace NatApp.Plutus.Helpers.CustomViews
         /// <param name="toPay"></param>
         /// <param name="titleText"></param>
         /// <returns></returns>
-        public static async Task<List<object>> LaunchInputAlertAsync(IEnumerable<Tuple<string, string, IEnumerable<IValidator>, bool, bool>> viewElements, string confirmButText, bool interuptable, bool cash, decimal toPay, string titleText = null, string cancelText = null)
+        public static async Task<Dictionary<uint, string>> LaunchInputAlertAsync(IEnumerable<ViewElementData> viewElements, string confirmButText, bool interuptable, bool cash, decimal toPay, string titleText = null, string cancelText = null)
         {
             var inputAlert = new InputAlert(viewElements, confirmButText, cash, toPay, titleText, cancelText);
-            var popUp = new AlertDialogBase<List<object>>(inputAlert, interuptable);
+            var popUp = new AlertDialogBase<Dictionary<uint, string>>(inputAlert, interuptable);
 
             inputAlert.ConfirmButtonEHandler += (sender, e) =>
             {
                 var page = (sender as InputAlert);
-                var data = new List<object>();
-                foreach (var inputResult in page.InputResults.Values)
-                    data.Add(inputResult);
-                popUp.PageClosedTaskCompletionSource.SetResult(data);
+                popUp.PageClosedTaskCompletionSource.SetResult(page.InputResults);
             };
 
-            var result = new List<object>();
+            var result = new Dictionary<uint, string>();
 
             while (result.Count == 0/*Add check to ensure that all required fields are set*/)
             {
@@ -90,10 +84,10 @@ namespace NatApp.Plutus.Helpers.CustomViews
                 bool isFirstEntry = true;
 
                 foreach (var item in inputAlert.ViewElements)
-                    if (item.Item2 != null)
+                    if (item.Entry != null)
                         if (isFirstEntry)
                         {
-                            item.Item2.Focus();
+                            item.Entry.Focus();
                             isFirstEntry = false;
                         }
 

@@ -251,6 +251,10 @@
       <Project>{D1D47930-CEA0-4A76-AFF1-AC8025E31C8B}</Project>
       <Name>CommonPOSLibrary</Name>
     </ProjectReference>
+    <ProjectReference Include="..\..\CustomViews\CustomViews.csproj">
+      <Project>{695A73EB-1295-4DEF-9C89-D324720428DB}</Project>
+      <Name>CustomViews</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\Database\Database.csproj">
       <Project>{45D390E4-AE4A-4776-A141-0B8D2DD7E9FC}</Project>
       <Name>Database</Name>

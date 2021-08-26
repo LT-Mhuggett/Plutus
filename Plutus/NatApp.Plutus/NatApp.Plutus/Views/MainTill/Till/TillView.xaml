@@ -131,7 +131,7 @@
                 </StackLayout>
                 <ListView x:Name="TillList" VerticalOptions="FillAndExpand" HasUnevenRows="True"
                           ItemsSource="{Binding Basket}" ItemTemplate="{StaticResource BasketDataTemplateSelector}"
-                          SelectedItem="{Binding SelectedBasketRecord}">
+                          SelectedItem="{Binding SelectedBasketRecord}" ItemTapped="TillList_ItemTapped">
                     <ListView.Header>
                         <Grid Padding="5">
                             <Grid.ColumnDefinitions>
