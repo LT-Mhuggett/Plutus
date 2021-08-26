@@ -73,6 +73,76 @@ namespace Plutus.Entities.Tests
             Assert.False(DbContext.Taxes.Any());
         }
 
+        [Test]
+        [Category("TableAreCreated")]
+        public void NotesTableIsCreated()
+        {
+            Assert.False(DbContext.Notes.Any());
+        }
+
+        [Test]
+        [Category("TableAreCreated")]
+        public void AuthActionsTableIsCreated()
+        {
+            Assert.False(DbContext.AuthActions.Any());
+        }
+
+        [Test]
+        [Category("TableAreCreated")]
+        public void DiscountCatsTableIsCreated()
+        {
+            Assert.False(DbContext.DiscountCats.Any());
+        }
+
+        [Test]
+        [Category("TableAreCreated")]
+        public void DiscountItemsTableIsCreated()
+        {
+            Assert.False(DbContext.DiscountItems.Any());
+        }
+
+        [Test]
+        [Category("TableAreCreated")]
+        public void ItemsTableIsCreated()
+        {
+            Assert.False(DbContext.Items.Any());
+        }
+
+        [Test]
+        [Category("TableAreCreated")]
+        public void NoteSalesTableIsCreated()
+        {
+            Assert.False(DbContext.NotesSales.Any());
+        }
+
+        [Test]
+        [Category("TableAreCreated")]
+        public void PayMethodsTableIsCreated()
+        {
+            Assert.False(DbContext.PayMethods.Any());
+        }
+
+        [Test]
+        [Category("TableAreCreated")]
+        public void PaySalesTableIsCreated()
+        {
+            Assert.False(DbContext.PaySales.Any());
+        }
+
+        [Test]
+        [Category("TableAreCreated")]
+        public void RefundsTableIsCreated()
+        {
+            Assert.False(DbContext.Refunds.Any());
+        }
+
+        [Test]
+        [Category("TableAreCreated")]
+        public void StocksTableIsCreated()
+        {
+            Assert.False(DbContext.Stocks.Any());
+        }
+
         #endregion Tables are created tests
     }
 }
