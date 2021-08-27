@@ -1,10 +1,10 @@
-﻿using CustomViews;
-using CustomViews.Structs;
+﻿using CustomViews.Structs;
 using Database.Models;
 using Microsoft.EntityFrameworkCore;
 using NatApp.Plutus.Helpers.Extensions;
 using NatApp.Plutus.Helpers.Security;
 using NatApp.Plutus.Helpers.Validators;
+using NatApp.Plutus.Services.Analytics;
 using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -168,7 +168,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Inventory.Items
                                 Debug.Write("Save Failed!");
                             }
 
-                            Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Created (from AddEditViewModel)");
+                            Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Item Created (from AddEditViewModel)");
 
                             //await DisplayPopup();
                             await App.Current.MainPage.DisplayAlert("Success".Translate(), "Saved".Translate(), "OK".Translate());
@@ -217,7 +217,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Inventory.Items
                                 Debug.Write("Save Failed!");
                             }
 
-                            Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Updated (from AddEditViewModel)");
+                            Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Item Updated (from AddEditViewModel)");
 
                             //await DisplayPopup();
                             await App.Current.MainPage.DisplayAlert("Success".Translate(), "Saved".Translate(), "OK".Translate());
@@ -288,7 +288,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Inventory.Items
                             }
 
 
-                            Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Category Created (from AddEditViewModel)");
+                            Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Category Created (from AddEditViewModel)");
                             //await DisplayPopup();
                             await App.Current.MainPage.DisplayAlert("Success".Translate(), "Saved".Translate(), "OK".Translate());
 

@@ -2,6 +2,7 @@
 using Microsoft.AppCenter;
 using Microsoft.AppCenter.Analytics;
 using Microsoft.AppCenter.Crashes;
+using NatApp.Plutus.Services.Analytics;
 using NatApp.Plutus.Services.Loading;
 using NatApp.Plutus.ViewModels;
 using NatApp.Plutus.Views;
@@ -35,6 +36,9 @@ namespace NatApp.Plutus
 
             InitializeComponent();
 
+            DependencyService.Register<AppState>();
+            DependencyService.Register<Logger>();
+
             BindingContext = new AppViewModel();
 
             if (((AppViewModel)BindingContext).DatabaseProviderSetting == null
@@ -52,6 +56,14 @@ namespace NatApp.Plutus
         {
             AppCenter.LogLevel = LogLevel.Verbose;
             AppCenter.Start("ios=81d0ebb5-e7cf-40b2-bcdf-b8f5f13f65dc;android=b20338a6-19b9-4f57-a923-c4efec1fa0a1;uwp=85e2fee4-7bf1-4180-872a-040e636a3a60", typeof(Analytics), typeof(Crashes));
+
+            IAppState appState = DependencyService.Get<IAppState>();
+            appState.Init();
+#if DEBUG
+            appState.SetAppLogLevel(AppLogLevel.Verbose);
+#else
+            appState.SetAppLogLevel(AppLogLevel.Info);
+#endif
         }
 
         protected override void OnSleep()

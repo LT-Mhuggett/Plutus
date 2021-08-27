@@ -18,6 +18,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
+using NatApp.Plutus.Services.Analytics;
 using Xamarin.Forms;
 
 namespace NatApp.Plutus.ViewModels.MainTill.Till
@@ -299,7 +300,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 ItemId = string.Empty;
                 Quantity = 1;
 
-                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Added To Basket (from TillViewModel)");
+                Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Item Added To Basket");
             }
             finally
             {
@@ -318,7 +319,8 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 if (item == null)
                 {
                     await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "ItemNotFoundMesg".Translate(), "OK".Translate());
-                    Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Added To Basket (from Request)", new Dictionary<string, string> { { "Success", "False" } });
+                    Logger.LogEvent(AppLogLevel.Warn, $"{this.GetType().Name}: Item Added To Basket (from Request)",
+                        new Dictionary<string, string> {{"Success", "False"}, {"Reason", "Item no longer exists"}});
                     return;
                 }
 
@@ -346,7 +348,8 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 else
                     tempItem.IncrementQuantity(Quantity);
 
-                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Added To Basket (from Request)", new Dictionary<string, string> { { "Success", "True" } });
+                Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Item Added To Basket (from Request)",
+                    new Dictionary<string, string> {{"Success", "True"}});
             }
             finally
             {
@@ -421,7 +424,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     basketItem.PriceExTax = decimal.Parse(priceExTax, numberStyles, CultureInfo.CurrentCulture);
                     basketItem.Price = decimal.Parse(priceTax, numberStyles, CultureInfo.CurrentCulture);
                 }
-                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Adjustment");
+                Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Item Adjustment");
             }
             finally
             {
@@ -459,7 +462,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         !alertReturnValues.TryGetValue(2, out string reasonText))
                     {
                         Microsoft.AppCenter.Crashes.Crashes.TrackError(new ArgumentException(
-                                $"{nameof(alertReturnValues)} does not have the expected key required, to move forward!"),
+                                $"{this.GetType().Name}: {nameof(alertReturnValues)} does not have the expected key required, to move forward!"),
                             new Dictionary<string, string>
                                 {{"alertReturnValues", string.Join(Environment.NewLine, alertReturnValues)}});
                         await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
@@ -542,7 +545,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 //finalize change
                 Basket.Remove(basketItem);
                 Basket.Add(returnItem);
-                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Return");
+                Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Item Return");
             }
             finally
             {
@@ -587,7 +590,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
             {
                 Alterations.Clear();
 
-                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Transaction Alteration (Discounts)");
+                Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Transaction Alteration (Discounts)");
                 Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
                 using (var db = new Helpers.Database.Database(databaseProvider, App.GetViewModel().EmployeeId))
                 {
@@ -622,11 +625,11 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 var entries = new ViewElementData[1];
 
                 if (alteration.Amount == 0.0m)
-                    entries[1] = new ViewElementData(1,
+                    entries[0] = new ViewElementData(1,
                         alteration.Type == 0 ? "Cash".Translate() : "Percent".Translate(), "0", new List<IValidator>(), false, true);
 
                 else
-                    entries[1] = new ViewElementData(1,
+                    entries[0] = new ViewElementData(1,
                         alteration.Type == 0 ? "Cash".Translate() : "Percent".Translate(), alteration.Amount.ToString(CultureInfo.CurrentCulture), new List<IValidator>(), false, false);
 
                 //data type -> Tuple<List<string>, List<BasketItem>>
@@ -703,7 +706,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     if (string.IsNullOrEmpty(transName))
                     {
 
-                        Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Transaction Store (Saving)", new Dictionary<string, string> { { "Canceled", "True" } });
+                        Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Transaction Store (Saving)", new Dictionary<string, string> { { "Canceled", "True" } });
                         return;
                     }
                     firstRun = false;
@@ -741,7 +744,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 }
                 Basket.Clear();
 
-                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Transaction Store (Saving)", new Dictionary<string, string> { { "Canceled", "False" } });
+                Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Transaction Store (Saving)", new Dictionary<string, string> { { "Canceled", "False" } });
             }
             finally
             {
@@ -765,7 +768,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     var action = await Application.Current.MainPage.DisplayActionSheet("Baskets".Translate(), "Cancel".Translate(), null, baskets);
                     if (action == "Cancel".Translate())
                     {
-                        Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Transaction Retrieved", new Dictionary<string, string> { { "Canceled", "True" } });
+                        Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Transaction Retrieved", new Dictionary<string, string> { { "Canceled", "True" } });
                         return;
                     }
                     storedTransaction = StoredTransactions.First(sT => sT.Name.Equals(action));
@@ -802,7 +805,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     foreach (var item in basket)
                         Basket.Add(item);
 
-                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Transaction Store (Saving)", new Dictionary<string, string> { { "Canceled", "False" } });
+                Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Transaction Store (Saving)", new Dictionary<string, string> { { "Canceled", "False" } });
             }
             finally
             {
@@ -851,7 +854,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
 
                     if (payMeth == "Cancel".Translate())
                     {
-                        Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Sale Processing", new Dictionary<string, string> { { "Canceled", "True" } });
+                        Logger.LogEvent(AppLogLevel.Info, "Sale Processing", new Dictionary<string, string> { { "Canceled", "True" } });
                         return;
                     }
 
@@ -1138,7 +1141,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 Basket.Clear();
                 await Application.Current.MainPage.DisplayAlert("Transaction".Translate(), "TransConfMesg".Translate(), "OK".Translate());
 
-                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Sale Processing", trackEventArgs);
+                Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Sale Processing", trackEventArgs);
 
                 if (!itemHasNoStock)
                 {

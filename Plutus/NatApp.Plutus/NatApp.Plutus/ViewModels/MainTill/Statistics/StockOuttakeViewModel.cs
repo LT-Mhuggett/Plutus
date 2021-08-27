@@ -1,12 +1,12 @@
 ﻿using Database.Models;
 using Microsoft.EntityFrameworkCore;
 using NatApp.Plutus.Helpers.Extensions;
+using NatApp.Plutus.Services.Analytics;
 using Syncfusion.SfCalendar.XForms;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Text;
 using Xamarin.Forms;
 
 namespace NatApp.Plutus.ViewModels.MainTill.Statistics
@@ -92,7 +92,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
                                             && s.DateOfSale <= SelectionRange.EndDate)
                                   .Include(s => s.Transactions)
                                     .ThenInclude(t => t.Item)
-                                        .ThenInclude(i=>i.Cat);
+                                        .ThenInclude(i => i.Cat);
             foreach (var tempSale in sales)
             {
                 foreach (var tempTran in tempSale.Transactions)
@@ -123,7 +123,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
             using (var db = new Helpers.Database.Database(databaseProvider))
             {
                 ItemDataLoading(db);
-                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Stock Outtake Report Generated", new Dictionary<string, string>
+                Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Stock Outtake Report Generated", new Dictionary<string, string>
                 {
                     { "Start Date", SelectionRange.StartDate.ToString("MM-dd-yyyy") },
                     { "End Date", SelectionRange.EndDate.ToString("MM-dd-yyyy") }

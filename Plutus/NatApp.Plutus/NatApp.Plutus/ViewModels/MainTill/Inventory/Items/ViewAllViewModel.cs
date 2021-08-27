@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using NatApp.Plutus.Helpers.Extensions;
 using NatApp.Plutus.Helpers.Security;
 using NatApp.Plutus.Helpers.Validators;
+using NatApp.Plutus.Services.Analytics;
 using NatApp.Plutus.Views.MainTill.Inventory.Items;
 using Syncfusion.DataSource;
 using System;
@@ -170,13 +171,13 @@ namespace NatApp.Plutus.ViewModels.MainTill.Inventory.Items
         private void ExecuteAddToBasket(string itemId)
         {
             MessagingCenter.Send(this, "AddToBasket", itemId);
-            Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Added To Basket Requested (from ViewAllViewModel)");
+            Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Item Added To Basket Requested (from ViewAllViewModel)");
         }
 
         private async void ExecuteOpenEditItem(string itemId)
         {
             await App.Current.MainPage.Navigation.PushAsync(new AddEditView(itemId));
-            Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Item Edit Opened (from ViewAllViewModel)");
+            Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Item Edit Opened (from ViewAllViewModel)");
         }
 
         private async void ExecuteUpdateItemStock(string itemId)
