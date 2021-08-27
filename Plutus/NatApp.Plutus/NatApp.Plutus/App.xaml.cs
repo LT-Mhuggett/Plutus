@@ -36,8 +36,8 @@ namespace NatApp.Plutus
 
             InitializeComponent();
 
-            DependencyService.Get<AppState>();
-            DependencyService.Get<Logger>();
+            DependencyService.Register<AppState>();
+            DependencyService.Register<Logger>();
 
             BindingContext = new AppViewModel();
 
