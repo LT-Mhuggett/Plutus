@@ -2,16 +2,15 @@
 using Database.Models;
 using Microsoft.EntityFrameworkCore;
 using NatApp.Plutus.Helpers.Extensions;
-using NatApp.Plutus.Helpers.Security;
+using NatApp.Plutus.Services.Analytics;
+using NatApp.Plutus.Views;
+using Plugin.Iconize;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Text;
 using System.Linq;
 using System.Threading.Tasks;
 using Xamarin.Forms;
-using Plugin.Iconize;
-using NatApp.Plutus.Views;
 
 namespace NatApp.Plutus.ViewModels
 {
@@ -96,19 +95,19 @@ namespace NatApp.Plutus.ViewModels
                 {
                     var tempUser = await dbHelper.Get<EmployeeModel>()
                         .Include(e => e.Store)
-                        .Where(e => e.Id.Equals(_email_UserId) || 
+                        .Where(e => e.Id.Equals(_email_UserId) ||
                             EF.Functions.Like(e.Email.ToLower(), _email_UserId.ToLower())).FirstOrDefaultAsync();
                     if (tempUser == null || !await Task.Run(() =>
                         Helpers.Security.Password.Verify(_password, Convert.FromBase64String(tempUser.Salt),
                             Convert.FromBase64String(tempUser.HashedPassword))))
                     {
 
-                        Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Login", new Dictionary<string, string> { { "Authorised", "False" } });
+                        Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Login", new Dictionary<string, string> { { "Authorised", "False" } });
                         await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "DetailsNotCorrectORUserNotExistMesg".Translate(), "OK".Translate());
                         return;
                     }
 
-                    Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Login", new Dictionary<string, string> { { "Authorised", "True" } });
+                    Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Login", new Dictionary<string, string> { { "Authorised", "True" } });
                     var store = tempUser.Store;
 
                     App.GetViewModel().Employees.Add(tempUser);
@@ -130,7 +129,7 @@ namespace NatApp.Plutus.ViewModels
                 Microsoft.AppCenter.Crashes.Crashes.TrackError(ex);
                 Debug.WriteLine(ex.Message);
             }
-            
+
             finally
             {
                 App.SetLoading(false);

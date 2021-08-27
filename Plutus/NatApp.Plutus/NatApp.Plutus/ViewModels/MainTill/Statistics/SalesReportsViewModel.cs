@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using NatApp.Plutus.Helpers.Extensions;
 using NatApp.Plutus.Helpers.FileIO;
+using NatApp.Plutus.Services.Analytics;
 using NatApp.Plutus.Services.IOHandeling;
 using Syncfusion.SfCalendar.XForms;
 using Syncfusion.SfChart.XForms;
@@ -162,10 +163,10 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
             {
                 db.SetTrackingBehavior(QueryTrackingBehavior.NoTracking);
                 await LoadRequiredExportDataAsync(SelectionRange.StartDate, SelectionRange.EndDate, db);
-                Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Export Sales Report", new Dictionary<string, string> 
+                Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Export Sales Report", new Dictionary<string, string>
                 {
                     { "Start Date", SelectionRange.StartDate.ToString("MM-dd-yyyy") },
-                    { "End Date", SelectionRange.EndDate.ToString("MM-dd-yyyy") } 
+                    { "End Date", SelectionRange.EndDate.ToString("MM-dd-yyyy") }
                 });
             }
 
@@ -244,7 +245,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
                 TotalTax = (SalesTotal - SalesTotalExTax);
             }
             CreateSeries(salesData);
-            Microsoft.AppCenter.Analytics.Analytics.TrackEvent("Sales Report Generated", new Dictionary<string, string>
+            Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Sales Report Generated", new Dictionary<string, string>
                 {
                     { "Start Date", startDate.ToString("MM-dd-yyyy") },
                     { "End Date", endDate.ToString("MM-dd-yyyy") }

@@ -1,13 +1,16 @@
-﻿using System;
+﻿using NatApp.Plutus.Services.Analytics;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using Xamarin.Forms;
 
 namespace NatApp.Plutus.ViewModels
 {
     public abstract class BaseViewModel : Settings, INotifyPropertyChanged, IDisposable
     {
         #region Private Variables
+
         private string _title;
 
         private string _icon;
@@ -18,13 +21,16 @@ namespace NatApp.Plutus.ViewModels
         #endregion
 
         #region Public Properties
+
+        public ILogger Logger { get; }
+
         /// <summary>
         /// Page Title
         /// </summary>
         public string Title
         {
             get => _title;
-            set { SetProperty(ref _title, value); }
+            set => SetProperty(ref _title, value);
         }
 
         /// <summary>
@@ -33,7 +39,7 @@ namespace NatApp.Plutus.ViewModels
         public string Icon
         {
             get => _icon;
-            set { SetProperty(ref _icon, value); }
+            set => SetProperty(ref _icon, value);
         }
 
         /// <summary>
@@ -42,13 +48,13 @@ namespace NatApp.Plutus.ViewModels
         public static bool IsBusy
         {
             get => _isBusy;
-            set { StaticSetProperty(ref _isBusy, value); }
+            set => StaticSetProperty(ref _isBusy, value);
         }
         #endregion
-        
+
         protected BaseViewModel()
         {
-
+            Logger = DependencyService.Get<ILogger>();
         }
 
         #region INotifyPropertyChanged
@@ -65,7 +71,7 @@ namespace NatApp.Plutus.ViewModels
         /// <param name="propertyName">Caller Property name</param>
         /// <param name="onChanged">Action to run</param>
         /// <returns></returns>
-        protected bool SetProperty<T>(ref T backingStore, T value, [CallerMemberName]string propertyName = "", Action onChanged = null)
+        protected bool SetProperty<T>(ref T backingStore, T value, [CallerMemberName] string propertyName = "", Action onChanged = null)
         {
             if (EqualityComparer<T>.Default.Equals(backingStore, value))
                 return false;
@@ -75,7 +81,7 @@ namespace NatApp.Plutus.ViewModels
             return true;
         }
 
-        protected static bool StaticSetProperty<T>(ref T backingStore, T value, [CallerMemberName]string propertyName = "", Action onChanged = null)
+        protected static bool StaticSetProperty<T>(ref T backingStore, T value, [CallerMemberName] string propertyName = "", Action onChanged = null)
         {
             if (EqualityComparer<T>.Default.Equals(backingStore, value))
                 return false;
@@ -93,7 +99,7 @@ namespace NatApp.Plutus.ViewModels
         protected static void StaticOnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             StaticPropertyChanged?.Invoke(null, new PropertyChangedEventArgs(propertyName));
-        } 
+        }
         #endregion
 
         #region IDisposable Support
