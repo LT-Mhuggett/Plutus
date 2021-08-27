@@ -625,11 +625,11 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 var entries = new ViewElementData[1];
 
                 if (alteration.Amount == 0.0m)
-                    entries[1] = new ViewElementData(1,
+                    entries[0] = new ViewElementData(1,
                         alteration.Type == 0 ? "Cash".Translate() : "Percent".Translate(), "0", new List<IValidator>(), false, true);
 
                 else
-                    entries[1] = new ViewElementData(1,
+                    entries[0] = new ViewElementData(1,
                         alteration.Type == 0 ? "Cash".Translate() : "Percent".Translate(), alteration.Amount.ToString(CultureInfo.CurrentCulture), new List<IValidator>(), false, false);
 
                 //data type -> Tuple<List<string>, List<BasketItem>>
