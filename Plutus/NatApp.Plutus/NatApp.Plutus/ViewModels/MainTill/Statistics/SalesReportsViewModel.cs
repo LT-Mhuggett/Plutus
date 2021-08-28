@@ -44,7 +44,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
         public SelectionRange SelectionRange
         {
             get => _selectionRange;
-            set => SetProperty(ref _selectionRange, value, onChanged: () => EnsureCalendarDataIsCorrect());
+            set => SetProperty(ref _selectionRange, value, onChanged: EnsureCalendarDataIsCorrect);
         }
         public decimal SalesTotalExTax
         {
@@ -97,6 +97,14 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
             Series = new ChartSeriesCollection();
             Series.CollectionChanged += (sender, e) => OnPropertyChanged("Series");
             GridView = default;
+            //Set CalMinDate to DateTime.MinValue to prevent a problem with SfCalendar wanting an initial value
+            CalMinDate = DateTime.MinValue;
+            CalMaxDate = DateTime.Now.StartOfWeek().AddDays(6);
+            SelectionRange = new SelectionRange
+            {
+                StartDate = DateTime.Now.StartOfWeek(),
+                EndDate = DateTime.Now.StartOfWeek().AddDays(6)
+            };
 
             Device.BeginInvokeOnMainThread(() =>
             {
@@ -104,19 +112,10 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
                 using (var db = new Helpers.Database.Database(databaseProvider))
                 {
                     db.SetTrackingBehavior(QueryTrackingBehavior.NoTracking);
-                    CalMaxDate = db.Get<SaleModel>().OrderByDescending(s => s.DateOfSale).Select(s => s.DateOfSale).FirstOrDefault();
-                    if (CalMaxDate != default)
-                        CalMaxDate = CalMaxDate.StartOfWeek().AddDays(6);
 
                     CalMinDate = db.Get<SaleModel>().OrderBy(s => s.DateOfSale).Select(s => s.DateOfSale).FirstOrDefault();
                     if (CalMinDate != default)
                         CalMinDate = CalMinDate.StartOfWeek();
-
-                    SelectionRange = new SelectionRange
-                    {
-                        StartDate = DateTime.Now.StartOfWeek(),
-                        EndDate = DateTime.Now.StartOfWeek().AddDays(6)
-                    };
                 }
             });
             App.SetLoading(false);
