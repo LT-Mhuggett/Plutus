@@ -1,16 +1,20 @@
 import * as React from 'react';
 import { Route } from 'react-router';
-import Layout from './components/Layout';
-import Home from './components/Home';
-import Counter from './components/Counter';
-import FetchData from './components/FetchData';
-
+import { PageLayout } from "./components/PageLayout";
 import './custom.css'
+import { AuthenticatedTemplate, UnauthenticatedTemplate } from "@azure/msal-react";
 
-export default () => (
-    <Layout>
-        <Route exact path='/' component={Home} />
-        <Route path='/counter' component={Counter} />
-        <Route path='/fetch-data/:startDateIndex?' component={FetchData} />
-    </Layout>
-);
+function App() {
+    return (
+        <PageLayout>
+            <AuthenticatedTemplate>
+                <p>You are signed in!</p>
+            </AuthenticatedTemplate>
+            <UnauthenticatedTemplate>
+                <p>You are not signed in! Please sign in.</p>
+            </UnauthenticatedTemplate>
+        </PageLayout>
+    );
+}
+
+export default App;
