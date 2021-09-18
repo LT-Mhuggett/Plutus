@@ -408,6 +408,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Checkout Options.
+        /// </summary>
+        internal static string CheckoutOptions {
+            get {
+                return ResourceManager.GetString("CheckoutOptions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Checkout.
         /// </summary>
         internal static string CheckoutTransaction {
@@ -867,6 +876,15 @@ namespace I18N_L10N.Resx {
         internal static string InitArg {
             get {
                 return ResourceManager.GetString("InitArg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Insertion Order.
+        /// </summary>
+        internal static string InsertionOrder {
+            get {
+                return ResourceManager.GetString("InsertionOrder", resourceCulture);
             }
         }
         
@@ -1378,6 +1396,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Reverse Insertion Order.
+        /// </summary>
+        internal static string ReverseInsertionOrder {
+            get {
+                return ResourceManager.GetString("ReverseInsertionOrder", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Revert {0}.
         /// </summary>
         internal static string RevertArg {
@@ -1716,6 +1743,33 @@ namespace I18N_L10N.Resx {
         internal static string Till {
             get {
                 return ResourceManager.GetString("Till", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Till list order option.
+        /// </summary>
+        internal static string TillListIOrderOption {
+            get {
+                return ResourceManager.GetString("TillListIOrderOption", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Till List Order.
+        /// </summary>
+        internal static string TillListOrder {
+            get {
+                return ResourceManager.GetString("TillListOrder", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Till Options.
+        /// </summary>
+        internal static string TillOptions {
+            get {
+                return ResourceManager.GetString("TillOptions", resourceCulture);
             }
         }
         

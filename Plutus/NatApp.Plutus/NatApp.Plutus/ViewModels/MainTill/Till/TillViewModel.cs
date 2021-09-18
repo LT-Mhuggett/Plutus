@@ -31,6 +31,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
         private int _quantity;
         private bool _pickerIsOpen;
         private IBasketRecord _selectedBasketRecord;
+        private readonly ObservableCollection<IBasketRecord> _basket = new ObservableCollection<IBasketRecord>();
         #endregion
 
         #region Properties
@@ -52,7 +53,10 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
             set => SetProperty(ref _quantity, value);
         }
         public ObservableCollection<SavedTransactionModel> StoredTransactions { get; } = new ObservableCollection<SavedTransactionModel>();
-        public ObservableCollection<IBasketRecord> Basket { get; } = new ObservableCollection<IBasketRecord>();
+
+        public ObservableCollection<IBasketRecord> Basket => TillListViewOrderReversed
+            ? new ObservableCollection<IBasketRecord>(_basket.Reverse())
+            : _basket;
         public IBasketRecord SelectedBasketRecord
         {
             get => _selectedBasketRecord;
@@ -114,7 +118,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     App.GetViewModel().ToolbarItemsChanged = true;
                 }
             };
-            Basket.CollectionChanged += (sender, e) =>
+            _basket.CollectionChanged += (sender, e) =>
             {
                 if (e.NewItems != null)
                     foreach (INotifyPropertyChanged added in e.NewItems)
@@ -294,7 +298,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 }
 
                 if (tempItem == default)
-                    Basket.Add(new BasketItem(item, Quantity));
+                    _basket.Add(new BasketItem(item, Quantity));
                 else
                     tempItem.IncrementQuantity(Quantity);
                 ItemId = string.Empty;
@@ -344,7 +348,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 }
 
                 if (tempItem == default)
-                    Basket.Add(new BasketItem(item, Quantity));
+                    _basket.Add(new BasketItem(item, Quantity));
                 else
                     tempItem.IncrementQuantity(Quantity);
 
@@ -369,7 +373,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     basketRecord.Quantity--;
                 else
                 {
-                    Basket.Remove(basketRecord);
+                    _basket.Remove(basketRecord);
                     if (SelectedBasketRecord == basketRecord)
                         SelectedBasketRecord = null;
                 }
@@ -387,7 +391,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
             IsBusy = true;
             try
             {
-                Basket.Remove(basketRecord);
+                _basket.Remove(basketRecord);
                 if (SelectedBasketRecord == basketRecord)
                     SelectedBasketRecord = null;
             }
@@ -543,8 +547,8 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 } while (continueLoop);
 
                 //finalize change
-                Basket.Remove(basketItem);
-                Basket.Add(returnItem);
+                _basket.Remove(basketItem);
+                _basket.Add(returnItem);
                 Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Item Return");
             }
             finally
@@ -563,8 +567,8 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                 var basketItem = App.GetViewModel().GetMapper.Map<BasketItem>(basketReturnItem);
 
                 //finalize change
-                Basket.Remove(basketReturnItem);
-                Basket.Add(basketItem);
+                _basket.Remove(basketReturnItem);
+                _basket.Add(basketItem);
             }
             finally
             {
@@ -652,7 +656,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                             var alterationAmount = Tuple.Create(Math.Abs(Math.Round(item.Price * Decimal.Parse(alterationAmounts.First()), 2, MidpointRounding.AwayFromZero)) * -1, Math.Abs(Math.Round(item.PriceExTax * Decimal.Parse(alterationAmounts.First()), 2, MidpointRounding.AwayFromZero)) * -1);
                             adjustment = new BasketAlteration(new NoteModel($"{alteration.Name}, {item.Name} {alterationAmount.Item1.ToString("C2", CultureInfo.CurrentCulture)}"), alteration, item, alterationAmount.Item1, alterationAmount.Item2);
                         }
-                        Basket.Add(adjustment);
+                        _basket.Add(adjustment);
                     }
                 }
                 else
@@ -667,7 +671,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         var alterationAmount = Tuple.Create(Math.Abs(Math.Round(applyAlterationsToBasketItems.Sum(tempItem => tempItem.Price) * Decimal.Parse(alterationAmounts.First()), 2, MidpointRounding.AwayFromZero)) * -1, Math.Abs(Math.Round(applyAlterationsToBasketItems.Sum(tempItem => tempItem.PriceExTax) * Decimal.Parse(alterationAmounts.First()), 2, MidpointRounding.AwayFromZero)) * -1);
                         adjustment = new BasketAlteration(new NoteModel($"{alteration.Name}, {alterationAmount.Item1.ToString("C2", CultureInfo.CurrentCulture)}"), alteration, applyAlterationsToBasketItems, alterationAmount.Item1, alterationAmount.Item2);
                     }
-                    Basket.Add(adjustment);
+                    _basket.Add(adjustment);
                 }
 
             }
@@ -742,7 +746,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         return;
                     }
                 }
-                Basket.Clear();
+                _basket.Clear();
 
                 Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Transaction Store (Saving)", new Dictionary<string, string> { { "Canceled", "False" } });
             }
@@ -800,10 +804,10 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         TypeNameHandling = TypeNameHandling.Auto
                     });
 
-                Basket.Clear();
+                _basket.Clear();
                 if (basket != null)
                     foreach (var item in basket)
-                        Basket.Add(item);
+                        _basket.Add(item);
 
                 Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Transaction Store (Saving)", new Dictionary<string, string> { { "Canceled", "False" } });
             }
@@ -869,7 +873,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                                 var note = db.GetNote(string.Format("CardChangeNote".Translate(), pay.TempPayMethod.Charge)) ??
                                            new NoteModel(string.Format("CardChangeNote".Translate(), pay.TempPayMethod.Charge));
 
-                                Basket.Add(new BasketNote(note, pay.TempPayMethod.Charge, pay.TempPayMethod.Charge));
+                                _basket.Add(new BasketNote(note, pay.TempPayMethod.Charge, pay.TempPayMethod.Charge));
                                 sale.Total = Basket.Sum(bR => bR.Price * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
                             }
                         }
@@ -1030,7 +1034,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
 
         private void ExecuteCancelTransaction()
         {
-            Basket.Clear();
+            _basket.Clear();
         }
         #endregion
         #endregion
@@ -1138,7 +1142,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     trackEventArgs.Add("Printed Not Selected", "True");
                     await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "There is no POS Printer selected. Transaction has succeeded but a receipt is currently unavailable.", "OK".Translate());
                 }
-                Basket.Clear();
+                _basket.Clear();
                 await Application.Current.MainPage.DisplayAlert("Transaction".Translate(), "TransConfMesg".Translate(), "OK".Translate());
 
                 Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Sale Processing", trackEventArgs);

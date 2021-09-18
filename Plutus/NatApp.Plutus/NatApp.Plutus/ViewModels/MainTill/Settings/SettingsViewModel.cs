@@ -43,7 +43,9 @@ namespace NatApp.Plutus.ViewModels.MainTill.Settings
                 Tuple.Create("Printer", ""),
                 Tuple.Create("ChangePrinter".Translate(), "ChangePrinterCommand"),
                 Tuple.Create("PrintTestPage".Translate(), "PrintTestPageCommand"),
-                Tuple.Create("CheckoutOptions", ""),
+                Tuple.Create("TillOptions".Translate(), ""),
+                Tuple.Create("TillListOrder".Translate(), "TillListReverseOrderCommand"),
+                Tuple.Create("CheckoutOptions".Translate(), ""),
                 Tuple.Create("AskForReceiptOption".Translate(), "ChangeAskForReceiptOptionCommand"),
                 Tuple.Create("ChangeCashDrawerExists".Translate(), "ChangeCashDrawerExistsCommand"),
                 //Tuple.Create("ChangeBarcodeType".Translate(), "ChangeBarcodeTypeCommand"),
@@ -117,6 +119,17 @@ namespace NatApp.Plutus.ViewModels.MainTill.Settings
             get => _printTestPageCommand ?? (_printTestPageCommand = new Command(ExecutePrintTestPage));
         }
 
+        #endregion
+        #region Till Options
+
+        private Command _tillListReverseOrderCommand;
+
+        public Command TillListReverseOrderCommand
+        {
+            get => _tillListReverseOrderCommand ?? (_tillListReverseOrderCommand = new Command(ExecuteTillListReverseOrder));
+        }
+        #endregion
+        #region Checkout Options
         Command _changeAskForReceiptOptionCommand;
         public Command ChangeAskForReceiptOptionCommand
         {
@@ -304,16 +317,16 @@ namespace NatApp.Plutus.ViewModels.MainTill.Settings
                     {
                         if(await printMgr.InitPrinter())
                         {
-                            printMgr.WriteText("Test Nomral text");
+                            printMgr.WriteText("Test Normal text");
                             printMgr.WriteText("Test Bold On", bold: "true");
                             printMgr.WriteText("Test Underline On", underline: "true");
                             printMgr.WriteText("Test align Center", align: "cntr");
                             printMgr.WriteText("Test align Right", align: "rght");
                             printMgr.WriteText("test Bold + Underline", bold: "true", underline: "true");
-                            printMgr.WriteText("test Bold + Algin Center", bold: "true", align: "cntr");
-                            printMgr.WriteText("test Bold + Algin Right", bold: "true", align: "rght");
-                            printMgr.WriteText("test Underline + Algin Center", underline: "true", align: "cntr");
-                            printMgr.WriteText("test Underline + Algin Right", underline: "true", align: "rght");
+                            printMgr.WriteText("test Bold + Align Center", bold: "true", align: "cntr");
+                            printMgr.WriteText("test Bold + Align Right", bold: "true", align: "rght");
+                            printMgr.WriteText("test Underline + Align Center", underline: "true", align: "cntr");
+                            printMgr.WriteText("test Underline + Align Right", underline: "true", align: "rght");
                             printMgr.ScoreReceipt();
                             printMgr.WriteBarcode("123456789", App.GetViewModel().BarcodeSymbologySetting, 100, "cntr");
                             printMgr.ScoreReceipt();
@@ -339,6 +352,22 @@ namespace NatApp.Plutus.ViewModels.MainTill.Settings
             }
         }
 
+        #endregion
+        #region Till Options
+
+        private async void ExecuteTillListReverseOrder()
+        {
+            if(IsBusy)
+                return;
+            IsBusy = true;
+
+            TillListViewOrderReversed = await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "TillListIOrderOption".Translate(),
+                "ReverseInsertionOrder".Translate(), "InsertionOrder".Translate());
+
+            IsBusy = false;
+        }
+        #endregion
+        #region Checkout Options
         private async void ExecuteChangeAskForReceiptOption()
         {
             if (IsBusy)
