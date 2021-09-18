@@ -112,6 +112,10 @@ namespace NatApp.Plutus.ViewModels.MainTill.Statistics
                 using (var db = new Helpers.Database.Database(databaseProvider))
                 {
                     db.SetTrackingBehavior(QueryTrackingBehavior.NoTracking);
+<<<<<<< Updated upstream
+=======
+                    CalMaxDate = DateTime.Now.StartOfWeek().AddDays(6);
+>>>>>>> Stashed changes
 
                     CalMinDate = db.Get<SaleModel>().OrderBy(s => s.DateOfSale).Select(s => s.DateOfSale).FirstOrDefault();
                     if (CalMinDate != default)
