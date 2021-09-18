@@ -738,4 +738,22 @@ If no Cash Drawer exists on the system checkout times will exceed 3 minuets per 
     <value>There was a critical error, this has been reported to the developer.
 Please try again.</value>
   </data>
+  <data name="CheckoutOptions" xml:space="preserve">
+    <value>Checkout Options</value>
+  </data>
+  <data name="InsertionOrder" xml:space="preserve">
+    <value>Insertion Order</value>
+  </data>
+  <data name="ReverseInsertionOrder" xml:space="preserve">
+    <value>Reverse Insertion Order</value>
+  </data>
+  <data name="TillListIOrderOption" xml:space="preserve">
+    <value>Till list order option</value>
+  </data>
+  <data name="TillListOrder" xml:space="preserve">
+    <value>Till List Order</value>
+  </data>
+  <data name="TillOptions" xml:space="preserve">
+    <value>Till Options</value>
+  </data>
 </root>

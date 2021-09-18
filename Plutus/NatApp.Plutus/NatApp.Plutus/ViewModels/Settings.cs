@@ -84,5 +84,14 @@ namespace NatApp.Plutus.ViewModels
             get => Preferences.Get(nameof(AskForReceipt), false);
             set => Preferences.Set(nameof(AskForReceipt), value);
         }
+
+        /// <summary>
+        /// Should the order of the Till ListView be reversed
+        /// </summary>
+        public bool TillListViewOrderReversed
+        {
+            get => Preferences.Get(nameof(TillListViewOrderReversed), true);
+            set => Preferences.Set(nameof(TillListViewOrderReversed), value);
+        }
     }
 }
