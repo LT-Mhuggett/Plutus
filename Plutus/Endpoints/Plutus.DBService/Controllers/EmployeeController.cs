@@ -15,6 +15,7 @@ namespace Plutus.DBService.Controllers
 
         public EmployeeController(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor htthttpContextAccessor) : base(repositoryWrapper, htthttpContextAccessor)
         {
+            // Overload create (POST) Employee
         }
     }
 }

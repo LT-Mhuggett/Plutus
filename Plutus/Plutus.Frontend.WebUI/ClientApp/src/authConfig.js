@@ -12,7 +12,7 @@
 
 // Add scopes here for ID token to be used at Microsoft identity platform endpoints.
 export const loginRequest = {
-//    scopes: ["Things.Read", "OtherThings.Read", "WritePermission.Write"]
+    //scopes: ["Things.Read", "OtherThings.Read", "WritePermission.Write"]
     scopes: ["User.Read"]
 };
 
