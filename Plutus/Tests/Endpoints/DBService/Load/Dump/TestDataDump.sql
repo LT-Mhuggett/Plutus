@@ -1,0 +1,272 @@
+-- MySQL dump 10.13  Distrib 8.0.23, for Win64 (x86_64)
+--
+-- Host: localhost    Database: plutus
+-- ------------------------------------------------------
+-- Server version	8.0.23
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!50503 SET NAMES utf8 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+
+--
+-- Dumping data for table `__efmigrationshistory`
+--
+
+LOCK TABLES `__efmigrationshistory` WRITE;
+/*!40000 ALTER TABLE `__efmigrationshistory` DISABLE KEYS */;
+INSERT INTO `__efmigrationshistory` VALUES ('20210612141920_InitialCreate','5.0.7'),('20210623140705_Create-Bussiness','5.0.7'),('20210623172238_CompositeBaseKeys','5.0.7'),('20210705151616_ThreeComposite','5.0.7'),('20210706172656_CompositeTax','5.0.7'),('20210706182051_TaxRenameFromVat','5.0.7'),('20210707144616_AddBussinessDiscountRelationship','5.0.7'),('20210719144142_Authentication-Changes','5.0.7'),('20210720153704_CreateTillModel','5.0.7');
+/*!40000 ALTER TABLE `__efmigrationshistory` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `authactionapimapping`
+--
+
+LOCK TABLES `authactionapimapping` WRITE;
+/*!40000 ALTER TABLE `authactionapimapping` DISABLE KEYS */;
+/*!40000 ALTER TABLE `authactionapimapping` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `authactions`
+--
+
+LOCK TABLES `authactions` WRITE;
+/*!40000 ALTER TABLE `authactions` DISABLE KEYS */;
+/*!40000 ALTER TABLE `authactions` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `bussiness`
+--
+
+LOCK TABLES `bussiness` WRITE;
+/*!40000 ALTER TABLE `bussiness` DISABLE KEYS */;
+INSERT INTO `bussiness` VALUES ('1',NULL,'Plutus','PLT',NULL,NULL,'2019-12-12 00:00:00.000000','2019-12-12 00:00:00.000000',NULL,NULL),('2',NULL,'Vesta','VST',NULL,NULL,'2019-12-12 00:00:00.000000','2019-12-12 00:00:00.000000',NULL,NULL),('3',NULL,'APPLE','APL',NULL,NULL,'2019-12-12 00:00:00.000000','2019-12-12 00:00:00.000000',NULL,NULL);
+/*!40000 ALTER TABLE `bussiness` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `category`
+--
+
+LOCK TABLES `category` WRITE;
+/*!40000 ALTER TABLE `category` DISABLE KEYS */;
+INSERT INTO `category` VALUES (353,'Daily Utilities','Daily Utilities','2021-08-18 12:30:11.721155','2021-08-18 12:30:11.721156','4f2ebae3-2dcc-4841-a09e-320903f2a853','4f2ebae3-2dcc-4841-a09e-320903f2a853'),(354,'Electronics','Electronics','2021-08-18 12:30:34.219450','2021-08-18 12:30:34.219450','4f2ebae3-2dcc-4841-a09e-320903f2a853','4f2ebae3-2dcc-4841-a09e-320903f2a853'),(355,'Home Appliances','Home Appliances','2021-08-18 12:30:45.594272','2021-08-18 12:30:45.594273','4f2ebae3-2dcc-4841-a09e-320903f2a853','4f2ebae3-2dcc-4841-a09e-320903f2a853'),(356,'Grocery','Grocery','2021-08-18 12:31:07.306964','2021-08-18 12:31:07.306965','4f2ebae3-2dcc-4841-a09e-320903f2a853','4f2ebae3-2dcc-4841-a09e-320903f2a853');
+/*!40000 ALTER TABLE `category` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `checkoutitemchange`
+--
+
+LOCK TABLES `checkoutitemchange` WRITE;
+/*!40000 ALTER TABLE `checkoutitemchange` DISABLE KEYS */;
+/*!40000 ALTER TABLE `checkoutitemchange` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `discountcats`
+--
+
+LOCK TABLES `discountcats` WRITE;
+/*!40000 ALTER TABLE `discountcats` DISABLE KEYS */;
+/*!40000 ALTER TABLE `discountcats` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `discountitems`
+--
+
+LOCK TABLES `discountitems` WRITE;
+/*!40000 ALTER TABLE `discountitems` DISABLE KEYS */;
+/*!40000 ALTER TABLE `discountitems` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `discounts`
+--
+
+LOCK TABLES `discounts` WRITE;
+/*!40000 ALTER TABLE `discounts` DISABLE KEYS */;
+INSERT INTO `discounts` VALUES (131,'Festival Discount',1,1,1,1,10.000000000000000000000000000000,1,1,'0001-01-01 00:00:00.000000','0001-01-01 00:00:00.000000',NULL,NULL,'1'),(132,'Membership Discount',1,1,1,1,10.000000000000000000000000000000,1,1,'0001-01-01 00:00:00.000000','0001-01-01 00:00:00.000000',NULL,NULL,'1'),(133,'New User Discount',1,1,1,1,10.000000000000000000000000000000,1,1,'0001-01-01 00:00:00.000000','0001-01-01 00:00:00.000000',NULL,NULL,'2'),(134,'Existing User Discount',1,1,1,1,10.000000000000000000000000000000,1,1,'0001-01-01 00:00:00.000000','0001-01-01 00:00:00.000000',NULL,NULL,'2');
+/*!40000 ALTER TABLE `discounts` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `empauthactions`
+--
+
+LOCK TABLES `empauthactions` WRITE;
+/*!40000 ALTER TABLE `empauthactions` DISABLE KEYS */;
+/*!40000 ALTER TABLE `empauthactions` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `employees`
+--
+
+LOCK TABLES `employees` WRITE;
+/*!40000 ALTER TABLE `employees` DISABLE KEYS */;
+INSERT INTO `employees` VALUES ('149a033a-79de-4b4c-88c8-6d6e374141c2',100.000000000000000000000000000000,40,NULL,NULL,NULL,1,'cddbba0f-35b6-4fde-bde9-47df9a8452ef','2021-08-18 12:36:13.205102','2021-08-18 12:36:13.205102','4f2ebae3-2dcc-4841-a09e-320903f2a853','4f2ebae3-2dcc-4841-a09e-320903f2a853','Cannaught Palace','CP','Delhi','110072','INDIA',NULL,'Siddharth','Agrawal','7014460233','sid@outlook.com',NULL,NULL,NULL),('296a9bd3-bf50-43c2-b4f8-65bfbab13cf0',100.000000000000000000000000000000,40,NULL,NULL,NULL,1,'953a43e5-b192-41f4-a277-9d1fb6182658','2021-08-18 12:34:07.577334','2021-08-18 12:34:07.577336','4f2ebae3-2dcc-4841-a09e-320903f2a853','4f2ebae3-2dcc-4841-a09e-320903f2a853','Cannaught Palace','CP','Delhi','110072','INDIA',NULL,'Siddharth','Agrawal','7014460233','siddharthagrawal@outlook.com',NULL,NULL,NULL),('84dec523-c7b9-441f-8642-9f6eb16456a9',100.000000000000000000000000000000,40,NULL,NULL,NULL,1,'eb6808e4-ccde-47e0-ae19-b1fe649af39e','2021-08-18 12:35:23.595201','2021-08-18 12:35:23.595203','4f2ebae3-2dcc-4841-a09e-320903f2a853','4f2ebae3-2dcc-4841-a09e-320903f2a853','Cannaught Palace','CP','Delhi','110072','INDIA',NULL,'Siddharth','Agrawal','7014460233','isid@outlook.com',NULL,NULL,NULL),('fffba00c-ad8e-4377-8a73-c4f2326c3ac4',100.000000000000000000000000000000,40,NULL,NULL,NULL,1,'cdb57cad-9b07-4a74-8983-2a226d220ab7','2021-08-18 12:36:02.383999','2021-08-18 12:36:02.383999','4f2ebae3-2dcc-4841-a09e-320903f2a853','4f2ebae3-2dcc-4841-a09e-320903f2a853','Cannaught Palace','CP','Delhi','110072','INDIA',NULL,'Siddharth','Agrawal','7014460233','siddharth@outlook.com',NULL,NULL,NULL);
+/*!40000 ALTER TABLE `employees` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `items`
+--
+
+LOCK TABLES `items` WRITE;
+/*!40000 ALTER TABLE `items` DISABLE KEYS */;
+/*!40000 ALTER TABLE `items` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `notes`
+--
+
+LOCK TABLES `notes` WRITE;
+/*!40000 ALTER TABLE `notes` DISABLE KEYS */;
+INSERT INTO `notes` VALUES (1000,'This is a test note','2019-12-12 00:00:00.000000','2019-12-12 00:00:00.000000',NULL,NULL),(1001,'Another Test Note','2019-12-12 00:00:00.000000','2019-12-12 00:00:00.000000',NULL,NULL),(1002,'Yet Another Note','2019-12-12 00:00:00.000000','2019-12-12 00:00:00.000000',NULL,NULL);
+/*!40000 ALTER TABLE `notes` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `notessales`
+--
+
+LOCK TABLES `notessales` WRITE;
+/*!40000 ALTER TABLE `notessales` DISABLE KEYS */;
+/*!40000 ALTER TABLE `notessales` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `paymethods`
+--
+
+LOCK TABLES `paymethods` WRITE;
+/*!40000 ALTER TABLE `paymethods` DISABLE KEYS */;
+INSERT INTO `paymethods` VALUES (1,'Payment Method Name',1999.000000000000000000000000000000,1999.000000000000000000000000000000,0,0,'2021-08-10 16:03:41.372725','2021-08-10 16:03:41.372730','Test','Test');
+/*!40000 ALTER TABLE `paymethods` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `paysales`
+--
+
+LOCK TABLES `paysales` WRITE;
+/*!40000 ALTER TABLE `paysales` DISABLE KEYS */;
+/*!40000 ALTER TABLE `paysales` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `refunds`
+--
+
+LOCK TABLES `refunds` WRITE;
+/*!40000 ALTER TABLE `refunds` DISABLE KEYS */;
+/*!40000 ALTER TABLE `refunds` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `role`
+--
+
+LOCK TABLES `role` WRITE;
+/*!40000 ALTER TABLE `role` DISABLE KEYS */;
+/*!40000 ALTER TABLE `role` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `sales`
+--
+
+LOCK TABLES `sales` WRITE;
+/*!40000 ALTER TABLE `sales` DISABLE KEYS */;
+INSERT INTO `sales` VALUES ('202181818715124',10.000000000000000000000000000000,10.000000000000000000000000000000,'2021-08-18 12:36:39.269000','149a033a-79de-4b4c-88c8-6d6e374141c2','2021-08-18 12:37:15.166437','2021-08-18 12:37:15.166438','4f2ebae3-2dcc-4841-a09e-320903f2a853','4f2ebae3-2dcc-4841-a09e-320903f2a853',NULL),('202181818729642',10.000000000000000000000000000000,10.000000000000000000000000000000,'2021-08-18 12:36:39.269000','296a9bd3-bf50-43c2-b4f8-65bfbab13cf0','2021-08-18 12:37:29.642843','2021-08-18 12:37:29.642844','4f2ebae3-2dcc-4841-a09e-320903f2a853','4f2ebae3-2dcc-4841-a09e-320903f2a853',NULL),('202181818735831',10.000000000000000000000000000000,10.000000000000000000000000000000,'2021-08-18 12:36:39.269000','84dec523-c7b9-441f-8642-9f6eb16456a9','2021-08-18 12:37:35.832116','2021-08-18 12:37:35.832117','4f2ebae3-2dcc-4841-a09e-320903f2a853','4f2ebae3-2dcc-4841-a09e-320903f2a853',NULL),('202181818742398',10.000000000000000000000000000000,10.000000000000000000000000000000,'2021-08-18 12:36:39.269000','fffba00c-ad8e-4377-8a73-c4f2326c3ac4','2021-08-18 12:37:42.399269','2021-08-18 12:37:42.399270','4f2ebae3-2dcc-4841-a09e-320903f2a853','4f2ebae3-2dcc-4841-a09e-320903f2a853',NULL);
+/*!40000 ALTER TABLE `sales` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `savedtransactions`
+--
+
+LOCK TABLES `savedtransactions` WRITE;
+/*!40000 ALTER TABLE `savedtransactions` DISABLE KEYS */;
+INSERT INTO `savedtransactions` VALUES ('24761fe5-03eb-48bb-a310-f5102fc6e3ee','Transaction Name','Transaction Data','2021-08-10 17:30:09.108655','2021-08-10 17:30:09.108655','Plutus.Repository.Tests','Plutus.Repository.Tests'),('339a32fe-4595-4e77-922f-b84b0a56dae4','Transaction Name','Transaction Data','2021-08-10 17:18:02.372598','2021-08-10 17:18:02.372600','Test','Test'),('45c8f780-380e-4d9c-887c-d652cea50943','Transaction Name','Transaction Data','2021-08-10 16:03:41.463440','2021-08-10 16:03:41.463441','Test','Test'),('66b55433-74b9-4c73-a2d3-be980b98ae5f','Transaction Name','Transaction Data','2021-08-10 17:24:34.593471','2021-08-10 17:24:34.593471','Plutus.Repository.Tests','Plutus.Repository.Tests'),('7da2be3e-3486-4490-a326-23d3883ea1f3','Transaction Name','Transaction Data','2021-08-10 17:24:34.578657','2021-08-10 17:24:34.578658','Test','Test'),('8eb12f3d-1fdb-4c94-8607-9d3f29c963d2','Transaction Name','Transaction Data','2021-08-10 17:18:02.409370','2021-08-10 17:18:02.409370','Plutus.Repository.Tests','Plutus.Repository.Tests'),('cf146d1a-c36c-4c32-b94f-39cfd806d9f7','Transaction Name','Transaction Data','2021-08-10 17:30:09.081735','2021-08-10 17:30:09.081736','Test','Test');
+/*!40000 ALTER TABLE `savedtransactions` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `stocks`
+--
+
+LOCK TABLES `stocks` WRITE;
+/*!40000 ALTER TABLE `stocks` DISABLE KEYS */;
+/*!40000 ALTER TABLE `stocks` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `stores`
+--
+
+LOCK TABLES `stores` WRITE;
+/*!40000 ALTER TABLE `stores` DISABLE KEYS */;
+INSERT INTO `stores` VALUES ('953a43e5-b192-41f4-a277-9d1fb6182658','987654321','2021-08-18 12:24:26.908235','2021-08-18 12:24:26.908235','4f2ebae3-2dcc-4841-a09e-320903f2a853','4f2ebae3-2dcc-4841-a09e-320903f2a853','Nehru Palace',NULL,'Delhi','110072','INDIA',NULL,'2'),('cdb57cad-9b07-4a74-8983-2a226d220ab7','987654321','2021-08-18 12:23:59.338360','2021-08-18 12:23:59.338361','4f2ebae3-2dcc-4841-a09e-320903f2a853','4f2ebae3-2dcc-4841-a09e-320903f2a853','Gaurav Tower',NULL,'JLN Marg','302017','INDIA',NULL,'1'),('cddbba0f-35b6-4fde-bde9-47df9a8452ef','987654321','2021-08-18 12:22:55.225992','2021-08-18 12:22:55.226055','4f2ebae3-2dcc-4841-a09e-320903f2a853','4f2ebae3-2dcc-4841-a09e-320903f2a853','Cannaught Palace','Delhi','New Delhi','110072','INDIA',NULL,'1'),('eb6808e4-ccde-47e0-ae19-b1fe649af39e','987654321','2021-08-18 12:25:01.749353','2021-08-18 12:25:01.749353','4f2ebae3-2dcc-4841-a09e-320903f2a853','4f2ebae3-2dcc-4841-a09e-320903f2a853','Palika Bazar',NULL,'Delhi','110072','INDIA',NULL,'2');
+/*!40000 ALTER TABLE `stores` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `taxes`
+--
+
+LOCK TABLES `taxes` WRITE;
+/*!40000 ALTER TABLE `taxes` DISABLE KEYS */;
+/*!40000 ALTER TABLE `taxes` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `till`
+--
+
+LOCK TABLES `till` WRITE;
+/*!40000 ALTER TABLE `till` DISABLE KEYS */;
+INSERT INTO `till` VALUES ('02560732-63c0-4544-a4df-24914db12bfd','1','cdb57cad-9b07-4a74-8983-2a226d220ab7',100.000000000000000000000000000000,'2021-08-18 12:27:42.694000','2021-08-18 12:28:26.693026','2021-08-18 12:28:26.693027','4f2ebae3-2dcc-4841-a09e-320903f2a853','4f2ebae3-2dcc-4841-a09e-320903f2a853'),('228cc3f7-1220-41d4-a21b-c19ed10dca7f','1','cddbba0f-35b6-4fde-bde9-47df9a8452ef',100.000000000000000000000000000000,'2021-08-18 12:27:42.694000','2021-08-18 12:28:37.728470','2021-08-18 12:28:37.728471','4f2ebae3-2dcc-4841-a09e-320903f2a853','4f2ebae3-2dcc-4841-a09e-320903f2a853'),('764316bf-a102-445f-9479-832d9a7517c3','1','953a43e5-b192-41f4-a277-9d1fb6182658',100.000000000000000000000000000000,'2021-08-18 12:27:42.694000','2021-08-18 12:28:14.697067','2021-08-18 12:28:14.697068','4f2ebae3-2dcc-4841-a09e-320903f2a853','4f2ebae3-2dcc-4841-a09e-320903f2a853'),('adb59936-b67c-4a3f-b422-ec911bdd5e1a','1','eb6808e4-ccde-47e0-ae19-b1fe649af39e',100.000000000000000000000000000000,'2021-08-18 12:27:42.694000','2021-08-18 12:28:45.660609','2021-08-18 12:28:45.660610','4f2ebae3-2dcc-4841-a09e-320903f2a853','4f2ebae3-2dcc-4841-a09e-320903f2a853');
+/*!40000 ALTER TABLE `till` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `trans`
+--
+
+LOCK TABLES `trans` WRITE;
+/*!40000 ALTER TABLE `trans` DISABLE KEYS */;
+/*!40000 ALTER TABLE `trans` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `transaction_discounts`
+--
+
+LOCK TABLES `transaction_discounts` WRITE;
+/*!40000 ALTER TABLE `transaction_discounts` DISABLE KEYS */;
+/*!40000 ALTER TABLE `transaction_discounts` ENABLE KEYS */;
+UNLOCK TABLES;
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+-- Dump completed on 2021-08-18 18:17:44
