@@ -50,10 +50,10 @@ namespace NatApp.Plutus.UWP.Services.POS
                     if (!await _claimedCashDrawer.EnableAsync())
                     {
                         _claimedCashDrawer.Dispose();
-                        throw new POSObjectException(POSObjectExceptionType.NotEnableable, POSTargetObjectType.CashDrawer, $"Cash Drawer with Id: {DeviceId}, is not currently enableable.");
+                        throw new POSObjectException(POSObjectExceptionType.NotEnableable, POSTargetObjectType.CashDrawer, $"Cash Drawer with Id: {DeviceId}, is not currently enable-able.");
                     }
                 }
-                throw new POSObjectException(POSObjectExceptionType.NotClaimable, POSTargetObjectType.CashDrawer, $"Caash Drawer with Id: {DeviceId}, is currently in use by another process. Please wait.");
+                throw new POSObjectException(POSObjectExceptionType.NotClaimable, POSTargetObjectType.CashDrawer, $"Cash Drawer with Id: {DeviceId}, is currently in use by another process. Please wait.");
             }
             throw new POSObjectException(POSObjectExceptionType.OffOrOffline, POSTargetObjectType.CashDrawer, $"Cash Drawer with Id: {DeviceId}, is off/offline.");
         }

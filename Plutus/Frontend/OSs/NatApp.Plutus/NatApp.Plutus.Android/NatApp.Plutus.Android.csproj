@@ -175,7 +175,7 @@
     <Folder Include="Resources\drawable\" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\I18N_L10N\I18N_L10N.csproj">
+    <ProjectReference Include="..\..\..\..\Commons\I18N_L10N\I18N_L10N.csproj">
       <Project>{67F9D3A8-F71E-4428-913F-C37AE82CDB24}</Project>
       <Name>I18N_L10N</Name>
     </ProjectReference>

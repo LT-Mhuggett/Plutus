@@ -41,13 +41,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\CommonPOSLibrary\CommonPOSLibrary.csproj" />
-    <ProjectReference Include="..\..\CustomViews\CustomViews.csproj" />
-    <ProjectReference Include="..\..\Database\Database.csproj" />
-    <ProjectReference Include="..\..\I18N_L10N\I18N_L10N.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Compile Update="Views\FirstTimeStartUp\SetupView.xaml.cs">
       <DependentUpon>SetupView.xaml</DependentUpon>
     </Compile>
@@ -122,5 +115,13 @@
   <ItemGroup>
     <Folder Include="Effects\" />
     <Folder Include="Resources\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\Commons\CommonPOSLibrary\CommonPOSLibrary.csproj" />
+    <ProjectReference Include="..\..\..\..\Commons\CoppperToCSV\CoppperToCSV.csproj" />
+    <ProjectReference Include="..\..\..\..\Commons\CustomViews\CustomViews.csproj" />
+    <ProjectReference Include="..\..\..\..\Commons\I18N_L10N\I18N_L10N.csproj" />
+    <ProjectReference Include="..\..\..\..\Database\Database.csproj" />
   </ItemGroup>
 </Project>

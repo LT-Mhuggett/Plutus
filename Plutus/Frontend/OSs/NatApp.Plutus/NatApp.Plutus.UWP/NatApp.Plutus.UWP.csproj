@@ -247,15 +247,15 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\CommonPOSLibrary\CommonPOSLibrary.csproj">
-      <Project>{D1D47930-CEA0-4A76-AFF1-AC8025E31C8B}</Project>
+    <ProjectReference Include="..\..\..\..\Commons\CommonPOSLibrary\CommonPOSLibrary.csproj">
+      <Project>{b4ea2121-e776-41dd-98a3-e2db7cc25966}</Project>
       <Name>CommonPOSLibrary</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\CustomViews\CustomViews.csproj">
-      <Project>{695A73EB-1295-4DEF-9C89-D324720428DB}</Project>
+    <ProjectReference Include="..\..\..\..\Commons\CustomViews\CustomViews.csproj">
+      <Project>{695a73eb-1295-4def-9c89-d324720428db}</Project>
       <Name>CustomViews</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\Database\Database.csproj">
+    <ProjectReference Include="..\..\..\..\Database\Database.csproj">
       <Project>{45D390E4-AE4A-4776-A141-0B8D2DD7E9FC}</Project>
       <Name>Database</Name>
     </ProjectReference>
