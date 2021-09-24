@@ -11,21 +11,21 @@ namespace I18N_L10N.Extensions
     [ContentProperty("Text")]
     public class TranslateExtension : IMarkupExtension
     {
-        readonly CultureInfo ci;
+        readonly CultureInfo _ci;
         const string ResourceId = "I18N_L10N.Resx.AppResources";
 
-        private static readonly Lazy<ResourceManager> resMgr = new Lazy<ResourceManager>(() => new ResourceManager(ResourceId, typeof(TranslateExtension).GetTypeInfo().Assembly));
+        private static readonly Lazy<ResourceManager> ResMgr = new Lazy<ResourceManager>(() => new ResourceManager(ResourceId, typeof(TranslateExtension).GetTypeInfo().Assembly));
 
         public TranslateExtension()
         {
             if (Device.RuntimePlatform == Device.iOS || Device.RuntimePlatform == Device.Android)
-                ci = DependencyService.Get<ILocalize>().GetCurrentCultureInfo();
+                _ci = DependencyService.Get<ILocalize>().GetCurrentCultureInfo();
         }
 
         public TranslateExtension(string Key)
         {
             if (Device.RuntimePlatform == Device.iOS || Device.RuntimePlatform == Device.Android)
-                ci = DependencyService.Get<ILocalize>().GetCurrentCultureInfo();
+                _ci = DependencyService.Get<ILocalize>().GetCurrentCultureInfo();
             ProvideValue(Key);
         }
 
@@ -36,14 +36,14 @@ namespace I18N_L10N.Extensions
             Text = Key;
             if (Text == null)
                 return "";
-            var translate = resMgr.Value.GetString(Text, ci);
+            var translate = ResMgr.Value.GetString(Text, _ci);
 
             if (translate == null)
             {
 #if DEBUG
-                Debug.WriteLine("Key '{0}' was not found in resources '{1}' for culture '{2}'.", Text, ResourceId, ci.Name);
+                Debug.WriteLine("Key '{0}' was not found in resources '{1}' for culture '{2}'.", Text, ResourceId, _ci.Name);
                 throw new ArgumentException(
-                    String.Format("Key '{0}' was not found in resources '{1}' for culture '{2}'.", Text, ResourceId, ci.Name),
+                    String.Format("Key '{0}' was not found in resources '{1}' for culture '{2}'.", Text, ResourceId, _ci.Name),
                     "Text");
                 
 #else
@@ -57,14 +57,14 @@ namespace I18N_L10N.Extensions
         {
             if (Text == null)
                 return "";
-            var translate = resMgr.Value.GetString(Text, ci);
+            var translate = ResMgr.Value.GetString(Text, _ci);
 
             if (translate == null)
             {
 #if DEBUG
-                Debug.WriteLine("Key '{0}' was not found in resources '{1}' for culture '{2}'.", Text, ResourceId, ci.Name);
+                Debug.WriteLine("Key '{0}' was not found in resources '{1}' for culture '{2}'.", Text, ResourceId, _ci.Name);
                 throw new ArgumentException(
-                    String.Format("Key '{0}' was not found in resources '{1}' for culture '{2}'.", Text, ResourceId, ci.Name),
+                    String.Format("Key '{0}' was not found in resources '{1}' for culture '{2}'.", Text, ResourceId, _ci.Name),
                     "Text");
 #else
                 translate = Text; // returns the key, which GETS DISPLAYED TO THE USER
