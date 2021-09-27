@@ -27,6 +27,7 @@ const BussinessHome: React.FC<{ token: string }> = (props) => {
             const data = await response.json();
             
             setBussiness(data);
+            //setStores(data.stores);
         } catch (error) {
             console.log("Something went wrong!");
             //setError(error.message);
