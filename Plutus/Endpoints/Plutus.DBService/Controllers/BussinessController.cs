@@ -1,8 +1,11 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Plutus.Authentication;
 using Plutus.Contracts;
 using Plutus.Entities.Models;
 using Plutus.Repository.QueryParameters;
+using System.Threading.Tasks;
 
 namespace Plutus.DBService.Controllers
 {
