@@ -208,6 +208,24 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Change Ask for Receipt Option.
+        /// </summary>
+        internal static string AskForReceiptOption {
+            get {
+                return ResourceManager.GetString("AskForReceiptOption", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Ask for receipt printing at checkout (save the environment)?.
+        /// </summary>
+        internal static string AskForReceiptPrintingText {
+            get {
+                return ResourceManager.GetString("AskForReceiptPrintingText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Authorisation Required.
         /// </summary>
         internal static string AuthReq {
@@ -325,6 +343,16 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to There was a problem with the POS Cash Drawer. Transaction has succeeded but the Cash Drawer could not be accessed.
+        ///Silence this warning (you will no longer get any warnings when the Cash Drawer is no longer available)? .
+        /// </summary>
+        internal static string CashDrawerErrorWarning {
+            get {
+                return ResourceManager.GetString("CashDrawerErrorWarning", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Category.
         /// </summary>
         internal static string Category {
@@ -352,11 +380,39 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Change Cash Drawer Exists.
+        /// </summary>
+        internal static string ChangeCashDrawerExists {
+            get {
+                return ResourceManager.GetString("ChangeCashDrawerExists", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Should Plutus attempt to use a Cash Drawer on checkout?
+        ///If no Cash Drawer exists on the system checkout times will exceed 3 minuets per transaction..
+        /// </summary>
+        internal static string ChangeCashDrawerExistsText {
+            get {
+                return ResourceManager.GetString("ChangeCashDrawerExistsText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Change Printer.
         /// </summary>
         internal static string ChangePrinter {
             get {
                 return ResourceManager.GetString("ChangePrinter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Checkout Options.
+        /// </summary>
+        internal static string CheckoutOptions {
+            get {
+                return ResourceManager.GetString("CheckoutOptions", resourceCulture);
             }
         }
         
@@ -474,6 +530,16 @@ namespace I18N_L10N.Resx {
         internal static string CreateWithArg {
             get {
                 return ResourceManager.GetString("CreateWithArg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to There was a critical error, this has been reported to the developer.
+        ///Please try again..
+        /// </summary>
+        internal static string CriticalErrorReportedMesg {
+            get {
+                return ResourceManager.GetString("CriticalErrorReportedMesg", resourceCulture);
             }
         }
         
@@ -810,6 +876,15 @@ namespace I18N_L10N.Resx {
         internal static string InitArg {
             get {
                 return ResourceManager.GetString("InitArg", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Insertion Order.
+        /// </summary>
+        internal static string InsertionOrder {
+            get {
+                return ResourceManager.GetString("InsertionOrder", resourceCulture);
             }
         }
         
@@ -1186,6 +1261,15 @@ namespace I18N_L10N.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Print Test Page.
+        /// </summary>
+        internal static string PrintTestPage {
+            get {
+                return ResourceManager.GetString("PrintTestPage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to qty.
         /// </summary>
         internal static string qty {
@@ -1209,6 +1293,15 @@ namespace I18N_L10N.Resx {
         internal static string Reason {
             get {
                 return ResourceManager.GetString("Reason", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Is a receipt required?.
+        /// </summary>
+        internal static string ReceiptRequired {
+            get {
+                return ResourceManager.GetString("ReceiptRequired", resourceCulture);
             }
         }
         
@@ -1299,6 +1392,15 @@ namespace I18N_L10N.Resx {
         internal static string Returns {
             get {
                 return ResourceManager.GetString("Returns", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Reverse Insertion Order.
+        /// </summary>
+        internal static string ReverseInsertionOrder {
+            get {
+                return ResourceManager.GetString("ReverseInsertionOrder", resourceCulture);
             }
         }
         
@@ -1452,6 +1554,24 @@ namespace I18N_L10N.Resx {
         internal static string SetUpTitle {
             get {
                 return ResourceManager.GetString("SetUpTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to silence.
+        /// </summary>
+        internal static string Silence {
+            get {
+                return ResourceManager.GetString("Silence", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Silence.
+        /// </summary>
+        internal static string SileneceButton {
+            get {
+                return ResourceManager.GetString("SileneceButton", resourceCulture);
             }
         }
         
@@ -1623,6 +1743,33 @@ namespace I18N_L10N.Resx {
         internal static string Till {
             get {
                 return ResourceManager.GetString("Till", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Till list order option.
+        /// </summary>
+        internal static string TillListIOrderOption {
+            get {
+                return ResourceManager.GetString("TillListIOrderOption", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Till List Order.
+        /// </summary>
+        internal static string TillListOrder {
+            get {
+                return ResourceManager.GetString("TillListOrder", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Till Options.
+        /// </summary>
+        internal static string TillOptions {
+            get {
+                return ResourceManager.GetString("TillOptions", resourceCulture);
             }
         }
         
