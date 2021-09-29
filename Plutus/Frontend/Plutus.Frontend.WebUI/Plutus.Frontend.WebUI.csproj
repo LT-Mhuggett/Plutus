@@ -22,13 +22,27 @@
 
   <ItemGroup>
     <None Remove="ClientApp\src\components\BussinessHome.tsx" />
+    <None Remove="ClientApp\src\components\Employee.tsx" />
     <None Remove="ClientApp\src\components\ProfileContent.tsx" />
+    <None Remove="ClientApp\src\components\Store.tsx" />
+    <None Remove="ClientApp\src\components\Till.tsx" />
+    <None Remove="ClientApp\src\config\config.ts" />
+    <None Remove="ClientApp\src\config\routes.ts" />
+    <None Remove="ClientApp\src\interfaces\page.ts" />
+    <None Remove="ClientApp\src\interfaces\route.ts" />
     <None Remove="ClientApp\src\models\Business.ts" />
   </ItemGroup>
 
   <ItemGroup>
     <TypeScriptCompile Include="ClientApp\src\components\BussinessHome.tsx" />
+    <TypeScriptCompile Include="ClientApp\src\components\Employee.tsx" />
     <TypeScriptCompile Include="ClientApp\src\components\ProfileContent.tsx" />
+    <TypeScriptCompile Include="ClientApp\src\components\Store.tsx" />
+    <TypeScriptCompile Include="ClientApp\src\components\Till.tsx" />
+    <TypeScriptCompile Include="ClientApp\src\config\config.ts" />
+    <TypeScriptCompile Include="ClientApp\src\config\routes.ts" />
+    <TypeScriptCompile Include="ClientApp\src\interfaces\page.ts" />
+    <TypeScriptCompile Include="ClientApp\src\interfaces\route.ts" />
     <TypeScriptCompile Include="ClientApp\src\models\Business.ts" />
   </ItemGroup>
 
