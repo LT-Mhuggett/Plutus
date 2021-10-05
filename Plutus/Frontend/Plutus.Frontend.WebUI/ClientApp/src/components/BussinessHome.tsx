@@ -1,29 +1,36 @@
 ﻿import React, { useState, useEffect, useCallback, useRef, Component } from 'react';
 import { Link } from 'react-router-dom';
+import { useSelector, useDispatch } from 'react-redux';
 
 type Bussiness = {
     name: string,
     nameAbbr: string
 };
 
+type AuthState = {
+    isAuthenticated: boolean,
+    token: string
+};
+
+
 const BussinessHome: React.FC<{ token: string }> = (props) => {
     const [bussiness, setBussiness] = useState([]);
     const [stores, setStores] = useState([]);
-
-    let tempToken = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6Imwzc1EtNTBjQ0g0eEJWWkxIVEd3blNSNzY4MCJ9.eyJhdWQiOiIxMzFhYjM3Yi00MjUxLTRjMzctYjBjYy1jZTNhYWYzOTBkZTIiLCJpc3MiOiJodHRwczovL2xvZ2luLm1pY3Jvc29mdG9ubGluZS5jb20vZWQzOTgzMDAtOTIwZC00ZDM2LTljZGUtNWQzOTM3ZjE5YjdiL3YyLjAiLCJpYXQiOjE2MzI5MjMzNTksIm5iZiI6MTYzMjkyMzM1OSwiZXhwIjoxNjMyOTI3MjU5LCJhaW8iOiJBWVFBZS84VEFBQUFYRUdiRE91MGZoVEh0WWwvcDZkWkN1UzhwSnBkWFJTa2ZQeDNkTWJoRVExTWV1SEdQTEwzc0gxc1hWOVdZb2VXRmw5QVpPN2N2TmdudmFlRUR0UGRua0NKZFZRUEFWR3BVNXpMY2NJZGlOMFkwWGR4bDQvenRMUGZBZXBKRkZDdklJMnI1ZVo5WEpsVWxNci9DQ3AvNCtuaEJORjYwQS9MQXRKQTJNMUxYT2M9IiwiYXpwIjoiMTMxYWIzN2ItNDI1MS00YzM3LWIwY2MtY2UzYWFmMzkwZGUyIiwiYXpwYWNyIjoiMCIsImlkcCI6ImxpdmUuY29tIiwibmFtZSI6IlNpZGRoYXJ0aCBBZ3Jhd2FsIiwib2lkIjoiNGYyZWJhZTMtMmRjYy00ODQxLWEwOWUtMzIwOTAzZjJhODUzIiwicHJlZmVycmVkX3VzZXJuYW1lIjoic2lkZGhhcnRoYWdyYXdhbEBvdXRsb29rLmNvbSIsInJoIjoiMC5BU0lBQUlNNTdRMlNOazJjM2wwNU5fR2JlM3V6R2hOUlFqZE1zTXpPT3E4NURlSWtBRk0uIiwic2NwIjoiVGhpbmdzLlJlYWQgT3RoZXJUaGluZ3MuUmVhZCBQZXJtaXNzaW9uLldyaXRlIiwic3ViIjoia3hLOGtmUTBYSGJVZm1RRVBQLVNXckJEZDh1TkY1UmkxNE4wdC1hSWc0YyIsInRpZCI6ImVkMzk4MzAwLTkyMGQtNGQzNi05Y2RlLTVkMzkzN2YxOWI3YiIsInV0aSI6ImdmTVpJMXNfaVVhdmFFY1lqX3ZBQVEiLCJ2ZXIiOiIyLjAifQ.HarzFEpxB-CgPZf8750X2nG_YzQZr7N6gt_VWavOs2J3T7_17t5kxf6xMvVerksz21PJY_1fgrn4xySdSIszHEeDLZpSPtNtjUuui8NW-Y6NpadCmZfPzAunun0x4nIZrJKWeSkzSsroUZwbRi7FMFlErSb5_6RBqZph71FcPl0C2pQyuc1wVAJl4DeefJ5H0XmB251od1NOB1zaZ1KLIixZMmzIVirEeBGigZlIPcQu0SDI8MVbfnVTO9mGQImYcqN-qQdYyw6UAvbFIA1GHH9znce_okzcxiXfV8zxX1hVq4KqImbJxvVChZLc1e1akIgRAYiHGd0bq2JP072g4g";
-
-    const FetchBussiness: any = async (token: string) => {
+    const token = useSelector((state: AuthState) => state.token);
+    console.log("TOKEN INSIDE BUSSINESS HOME", token);
+    const FetchBussiness: any = async () => {
         try {
-            const response = await fetch('http://localhost:58559/api/Bussiness/6c3c802e-8658-4379-9307-4777a6bb5268', {
+            const response = await fetch('https://localhost:44313/api/Bussiness/b229d0db-9a4e-456d-a5c0-a28e68324053', {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': 'Bearer '.concat(tempToken)
+                    'Authorization': 'Bearer '.concat(token)
                     // 'Content-Type': 'application/x-www-form-urlencoded',
                 },
             });
             
             if (!response.ok) {
+                console.log(response)
                 throw new Error('Something went wrong!');
             }
 
@@ -36,20 +43,20 @@ const BussinessHome: React.FC<{ token: string }> = (props) => {
             //setError(error.message);
         }
     }
-    // FetchBussiness(props.token);
+    //FetchBussiness(props.token);
     
     useEffect(() : any => {
-        FetchBussiness(props.token);
+        FetchBussiness();
     }, [])
     
 
     const FetchStores: any = async () => {
         try {
-            const response = await fetch('http://localhost:58559/api/Store/Index', {
+            const response = await fetch('https://localhost:44313/api/Store/Index', {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': 'Bearer '.concat(tempToken)
+                    'Authorization': 'Bearer '.concat(token)
                     // 'Content-Type': 'application/x-www-form-urlencoded',
                 },
             });
@@ -59,7 +66,7 @@ const BussinessHome: React.FC<{ token: string }> = (props) => {
             }
 
             const data = await response.json();
-
+            console.log("DATA", data);
             setStores(data);
         } catch (error) {
             console.log("Something went wrong!");
@@ -68,11 +75,11 @@ const BussinessHome: React.FC<{ token: string }> = (props) => {
     }
 
     useEffect((): any => {
-        FetchStores(props.token);
+        FetchStores();
     }, [])
 
-    //console.log("BUSSINESS!!!", bussiness);
-    //console.log("Stores!!!", stores);
+    console.log("BUSSINESS!!!", bussiness);
+    console.log("Stores!!!", stores);
 
 
     return (

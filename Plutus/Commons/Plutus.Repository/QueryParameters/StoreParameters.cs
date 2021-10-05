@@ -16,6 +16,7 @@ namespace Plutus.Repository.QueryParameters
             {
                 expression = expression.And(s => s.BussinessId == BussinessId);
             }
+
             return expression;
         }
     }

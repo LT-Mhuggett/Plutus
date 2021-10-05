@@ -31,6 +31,7 @@
     <None Remove="ClientApp\src\interfaces\page.ts" />
     <None Remove="ClientApp\src\interfaces\route.ts" />
     <None Remove="ClientApp\src\models\Business.ts" />
+    <None Remove="ClientApp\src\store\auth.ts" />
   </ItemGroup>
 
   <ItemGroup>
@@ -44,6 +45,7 @@
     <TypeScriptCompile Include="ClientApp\src\interfaces\page.ts" />
     <TypeScriptCompile Include="ClientApp\src\interfaces\route.ts" />
     <TypeScriptCompile Include="ClientApp\src\models\Business.ts" />
+    <TypeScriptCompile Include="ClientApp\src\store\auth.ts" />
   </ItemGroup>
 
   <Target Name="DebugEnsureNodeEnv" BeforeTargets="Build" Condition=" '$(Configuration)' == 'Debug' And !Exists('$(SpaRoot)node_modules') ">

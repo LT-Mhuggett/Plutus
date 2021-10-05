@@ -3,7 +3,7 @@ import BussinessHome from './components/BussinessHome';
 import Store from './components/Store';
 import Employee from './components/Employee';
 import Till from './components/Till';
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { PageLayout } from "./components/PageLayout";
 import { AuthenticatedTemplate, UnauthenticatedTemplate, useMsal } from "@azure/msal-react";
 import { loginRequest } from "./authConfig";
@@ -11,8 +11,13 @@ import Button from "react-bootstrap/Button";
 import ProfileContent from './components/ProfileContent';
 import { BrowserRouter as Router, Route, Link } from 'react-router-dom';
 import routes from './config/routes';
+import { useSelector, useDispatch } from 'react-redux';
+import { authActions } from './store/auth';
 
 function App() {
+    const dispatch = useDispatch();
+    /*const isAuth = useSelector((state) => state.isAuthenticated);
+    console.log("ISAUTH", isAuth);*/
     const { instance, accounts, inProgress } = useMsal();
     const [accessToken, setAccessToken] = useState("");
 
@@ -23,15 +28,22 @@ function App() {
             ...loginRequest,
             account: accounts[0]
         };
-
         // Silently acquires an access token which is then attached to a request for Microsoft Graph data
         instance.acquireTokenSilent(request).then((response) => {
             setAccessToken(response.accessToken);
+            dispatch(authActions.login(accessToken));
         }).catch((e) => {
             instance.acquireTokenPopup(request).then((response) => {
                 setAccessToken(response.accessToken);
             });
         });
+    }
+    useEffect((): any => {
+        RequestAccessToken();
+    }, [])
+
+    if (accessToken && accessToken != "") {
+        dispatch(authActions.login(accessToken));
     }
 
     return (
@@ -63,11 +75,14 @@ function App() {
                   
                    {/* <Link to="/">BussinessHome</Link>
                     <Link to="/store">Store</Link>*/}
-                
-                    <Route path="/" exact component={BussinessHome} />
-                <Route path="/store/:storeId" exact component={Store} />
-                <Route path="/employee/:employeeId" exact component={Employee} />
-                <Route path="/till/:tillId" exact component={Till} />
+                {accessToken && accessToken !== "" && (
+                    <div>
+                        <Route path="/" exact component={BussinessHome} />
+                        <Route path="/store/:storeId" exact component={Store} />
+                        <Route path="/employee/:employeeId" exact component={Employee} />
+                        <Route path="/till/:tillId" exact component={Till} />
+                    </div>
+                )}
 
                 <p>You are signed in!</p>
             </AuthenticatedTemplate>
