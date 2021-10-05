@@ -83,6 +83,9 @@ namespace Plutus.Entities
             modelBuilder.Entity<Tax>()
                 .HasKey(t => new { t.IdOne, t.IdTwo });
 
+            modelBuilder.Entity<Employee>()
+            .HasIndex(e => new { e.ObjectId, e.BussinessId, e.Email }).IsUnique();
+
             modelBuilder.Entity<AuthActionAPIMapping>()
                 .HasKey(a => new { a.IdOne, a.IdTwo });
 
