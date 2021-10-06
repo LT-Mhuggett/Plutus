@@ -115,6 +115,7 @@
   <ItemGroup>
     <Folder Include="Effects\" />
     <Folder Include="Resources\" />
+    <Folder Include="Services\Repository\" />
   </ItemGroup>
 
   <ItemGroup>
@@ -122,6 +123,7 @@
     <ProjectReference Include="..\..\..\..\Commons\CoppperToCSV\CoppperToCSV.csproj" />
     <ProjectReference Include="..\..\..\..\Commons\CustomViews\CustomViews.csproj" />
     <ProjectReference Include="..\..\..\..\Commons\I18N_L10N\I18N_L10N.csproj" />
+    <ProjectReference Include="..\..\..\..\Commons\Plutus.Repository\Plutus.Repository.csproj" />
     <ProjectReference Include="..\..\..\..\Database\Database.csproj" />
   </ItemGroup>
 </Project>
