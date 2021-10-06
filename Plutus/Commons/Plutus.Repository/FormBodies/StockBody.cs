@@ -8,7 +8,7 @@ namespace Plutus.Repository.FormBodies
     {
         public int Quantity { get; set; }
         public string ItemIdOne { get; set; }
-        public string BussinessId { get; set; }
+        public string BusinessId { get; set; }
         public string SotreId { get; set; }
     }
 }

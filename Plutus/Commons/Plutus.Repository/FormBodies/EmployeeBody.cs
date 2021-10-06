@@ -20,6 +20,6 @@ namespace Plutus.Repository.FormBodies
 
         public string Email { get; set; }
 
-        public string BussinessId { get; set; }
+        public string BusinessId { get; set; }
     }
 }

@@ -26,6 +26,6 @@ namespace Plutus.Repository.FormBodies
 
         public int CatId { get; set; }
 
-        public string BussinessId { get; set; }
+        public string BusinessId { get; set; }
     }
 }

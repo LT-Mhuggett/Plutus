@@ -49,7 +49,7 @@ namespace Plutus.DBService.Controllers
     
             var item = new Item
             {
-                IdTwo = itemBody.BussinessId,
+                IdTwo = itemBody.BusinessId,
                 Name = itemBody.Name,
                 Brand = itemBody.Brand,
                 Desc = itemBody.Desc,

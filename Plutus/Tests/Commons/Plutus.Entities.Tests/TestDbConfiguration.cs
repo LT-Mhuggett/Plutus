@@ -17,12 +17,12 @@ namespace Plutus.Entities.Tests
 
         #region Tables are created tests
 
-        [Test]
+        /*[Test]
         [Category("TableAreCreated")]
         public void BusinessTableIsCreated()
         {
-            Assert.False(DbContext.Bussiness.Any());
-        }
+            Assert.False(DbContext.Business.Any());
+        }*/
 
         [Test]
         [Category("TableAreCreated")]

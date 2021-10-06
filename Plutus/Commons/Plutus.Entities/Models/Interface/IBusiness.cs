@@ -1,6 +1,6 @@
 ﻿namespace Plutus.Entities.Models.Interface
 {
-    public interface IBussiness : IAuditable
+    public interface IBusiness : IAuditable
     {
         string Name { get; set; }
         string NameAbbr { get; set; }

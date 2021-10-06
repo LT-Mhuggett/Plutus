@@ -47,7 +47,7 @@ namespace Plutus.DBService.Controllers
 
             var tax = new Tax
             {
-                IdTwo = taxBody.BussinessId,
+                IdTwo = taxBody.BusinessId,
                 Name = taxBody.Name,
                 Rate = taxBody.Rate
             };

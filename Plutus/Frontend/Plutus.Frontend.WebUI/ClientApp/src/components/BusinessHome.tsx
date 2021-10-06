@@ -2,7 +2,7 @@
 import { Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 
-type Bussiness = {
+type Business = {
     name: string,
     nameAbbr: string
 };
@@ -13,14 +13,14 @@ type AuthState = {
 };
 
 
-const BussinessHome: React.FC<{ token: string }> = (props) => {
-    const [bussiness, setBussiness] = useState([]);
+const BusinessHome: React.FC<{ token: string }> = (props) => {
+    const [Business, setBusiness] = useState([]);
     const [stores, setStores] = useState([]);
     const token = useSelector((state: AuthState) => state.token);
-    console.log("TOKEN INSIDE BUSSINESS HOME", token);
-    const FetchBussiness: any = async () => {
+    console.log("TOKEN INSIDE Business HOME", token);
+    const FetchBusiness: any = async () => {
         try {
-            const response = await fetch('https://localhost:44313/api/Bussiness/b229d0db-9a4e-456d-a5c0-a28e68324053', {
+            const response = await fetch('https://localhost:44313/api/Business/b229d0db-9a4e-456d-a5c0-a28e68324053', {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -36,17 +36,17 @@ const BussinessHome: React.FC<{ token: string }> = (props) => {
 
             const data = await response.json();
             
-            setBussiness(data);
+            setBusiness(data);
             //setStores(data.stores);
         } catch (error) {
             console.log("Something went wrong!");
             //setError(error.message);
         }
     }
-    //FetchBussiness(props.token);
+    //FetchBusiness(props.token);
     
     useEffect(() : any => {
-        FetchBussiness();
+        FetchBusiness();
     }, [])
     
 
@@ -78,15 +78,15 @@ const BussinessHome: React.FC<{ token: string }> = (props) => {
         FetchStores();
     }, [])
 
-    console.log("BUSSINESS!!!", bussiness);
+    console.log("Business!!!", Business);
     console.log("Stores!!!", stores);
 
 
     return (
         <>
             <div>
-                <p>Bussiness Name : {bussiness.name}</p>
-                <p>Bussiness Abbr : {bussiness.nameAbbr}</p>
+                <p>Business Name : {Business.name}</p>
+                <p>Business Abbr : {Business.nameAbbr}</p>
             </div>
 
             <h3>Stores</h3>
@@ -116,4 +116,4 @@ const BussinessHome: React.FC<{ token: string }> = (props) => {
 
 
 
-export default BussinessHome;
+export default BusinessHome;

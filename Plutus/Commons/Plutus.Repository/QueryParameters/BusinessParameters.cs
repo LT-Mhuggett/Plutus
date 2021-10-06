@@ -5,11 +5,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Plutus.Repository.QueryParameters
 {
-    public class BussinessParameters : QueryParameters<Bussiness, string>
+    public class BusinessParameters : QueryParameters<Business, string>
     {
         public bool LoadStores { get; set; } = false;
 
-        public override Expression<Func<Bussiness, bool>> GetExpression()
+        public override Expression<Func<Business, bool>> GetExpression()
         {
             var expression = base.GetExpression();
             if (LoadStores)

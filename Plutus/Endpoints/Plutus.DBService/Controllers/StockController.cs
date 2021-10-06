@@ -48,7 +48,7 @@ namespace Plutus.DBService.Controllers
             var stock = new Stock
             {
                 IdOne = stockBody.ItemIdOne,
-                IdTwo = stockBody.BussinessId,
+                IdTwo = stockBody.BusinessId,
                 IdThree = stockBody.SotreId,
                 Quantity = stockBody.Quantity
             };

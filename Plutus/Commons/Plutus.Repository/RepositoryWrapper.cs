@@ -24,7 +24,7 @@ namespace Plutus.Repository
         protected IStoreRepository storeRepository;
         protected ITaxRepository taxRepository;
         protected ITransactionRepository transactionRepository;
-        protected IBussinessRepository bussinessRepository;
+        protected IBusinessRepository businessRepository;
         protected IRoleRepository roleRepository;
 
         #endregion
@@ -49,7 +49,7 @@ namespace Plutus.Repository
         public virtual IStoreRepository StoreRepository => storeRepository ??= new StoreRepository(repositoryContext);
         public virtual ITaxRepository TaxRepository => taxRepository ??= new TaxRepository(repositoryContext);
         public virtual ITransactionRepository TransactionRepository => transactionRepository ??= new TransactionRepository(repositoryContext);
-        public virtual IBussinessRepository BussinessRepository => bussinessRepository ??= new BussinessRepository(repositoryContext);
+        public virtual IBusinessRepository BusinessRepository => businessRepository ??= new BusinessRepository(repositoryContext);
 
         #endregion
         public RepositoryWrapper(RepositoryContext repositoryContext)

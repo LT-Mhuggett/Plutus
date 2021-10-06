@@ -28,20 +28,20 @@ namespace Plutus.Repository.Tests
         #region Data Persistance
         [Test]
         [Category("RecordPersistance")]
-        public void BussinessPersists()
+        public void BusinessPersists()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
-            Assert.AreEqual(bussiness, DbContext.Bussiness.Find(bussiness.Id));
-            //Assert.AreEqual(1, DbContext.Bussiness.Count());
+            Assert.AreEqual(Business, DbContext.Business.Find(Business.Id));
+            //Assert.AreEqual(1, DbContext.Business.Count());
         }
 
         [Test]
@@ -58,7 +58,7 @@ namespace Plutus.Repository.Tests
             RepositoryWrapper.Save();
 
             Assert.AreEqual(note, DbContext.Notes.Find(note.Id));
-            //Assert.AreEqual(1, DbContext.Bussiness.Count());
+            //Assert.AreEqual(1, DbContext.Business.Count());
         }
 
         [Test]
@@ -76,7 +76,7 @@ namespace Plutus.Repository.Tests
             RepositoryWrapper.Save();
 
             Assert.AreEqual(savedTransaction, DbContext.SavedTransactions.Find(savedTransaction.Id));
-            //Assert.AreEqual(1, DbContext.Bussiness.Count());
+            //Assert.AreEqual(1, DbContext.Business.Count());
         }
 
         [Test]
@@ -97,7 +97,7 @@ namespace Plutus.Repository.Tests
             RepositoryWrapper.Save();
 
             Assert.AreEqual(paymentMethod, DbContext.PayMethods.Find(paymentMethod.Id));
-            //Assert.AreEqual(1, DbContext.Bussiness.Count());
+            //Assert.AreEqual(1, DbContext.Business.Count());
         }
 
         [Test]
@@ -139,13 +139,13 @@ namespace Plutus.Repository.Tests
         [Category("RecordPersistance")]
         public void StorePersists()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -157,14 +157,14 @@ namespace Plutus.Repository.Tests
                 City = "Test City",
                 PostCode = "201304",
                 Country = "England",
-                BussinessId = bussiness.Id
+                BusinessId = Business.Id
             };
 
             RepositoryWrapper.StoreRepository.Create(store);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
-            Assert.AreEqual(bussiness, DbContext.Bussiness.Find(bussiness.Id));
+            Assert.AreEqual(Business, DbContext.Business.Find(Business.Id));
             Assert.AreEqual(store, DbContext.Stores.Find(store.Id));
         }
 
@@ -172,13 +172,13 @@ namespace Plutus.Repository.Tests
         [Category("RecordPersistance")]
         public void TillPersists()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -190,7 +190,7 @@ namespace Plutus.Repository.Tests
                 City = "Test City",
                 PostCode = "201304",
                 Country = "England",
-                BussinessId = bussiness.Id
+                BusinessId = Business.Id
             };
 
             RepositoryWrapper.StoreRepository.Create(store);
@@ -209,7 +209,7 @@ namespace Plutus.Repository.Tests
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
-            Assert.AreEqual(bussiness, DbContext.Bussiness.Find(bussiness.Id));
+            Assert.AreEqual(Business, DbContext.Business.Find(Business.Id));
             Assert.AreEqual(store, DbContext.Stores.Find(store.Id));
             Assert.AreEqual(till, DbContext.Till.Find(till.Id));
         }
@@ -218,13 +218,13 @@ namespace Plutus.Repository.Tests
         [Category("RecordPersistance")]
         public void EmployeePersists()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -236,7 +236,7 @@ namespace Plutus.Repository.Tests
                 City = "Test City",
                 PostCode = "201304",
                 Country = "England",
-                BussinessId = bussiness.Id
+                BusinessId = Business.Id
             };
 
             RepositoryWrapper.StoreRepository.Create(store);
@@ -267,7 +267,7 @@ namespace Plutus.Repository.Tests
                 LName = "Doe",
                 Mobile = "+449672513556",
                 Email = store.Id + "@test.com",
-                BussinessId = bussiness.Id,
+                BusinessId = Business.Id,
                 RoleId = role.Id
             };
 
@@ -275,7 +275,7 @@ namespace Plutus.Repository.Tests
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
-            Assert.AreEqual(bussiness, DbContext.Bussiness.Find(bussiness.Id));
+            Assert.AreEqual(Business, DbContext.Business.Find(Business.Id));
             Assert.AreEqual(store, DbContext.Stores.Find(store.Id));
             Assert.AreEqual(role, DbContext.Role.Find(role.Id));
             Assert.AreEqual(employee, DbContext.Employees.Find(employee.Id));
@@ -285,13 +285,13 @@ namespace Plutus.Repository.Tests
         [Category("RecordPersistance")]
         public void DiscountPersists()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -305,14 +305,14 @@ namespace Plutus.Repository.Tests
                 Amount = 13556,
                 UsesPerTransaction = 1,
                 RequiredNumOfItems = 1,
-                BussinessId = bussiness.Id
+                BusinessId = Business.Id
             };
 
             RepositoryWrapper.DiscountRepository.Create(discount);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
-            Assert.AreEqual(bussiness, DbContext.Bussiness.Find(bussiness.Id));
+            Assert.AreEqual(Business, DbContext.Business.Find(Business.Id));
             Assert.AreEqual(discount, DbContext.Discounts.Find(discount.Id));
         }
 
@@ -320,13 +320,13 @@ namespace Plutus.Repository.Tests
         [Category("RecordPersistance")]
         public void TaxPersists()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -334,28 +334,28 @@ namespace Plutus.Repository.Tests
             {
                 Name = "Tax Name",
                 Rate = 4.8,
-                IdTwo = bussiness.Id
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.TaxRepository.Create(tax);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
-            Assert.AreEqual(bussiness, DbContext.Bussiness.Find(bussiness.Id));
-            Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, bussiness.Id));
+            Assert.AreEqual(Business, DbContext.Business.Find(Business.Id));
+            Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, Business.Id));
         }
 
         [Test]
         [Category("RecordPersistance")]
         public void ItemPersists()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -363,7 +363,7 @@ namespace Plutus.Repository.Tests
             {
                 Name = "Tax Name",
                 Rate = 4.8,
-                IdTwo = bussiness.Id
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.TaxRepository.Create(tax);
@@ -391,30 +391,30 @@ namespace Plutus.Repository.Tests
                 Price = 9999,
                 TaxId = tax.IdOne,
                 CatId = category.Id,
-                IdTwo = bussiness.Id
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.ItemRepository.Create(item);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
-            Assert.AreEqual(bussiness, DbContext.Bussiness.Find(bussiness.Id));
-            Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, bussiness.Id));
+            Assert.AreEqual(Business, DbContext.Business.Find(Business.Id));
+            Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, Business.Id));
             Assert.AreEqual(category, DbContext.Category.Find(category.Id));
-            Assert.AreEqual(item, DbContext.Items.Find(item.IdOne, bussiness.Id));
+            Assert.AreEqual(item, DbContext.Items.Find(item.IdOne, Business.Id));
         }
 
         [Test]
         [Category("RecordPersistance")]
         public void TransactionPersists()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -422,7 +422,7 @@ namespace Plutus.Repository.Tests
             {
                 Name = "Tax Name",
                 Rate = 4.8,
-                IdTwo = bussiness.Id
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.TaxRepository.Create(tax);
@@ -450,7 +450,7 @@ namespace Plutus.Repository.Tests
                 Price = 9999,
                 TaxId = tax.IdOne,
                 CatId = category.Id,
-                IdTwo = bussiness.Id
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.ItemRepository.Create(item);
@@ -465,7 +465,7 @@ namespace Plutus.Repository.Tests
                 City = "Test City",
                 PostCode = "201304",
                 Country = "England",
-                BussinessId = bussiness.Id
+                BusinessId = Business.Id
             };
 
             RepositoryWrapper.StoreRepository.Create(store);
@@ -508,7 +508,7 @@ namespace Plutus.Repository.Tests
                 LName = "Doe",
                 Mobile = "+449672513556",
                 Email = store.Id + "@test.com",
-                BussinessId = bussiness.Id,
+                BusinessId = Business.Id,
                 RoleId = role.Id
             };
 
@@ -544,10 +544,10 @@ namespace Plutus.Repository.Tests
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
-            Assert.AreEqual(bussiness, DbContext.Bussiness.Find(bussiness.Id));
-            Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, bussiness.Id));
+            Assert.AreEqual(Business, DbContext.Business.Find(Business.Id));
+            Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, Business.Id));
             Assert.AreEqual(category, DbContext.Category.Find(category.Id));
-            Assert.AreEqual(item, DbContext.Items.Find(item.IdOne, bussiness.Id));
+            Assert.AreEqual(item, DbContext.Items.Find(item.IdOne, Business.Id));
             Assert.AreEqual(transaction, DbContext.Trans.Find(transaction.Id));
         }
 
@@ -555,13 +555,13 @@ namespace Plutus.Repository.Tests
         [Category("RecordPersistance")]
         public void StockPersists()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -569,7 +569,7 @@ namespace Plutus.Repository.Tests
             {
                 Name = "Tax Name",
                 Rate = 4.8,
-                IdTwo = bussiness.Id
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.TaxRepository.Create(tax);
@@ -597,7 +597,7 @@ namespace Plutus.Repository.Tests
                 Price = 9999,
                 TaxId = tax.IdOne,
                 CatId = category.Id,
-                IdTwo = bussiness.Id
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.ItemRepository.Create(item);
@@ -612,7 +612,7 @@ namespace Plutus.Repository.Tests
                 City = "Test City",
                 PostCode = "201304",
                 Country = "England",
-                BussinessId = bussiness.Id
+                BusinessId = Business.Id
             };
 
             RepositoryWrapper.StoreRepository.Create(store);
@@ -631,10 +631,10 @@ namespace Plutus.Repository.Tests
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
-            Assert.AreEqual(bussiness, DbContext.Bussiness.Find(bussiness.Id));
-            Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, bussiness.Id));
+            Assert.AreEqual(Business, DbContext.Business.Find(Business.Id));
+            Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, Business.Id));
             Assert.AreEqual(category, DbContext.Category.Find(category.Id));
-            Assert.AreEqual(item, DbContext.Items.Find(item.IdOne, bussiness.Id));
+            Assert.AreEqual(item, DbContext.Items.Find(item.IdOne, Business.Id));
             Assert.AreEqual(store, DbContext.Stores.Find(store.Id));
             Assert.AreEqual(stock, DbContext.Stocks.Find(stock.IdOne, stock.IdTwo, stock.IdThree));
         }
@@ -650,11 +650,11 @@ namespace Plutus.Repository.Tests
         [Category("RecordPropertyConstraint")]
         public void BusinessRecordNameIsRequired()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 NameAbbr = "TN"
             };
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
         }
@@ -663,11 +663,11 @@ namespace Plutus.Repository.Tests
         [Category("RecordPropertyConstraint")]
         public void BusinessRecordNameAbbrIsRequired()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name"
             };
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
         }
@@ -709,13 +709,13 @@ namespace Plutus.Repository.Tests
         [Category("RecordPersistance")]
         public void StoreRecordContactNumberIsRequired()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -726,7 +726,7 @@ namespace Plutus.Repository.Tests
                 City = "Test City",
                 PostCode = "201304",
                 Country = "England",
-                BussinessId = bussiness.Id
+                BusinessId = Business.Id
             };
 
             RepositoryWrapper.StoreRepository.Create(store);
@@ -738,13 +738,13 @@ namespace Plutus.Repository.Tests
         [Category("RecordPersistance")]
         public void StoreRecordPostcodeIsRequired()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -755,7 +755,7 @@ namespace Plutus.Repository.Tests
                 AdLine2 = "Address Line 2",
                 City = "Test City",
                 Country = "England",
-                BussinessId = bussiness.Id
+                BusinessId = Business.Id
             };
 
             RepositoryWrapper.StoreRepository.Create(store);
@@ -765,7 +765,7 @@ namespace Plutus.Repository.Tests
 
         [Test]
         [Category("RecordPersistance")]
-        public void StoreRecordBussinessIdIsRequired()
+        public void StoreRecordBusinessIdIsRequired()
         {
 
             var store = new Store()
@@ -789,13 +789,13 @@ namespace Plutus.Repository.Tests
         [Category("RecordPersistance")]
         public void TillRecordMachineIdIsRequired()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -807,7 +807,7 @@ namespace Plutus.Repository.Tests
                 City = "Test City",
                 PostCode = "201304",
                 Country = "England",
-                BussinessId = bussiness.Id
+                BusinessId = Business.Id
             };
 
             RepositoryWrapper.StoreRepository.Create(store);
@@ -849,13 +849,13 @@ namespace Plutus.Repository.Tests
         [Category("RecordPropertyConstraint")]
         public void ItemRecordNameIsRequired()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -863,7 +863,7 @@ namespace Plutus.Repository.Tests
             {
                 Name = "Tax Name",
                 Rate = 4.8,
-                IdTwo = bussiness.Id
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.TaxRepository.Create(tax);
@@ -890,7 +890,7 @@ namespace Plutus.Repository.Tests
                 Price = 9999,
                 TaxId = tax.IdOne,
                 CatId = category.Id,
-                IdTwo = bussiness.Id
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.ItemRepository.Create(item);
@@ -903,13 +903,13 @@ namespace Plutus.Repository.Tests
         [Category("RecordPropertyConstraint")]
         public void ItemRecordBrandIsRequired()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -917,7 +917,7 @@ namespace Plutus.Repository.Tests
             {
                 Name = "Tax Name",
                 Rate = 4.8,
-                IdTwo = bussiness.Id
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.TaxRepository.Create(tax);
@@ -944,7 +944,7 @@ namespace Plutus.Repository.Tests
                 Price = 9999,
                 TaxId = tax.IdOne,
                 CatId = category.Id,
-                IdTwo = bussiness.Id
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.ItemRepository.Create(item);
@@ -957,13 +957,13 @@ namespace Plutus.Repository.Tests
         [Category("RecordPropertyConstraint")]
         public void ItemRecordTaxIdIsRequired()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -987,7 +987,7 @@ namespace Plutus.Repository.Tests
                 ExPrice = 9999,
                 Price = 9999,
                 CatId = category.Id,
-                IdTwo = bussiness.Id
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.ItemRepository.Create(item);
@@ -1000,13 +1000,13 @@ namespace Plutus.Repository.Tests
         [Category("RecordPropertyConstraint")]
         public void ItemRecordCatIdIsRequired()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -1014,7 +1014,7 @@ namespace Plutus.Repository.Tests
             {
                 Name = "Tax Name",
                 Rate = 4.8,
-                IdTwo = bussiness.Id
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.TaxRepository.Create(tax);
@@ -1030,7 +1030,7 @@ namespace Plutus.Repository.Tests
                 ExPrice = 9999,
                 Price = 9999,
                 TaxId = tax.IdOne,
-                IdTwo = bussiness.Id
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.ItemRepository.Create(item);
@@ -1045,20 +1045,20 @@ namespace Plutus.Repository.Tests
         [Category("RecordPropertyConstraint")]
         public void TaxRecordNameIsRequired()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
             var tax = new Tax()
             {
                 Rate = 4.8,
-                IdTwo = bussiness.Id
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.TaxRepository.Create(tax);
@@ -1072,13 +1072,13 @@ namespace Plutus.Repository.Tests
         [Category("RecordPropertyConstraint")]
         public void DiscountRecordNameIsRequired()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -1091,7 +1091,7 @@ namespace Plutus.Repository.Tests
                 Amount = 13556,
                 UsesPerTransaction = 1,
                 RequiredNumOfItems = 1,
-                BussinessId = bussiness.Id
+                BusinessId = Business.Id
             };
 
             RepositoryWrapper.DiscountRepository.Create(discount);
@@ -1101,7 +1101,7 @@ namespace Plutus.Repository.Tests
 
         [Test]
         [Category("RecordPropertyConstraint")]
-        public void DiscountRecordBussinessIdIsRequired()
+        public void DiscountRecordBusinessIdIsRequired()
         {
             var discount = new Discount()
             {
@@ -1127,13 +1127,13 @@ namespace Plutus.Repository.Tests
         [Category("RecordPropertyConstraint")]
         public void EmployeeRecordFNameIsRequired()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -1145,7 +1145,7 @@ namespace Plutus.Repository.Tests
                 City = "Test City",
                 PostCode = "201304",
                 Country = "England",
-                BussinessId = bussiness.Id
+                BusinessId = Business.Id
             };
 
             RepositoryWrapper.StoreRepository.Create(store);
@@ -1175,7 +1175,7 @@ namespace Plutus.Repository.Tests
                 LName = "Doe",
                 Mobile = "+449672513556",
                 Email = store.Id + "@test.com",
-                BussinessId = bussiness.Id,
+                BusinessId = Business.Id,
                 RoleId = role.Id
             };
 
@@ -1188,13 +1188,13 @@ namespace Plutus.Repository.Tests
         [Category("RecordPropertyConstraint")]
         public void EmployeeRecordLNameIsRequired()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -1206,7 +1206,7 @@ namespace Plutus.Repository.Tests
                 City = "Test City",
                 PostCode = "201304",
                 Country = "England",
-                BussinessId = bussiness.Id
+                BusinessId = Business.Id
             };
 
             RepositoryWrapper.StoreRepository.Create(store);
@@ -1236,7 +1236,7 @@ namespace Plutus.Repository.Tests
                 FName = "John",
                 Mobile = "+449672513556",
                 Email = store.Id + "@test.com",
-                BussinessId = bussiness.Id,
+                BusinessId = Business.Id,
                 RoleId = role.Id
             };
 
@@ -1249,13 +1249,13 @@ namespace Plutus.Repository.Tests
         [Category("RecordPropertyConstraint")]
         public void EmployeeRecordStoreIdIsRequired()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -1267,7 +1267,7 @@ namespace Plutus.Repository.Tests
                 City = "Test City",
                 PostCode = "201304",
                 Country = "England",
-                BussinessId = bussiness.Id
+                BusinessId = Business.Id
             };
 
             RepositoryWrapper.StoreRepository.Create(store);
@@ -1297,7 +1297,7 @@ namespace Plutus.Repository.Tests
                 LName = "Doe",
                 Mobile = "+449672513556",
                 Email = store.Id + "@test.com",
-                BussinessId = bussiness.Id,
+                BusinessId = Business.Id,
                 RoleId = role.Id
             };
 
@@ -1310,13 +1310,13 @@ namespace Plutus.Repository.Tests
         [Category("RecordPropertyConstraint")]
         public void EmployeeRecordMobileIsRequired()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -1328,7 +1328,7 @@ namespace Plutus.Repository.Tests
                 City = "Test City",
                 PostCode = "201304",
                 Country = "England",
-                BussinessId = bussiness.Id
+                BusinessId = Business.Id
             };
 
             RepositoryWrapper.StoreRepository.Create(store);
@@ -1358,7 +1358,7 @@ namespace Plutus.Repository.Tests
                 FName = "John",
                 LName = "Doe",
                 Email = store.Id + "@test.com",
-                BussinessId = bussiness.Id,
+                BusinessId = Business.Id,
                 RoleId = role.Id
             };
 
@@ -1371,13 +1371,13 @@ namespace Plutus.Repository.Tests
         [Category("RecordPropertyConstraint")]
         public void EmployeeRecordEmailIsRequired()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -1389,7 +1389,7 @@ namespace Plutus.Repository.Tests
                 City = "Test City",
                 PostCode = "201304",
                 Country = "England",
-                BussinessId = bussiness.Id
+                BusinessId = Business.Id
             };
 
             RepositoryWrapper.StoreRepository.Create(store);
@@ -1419,7 +1419,7 @@ namespace Plutus.Repository.Tests
                 FName = "John",
                 LName = "Doe",
                 Mobile = "+449672513556",
-                BussinessId = bussiness.Id,
+                BusinessId = Business.Id,
                 RoleId = role.Id
             };
 
@@ -1435,13 +1435,13 @@ namespace Plutus.Repository.Tests
         [Category("RecordPropertyConstraint")]
         public void TransactionRecordTillIdIsRequired()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -1449,7 +1449,7 @@ namespace Plutus.Repository.Tests
             {
                 Name = "Tax Name",
                 Rate = 4.8,
-                IdTwo = bussiness.Id
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.TaxRepository.Create(tax);
@@ -1477,7 +1477,7 @@ namespace Plutus.Repository.Tests
                 Price = 9999,
                 TaxId = tax.IdOne,
                 CatId = category.Id,
-                IdTwo = bussiness.Id
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.ItemRepository.Create(item);
@@ -1492,7 +1492,7 @@ namespace Plutus.Repository.Tests
                 City = "Test City",
                 PostCode = "201304",
                 Country = "England",
-                BussinessId = bussiness.Id
+                BusinessId = Business.Id
             };
 
             RepositoryWrapper.StoreRepository.Create(store);
@@ -1523,7 +1523,7 @@ namespace Plutus.Repository.Tests
                 LName = "Doe",
                 Mobile = "+449672513556",
                 Email = store.Id + "@test.com",
-                BussinessId = bussiness.Id,
+                BusinessId = Business.Id,
                 RoleId = role.Id
             };
 
@@ -1563,13 +1563,13 @@ namespace Plutus.Repository.Tests
         [Category("RecordPropertyConstraint")]
         public void TransactionRecordSaleIdIsRequired()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -1577,7 +1577,7 @@ namespace Plutus.Repository.Tests
             {
                 Name = "Tax Name",
                 Rate = 4.8,
-                IdTwo = bussiness.Id
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.TaxRepository.Create(tax);
@@ -1605,7 +1605,7 @@ namespace Plutus.Repository.Tests
                 Price = 9999,
                 TaxId = tax.IdOne,
                 CatId = category.Id,
-                IdTwo = bussiness.Id
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.ItemRepository.Create(item);
@@ -1620,7 +1620,7 @@ namespace Plutus.Repository.Tests
                 City = "Test City",
                 PostCode = "201304",
                 Country = "England",
-                BussinessId = bussiness.Id
+                BusinessId = Business.Id
             };
 
             RepositoryWrapper.StoreRepository.Create(store);
@@ -1711,13 +1711,13 @@ namespace Plutus.Repository.Tests
         [Category("RecordPropertyConstraint")]
         public void StockRecordStoreIdIsRequired()
         {
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN"
             };
 
-            RepositoryWrapper.BussinessRepository.Create(bussiness);
+            RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -1725,7 +1725,7 @@ namespace Plutus.Repository.Tests
             {
                 Name = "Tax Name",
                 Rate = 4.8,
-                IdTwo = bussiness.Id
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.TaxRepository.Create(tax);
@@ -1753,7 +1753,7 @@ namespace Plutus.Repository.Tests
                 Price = 9999,
                 TaxId = tax.IdOne,
                 CatId = category.Id,
-                IdTwo = bussiness.Id
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.ItemRepository.Create(item);
@@ -1768,7 +1768,7 @@ namespace Plutus.Repository.Tests
                 City = "Test City",
                 PostCode = "201304",
                 Country = "England",
-                BussinessId = bussiness.Id
+                BusinessId = Business.Id
             };
 
             RepositoryWrapper.StoreRepository.Create(store);
@@ -1798,7 +1798,7 @@ namespace Plutus.Repository.Tests
             var currentTime = DateTime.UtcNow;
             var systemName = "Plutus.Repository.Tests";
 
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN",
@@ -1811,14 +1811,14 @@ namespace Plutus.Repository.Tests
             RepositoryWrapper.SetSyncState(true);
             await Task.Delay(10);
             RepositoryWrapper.SetCurrentUser(systemName);
-            await RepositoryWrapper.BussinessRepository.Create(bussiness);
+            await RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.Save();
             RepositoryWrapper.SetSyncState();
 
-            Assert.AreEqual(bussiness.CreatedBy, systemName);
-            Assert.AreEqual(bussiness.ModifiedBy, systemName);
-            Assert.AreEqual(bussiness.CreatedAt, currentTime);
-            Assert.AreEqual(bussiness.ModifiedAt, currentTime);
+            Assert.AreEqual(Business.CreatedBy, systemName);
+            Assert.AreEqual(Business.ModifiedBy, systemName);
+            Assert.AreEqual(Business.CreatedAt, currentTime);
+            Assert.AreEqual(Business.ModifiedAt, currentTime);
         }
 
         [Test]
@@ -1948,7 +1948,7 @@ namespace Plutus.Repository.Tests
         {
             var currentTime = DateTime.UtcNow;
             var systemName = "Plutus.Repository.Tests";
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN",
@@ -1958,7 +1958,7 @@ namespace Plutus.Repository.Tests
                 ModifiedBy = systemName
             };
 
-            await RepositoryWrapper.BussinessRepository.Create(bussiness);
+            await RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -1970,7 +1970,7 @@ namespace Plutus.Repository.Tests
                 City = "Test City",
                 PostCode = "201304",
                 Country = "England",
-                BussinessId = bussiness.Id,
+                BusinessId = Business.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,
                 ModifiedAt = currentTime,
@@ -1996,7 +1996,7 @@ namespace Plutus.Repository.Tests
         {
             var currentTime = DateTime.UtcNow;
             var systemName = "Plutus.Repository.Tests";
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN",
@@ -2006,7 +2006,7 @@ namespace Plutus.Repository.Tests
                 ModifiedBy = systemName
             };
 
-            await RepositoryWrapper.BussinessRepository.Create(bussiness);
+            await RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -2018,7 +2018,7 @@ namespace Plutus.Repository.Tests
                 City = "Test City",
                 PostCode = "201304",
                 Country = "England",
-                BussinessId = bussiness.Id,
+                BusinessId = Business.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,
                 ModifiedAt = currentTime,
@@ -2060,7 +2060,7 @@ namespace Plutus.Repository.Tests
         {
             var currentTime = DateTime.UtcNow;
             var systemName = "Plutus.Repository.Tests";
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN",
@@ -2070,7 +2070,7 @@ namespace Plutus.Repository.Tests
                 ModifiedBy = systemName
             };
 
-            await RepositoryWrapper.BussinessRepository.Create(bussiness);
+            await RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -2082,7 +2082,7 @@ namespace Plutus.Repository.Tests
                 City = "Test City",
                 PostCode = "201304",
                 Country = "England",
-                BussinessId = bussiness.Id,
+                BusinessId = Business.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,
                 ModifiedAt = currentTime,
@@ -2121,7 +2121,7 @@ namespace Plutus.Repository.Tests
                 LName = "Doe",
                 Mobile = "+449672513556",
                 Email = store.Id+"@test.com",
-                BussinessId = bussiness.Id,
+                BusinessId = Business.Id,
                 RoleId = role.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,
@@ -2148,7 +2148,7 @@ namespace Plutus.Repository.Tests
         {
             var currentTime = DateTime.UtcNow;
             var systemName = "Plutus.Repository.Tests";
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN",
@@ -2158,7 +2158,7 @@ namespace Plutus.Repository.Tests
                 ModifiedBy = systemName
             };
 
-            await RepositoryWrapper.BussinessRepository.Create(bussiness);
+            await RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -2172,7 +2172,7 @@ namespace Plutus.Repository.Tests
                 Amount = 13556,
                 UsesPerTransaction = 1,
                 RequiredNumOfItems = 1,
-                BussinessId = bussiness.Id,
+                BusinessId = Business.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,
                 ModifiedAt = currentTime,
@@ -2198,7 +2198,7 @@ namespace Plutus.Repository.Tests
         {
             var currentTime = DateTime.UtcNow;
             var systemName = "Plutus.Repository.Tests";
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN",
@@ -2208,7 +2208,7 @@ namespace Plutus.Repository.Tests
                 ModifiedBy = systemName
             };
 
-            await RepositoryWrapper.BussinessRepository.Create(bussiness);
+            await RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -2216,7 +2216,7 @@ namespace Plutus.Repository.Tests
             {
                 Name = "Tax Name",
                 Rate = 4.8,
-                IdTwo = bussiness.Id,
+                IdTwo = Business.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,
                 ModifiedAt = currentTime,
@@ -2242,7 +2242,7 @@ namespace Plutus.Repository.Tests
         {
             var currentTime = DateTime.UtcNow;
             var systemName = "Plutus.Repository.Tests";
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN",
@@ -2252,7 +2252,7 @@ namespace Plutus.Repository.Tests
                 ModifiedBy = systemName
             };
 
-            await RepositoryWrapper.BussinessRepository.Create(bussiness);
+            await RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -2260,7 +2260,7 @@ namespace Plutus.Repository.Tests
             {
                 Name = "Tax Name",
                 Rate = 4.8,
-                IdTwo = bussiness.Id,
+                IdTwo = Business.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,
                 ModifiedAt = currentTime,
@@ -2295,7 +2295,7 @@ namespace Plutus.Repository.Tests
                 Price = 9999,
                 TaxId = tax.IdOne,
                 CatId = category.Id,
-                IdTwo = bussiness.Id,
+                IdTwo = Business.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,
                 ModifiedAt = currentTime,
@@ -2321,7 +2321,7 @@ namespace Plutus.Repository.Tests
         {
             var currentTime = DateTime.UtcNow;
             var systemName = "Plutus.Repository.Tests";
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN",
@@ -2331,7 +2331,7 @@ namespace Plutus.Repository.Tests
                 ModifiedBy = systemName
             };
 
-            await RepositoryWrapper.BussinessRepository.Create(bussiness);
+            await RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -2339,7 +2339,7 @@ namespace Plutus.Repository.Tests
             {
                 Name = "Tax Name",
                 Rate = 4.8,
-                IdTwo = bussiness.Id,
+                IdTwo = Business.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,
                 ModifiedAt = currentTime,
@@ -2374,7 +2374,7 @@ namespace Plutus.Repository.Tests
                 Price = 9999,
                 TaxId = tax.IdOne,
                 CatId = category.Id,
-                IdTwo = bussiness.Id,
+                IdTwo = Business.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,
                 ModifiedAt = currentTime,
@@ -2393,7 +2393,7 @@ namespace Plutus.Repository.Tests
                 City = "Test City",
                 PostCode = "201304",
                 Country = "England",
-                BussinessId = bussiness.Id,
+                BusinessId = Business.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,
                 ModifiedAt = currentTime,
@@ -2448,7 +2448,7 @@ namespace Plutus.Repository.Tests
                 LName = "Doe",
                 Mobile = "+449672513556",
                 Email = store.Id + "@test.com",
-                BussinessId = bussiness.Id,
+                BusinessId = Business.Id,
                 RoleId = role.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,
@@ -2512,7 +2512,7 @@ namespace Plutus.Repository.Tests
         {
             var currentTime = DateTime.UtcNow;
             var systemName = "Plutus.Repository.Tests";
-            var bussiness = new Bussiness()
+            var Business = new Business()
             {
                 Name = "Test Name",
                 NameAbbr = "TN",
@@ -2522,7 +2522,7 @@ namespace Plutus.Repository.Tests
                 ModifiedBy = systemName
             };
 
-            await RepositoryWrapper.BussinessRepository.Create(bussiness);
+            await RepositoryWrapper.BusinessRepository.Create(Business);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
@@ -2530,7 +2530,7 @@ namespace Plutus.Repository.Tests
             {
                 Name = "Tax Name",
                 Rate = 4.8,
-                IdTwo = bussiness.Id,
+                IdTwo = Business.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,
                 ModifiedAt = currentTime,
@@ -2565,7 +2565,7 @@ namespace Plutus.Repository.Tests
                 Price = 9999,
                 TaxId = tax.IdOne,
                 CatId = category.Id,
-                IdTwo = bussiness.Id,
+                IdTwo = Business.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,
                 ModifiedAt = currentTime,
@@ -2584,7 +2584,7 @@ namespace Plutus.Repository.Tests
                 City = "Test City",
                 PostCode = "201304",
                 Country = "England",
-                BussinessId = bussiness.Id,
+                BusinessId = Business.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,
                 ModifiedAt = currentTime,
@@ -2650,7 +2650,7 @@ namespace Plutus.Repository.Tests
             DbContext.Role.RemoveRange(DbContext.Role);
             DbContext.Discounts.RemoveRange(DbContext.Discounts);
             DbContext.Notes.RemoveRange(DbContext.Notes);
-            DbContext.Bussiness.RemoveRange(DbContext.Bussiness);
+            DbContext.Business.RemoveRange(DbContext.Business);
 
             DbContext.SaveChanges();
         }

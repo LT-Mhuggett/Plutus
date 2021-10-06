@@ -7,14 +7,14 @@ namespace Plutus.Repository.QueryParameters
 {
     public class StoreParameters : QueryParameters<Store, string>
     {
-        public string BussinessId { get; set; } = default;
+        public string BusinessId { get; set; } = default;
 
         public override Expression<Func<Store, bool>> GetExpression()
         {
             var expression = base.GetExpression();
-            if (!String.IsNullOrEmpty(BussinessId))
+            if (!String.IsNullOrEmpty(BusinessId))
             {
-                expression = expression.And(s => s.BussinessId == BussinessId);
+                expression = expression.And(s => s.BusinessId == BusinessId);
             }
 
             return expression;

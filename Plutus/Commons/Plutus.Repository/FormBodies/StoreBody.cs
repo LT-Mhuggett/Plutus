@@ -7,6 +7,6 @@ namespace Plutus.Repository.FormBodies
     public class StoreBody : AddressBody
     {
         public string ContactNumber { get; set; }
-        public string BussinessId { get; set; }
+        public string BusinessId { get; set; }
     }
 }

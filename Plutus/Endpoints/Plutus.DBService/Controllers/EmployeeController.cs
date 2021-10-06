@@ -19,7 +19,7 @@ namespace Plutus.DBService.Controllers
         {
         }
 
-        /// <summary>
+       /* /// <summary>
         /// Add <see cref="Tax"/> to Database and attach to <see/>
         /// </summary>
         /// <param name="TaxBody">Form body post data</param>
@@ -39,7 +39,7 @@ namespace Plutus.DBService.Controllers
                 LName = employeeBody.LName,
                 Mobile = employeeBody.Mobile,
                 Email = employeeBody.Email,
-                BussinessId = employeeBody.BussinessId,
+                BusinessId = employeeBody.BusinessId,
                 AdLine1 = employeeBody.AdLine1,
                 AdLine2 = employeeBody.AdLine2,
                 City = employeeBody.City,
@@ -56,6 +56,6 @@ namespace Plutus.DBService.Controllers
             await repositoryWrapper.SaveAsync();
             //return item;
             return CreatedAtAction("FindById", new { id = employee.Id }, employee);
-        }
+        }*/
     }
 }

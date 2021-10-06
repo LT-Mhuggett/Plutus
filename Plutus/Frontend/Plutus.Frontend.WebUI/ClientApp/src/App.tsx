@@ -1,5 +1,5 @@
 import './custom.css';
-import BussinessHome from './components/BussinessHome';
+import BusinessHome from './components/BusinessHome';
 import Store from './components/Store';
 import Employee from './components/Employee';
 import Till from './components/Till';
@@ -77,7 +77,7 @@ function App() {
                     <Link to="/store">Store</Link>*/}
                 {accessToken && accessToken !== "" && (
                     <div>
-                        <Route path="/" exact component={BussinessHome} />
+                        <Route path="/" exact component={BusinessHome} />
                         <Route path="/store/:storeId" exact component={Store} />
                         <Route path="/employee/:employeeId" exact component={Employee} />
                         <Route path="/till/:tillId" exact component={Till} />

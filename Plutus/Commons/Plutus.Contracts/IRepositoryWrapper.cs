@@ -21,7 +21,7 @@ namespace Plutus.Contracts
         IStoreRepository StoreRepository { get; }
         ITaxRepository TaxRepository { get; }
         ITransactionRepository TransactionRepository { get; }
-        IBussinessRepository BussinessRepository { get; }
+        IBusinessRepository BusinessRepository { get; }
 
 
         int Save();
