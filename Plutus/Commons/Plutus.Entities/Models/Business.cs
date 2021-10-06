@@ -8,7 +8,7 @@ using System.ComponentModel.DataAnnotations;
 namespace Plutus.Entities.Models
 {
     [Serializable]
-    public class Bussiness : Base<string>, IBussiness
+    public class Business : Base<string>, IBusiness
     {
         #region Properties
 

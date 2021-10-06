@@ -1,4 +1,4 @@
-﻿import BussinessHome from '../components/BussinessHome';
+﻿import BussinessHome from '../components/BusinessHome';
 import Store from '../components/Store';
 import IRoute from '../interfaces/route';
 

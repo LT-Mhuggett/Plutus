@@ -24,8 +24,8 @@ namespace Plutus.Entities.Models
 
         [Exportable]
         [Required]
-        public string BussinessId { get; set; }
-        public virtual Bussiness Bussiness { get; set; }
+        public string BusinessId { get; set; }
+        public virtual Business Business { get; set; }
 
         #region Collections
         public virtual ICollection<Sale> Sales { get; set; }

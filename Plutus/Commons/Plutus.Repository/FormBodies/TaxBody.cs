@@ -10,6 +10,6 @@ namespace Plutus.Repository.FormBodies
 
         public double Rate { get; set; }
 
-        public string BussinessId { get; set; }
+        public string BusinessId { get; set; }
     }
 }

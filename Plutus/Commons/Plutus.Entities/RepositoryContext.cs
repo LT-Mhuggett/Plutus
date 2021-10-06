@@ -45,7 +45,7 @@ namespace Plutus.Entities
         public DbSet<Discount_Category> DiscountCats { get; set; }
         public DbSet<SavedTransaction> SavedTransactions { get; set; }
         public DbSet<Transaction_Discount> Transaction_Discounts { get; set; }
-        public DbSet<Bussiness> Bussiness { get; set; }
+        public DbSet<Business> Business { get; set; }
         public DbSet<Role> Role { get; set; }
         public DbSet<Till> Till { get; set; }
 
@@ -84,7 +84,7 @@ namespace Plutus.Entities
                 .HasKey(t => new { t.IdOne, t.IdTwo });
 
             modelBuilder.Entity<Employee>()
-            .HasIndex(e => new { e.ObjectId, e.BussinessId, e.Email }).IsUnique();
+            .HasIndex(e => new { e.ObjectId, e.BusinessId, e.Email }).IsUnique();
 
             modelBuilder.Entity<AuthActionAPIMapping>()
                 .HasKey(a => new { a.IdOne, a.IdTwo });
@@ -115,24 +115,24 @@ namespace Plutus.Entities
                 .HasForeignKey(i => new { i.TaxId, i.IdTwo });
 
             modelBuilder.Entity<Tax>() 
-                .HasOne(t => t.Bussiness)
+                .HasOne(t => t.Business)
                 .WithMany(b => b.Taxes)
                 .HasForeignKey(t => t.IdTwo);
 
-            modelBuilder.Entity<Bussiness>()
+            modelBuilder.Entity<Business>()
                 .HasMany(b => b.Discounts)
-                .WithOne(d => d.Bussiness)
-                .HasForeignKey(d => d.BussinessId);
+                .WithOne(d => d.Business)
+                .HasForeignKey(d => d.BusinessId);
 
             modelBuilder.Entity<Role>()
                 .HasMany(r => r.Employees)
                 .WithOne(e => e.Role)
                 .HasForeignKey(e => e.RoleId);
 
-            modelBuilder.Entity<Bussiness>()
+            modelBuilder.Entity<Business>()
                 .HasMany(b => b.Stores)
-                .WithOne(s => s.Bussiness)
-                .HasForeignKey(s => s.BussinessId);
+                .WithOne(s => s.Business)
+                .HasForeignKey(s => s.BusinessId);
 
             modelBuilder.Entity<Store>()
                 .HasMany(s => s.Tills)
@@ -144,15 +144,15 @@ namespace Plutus.Entities
                 .WithOne(trans => trans.Till)
                 .HasForeignKey(trans => trans.TillId);
 
-            modelBuilder.Entity<Bussiness>()
+            modelBuilder.Entity<Business>()
                 .HasMany(b => b.Items)
-                .WithOne(i => i.Bussiness)
+                .WithOne(i => i.Business)
                 .HasForeignKey(i => i.IdTwo);
              
-            modelBuilder.Entity<Bussiness>()
+            modelBuilder.Entity<Business>()
                 .HasMany(b => b.Employees)
-                .WithOne(e => e.Bussiness)
-                .HasForeignKey(e => e.BussinessId);
+                .WithOne(e => e.Business)
+                .HasForeignKey(e => e.BusinessId);
 
             modelBuilder.Entity<Item>()
                 .HasKey(i => new { i.IdOne, i.IdTwo });

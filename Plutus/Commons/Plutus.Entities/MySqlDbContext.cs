@@ -37,7 +37,7 @@ namespace Plutus.Entities
             //_objectIdProvider = objectIdProvider;
         }
 
-        public object Business { get; set; }
+        //public new object Business { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {

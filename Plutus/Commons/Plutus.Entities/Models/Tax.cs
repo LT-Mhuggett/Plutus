@@ -19,7 +19,7 @@ namespace Plutus.Entities.Models
         public double Rate { get; set; }
 
         #region Relationships
-        public virtual Bussiness Bussiness { get; set; }
+        public virtual Business Business { get; set; }
         #region Collections
         public virtual ICollection<Item> Items { get; set; }
         #endregion

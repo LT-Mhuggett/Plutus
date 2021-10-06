@@ -47,7 +47,7 @@ namespace Plutus.Repository.Tests
                 }
             }
 
-            DbContext.Bussiness.RemoveRange(DbContext.Bussiness);
+            DbContext.Business.RemoveRange(DbContext.Business);
             /*DbContext.EmotionPlots.RemoveRange(DbContext.EmotionPlots);
             DbContext.FacebookPages.RemoveRange(DbContext.FacebookPages);
             DbContext.FacebookPosts.RemoveRange(DbContext.FacebookPosts);
