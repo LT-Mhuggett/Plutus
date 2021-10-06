@@ -26,6 +26,9 @@ namespace Plutus.Entities.Models
         [Exportable]
         public bool Active { get; set; }
 
+        [Exportable]
+        public string ObjectId { get; set; }
+
         [NotMapped]
         public string FullName => string.Format("{0} {1}", LName.ToUpper(), FName);
         [NotMapped]
@@ -39,6 +42,7 @@ namespace Plutus.Entities.Models
         public virtual Store Store { get; set; }
 
         [Exportable]
+        [Required]
         public string BussinessId { get; set; }
         public virtual Bussiness Bussiness { get; set; }
 

@@ -1,56 +1,115 @@
 ﻿import React, { useState, useEffect, useCallback, useRef, Component } from 'react';
+import { Link } from 'react-router-dom';
+import { useSelector, useDispatch } from 'react-redux';
 
 type Bussiness = {
     name: string,
     nameAbbr: string
 };
 
+type AuthState = {
+    isAuthenticated: boolean,
+    token: string
+};
+
+
 const BussinessHome: React.FC<{ token: string }> = (props) => {
     const [bussiness, setBussiness] = useState([]);
-
-    const FetchBussiness: any = async (token: string) => {
+    const [stores, setStores] = useState([]);
+    const token = useSelector((state: AuthState) => state.token);
+    console.log("TOKEN INSIDE BUSSINESS HOME", token);
+    const FetchBussiness: any = async () => {
         try {
-            const response = await fetch('http://localhost:58559/api/Bussiness/Index', {
+            const response = await fetch('https://localhost:44313/api/Bussiness/b229d0db-9a4e-456d-a5c0-a28e68324053', {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': 'Bearer '.concat("eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6Imwzc1EtNTBjQ0g0eEJWWkxIVEd3blNSNzY4MCJ9.eyJhdWQiOiIxMzFhYjM3Yi00MjUxLTRjMzctYjBjYy1jZTNhYWYzOTBkZTIiLCJpc3MiOiJodHRwczovL2xvZ2luLm1pY3Jvc29mdG9ubGluZS5jb20vZWQzOTgzMDAtOTIwZC00ZDM2LTljZGUtNWQzOTM3ZjE5YjdiL3YyLjAiLCJpYXQiOjE2MzIzMjE5MDEsIm5iZiI6MTYzMjMyMTkwMSwiZXhwIjoxNjMyMzI1ODAxLCJhaW8iOiJBWVFBZS84VEFBQUFxTUpwTkdQMzNId3hIRFk0QSt5M0tMck9zN0xVU0VSY3ZET1dMdnFleCtsMS9aLyt3SlY1U0ErUXY4VmJkT282NHJZYVNHNmlaR1pSME1KYThxM29TNytpVDVMZDl1a2x4VjFUY0lQT0gyS2lhZjd3SHlyYnJlbmdHNHNoM3diZGVHQmVPUEtRUDdvaHMxQWdYcmhjZi95QlphNHlUeVdtZ0NZaGxrTUpMNk09IiwiYXpwIjoiMTMxYWIzN2ItNDI1MS00YzM3LWIwY2MtY2UzYWFmMzkwZGUyIiwiYXpwYWNyIjoiMCIsImlkcCI6ImxpdmUuY29tIiwibmFtZSI6IlNpZGRoYXJ0aCBBZ3Jhd2FsIiwib2lkIjoiNGYyZWJhZTMtMmRjYy00ODQxLWEwOWUtMzIwOTAzZjJhODUzIiwicHJlZmVycmVkX3VzZXJuYW1lIjoic2lkZGhhcnRoYWdyYXdhbEBvdXRsb29rLmNvbSIsInJoIjoiMC5BU0lBQUlNNTdRMlNOazJjM2wwNU5fR2JlM3V6R2hOUlFqZE1zTXpPT3E4NURlSWtBRk0uIiwic2NwIjoiVGhpbmdzLlJlYWQgT3RoZXJUaGluZ3MuUmVhZCBQZXJtaXNzaW9uLldyaXRlIiwic3ViIjoia3hLOGtmUTBYSGJVZm1RRVBQLVNXckJEZDh1TkY1UmkxNE4wdC1hSWc0YyIsInRpZCI6ImVkMzk4MzAwLTkyMGQtNGQzNi05Y2RlLTVkMzkzN2YxOWI3YiIsInV0aSI6ImczT25zNGZZdkVXNHoxQk9NSjVxQUEiLCJ2ZXIiOiIyLjAifQ.ceMsr0YP26SzGCTG0dnqjPfO5PhkJWtUJPlBkuevlHeGwfXgYHwCJ_xyvaJpspOO3R3WFRc4G0CHCWd5aQN7DSYs1QyKj6myEesBgn2rEL38kX0kp2h_mrfSdaB9cX554tT3JxkAJliqyGKP2MQ0WjmfVZ3iAcUpsNAjC5UdQCb1M9OkEZ3-V2TuVqhLJoSEMLy1v9fIOMEsXjXvL_YjrP_EH2cR6RZ5Cl6wMULg_9tkrY-K7bIPMMpNP-OegVgK8M7ASpG5v5ZLDzhW6vUo8LNMpxa0z85poZTJjx2YIoT0smdMnkm9HGXM0OcdGSI_l1hP5nuURwwGm7A5YIehAw")
+                    'Authorization': 'Bearer '.concat(token)
                     // 'Content-Type': 'application/x-www-form-urlencoded',
                 },
             });
             
             if (!response.ok) {
+                console.log(response)
                 throw new Error('Something went wrong!');
             }
 
             const data = await response.json();
             
             setBussiness(data);
+            //setStores(data.stores);
         } catch (error) {
             console.log("Something went wrong!");
             //setError(error.message);
         }
     }
-    // FetchBussiness(props.token);
+    //FetchBussiness(props.token);
     
     useEffect(() : any => {
-        FetchBussiness(props.token);
+        FetchBussiness();
     }, [])
     
-    
-    console.log("DATA", bussiness);
+
+    const FetchStores: any = async () => {
+        try {
+            const response = await fetch('https://localhost:44313/api/Store/Index', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer '.concat(token)
+                    // 'Content-Type': 'application/x-www-form-urlencoded',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error('Something went wrong!');
+            }
+
+            const data = await response.json();
+            console.log("DATA", data);
+            setStores(data);
+        } catch (error) {
+            console.log("Something went wrong!");
+            //setError(error.message);
+        }
+    }
+
+    useEffect((): any => {
+        FetchStores();
+    }, [])
+
+    console.log("BUSSINESS!!!", bussiness);
+    console.log("Stores!!!", stores);
+
+
     return (
         <>
-            
-            { bussiness.map((b) =>
-                (<div>
-                    <p>Bussiness Name : {b.name}</p>
-                    <p>{props.token}</p>
-                <p>Bussiness Abbr : TEST NAME</p>
-                <p onClick={ b.id}>Click here to go to Stores</p>
-                </div>)
-             )} 
-           
+            <div>
+                <p>Bussiness Name : {bussiness.name}</p>
+                <p>Bussiness Abbr : {bussiness.nameAbbr}</p>
+            </div>
+
+            <h3>Stores</h3>
+            < table >
+                <thead>
+                    <tr>
+                        <th>Contact Number</th>
+                        <th>Store Address</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {
+                    stores.map((store) => (
+                        <tr>
+                            <Link to={`/store/` + store.id}>Go to Store</Link>
+                            <td>{store.contactNumber}</td>
+                            <td>{store.readableAddress}</td>
+                        </tr>)
+                    )
+                }
+                </tbody>
+            </table>
+              
         </>
     );
 }

@@ -64,5 +64,7 @@ namespace Plutus.Repository
         public void SetSyncState(bool syncState = false) => repositoryContext.SetSyncState(syncState);
 
         public void SetCurrentUser(string currentUserUbjectId) => repositoryContext.CurrentUser = currentUserUbjectId;
+        public string GetCurrentUser() => repositoryContext.CurrentUser;
+
     }
 }

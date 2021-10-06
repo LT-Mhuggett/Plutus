@@ -31,5 +31,7 @@ namespace Plutus.Contracts
         void SetSyncState(bool syncState = false);
 
         void SetCurrentUser(string currentUserObjectId);
+        string GetCurrentUser();
+
     }
 }
