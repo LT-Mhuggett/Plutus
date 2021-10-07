@@ -1,22 +1,15 @@
-﻿using Plutus.Entities.Models;
+﻿using NSwag.Annotations;
+using Plutus.Entities.Models;
 using System;
-using System.Linq.Expressions;
-using Microsoft.EntityFrameworkCore;
 
 namespace Plutus.Repository.QueryParameters
 {
     public class BusinessParameters : QueryParameters<Business, string>
     {
-        public bool LoadStores { get; set; } = false;
+        public string EmployeeObjectId { get; set; }
 
-        public override Expression<Func<Business, bool>> GetExpression()
-        {
-            var expression = base.GetExpression();
-            if (LoadStores)
-            {
-                //expression = expression
-            }
-            return expression;
-        }
+
+        [OpenApiIgnore]
+        public bool ValidEmployeeObjectId => Guid.TryParse(EmployeeObjectId, out _);
     }
 }

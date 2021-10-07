@@ -1,25 +1,27 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Plutus.Reports;
-using System;
-using Plutus.Contracts;
-using Microsoft.EntityFrameworkCore;
-using System.Linq;
-using Plutus.Entities.Models;
-using Plutus.Repository.QueryParameters;
-using System.Data;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Plutus.Authentication;
+using Plutus.Contracts;
+using Plutus.DBService.Controllers.Bases;
+using Plutus.Entities.Models;
+using Plutus.Reports;
+using Plutus.Repository.FormBodies;
+using Plutus.Repository.QueryParameters;
+using System;
+using System.Data;
+using System.Linq;
 
 namespace Plutus.DBService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class SaleController : ApiControllerBaseCR<Sale, string, SaleParameters>
+    public class SaleController : ApiControllerBaseCR<Sale, SaleBody, string, SaleParameters>
     {
-        protected override IRepositoryBase<Sale, string> Repository => repositoryWrapper.SaleRepository;
+        protected override IRepositoryBase<Sale, string> Repository => RepositoryWrapper.SaleRepository;
 
-        public SaleController(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor htthttpContextAccessor) : base(repositoryWrapper, htthttpContextAccessor)
+        public SaleController(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor httpContextAccessor) : base(repositoryWrapper, httpContextAccessor)
         {
         }
 
@@ -27,7 +29,7 @@ namespace Plutus.DBService.Controllers
         [Authorize(Actions.ReadThings)]
         [ApiConventionMethod(typeof(DefaultApiConventions),
                              nameof(DefaultApiConventions.Get))]
-        public FileResult salesReport([FromQuery] SaleParameters queryParameters, [FromQuery(Name = "minDate")] DateTime startDate, [FromQuery(Name = "maxDate")] DateTime endDate)
+        public FileResult SalesReport([FromQuery] SaleParameters queryParameters, [FromQuery(Name = "minDate")] DateTime startDate, [FromQuery(Name = "maxDate")] DateTime endDate)
         {
             //Check Min and Max date are viable
             var entities = Repository.FindAllByConditionQueryable(queryParameters.GetExpression());
@@ -57,14 +59,14 @@ namespace Plutus.DBService.Controllers
             var salesBreakdowns = new SalesReport().fetchSalesBreakdown(currentDate, endDate, data);
 
             // Fetch Sales Summaries
-            var dailySalesSummaries = new SalesReport().fetchdailySalesSummaries(currentDate, endDate, repositoryWrapper.PaymentMethodRepository.FindAll(), data);
+            var dailySalesSummaries = new SalesReport().fetchdailySalesSummaries(currentDate, endDate, RepositoryWrapper.PaymentMethodRepository.FindAll(), data);
 
             // Generate and get File Stream for Excel File containing Sales Breakdowns and Sales Summaries
             var stream = new SalesReport().fetchSalesReportStream(dataSet, dailySalesSummaries, salesBreakdowns);
 
-            string fileName = $"{startDate.ToString("yyyy-MM-dd")}-{endDate.ToString("yyyy-MM-dd")}-SalesReport";
+            string fileName = $"{startDate:yyyy-MM-dd}-{endDate:yyyy-MM-dd}-SalesReport";
             string fileType = "application/vnd.ms-excel";
-            
+
             return File(stream.ToArray(), fileType, fileName);
         }
     }

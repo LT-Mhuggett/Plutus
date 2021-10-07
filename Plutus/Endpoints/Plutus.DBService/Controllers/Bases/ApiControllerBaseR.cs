@@ -1,35 +1,31 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
-using Plutus.Contracts;
-using Plutus.DBService.Extensions;
-using Plutus.Entities.Models;
 using Plutus.Authentication;
+using Plutus.Contracts;
+using Plutus.Entities.Models;
 using Plutus.Repository.Extensions;
 using Plutus.Repository.QueryParameters;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.AspNetCore.Http;
-using System.Net.Http;
-using System;
 
-namespace Plutus.DBService.Controllers
+namespace Plutus.DBService.Controllers.Bases
 {
     [ApiController]
     public abstract class ApiControllerBaseR<TEntity, TId, TQueryParameters> : ControllerBase where TEntity : Base<TId> where TQueryParameters : QueryParameters<TEntity, TId>
     {
-        protected readonly IRepositoryWrapper repositoryWrapper;
+        protected readonly IRepositoryWrapper RepositoryWrapper;
         protected virtual IRepositoryBase<TEntity, TId> Repository { get; }
-        protected readonly IHttpContextAccessor httpContextAccessor;
+        protected readonly IHttpContextAccessor HttpContextAccessor;
 
         public ApiControllerBaseR(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor httpContextAccessor)
         {
-            this.httpContextAccessor = httpContextAccessor;
-            this.repositoryWrapper = repositoryWrapper;
+            HttpContextAccessor = httpContextAccessor;
+            RepositoryWrapper = repositoryWrapper;
 
-            var objectId = this.httpContextAccessor.HttpContext.User.Claims.First(c => c.Type == "http://schemas.microsoft.com/identity/claims/objectidentifier").Value;
+            var objectId = HttpContextAccessor.HttpContext.User.Claims.First(c => c.Type == "http://schemas.microsoft.com/identity/claims/objectidentifier").Value;
             repositoryWrapper.SetCurrentUser(objectId);
         }
 
@@ -58,11 +54,11 @@ namespace Plutus.DBService.Controllers
         [HttpGet("{id}")]
         [ApiConventionMethod(typeof(DefaultApiConventions),
             nameof(DefaultApiConventions.Find))]
-        
+
         public virtual async Task<ActionResult<TEntity>> FindById([FromRoute] TId id)
         {
             var entity = await Repository.FindById(id);
-            if(entity == default)
+            if (entity == default)
             {
                 return NotFound();
             }

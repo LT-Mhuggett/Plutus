@@ -1,10 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using Plutus.Entities.Models;
 
 namespace Plutus.Repository.FormBodies
 {
-    public class EmployeeBody : AddressBody
+    public class EmployeeBody : AddressBody<Employee>
     {
         public decimal Wage { get; set; }
 
@@ -20,6 +18,23 @@ namespace Plutus.Repository.FormBodies
 
         public string Email { get; set; }
 
-        public string BusinessId { get; set; }
+        public string BussinessId { get; set; }
+
+        public override Employee GenerateEntity() => new Employee
+        {
+            Wage = Wage,
+            ContractedHours = ContractedHours,
+            StoreId = StoreId,
+            FName = FName,
+            LName = LName,
+            Mobile = Mobile,
+            Email = Email,
+            BussinessId = BussinessId,
+            AdLine1 = AdLine1,
+            AdLine2 = AdLine2,
+            City = City,
+            Country = Country,
+            PostCode = PostCode
+        };
     }
 }

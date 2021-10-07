@@ -7,15 +7,16 @@ using Plutus.Authentication;
 using Plutus.Contracts;
 using Plutus.Entities.Models;
 using Plutus.Entities.Models.Interface;
+using Plutus.Repository.FormBodies;
 using Plutus.Repository.QueryParameters;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace Plutus.DBService.Controllers
+namespace Plutus.DBService.Controllers.Bases
 {
-    public abstract class ApiControllerBaseCRU<TEntity, TId, TQueryParameters> : ApiControllerBaseCR<TEntity, TId, TQueryParameters> where TEntity : Base<TId> where TQueryParameters : QueryParameters<TEntity, TId> {
+    public abstract class ApiControllerBaseCRU<TEntity, TBody, TId, TQueryParameters> : ApiControllerBaseCR<TEntity, TBody, TId, TQueryParameters> where TEntity : Base<TId> where TBody : FormBody<TEntity> where TQueryParameters : QueryParameters<TEntity, TId> {
        
-        public ApiControllerBaseCRU(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor htthttpContextAccessor) :base(repositoryWrapper, htthttpContextAccessor) 
+        public ApiControllerBaseCRU(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor httpContextAccessor) :base(repositoryWrapper, httpContextAccessor) 
         {
         }
 
@@ -30,7 +31,7 @@ namespace Plutus.DBService.Controllers
         [HttpPut("{id}")]
         [ApiConventionMethod(typeof(DefaultApiConventions),
                              nameof(DefaultApiConventions.Put))]
-        public async virtual Task<ActionResult<TEntity>> Put([FromRoute] TId id, [FromBody] TEntity entity, [FromQuery] bool IsSync = false)
+        public virtual async Task<ActionResult<TEntity>> Put([FromRoute] TId id, [FromBody] TEntity entity, [FromQuery] bool IsSync = false)
         {
             if (!EqualityComparer<TId>.Default.Equals(id, ((IBase<TId>)entity).Id))
                 return BadRequest();
@@ -40,19 +41,17 @@ namespace Plutus.DBService.Controllers
                 var tempEntity = await Repository.FindById(id);
                 if (tempEntity.ModifiedAt > entity.ModifiedAt)
                     return NoContent();
-                else
-                {
-                    Repository.SetState(tempEntity, EntityState.Detached);
-                    tempEntity = null;
-                }
+
+                Repository.SetState(tempEntity, EntityState.Detached);
+                tempEntity = null;
             }
 
             Repository.SetState(entity);
 
             try
             {
-                repositoryWrapper.SetSyncState(IsSync);
-                await repositoryWrapper.SaveAsync();
+                RepositoryWrapper.SetSyncState(IsSync);
+                await RepositoryWrapper.SaveAsync();
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -70,12 +69,12 @@ namespace Plutus.DBService.Controllers
         /// <param name="id">Id of entity to update</param>
         /// <param name="patchDocument">Data to update entity</param>
         /// <param name="IsSync">States that this is a sync only request</param>
-        /// <returns></returns>
+        /// <returns>Entity of type <see cref="TEntity"/></returns>
         [Authorize(Actions.WritePermission)]
         [HttpPatch("{id}")]
         [ApiConventionMethod(typeof(DefaultApiConventions),
                              nameof(DefaultApiConventions.Update))]
-        public async virtual Task<ActionResult<TEntity>> Patch([FromRoute] TId id, [FromBody] JsonPatchDocument<TEntity> patchDocument, [FromQuery] bool IsSync = false)
+        public virtual async Task<ActionResult<TEntity>> Patch([FromRoute] TId id, [FromBody] JsonPatchDocument<TEntity> patchDocument, [FromQuery] bool IsSync = false)
         {
             if (patchDocument == default)
                 return BadRequest();
@@ -93,8 +92,8 @@ namespace Plutus.DBService.Controllers
 
             try
             {
-                repositoryWrapper.SetSyncState(IsSync);
-                await repositoryWrapper.SaveAsync();
+                RepositoryWrapper.SetSyncState(IsSync);
+                await RepositoryWrapper.SaveAsync();
             }
             catch (DbUpdateConcurrencyException)
             {

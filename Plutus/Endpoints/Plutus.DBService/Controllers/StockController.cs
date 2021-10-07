@@ -19,18 +19,18 @@ namespace Plutus.DBService.Controllers
     [Route("api/[controller]")]
     public class StockController : ControllerBase
     {
-        protected readonly IRepositoryWrapper repositoryWrapper;
-        protected virtual ITriCompositeRepositoryBase<Stock, string, string, string> Repository => repositoryWrapper.StockRepository;
+        protected readonly IRepositoryWrapper RepositoryWrapper;
+        protected virtual ITriCompositeRepositoryBase<Stock, string, string, string> Repository => RepositoryWrapper.StockRepository;
 
-        protected readonly IHttpContextAccessor httpContextAccessor;
+        protected readonly IHttpContextAccessor HttpContextAccessor;
 
         public StockController(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor httpContextAccessor)
         {
-            this.httpContextAccessor = httpContextAccessor;
-            this.repositoryWrapper = repositoryWrapper;
+            HttpContextAccessor = httpContextAccessor;
+            RepositoryWrapper = repositoryWrapper;
 
-            /*var objectId = this.httpContextAccessor.HttpContext.User.Claims.First(c => c.Type == "http://schemas.microsoft.com/identity/claims/objectidentifier").Value;
-            repositoryWrapper.SetCurrentUser(objectId);*/
+            /*var objectId = this.HttpContextAccessor.HttpContext.User.Claims.First(c => c.Type == "http://schemas.microsoft.com/identity/claims/objectidentifier").Value;
+            RepositoryWrapper.SetCurrentUser(objectId);*/
         }
 
         /// <summary>
@@ -44,21 +44,14 @@ namespace Plutus.DBService.Controllers
                              nameof(DefaultApiConventions.Post))]
         public async Task<ActionResult<Stock>> Post([FromBody] StockBody stockBody, [FromQuery] bool IsSync = false)
         {
-
-            var stock = new Stock
-            {
-                IdOne = stockBody.ItemIdOne,
-                IdTwo = stockBody.BusinessId,
-                IdThree = stockBody.SotreId,
-                Quantity = stockBody.Quantity
-            };
+            var stock = stockBody.GenerateEntity();
 
             if (!TryValidateModel(stock))
                 return BadRequest(ModelState);
 
             await Repository.Create(stock);
-            repositoryWrapper.SetSyncState(IsSync);
-            await repositoryWrapper.SaveAsync();
+            RepositoryWrapper.SetSyncState(IsSync);
+            await RepositoryWrapper.SaveAsync();
 
             return CreatedAtAction("FindById", new { idOne = stock.IdOne, idTwo = stock.IdTwo, idThree = stock.IdThree }, stock);
         }
@@ -114,8 +107,8 @@ namespace Plutus.DBService.Controllers
 
             try
             {
-                repositoryWrapper.SetSyncState(IsSync);
-                await repositoryWrapper.SaveAsync();
+                RepositoryWrapper.SetSyncState(IsSync);
+                await RepositoryWrapper.SaveAsync();
             }
             catch (DbUpdateConcurrencyException)
             {

@@ -1,28 +1,24 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Plutus.Repository.FormBodies
+﻿namespace Plutus.Repository.FormBodies
 {
-    public class AddressBody
+    public abstract class AddressBody<TEntity> : FormBody<TEntity>
     {
-        
+
         public string AdLine1 { get; set; }
-        
+
         public string AdLine2 { get; set; }
-        
+
         public string City { get; set; }
-       
+
         public string PostCode { get; set; }
-        
+
         public string Country { get; set; }
-        
+
         public string FullAddress { get; set; }
 
         public string ReadableAddress
         {
             get => FullAddress ?? $"{AdLine1}, {AdLine2}, {City}, {PostCode}, {Country}";
         }
-        
+
     }
 }
