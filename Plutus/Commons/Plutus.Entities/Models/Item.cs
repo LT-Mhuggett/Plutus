@@ -7,10 +7,16 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Plutus.Entities.Models
 {
+    /// <summary>
+    /// Item model, where <typeparamref name="T1"></typeparamref>is EAN/UPC product code or other Priamry Identifier and <typerparamref name="T2"></typerparamref> is Business ID
+    /// </summary>
     [Serializable]
-    public class Item : CompositeBase<string, string>, IItem
+    public class Item : CompositeBase<string, Guid>, IItem
     {
-        // Generic Base with 2 Generic Parameters
+        [Exportable]
+        [Key, MaxLength(20)]
+        public override string IdOne { get; set; }
+
         #region Properties
         [Exportable]
         [Required]
@@ -33,7 +39,7 @@ namespace Plutus.Entities.Models
         public decimal Price { get; set; }
 
         [Exportable]
-        public byte[] Image { get; set; }
+        public byte[]? Image { get; set; }
 
         [NotMapped]
         public int Amount { get; set; }
@@ -42,16 +48,16 @@ namespace Plutus.Entities.Models
 
         [Exportable]
         [Required]
-        public Guid TaxId { get; set; }
+        public int TaxId { get; set; }
         
         public virtual Tax Tax { get; set; }
 
         [Exportable]
         [ForeignKey("CatIdFK")]
         [Required]
-        public int CatId { get; set; }
+        public Guid CatId { get; set; }
         public virtual Category Cat { get; set; }
-        public virtual Stock Stock { get; set; }
+        public virtual Stock? Stock { get; set; }
         public virtual Business Business { get; set; }
 
         //BusinessId, Id => composite key

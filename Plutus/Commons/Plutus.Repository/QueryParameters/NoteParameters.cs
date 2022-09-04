@@ -1,8 +1,9 @@
 ﻿using Plutus.Entities.Models;
+using System;
 
 namespace Plutus.Repository.QueryParameters
 {
-    public class NoteParameters : QueryParameters<Note, int>
+    public class NoteParameters : CompositeQueryParameters<Note, int, Guid>
     {
     }
 }

@@ -3,16 +3,17 @@ using Microsoft.AspNetCore.Mvc;
 using Plutus.Contracts;
 using Plutus.DBService.Controllers.Bases;
 using Plutus.Entities.Models;
-using Plutus.Repository.FormBodies;
+using Plutus.Entities.FormBodies;
 using Plutus.Repository.QueryParameters;
+using System;
 
 namespace Plutus.DBService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class CategoryController : ApiControllerBaseCRUD<Category, CategoryBody, int, CategoryParameters>
+    public class CategoryController : CompositeApiControllerBaseCRUD<Category, CategoryBody, Guid, Guid, CategoryParameters>
     {
-        protected override IRepositoryBase<Category, int> Repository => RepositoryWrapper.CategoryRepository;
+        protected override ICompositeRepositoryBase<Category, Guid, Guid> Repository => RepositoryWrapper.CategoryRepository;
 
         public CategoryController(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor htthttpContextAccessor) : base(repositoryWrapper, htthttpContextAccessor)
         {

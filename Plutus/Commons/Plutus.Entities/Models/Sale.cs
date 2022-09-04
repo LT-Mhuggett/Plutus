@@ -6,7 +6,7 @@ using System.Collections.Generic;
 namespace Plutus.Entities.Models
 {
     [Serializable]
-    public class Sale : Base<string>, ISale
+    public class Sale : Base<Guid>, ISale
     {
         #region Properties
         [Exportable]
@@ -17,13 +17,16 @@ namespace Plutus.Entities.Models
         public DateTime DateOfSale { get; set; }
         #region Relationships
         [Exportable]
-        public string EmployeeId { get; set; }
+        public Guid EmployeeId { get; set; }
         public virtual Employee Employee { get; set; }
 
         [Exportable]
-        public string StoreId { get; set; }
+        public int StoreId { get; set; }
         public virtual Store Store { get; set; }
 
+        [Exportable]
+        public Guid TillId { get; set; }
+        public virtual Till Till { get; set; }
         #region Collections
 
         /// <summary>
@@ -33,7 +36,7 @@ namespace Plutus.Entities.Models
         public virtual ICollection<Transaction> Transactions { get; set; }
         public virtual ICollection<PaymentMethod_Sale> PaySales { get; set; }
         public virtual ICollection<Refund> Refunded { get; set; }
-        public virtual ICollection<Notes_Sale> Notes { get; set; }
+        public virtual ICollection<Note> Notes { get; set; }
         #endregion
         #endregion
         #endregion
@@ -41,7 +44,6 @@ namespace Plutus.Entities.Models
         public Sale()
         {
             DateOfSale = DateTime.Now;
-            Id = $"{DateTime.Now.Year}{DateTime.Now.Month}{DateTime.Now.Day}{DateTime.Now.Hour}{DateTime.Now.Minute}{DateTime.Now.Second}{DateTime.Now.Millisecond}";
         }
     }
 }

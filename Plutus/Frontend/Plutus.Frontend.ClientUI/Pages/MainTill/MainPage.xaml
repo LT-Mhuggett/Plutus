@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       x:Class="Plutus.Frontend.ClientUI.Pages.MainTill.MainPage"
+       xmlns:I18N_L10N="clr-namespace:Plutus.Frontend.ClientUI.Resources.I18N_L10N"
+       xmlns:mainTill="clr-namespace:Plutus.Frontend.ClientUI.Pages.MainTill"
+       xmlns:inventory="clr-namespace:Plutus.Frontend.ClientUI.Pages.MainTill.Inventory"
+       xmlns:statistics="clr-namespace:Plutus.Frontend.ClientUI.Pages.MainTill.Statistics"
+       xmlns:helpers="clr-namespace:Plutus.Frontend.ClientUI.Helpers"
+       xmlns:android="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific;assembly=Microsoft.Maui.Controls"
+       android:TabbedPage.ToolbarPlacement="Bottom"
+       FlyoutWidth="68"
+       FlyoutBackgroundColor="{DynamicResource Quinary}"
+       FlyoutBehavior="{OnIdiom Phone=Disabled, Default=Locked}">
+    <Shell.FlyoutFooterTemplate>
+        <DataTemplate>
+            <Grid RowDefinitions="68">
+                <Grid.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="TapGestureRecognizer_Tapped"/>
+                </Grid.GestureRecognizers>
+                <Image Source="{DynamicResource SettingsIcon}" Margin="0,8" />
+            </Grid>
+        </DataTemplate>
+    </Shell.FlyoutFooterTemplate>
+
+    <FlyoutItem Title="{x:Static I18N_L10N:Strings.Till}" Icon="{DynamicResource TillIcon}">
+        <ShellContent ContentTemplate="{DataTemplate mainTill:TillPage}"/>
+    </FlyoutItem>
+    <FlyoutItem Title="{x:Static I18N_L10N:Strings.Inventory}" Icon="{DynamicResource ListIcon}">
+        <ShellContent ContentTemplate="{DataTemplate inventory:ViewAllInventoryPage}" />
+    </FlyoutItem>
+    <FlyoutItem FlyoutDisplayOptions="AsMultipleItems">
+        <Tab Title="{x:Static I18N_L10N:Strings.Statistics}" Icon="{DynamicResource StatisticsIcon}">
+            <ShellContent Title="{x:Static I18N_L10N:Strings.SalesReports}" Icon="{DynamicResource SalesReportIcon}"
+                          ContentTemplate="{DataTemplate statistics:SalesReportPage}"/>
+            <ShellContent Title="{x:Static I18N_L10N:Strings.StockOuttakeReport}" Icon="{DynamicResource StockReportIcon}"
+                          ContentTemplate="{DataTemplate statistics:StockOuttakePage}"/>
+        </Tab>
+    </FlyoutItem>
+
+    <TabBar x:Name="PhoneTabs">
+        <Tab Title="{x:Static I18N_L10N:Strings.Till}" Icon="{DynamicResource TillIcon}">
+            <ShellContent ContentTemplate="{DataTemplate mainTill:TillPage}" />
+        </Tab>
+        <Tab Title="{x:Static I18N_L10N:Strings.InventMgmt}" Icon="{DynamicResource InventoryIcon}">
+            <ShellContent ContentTemplate="{DataTemplate inventory:InventoryPage}" />
+        </Tab>
+    </TabBar>
+
+    <Shell.ItemTemplate>
+        <DataTemplate>
+            <Grid WidthRequest="44" HeightRequest="68"
+                  ColumnDefinitions="44" RowDefinitions="68">
+                <Image Source="{Binding FlyoutIcon}"/>
+            </Grid>
+        </DataTemplate>
+    </Shell.ItemTemplate>
+    <!--<NavigationPage Title="{x:Static I18N_L10N:Strings.Till}">
+        <x:Arguments>
+            <mainTill:TillPage/>
+        </x:Arguments>
+        <NavigationPage.IconImageSource>
+            <FontImageSource FontFamily="FASolid" Glyph="{x:Static helpers:FontAwesomeFiveSolidHelper.CashRegister}" Size="20" Color="AliceBlue"/>
+        </NavigationPage.IconImageSource>
+    </NavigationPage>
+    <NavigationPage Title="{x:Static I18N_L10N:Strings.Till}">
+        <x:Arguments>
+            <mainTill:TillPage/>
+        </x:Arguments>
+        <NavigationPage.IconImageSource>
+            <FontImageSource FontFamily="FASolid" Glyph="{x:Static helpers:FontAwesomeFiveSolidHelper.CashRegister}" Size="20" Color="AliceBlue"/>
+        </NavigationPage.IconImageSource>
+    </NavigationPage>
+    <NavigationPage Title="{x:Static I18N_L10N:Strings.InventMgmt}">
+        <x:Arguments>
+            <inventory:InventoryPage/>
+        </x:Arguments>
+        <NavigationPage.IconImageSource>
+            <FontImageSource FontFamily="FASolid" Glyph="{x:Static helpers:FontAwesomeFiveSolidHelper.List}" Size="20" Color="AliceBlue"/>
+        </NavigationPage.IconImageSource>
+    </NavigationPage>-->
+</Shell>

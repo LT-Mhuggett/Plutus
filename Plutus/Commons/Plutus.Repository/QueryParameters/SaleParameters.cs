@@ -7,7 +7,7 @@ using Plutus.Repository.Extensions;
 
 namespace Plutus.Repository.QueryParameters
 {
-    public class SaleParameters : QueryParameters<Sale, string>
+    public class SaleParameters : QueryParameters<Sale, Guid>
     {
         public DateTime MinDateOfSale { get; set; } = DateTime.UnixEpoch;
         public DateTime MaxDateOfSale { get; set; } = DateTime.UnixEpoch;

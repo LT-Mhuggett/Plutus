@@ -1,0 +1,205 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFrameworks>net6.0-android;net6.0-ios;net6.0-maccatalyst</TargetFrameworks>
+		<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net6.0-windows10.0.19041.0</TargetFrameworks>
+		<!-- Uncomment to also build the tizen app. You will need to install tizen by following this: https://github.com/Samsung/Tizen.NET -->
+		<!-- <TargetFrameworks>$(TargetFrameworks);net6.0-tizen</TargetFrameworks> -->
+		<OutputType>Exe</OutputType>
+		<RootNamespace>Plutus.Frontend.ClientUI</RootNamespace>
+		<UseMaui>true</UseMaui>
+		<SingleProject>true</SingleProject>
+		<ImplicitUsings>enable</ImplicitUsings>
+
+		<!-- Display name -->
+		<ApplicationTitle>Plutus</ApplicationTitle>
+
+		<!-- App Identifier -->
+		<ApplicationId>com.MBHConsulting.PlutusFrontendClientUI</ApplicationId>
+		<ApplicationIdGuid>24649D73-0BD0-44A3-A5C3-0DD2FF5A3F76</ApplicationIdGuid>
+
+		<!-- Versions -->
+		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+		<ApplicationVersion>1</ApplicationVersion>
+
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">14.2</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">14.0</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.18362.0</SupportedOSPlatformVersion>
+		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.18362.0</TargetPlatformMinVersion>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'tizen'">6.5</SupportedOSPlatformVersion>
+		<DefaultLanguage>en</DefaultLanguage>
+		<Title>Plutus Frontend ClientUI</Title>
+		<Product>Plutus</Product>
+		<Authors>Sean Knox</Authors>
+		<Company>MBH.Consulting</Company>
+		<RepositoryType>git</RepositoryType>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<!-- App Icon -->
+		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+
+		<!-- Splash Screen -->
+		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
+
+		<!-- Images -->
+		<MauiImage Include="Resources\Images\*" />
+		<MauiImage Update="Resources\Images\dotnet_bot.svg" BaseSize="168,208" />
+
+		<!-- Custom Fonts -->
+		<MauiFont Include="Resources\Fonts\*" />
+
+    <!-- Raw Assets (also remove the "Resources\Raw" prefix) -->
+    <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <AndroidResource Remove="Platforms\Android\Core\CustomViews\**" />
+	  <AndroidResource Remove="Platforms\iOS\Core\CustomViews\**" />
+	  <AndroidResource Remove="Platforms\MacCatalyst\Core\CustomViews\**" />
+	  <AndroidResource Remove="Platforms\Windows\Core\CustomViews\**" />
+	  <Compile Remove="Platforms\Android\Core\CustomViews\**" />
+	  <Compile Remove="Platforms\iOS\Core\CustomViews\**" />
+	  <Compile Remove="Platforms\MacCatalyst\Core\CustomViews\**" />
+	  <Compile Remove="Platforms\Windows\Core\CustomViews\**" />
+	  <EmbeddedResource Remove="Platforms\Android\Core\CustomViews\**" />
+	  <EmbeddedResource Remove="Platforms\iOS\Core\CustomViews\**" />
+	  <EmbeddedResource Remove="Platforms\MacCatalyst\Core\CustomViews\**" />
+	  <EmbeddedResource Remove="Platforms\Windows\Core\CustomViews\**" />
+	  <MauiCss Remove="Platforms\Android\Core\CustomViews\**" />
+	  <MauiCss Remove="Platforms\iOS\Core\CustomViews\**" />
+	  <MauiCss Remove="Platforms\MacCatalyst\Core\CustomViews\**" />
+	  <MauiCss Remove="Platforms\Windows\Core\CustomViews\**" />
+	  <MauiXaml Remove="Platforms\Android\Core\CustomViews\**" />
+	  <MauiXaml Remove="Platforms\iOS\Core\CustomViews\**" />
+	  <MauiXaml Remove="Platforms\MacCatalyst\Core\CustomViews\**" />
+	  <MauiXaml Remove="Platforms\Windows\Core\CustomViews\**" />
+	  <None Remove="Platforms\Android\Core\CustomViews\**" />
+	  <None Remove="Platforms\iOS\Core\CustomViews\**" />
+	  <None Remove="Platforms\MacCatalyst\Core\CustomViews\**" />
+	  <None Remove="Platforms\Windows\Core\CustomViews\**" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Compile Remove="XAML\Controls\SteppedSliderWithLabels.xaml.cs" />
+	</ItemGroup>
+  
+	<ItemGroup>
+	  <MauiXaml Remove="XAML\Controls\SteppedSliderWithLabels.xaml" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Remove="Configuration\appsettings.dev.Android.json" />
+	  <None Remove="Configuration\appsettings.dev.iOS.json" />
+	  <None Remove="Resources\appicon.svg" />
+	  <None Remove="Resources\appiconfg.svg" />
+	  <None Remove="Resources\AppIcon\appicon.svg" />
+	  <None Remove="Resources\Images\dotnet_bot.svg" />
+	  <None Remove="Resources\Splash\splash.svg" />
+	</ItemGroup>
+	<ItemGroup>
+	  <EmbeddedResource Include="Configuration\appsettings.dev.Android.json" />
+	  <EmbeddedResource Include="Configuration\appsettings.dev.iOS.json" />
+	  <EmbeddedResource Include="Configuration\appsettings.dev.json" />
+	  <EmbeddedResource Include="Configuration\appsettings.json" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <PackageReference Include="AutoMapper" Version="11.0.1" />
+	  <PackageReference Include="CommunityToolkit.Maui" Version="1.2.0" />
+	  <PackageReference Include="CommunityToolkit.Maui.Markup" Version="1.0.1" />
+	  <PackageReference Include="CommunityToolkit.Mvvm" Version="8.0.0" />
+	  <PackageReference Include="Microsoft.AppCenter" Version="4.5.3" />
+	  <PackageReference Include="Microsoft.AppCenter.Analytics" Version="4.5.3" />
+	  <PackageReference Include="Microsoft.AppCenter.Crashes" Version="4.5.3" />
+	  <PackageReference Include="Microsoft.AspNetCore.JsonPatch" Version="6.0.8" />
+	  <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="6.0.0" />
+	  <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="6.0.0" />
+	  <PackageReference Include="Microsoft.Identity.Client" Version="4.46.2" />
+	  <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="6.22.1" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\..\Commons\CommonPOSLibrary\CommonPOSLibrary.csproj" />
+	  <ProjectReference Include="..\..\Commons\CoppperToCSV\CoppperToCSV.csproj" />
+	  <ProjectReference Include="..\..\Commons\Plutus.Repository\Plutus.Repository.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Resource Include="Resources\I18N_L10N\Strings.resx" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Compile Update="Pages\MainTill\Inventory\AddEditInventoryItemPage.xaml.cs">
+	    <DependentUpon>AddEditInventoryItemPage.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Pages\MainTill\Inventory\ViewAllInventoryPage.xaml.cs">
+	    <DependentUpon>ViewAllInventoryPage.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Pages\MainTill\TillPage.xaml.cs">
+	    <DependentUpon>TillPage.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Pages\PopupViews\AdjustItemPage.xaml.cs">
+	    <DependentUpon>AdjustItemPage.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Resources\I18N_L10N\Strings.Designer.cs">
+	    <DesignTime>True</DesignTime>
+	    <AutoGen>True</AutoGen>
+	    <DependentUpon>Strings.resx</DependentUpon>
+	  </Compile>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <EmbeddedResource Update="Resources\I18N_L10N\Strings.resx">
+	    <Generator>PublicResXFileCodeGenerator</Generator>
+	    <LastGenOutput>Strings.Designer.cs</LastGenOutput>
+	  </EmbeddedResource>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <MauiXaml Update="Pages\MainTill\Inventory\AddEditInventoryItemPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\MainTill\Inventory\InventoryPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\MainTill\Statistics\SalesReportPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\MainTill\Statistics\StatisticsPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\MainTill\Statistics\StockOuttakePage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\PopupViews\AdjustItemPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\PopupViews\AlterationPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\PopupViews\CategoryCreatePage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\PopupViews\MoniesInputPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\PopupViews\ReturnItemPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Resources\Styles\FontIcons.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="TestToolBarItem.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Platforms\Android\Core\" />
+	  <Folder Include="Platforms\iOS\Core\" />
+	  <Folder Include="Platforms\MacCatalyst\Core\" />
+	  <Folder Include="Platforms\Windows\Core\" />
+	</ItemGroup>
+
+</Project>

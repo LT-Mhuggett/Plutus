@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                  x:Class="Plutus.Frontend.ClientUI.Pages.LoadingIndicatorPage">
+    <ContentView.Content>
+        <StackLayout BackgroundColor="Black"
+                     HorizontalOptions="FillAndExpand"
+                     VerticalOptions="Center"
+                     Padding="30">
+            <ActivityIndicator IsRunning="True"
+                               Color="White"/>
+            <Label FontAttributes="Bold"
+                   Text="Please wait..."
+                   TextColor="White"/>
+            <Label FontAttributes="Bold"
+                   Text="{Binding CurrentLoadingItem}"
+                   TextColor="White"
+                   IsVisible="{Binding CurrentLoadingItemIsBlank}"
+                   HorizontalTextAlignment="End"/>
+        </StackLayout>
+    </ContentView.Content>
+</ContentView>

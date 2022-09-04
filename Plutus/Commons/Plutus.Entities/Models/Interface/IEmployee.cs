@@ -2,12 +2,10 @@
 {
     public interface IEmployee : IPerson
     {
-        decimal Wage { get; set; }
-        int ContractedHours { get; set; }
-        string HashedPassword { get; set; }
-        string Salt { get; set; }
-        string NIN { get; set; }
         bool Active { get; set; }
-        string StoreId { get; set; }
+        int ContractedHours { get; set; }
+        string NIN { get; set; }
+        int StoreId { get; set; }
+        decimal Wage { get; set; }
     }
 }

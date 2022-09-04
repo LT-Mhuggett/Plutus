@@ -8,6 +8,6 @@ namespace Plutus.Entities.Models.Interface
 
         int AuthAId { get; set; }
 
-        string EmpId { get; set; }
+        Guid EmpId { get; set; }
     }
 }

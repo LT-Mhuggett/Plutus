@@ -3,16 +3,17 @@ using Microsoft.AspNetCore.Mvc;
 using Plutus.Contracts;
 using Plutus.DBService.Controllers.Bases;
 using Plutus.Entities.Models;
-using Plutus.Repository.FormBodies;
+using Plutus.Entities.FormBodies;
 using Plutus.Repository.QueryParameters;
+using System;
 
 namespace Plutus.DBService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class NoteController : ApiControllerBaseCR<Note, NoteBody, int, NoteParameters>
+    public class NoteController : CompositeApiControllerBaseCR<Note, NoteBody, int, Guid, NoteParameters>
     {
-        protected override IRepositoryBase<Note, int> Repository => RepositoryWrapper.NoteRepository;
+        protected override ICompositeRepositoryBase<Note, int, Guid> Repository => RepositoryWrapper.NoteRepository;
 
         public NoteController(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor httpContextAccessor) : base(repositoryWrapper, httpContextAccessor)
         {

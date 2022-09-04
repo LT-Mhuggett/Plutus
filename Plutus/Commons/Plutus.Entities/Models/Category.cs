@@ -7,7 +7,7 @@ using System.ComponentModel.DataAnnotations;
 namespace Plutus.Entities.Models
 {
     [Serializable]
-    public class Category : Base<int>, ICategory
+    public class Category : CompositeBase<Guid, Guid>, ICategory
     {
         #region Properties
         [Exportable]
@@ -19,9 +19,10 @@ namespace Plutus.Entities.Models
         public string Description { get; set; }
 
         #region Relationships
+        public virtual Business Business { get; set; }
         #region Collections
         public virtual ICollection<Item> Items { get; set; }
-        public virtual ICollection<Discount_Category> DisCats { get; set; }
+        public virtual ICollection<Discount_Category> Discount_Categories { get; set; }
         #endregion
         #endregion
         #endregion

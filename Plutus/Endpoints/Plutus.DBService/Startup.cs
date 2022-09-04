@@ -1,13 +1,17 @@
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Plutus.DBService.Extensions;
 using Plutus.Entities;
+using System;
+using System.Diagnostics;
 using System.Net.Http;
 
 namespace Plutus.DBService
@@ -25,10 +29,8 @@ namespace Plutus.DBService
         public void ConfigureServices(IServiceCollection services)
         {
             services.ConfigureCors();
-            services.ConfigureDBContext(Configuration);
-            services.ConfigureRepositoryWrapper();
             services.ConfigureMySqlDBContext(Configuration);
-            Plutus.Authentication.AuthenticationOptions authenticationOptions = Configuration.GetSection("Authentication").Get<Plutus.Authentication.AuthenticationOptions>();
+            services.ConfigureRepositoryWrapper();
 
             /*services.AddSwaggerGen(c =>
             {
@@ -37,9 +39,9 @@ namespace Plutus.DBService
 
             services.ConfigureControllers();
 
-            services.ConfigureAuthentication(Configuration, authenticationOptions);
-            services.ConfigureAuthorization();
-            services.ConfigureSwaggerDocumentation(authenticationOptions);
+            services.ConfigureAuthentication(Configuration);
+            //services.ConfigureAuthorization();
+            services.ConfigureSwaggerDocumentation(Configuration);
             services.ConfigureHttpAccessor();
 
         }
@@ -47,12 +49,21 @@ namespace Plutus.DBService
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
+            System.Console.WriteLine("Config ConnectionString is: " + Configuration["ConnectionString"]);
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
-                app.UseSwagger();
-                app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Plutus.DBService v1"));
             }
+
+            app.UseSwagger();
+            app.UseSwaggerUI(c =>
+            {
+                c.SwaggerEndpoint("/swagger/v1/swagger.json", "Plutus.DBService v1");
+                c.OAuthClientId(Configuration["OpenAPI:ClientId"]);
+                c.OAuthUsePkce();
+            });
+
+            MigrateDatabase(app);
 
             app.UseHttpsRedirection();
 
@@ -73,22 +84,16 @@ namespace Plutus.DBService
                 endpoints.MapControllers();
             });
 
-            Plutus.Authentication.AuthenticationOptions authenticationOptions = Configuration.GetSection("Authentication").Get<Plutus.Authentication.AuthenticationOptions>();
-
-            // Swagger / OpenAPI document
-            app.UseSwagger();
-            // The interactive documentation
-            app.UseSwaggerUI(o =>
-            {
-                o.SwaggerEndpoint("/swagger/v1/swagger.json", "v1");
-                o.OAuthClientId(authenticationOptions.ClientId);
-            });
+            //Plutus.Authentication.AuthenticationOptions authenticationOptions = Configuration.GetSection("Authentication").Get<Plutus.Authentication.AuthenticationOptions>();
         }
 
-        private static void MigrateDatase(IApplicationBuilder app)
+        private static void MigrateDatabase(IApplicationBuilder app)
         {
             using var serviceScope = app.ApplicationServices.GetRequiredService<IServiceScopeFactory>().CreateScope();
-            using var context = serviceScope.ServiceProvider.GetService<MySqlDbContext>();
+            using var context = serviceScope.ServiceProvider.GetService<RepositoryContext>();
+#if DEBUG
+            //context.Database.EnsureDeleted();
+#endif
             context.Database.Migrate();
         }
     }

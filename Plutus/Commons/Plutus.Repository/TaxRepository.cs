@@ -6,7 +6,7 @@ using System;
 
 namespace Plutus.Repository
 {
-    public class TaxRepository : CompositeRepositoryBase<Tax, Guid, string>, ITaxRepository
+    public class TaxRepository : CompositeRepositoryBase<Tax, int, Guid>, ITaxRepository
     {
         public TaxRepository(RepositoryContext repositoryContext) : base(repositoryContext)
         {

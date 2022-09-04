@@ -6,6 +6,6 @@
         string NameAbbr { get; set; }
         string VatIN { get; set; }
         decimal? RecMarkup { get; set; }
-        byte[] Logo { get; set; }
+        byte[]? Logo { get; set; }
     }
 }

@@ -4,12 +4,9 @@ using System;
 
 namespace Plutus.Repository.QueryParameters
 {
-    public class BusinessParameters : QueryParameters<Business, string>
+    public class BusinessParameters : QueryParameters<Business, Guid>
     {
-        public string EmployeeObjectId { get; set; }
-
-
-        [OpenApiIgnore]
-        public bool ValidEmployeeObjectId => Guid.TryParse(EmployeeObjectId, out _);
+        public Guid EmployeeObjectId { get; set; } = default;
+        public bool WithRoles { get; set; } = false;
     }
 }

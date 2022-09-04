@@ -1,4 +1,5 @@
 ﻿using Plutus.Entities.Attributes;
+using Plutus.Entities.FormBodies;
 using Plutus.Entities.Models.Interface;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -21,12 +22,12 @@ namespace Plutus.Entities.Models
         [Exportable]
         public string Country { get; set; }
         [Exportable]
-        public string FullAddress { get; set; }
+        public string? FullAddress { get; set; }
 
         [NotMapped]
         public string ReadableAddress
         {
-            get => FullAddress ?? $"{AdLine1}, {AdLine2}, {City}, {PostCode}, {Country}";
+            get => FullAddress ?? $"{AdLine1},{(string.IsNullOrEmpty(AdLine2) ? "" : AdLine2 + " ,")} {City}, {PostCode}, {Country}";
         }
         #endregion
     }

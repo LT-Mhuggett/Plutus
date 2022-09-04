@@ -3,18 +3,19 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Identity.Web.Resource;
 using Plutus.Authentication;
 using Plutus.Contracts;
 using Plutus.Entities.Models;
 using Plutus.Entities.Models.Interface;
-using Plutus.Repository.FormBodies;
+using Plutus.Entities.FormBodies;
 using Plutus.Repository.QueryParameters;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Plutus.DBService.Controllers.Bases
 {
-    public abstract class CompositeApiControllerBaseCRU<TEntity, TBody, TId1, TId2, TQueryParameters> : CompositeApiControllerBaseCR<TEntity, TBody, TId1, TId2, TQueryParameters> where TEntity : CompositeBase<TId1, TId2> where TBody : FormBody<TEntity> where TQueryParameters : CompositeQueryParameters<TEntity, TId1, TId2>
+    public abstract class CompositeApiControllerBaseCRU<TEntity, TBody, TId1, TId2, TQueryParameters> : CompositeApiControllerBaseCR<TEntity, TBody, TId1, TId2, TQueryParameters> where TEntity : CompositeBase<TId1, TId2>, new() where TBody : FormBody<TEntity> where TQueryParameters : CompositeQueryParameters<TEntity, TId1, TId2>
     {
         public CompositeApiControllerBaseCRU(IRepositoryWrapper repositoryWrapper,
             IHttpContextAccessor httpContextAccessor) : base(repositoryWrapper, httpContextAccessor)
@@ -29,15 +30,20 @@ namespace Plutus.DBService.Controllers.Bases
         /// <param name="entity">Entity to save, of type <see cref="TEntity"/></param>
         /// <param name="isSync">States that this is a sync only request</param>
         /// <returns>Entity of type <see cref="TEntity"/></returns>
-        [Authorize(Actions.WritePermission)]
+        [Authorize]
+        [RequiredScope(RequiredScopesConfigurationKey = "OpenAPI:Scopes:APIWrite:Name")]
         [HttpPut("{id1}")]
-        [ApiConventionMethod(typeof(DefaultApiConventions), nameof(DefaultApiConventions.Put))]
+        [ApiConventionMethod(typeof(APIConventions),
+                             nameof(APIConventions.Put))]
         public virtual async Task<ActionResult<TEntity>> Put([FromRoute] TId1 id1, [FromHeader] TId2 businessId,
             [FromBody] TEntity entity, [FromQuery] bool isSync = false)
         {
+            if (id1.Equals(default(TId1)) || businessId.Equals(default(TId2)))
+                return BadRequest("Record ID and/or Business ID not provided");
+
             if (!EqualityComparer<TId1>.Default.Equals(id1, ((ICompositeBase<TId1, TId2>)entity).IdOne) &&
                 !EqualityComparer<TId2>.Default.Equals(businessId, ((ICompositeBase<TId1, TId2>)entity).IdTwo))
-                return BadRequest();
+                return BadRequest("Entity keys do not match provided IDs");
 
             if (isSync)
             {
@@ -74,14 +80,19 @@ namespace Plutus.DBService.Controllers.Bases
         /// <param name="patchDocument">Data to update entity</param>
         /// <param name="isSync">States that this is a sync only request</param>
         /// <returns>Entity of type <see cref="TEntity"/></returns>
-        [Authorize(Actions.WritePermission)]
+        [Authorize]
+        [RequiredScope(RequiredScopesConfigurationKey = "OpenAPI:Scopes:APIWrite:Name")]
         [HttpPatch("{id1}")]
-        [ApiConventionMethod(typeof(DefaultApiConventions), nameof(DefaultApiConventions.Update))]
+        [ApiConventionMethod(typeof(APIConventions), 
+                             nameof(APIConventions.Patch))]
         public virtual async Task<ActionResult<TEntity>> Patch([FromRoute] TId1 id1, [FromHeader] TId2 businessId,
             [FromBody] JsonPatchDocument<TEntity> patchDocument, [FromQuery] bool isSync = false)
         {
+            if (id1.Equals(default(TId1)) || businessId.Equals(default(TId2)))
+                return BadRequest("Record ID and/or Business ID not provided");
+
             if (patchDocument == default)
-                return BadRequest();
+                return BadRequest("Patch Document not provided");
 
             var entityFromDb = await Repository.FindById(id1, businessId);
             if (entityFromDb == default)

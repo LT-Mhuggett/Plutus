@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+	<uses-sdk android:minSdkVersion="21" android:targetSdkVersion="31" />
+	<application android:allowBackup="true" android:icon="@mipmap/appicon" android:roundIcon="@mipmap/appicon_round" android:supportsRtl="true">
+    <activity android:name="microsoft.identity.client.BrowserTabActivity" android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="msalb3c5cac7-ecc8-4e76-a647-590daf919899" android:host="auth" />
+      </intent-filter>
+    </activity>
+  </application>
+  <queries>
+    <package android:name="com.azure.authenticator" />
+    <package android:name="com.MBH.Plutus.Frontend.ClientUI" />
+    <intent>
+      <action android:name="android.intent.action.VIEW" />
+      <category android:name="android.intent.category.BROWSABLE" />
+      <data android:scheme="https" />
+    </intent>
+    <intent>
+      <action android:name="android.support.customtabs.action.CustomTabsService"/>
+    </intent>
+  </queries>
+	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+</manifest>

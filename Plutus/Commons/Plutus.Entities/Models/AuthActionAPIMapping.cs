@@ -6,7 +6,7 @@ using System;
 namespace Plutus.Entities.Models
 {
     [Serializable]
-    public class AuthActionAPIMapping : CompositeBase<string, int>, IAuthActionAPIMapping
+    public class AuthActionAPIMapping : CompositeBase<int, int>, IAuthActionAPIMapping
     {
         #region Properties
         [Exportable(ExportLevels.NonUserFriendly)]

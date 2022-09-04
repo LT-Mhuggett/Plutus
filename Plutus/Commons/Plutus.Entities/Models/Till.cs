@@ -7,17 +7,17 @@ using System.ComponentModel.DataAnnotations;
 namespace Plutus.Entities.Models
 {
     [Serializable]
-    public class Till : Base<string>, ITill
+    public class Till : Base<Guid>, ITill
     {
         #region Properties
 
         [Exportable]
         [Required]
-        public string MachineId { get; set; }
+        public override Guid Id { get; set; }
 
         [Exportable]
         [Required]
-        public string StoreId { get; set; }
+        public int StoreId { get; set; }
 
         public Store Store;
 

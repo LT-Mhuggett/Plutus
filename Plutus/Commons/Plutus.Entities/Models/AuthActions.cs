@@ -11,22 +11,20 @@ namespace Plutus.Entities.Models
     {
         #region Properties
         [Exportable(ExportLevels.NonUserFriendly)]
-        public string Name { get; set; }
-
-        [Exportable(ExportLevels.NonUserFriendly)]
         public decimal Amount { get; set; }
 
         public string Module { get; set; }
 
+        [Exportable(ExportLevels.NonUserFriendly)]
+        public string Name { get; set; }
         #region Relationships
         #region Collections
+        public virtual ICollection<AuthActionAPIMapping> AuthActionAPIMappings { get; set; }
+
         /// <summary>
         /// Employee -> Auth Actions Relationship
         /// </summary>
         public virtual ICollection<Emp_AuthActions> EmpAuths { get; set; }
-
-        public virtual ICollection<AuthActionAPIMapping> AuthActionAPIMappings { get; set; }
-
         #endregion
         #endregion
         #endregion

@@ -17,7 +17,7 @@ namespace Plutus.Entities.Models
         [Exportable]
         public string ItemIdOne { get; set; }
         [Exportable]
-        public string ItemIdTwo { get; set; }
+        public Guid ItemIdTwo { get; set; }
         public virtual Item Item { get; set; }
         public virtual Transaction Transaction { get; set; }
         public virtual Refund Refund { get; set; }

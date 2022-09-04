@@ -7,7 +7,7 @@ namespace Plutus.Reports
     public class SalesBreakdown
     {
         public string RecordDate { get; set; }
-        public string SaleId { get; set; }
+        public Guid SaleId { get; set; }
         public string ItemId { get; set; }
         public string ItemName { get; set; }
         public decimal UnitPriceAtCheckout { get; set; }

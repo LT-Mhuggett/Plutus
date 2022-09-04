@@ -11,6 +11,8 @@ namespace Plutus.Entities.Models
         #region Relationships
         [Exportable]
         public int TransactionId { get; set; }
+        [Exportable]
+        public Guid SaleId { get; set; }
         public virtual Transaction Transaction { get; set; }
 
         [Exportable]

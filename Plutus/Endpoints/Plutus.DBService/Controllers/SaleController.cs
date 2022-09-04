@@ -2,33 +2,35 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Identity.Web.Resource;
 using Plutus.Authentication;
 using Plutus.Contracts;
 using Plutus.DBService.Controllers.Bases;
 using Plutus.Entities.Models;
 using Plutus.Reports;
-using Plutus.Repository.FormBodies;
+using Plutus.Entities.FormBodies;
 using Plutus.Repository.QueryParameters;
 using System;
 using System.Data;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Plutus.DBService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class SaleController : ApiControllerBaseCR<Sale, SaleBody, string, SaleParameters>
+    public class SaleController : ApiControllerBaseCR<Sale, SaleBody, Guid, SaleParameters>
     {
-        protected override IRepositoryBase<Sale, string> Repository => RepositoryWrapper.SaleRepository;
+        protected override IRepositoryBase<Sale, Guid> Repository => RepositoryWrapper.SaleRepository;
 
         public SaleController(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor httpContextAccessor) : base(repositoryWrapper, httpContextAccessor)
         {
         }
-
-        [HttpGet]
-        [Authorize(Actions.ReadThings)]
-        [ApiConventionMethod(typeof(DefaultApiConventions),
-                             nameof(DefaultApiConventions.Get))]
+        [Authorize]
+        [RequiredScope(RequiredScopesConfigurationKey = "OpenAPI:Scopes:APIRead:Name")]
+        [HttpGet]        
+        [ApiConventionMethod(typeof(APIConventions),
+                             nameof(APIConventions.Get))]
         public FileResult SalesReport([FromQuery] SaleParameters queryParameters, [FromQuery(Name = "minDate")] DateTime startDate, [FromQuery(Name = "maxDate")] DateTime endDate)
         {
             //Check Min and Max date are viable
@@ -59,7 +61,7 @@ namespace Plutus.DBService.Controllers
             var salesBreakdowns = new SalesReport().fetchSalesBreakdown(currentDate, endDate, data);
 
             // Fetch Sales Summaries
-            var dailySalesSummaries = new SalesReport().fetchdailySalesSummaries(currentDate, endDate, RepositoryWrapper.PaymentMethodRepository.FindAll(), data);
+            var dailySalesSummaries = new SalesReport().fetchdailySalesSummaries(currentDate, endDate, RepositoryWrapper.PaymentMethodRepository.GetAllQueryable(), data);
 
             // Generate and get File Stream for Excel File containing Sales Breakdowns and Sales Summaries
             var stream = new SalesReport().fetchSalesReportStream(dataSet, dailySalesSummaries, salesBreakdowns);
@@ -68,6 +70,20 @@ namespace Plutus.DBService.Controllers
             string fileType = "application/vnd.ms-excel";
 
             return File(stream.ToArray(), fileType, fileName);
+        }
+
+        [Authorize]
+        [RequiredScope(RequiredScopesConfigurationKey = "OpenAPI:Scopes:APIWrite:Name")]
+        [HttpPost("SaleTransaction")]
+        [ApiConventionMethod(typeof(APIConventions),
+                             nameof(APIConventions.Post))]
+        public async Task<ActionResult<Sale>> SaleTransaction([FromBody] Sale sale, [FromQuery] bool isSync = false)
+        {
+            await Repository.Create(sale);
+            RepositoryWrapper.SetSyncState(isSync);
+            await RepositoryWrapper.SaveAsync();
+
+            return CreatedAtAction("FindById", new { id = sale.Id }, sale);
         }
     }
 }

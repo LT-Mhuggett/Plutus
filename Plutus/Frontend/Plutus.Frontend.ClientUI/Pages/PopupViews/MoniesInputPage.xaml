@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<toolkit:Popup xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+               xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+               xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+               x:Class="Plutus.Frontend.ClientUI.Pages.PopupViews.MoniesInputPage"
+               xmlns:I18N_L10N="clr-namespace:Plutus.Frontend.ClientUI.Resources.I18N_L10N"
+               Color="Transparent">
+    <Frame CornerRadius="{OnPlatform Default='10', Android='15', UWP='15'}"
+           BackgroundColor="WhiteSmoke"
+           HasShadow="True">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="2*"/>
+                <RowDefinition Height="2*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height=".5*"/>
+                <RowDefinition Height="1*"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition/>
+                <ColumnDefinition/>
+            </Grid.ColumnDefinitions>
+
+            <Label Grid.Row="0" Grid.ColumnSpan="2"
+                   FontSize="Subtitle" FontAttributes="Bold">
+                <Label.Text>
+                    <MultiBinding StringFormat="{x:Static I18N_L10N:Strings.HowMuchPM}">
+                        <Binding Path="PaymentMethod.Name" />
+                        <Binding Path="AmountRemaining"/>
+                    </MultiBinding>
+                </Label.Text>
+            </Label>
+            <Button Grid.Row="1" Grid.Column="0"
+                    Text="5" Command="{Binding MoniesIncrementCommand}"
+                    CommandParameter="5" />
+            <Button Grid.Row="1" Grid.Column="1"
+                    Text="10" Command="{Binding MoniesIncrementCommand}"
+                    CommandParameter="10" />
+            <Button Grid.Row="2" Grid.Column="0"
+                    Text="20" Command="{Binding MoniesIncrementCommand}"
+                    CommandParameter="20" />
+            <Button Grid.Row="2" Grid.Column="1"
+                    Text="50" Command="{Binding MoniesIncrementCommand}"
+                    CommandParameter="50" />
+            <Entry Grid.Row="3" Grid.ColumnSpan="2"
+                   Text="{Binding AmountPaying}"/>
+            <Button Grid.Row="5" Grid.Column="0"
+                    Text="{x:Static I18N_L10N:Strings.Cancel}"
+                    Command="{Binding CancelCommand}"/>
+            <Button Grid.Row="5" Grid.Column="1"
+                    Text="{x:Static I18N_L10N:Strings.PayFull}"
+                    Command="{Binding PayInFullCommand}"/>
+        </Grid>
+    </Frame>
+</toolkit:Popup>

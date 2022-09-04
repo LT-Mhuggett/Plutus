@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -60,21 +61,21 @@ namespace Plutus.Contracts
         /// </summary>
         /// <param name="entity">Entity to add to table</param>
         /// <returns>Success of addition</returns>
-        Task<bool> Create(TEntity entity);
+        Task<bool> Create(TEntity entity, IDbContextTransaction dbTransaction = default);
 
         /// <summary>
         /// Async UPDATE entity in table, denoted by <see cref="TEntity"/>
         /// </summary>
         /// <param name="entity">Entity to update in table</param>
         /// <returns>Success of update</returns>
-        Task<bool> Update(TEntity entity);
+        Task<bool> Update(TEntity entity, IDbContextTransaction dbTransaction = default);
 
         /// <summary>
         /// Async DELETE entity from table, denoted by <see cref="TEntity"/>
         /// </summary>
         /// <param name="entity">Entity to delete from table</param>
         /// <returns>Success of deletion</returns>
-        Task<bool> Delete(TEntity entity);
+        Task<bool> Delete(TEntity entity, IDbContextTransaction dbTransaction = default);
 
         /// <summary>
         /// Async does entity EXIST in table, denoted by <see cref="TEntity"/>

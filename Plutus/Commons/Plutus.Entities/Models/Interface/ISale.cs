@@ -2,7 +2,7 @@
 
 namespace Plutus.Entities.Models.Interface
 {
-    public interface ISale : IBase<string>
+    public interface ISale : IBase<Guid>
     {
         decimal Total { get; set; }
         decimal TotalExTax { get; set; }

@@ -13,7 +13,7 @@ namespace Plutus.Entities.Models
         #region Relationships
         public int AuthAId { get; set; }
         public virtual AuthActions AuthA { get; set; }
-        public string EmpId { get; set; }
+        public Guid EmpId { get; set; }
         public virtual Employee Emp { get; set; }
         #endregion
         #endregion

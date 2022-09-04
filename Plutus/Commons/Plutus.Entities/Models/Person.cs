@@ -1,6 +1,7 @@
 ﻿using Plutus.Entities.Attributes;
 using Plutus.Entities.Models.Interface;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Plutus.Entities.Models
 {
@@ -8,10 +9,16 @@ namespace Plutus.Entities.Models
     /// This is the Default model for any person related entity.
     /// e.g. employees inherit all of persons.
     /// </summary>
-    public class Person : Address<string>, IAuditable
+    [Serializable]
+    [Table("People")]
+    public class Person : Address<Guid>, IAuditable
     {
         // object ID => Guid
         #region Properties
+
+        [Exportable]
+        [Required]
+        public string Email { get; set; }
 
         [Exportable]
         [Required]
@@ -24,10 +31,6 @@ namespace Plutus.Entities.Models
         [Exportable]
         [Required]
         public string Mobile { get; set; }
-
-        [Exportable]
-        [Required]
-        public string Email { get; set; }
         #endregion
     }
 }

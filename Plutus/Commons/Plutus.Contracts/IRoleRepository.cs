@@ -2,7 +2,7 @@
 
 namespace Plutus.Contracts
 {
-    public interface IRoleRepository : IRepositoryBase<Role, string>
+    public interface IRoleRepository : IRepositoryBase<Role, int>
     {
     }
 }

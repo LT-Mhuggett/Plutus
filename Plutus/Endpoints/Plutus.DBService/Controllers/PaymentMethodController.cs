@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Plutus.Contracts;
 using Plutus.DBService.Controllers.Bases;
 using Plutus.Entities.Models;
-using Plutus.Repository.FormBodies;
+using Plutus.Entities.FormBodies;
 using Plutus.Repository.QueryParameters;
 
 namespace Plutus.DBService.Controllers

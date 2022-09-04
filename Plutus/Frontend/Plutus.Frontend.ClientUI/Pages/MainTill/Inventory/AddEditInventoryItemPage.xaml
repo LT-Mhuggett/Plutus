@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Plutus.Frontend.ClientUI.Pages.MainTill.Inventory.AddEditInventoryItemPage"
+             xmlns:I18N_L10N="clr-namespace:Plutus.Frontend.ClientUI.Resources.I18N_L10N"
+             xmlns:ext="clr-namespace:Plutus.Frontend.ClientUI.XAML.Extensions"
+             xmlns:behaviors="clr-namespace:Plutus.Frontend.ClientUI.XAML.Behaviors"
+             xmlns:validators="clr-namespace:Plutus.Frontend.ClientUI.Core.Validators"
+             xmlns:vm="clr-namespace:Plutus.Frontend.ClientUI.ViewModels.MainTill.Inventory"
+             xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+             ios:Page.UseSafeArea="True"
+             x:DataType="vm:AddEditInventoryItemViewModel"
+             Shell.NavBarIsVisible="{OnPlatform True, MacCatalyst=False}"
+             Title="{OnIdiom {Binding Title}, Desktop=''}">
+    <ContentPage.Resources>
+        <ext:InverseBoolConverter x:Key="InvertBool" />
+    </ContentPage.Resources>
+    <ContentPage.Content>
+        <ScrollView>
+            <Grid Margin="5,0">
+                <Grid.Behaviors>
+                    <behaviors:ValidationGroupBehavior x:Name="form"/>
+                </Grid.Behaviors>
+                
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="5*"/>
+                    <ColumnDefinition Width="5*"/>
+                </Grid.ColumnDefinitions>
+
+                <StackLayout x:Name="LeftColumn" Grid.Column="0" Grid.Row="0" Margin="5,0">
+                    <Label Text="{x:Static I18N_L10N:Strings.BasicInfo}" FontSize="Medium"/>
+                    <Label Text="{x:Static I18N_L10N:Strings.Id}"/>
+                    <Entry Placeholder="{Binding Source={x:Static I18N_L10N:Strings.Id}, StringFormat={x:Static I18N_L10N:Strings.EnterHere}}"
+                           Text="{Binding Item.IdOne}" IsEnabled="{Binding IsUpdate, Converter={x:StaticResource InvertBool}}">
+                        <Entry.Behaviors>
+                            <behaviors:ValidationBehavior Group="{x:Reference form}" PropertyName="Text">
+                                <behaviors:ValidationBehavior.Validators>
+                                    <validators:RequiredValidator />
+                                </behaviors:ValidationBehavior.Validators>
+                            </behaviors:ValidationBehavior>
+                        </Entry.Behaviors>
+                    </Entry>
+                    <Label Text="{x:Static I18N_L10N:Strings.Name}"/>
+                    <Entry Placeholder="{Binding Source={x:Static I18N_L10N:Strings.Name}, StringFormat={x:Static I18N_L10N:Strings.EnterHere}}"
+                           Text="{Binding Item.Name, StringFormat='{0:C'}">
+                        <Entry.Behaviors>
+                            <behaviors:ValidationBehavior Group="{x:Reference form}" PropertyName="Text">
+                                <behaviors:ValidationBehavior.Validators>
+                                    <validators:RequiredValidator />
+                                </behaviors:ValidationBehavior.Validators>
+                            </behaviors:ValidationBehavior>
+                        </Entry.Behaviors>
+                    </Entry>
+                    <Label Text="{x:Static I18N_L10N:Strings.CostToStore}"/>
+                    <Entry Placeholder="{Binding Source={x:Static I18N_L10N:Strings.CostToStore}, StringFormat={x:Static I18N_L10N:Strings.EnterHere}}"
+                       Text="{Binding Item.Cost, Mode=TwoWay}">
+                        <Entry.Behaviors>
+                            <behaviors:ValidationBehavior Group="{x:Reference form}" PropertyName="Text">
+                                <behaviors:ValidationBehavior.Validators>
+                                    <validators:RequiredValidator/>
+                                    <validators:CurrencyValueValidator/>
+                                </behaviors:ValidationBehavior.Validators>
+                            </behaviors:ValidationBehavior>
+                        </Entry.Behaviors>
+                    </Entry>
+                    <Label Text="{x:Static I18N_L10N:Strings.Tax}"/>
+                    <Picker SelectedItem="{Binding Tax, Mode=TwoWay}" ItemsSource="{Binding Taxes}" ItemDisplayBinding="{Binding Name}">
+                        <Picker.Behaviors>
+                            <behaviors:ValidationBehavior Group="{x:Reference form}" PropertyName="SelectedIndex">
+                                <behaviors:ValidationBehavior.Validators>
+                                    <validators:PickerRequiredValidator/>
+                                </behaviors:ValidationBehavior.Validators>
+                            </behaviors:ValidationBehavior>
+                        </Picker.Behaviors>
+                    </Picker>
+                    <Label Text="{x:Static I18N_L10N:Strings.PriceExTax}"/>
+                    <Entry Placeholder="{Binding Source={x:Static I18N_L10N:Strings.PriceExTax}, StringFormat={x:Static I18N_L10N:Strings.EnterHere}}"
+                       Text="{Binding Item.ExPrice, Mode=TwoWay}">
+                        <Entry.Behaviors>
+                            <behaviors:ValidationBehavior Group="{x:Reference form}" PropertyName="Text">
+                                <behaviors:ValidationBehavior.Validators>
+                                    <validators:RequiredValidator/>
+                                    <validators:CurrencyValueValidator/>
+                                </behaviors:ValidationBehavior.Validators>
+                            </behaviors:ValidationBehavior>
+                        </Entry.Behaviors>
+                    </Entry>
+                    <Label Text="{x:Static I18N_L10N:Strings.Price}"/>
+                    <Entry Placeholder="{Binding Source={x:Static I18N_L10N:Strings.Price}, StringFormat={x:Static I18N_L10N:Strings.EnterHere}}"
+                       Text="{Binding Item.Price, Mode=TwoWay}">
+                        <Entry.Behaviors>
+                            <behaviors:ValidationBehavior Group="{x:Reference form}" PropertyName="Text">
+                                <behaviors:ValidationBehavior.Validators>
+                                    <validators:RequiredValidator/>
+                                    <validators:CurrencyValueValidator/>
+                                </behaviors:ValidationBehavior.Validators>
+                            </behaviors:ValidationBehavior>
+                        </Entry.Behaviors>
+                    </Entry>
+                    <Label Text="{x:Static I18N_L10N:Strings.Stock}"/>
+                    <Label Text="{x:Static I18N_L10N:Strings.NoStockTracking}" FontSize="Caption"/>
+                    <Entry Placeholder="{Binding Source={x:Static I18N_L10N:Strings.Stock}, StringFormat={x:Static I18N_L10N:Strings.EnterHere}}"
+                       Text="{Binding Stock}">
+                        <Entry.Behaviors>
+                            <behaviors:ValidationBehavior Group="{x:Reference form}" PropertyName="Text">
+                                <behaviors:ValidationBehavior.Validators>
+                                    <validators:IntegerValidator/>
+                                </behaviors:ValidationBehavior.Validators>
+                            </behaviors:ValidationBehavior>
+                        </Entry.Behaviors>
+                    </Entry>
+                </StackLayout>
+                <StackLayout x:Name="RightColumn" Grid.Column="1" Grid.Row="0">
+                    <Label Text="{x:Static I18N_L10N:Strings.AdditionalInfo}" FontSize="Medium"/>
+                    <Label Text="{x:Static I18N_L10N:Strings.Brand}"/>
+                    <Entry Placeholder="{Binding Source={x:Static I18N_L10N:Strings.Brand}, StringFormat={x:Static I18N_L10N:Strings.EnterHere}}"
+                       Text="{Binding Item.Brand}"/>
+                    <Label Text="{x:Static I18N_L10N:Strings.Category}"/>
+                    <Picker SelectedItem="{Binding Category, Mode=TwoWay}" ItemsSource="{Binding Categories}" ItemDisplayBinding="{Binding Name}"
+                            SelectedIndexChanged="CategoryPicker_SelectedIndexChanged">
+                        <Picker.Behaviors>
+                            <behaviors:ValidationBehavior Group="{x:Reference form}" PropertyName="SelectedIndex">
+                                <behaviors:ValidationBehavior.Validators>
+                                    <validators:PickerRequiredValidator/>
+                                </behaviors:ValidationBehavior.Validators>
+                            </behaviors:ValidationBehavior>
+                        </Picker.Behaviors>
+                    </Picker>
+                    <Label Text="{x:Static I18N_L10N:Strings.Description}"/>
+                    <Editor Placeholder="{Binding Source={x:Static I18N_L10N:Strings.Description}, StringFormat={x:Static I18N_L10N:Strings.EnterHere}}"
+                        Text="{Binding Item.Desc}" IsSpellCheckEnabled="True" VerticalOptions="FillAndExpand" MinimumHeightRequest="100"/>
+                </StackLayout>
+
+                <Button Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                        Text="{Binding CreateUpdateText}" Command="{Binding CreateUpdateCommand}"
+                        IsEnabled="{Binding Source={x:Reference form}, Path=IsValid}" />
+            </Grid>
+        </ScrollView>
+    </ContentPage.Content>
+</ContentPage>

@@ -1099,8 +1099,11 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                         trackEventArgs.Add("Cash Drawer Open Requested", "True");
                         if (sale.PaySales.Any(pay => pay.TempPayMethod.IsChangeable.Equals(true)))
                         {
-                            tasks[1] = printerMgr.OpenCashDrawer();
-                            trackEventArgs.Add("Cash Drawer Opened Successfully", "True");
+                            tasks[1] = () =>
+                            {
+                                printerMgr.OpenCashDrawer();
+                                trackEventArgs.Add("Cash Drawer Opened Successfully", "True");
+                            };
                         }
                     }
                 }

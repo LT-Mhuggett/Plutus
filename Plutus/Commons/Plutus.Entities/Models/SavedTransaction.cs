@@ -7,7 +7,7 @@ using System.ComponentModel.DataAnnotations;
 namespace Plutus.Entities.Models
 {
     [Serializable]
-    public class SavedTransaction : Base<string>, ISavedTransaction
+    public class SavedTransaction : Base<Guid>, ISavedTransaction
     {
         #region Properties
         [Exportable]

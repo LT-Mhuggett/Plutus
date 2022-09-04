@@ -1,14 +1,13 @@
 ﻿namespace Plutus.Entities.Models.Interface
 {
-    public interface ITransaction : IBase<int>
+    public interface ITransaction : ICompositeBase<int, Guid>
     {
         int Amount { get; set; }
-        decimal ItemsCostPrice { get; set; }
-        decimal ItemsCostExPrice { get; set; }
+        decimal ItemCostPrice { get; set; }
+        decimal ItemCostExPrice { get; set; }
 
         string ItemIdOne { get; set; }
-        string ItemIdTwo { get; set; }
-        string SaleId { get; set; }
+        Guid ItemIdTwo { get; set; }
         int? CheckoutItemChangeId { get; set; }
     }
 }

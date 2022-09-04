@@ -5,14 +5,14 @@ using System.Linq.Expressions;
 
 namespace Plutus.Repository.QueryParameters
 {
-    public class StoreParameters : QueryParameters<Store, string>
+    public class StoreParameters : QueryParameters<Store, int>
     {
-        public string BusinessId { get; set; } = default;
+        public Guid BusinessId { get; set; } = default;
 
         public override Expression<Func<Store, bool>> GetExpression()
         {
             var expression = base.GetExpression();
-            if (!String.IsNullOrEmpty(BusinessId))
+            if (BusinessId != default)
             {
                 expression = expression.And(s => s.BusinessId == BusinessId);
             }

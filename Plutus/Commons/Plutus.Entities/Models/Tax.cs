@@ -6,11 +6,13 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Plutus.Entities.Models
 {
+    /// <summary>
+    /// Tax model, where <typeparamref name="T1"></typeparamref>Auto Generated int ID and <typerparamref name="T2"></typerparamref> is Business ID
+    /// </summary>
     [Serializable]
-    public class Tax : CompositeBase<Guid, string>, ITax 
+    public class Tax : CompositeBase<int, Guid>, ITax 
     {
         #region Properties
-        // IdOne GUID
         [Exportable]
         [Required]
         public string Name { get; set; }

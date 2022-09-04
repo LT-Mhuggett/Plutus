@@ -107,14 +107,6 @@ namespace Plutus.Entities.Tests
         {
             Assert.False(DbContext.Items.Any());
         }
-
-        [Test]
-        [Category("TableAreCreated")]
-        public void NoteSalesTableIsCreated()
-        {
-            Assert.False(DbContext.NotesSales.Any());
-        }
-
         [Test]
         [Category("TableAreCreated")]
         public void PayMethodsTableIsCreated()

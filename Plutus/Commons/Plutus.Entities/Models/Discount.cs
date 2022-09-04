@@ -43,7 +43,7 @@ namespace Plutus.Entities.Models
 
         [Exportable]
         [Required]
-        public string BusinessId { get; set; }
+        public Guid BusinessId { get; set; }
         public virtual Business Business { get; set; }
 
         #region Collections

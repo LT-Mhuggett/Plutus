@@ -13,7 +13,7 @@ namespace Plutus.Entities.Models
     /// This is setup to allow physical expansion with keeping one united system.
     /// </summary>
     [Serializable]
-    public class Store : Address<string>, IStore
+    public class Store : Address<int>, IStore
     {
         #region Properties
         [Exportable]
@@ -24,7 +24,7 @@ namespace Plutus.Entities.Models
 
         [Exportable]
         [Required]
-        public string BusinessId { get; set; }
+        public Guid BusinessId { get; set; }
         public virtual Business Business { get; set; }
 
         #region Collections

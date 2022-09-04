@@ -6,10 +6,10 @@
         int Amount { get; set; }
 
         string ItemIdOne { get; set; }
-        string ItemIdTwo { get; set; }
-        string AuthoriserId { get; set; }
-        string SaleId { get; set; }
-        string SaleIdReturned { get; set; }
+        Guid ItemIdTwo { get; set; }
+        Guid AuthoriserId { get; set; }
+        Guid SaleId { get; set; }
+        Guid SaleIdReturned { get; set; }
         int? CheckoutItemChangeId { get; set; }
     }
 }

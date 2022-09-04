@@ -57,7 +57,7 @@ namespace Plutus.Repository.Tests
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
-            Assert.AreEqual(note, DbContext.Notes.Find(note.Id));
+            Assert.AreEqual(note, DbContext.Notes.Find(note.IdOne, note.IdTwo));
             //Assert.AreEqual(1, DbContext.Business.Count());
         }
 
@@ -104,17 +104,24 @@ namespace Plutus.Repository.Tests
         [Category("RecordPersistance")]
         public void CategoryPersists()
         {
+            var Business = new Business()
+            {
+                Name = "Test Name",
+                NameAbbr = "TN"
+            };
+
             var category = new Category()
             {
                 Name = "Test Name",
-                Description = "Test Description"
+                Description = "Test Description",
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.CategoryRepository.Create(category);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
-            Assert.AreEqual(category, DbContext.Category.Find(category.Id));
+            Assert.AreEqual(category, DbContext.Category.Find(category.IdOne, category.IdTwo));
             //Assert.AreEqual(1, DbContext.Category.Count());
         }
 
@@ -199,7 +206,7 @@ namespace Plutus.Repository.Tests
 
             var till = new Till()
             {
-                MachineId = "1",
+                Id = Guid.NewGuid(),
                 StoreId = store.Id,
                 CashFloat = 100,
                 LastOnline = DateTime.Now
@@ -373,7 +380,8 @@ namespace Plutus.Repository.Tests
             var category = new Category()
             {
                 Name = "Test Name",
-                Description = "Test Description"
+                Description = "Test Description", 
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.CategoryRepository.Create(category);
@@ -390,7 +398,7 @@ namespace Plutus.Repository.Tests
                 ExPrice = 9999,
                 Price = 9999,
                 TaxId = tax.IdOne,
-                CatId = category.Id,
+                CatId = category.IdOne,
                 IdTwo = Business.Id
             };
 
@@ -400,7 +408,7 @@ namespace Plutus.Repository.Tests
 
             Assert.AreEqual(Business, DbContext.Business.Find(Business.Id));
             Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, Business.Id));
-            Assert.AreEqual(category, DbContext.Category.Find(category.Id));
+            Assert.AreEqual(category, DbContext.Category.Find(category.IdOne, Business.Id));
             Assert.AreEqual(item, DbContext.Items.Find(item.IdOne, Business.Id));
         }
 
@@ -432,7 +440,8 @@ namespace Plutus.Repository.Tests
             var category = new Category()
             {
                 Name = "Test Name",
-                Description = "Test Description"
+                Description = "Test Description",
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.CategoryRepository.Create(category);
@@ -449,7 +458,7 @@ namespace Plutus.Repository.Tests
                 ExPrice = 9999,
                 Price = 9999,
                 TaxId = tax.IdOne,
-                CatId = category.Id,
+                CatId = category.IdOne,
                 IdTwo = Business.Id
             };
 
@@ -474,7 +483,7 @@ namespace Plutus.Repository.Tests
 
             var till = new Till()
             {
-                MachineId = "1",
+                Id = Guid.NewGuid(),
                 StoreId = store.Id,
                 CashFloat = 100,
                 LastOnline = DateTime.Now
@@ -532,10 +541,10 @@ namespace Plutus.Repository.Tests
             var transaction = new Transaction()
             {
                 Amount = 20000,
-                ItemsCostExPrice = 20000,
-                ItemsCostPrice = 20000,
+                ItemCostExPrice = 20000,
+                ItemCostPrice = 20000,
                 TillId = till.Id,
-                SaleId = sale.Id,
+                IdTwo = sale.Id,
                 ItemIdOne = item.IdOne,
                 ItemIdTwo = item.IdTwo,
             };
@@ -546,9 +555,9 @@ namespace Plutus.Repository.Tests
 
             Assert.AreEqual(Business, DbContext.Business.Find(Business.Id));
             Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, Business.Id));
-            Assert.AreEqual(category, DbContext.Category.Find(category.Id));
+            Assert.AreEqual(category, DbContext.Category.Find(category.IdOne, Business.Id));
             Assert.AreEqual(item, DbContext.Items.Find(item.IdOne, Business.Id));
-            Assert.AreEqual(transaction, DbContext.Trans.Find(transaction.Id));
+            Assert.AreEqual(transaction, DbContext.Trans.Find(transaction.IdOne, transaction.IdTwo));
         }
 
         [Test]
@@ -579,7 +588,8 @@ namespace Plutus.Repository.Tests
             var category = new Category()
             {
                 Name = "Test Name",
-                Description = "Test Description"
+                Description = "Test Description",
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.CategoryRepository.Create(category);
@@ -596,7 +606,7 @@ namespace Plutus.Repository.Tests
                 ExPrice = 9999,
                 Price = 9999,
                 TaxId = tax.IdOne,
-                CatId = category.Id,
+                CatId = category.IdOne,
                 IdTwo = Business.Id
             };
 
@@ -633,7 +643,7 @@ namespace Plutus.Repository.Tests
 
             Assert.AreEqual(Business, DbContext.Business.Find(Business.Id));
             Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, Business.Id));
-            Assert.AreEqual(category, DbContext.Category.Find(category.Id));
+            Assert.AreEqual(category, DbContext.Category.Find(category.IdOne, Business.Id));
             Assert.AreEqual(item, DbContext.Items.Find(item.IdOne, Business.Id));
             Assert.AreEqual(store, DbContext.Stores.Find(store.Id));
             Assert.AreEqual(stock, DbContext.Stocks.Find(stock.IdOne, stock.IdTwo, stock.IdThree));
@@ -832,7 +842,7 @@ namespace Plutus.Repository.Tests
         {
             var till = new Till()
             {
-                MachineId = "1",
+                Id = Guid.NewGuid(),
                 CashFloat = 100,
                 LastOnline = DateTime.Now
             };
@@ -873,7 +883,8 @@ namespace Plutus.Repository.Tests
             var category = new Category()
             {
                 Name = "Test Name",
-                Description = "Test Description"
+                Description = "Test Description",
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.CategoryRepository.Create(category);
@@ -889,7 +900,7 @@ namespace Plutus.Repository.Tests
                 ExPrice = 9999,
                 Price = 9999,
                 TaxId = tax.IdOne,
-                CatId = category.Id,
+                CatId = category.IdOne,
                 IdTwo = Business.Id
             };
 
@@ -927,7 +938,8 @@ namespace Plutus.Repository.Tests
             var category = new Category()
             {
                 Name = "Test Name",
-                Description = "Test Description"
+                Description = "Test Description",
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.CategoryRepository.Create(category);
@@ -943,7 +955,7 @@ namespace Plutus.Repository.Tests
                 ExPrice = 9999,
                 Price = 9999,
                 TaxId = tax.IdOne,
-                CatId = category.Id,
+                CatId = category.IdOne,
                 IdTwo = Business.Id
             };
 
@@ -970,7 +982,8 @@ namespace Plutus.Repository.Tests
             var category = new Category()
             {
                 Name = "Test Name",
-                Description = "Test Description"
+                Description = "Test Description",
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.CategoryRepository.Create(category);
@@ -986,7 +999,7 @@ namespace Plutus.Repository.Tests
                 Cost = 9999,
                 ExPrice = 9999,
                 Price = 9999,
-                CatId = category.Id,
+                CatId = category.IdOne,
                 IdTwo = Business.Id
             };
 
@@ -1459,7 +1472,8 @@ namespace Plutus.Repository.Tests
             var category = new Category()
             {
                 Name = "Test Name",
-                Description = "Test Description"
+                Description = "Test Description",
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.CategoryRepository.Create(category);
@@ -1476,7 +1490,7 @@ namespace Plutus.Repository.Tests
                 ExPrice = 9999,
                 Price = 9999,
                 TaxId = tax.IdOne,
-                CatId = category.Id,
+                CatId = category.IdOne,
                 IdTwo = Business.Id
             };
 
@@ -1547,9 +1561,9 @@ namespace Plutus.Repository.Tests
             var transaction = new Transaction()
             {
                 Amount = 20000,
-                ItemsCostExPrice = 20000,
-                ItemsCostPrice = 20000,
-                SaleId = sale.Id,
+                ItemCostExPrice = 20000,
+                ItemCostPrice = 20000,
+                IdTwo = sale.Id,
                 ItemIdOne = item.IdOne,
                 ItemIdTwo = item.IdTwo,
             };
@@ -1587,7 +1601,8 @@ namespace Plutus.Repository.Tests
             var category = new Category()
             {
                 Name = "Test Name",
-                Description = "Test Description"
+                Description = "Test Description",
+                IdTwo = Business.Id
             };
 
             RepositoryWrapper.CategoryRepository.Create(category);
@@ -1604,7 +1619,7 @@ namespace Plutus.Repository.Tests
                 ExPrice = 9999,
                 Price = 9999,
                 TaxId = tax.IdOne,
-                CatId = category.Id,
+                CatId = category.IdOne,
                 IdTwo = Business.Id
             };
 
@@ -1629,7 +1644,7 @@ namespace Plutus.Repository.Tests
 
             var till = new Till()
             {
-                MachineId = "1",
+                Id = Guid.NewGuid(),
                 StoreId = store.Id,
                 CashFloat = 100,
                 LastOnline = DateTime.Now
@@ -1651,8 +1666,8 @@ namespace Plutus.Repository.Tests
             var transaction = new Transaction()
             {
                 Amount = 20000,
-                ItemsCostExPrice = 20000,
-                ItemsCostPrice = 20000,
+                ItemCostExPrice = 20000,
+                ItemCostPrice = 20000,
                 TillId = till.Id,
                 ItemIdOne = item.IdOne,
                 ItemIdTwo = item.IdTwo,
@@ -2031,7 +2046,7 @@ namespace Plutus.Repository.Tests
 
             var till = new Till()
             {
-                MachineId = "1",
+                Id = Guid.NewGuid(),
                 StoreId = store.Id,
                 CashFloat = 100,
                 LastOnline = DateTime.Now,
@@ -2275,6 +2290,7 @@ namespace Plutus.Repository.Tests
             {
                 Name = "Test Name",
                 Description = "Test Description",
+                IdTwo = Business.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,
                 ModifiedAt = currentTime,
@@ -2294,7 +2310,7 @@ namespace Plutus.Repository.Tests
                 ExPrice = 9999,
                 Price = 9999,
                 TaxId = tax.IdOne,
-                CatId = category.Id,
+                CatId = category.IdOne,
                 IdTwo = Business.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,
@@ -2354,6 +2370,7 @@ namespace Plutus.Repository.Tests
             {
                 Name = "Test Name",
                 Description = "Test Description",
+                IdTwo = Business.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,
                 ModifiedAt = currentTime,
@@ -2373,7 +2390,7 @@ namespace Plutus.Repository.Tests
                 ExPrice = 9999,
                 Price = 9999,
                 TaxId = tax.IdOne,
-                CatId = category.Id,
+                CatId = category.IdOne,
                 IdTwo = Business.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,
@@ -2406,7 +2423,7 @@ namespace Plutus.Repository.Tests
 
             var till = new Till()
             {
-                MachineId = "1",
+                Id = Guid.NewGuid(),
                 StoreId = store.Id,
                 CashFloat = 100,
                 LastOnline = DateTime.Now,
@@ -2480,10 +2497,10 @@ namespace Plutus.Repository.Tests
             var transaction = new Transaction()
             {
                 Amount = 20000,
-                ItemsCostExPrice = 20000,
-                ItemsCostPrice = 20000,
+                ItemCostExPrice = 20000,
+                ItemCostPrice = 20000,
                 TillId = till.Id,
-                SaleId = sale.Id,
+                IdTwo = sale.Id,
                 ItemIdOne = item.IdOne,
                 ItemIdTwo = item.IdTwo,
                 CreatedAt = currentTime,
@@ -2545,6 +2562,7 @@ namespace Plutus.Repository.Tests
             {
                 Name = "Test Name",
                 Description = "Test Description",
+                IdTwo = Business.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,
                 ModifiedAt = currentTime,
@@ -2564,7 +2582,7 @@ namespace Plutus.Repository.Tests
                 ExPrice = 9999,
                 Price = 9999,
                 TaxId = tax.IdOne,
-                CatId = category.Id,
+                CatId = category.IdOne,
                 IdTwo = Business.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,

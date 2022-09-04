@@ -3,18 +3,19 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Identity.Web.Resource;
 using Plutus.Authentication;
 using Plutus.Contracts;
 using Plutus.Entities.Models;
 using Plutus.Entities.Models.Interface;
-using Plutus.Repository.FormBodies;
+using Plutus.Entities.FormBodies;
 using Plutus.Repository.QueryParameters;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Plutus.DBService.Controllers.Bases
 {
-    public abstract class ApiControllerBaseCRU<TEntity, TBody, TId, TQueryParameters> : ApiControllerBaseCR<TEntity, TBody, TId, TQueryParameters> where TEntity : Base<TId> where TBody : FormBody<TEntity> where TQueryParameters : QueryParameters<TEntity, TId> {
+    public abstract class ApiControllerBaseCRU<TEntity, TBody, TId, TQueryParameters> : ApiControllerBaseCR<TEntity, TBody, TId, TQueryParameters> where TEntity : Base<TId>, new() where TBody : FormBody<TEntity> where TQueryParameters : QueryParameters<TEntity, TId> {
        
         public ApiControllerBaseCRU(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor httpContextAccessor) :base(repositoryWrapper, httpContextAccessor) 
         {
@@ -27,10 +28,11 @@ namespace Plutus.DBService.Controllers.Bases
         /// <param name="entity">Entity to save, of type <see cref="TEntity"/></param>
         /// <param name="IsSync">States that this is a sync only request</param>
         /// <returns>Entity of type <see cref="TEntity"/></returns>
-        [Authorize(Actions.WritePermission)]
+        [Authorize]
+        [RequiredScope(RequiredScopesConfigurationKey = "OpenAPI:Scopes:APIWrite:Name")]
         [HttpPut("{id}")]
-        [ApiConventionMethod(typeof(DefaultApiConventions),
-                             nameof(DefaultApiConventions.Put))]
+        [ApiConventionMethod(typeof(APIConventions),
+                             nameof(APIConventions.Put))]
         public virtual async Task<ActionResult<TEntity>> Put([FromRoute] TId id, [FromBody] TEntity entity, [FromQuery] bool IsSync = false)
         {
             if (!EqualityComparer<TId>.Default.Equals(id, ((IBase<TId>)entity).Id))
@@ -70,10 +72,11 @@ namespace Plutus.DBService.Controllers.Bases
         /// <param name="patchDocument">Data to update entity</param>
         /// <param name="IsSync">States that this is a sync only request</param>
         /// <returns>Entity of type <see cref="TEntity"/></returns>
-        [Authorize(Actions.WritePermission)]
+        [Authorize]
+        [RequiredScope(RequiredScopesConfigurationKey = "OpenAPI:Scopes:APIWrite:Name")]
         [HttpPatch("{id}")]
-        [ApiConventionMethod(typeof(DefaultApiConventions),
-                             nameof(DefaultApiConventions.Update))]
+        [ApiConventionMethod(typeof(APIConventions),
+                             nameof(APIConventions.Patch))]
         public virtual async Task<ActionResult<TEntity>> Patch([FromRoute] TId id, [FromBody] JsonPatchDocument<TEntity> patchDocument, [FromQuery] bool IsSync = false)
         {
             if (patchDocument == default)

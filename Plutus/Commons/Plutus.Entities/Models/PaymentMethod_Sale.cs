@@ -18,7 +18,7 @@ namespace Plutus.Entities.Models
         public int PayId { get; set; }
         public virtual PaymentMethod PayMethod { get; set; }
         [Exportable]
-        public string SaleId { get; set; }
+        public Guid SaleId { get; set; }
         public virtual Sale Sale { get; set; }
         #endregion
         #endregion

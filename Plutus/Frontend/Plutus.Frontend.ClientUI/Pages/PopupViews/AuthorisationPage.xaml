@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<toolkit:Popup xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+               xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+               xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+               x:Class="Plutus.Frontend.ClientUI.Pages.PopupViews.AuthorisationPage">
+    <toolkit:Popup.Content>
+        <Grid>
+            <!--#region Grid Definitions-->
+            <Grid.RowDefinitions>
+                <RowDefinition Height="1*" />
+                <RowDefinition />
+                <RowDefinition Height="1*" />
+                <RowDefinition />
+                <RowDefinition Height="1*" />
+                <RowDefinition />
+                <RowDefinition Height="2*" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition />
+                <ColumnDefinition />
+            </Grid.ColumnDefinitions>
+            <!--#endregion -->
+
+            <Label Text="{Binding Title}" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" />
+
+            <Entry Placeholder="Email/ID" Text="{Binding Email}" 
+               Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"  />
+            <Entry Placeholder="Password" Text="{Binding Password}" IsPassword="True"
+               IsVisible="{Binding IsPasswordRequired}"
+               Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" />
+
+            <Button Text="Authorise" Command="{Binding AuthoriseCommand}"
+                Grid.Row="6" Grid.Column="0" />
+            <Button Text="Cancel" Command="{Binding CancelCommand}"
+                Grid.Row="6" Grid.Column="1" />
+        </Grid>
+    </toolkit:Popup.Content>
+</toolkit:Popup>

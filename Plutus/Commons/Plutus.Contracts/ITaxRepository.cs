@@ -3,7 +3,7 @@ using System;
 
 namespace Plutus.Contracts
 {
-    public interface ITaxRepository : ICompositeRepositoryBase<Tax, Guid, string>
+    public interface ITaxRepository : ICompositeRepositoryBase<Tax, int, Guid>
     {
     }
 }

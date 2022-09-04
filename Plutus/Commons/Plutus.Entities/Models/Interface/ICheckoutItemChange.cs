@@ -5,6 +5,6 @@
         decimal Price { get; set; }
         decimal ExPrice { get; set; }
         string ItemIdOne { get; set; }
-        string ItemIdTwo { get; set; }
+        Guid ItemIdTwo { get; set; }
     }
 }

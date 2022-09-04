@@ -2,7 +2,7 @@
 
 namespace Plutus.Entities.Models.Interface
 {
-    public interface IItem : ICompositeBase<string, string>
+    public interface IItem : ICompositeBase<string, Guid>
     {
         string Name { get; set; }
         string Brand { get; set; }
@@ -13,7 +13,7 @@ namespace Plutus.Entities.Models.Interface
         byte[] Image { get; set; }
         int Amount { get; set; }
 
-        Guid TaxId { get; set; }
-        int CatId { get; set; }
+        int TaxId { get; set; }
+        Guid CatId { get; set; }
     }
 }

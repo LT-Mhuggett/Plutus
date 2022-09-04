@@ -17,19 +17,19 @@ namespace Plutus.Entities.Models
         [Exportable]
         public string ItemIdOne { get; set; }
         [Exportable]
-        public string ItemIdTwo { get; set; }
+        public Guid ItemIdTwo { get; set; }
         public virtual Item Item { get; set; }
 
         [Exportable]
-        public string AuthoriserId { get; set; }
+        public Guid AuthoriserId { get; set; }
         public virtual Employee Authoriser { get; set; }
 
         [Exportable]
-        public string SaleId { get; set; }
+        public Guid SaleId { get; set; }
         public virtual Sale Sale { get; set; }
 
         [Exportable]
-        public string SaleIdReturned { get; set; }
+        public Guid SaleIdReturned { get; set; }
         public virtual Sale SaleReturned { get; set; }
 
         [Exportable]

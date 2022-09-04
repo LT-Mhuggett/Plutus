@@ -17,7 +17,9 @@ namespace Plutus.Entities.Models
         [NotMapped]
         public string FullDateTime => string.Format("{0} - {1}", StartDateTime, EndDateTime);
 
-        #region Relationships 
+        #region Relationships
+        public Guid CatIdOne { get; set; }
+        public Guid CatIdTwo { get; set; }
         public virtual Category Cat { get; set; }
         public virtual Discount Discount { get; set; }
         #endregion

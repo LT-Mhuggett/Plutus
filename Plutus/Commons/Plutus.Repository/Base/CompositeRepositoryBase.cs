@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Plutus.Contracts;
 using Plutus.Entities;
 using Plutus.Entities.Models.Interface;
@@ -21,7 +22,7 @@ namespace Plutus.Repository.Base
         }
 
         /// <inheritdoc/>
-        public async virtual Task<bool> Create(TEntity entity)
+        public async virtual Task<bool> Create(TEntity entity, IDbContextTransaction dbTransaction = default)
         {
             await RepositoryContext.Set<TEntity>().AddAsync(entity);
             return true;
@@ -30,7 +31,7 @@ namespace Plutus.Repository.Base
         /// <inheritdoc/>
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
 
-        public async virtual Task<bool> Delete(TEntity entity)
+        public async virtual Task<bool> Delete(TEntity entity, IDbContextTransaction dbTransaction = default)
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
             RepositoryContext.Set<TEntity>().Remove(entity);
@@ -60,7 +61,7 @@ namespace Plutus.Repository.Base
         /// <inheritdoc/>
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
 
-        public async virtual Task<bool> Update(TEntity entity)
+        public async virtual Task<bool> Update(TEntity entity, IDbContextTransaction dbTransaction = default)
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
             RepositoryContext.Set<TEntity>().Update(entity);

@@ -1,4 +1,5 @@
 ﻿using Plutus.Entities.Attributes;
+using Plutus.Entities.FormBodies;
 using Plutus.Entities.Models.Interface;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -13,7 +14,7 @@ namespace Plutus.Entities.Models
         public virtual T Id { get; set; }
         #endregion
 
-        public Base()
+        public Base() : base()
         {
 
         }

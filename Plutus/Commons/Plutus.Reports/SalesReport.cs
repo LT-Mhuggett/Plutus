@@ -60,11 +60,11 @@ namespace Plutus.Reports
                             SaleId = salesData.Id,
                             ItemId = trans.Item.IdOne,
                             ItemName = trans.Item.Name,
-                            UnitPriceAtCheckout = trans.CheckoutItemChangeId == null ? trans.ItemsCostPrice : trans.CheckoutItemChange.Price,
-                            UnitPriceAtCheckoutExTax = trans.CheckoutItemChangeId == null ? trans.ItemsCostExPrice : trans.CheckoutItemChange.ExPrice,
+                            UnitPriceAtCheckout = trans.CheckoutItemChangeId == null ? trans.ItemCostPrice : trans.CheckoutItemChange.Price,
+                            UnitPriceAtCheckoutExTax = trans.CheckoutItemChangeId == null ? trans.ItemCostExPrice : trans.CheckoutItemChange.ExPrice,
                             Qty = trans.Amount,
-                            TotalSalePrice = (trans.CheckoutItemChangeId == null ? trans.ItemsCostPrice : trans.CheckoutItemChange.Price) * trans.Amount,
-                            TotalSalePriceExTax = (trans.CheckoutItemChangeId == null ? trans.ItemsCostExPrice : trans.CheckoutItemChange.ExPrice) * trans.Amount,
+                            TotalSalePrice = (trans.CheckoutItemChangeId == null ? trans.ItemCostPrice : trans.CheckoutItemChange.Price) * trans.Amount,
+                            TotalSalePriceExTax = (trans.CheckoutItemChangeId == null ? trans.ItemCostExPrice : trans.CheckoutItemChange.ExPrice) * trans.Amount,
                             EmployeeName = salesData.Employee.FullName
                         });
 
@@ -73,13 +73,13 @@ namespace Plutus.Reports
                             var discountPrice = -decimal.Round(Math.Abs(transDiscount.Discount.Type == 0 ?
                                 transDiscount.DiscountRate :
                                 (trans.CheckoutItemChangeId == null ?
-                                    trans.ItemsCostPrice :
+                                    trans.ItemCostPrice :
                                     trans.CheckoutItemChange.Price)
                                 * transDiscount.DiscountRate), 2, MidpointRounding.AwayFromZero);
                             var discountExPrice = -decimal.Round(Math.Abs(transDiscount.Discount.Type == 0 ?
                                 transDiscount.DiscountRate :
                                 (trans.CheckoutItemChangeId == null ?
-                                    trans.ItemsCostExPrice :
+                                    trans.ItemCostExPrice :
                                     trans.CheckoutItemChange.ExPrice)
                                 * transDiscount.DiscountRate), 2, MidpointRounding.AwayFromZero);
                             //Record Discount
