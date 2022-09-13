@@ -23,15 +23,13 @@ namespace Plutus.Frontend.ClientUI.ViewModels.PopupViewModels
         }
 
         #region Command Can Executes
-
-        private bool CanExecuteConfirmPriceAdjust() => false;
         #endregion
 
         #region Commands
-        [RelayCommand(CanExecute = nameof(CanExecuteConfirmPriceAdjust))]
+        [RelayCommand]
         private void ConfirmPriceAdjust()
         {
-            OnCloseRequest(this, new PopupCloseRequestEventArgs<Tuple<decimal, decimal>>(this, new PopupReturnValue<Tuple<decimal, decimal>>(PopupReturnStatus.Completed, new Tuple<decimal, decimal>(PriceExTax, Price))));
+            OnCloseRequest(this, new PopupCloseRequestEventArgs<Tuple<decimal, decimal>>(this, new PopupReturnValue<Tuple<decimal, decimal>>(PopupReturnStatus.Completed, new Tuple<decimal, decimal>(Price, PriceExTax))));
         }
 
         [RelayCommand]

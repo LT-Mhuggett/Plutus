@@ -12,6 +12,8 @@ namespace Plutus.Frontend.ClientUI.ViewModels
             builder.Services.AddSingleton<MainTill.Inventory.InventoryViewModel>();
             builder.Services.AddTransient<MainTill.Inventory.ViewAllInventoryViewModel>();
             builder.Services.AddTransient<MainTill.Inventory.AddEditInventoryItemViewModel>();
+            builder.Services.AddSingleton<MainTill.Statistics.StatisticsViewModel>();
+            builder.Services.AddTransient<MainTill.Statistics.SalesReportViewModel>();
             #endregion
 
             #region Popup ViewModels
@@ -21,6 +23,7 @@ namespace Plutus.Frontend.ClientUI.ViewModels
             builder.Services.AddTransient<ReturnItemViewModel>();
             builder.Services.AddTransient<CategoryCreateViewModel>();
             builder.Services.AddTransient<MoniesInputViewModel>();
+            builder.Services.AddTransient<AlterationViewModel>();
             #endregion
 
             return builder;

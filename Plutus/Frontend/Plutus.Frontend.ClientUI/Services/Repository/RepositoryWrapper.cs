@@ -6,6 +6,7 @@ using Plutus.Entities;
 using Plutus.Frontend.ClientUI.Core.AppSettings;
 using Plutus.Frontend.ClientUI.Services.Analytics;
 using Plutus.Frontend.ClientUI.Core;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Plutus.Frontend.ClientUI.Services.Repository
 {
@@ -81,5 +82,11 @@ namespace Plutus.Frontend.ClientUI.Services.Repository
         public void SetCurrentUser(string currentUserObjectId) => _repositoryContext.CurrentUser = currentUserObjectId;
 
         public void SetSyncState(bool syncState = false) => _repositoryContext.SaveChangesAsync(syncState);
+
+        public Task<IDbContextTransaction> GetDbContextTransaction() => _repositoryContext.Database.BeginTransactionAsync();
+
+        public Task RollBackTransaction(IDbContextTransaction dbContextTransaction) => dbContextTransaction.RollbackAsync();
+
+        public Task CommitTransaction(IDbContextTransaction dbContextTransaction) => dbContextTransaction.CommitAsync();
     }
 }

@@ -9,6 +9,7 @@ using Plutus.Frontend.ClientUI.Core.AppSettings;
 using Plutus.Frontend.ClientUI.Pages;
 using Plutus.Frontend.ClientUI.Services;
 using Plutus.Frontend.ClientUI.ViewModels;
+using Syncfusion.Maui.ListView.Hosting;
 
 namespace Plutus.Frontend.ClientUI
 {
@@ -34,7 +35,8 @@ namespace Plutus.Frontend.ClientUI
                 })
                 .UseMauiCompatibility()
                 .UseMauiCommunityToolkit()
-                .UseMauiCommunityToolkitMarkup();
+                .UseMauiCommunityToolkitMarkup()
+                .ConfigureSyncfusionListView();
 
             builder.ConfigureLifecycleEvents(lifecycle =>
             {

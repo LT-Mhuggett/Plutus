@@ -12,6 +12,11 @@ namespace Plutus.Entities.FormBodies
         public Guid EmployeeId { get; set; }
         public int StoreId { get; set; }
         public Guid TillId { get; set; }
+        public ICollection<TransactionBody> Transactions { get; set; }
+        public ICollection<PaymentMethod_SaleBody> PaymentSales { get; set; }
+        public ICollection<RefundBody>? Refunds { get; set; }
+        public ICollection<RefundBody>? Refunded { get; set; }
+        public ICollection<NoteBody>? Notes { get; set; }
 
         public override Sale GenerateEntity()
         {
@@ -23,6 +28,11 @@ namespace Plutus.Entities.FormBodies
             entity.EmployeeId = EmployeeId;
             entity.StoreId = StoreId;
             entity.TillId = TillId;
+            entity.Transactions = Transactions.Select(t => t.GenerateEntity()).ToList();
+            entity.PaySales = PaymentSales.Select(pS => pS.GenerateEntity()).ToList();
+            entity.Refunds = Refunds?.Select(r => r.GenerateEntity()).ToList();
+            entity.Refunded = Refunded?.Select(r => r.GenerateEntity()).ToList();
+            entity.Notes = Notes?.Select(n => n.GenerateEntity()).ToList();
             return entity;
         }
 
@@ -40,6 +50,11 @@ namespace Plutus.Entities.FormBodies
             EmployeeId = entity.EmployeeId;
             StoreId = entity.StoreId;
             TillId = entity.TillId;
+            Transactions = entity.Transactions.Select(e => new TransactionBody(e)).ToList();
+            PaymentSales = entity.PaySales.Select(e => new PaymentMethod_SaleBody(e)).ToList();
+            Refunds = entity.Refunds.Select(e => new RefundBody(e)).ToList();
+            Refunded = entity.Refunded.Select(e => new RefundBody(e)).ToList();
+            Notes = entity.Notes.Select(e => new NoteBody(e)).ToList();
         }
     }
 }
