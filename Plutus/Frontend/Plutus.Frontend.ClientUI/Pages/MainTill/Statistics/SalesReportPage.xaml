@@ -7,8 +7,20 @@
              Shell.NavBarIsVisible="{OnPlatform True, MacCatalyst=False}"
              Title="{OnIdiom {Binding Title}, Desktop=''}">
     <StackLayout>
-        <Label Text="Welcome to .NET MAUI!"
-                VerticalOptions="Center" 
-                HorizontalOptions="Center" />
+        <Label Text="Generate sales report from server"/>
+        <StackLayout Orientation="Horizontal">
+            <StackLayout>
+                <Label Text="Start Date"/>
+                <DatePicker Date="{Binding StartDate}"/>
+            </StackLayout>
+        </StackLayout>
+
+        <StackLayout Orientation="Horizontal">
+            <StackLayout>
+                <Label Text="End Date"/>
+                <DatePicker Date="{Binding EndDate}"/>
+            </StackLayout>
+        </StackLayout>
+        <Button Text="Generate Report" Command="{Binding GenerateReportCommand}" />
     </StackLayout>
 </ContentPage>

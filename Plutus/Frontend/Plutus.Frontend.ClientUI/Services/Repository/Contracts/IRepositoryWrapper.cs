@@ -1,4 +1,6 @@
-﻿namespace Plutus.Frontend.ClientUI.Services.Repository.Contracts
+﻿using Microsoft.EntityFrameworkCore.Storage;
+
+namespace Plutus.Frontend.ClientUI.Services.Repository.Contracts
 {
     public interface IRepositoryWrapper
     {
@@ -29,5 +31,9 @@
         void SetCurrentUser(string currentUserObjectId);
 
         void SetSyncState(bool syncState = false);
+
+        Task<IDbContextTransaction> GetDbContextTransaction();
+        Task RollBackTransaction(IDbContextTransaction dbContextTransaction);
+        Task CommitTransaction(IDbContextTransaction dbContextTransaction);
     }
 }

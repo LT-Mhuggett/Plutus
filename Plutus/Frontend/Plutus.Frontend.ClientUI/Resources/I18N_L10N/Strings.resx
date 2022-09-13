@@ -783,4 +783,7 @@ Please try again.</value>
   <data name="TaxMissing" xml:space="preserve">
     <value>Tax is missing. You may need to reattach to/create a new Tax type.</value>
   </data>
+  <data name="NoAlterationsExist" xml:space="preserve">
+    <value>No Discounts/Sale Alterations exist.</value>
+  </data>
 </root>

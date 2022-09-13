@@ -28,7 +28,7 @@ namespace Plutus.DBService.Controllers
         }
         [Authorize]
         [RequiredScope(RequiredScopesConfigurationKey = "OpenAPI:Scopes:APIRead:Name")]
-        [HttpGet]        
+        [HttpGet("SaleReport")]        
         [ApiConventionMethod(typeof(APIConventions),
                              nameof(APIConventions.Get))]
         public FileResult SalesReport([FromQuery] SaleParameters queryParameters, [FromQuery(Name = "minDate")] DateTime startDate, [FromQuery(Name = "maxDate")] DateTime endDate)
@@ -70,20 +70,6 @@ namespace Plutus.DBService.Controllers
             string fileType = "application/vnd.ms-excel";
 
             return File(stream.ToArray(), fileType, fileName);
-        }
-
-        [Authorize]
-        [RequiredScope(RequiredScopesConfigurationKey = "OpenAPI:Scopes:APIWrite:Name")]
-        [HttpPost("SaleTransaction")]
-        [ApiConventionMethod(typeof(APIConventions),
-                             nameof(APIConventions.Post))]
-        public async Task<ActionResult<Sale>> SaleTransaction([FromBody] Sale sale, [FromQuery] bool isSync = false)
-        {
-            await Repository.Create(sale);
-            RepositoryWrapper.SetSyncState(isSync);
-            await RepositoryWrapper.SaveAsync();
-
-            return CreatedAtAction("FindById", new { id = sale.Id }, sale);
         }
     }
 }

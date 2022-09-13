@@ -124,7 +124,7 @@ namespace Plutus.Entities
                 .HasKey(s => new { s.IdOne, s.IdTwo, s.IdThree });
 
             modelBuilder.Entity<Transaction_Discount>()
-                .HasKey(tD => new { tD.TransactionId, tD.DiscountId });
+                .HasKey(tD => new { tD.TransactionId, tD.DiscountId, tD.SaleId });
 
             modelBuilder.Entity<Note>()
                 .HasKey(ns => new { ns.IdOne, ns.IdTwo });

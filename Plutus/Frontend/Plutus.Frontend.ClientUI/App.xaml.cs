@@ -15,6 +15,8 @@ namespace Plutus.Frontend.ClientUI
         {
             InitializeComponent();
 
+            Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense("NzE1MTY3QDMyMzAyZTMyMmUzMG1OVkUwL1Jsd0p2VGpQRVRqRXZMQTVsbGViV0hPaitSa2tIZzJKdjZrZlU9");
+
             //Setup current culture and Translation
             MainPage = new NavigationPage(ServiceHelper.GetService<LoginPage>());
         }

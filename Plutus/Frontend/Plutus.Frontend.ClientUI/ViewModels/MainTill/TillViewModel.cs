@@ -193,14 +193,25 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
             {
                 if (basketItemParameter is BasketItem basketItem)
                 {
-                    var retunredValues = await ServiceHelper.GetService<TillPage>().ShowPopupAsync(ServiceHelper.GetService<AdjustItemPage>()) as PopupReturnValue<Tuple<decimal, decimal>>;
-
-                    if (retunredValues.PopupReturnStatus == PopupReturnStatus.Completed)
+                    var returnedPopup = ServiceHelper.GetService<AdjustItemPage>();
+                    returnedPopup.SetData(basketItem.Price, basketItem.PriceExTax);
+                    var returnedValues = await ServiceHelper.GetService<TillPage>().ShowPopupAsync(returnedPopup) as PopupReturnValue<Tuple<decimal, decimal>>;
+                    //Countermesaure code till CommunityToolkit/Maui#568 is merged to release branch
+#if WINDOWS
+                    var mauiPopup = (CommunityToolkit.Maui.Core.Views.MauiPopup)returnedPopup.Handler?.PlatformView;
+                    var panel = mauiPopup.Target as Microsoft.Maui.Platform.ContentPanel;
+                    if (panel != null)
+                        panel.ContextFlyout = null;
+#endif
+                    //End of Countermesaure code
+                    if (returnedValues.PopupReturnStatus == PopupReturnStatus.Completed)
                     {
-                        basketItem.PriceExTax = retunredValues.ReturnValue.Item1;
-                        basketItem.Price = retunredValues.ReturnValue.Item2;
+                        basketItem.Price = returnedValues.ReturnValue.Item1;
+                        basketItem.PriceExTax = returnedValues.ReturnValue.Item2;
+                        returnedPopup = null;
                     }
                     Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Item Adjustment");
+                    returnedPopup = null;
                 }
             }
             finally
@@ -267,7 +278,7 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
         [RelayCommand]
         private async void AlterTransactionSelector()
         {
-            if(IsBusy || !CanCheckoutAlterOrSave) return;
+            if (IsBusy || !CanCheckoutAlterOrSave) return;
             IsBusy = true;
 
             try
@@ -275,16 +286,22 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
                 Alterations.Clear();
 
                 Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Transaction Alteration (Discounts)");
-                foreach(var discount in await RepositoryWrapper.DiscountRepository.GetAll())
+                foreach (var discount in await RepositoryWrapper.DiscountRepository.GetAll())
                 {
                     Alterations.Add(discount);
                 }
 
-                string action = await App.Current.MainPage.DisplayActionSheet("Alteration:", "Cancel", null, Alterations.Select(a=>a.Name).ToArray());
+                if (Alterations.Count < 1)
+                {
+                    await App.Current.MainPage.DisplayAlert(Strings.Hmm, Strings.NoAlterationsExist, Strings.OK);
+                    return;
+                }
+
+                string action = await App.Current.MainPage.DisplayActionSheet("Alteration:", "Cancel", null, Alterations.Select(a => a.Name).ToArray());
 
                 if (action == "Cancel") return;
 
-                var alteration = Alterations.Where(a=>a.Name == action).FirstOrDefault();
+                var alteration = Alterations.Where(a => a.Name == action).FirstOrDefault();
                 var items = new List<BasketItem>();
 
                 foreach (var item in Basket.Where(br => br is BasketItem).Cast<BasketItem>().ToList())
@@ -296,11 +313,18 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
                 }
                 var popup = ServiceHelper.GetService<AlterationPage>();
                 popup.SetData(alteration, items);
-                var adjustmentsResponse = await ServiceHelper.GetService<TillPage>().ShowPopupAsync(popup) as PopupReturnValue<List<BasketItem>>;
-
+                var adjustmentsResponse = await ServiceHelper.GetService<TillPage>().ShowPopupAsync(popup) as PopupReturnValue<List<BasketAlteration>>;
+                //Countermesaure code till CommunityToolkit/Maui#568 is merged to release branch
+#if WINDOWS
+                var mauiPopup = (CommunityToolkit.Maui.Core.Views.MauiPopup)popup.Handler?.PlatformView;
+                var panel = mauiPopup.Target as Microsoft.Maui.Platform.ContentPanel;
+                if (panel != null)
+                    panel.ContextFlyout = null;
+#endif
+                //End of Countermesaure code
                 if (adjustmentsResponse.PopupReturnStatus == PopupReturnStatus.Completed)
                 {
-                    foreach(var adjustment in adjustmentsResponse.ReturnValue)
+                    foreach (var adjustment in adjustmentsResponse.ReturnValue)
                     {
                         Basket.Add(adjustment);
                     }
@@ -410,11 +434,11 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
                         })
                 };
 
-                if(await RepositoryWrapper.SavedTransactionRepository.Create(storeTransaction))
+                if (await RepositoryWrapper.SavedTransactionRepository.Create(storeTransaction))
                 {
                     var storedTransFound = await RepositoryWrapper.SavedTransactionRepository.GetAll();
                     StoredTransactions.Clear();
-                    foreach(var trans in storedTransFound)
+                    foreach (var trans in storedTransFound)
                     {
                         StoredTransactions.Add(trans);
                     }
@@ -442,7 +466,7 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
             try
             {
                 Employee currentEmployee;
-                if(AppState.LoggedInEmployees.Count() > 1)
+                if (AppState.LoggedInEmployees.Count() > 1)
                 {
                     var employeeName = await App.Current.MainPage.DisplayActionSheet(Strings.Hmm, null, null, AppState.LoggedInEmployees.Select(e => e.FullName).ToArray());
                     currentEmployee = AppState.LoggedInEmployees.First(e => e.FullName.Equals(employeeName));
@@ -504,6 +528,13 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
                     var moniesInputPage = ServiceHelper.GetService<MoniesInputPage>();
                     moniesInputPage.SetData(chosenPayMeth, sale.Total);
                     var moniesInputReturn = await ServiceHelper.GetService<TillPage>().ShowPopupAsync(moniesInputPage) as PopupReturnValue<decimal>;
+                    //Countermesaure code till CommunityToolkit/Maui#568 is merged to release branch
+#if WINDOWS
+                    var mauiPopup = (CommunityToolkit.Maui.Core.Views.MauiPopup)moniesInputPage.Handler?.PlatformView;
+                    var panel = mauiPopup.Target as Microsoft.Maui.Platform.ContentPanel;
+                    if (panel != null)
+                        panel.ContextFlyout = null;
+#endif
                     if (moniesInputReturn.PopupReturnStatus == PopupReturnStatus.Completed)
                     {
                         pay.Amount = moniesInputReturn.ReturnValue;
@@ -530,10 +561,13 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
                 {
                     //Cashback stuff
                 }
-
+                var noteId = 1;
                 foreach (var basketNote in Basket.Where(bR => bR is BasketNote || bR is BasketAlteration).Cast<BasketNote>().ToList())
                 {
+                    basketNote.Note.IdOne = noteId;
+                    basketNote.Note.Sale = sale;
                     sale.Notes.Add(basketNote.Note);
+                    noteId++;
                 }
 
                 var @continue = await App.Current.MainPage.DisplayAlert(Strings.Hmm,
@@ -548,19 +582,20 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
                 //Loop through all BasketItems and Refund adding
                 sale.Transactions = new List<Transaction>();
                 sale.Refunds = new List<Refund>();
+                sale.Refunded = new List<Refund>();
 
 
-                var tranId = 0;
+                var tranId = 1;
                 //Loop through all BasketItems in Basket
                 foreach (var item in Basket.Where(bR => bR is BasketItem).Cast<BasketItem>().ToList())
                 {
-                    var tran = new Transaction() { IdOne=tranId, ItemIdOne = item.Item.IdOne, ItemIdTwo = item.Item.IdTwo, Sale = sale, Amount = item.Quantity, ItemCostExPrice = item.Item.ExPrice, ItemCostPrice = item.Item.Price, Transaction_Discounts = new ObservableCollection<Transaction_Discount>() };
+                    var tran = new Transaction() { IdOne = tranId, ItemIdOne = item.Item.IdOne, ItemIdTwo = item.Item.IdTwo, Sale = sale, TillId = AppState.Till.Id, Amount = item.Quantity, ItemCostExPrice = item.Item.ExPrice, ItemCostPrice = item.Item.Price, Transaction_Discounts = new ObservableCollection<Transaction_Discount>() };
                     if (Basket.Where(bR => bR is BasketAlteration).Cast<BasketAlteration>().Any())
                     {
                         var tempIA = Basket.Where(bR => bR is BasketAlteration && bR is not BasketReturnItem).Cast<BasketAlteration>().FirstOrDefault(bA => bA.ItemsAssocitated.Any(iA => iA.Item.IdOne.Equals(item.Item.IdOne) && iA.Item.IdTwo.Equals(item.Item.IdTwo)));
                         if (tempIA != default)
                         {
-                            var tranDisc = new Transaction_Discount { DiscountId = tempIA.Discount.Id };
+                            var tranDisc = new Transaction_Discount { DiscountId = tempIA.Discount.Id, DiscountRate = tempIA.Discount.Amount, Transaction = tran };
                             tran.Transaction_Discounts.Add(tranDisc);
                         }
                     }
@@ -610,16 +645,16 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
             try
             {
                 var item = await RepositoryWrapper.ItemRepository.FindById(itemId, AppState.Business.Id);
-                if(item == null)
+                if (item == null)
                 {
                     await App.Current.MainPage.DisplayAlert(Strings.Hmm, Strings.ItemNotFoundMesg, Strings.OK);
                     Logger.LogEvent(AppLogLevel.Warn, $"{this.GetType().Name}: Item Added To Basket (from Request)",
                         new Dictionary<string, string> { { "Success", "False" }, { "Reason", "Item no longer exists" } });
                     return;
                 }
-                
+
                 var tax = await RepositoryWrapper.TaxRepository.FindById(item.TaxId, AppState.Business.Id);
-                if(tax == null)
+                if (tax == null)
                 {
                     await App.Current.MainPage.DisplayAlert(Strings.Hmm, "Tax not found.", Strings.OK);
                     Logger.LogEvent(AppLogLevel.Warn, $"{this.GetType().Name}: Item Added To Basket (from Request)",
@@ -629,7 +664,7 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
 
                 BasketItem tempItem;
 
-                if(SelectedBasketRecord != null &&
+                if (SelectedBasketRecord != null &&
                    (SelectedBasketRecord is BasketItem) &&
                    ((BasketItem)SelectedBasketRecord).Item.IdTwo.Equals(item.IdTwo) &&
                    !(SelectedBasketRecord is BasketReturnItem))
@@ -664,7 +699,7 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
 
         private async Task FinaliseTransaction(Sale sale, decimal change)
         {
-            if (!await RepositoryWrapper.SaleRepository.SaleTransactionsCreate(sale))
+            if (!await RepositoryWrapper.SaleRepository.Create(sale))
             {
                 await App.Current.MainPage.DisplayAlert(Strings.Hmm, Strings.DbIssue, Strings.OK);
                 return;
@@ -672,11 +707,12 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
 
             foreach (var tran in sale.Transactions)
             {
+
                 if (await RepositoryWrapper.StockRepository.Exists(tran.ItemIdOne, tran.ItemIdTwo, AppState.Store.Id))
                 {
                     var stock = await RepositoryWrapper.StockRepository.FindById(tran.ItemIdOne, tran.ItemIdTwo, AppState.Store.Id);
                     if (stock == default) continue;
-                    
+
                     await RepositoryWrapper.StockRepository.StockUpdateByQuantityChange(stock, tran.Amount);
                 }
             }
@@ -688,7 +724,7 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
             };
 
             using var posPrinterManager = ServiceHelper.GetService<PosPrinterManager>();
-            if(!Settings.AskForReceipt || await App.Current.MainPage.DisplayAlert(Strings.Hmm, Strings.ReceiptRequired, Strings.Yes, Strings.No))
+            if (!Settings.AskForReceipt || await App.Current.MainPage.DisplayAlert(Strings.Hmm, Strings.ReceiptRequired, Strings.Yes, Strings.No))
             {
                 trackEventsArgs.Add("Receipt Requested", "True");
                 tasks[0] = Task.Run(async () =>
@@ -712,7 +748,7 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
             {
                 await Task.WhenAll(tasks.Where(t => t != null));
             }
-            catch(POSObjectException posObjectException)
+            catch (POSObjectException posObjectException)
             {
                 switch (posObjectException.POSTargetObjectType)
                 {
@@ -723,14 +759,14 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
                     case CommonPOSLibrary.Enums.POSTargetObjectType.CashDrawer:
                         trackEventsArgs.Add("Cash Drawer Opened Successfully", "False");
                         trackEventsArgs.Add("Cash Drawer Warning Already Silenced", Settings.CashDrawerWarningSilenced.ToString());
-                        if(!Settings.CashDrawerWarningSilenced)
+                        if (!Settings.CashDrawerWarningSilenced)
                             Settings.CashDrawerWarningSilenced = !await Application.Current.MainPage.DisplayAlert(Strings.Hmm, Strings.CashDrawerErrorWarning, Strings.OK, Strings.Silence);
                         break;
                 }
             }
-            catch(POSPrinterException posPrinterException)
+            catch (POSPrinterException posPrinterException)
             {
-                if(posPrinterException.POSPrinterExceptionType == CommonPOSLibrary.Enums.POSPrinterExceptionType.PrinterNotClaimed)
+                if (posPrinterException.POSPrinterExceptionType == CommonPOSLibrary.Enums.POSPrinterExceptionType.PrinterNotClaimed)
                 {
                     Microsoft.AppCenter.Crashes.Crashes.TrackError(posPrinterException);
                 }
