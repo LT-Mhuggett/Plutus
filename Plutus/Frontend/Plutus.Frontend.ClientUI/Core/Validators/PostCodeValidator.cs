@@ -7,14 +7,12 @@ namespace Plutus.Frontend.ClientUI.Core.Validators
     class PostCodeValidator : IValidator
     {
         /// <inheritDoc/>
-        /// <see cref="NatApp.Plutus.Helpers.Validators.IValidatorReqReference.Message"/>
         public string Message { get; set; } = string.Format(Strings.FieldRequiredWithArg, Strings.PostCode);
 
         /// <summary>
         /// This implementation ensures <code>value</code> is a Valid UK PostCode
         /// </summary>
         /// <inheritDoc/>
-        /// <see cref="NatApp.Plutus.Helpers.Validators.IValidatorReqReference.Check(string)"/>
         public bool Check(string value)
         {
             if (string.IsNullOrWhiteSpace(value))

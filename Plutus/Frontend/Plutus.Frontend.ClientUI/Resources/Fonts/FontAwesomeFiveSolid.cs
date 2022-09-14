@@ -704,7 +704,9 @@ namespace Plutus.Frontend.ClientUI.Resources.Fonts
         public const string Divide = "\uf529";
         public const string DoorClosed = "\uf52a";
         public const string DoorOpen = "\uf52b";
+#pragma warning disable CS0108 // Member hides inherited member; missing new keyword
         public const string Equals = "\uf52c";
+#pragma warning restore CS0108 // Member hides inherited member; missing new keyword
         public const string Feather = "\uf52d";
         public const string Frog = "\uf52e";
         public const string GasPump = "\uf52f";

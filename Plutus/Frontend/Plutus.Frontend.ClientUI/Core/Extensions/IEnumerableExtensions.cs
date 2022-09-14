@@ -86,7 +86,7 @@ namespace Plutus.Frontend.ClientUI.Core.Extensions
         }
 
         /// <summary>
-        /// Create DataTable from IEnumerable<IDictionary<string, Object>>
+        /// Create DataTable
         /// </summary>
         /// <param name="enumerable">IEnumberable to be converted to DataTable</param>
         /// <param name="tableName">Name of Table</param>

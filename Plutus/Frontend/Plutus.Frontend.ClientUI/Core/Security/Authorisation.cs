@@ -1,28 +1,26 @@
 ﻿using Plutus.Contracts;
-using Plutus.Entities.Enums;
-using System;
-using System.Threading.Tasks;
 using Permissions = Plutus.Entities.Enums.Permissions;
 
 namespace Plutus.Frontend.ClientUI.Core.Security
 {
     internal class Authorisation
     {
-        private IRepositoryWrapper RepositoryWrapper;
-        private IAppState _appState;
+        private readonly IRepositoryWrapper _repositoryWrapper;
+        private readonly IAppState _appState;
 
         internal Authorisation(IRepositoryWrapper repositoryWrapper, IAppState appState)
         {
-            RepositoryWrapper = repositoryWrapper;
+            _repositoryWrapper = repositoryWrapper;
+            _appState = appState;
         }
 
         internal async Task<bool> IsAuthorised(Guid eIdTemp, string action, Permissions rightNeeded)
         {
-            var emp = await RepositoryWrapper.EmployeeRepository.FindById(eIdTemp, _appState.Business.Id);
+            var emp = await _repositoryWrapper.EmployeeRepository.FindById(eIdTemp, _appState.Business.Id);
             if (emp == default)
                 return false;
 
-            var authRequired = await RepositoryWrapper.AuthActionRepository.FindFirstByCondition(aA => aA.Name.Equals(action));
+            var authRequired = await _repositoryWrapper.AuthActionRepository.FindFirstByCondition(aA => aA.Name.Equals(action));
 
             foreach (var empAuth in emp.EmpAuths)
             {
@@ -48,11 +46,11 @@ namespace Plutus.Frontend.ClientUI.Core.Security
 
         internal async Task<bool> IsAuthorised(Guid eIdTemp, string action, decimal amount, Permissions rightNeeded)
         {
-            var emp = await RepositoryWrapper.EmployeeRepository.FindById(eIdTemp, _appState.Business.Id);
+            var emp = await _repositoryWrapper.EmployeeRepository.FindById(eIdTemp, _appState.Business.Id);
             if (emp == default)
                 return false;
 
-            var authRequired = await RepositoryWrapper.AuthActionRepository.FindFirstByCondition(aA => aA.Name.Equals(action));
+            var authRequired = await _repositoryWrapper.AuthActionRepository.FindFirstByCondition(aA => aA.Name.Equals(action));
 
             foreach (var empAuth in emp.EmpAuths)
             {

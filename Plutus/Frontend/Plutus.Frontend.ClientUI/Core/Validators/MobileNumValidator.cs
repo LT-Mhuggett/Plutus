@@ -7,14 +7,12 @@ namespace Plutus.Frontend.ClientUI.Core.Validators
     class MobileNumValidator : IValidator
     {
         /// <inheritDoc/>
-        /// <see cref="NatApp.Plutus.Helpers.Validators.IValidatorReqReference.Message"/>
         public string Message { get; set; } = string.Format(Strings.NotValid, Strings.MobileNum);
 
         /// <summary>
         /// This implementation ensures <code>value</code> is a mobile number in a given region
         /// </summary>
         /// <inheritDoc/>
-        /// <see cref="NatApp.Plutus.Helpers.Validators.IValidatorReqReference.Check(string)"/>
         public bool Check(string value)
         {
             if (string.IsNullOrWhiteSpace(value))

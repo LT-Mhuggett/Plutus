@@ -7,14 +7,12 @@ namespace Plutus.Frontend.ClientUI.Core.Validators
     class VatINValidator : IValidator
     {
         /// <inheritDoc/>
-        /// <see cref="NatApp.Plutus.Helpers.Validators.IValidatorReqReference.Message"/>
         public string Message { get; set; } = string.Format(Strings.FieldRequiredWithArg, Strings.VatIN);
 
         /// <summary>
         /// This implementation ensures <code>value</code> is a Valid EU Vat IN
         /// </summary>
         /// <inheritDoc/>
-        /// <see cref="NatApp.Plutus.Helpers.Validators.IValidatorReqReference.Check(string)"/>
         public bool Check(string value)
         {
             if (string.IsNullOrWhiteSpace(value))
