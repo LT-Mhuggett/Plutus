@@ -8,11 +8,11 @@ using Plutus.Entities;
 
 #nullable disable
 
-namespace Plutus.Entities.Migations.MySql
+namespace Plutus.Entities.Migrations.MySql
 {
     [DbContext(typeof(MySqlDbContext))]
-    [Migration("20220826143119_Test")]
-    partial class Test
+    [Migration("20220913001015_UpdateTransaction_DiscountKey")]
+    partial class UpdateTransaction_DiscountKey
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -1060,6 +1060,9 @@ namespace Plutus.Entities.Migations.MySql
                     b.Property<int>("DiscountId")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("SaleId")
+                        .HasColumnType("char(36)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -1077,10 +1080,7 @@ namespace Plutus.Entities.Migations.MySql
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<Guid>("SaleId")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("TransactionId", "DiscountId");
+                    b.HasKey("TransactionId", "DiscountId", "SaleId");
 
                     b.HasIndex("DiscountId");
 

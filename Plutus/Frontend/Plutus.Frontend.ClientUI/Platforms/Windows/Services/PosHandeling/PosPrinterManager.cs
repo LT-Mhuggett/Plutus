@@ -84,7 +84,8 @@ namespace Plutus.Frontend.ClientUI.Services.PosHandeling
             {
                 if (disposing)
                 {
-                    _posPrinter.Dispose();
+                    if(_posPrinter!=null)
+                        _posPrinter.Dispose();
                     _deviceEnabled = false;
                 }
                 _disposedValue = true;

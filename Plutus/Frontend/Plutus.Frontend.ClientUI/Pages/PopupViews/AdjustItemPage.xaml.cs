@@ -19,6 +19,12 @@ public partial class AdjustItemPage : Popup
         ((AdjustItemViewModel)BindingContext).RaisePopupCloseRequest += AdjustItem_RaisePopupCloseRequest;
 	}
 
+    public void SetData(decimal price, decimal priceExTax)
+    {
+        ((AdjustItemViewModel)BindingContext).Price = price;
+        ((AdjustItemViewModel)BindingContext).PriceExTax = priceExTax;
+    }
+
     private void AdjustItem_RaisePopupCloseRequest(object sender, PopupCloseRequestEventArgs<Tuple<decimal, decimal>> popupCloseEventArgs)
     {
         Close(popupCloseEventArgs.PopupReturnValue);

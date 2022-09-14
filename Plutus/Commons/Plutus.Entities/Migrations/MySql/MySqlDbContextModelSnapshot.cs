@@ -1058,6 +1058,9 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Property<int>("DiscountId")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("SaleId")
+                        .HasColumnType("char(36)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -1075,10 +1078,7 @@ namespace Plutus.Entities.Migrations.MySql
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<Guid>("SaleId")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("TransactionId", "DiscountId");
+                    b.HasKey("TransactionId", "DiscountId", "SaleId");
 
                     b.HasIndex("DiscountId");
 

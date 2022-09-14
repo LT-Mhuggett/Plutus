@@ -1079,6 +1079,15 @@ namespace Plutus.Frontend.ClientUI.Resources.I18N_L10N {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to No Discounts/Sale Alterations exist..
+        /// </summary>
+        public static string NoAlterationsExist {
+            get {
+                return ResourceManager.GetString("NoAlterationsExist", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to No items found.
         /// </summary>
         public static string NoItemsFound {

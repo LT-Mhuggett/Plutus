@@ -433,6 +433,7 @@ namespace Plutus.Frontend.ClientUI.Services.Repository.Base
                             await RepositoryContext.SaveChangesAsync();
                             RepositoryContext.SetSyncState(false);
                         }
+
                         foreach (var entity in entities)
                             DetachEntity(entity);
                     }

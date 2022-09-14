@@ -25,6 +25,7 @@ namespace Plutus.Frontend.ClientUI.Pages
             builder.Services.AddTransient<ReturnItemPage>();
             builder.Services.AddTransient<CategoryCreatePage>();
             builder.Services.AddTransient<MoniesInputPage>();
+            builder.Services.AddTransient<AlterationPage>();
             #endregion
 
             return builder;
