@@ -29,7 +29,7 @@ namespace Plutus.Frontend.ClientUI.Services.PosHandeling
         /// Open the Cash drawer
         /// </summary>
         /// <returns>Successful or Not</returns>
-        public partial Task OpenCashDrawer(string deviceId);
+        public partial Task OpenCashDrawer(string deviceId = null);
 
         
         public partial Task ExecuteOposOrPdfAsync();

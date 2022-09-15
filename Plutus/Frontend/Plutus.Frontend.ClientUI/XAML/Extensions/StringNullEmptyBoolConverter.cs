@@ -10,6 +10,8 @@ namespace Plutus.Frontend.ClientUI.XAML.Extensions
         {
             if (value is string @string)
                 return (bool)!string.IsNullOrEmpty(@string);
+            else if (value is null)
+                return false;
             else
                 throw new ArgumentException("Value type is not valid in this converter", "value");
         }
