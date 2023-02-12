@@ -11,6 +11,8 @@ namespace Plutus.Frontend.ClientUI.XAML.Extensions
         {
             if (value is ICollection collection)
                 return collection.Count == 0 ? false : true;
+            else if (value is null)
+                return false;
             else
                 throw new ArgumentException("Value type not supported", "value");
         }

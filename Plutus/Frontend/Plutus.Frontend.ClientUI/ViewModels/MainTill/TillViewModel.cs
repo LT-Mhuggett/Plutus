@@ -129,10 +129,10 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
         }
 
         [RelayCommand(CanExecute = nameof(CanExecuteItemId))]
-        private async void ManualAdd() => AddItem(ItemId);
+        private async void ManualAdd() => await AddItem(ItemId);
 
         [RelayCommand]
-        private async void ManualAddArg(string itemId) => AddItem(itemId);
+        private async void ManualAddArg(string itemId) => await AddItem(itemId);
         #endregion
         #region Removing
         [RelayCommand]
@@ -637,7 +637,7 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
         #endregion
 
         #region Operations
-        private async void AddItem(string itemId)
+        private async Task AddItem(string itemId)
         {
             if (IsBusy) return;
 

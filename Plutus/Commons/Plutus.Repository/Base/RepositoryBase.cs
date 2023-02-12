@@ -8,7 +8,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace Plutus.Repository.Base
@@ -29,7 +28,9 @@ namespace Plutus.Repository.Base
         }
 
         /// <inheritdoc/>
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
         public async virtual Task<bool> Delete(TEntity entity, IDbContextTransaction dbTransaction = default)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
             try
             {
@@ -70,7 +71,9 @@ namespace Plutus.Repository.Base
         public virtual void SetState(TEntity entity, EntityState entityState = EntityState.Modified) => RepositoryContext.Entry(entity).State = entityState;
 
         /// <inheritdoc/>
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
         public async virtual Task<bool> Update(TEntity entity, IDbContextTransaction dbTransaction = default)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
             try
             {

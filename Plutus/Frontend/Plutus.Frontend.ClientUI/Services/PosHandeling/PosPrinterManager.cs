@@ -96,8 +96,7 @@ namespace Plutus.Frontend.ClientUI.Services.PosHandeling
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="text"></param>
-        /// <param name="sale"></param>
+        /// <param name="basketRecords"></param>
         /// <returns></returns>
         private Task PrintTransactionAndRefundsAsync(IEnumerable<IBasketRecord> basketRecords)
         {
@@ -164,7 +163,7 @@ namespace Plutus.Frontend.ClientUI.Services.PosHandeling
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="sale"></param>
+        /// <param name="notes"></param>
         private void PrintNotes(IEnumerable<Note> notes)
         {
             WriteText(Strings.Notes, bold: "true");
@@ -177,9 +176,7 @@ namespace Plutus.Frontend.ClientUI.Services.PosHandeling
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="text"></param>
         /// <param name="sale"></param>
-        /// <returns></returns>
         private void PrintFooterOfReceipt(Sale sale)
         {
             WriteText("\t50");

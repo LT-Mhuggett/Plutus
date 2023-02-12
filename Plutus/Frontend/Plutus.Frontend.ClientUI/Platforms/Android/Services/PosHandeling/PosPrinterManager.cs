@@ -1,24 +1,24 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Plutus.Frontend.ClientUI.Services.PosHandeling
+﻿namespace Plutus.Frontend.ClientUI.Services.PosHandeling
 {
     public partial class PosPrinterManager : IDisposable
     {
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
         public async partial Task<string> SelectPrinterAndGetPrinterId()
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
             throw new NotImplementedException();
         }
 
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
         internal async partial Task SetupExecutePrintMultiLine()
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
             throw new NotImplementedException();
         }
 
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
         internal async partial Task<bool> InitPrinter()
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
             throw new NotImplementedException();
         }

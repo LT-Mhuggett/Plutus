@@ -110,7 +110,7 @@ namespace Plutus.Reports
                             Qty = refund.Amount,
                             TotalSalePrice = -Math.Abs((refund.CheckoutItemChangeId == null ? refund.Item.Price : refund.CheckoutItemChange.Price)) * refund.Amount,
                             TotalSalePriceExTax = -Math.Abs((refund.CheckoutItemChangeId == null ? refund.Item.ExPrice : refund.CheckoutItemChange.ExPrice)) * refund.Amount,
-                            EmployeeName = refund.AuthoriserId == null ? salesData.Employee.FullName : refund.Authoriser.FullName
+                            EmployeeName = refund.AuthoriserId == Guid.Empty ? salesData.Employee.FullName : refund.Authoriser.FullName
                         });
                 }
 

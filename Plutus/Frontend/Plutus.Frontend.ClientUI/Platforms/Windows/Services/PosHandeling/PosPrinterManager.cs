@@ -44,7 +44,7 @@ namespace Plutus.Frontend.ClientUI.Services.PosHandeling
             return false;
         }
 
-        public async partial Task OpenCashDrawer(string deviceId = null)
+        public async partial Task OpenCashDrawer(string deviceId)
         {
             using PosCashDrawer posCashDrawer = new(deviceId);
             await posCashDrawer.CreatePOSObject();

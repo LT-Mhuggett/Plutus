@@ -32,7 +32,9 @@ namespace Plutus.Repository
         }
 
 
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
         public async virtual Task<bool> Delete(Employee employee)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
             try
             {
@@ -56,7 +58,9 @@ namespace Plutus.Repository
         public virtual IQueryable<Employee> GetAllQueryable() => RepositoryContext.Set<Employee>().AsNoTracking();
         public virtual void SetState(Employee employee, EntityState entityState = EntityState.Modified) => RepositoryContext.Entry(employee).State = entityState;
 
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
         public async virtual Task<bool> Update(Employee employee)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
             try
             {

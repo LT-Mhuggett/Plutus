@@ -6,6 +6,6 @@ namespace Plutus.Frontend.ClientUI.Services.Repository.Contracts
 {
     public interface IPaymentMethodRepository : IRepositoryBase<PaymentMethod, int, PaymentMethodBody, PaymentMethodsParameters>, Plutus.Contracts.IPaymentMethodRepository
     {
-        Task<IQueryable<PaymentMethod>> GetAllQueryable();
+        new Task<IQueryable<PaymentMethod>> GetAllQueryable();
     }
 }

@@ -67,7 +67,7 @@ namespace Plutus.DBService.Controllers
         [HttpGet("Index")]
         [ApiConventionMethod(typeof(APIConventions),
                              nameof(APIConventions.Index))]
-        public async Task<ActionResult<IEnumerable<Employee>>> Index([FromHeader] Guid businessId, [FromQuery] EmployeeParameters employeeParameters)
+        public ActionResult<IEnumerable<Employee>> Index([FromHeader] Guid businessId, [FromQuery] EmployeeParameters employeeParameters)
         {
             if (businessId.Equals(default))
                 return BadRequest("Business ID not provided");
