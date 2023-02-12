@@ -9,7 +9,7 @@ using Plutus.Frontend.ClientUI.Core.AppSettings;
 using Plutus.Frontend.ClientUI.Pages;
 using Plutus.Frontend.ClientUI.Services;
 using Plutus.Frontend.ClientUI.ViewModels;
-using Syncfusion.Maui.ListView.Hosting;
+using Syncfusion.Maui.Core.Hosting;
 
 namespace Plutus.Frontend.ClientUI
 {
@@ -36,7 +36,7 @@ namespace Plutus.Frontend.ClientUI
                 .UseMauiCompatibility()
                 .UseMauiCommunityToolkit()
                 .UseMauiCommunityToolkitMarkup()
-                .ConfigureSyncfusionListView();
+                .ConfigureSyncfusionCore();
 
             builder.ConfigureLifecycleEvents(lifecycle =>
             {
@@ -62,7 +62,11 @@ namespace Plutus.Frontend.ClientUI
             builder.Services.AddSingleton<IAppState, AppState>();
             builder.Services.AddSingleton(DeviceInfo.Current);
             builder.Services.AddSingleton(DeviceDisplay.Current);
-            builder.Services.AddDbContext<SqliteDbContext>(options => options.UseSqlite(@$"Data Source={Path.Combine(FileSystem.AppDataDirectory, "Database.db")}"));
+            builder.Services.AddDbContext<SqliteDbContext>(options => {
+                options.UseSqlite(@$"Data Source={Path.Combine(FileSystem.AppDataDirectory, "Database.db")}");
+                options.EnableSensitiveDataLogging();
+                options.EnableDetailedErrors();
+                });
             return builder;
         }
     }

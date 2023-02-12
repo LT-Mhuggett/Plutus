@@ -15,7 +15,7 @@ namespace Plutus.Contracts
         /// Async GET all records from table, denoted by <see cref="TEntity"/>
         /// </summary>
         /// <returns>Enumerable List of <see cref="TEntity"/></returns>
-        Task<IEnumerable<TEntity>> GetAll();
+        Task<IEnumerable<TEntity>> GetAll(TIdTwo businessId);
 
         IQueryable<TEntity> FindAll();
 
@@ -23,28 +23,28 @@ namespace Plutus.Contracts
         /// Async GET all records from table, denoted by <see cref="TEntity"/>, as IQueryable
         /// </summary>
         /// <returns>Queryable List of <see cref="TEntity"/></returns>
-        IQueryable<TEntity> GetAllQueryable();
+        Task<IQueryable<TEntity>> GetAllQueryable(TIdTwo bussinessId);
 
         /// <summary>
         /// Async FIND all that satisfies predicate expression from table, denoted by <see cref="TEntity"/>
         /// </summary>
         /// <param name="expression">Condition</param>
         /// <returns>Enumerable List of <see cref="TEntity"/></returns>
-        Task<IEnumerable<TEntity>> FindAllByCondition(Expression<Func<TEntity, bool>> expression);
+        Task<IEnumerable<TEntity>> FindAllByCondition(Expression<Func<TEntity, bool>> expression, TIdTwo bussinessId);
 
         /// <summary>
         /// Async FIND all that satisfies predicate expression from table, denoted by <see cref="TEntity"/>, as IQueryable
         /// </summary>
         /// <param name="expression">Condition</param>
         /// <returns>Queryable List of <see cref="TEntity"/></returns>
-        IQueryable<TEntity> FindAllByConditionQueryable(Expression<Func<TEntity, bool>> expression);
+        IQueryable<TEntity> FindAllByConditionQueryable(Expression<Func<TEntity, bool>> expression, TIdTwo bussinessId);
 
         /// <summary>
         /// Async FIND first record that satisfies predicate expression from table, denoted by <see cref="TEntity"/>
         /// </summary>
         /// <param name="expression">Condition</param>
         /// <returns>Single <see cref="TEntity"/></returns>
-        Task<TEntity> FindFirstByCondition(Expression<Func<TEntity, bool>> expression);
+        Task<TEntity> FindFirstByCondition(Expression<Func<TEntity, bool>> expression, TIdTwo bussinessId);
 
         /// <summary>
         /// Async FIND by ID from table, denoted by <see cref="TEntity"/>

@@ -517,7 +517,7 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
                     {
                         if (chosenPayMeth.Charge != 0.0m)
                         {
-                            var note = await RepositoryWrapper.NoteRepository.FindFirstByCondition(nb => nb.Text.Equals(string.Format(Strings.CardChargeNote, chosenPayMeth.Charge))) ??
+                            var note = await RepositoryWrapper.NoteRepository.FindFirstByCondition(nb => nb.Text.Equals(string.Format(Strings.CardChargeNote, chosenPayMeth.Charge)), AppState.Business.Id) ??
                                        new Note(string.Format(Strings.CardChargeNote, chosenPayMeth.Charge));
                             Basket.Add(new BasketNote(note, chosenPayMeth.Charge, chosenPayMeth.Charge));
                             sale.Total = Basket.Sum(bR => bR.Price * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);

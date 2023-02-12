@@ -457,6 +457,12 @@ namespace Plutus.Frontend.ClientUI.Services.Repository.Base
                         {
                             await base.Create(entity);
                         }
+
+                        RepositoryContext.SetSyncState(true);
+                        await RepositoryContext.SaveChangesAsync();
+                        RepositoryContext.SetSyncState(false);
+
+                        DetachEntity(entity);
                     }
                 }
                 return await base.FindById(id);

@@ -1,5 +1,6 @@
 ﻿using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Plutus.Entities.Models;
 
 namespace Plutus.Entities
@@ -37,6 +38,7 @@ namespace Plutus.Entities
             //{
             //  optionsBuilder.UseSqlite(_connString);
             //}
+            optionsBuilder.LogTo(Console.WriteLine, LogLevel.Trace);
             base.OnConfiguring(optionsBuilder);
         }
     }

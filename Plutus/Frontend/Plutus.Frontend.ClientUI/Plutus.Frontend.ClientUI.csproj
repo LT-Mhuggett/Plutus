@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFrameworks>net6.0-android;net6.0-ios;net6.0-maccatalyst</TargetFrameworks>
-		<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net6.0-windows10.0.19041.0</TargetFrameworks>
+		<TargetFrameworks>net7.0-android;net7.0-ios;net7.0-maccatalyst</TargetFrameworks>
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows')) and '$(MSBuildRuntimeType)' == 'Full'">$(TargetFrameworks);net7.0-windows10.0.19041</TargetFrameworks>
 		<!-- Uncomment to also build the tizen app. You will need to install tizen by following this: https://github.com/Samsung/Tizen.NET -->
 		<!-- <TargetFrameworks>$(TargetFrameworks);net6.0-tizen</TargetFrameworks> -->
 		<OutputType>Exe</OutputType>
@@ -43,6 +43,11 @@
 		<HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
 	</PropertyGroup>
 
+  <PropertyGroup Condition="$(TargetFramework.Contains('-windows')) and '$(Configuration)' == 'Release'">
+    <GenerateAppxPackageOnBuild>true</GenerateAppxPackageOnBuild>
+    <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
+    <PackageCertificateThumbprint>042a5c82dd8e6b11ef24d614b8a4d20face8c073</PackageCertificateThumbprint>
+  </PropertyGroup>
 	<ItemGroup>
 		<!-- App Icon -->
 		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
@@ -113,19 +118,19 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <PackageReference Include="AutoMapper" Version="11.0.1" />
-	  <PackageReference Include="CommunityToolkit.Maui" Version="1.2.0" />
-	  <PackageReference Include="CommunityToolkit.Maui.Markup" Version="1.0.1" />
+	  <PackageReference Include="AutoMapper" Version="12.0.0" />
+	  <PackageReference Include="CommunityToolkit.Maui" Version="3.1.0" />
+	  <PackageReference Include="CommunityToolkit.Maui.Markup" Version="2.1.0" />
 	  <PackageReference Include="CommunityToolkit.Mvvm" Version="8.0.0" />
-	  <PackageReference Include="Microsoft.AppCenter" Version="4.5.3" />
-	  <PackageReference Include="Microsoft.AppCenter.Analytics" Version="4.5.3" />
-	  <PackageReference Include="Microsoft.AppCenter.Crashes" Version="4.5.3" />
-	  <PackageReference Include="Microsoft.AspNetCore.JsonPatch" Version="6.0.8" />
-	  <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="6.0.0" />
-	  <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="6.0.0" />
-	  <PackageReference Include="Microsoft.Identity.Client" Version="4.46.0-preview2" />
-	  <PackageReference Include="Syncfusion.Maui.ListView" Version="20.2.48" />
-	  <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="6.22.1" />
+	  <PackageReference Include="Microsoft.AppCenter" Version="5.0.1" />
+	  <PackageReference Include="Microsoft.AppCenter.Analytics" Version="5.0.1" />
+	  <PackageReference Include="Microsoft.AppCenter.Crashes" Version="5.0.1" />
+	  <PackageReference Include="Microsoft.AspNetCore.JsonPatch" Version="7.0.2" />
+	  <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="7.0.2" />
+	  <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="7.0.0" />
+	  <PackageReference Include="Microsoft.Identity.Client" Version="4.49.1" />
+	  <PackageReference Include="Syncfusion.Maui.ListView" Version="20.4.43" />
+	  <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="6.25.1" />
 	</ItemGroup>
 
 	<ItemGroup>

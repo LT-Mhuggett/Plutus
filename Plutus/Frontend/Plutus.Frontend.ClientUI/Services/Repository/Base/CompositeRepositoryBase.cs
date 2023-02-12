@@ -245,7 +245,7 @@ namespace Plutus.Frontend.ClientUI.Services.Repository.Base
             {
                 await Semaphore.WaitAsync();
                 await HttpGetQithQueryParametersAsync(default, businessId);
-                return await base.GetAll();
+                return await base.GetAll(businessId);
             }
             finally
             {
@@ -259,7 +259,7 @@ namespace Plutus.Frontend.ClientUI.Services.Repository.Base
             {
                 await Semaphore.WaitAsync();
                 await HttpGetQithQueryParametersAsync(default, businessId);
-                return base.GetAllQueryable();
+                return await base.GetAllQueryable(businessId);
             }
             finally
             {
@@ -273,7 +273,7 @@ namespace Plutus.Frontend.ClientUI.Services.Repository.Base
             {
                 await Semaphore.WaitAsync();
                 await HttpGetQithQueryParametersAsync(queryParameters, businessId);
-                return await base.FindAllByCondition(queryParameters.GetExpression());
+                return await base.FindAllByCondition(queryParameters.GetExpression(), businessId);
             }
             finally
             {
@@ -287,7 +287,7 @@ namespace Plutus.Frontend.ClientUI.Services.Repository.Base
             {
                 await Semaphore.WaitAsync();
                 await HttpGetQithQueryParametersAsync(queryParameters, businessId);
-                return base.FindAllByConditionQueryable(queryParameters.GetExpression());
+                return base.FindAllByConditionQueryable(queryParameters.GetExpression(), businessId);
             }
             finally
             {
@@ -301,7 +301,7 @@ namespace Plutus.Frontend.ClientUI.Services.Repository.Base
             {
                 await Semaphore.WaitAsync();
                 await HttpGetQithQueryParametersAsync(queryParameters, businessId);
-                return await base.FindFirstByCondition(queryParameters.GetExpression());
+                return await base.FindFirstByCondition(queryParameters.GetExpression(), businessId);
             }
             finally
             {
@@ -458,7 +458,9 @@ namespace Plutus.Frontend.ClientUI.Services.Repository.Base
             }
             catch (Exception handleableEx) when (handleableEx is DbUpdateException or DbUpdateConcurrencyException)
             {
-                RepositoryContext.Database.RollbackTransaction();
+                if(RepositoryContext.Database.CurrentTransaction != null)
+                    RepositoryContext.Database.RollbackTransaction();
+
                 Logger.LogEvent(AppLogLevel.Info, $"{GetType().FullName}: Database update error", new Dictionary<string, string>
                 {
                     { "Entity", typeof(TEntity).FullName },

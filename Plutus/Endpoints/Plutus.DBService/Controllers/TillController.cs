@@ -6,6 +6,9 @@ using Plutus.Entities.Models;
 using Plutus.Entities.FormBodies;
 using Plutus.Repository.QueryParameters;
 using System;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace Plutus.DBService.Controllers
 {
@@ -17,6 +20,22 @@ namespace Plutus.DBService.Controllers
 
         public TillController(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor httpContextAccessor) : base(repositoryWrapper, httpContextAccessor)
         {
+        }
+
+        public override async Task<ActionResult<Till>> FindById([FromRoute] Guid id, [FromQuery] TillParameters queryParameters)
+        {
+            var query = Repository.FindAllByConditionQueryable(queryParameters.GetExpression());
+            if (queryParameters.IncludeStore)
+                query.Include(e => e.Store);
+            if (queryParameters.IncludeBusiness)
+                query.Include(e => e.Store.Business);
+
+            var entity = await query.FirstOrDefaultAsync(e => e.Id.Equals(id));
+
+            if (entity == default)
+                return NotFound();
+
+            return Ok(entity);
         }
     }
 }

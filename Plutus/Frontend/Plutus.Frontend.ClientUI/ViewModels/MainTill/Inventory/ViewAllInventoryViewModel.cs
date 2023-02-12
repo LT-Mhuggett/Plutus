@@ -149,9 +149,9 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill.Inventory
             //LoadingViewService.ShowLoadingView();
             try
             {
-                _limit = (await RepositoryWrapper.ItemRepository.GetAll()).Count();
+                _limit = (await RepositoryWrapper.ItemRepository.GetAll(AppState.Business.Id)).Count();
                 Items.Clear();
-                var data = RepositoryWrapper.ItemRepository.GetAllQueryable()
+                var data = (await RepositoryWrapper.ItemRepository.GetAllQueryable(AppState.Business.Id))
                     .Include(i => i.Stock)
                     .Include(i => i.Tax)
                     .OrderBy(i => i.Name).Take(_limit).ToList();

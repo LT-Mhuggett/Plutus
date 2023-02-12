@@ -73,7 +73,7 @@ namespace Plutus.DBService.Controllers.Bases
                 return BadRequest("Created Max date cannot be less than Created Min date");
 
             var entities = PagedList<TEntity>.ToPagedList(
-                Repository.FindAllByConditionQueryable(queryParameters.GetExpression().And(e => e.IdTwo.Equals(businessId))).OrderBy(e => e.CreatedAt),
+                Repository.FindAllByConditionQueryable(queryParameters.GetExpression(), businessId).OrderBy(e => e.CreatedAt),
                 queryParameters.PageNumber, queryParameters.PageSize, queryParameters.IgnorePagination);
 
             Response.Headers.Add("X-Pagination", JsonConvert.SerializeObject(entities.MetaData));

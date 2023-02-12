@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore.Storage;
 using Plutus.Contracts;
 using Plutus.Entities;
+using Plutus.Entities.Models;
 using Plutus.Entities.Models.Interface;
 using System;
 using System.Collections.Generic;
@@ -39,19 +40,19 @@ namespace Plutus.Repository.Base
         }
 
         /// <inheritdoc/>
-        public async virtual Task<IEnumerable<TEntity>> GetAll() => await RepositoryContext.Set<TEntity>().AsNoTracking().ToListAsync();
+        public async virtual Task<IEnumerable<TEntity>> GetAll(TIdTwo businessId) => await RepositoryContext.Set<TEntity>().AsNoTracking().Where(r => (r as ICompositeBase<TIdOne, TIdTwo>).IdTwo.Equals(businessId)).ToListAsync();
 
         /// <inheritdoc/>
-        public virtual IQueryable<TEntity> GetAllQueryable() => RepositoryContext.Set<TEntity>().AsNoTracking();
+        public virtual async Task<IQueryable<TEntity>> GetAllQueryable(TIdTwo businessId) => RepositoryContext.Set<TEntity>().AsNoTracking().Where(r => (r as ICompositeBase<TIdOne, TIdTwo>).IdTwo.Equals(businessId));
 
         /// <inheritdoc/>
-        public async virtual Task<IEnumerable<TEntity>> FindAllByCondition(Expression<Func<TEntity, bool>> expression) => await RepositoryContext.Set<TEntity>().Where(expression).AsNoTracking().ToListAsync();
+        public async virtual Task<IEnumerable<TEntity>> FindAllByCondition(Expression<Func<TEntity, bool>> expression, TIdTwo businessId) => await RepositoryContext.Set<TEntity>().Where(r => (r as ICompositeBase<TIdOne, TIdTwo>).IdTwo.Equals(businessId)).Where(expression).AsNoTracking().ToListAsync();
 
         /// <inheritdoc/>
-        public virtual IQueryable<TEntity> FindAllByConditionQueryable(Expression<Func<TEntity, bool>> expression) => RepositoryContext.Set<TEntity>().Where(expression).AsNoTracking();
+        public virtual IQueryable<TEntity> FindAllByConditionQueryable(Expression<Func<TEntity, bool>> expression, TIdTwo businessId) => RepositoryContext.Set<TEntity>().Where(r => (r as ICompositeBase<TIdOne, TIdTwo>).IdTwo.Equals(businessId)).Where(expression).AsNoTracking();
 
         /// <inheritdoc/>
-        public async virtual Task<TEntity> FindFirstByCondition(Expression<Func<TEntity, bool>> expression) => await RepositoryContext.Set<TEntity>().AsNoTracking().FirstOrDefaultAsync(expression);
+        public async virtual Task<TEntity> FindFirstByCondition(Expression<Func<TEntity, bool>> expression, TIdTwo businessId) => await RepositoryContext.Set<TEntity>().Where(r => (r as ICompositeBase<TIdOne, TIdTwo>).IdTwo.Equals(businessId)).AsNoTracking().FirstOrDefaultAsync(expression);
 
         /// <inheritdoc/>
         public async virtual Task<TEntity> FindById(TIdOne idOne, TIdTwo idTwo) => await RepositoryContext.Set<TEntity>().FindAsync(idOne, idTwo);

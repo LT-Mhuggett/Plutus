@@ -46,19 +46,19 @@ namespace Plutus.Repository.Base
         public async virtual Task<bool> Exists(TId id) => await RepositoryContext.Set<TEntity>().OfType<IBase<TId>>().AnyAsync(entity => entity.Id.Equals(id));
 
         /// <inheritdoc/>
-        public async virtual Task<IEnumerable<TEntity>> FindAllByCondition(Expression<Func<TEntity, bool>> expression) => await RepositoryContext.Set<TEntity>().Where(expression).AsNoTracking().ToListAsync();
+        public async virtual Task<IEnumerable<TEntity>> FindAllByCondition(Expression<Func<TEntity, bool>> expression) => await RepositoryContext.Set<TEntity>().Where(expression).AsNoTrackingWithIdentityResolution().ToListAsync();
 
         /// <inheritdoc/>
-        public virtual IQueryable<TEntity> FindAllByConditionQueryable(Expression<Func<TEntity, bool>> expression) => RepositoryContext.Set<TEntity>().Where(expression).AsNoTracking();
+        public virtual IQueryable<TEntity> FindAllByConditionQueryable(Expression<Func<TEntity, bool>> expression) => RepositoryContext.Set<TEntity>().Where(expression).AsNoTrackingWithIdentityResolution();
 
         /// <inheritdoc/>
-        public async virtual Task<TEntity> FindById(TId id) => await RepositoryContext.Set<TEntity>().FindAsync(id);
+        public async virtual Task<TEntity> FindById(TId id) => await RepositoryContext.Set<TEntity>().AsNoTrackingWithIdentityResolution().FirstOrDefaultAsync(e => e.Id.Equals(id));
 
         /// <inheritdoc/>
-        public async virtual Task<TEntity> FindById(IQueryable<TEntity> query, TId id) => await query.FirstOrDefaultAsync(e => e.Id.Equals(id));
+        public async virtual Task<TEntity> FindById(IQueryable<TEntity> query, TId id) => await query.AsNoTrackingWithIdentityResolution().FirstOrDefaultAsync(e => e.Id.Equals(id));
 
         /// <inheritdoc/>
-        public async virtual Task<TEntity> FindFirstByCondition(Expression<Func<TEntity, bool>> expression) => await RepositoryContext.Set<TEntity>().AsNoTracking().FirstOrDefaultAsync(expression);
+        public async virtual Task<TEntity> FindFirstByCondition(Expression<Func<TEntity, bool>> expression) => await RepositoryContext.Set<TEntity>().AsNoTrackingWithIdentityResolution().FirstOrDefaultAsync(expression);
 
         /// <inheritdoc/>
         public async virtual Task<IEnumerable<TEntity>> GetAll() => await RepositoryContext.Set<TEntity>().AsNoTrackingWithIdentityResolution().ToListAsync();

@@ -49,7 +49,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("IdTwo");
 
-                    b.ToTable("AuthActionAPIMapping");
+                    b.ToTable("AuthActionAPIMapping", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.AuthActions", b =>
@@ -85,7 +85,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasKey("Id");
 
-                    b.ToTable("AuthActions");
+                    b.ToTable("AuthActions", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Business", b =>
@@ -128,7 +128,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasKey("Id");
 
-                    b.ToTable("Business");
+                    b.ToTable("Business", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Category", b =>
@@ -167,7 +167,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("IdTwo");
 
-                    b.ToTable("Category");
+                    b.ToTable("Category", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.CheckoutItemChange", b =>
@@ -207,7 +207,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("ItemIdOne", "ItemIdTwo");
 
-                    b.ToTable("CheckoutItemChange");
+                    b.ToTable("CheckoutItemChange", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.DBAction", b =>
@@ -243,7 +243,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasKey("Id");
 
-                    b.ToTable("DbActions");
+                    b.ToTable("DbActions", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Discount", b =>
@@ -299,7 +299,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("BusinessId");
 
-                    b.ToTable("Discounts");
+                    b.ToTable("Discounts", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Discount_Category", b =>
@@ -343,7 +343,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("CatIdOne", "CatIdTwo");
 
-                    b.ToTable("DiscountCats");
+                    b.ToTable("DiscountCats", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Discount_Item", b =>
@@ -388,7 +388,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("ItemIdOne", "ItemIdTwo");
 
-                    b.ToTable("DiscountItems");
+                    b.ToTable("DiscountItems", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Emp_AuthActions", b =>
@@ -420,7 +420,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("EmpId");
 
-                    b.ToTable("EmpAuthActions");
+                    b.ToTable("EmpAuthActions", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Item", b =>
@@ -486,7 +486,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("TaxId", "IdTwo");
 
-                    b.ToTable("Items");
+                    b.ToTable("Items", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Note", b =>
@@ -521,7 +521,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("IdTwo");
 
-                    b.ToTable("Notes");
+                    b.ToTable("Notes", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.PaymentMethod", b =>
@@ -562,7 +562,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasKey("Id");
 
-                    b.ToTable("PayMethods");
+                    b.ToTable("PayMethods", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.PaymentMethod_Sale", b =>
@@ -597,7 +597,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("SaleId");
 
-                    b.ToTable("PaySales");
+                    b.ToTable("PaySales", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Person", b =>
@@ -661,7 +661,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasKey("Id");
 
-                    b.ToTable("People");
+                    b.ToTable("People", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Refund", b =>
@@ -723,7 +723,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("ItemIdOne", "ItemIdTwo");
 
-                    b.ToTable("Refunds");
+                    b.ToTable("Refunds", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Role", b =>
@@ -765,7 +765,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("ParentRoleId");
 
-                    b.ToTable("Role");
+                    b.ToTable("Role", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Sale", b =>
@@ -815,7 +815,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("TillId");
 
-                    b.ToTable("Sales");
+                    b.ToTable("Sales", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.SavedTransaction", b =>
@@ -848,7 +848,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasKey("Id");
 
-                    b.ToTable("SavedTransactions");
+                    b.ToTable("SavedTransactions", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Stock", b =>
@@ -890,7 +890,7 @@ namespace Plutus.Entities.Migrations.Sqlite
                     b.HasIndex("IdOne", "IdTwo")
                         .IsUnique();
 
-                    b.ToTable("Stocks");
+                    b.ToTable("Stocks", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Store", b =>
@@ -947,7 +947,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("BusinessId");
 
-                    b.ToTable("Stores");
+                    b.ToTable("Stores", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Tax", b =>
@@ -985,7 +985,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("IdTwo");
 
-                    b.ToTable("Taxes");
+                    b.ToTable("Taxes", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Till", b =>
@@ -1021,7 +1021,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("StoreId");
 
-                    b.ToTable("Till");
+                    b.ToTable("Till", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Transaction", b =>
@@ -1081,7 +1081,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("ItemIdOne", "ItemIdTwo");
 
-                    b.ToTable("Trans");
+                    b.ToTable("Trans", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Transaction_Discount", b =>
@@ -1118,7 +1118,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("TransactionId", "SaleId");
 
-                    b.ToTable("Transaction_Discounts");
+                    b.ToTable("Transaction_Discounts", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Employee", b =>
@@ -1164,7 +1164,7 @@ namespace Plutus.Entities.Migrations.Sqlite
                     b.HasIndex("Id", "BusinessId")
                         .IsUnique();
 
-                    b.ToTable("Employees");
+                    b.ToTable("Employees", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.AuthActionAPIMapping", b =>
