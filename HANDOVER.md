@@ -78,7 +78,13 @@ Phases 2–10 not started.
 | T1.7 | `ea9c839`/`5129d4e` | Standing suites (reconciliation, replay) + `WebApplicationFactory` HTTP e2e + route surface |
 | T1.8 | `12a4a51` | `Plutus.Migration.Kapow` library + SeedMigrator `sales-v2` runner |
 
-**Follow-up status (2026-07-24 pm):** #4 operator `pos.sell` scope at login **DONE** (`e337359`). #2 GitHub Actions **enabled**; CI had been red on every run — root-caused to a Swagger config-less 500 (B2C oauth2 scope keys collapsing to a duplicate `https:///`) and **FIXED** → **CI green** (`cf575d4`); `openapi.json` is now config-independent + LF-pinned. #1 Kapow discounts folded (`e337359`) but the residual is legacy `Σlines ≠ Sales.Total` by design — **awaiting Matt's A/B/C decision** (recommend **B**: trust `Sales.Total`). #3 20-way concurrent ingest — **deferred** to CI-with-MySQL-service (no Docker locally; DB unique constraint is the guarantee).
+**Follow-up status — ALL FOUR RESOLVED (2026-07-24 pm):**
+- **#4 DONE** (`e337359`): login stamps `Scope="pos.sell"`.
+- **#2 DONE** (`cf575d4`): Actions was enabled but **red on every run** — root-caused to a Swagger config-less 500 (B2C oauth2 scope keys collapsing to duplicate `https:///`), fixed by emitting the oauth2 scheme only when B2C is configured; `openapi.json` regenerated config-independent + LF-pinned; **CI now green**.
+- **#1 DONE** (`43776da`, decision **B — trust `Sales.Total`**): mismatched legacy sales keep their lines + one reconciling adjustment line (sentinel `ReconciliationItemId`), so gross == `Sales.Total`; flagged `VatReconstructed` + noted. **Real run: 21,646/21,653 recorded (8,114 reconciled), 7 quarantined (3 tender-mismatch, 4 empty), 100.0% gross recovered.** VAT on reconciled sales is Σ reconstructed line VAT (delta band unknown → approximate, flagged).
+- **#3 CLOSED (deferred)**: 20-way concurrent ingest → a CI job with a MySQL service container (no Docker locally; the DB unique key is the guarantee, single-thread-proven).
+
+**Kapow cutover note:** the real data move runs `Plutus.SeedMigrator <kapow.db> sales-v2 --mysql "<conn>"` against the target at cutover (a deliberate op — not done yet). 8,114 sales carry a `legacy-reconciled` note; the 7 quarantined need manual review.
 
 **⚠ Phase 1 follow-ups before production cutover (NOT blockers for Phase 2):**
 1. **Kapow discount handling** — the real-data run (`SeedMigrator … sales-v2 --sqlite`) mapped 21,653 sales → **13,401 recorded / 8,252 quarantined** (£306k/£557k, 55%). The ~38% quarantine is DISCOUNTED sales: `Transaction_Discounts`/`DiscountRate` aren't folded into per-line `DiscountPence`, so line-sum ≠ `Sales.Total`. Add that to `KapowSalesReader`/`KapowSaleMapper` to recover them. (Quarantine-on-mismatch is the *designed* safety net — see gap-analysis §5.4.)
