@@ -1,5 +1,7 @@
 <Solution>
-  <Folder Name="/Plutus/" />
+  <Folder Name="/Plutus/">
+    <Project Path="Plutus/Database.Migrations.Startup/Database.Migrations.Startup.csproj" />
+  </Folder>
   <Folder Name="/Plutus/Commons/">
     <Project Path="Plutus/Commons/Plutus.Authentication/Plutus.Authentication.csproj" />
     <Project Path="Plutus/Commons/Plutus.Contracts/Plutus.Contracts.csproj" />
