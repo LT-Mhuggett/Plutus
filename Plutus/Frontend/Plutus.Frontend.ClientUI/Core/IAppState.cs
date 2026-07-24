@@ -1,5 +1,4 @@
-﻿using AutoMapper;
-using Plutus.Entities.Models;
+﻿using Plutus.Entities.Models;
 using Plutus.Frontend.ClientUI.Core.Collections;
 using Plutus.Frontend.ClientUI.Services.Analytics;
 using System.Collections.ObjectModel;
@@ -19,7 +18,6 @@ namespace Plutus.Frontend.ClientUI.Core
         Business Business { get; set; }
         Store Store { get; set; }
         Till Till { get; set; }
-        IMapper Mapper { get; }
 
         Task Init();
         void SetAppLogLevel(AppLogLevel level);

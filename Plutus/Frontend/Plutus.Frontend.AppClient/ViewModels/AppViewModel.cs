@@ -1,6 +1,4 @@
-using AutoMapper;
 using Database.Models;
-using Plutus.Frontend.AppClient.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -66,8 +64,6 @@ namespace Plutus.Frontend.AppClient.ViewModels
         {
             get => string.IsNullOrEmpty(_currentLoadingItem);
         }
-
-        internal IMapper GetMapper { get; }
         #endregion
         #endregion
 
@@ -80,14 +76,6 @@ namespace Plutus.Frontend.AppClient.ViewModels
         {
             _employees = new List<EmployeeModel>();
             SessionId = Guid.NewGuid();
-            var config = new MapperConfiguration(cfg =>
-            {
-                //Base -> Child
-                cfg.CreateMap<BasketItem, BasketReturnItem>();
-                //Child -> Base
-                cfg.CreateMap<BasketReturnItem, BasketItem>();
-            });
-            GetMapper = config.CreateMapper();
         }
     }
 }

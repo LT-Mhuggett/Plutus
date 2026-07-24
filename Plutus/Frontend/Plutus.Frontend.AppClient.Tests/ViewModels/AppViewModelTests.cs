@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using Database.Models;
+using Mapster;
 using Moq;
 using Plutus.Frontend.AppClient.Models;
 using Plutus.Frontend.AppClient.ViewModels;
@@ -97,16 +98,15 @@ namespace Plutus.Frontend.AppClient.Tests.ViewModels
         }
 
         [Fact]
-        public void GetMapper_MapsBasketItemToBasketReturnItemAndBack()
+        public void Adapt_MapsBasketItemToBasketReturnItemAndBack()
         {
-            var vm = new AppViewModel();
             var basketItem = new BasketItem(MakeItem(), 2);
 
-            var returnItem = vm.GetMapper.Map<BasketReturnItem>(basketItem);
+            var returnItem = basketItem.Adapt<BasketReturnItem>();
             Assert.Equal("Widget", returnItem.Name);
             Assert.Equal(2, returnItem.Quantity);
 
-            var backToItem = vm.GetMapper.Map<BasketItem>(returnItem);
+            var backToItem = returnItem.Adapt<BasketItem>();
             Assert.Equal("Widget", backToItem.Name);
             Assert.Equal(2, backToItem.Quantity);
         }

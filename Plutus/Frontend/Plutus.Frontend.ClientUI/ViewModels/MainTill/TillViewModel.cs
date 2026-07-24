@@ -2,6 +2,7 @@
 using CommunityToolkit.Maui.Views;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Mapster;
 using Newtonsoft.Json;
 using Plutus.Entities.Models;
 using Plutus.Frontend.ClientUI.Core;
@@ -235,7 +236,7 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
 
                     if (returnedValues.PopupReturnStatus == PopupReturnStatus.Completed)
                     {
-                        var returnItem = AppState.Mapper.Map<BasketReturnItem>(basketItem);
+                        var returnItem = basketItem.Adapt<BasketReturnItem>();
 
                         //Start Auth checking
 
@@ -262,7 +263,7 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
             {
                 if (basketReturnItemParameter is BasketReturnItem basketReturnItem)
                 {
-                    var basketItem = AppState.Mapper.Map<BasketItem>(basketReturnItem);
+                    var basketItem = basketReturnItem.Adapt<BasketItem>();
 
                     Basket.Remove(basketReturnItem);
                     Basket.Add(basketItem);

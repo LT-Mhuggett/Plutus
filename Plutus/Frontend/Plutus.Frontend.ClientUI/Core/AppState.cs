@@ -1,12 +1,10 @@
-﻿using AutoMapper;
-using Microsoft.AppCenter;
+﻿using Microsoft.AppCenter;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Maui.Networking;
 using Newtonsoft.Json;
 using Plutus.Entities.Models;
 using Plutus.Frontend.ClientUI.Core.AppSettings;
 using Plutus.Frontend.ClientUI.Core.Collections;
-using Plutus.Frontend.ClientUI.Domain.Models;
 using Plutus.Frontend.ClientUI.Services.Analytics;
 using System;
 using System.Collections.Generic;
@@ -116,7 +114,6 @@ namespace Plutus.Frontend.ClientUI.Core
                 OnPropertyChanged();
             }
         }
-        public IMapper Mapper { get; private set; }
         public event PropertyChangedEventHandler PropertyChanged;
         #endregion
 
@@ -133,14 +130,6 @@ namespace Plutus.Frontend.ClientUI.Core
             DeviceVendorId = Guid.Parse(UIKit.UIDevice.CurrentDevice.IdentifierForVendor.AsString());
 #endif
             SessionId = Guid.NewGuid();
-
-            var config = new MapperConfiguration(cfg =>
-            {
-                //Base -> Child
-                cfg.CreateMap<BasketItem, BasketReturnItem>();
-                //Child -> Base
-                cfg.CreateMap<BasketReturnItem, BasketItem>();
-            });
 
             if (await CheckAppCenter())
             {

@@ -1,4 +1,5 @@
 using CommonPOSLibrary.Exceptions;
+using Mapster;
 using Microsoft.Maui.Devices;
 using Microsoft.Maui.ApplicationModel;
 using Plugin.Maui.MessagingCenter;
@@ -455,7 +456,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 };
                 #endregion
 
-                var returnItem = App.GetViewModel().GetMapper.Map<BasketReturnItem>(basketItem);
+                var returnItem = basketItem.Adapt<BasketReturnItem>();
 
                 bool continueLoop;
                 do
@@ -564,7 +565,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             IsBusy = true;
             try
             {
-                var basketItem = App.GetViewModel().GetMapper.Map<BasketItem>(basketReturnItem);
+                var basketItem = basketReturnItem.Adapt<BasketItem>();
 
                 //finalize change
                 Basket.Remove(basketReturnItem);
