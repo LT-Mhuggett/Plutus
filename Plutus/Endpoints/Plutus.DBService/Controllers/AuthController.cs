@@ -106,6 +106,12 @@ namespace Plutus.DBService.Controllers
             {
                 EmployeeId = employeeId,
                 Name = name,
+                // WP1.2 follow-up (decision 2026-07-24): grant the unambiguous operator capability
+                // `pos.sell` so a logged-in operator can use the sale-ingest surface end-to-end.
+                // Richer role→scope mapping (portal.tills.enrol, platform-admin) is derived from the
+                // employee's AuthActions when the admin portal defines those roles (Phase 3) — not
+                // granted here, to avoid over-privileging every shop-floor login.
+                Scope = "pos.sell",
                 Exp = DateTimeOffset.UtcNow.AddHours(12).ToUnixTimeSeconds(),
             };
 
