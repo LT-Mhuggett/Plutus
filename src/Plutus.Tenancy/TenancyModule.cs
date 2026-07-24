@@ -34,6 +34,13 @@ namespace Plutus.Tenancy
                         "Tenancy endpoints require the MySqlDbContext (server build), not the SQLite dev context.");
                 return new EnrolmentService(ctx, sp.GetRequiredService<EnrolmentOptions>());
             });
+            services.AddScoped(sp =>
+            {
+                var ctx = sp.GetRequiredService<RepositoryContext>() as MySqlDbContext
+                    ?? throw new InvalidOperationException(
+                        "Provisioning requires the MySqlDbContext (server build), not the SQLite dev context.");
+                return new ProvisioningService(ctx);
+            });
             return services;
         }
     }

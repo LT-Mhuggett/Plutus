@@ -28,6 +28,8 @@ namespace Plutus.Entities
         // up (by hash / by Id) before a tenant is known. TenantId is carried as data.
         public DbSet<EnrolmentCode> EnrolmentCodes { get; set; }
         public DbSet<Device> Devices { get; set; }
+        // Web login credentials (existing table). Global/unscoped — login is by email.
+        public DbSet<WebCredential> WebCredentials { get; set; }
         #endregion
 
         /// <summary>The tenant scoping every query and write is bound to. Referenced by the
@@ -117,6 +119,12 @@ namespace Plutus.Entities
                 e.Property(x => x.SecretSalt).HasMaxLength(32).IsRequired();
                 e.HasIndex(x => x.TillId);
                 e.HasIndex(x => x.TenantId);
+            });
+            modelBuilder.Entity<WebCredential>(e =>
+            {
+                e.ToTable("WebCredentials");
+                e.HasKey(x => x.Email);
+                e.Property(x => x.Email).HasMaxLength(255);
             });
 
             // Shadow TenantId + index on every tenant-owned entity (by convention, never by
