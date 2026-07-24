@@ -63,14 +63,33 @@ Test totals: **Unit 5 + Architecture 6 (1 skip)** green. Whole `Plutus.slnx` bui
 
 Phases 2–10 not started.
 
-## 5. RESUME HERE — Phase 1 / T1.7 (T1.1–T1.6 COMPLETE)
+## 5. RESUME HERE — Phase 1 COMPLETE ✅ → Phase 2 next
 
-**✅ T1.6 COMPLETE (2026-07-24)** — commit `d2915fd`. Regenerated `openapi.json` (71 paths = 64 prior + 7 new `/api/v1`) from a locally-booted instance; diff purely additive (existing paths byte-stable). New controllers annotated with `[ProducesResponseType]` so real status codes are documented (sales ingest 201/200/202/400/403; enrol 200/400/410; device-token 200/400/401). Enabled the `openapi-drift` CI job (boots host on SQLite, dumps Swagger, fails on diff) — untested until Actions enabled. TS regen deferred (no node in this env; Phase 2 wiring anyway). **Local-boot recipe** (useful for any spec/HTTP work): `DOTNET_ROLL_FORWARD=LatestMajor ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5199 DISABLE_AUTH_DEV_ONLY=true TEST_TOKEN_SECRET=x dotnet <host.dll>` then curl `/swagger/v1/swagger.json` (this box has AspNetCore.App 10 x64 only, hence roll-forward).
+**Phase 1 (T1.1–T1.8) is COMPLETE** — all pushed to `Matt's-Horror`. **54 unit + 5 arch + 4 integration = 63 tests green.** Every schema migration applied to staging **`plutus_t1` only**; live `plutus` + ETRIE untouched throughout.
 
-**▶ NEXT — T1.7 (partial done) + T1.8.** T1.7 suites **(2) money reconciliation** and **(3) idempotency replay** are DONE (`ea9c839`, `StandingSuitesTests.cs`: 300-sale penny-exact reconciliation; 100-sale ×3 replay stable). **Still to do:** T1.7 suite **(1) route-level tenant isolation** — enumerate all `/api/v1` routes via ApiExplorer, as tenant A hit tenant-B ids → 404/empty never 200-data/403 — plus the deferred **HTTP e2e** (T1.2/T1.4) and **20-way concurrent ingest** (T1.4). All three need an HTTP host harness: `WebApplicationFactory<Startup>` overriding the `RepositoryContext` registration with a **MySqlDbContext-on-SQLite** (the DEBUG host uses SqliteDbContext, which lacks the tenancy/sales tables) + a test auth handler minting tenant-A/B/device principals. Row-level isolation itself is already proven (`TenancyTests`). Then **T1.8 Kapow migration v2**: `tools/Plutus.Migration.Kapow` library + SeedMigrator v2, mapping the Kapow SQLite → sales-v2 per `Build/kapow-db-gap-analysis.md` §5 (timestamp sale-IDs, VAT-not-on-lines, decimal→pence, barcode-PK, negative stock).
+| Task | Commit(s) | Delivered |
+|---|---|---|
+| T1.1 | `26f03e0`/`7fe8e78`/`55c8588` | Tenancy schema + shadow-TenantId query filters + SaveChanges stamp/guard (19 entities) |
+| T1.2 | `a786c46`→`97b4528` | Provisioning + enrolment + device tokens + scope-based auth + rate limiting |
+| T1.3 | `4b6c8cb` | Sales schema v2 (7 tables) + constructor-enforced money invariants |
+| T1.4 | `7fd12db` | Idempotent ingest `POST /api/v1/sales` (quarantine, dup→200, outbox, monotonic seq) |
+| T1.5 | `9aab9af` | Broker-less `OutboxDispatcher` (offsets, retry→dead-letter, effectively-once) |
+| T1.6 | `d2915fd` | Contract freeze — `openapi.json` (71 paths) + `[ProducesResponseType]` + CI drift gate |
+| T1.7 | `ea9c839`/`5129d4e` | Standing suites (reconciliation, replay) + `WebApplicationFactory` HTTP e2e + route surface |
+| T1.8 | `12a4a51` | `Plutus.Migration.Kapow` library + SeedMigrator `sales-v2` runner |
+
+**⚠ Phase 1 follow-ups before production cutover (NOT blockers for Phase 2):**
+1. **Kapow discount handling** — the real-data run (`SeedMigrator … sales-v2 --sqlite`) mapped 21,653 sales → **13,401 recorded / 8,252 quarantined** (£306k/£557k, 55%). The ~38% quarantine is DISCOUNTED sales: `Transaction_Discounts`/`DiscountRate` aren't folded into per-line `DiscountPence`, so line-sum ≠ `Sales.Total`. Add that to `KapowSalesReader`/`KapowSaleMapper` to recover them. (Quarantine-on-mismatch is the *designed* safety net — see gap-analysis §5.4.)
+2. **Enable GitHub Actions** — `build-test` + `openapi-drift` jobs are written but untested until Actions is on.
+3. **20-way concurrent ingest** — proven single-threaded; true concurrency needs a real MySQL/Testcontainers (SQLite is single-writer).
+4. **JWT-backed operator scopes at login** — `AuthController` login still issues scopeless operator tokens; wire real scopes when the portal lands.
+
+**Local-boot recipe** (spec/HTTP work): `DOTNET_ROLL_FORWARD=LatestMajor ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5199 DISABLE_AUTH_DEV_ONLY=true TEST_TOKEN_SECRET=x dotnet <host.dll>` then curl `/swagger/v1/swagger.json` (this box has AspNetCore.App 10 x64 only → roll-forward).
+
+**▶ NEXT — Phase 2** (`Build/plutus-implementation-plan.md`): the till/web-POS frontend cutover onto the new `/api/v1` contract (T2.1 wires the generated TS types), then subsequent phases. Confirm scope from the implementation plan before starting.
 
 ---
-### (historical) T1.6 resume notes — superseded by the above
+### (historical) T1.7 resume notes — superseded by the above
 
 **✅ T1.5 COMPLETE (2026-07-24)** — commit `9aab9af`. `OutboxDispatcher` (BackgroundService, Web.Infrastructure, `Plutus.Infrastructure.Outbox`) polls 500ms and drains `OutboxEvents` into each registered `IEventConsumer` via the testable `OutboxDrainer`. Per event: dedupe vs `ProcessedEvents`, handle with bounded retry (1s/5s/25s then park to `ConsumerDeadLetters`), advance `ConsumerOffsets` in the SAME SaveChanges → effectively-once across restarts; poison parks + later events flow; consumers independent. Idempotency centralised in the drainer (not a per-consumer base). Lag = max(Id)−offset; `GET /api/v1/ops/deadletters` (platform-admin). New tables `ProcessedEvents`+`ConsumerDeadLetters` (migration `AddOutboxConsumerTables` → `plutus_t1`). Registered via `AddPlutusOutbox()`; inert on SQLite host. Tests: converge / offset-reset dedupe / poison-parks-then-flows / lag. **33/33 unit, 5/5 arch.**
 
@@ -166,4 +185,4 @@ Note: the transitional `Sale/Summary`/`VatIntegrity`/`SaleReport` on Plutus.Sale
 
 ## 8. One-line status
 
-**Phase 0 + Phase 1 T1.1-T1.6 COMPLETE** (tenancy schema + row-level scoping + provisioning/enrolment/device-token API + scope-based auth; all migrations applied to staging `plutus_t1` only; live `plutus`/ETRIE untouched). All pushed to `github.com/LT-Mhuggett/Plutus` `Matt's-Horror` (latest `ea9c839`). 35/35 unit + 5/5 arch green. Live test env healthy. Resume at §5 — Phase 1 **T1.7** (standing test suites).
+**Phase 0 COMPLETE; Phase 1 COMPLETE (T1.1-T1.8)** — tenancy, provisioning/auth, sales v2, ingest, outbox, contract freeze, standing suites + HTTP e2e, Kapow migration. All on `Matt's-Horror` (latest `12a4a51`). 54 unit + 5 arch + 4 integration green. All schema on staging `plutus_t1`; live + ETRIE untouched. Resume at §5 — Phase 2. Pre-cutover follow-ups noted in §5.
