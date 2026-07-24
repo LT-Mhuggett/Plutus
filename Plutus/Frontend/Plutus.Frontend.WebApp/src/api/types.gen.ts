@@ -3330,6 +3330,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ops/deadletters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    take?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/PaymentMethod/{id}": {
         parameters: {
             query?: never;
@@ -4536,6 +4571,82 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json-patch+json": components["schemas"]["IngestSaleRequest"];
+                    "application/json": components["schemas"]["IngestSaleRequest"];
+                    "text/json": components["schemas"]["IngestSaleRequest"];
+                    "application/*+json": components["schemas"]["IngestSaleRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -6248,6 +6359,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json-patch+json": components["schemas"]["ProvisionRequest"];
+                    "application/json": components["schemas"]["ProvisionRequest"];
+                    "text/json": components["schemas"]["ProvisionRequest"];
+                    "application/*+json": components["schemas"]["ProvisionRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/Till/{id}": {
         parameters: {
             query?: never;
@@ -6629,6 +6791,216 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json-patch+json": components["schemas"]["CreateTillRequest"];
+                    "application/json": components["schemas"]["CreateTillRequest"];
+                    "text/json": components["schemas"]["CreateTillRequest"];
+                    "application/*+json": components["schemas"]["CreateTillRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tills/enrol": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json-patch+json": components["schemas"]["EnrolRequest"];
+                    "application/json": components["schemas"]["EnrolRequest"];
+                    "text/json": components["schemas"]["EnrolRequest"];
+                    "application/*+json": components["schemas"]["EnrolRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Gone */
+                410: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tills/{id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tokens/device": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json-patch+json": components["schemas"]["DeviceTokenRequest"];
+                    "application/json": components["schemas"]["DeviceTokenRequest"];
+                    "text/json": components["schemas"]["DeviceTokenRequest"];
+                    "application/*+json": components["schemas"]["DeviceTokenRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -7025,6 +7397,16 @@ export interface components {
             /** Format: uuid */
             itemIdTwo?: string;
         };
+        CreateTillRequest: {
+            /** Format: int32 */
+            storeId?: number;
+            name?: string | null;
+        };
+        DeviceTokenRequest: {
+            /** Format: uuid */
+            deviceId?: string;
+            clientSecret?: string | null;
+        };
         Discount: {
             /** Format: date-time */
             createdAt?: string;
@@ -7210,6 +7592,60 @@ export interface components {
             active?: boolean;
             /** Format: uuid */
             businessId?: string;
+        };
+        EnrolRequest: {
+            enrolmentCode?: string | null;
+        };
+        IngestLine: {
+            /** Format: uuid */
+            itemId?: string;
+            /** Format: int32 */
+            qty?: number;
+            /** Format: int64 */
+            unitPricePence?: number;
+            /** Format: int64 */
+            discountPence?: number;
+            /** Format: int64 */
+            lineGrossPence?: number;
+            /** Format: int32 */
+            vatRateBp?: number;
+            /** Format: int64 */
+            vatAmountPence?: number;
+            /** Format: int64 */
+            overriddenFromPence?: number | null;
+            discountsJson?: string | null;
+        };
+        IngestSaleRequest: {
+            /** Format: uuid */
+            saleId?: string;
+            /** Format: uuid */
+            deviceId?: string;
+            /** Format: int64 */
+            deviceSeq?: number;
+            /** Format: int32 */
+            channel?: number;
+            /** Format: date */
+            businessDay?: string;
+            /** Format: date-time */
+            occurredAtUtc?: string;
+            /** Format: int64 */
+            grossPence?: number;
+            /** Format: int64 */
+            vatPence?: number;
+            note?: string | null;
+            /** Format: uuid */
+            operatorUserId?: string | null;
+            lines?: components["schemas"]["IngestLine"][] | null;
+            tenders?: components["schemas"]["IngestTender"][] | null;
+        };
+        IngestTender: {
+            /** Format: int32 */
+            tenderType?: number;
+            /** Format: int64 */
+            amountPence?: number;
+            /** Format: int64 */
+            changePence?: number;
+            providerRef?: string | null;
         };
         Item: {
             /** Format: date-time */
@@ -7401,6 +7837,12 @@ export interface components {
             instance?: string | null;
         } & {
             [key: string]: unknown;
+        };
+        ProvisionRequest: {
+            name?: string | null;
+            plan?: string | null;
+            adminEmail?: string | null;
+            adminPassword?: string | null;
         };
         Refund: {
             /** Format: date-time */

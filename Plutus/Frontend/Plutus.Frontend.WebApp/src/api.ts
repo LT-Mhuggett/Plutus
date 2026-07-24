@@ -8,10 +8,14 @@ import {
   cachedMeta,
   cacheItems,
   cacheMeta,
+  nextDeviceSeq,
+  parkSale,
   queueSale,
   queuedSales,
   removeQueued,
 } from "./offline.ts";
+import { businessDay, getDeviceCredential, itemGuid, postSale, uuidv7, type IngestLine, type IngestSaleRequest } from "./pipeline.ts";
+import { lineDiscountPence, type BasketLine } from "./till/basket.ts";
 
 // Phase 1: single-tenant test environment — the seeded Kapow business/store/till.
 // Replaced by a full bootstrap flow in later phases (ids from the seed ETL).
@@ -428,108 +432,102 @@ export const parkTransaction = (name: string, data: string) =>
 
 export const deleteParked = (id: string) => send("DELETE", `/api/SavedTransaction/${id}`);
 
-// ── checkout ────────────────────────────────────────────────────────────────
+// ── checkout (WP2.1: the v1 pipeline) ───────────────────────────────────────
+//
+// Decision 2026-07-24: checkout ALWAYS enqueues the ready-to-send v1 IngestSaleRequest
+// into the IndexedDB outbox first (durable before any network attempt), then drains
+// immediately. Online, the drain sends it in the same call; offline it stays queued and
+// the reconnect drain delivers it. saleId idempotency makes redelivery safe. The legacy
+// POST /api/Sale write and the client-side stock patches are GONE — the server's legacy
+// bridge consumer projects each recorded sale into the legacy tables (incl. stock) until
+// the Phase-3 reporting projections replace them.
 
-export interface SaleLine {
-  itemId: string;
-  quantity: number;
-  /** unit prices in POUNDS (API decimals) */
-  unitPrice: number;
-  unitExPrice: number;
-  /** set when the operator adjusted the price at the till */
-  adjusted?: { price: number; exPrice: number };
-  /** applied discount — recorded as Transaction_Discount, price stays original */
-  discount?: { discountId: number; discountRate: number };
-  /** return line: quantity comes back into stock, value subtracts, refund row created */
-  isReturn?: boolean;
-  originSaleId?: string;
-}
-
-export interface Payment {
+export interface CheckoutPayment {
   payId: number;
-  amount: number;
-  change: number;
+  name: string;
+  amountPence: number;
+  changePence: number;
 }
 
 export interface CompletedSale {
   saleId: string;
-  total: number;
-  change: number;
-  /** true when the sale was queued offline and will sync on reconnect */
-  queued?: boolean;
+  /** true when the sale is still in the outbox (offline) and will sync on reconnect */
+  queued: boolean;
 }
 
-export async function checkout(lines: SaleLine[], payments: Payment[], totals: { total: number; totalExTax: number }): Promise<CompletedSale> {
+const tenderTypeFor = (methodName: string): number => {
+  const n = methodName.toLowerCase();
+  if (n.includes("cash")) return 0; // TenderType.Cash
+  if (n.includes("online")) return 2;
+  if (n.includes("credit")) return 3;
+  return 1; // Card
+};
+
+export async function checkout(
+  lines: BasketLine[],
+  payments: CheckoutPayment[],
+  totals: { totalPence: number; totalExTaxPence: number },
+): Promise<CompletedSale> {
   const session = getSession();
   if (!session) throw new Error("Not signed in.");
-  const employeeId = session.employeeId;
-  const saleId = crypto.randomUUID();
-  const sold = lines.filter((l) => !l.isReturn);
-  const returns = lines.filter((l) => l.isReturn);
+  const cred = getDeviceCredential();
+  if (!cred) throw new Error("This till is not enrolled as a device — see Settings → Till device.");
 
-  const body = {
-    id: saleId,
-    total: totals.total,
-    totalExTax: totals.totalExTax,
-    dateOfSale: new Date().toISOString(),
-    employeeId,
-    storeId: STORE_ID,
-    tillId: TILL_ID,
-    transactions: sold.map((l) => ({
-      amount: l.quantity,
-      itemsCostExPrice: l.adjusted?.exPrice ?? l.unitExPrice,
-      itemsCostPrice: l.adjusted?.price ?? l.unitPrice,
-      itemId: l.itemId,
-      businessId: BUSINESS_ID,
-      tillId: TILL_ID,
-      saleId,
-      checkoutItemChange: l.adjusted
-        ? { price: l.adjusted.price, exPrice: l.adjusted.exPrice, itemIdOne: l.itemId, itemIdTwo: BUSINESS_ID }
-        : null,
-      transaction_Discounts: l.discount ? [{ saleId, discountId: l.discount.discountId, discountRate: l.discount.discountRate }] : null,
+  const saleId = uuidv7();
+  const ingestLines: IngestLine[] = await Promise.all(
+    lines.map(async (l) => {
+      // Same arithmetic as basketTotals so the header/line invariants reconcile exactly.
+      const disc = lineDiscountPence(l);
+      const qty = l.isReturn ? -l.quantity : l.quantity;
+      const lineGross = l.pricePence * qty - (l.isReturn ? 0 : disc);
+      const ratio = l.pricePence > 0 ? l.exPricePence / l.pricePence : 1;
+      const lineEx = (l.exPricePence * l.quantity - Math.round(disc * ratio)) * (l.isReturn ? -1 : 1);
+      return {
+        itemId: await itemGuid(BUSINESS_ID, l.item.idOne),
+        qty,
+        unitPricePence: l.pricePence,
+        discountPence: l.isReturn ? 0 : disc,
+        lineGrossPence: lineGross,
+        vatRateBp: l.exPricePence > 0 ? Math.round((l.pricePence / l.exPricePence - 1) * 10000) : 0,
+        vatAmountPence: lineGross - lineEx,
+        overriddenFromPence: l.adjusted ? Math.round(l.item.price * 100) : null,
+        // Projection metadata for the server's legacy bridge (shape documented there).
+        discountsJson: JSON.stringify({
+          itemIdOne: l.item.idOne,
+          exUnitPence: l.exPricePence,
+          discounts: l.discount ? [{ id: l.discount.discountId, rate: l.discount.amount }] : undefined,
+          return: l.isReturn && l.originSaleId ? { originSaleId: l.originSaleId } : undefined,
+        }),
+      };
+    }),
+  );
+
+  const request: IngestSaleRequest = {
+    saleId,
+    deviceId: cred.deviceId,
+    deviceSeq: await nextDeviceSeq(),
+    channel: 1, // SaleChannel.WebPos
+    businessDay: businessDay(),
+    occurredAtUtc: new Date().toISOString(),
+    grossPence: totals.totalPence,
+    vatPence: totals.totalPence - totals.totalExTaxPence,
+    operatorUserId: session.employeeId,
+    lines: ingestLines,
+    tenders: payments.map((p) => ({
+      tenderType: tenderTypeFor(p.name),
+      amountPence: p.amountPence,
+      changePence: p.changePence,
+      providerRef: JSON.stringify({ payId: p.payId }), // legacy PayMethod mapping (interim)
     })),
-    paymentSales: payments.map((p) => ({ ...p, saleId })),
-    refunds: returns.length
-      ? returns.map((l) => ({
-          reason: "Till return",
-          amount: l.quantity,
-          itemId: l.itemId,
-          businessId: BUSINESS_ID,
-          authoriserId: employeeId,
-          saleId,
-          saleIdReturned: l.originSaleId,
-        }))
-      : null,
-  };
+  } as IngestSaleRequest;
 
-  const stockPatches = lines.map((l) => ({ itemId: l.itemId, change: l.isReturn ? l.quantity : -l.quantity }));
-  const change = payments.reduce((c, p) => c + p.change, 0);
+  // Durable first, network second: the sale survives a crash/refresh mid-send.
+  await queueSale({ saleId, request, queuedAt: new Date().toISOString() });
+  notifyOutboxChanged();
+  await drainOutbox();
 
-  try {
-    await send("POST", `/api/Sale`, body);
-  } catch (e) {
-    // Only NETWORK failures queue (fetch rejects with TypeError when offline) — an
-    // HTTP error like a validation 400 must surface to the operator, not sit in the
-    // outbox forever. A 401 never reaches here (handle401 reloads to login first).
-    if (!(e instanceof TypeError)) throw e;
-    await queueSale({ saleId, saleBody: body, stockPatches, queuedAt: new Date().toISOString() });
-    notifyOutboxChanged();
-    return { saleId, total: totals.total, change, queued: true };
-  }
-
-  await applyStockPatches(stockPatches);
-  return { saleId, total: totals.total, change };
-}
-
-async function applyStockPatches(patches: { itemId: string; change: number }[]): Promise<void> {
-  // Best-effort — 404 simply means the item isn't stock-tracked.
-  for (const p of patches) {
-    await fetch(`/api/Stock/UpdateQuantity/${encodeURIComponent(p.itemId)}`, {
-      method: "PATCH",
-      headers: { ...headers(), StoreId: String(STORE_ID), "Content-Type": "application/json" },
-      body: String(p.change),
-    }).catch(() => undefined);
-  }
+  const stillQueued = (await queuedSales()).some((q) => q.saleId === saleId);
+  return { saleId, queued: stillQueued };
 }
 
 // ── outbox drain ────────────────────────────────────────────────────────────
@@ -543,26 +541,33 @@ const notifyOutboxChanged = () => outboxListeners.forEach((fn) => fn());
 
 let draining = false;
 
-/** Replay queued offline sales, oldest first. Safe to call repeatedly. */
+/** Replay queued sales into POST /api/v1/sales, oldest first. Safe to call repeatedly.
+ *  Retryable failures stop the drain (order preserved); permanent rejections are parked
+ *  locally (client-side dead-letter, visible in Settings) so they never block the queue. */
 export async function drainOutbox(): Promise<{ sent: number; remaining: number }> {
   if (draining) return { sent: 0, remaining: (await queuedSales()).length };
   draining = true;
   let sent = 0;
+  let changed = false;
   try {
     const queue = (await queuedSales()).sort((a, b) => a.queuedAt.localeCompare(b.queuedAt));
     for (const q of queue) {
-      try {
-        await send("POST", `/api/Sale`, q.saleBody);
-      } catch {
-        break; // still offline (or server rejecting) — keep it queued, stop the drain
+      const outcome = await postSale(q.request);
+      if (outcome.kind === "recorded" || outcome.kind === "quarantined") {
+        await removeQueued(q.saleId);
+        sent++;
+        changed = true;
+      } else if (outcome.kind === "rejected") {
+        await parkSale({ ...q, reason: outcome.detail, parkedAt: new Date().toISOString() });
+        await removeQueued(q.saleId);
+        changed = true;
+      } else {
+        break; // offline / server unavailable — keep it queued, stop the drain
       }
-      await applyStockPatches(q.stockPatches);
-      await removeQueued(q.saleId);
-      sent++;
     }
   } finally {
     draining = false;
-    if (sent > 0) notifyOutboxChanged();
+    if (changed) notifyOutboxChanged();
   }
   return { sent, remaining: (await queuedSales()).length };
 }

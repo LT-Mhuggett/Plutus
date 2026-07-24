@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react";
-import { fetchPayMethods, BUSINESS_ID, TILL_ID } from "./api.ts";
+import { fetchPayMethods, onOutboxChanged, BUSINESS_ID, STORE_ID } from "./api.ts";
+import { parkedCount, queuedCount, resetDeviceSeq } from "./offline.ts";
+import {
+  canEnrolTills,
+  clearDeviceCredential,
+  createTillEnrolCode,
+  enrolDevice,
+  getDeviceCredential,
+  type DeviceCredential,
+} from "./pipeline.ts";
 import { getPrefs, setPrefs, type Prefs } from "./prefs.ts";
 import { getSession } from "./session.ts";
 import Receipt, { type ReceiptData } from "./till/Receipt.tsx";
@@ -32,6 +41,134 @@ const TEST_RECEIPT: ReceiptData = {
   totalExTaxPence: 700,
   payments: [{ name: "Cash", amountPence: 1000, changePence: 260 }],
 };
+
+/** WP2.2 device enrolment (2026-07-24): this browser becomes an enrolled till device —
+ *  the credential lives in localStorage (per browser, like the native till's identity)
+ *  and every sale it submits carries its deviceId + monotonic deviceSeq. */
+function TillDeviceSection() {
+  const [cred, setCred] = useState<DeviceCredential | null>(() => getDeviceCredential());
+  const [code, setCode] = useState("");
+  const [issued, setIssued] = useState<{ code: string; expires: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [counts, setCounts] = useState({ queued: 0, parked: 0 });
+
+  useEffect(() => {
+    const refresh = () => void Promise.all([queuedCount(), parkedCount()]).then(([q, p]) => setCounts({ queued: q, parked: p }));
+    refresh();
+    return onOutboxChanged(refresh) as () => void;
+  }, []);
+
+  async function enrol(withCode: string) {
+    setBusy(true);
+    setError("");
+    try {
+      const c = await enrolDevice(withCode);
+      await resetDeviceSeq(); // fresh deviceId → its sale sequence restarts at 1
+      setCred(c);
+      setCode("");
+      setIssued(null);
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function generateCode() {
+    setBusy(true);
+    setError("");
+    try {
+      const r = await createTillEnrolCode(STORE_ID, `Web POS ${new Date().toISOString().slice(0, 10)}`);
+      setIssued({ code: r.enrolmentCode, expires: r.expiresAtUtc });
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <h3 className="settings-h">Till device</h3>
+      {cred ? (
+        <>
+          <p className="muted small">
+            This browser is enrolled as a till device — its sales go through the platform pipeline with this identity.
+            "Forget" only clears the local credential; revoking the device is done from the till admin.
+          </p>
+          <dl className="env-info">
+            <dt>Device id</dt>
+            <dd className="mono small">{cred.deviceId}</dd>
+            <dt>Till id</dt>
+            <dd className="mono small">{cred.tillId}</dd>
+            <dt>Enrolled</dt>
+            <dd>{new Date(cred.enrolledAt).toLocaleString("en-GB")}</dd>
+            <dt>Sync queue</dt>
+            <dd>
+              {counts.queued} waiting{counts.parked > 0 && <span className="error"> · {counts.parked} parked (rejected — needs attention)</span>}
+            </dd>
+          </dl>
+          <div className="setting-row">
+            <span className="grow muted small">Un-enrol this browser (sales are blocked until it is enrolled again).</span>
+            <button
+              className="ghost"
+              disabled={busy}
+              onClick={() => {
+                clearDeviceCredential();
+                setCred(null);
+              }}
+            >
+              Forget this device
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="error small">Not enrolled — checkout is blocked until this browser is enrolled as a till device.</p>
+          <div className="setting-row">
+            <span className="grow">
+              Enrolment code
+              <span className="muted small block">Single-use code from the till admin (valid 48h).</span>
+            </span>
+            <input
+              className="pref-input"
+              placeholder="e.g. 4F7K2M9P"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+            />
+            <button className="primary" disabled={busy || !code.trim()} onClick={() => enrol(code)}>
+              Enrol this device
+            </button>
+          </div>
+          {canEnrolTills() && (
+            <div className="setting-row">
+              <span className="grow">
+                Till admin
+                <span className="muted small block">
+                  Your login can create tills: generate a code for this browser or type it into another one.
+                </span>
+              </span>
+              <button className="ghost" disabled={busy} onClick={generateCode}>
+                Generate a code
+              </button>
+            </div>
+          )}
+          {issued && (
+            <p className="small">
+              Code <strong className="mono">{issued.code}</strong> (single-use, expires{" "}
+              {new Date(issued.expires).toLocaleString("en-GB")}){" "}
+              <button className="ghost small" disabled={busy} onClick={() => enrol(issued.code)}>
+                Enrol this browser with it
+              </button>
+            </p>
+          )}
+        </>
+      )}
+      {error && <p className="error small">{error}</p>}
+    </>
+  );
+}
 
 export default function SettingsPage() {
   const [prefs, setPrefsState] = useState<Prefs>(() => getPrefs());
@@ -112,6 +249,8 @@ export default function SettingsPage() {
         is backed up on the server. Backup/restore buttons are therefore not needed here.
       </p>
 
+      <TillDeviceSection />
+
       <h3 className="settings-h">Environment</h3>
       <dl className="env-info">
         <dt>Signed in as</dt>
@@ -120,8 +259,6 @@ export default function SettingsPage() {
         <dd>{apiStatus === "checking" ? "checking…" : apiStatus === "ok" ? "✅ reachable" : "❌ unreachable"}</dd>
         <dt>Business id</dt>
         <dd className="mono small">{BUSINESS_ID}</dd>
-        <dt>Till id</dt>
-        <dd className="mono small">{TILL_ID}</dd>
         <dt>App build</dt>
         <dd>{__BUILD_TIME__}</dd>
       </dl>

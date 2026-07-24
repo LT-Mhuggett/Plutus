@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { checkout, fetchPayMethods, type PayMethod } from "../api.ts";
-import { gbp, parsePence, toPounds } from "../money.ts";
+import { gbp, parsePence } from "../money.ts";
 import type { BasketLine } from "./basket.ts";
 import type { ReceiptData } from "./Receipt.tsx";
 
@@ -60,39 +60,34 @@ export default function CheckoutDialog({ lines, totals, onClose, onComplete }: P
     setBusy(true);
     setError("");
     try {
-      // change is attributed to the changeable method(s), proportionally to their share
-      const payments = [...parsed.perMethod.entries()].map(([payId, pence]) => {
-        const m = methods!.find((x) => x.id === payId)!;
-        const change = m.isChangeable && changeablePaid > 0 ? Math.round((overpay * pence) / changeablePaid) : 0;
-        return { payId, amount: toPounds(pence), change: toPounds(change), name: m.name, pence };
+      // Change is attributed to the changeable method(s) proportionally, with the LAST
+      // changeable payment absorbing the rounding remainder — Σchange must equal the
+      // overpay to the penny (the v1 pipeline enforces net tender == gross).
+      const entries = [...parsed.perMethod.entries()];
+      const changeable = entries.filter(([id]) => methods!.find((m) => m.id === id)?.isChangeable);
+      const changeByPayId = new Map<number, number>();
+      let allocated = 0;
+      changeable.forEach(([payId, pence], i) => {
+        const change =
+          i === changeable.length - 1 ? overpay - allocated : Math.round((overpay * pence) / changeablePaid);
+        allocated += change;
+        changeByPayId.set(payId, change);
       });
-      const sale = await checkout(
-        lines.map((l) => ({
-          itemId: l.item.idOne,
-          quantity: l.quantity,
-          unitPrice: toPounds(l.pricePence),
-          unitExPrice: toPounds(l.exPricePence),
-          adjusted: l.adjusted ? { price: toPounds(l.pricePence), exPrice: toPounds(l.exPricePence) } : undefined,
-          discount: l.discount
-            ? {
-                discountId: l.discount.discountId,
-                // historic data stores the fraction for % discounts and the £ amount for fixed ones
-                discountRate: l.discount.amount,
-              }
-            : undefined,
-          isReturn: l.isReturn,
-          originSaleId: l.originSaleId,
-        })),
-        payments.map(({ payId, amount, change }) => ({ payId, amount, change })),
-        { total: toPounds(totals.totalPence), totalExTax: toPounds(totals.totalExTaxPence) },
-      );
+      const payments = entries.map(([payId, pence]) => ({
+        payId,
+        name: methods!.find((x) => x.id === payId)!.name,
+        amountPence: pence,
+        changePence: changeByPayId.get(payId) ?? 0,
+      }));
+
+      const sale = await checkout(lines, payments, totals);
       onComplete({
         saleId: sale.saleId,
         date: new Date().toISOString(),
         lines,
         totalPence: totals.totalPence,
         totalExTaxPence: totals.totalExTaxPence,
-        payments: payments.map((p) => ({ name: p.name, amountPence: p.pence, changePence: Math.round(p.change * 100) })),
+        payments: payments.map((p) => ({ name: p.name, amountPence: p.amountPence, changePence: p.changePence })),
         queued: sale.queued,
       });
     } catch (e) {
