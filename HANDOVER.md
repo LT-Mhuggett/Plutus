@@ -43,7 +43,9 @@ cbf0b75 feat(wp0.2b): extract auth into Plutus.Identity module
 96a0c0e fix(native): BugFix-2026-07-22 bugs in NatApp and MAUI
 ```
 
-Everything is committed **except** two deliberately-untracked files: `Environment_Setup_Runbook.md` (ETRIE doc) and `Plutus/Frontend/Plutus.Frontend.WebUI/Plutus.code-workspace` (stray). Gitignored & never committed: `publish/`, the Kapow `*.db`, `Build/snapshots/` (real sale figures), `node_modules/`, `dist/`.
+**Remote (added 2026-07-24):** `origin` = `https://github.com/LT-Mhuggett/Plutus.git` (Matt's, private) · `upstream` = `github.com/seank842/Plutus.git` (Sean's original). All work is **pushed to origin/Matt's-Horror**. NOTE: the push was rebuilt into a **single squashed commit `3d2837a`** on top of upstream/master ("remove secret-bearing history") — the granular per-task commits are NOT on GitHub (content intact); new commits from here are granular again. GitHub Credential Manager (browser) — Matt authenticates.
+
+**Deferred hygiene (Matt's call, left as-is):** tracked `appsettings*.json` carry cleartext MySQL passwords (Sean's old dockerised-dev creds, NOT the live Mac DB) — pushed to the private repo. Options when revisited: move to env/user-secrets (forward), or `git filter-repo` purge (if repo goes public).
 
 Git identity is set **repo-locally** (`Matt Huggett` / `mhuggett@leadingtalent.co.uk`).
 
@@ -51,31 +53,31 @@ Git identity is set **repo-locally** (`Matt Huggett` / `mhuggett@leadingtalent.c
 
 **Goal:** evolve the single-tenant DBService into the multi-tenant modular-monolith platform in `Build/plutus-platform-architecture.md` (v3). Authority order: architecture doc > implementation plan > build specs.
 
-**Phase 0:**
-- ✅ **T0.1 — .NET 8 retarget.** All 7 backend/tool projects net7→net8 (Authentication netstandard2.1→net8); EF Core+Pomelo 6→8, Identity.Web 1→2, Swashbuckle/Z.EntityFramework.Plus→8; dropped unused AzureAD.UI + PlatformAbstractions. Zero source changes. Endpoints byte-identical (snapshots in `Build/snapshots/`, gitignored). Deployed.
-- ✅ **T0.2a — SharedKernel.** `src/Plutus.SharedKernel` (no refs/packages): `Pence`, `Uuid7` (RFC 9562, big-endian, monotonic), `ITenantOwned`/`ITenantContext`, `DomainEvent`/`SaleRecorded`/`IEventBus`/`IEventConsumer`. `tests/Plutus.Tests.Unit` (xunit) — 5 tests green. Root `Plutus.slnx` created (10 platform projects; builds clean).
-- 🔶 **T0.2b — module carve-up (IN PROGRESS).** First slice done: `src/Plutus.Identity` (TestTokenAuth + DevAuthBypassEvaluator + `AddPlutusIdentity`), verified live. **Remaining below.**
-- ⬜ **T0.3 — CI + OpenAPI.** ⚠️ **No git remote → CI pipeline can't actually run here.** Can still: generate `openapi.json` artifact + `frontends/codegen.sh` TS types. Flag to Matt: decide a remote (GitHub) or treat CI as local scripts.
-- ⬜ **T0.4 — architecture tests** (`tests/Plutus.Tests.Architecture`): no cross-module refs; no `decimal`/`double` money; query filters present; no `Guid.NewGuid()` for entity IDs; frontend isolation.
+**Phase 0 — COMPLETE (all verified live; ETRIE untouched).**
+- ✅ **T0.1 — .NET 8 retarget.** 7 projects net7→net8; EF/Pomelo 6→8, Identity.Web 1→2; dropped unused AzureAD.UI + PlatformAbstractions. Endpoints byte-identical (snapshots in `Build/snapshots/`, gitignored).
+- ✅ **T0.2 — module carve-up (Option A).** `src/`: `SharedKernel` (Pence, Uuid7, tenancy, events), `Web.Infrastructure` (generic controller bases + APIConventions), `Identity` (auth), `Catalogue` (ItemController + band guardrail), `Sales` (SaleController incl. transitional Summary/VatIntegrity/SaleReport), `Reporting` + `Tenancy` scaffolds. Host (`Plutus.DBService`) = composition root, registers module controllers via `AddApplicationPart` + `AddPlutus<Module>()`. Namespaces kept stable (zero concrete-controller edits). Every endpoint byte-identical at each step.
+- ✅ **T0.3 — OpenAPI + codegen + CI.** `openapi.json` (64 paths) from the live Swagger; `frontends/codegen.sh` → `WebApp/src/api/types.gen.ts` (generated, tsc-clean, committed, not yet imported — wired at T2.1); `.github/workflows/ci.yml` (needs a 9.0.x SDK for .slnx; **untested until Actions enabled**).
+- ✅ **T0.4 — architecture tests** (`tests/Plutus.Tests.Architecture`, 5 pass + 1 Phase-1 skip): no cross-module refs; no decimal/double money in modules; no `Guid.NewGuid()` for IDs; frontend isolation. (Query-filter rule skipped until tenant entities exist.)
 
-Phases 1–10 (tenancy schema, idempotent ingest, broker-less outbox, portal, MAUI sync, stock, Woo, payments, etc.) not started.
+Test totals: **Unit 5 + Architecture 6 (1 skip)** green. Whole `Plutus.slnx` builds clean.
 
-## 5. RESUME HERE — finish T0.2b via **Option A** (decided by Matt)
+Phases 2–10 not started.
 
-The entity controllers (Sale, Item, Employee, Business, Store, Stock, Tax, Category) all inherit generic bases in `Plutus/Endpoints/Plutus.DBService/Controllers/Bases/` (`ApiControllerBase{R,CR,CRU,CRUD}` + composite variants + `APIConventions`). They must get a shared home before concrete controllers can split into modules. **Option A (chosen): a shared web-infra project.**
+## 5. RESUME HERE — Phase 1 (foundations: multi-tenant core + ingest)
 
-Steps (commit per step; keep endpoints byte-identical; snapshot-diff after each; **deploy the FULL publish folder** — see §6 gotcha):
+Phase 0 is done. Phase 1 is specced task-by-task in `Build/plutus-sonnet-build-spec.md` T1.1–T1.8 (authority: architecture doc). **Awaiting Matt's explicit go-ahead** — T1.1 is a real schema migration on the live seeded MySQL, so start on a COPY.
 
-1. **`src/Plutus.Web.Infrastructure`** (net8, `FrameworkReference Microsoft.AspNetCore.App`, refs SharedKernel + Plutus.Contracts/Repository/Entities/Reports as the bases need). Move `Controllers/Bases/*` + `APIConventions` + any shared `IHttpContextAccessor`/`IRepositoryWrapper` plumbing into it.
-2. **`src/Plutus.Catalogue`** — move `ItemController` (+ its inline band-validation guardrail) and `ItemParameters.Search`; `AddPlutusCatalogue()`.
-3. **`src/Plutus.Sales`** — move `SaleController`'s sales/detail; the **ingest** path proper is Phase 1, so for now just relocate existing sale endpoints.
-4. **`src/Plutus.Reporting`** — move `Sale/Summary` + `Sale/VatIntegrity` (reporting concerns) out of `SaleController`. Note: this splits `SaleController` — Summary/VatIntegrity→Reporting, Detail→Sales; check nothing else refs them.
-5. **`src/Plutus.Tenancy`** — scaffold (empty module + `AddPlutusTenancy()`) ready for Phase 1.
-6. **Host wiring:** `Plutus.DBService` stays the composition root; for each module lib add `builder.Services.AddControllers().AddApplicationPart(typeof(<AModuleType>).Assembly)` (or `.PartManager`) so MVC discovers module controllers; call each `AddPlutus<Module>()`. Employee/Business/Store/Stock/Tax/Category can stay in the host initially (they're generic CRUD) or move to a `Plutus.Catalogue`/dedicated module later — not required for T0.2 DoD.
-7. **T0.4 architecture test** proving no module references another module (SharedKernel + Web.Infrastructure excepted).
-8. Verify: solution builds; login/401/200; `Sale/Summary`, `Sale/Detail`, `Item` search byte-identical vs `Build/snapshots/`; deploy; ETRIE still 200/200.
+Order (each with a DoD in the spec; commit per task; deploy the FULL publish folder):
+1. **T1.1 Tenancy schema** — new `Tenants/Companies/Stores/Tills/EnrolmentCodes` (fill the `Plutus.Tenancy` scaffold); add `TenantId` to every tenant-owned table with composite indexes; EF global query filter by convention; `ITenantContext` from JWT `tid`; `SaveChanges` stamps/guards TenantId. **This is the flip-the-query-filter-test-on point** (un-skip the T0.4 rule-3 test). ⚠️ migrate a DB copy first; the live env has real Kapow data.
+2. **T1.2 Provisioning + device enrolment** (Tenancy module): `POST /tenants`, `/tills`, `/tills/enrol`, `/tokens/device`, revoke.
+3. **T1.3 Sales schema v2** — `Sales/SaleLines/SaleTenders/SaleAdjustments/SaleQuarantine/OutboxEvents/ConsumerOffsets`, pence + per-line VAT, UUIDv7 PKs, `(TenantId,SaleId)` unique. Legacy sale tables stay until reconciliation sign-off.
+4. **T1.4 idempotent ingest** `POST /api/v1/sales` (Plutus.Sales) + transactional outbox.
+5. **T1.5 broker-less dispatcher** (OutboxEvents polling + ConsumerOffsets).
+6. **T1.6 contract freeze** (regenerate `openapi.json`, enable drift gate).
+7. **T1.7 standing suites** (tenant isolation, money reconciliation, idempotency).
+8. **T1.8 Kapow migration v2** (extend SeedMigrator per `kapow-db-gap-analysis.md` §5).
 
-Then T0.3 (OpenAPI artifact + codegen; CI-as-local-scripts pending a remote decision), and Phase 0 is done → **stop and request the Phase 1 work in detail** (spec says don't run Phase 1 from the summary alone).
+Note: the transitional `Sale/Summary`/`VatIntegrity`/`SaleReport` on Plutus.Sales migrate to Plutus.Reporting in **Phase 3** (projections), not Phase 1.
 
 ## 6. Operational how-to (for the next session)
 
@@ -98,4 +100,4 @@ Then T0.3 (OpenAPI artifact + codegen; CI-as-local-scripts pending a remote deci
 
 ## 8. One-line status
 
-Phase 0 ~75% done (T0.1 ✅, T0.2a ✅, T0.2b first slice ✅); resume at §5 Option A to finish the module carve-up, then T0.3/T0.4, then request Phase 1. Live test env healthy; ETRIE untouched; all work committed locally on `Matt's-Horror`.
+**Phase 0 COMPLETE** (T0.1–T0.4; modular monolith, OpenAPI + codegen + CI file, arch tests). All work committed **and pushed** to `github.com/LT-Mhuggett/Plutus` (squashed — see §3). Live test env healthy; ETRIE untouched. Resume at §5 — Phase 1 (needs Matt's go-ahead; T1.1 migrates a DB copy first).
