@@ -17,7 +17,7 @@ namespace Plutus.Entities.Models
         public string EntityType { get; set; }
         public string EntityId { get; set; }
         /// <summary>What changed, as JSON (request payload or field diff) — for the drill-down.</summary>
-        public string DetailJson { get; set; }
+        public string? DetailJson { get; set; }
         public DateTime AtUtc { get; set; }
     }
 
@@ -30,6 +30,6 @@ namespace Plutus.Entities.Models
         public Guid TenantId { get; set; }
         /// <summary>Opening hours as JSON: {"mon":[{"open":"09:00","close":"17:30"}],…} —
         /// shape owned by the portal; the API stores/echoes it opaquely.</summary>
-        public string OpeningHoursJson { get; set; }
+        public string? OpeningHoursJson { get; set; }
     }
 }

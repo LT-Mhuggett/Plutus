@@ -41,8 +41,14 @@ namespace Plutus.Reporting
 
             var (companyId, storeId) = await ResolveSpineAsync(_db, sale.TillId, ct);
 
+            // WP3.4 period lock: a sale that ARRIVES after its period closed posts to the
+            // first day after it (the next open period) — a published year never silently
+            // changes. Sales received before the close belong to their real day.
+            var closedPeriods = await ClosedPeriodsAsync(_db, sale.TenantId, ct);
+            var day = EffectiveDay(sale.BusinessDay, sale.ReceivedAtUtc, closedPeriods);
+
             var salesRollup = await _db.SalesRollups.IgnoreQueryFilters().FirstOrDefaultAsync(
-                r => r.TenantId == sale.TenantId && r.TillId == sale.TillId && r.BusinessDay == sale.BusinessDay, ct);
+                r => r.TenantId == sale.TenantId && r.TillId == sale.TillId && r.BusinessDay == day, ct);
 
             var vatByRate = VatByRate(sale.Lines);
             var vatRollups = new Dictionary<int, VatRollup>();
@@ -50,16 +56,25 @@ namespace Plutus.Reporting
             {
                 var row = await _db.VatRollups.IgnoreQueryFilters().FirstOrDefaultAsync(
                     r => r.TenantId == sale.TenantId && r.StoreId == storeId &&
-                         r.BusinessDay == sale.BusinessDay && r.VatRateBp == rate, ct);
+                         r.BusinessDay == day && r.VatRateBp == rate, ct);
                 if (row != null) vatRollups[rate] = row;
             }
 
             // ---- mutations (nothing below throws) ----
+            if (day != sale.BusinessDay)
+                _db.AuditLogs.Add(new AuditLog
+                {
+                    TenantId = sale.TenantId, ActorUserId = sale.OperatorUserId ?? Guid.Empty,
+                    Action = "period.late-post", EntityType = "SaleV2", EntityId = sale.Id.ToString(),
+                    DetailJson = $"{{\"businessDay\":\"{sale.BusinessDay:yyyy-MM-dd}\",\"postedTo\":\"{day:yyyy-MM-dd}\"}}",
+                    AtUtc = DateTime.UtcNow,
+                });
+
             if (salesRollup == null)
                 _db.SalesRollups.Add(salesRollup = new SalesRollup
                 {
                     TenantId = sale.TenantId, CompanyId = companyId, StoreId = storeId,
-                    TillId = sale.TillId, BusinessDay = sale.BusinessDay,
+                    TillId = sale.TillId, BusinessDay = day,
                 });
             salesRollup.GrossPence += sale.GrossPence;
             salesRollup.VatPence += sale.VatPence;
@@ -71,12 +86,36 @@ namespace Plutus.Reporting
                     _db.VatRollups.Add(row = new VatRollup
                     {
                         TenantId = sale.TenantId, CompanyId = companyId, StoreId = storeId,
-                        BusinessDay = sale.BusinessDay, VatRateBp = rate,
+                        BusinessDay = day, VatRateBp = rate,
                     });
                 row.GrossPence += sums.Gross;
                 row.NetPence += sums.Gross - sums.Vat;
                 row.VatPence += sums.Vat;
             }
+        }
+
+        internal static Task<List<FinancialPeriod>> ClosedPeriodsAsync(MySqlDbContext db, Guid tenantId, CancellationToken ct) =>
+            db.FinancialPeriods.IgnoreQueryFilters().AsNoTracking()
+                .Where(p => p.TenantId == tenantId && p.Status == PeriodStatus.Closed)
+                .ToListAsync(ct);
+
+        /// <summary>Walks forward past every closed period containing the day (adjacent closed
+        /// periods chain until the first open day). ONLY sales received after the covering
+        /// period's close redirect — pre-close trade stays on its real day, which is what
+        /// makes a rebuild reproduce the locked figures.</summary>
+        internal static DateOnly EffectiveDay(
+            DateOnly businessDay, DateTime receivedAtUtc, IReadOnlyList<FinancialPeriod> closedPeriods)
+        {
+            var day = businessDay;
+            for (var guard = 0; guard < 100; guard++)
+            {
+                var covering = closedPeriods.FirstOrDefault(p =>
+                    p.StartDay <= day && day <= p.EndDay &&
+                    p.ClosedAtUtc.HasValue && receivedAtUtc > p.ClosedAtUtc.Value);
+                if (covering == null) return day;
+                day = covering.EndDay.AddDays(1);
+            }
+            return day;
         }
 
         internal static Dictionary<int, (long Gross, long Vat)> VatByRate(IEnumerable<SaleLine> lines) =>
@@ -127,6 +166,12 @@ namespace Plutus.Reporting
             foreach (var tillId in sales.Select(s => s.TillId).Distinct())
                 spine[tillId] = await RollupProjectionConsumer.ResolveSpineAsync(db, tillId, ct);
 
+            // WP3.4: rebuild applies the SAME closed-period redirect as the incremental
+            // consumer — rebuild after a close must reproduce the locked figures exactly.
+            var closedPeriods = await RollupProjectionConsumer.ClosedPeriodsAsync(db, tenantId, ct);
+            var effectiveDay = new Func<SaleV2, DateOnly>(
+                s => RollupProjectionConsumer.EffectiveDay(s.BusinessDay, s.ReceivedAtUtc, closedPeriods));
+
             var oldSales = await db.SalesRollups.IgnoreQueryFilters()
                 .Where(r => r.TenantId == tenantId).ToListAsync(ct);
             var oldVat = await db.VatRollups.IgnoreQueryFilters()
@@ -135,14 +180,14 @@ namespace Plutus.Reporting
             db.VatRollups.RemoveRange(oldVat);
 
             var salesRollups = sales
-                .GroupBy(s => (s.TillId, s.BusinessDay))
+                .GroupBy(s => (s.TillId, Day: effectiveDay(s)))
                 .Select(g => new SalesRollup
                 {
                     TenantId = tenantId,
                     CompanyId = spine[g.Key.TillId].CompanyId,
                     StoreId = spine[g.Key.TillId].StoreId,
                     TillId = g.Key.TillId,
-                    BusinessDay = g.Key.BusinessDay,
+                    BusinessDay = g.Key.Day,
                     GrossPence = g.Sum(s => s.GrossPence),
                     VatPence = g.Sum(s => s.VatPence),
                     TxnCount = g.Count(),
@@ -152,13 +197,13 @@ namespace Plutus.Reporting
 
             var vatRollups = sales
                 .SelectMany(s => s.Lines.Select(l => (Sale: s, Line: l)))
-                .GroupBy(x => (spine[x.Sale.TillId].StoreId, x.Sale.BusinessDay, x.Line.VatRateBp))
+                .GroupBy(x => (spine[x.Sale.TillId].StoreId, Day: effectiveDay(x.Sale), x.Line.VatRateBp))
                 .Select(g => new VatRollup
                 {
                     TenantId = tenantId,
                     CompanyId = spine[g.First().Sale.TillId].CompanyId,
                     StoreId = g.Key.StoreId,
-                    BusinessDay = g.Key.BusinessDay,
+                    BusinessDay = g.Key.Day,
                     VatRateBp = g.Key.VatRateBp,
                     GrossPence = g.Sum(x => x.Line.LineGrossPence),
                     NetPence = g.Sum(x => x.Line.LineGrossPence - x.Line.VatAmountPence),

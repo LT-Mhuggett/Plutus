@@ -51,6 +51,8 @@ namespace Plutus.Entities
         // Reporting projections (WP3.3): rebuildable rollups the dashboards read.
         public DbSet<SalesRollup> SalesRollups { get; set; }
         public DbSet<VatRollup> VatRollups { get; set; }
+        // Financial periods (WP3.4): close/lock + snapshot.
+        public DbSet<FinancialPeriod> FinancialPeriods { get; set; }
         #endregion
 
         /// <summary>The tenant scoping every query and write is bound to. Referenced by the
@@ -115,6 +117,8 @@ namespace Plutus.Entities
             typeof(AuditLog), typeof(StoreDetails),
             // Reporting projections (WP3.3).
             typeof(SalesRollup), typeof(VatRollup),
+            // Financial periods (WP3.4).
+            typeof(FinancialPeriod),
         };
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -295,6 +299,16 @@ namespace Plutus.Entities
                 e.HasKey(x => x.Id);
                 e.Property(x => x.Id).ValueGeneratedOnAdd();
                 e.HasIndex(x => new { x.TenantId, x.StoreId, x.BusinessDay, x.VatRateBp }).IsUnique();
+            });
+
+            // WP3.4 financial periods.
+            modelBuilder.Entity<FinancialPeriod>(e =>
+            {
+                e.ToTable("FinancialPeriods");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Name).HasMaxLength(100).IsRequired();
+                e.HasIndex(x => new { x.TenantId, x.CompanyId, x.StartDay });
             });
 
             // Test/dev harness only (WP2.1): on MySQL, Trans.IdOne is AUTO_INCREMENT within a
