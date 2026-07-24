@@ -17,6 +17,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Plutus.SharedKernel\Plutus.SharedKernel.csproj" />
+    <!-- WP1.1: tenancy model + query-filter tests need the legacy MySqlDbContext. -->
+    <ProjectReference Include="..\..\Plutus\Commons\Plutus.Entities\Plutus.Entities.csproj" />
   </ItemGroup>
 
 </Project>

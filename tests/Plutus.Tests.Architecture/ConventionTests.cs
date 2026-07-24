@@ -72,9 +72,7 @@ public class ConventionTests
             "Backend must stay isolated from frontends (static SPAs, /api only). Offenders:\n  " + string.Join("\n  ", offenders));
     }
 
-    [Fact(Skip = "Activates in Phase 1 (WP1.1) when tenant-owned entities + the DbContext exist.")]
-    public void All_tenant_owned_entities_have_a_global_query_filter()
-    {
-        // spec T0.4 rule 3 — asserted via IModel metadata once a tenant DbContext exists.
-    }
+    // spec T0.4 rule 3 (tenant-owned entities carry a global query filter) is now enforced
+    // via IModel metadata in Plutus.Tests.Unit.TenancyTests — it needs a product reference
+    // (MySqlDbContext), which this disk-scanning project deliberately avoids.
 }
