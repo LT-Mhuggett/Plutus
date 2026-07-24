@@ -15815,31 +15815,6 @@
         },
         "additionalProperties": false
       }
-    },
-    "securitySchemes": {
-      "oauth2": {
-        "type": "oauth2",
-        "description": "OAuth2.0 Auth Code with PKCE",
-        "flows": {
-          "implicit": {
-            "authorizationUrl": "https://plutusdevenv.b2clogin.com/plutusdevenv.onmicrosoft.com/oauth2/v2.0/authorize?p=B2C_1_SignUpSignIn",
-            "tokenUrl": "https://plutusdevenv.b2clogin.com/plutusdevenv.onmicrosoft.com/oauth2/v2.0/token?p=B2C_1_SignUpSignIn",
-            "scopes": {
-              "https://plutusdevenv.onmicrosoft.com/d46fca43-1ebb-4809-9aad-f1f1e56cb122/API.Read": "Read access to the API",
-              "https://plutusdevenv.onmicrosoft.com/d46fca43-1ebb-4809-9aad-f1f1e56cb122/API.Write": "Write access to the API",
-              "openid": "Sign users in"
-            }
-          }
-        }
-      }
     }
-  },
-  "security": [
-    {
-      "oauth2": [
-        "d46fca43-1ebb-4809-9aad-f1f1e56cb122/API.Read",
-        "d46fca43-1ebb-4809-9aad-f1f1e56cb122/API.Write"
-      ]
-    }
-  ]
+  }
 }

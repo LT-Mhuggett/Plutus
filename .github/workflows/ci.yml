@@ -59,6 +59,8 @@ jobs:
             sleep 1
           done
           kill $APP_PID 2>/dev/null || true
+          # Fail loudly here rather than letting the drift step report a confusing "file missing".
+          if [ ! -s openapi.regen.json ]; then echo "::error::host never served swagger.json (see boot log)"; exit 1; fi
       - name: Fail on drift
         run: |
           if ! diff -q openapi.json openapi.regen.json; then

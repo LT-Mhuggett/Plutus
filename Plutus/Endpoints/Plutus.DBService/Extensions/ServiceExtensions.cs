@@ -41,6 +41,12 @@ namespace Plutus.DBService.Extensions
                     Version = "v1"
                 });
 
+                // B2C OAuth2 scheme/requirement ONLY when B2C is actually configured. Without
+                // it the scope keys built from empty config collapse to duplicate "https:///"
+                // and Swagger generation throws (500) — which broke every config-less boot
+                // (CI drift job, local tooling). The frozen contract is thus config-independent.
+                if (!string.IsNullOrEmpty(configuration["AzureAdB2C:Domain"]))
+                {
                 // Define that the API requires OAuth 2 tokens
                 c.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
                 {
@@ -91,6 +97,7 @@ namespace Plutus.DBService.Extensions
                         }
                     }
                 });
+                } // end: B2C security scheme only when configured
             });
 
             // Include XML comments to documentation
