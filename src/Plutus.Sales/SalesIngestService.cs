@@ -163,10 +163,14 @@ namespace Plutus.Sales
 
         private async Task<IngestOutcome> ReadExistingOutcomeAsync(Guid tenantId, Guid saleId)
         {
-            var recorded = await _db.SalesV2.AsNoTracking().FirstOrDefaultAsync(s => s.Id == saleId);
+            // Idempotency is keyed by the global saleId (UUIDv7) PK, so the re-read must bypass
+            // the tenant query filter — otherwise a same-saleId conflict can't be re-read back
+            // and the duplicate would surface as a 500 instead of the idempotent 200/202.
+            var recorded = await _db.SalesV2.IgnoreQueryFilters().AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == saleId);
             if (recorded != null) return IngestOutcome.Recorded(200, saleId, recorded.ReceivedAtUtc);
-            var quarantined = await _db.SaleQuarantine.AsNoTracking()
-                .AnyAsync(q => q.TenantId == tenantId && q.SaleId == saleId);
+            var quarantined = await _db.SaleQuarantine.IgnoreQueryFilters().AsNoTracking()
+                .AnyAsync(q => q.SaleId == saleId);
             if (quarantined) return IngestOutcome.Quarantined(202, saleId);
             return null;
         }

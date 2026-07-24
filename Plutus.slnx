@@ -26,6 +26,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Plutus.Tests.Architecture/Plutus.Tests.Architecture.csproj" />
+    <Project Path="tests/Plutus.Tests.Integration/Plutus.Tests.Integration.csproj" />
     <Project Path="tests/Plutus.Tests.Unit/Plutus.Tests.Unit.csproj" />
   </Folder>
 </Solution>
