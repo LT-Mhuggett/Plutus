@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Plutus.Frontend.ClientUI.Pages.MainTill.Settings.SettingsPage"
+             xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+             ios:Page.UseSafeArea="True"
+             Title="{Binding Title}">
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="20">
+
+            <!-- Database -->
+            <VerticalStackLayout Spacing="8">
+                <Label Text="Database" FontAttributes="Bold" FontSize="18" />
+                <Button Text="Back Up Database" Command="{Binding BackupDbCommand}" />
+                <Button Text="Restore Database" Command="{Binding RestoreDbCommand}" />
+                <Button Text="Delete Database" Command="{Binding DeleteDbCommand}" />
+            </VerticalStackLayout>
+
+            <!-- Printer -->
+            <VerticalStackLayout Spacing="8">
+                <Label Text="Printer" FontAttributes="Bold" FontSize="18" />
+                <Button Text="Change Printer" Command="{Binding ChangePrinterCommand}" />
+                <Button Text="Print Test Page" Command="{Binding PrintTestPageCommand}" />
+            </VerticalStackLayout>
+
+            <!-- Till Options -->
+            <VerticalStackLayout Spacing="8">
+                <Label Text="Till Options" FontAttributes="Bold" FontSize="18" />
+                <Grid ColumnDefinitions="*,Auto" RowSpacing="0">
+                    <Label Text="Reverse till list order" VerticalOptions="Center" />
+                    <Switch Grid.Column="1" IsToggled="{Binding TillListOrderReversed}" />
+                </Grid>
+            </VerticalStackLayout>
+
+            <!-- Checkout Options -->
+            <VerticalStackLayout Spacing="8">
+                <Label Text="Checkout Options" FontAttributes="Bold" FontSize="18" />
+                <Grid ColumnDefinitions="*,Auto">
+                    <Label Text="Ask for receipt at checkout" VerticalOptions="Center" />
+                    <Switch Grid.Column="1" IsToggled="{Binding AskForReceipt}" />
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto">
+                    <Label Text="Cash drawer connected" VerticalOptions="Center" />
+                    <Switch Grid.Column="1" IsToggled="{Binding CashDrawerExists}" />
+                </Grid>
+            </VerticalStackLayout>
+
+            <Label Text="{Binding Version}" FontSize="12" Opacity="0.6" Margin="0,12,0,0" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

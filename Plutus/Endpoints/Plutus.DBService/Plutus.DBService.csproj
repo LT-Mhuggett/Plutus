@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <UserSecretsId>3dc73556-626d-45a0-a0a6-0458a9b5f62c</UserSecretsId>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    <NoWin32Manifest>true</NoWin32Manifest>
+    <DockerfileContext>..\..</DockerfileContext>
+    <DockerComposeProjectPath>..\..\docker-compose.dcproj</DockerComposeProjectPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="NewFolder1\**" />
+    <Compile Remove="Tests\**" />
+    <Content Remove="NewFolder1\**" />
+    <Content Remove="Tests\**" />
+    <EmbeddedResource Remove="NewFolder1\**" />
+    <EmbeddedResource Remove="Tests\**" />
+    <None Remove="NewFolder1\**" />
+    <None Remove="Tests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Controllers\ATestController.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="8.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.10">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Identity.Web" Version="2.19.1" />
+    <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.19.6" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+    <PackageReference Include="Z.EntityFramework.Plus.EFCore" Version="8.103.7.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Commons\Plutus.Authentication\Plutus.Authentication.csproj" />
+    <ProjectReference Include="..\..\..\src\Plutus.Identity\Plutus.Identity.csproj" />
+    <ProjectReference Include="..\..\..\src\Plutus.Web.Infrastructure\Plutus.Web.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\Plutus.Catalogue\Plutus.Catalogue.csproj" />
+    <ProjectReference Include="..\..\..\src\Plutus.Sales\Plutus.Sales.csproj" />
+    <ProjectReference Include="..\..\..\src\Plutus.Reporting\Plutus.Reporting.csproj" />
+    <ProjectReference Include="..\..\..\src\Plutus.Tenancy\Plutus.Tenancy.csproj" />
+    <ProjectReference Include="..\..\Commons\Plutus.Reports\Plutus.Reports.csproj" />
+    <ProjectReference Include="..\..\Commons\Plutus.Repository\Plutus.Repository.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Properties\PublishProfiles\" />
+  </ItemGroup>
+
+</Project>

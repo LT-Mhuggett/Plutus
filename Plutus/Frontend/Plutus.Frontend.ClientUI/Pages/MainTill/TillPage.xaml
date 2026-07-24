@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Plutus.Frontend.ClientUI.Pages.MainTill.TillPage"
+             xmlns:ext="clr-namespace:Plutus.Frontend.ClientUI.XAML.Extensions"
+             xmlns:I18N_L10N="clr-namespace:Plutus.Frontend.ClientUI.Resources.I18N_L10N"
+             xmlns:core="clr-namespace:Plutus.Frontend.ClientUI.Core"
+             xmlns:fonts="clr-namespace:Plutus.Frontend.ClientUI.Resources.Fonts"
+             xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+             xmlns:vm="clr-namespace:Plutus.Frontend.ClientUI.ViewModels.MainTill"
+             ios:Page.UseSafeArea="True"
+             Shell.NavBarIsVisible="{OnPlatform True, MacCatalyst=False}"
+             Title="{OnIdiom {Binding Title}, Desktop=''}">
+    <ContentPage.Resources>
+        <ext:CollectionEmptyBoolConverter x:Key="ListEmptyToBool" />
+        <ext:InverseBoolConverter x:Key="InverseBool" />
+        <ext:StringNullEmptyBoolConverter x:Key="StringNullToBool" />
+        <ResourceDictionary>
+            <DataTemplate x:Key="BasketItem" >
+                <ViewCell>
+                    <ViewCell.ContextActions>
+                        <MenuItem Text="Returns"
+                                  Command="{Binding Source={x:Reference Name=TillListView}, Path=BindingContext.ReturnItemCommand}" CommandParameter="{Binding .}" />
+                        <MenuItem Text="Adjust"
+                                  Command="{Binding Source={x:Reference Name=TillListView}, Path=BindingContext.AdjustItemCommand}" CommandParameter="{Binding .}" />
+                        <MenuItem Text="Remove One"
+                                  Command="{Binding Source={x:Reference Name=TillListView}, Path=BindingContext.RemoveOneCommand}" CommandParameter="{Binding .}" />
+                        <MenuItem Text="Remove All"
+                                  Command="{Binding Source={x:Reference Name=TillListView}, Path=BindingContext.RemoveAllCommand}" CommandParameter="{Binding .}" />
+                    </ViewCell.ContextActions>
+                    <StackLayout>
+                        <Grid Padding="5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="120" />
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="0" Text="{Binding Quantity}"
+                                   Style="{DynamicResource ListItemTextStyle}" />
+                            <Label Grid.Column="1" Text="{Binding Name}"
+                                   Style="{DynamicResource ListItemDetailTextStyle}" />
+                            <Label Grid.Column="2" Text="{Binding Price, StringFormat='{0:C'}"
+                                   Style="{DynamicResource ListItemDetailTextStyle}" />
+                            <Label Grid.Column="3" Text="{Binding Tax}"
+                                   Style="{DynamicResource ListItemDetailTextStyle}" />
+                        </Grid>
+                    </StackLayout>
+                </ViewCell>
+            </DataTemplate>
+            <DataTemplate x:Key="BasketReturnItem">
+                <ViewCell>
+                    <ViewCell.ContextActions>
+                        <MenuItem Text="{Binding Source={x:Static I18N_L10N:Strings.Returns}, StringFormat={x:Static I18N_L10N:Strings.RevertArg}}"
+                                  Command="{Binding Source={x:Reference Name=TillListView}, Path=BindingContext.RevertReturnCommand}" CommandParameter="{Binding .}" />
+                        <MenuItem Text="{Binding Source='1', StringFormat={x:Static I18N_L10N:Strings.RemoveArg}}"
+                                  Command="{Binding Source={x:Reference Name=TillListView}, Path=BindingContext.RemoveOneCommand}" CommandParameter="{Binding .}" />
+                        <MenuItem Text="{Binding Source='all', StringFormat={x:Static I18N_L10N:Strings.RemoveArg}}" IsDestructive="True"
+                                  Command="{Binding Source={x:Reference Name=TillListView}, Path=BindingContext.RemoveAllCommand}" CommandParameter="{Binding .}" />
+                    </ViewCell.ContextActions>
+                    <StackLayout BackgroundColor="Red">
+                        <Grid Padding="5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="120" />
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="0" Text="{Binding Quantity}"
+                                   Style="{DynamicResource ListItemTextStyle}" />
+                            <Label Grid.Column="1" Text="{Binding Name}"
+                                   Style="{DynamicResource ListItemDetailTextStyle}" />
+                            <Label Grid.Column="2" Text="{Binding Price, StringFormat='{0:C}'}"
+                                   Style="{DynamicResource ListItemDetailTextStyle}" />
+                            <Label Grid.Column="3" Text="{Binding Tax}"
+                                   Style="{DynamicResource ListItemDetailTextStyle}" />
+                        </Grid>
+                    </StackLayout>
+                </ViewCell>
+            </DataTemplate>
+            <DataTemplate x:Key="BasketNote">
+                <ViewCell>
+                    <ViewCell.ContextActions>
+                        <MenuItem Text="{Binding Source='', StringFormat={x:Static I18N_L10N:Strings.RemoveArg}}" IsDestructive="True"
+                                  Command="{Binding Source={x:Reference Name=TillListView}, Path=BindingContext.RemoveAllCommand}" CommandParameter="{Binding .}" />
+                    </ViewCell.ContextActions>
+                    <StackLayout>
+                        <Grid Padding="5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="120" />
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="1" Text="{Binding Name}"
+                                   Style="{DynamicResource ListItemDetailTextStyle}" />
+                            <Label Grid.Column="2" Text="{Binding Price, StringFormat='{0:C}'}"
+                                   Style="{DynamicResource ListItemDetailTextStyle}" />
+                        </Grid>
+                    </StackLayout>
+                </ViewCell>
+            </DataTemplate>
+            <ext:BasketDataTemplateSelector x:Key="BasketDataTemplateSelector"
+                                            BasketItemTemplate="{StaticResource BasketItem}"
+                                            BasketItemReturnTemplate="{StaticResource BasketReturnItem}"
+                                            BasketNoteTemplate="{StaticResource BasketNote}" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Stored Baskets" Command="{Binding RetrieveTransactionCommand}" 
+                     IsEnabled="{Binding StoredTransactions, Converter={StaticResource ListEmptyToBool}}"
+                     IconImageSource="{DynamicResource StoredTransactionIcon}"/>
+    </ContentPage.ToolbarItems>
+    <ContentPage.Content>
+        <StackLayout>
+            <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
+                <Entry Text="{Binding Source={x:Reference stepper}, Path=Value, Mode=TwoWay}" Keyboard="Numeric" ReturnCommand="{Binding ManualAddCommand}" />
+                <Stepper x:Name="stepper" Maximum="1000" Minimum="1" Value="{Binding Quantity, Mode=TwoWay}" />
+                <!--<Button HorizontalOptions="FillAndExpand" Text="Scan" Command="{Binding AutoScanCommand}"
+                        IsVisible="{Binding IsDesktop, Mode=OneWay, Converter={StaticResource InverseBool}}" />-->
+                <Entry HorizontalOptions="FillAndExpand" Text="{Binding ItemId}"
+                       ReturnCommand="{Binding ManualAddCommand}" IsVisible="{Binding IsDesktop, Mode=OneWay}" />
+            </StackLayout>
+            <ListView x:Name="TillListView" VerticalOptions="FillAndExpand" HasUnevenRows="True"
+                      ItemsSource="{Binding Basket}" ItemTemplate="{StaticResource BasketDataTemplateSelector}"
+                      SelectedItem="{Binding SelectedBasketRecord}">
+                <ListView.Header>
+                    <Grid Padding="5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="80" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="120" />
+                        </Grid.ColumnDefinitions>
+                        <Label Grid.Column="0" Text="Quantity" />
+                        <Label Grid.Column="1" Text="Name" />
+                        <Label Grid.Column="2" Text="Price" />
+                        <Label Grid.Column="3" Text="Tax" />
+                    </Grid>
+                </ListView.Header>
+            </ListView>
+            <Grid VerticalOptions="End" Margin="2,2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height=".2*" />
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="2*" />
+                    <RowDefinition Height="2*" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1*" />
+                    <ColumnDefinition Width="1*" />
+                    <ColumnDefinition Width="1*" />
+                    <ColumnDefinition Width="1*" />
+                    <ColumnDefinition Width="1*" />
+                    <ColumnDefinition Width="1*" />
+                </Grid.ColumnDefinitions>
+                <BoxView Grid.Row="0" Grid.ColumnSpan="6"
+                         HeightRequest="2" HorizontalOptions="FillAndExpand"
+                         Margin="30,0"
+                         Color="{DynamicResource PrimaryColor}"/>
+                <Label Grid.Row="1" Grid.Column="0"
+                       FontSize="Medium"
+                       Text="Sales (Excl. Tax)" />
+                <Label Grid.Row="1" Grid.Column="1" 
+                       FontSize="Medium"
+                       Text="{Binding SalesExTax, StringFormat='{0:C2}'}" />
+                <Label Grid.Row="1" Grid.Column="4" 
+                       VerticalTextAlignment="End"
+                       FontSize="Medium" Text="Sales" />
+                <Label Grid.Row="1" Grid.Column="5" 
+                       FontSize="Medium"
+                       Text="{Binding SalesIncTax, StringFormat='{0:C2}'}" />
+                <Border Grid.Row="2" Grid.Column="0" Grid.RowSpan="2" StrokeThickness=".25"
+                        Stroke="Gray">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="8,0,8,0" />
+                    </Border.StrokeShape>
+                    <Button Text="Alter Transaction" CornerRadius="0"
+                            Command="{Binding AlterTransactionSelectorCommand}" />
+                </Border>
+                <Button Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" 
+                        Text="Bag" Padding="0,20"
+                        IsVisible="{Binding Path=DefaultBagId, Converter={StaticResource StringNullToBool}}"
+                        Command="{Binding ManualAddArgCommand}" CommandParameter="{Binding Path=DefaultBagId}" 
+                        CornerRadius="0"/>
+                <Button Grid.Row="2" Grid.Column="3" Grid.ColumnSpan="2" 
+                        Text="Save Transaction" Padding="0,20"
+                        Command="{Binding StoreTransactionCommand}"
+                        CornerRadius="0"/>
+                <Border Grid.Row="2" Grid.Column="5" Grid.RowSpan="2" StrokeThickness=".25"
+                        Stroke="Gray">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="0,8,0,8"/>
+                    </Border.StrokeShape>
+                    <Button Text="Checkout" CornerRadius="0"
+                            Command="{Binding CheckoutTransactionCommand}" />
+                </Border>
+                <Button Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="4"
+                        Text="Cancel Transaction" Padding="0,20" CornerRadius="0"
+                        Command="{Binding CancelTransactionCommand}" />
+            </Grid>
+        </StackLayout>
+    </ContentPage.Content>
+</ContentPage>

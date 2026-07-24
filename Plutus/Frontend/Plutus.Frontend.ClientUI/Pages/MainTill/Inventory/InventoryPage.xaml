@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Plutus.Frontend.ClientUI.Pages.MainTill.Inventory.InventoryPage"
+             xmlns:I18N_L10N="clr-namespace:Plutus.Frontend.ClientUI.Resources.I18N_L10N"
+             xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+             ios:Page.UseSafeArea="True"
+             Shell.NavBarIsVisible="{OnPlatform True, MacCatalyst=False}"
+             Title="{OnIdiom {Binding Title}, Desktop=''}">
+    <StackLayout>
+        <ScrollView>
+            <Grid Margin="5,0,5,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="5*"/>
+                    <ColumnDefinition Width="5*"/>
+                </Grid.ColumnDefinitions>
+                <StackLayout x:Name="LeftColumn" Grid.Column="0" Grid.Row="0"/>
+                <StackLayout x:Name="RightColumn" Grid.Column="1" Grid.Row="0"/>
+            </Grid>
+        </ScrollView>
+    </StackLayout>
+</ContentPage>

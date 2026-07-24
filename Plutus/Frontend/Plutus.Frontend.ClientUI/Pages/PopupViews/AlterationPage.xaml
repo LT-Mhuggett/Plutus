@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<toolkit:Popup xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+               xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+               xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+               x:Class="Plutus.Frontend.ClientUI.Pages.PopupViews.AlterationPage"
+               xmlns:I18N_L10N="clr-namespace:Plutus.Frontend.ClientUI.Resources.I18N_L10N"
+               Color="Transparent">
+    <Frame CornerRadius="{OnPlatform Default='10', Android='15', UWP='15'}"
+           BackgroundColor="WhiteSmoke"
+           HasShadow="True">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="1*"  />
+                <RowDefinition Height=".5*" />
+                <RowDefinition Height=".5*" />
+                <RowDefinition Height="1*" />
+                <RowDefinition Height="3*"  />
+                <RowDefinition Height="1*"  />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition />
+                <ColumnDefinition />
+                <ColumnDefinition />
+            </Grid.ColumnDefinitions>
+
+            <Label Grid.Row="0" Grid.ColumnSpan="3"
+                   Text="{x:Static I18N_L10N:Strings.Alterations}"
+                   FontSize="Subtitle" FontAttributes="Bold" />
+            <Label Grid.Row="1" Grid.ColumnSpan="3"
+                   Text="{Binding Discount.Type, Converter={x:StaticResource DiscountTypeToText}}" />
+            <Label Grid.Row="2" Grid.RowSpan="3"
+                   Text="{Binding Discount.Amount}" />
+            <Label Grid.Row="3" Grid.RowSpan="3" Text="{x:Static I18N_L10N:Strings.Items}"
+                   FontSize="Subtitle"/>
+            <CollectionView x:Name="sfListView" Grid.Row="4" Grid.ColumnSpan="3"
+                            ItemsSource="{Binding BasketItems}"
+                            SelectedItems="{Binding SelectedItems}"
+                            SelectionMode="Multiple"
+                            SelectionChangedCommand="{Binding BasketItemSelectionChangedCommand}"
+                            BackgroundColor="WhiteSmoke">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Label Text="{Binding Name}" Padding="5,0,5,5" />
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+            <Button Grid.Row="5" Grid.Column="0"
+                    Text="{x:Static I18N_L10N:Strings.Cancel}" Command="{Binding CancelAlterationCommand}" />
+            <Button Grid.Row="5" Grid.Column="1"
+                    Text="{Binding SelectAllText}" Command="{Binding SelectAllCommand}" CommandParameter="{x:Reference sfListView}" />
+            <Button Grid.Row="5" Grid.Column="2"
+                    Text="{x:Static I18N_L10N:Strings.Confirm}" Command="{Binding ConfirmAlterationCommand}" />
+        </Grid>
+    </Frame>
+</toolkit:Popup>

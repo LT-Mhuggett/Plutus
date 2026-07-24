@@ -1,0 +1,131 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <RootNamespace>NatApp.Plutus</RootNamespace>
+    <LangVersion>7.3</LangVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DebugType>pdbonly</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="10.1.1" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="2.13.0" />
+    <PackageReference Include="Microsoft.AppCenter.Analytics" Version="4.3.0" />
+    <PackageReference Include="Microsoft.AppCenter.Crashes" Version="4.3.0" />
+    <PackageReference Include="Microsoft.AppCenter.Distribute" Version="4.3.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="3.1.17" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    <PackageReference Include="Rg.Plugins.Popup" Version="2.0.0.12" />
+    <PackageReference Include="SkiaSharp" Version="2.80.3" />
+    <PackageReference Include="SkiaSharp.Extended" Version="1.60.0" />
+    <PackageReference Include="SkiaSharp.Svg" Version="1.60.0" />
+    <PackageReference Include="SkiaSharp.Views.Forms" Version="2.80.3" />
+    <PackageReference Include="Syncfusion.Xamarin.SfCalendar" Version="19.2.0.48" />
+    <PackageReference Include="Syncfusion.Xamarin.SfChart" Version="19.2.0.48" />
+    <PackageReference Include="Syncfusion.Xamarin.SfListView" Version="19.2.0.48" />
+    <PackageReference Include="Syncfusion.Xamarin.SfNumericUpDown" Version="19.2.0.48" />
+    <PackageReference Include="Syncfusion.Xamarin.SfPicker" Version="19.2.0.48" />
+    <PackageReference Include="Syncfusion.Xamarin.SfPopupLayout" Version="19.2.0.48" />
+    <PackageReference Include="Syncfusion.Xamarin.SfSunburstChart" Version="19.2.0.48" />
+    <PackageReference Include="Syncfusion.Xamarin.XlsIO" Version="19.2.0.48" />
+    <PackageReference Include="Syncfusion.Xamarin.XlsIORenderer" Version="19.2.0.48" />
+    <PackageReference Include="Xam.Plugin.Iconize" Version="3.5.0.129" />
+    <PackageReference Include="Xam.Plugin.Iconize.FontAwesome" Version="3.5.0.129" />
+    <PackageReference Include="Xam.Plugin.Iconize.Material" Version="3.5.0.129" />
+    <PackageReference Include="Xamarin.Essentials" Version="1.7.0" />
+    <PackageReference Include="Xamarin.Forms" Version="5.0.0.2083" />
+    <PackageReference Include="Xamarin.Plugin.FilePicker" Version="2.1.41" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Views\FirstTimeStartUp\SetupView.xaml.cs">
+      <DependentUpon>SetupView.xaml</DependentUpon>
+    </Compile>
+    <Compile Update="Views\MainTill\Inventory\Items\ViewAllView.xaml.cs">
+      <DependentUpon>ViewAllView.xaml</DependentUpon>
+    </Compile>
+    <Compile Update="Views\MainTill\Statistics\StockOuttakeView.xaml.cs">
+      <DependentUpon>StockOuttakeView.xaml</DependentUpon>
+    </Compile>
+    <Compile Update="Views\MainTill\StoreOptions\StoreOptionsView.xaml.cs">
+      <DependentUpon>StoreOptionsView.xaml</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Controls\SteppedSliderWithLabels.xaml">
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Views\CustomViews\SliderAlert.xaml">
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Views\FirstTimeStartUp\FTSUMainView.xaml">
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Views\FirstTimeStartUp\RecoveryView.xaml">
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Views\FirstTimeStartUp\SetupView.xaml">
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Views\FirstTimeStartUp\TransferThirdPartyView.xaml">
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Views\LoadingIndicatorView.xaml">
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Views\LoginView.xaml">
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Views\MainTill\Inventory\InventoryView.xaml">
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Views\MainTill\Inventory\Items\AddEditView.xaml">
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Views\MainTill\Inventory\Items\ViewAllView.xaml">
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Views\MainTill\MainView.xaml">
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Views\MainTill\StoreOptions\StoreOptionsView.xaml">
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Views\MainTill\Statistics\SalesReportsView.xaml">
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Views\MainTill\Settings\SettingsView.xaml">
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Views\MainTill\Statistics\StatisticsView.xaml">
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Views\MainTill\Statistics\StockOuttakeView.xaml">
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Views\MainTill\Till\TillView.xaml">
+      <Generator>MSBuild:UpdateDesignTimeXaml</Generator>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Behaviors\" />
+    <Folder Include="Effects\" />
+    <Folder Include="Resources\" />
+    <Folder Include="Services\Repository\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\Commons\CommonPOSLibrary\CommonPOSLibrary.csproj" />
+    <ProjectReference Include="..\..\..\..\Commons\CoppperToCSV\CoppperToCSV.csproj" />
+    <ProjectReference Include="..\..\..\..\Commons\CustomViews\CustomViews.csproj" />
+    <ProjectReference Include="..\..\..\..\Commons\I18N_L10N\I18N_L10N.csproj" />
+    <ProjectReference Include="..\..\..\..\Commons\Plutus.Repository\Plutus.Repository.csproj" />
+    <ProjectReference Include="..\..\..\..\Database\Database.csproj" />
+  </ItemGroup>
+</Project>

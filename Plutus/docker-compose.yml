@@ -1,0 +1,19 @@
+version: '3.4'
+
+services:
+  #db:
+  # image: mysql
+  # environment:
+  #   MYSQL_RANDOM_ROOT_PASSWORD: 1
+  #   MYSQL_DATABASE: plutus
+  #   MYSQL_USER: PlutusDBUser
+  #   MYSQL_PASSWORD: FT7gF@PosD6nJetkC6
+  # volumes:
+  #   - mysql-data:/var/lib/mysql/
+  plutus.dbservice:
+    image: ${DOCKER_REGISTRY-}plutusdbservice
+    build:
+      context: .
+      dockerfile: Endpoints/Plutus.DBService/Dockerfile
+  #  depends_on:
+  #    - db

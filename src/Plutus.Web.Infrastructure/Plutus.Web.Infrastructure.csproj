@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <!-- Namespaces of the moved files are kept as-is (Plutus.DBService.Controllers.Bases,
+         Plutus.DBService) so concrete controllers need no edits; this is shared web
+         infrastructure (generic CRUD controller bases + API conventions) that every POS
+         module references. Boundary is enforced by project references, not namespaces. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.Identity.Web" Version="2.19.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="8.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Plutus.SharedKernel\Plutus.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\Plutus\Commons\Plutus.Authentication\Plutus.Authentication.csproj" />
+    <ProjectReference Include="..\..\Plutus\Commons\Plutus.Repository\Plutus.Repository.csproj" />
+  </ItemGroup>
+
+</Project>
