@@ -1,7 +1,12 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Plutus.Entities.Models;
-using System.Net.Http;
+using Plutus.Entities.Tenancy;
+using Plutus.SharedKernel;
+using System;
+using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Plutus.Entities
 {
@@ -9,9 +14,10 @@ namespace Plutus.Entities
     {
         #region Fields
         private readonly string _connString = @"Server=127.0.0.1;User=root;Password=root;Database=plutus;Port=3306;Persist Security Info=false;Connect Timeout=300";
-        //public int? BussinessId;
-        //public readonly ObjectIdProvider _objectIdProvider;
-
+        // Tenancy (T1.1, evolve-in-place). Never null: defaults to the founding Kapow tenant so
+        // every non-DI call site (tests, SeedMigrator, design-time factory, legacy code) keeps
+        // working as single-tenant. The request-scoped JWT-backed context is injected via DI.
+        private readonly ITenantContext _tenantContext;
         #endregion
 
         #region DbSets for MySql DB only (server-side; NOT on the MAUI Sqlite context)
@@ -19,27 +25,37 @@ namespace Plutus.Entities
         // model + the MAUI SqliteDbContext are unaffected.
         public DbSet<Tenant> Tenants { get; set; }
         #endregion
+
+        /// <summary>The tenant scoping every query and write is bound to. Referenced by the
+        /// global query filters (EF parameterises it per executing context) and by the
+        /// SaveChanges stamp/guard. <see cref="Guid.Empty"/> means unscoped (platform admin).</summary>
+        public Guid CurrentTenantId => _tenantContext.TenantId;
+
         public MySqlDbContext() : base()
         {
             _systemName = "Plutus.DBService";
+            _tenantContext = FixedTenantContext.KapowDefault;
         }
 
         public MySqlDbContext(DbContextOptions options) : base(options)
         {
             _systemName = "Plutus.DBService";
-            //CurrentUser = "Sean";
-            //_objectIdProvider = objectIdProvider;
+            _tenantContext = FixedTenantContext.KapowDefault;
+        }
+
+        // DI-preferred ctor: EF picks this when an ITenantContext is registered (scoped, JWT-backed).
+        public MySqlDbContext(DbContextOptions options, ITenantContext tenantContext) : base(options)
+        {
+            _systemName = "Plutus.DBService";
+            _tenantContext = tenantContext ?? FixedTenantContext.KapowDefault;
         }
 
         public MySqlDbContext(string connString) : base()
         {
             _systemName = "Plutus.DBService";
             _connString = connString;
-            //CurrentUser = "Sean";
-            //_objectIdProvider = objectIdProvider;
+            _tenantContext = FixedTenantContext.KapowDefault;
         }
-
-        //public new object Business { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -51,12 +67,26 @@ namespace Plutus.Entities
             base.OnConfiguring(optionsBuilder);
         }
 
+        // Tenant-owned entities (architecture §3, confirmed 2026-07-24). Role, PaymentMethod,
+        // Person, AuthActions* and the pure mapping tables are GLOBAL/shared and stay unscoped.
+        private static readonly Type[] TenantOwned =
+        {
+            typeof(Business), typeof(Store), typeof(Till),
+            typeof(Item), typeof(Category), typeof(Tax),
+            typeof(Discount), typeof(Discount_Category), typeof(Discount_Item), typeof(Transaction_Discount),
+            typeof(Sale), typeof(Transaction), typeof(PaymentMethod_Sale), typeof(Refund),
+            typeof(Note), typeof(SavedTransaction), typeof(Stock),
+            // Person is the TPT root of Employee (People table holds only the employee base
+            // rows). EF only allows a query filter on the hierarchy root, so scope Person —
+            // it cascades to Employee. Person itself carries no shared/global rows.
+            typeof(Person), typeof(CheckoutItemChange),
+        };
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // T1.1 tenancy (server-side only). TenantId shadow properties + query filters
-            // are added in the next increment; this establishes the Tenants table.
+            // T1.1 tenancy (server-side only).
             modelBuilder.Entity<Tenant>(e =>
             {
                 e.ToTable("Tenants");
@@ -65,36 +95,91 @@ namespace Plutus.Entities
                 e.Property(t => t.Plan).HasMaxLength(50);
                 e.Property(t => t.ConnectionRef).HasMaxLength(100);
             });
+
+            // Shadow TenantId + index on every tenant-owned entity (by convention, never by
+            // hand per entity). Shadow => the shared POCOs and the MAUI SqliteDbContext stay
+            // untouched. NOT NULL: backfilled to Kapow in the migration.
+            foreach (var clr in TenantOwned)
+            {
+                modelBuilder.Entity(clr).Property<Guid>("TenantId");
+                modelBuilder.Entity(clr).HasIndex("TenantId");
+            }
+            ApplyTenantQueryFilters(modelBuilder);
         }
+
+        // Applies the global query filter to each tenant-owned entity via a strongly-typed
+        // generic helper so the lambda closes over `this` (CurrentTenantId) — EF then
+        // re-parameterises it per executing context (the documented dynamic-filter pattern).
+        private void ApplyTenantQueryFilters(ModelBuilder modelBuilder)
+        {
+            var setter = typeof(MySqlDbContext)
+                .GetMethod(nameof(SetTenantFilter), BindingFlags.NonPublic | BindingFlags.Instance)!;
+            foreach (var clr in TenantOwned)
+                setter.MakeGenericMethod(clr).Invoke(this, new object[] { modelBuilder });
+        }
+
+        private void SetTenantFilter<TEntity>(ModelBuilder modelBuilder) where TEntity : class
+        {
+            // Guid.Empty context => unscoped (platform admin) sees all rows.
+            modelBuilder.Entity<TEntity>().HasQueryFilter(e =>
+                CurrentTenantId == Guid.Empty || EF.Property<Guid>(e, "TenantId") == CurrentTenantId);
+        }
+
+        #region Tenant stamping / defence-in-depth guard (architecture §3)
+        public override int SaveChanges()
+        {
+            StampAndGuardTenant();
+            return base.SaveChanges();
+        }
+
+        public override int SaveChanges(bool acceptAllChangesOnSuccess)
+        {
+            StampAndGuardTenant();
+            return base.SaveChanges(acceptAllChangesOnSuccess);
+        }
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            StampAndGuardTenant();
+            return base.SaveChangesAsync(cancellationToken);
+        }
+
+        public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+        {
+            StampAndGuardTenant();
+            return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        }
+
+        /// <summary>Stamps TenantId from context on added tenant-owned rows, and throws if a
+        /// row's TenantId disagrees with the context (cross-tenant write). Unscoped contexts
+        /// (Guid.Empty / platform admin) neither stamp nor block.</summary>
+        private void StampAndGuardTenant()
+        {
+            var tid = _tenantContext.TenantId;
+            if (tid == Guid.Empty) return;
+
+            foreach (var entry in ChangeTracker.Entries())
+            {
+                if (entry.State != EntityState.Added && entry.State != EntityState.Modified) continue;
+                if (entry.Metadata.FindProperty("TenantId") == null) continue; // global/shared entity
+
+                var prop = entry.Property("TenantId");
+                var current = prop.CurrentValue is Guid g ? g : Guid.Empty;
+
+                if (entry.State == EntityState.Added)
+                {
+                    if (current == Guid.Empty) prop.CurrentValue = tid;
+                    else if (current != tid)
+                        throw new InvalidOperationException(
+                            $"Cross-tenant write blocked: {entry.Metadata.ClrType.Name}.TenantId {current} != context {tid}.");
+                }
+                else if (current != Guid.Empty && current != tid)
+                {
+                    throw new InvalidOperationException(
+                        $"Cross-tenant modify blocked: {entry.Metadata.ClrType.Name}.TenantId {current} != context {tid}.");
+                }
+            }
+        }
+        #endregion
     }
-
-   /* public class ObjectIdProvider : IObjectIdProvider
-    {
-        public string ObjectId { get; set; }
-
-        public ObjectIdProvider(string objectId)
-        {
-            ObjectId = objectId;
-        }
-    }
-*/
-    /*public interface IObjectIdProvider
-    {
-        public string ObjectId { get; set; }
-    }*/
-
-    /*public class ObjectConfiguration : IEntityTypeConfiguration<Employee>
-    {
-        private readonly ObjectIdProvider _objectIdProvider;
-
-        public ObjectConfiguration(ObjectIdProvider objectIdProvider)
-        {
-            _objectIdProvider = objectIdProvider;
-        }
-
-        public void Configure(EntityTypeBuilder<Employee> builder)
-        {
-            builder.HasQueryFilter(_ => _.Id == _objectIdProvider.ObjectId);
-        }
-    }*/
 }

@@ -25,4 +25,10 @@
     <Folder Include="Migrations\Sqlite\" />
   </ItemGroup>
 
+  <!-- Tenancy (T1.1): ITenantContext / ITenantOwned live in the dependency-free SharedKernel.
+       Referencing it here lets the server-side MySqlDbContext apply tenant query filters. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Plutus.SharedKernel\Plutus.SharedKernel.csproj" />
+  </ItemGroup>
+
 </Project>
