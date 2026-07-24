@@ -63,7 +63,14 @@ Test totals: **Unit 5 + Architecture 6 (1 skip)** green. Whole `Plutus.slnx` bui
 
 Phases 2–10 not started.
 
-## 5. RESUME HERE — Phase 1 / T1.3 (T1.1 + T1.2 COMPLETE)
+## 5. RESUME HERE — Phase 1 / T1.4 (T1.1 + T1.2 + T1.3 COMPLETE)
+
+**✅ T1.3 COMPLETE (2026-07-24)** — commit `4b6c8cb`. Seven server-only tables on `plutus_t1`: `SalesV2` (header, named V2 to avoid the legacy `Sales` collision — renamed at T1.8 cutover), `SaleLines`, `SaleTenders`, `SaleAdjustments`, `SaleQuarantine`, `OutboxEvents`, `ConsumerOffsets`. Integer pence, UUIDv7 (char(36)). `SaleV2.Create` enforces the four money invariants (throws `InvalidSaleException`); `Validate()` re-runnable post-EF. The 4 queryable sale tables are tenant-scoped; Outbox/Offsets/Quarantine unscoped (infra). Tests: inconsistent-throws + 1000-sale property round-trip. **25/25 unit, 5/5 arch.** Legacy `Sales` (21,654 rows) + live + ETRIE untouched.
+
+**▶ NEXT — T1.4 idempotent ingest** `POST /api/v1/sales` (spec §T1.4): device/operator token; tenantId+deviceId from token not body; validate invariants → quarantine (202) on unfixable; insert Sale+lines+tenders + OutboxEvents(SaleRecorded) + bump Device.LastSeenSeq in one tx → 201; duplicate `(TenantId,Id)` → re-read → 200. Idempotency-Key must equal body saleId. Ingest lives in the Sales module; add an `OutboxEvent` write here (dispatch is T1.5).
+
+---
+### (historical) T1.3 resume notes — superseded by the above
 
 **✅ T1.2 COMPLETE (2026-07-24)** — commits `a786c46`,`2d33cc2`,`1b98f07`,`bb69da5`,`a4a60ef`,`97b4528`:
 - **Auth:** `HttpTenantContext` resolves tid/did/scope from claims (null-safe→Kapow, platform-admin→unscoped). `PlutusTokenAuthHandler` (test-env) validates operator + device tokens → scope/tid/did claims; real scope policies `platform-admin`/`portal.tills.enrol`/`device` (names in `SharedKernel.PlutusPolicies`) replace the old all-or-nothing DevAuthBypass. Gated behind `DISABLE_AUTH_DEV_ONLY`.
@@ -138,4 +145,4 @@ Note: the transitional `Sale/Summary`/`VatIntegrity`/`SaleReport` on Plutus.Sale
 
 ## 8. One-line status
 
-**Phase 0 + Phase 1 T1.1 + T1.2 COMPLETE** (tenancy schema + row-level scoping + provisioning/enrolment/device-token API + scope-based auth; all migrations applied to staging `plutus_t1` only; live `plutus`/ETRIE untouched). All pushed to `github.com/LT-Mhuggett/Plutus` `Matt's-Horror` (latest `97b4528`). 23/23 unit + 5/5 arch green. Live test env healthy. Resume at §5 — Phase 1 **T1.3** (Sales schema v2).
+**Phase 0 + Phase 1 T1.1 + T1.2 + T1.3 COMPLETE** (tenancy schema + row-level scoping + provisioning/enrolment/device-token API + scope-based auth; all migrations applied to staging `plutus_t1` only; live `plutus`/ETRIE untouched). All pushed to `github.com/LT-Mhuggett/Plutus` `Matt's-Horror` (latest `4b6c8cb`). 25/25 unit + 5/5 arch green. Live test env healthy. Resume at §5 — Phase 1 **T1.4** (idempotent ingest).
