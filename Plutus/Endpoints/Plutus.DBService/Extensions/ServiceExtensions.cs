@@ -152,6 +152,7 @@ namespace Plutus.DBService.Extensions
                 // explicitly is deterministic and self-documents which modules ship controllers.
                 .AddApplicationPart(typeof(Plutus.Catalogue.CatalogueModule).Assembly)
                 .AddApplicationPart(typeof(Plutus.Sales.SalesModule).Assembly)
+                .AddApplicationPart(typeof(Plutus.Tenancy.TenancyModule).Assembly)
                 .AddNewtonsoftJson(options => options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore);
         }
 

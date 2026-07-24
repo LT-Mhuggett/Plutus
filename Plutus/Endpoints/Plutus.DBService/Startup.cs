@@ -52,7 +52,8 @@ namespace Plutus.DBService
             services.AddPlutusCatalogue();
             services.AddPlutusSales();
             services.AddPlutusReporting();
-            services.AddPlutusTenancy();
+            services.AddPlutusTenancy(Configuration);
+            ConfigureRateLimiting(services);
             services.ConfigureSwaggerDocumentation(Configuration);
             services.ConfigureHttpAccessor();
 
@@ -88,6 +89,8 @@ namespace Plutus.DBService
 
             app.UseRouting();
 
+            app.UseRateLimiter();
+
             app.UseAuthentication();
             app.UseAuthorization();
 
@@ -97,6 +100,22 @@ namespace Plutus.DBService
             });
 
             //Plutus.Authentication.AuthenticationOptions authenticationOptions = Configuration.GetSection("Authentication").Get<Plutus.Authentication.AuthenticationOptions>();
+        }
+
+        // T1.2: throttle the anonymous enrol + device-token endpoints (5/min/IP).
+        private static void ConfigureRateLimiting(IServiceCollection services)
+        {
+            services.AddRateLimiter(o =>
+            {
+                o.RejectionStatusCode = 429;
+                o.AddPolicy("enrol", ctx => System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 5,
+                        Window = TimeSpan.FromMinutes(1),
+                    }));
+            });
         }
 
         private static void MigrateDatabase(IApplicationBuilder app)

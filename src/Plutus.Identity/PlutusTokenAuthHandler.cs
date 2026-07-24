@@ -11,14 +11,6 @@ using Plutus.SharedKernel;
 
 namespace Plutus.Identity
 {
-    /// <summary>Authorization policy names for the platform's scope-based endpoints (T1.2).</summary>
-    public static class PlutusPolicies
-    {
-        public const string PlatformAdmin = "platform-admin";
-        public const string PortalTillsEnrol = "portal.tills.enrol";
-        public const string Device = "device";
-    }
-
     /// <summary>
     /// TEST-ENVIRONMENT authentication (paired with the scope-based policies below): validates a
     /// Bearer token — either an operator token (TestTokenAuth) or a device token (T1.2) — against
