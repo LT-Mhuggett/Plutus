@@ -9,10 +9,10 @@ namespace Plutus.Entities.Tenancy
     /// </summary>
     public static class KnownTenants
     {
-        /// <summary>The founding Kapow Comics tenant (backfilled into Tenants + every
-        /// tenant-owned row). Stable UUIDv7 — matches the seeded row and is the null-safe
-        /// default when no <c>tid</c> claim is present.</summary>
-        public static readonly Guid Kapow = new Guid("0192b8a0-1a6f-7000-8000-000000000001");
+        /// <summary>The founding Kapow Comics tenant. Single source of truth is
+        /// <see cref="WellKnownTenants.Kapow"/> in SharedKernel; aliased here for the
+        /// legacy Entities call sites.</summary>
+        public static readonly Guid Kapow = WellKnownTenants.Kapow;
     }
 
     /// <summary>

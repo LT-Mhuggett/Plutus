@@ -18,3 +18,13 @@ public interface ITenantContext
     Guid? DeviceId { get; }
     bool IsPlatformAdmin { get; }
 }
+
+/// <summary>Well-known tenant IDs seeded during the evolve-in-place phase.</summary>
+public static class WellKnownTenants
+{
+    /// <summary>The founding Kapow Comics tenant — all pre-platform data was backfilled to it
+    /// (migration AddTenantIdToTenantOwned). Stable UUIDv7; the null-safe default when a request
+    /// carries no <c>tid</c> claim, so the system behaves as single-tenant until real tenants
+    /// are provisioned.</summary>
+    public static readonly Guid Kapow = new Guid("0192b8a0-1a6f-7000-8000-000000000001");
+}

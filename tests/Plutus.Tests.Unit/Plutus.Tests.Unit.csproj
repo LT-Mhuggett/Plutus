@@ -5,6 +5,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <!-- WP1.2: this box has AspNetCore.App x64 only at 10.x; roll the test host forward so
+         the net8 test assembly runs against the installed shared framework. -->
+    <RollForward>LatestMajor</RollForward>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,10 +18,17 @@
     </PackageReference>
   </ItemGroup>
 
+  <!-- WP1.2: HttpTenantContext tests use DefaultHttpContext from the ASP.NET shared framework. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\Plutus.SharedKernel\Plutus.SharedKernel.csproj" />
     <!-- WP1.1: tenancy model + query-filter tests need the legacy MySqlDbContext. -->
     <ProjectReference Include="..\..\Plutus\Commons\Plutus.Entities\Plutus.Entities.csproj" />
+    <!-- WP1.2: JWT-claim resolution tests. -->
+    <ProjectReference Include="..\..\src\Plutus.Tenancy\Plutus.Tenancy.csproj" />
   </ItemGroup>
 
 </Project>
