@@ -63,7 +63,20 @@ Test totals: **Unit 5 + Architecture 6 (1 skip)** green. Whole `Plutus.slnx` bui
 
 Phases 2–10 not started.
 
-## 5. RESUME HERE — Phase 1 / T1.2 (T1.1 COMPLETE)
+## 5. RESUME HERE — Phase 1 / T1.3 (T1.1 + T1.2 COMPLETE)
+
+**✅ T1.2 COMPLETE (2026-07-24)** — commits `a786c46`,`2d33cc2`,`1b98f07`,`bb69da5`,`a4a60ef`,`97b4528`:
+- **Auth:** `HttpTenantContext` resolves tid/did/scope from claims (null-safe→Kapow, platform-admin→unscoped). `PlutusTokenAuthHandler` (test-env) validates operator + device tokens → scope/tid/did claims; real scope policies `platform-admin`/`portal.tills.enrol`/`device` (names in `SharedKernel.PlutusPolicies`) replace the old all-or-nothing DevAuthBypass. Gated behind `DISABLE_AUTH_DEV_ONLY`.
+- **Schema:** `EnrolmentCode` + `Device` (server-only, global/unscoped) on `plutus_t1`; `WebCredential` mapped to the existing table (guarded migration, no-op on existing DBs).
+- **Endpoints (Tenancy module):** `POST /api/v1/tenants` (provision Tenant+Business+Store+admin), `POST /api/v1/tills`, `POST /api/v1/tills/enrol` (anon), `POST /api/v1/tokens/device` (anon), `POST /api/v1/tills/{id}/revoke`. Rate limiter 5/min/IP on the anon endpoints. Device tokens signed with `TEST_TOKEN_SECRET` (same secret the handler validates).
+- **Crypto (SharedKernel):** Crockford32, Pbkdf2 (legacy KDF params), CompactToken (HMAC).
+- **Tests:** enrolment lifecycle, wrong-secret 401, reused/expired 410, auth-handler claim emission/expiry/tamper, provisioning full-graph + admin-login verify + isolation. **23/23 unit, 5/5 arch green.**
+- **DEBUG caveat:** the host runs SqliteDbContext in DEBUG (no tenancy tables) so tenancy endpoints are Release-only; service logic is covered by SQLite tests. Full HTTP e2e via the host deferred to T1.7.
+
+**▶ NEXT — T1.3 Sales schema v2:** new `Sales`/`SaleLines`/`SaleTenders`/`SaleAdjustments`/`SaleQuarantine`/`OutboxEvents`/`ConsumerOffsets` (spec §T1.3), constructor-enforced money invariants, migration to `plutus_t1`, property-based round-trip test. Legacy sale tables stay untouched until T1.8 migrates data.
+
+---
+### (historical) T1.2 resume notes — superseded by the above
 
 Phase 0 done; **Phase 1 authorised**. Phase 1 is specced in `Build/plutus-sonnet-build-spec.md` T1.1–T1.8.
 
@@ -125,4 +138,4 @@ Note: the transitional `Sale/Summary`/`VatIntegrity`/`SaleReport` on Plutus.Sale
 
 ## 8. One-line status
 
-**Phase 0 COMPLETE**; **Phase 1 T1.1 COMPLETE** (tenancy schema + row-level scoping + stamp/guard + tests, applied to staging `plutus_t1`; live `plutus`/ETRIE untouched). Committed on `Matt's-Horror` (`26f03e0`/`7fe8e78`/`55c8588`) — **not yet pushed** to `github.com/LT-Mhuggett/Plutus`. Live test env healthy. Resume at §5 — Phase 1 **T1.2** (provisioning/enrolment + JWT-backed ITenantContext).
+**Phase 0 + Phase 1 T1.1 + T1.2 COMPLETE** (tenancy schema + row-level scoping + provisioning/enrolment/device-token API + scope-based auth; all migrations applied to staging `plutus_t1` only; live `plutus`/ETRIE untouched). All pushed to `github.com/LT-Mhuggett/Plutus` `Matt's-Horror` (latest `97b4528`). 23/23 unit + 5/5 arch green. Live test env healthy. Resume at §5 — Phase 1 **T1.3** (Sales schema v2).
