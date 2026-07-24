@@ -24,6 +24,10 @@ namespace Plutus.Entities
         // Platform tenancy (T1.1, evolve-in-place). Kept on MySqlDbContext so the shared
         // model + the MAUI SqliteDbContext are unaffected.
         public DbSet<Tenant> Tenants { get; set; }
+        // Enrolment (T1.2). Global/unscoped: the anon enrol + device-token endpoints look these
+        // up (by hash / by Id) before a tenant is known. TenantId is carried as data.
+        public DbSet<EnrolmentCode> EnrolmentCodes { get; set; }
+        public DbSet<Device> Devices { get; set; }
         #endregion
 
         /// <summary>The tenant scoping every query and write is bound to. Referenced by the
@@ -96,6 +100,25 @@ namespace Plutus.Entities
                 e.Property(t => t.ConnectionRef).HasMaxLength(100);
             });
 
+            // T1.2 enrolment (server-side, global/unscoped — see entity docs).
+            modelBuilder.Entity<EnrolmentCode>(e =>
+            {
+                e.ToTable("EnrolmentCodes");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.CodeHash).HasMaxLength(32).IsRequired();
+                e.HasIndex(x => x.CodeHash).IsUnique();
+                e.HasIndex(x => x.TillId);
+            });
+            modelBuilder.Entity<Device>(e =>
+            {
+                e.ToTable("Devices");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.SecretHash).HasMaxLength(64).IsRequired();
+                e.Property(x => x.SecretSalt).HasMaxLength(32).IsRequired();
+                e.HasIndex(x => x.TillId);
+                e.HasIndex(x => x.TenantId);
+            });
+
             // Shadow TenantId + index on every tenant-owned entity (by convention, never by
             // hand per entity). Shadow => the shared POCOs and the MAUI SqliteDbContext stay
             // untouched. NOT NULL: backfilled to Kapow in the migration.
@@ -116,6 +139,15 @@ namespace Plutus.Entities
                 .GetMethod(nameof(SetTenantFilter), BindingFlags.NonPublic | BindingFlags.Instance)!;
             foreach (var clr in TenantOwned)
                 setter.MakeGenericMethod(clr).Invoke(this, new object[] { modelBuilder });
+        }
+
+        // A CLR type is tenant-owned if it (or a base type — e.g. Employee : Person) is in the
+        // scoped set. The base-type walk keeps TPT-derived entities auto-stamped via their root.
+        private static bool IsTenantOwned(Type clr)
+        {
+            for (var t = clr; t != null && t != typeof(object); t = t.BaseType)
+                if (Array.IndexOf(TenantOwned, t) >= 0) return true;
+            return false;
         }
 
         private void SetTenantFilter<TEntity>(ModelBuilder modelBuilder) where TEntity : class
@@ -161,7 +193,10 @@ namespace Plutus.Entities
             foreach (var entry in ChangeTracker.Entries())
             {
                 if (entry.State != EntityState.Added && entry.State != EntityState.Modified) continue;
-                if (entry.Metadata.FindProperty("TenantId") == null) continue; // global/shared entity
+                // Only the query-filtered, tenant-owned entities are auto-stamped/guarded.
+                // Global tables that carry a TenantId as plain data (EnrolmentCode, Device) are
+                // set explicitly by the caller and must NOT be forced to the ambient tenant.
+                if (!IsTenantOwned(entry.Metadata.ClrType)) continue;
 
                 var prop = entry.Property("TenantId");
                 var current = prop.CurrentValue is Guid g ? g : Guid.Empty;
