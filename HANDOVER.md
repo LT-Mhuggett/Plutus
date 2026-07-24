@@ -63,9 +63,24 @@ Test totals: **Unit 5 + Architecture 6 (1 skip)** green. Whole `Plutus.slnx` bui
 
 Phases 2–10 not started.
 
-## 5. RESUME HERE — Phase 1 (foundations: multi-tenant core + ingest)
+## 5. RESUME HERE — Phase 1 / T1.1 (in progress)
 
-Phase 0 is done. Phase 1 is specced task-by-task in `Build/plutus-sonnet-build-spec.md` T1.1–T1.8 (authority: architecture doc). **Awaiting Matt's explicit go-ahead** — T1.1 is a real schema migration on the live seeded MySQL, so start on a COPY.
+Phase 0 done; **Phase 1 authorised**. Phase 1 is specced in `Build/plutus-sonnet-build-spec.md` T1.1–T1.8.
+
+**T1.1 groundwork done (2026-07-24):**
+- ✅ **DB copy** `plutus_t1` on the Mac (dump of live `plutus`, `--set-gtid-purged=OFF`; 20,340 items / 21,654 sales). `plutus` user granted. **All T1.1 migration work targets `plutus_t1`; live `plutus` is untouched until proven.**
+- ✅ **Migration toolchain on net8**: `Database.Migrations.Startup` retargeted net7→net8 (EF Tools 8); `dotnet-ef` 8.0.10 installed global; `dotnet ef dbcontext list` discovers MySqlDbContext/SqliteDbContext. **PATH gotcha:** the ef tool needs the x64 SDK first on PATH — run with `export PATH="/c/Program Files/dotnet:$HOME/.dotnet/tools:$PATH"` or it fails "Unable to retrieve project metadata" (x86 shadow).
+
+**KEY DECISION (Matt, 2026-07-24): evolve the schema IN PLACE** (not greenfield). Add `Tenants` above the existing hierarchy; existing **`Business` plays the Company role** (add a separate `Companies` table only if a real multi-company-per-tenant need appears); **keep existing `Stores`/`Till`**; add `TenantId` to tenant-owned tables; backfill one tenant "Kapow" (deterministic id). The live webapp keeps working throughout.
+
+**Two complications to handle in the next increment:**
+1. **Name overlap already resolved by the decision:** the spec's `Companies/Stores/Tills` map to existing `Business/Stores/Till` — do NOT create parallel tables.
+2. **`RepositoryContext` is bi-modal** — MySqlDbContext (server) AND SqliteDbContext (MAUI till) share it. Tenancy is server-side; generate/apply the migration for **MySqlDbContext only** (`dotnet ef migrations add … -c MySqlDbContext -o Migrations/MySql`), and keep the model change tolerable for the Sqlite/MAUI side (columns nullable/unused locally, or guarded). Verify the MAUI Sqlite path still builds.
+
+**Next concrete steps:** create `Tenant` entity + DbSet + config in `Plutus.Entities`; add `TenantId` (Guid, char(36) to match existing GUID mapping) to tenant-owned entities implementing `ITenantOwned`; global query filter in `RepositoryContext` reading an injected `ITenantContext` (null-safe for MAUI); `AddTenants`/`AddTenantId` migration → `dotnet ef migrations script` → apply to `plutus_t1` → verify + backfill Kapow → isolation integration test (two tenants). Then remaining T1.1–T1.8 below.
+
+---
+**Full Phase 1 task list** (spec authority):
 
 Order (each with a DoD in the spec; commit per task; deploy the FULL publish folder):
 1. **T1.1 Tenancy schema** — new `Tenants/Companies/Stores/Tills/EnrolmentCodes` (fill the `Plutus.Tenancy` scaffold); add `TenantId` to every tenant-owned table with composite indexes; EF global query filter by convention; `ITenantContext` from JWT `tid`; `SaveChanges` stamps/guards TenantId. **This is the flip-the-query-filter-test-on point** (un-skip the T0.4 rule-3 test). ⚠️ migrate a DB copy first; the live env has real Kapow data.
