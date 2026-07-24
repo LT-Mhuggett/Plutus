@@ -14,8 +14,10 @@ namespace Plutus.Entities
 
         #endregion
 
-        #region DbSets for MySql DB only
-
+        #region DbSets for MySql DB only (server-side; NOT on the MAUI Sqlite context)
+        // Platform tenancy (T1.1, evolve-in-place). Kept on MySqlDbContext so the shared
+        // model + the MAUI SqliteDbContext are unaffected.
+        public DbSet<Tenant> Tenants { get; set; }
         #endregion
         public MySqlDbContext() : base()
         {
@@ -49,18 +51,21 @@ namespace Plutus.Entities
             base.OnConfiguring(optionsBuilder);
         }
 
-        /*protected override void OnModelCreating(ModelBuilder modelBuilder)
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
-            var test = _objectIdProvider.ObjectId;
 
-            //RefreshUserDataAsync
-            // Works as expected
-            //modelBuilder.Entity<Item>().HasQueryFilter(_ => _.IdTwo == _bussinessIdProvider.ObjectId);
-
-            // Does not work
-            // modelBuilder.ApplyConfiguration(new BussinessConfiguration(_bussinessIdProvider));
-        }*/
+            // T1.1 tenancy (server-side only). TenantId shadow properties + query filters
+            // are added in the next increment; this establishes the Tenants table.
+            modelBuilder.Entity<Tenant>(e =>
+            {
+                e.ToTable("Tenants");
+                e.HasKey(t => t.Id);
+                e.Property(t => t.Name).HasMaxLength(200);
+                e.Property(t => t.Plan).HasMaxLength(50);
+                e.Property(t => t.ConnectionRef).HasMaxLength(100);
+            });
+        }
     }
 
    /* public class ObjectIdProvider : IObjectIdProvider
