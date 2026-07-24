@@ -215,6 +215,15 @@ namespace Plutus.Entities
                 e.HasIndex(x => x.ConsumerName);
             });
 
+            // Test/dev harness only (WP2.1): on MySQL, Trans.IdOne is AUTO_INCREMENT within a
+            // composite key — SQLite cannot generate values for that shape, so when this
+            // context runs on SQLite (unit/integration tests) an in-memory generator supplies
+            // them. Uniqueness only matters within a sale (PK is IdOne+IdTwo=SaleId); a
+            // process-wide counter is more than enough. No effect on the MySQL model/migrations.
+            if (Database.IsSqlite())
+                modelBuilder.Entity<Transaction>().Property(t => t.IdOne)
+                    .HasValueGenerator<SqliteTransIdGenerator>();
+
             // Shadow TenantId + index on every tenant-owned entity (by convention, never by
             // hand per entity). Shadow => the shared POCOs and the MAUI SqliteDbContext stay
             // untouched. NOT NULL: backfilled to Kapow in the migration.
@@ -312,5 +321,15 @@ namespace Plutus.Entities
             }
         }
         #endregion
+    }
+
+    /// <summary>See the OnModelCreating note: supplies Trans.IdOne on SQLite test/dev hosts,
+    /// where the composite-key AUTO_INCREMENT shape has no provider-side generator.</summary>
+    internal sealed class SqliteTransIdGenerator : Microsoft.EntityFrameworkCore.ValueGeneration.ValueGenerator<int>
+    {
+        private static int _next = 1_000_000; // clear of any hand-seeded test ids
+        public override bool GeneratesTemporaryValues => false;
+        public override int Next(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry)
+            => Interlocked.Increment(ref _next);
     }
 }

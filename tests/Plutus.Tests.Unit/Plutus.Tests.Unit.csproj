@@ -37,6 +37,8 @@
     <ProjectReference Include="..\..\src\Plutus.Web.Infrastructure\Plutus.Web.Infrastructure.csproj" />
     <!-- WP1.8: Kapow migration transforms + mapper. -->
     <ProjectReference Include="..\..\Plutus\Tools\Plutus.Migration.Kapow\Plutus.Migration.Kapow.csproj" />
+    <!-- WP2.1: legacy sale bridge projection tests. -->
+    <ProjectReference Include="..\..\src\Plutus.Reporting\Plutus.Reporting.csproj" />
   </ItemGroup>
 
 </Project>

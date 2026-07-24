@@ -102,16 +102,31 @@ namespace Plutus.DBService.Controllers
             if (!TestTokenAuth.VerifyPassword(request.Password, salt, hash))
                 return Unauthorized("Unknown email or wrong password.");
 
+            // The credentials reader must be closed before the connection runs another command.
+            await reader.CloseAsync();
+
+            // WP1.2 follow-up (decision 2026-07-24): every operator gets the unambiguous
+            // capability `pos.sell`. WP2.2 (decision 2026-07-24): employees holding the legacy
+            // Admin or Management AuthAction ALSO get `portal.tills.enrol` so they can create
+            // tills/enrolment codes from the web POS — the minimal slice of the AuthActions→
+            // scope mapping that WP3.1 RBAC replaces wholesale.
+            var scope = "pos.sell";
+            await using (var scopeCmd = conn.CreateCommand())
+            {
+                scopeCmd.CommandText = @"
+                    SELECT COUNT(*) FROM EmpAuthActions ea
+                    JOIN AuthActions a ON a.Id = ea.AuthAId
+                    WHERE ea.EmpId = @empId AND a.Name IN ('Admin', 'Management')";
+                scopeCmd.Parameters.AddWithValue("@empId", employeeId.ToString());
+                var isAdmin = Convert.ToInt64(await scopeCmd.ExecuteScalarAsync()) > 0;
+                if (isAdmin) scope += " portal.tills.enrol";
+            }
+
             var payload = new TestTokenAuth.TokenPayload
             {
                 EmployeeId = employeeId,
                 Name = name,
-                // WP1.2 follow-up (decision 2026-07-24): grant the unambiguous operator capability
-                // `pos.sell` so a logged-in operator can use the sale-ingest surface end-to-end.
-                // Richer role→scope mapping (portal.tills.enrol, platform-admin) is derived from the
-                // employee's AuthActions when the admin portal defines those roles (Phase 3) — not
-                // granted here, to avoid over-privileging every shop-floor login.
-                Scope = "pos.sell",
+                Scope = scope,
                 Exp = DateTimeOffset.UtcNow.AddHours(12).ToUnixTimeSeconds(),
             };
 
