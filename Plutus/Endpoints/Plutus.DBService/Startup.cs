@@ -9,7 +9,13 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Plutus.DBService.Extensions;
+using Plutus.Identity;
+using Plutus.Catalogue;
+using Plutus.Sales;
+using Plutus.Reporting;
+using Plutus.Tenancy;
 using Plutus.Entities;
+using Plutus.Infrastructure.Outbox;
 using System;
 using System.Diagnostics;
 using System.Net.Http;
@@ -41,6 +47,15 @@ namespace Plutus.DBService
 
             services.ConfigureAuthentication(Configuration);
             //services.ConfigureAuthorization();
+
+            // Modules (T0.2b): composition entry points.
+            services.AddPlutusIdentity(Configuration);
+            services.AddPlutusCatalogue();
+            services.AddPlutusSales();
+            services.AddPlutusReporting();
+            services.AddPlutusTenancy(Configuration);
+            services.AddPlutusOutbox(); // T1.5 broker-less dispatcher (consumers register their own IEventConsumer)
+            ConfigureRateLimiting(services, Configuration);
             services.ConfigureSwaggerDocumentation(Configuration);
             services.ConfigureHttpAccessor();
 
@@ -76,6 +91,8 @@ namespace Plutus.DBService
 
             app.UseRouting();
 
+            app.UseRateLimiter();
+
             app.UseAuthentication();
             app.UseAuthorization();
 
@@ -87,6 +104,25 @@ namespace Plutus.DBService
             //Plutus.Authentication.AuthenticationOptions authenticationOptions = Configuration.GetSection("Authentication").Get<Plutus.Authentication.AuthenticationOptions>();
         }
 
+        // T1.2: throttle the anonymous enrol + device-token endpoints (default 5/min/IP;
+        // RATE_LIMIT_ENROL_PER_MIN overrides — integration tests raise it so the shared
+        // loopback IP isn't throttled across cases).
+        private static void ConfigureRateLimiting(IServiceCollection services, IConfiguration configuration)
+        {
+            var permit = configuration.GetValue<int?>("RATE_LIMIT_ENROL_PER_MIN") ?? 5;
+            services.AddRateLimiter(o =>
+            {
+                o.RejectionStatusCode = 429;
+                o.AddPolicy("enrol", ctx => System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = permit,
+                        Window = TimeSpan.FromMinutes(1),
+                    }));
+            });
+        }
+
         private static void MigrateDatabase(IApplicationBuilder app)
         {
             using var serviceScope = app.ApplicationServices.GetRequiredService<IServiceScopeFactory>().CreateScope();
@@ -94,7 +130,13 @@ namespace Plutus.DBService
 #if DEBUG
             //context.Database.EnsureDeleted();
 #endif
-            context.Database.Migrate();
+            // Integration tests boot the host with a MySqlDbContext on SQLite, which cannot run
+            // the MySQL migrations — they create the schema from the model instead. Never set in
+            // production, so the real Migrate() path is unchanged.
+            if (Environment.GetEnvironmentVariable("PLUTUS_DB_ENSURE_CREATED") == "true")
+                context.Database.EnsureCreated();
+            else
+                context.Database.Migrate();
         }
     }
 }

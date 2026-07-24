@@ -287,3 +287,11 @@ __pycache__/
 *.odx.cs
 *.xsd.cs
 /Plutus/Endpoints/Plutus.DBService/Database.db
+
+# Live till database backups (real business data - never commit)
+*Database*.db
+*.db-wal
+*.db-shm
+
+# T0.1 endpoint regression snapshots (contain real sale figures)
+Build/snapshots/

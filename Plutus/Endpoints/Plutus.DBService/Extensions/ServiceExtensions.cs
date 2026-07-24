@@ -41,6 +41,12 @@ namespace Plutus.DBService.Extensions
                     Version = "v1"
                 });
 
+                // B2C OAuth2 scheme/requirement ONLY when B2C is actually configured. Without
+                // it the scope keys built from empty config collapse to duplicate "https:///"
+                // and Swagger generation throws (500) — which broke every config-less boot
+                // (CI drift job, local tooling). The frozen contract is thus config-independent.
+                if (!string.IsNullOrEmpty(configuration["AzureAdB2C:Domain"]))
+                {
                 // Define that the API requires OAuth 2 tokens
                 c.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
                 {
@@ -91,6 +97,7 @@ namespace Plutus.DBService.Extensions
                         }
                     }
                 });
+                } // end: B2C security scheme only when configured
             });
 
             // Include XML comments to documentation
@@ -146,7 +153,14 @@ namespace Plutus.DBService.Extensions
 
         public static void ConfigureControllers(this IServiceCollection services)
         {
-            services.AddControllers().AddNewtonsoftJson(options => options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore);
+            services.AddControllers()
+                // Register controllers that live in module assemblies (T0.2b). MVC's default
+                // part discovery usually finds these via the dependency graph, but wiring them
+                // explicitly is deterministic and self-documents which modules ship controllers.
+                .AddApplicationPart(typeof(Plutus.Catalogue.CatalogueModule).Assembly)
+                .AddApplicationPart(typeof(Plutus.Sales.SalesModule).Assembly)
+                .AddApplicationPart(typeof(Plutus.Tenancy.TenancyModule).Assembly)
+                .AddNewtonsoftJson(options => options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore);
         }
 
         public static void ConfigureHttpAccessor(this IServiceCollection services)

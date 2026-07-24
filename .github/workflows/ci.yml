@@ -1,0 +1,71 @@
+name: CI
+
+# Backend build + tests for the Plutus platform solution (T0.3).
+# NOTE: untested until GitHub Actions is enabled on this repo. Only the platform
+# projects in Plutus.slnx build here — the MAUI (Windows/workloads) and web frontends
+# are out of this solution by design. Integration tests needing MySQL arrive in Phase 1
+# (a MySQL service container gets added then).
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          # 9.0.x SDK is needed to parse the .slnx solution; it builds the net8 targets fine.
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - run: dotnet restore Plutus.slnx
+      - run: dotnet build Plutus.slnx -c Release --no-restore
+      - run: dotnet test Plutus.slnx -c Release --no-build --verbosity minimal
+
+  # OpenAPI drift gate (T1.6 contract freeze): boot the host on the SQLite dev context,
+  # regenerate the spec from its live Swagger, and fail if it differs from the committed
+  # openapi.json — so a controller signature change without a regen breaks CI.
+  # NOTE: untested until GitHub Actions is enabled on this repo (same caveat as build-test).
+  openapi-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+      - name: Build host
+        run: dotnet build Plutus/Endpoints/Plutus.DBService/Plutus.DBService.csproj -c Debug
+      - name: Boot host (SQLite dev context) and dump the spec
+        env:
+          ASPNETCORE_ENVIRONMENT: Development
+          ASPNETCORE_URLS: http://localhost:5199
+          DISABLE_AUTH_DEV_ONLY: "true"
+          TEST_TOKEN_SECRET: ci-drift-secret
+        run: |
+          dotnet Plutus/Endpoints/Plutus.DBService/bin/Debug/net8.0/Plutus.DBService.dll &
+          APP_PID=$!
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:5199/swagger/v1/swagger.json -o openapi.regen.json && break
+            sleep 1
+          done
+          kill $APP_PID 2>/dev/null || true
+          # Fail loudly here rather than letting the drift step report a confusing "file missing".
+          if [ ! -s openapi.regen.json ]; then echo "::error::host never served swagger.json (see boot log)"; exit 1; fi
+      - name: Fail on drift
+        run: |
+          if ! diff -q openapi.json openapi.regen.json; then
+            echo "::error::openapi.json is stale — run frontends/codegen.sh's refresh step and commit."
+            diff openapi.json openapi.regen.json || true
+            exit 1
+          fi
+          echo "OpenAPI contract is in sync."

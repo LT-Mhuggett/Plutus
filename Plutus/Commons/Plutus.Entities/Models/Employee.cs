@@ -25,7 +25,7 @@ namespace Plutus.Entities.Models
         public int ContractedHours { get; set; }
 
         [NotMapped]
-        public string FullName => string.Format("{0} {1}", LName.ToUpper(), FName);
+        public string FullName => $"{(LName ?? string.Empty).ToUpper()} {FName}".Trim(); // null-guarded (BugFix plan)
 
         [Exportable]
         public string NIN { get; set; }
