@@ -12,6 +12,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Plutus.SharedKernel\Plutus.SharedKernel.csproj" />
+    <!-- WP1.2: provisioning/enrolment reach the server-only tenancy tables on MySqlDbContext.
+         Plutus.Entities is a legacy Commons library (allowed by the module-boundary rule). -->
+    <ProjectReference Include="..\..\Plutus\Commons\Plutus.Entities\Plutus.Entities.csproj" />
   </ItemGroup>
 
 </Project>
