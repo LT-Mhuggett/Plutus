@@ -114,6 +114,15 @@ Modules communicate in-process via the `SharedKernel` event bus abstraction (int
 
 ## Phase 3 — Portal + Company view
 
+> ✅ **COMPLETE & LIVE (2026-07-25)** — see HANDOVER.md §5 for the full record (commits
+> `58a4b62`, `6447506`, `160628b`, `9e6294e`, `70e0461`). Deliveries match the WPs below with
+> these notes: RBAC tables are `Rbac*`-prefixed (legacy `Role` survives evolve-in-place);
+> opening hours live in server-only `StoreDetails`; rollups are till/day grain with
+> query-time aggregation up the spine; period locks key on ReceivedAtUtc vs ClosedAtUtc so
+> rebuild reproduces locked figures; the portal ships from
+> `Plutus/Frontend/Plutus.Frontend.Portal` (admin.plutus Caddy vhost staged — one sudo step,
+> HANDOVER §5). The Phase-2 legacy bridge still runs until the till UI reads /api/v1 reports.
+
 **WP3.1 — RBAC.** `Permissions` (code-defined catalogue, portal + POS entries per §7.2), `Roles` (built-ins seeded: Owner, Company Admin, Store Manager, Supervisor, Cashier, Auditor), `RoleAssignments` (user, role, scope node, optional time window). Enforcement middleware: effective permissions = union at-or-above the resource node; time windows checked at token issue. Endpoint: `GET /api/v1/users/{id}/effective-permissions?scope=` (also consumed by tills for offline enforcement).
 *DoD:* matrix test covering scope inheritance, till-scoped cashier can't see store financials, time-window expiry; Kapow `AuthActions` seeds map to POS permissions with amount ceilings (`pos.refund.max:{pence}`).
 

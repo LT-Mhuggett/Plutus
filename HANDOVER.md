@@ -65,7 +65,73 @@ Test totals: **Unit 5 + Architecture 6 (1 skip)** green. Whole `Plutus.slnx` bui
 
 Phases 2–10 not started.
 
-## 5. RESUME HERE — Phase 2 COMPLETE ✅ → Phase 3 next
+## 5. RESUME HERE — Phase 3 COMPLETE ✅ → Phase 4 paused / Phase 5 next
+
+**Phase 3 (WP3.1–WP3.5) is COMPLETE and LIVE (2026-07-25)** — RBAC, admin APIs, reporting
+projections, financial periods, and the **management portal**. **79 unit + 5 integration +
+5 arch = 89 tests green.** Commits: `58a4b62` (WP3.1), `6447506` (WP3.2), `160628b` (WP3.3),
+`9e6294e` (WP3.4), `70e0461` (WP3.5). All migrations applied to BOTH `plutus_t1` and live
+`plutus`; backend redeployed per WP; ETRIE untouched throughout (health 200 re-checked).
+
+**What's live:**
+- **WP3.1 RBAC** — code-defined `PermissionCatalogue` (portal+POS, one catalogue);
+  `RbacRoles/Grants/Assignments` (scope = tenant|company|store|till, optional day/time
+  windows checked at token issue); `EffectivePermissionsService` (union at-or-above the
+  spine; ceilings: unlimited beats all, else highest — `pos.refund.max:{pence}`);
+  `GET /api/v1/users/{id}/effective-permissions`; dynamic `perm:<code>` policies;
+  login scopes derive from RBAC (pre-seed fallback kept). Seeds: 8 built-ins + 3 refund-
+  ceiling roles from Kapow AuthActions (`SeedMigrator rbac --mysql`); re-seed ADDS new
+  template grants to built-ins (never removes tenant custom grants).
+- **WP3.2 Admin APIs** — /api/v1 companies, stores (opening hours in server-only
+  `StoreDetails` — shared Store POCO untouched for MAUI), tills (fleet list, create+code,
+  revoke), users (create incl. login, deactivate), roles, role-assignments, audit trail.
+  Every mutation writes `AuditLogs` in the SAME SaveChanges. New catalogue code
+  `portal.company.manage`.
+- **WP3.3 Reporting projections** — `SalesRollups` (till/day grain; store/company =
+  SUM at query time) + `VatRollups` (store/day/rate) folded by a second outbox consumer
+  (`reporting-rollups`); `RollupRebuilder` (single-snapshot-txn wipe+rescan, advances the
+  consumer offset → rebuild==incremental); endpoints `/api/v1/reports/summary|vat`,
+  `/api/v1/sales` (day-range list) + `/api/v1/sales/{saleId}` drill-down,
+  `POST /api/v1/reports/rebuild` [platform-admin]; `SeedMigrator rollups-rebuild` for
+  cutover (migrated LegacyRef rows carry no outbox events — REBUILD AFTER THE KAPOW ETL).
+- **WP3.4 Financial periods** — create/close (snapshot totals into `SnapshotJson`, lock);
+  late sales (RECEIVED after close) post to the first open day + `period.late-post` audit
+  flag; the received-vs-closed distinction is what keeps rebuild == locked figures.
+  CSV export `/api/v1/reports/export.csv?type=summary|vat`.
+- **WP3.5 Portal** — new React app `Plutus/Frontend/Plutus.Frontend.Portal` (react+react-dom
+  only, one CSS file, hand-rolled SVG chart). Login → dashboard (year→month→day→sale
+  drill), VAT view, Users & Roles, Stores & Tills (enrolment codes), Periods.
+  **Deployed:** dist at `/srv/apps/PLUTUS/portal/current`; **interim URL
+  `http://10.1.1.40:5274`** (pm2 `plutus-portal-preview`, vite preview + /api proxy —
+  LAN only) until the proper vhost lands.
+
+**⚠ ONE SUDO STEP FOR MATT — admin.plutus vhost:** staged + syntax-validated at
+`~/PLUTUS/staging/Caddyfile.wp35` (validate as admin only errs on opening root-owned log
+files — expected). Run:
+```
+sudo caddy validate --config ~/PLUTUS/staging/Caddyfile.wp35
+sudo cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.pre-wp35.bak
+sudo cp ~/PLUTUS/staging/Caddyfile.wp35 /etc/caddy/Caddyfile
+sudo caddy reload --config /etc/caddy/Caddyfile
+curl -s -o /dev/null -w "%{http_code}\n" https://huggett.dscloud.me/health   # ETRIE = 200
+curl -s -o /dev/null -w "%{http_code}\n" https://admin.plutus.huggett.dscloud.me/
+```
+Then `pm2 delete plutus-portal-preview` (the LAN preview) if desired.
+
+**Phase-3 notes / debts:**
+- The **legacy sale bridge** (Phase 2) still runs alongside the rollup consumer — the till's
+  Reporting page reads legacy tables. Retire it when the till UI moves to /api/v1 reports.
+- Kapow cutover order: `SeedMigrator <kapow.db> sales-v2 --mysql` → `rollups-rebuild` →
+  (bridge skips LegacyRef rows by design). Portal dashboard then drills into all 21k sales.
+- Force-logout AuthActions unmapped (no platform session-kill yet).
+- Time windows evaluate in SERVER local time (= store's tz for this deployment).
+
+**▶ NEXT:** Phase 4 (MAUI) remains **paused for upstream code**. Phase 5 (pricing/
+catalogue) or the Kapow production cutover are the next open moves — Matt's call.
+
+---
+
+## 5a. (historical) Phase 2 record — COMPLETE ✅
 
 **Phase 2 (WP2.1 + WP2.2) is COMPLETE and LIVE (2026-07-24 evening)** — the web POS trades through
 `POST /api/v1/sales` end-to-end in the test environment. **63 unit + 5 arch + 4 integration = 72 tests green.**
@@ -266,8 +332,9 @@ Note: the transitional `Sale/Summary`/`VatIntegrity`/`SaleReport` on Plutus.Sale
 
 ## 8. One-line status
 
-**Phases 0, 1 AND 2 COMPLETE** — the web POS trades through `POST /api/v1/sales` (device-enrolled,
-outbox-first, idempotent) with a transitional server-side bridge keeping the legacy reports/stock
-alive until WP3.3. Live `plutus` DB graduated to the platform schema (backed up first); new backend
-+ webapp deployed; smoke test green end-to-end; ETRIE untouched. 63 unit + 5 arch + 4 integration
-tests green. Resume at §5 — Phase 3 (portal). Phase 4 (MAUI) remains paused for upstream code.
+**Phases 0–3 COMPLETE** — the web POS trades through the idempotent v1 pipeline; RBAC +
+admin APIs + rollup reporting projections + financial periods are live; the management
+portal is deployed (interim LAN URL http://10.1.1.40:5274; the admin.plutus vhost awaits one
+sudo block, §5). 79 unit + 5 integration + 5 arch tests green. ETRIE untouched. Phase 4
+(MAUI) paused for upstream; next moves: Phase 5 or the Kapow production cutover (§5 notes
+the cutover order). Resume at §5.
