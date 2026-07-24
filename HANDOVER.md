@@ -1,7 +1,7 @@
 # Handover — Plutus platform build
 
-**Date:** 2026-07-23 (evening)
-**Branch:** `Matt's-Horror` · **no git remote** (nothing pushed; commits are local only)
+**Date:** 2026-07-25 (early hours) — Phases 0–3 complete, all pushed, CI green
+**Branch:** `Matt's-Horror` · remote `origin` = LT-Mhuggett/Plutus (everything pushed; CI green on head `8eb3073`)
 **Hard rule:** **DO NOT TOUCH ETRIE** — it shares the Mac mini but is a separate product. Every Plutus change keeps ETRIE's ports/processes/paths/Caddy blocks untouched; verify ETRIE health (`https://10.1.1.40/health`, `https://huggett.dscloud.me/health` → 200) after any Mac change.
 
 This supersedes the earlier MAUI-only handover. Companion docs: `Build/` (platform architecture v3 + implementation plan + Sonnet/MAUI build specs + Kapow gap analysis), `WebApp-2026-07-23-plan.md`, `OfflineMode-2026-07-23-plan.md`, `VAT-Investigation-2026-07-23-plan.md`, `VAT-FixLater-Report-2026-07-23.md`.
@@ -10,12 +10,13 @@ This supersedes the earlier MAUI-only handover. Companion docs: `Build/` (platfo
 
 ## 1. What exists and is LIVE (test environment)
 
-A complete **React web POS** trading against a **.NET backend + MySQL**, all on the Mac mini, seeded with the real Kapow database.
+A complete **React web POS** + **management portal** trading against the **multi-tenant .NET platform + MySQL**, all on the Mac mini, seeded with the real Kapow database.
 
-- **Till:** `https://plutus.huggett.dscloud.me` — login-first (real token auth). Logins: `dev@plutus.local` / `PlutusDev2026`, or `kapow_comics@outlook.com` / (the till's real password). Features: scan/search, basket (qty/price-adjust/reorder), discounts, returns (by receipt id **or by date**), park/retrieve, split-payment checkout, browser receipts + copy-reprint, offline/PWA (IndexedDB catalogue + checkout outbox), employee management, item add/edit, **Reporting** (Summary dashboard w/ SVG charts, Custom + Excel + sale recall, VAT calc + off-band integrity banner), editable Store Information, Settings.
-- **Backend:** `Plutus.DBService` (now **.NET 8**), self-contained `osx-arm64`, under **pm2** as `plutus-backend` on `127.0.0.1:5100`. Auth = flag-gated `TestTokenAuth` (HMAC bearer, 12h) because B2C is unreachable; every `/api` endpoint 401s without a token.
-- **DB:** MySQL 9.6 (Homebrew), schema `plutus`, seeded via `Plutus.SeedMigrator` from the Kapow backup (20,340 items / 21,653 sales / 74,822 lines). Credentials in `~/PLUTUS/secrets/mysql.env` (also holds `TEST_TOKEN_SECRET`).
-- **Edge:** Caddy serves the static till at `plutus.huggett.dscloud.me` and reverse-proxies `/api/*` → 5100. LE cert auto-renews. (Router SNATs WAN→LAN, so Caddy IP allowlists don't work — auth is the gate, not IP.)
+- **Till:** `https://plutus.huggett.dscloud.me` — login-first (real token auth). Logins: `dev@plutus.local` / `PlutusDev2026`, or `kapow_comics@outlook.com` / (the till's real password). Features: scan/search, basket (qty/price-adjust/reorder), discounts, returns (by receipt id **or by date**), park/retrieve, split-payment checkout, browser receipts + copy-reprint, offline/PWA (IndexedDB catalogue + checkout outbox), employee management, item add/edit, **Reporting** (Summary dashboard w/ SVG charts, Custom + Excel + sale recall, VAT calc + off-band integrity banner), editable Store Information, Settings. **Since Phase 2 the till is an enrolled DEVICE**: checkout goes outbox-first through `POST /api/v1/sales` (Settings → Till device to enrol a browser).
+- **Portal (Phase 3):** management back office — dashboard (year→month→day→transaction drill), VAT view, Users & Roles (RBAC), Stores & Tills (enrolment codes), Financial Periods. Interim URL **`http://10.1.1.40:5274`** (pm2 `plutus-portal-preview`, LAN only) until the staged `admin.plutus` Caddy vhost is applied (ONE sudo block — §5).
+- **Backend:** `Plutus.DBService` (**.NET 8** modular monolith: SharedKernel/Identity/Catalogue/Sales/Reporting/Tenancy), self-contained `osx-arm64`, under **pm2** as `plutus-backend` on `127.0.0.1:5100`. Auth = HMAC bearer (`PlutusTokenAuthHandler`, 12h) with REAL scope + RBAC (`perm:*`) policies — the flag swaps B2C out, it does NOT bypass auth. Every `/api` endpoint 401s without a token.
+- **DB:** MySQL 9.6 (Homebrew), schema `plutus` — **graduated to the full platform schema in Phase 2/3** (tenancy, devices, sales-v2, outbox, RBAC, audit, rollups, periods; all also on staging `plutus_t1`). Seeded from the Kapow backup (20,340 items / 21,657 legacy sales). Credentials in `~/PLUTUS/secrets/mysql.env` (also holds `TEST_TOKEN_SECRET`). Rollback dump: `~/PLUTUS/backups/plutus-pre-phase2-20260724.sql.gz`.
+- **Edge:** Caddy serves the static till at `plutus.huggett.dscloud.me` and reverse-proxies `/api/*` → 5100. LE cert auto-renews. (Router SNATs WAN→LAN, so Caddy IP allowlists don't work — auth is the gate, not IP. ⚠ No basic_auth on the till host — flagged in §5, Matt to decide.)
 
 Full environment detail is in memory (`plutus-test-environment.md`) and `Environment_Setup_Runbook.md` is **ETRIE's** runbook (left uncommitted deliberately — not ours to commit).
 
@@ -24,23 +25,27 @@ Full environment detail is in memory (`plutus-test-environment.md`) and `Environ
 | Host | Serves | Status |
 |---|---|---|
 | `plutus.huggett.dscloud.me` | Web POS / till | live |
-| `admin.plutus.huggett.dscloud.me` | Management portal (React app #2) | Phase 3 |
-| `api.plutus.huggett.dscloud.me` | Backend API — single isolated surface | Phase 3 cutover |
+| `admin.plutus.huggett.dscloud.me` | Management portal (React app #2) | **built & deployed — vhost staged, awaiting Matt's sudo block (§5)**; interim `http://10.1.1.40:5274` |
+| `api.plutus.huggett.dscloud.me` | Backend API — single isolated surface | later cutover |
 
 `*.huggett.dscloud.me` wildcard resolves any depth to 94.6.166.54. Until the portal lands the till keeps using `/api` on its own host.
 
 ## 3. Git state
 
-Branch `Matt's-Horror`, local only. Recent commits (newest first):
+Branch `Matt's-Horror`, in sync with `origin/Matt's-Horror`; **GitHub Actions CI green on
+every Phase-2/3 commit** (build-test + openapi-drift). Recent commits (newest first):
 
 ```
-cbf0b75 feat(wp0.2b): extract auth into Plutus.Identity module
-57e89fa feat(wp0.2): SharedKernel primitives + unit test harness
-7694a4a feat(wp0.1): retarget backend to .NET 8
-1a1d56f docs: platform architecture/build specs, VAT investigation + fix-later
-3781a2e feat(webapp): employees, item editor, offline PWA, reporting+VAT, store/settings
-262cc92 feat(backend): auth/SetPassword, item VAT guardrail, sale summary/detail/vat-integrity
-96a0c0e fix(native): BugFix-2026-07-22 bugs in NatApp and MAUI
+8eb3073 docs: Phase 3 COMPLETE — HANDOVER §5 record, plan banner, Caddy sudo block   [CI ✓]
+a890080 chore: drop stray openapi.regen.json committed with the portal
+70e0461 WP3.5 plutus-portal: management back office (React, /api/v1-only)
+9e6294e WP3.4 financial periods: close/snapshot/lock, late-post redirect, CSV export [CI ✓]
+160628b WP3.3 reporting projections: rollups + consumer + rebuild + report API      [CI ✓]
+6447506 WP3.2 admin APIs: companies/stores/tills/users/role-assignments + audit
+58a4b62 WP3.1 RBAC: permission catalogue, roles/assignments, effective permissions
+b2413e8 docs: Phase 2 COMPLETE (+ itemGuid parity vector)
+38fd0f8 WP2.1+WP2.2 web POS: checkout onto the v1 pipeline + device enrolment
+45dee4f WP2.1 backend: legacy sale bridge + deterministic item ids + admin scope
 ```
 
 **Remote (added 2026-07-24):** `origin` = `https://github.com/LT-Mhuggett/Plutus.git` (Matt's, private) · `upstream` = `github.com/seank842/Plutus.git` (Sean's original). All work is **pushed to origin/Matt's-Horror**. NOTE: the push was rebuilt into a **single squashed commit `3d2837a`** on top of upstream/master ("remove secret-bearing history") — the granular per-task commits are NOT on GitHub (content intact); new commits from here are granular again. GitHub Credential Manager (browser) — Matt authenticates.
