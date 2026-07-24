@@ -33,6 +33,8 @@
     <ProjectReference Include="..\..\src\Plutus.Identity\Plutus.Identity.csproj" />
     <!-- WP1.4: sale ingest tests. -->
     <ProjectReference Include="..\..\src\Plutus.Sales\Plutus.Sales.csproj" />
+    <!-- WP1.5: outbox dispatcher tests. -->
+    <ProjectReference Include="..\..\src\Plutus.Web.Infrastructure\Plutus.Web.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

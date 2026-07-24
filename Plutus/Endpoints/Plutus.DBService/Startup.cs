@@ -15,6 +15,7 @@ using Plutus.Sales;
 using Plutus.Reporting;
 using Plutus.Tenancy;
 using Plutus.Entities;
+using Plutus.Infrastructure.Outbox;
 using System;
 using System.Diagnostics;
 using System.Net.Http;
@@ -53,6 +54,7 @@ namespace Plutus.DBService
             services.AddPlutusSales();
             services.AddPlutusReporting();
             services.AddPlutusTenancy(Configuration);
+            services.AddPlutusOutbox(); // T1.5 broker-less dispatcher (consumers register their own IEventConsumer)
             ConfigureRateLimiting(services);
             services.ConfigureSwaggerDocumentation(Configuration);
             services.ConfigureHttpAccessor();

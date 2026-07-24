@@ -38,6 +38,9 @@ namespace Plutus.Entities
         public DbSet<SaleQuarantine> SaleQuarantine { get; set; }
         public DbSet<OutboxEvent> OutboxEvents { get; set; }
         public DbSet<ConsumerOffset> ConsumerOffsets { get; set; }
+        // Outbox dispatch bookkeeping (T1.5). Global/infra.
+        public DbSet<ProcessedEvent> ProcessedEvents { get; set; }
+        public DbSet<ConsumerDeadLetter> ConsumerDeadLetters { get; set; }
         #endregion
 
         /// <summary>The tenant scoping every query and write is bound to. Referenced by the
@@ -195,6 +198,21 @@ namespace Plutus.Entities
                 e.ToTable("ConsumerOffsets");
                 e.HasKey(x => x.ConsumerName);
                 e.Property(x => x.ConsumerName).HasMaxLength(100);
+            });
+            modelBuilder.Entity<ProcessedEvent>(e =>
+            {
+                e.ToTable("ProcessedEvents");
+                e.HasKey(x => new { x.ConsumerName, x.EventId });
+                e.Property(x => x.ConsumerName).HasMaxLength(100);
+            });
+            modelBuilder.Entity<ConsumerDeadLetter>(e =>
+            {
+                e.ToTable("ConsumerDeadLetters");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.ConsumerName).HasMaxLength(100);
+                e.Property(x => x.EventType).HasMaxLength(100);
+                e.HasIndex(x => x.ConsumerName);
             });
 
             // Shadow TenantId + index on every tenant-owned entity (by convention, never by
