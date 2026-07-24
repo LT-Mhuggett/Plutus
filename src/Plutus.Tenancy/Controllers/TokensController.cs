@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -21,6 +22,9 @@ namespace Plutus.Tenancy.Controllers
         [HttpPost("device")]
         [AllowAnonymous]
         [EnableRateLimiting("enrol")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> DeviceToken([FromBody] DeviceTokenRequest body)
         {
             if (body == null || body.DeviceId == Guid.Empty || string.IsNullOrWhiteSpace(body.ClientSecret))

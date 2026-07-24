@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
 using Plutus.SharedKernel;
 
@@ -29,6 +30,8 @@ namespace Plutus.Tenancy.Controllers
 
         [HttpPost]
         [Authorize(Policy = PlutusPolicies.PortalTillsEnrol)]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreateTill([FromBody] CreateTillRequest body)
         {
             if (body == null || string.IsNullOrWhiteSpace(body.Name)) return BadRequest("storeId and name are required.");
@@ -39,6 +42,9 @@ namespace Plutus.Tenancy.Controllers
         [HttpPost("enrol")]
         [AllowAnonymous]
         [EnableRateLimiting("enrol")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status410Gone)] // reused/expired/unknown code
         public async Task<IActionResult> Enrol([FromBody] EnrolRequest body)
         {
             if (body == null || string.IsNullOrWhiteSpace(body.EnrolmentCode)) return BadRequest("enrolmentCode is required.");
@@ -55,6 +61,7 @@ namespace Plutus.Tenancy.Controllers
 
         [HttpPost("{id}/revoke")]
         [Authorize(Policy = PlutusPolicies.PortalTillsEnrol)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<IActionResult> Revoke([FromRoute] Guid id)
         {
             await _enrolment.RevokeTillAsync(id, ActingUser);

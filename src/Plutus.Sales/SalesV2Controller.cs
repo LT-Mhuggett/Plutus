@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Plutus.SharedKernel;
 
@@ -25,6 +26,11 @@ namespace Plutus.Sales
 
         [HttpPost]
         [Authorize(Policy = PlutusPolicies.SalesIngest)]
+        [ProducesResponseType(StatusCodes.Status201Created)]   // recorded
+        [ProducesResponseType(StatusCodes.Status200OK)]        // duplicate → stored outcome
+        [ProducesResponseType(StatusCodes.Status202Accepted)]  // quarantined
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> Ingest([FromBody] IngestSaleRequest body)
         {
             if (body == null) return BadRequest(new { detail = "Body is required." });

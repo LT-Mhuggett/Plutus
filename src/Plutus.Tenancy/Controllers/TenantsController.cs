@@ -1,5 +1,6 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Plutus.SharedKernel;
 
@@ -17,6 +18,8 @@ namespace Plutus.Tenancy.Controllers
 
         [HttpPost]
         [Authorize(Policy = PlutusPolicies.PlatformAdmin)]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Provision([FromBody] ProvisionRequest body)
         {
             try
