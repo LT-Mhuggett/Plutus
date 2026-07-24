@@ -35,6 +35,8 @@
     <ProjectReference Include="..\..\src\Plutus.Sales\Plutus.Sales.csproj" />
     <!-- WP1.5: outbox dispatcher tests. -->
     <ProjectReference Include="..\..\src\Plutus.Web.Infrastructure\Plutus.Web.Infrastructure.csproj" />
+    <!-- WP1.8: Kapow migration transforms + mapper. -->
+    <ProjectReference Include="..\..\Plutus\Tools\Plutus.Migration.Kapow\Plutus.Migration.Kapow.csproj" />
   </ItemGroup>
 
 </Project>

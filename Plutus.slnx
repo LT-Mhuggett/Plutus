@@ -13,6 +13,7 @@
     <Project Path="Plutus/Endpoints/Plutus.DBService/Plutus.DBService.csproj" />
   </Folder>
   <Folder Name="/Plutus/Tools/">
+    <Project Path="Plutus/Tools/Plutus.Migration.Kapow/Plutus.Migration.Kapow.csproj" />
     <Project Path="Plutus/Tools/Plutus.SeedMigrator/Plutus.SeedMigrator.csproj" />
   </Folder>
   <Folder Name="/src/">

@@ -29,6 +29,47 @@ var mysqlConn = dryRun ? null : args[2 == args.Length ? 1 : 2];
 if (!dryRun && args[1] == "--mysql") mysqlConn = args[2];
 if (!File.Exists(oldDbPath)) { Console.Error.WriteLine($"not found: {oldDbPath}"); return 1; }
 
+// ── T1.8 thin runner: Kapow → sales-v2. Reuses the Plutus.Migration.Kapow library. ──
+//   Plutus.SeedMigrator <kapow.db> sales-v2 --sqlite <out.db>      (validation run)
+//   Plutus.SeedMigrator <kapow.db> sales-v2 --mysql "<connstring>" (cutover)
+if (Array.IndexOf(args, "sales-v2") >= 0)
+{
+    var tenantId = Plutus.Entities.Tenancy.KnownTenants.Kapow;
+    using var kapowConn = new SqliteConnection(
+        new SqliteConnectionStringBuilder { DataSource = oldDbPath, Mode = SqliteOpenMode.ReadOnly }.ToString());
+    kapowConn.Open();
+    var inputs = new Plutus.Migration.Kapow.KapowSalesReader(kapowConn)
+        .Read(tenantId, tillId: Guid.NewGuid(), deviceId: Guid.NewGuid());
+    Console.WriteLine($"read {inputs.Count} Kapow sales; mapping…");
+
+    var tenantCtx = new Plutus.Entities.Tenancy.FixedTenantContext(tenantId);
+    var sqliteIdx = Array.IndexOf(args, "--sqlite");
+    var mysqlIdx = Array.IndexOf(args, "--mysql");
+    var options = new DbContextOptionsBuilder<MySqlDbContext>();
+    if (sqliteIdx >= 0 && sqliteIdx + 1 < args.Length)
+    {
+        var outPath = args[sqliteIdx + 1];
+        if (File.Exists(outPath)) File.Delete(outPath);
+        options.UseSqlite($"Data Source={outPath}");
+    }
+    else if (mysqlIdx >= 0 && mysqlIdx + 1 < args.Length)
+        options.UseMySql(args[mysqlIdx + 1], MySqlServerVersion.LatestSupportedServerVersion);
+    else { Console.Error.WriteLine("sales-v2 needs --sqlite <out.db> or --mysql <conn>"); return 1; }
+
+    using var target = new MySqlDbContext(options.Options, tenantCtx);
+    target.Database.EnsureCreated();
+    var recon = Plutus.Migration.Kapow.KapowMigrator.Migrate(
+        inputs, target, new Plutus.Migration.Kapow.IdRemap<string>(), log: Console.WriteLine);
+    Console.WriteLine();
+    Console.WriteLine(recon);
+    if (recon.QuarantineReasons.Count > 0)
+    {
+        Console.WriteLine("sample quarantine reasons:");
+        foreach (var q in recon.QuarantineReasons) Console.WriteLine("  - " + q);
+    }
+    return 0;
+}
+
 // Deterministic ids so re-runs are idempotent and cross-references stable.
 static Guid DetGuid(string kind, string key)
 {
