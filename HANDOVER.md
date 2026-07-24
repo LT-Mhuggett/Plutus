@@ -96,6 +96,8 @@ Phases 2–10 not started.
 
 **▶ NEXT — Phase 2** (`Build/plutus-implementation-plan.md`): the till/web-POS frontend cutover onto the new `/api/v1` contract (T2.1 wires the generated TS types), then subsequent phases. Confirm scope from the implementation plan before starting.
 
+**⏸️ Phase 4 (MAUI till) is ON HOLD (2026-07-24):** new MAUI code is coming from **upstream** (`github.com/seank842/Plutus`) that will **replace** the planned port — do NOT build Phase 4 / `plutus-maui-build-spec.md` M0–M4; re-baseline against the upstream code when it lands. Pause banners are in both `plutus-implementation-plan.md` (Phase 4) and `plutus-maui-build-spec.md`. Target behaviours there still stand as acceptance criteria. (Server-side heartbeat/fleet halves could be pulled forward independently if needed.)
+
 ---
 ### (historical) T1.7 resume notes — superseded by the above
 

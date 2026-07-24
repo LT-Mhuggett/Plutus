@@ -123,6 +123,18 @@ Modules communicate in-process via the `SharedKernel` event bus abstraction (int
 
 ## Phase 4 — MAUI till sync + fleet
 
+> ⏸️ **PAUSED / ON HOLD (2026-07-24) — DO NOT BUILD YET.**
+> New MAUI till code is coming from the **upstream repo** (`github.com/seank842/Plutus`) that will
+> **replace** this work. Building WP4.1–4.3 (and the `Build/plutus-maui-build-spec.md` M0–M4) now
+> would be thrown away. Hold until that code lands, then re-baseline this phase against it —
+> the outbox/heartbeat/fleet *contracts* below still describe the target behaviour and remain the
+> acceptance criteria, but the client-side implementation will build on the upstream MAUI code
+> rather than a fresh port. The server-side pieces these depend on (`/api/v1/heartbeat`, fleet
+> endpoints) can still be planned, but the MAUI client work is parked.
+>
+> _Server-side heartbeat/fleet endpoints (WP4.2/4.3 server halves) may be pulled forward
+> independently if needed; the **MAUI client** (WP4.1 + the client halves) is what's on hold._
+
 **WP4.1 — Till outbox + pusher (MAUI).** Local SQLite: sale write + outbox row in one transaction; background pusher drains in `deviceSeq` order, exponential backoff, survives app restarts; v1 contract via generated C# client from OpenAPI.
 *DoD:* soak test — 1,000 sales offline, reconnect, all land exactly once in order; kill the app mid-drain, no loss/dupes.
 

@@ -1,5 +1,13 @@
 # Plutus MAUI Build Specification — extending the till onto the platform (for Claude Sonnet)
 
+> ⏸️ **PAUSED / ON HOLD (2026-07-24) — DO NOT BUILD M0–M4 YET.**
+> New MAUI till code is coming from the **upstream repo** (`github.com/seank842/Plutus`) that will
+> **replace** the port this spec assumes. Do not start the M0–M4 work — it would be discarded when
+> the upstream code lands. When it does, re-baseline this spec against the actual upstream MAUI
+> project (the target behaviours — integer-pence money, VAT integrity, sale contract, outbox sync,
+> enrolment, offline RBAC, heartbeat — still stand as the acceptance criteria). See
+> `plutus-implementation-plan.md` → Phase 4 for the same hold.
+
 **Context.** The MAUI app is the in-progress port of the NatApp POS. It currently runs on the **same SQLite schema as the Kapow database** analysed in `kapow-db-gap-analysis.md`. The extensions built for the webapp/backend (integer-pence money, VAT integrity, band validation, sale contract, auth) must be **rolled back into MAUI** — and the till must join the platform (outbox sync, enrolment, offline RBAC, heartbeat).
 
 Subordinate to `plutus-platform-architecture.md` (v3). Companion to `plutus-sonnet-build-spec.md` (backend Phases 0–2) — **backend T0.2 (SharedKernel) and T1.x (endpoints) must exist before M2 onward can be verified against a real API;** M0–M1 can proceed in parallel.
