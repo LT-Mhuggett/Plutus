@@ -63,7 +63,14 @@ Test totals: **Unit 5 + Architecture 6 (1 skip)** green. Whole `Plutus.slnx` bui
 
 Phases 2–10 not started.
 
-## 5. RESUME HERE — Phase 1 / T1.5 (T1.1–T1.4 COMPLETE)
+## 5. RESUME HERE — Phase 1 / T1.6 (T1.1–T1.5 COMPLETE)
+
+**✅ T1.5 COMPLETE (2026-07-24)** — commit `9aab9af`. `OutboxDispatcher` (BackgroundService, Web.Infrastructure, `Plutus.Infrastructure.Outbox`) polls 500ms and drains `OutboxEvents` into each registered `IEventConsumer` via the testable `OutboxDrainer`. Per event: dedupe vs `ProcessedEvents`, handle with bounded retry (1s/5s/25s then park to `ConsumerDeadLetters`), advance `ConsumerOffsets` in the SAME SaveChanges → effectively-once across restarts; poison parks + later events flow; consumers independent. Idempotency centralised in the drainer (not a per-consumer base). Lag = max(Id)−offset; `GET /api/v1/ops/deadletters` (platform-admin). New tables `ProcessedEvents`+`ConsumerDeadLetters` (migration `AddOutboxConsumerTables` → `plutus_t1`). Registered via `AddPlutusOutbox()`; inert on SQLite host. Tests: converge / offset-reset dedupe / poison-parks-then-flows / lag. **33/33 unit, 5/5 arch.**
+
+**▶ NEXT — T1.6 contract freeze** (spec §T1.6): boot an instance, regenerate `openapi.json`, review field-by-field vs architecture §4.1 + the T1.2/T1.4 endpoint tables, commit; enable the CI drift gate from T0.3 (the commented `openapi-drift` job in `.github/workflows/ci.yml`) so a controller signature change without regen fails CI, and TS types regenerate cleanly. NOTE: the new `/api/v1/*` endpoints (tenants, tills, tokens, sales, ops) are net-new since the 64-path `openapi.json` snapshot.
+
+---
+### (historical) T1.5 resume notes — superseded by the above
 
 **✅ T1.4 COMPLETE (2026-07-24)** — commit `7fd12db`. `SalesIngestService` (Sales module) `POST /api/v1/sales`: one tx → validate T1.3 invariants → quarantine (202) if unfixable, else insert SaleV2+lines+tenders + `OutboxEvents(SaleRecorded)` + bump `Device.LastSeenSeq=max(cur,seq)` → 201; duplicate saleId re-reads → 200; quarantine idempotent via unique `(TenantId,SaleId)` on SaleQuarantine (migration `AddQuarantineSaleId`, applied to `plutus_t1`). Provider-agnostic idempotency (re-read on conflict, no vendor error codes). Controller: tenant/device from token not body (mismatch→403), Idempotency-Key must equal saleId (else 400), TillId server-derived from device. Policy `sales.ingest` = device OR `pos.sell`. Tests: record+outbox+seq, duplicate→200 (1 row/1 event), quarantine idempotent, monotonic seq. **29/29 unit, 5/5 arch.** 20-way concurrent test deferred to T1.7 (needs MySQL; DB unique constraint is the guarantee).
 
@@ -152,4 +159,4 @@ Note: the transitional `Sale/Summary`/`VatIntegrity`/`SaleReport` on Plutus.Sale
 
 ## 8. One-line status
 
-**Phase 0 + Phase 1 T1.1-T1.4 COMPLETE** (tenancy schema + row-level scoping + provisioning/enrolment/device-token API + scope-based auth; all migrations applied to staging `plutus_t1` only; live `plutus`/ETRIE untouched). All pushed to `github.com/LT-Mhuggett/Plutus` `Matt's-Horror` (latest `7fd12db`). 29/29 unit + 5/5 arch green. Live test env healthy. Resume at §5 — Phase 1 **T1.5** (outbox dispatch).
+**Phase 0 + Phase 1 T1.1-T1.5 COMPLETE** (tenancy schema + row-level scoping + provisioning/enrolment/device-token API + scope-based auth; all migrations applied to staging `plutus_t1` only; live `plutus`/ETRIE untouched). All pushed to `github.com/LT-Mhuggett/Plutus` `Matt's-Horror` (latest `9aab9af`). 33/33 unit + 5/5 arch green. Live test env healthy. Resume at §5 — Phase 1 **T1.6** (contract freeze).
