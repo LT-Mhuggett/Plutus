@@ -1,0 +1,126 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net10.0-android</TargetFrameworks>
+    <TargetFrameworks Condition="!$([MSBuild]::IsOSPlatform('linux'))">$(TargetFrameworks);net10.0-ios</TargetFrameworks>
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
+
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Plutus.Frontend.AppClient</RootNamespace>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <LangVersion>10.0</LangVersion>
+
+    <!-- Preserves the platform minimums the Xamarin.Forms heads previously targeted. -->
+    <AndroidMinimumVersion>21</AndroidMinimumVersion>
+    <IOSMinimumVersion>8.0</IOSMinimumVersion>
+
+    <ApplicationTitle>Plutus</ApplicationTitle>
+    <ApplicationId>com.MBH.NatApp.Plutus</ApplicationId>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">8.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.19041.0</SupportedOSPlatformVersion>
+    <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DebugType>portable</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows' and '$(Configuration)' == 'Debug'">
+    <WindowsPackageType>None</WindowsPackageType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows' and '$(Configuration)' != 'Debug'">
+    <WindowsPackageType>MSIX</WindowsPackageType>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(Configuration)'=='Debug'">
+    <!-- Prints OTel log records/spans to the debug console so telemetry can be eyeballed locally
+         without needing NEW_RELIC_LICENSE_KEY set or a live New Relic connection. -->
+    <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.17.0" />
+
+    <!-- Loads a local, gitignored .env file (see MauiProgram.cs) so secrets like
+         NEW_RELIC_LICENSE_KEY can be set for local dev without a real environment variable. -->
+    <PackageReference Include="DotNetEnv" Version="3.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- App Icon (carried over from the legacy Android mipmap/icon.png + launcher_foreground.png) -->
+    <MauiIcon Include="Resources\AppIcon\appicon.png" ForegroundFile="Resources\AppIcon\appiconfg.png" Color="#3F51B5" />
+
+    <!-- Splash Screen -->
+    <MauiSplashScreen Include="Resources\AppIcon\appiconfg.png" Color="#3F51B5" />
+
+    <!-- Images -->
+    <MauiImage Include="Resources\Images\*" />
+
+    <!-- Custom Fonts (carried over from Xam.Plugin.Iconize.FontAwesome/.Material) -->
+    <MauiFont Include="Resources\Fonts\*" />
+
+    <!-- Raw assets read at runtime via FileSystem.OpenAppPackageFileAsync (e.g. appsettings.json). -->
+    <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="10.1.1" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="2.13.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="3.1.17" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+    <PackageReference Include="OpenTelemetry" Version="1.17.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
+    <PackageReference Include="Mopups" Version="1.3.2" />
+    <PackageReference Include="Plugin.Maui.MessagingCenter" Version="1.1.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
+    <PackageReference Include="SkiaSharp" Version="3.119.1" />
+    <PackageReference Include="SkiaSharp.Extended" Version="2.0.0" />
+    <PackageReference Include="SkiaSharp.Svg" Version="1.60.0" />
+    <PackageReference Include="SkiaSharp.Views.Maui.Controls" Version="3.119.1" />
+    <PackageReference Include="Syncfusion.Maui.Calendar" Version="34.1.32" />
+    <PackageReference Include="Syncfusion.Maui.Charts" Version="34.1.32" />
+    <PackageReference Include="Syncfusion.Maui.Core" Version="34.1.32" />
+    <PackageReference Include="Syncfusion.Maui.Inputs" Version="34.1.32" />
+    <PackageReference Include="Syncfusion.Maui.ListView" Version="34.1.32" />
+    <PackageReference Include="Syncfusion.Maui.Picker" Version="34.1.32" />
+    <PackageReference Include="Syncfusion.Maui.Popup" Version="34.1.32" />
+    <PackageReference Include="Syncfusion.Maui.SunburstChart" Version="34.1.32" />
+    <PackageReference Include="Syncfusion.XlsIO.NET" Version="34.1.32" />
+    <PackageReference Include="Syncfusion.XlsIORenderer.Net.Core" Version="34.1.32" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Lets the test project set internal test-only bootstrap state (e.g. App.TranslateExtension)
+         without changing production visibility or behavior. -->
+    <InternalsVisibleTo Include="Plutus.Frontend.AppClient.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Shared\CommonPOSLibrary\CommonPOSLibrary.csproj" />
+    <ProjectReference Include="..\..\Shared\CustomViews\CustomViews.csproj" />
+    <ProjectReference Include="..\..\Data\Database\Database.csproj" />
+    <ProjectReference Include="..\..\Shared\I18N_L10N\I18N_L10N.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Views\FirstTimeStartUp\SetupView.xaml.cs">
+      <DependentUpon>SetupView.xaml</DependentUpon>
+    </Compile>
+    <Compile Update="Views\MainTill\Inventory\Items\ViewAllView.xaml.cs">
+      <DependentUpon>ViewAllView.xaml</DependentUpon>
+    </Compile>
+    <Compile Update="Views\MainTill\Statistics\StockOuttakeView.xaml.cs">
+      <DependentUpon>StockOuttakeView.xaml</DependentUpon>
+    </Compile>
+    <Compile Update="Views\MainTill\StoreOptions\StoreOptionsView.xaml.cs">
+      <DependentUpon>StoreOptionsView.xaml</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+</Project>

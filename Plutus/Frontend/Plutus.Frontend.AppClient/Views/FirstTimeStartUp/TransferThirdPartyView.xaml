@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" 
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:Behaviors="clr-namespace:Plutus.Frontend.AppClient.Behaviors"
+             xmlns:Validators="clr-namespace:Plutus.Frontend.AppClient.Helpers.Validators"
+             xmlns:viewModel="clr-namespace:Plutus.Frontend.AppClient.ViewModels.FirstTimeStartUp"
+             xmlns:i18N="clr-namespace:I18N_L10N.Extensions;assembly=I18N_L10N"
+             x:Class="Plutus.Frontend.AppClient.Views.FirstTimeStartUp.TransferThirdPartyView"
+             Title="{Binding Title}"
+             IconImageSource="{Binding Icon, Converter={StaticResource MaterialIconConverter}}">
+    <ContentPage.BindingContext>
+        <viewModel:TransferThirdPartyViewModel/>
+    </ContentPage.BindingContext>
+  <ContentPage.Content>
+        <StackLayout>
+            <ScrollView>
+                <Grid Margin="5,0,5,0">
+                    <Grid.Behaviors>
+                        <Behaviors:ValidationGroupBehavior x:Name="form"/>
+                    </Grid.Behaviors>
+                    <!--Grid Definitions-->
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="5*"/>
+                        <ColumnDefinition Width="5*"/>
+                    </Grid.ColumnDefinitions>
+                    <!--End of Grid Definitions-->
+                    
+                    <!--Title of Page-->
+                    <Label Grid.Column="0" Grid.Row="0" Grid.ColumnSpan="2"
+                           Text="{Binding Title}" TextColor="Gray" FontSize="Large"/>
+                    <!--End Title of Page-->
+
+                    <!--Content-->
+                    <!--Left column-->
+                    <StackLayout x:Name="LeftColumn" Grid.Column="0" Grid.Row="1">
+                        <Button Text="Copper(NCH Software)" Command="{Binding CopperCommand}"/>
+                    </StackLayout>
+                    <!--End of Left column-->
+                    
+                    <!--Right column-->
+                    <StackLayout x:Name="RightColumn" Grid.Column="1" Grid.Row="1">
+                    </StackLayout>
+                    <!--End of Right column-->
+                </Grid>
+            </ScrollView>
+        </StackLayout>
+    </ContentPage.Content>
+</ContentPage>

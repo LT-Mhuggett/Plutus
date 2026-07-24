@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<StackLayout xmlns="http://schemas.microsoft.com/dotnet/2021/maui" 
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:d="http://schemas.microsoft.com/dotnet/maui/design"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:Plutus.Frontend.AppClient.Controls"
+             mc:Ignorable="d"
+             x:Class="Plutus.Frontend.AppClient.Controls.SteppedSliderWithLabels">
+    <StackLayout x:Name="labelStack" HorizontalOptions="FillAndExpand" Orientation="Horizontal" Spacing="0"/>
+    <controls:SteppedSlider x:Name="slider" ValueChanged="Slider_ValueChanged" HorizontalOptions="FillAndExpand"/>
+</StackLayout>
