@@ -27,6 +27,12 @@ namespace Plutus.Tenancy
 
             // The tenancy tables live only on MySqlDbContext (server). Resolve it from the
             // registered RepositoryContext; in a DEBUG/SQLite host these endpoints are inert.
+            // WP3.2: MySqlDbContext itself is registered so admin controllers can take it
+            // directly (same scoped instance as RepositoryContext).
+            services.AddScoped(sp =>
+                sp.GetRequiredService<RepositoryContext>() as MySqlDbContext
+                    ?? throw new InvalidOperationException(
+                        "This endpoint requires the MySqlDbContext (server build), not the SQLite dev context."));
             services.AddScoped(sp =>
             {
                 var ctx = sp.GetRequiredService<RepositoryContext>() as MySqlDbContext

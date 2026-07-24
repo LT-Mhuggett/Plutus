@@ -1,9 +1,12 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
+using Plutus.Entities;
 using Plutus.SharedKernel;
 
 namespace Plutus.Tenancy.Controllers
@@ -19,14 +22,40 @@ namespace Plutus.Tenancy.Controllers
     {
         private readonly EnrolmentService _enrolment;
         private readonly ITenantContext _tenant;
+        private readonly MySqlDbContext _db;
 
-        public TillsController(EnrolmentService enrolment, ITenantContext tenant)
+        public TillsController(EnrolmentService enrolment, ITenantContext tenant, MySqlDbContext db)
         {
             _enrolment = enrolment;
             _tenant = tenant;
+            _db = db;
         }
 
         private string ActingUser => User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "portal";
+        private Guid Actor => Guid.TryParse(ActingUser, out var g) ? g : Guid.Empty;
+
+        /// <summary>WP3.2: till fleet listing — tills with their enrolled-device states.</summary>
+        [HttpGet]
+        [Authorize(Policy = PlutusPolicies.PortalTillsEnrol)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> List([FromQuery] int? storeId)
+        {
+            var tills = await _db.Till.AsNoTracking()
+                .Where(t => storeId == null || t.StoreId == storeId).ToListAsync();
+            var tillIds = tills.Select(t => t.Id).ToList();
+            var devices = await _db.Devices.AsNoTracking()
+                .Where(d => tillIds.Contains(d.TillId)).ToListAsync();
+            return Ok(tills.Select(t => new
+            {
+                id = t.Id,
+                storeId = t.StoreId,
+                lastOnline = t.LastOnline,
+                devices = devices.Where(d => d.TillId == t.Id).Select(d => new
+                {
+                    id = d.Id, status = d.Status.ToString(), lastSeenSeq = d.LastSeenSeq, createdAtUtc = d.CreatedAtUtc,
+                }),
+            }));
+        }
 
         [HttpPost]
         [Authorize(Policy = PlutusPolicies.PortalTillsEnrol)]
@@ -36,6 +65,8 @@ namespace Plutus.Tenancy.Controllers
         {
             if (body == null || string.IsNullOrWhiteSpace(body.Name)) return BadRequest("storeId and name are required.");
             var result = await _enrolment.CreateTillAsync(_tenant.TenantId, body.StoreId, body.Name.Trim(), ActingUser);
+            _db.Audit(_tenant.TenantId, Actor, "till.create", "Till", result.TillId.ToString(), new { body.StoreId, body.Name });
+            await _db.SaveChangesAsync();
             return Created($"/api/v1/tills/{result.TillId}", result);
         }
 
@@ -64,7 +95,9 @@ namespace Plutus.Tenancy.Controllers
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<IActionResult> Revoke([FromRoute] Guid id)
         {
-            await _enrolment.RevokeTillAsync(id, ActingUser);
+            var revoked = await _enrolment.RevokeTillAsync(id, ActingUser);
+            _db.Audit(_tenant.TenantId, Actor, "till.revoke", "Till", id.ToString(), new { devicesRevoked = revoked });
+            await _db.SaveChangesAsync();
             return NoContent();
         }
     }

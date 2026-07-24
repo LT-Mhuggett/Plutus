@@ -20,6 +20,8 @@ public static class PermissionCatalogue
     public const string PortalPricesManage = "portal.prices.manage";
     public const string PortalTillsEnrol = "portal.tills.enrol";
     public const string PortalReportsView = "portal.reports.view";
+    /// <summary>WP3.2: company + store administration (names, addresses, opening hours).</summary>
+    public const string PortalCompanyManage = "portal.company.manage";
 
     // ── POS ──
     public const string PosSell = "pos.sell";
@@ -33,7 +35,7 @@ public static class PermissionCatalogue
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
         PortalFinancialsView, PortalUsersManage, PortalStockAdjust, PortalPricesManage,
-        PortalTillsEnrol, PortalReportsView,
+        PortalTillsEnrol, PortalReportsView, PortalCompanyManage,
         PosSell, PosRefund, PosVoid, PosDiscount, PosPriceOverride, PosNoSale, PosReportsView,
     };
 

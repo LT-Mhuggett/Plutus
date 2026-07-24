@@ -64,10 +64,15 @@ public sealed class PlutusAppFactory : WebApplicationFactory<Program>
     }
 
     // ---- token helpers (mirror what the login endpoint / device flow would issue) ----
-    public static string OperatorToken(string scope, Guid? tid = null) => CompactToken.Issue(
+    public static string OperatorToken(string scope, Guid? tid = null) =>
+        OperatorTokenFor(Guid.NewGuid(), scope, tid);
+
+    /// <summary>WP3.2: a token for a KNOWN employee id, so RBAC (perm:*) gates — which
+    /// resolve against RbacRoleAssignments, not scope claims — can be exercised.</summary>
+    public static string OperatorTokenFor(Guid employeeId, string scope, Guid? tid = null) => CompactToken.Issue(
         JsonSerializer.Serialize(new
         {
-            EmployeeId = Guid.NewGuid(),
+            EmployeeId = employeeId,
             Name = "integration",
             Scope = scope,
             Tid = tid,

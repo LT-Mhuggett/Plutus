@@ -44,19 +44,30 @@ namespace Plutus.Identity
             return (rolesAdded, assignmentsAdded);
         }
 
-        /// <summary>Creates any missing built-in roles for the tenant. Existing roles (by
-        /// (TenantId, Name)) are left untouched — including their grants, so a tenant's later
-        /// customisation is never overwritten by a re-seed.</summary>
+        /// <summary>Creates any missing built-in roles for the tenant, and ADDS any template
+        /// grants an existing built-in is missing (how new catalogue permissions — e.g.
+        /// WP3.2's portal.company.manage — reach already-seeded tenants on redeploy). Grants a
+        /// tenant added or re-ceilinged are never removed or overwritten.</summary>
         public static async Task<int> EnsureBuiltInRolesAsync(MySqlDbContext db, Guid tenantId)
         {
             var wanted = BuiltInRoles();
-            var existing = await db.RbacRoles.Where(r => r.TenantId == tenantId)
-                .Select(r => r.Name).ToListAsync();
+            var existing = await db.RbacRoles.Include(r => r.Grants)
+                .Where(r => r.TenantId == tenantId).ToDictionaryAsync(r => r.Name);
             var added = 0;
 
             foreach (var (name, grants) in wanted)
             {
-                if (existing.Contains(name)) continue;
+                if (existing.TryGetValue(name, out var current))
+                {
+                    if (!current.IsBuiltIn) continue; // a tenant-defined role shadowing the name
+                    foreach (var g in grants.Where(g => current.Grants.All(x => x.PermissionCode != g.Code)))
+                        db.RbacRoleGrants.Add(new RbacRoleGrant
+                        {
+                            Id = Uuid7.New(), TenantId = tenantId, RoleId = current.Id,
+                            PermissionCode = g.Code, MaxPence = g.MaxPence,
+                        });
+                    continue;
+                }
                 var role = new RbacRole
                 {
                     Id = Uuid7.New(), TenantId = tenantId, Name = name, IsBuiltIn = true,
@@ -70,7 +81,7 @@ namespace Plutus.Identity
                 db.RbacRoles.Add(role);
                 added++;
             }
-            if (added > 0) await db.SaveChangesAsync();
+            if (db.ChangeTracker.HasChanges()) await db.SaveChangesAsync();
             return added;
         }
 
@@ -81,6 +92,7 @@ namespace Plutus.Identity
                 PermissionCatalogue.PortalFinancialsView, PermissionCatalogue.PortalUsersManage,
                 PermissionCatalogue.PortalStockAdjust, PermissionCatalogue.PortalPricesManage,
                 PermissionCatalogue.PortalTillsEnrol, PermissionCatalogue.PortalReportsView,
+                PermissionCatalogue.PortalCompanyManage,
             };
             var allPos = new[]
             {

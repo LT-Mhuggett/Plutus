@@ -45,6 +45,9 @@ namespace Plutus.Entities
         public DbSet<RbacRole> RbacRoles { get; set; }
         public DbSet<RbacRoleGrant> RbacRoleGrants { get; set; }
         public DbSet<RbacRoleAssignment> RbacRoleAssignments { get; set; }
+        // Admin surface (WP3.2): audit trail + portal-only store fields.
+        public DbSet<AuditLog> AuditLogs { get; set; }
+        public DbSet<StoreDetails> StoreDetails { get; set; }
         #endregion
 
         /// <summary>The tenant scoping every query and write is bound to. Referenced by the
@@ -105,6 +108,8 @@ namespace Plutus.Entities
             typeof(SaleV2), typeof(SaleLine), typeof(SaleTender), typeof(SaleAdjustment),
             // RBAC (WP3.1) — real TenantId columns, per-tenant roles/assignments.
             typeof(RbacRole), typeof(RbacRoleGrant), typeof(RbacRoleAssignment),
+            // Admin surface (WP3.2).
+            typeof(AuditLog), typeof(StoreDetails),
         };
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -248,6 +253,25 @@ namespace Plutus.Entities
                 e.HasOne(x => x.Role).WithMany().HasForeignKey(x => x.RoleId);
                 e.HasIndex(x => new { x.TenantId, x.UserId });
                 e.HasIndex(x => new { x.TenantId, x.ScopeType, x.ScopeId });
+            });
+
+            // WP3.2 admin surface.
+            modelBuilder.Entity<AuditLog>(e =>
+            {
+                e.ToTable("AuditLogs");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedOnAdd();
+                e.Property(x => x.Action).HasMaxLength(100).IsRequired();
+                e.Property(x => x.EntityType).HasMaxLength(100).IsRequired();
+                e.Property(x => x.EntityId).HasMaxLength(64).IsRequired();
+                e.HasIndex(x => new { x.TenantId, x.AtUtc });
+                e.HasIndex(x => new { x.TenantId, x.EntityType, x.EntityId });
+            });
+            modelBuilder.Entity<StoreDetails>(e =>
+            {
+                e.ToTable("StoreDetails");
+                e.HasKey(x => x.StoreId);
+                e.Property(x => x.StoreId).ValueGeneratedNever();
             });
 
             // Test/dev harness only (WP2.1): on MySQL, Trans.IdOne is AUTO_INCREMENT within a
