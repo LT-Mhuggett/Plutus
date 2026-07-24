@@ -45,6 +45,8 @@ cbf0b75 feat(wp0.2b): extract auth into Plutus.Identity module
 
 **Remote (added 2026-07-24):** `origin` = `https://github.com/LT-Mhuggett/Plutus.git` (Matt's, private) · `upstream` = `github.com/seank842/Plutus.git` (Sean's original). All work is **pushed to origin/Matt's-Horror**. NOTE: the push was rebuilt into a **single squashed commit `3d2837a`** on top of upstream/master ("remove secret-bearing history") — the granular per-task commits are NOT on GitHub (content intact); new commits from here are granular again. GitHub Credential Manager (browser) — Matt authenticates.
 
+**Synced to upstream (2026-07-24):** our platform line was **merged into `upstream/Matt's-Horror`** (`seank842/Plutus`) as merge commit `c2732e3` (fast-forward from `aa667db`, no force). Resolution: platform/backend/Commons/tests → ours (net8); MAUI + frontends + publishing binaries → upstream's. ⚠ The upstream MAUI ClientUI is still **net7** and won't build against the now-net8 `Commons` until the incoming upstream MAUI code (Phase 4, paused) lands and is retargeted — intended/transitional. The platform `Plutus.slnx` builds independently (63 tests green). `origin/Matt's-Horror` (LT-Mhuggett) is unchanged at `d12ae9a`; upstream and origin are now separate lineages.
+
 **Deferred hygiene (Matt's call, left as-is):** tracked `appsettings*.json` carry cleartext MySQL passwords (Sean's old dockerised-dev creds, NOT the live Mac DB) — pushed to the private repo. Options when revisited: move to env/user-secrets (forward), or `git filter-repo` purge (if repo goes public).
 
 Git identity is set **repo-locally** (`Matt Huggett` / `mhuggett@leadingtalent.co.uk`).
