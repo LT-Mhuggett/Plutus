@@ -121,20 +121,32 @@ public class KapowMigrationTests
     }
 
     [Fact]
-    public void MapSale_quarantines_a_total_mismatch()
+    public void MapSale_reconciles_line_total_mismatch_by_trusting_sales_total()
     {
+        // Decision 2026-07-24 (option B): Sales.Total is authoritative; a reconciling line
+        // absorbs the lossy-line-detail delta rather than the sale being dropped.
         var input = ValidSale();
-        input.TotalText = "9.99"; // != Σ lines (3.60)
+        input.TotalText = "9.99";             // Sales.Total (authoritative)
+        input.Tenders[0].AmountText = "9.99"; // tenders match the charged total
+        // lines still sum to £3.60
+
         var result = KapowSaleMapper.MapSale(input, new IdRemap<string>());
-        Assert.True(result.IsQuarantined);
-        Assert.Contains("Total", result.QuarantineReason);
+        Assert.False(result.IsQuarantined);
+        Assert.True(result.WasReconciled);
+        var s = result.Sale!;
+        Assert.Equal(999, s.GrossPence);                        // trusts Sales.Total
+        Assert.Equal(999, s.Lines.Sum(l => l.LineGrossPence));  // invariant holds
+        var recon = s.Lines.Single(l => l.ItemId == KapowSaleMapper.ReconciliationItemId);
+        Assert.Equal(639, recon.LineGrossPence);                // 9.99 − 3.60
+        Assert.Contains("legacy-reconciled", s.Note);
+        s.Validate();
     }
 
     [Fact]
-    public void MapSale_quarantines_a_tender_mismatch()
+    public void MapSale_still_quarantines_when_tenders_do_not_match_total()
     {
         var input = ValidSale();
-        input.Tenders[0].AmountText = "2.00"; // net tender != gross
+        input.Tenders[0].AmountText = "2.00"; // tenders != Sales.Total → genuinely unreconcilable
         var result = KapowSaleMapper.MapSale(input, new IdRemap<string>());
         Assert.True(result.IsQuarantined);
     }
