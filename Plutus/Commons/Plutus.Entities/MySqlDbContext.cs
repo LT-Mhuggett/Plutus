@@ -30,6 +30,14 @@ namespace Plutus.Entities
         public DbSet<Device> Devices { get; set; }
         // Web login credentials (existing table). Global/unscoped — login is by email.
         public DbSet<WebCredential> WebCredentials { get; set; }
+        // Sales schema v2 (T1.3). New tables alongside the legacy Sale/Transaction tables.
+        public DbSet<SaleV2> SalesV2 { get; set; }
+        public DbSet<SaleLine> SaleLines { get; set; }
+        public DbSet<SaleTender> SaleTenders { get; set; }
+        public DbSet<SaleAdjustment> SaleAdjustments { get; set; }
+        public DbSet<SaleQuarantine> SaleQuarantine { get; set; }
+        public DbSet<OutboxEvent> OutboxEvents { get; set; }
+        public DbSet<ConsumerOffset> ConsumerOffsets { get; set; }
         #endregion
 
         /// <summary>The tenant scoping every query and write is bound to. Referenced by the
@@ -86,6 +94,8 @@ namespace Plutus.Entities
             // rows). EF only allows a query filter on the hierarchy root, so scope Person —
             // it cascades to Employee. Person itself carries no shared/global rows.
             typeof(Person), typeof(CheckoutItemChange),
+            // Sales v2 (T1.3) — real TenantId columns; the loop reuses them (no shadow added).
+            typeof(SaleV2), typeof(SaleLine), typeof(SaleTender), typeof(SaleAdjustment),
         };
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -125,6 +135,65 @@ namespace Plutus.Entities
                 e.ToTable("WebCredentials");
                 e.HasKey(x => x.Email);
                 e.Property(x => x.Email).HasMaxLength(255);
+            });
+
+            // T1.3 sales v2 (server-side). Ids are client-minted UUIDv7 (not store-generated).
+            modelBuilder.Entity<SaleV2>(e =>
+            {
+                e.ToTable("SalesV2");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.LegacyRef).HasMaxLength(32);
+                e.Property(x => x.Note).HasMaxLength(1000);
+                e.HasIndex(x => new { x.TenantId, x.DeviceId, x.DeviceSeq }).IsUnique();
+                e.HasIndex(x => new { x.TenantId, x.BusinessDay });
+                e.HasIndex(x => new { x.TenantId, x.TillId, x.BusinessDay });
+                e.HasMany(x => x.Lines).WithOne().HasForeignKey(l => l.SaleId);
+                e.HasMany(x => x.Tenders).WithOne().HasForeignKey(t => t.SaleId);
+            });
+            modelBuilder.Entity<SaleLine>(e =>
+            {
+                e.ToTable("SaleLines");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.HasIndex(x => new { x.TenantId, x.SaleId });
+                e.HasIndex(x => new { x.TenantId, x.ItemId });
+            });
+            modelBuilder.Entity<SaleTender>(e =>
+            {
+                e.ToTable("SaleTenders");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.HasIndex(x => new { x.TenantId, x.SaleId });
+            });
+            modelBuilder.Entity<SaleAdjustment>(e =>
+            {
+                e.ToTable("SaleAdjustments");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Reason).HasMaxLength(500);
+                e.HasIndex(x => new { x.TenantId, x.OriginalSaleId });
+            });
+            modelBuilder.Entity<SaleQuarantine>(e =>
+            {
+                e.ToTable("SaleQuarantine");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Reason).HasMaxLength(500);
+            });
+            modelBuilder.Entity<OutboxEvent>(e =>
+            {
+                e.ToTable("OutboxEvents");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedOnAdd();
+                e.Property(x => x.EventType).HasMaxLength(100);
+                e.HasIndex(x => x.EventId).IsUnique();
+            });
+            modelBuilder.Entity<ConsumerOffset>(e =>
+            {
+                e.ToTable("ConsumerOffsets");
+                e.HasKey(x => x.ConsumerName);
+                e.Property(x => x.ConsumerName).HasMaxLength(100);
             });
 
             // Shadow TenantId + index on every tenant-owned entity (by convention, never by
