@@ -23,6 +23,24 @@ using Plutus.Entities.Models;
 const string SeedUser = "seed-migrator";
 
 if (args.Length < 2) { Console.Error.WriteLine("usage: <old.db> --dry-run | --mysql <connstring>"); return 1; }
+
+// ── WP3.1 runner: seed RBAC built-in roles + Kapow AuthActions mapping. ──
+//   Plutus.SeedMigrator rbac --mysql "<connstring>"     (idempotent; re-run = no-op)
+if (args[0] == "rbac")
+{
+    var rbacMysqlIdx = Array.IndexOf(args, "--mysql");
+    if (rbacMysqlIdx < 0 || rbacMysqlIdx + 1 >= args.Length)
+    { Console.Error.WriteLine("rbac needs --mysql <conn>"); return 1; }
+
+    var rbacTenant = Plutus.Entities.Tenancy.KnownTenants.Kapow;
+    var rbacOptions = new DbContextOptionsBuilder<MySqlDbContext>()
+        .UseMySql(args[rbacMysqlIdx + 1], MySqlServerVersion.LatestSupportedServerVersion);
+    using var rbacDb = new MySqlDbContext(rbacOptions.Options, new Plutus.Entities.Tenancy.FixedTenantContext(rbacTenant));
+    var (roles, assignments) = await Plutus.Identity.RbacSeeder.SeedAsync(rbacDb, rbacTenant);
+    Console.WriteLine($"rbac seed: {roles} role(s) added, {assignments} assignment(s) added.");
+    return 0;
+}
+
 var oldDbPath = args[0];
 var dryRun = args[1] == "--dry-run";
 var mysqlConn = dryRun ? null : args[2 == args.Length ? 1 : 2];

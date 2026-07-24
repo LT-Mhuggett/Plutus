@@ -1,6 +1,9 @@
+using System;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Plutus.Entities;
 using Plutus.SharedKernel;
 
 namespace Plutus.Identity
@@ -13,6 +16,18 @@ namespace Plutus.Identity
     {
         public static IServiceCollection AddPlutusIdentity(this IServiceCollection services, IConfiguration configuration)
         {
+            // WP3.1 RBAC: effective-permission resolution + the dynamic "perm:*" policy
+            // provider. Auth-scheme agnostic — registered under B2C and the test scheme alike.
+            services.AddScoped(sp =>
+            {
+                var ctx = sp.GetRequiredService<RepositoryContext>() as MySqlDbContext
+                    ?? throw new InvalidOperationException(
+                        "RBAC requires the MySqlDbContext (server build), not the SQLite dev context.");
+                return new EffectivePermissionsService(ctx);
+            });
+            services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
+            services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+
             // TEST-ENV ONLY: flag-gated. With DISABLE_AUTH_DEV_ONLY set, B2C validation is
             // replaced by the scope-aware PlutusTokenAuthHandler and real scope-based policies
             // (T1.2). Off by default so production B2C behaviour is unchanged.

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using MySqlConnector;
 using Plutus.DBService.Extensions;
 using Plutus.Identity;
+using Plutus.SharedKernel;
 using System;
 using System.Threading.Tasks;
 
@@ -18,10 +19,12 @@ namespace Plutus.DBService.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IConfiguration _configuration;
+        private readonly EffectivePermissionsService _permissions;
 
-        public AuthController(IConfiguration configuration)
+        public AuthController(IConfiguration configuration, EffectivePermissionsService permissions)
         {
             _configuration = configuration;
+            _permissions = permissions;
         }
 
         public class LoginRequest
@@ -105,14 +108,25 @@ namespace Plutus.DBService.Controllers
             // The credentials reader must be closed before the connection runs another command.
             await reader.CloseAsync();
 
-            // WP1.2 follow-up (decision 2026-07-24): every operator gets the unambiguous
-            // capability `pos.sell`. WP2.2 (decision 2026-07-24): employees holding the legacy
-            // Admin or Management AuthAction ALSO get `portal.tills.enrol` so they can create
-            // tills/enrolment codes from the web POS — the minimal slice of the AuthActions→
-            // scope mapping that WP3.1 RBAC replaces wholesale.
-            var scope = "pos.sell";
-            await using (var scopeCmd = conn.CreateCommand())
+            // WP3.1 (2026-07-24): token scopes come from the user's RBAC effective permissions
+            // (time windows evaluated NOW — an out-of-window assignment grants nothing at token
+            // issue, per architecture §7.2). Pre-seed fallback: a user with no assignments yet
+            // keeps the WP2.2 behaviour (pos.sell + Admin/Management → portal.tills.enrol) so
+            // login never breaks before `SeedMigrator rbac` has run.
+            string scope;
+            if (await _permissions.HasAnyAssignmentsAsync(employeeId))
             {
+                var scopes = new System.Collections.Generic.List<string>();
+                if (await _permissions.HasAnywhereAsync(employeeId, PermissionCatalogue.PosSell, DateTime.Now))
+                    scopes.Add(PlutusPolicies.PosSell);
+                if (await _permissions.HasAnywhereAsync(employeeId, PermissionCatalogue.PortalTillsEnrol, DateTime.Now))
+                    scopes.Add(PlutusPolicies.PortalTillsEnrol);
+                scope = string.Join(" ", scopes);
+            }
+            else
+            {
+                scope = "pos.sell";
+                await using var scopeCmd = conn.CreateCommand();
                 scopeCmd.CommandText = @"
                     SELECT COUNT(*) FROM EmpAuthActions ea
                     JOIN AuthActions a ON a.Id = ea.AuthAId

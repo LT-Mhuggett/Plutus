@@ -41,6 +41,10 @@ namespace Plutus.Entities
         // Outbox dispatch bookkeeping (T1.5). Global/infra.
         public DbSet<ProcessedEvent> ProcessedEvents { get; set; }
         public DbSet<ConsumerDeadLetter> ConsumerDeadLetters { get; set; }
+        // RBAC (WP3.1). "Rbac" prefix because the legacy Role table survives evolve-in-place.
+        public DbSet<RbacRole> RbacRoles { get; set; }
+        public DbSet<RbacRoleGrant> RbacRoleGrants { get; set; }
+        public DbSet<RbacRoleAssignment> RbacRoleAssignments { get; set; }
         #endregion
 
         /// <summary>The tenant scoping every query and write is bound to. Referenced by the
@@ -99,6 +103,8 @@ namespace Plutus.Entities
             typeof(Person), typeof(CheckoutItemChange),
             // Sales v2 (T1.3) — real TenantId columns; the loop reuses them (no shadow added).
             typeof(SaleV2), typeof(SaleLine), typeof(SaleTender), typeof(SaleAdjustment),
+            // RBAC (WP3.1) — real TenantId columns, per-tenant roles/assignments.
+            typeof(RbacRole), typeof(RbacRoleGrant), typeof(RbacRoleAssignment),
         };
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -213,6 +219,35 @@ namespace Plutus.Entities
                 e.Property(x => x.ConsumerName).HasMaxLength(100);
                 e.Property(x => x.EventType).HasMaxLength(100);
                 e.HasIndex(x => x.ConsumerName);
+            });
+
+            // WP3.1 RBAC (server-side, tenant-owned). Ids are client-minted UUIDv7.
+            modelBuilder.Entity<RbacRole>(e =>
+            {
+                e.ToTable("RbacRoles");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Name).HasMaxLength(100).IsRequired();
+                e.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+                e.HasMany(x => x.Grants).WithOne().HasForeignKey(g => g.RoleId);
+            });
+            modelBuilder.Entity<RbacRoleGrant>(e =>
+            {
+                e.ToTable("RbacRoleGrants");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.PermissionCode).HasMaxLength(100).IsRequired();
+                e.HasIndex(x => new { x.RoleId, x.PermissionCode }).IsUnique();
+            });
+            modelBuilder.Entity<RbacRoleAssignment>(e =>
+            {
+                e.ToTable("RbacRoleAssignments");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.ScopeId).HasMaxLength(64).IsRequired();
+                e.HasOne(x => x.Role).WithMany().HasForeignKey(x => x.RoleId);
+                e.HasIndex(x => new { x.TenantId, x.UserId });
+                e.HasIndex(x => new { x.TenantId, x.ScopeType, x.ScopeId });
             });
 
             // Test/dev harness only (WP2.1): on MySQL, Trans.IdOne is AUTO_INCREMENT within a

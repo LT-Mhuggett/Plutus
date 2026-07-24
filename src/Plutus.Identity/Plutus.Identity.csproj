@@ -15,6 +15,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Plutus.SharedKernel\Plutus.SharedKernel.csproj" />
+    <!-- WP3.1: RBAC tables (RbacRoles/Grants/Assignments) live on MySqlDbContext. -->
+    <ProjectReference Include="..\..\Plutus\Commons\Plutus.Entities\Plutus.Entities.csproj" />
   </ItemGroup>
 
 </Project>
