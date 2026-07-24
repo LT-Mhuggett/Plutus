@@ -63,11 +63,21 @@ Test totals: **Unit 5 + Architecture 6 (1 skip)** green. Whole `Plutus.slnx` bui
 
 Phases 2–10 not started.
 
-## 5. RESUME HERE — Phase 1 / T1.1 (in progress)
+## 5. RESUME HERE — Phase 1 / T1.2 (T1.1 COMPLETE)
 
 Phase 0 done; **Phase 1 authorised**. Phase 1 is specced in `Build/plutus-sonnet-build-spec.md` T1.1–T1.8.
 
-**T1.1 groundwork done (2026-07-24):**
+**✅ T1.1 COMPLETE (2026-07-24)** — commits `26f03e0`, `7fe8e78`, `55c8588` on `Matt's-Horror`:
+- `Tenant` entity + `Tenants` table on **MySqlDbContext only** (shared model + MAUI Sqlite untouched). Scaffold's EF6→8 spurious `AlterColumn` noise was trimmed away and **proven clean** (a probe migration scaffolds an empty `Up()`).
+- Shadow `TenantId` + index + global query filter on **19 tenant-owned entities** (by convention). `Person` is scoped as the TPT root of `Employee`. Global/shared (Role, PaymentMethod, Person-as-reference→no, AuthActions*, mapping tables) stay unscoped. **Decision 2026-07-24:** Role/PaymentMethod/Person-hierarchy classification confirmed with Matt.
+- `SaveChanges` stamps `TenantId` from context and throws on cross-tenant writes. `ITenantContext` (SharedKernel) via optional ctor; **null-safe default = Kapow** so every non-DI call site keeps working.
+- Migration `AddTenantIdToTenantOwned` (19 ADD COLUMN + 19 indexes + in-migration Kapow backfill) **applied to `plutus_t1` only** — 21,654 Sales / 74,823 Trans backfilled, 0 rows left `Guid.Empty`. **Live `plutus` has 0 TenantId columns (untouched); ETRIE untouched.**
+- Tests: `Plutus.Tests.Unit.TenancyTests` — model-metadata (right entities scoped) + SQLite two-tenant isolation + cross-tenant-write guard. **8/8 unit, 5/5 arch green.** T0.4 rule-3 skip removed.
+- Kapow tenant id (stable): `0192b8a0-1a6f-7000-8000-000000000001` (`Plutus.Entities.Tenancy.KnownTenants.Kapow`).
+
+**▶ NEXT — T1.2 (provisioning + enrolment + real ITenantContext):** fill the `Plutus.Tenancy` scaffold; `POST /api/v1/tenants` (platform-admin) and `POST /api/v1/tills/enrol` (anon) per spec §T1.2; implement the **request-scoped JWT-backed `ITenantContext`** reading `tid`/`did` claims and register it (scoped) in the DBService DI so EF picks the `(options, ITenantContext)` ctor. Until then the Kapow default drives single-tenant.
+
+**Superseded groundwork notes (kept for context):**
 - ✅ **DB copy** `plutus_t1` on the Mac (dump of live `plutus`, `--set-gtid-purged=OFF`; 20,340 items / 21,654 sales). `plutus` user granted. **All T1.1 migration work targets `plutus_t1`; live `plutus` is untouched until proven.**
 - ✅ **Migration toolchain on net8**: `Database.Migrations.Startup` retargeted net7→net8 (EF Tools 8); `dotnet-ef` 8.0.10 installed global; `dotnet ef dbcontext list` discovers MySqlDbContext/SqliteDbContext. **PATH gotcha:** the ef tool needs the x64 SDK first on PATH — run with `export PATH="/c/Program Files/dotnet:$HOME/.dotnet/tools:$PATH"` or it fails "Unable to retrieve project metadata" (x86 shadow).
 
@@ -115,4 +125,4 @@ Note: the transitional `Sale/Summary`/`VatIntegrity`/`SaleReport` on Plutus.Sale
 
 ## 8. One-line status
 
-**Phase 0 COMPLETE** (T0.1–T0.4; modular monolith, OpenAPI + codegen + CI file, arch tests). All work committed **and pushed** to `github.com/LT-Mhuggett/Plutus` (squashed — see §3). Live test env healthy; ETRIE untouched. Resume at §5 — Phase 1 (needs Matt's go-ahead; T1.1 migrates a DB copy first).
+**Phase 0 COMPLETE**; **Phase 1 T1.1 COMPLETE** (tenancy schema + row-level scoping + stamp/guard + tests, applied to staging `plutus_t1`; live `plutus`/ETRIE untouched). Committed on `Matt's-Horror` (`26f03e0`/`7fe8e78`/`55c8588`) — **not yet pushed** to `github.com/LT-Mhuggett/Plutus`. Live test env healthy. Resume at §5 — Phase 1 **T1.2** (provisioning/enrolment + JWT-backed ITenantContext).
