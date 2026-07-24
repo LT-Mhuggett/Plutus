@@ -29,6 +29,8 @@
     <ProjectReference Include="..\..\Plutus\Commons\Plutus.Entities\Plutus.Entities.csproj" />
     <!-- WP1.2: JWT-claim resolution tests. -->
     <ProjectReference Include="..\..\src\Plutus.Tenancy\Plutus.Tenancy.csproj" />
+    <!-- WP1.2: token auth-handler tests. -->
+    <ProjectReference Include="..\..\src\Plutus.Identity\Plutus.Identity.csproj" />
   </ItemGroup>
 
 </Project>

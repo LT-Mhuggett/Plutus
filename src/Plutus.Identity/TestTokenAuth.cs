@@ -19,6 +19,11 @@ namespace Plutus.Identity
             public Guid EmployeeId { get; set; }
             public string Name { get; set; }
             public long Exp { get; set; } // unix seconds
+            // T1.2: space-delimited authorization scopes (e.g. "portal.tills.enrol pos.sell"
+            // or "platform-admin"); optional tenant the operator acts within. Null on legacy
+            // tokens — the auth handler simply emits no scope claims for those.
+            public string Scope { get; set; }
+            public Guid? Tid { get; set; }
         }
 
         private static string B64Url(byte[] data) =>
