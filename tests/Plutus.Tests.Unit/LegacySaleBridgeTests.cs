@@ -318,11 +318,11 @@ public class LegacySaleBridgeTests
         Assert.Equal('8', s[14]);           // version nibble 8 (custom)
         Assert.Contains(s[19], "89ab");     // RFC variant
 
-        // Cross-language parity vector — the TS twin (web POS src/pipeline.ts itemGuid) must
-        // produce this exact id for the same inputs; verified in the Phase-2 smoke test.
-        var vector = DeterministicGuid.ForItem(
-            Guid.Parse("d5a31aac-159e-9a30-706b-02f9eb935600"), "TEST-ITEM");
-        Assert.Equal(vector, DeterministicGuid.ForItem(
+        // Cross-language parity vector — the TS twin (web POS src/pipeline.ts itemGuid)
+        // produced exactly this id for these inputs (verified in the 2026-07-24 smoke test).
+        Assert.Equal(Guid.Parse("4abfb7bf-50d6-8990-9a56-b4ebfafbe22e"), DeterministicGuid.ForItem(
+            Guid.Parse("d5a31aac-159e-9a30-706b-02f9eb935600"), "TEST-ITEM"));
+        Assert.Equal(Guid.Parse("4abfb7bf-50d6-8990-9a56-b4ebfafbe22e"), DeterministicGuid.ForItem(
             Guid.Parse("D5A31AAC-159E-9A30-706B-02F9EB935600"), "TEST-ITEM")); // case-insensitive on the guid
     }
 }

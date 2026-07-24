@@ -65,7 +65,76 @@ Test totals: **Unit 5 + Architecture 6 (1 skip)** green. Whole `Plutus.slnx` bui
 
 Phases 2–10 not started.
 
-## 5. RESUME HERE — Phase 1 COMPLETE ✅ → Phase 2 next
+## 5. RESUME HERE — Phase 2 COMPLETE ✅ → Phase 3 next
+
+**Phase 2 (WP2.1 + WP2.2) is COMPLETE and LIVE (2026-07-24 evening)** — the web POS trades through
+`POST /api/v1/sales` end-to-end in the test environment. **63 unit + 5 arch + 4 integration = 72 tests green.**
+Commits: `45dee4f` (backend bridge), `38fd0f8` (web POS pipeline), plus docs/vector commits after.
+
+**Decisions made this session (and why):**
+1. **Live `plutus` DB GRADUATED to the Phase-1 schema** (Matt's explicit call, ending the
+   "plutus_t1 only" rule): backup first (`~/PLUTUS/backups/plutus-pre-phase2-20260724.sql.gz`,
+   5.2MB — note: `plutus` MySQL user lacks RELOAD, so dumps need `--no-tablespaces
+   --skip-lock-tables`, taken with the backend stopped), then the idempotent
+   `dotnet ef migrations script --idempotent` output. Verified: 7 new migrations in
+   `__EFMigrationsHistory`, legacy counts byte-identical (21,657 sales / 74,826 trans /
+   20,341 items / 7,841 stocks), every row tenant-stamped, Kapow `Tenants` row seeded.
+2. **Legacy read model stays alive via a server-side bridge** (Matt's call):
+   `Plutus.Reporting.LegacySaleBridgeConsumer` (outbox consumer, TRANSITIONAL — delete at WP3.3)
+   projects each `SaleRecorded` into legacy `Sales/Trans/PaySales/Transaction_Discounts/
+   CheckoutItemChange/Refunds` + a `Stocks` adjustment. The client has exactly ONE write path;
+   reports/recall/stock keep working. Its writes commit atomically with the consumer offset
+   (same scoped DbContext as the drainer). Sales without projection metadata (MAUI/ETL) are skipped.
+3. **Deterministic item ids**: v1 `SaleLine.ItemId` = SHA-256 name-derived GUID of
+   `plutus:item:{businessId}:{idOne}` (`SharedKernel.DeterministicGuid` ⇔ `pipeline.ts itemGuid`,
+   parity vector `4abfb7bf-50d6-8990-9a56-b4ebfafbe22e` pinned in the unit test). No mapping table;
+   Phase 5 unifies with the WP1.8 random-minted historic ids via `LegacyRef`.
+4. **Projection metadata rides in `SaleLine.DiscountsJson`**
+   (`{"itemIdOne","exUnitPence","discounts":[{id,rate}],"return":{originSaleId}}`) and the legacy
+   PayMethod id in `SaleTender.ProviderRef` (`{"payId":N}`) — documented interim contract between
+   the web POS and the bridge. **Returns = negative-qty lines** (arithmetically valid under the
+   T1.3 invariants; bridge → legacy `Refunds` + restock).
+5. **Checkout is outbox-FIRST** (WP2.1): every sale is durably queued in IndexedDB before any
+   network attempt, then drained (online = immediate). Permanent 4xx rejections go to a local
+   "parked" store (client dead-letter, visible in Settings) so they never block the queue.
+   deviceSeq = atomic IndexedDB counter (safe across tabs). Legacy `POST /api/Sale` + client-side
+   stock patches REMOVED from the client.
+6. **Admin scopes**: login also grants `portal.tills.enrol` to employees holding the legacy
+   `Admin`/`Management` AuthAction (minimal AuthActions→scope slice; WP3.1 RBAC replaces it).
+7. **Checkout change-attribution bug fixed**: the old proportional split could drift 1p across two
+   changeable methods (harmless to the legacy API, but the v1 net-tender invariant would
+   quarantine it). Last changeable method now absorbs the rounding remainder.
+
+**Deployed to the Mac (ETRIE verified untouched, `etrie-*` pm2 uptimes preserved):**
+new backend publish (osx-arm64, whole folder swap; rollback at `~/PLUTUS/backend.pre-phase2`),
+webapp dist → `/srv/apps/PLUTUS/web/current/`, `types.gen.ts` regenerated (8,248 lines,
+openapi-typescript 7.13.0 — includes all `/api/v1/*`).
+
+**Smoke test (all passed, scripted at `~/PLUTUS/staging/smoke-phase2.sh`):** create till+code →
+enrol (reuse → 410) → device token → ingest 201 → replay 200 (dedupe) → invariant-breaking sale
+202 quarantined → bridge projected legacy Sale (£15.00/£12.52) + Trans + PaySales, stock 47→45,
+0 dead letters, `Device.LastSeenSeq` bumped → legacy `/api/Sale/Detail` returns the sale with the
+item name resolved. WP2.2 DoD (two browsers = two deviceIds) holds: credential is per-browser
+localStorage; revoke blocks only that device.
+
+**⚠ First-use note for Matt:** the deployed till now REQUIRES device enrolment — Settings →
+"Till device" → "Generate a code" (your login carries the Admin AuthAction) → "Enrol this browser
+with it". Until then checkout errors with "not enrolled". Hard-refresh once so the service worker
+picks up the new build.
+
+**⚠ Finding (pre-existing, not changed):** the Caddy `plutus.huggett.dscloud.me` block has **no
+`basic_auth`** — the static site is world-reachable (the API still 401s without a token). Memory
+said basic_auth gated it; it isn't there (likely dropped when the PWA/service-worker work landed,
+since basic_auth breaks SW caching). Matt to decide whether to re-add it (Caddy is shared with
+ETRIE — edit carefully per §6) or accept login-as-the-gate.
+
+**▶ NEXT — Phase 3** (portal + company view: RBAC, admin APIs, reporting projections that
+REPLACE the bridge, financial periods, `plutus-portal` React app). The bridge consumer and the
+`DiscountsJson`/`ProviderRef` metadata contract are the first things WP3.3 retires.
+
+---
+
+## 5b. (historical) Phase 1 record — COMPLETE ✅
 
 **Phase 1 (T1.1–T1.8) is COMPLETE** — all pushed to `Matt's-Horror`. **54 unit + 5 arch + 4 integration = 63 tests green.** Every schema migration applied to staging **`plutus_t1` only**; live `plutus` + ETRIE untouched throughout.
 
@@ -197,4 +266,8 @@ Note: the transitional `Sale/Summary`/`VatIntegrity`/`SaleReport` on Plutus.Sale
 
 ## 8. One-line status
 
-**Phase 0 COMPLETE; Phase 1 COMPLETE (T1.1-T1.8)** — tenancy, provisioning/auth, sales v2, ingest, outbox, contract freeze, standing suites + HTTP e2e, Kapow migration. All on `Matt's-Horror` (latest `12a4a51`). 54 unit + 5 arch + 4 integration green. All schema on staging `plutus_t1`; live + ETRIE untouched. Resume at §5 — Phase 2. Pre-cutover follow-ups noted in §5.
+**Phases 0, 1 AND 2 COMPLETE** — the web POS trades through `POST /api/v1/sales` (device-enrolled,
+outbox-first, idempotent) with a transitional server-side bridge keeping the legacy reports/stock
+alive until WP3.3. Live `plutus` DB graduated to the platform schema (backed up first); new backend
++ webapp deployed; smoke test green end-to-end; ETRIE untouched. 63 unit + 5 arch + 4 integration
+tests green. Resume at §5 — Phase 3 (portal). Phase 4 (MAUI) remains paused for upstream code.

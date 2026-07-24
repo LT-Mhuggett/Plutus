@@ -94,11 +94,21 @@ Modules communicate in-process via the `SharedKernel` event bus abstraction (int
 
 ## Phase 2 — Web POS onto the pipeline
 
+> ✅ **COMPLETE & LIVE (2026-07-24)** — see HANDOVER.md §5 for the full record. Delivered with two
+> documented additions: (a) the live `plutus` DB was graduated to the Phase-1 schema (Matt's
+> decision; backup + idempotent script, legacy data byte-identical); (b) a TRANSITIONAL
+> server-side `LegacySaleBridgeConsumer` (Plutus.Reporting, on the outbox dispatcher) projects
+> each `SaleRecorded` into the legacy tables + stock so the existing reports keep working until
+> WP3.3 rollups replace the legacy read model — the client itself has exactly one write path.
+> Interim contracts to retire at WP3.3: projection metadata in `SaleLine.DiscountsJson`, legacy
+> payId in `SaleTender.ProviderRef`, returns as negative-qty lines. Item ids are deterministic
+> (SharedKernel.DeterministicGuid ⇔ pipeline.ts itemGuid).
+
 **WP2.1 — Outbox retarget.** Point the web POS IndexedDB checkout outbox at `POST /api/v1/sales` with the v1 contract (UUIDv7 `saleId`, `deviceId` per enrolled web device, `deviceSeq` from a local monotonic counter, generated TS types). Remove any legacy direct-write path.
-*DoD:* offline checkout → reconnect → sale lands once (dedupe verified); UI unchanged; no new runtime dependencies.
+*DoD:* offline checkout → reconnect → sale lands once (dedupe verified); UI unchanged; no new runtime dependencies. ✅ *(checkout is outbox-FIRST; replay → 200 dedupe proven in the live smoke; permanent rejections park client-side so the queue never wedges)*
 
 **WP2.2 — Web device enrolment.** Web POS device registers via the WP1.2 enrolment flow (admin generates code, browser stores device credential); Bearer flow unchanged for the operator.
-*DoD:* two browsers = two deviceIds; revoking one blocks only that one.
+*DoD:* two browsers = two deviceIds; revoking one blocks only that one. ✅ *(Settings → "Till device"; admins — legacy Admin/Management AuthAction → `portal.tills.enrol` scope at login — generate codes in-app; code reuse → 410 verified)*
 
 ---
 
