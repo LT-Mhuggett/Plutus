@@ -148,6 +148,32 @@ namespace Plutus.Reporting
             });
         }
 
+        /// <summary>WP3.5 drill-down support: the sales in a day range (day-level view between
+        /// the rollup buckets and the single-sale detail). Capped at 500 rows per call.</summary>
+        [HttpGet("api/v1/sales")]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalFinancialsView)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> SalesList(
+            [FromQuery] DateOnly from, [FromQuery] DateOnly to, [FromQuery] Guid? tillId, [FromQuery] int take = 200)
+        {
+            if (to < from) return BadRequest(new { detail = "to must be >= from." });
+            take = Math.Clamp(take, 1, 500);
+            var rows = await _db.SalesV2.AsNoTracking()
+                .Where(s => s.BusinessDay >= from && s.BusinessDay <= to)
+                .Where(s => tillId == null || s.TillId == tillId)
+                .OrderByDescending(s => s.OccurredAtUtc).Take(take)
+                .Select(s => new
+                {
+                    id = s.Id, businessDay = s.BusinessDay, occurredAtUtc = s.OccurredAtUtc,
+                    tillId = s.TillId, channel = s.Channel.ToString(),
+                    grossPence = s.GrossPence, vatPence = s.VatPence,
+                    operatorUserId = s.OperatorUserId, legacyRef = s.LegacyRef,
+                })
+                .ToListAsync();
+            return Ok(rows);
+        }
+
         /// <summary>Full drill-down of one platform sale (the immutable record: lines,
         /// tenders, device, operator).</summary>
         [HttpGet("api/v1/sales/{saleId}")]
