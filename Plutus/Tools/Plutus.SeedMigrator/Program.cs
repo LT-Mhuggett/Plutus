@@ -41,6 +41,23 @@ if (args[0] == "rbac")
     return 0;
 }
 
+// ── WP3.3 runner: rebuild the reporting rollups from SalesV2 (idempotent). ──
+//   Plutus.SeedMigrator rollups-rebuild --mysql "<connstring>"
+if (args[0] == "rollups-rebuild")
+{
+    var rrIdx = Array.IndexOf(args, "--mysql");
+    if (rrIdx < 0 || rrIdx + 1 >= args.Length)
+    { Console.Error.WriteLine("rollups-rebuild needs --mysql <conn>"); return 1; }
+
+    var rrTenant = Plutus.Entities.Tenancy.KnownTenants.Kapow;
+    var rrOptions = new DbContextOptionsBuilder<MySqlDbContext>()
+        .UseMySql(args[rrIdx + 1], MySqlServerVersion.LatestSupportedServerVersion);
+    using var rrDb = new MySqlDbContext(rrOptions.Options, new Plutus.Entities.Tenancy.FixedTenantContext(rrTenant));
+    var (sr, vr, scanned) = await Plutus.Reporting.RollupRebuilder.RebuildAsync(rrDb, rrTenant);
+    Console.WriteLine($"rollups rebuilt: {sr} SalesRollups + {vr} VatRollups from {scanned} sales.");
+    return 0;
+}
+
 var oldDbPath = args[0];
 var dryRun = args[1] == "--dry-run";
 var mysqlConn = dryRun ? null : args[2 == args.Length ? 1 : 2];

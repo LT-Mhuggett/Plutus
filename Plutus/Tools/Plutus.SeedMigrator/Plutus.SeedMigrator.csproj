@@ -16,6 +16,8 @@
     <ProjectReference Include="..\Plutus.Migration.Kapow\Plutus.Migration.Kapow.csproj" />
     <!-- WP3.1: `rbac` runner calls the Identity module's RbacSeeder. -->
     <ProjectReference Include="..\..\..\src\Plutus.Identity\Plutus.Identity.csproj" />
+    <!-- WP3.3: `rollups-rebuild` runner calls the Reporting module's RollupRebuilder. -->
+    <ProjectReference Include="..\..\..\src\Plutus.Reporting\Plutus.Reporting.csproj" />
   </ItemGroup>
 
 </Project>

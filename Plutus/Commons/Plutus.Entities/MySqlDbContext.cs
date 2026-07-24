@@ -48,6 +48,9 @@ namespace Plutus.Entities
         // Admin surface (WP3.2): audit trail + portal-only store fields.
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<StoreDetails> StoreDetails { get; set; }
+        // Reporting projections (WP3.3): rebuildable rollups the dashboards read.
+        public DbSet<SalesRollup> SalesRollups { get; set; }
+        public DbSet<VatRollup> VatRollups { get; set; }
         #endregion
 
         /// <summary>The tenant scoping every query and write is bound to. Referenced by the
@@ -110,6 +113,8 @@ namespace Plutus.Entities
             typeof(RbacRole), typeof(RbacRoleGrant), typeof(RbacRoleAssignment),
             // Admin surface (WP3.2).
             typeof(AuditLog), typeof(StoreDetails),
+            // Reporting projections (WP3.3).
+            typeof(SalesRollup), typeof(VatRollup),
         };
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -272,6 +277,24 @@ namespace Plutus.Entities
                 e.ToTable("StoreDetails");
                 e.HasKey(x => x.StoreId);
                 e.Property(x => x.StoreId).ValueGeneratedNever();
+            });
+
+            // WP3.3 reporting rollups.
+            modelBuilder.Entity<SalesRollup>(e =>
+            {
+                e.ToTable("SalesRollups");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedOnAdd();
+                e.HasIndex(x => new { x.TenantId, x.TillId, x.BusinessDay }).IsUnique();
+                e.HasIndex(x => new { x.TenantId, x.StoreId, x.BusinessDay });
+                e.HasIndex(x => new { x.TenantId, x.CompanyId, x.BusinessDay });
+            });
+            modelBuilder.Entity<VatRollup>(e =>
+            {
+                e.ToTable("VatRollups");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedOnAdd();
+                e.HasIndex(x => new { x.TenantId, x.StoreId, x.BusinessDay, x.VatRateBp }).IsUnique();
             });
 
             // Test/dev harness only (WP2.1): on MySQL, Trans.IdOne is AUTO_INCREMENT within a

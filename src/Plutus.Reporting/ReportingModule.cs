@@ -17,15 +17,22 @@ namespace Plutus.Reporting
     {
         public static IServiceCollection AddPlutusReporting(this IServiceCollection services)
         {
-            // Resolves the SAME scoped context the OutboxDrainer saves — the bridge's writes
-            // commit atomically with the consumer offset (see the consumer's class comment).
-            // Inert on a DEBUG/SQLite host: no consumer is registered there.
+            // Resolves the SAME scoped context the OutboxDrainer saves — each consumer's
+            // writes commit atomically with its offset (see the consumers' class comments).
             services.AddScoped<IEventConsumer>(sp =>
             {
                 var ctx = sp.GetRequiredService<RepositoryContext>() as MySqlDbContext
                     ?? throw new InvalidOperationException(
                         "The legacy sale bridge requires the MySqlDbContext (server build).");
                 return new LegacySaleBridgeConsumer(ctx);
+            });
+            // WP3.3: the rollup projection the report endpoints read.
+            services.AddScoped<IEventConsumer>(sp =>
+            {
+                var ctx = sp.GetRequiredService<RepositoryContext>() as MySqlDbContext
+                    ?? throw new InvalidOperationException(
+                        "The rollup projection requires the MySqlDbContext (server build).");
+                return new RollupProjectionConsumer(ctx);
             });
             return services;
         }
