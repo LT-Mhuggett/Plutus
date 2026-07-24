@@ -63,7 +63,14 @@ Test totals: **Unit 5 + Architecture 6 (1 skip)** green. Whole `Plutus.slnx` bui
 
 Phases 2–10 not started.
 
-## 5. RESUME HERE — Phase 1 / T1.4 (T1.1 + T1.2 + T1.3 COMPLETE)
+## 5. RESUME HERE — Phase 1 / T1.5 (T1.1–T1.4 COMPLETE)
+
+**✅ T1.4 COMPLETE (2026-07-24)** — commit `7fd12db`. `SalesIngestService` (Sales module) `POST /api/v1/sales`: one tx → validate T1.3 invariants → quarantine (202) if unfixable, else insert SaleV2+lines+tenders + `OutboxEvents(SaleRecorded)` + bump `Device.LastSeenSeq=max(cur,seq)` → 201; duplicate saleId re-reads → 200; quarantine idempotent via unique `(TenantId,SaleId)` on SaleQuarantine (migration `AddQuarantineSaleId`, applied to `plutus_t1`). Provider-agnostic idempotency (re-read on conflict, no vendor error codes). Controller: tenant/device from token not body (mismatch→403), Idempotency-Key must equal saleId (else 400), TillId server-derived from device. Policy `sales.ingest` = device OR `pos.sell`. Tests: record+outbox+seq, duplicate→200 (1 row/1 event), quarantine idempotent, monotonic seq. **29/29 unit, 5/5 arch.** 20-way concurrent test deferred to T1.7 (needs MySQL; DB unique constraint is the guarantee).
+
+**▶ NEXT — T1.5 broker-less dispatch** (spec §T1.5): `OutboxDispatcher` hosted service — per registered `IEventConsumer`, read `ConsumerOffsets[name]`, fetch next ≤100 `OutboxEvents` with Id>offset ordered by Id, `HandleAsync` sequentially, advance offset in the same tx as the last success; retry 1s/5s/25s then park to `ConsumerDeadLetters` + advance (a stuck consumer must not block others). `IIdempotentConsumer` base + `ProcessedEvents` table in SharedKernel. Lag metric + `GET /api/v1/ops/deadletters` (platform-admin). Runs in the host (`Plutus.Api`/DBService).
+
+---
+### (historical) T1.4 resume notes — superseded by the above
 
 **✅ T1.3 COMPLETE (2026-07-24)** — commit `4b6c8cb`. Seven server-only tables on `plutus_t1`: `SalesV2` (header, named V2 to avoid the legacy `Sales` collision — renamed at T1.8 cutover), `SaleLines`, `SaleTenders`, `SaleAdjustments`, `SaleQuarantine`, `OutboxEvents`, `ConsumerOffsets`. Integer pence, UUIDv7 (char(36)). `SaleV2.Create` enforces the four money invariants (throws `InvalidSaleException`); `Validate()` re-runnable post-EF. The 4 queryable sale tables are tenant-scoped; Outbox/Offsets/Quarantine unscoped (infra). Tests: inconsistent-throws + 1000-sale property round-trip. **25/25 unit, 5/5 arch.** Legacy `Sales` (21,654 rows) + live + ETRIE untouched.
 
@@ -145,4 +152,4 @@ Note: the transitional `Sale/Summary`/`VatIntegrity`/`SaleReport` on Plutus.Sale
 
 ## 8. One-line status
 
-**Phase 0 + Phase 1 T1.1 + T1.2 + T1.3 COMPLETE** (tenancy schema + row-level scoping + provisioning/enrolment/device-token API + scope-based auth; all migrations applied to staging `plutus_t1` only; live `plutus`/ETRIE untouched). All pushed to `github.com/LT-Mhuggett/Plutus` `Matt's-Horror` (latest `4b6c8cb`). 25/25 unit + 5/5 arch green. Live test env healthy. Resume at §5 — Phase 1 **T1.4** (idempotent ingest).
+**Phase 0 + Phase 1 T1.1-T1.4 COMPLETE** (tenancy schema + row-level scoping + provisioning/enrolment/device-token API + scope-based auth; all migrations applied to staging `plutus_t1` only; live `plutus`/ETRIE untouched). All pushed to `github.com/LT-Mhuggett/Plutus` `Matt's-Horror` (latest `7fd12db`). 29/29 unit + 5/5 arch green. Live test env healthy. Resume at §5 — Phase 1 **T1.5** (outbox dispatch).
