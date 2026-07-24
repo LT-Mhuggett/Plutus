@@ -18,6 +18,14 @@ namespace Plutus.Migration.Kapow
         public long RecordedVatPence { get; set; }
         public List<string> QuarantineReasons { get; } = new();
 
+        // Total-mismatch delta buckets (diagnostics for the discount/rounding investigation).
+        public int MismatchOther { get; set; }         // quarantined for a non-total reason
+        public int MismatchWithin2p { get; set; }      // |Σlines − Total| ≤ 2p (rounding)
+        public int Mismatch3to50p { get; set; }
+        public int MismatchOver50p { get; set; }
+        public int MismatchLinesHigh { get; set; }     // Σlines > Total (discount not captured)
+        public int MismatchLinesLow { get; set; }      // Σlines < Total (missing value)
+
         public override string ToString() =>
             $"Kapow→v2 reconciliation:\n" +
             $"  sales read       : {SalesRead}\n" +
@@ -26,7 +34,9 @@ namespace Plutus.Migration.Kapow
             $"  source gross     : £{SourceGrossPence / 100m:0.00}\n" +
             $"  recorded gross   : £{RecordedGrossPence / 100m:0.00}\n" +
             $"  recorded VAT     : £{RecordedVatPence / 100m:0.00}\n" +
-            $"  gross recovered  : {(SourceGrossPence == 0 ? 0 : 100m * RecordedGrossPence / SourceGrossPence):0.0}%";
+            $"  gross recovered  : {(SourceGrossPence == 0 ? 0 : 100m * RecordedGrossPence / SourceGrossPence):0.0}%\n" +
+            $"  quarantine delta : within2p={MismatchWithin2p} 3-50p={Mismatch3to50p} >50p={MismatchOver50p} other={MismatchOther}\n" +
+            $"  quarantine dir   : lines>total={MismatchLinesHigh} lines<total={MismatchLinesLow}";
     }
 
     /// <summary>
@@ -52,6 +62,15 @@ namespace Plutus.Migration.Kapow
                 if (result.IsQuarantined)
                 {
                     recon.Quarantined++;
+                    if (result.TotalDeltaPence is long delta)
+                    {
+                        var abs = Math.Abs(delta);
+                        if (abs <= 2) recon.MismatchWithin2p++;
+                        else if (abs <= 50) recon.Mismatch3to50p++;
+                        else recon.MismatchOver50p++;
+                        if (delta > 0) recon.MismatchLinesHigh++; else recon.MismatchLinesLow++;
+                    }
+                    else recon.MismatchOther++;
                     if (recon.QuarantineReasons.Count < 50) recon.QuarantineReasons.Add(result.QuarantineReason!);
                     target.SaleQuarantine.Add(new SaleQuarantine
                     {

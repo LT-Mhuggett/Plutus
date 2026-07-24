@@ -70,16 +70,29 @@ namespace Plutus.Migration.Kapow
             long seq = 0;
             foreach (var kv in sales) kv.Value.DeviceSeq = ++seq; // synthetic monotonic seq for migrated sales
 
+            // Per-line discount recorded at sale: Transaction_Discounts(TransactionId → Trans.Id).
+            // DiscountRate is a fraction; a line can carry more than one, so sum them.
+            var lineDiscountRate = new Dictionary<int, double>();
+            foreach (var r in Rows("SELECT TransactionId, DiscountRate FROM Transaction_Discounts"))
+            {
+                if (r["TransactionId"] == DBNull.Value) continue;
+                var tid = Convert.ToInt32(r["TransactionId"]);
+                var rate = r["DiscountRate"] == DBNull.Value ? 0.0 : Convert.ToDouble(r["DiscountRate"]);
+                lineDiscountRate[tid] = (lineDiscountRate.TryGetValue(tid, out var acc) ? acc : 0.0) + rate;
+            }
+
             foreach (var r in Rows("SELECT * FROM Trans"))
             {
                 var saleId = S(r["SaleId"]);
                 var itemId = S(r["ItemId"]);
                 if (saleId == null || itemId == null || !sales.TryGetValue(saleId, out var sale)) continue;
+                var transId = r["Id"] == DBNull.Value ? 0 : Convert.ToInt32(r["Id"]);
                 sale.Lines.Add(new KapowLineInput
                 {
                     OldItemId = itemId,
                     Qty = r["Amount"] == DBNull.Value ? 0 : Convert.ToInt32(r["Amount"]),
                     UnitPriceText = S(r["ItemCostPrice"]) ?? "0",
+                    DiscountRate = lineDiscountRate.TryGetValue(transId, out var dr) ? dr : 0.0,
                     VatMultiplier = itemMult.TryGetValue(itemId, out var m) ? m : 1.0,
                 });
             }

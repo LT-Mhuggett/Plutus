@@ -105,6 +105,22 @@ public class KapowMigrationTests
     }
 
     [Fact]
+    public void MapSale_folds_line_discount_rate_into_gross()
+    {
+        // 2×£3.15 = £6.30, 10% off → £5.67 (the observed real-data pattern).
+        var input = ValidSale();
+        input.TotalText = "5.67";
+        input.Lines[0].UnitPriceText = "3.15";
+        input.Lines[0].DiscountRate = 0.10;
+        input.Tenders[0].AmountText = "5.67";
+
+        var result = KapowSaleMapper.MapSale(input, new IdRemap<string>());
+        Assert.False(result.IsQuarantined);
+        Assert.Equal(567, result.Sale!.GrossPence);
+        Assert.Equal(63, result.Sale.Lines[0].DiscountPence);
+    }
+
+    [Fact]
     public void MapSale_quarantines_a_total_mismatch()
     {
         var input = ValidSale();

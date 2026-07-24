@@ -12,6 +12,9 @@ namespace Plutus.Migration.Kapow
         public int Qty { get; set; }
         public string UnitPriceText { get; set; } = "0";
         public string? DiscountText { get; set; }
+        /// <summary>Σ of Transaction_Discounts.DiscountRate for this line — a FRACTION (0.10 = 10%
+        /// off), applied to the pre-discount line gross. Takes precedence over DiscountText.</summary>
+        public double DiscountRate { get; set; }
         public double VatMultiplier { get; set; } = 1.0; // Vats.Rate (×1.2 etc.)
         public long? OverriddenFromPence { get; set; }   // from CheckoutItemChange, if any
     }
@@ -44,8 +47,12 @@ namespace Plutus.Migration.Kapow
         public SaleV2? Sale { get; init; }
         public string? QuarantineReason { get; init; }
         public bool IsQuarantined => Sale == null;
+        /// <summary>On a total mismatch: Σ line gross − declared Sales.Total (pence, signed).
+        /// Null for other quarantine causes. Used only for migration diagnostics.</summary>
+        public long? TotalDeltaPence { get; init; }
         public static MapResult Ok(SaleV2 s) => new() { Sale = s };
-        public static MapResult Quarantine(string reason) => new() { QuarantineReason = reason };
+        public static MapResult Quarantine(string reason, long? totalDeltaPence = null)
+            => new() { QuarantineReason = reason, TotalDeltaPence = totalDeltaPence };
     }
 
     /// <summary>
@@ -73,8 +80,13 @@ namespace Plutus.Migration.Kapow
                 {
                     lineNo++;
                     var unit = KapowMoney.ParsePence(l.UnitPriceText);
-                    var disc = string.IsNullOrWhiteSpace(l.DiscountText) ? 0 : KapowMoney.ParsePence(l.DiscountText);
-                    var lineGross = unit * l.Qty - disc;
+                    var grossBeforeDiscount = unit * l.Qty;
+                    // Discount recorded at sale (F-note §2): a rate fraction takes precedence;
+                    // otherwise an explicit pence amount if supplied.
+                    var disc = l.DiscountRate > 0
+                        ? (long)Math.Round(grossBeforeDiscount * (decimal)l.DiscountRate, MidpointRounding.AwayFromZero)
+                        : (string.IsNullOrWhiteSpace(l.DiscountText) ? 0 : KapowMoney.ParsePence(l.DiscountText));
+                    var lineGross = grossBeforeDiscount - disc;
                     lines.Add(new SaleLine
                     {
                         Id = Uuid7.New(),
@@ -95,7 +107,8 @@ namespace Plutus.Migration.Kapow
                 var gross = lines.Sum(x => x.LineGrossPence);
                 if (gross != declaredTotal)
                     return MapResult.Quarantine(
-                        $"Sale {input.LegacyId}: Σ line gross {gross}p != Sales.Total {declaredTotal}p.");
+                        $"Sale {input.LegacyId}: Σ line gross {gross}p != Sales.Total {declaredTotal}p.",
+                        totalDeltaPence: gross - declaredTotal);
 
                 var vat = lines.Sum(x => x.VatAmountPence);
 
