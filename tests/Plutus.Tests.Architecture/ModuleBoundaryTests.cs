@@ -21,19 +21,10 @@ public class ModuleBoundaryTests
     // Referenceable shared foundations (not modules).
     private static readonly string[] Shared = { "Plutus.SharedKernel", "Plutus.Web.Infrastructure" };
 
-    private static string RepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Plutus.slnx")))
-            dir = dir.Parent;
-        Assert.True(dir is not null, "Could not locate repo root (Plutus.slnx) above the test bin dir.");
-        return dir!.FullName;
-    }
-
     [Fact]
     public void No_module_references_another_module()
     {
-        var srcDir = Path.Combine(RepoRoot(), "src");
+        var srcDir = Path.Combine(Repo.Root(), "src");
         var violations = new List<string>();
 
         foreach (var module in Modules)
@@ -62,7 +53,7 @@ public class ModuleBoundaryTests
     [Fact]
     public void All_expected_modules_exist()
     {
-        var srcDir = Path.Combine(RepoRoot(), "src");
+        var srcDir = Path.Combine(Repo.Root(), "src");
         foreach (var module in Modules)
             Assert.True(File.Exists(Path.Combine(srcDir, module, $"{module}.csproj")), $"{module} project missing");
     }
