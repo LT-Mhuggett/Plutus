@@ -180,6 +180,7 @@ namespace Plutus.Entities
                 e.HasKey(x => x.Id);
                 e.Property(x => x.Id).ValueGeneratedNever();
                 e.Property(x => x.Reason).HasMaxLength(500);
+                e.HasIndex(x => new { x.TenantId, x.SaleId }).IsUnique();
             });
             modelBuilder.Entity<OutboxEvent>(e =>
             {

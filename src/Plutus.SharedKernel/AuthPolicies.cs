@@ -8,4 +8,10 @@ public static class PlutusPolicies
     public const string PlatformAdmin = "platform-admin";
     public const string PortalTillsEnrol = "portal.tills.enrol";
     public const string Device = "device";
+
+    /// <summary>Scope granting sale submission (operator web-POS).</summary>
+    public const string PosSell = "pos.sell";
+    /// <summary>Ingest policy: satisfied by a device token (scope "device") OR an operator
+    /// token with "pos.sell".</summary>
+    public const string SalesIngest = "sales.ingest";
 }

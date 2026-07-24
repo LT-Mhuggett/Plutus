@@ -32,7 +32,9 @@ namespace Plutus.Identity
                 services.AddAuthorizationBuilder()
                     .AddPolicy(PlutusPolicies.PlatformAdmin, p => p.RequireAuthenticatedUser().RequireClaim("scope", PlutusPolicies.PlatformAdmin))
                     .AddPolicy(PlutusPolicies.PortalTillsEnrol, p => p.RequireAuthenticatedUser().RequireClaim("scope", PlutusPolicies.PortalTillsEnrol))
-                    .AddPolicy(PlutusPolicies.Device, p => p.RequireAuthenticatedUser().RequireClaim("scope", PlutusPolicies.Device));
+                    .AddPolicy(PlutusPolicies.Device, p => p.RequireAuthenticatedUser().RequireClaim("scope", PlutusPolicies.Device))
+                    .AddPolicy(PlutusPolicies.SalesIngest, p => p.RequireAuthenticatedUser().RequireAssertion(ctx =>
+                        ctx.User.HasClaim("scope", PlutusPolicies.Device) || ctx.User.HasClaim("scope", PlutusPolicies.PosSell)));
             }
             return services;
         }

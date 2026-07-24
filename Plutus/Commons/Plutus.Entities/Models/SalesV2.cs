@@ -137,6 +137,7 @@ namespace Plutus.Entities.Models
     {
         public Guid Id { get; set; }
         public Guid TenantId { get; set; }
+        public Guid SaleId { get; set; }   // T1.4: idempotency anchor for re-POSTed quarantines
         public string PayloadJson { get; set; }
         public string Reason { get; set; }
         public DateTime ReceivedAtUtc { get; set; }
