@@ -108,6 +108,23 @@ namespace Plutus.DBService.Controllers
             // The credentials reader must be closed before the connection runs another command.
             await reader.CloseAsync();
 
+            // WP10.2 (D16): a Suspended/Closed tenant's PORTAL login is refused — but its tills keep
+            // syncing, because the device-token path (TokensController) never consults this. The
+            // user's tenant is the TenantId shadow on their People row.
+            await using (var statusCmd = conn.CreateCommand())
+            {
+                statusCmd.CommandText =
+                    "SELECT t.Status FROM Tenants t JOIN People p ON p.TenantId = t.Id WHERE p.Id = @empId LIMIT 1";
+                statusCmd.Parameters.AddWithValue("@empId", employeeId.ToString());
+                var statusObj = await statusCmd.ExecuteScalarAsync();
+                if (statusObj != null && statusObj != DBNull.Value)
+                {
+                    var status = Convert.ToByte(statusObj);
+                    if (status == 3 /*Suspended*/ || status == 4 /*Closed*/)
+                        return StatusCode(403, "Your organisation's portal access is suspended. Please contact billing.");
+                }
+            }
+
             // WP3.1 (2026-07-24): token scopes come from the user's RBAC effective permissions
             // (time windows evaluated NOW — an out-of-window assignment grants nothing at token
             // issue, per architecture §7.2), with the WP2.2 pre-seed fallback for users without

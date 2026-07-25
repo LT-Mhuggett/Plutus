@@ -47,6 +47,15 @@ namespace Plutus.Tenancy
                         "Provisioning requires the MySqlDbContext (server build), not the SQLite dev context.");
                 return new ProvisioningService(ctx);
             });
+
+            // Phase 10: entitlements, billing seam, tenant lifecycle, retention sweeper.
+            services.AddScoped<TenantLifecycleService>(sp => new TenantLifecycleService(sp.GetRequiredService<MySqlDbContext>()));
+            services.AddScoped<IEntitlementService>(sp => new EntitlementService(sp.GetRequiredService<MySqlDbContext>()));
+            // Provider seam — NullBillingProvider stands in until the commercial choice; verifies
+            // BILLING_WEBHOOK_SECRET so the entitlement-write path is testable now.
+            services.AddSingleton<IBillingProvider>(new NullBillingProvider(configuration["BILLING_WEBHOOK_SECRET"]));
+            services.AddSingleton(new RetentionOptions());
+            services.AddHostedService<RetentionSweeper>();
             return services;
         }
     }

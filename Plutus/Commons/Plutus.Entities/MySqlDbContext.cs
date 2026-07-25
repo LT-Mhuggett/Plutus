@@ -49,6 +49,7 @@ namespace Plutus.Entities
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<StoreDetails> StoreDetails { get; set; }
         public DbSet<TillDetails> TillDetails { get; set; }
+        public DbSet<DeletionSchedule> DeletionSchedules { get; set; }
         // Reporting projections (WP3.3): rebuildable rollups the dashboards read.
         public DbSet<SalesRollup> SalesRollups { get; set; }
         public DbSet<VatRollup> VatRollups { get; set; }
@@ -323,6 +324,14 @@ namespace Plutus.Entities
                 // Tenant-unique names. The MySQL default collation is case-insensitive, so this
                 // index rejects "Front" vs "front" too (the app also guards explicitly for a clean 409).
                 e.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            });
+            // WP10.4 tenant deletion schedule — GLOBAL (platform-admin), carries TenantId as data.
+            modelBuilder.Entity<DeletionSchedule>(e =>
+            {
+                e.ToTable("DeletionSchedules");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.HasIndex(x => new { x.TenantId, x.Status });
             });
 
             // WP3.3 reporting rollups.
