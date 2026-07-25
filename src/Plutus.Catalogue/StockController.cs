@@ -111,6 +111,11 @@ namespace Plutus.Catalogue
             if (!await _db.Stores.AsNoTracking().AnyAsync(s => s.Id == body.StoreId))
                 return BadRequest(new { detail = "Unknown storeId." });
 
+            // Tenant-unique location name (case-insensitive) — checked, like till/store names.
+            var lowered = body.Name.Trim().ToLowerInvariant();
+            if (await _db.StockLocations.AnyAsync(l => l.TenantId == _tenant.TenantId && l.Name.ToLower() == lowered))
+                return Conflict(new { detail = $"A location named '{body.Name.Trim()}' already exists." });
+
             _db.CurrentUser = Actor.ToString();
             var loc = new StockLocation
             {

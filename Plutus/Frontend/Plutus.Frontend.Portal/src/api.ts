@@ -188,6 +188,7 @@ export const updateCompany = (id: string, body: Partial<Company>) => put<void>(`
 export interface StoreRow {
   id: number;
   companyId: string;
+  name: string | null;
   adLine1: string;
   adLine2: string;
   city: string;
@@ -200,13 +201,19 @@ export interface StoreRow {
 export const fetchStores = () => get<StoreRow[]>(`/api/v1/stores`);
 export const updateStore = (id: number, body: Partial<StoreRow>) => put<void>(`/api/v1/stores/${id}`, body);
 // WP11.3
-export const createStore = (body: { companyId?: string; adLine1: string; city: string; postCode: string; contactNumber: string }) =>
+export const createStore = (body: { companyId?: string; name?: string; adLine1: string; city: string; postCode: string; contactNumber: string }) =>
   post<{ id: number }>(`/api/v1/stores`, body);
 export const createStockLocation = (body: { storeId: number; type: string; name: string }) =>
   post<{ id: string }>(`/api/v1/stock/locations`, body);
+export interface StockLocationRow { id: string; storeId: number; type: string; name: string }
+export const fetchStockLocations = () => get<StockLocationRow[]>(`/api/v1/stock/locations`);
 
-// WP11.2 receipt template (per store). Shape owned here; stored/echoed opaquely by the API.
+// WP11.2 receipt template (per store) + NatApp receipt fields. Stored/echoed opaquely by the API.
 export interface ReceiptTemplate {
+  storeName?: string;
+  addressLines?: string[];
+  phone?: string;
+  vatNumber?: string;
   headerLines?: string[];
   footerLines?: string[];
   showVatNumber?: boolean;
@@ -261,6 +268,7 @@ export const createTill = (storeId: number, name: string) =>
   post<{ tillId: string; enrolmentCode: string; expiresAtUtc: string }>(`/api/v1/tills`, { storeId, name });
 export const renameTill = (id: string, name: string) => put<void>(`/api/v1/tills/${id}/name`, { name });
 export const revokeTill = (id: string) => post<void>(`/api/v1/tills/${id}/revoke`);
+export const deleteTill = (id: string) => del<void>(`/api/v1/tills/${id}`);
 
 // ── periods ──
 

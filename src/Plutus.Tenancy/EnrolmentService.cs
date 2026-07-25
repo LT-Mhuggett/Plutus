@@ -169,6 +169,25 @@ namespace Plutus.Tenancy
             return new DeviceTokenResult(token, expiresIn);
         }
 
+        /// <summary>WP: delete an EMPTY till (no recorded sales) — used to clean up tills created
+        /// during enrolment testing. Refuses (409) a till that has sales, so trading history is
+        /// never orphaned. Removes its devices, enrolment codes and the name row too.</summary>
+        public async Task DeleteTillAsync(Guid tillId, string actingUser)
+        {
+            var till = await _db.Till.FirstOrDefaultAsync(t => t.Id == tillId);
+            if (till == null) throw new EnrolmentException(404, "Till not found.");
+            if (await _db.SalesV2.IgnoreQueryFilters().AnyAsync(s => s.TillId == tillId))
+                throw new EnrolmentException(409, "This till has recorded sales and cannot be deleted (its history must be kept).");
+
+            _db.CurrentUser = actingUser;
+            _db.Devices.RemoveRange(await _db.Devices.Where(d => d.TillId == tillId).ToListAsync());
+            _db.EnrolmentCodes.RemoveRange(await _db.EnrolmentCodes.Where(e => e.TillId == tillId).ToListAsync());
+            var details = await _db.TillDetails.FirstOrDefaultAsync(t => t.TillId == tillId);
+            if (details != null) _db.TillDetails.Remove(details);
+            _db.Till.Remove(till);
+            await _db.SaveChangesAsync();
+        }
+
         /// <summary>Portal: revoke every device enrolled to a till; token issuance then refuses.</summary>
         public async Task<int> RevokeTillAsync(Guid tillId, string actingUser)
         {

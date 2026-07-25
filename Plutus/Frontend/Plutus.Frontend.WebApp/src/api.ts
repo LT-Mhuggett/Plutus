@@ -400,11 +400,16 @@ export const businessName = () => localStorage.getItem("plutus.businessName") ||
 
 // WP11.2: per-store receipt template (header/footer/toggles), fetched from the server and cached
 // so the Receipt component can read it synchronously. Read via the sales.ingest-gated endpoint.
+// Ported from the NatApp receipt (store name, address, phone, VAT number), all editable.
 export interface ReceiptTemplate {
-  headerLines?: string[];
-  footerLines?: string[];
+  storeName?: string;      // overrides the business name at the top
+  addressLines?: string[]; // shop address block
+  phone?: string;
+  vatNumber?: string;      // shown as "VAT No: …" when showVatNumber
+  headerLines?: string[];  // e.g. "Thank you for shopping with us"
+  footerLines?: string[];  // e.g. returns policy
   showVatNumber?: boolean;
-  showOperator?: boolean;
+  showOperator?: boolean;  // print the operator's name
   showBarcode?: boolean;
 }
 let _receiptTemplate: ReceiptTemplate | null = (() => {

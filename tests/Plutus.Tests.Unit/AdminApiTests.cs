@@ -115,7 +115,7 @@ public class AdminApiTests
         using (var db = Ctx(conn, TenantA))
         {
             var res = await WithActor(new StoresController(db, new FixedTenantContext(TenantA)))
-                .Create(new StoreAdminBody(companyId, "1 High St", "", "Town", "AB1 2CD", "UK", "0123", hours));
+                .Create(new StoreAdminBody(companyId, "Test Store", "1 High St", "", "Town", "AB1 2CD", "UK", "0123", hours));
             var created = Assert.IsType<CreatedResult>(res);
             storeId = (int)created.Value!.GetType().GetProperty("id")!.GetValue(created.Value)!;
         }
@@ -130,7 +130,7 @@ public class AdminApiTests
         using (var db = Ctx(conn, TenantA))
         {
             var res = await WithActor(new StoresController(db, new FixedTenantContext(TenantA)))
-                .Update(storeId, new StoreAdminBody(null, null, null, null, null, null, null, newHours));
+                .Update(storeId, new StoreAdminBody(null, null, null, null, null, null, null, null, newHours));
             Assert.IsType<NoContentResult>(res);
         }
         using (var check = Ctx(conn, TenantA))

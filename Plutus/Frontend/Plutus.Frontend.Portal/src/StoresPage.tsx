@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import {
-  createStore, createTill, fetchCompanies, fetchStores, fetchTills, putReceiptTemplate, renameTill,
-  revokeTill, updateCompany, updateStore,
-  type Company, type ReceiptTemplate, type StoreRow, type TillRow,
+  createStockLocation, createStore, createTill, deleteTill, fetchCompanies, fetchStockLocations,
+  fetchStores, fetchTills, putReceiptTemplate, renameTill, revokeTill, updateCompany, updateStore,
+  type Company, type ReceiptTemplate, type StockLocationRow, type StoreRow, type TillRow,
 } from "./api.ts";
 
 const DAYS: { key: string; label: string }[] = [
@@ -51,6 +51,18 @@ export default function StoresPage() {
     }
   }
 
+  async function removeTill(t: TillRow) {
+    if (!window.confirm(`Delete till "${t.name}"? This can't be undone.`)) return;
+    setError("");
+    try {
+      await deleteTill(t.id);
+      await refresh();
+    } catch (e) {
+      // 409 = the till has recorded sales and is protected.
+      setError(String(e instanceof Error ? e.message : e));
+    }
+  }
+
   return (
     <section className="panel">
       {error && <p className="error">{error}</p>}
@@ -65,6 +77,9 @@ export default function StoresPage() {
       {stores.map((s) => (
         <StoreCard key={s.id} store={s} onSaved={refresh} />
       ))}
+
+      <h2>Stock locations</h2>
+      <LocationsSection stores={stores} />
 
       <h2>Tills</h2>
       <table>
@@ -88,7 +103,10 @@ export default function StoresPage() {
                   <button className="ghost small" disabled={busy} onClick={() => void revokeTill(t.id).then(refresh)}>
                     Revoke devices
                   </button>
-                )}
+                )}{" "}
+                <button className="ghost small" disabled={busy} onClick={() => void removeTill(t)} title="Delete this till (only if it has no sales)">
+                  Delete
+                </button>
               </td>
             </tr>
           ))}
@@ -193,6 +211,7 @@ function StoreCard({ store, onSaved }: { store: StoreRow; onSaved: () => Promise
     <div className="card">
       <div className="toolbar">
         <span className="muted small">Store {store.id}</span>
+        <label>Name <input placeholder="e.g. High Street" value={edit.name ?? ""} onChange={(e) => setEdit({ ...edit, name: e.target.value || null })} /></label>
         <label>Address <input value={edit.adLine1} onChange={(e) => setEdit({ ...edit, adLine1: e.target.value })} /></label>
         <label>City <input value={edit.city} onChange={(e) => setEdit({ ...edit, city: e.target.value })} /></label>
         <label>Postcode <input value={edit.postCode} onChange={(e) => setEdit({ ...edit, postCode: e.target.value })} /></label>
@@ -205,11 +224,15 @@ function StoreCard({ store, onSaved }: { store: StoreRow; onSaved: () => Promise
           disabled={busy}
           onClick={async () => {
             setBusy(true);
-            await updateStore(store.id, {
-              adLine1: edit.adLine1, city: edit.city, postCode: edit.postCode,
-              contactNumber: edit.contactNumber, openingHoursJson: edit.openingHoursJson,
-            }).finally(() => setBusy(false));
-            await onSaved();
+            try {
+              await updateStore(store.id, {
+                name: edit.name, adLine1: edit.adLine1, city: edit.city, postCode: edit.postCode,
+                contactNumber: edit.contactNumber, openingHoursJson: edit.openingHoursJson,
+              });
+              await onSaved();
+            } catch (e) {
+              alert(String(e instanceof Error ? e.message : e)); // 409 = store name taken
+            } finally { setBusy(false); }
           }}
         >
           Save store
@@ -220,10 +243,64 @@ function StoreCard({ store, onSaved }: { store: StoreRow; onSaved: () => Promise
   );
 }
 
+/** Stock locations list + a clear "Add warehouse" button (name checked for uniqueness). */
+function LocationsSection({ stores }: { stores: StoreRow[] }) {
+  const [locations, setLocations] = useState<StockLocationRow[]>([]);
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [type, setType] = useState("Warehouse");
+  const [storeId, setStoreId] = useState<number>(stores[0]?.id ?? 1);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const refresh = () => fetchStockLocations().then(setLocations).catch(() => undefined);
+  useEffect(() => { void refresh(); }, []);
+  useEffect(() => { if (stores[0]) setStoreId(stores[0].id); }, [stores]);
+
+  return (
+    <div className="card">
+      <table>
+        <thead><tr><th>Name</th><th>Type</th><th>Store</th></tr></thead>
+        <tbody>
+          {locations.map((l) => (
+            <tr key={l.id}><td>{l.name}</td><td>{l.type}</td><td>{l.storeId}</td></tr>
+          ))}
+          {locations.length === 0 && <tr><td colSpan={3} className="muted">No locations yet.</td></tr>}
+        </tbody>
+      </table>
+      {open ? (
+        <div className="toolbar">
+          <label>Name <input placeholder="unique, e.g. Back Warehouse" value={name} onChange={(e) => setName(e.target.value)} /></label>
+          <label>Type
+            <select value={type} onChange={(e) => setType(e.target.value)}>
+              <option value="Warehouse">Warehouse</option><option value="Store">Store</option>
+            </select>
+          </label>
+          <label>Store
+            <select value={storeId} onChange={(e) => setStoreId(Number(e.target.value))}>
+              {stores.map((s) => <option key={s.id} value={s.id}>{s.name ?? `Store ${s.id}`}</option>)}
+            </select>
+          </label>
+          <button className="primary small" disabled={busy || !name.trim()} onClick={async () => {
+            setBusy(true); setError("");
+            try {
+              await createStockLocation({ storeId, type, name: name.trim() });
+              setOpen(false); setName(""); await refresh();
+            } catch (e) { setError(String(e instanceof Error ? e.message : e)); } finally { setBusy(false); }
+          }}>Create</button>
+          <button className="ghost small" onClick={() => setOpen(false)}>Cancel</button>
+          {error && <span className="error small">{error}</span>}
+        </div>
+      ) : (
+        <button className="primary small" onClick={() => setOpen(true)}>+ Add warehouse / location</button>
+      )}
+    </div>
+  );
+}
+
 /** WP11.3: add a store from the portal (the API existed; the button did not). */
 function AddStore({ companies, onSaved }: { companies: Company[]; onSaved: () => Promise<void> | void }) {
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({ adLine1: "", city: "", postCode: "", contactNumber: "" });
+  const [f, setF] = useState({ name: "", adLine1: "", city: "", postCode: "", contactNumber: "" });
   const [companyId, setCompanyId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -239,6 +316,7 @@ function AddStore({ companies, onSaved }: { companies: Company[]; onSaved: () =>
             </select>
           </label>
         )}
+        <label>Name <input placeholder="unique, e.g. High Street" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
         <label>Address <input value={f.adLine1} onChange={(e) => setF({ ...f, adLine1: e.target.value })} /></label>
         <label>City <input value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} /></label>
         <label>Postcode <input value={f.postCode} onChange={(e) => setF({ ...f, postCode: e.target.value })} /></label>
@@ -249,7 +327,7 @@ function AddStore({ companies, onSaved }: { companies: Company[]; onSaved: () =>
         setBusy(true); setError("");
         try {
           await createStore({ ...(companyId ? { companyId } : {}), ...f });
-          setOpen(false); setF({ adLine1: "", city: "", postCode: "", contactNumber: "" });
+          setOpen(false); setF({ name: "", adLine1: "", city: "", postCode: "", contactNumber: "" });
           await onSaved();
         } catch (e) { setError(String(e instanceof Error ? e.message : e)); } finally { setBusy(false); }
       }}>Create store</button>
@@ -326,7 +404,19 @@ function ReceiptTemplateEditor({ store, onSaved }: { store: StoreRow; onSaved: (
   return (
     <details className="receipt-tpl">
       <summary className="muted small">Receipt template</summary>
-      <label className="block">Header lines (one per line)
+      <p className="muted small">Ported from the NatApp receipt — everything below prints on the receipt and is editable.</p>
+      <div className="toolbar">
+        <label>Shop name <input placeholder={store.name ?? "business name"} value={tpl.storeName ?? ""}
+          onChange={(e) => setTpl({ ...tpl, storeName: e.target.value })} /></label>
+        <label>Phone <input placeholder={store.contactNumber} value={tpl.phone ?? ""}
+          onChange={(e) => setTpl({ ...tpl, phone: e.target.value })} /></label>
+        <label>VAT number <input value={tpl.vatNumber ?? ""} onChange={(e) => setTpl({ ...tpl, vatNumber: e.target.value })} /></label>
+      </div>
+      <label className="block">Address (one line per row)
+        <textarea rows={2} placeholder={[store.adLine1, store.city, store.postCode].filter(Boolean).join("\n")}
+          value={linesToText(tpl.addressLines)} onChange={(e) => setTpl({ ...tpl, addressLines: textToLines(e.target.value) })} />
+      </label>
+      <label className="block">Header lines (e.g. "Thank you for shopping with us")
         <textarea rows={2} value={linesToText(tpl.headerLines)}
           onChange={(e) => setTpl({ ...tpl, headerLines: textToLines(e.target.value) })} />
       </label>

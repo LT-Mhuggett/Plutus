@@ -130,6 +130,27 @@ namespace Plutus.Tenancy.Controllers
             }
         }
 
+        /// <summary>WP: delete an empty till (no sales). Refuses tills with recorded sales (409).</summary>
+        [HttpDelete("{id}")]
+        [Authorize(Policy = PlutusPolicies.PortalTillsEnrol)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        public async Task<IActionResult> Delete([FromRoute] Guid id)
+        {
+            try
+            {
+                await _enrolment.DeleteTillAsync(id, ActingUser);
+                _db.Audit(_tenant.TenantId, Actor, "till.delete", "Till", id.ToString(), new { });
+                await _db.SaveChangesAsync();
+                return NoContent();
+            }
+            catch (EnrolmentException ex)
+            {
+                return Problem(detail: ex.Message, statusCode: ex.StatusCode);
+            }
+        }
+
         [HttpPost("{id}/revoke")]
         [Authorize(Policy = PlutusPolicies.PortalTillsEnrol)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]

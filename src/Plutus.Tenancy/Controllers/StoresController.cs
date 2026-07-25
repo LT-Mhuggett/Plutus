@@ -15,7 +15,7 @@ using Plutus.SharedKernel;
 namespace Plutus.Tenancy.Controllers
 {
     public sealed record StoreAdminBody(
-        Guid? CompanyId, string AdLine1, string AdLine2, string City, string PostCode,
+        Guid? CompanyId, string Name, string AdLine1, string AdLine2, string City, string PostCode,
         string Country, string ContactNumber, string OpeningHoursJson);
 
     /// <summary>WP3.2 store admin, incl. opening hours (held in the server-side StoreDetails
@@ -56,6 +56,7 @@ namespace Plutus.Tenancy.Controllers
             return Ok(stores.Select(s => new
             {
                 s.id, s.companyId, s.adLine1, s.adLine2, s.city, s.postCode, s.country, s.contactNumber,
+                name = details.TryGetValue(s.id, out var d0) ? d0.Name : null,
                 openingHoursJson = details.TryGetValue(s.id, out var d) ? d.OpeningHoursJson : null,
                 receiptTemplateJson = details.TryGetValue(s.id, out var d2) ? d2.ReceiptTemplateJson : null,
             }));
@@ -71,6 +72,8 @@ namespace Plutus.Tenancy.Controllers
                 ?? await _db.Business.AsNoTracking().Select(b => (Guid?)b.Id).FirstOrDefaultAsync();
             if (companyId == null || await _db.Business.AsNoTracking().AllAsync(b => b.Id != companyId))
                 return BadRequest(new { detail = "companyId must reference one of the tenant's companies." });
+            if (!string.IsNullOrWhiteSpace(body.Name) && await StoreNameTakenAsync(body.Name, null))
+                return Conflict(new { detail = $"A store named '{body.Name.Trim()}' already exists." });
 
             _db.CurrentUser = Actor.ToString();
             var store = new Store
@@ -86,14 +89,25 @@ namespace Plutus.Tenancy.Controllers
             _db.Stores.Add(store);
             await _db.SaveChangesAsync(); // identity id
 
-            if (!string.IsNullOrWhiteSpace(body.OpeningHoursJson))
+            if (!string.IsNullOrWhiteSpace(body.Name) || !string.IsNullOrWhiteSpace(body.OpeningHoursJson))
                 _db.StoreDetails.Add(new StoreDetails
                 {
-                    StoreId = store.Id, TenantId = _tenant.TenantId, OpeningHoursJson = body.OpeningHoursJson,
+                    StoreId = store.Id, TenantId = _tenant.TenantId,
+                    Name = string.IsNullOrWhiteSpace(body.Name) ? null : body.Name.Trim(),
+                    OpeningHoursJson = body.OpeningHoursJson,
                 });
             _db.Audit(_tenant.TenantId, Actor, "store.create", nameof(Store), store.Id.ToString(), body);
             await _db.SaveChangesAsync();
             return Created($"/api/v1/stores/{store.Id}", new { id = store.Id });
+        }
+
+        /// <summary>Is a store name already used by ANOTHER store in this tenant (case-insensitive)?</summary>
+        private async Task<bool> StoreNameTakenAsync(string name, int? exceptStoreId)
+        {
+            var lowered = name.Trim().ToLowerInvariant();
+            return await _db.StoreDetails.IgnoreQueryFilters()
+                .AnyAsync(d => d.TenantId == _tenant.TenantId && d.Name != null &&
+                               d.Name.ToLower() == lowered && d.StoreId != (exceptStoreId ?? -1));
         }
 
         [HttpPut("{id}")]
@@ -104,6 +118,8 @@ namespace Plutus.Tenancy.Controllers
         {
             var store = await _db.Stores.FirstOrDefaultAsync(s => s.Id == id);
             if (store == null) return NotFound();
+            if (!string.IsNullOrWhiteSpace(body?.Name) && await StoreNameTakenAsync(body.Name, id))
+                return Conflict(new { detail = $"A store named '{body.Name.Trim()}' already exists." });
 
             _db.CurrentUser = Actor.ToString();
             if (body?.AdLine1 != null) store.AdLine1 = Or(body.AdLine1, "N/A");
@@ -113,16 +129,13 @@ namespace Plutus.Tenancy.Controllers
             if (body?.Country != null) store.Country = body.Country;
             if (body?.ContactNumber != null) store.ContactNumber = Or(body.ContactNumber, "N/A");
 
-            if (body?.OpeningHoursJson != null)
+            if (body?.OpeningHoursJson != null || body?.Name != null)
             {
                 var details = await _db.StoreDetails.FirstOrDefaultAsync(d => d.StoreId == id);
                 if (details == null)
-                    _db.StoreDetails.Add(new StoreDetails
-                    {
-                        StoreId = id, TenantId = _tenant.TenantId, OpeningHoursJson = body.OpeningHoursJson,
-                    });
-                else
-                    details.OpeningHoursJson = body.OpeningHoursJson;
+                    details = _db.StoreDetails.Add(new StoreDetails { StoreId = id, TenantId = _tenant.TenantId }).Entity;
+                if (body.OpeningHoursJson != null) details.OpeningHoursJson = body.OpeningHoursJson;
+                if (body.Name != null) details.Name = string.IsNullOrWhiteSpace(body.Name) ? null : body.Name.Trim();
             }
 
             _db.Audit(_tenant.TenantId, Actor, "store.update", nameof(Store), id.ToString(), body);

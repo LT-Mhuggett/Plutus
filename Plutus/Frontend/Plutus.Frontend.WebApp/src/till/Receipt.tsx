@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { businessName, getReceiptTemplateCached } from "../api.ts";
+import { getSession } from "../session.ts";
 import { gbp } from "../money.ts";
 import { lineDiscountPence, lineTotalPence, type BasketLine } from "./basket.ts";
 import Barcode39 from "./Barcode39.tsx";
@@ -30,20 +31,27 @@ export default function Receipt({ data, onClose, autoPrint }: Props) {
     }
   }, [autoPrint]);
 
-  // WP11.2: per-store template (header/footer lines + toggles), cached from the last catalogue
-  // sync. Sensible defaults preserve today's receipt when no template is set.
+  // WP11.2 + NatApp receipt port: per-store template (store name, address, phone, VAT, header/
+  // footer + toggles), cached from the last catalogue sync. Defaults preserve today's receipt.
   const tpl = getReceiptTemplateCached();
   const headerLines = tpl?.headerLines?.length ? tpl.headerLines : ["Thank you for shopping with us"];
   const footerLines = tpl?.footerLines ?? [];
+  const addressLines = tpl?.addressLines ?? [];
   const showBarcode = tpl?.showBarcode !== false;
+  const operator = tpl?.showOperator ? getSession()?.name : null;
 
   return (
     <div className="overlay receipt-overlay">
       <div className="dialog receipt-dialog">
         <div className="receipt" id="receipt">
-          <h3>{businessName()}</h3>
-          {headerLines.map((l, i) => <p className="centre small" key={i}>{l}</p>)}
+          {/* NatApp header order: thank-you, shop name, phone, address, VAT no, date */}
+          {headerLines.map((l, i) => <p className="centre small" key={`h${i}`}>{l}</p>)}
+          <h3>{tpl?.storeName || businessName()}</h3>
+          {tpl?.phone && <p className="centre small">{tpl.phone}</p>}
+          {addressLines.map((l, i) => <p className="centre small" key={`a${i}`}>{l}</p>)}
+          {tpl?.showVatNumber && tpl?.vatNumber && <p className="centre small">VAT No: {tpl.vatNumber}</p>}
           <p className="centre small">{new Date(data.date).toLocaleString("en-GB")}</p>
+          {operator && <p className="centre small">Served by {operator}</p>}
           <hr />
           {data.lines.map((l) => (
             <div key={l.key}>

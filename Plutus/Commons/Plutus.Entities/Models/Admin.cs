@@ -28,6 +28,9 @@ namespace Plutus.Entities.Models
     {
         public int StoreId { get; set; }           // PK, 1:1 with legacy Store
         public Guid TenantId { get; set; }
+        /// <summary>Human name for the store (the legacy Store POCO — shared with MAUI — has none).
+        /// Unique per tenant (checked; case-insensitive).</summary>
+        public string? Name { get; set; }
         /// <summary>Opening hours as JSON: {"mon":[{"open":"09:00","close":"17:30"}],…} —
         /// shape owned by the portal; the API stores/echoes it opaquely.</summary>
         public string? OpeningHoursJson { get; set; }
