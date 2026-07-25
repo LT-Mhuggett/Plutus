@@ -180,16 +180,8 @@ namespace Plutus.DBService.Extensions
             })
             .AddPolicyScheme(routerScheme, "Plutus device-vs-IdP router", o =>
             {
-                o.ForwardDefaultSelector = ctx =>
-                {
-                    var header = ctx.Request.Headers.Authorization.ToString();
-                    if (header.StartsWith("Bearer ", StringComparison.Ordinal))
-                    {
-                        var token = header["Bearer ".Length..];
-                        if (token.Split('.').Length == 2) return PlutusTokenAuthHandler.SchemeName;
-                    }
-                    return JwtBearerDefaults.AuthenticationScheme;
-                };
+                // 2-segment compact HMAC device token -> PlutusToken; 3-segment JWT -> IdP.
+                o.ForwardDefaultSelector = ctx => AuthSchemeRouter.Select(ctx.Request.Headers.Authorization.ToString());
             })
             .AddJwtBearer(o =>
             {

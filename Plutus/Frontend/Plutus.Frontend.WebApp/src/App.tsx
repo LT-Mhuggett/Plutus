@@ -9,7 +9,9 @@ import EmployeesPage from "./EmployeesPage.tsx";
 import LoginPage from "./LoginPage.tsx";
 import { drainOutbox, onOutboxChanged, syncCatalogue } from "./api.ts";
 import { queuedCount } from "./offline.ts";
-import { clearSession, getSession, type Session } from "./session.ts";
+import { getSession, type Session } from "./session.ts";
+import { oidcMode, signOut } from "./auth.ts";
+import { beginLogin, completeLoginIfCallback } from "./oidc.ts";
 
 declare const __BUILD_TIME__: string;
 
@@ -38,10 +40,34 @@ function Page({ tab }: { tab: Tab }) {
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("Till");
-  const [session, setSession] = useState<Session | null>(() => getSession());
+  const [session, setSession] = useState<Session | null>(() => (oidcMode ? null : getSession()));
+  const [booting, setBooting] = useState<boolean>(oidcMode);
+  const [authError, setAuthError] = useState("");
   const [userMenu, setUserMenu] = useState(false);
   const [online, setOnline] = useState(navigator.onLine);
   const [queued, setQueued] = useState(0);
+
+  // OIDC mode: complete the redirect callback, or bounce to the IdP. Password mode: no-op.
+  useEffect(() => {
+    if (!oidcMode) return;
+    void (async () => {
+      try {
+        const user = await completeLoginIfCallback();
+        if (user) {
+          setSession({
+            token: "(oidc)", employeeId: "", name: user.name,
+            expiresAt: new Date(Date.now() + 12 * 3600_000).toISOString(),
+          });
+          setBooting(false);
+        } else {
+          await beginLogin(); // redirect away (seamless if the IdP SSO cookie is live)
+        }
+      } catch (e) {
+        setAuthError(String(e instanceof Error ? e.message : e));
+        setBooting(false);
+      }
+    })();
+  }, []);
 
   // Offline plumbing: connectivity indicator, outbox badge, replay on reconnect,
   // and a background pull of the item catalogue for offline scanning.
@@ -66,14 +92,27 @@ export default function App() {
     };
   }, [session]);
 
+  if (oidcMode && booting) {
+    return (
+      <div className="login-screen">
+        <div className="login-card">
+          <h1>Plutus</h1>
+          <p className="muted small">Signing in…</p>
+          {authError && <p className="error small">{authError}</p>}
+          {authError && <button className="primary" onClick={() => void beginLogin()}>Try again</button>}
+        </div>
+      </div>
+    );
+  }
+
   if (!session) {
+    // Password mode only — OIDC redirects or errors above rather than reaching here.
     return <LoginPage onLogin={setSession} />;
   }
 
   function logout() {
-    clearSession();
-    setSession(null);
     setUserMenu(false);
+    signOut(); // clears + reloads (password) or redirects to the IdP end-session (oidc)
   }
 
   return (

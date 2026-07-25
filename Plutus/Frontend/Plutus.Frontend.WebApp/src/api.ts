@@ -1,7 +1,8 @@
 // Thin typed layer over fetch — same-origin /api/* is reverse-proxied to the
 // DBService by Caddy. No client library needed (see plan §3.5.1).
 
-import { clearSession, getSession, setSession, type Session } from "./session.ts";
+import { getSession, setSession, type Session } from "./session.ts";
+import { accessToken, signOut } from "./auth.ts";
 import {
   cachedItemById,
   cachedItemSearch,
@@ -26,16 +27,14 @@ export const TILL_ID = "f6bf8420-3d06-6b0b-4fd7-32d265b89bb8";
 export const BUSINESS_NAME = "Kapow Comics ltd";
 
 function headers(): Record<string, string> {
-  const s = getSession();
-  return { BusinessId: BUSINESS_ID, ...(s ? { Authorization: `Bearer ${s.token}` } : {}) };
+  const t = accessToken();
+  return { BusinessId: BUSINESS_ID, ...(t ? { Authorization: `Bearer ${t}` } : {}) };
 }
 
-/** A 401 means the token expired or was revoked — drop the session and restart at login. */
+/** A 401 means the token expired or was revoked — drop the session and restart at login
+ *  (or bounce to the IdP in OIDC mode). */
 function handle401(res: Response): void {
-  if (res.status === 401) {
-    clearSession();
-    window.location.reload();
-  }
+  if (res.status === 401) signOut();
 }
 
 export async function login(email: string, password: string): Promise<Session> {

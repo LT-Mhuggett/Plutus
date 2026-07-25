@@ -141,6 +141,18 @@ public class Phase9AuthTests
         Assert.Single(twice.FindAll("scp"));
     }
 
+    [Theory]
+    // A compact HMAC device/enrolment token (2 segments) MUST route to the HMAC handler even
+    // under a real IdP — this is what keeps till client-credentials working (phase DoD).
+    [InlineData("Bearer aGVhZGVy.c2ln", PlutusTokenAuthHandler.SchemeName)]
+    // A real OIDC JWT (3 segments) routes to the IdP.
+    [InlineData("Bearer aGVhZGVy.cGF5bG9hZA.c2ln", AuthSchemeRouter.JwtBearerScheme)]
+    // No / non-bearer header falls through to the IdP (which then 401-challenges).
+    [InlineData("", AuthSchemeRouter.JwtBearerScheme)]
+    [InlineData("Basic abc", AuthSchemeRouter.JwtBearerScheme)]
+    public void Router_sends_device_tokens_to_hmac_and_jwts_to_the_idp(string header, string expectedScheme)
+        => Assert.Equal(expectedScheme, AuthSchemeRouter.Select(header));
+
     [Fact]
     public async Task Login_scope_resolver_falls_back_to_pos_sell_without_assignments()
     {

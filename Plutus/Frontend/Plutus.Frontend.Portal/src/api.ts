@@ -2,11 +2,12 @@
 // reverse-proxies /api/* on the admin host to the DBService. The portal NEVER talks to
 // legacy /api/* endpoints except /api/Auth/Login (the shared operator login).
 
-import { clearSession, getSession, setSession, type Session } from "./session.ts";
+import { setSession, type Session } from "./session.ts";
+import { accessToken, signOut } from "./auth.ts";
 
 function authHeaders(): Record<string, string> {
-  const s = getSession();
-  return s ? { Authorization: `Bearer ${s.token}` } : {};
+  const t = accessToken();
+  return t ? { Authorization: `Bearer ${t}` } : {};
 }
 
 export class ApiError extends Error {
@@ -22,8 +23,7 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (res.status === 401) {
-    clearSession();
-    window.location.reload();
+    signOut();
     throw new ApiError(401, "Signed out.");
   }
   if (!res.ok) {
