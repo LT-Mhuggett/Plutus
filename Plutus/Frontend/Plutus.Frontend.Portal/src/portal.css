@@ -25,6 +25,7 @@ footer { margin-top: 24px; text-align: center; }
 .toolbar .grow, .grow { flex: 1; }
 
 input, select, textarea { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: inherit; }
+input.short { width: 72px; }
 textarea { width: 100%; }
 label.block { display: block; font-size: 13px; color: var(--muted); margin: 8px 0; }
 

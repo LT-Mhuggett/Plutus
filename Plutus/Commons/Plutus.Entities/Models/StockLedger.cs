@@ -60,4 +60,29 @@ namespace Plutus.Entities.Models
         public string ItemIdOne { get; set; }
         public int Quantity { get; set; }
     }
+
+    public enum StockTransferStatus : byte { InTransit = 0, Received = 1, Cancelled = 2 }
+
+    /// <summary>
+    /// WP5.2: a paired transfer. Creating it posts TRANSFER_OUT (−qty at source) — the goods
+    /// are then IN TRANSIT (in neither location's level, which is what makes a transfer
+    /// impossible to double-count); receiving posts TRANSFER_IN (+qty at destination);
+    /// cancelling posts TRANSFER_IN back at the source. Movements carry RefId = transfer id.
+    /// </summary>
+    public class StockTransfer
+    {
+        public Guid Id { get; set; }               // UUIDv7
+        public Guid TenantId { get; set; }
+        public Guid FromLocationId { get; set; }
+        public Guid ToLocationId { get; set; }
+        public string ItemIdOne { get; set; }
+        public Guid ItemId { get; set; }
+        public int Qty { get; set; }               // positive
+        public StockTransferStatus Status { get; set; }
+        public string? Reason { get; set; }
+        public Guid? CreatedBy { get; set; }
+        public DateTime CreatedAtUtc { get; set; }
+        public Guid? ReceivedBy { get; set; }
+        public DateTime? ReceivedAtUtc { get; set; }
+    }
 }

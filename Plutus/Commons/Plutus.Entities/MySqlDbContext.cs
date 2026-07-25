@@ -57,6 +57,8 @@ namespace Plutus.Entities
         public DbSet<StockLocation> StockLocations { get; set; }
         public DbSet<StockMovement> StockMovements { get; set; }
         public DbSet<StockLevel> StockLevels { get; set; }
+        // Transfers (WP5.2): paired movements with an in-transit state.
+        public DbSet<StockTransfer> StockTransfers { get; set; }
         #endregion
 
         /// <summary>The tenant scoping every query and write is bound to. Referenced by the
@@ -123,8 +125,8 @@ namespace Plutus.Entities
             typeof(SalesRollup), typeof(VatRollup),
             // Financial periods (WP3.4).
             typeof(FinancialPeriod),
-            // Stock ledger (WP5.1).
-            typeof(StockLocation), typeof(StockMovement), typeof(StockLevel),
+            // Stock ledger (WP5.1) + transfers (WP5.2).
+            typeof(StockLocation), typeof(StockMovement), typeof(StockLevel), typeof(StockTransfer),
         };
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -343,6 +345,15 @@ namespace Plutus.Entities
                 e.Property(x => x.Id).ValueGeneratedOnAdd();
                 e.Property(x => x.ItemIdOne).HasMaxLength(20).IsRequired();
                 e.HasIndex(x => new { x.TenantId, x.StockLocationId, x.ItemIdOne }).IsUnique();
+            });
+            modelBuilder.Entity<StockTransfer>(e =>
+            {
+                e.ToTable("StockTransfers");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.ItemIdOne).HasMaxLength(20).IsRequired();
+                e.Property(x => x.Reason).HasMaxLength(500);
+                e.HasIndex(x => new { x.TenantId, x.Status });
             });
 
             // Test/dev harness only (WP2.1): on MySQL, Trans.IdOne is AUTO_INCREMENT within a
