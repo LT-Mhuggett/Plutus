@@ -139,8 +139,21 @@ Then `pm2 delete plutus-portal-preview` (the LAN preview) if desired.
 - Force-logout AuthActions unmapped (no platform session-kill yet).
 - Time windows evaluate in SERVER local time (= store's tz for this deployment).
 
-**▶ NEXT:** Phase 4 (MAUI) remains **paused for upstream code**. Phase 5 (pricing/
-catalogue) or the Kapow production cutover are the next open moves — Matt's call.
+**Phase 5 progress (2026-07-25):**
+- **WP5.1 stock ledger — COMPLETE & LIVE** (`4e8d0f3` + order-proofing fix): append-only
+  typed `StockMovements` + materialised `StockLevels` (== ledger sum, property-tested,
+  rebuildable), `StockLocations` per store; third outbox consumer (`stock-ledger`) folds
+  SALE/RETURN movements per sale line (RefId = saleId); APIs `/api/v1/stock/levels|
+  movements|locations` [portal.reports.view] + manual `POST /api/v1/stock/movements`
+  (Receipt/Adjustment/WriteOff, audited) [portal.stock.adjust] + rebuild [platform-admin].
+  Opening balances seeded from legacy `Stocks` (3,193 items; `SeedMigrator stock-open`,
+  idempotent + adoption-order-proof: heals pre-seed history replay, fences unprocessed
+  history). Live parity verified: ledger == legacy Stocks and both move in lockstep per
+  sale (the Phase-2 bridge keeps decrementing legacy in parallel until legacy retires).
+- WP5.2 (transfers + stock takes), WP5.3 (goods-in), WP5.4 (pricing) — not started.
+
+**▶ NEXT:** continue Phase 5 (WP5.2 → WP5.4). Phase 4 (MAUI) remains **paused for upstream
+code**. The Kapow PRODUCTION cutover (final till backup → re-ETL) is a separate future op.
 
 ---
 
