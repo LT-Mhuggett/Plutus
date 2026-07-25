@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -24,6 +25,7 @@ namespace Plutus.Identity
     {
         public const string SchemeName = "PlutusToken";
         private readonly string _secret;
+        private readonly string _apiScopes;
 
         public PlutusTokenAuthHandler(
             IOptionsMonitor<AuthenticationSchemeOptions> options,
@@ -33,6 +35,15 @@ namespace Plutus.Identity
             : base(options, logger, encoder)
         {
             _secret = configuration["TEST_TOKEN_SECRET"] ?? string.Empty;
+            // The legacy CRUD controllers still carry Microsoft.Identity.Web [RequiredScope]
+            // filters that demand the B2C API.Read / API.Write scopes (claim "scp"). In test
+            // mode this handler REPLACES B2C, so it must also stand in for those scopes —
+            // otherwise every generic /api/{Entity}/Index & write 403s. Values from config so
+            // they track the B2C app registration; sensible fallback if unset.
+            var read = configuration["OpenAPI:Scopes:APIRead:Name"];
+            var write = configuration["OpenAPI:Scopes:APIWrite:Name"];
+            var scopes = new[] { read, write }.Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
+            _apiScopes = scopes.Length > 0 ? string.Join(' ', scopes) : "API.Read API.Write";
         }
 
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
@@ -83,6 +94,11 @@ namespace Plutus.Identity
                         identity.AddClaim(new Claim("tid", tid));
                     AddScopes(identity, root.TryGetProperty("Scope", out var scp) ? scp.GetString() : null);
                 }
+
+                // Stand in for the B2C API scopes the legacy [RequiredScope] filters demand
+                // (claim type "scp", space-delimited). Independent of the "scope" claims above
+                // that drive the T1.2 scope + WP3.1 perm policies.
+                identity.AddClaim(new Claim("scp", _apiScopes));
 
                 var principal = new ClaimsPrincipal(identity);
                 return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(principal, SchemeName)));

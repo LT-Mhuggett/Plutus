@@ -31,7 +31,12 @@ public class PlutusTokenAuthHandlerTests
     private static async Task<AuthenticateResult> Authenticate(string? bearer)
     {
         var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["TEST_TOKEN_SECRET"] = Secret })
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["TEST_TOKEN_SECRET"] = Secret,
+                ["OpenAPI:Scopes:APIRead:Name"] = "API.Read",
+                ["OpenAPI:Scopes:APIWrite:Name"] = "API.Write",
+            })
             .Build();
         var handler = new PlutusTokenAuthHandler(new Mon(), NullLoggerFactory.Instance, UrlEncoder.Default, config);
         var http = new DefaultHttpContext();
@@ -56,6 +61,19 @@ public class PlutusTokenAuthHandlerTests
         Assert.Contains("platform-admin", scopes);
         Assert.Contains("pos.sell", scopes);
         Assert.Equal(emp.ToString(), result.Principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+    }
+
+    [Fact]
+    public async Task Token_grants_the_legacy_B2C_api_scopes_so_RequiredScope_passes()
+    {
+        // The legacy CRUD controllers still carry [RequiredScope(API.Read/API.Write)] (claim
+        // "scp"). In test mode this handler stands in for B2C, so the scp claim must carry them
+        // — else /api/{Entity}/Index 403s (the inventory-load regression, 2026-07-25).
+        var result = await Authenticate(Token(new { EmployeeId = Guid.NewGuid(), Name = "Ada", Scope = "pos.sell", Exp = Soon }));
+        Assert.True(result.Succeeded);
+        var scp = result.Principal!.FindFirst("scp")!.Value.Split(' ');
+        Assert.Contains("API.Read", scp);
+        Assert.Contains("API.Write", scp);
     }
 
     [Fact]
