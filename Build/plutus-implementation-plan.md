@@ -200,6 +200,8 @@ Modules communicate in-process via the `SharedKernel` event bus abstraction (int
 
 ## Phase 8 — Customers, credit, loyalty
 
+> 2705 **COMPLETE & LIVE (2026-07-25, `f4ebfeb`)** — Customer + append-only CreditEntry ledger (balance = 03a3 entries, overdraw-guarded, idempotent redeem) + renewal-dated Membership auto-discount; period close records the outstanding-credit liability; portal Customers tab. DoD tests: balance==sum property, issue2192redeem, no-overdraw, liability==entry-sum. Follow-up: wire credit-as-tender + members auto-discount into the checkout basket (endpoints live). See HANDOVER 00a75.
+
 `Customers` (optional on sale, synced to tills), `CreditAccounts` + append-only `CreditEntries` (D15), credit-redemption tender type, `Memberships` with renewal dates feeding auto-discounts. Outstanding-credit figure on period close.
 *DoD:* credit issued at till redeemable in web POS after sync; balance = entry sum (property test); period close includes liability line.
 

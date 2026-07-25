@@ -181,6 +181,17 @@ the vhost, ETRIE health 200. The temporary LAN preview (pm2 `plutus-portal-previ
   fleet framework).
 - 108 tests green (98 unit + 5 integration + 5 arch).
 
+**Phase 8 — COMPLETE & LIVE (2026-07-25, `f4ebfeb`):** customers (optional on sale, till
+lookup), store credit as an append-only liability ledger (D15 — `CreditEntry` Issue/Redeem/
+Expire, balance = Σ entries, overdraw-guarded, idempotent-by-entry-id redeem), memberships
+(renewal-dated auto-discount rate). `Plutus.Customers` module + `CreditLedgerService`. APIs:
+customers CRUD + at-sale lookup, `credit/issue|redeem`, `membership`, credit history. Period
+close now records `outstandingCreditLiabilityPence` (§7.1). Portal **Customers** tab. Live
+smoke: issue £20 → redeem £7.50 → overdraw 400 → membership — all correct. 102+5+5 green.
+⚠ Follow-up: the till/web-POS UI doesn't yet USE credit-as-tender or the members' auto-discount
+at checkout — the endpoints exist (`credit/redeem`, the membership lookup), wiring them into the
+basket is a small frontend task.
+
 **▶ NEXT (all need Matt's input):** Phase 4 (MAUI) remains **paused for upstream code**;
 Phase 6 is the WooCommerce connector (needs a Woo test store to develop against); the Kapow
 PRODUCTION cutover (final till backup → re-ETL → rollups+stock rebuild) is a deliberate op;
