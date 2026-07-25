@@ -110,31 +110,10 @@ namespace Plutus.DBService.Controllers
 
             // WP3.1 (2026-07-24): token scopes come from the user's RBAC effective permissions
             // (time windows evaluated NOW — an out-of-window assignment grants nothing at token
-            // issue, per architecture §7.2). Pre-seed fallback: a user with no assignments yet
-            // keeps the WP2.2 behaviour (pos.sell + Admin/Management → portal.tills.enrol) so
-            // login never breaks before `SeedMigrator rbac` has run.
-            string scope;
-            if (await _permissions.HasAnyAssignmentsAsync(employeeId))
-            {
-                var scopes = new System.Collections.Generic.List<string>();
-                if (await _permissions.HasAnywhereAsync(employeeId, PermissionCatalogue.PosSell, DateTime.Now))
-                    scopes.Add(PlutusPolicies.PosSell);
-                if (await _permissions.HasAnywhereAsync(employeeId, PermissionCatalogue.PortalTillsEnrol, DateTime.Now))
-                    scopes.Add(PlutusPolicies.PortalTillsEnrol);
-                scope = string.Join(" ", scopes);
-            }
-            else
-            {
-                scope = "pos.sell";
-                await using var scopeCmd = conn.CreateCommand();
-                scopeCmd.CommandText = @"
-                    SELECT COUNT(*) FROM EmpAuthActions ea
-                    JOIN AuthActions a ON a.Id = ea.AuthAId
-                    WHERE ea.EmpId = @empId AND a.Name IN ('Admin', 'Management')";
-                scopeCmd.Parameters.AddWithValue("@empId", employeeId.ToString());
-                var isAdmin = Convert.ToInt64(await scopeCmd.ExecuteScalarAsync()) > 0;
-                if (isAdmin) scope += " portal.tills.enrol";
-            }
+            // issue, per architecture §7.2), with the WP2.2 pre-seed fallback for users without
+            // assignments. Phase 9: the SAME resolver feeds the IdP claims-transformation, so an
+            // operator gets identical scopes whether logged in by password here or by a real IdP.
+            var scope = string.Join(" ", await _permissions.ResolveLoginScopesAsync(employeeId, DateTime.Now));
 
             var payload = new TestTokenAuth.TokenPayload
             {

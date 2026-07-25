@@ -108,6 +108,37 @@ namespace Plutus.Identity
         public Task<bool> HasAnyAssignmentsAsync(Guid userId) =>
             _db.RbacRoleAssignments.AsNoTracking().AnyAsync(a => a.UserId == userId);
 
+        /// <summary>
+        /// The token scopes a signed-in user should carry — the single source shared by the
+        /// test-env login endpoint AND the Phase-9 <c>RbacClaimsTransformation</c> (so an
+        /// operator gets the same permissions whether authenticated by HMAC login or by a real
+        /// IdP). RBAC-derived when the user has assignments; otherwise the WP2.2 pre-seed
+        /// fallback (pos.sell, plus portal.tills.enrol for legacy Admin/Management) so login
+        /// never breaks before `SeedMigrator rbac` has run. Time windows evaluated at
+        /// <paramref name="nowLocal"/>.
+        /// </summary>
+        public async Task<IReadOnlyList<string>> ResolveLoginScopesAsync(Guid userId, DateTime nowLocal)
+        {
+            var scopes = new List<string>();
+            if (await HasAnyAssignmentsAsync(userId))
+            {
+                if (await HasAnywhereAsync(userId, PermissionCatalogue.PosSell, nowLocal))
+                    scopes.Add(PlutusPolicies.PosSell);
+                if (await HasAnywhereAsync(userId, PermissionCatalogue.PortalTillsEnrol, nowLocal))
+                    scopes.Add(PlutusPolicies.PortalTillsEnrol);
+                return scopes;
+            }
+
+            scopes.Add(PlutusPolicies.PosSell);
+            var isLegacyAdmin = await (
+                from ea in _db.EmpAuthActions.AsNoTracking()
+                join a in _db.AuthActions.AsNoTracking() on ea.AuthAId equals a.Id
+                where ea.EmpId == userId && (a.Name == "Admin" || a.Name == "Management")
+                select ea.EmpId).AnyAsync();
+            if (isLegacyAdmin) scopes.Add(PlutusPolicies.PortalTillsEnrol);
+            return scopes;
+        }
+
         /// <summary>Does this user hold <paramref name="permissionCode"/> anywhere in the
         /// tenant? Used for coarse portal gates when no finer resource node is known.</summary>
         public async Task<bool> HasAnywhereAsync(Guid userId, string permissionCode, DateTime nowLocal)

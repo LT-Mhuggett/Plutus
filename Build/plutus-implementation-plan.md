@@ -207,8 +207,66 @@ Modules communicate in-process via the `SharedKernel` event bus abstraction (int
 
 ## Phase 9 — IdP swap
 
-Entra External ID or Keycloak behind the existing auth flag; JWT validation middleware unchanged; web POS moves to in-memory access token + refresh cookie.
-*DoD:* flag flip swaps IdP with zero API contract change; till client-credentials unaffected.
+> **Decision (2026-07-25, Matt):** implement **BOTH** Entra External ID **and** Keycloak,
+> switchable by config; go full-stack (backend + both React frontends); map an IdP identity
+> to a Plutus user **by verified email**. Order: 9.1 seam → 9.2 live Keycloak → 9.3 Entra
+> config-ready → 9.4 frontends → 9.5 tests.
+
+**Design invariant — authorization is untouched.** Today the login endpoint already resolves a
+user's scopes from RBAC and bakes them into the token; every policy (`perm:*`, `platform-admin`,
+the legacy `[RequiredScope]` `scp` filters) reads a fixed claim set. Phase 9 keeps that claim set
+identical. A real IdP only **authenticates** (proves identity via `sub`/`email`); a shared
+claims-transformation resolves the same RBAC scopes server-side and injects the same claims the
+HMAC handler emits today. So swapping IdP changes the token *source*, never the API contract.
+
+**WP9.1 — Provider-agnostic auth seam (backend).**
+Replace the implicit "B2C unless `DISABLE_AUTH_DEV_ONLY`" branch with one explicit selector
+**`IdP:Provider` ∈ {`test`, `entra`, `keycloak`}** (default `test` — nothing changes until flipped).
+- `test` → today's `PlutusTokenAuthHandler` (HMAC) + `/api/Auth/Login`, unchanged.
+- `entra` / `keycloak` → metadata-driven `AddJwtBearer` (Authority + Audience from config; JWKS,
+  issuer auto-discovered). Both are standard OIDC; the only per-provider differences (authority
+  shape, audience, native scope/role claim) live in a small `IIdpProfile` (entra: `oid`/`scp`;
+  keycloak: `sub`/`realm_access.roles`).
+- **Device/till tokens stay independent.** A default **policy-scheme** inspects the bearer and
+  forwards our compact HMAC device tokens (`did`/`tid`/`scope:device`) to the HMAC handler and
+  3-part JWTs to the configured IdP — so **client-credentials/enrolment are unaffected** by the
+  swap (DoD).
+- Shared **`RbacClaimsTransformation`** (runs for `entra`/`keycloak`): read verified email from
+  the validated token → find the Plutus user (`People`/`WebCredentials`, by email) → resolve
+  effective RBAC scopes (same logic as `AuthController.Login`) → add `NameIdentifier`,
+  `objectidentifier`, `scope` claims, and the `scp` API scopes. Unknown email → authenticated but
+  unauthorized (no scopes) + audit. Provider-agnostic, so `entra` and `keycloak` behave identically.
+*DoD:* `IdP:Provider=keycloak` validates a Keycloak JWT and the caller gets their RBAC scopes; a
+till device token still authenticates under every provider; `test` is byte-for-byte today's behaviour.
+
+**WP9.2 — Keycloak live on the test env.**
+Stand up Keycloak as a user process on the Mac (own high port + pm2, ETRIE untouched), realm
+`plutus`, an SPA public client per frontend (auth-code + PKCE) and the API audience. Seed a test
+user whose email matches a Plutus user. **Realm export committed** (`ops/keycloak/plutus-realm.json`)
+so it's reproducible. Caddy vhost (`login.plutus.huggett.dscloud.me`) **staged for Matt's sudo**.
+*DoD:* browser logs in via Keycloak → portal loads with the user's real permissions; kill/restart
+Keycloak, login still works from its persisted realm.
+
+**WP9.3 — Entra External ID config-ready.**
+The code path is already live from 9.1; this WP is the config templates + runbook (tenant, user-flow,
+app registrations, API scope exposure, redirect URIs) so a flip to `IdP:Provider=entra` works once
+Matt provisions the Azure tenant. No live proof possible without his tenant — documented as such.
+
+**WP9.4 — Frontend OIDC (portal + web POS).**
+Provider-agnostic SPA login: auth-code **+ PKCE** against `OIDC:Authority`/`OIDC:ClientId` (config
+per deployment), **access token in memory + refresh via cookie** (plan). Silent renew; logout hits
+the IdP end-session endpoint. Under `IdP:Provider=test` the existing email/password login stays the
+default, so the test env keeps working with no IdP. Device enrolment on the till is unchanged.
+*DoD:* both apps complete a real Keycloak login; access token never touches localStorage; refresh
+survives a reload; `test` mode still logs in with a password.
+
+**WP9.5 — Tests + DoD.**
+Unit: selector picks the right scheme per `IdP:Provider`; `RbacClaimsTransformation` maps
+email→scopes and denies unknown emails; a self-signed JWT validates through the JwtBearer path
+(fake issuer). Integration: device token authenticates under `keycloak`. Live: end-to-end browser
+login through the stood-up Keycloak. Arch test still green (no module→module leak).
+*DoD (phase):* flag flip swaps IdP with **zero API contract change**; till client-credentials
+unaffected; `openapi.json` unchanged by the swap.
 
 ## Phase 10 — Platform billing & offboarding
 
