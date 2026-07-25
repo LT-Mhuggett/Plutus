@@ -150,7 +150,16 @@ Then `pm2 delete plutus-portal-preview` (the LAN preview) if desired.
   idempotent + adoption-order-proof: heals pre-seed history replay, fences unprocessed
   history). Live parity verified: ledger == legacy Stocks and both move in lockstep per
   sale (the Phase-2 bridge keeps decrementing legacy in parallel until legacy retires).
-- WP5.2 (transfers + stock takes), WP5.3 (goods-in), WP5.4 (pricing) — not started.
+- **WP5.2 transfers + stock takes — COMPLETE & LIVE** (`8247ae9`): StockTransfers with a
+  real in-transit state (dispatch = TRANSFER_OUT at source; goods in NEITHER level while
+  travelling — structurally impossible to double-count; receive = TRANSFER_IN at
+  destination; cancel returns to source; 409 on double actions; all audited).
+  `POST /api/v1/stock/takes` posts counted-vs-expected ADJUSTMENTs with reason codes and
+  returns the variance report. Portal gained a **Stock** tab: central/per-store views,
+  in-transit receive/cancel, per-item movements drill, adjust/count/dispatch dialogs.
+  Live smoke: a count of 46 vs expected 44 posted a +2 reasoned adjustment.
+- WP5.3 (goods-in: Suppliers/PurchaseOrders/POLines → RECEIPT movements) and WP5.4
+  (pricing: PriceLists/Overrides/Policy + 9-case matrix) — NOT started; next up.
 
 **▶ NEXT:** continue Phase 5 (WP5.2 → WP5.4). Phase 4 (MAUI) remains **paused for upstream
 code**. The Kapow PRODUCTION cutover (final till backup → re-ETL) is a separate future op.
