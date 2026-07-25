@@ -1,25 +1,41 @@
 import { useEffect, useMemo, useState } from "react";
-import { checkout, fetchPayMethods, type PayMethod } from "../api.ts";
+import { checkout, fetchPayMethods, type CustomerDetail, type PayMethod } from "../api.ts";
 import { gbp, parsePence } from "../money.ts";
 import type { BasketLine } from "./basket.ts";
 import type { ReceiptData } from "./Receipt.tsx";
 
+// Synthetic pay-method id for the store-credit tender (Phase 8 retrofit). Real PayMethod ids
+// are positive; −1 never collides. Maps to a Credit tender server-side (name contains "credit").
+const CREDIT_PAYID = -1;
+
 interface Props {
   lines: BasketLine[];
   totals: { totalPence: number; totalExTaxPence: number };
+  customer?: CustomerDetail | null;
   onClose: () => void;
   onComplete: (receipt: ReceiptData) => void;
 }
 
-export default function CheckoutDialog({ lines, totals, onClose, onComplete }: Props) {
+export default function CheckoutDialog({ lines, totals, customer, onClose, onComplete }: Props) {
   const [methods, setMethods] = useState<PayMethod[] | null>(null);
   const [amounts, setAmounts] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchPayMethods().then(setMethods).catch((e) => setError(String(e)));
-  }, []);
+    fetchPayMethods()
+      .then((real) => {
+        // Store credit is offered only with a customer attached, a positive balance, AND
+        // online (the redeem needs a live balance check — it can't queue offline).
+        const eligible = customer && customer.creditBalancePence > 0 && navigator.onLine;
+        setMethods(
+          eligible
+            ? [...real, { id: CREDIT_PAYID, name: "Store credit", charge: 0, minimumCharge: 0, isChangeable: false, isCashBackable: false }]
+            : real,
+        );
+      })
+      .catch((e) => setError(String(e)));
+  }, [customer]);
 
   const parsed = useMemo(() => {
     const perMethod = new Map<number, number>();
@@ -49,7 +65,9 @@ export default function CheckoutDialog({ lines, totals, onClose, onComplete }: P
     ? [...parsed.perMethod.entries()].filter(([id]) => methods.find((m) => m.id === id)?.isChangeable).reduce((a, [, v]) => a + v, 0)
     : 0;
   const changeOk = overpay === 0 || overpay <= changeablePaid;
-  const canComplete = parsed.valid && remaining === 0 && changeOk && !busy;
+  const creditRedeem = parsed.valid ? parsed.perMethod.get(CREDIT_PAYID) ?? 0 : 0;
+  const creditOverBalance = creditRedeem > (customer?.creditBalancePence ?? 0);
+  const canComplete = parsed.valid && remaining === 0 && changeOk && !creditOverBalance && !busy;
 
   function quickFill(id: number) {
     setAmounts((a) => ({ ...a, [id]: (remaining / 100).toFixed(2) }));
@@ -80,7 +98,12 @@ export default function CheckoutDialog({ lines, totals, onClose, onComplete }: P
         changePence: changeByPayId.get(payId) ?? 0,
       }));
 
-      const sale = await checkout(lines, payments, totals);
+      const sale = await checkout(
+        lines,
+        payments,
+        totals,
+        creditRedeem > 0 && customer ? { customerId: customer.id, creditRedeemPence: creditRedeem } : undefined,
+      );
       onComplete({
         saleId: sale.saleId,
         date: new Date().toISOString(),
@@ -140,6 +163,9 @@ export default function CheckoutDialog({ lines, totals, onClose, onComplete }: P
           )}
         </div>
 
+        {creditOverBalance && (
+          <p className="error small">Store credit exceeds the customer's balance ({gbp(customer?.creditBalancePence ?? 0)}).</p>
+        )}
         {error && <p className="error small">{error}</p>}
 
         <div className="dialog-actions">

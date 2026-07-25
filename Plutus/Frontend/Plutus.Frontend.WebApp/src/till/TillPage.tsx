@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { fetchItems, findItemById, parkTransaction, type Item } from "../api.ts";
+import {
+  effectivePriceFor, fetchItems, findItemById, getCustomer, parkTransaction, searchCustomers,
+  type CustomerDetail, type CustomerSummary, type Item,
+} from "../api.ts";
 import { gbp, parsePence } from "../money.ts";
 import { useBasket, basketTotals, lineDiscountPence, lineTotalPence, type BasketState } from "./basket.ts";
 import { getPrefs } from "../prefs.ts";
@@ -28,15 +31,57 @@ export default function TillPage() {
   const [editValue, setEditValue] = useState("");
   const scanRef = useRef<HTMLInputElement>(null);
 
+  // Customer attach (Phase 8 retrofit): drives the members' auto-discount + store-credit tender.
+  const [customer, setCustomer] = useState<CustomerDetail | null>(null);
+  const [showCust, setShowCust] = useState(false);
+  const [custSearch, setCustSearch] = useState("");
+  const [custResults, setCustResults] = useState<CustomerSummary[] | null>(null);
+
   const totals = basketTotals(basket.lines);
+
+  // Auto-apply the members' discount to eligible lines whenever a member is attached or a new
+  // line is added (applyMemberDiscount only touches lines without a discount — no stacking).
+  useEffect(() => {
+    const m = customer?.membership;
+    if (m && !m.expired && m.autoDiscountRate > 0)
+      dispatch({ type: "applyMemberDiscount", rate: m.autoDiscountRate, name: `${m.tier} ${(m.autoDiscountRate * 100).toFixed(0)}%` });
+  }, [customer, basket.lines.length, dispatch]);
+
+  async function doCustSearch() {
+    try {
+      setCustResults(await searchCustomers(custSearch.trim()));
+    } catch (e) {
+      setNotice(String(e));
+    }
+  }
+
+  async function attachCustomer(id: string) {
+    try {
+      setCustomer(await getCustomer(id));
+      setShowCust(false);
+      setCustResults(null);
+      setCustSearch("");
+    } catch (e) {
+      setNotice(String(e));
+    }
+  }
+
+  function detachCustomer() {
+    setCustomer(null);
+    dispatch({ type: "clearMemberDiscount" });
+  }
 
   // Keyboard-wedge scanners type + Enter: keep the scan input focused.
   useEffect(() => {
     if (dialog === "none" && editingKey === null) scanRef.current?.focus();
   }, [dialog, editingKey, basket.lines.length]);
 
-  function addItem(item: Item) {
-    dispatch({ type: "add", item, quantity: qty });
+  async function addItem(item: Item) {
+    // WP5.4 retrofit: sell at the effective price (store override → central → legacy), not the
+    // catalogue price. effectivePriceFor falls back to the cached legacy price when offline.
+    const eff = await effectivePriceFor(item);
+    const priced = { ...item, price: eff.pricePence / 100, exPrice: eff.exPricePence / 100 };
+    dispatch({ type: "add", item: priced, quantity: qty });
     setQty(1); // NatApp resets the pending quantity after each add
     setScan("");
     setResults(null);
@@ -51,7 +96,7 @@ export default function TillPage() {
     try {
       const exact = await findItemById(term);
       if (exact) {
-        addItem(exact);
+        await addItem(exact);
         return;
       }
       const found = await fetchItems(1, 8, term);
@@ -129,6 +174,48 @@ export default function TillPage() {
         <button className="ghost" onClick={() => setDialog("return")}>
           Return Item
         </button>
+      </div>
+
+      {/* customer bar (Phase 8 retrofit): attach a customer for member discount + store credit */}
+      <div className="customer-bar">
+        {customer ? (
+          <span className="customer-chip">
+            👤 {customer.name}
+            {customer.creditBalancePence > 0 && <> · {gbp(customer.creditBalancePence)} credit</>}
+            {customer.membership && !customer.membership.expired && (
+              <> · {customer.membership.tier} {(customer.membership.autoDiscountRate * 100).toFixed(0)}%</>
+            )}{" "}
+            <button className="linklike small" onClick={detachCustomer}>remove</button>
+          </span>
+        ) : showCust ? (
+          <span className="customer-search">
+            <input
+              className="cust-input"
+              placeholder="customer name / email / phone"
+              value={custSearch}
+              autoFocus
+              onChange={(e) => setCustSearch(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && doCustSearch()}
+            />
+            <button className="ghost small" onClick={doCustSearch}>Find</button>
+            <button className="linklike small" onClick={() => { setShowCust(false); setCustResults(null); }}>cancel</button>
+            {custResults && (
+              <ul className="results cust-results">
+                {custResults.map((c) => (
+                  <li key={c.id}>
+                    <button onClick={() => attachCustomer(c.id)}>
+                      <span className="grow">{c.name}</span>
+                      <span className="muted small">{c.email ?? c.phone ?? ""}</span>
+                    </button>
+                  </li>
+                ))}
+                {custResults.length === 0 && <li className="muted small no-cust">No customers found.</li>}
+              </ul>
+            )}
+          </span>
+        ) : (
+          <button className="ghost small" onClick={() => setShowCust(true)}>＋ Customer</button>
+        )}
       </div>
 
       {notice && <p className="error small">{notice}</p>}
@@ -271,10 +358,12 @@ export default function TillPage() {
         <CheckoutDialog
           lines={basket.lines}
           totals={totals}
+          customer={customer}
           onClose={() => setDialog("none")}
           onComplete={(data) => {
             setReceipt(data);
             dispatch({ type: "clear" });
+            setCustomer(null); // fresh sale starts with no customer attached
             // NatApp AskForReceipt: prompt wins over auto-print when enabled
             const p = getPrefs();
             setPrintOnShow(p.askReceipt ? window.confirm("Print receipt?") : p.autoPrintReceipt);

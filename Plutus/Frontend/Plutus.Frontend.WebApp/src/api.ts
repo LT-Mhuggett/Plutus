@@ -16,6 +16,7 @@ import {
 } from "./offline.ts";
 import { businessDay, getDeviceCredential, itemGuid, postSale, uuidv7, type IngestLine, type IngestSaleRequest } from "./pipeline.ts";
 import { lineDiscountPence, type BasketLine } from "./till/basket.ts";
+import { toPence } from "./money.ts";
 
 // Phase 1: single-tenant test environment — the seeded Kapow business/store/till.
 // Replaced by a full bootstrap flow in later phases (ids from the seed ETL).
@@ -164,6 +165,53 @@ export async function fetchDiscounts(): Promise<Discount[]> {
     if (cached) return cached;
     throw e;
   }
+}
+
+// ── effective pricing (WP5.4 retrofit) ───────────────────────────────────────
+// Resolve the sell price from the pricing engine (store override → central price
+// list → legacy baseline) instead of the legacy catalogue price, so portal price
+// changes reach the till. Offline / not-priced → the cached legacy price.
+
+export async function effectivePriceFor(item: Item): Promise<{ pricePence: number; exPricePence: number }> {
+  try {
+    const res = await get<{ itemIdOne: string; pricePence: number; exPricePence: number }[]>(
+      `/api/v1/prices/effective?items=${encodeURIComponent(item.idOne)}&storeId=${STORE_ID}`,
+    );
+    const p = res.find((x) => x.itemIdOne === item.idOne);
+    if (p) return { pricePence: p.pricePence, exPricePence: p.exPricePence };
+  } catch {
+    /* offline or not priced — fall back to the legacy catalogue price */
+  }
+  return { pricePence: toPence(item.price), exPricePence: toPence(item.exPrice) };
+}
+
+// ── customers, store credit, membership (Phase 8 retrofit) ────────────────────
+
+export interface CustomerSummary {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+}
+export interface CustomerDetail extends CustomerSummary {
+  creditAccountId: string | null;
+  creditBalancePence: number;
+  membership: { tier: string; autoDiscountRate: number; renewalDay: string; expired: boolean } | null;
+}
+
+export const searchCustomers = (term: string) =>
+  get<CustomerSummary[]>(`/api/v1/customers?take=10${term ? `&search=${encodeURIComponent(term)}` : ""}`);
+
+export const getCustomer = (id: string) => get<CustomerDetail>(`/api/v1/customers/${id}`);
+
+/** Redeem store credit against a sale. Idempotent by entryId; throws on overdraw (400). */
+export async function redeemCredit(customerId: string, amountPence: number, saleId: string, entryId: string): Promise<void> {
+  await send("POST", `/api/v1/customers/${encodeURIComponent(customerId)}/credit/redeem`, {
+    amountPence,
+    saleId,
+    entryId,
+    reason: "till sale",
+  });
 }
 
 /** Background: pull the whole catalogue (no images) into IndexedDB for offline scanning. */
@@ -467,6 +515,7 @@ export async function checkout(
   lines: BasketLine[],
   payments: CheckoutPayment[],
   totals: { totalPence: number; totalExTaxPence: number },
+  opts?: { customerId?: string; creditRedeemPence?: number },
 ): Promise<CompletedSale> {
   const session = getSession();
   if (!session) throw new Error("Not signed in.");
@@ -474,6 +523,13 @@ export async function checkout(
   if (!cred) throw new Error("This till is not enrolled as a device — see Settings → Till device.");
 
   const saleId = uuidv7();
+
+  // Store credit (Phase 8): redeem FIRST so an overdraw/again aborts before the sale is
+  // recorded. Idempotent by entryId, so a queued-then-drained sale stays consistent — the
+  // credit tender below carries the same money. Online-only (the redeem needs a live balance).
+  if (opts?.customerId && opts.creditRedeemPence && opts.creditRedeemPence > 0) {
+    await redeemCredit(opts.customerId, opts.creditRedeemPence, saleId, uuidv7());
+  }
   const ingestLines: IngestLine[] = await Promise.all(
     lines.map(async (l) => {
       // Same arithmetic as basketTotals so the header/line invariants reconcile exactly.
@@ -492,10 +548,15 @@ export async function checkout(
         vatAmountPence: lineGross - lineEx,
         overriddenFromPence: l.adjusted ? Math.round(l.item.price * 100) : null,
         // Projection metadata for the server's legacy bridge (shape documented there).
+        // The members' auto-discount uses sentinel discountId 0 and is FILTERED OUT of the
+        // bridge's discounts[] (which maps to legacy Transaction_Discount by real DiscountId —
+        // a synthetic id would FK-fail). Its money still flows via discountPence above.
         discountsJson: JSON.stringify({
           itemIdOne: l.item.idOne,
           exUnitPence: l.exPricePence,
-          discounts: l.discount ? [{ id: l.discount.discountId, rate: l.discount.amount }] : undefined,
+          discounts: l.discount && l.discount.discountId !== 0
+            ? [{ id: l.discount.discountId, rate: l.discount.amount }]
+            : undefined,
           return: l.isReturn && l.originSaleId ? { originSaleId: l.originSaleId } : undefined,
         }),
       };

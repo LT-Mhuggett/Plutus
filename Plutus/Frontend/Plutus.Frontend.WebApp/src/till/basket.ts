@@ -35,6 +35,8 @@ type Action =
   | { type: "adjust"; key: number; pricePence: number }
   | { type: "applyDiscount"; discount: Discount; keys: number[] }
   | { type: "clearDiscount"; key: number }
+  | { type: "applyMemberDiscount"; rate: number; name: string }
+  | { type: "clearMemberDiscount" }
   | { type: "remove"; key: number }
   | { type: "move"; key: number; direction: -1 | 1 }
   | { type: "restore"; state: BasketState }
@@ -110,6 +112,23 @@ function reduce(state: BasketState, action: Action): BasketState {
       };
     case "clearDiscount":
       return { ...state, lines: state.lines.map((l) => (l.key === action.key ? { ...l, discount: undefined } : l)) };
+    // Members' auto-discount (Phase 8): a fraction applied to eligible lines only — non-return
+    // lines that carry no discount already (a manual/catalogue discount wins; no stacking).
+    // Marked with sentinel discountId 0 so checkout keeps it out of the legacy bridge metadata.
+    case "applyMemberDiscount":
+      return {
+        ...state,
+        lines: state.lines.map((l) =>
+          !l.isReturn && !l.discount
+            ? { ...l, discount: { discountId: 0, name: action.name, type: 1, amount: action.rate } }
+            : l,
+        ),
+      };
+    case "clearMemberDiscount":
+      return {
+        ...state,
+        lines: state.lines.map((l) => (l.discount?.discountId === 0 ? { ...l, discount: undefined } : l)),
+      };
     case "remove":
       return { ...state, lines: state.lines.filter((l) => l.key !== action.key) };
     case "move": {
