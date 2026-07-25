@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import {
   createStockLocation, createStore, createTill, deleteTill, fetchCompanies, fetchStockLocations,
-  fetchStores, fetchTills, putReceiptTemplate, renameTill, revokeTill, updateCompany, updateStore,
+  fetchStores, fetchTills, gbp, putReceiptTemplate, renameTill, revokeTill, updateCompany, updateStore,
   type Company, type ReceiptTemplate, type StockLocationRow, type StoreRow, type TillRow,
 } from "./api.ts";
+import Barcode39 from "./Barcode39.tsx";
 
 const DAYS: { key: string; label: string }[] = [
   { key: "mon", label: "Mon" }, { key: "tue", label: "Tue" }, { key: "wed", label: "Wed" },
@@ -404,39 +405,92 @@ function ReceiptTemplateEditor({ store, onSaved }: { store: StoreRow; onSaved: (
   return (
     <details className="receipt-tpl">
       <summary className="muted small">Receipt template</summary>
-      <p className="muted small">Ported from the NatApp receipt — everything below prints on the receipt and is editable.</p>
-      <div className="toolbar">
-        <label>Shop name <input placeholder={store.name ?? "business name"} value={tpl.storeName ?? ""}
-          onChange={(e) => setTpl({ ...tpl, storeName: e.target.value })} /></label>
-        <label>Phone <input placeholder={store.contactNumber} value={tpl.phone ?? ""}
-          onChange={(e) => setTpl({ ...tpl, phone: e.target.value })} /></label>
-        <label>VAT number <input value={tpl.vatNumber ?? ""} onChange={(e) => setTpl({ ...tpl, vatNumber: e.target.value })} /></label>
+      <p className="muted small">Ported from the NatApp receipt — everything below prints on the receipt and is editable. The preview on the right updates as you type.</p>
+      <div className="receipt-tpl-body">
+        <div className="receipt-tpl-fields">
+          <div className="toolbar">
+            <label>Shop name <input placeholder={store.name ?? "business name"} value={tpl.storeName ?? ""}
+              onChange={(e) => setTpl({ ...tpl, storeName: e.target.value })} /></label>
+            <label>Phone <input placeholder={store.contactNumber} value={tpl.phone ?? ""}
+              onChange={(e) => setTpl({ ...tpl, phone: e.target.value })} /></label>
+            <label>VAT number <input value={tpl.vatNumber ?? ""} onChange={(e) => setTpl({ ...tpl, vatNumber: e.target.value })} /></label>
+          </div>
+          <label className="block">Address (one line per row)
+            <textarea rows={2} placeholder={[store.adLine1, store.city, store.postCode].filter(Boolean).join("\n")}
+              value={linesToText(tpl.addressLines)} onChange={(e) => setTpl({ ...tpl, addressLines: textToLines(e.target.value) })} />
+          </label>
+          <label className="block">Header lines (e.g. "Thank you for shopping with us")
+            <textarea rows={2} value={linesToText(tpl.headerLines)}
+              onChange={(e) => setTpl({ ...tpl, headerLines: textToLines(e.target.value) })} />
+          </label>
+          <label className="block">Footer lines (e.g. returns policy)
+            <textarea rows={2} value={linesToText(tpl.footerLines)}
+              onChange={(e) => setTpl({ ...tpl, footerLines: textToLines(e.target.value) })} />
+          </label>
+          <label className="chk"><input type="checkbox" checked={tpl.showBarcode !== false}
+            onChange={(e) => setTpl({ ...tpl, showBarcode: e.target.checked })} /> Show sale barcode</label>
+          <label className="chk"><input type="checkbox" checked={!!tpl.showOperator}
+            onChange={(e) => setTpl({ ...tpl, showOperator: e.target.checked })} /> Show operator name</label>
+          <label className="chk"><input type="checkbox" checked={!!tpl.showVatNumber}
+            onChange={(e) => setTpl({ ...tpl, showVatNumber: e.target.checked })} /> Show VAT number</label>
+          {dirty && (
+            <button className="primary small" disabled={busy} onClick={async () => {
+              setBusy(true);
+              await putReceiptTemplate(store.id, tpl).finally(() => setBusy(false));
+              await onSaved();
+            }}>Save receipt template</button>
+          )}
+        </div>
+        <div className="receipt-tpl-preview">
+          <div className="muted small centre">Preview</div>
+          <ReceiptPreview tpl={tpl} store={store} />
+        </div>
       </div>
-      <label className="block">Address (one line per row)
-        <textarea rows={2} placeholder={[store.adLine1, store.city, store.postCode].filter(Boolean).join("\n")}
-          value={linesToText(tpl.addressLines)} onChange={(e) => setTpl({ ...tpl, addressLines: textToLines(e.target.value) })} />
-      </label>
-      <label className="block">Header lines (e.g. "Thank you for shopping with us")
-        <textarea rows={2} value={linesToText(tpl.headerLines)}
-          onChange={(e) => setTpl({ ...tpl, headerLines: textToLines(e.target.value) })} />
-      </label>
-      <label className="block">Footer lines (e.g. returns policy)
-        <textarea rows={2} value={linesToText(tpl.footerLines)}
-          onChange={(e) => setTpl({ ...tpl, footerLines: textToLines(e.target.value) })} />
-      </label>
-      <label className="chk"><input type="checkbox" checked={tpl.showBarcode !== false}
-        onChange={(e) => setTpl({ ...tpl, showBarcode: e.target.checked })} /> Show sale barcode</label>
-      <label className="chk"><input type="checkbox" checked={!!tpl.showOperator}
-        onChange={(e) => setTpl({ ...tpl, showOperator: e.target.checked })} /> Show operator name</label>
-      <label className="chk"><input type="checkbox" checked={!!tpl.showVatNumber}
-        onChange={(e) => setTpl({ ...tpl, showVatNumber: e.target.checked })} /> Show VAT number</label>
-      {dirty && (
-        <button className="primary small" disabled={busy} onClick={async () => {
-          setBusy(true);
-          await putReceiptTemplate(store.id, tpl).finally(() => setBusy(false));
-          await onSaved();
-        }}>Save receipt template</button>
-      )}
     </details>
+  );
+}
+
+/** Live preview of the receipt as the till would print it, from the current template + store,
+ *  with sample sale data. Mirrors the web POS Receipt component's layout (NatApp order). */
+function ReceiptPreview({ tpl, store }: { tpl: ReceiptTemplate; store: StoreRow }) {
+  const headerLines = tpl.headerLines?.length ? tpl.headerLines : ["Thank you for shopping with us"];
+  const shopName = tpl.storeName || store.name || "Your business";
+  const phone = tpl.phone || store.contactNumber;
+  const address = tpl.addressLines?.length ? tpl.addressLines : [store.adLine1, store.city, store.postCode].filter(Boolean);
+  const showBarcode = tpl.showBarcode !== false;
+  // Sample basket for the preview.
+  const lines = [
+    { name: "Comic Book", qty: 1, pricePence: 349 },
+    { name: "Sticker Pack", qty: 2, pricePence: 100 },
+  ];
+  const gross = lines.reduce((s, l) => s + l.pricePence * l.qty, 0);
+  const vat = Math.round(gross - gross / 1.2);
+
+  return (
+    <div className="receipt-view">
+      {headerLines.map((l, i) => <p className="centre small" key={`h${i}`}>{l}</p>)}
+      <p className="centre" style={{ fontWeight: 700 }}>{shopName}</p>
+      {phone && <p className="centre small">{phone}</p>}
+      {address.map((l, i) => <p className="centre small" key={`a${i}`}>{l}</p>)}
+      {tpl.showVatNumber && tpl.vatNumber && <p className="centre small">VAT No: {tpl.vatNumber}</p>}
+      <p className="centre small">{new Date().toLocaleString("en-GB")}</p>
+      {tpl.showOperator && <p className="centre small">Served by Sample Staff</p>}
+      <hr />
+      <table className="receipt-lines">
+        <tbody>
+          {lines.map((l, i) => (
+            <tr key={i}><td>{l.qty} × {l.name}</td><td className="num">{gbp(l.pricePence * l.qty)}</td></tr>
+          ))}
+        </tbody>
+      </table>
+      <hr />
+      <p className="r-total"><span>Total</span><span>{gbp(gross)}</span></p>
+      <p className="small r-total"><span>VAT</span><span>{gbp(vat)}</span></p>
+      <hr />
+      <p className="centre small">Cash {gbp(600)} (change {gbp(600 - gross)})</p>
+      {(tpl.footerLines ?? []).map((l, i) => <p className="centre small" key={`f${i}`}>{l}</p>)}
+      {showBarcode && <div className="centre"><Barcode39 value="019f9a8d-sample-sale" height={38} /></div>}
+      <p className="centre mono tiny">019f9a8d-…-sample</p>
+    </div>
   );
 }

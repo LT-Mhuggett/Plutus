@@ -86,6 +86,13 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 /* WP11.2 receipt template editor + viewer */
 .receipt-tpl { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 8px; }
 .receipt-tpl summary { cursor: pointer; }
+.receipt-tpl-body { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+.receipt-tpl-fields { flex: 1; min-width: 300px; }
+.receipt-tpl-preview { width: 320px; }
+.receipt-tpl-preview .receipt-view { border: 1px solid var(--line); border-radius: 6px; padding: 12px; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.centre { text-align: center; }
+.tiny { font-size: 10px; }
+.receipt-view p { margin: 1px 0; }
 .chk { display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 4px 0; }
 .chk input { width: auto; }
 .receipt-view { max-width: 300px; margin: 8px auto; font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 12px; }
