@@ -1,6 +1,6 @@
 # Handover — Plutus platform build
 
-**Date:** 2026-07-25 (early hours) — Phases 0–3 complete, all pushed, CI green
+**Date:** 2026-07-25 (early hours) — Phases 0–3 + 5 complete, Kapow history loaded, all pushed
 **Branch:** `Matt's-Horror` · remote `origin` = LT-Mhuggett/Plutus (everything pushed; CI green on head `8eb3073`)
 **Hard rule:** **DO NOT TOUCH ETRIE** — it shares the Mac mini but is a separate product. Every Plutus change keeps ETRIE's ports/processes/paths/Caddy blocks untouched; verify ETRIE health (`https://10.1.1.40/health`, `https://huggett.dscloud.me/health` → 200) after any Mac change.
 
@@ -13,7 +13,7 @@ This supersedes the earlier MAUI-only handover. Companion docs: `Build/` (platfo
 A complete **React web POS** + **management portal** trading against the **multi-tenant .NET platform + MySQL**, all on the Mac mini, seeded with the real Kapow database.
 
 - **Till:** `https://plutus.huggett.dscloud.me` — login-first (real token auth). Logins: `dev@plutus.local` / `PlutusDev2026`, or `kapow_comics@outlook.com` / (the till's real password). Features: scan/search, basket (qty/price-adjust/reorder), discounts, returns (by receipt id **or by date**), park/retrieve, split-payment checkout, browser receipts + copy-reprint, offline/PWA (IndexedDB catalogue + checkout outbox), employee management, item add/edit, **Reporting** (Summary dashboard w/ SVG charts, Custom + Excel + sale recall, VAT calc + off-band integrity banner), editable Store Information, Settings. **Since Phase 2 the till is an enrolled DEVICE**: checkout goes outbox-first through `POST /api/v1/sales` (Settings → Till device to enrol a browser).
-- **Portal (Phase 3):** management back office — dashboard (year→month→day→transaction drill), VAT view, Users & Roles (RBAC), Stores & Tills (enrolment codes), Financial Periods. Interim URL **`http://10.1.1.40:5274`** (pm2 `plutus-portal-preview`, LAN only) until the staged `admin.plutus` Caddy vhost is applied (ONE sudo block — §5).
+- **Portal (Phase 3):** management back office — dashboard (year→month→day→transaction drill), VAT view, Users & Roles (RBAC), Stores & Tills (enrolment codes), Financial Periods. Live at **https://admin.plutus.huggett.dscloud.me** (Caddy vhost applied by Matt 2026-07-25; LAN preview retired).
 - **Backend:** `Plutus.DBService` (**.NET 8** modular monolith: SharedKernel/Identity/Catalogue/Sales/Reporting/Tenancy), self-contained `osx-arm64`, under **pm2** as `plutus-backend` on `127.0.0.1:5100`. Auth = HMAC bearer (`PlutusTokenAuthHandler`, 12h) with REAL scope + RBAC (`perm:*`) policies — the flag swaps B2C out, it does NOT bypass auth. Every `/api` endpoint 401s without a token.
 - **DB:** MySQL 9.6 (Homebrew), schema `plutus` — **graduated to the full platform schema in Phase 2/3** (tenancy, devices, sales-v2, outbox, RBAC, audit, rollups, periods; all also on staging `plutus_t1`). Seeded from the Kapow backup (20,340 items / 21,657 legacy sales). Credentials in `~/PLUTUS/secrets/mysql.env` (also holds `TEST_TOKEN_SECRET`). Rollback dump: `~/PLUTUS/backups/plutus-pre-phase2-20260724.sql.gz`.
 - **Edge:** Caddy serves the static till at `plutus.huggett.dscloud.me` and reverse-proxies `/api/*` → 5100. LE cert auto-renews. (Router SNATs WAN→LAN, so Caddy IP allowlists don't work — auth is the gate, not IP. ⚠ No basic_auth on the till host — flagged in §5, Matt to decide.)
@@ -25,7 +25,7 @@ Full environment detail is in memory (`plutus-test-environment.md`) and `Environ
 | Host | Serves | Status |
 |---|---|---|
 | `plutus.huggett.dscloud.me` | Web POS / till | live |
-| `admin.plutus.huggett.dscloud.me` | Management portal (React app #2) | **built & deployed — vhost staged, awaiting Matt's sudo block (§5)**; interim `http://10.1.1.40:5274` |
+| `admin.plutus.huggett.dscloud.me` | Management portal (React app #2) | **LIVE** (vhost applied 2026-07-25) |
 | `api.plutus.huggett.dscloud.me` | Backend API — single isolated surface | later cutover |
 
 `*.huggett.dscloud.me` wildcard resolves any depth to 94.6.166.54. Until the portal lands the till keeps using `/api` on its own host.
@@ -106,22 +106,13 @@ projections, financial periods, and the **management portal**. **79 unit + 5 int
 - **WP3.5 Portal** — new React app `Plutus/Frontend/Plutus.Frontend.Portal` (react+react-dom
   only, one CSS file, hand-rolled SVG chart). Login → dashboard (year→month→day→sale
   drill), VAT view, Users & Roles, Stores & Tills (enrolment codes), Periods.
-  **Deployed:** dist at `/srv/apps/PLUTUS/portal/current`; **interim URL
-  `http://10.1.1.40:5274`** (pm2 `plutus-portal-preview`, vite preview + /api proxy —
-  LAN only) until the proper vhost lands.
+  **Deployed:** dist at `/srv/apps/PLUTUS/portal/current`, served at
+  **https://admin.plutus.huggett.dscloud.me**.
 
-**⚠ ONE SUDO STEP FOR MATT — admin.plutus vhost:** staged + syntax-validated at
-`~/PLUTUS/staging/Caddyfile.wp35` (validate as admin only errs on opening root-owned log
-files — expected). Run:
-```
-sudo caddy validate --config ~/PLUTUS/staging/Caddyfile.wp35
-sudo cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.pre-wp35.bak
-sudo cp ~/PLUTUS/staging/Caddyfile.wp35 /etc/caddy/Caddyfile
-sudo caddy reload --config /etc/caddy/Caddyfile
-curl -s -o /dev/null -w "%{http_code}\n" https://huggett.dscloud.me/health   # ETRIE = 200
-curl -s -o /dev/null -w "%{http_code}\n" https://admin.plutus.huggett.dscloud.me/
-```
-Then `pm2 delete plutus-portal-preview` (the LAN preview) if desired.
+**✅ admin.plutus vhost APPLIED (Matt, 2026-07-25 00:46):** the staged Caddyfile went live
+(rollback copy at `/etc/caddy/Caddyfile.pre-wp35.bak`); portal + /api proxy verified 200 over
+the vhost, ETRIE health 200. The temporary LAN preview (pm2 `plutus-portal-preview`,
+:5274) has been deleted — the vhost is the only portal entry point.
 
 **Phase-3 notes / debts:**
 - The **legacy sale bridge** (Phase 2) still runs alongside the rollup consumer — the till's
@@ -381,9 +372,11 @@ Note: the transitional `Sale/Summary`/`VatIntegrity`/`SaleReport` on Plutus.Sale
 
 ## 8. One-line status
 
-**Phases 0–3 COMPLETE** — the web POS trades through the idempotent v1 pipeline; RBAC +
-admin APIs + rollup reporting projections + financial periods are live; the management
-portal is deployed (interim LAN URL http://10.1.1.40:5274; the admin.plutus vhost awaits one
-sudo block, §5). 79 unit + 5 integration + 5 arch tests green. ETRIE untouched. Phase 4
-(MAUI) paused for upstream; next moves: Phase 5 or the Kapow production cutover (§5 notes
-the cutover order). Resume at §5.
+**Phases 0–3 AND 5 COMPLETE; Kapow history loaded** — the web POS trades through the
+idempotent v1 pipeline; RBAC, admin APIs, rollup reporting (8 years of Kapow data,
+penny-parity verified), financial periods, stock ledger (transfers/takes/goods-in) and
+policy-driven pricing are all live; the portal is at **https://admin.plutus.huggett.dscloud.me**
+(vhost applied by Matt 2026-07-25). 95 unit + 5 integration + 5 arch tests green. ETRIE
+untouched. Phase 4 (MAUI) paused for upstream; open moves (Matt's call): Phase 6 (Woo
+connector — needs a test store), production cutover, till → /prices/effective, retire the
+legacy bridge. Resume at §5.
