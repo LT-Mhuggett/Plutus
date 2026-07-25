@@ -1,42 +1,51 @@
 import { useEffect, useState } from "react";
-import { downloadCsv, fetchItemsSold, gbp, type ItemsSold } from "./api.ts";
+import {
+  downloadCsv, fetchItemsSold, fetchReportStaff, fetchStores, gbp,
+  type ItemsSold, type StaffRow, type StoreRow,
+} from "./api.ts";
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const today = () => iso(new Date());
 const daysAgo = (n: number) => iso(new Date(Date.now() - n * 86400_000));
 
-/** WP11.4 items-sold report (NatApp "Stock Outtake" parity): date sold, item, location, qty,
- *  unit price, discount, line gross — quick ranges + month/quarter/year, with CSV export. */
+/** WP11.4 items-sold report (NatApp "Stock Outtake" parity): date sold, item, location, staff,
+ *  qty, unit price, discount, line gross — quick ranges + month/quarter/year, and filters by
+ *  store AND staff across stores, with CSV export. Same endpoint the POS uses (store-scoped). */
 export default function ItemsSoldPage() {
   const [from, setFrom] = useState(daysAgo(6));
   const [to, setTo] = useState(today());
+  const [storeId, setStoreId] = useState<number | "">("");
+  const [staffId, setStaffId] = useState("");
+  const [stores, setStores] = useState<StoreRow[]>([]);
+  const [staff, setStaff] = useState<StaffRow[]>([]);
   const [data, setData] = useState<ItemsSold | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const now = new Date();
+
+  useEffect(() => { fetchStores().then(setStores).catch(() => undefined); }, []);
+  // Staff list follows the store selection (store-scoped sellers; all sellers when no store).
+  useEffect(() => {
+    setStaffId("");
+    fetchReportStaff(storeId === "" ? undefined : storeId).then(setStaff).catch(() => setStaff([]));
+  }, [storeId]);
 
   useEffect(() => {
     setLoading(true);
     setError("");
-    fetchItemsSold(from, to)
+    fetchItemsSold(from, to, storeId === "" ? undefined : storeId, staffId || undefined)
       .then(setData)
       .catch((e) => setError(String(e instanceof Error ? e.message : e)))
       .finally(() => setLoading(false));
-  }, [from, to]);
+  }, [from, to, storeId, staffId]);
 
   const setRange = (f: string, t: string) => { setFrom(f); setTo(t); };
-  const now = new Date();
-
-  function pickMonth(v: string) {
-    if (!v) return;
-    const [y, m] = v.split("-").map(Number);
-    setRange(`${v}-01`, iso(new Date(y, m, 0)));
-  }
-  function pickQuarter(qIdx: number) {
-    const y = now.getFullYear();
-    const startMonth = qIdx * 3;
-    setRange(iso(new Date(y, startMonth, 1)), iso(new Date(y, startMonth + 3, 0)));
-  }
+  function pickMonth(v: string) { if (!v) return; const [y, m] = v.split("-").map(Number); setRange(`${v}-01`, iso(new Date(y, m, 0))); }
+  function pickQuarter(q: number) { const y = now.getFullYear(); setRange(iso(new Date(y, q * 3, 1)), iso(new Date(y, q * 3 + 3, 0))); }
   function pickYear(y: number) { setRange(`${y}-01-01`, `${y}-12-31`); }
+
+  const csvUrl = `/api/v1/reports/items-sold.csv?from=${from}&to=${to}` +
+    (storeId === "" ? "" : `&storeId=${storeId}`) + (staffId ? `&operatorUserId=${staffId}` : "");
 
   return (
     <section className="panel">
@@ -48,9 +57,7 @@ export default function ItemsSoldPage() {
         <label>Month <input type="month" onChange={(e) => pickMonth(e.target.value)} /></label>
         <label>Quarter
           <select defaultValue="" onChange={(e) => e.target.value && pickQuarter(Number(e.target.value))}>
-            <option value="">…</option>
-            <option value="0">Q1 (Jan–Mar)</option><option value="1">Q2 (Apr–Jun)</option>
-            <option value="2">Q3 (Jul–Sep)</option><option value="3">Q4 (Oct–Dec)</option>
+            <option value="">…</option><option value="0">Q1</option><option value="1">Q2</option><option value="2">Q3</option><option value="3">Q4</option>
           </select>
         </label>
         <label>Year
@@ -63,10 +70,20 @@ export default function ItemsSoldPage() {
       <div className="toolbar">
         <label>From <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
         <label>To <input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+        <label>Store
+          <select value={storeId} onChange={(e) => setStoreId(e.target.value === "" ? "" : Number(e.target.value))}>
+            <option value="">All stores</option>
+            {stores.map((s) => <option key={s.id} value={s.id}>Store {s.id}{s.city ? ` · ${s.city}` : ""}</option>)}
+          </select>
+        </label>
+        <label>Staff
+          <select value={staffId} onChange={(e) => setStaffId(e.target.value)}>
+            <option value="">All staff</option>
+            {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </label>
         <button className="ghost small" disabled={!data?.rows.length}
-          onClick={() => void downloadCsv(`/api/v1/reports/items-sold.csv?from=${from}&to=${to}`, `items-sold-${from}-${to}.csv`)}>
-          Export CSV
-        </button>
+          onClick={() => void downloadCsv(csvUrl, `items-sold-${from}-${to}.csv`)}>Export CSV</button>
       </div>
 
       {error && <p className="error">{error}</p>}
@@ -80,10 +97,10 @@ export default function ItemsSoldPage() {
             <div className="stat"><span className="stat-label">Discounts</span><span className="stat-value">{gbp(data.totals.discountPence)}</span></div>
             <div className="stat"><span className="stat-label">Gross</span><span className="stat-value">{gbp(data.totals.grossPence)}</span></div>
           </div>
-          {data.count >= 2000 && <p className="muted small">Showing the most recent 2,000 lines — narrow the range or export CSV for the full set.</p>}
+          {data.count >= 2000 && <p className="muted small">Showing the most recent 2,000 lines — narrow the filters or export CSV for the full set.</p>}
           <table>
             <thead><tr>
-              <th>Date sold</th><th>Item</th><th>Location</th>
+              <th>Date sold</th><th>Item</th><th>Location</th><th>Staff</th>
               <th className="num">Qty</th><th className="num">Unit</th><th className="num">Discount</th><th className="num">Line gross</th>
             </tr></thead>
             <tbody>
@@ -92,13 +109,14 @@ export default function ItemsSoldPage() {
                   <td className="small">{new Date(r.dateSold + "Z").toLocaleString("en-GB")}</td>
                   <td><span className="mono small">{r.itemIdOne}</span> {r.itemName}</td>
                   <td className="small">Store {r.storeId} · {r.tillName}</td>
+                  <td className="small">{r.staffName}</td>
                   <td className="num">{r.qty}</td>
                   <td className="num">{gbp(r.unitPricePence)}</td>
                   <td className="num">{r.discountPence ? gbp(r.discountPence) : "—"}</td>
                   <td className="num">{gbp(r.lineGrossPence)}</td>
                 </tr>
               ))}
-              {data.rows.length === 0 && <tr><td colSpan={7} className="muted">No items sold in this range.</td></tr>}
+              {data.rows.length === 0 && <tr><td colSpan={8} className="muted">No items sold for these filters.</td></tr>}
             </tbody>
           </table>
         </>

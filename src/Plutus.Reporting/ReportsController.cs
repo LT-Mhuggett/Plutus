@@ -220,14 +220,15 @@ namespace Plutus.Reporting
 
         public sealed record ItemSoldRow(
             DateTime dateSold, string itemIdOne, string itemName, int storeId, Guid tillId,
-            string tillName, int qty, long unitPricePence, long discountPence, long lineGrossPence);
+            string tillName, Guid staffId, string staffName,
+            int qty, long unitPricePence, long discountPence, long lineGrossPence);
 
         /// <summary>WP11.4 items-sold report (NatApp "Stock Outtake" parity). Sourced from the
         /// LEGACY Trans+Sales tables (they carry ItemIdOne for name joins and uniformly cover
         /// 2019→today; re-point to SaleLines when legacy retires — contract unchanged). Filters:
-        /// date range + optional store/till/item. Capped.</summary>
+        /// date range + optional store/till/item/staff. Capped.</summary>
         private async Task<List<ItemSoldRow>> ItemsSoldAsync(
-            DateOnly from, DateOnly to, int? storeId, Guid? tillId, string itemIdOne, int take)
+            DateOnly from, DateOnly to, int? storeId, Guid? tillId, Guid? operatorUserId, string itemIdOne, int take)
         {
             var fromDt = from.ToDateTime(TimeOnly.MinValue);
             var toDt = to.AddDays(1).ToDateTime(TimeOnly.MinValue); // inclusive end day
@@ -238,10 +239,11 @@ namespace Plutus.Reporting
                     select new
                     {
                         t.IdOne, SaleId = t.IdTwo, t.ItemIdOne, t.Amount, t.ItemCostPrice,
-                        t.TillId, s.DateOfSale, s.StoreId,
+                        t.TillId, s.DateOfSale, s.StoreId, s.EmployeeId,
                     };
             if (storeId != null) q = q.Where(x => x.StoreId == storeId);
             if (tillId != null) q = q.Where(x => x.TillId == tillId);
+            if (operatorUserId != null) q = q.Where(x => x.EmployeeId == operatorUserId);
             if (!string.IsNullOrWhiteSpace(itemIdOne)) q = q.Where(x => x.ItemIdOne == itemIdOne);
 
             var lines = await q.OrderByDescending(x => x.DateOfSale).Take(take).ToListAsync();
@@ -257,6 +259,12 @@ namespace Plutus.Reporting
             var tillNames = await _db.TillDetails.AsNoTracking()
                 .Where(td => tillIds.Contains(td.TillId))
                 .ToDictionaryAsync(td => td.TillId, td => td.Name);
+
+            var staffIds = lines.Select(l => l.EmployeeId).Distinct().ToList();
+            var staffNames = await _db.People.AsNoTracking().IgnoreQueryFilters()
+                .Where(p => staffIds.Contains(p.Id))
+                .Select(p => new { p.Id, p.FName, p.LName })
+                .ToDictionaryAsync(p => p.Id, p => $"{p.FName} {p.LName}".Trim());
 
             // Σ discount rate per legacy transaction line (TransactionId + SaleId composite).
             var saleIds = lines.Select(l => l.SaleId).Distinct().ToList();
@@ -278,6 +286,7 @@ namespace Plutus.Reporting
                     l.DateOfSale, l.ItemIdOne, names.TryGetValue(l.ItemIdOne, out var n) ? n : "?",
                     l.StoreId, l.TillId,
                     tillNames.TryGetValue(l.TillId, out var tn) ? tn : $"Till {l.TillId.ToString()[..8]}",
+                    l.EmployeeId, staffNames.TryGetValue(l.EmployeeId, out var sn) && !string.IsNullOrWhiteSpace(sn) ? sn : "—",
                     l.Amount, unitPence, discountPence, beforeDiscount - discountPence);
             }).ToList();
         }
@@ -288,11 +297,11 @@ namespace Plutus.Reporting
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> ItemsSold(
             [FromQuery] DateOnly from, [FromQuery] DateOnly to, [FromQuery] int? storeId,
-            [FromQuery] Guid? tillId, [FromQuery] string itemIdOne, [FromQuery] int take = 1000)
+            [FromQuery] Guid? tillId, [FromQuery] Guid? operatorUserId, [FromQuery] string itemIdOne, [FromQuery] int take = 1000)
         {
             if (to < from) return BadRequest(new { detail = "to must be >= from." });
             take = Math.Clamp(take, 1, 5000);
-            var rows = await ItemsSoldAsync(from, to, storeId, tillId, itemIdOne, take);
+            var rows = await ItemsSoldAsync(from, to, storeId, tillId, operatorUserId, itemIdOne, take);
             return Ok(new
             {
                 from = from.ToString("yyyy-MM-dd"), to = to.ToString("yyyy-MM-dd"), count = rows.Count,
@@ -312,20 +321,39 @@ namespace Plutus.Reporting
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> ItemsSoldCsv(
             [FromQuery] DateOnly from, [FromQuery] DateOnly to, [FromQuery] int? storeId,
-            [FromQuery] Guid? tillId, [FromQuery] string itemIdOne, [FromQuery] int take = 5000)
+            [FromQuery] Guid? tillId, [FromQuery] Guid? operatorUserId, [FromQuery] string itemIdOne, [FromQuery] int take = 5000)
         {
             if (to < from) return BadRequest(new { detail = "to must be >= from." });
             take = Math.Clamp(take, 1, 5000);
-            var rows = await ItemsSoldAsync(from, to, storeId, tillId, itemIdOne, take);
+            var rows = await ItemsSoldAsync(from, to, storeId, tillId, operatorUserId, itemIdOne, take);
             var inv = CultureInfo.InvariantCulture;
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine("dateSold,itemBarcode,itemName,storeId,till,qty,unitPricePence,discountPence,lineGrossPence");
+            sb.AppendLine("dateSold,itemBarcode,itemName,storeId,till,staff,qty,unitPricePence,discountPence,lineGrossPence");
             foreach (var r in rows)
-                sb.AppendLine(string.Format(inv, "{0:yyyy-MM-dd HH:mm},{1},\"{2}\",{3},\"{4}\",{5},{6},{7},{8}",
+                sb.AppendLine(string.Format(inv, "{0:yyyy-MM-dd HH:mm},{1},\"{2}\",{3},\"{4}\",\"{5}\",{6},{7},{8},{9}",
                     r.dateSold, r.itemIdOne, r.itemName.Replace("\"", "\"\""), r.storeId,
-                    r.tillName.Replace("\"", "\"\""), r.qty, r.unitPricePence, r.discountPence, r.lineGrossPence));
+                    r.tillName.Replace("\"", "\"\""), r.staffName.Replace("\"", "\"\""),
+                    r.qty, r.unitPricePence, r.discountPence, r.lineGrossPence));
             return File(System.Text.Encoding.UTF8.GetBytes(sb.ToString()), "text/csv",
                 $"items-sold-{from:yyyyMMdd}-{to:yyyyMMdd}.csv");
+        }
+
+        /// <summary>Staff who have sold (for the report filters), optionally scoped to a store.
+        /// Distinct sellers with names — the store-level filter on the POS and the cross-store
+        /// filter in the portal both read this.</summary>
+        [HttpGet("api/v1/reports/staff")]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> Staff([FromQuery] int? storeId)
+        {
+            var sellers = _db.Sales.AsNoTracking().AsQueryable();
+            if (storeId != null) sellers = sellers.Where(s => s.StoreId == storeId);
+            var ids = await sellers.Select(s => s.EmployeeId).Distinct().ToListAsync();
+            var staff = await _db.People.AsNoTracking().IgnoreQueryFilters()
+                .Where(p => ids.Contains(p.Id))
+                .Select(p => new { id = p.Id, name = (p.FName + " " + p.LName).Trim() })
+                .ToListAsync();
+            return Ok(staff.Where(s => !string.IsNullOrWhiteSpace(s.name)).OrderBy(s => s.name));
         }
 
         /// <summary>Rebuild the tenant's rollups from SalesV2 (platform-admin; also run at

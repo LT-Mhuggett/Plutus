@@ -308,6 +308,43 @@ export interface SalesSummary {
 export const fetchSalesSummary = (from: Date, to: Date) =>
   get<SalesSummary>(`/api/Sale/Summary?minDate=${dateOnly(from)}&maxDate=${dateOnly(to)}`);
 
+// ── v1 reports (parity with the portal — same endpoints, scoped to THIS store) ──
+// Gated server-side on portal.reports.view / portal.financials.view via RBAC, so a cashier
+// without the permission gets a 403 the Reporting page turns into a "no access" note.
+
+export interface V1Summary {
+  totals: { grossPence: number; vatPence: number; txnCount: number; avgBasketPence: number };
+  buckets: { period: string; grossPence: number; vatPence: number; txnCount: number; avgBasketPence: number }[];
+}
+export const fetchV1Summary = (from: string, to: string, granularity = "day") =>
+  get<V1Summary>(`/api/v1/reports/summary?level=store&id=${STORE_ID}&from=${from}&to=${to}&granularity=${granularity}`);
+
+export interface V1Vat {
+  totals: { grossPence: number; netPence: number; vatPence: number };
+  buckets: { period: string; vatRateBp: number; grossPence: number; netPence: number; vatPence: number }[];
+}
+export const fetchV1Vat = (from: string, to: string, granularity = "month") =>
+  get<V1Vat>(`/api/v1/reports/vat?level=store&id=${STORE_ID}&from=${from}&to=${to}&granularity=${granularity}`);
+
+export interface V1ItemSoldRow {
+  dateSold: string; itemIdOne: string; itemName: string; storeId: number; tillId: string;
+  tillName: string; staffId: string; staffName: string;
+  qty: number; unitPricePence: number; discountPence: number; lineGrossPence: number;
+}
+export interface V1ItemsSold {
+  count: number; totals: { qty: number; grossPence: number; discountPence: number }; rows: V1ItemSoldRow[];
+}
+export const fetchV1ItemsSold = (from: string, to: string, operatorUserId?: string) =>
+  get<V1ItemsSold>(`/api/v1/reports/items-sold?from=${from}&to=${to}&storeId=${STORE_ID}&take=2000` +
+    (operatorUserId ? `&operatorUserId=${operatorUserId}` : ""));
+
+export interface V1Staff { id: string; name: string }
+export const fetchV1Staff = () => get<V1Staff[]>(`/api/v1/reports/staff?storeId=${STORE_ID}`);
+
+export interface V1StockLevel { stockLocationId: string; location: string; itemIdOne: string; name: string | null; quantity: number }
+export const fetchV1StockLevels = (search = "") =>
+  get<V1StockLevel[]>(`/api/v1/stock/levels?take=500${search ? `&search=${encodeURIComponent(search)}` : ""}`);
+
 export interface SaleDetail {
   id: string;
   dateOfSale: string;

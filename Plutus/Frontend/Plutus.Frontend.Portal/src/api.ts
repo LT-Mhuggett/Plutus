@@ -219,15 +219,22 @@ export const putReceiptTemplate = (storeId: number, tpl: ReceiptTemplate) =>
 // ── WP11.4 items-sold report ──
 export interface ItemSoldRow {
   dateSold: string; itemIdOne: string; itemName: string; storeId: number; tillId: string;
-  tillName: string; qty: number; unitPricePence: number; discountPence: number; lineGrossPence: number;
+  tillName: string; staffId: string; staffName: string;
+  qty: number; unitPricePence: number; discountPence: number; lineGrossPence: number;
 }
 export interface ItemsSold {
   from: string; to: string; count: number;
   totals: { qty: number; grossPence: number; discountPence: number };
   rows: ItemSoldRow[];
 }
-export const fetchItemsSold = (from: string, to: string) =>
-  get<ItemsSold>(`/api/v1/reports/items-sold?from=${from}&to=${to}&take=2000`);
+export interface StaffRow { id: string; name: string }
+export const itemsSoldQuery = (from: string, to: string, storeId?: number, operatorUserId?: string) =>
+  `/api/v1/reports/items-sold?from=${from}&to=${to}&take=2000` +
+  (storeId != null ? `&storeId=${storeId}` : "") + (operatorUserId ? `&operatorUserId=${operatorUserId}` : "");
+export const fetchItemsSold = (from: string, to: string, storeId?: number, operatorUserId?: string) =>
+  get<ItemsSold>(itemsSoldQuery(from, to, storeId, operatorUserId));
+export const fetchReportStaff = (storeId?: number) =>
+  get<StaffRow[]>(`/api/v1/reports/staff${storeId != null ? `?storeId=${storeId}` : ""}`);
 
 /** Auth-correct CSV download (a plain <a href> can't send the bearer token). */
 export async function downloadCsv(url: string, filename: string): Promise<void> {
