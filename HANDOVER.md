@@ -188,9 +188,13 @@ Expire, balance = Σ entries, overdraw-guarded, idempotent-by-entry-id redeem), 
 customers CRUD + at-sale lookup, `credit/issue|redeem`, `membership`, credit history. Period
 close now records `outstandingCreditLiabilityPence` (§7.1). Portal **Customers** tab. Live
 smoke: issue £20 → redeem £7.50 → overdraw 400 → membership — all correct. 102+5+5 green.
-⚠ Follow-up: the till/web-POS UI doesn't yet USE credit-as-tender or the members' auto-discount
-at checkout — the endpoints exist (`credit/redeem`, the membership lookup), wiring them into the
-basket is a small frontend task.
+**Till retrofit — WEB DONE, MAUI documented (2026-07-25, `9a047c3`):** the web POS now
+consumes the Phase 5/8 backend it had drifted behind — effective pricing (WP5.4) at
+basket-add, a customer bar (attach/search), members' auto-discount, and store credit as a
+checkout tender. Full gap list + per-item web(done)/MAUI(to-do) in
+**`Build/till-retrofit-2026-07-25.md`**. Still open there: WP7.1 card-capture events
+(⏸ blocked on the provider choice, both tills) and CustomerId-on-the-sale (small additive
+backend follow-up — credit entries already carry the saleId, so the credit flow doesn't need it).
 
 **▶ NEXT (all need Matt's input):** Phase 4 (MAUI) remains **paused for upstream code**;
 Phase 6 is the WooCommerce connector (needs a Woo test store to develop against); the Kapow
