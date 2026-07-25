@@ -126,8 +126,16 @@ Then `pm2 delete plutus-portal-preview` (the LAN preview) if desired.
 **Phase-3 notes / debts:**
 - The **legacy sale bridge** (Phase 2) still runs alongside the rollup consumer — the till's
   Reporting page reads legacy tables. Retire it when the till UI moves to /api/v1 reports.
-- Kapow cutover order: `SeedMigrator <kapow.db> sales-v2 --mysql` → `rollups-rebuild` →
-  (bridge skips LegacyRef rows by design). Portal dashboard then drills into all 21k sales.
+- **Kapow historic sales are IN the test pipeline (2026-07-25):** `sales-v2` ETL ran against
+  live `plutus` (21,646 recorded / 8,114 reconciled / 7 quarantined / 100.0% gross) followed
+  by `rollups-rebuild` (1,825 SalesRollups + 3,333 VatRollups from 21,647 sales). Penny
+  parity verified on the REAL data: rollups == direct SQL aggregation exactly
+  (£556,851.91 gross / £25,548.46 VAT / 21,647 txns); portal drills year→…→a single 2023
+  transaction; legacy tables untouched (bridge skips LegacyRef rows); 0 dead letters.
+  ⚠ The ETL is ONE-SHOT (fresh UUIDv7 ids per run — re-running would duplicate). The
+  PRODUCTION cutover (retiring the physical till) remains a separate future op: re-run the
+  ETL from a FINAL till backup at that point (drop SalesV2 rows with LegacyRef first, or
+  restore the pre-phase2 dump, then ETL + rollups-rebuild).
 - Force-logout AuthActions unmapped (no platform session-kill yet).
 - Time windows evaluate in SERVER local time (= store's tz for this deployment).
 
