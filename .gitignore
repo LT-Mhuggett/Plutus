@@ -299,3 +299,6 @@ Build/snapshots/
 # Editor workspace files (deliberately local-only)
 *.code-workspace
 .vscode/
+
+# ETRIE's runbook — shares the repo dir on the dev box, must never be committed
+Environment_Setup_Runbook.md
