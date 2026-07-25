@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  createTill, fetchCompanies, fetchStores, fetchTills, revokeTill, updateCompany, updateStore,
+  createTill, fetchCompanies, fetchStores, fetchTills, renameTill, revokeTill, updateCompany, updateStore,
   type Company, type StoreRow, type TillRow,
 } from "./api.ts";
 
@@ -21,17 +21,27 @@ export default function StoresPage() {
 
   useEffect(() => { void refresh(); }, []);
 
-  async function newTill(storeId: number) {
+  async function newTill(storeId: number, name: string) {
     setBusy(true);
     setError("");
     try {
-      const r = await createTill(storeId, `Till ${new Date().toISOString().slice(0, 10)}`);
+      const r = await createTill(storeId, name.trim());
       setIssued({ tillId: r.tillId, code: r.enrolmentCode, expires: r.expiresAtUtc });
       await refresh();
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function rename(id: string, name: string) {
+    setError("");
+    try {
+      await renameTill(id, name);
+      await refresh();
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
     }
   }
 
@@ -51,11 +61,11 @@ export default function StoresPage() {
 
       <h2>Tills</h2>
       <table>
-        <thead><tr><th>Till</th><th>Store</th><th>Devices</th><th>Last online</th><th /></tr></thead>
+        <thead><tr><th>Name</th><th>Store</th><th>Devices</th><th>Last online</th><th /></tr></thead>
         <tbody>
           {tills.map((t) => (
             <tr key={t.id}>
-              <td className="mono small">{t.id.slice(0, 13)}…</td>
+              <td><TillNameCell till={t} onRename={rename} /></td>
               <td>{t.storeId}</td>
               <td>
                 {t.devices.length === 0 && <span className="muted">none</span>}
@@ -77,13 +87,9 @@ export default function StoresPage() {
           ))}
         </tbody>
       </table>
-      <div className="toolbar">
-        {stores.map((s) => (
-          <button key={s.id} className="primary small" disabled={busy} onClick={() => void newTill(s.id)}>
-            New till + code (store {s.id})
-          </button>
-        ))}
-      </div>
+      {stores.map((s) => (
+        <NewTillRow key={s.id} storeId={s.id} busy={busy} onCreate={newTill} />
+      ))}
 
       {issued && (
         <div className="enrol-code">
@@ -97,6 +103,52 @@ export default function StoresPage() {
         </div>
       )}
     </section>
+  );
+}
+
+/** Inline till rename: click the name to edit, Enter/blur saves (409 surfaces via onRename). */
+function TillNameCell({ till, onRename }: { till: TillRow; onRename: (id: string, name: string) => Promise<void> }) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(till.name);
+  if (!editing) {
+    return (
+      <button className="link-name" title={till.id} onClick={() => { setName(till.name); setEditing(true); }}>
+        {till.name}
+      </button>
+    );
+  }
+  const commit = async () => {
+    setEditing(false);
+    if (name.trim() && name.trim() !== till.name) await onRename(till.id, name.trim());
+  };
+  return (
+    <input
+      autoFocus
+      value={name}
+      maxLength={80}
+      onChange={(e) => setName(e.target.value)}
+      onBlur={() => void commit()}
+      onKeyDown={(e) => { if (e.key === "Enter") void commit(); if (e.key === "Escape") setEditing(false); }}
+    />
+  );
+}
+
+/** New till + enrolment code, with a required unique name. */
+function NewTillRow({ storeId, busy, onCreate }: { storeId: number; busy: boolean; onCreate: (storeId: number, name: string) => Promise<void> }) {
+  const [name, setName] = useState("");
+  return (
+    <div className="toolbar">
+      <label>New till (store {storeId})
+        <input value={name} maxLength={80} placeholder="e.g. Front Desk" onChange={(e) => setName(e.target.value)} />
+      </label>
+      <button
+        className="primary small"
+        disabled={busy || !name.trim()}
+        onClick={async () => { await onCreate(storeId, name); setName(""); }}
+      >
+        Create till + code
+      </button>
+    </div>
   );
 }
 

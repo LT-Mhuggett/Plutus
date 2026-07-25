@@ -60,9 +60,20 @@ namespace Plutus.Tenancy
         {
             _db.CurrentUser = actingUser;
 
+            // WP11.1: the name is persisted in the server-only TillDetails side table (the legacy
+            // Till POCO has no Name column). Enforce tenant-unique before writing → clean 409.
+            name = name.Trim();
+            var lowered = name.ToLowerInvariant();
+            // Case-insensitive explicitly (LOWER()) so the guard behaves the same on MySQL (ci
+            // collation) and SQLite (cs by default) — never relying on the column collation alone.
+            if (await _db.TillDetails.IgnoreQueryFilters()
+                    .AnyAsync(t => t.TenantId == tenantId && t.Name.ToLower() == lowered))
+                throw new EnrolmentException(409, $"A till named '{name}' already exists.");
+
             var till = new Till { Id = Uuid7.New(), StoreId = storeId, LastOnline = DateTime.UtcNow };
             _db.Till.Add(till);
             _db.Entry(till).Property("TenantId").CurrentValue = tenantId; // shadow, tenant-owned
+            _db.TillDetails.Add(new TillDetails { TillId = till.Id, TenantId = tenantId, Name = name });
 
             var code = Crockford32.NewCode(8);
             var enrolment = new EnrolmentCode
@@ -78,6 +89,31 @@ namespace Plutus.Tenancy
 
             await _db.SaveChangesAsync();
             return new CreateTillResult(till.Id, code, enrolment.ExpiresAtUtc);
+        }
+
+        /// <summary>WP11.1: rename a till (portal or the till itself). Tenant-unique, case-insensitive;
+        /// a clash → 409. Upserts the TillDetails side row (older tills predate it).</summary>
+        public async Task RenameTillAsync(Guid tenantId, Guid tillId, string name, string actingUser)
+        {
+            name = (name ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(name)) throw new EnrolmentException(400, "A till name is required.");
+            if (name.Length > 80) throw new EnrolmentException(400, "Till name must be 80 characters or fewer.");
+
+            var till = await _db.Till.FirstOrDefaultAsync(t => t.Id == tillId);
+            if (till == null) throw new EnrolmentException(404, "Till not found.");
+
+            var lowered = name.ToLowerInvariant();
+            if (await _db.TillDetails.IgnoreQueryFilters()
+                    .AnyAsync(t => t.TenantId == tenantId && t.Name.ToLower() == lowered && t.TillId != tillId))
+                throw new EnrolmentException(409, $"A till named '{name}' already exists.");
+
+            _db.CurrentUser = actingUser;
+            var details = await _db.TillDetails.FirstOrDefaultAsync(t => t.TillId == tillId);
+            if (details == null)
+                _db.TillDetails.Add(new TillDetails { TillId = tillId, TenantId = tenantId, Name = name });
+            else
+                details.Name = name;
+            await _db.SaveChangesAsync();
         }
 
         /// <summary>Anonymous: redeem an enrolment code, activate a device, return its client

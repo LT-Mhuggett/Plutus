@@ -78,3 +78,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .enrol-code { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 14px 18px;
   background: #ecfdf5; border: 2px solid var(--accent); border-radius: 10px; }
 .enrol-code-value { font-size: 30px; font-weight: 700; letter-spacing: 3px; color: var(--accent); margin-top: 2px; }
+
+/* WP11.1: inline-editable till name — looks like text, edits on click */
+.link-name { border: none; background: none; padding: 0; font: inherit; color: var(--accent); cursor: text; text-align: left; }
+.link-name:hover { text-decoration: underline; }

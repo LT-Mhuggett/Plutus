@@ -37,6 +37,29 @@ function handle401(res: Response): void {
   if (res.status === 401) signOut();
 }
 
+/** WP11.1: this till's current name (from the fleet list), or null if not visible/none. */
+export async function fetchTillName(tillId: string): Promise<string | null> {
+  const res = await fetch(`/api/v1/tills`, { headers: headers() });
+  if (!res.ok) return null;
+  const list = (await res.json()) as { id: string; name: string }[];
+  return list.find((t) => t.id === tillId)?.name ?? null;
+}
+
+/** WP11.1: rename this till (tenant-unique; 409 surfaces as an Error). */
+export async function renameTill(tillId: string, name: string): Promise<void> {
+  const res = await fetch(`/api/v1/tills/${tillId}/name`, {
+    method: "PUT",
+    headers: { ...headers(), "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  handle401(res);
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try { detail = (await res.json())?.detail ?? detail; } catch { /* keep status */ }
+    throw new Error(detail);
+  }
+}
+
 export async function login(email: string, password: string): Promise<Session> {
   const res = await fetch(`/api/Auth/Login`, {
     method: "POST",

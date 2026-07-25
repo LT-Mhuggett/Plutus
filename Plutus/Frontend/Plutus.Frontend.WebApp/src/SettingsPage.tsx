@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchPayMethods, onOutboxChanged, BUSINESS_ID, STORE_ID } from "./api.ts";
+import { fetchPayMethods, fetchTillName, onOutboxChanged, renameTill, BUSINESS_ID, STORE_ID } from "./api.ts";
 import { parkedCount, queuedCount, resetDeviceSeq } from "./offline.ts";
 import {
   canEnrolTills,
@@ -109,6 +109,7 @@ function TillDeviceSection() {
               {counts.queued} waiting{counts.parked > 0 && <span className="error"> · {counts.parked} parked (rejected — needs attention)</span>}
             </dd>
           </dl>
+          {canEnrolTills() && <TillNameSetting tillId={cred.tillId} />}
           <div className="setting-row">
             <span className="grow muted small">Un-enrol this browser (sales are blocked until it is enrolled again).</span>
             <button
@@ -167,6 +168,45 @@ function TillDeviceSection() {
       )}
       {error && <p className="error small">{error}</p>}
     </>
+  );
+}
+
+/** WP11.1: rename this till from the till itself (admins only — uniqueness checked server-side). */
+function TillNameSetting({ tillId }: { tillId: string }) {
+  const [name, setName] = useState("");
+  const [saved, setSaved] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    void fetchTillName(tillId).then((n) => { if (n) { setName(n); setSaved(n); } });
+  }, [tillId]);
+
+  async function save() {
+    setBusy(true);
+    setError("");
+    try {
+      await renameTill(tillId, name.trim());
+      setSaved(name.trim());
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="setting-row">
+      <span className="grow">
+        Till name
+        <span className="muted small block">Unique across your tills — a duplicate is rejected.</span>
+      </span>
+      <input className="pref-input" maxLength={80} value={name} placeholder="e.g. Front Desk" onChange={(e) => setName(e.target.value)} />
+      <button className="primary" disabled={busy || !name.trim() || name.trim() === saved} onClick={save}>
+        Save name
+      </button>
+      {error && <span className="error small">{error}</span>}
+    </div>
   );
 }
 

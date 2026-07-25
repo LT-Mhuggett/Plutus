@@ -201,6 +201,7 @@ export const updateStore = (id: number, body: Partial<StoreRow>) => put<void>(`/
 
 export interface TillRow {
   id: string;
+  name: string;
   storeId: number;
   lastOnline: string;
   devices: { id: string; status: string; lastSeenSeq: number; createdAtUtc: string }[];
@@ -208,6 +209,7 @@ export interface TillRow {
 export const fetchTills = () => get<TillRow[]>(`/api/v1/tills`);
 export const createTill = (storeId: number, name: string) =>
   post<{ tillId: string; enrolmentCode: string; expiresAtUtc: string }>(`/api/v1/tills`, { storeId, name });
+export const renameTill = (id: string, name: string) => put<void>(`/api/v1/tills/${id}/name`, { name });
 export const revokeTill = (id: string) => post<void>(`/api/v1/tills/${id}/revoke`);
 
 // ── periods ──

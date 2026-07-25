@@ -32,4 +32,15 @@ namespace Plutus.Entities.Models
         /// shape owned by the portal; the API stores/echoes it opaquely.</summary>
         public string? OpeningHoursJson { get; set; }
     }
+
+    /// <summary>WP11.1: a human name for a till. The legacy <c>Till</c> POCO has NO Name column
+    /// (and is shared with the MAUI SqliteDbContext, so it must not gain one) — the name typed at
+    /// creation was previously dropped. This server-only side table holds it, 1:1 with the legacy
+    /// Till, unique per tenant (case-insensitive via the column collation + a unique index).</summary>
+    public class TillDetails
+    {
+        public Guid TillId { get; set; }           // PK, 1:1 with legacy Till
+        public Guid TenantId { get; set; }
+        public string Name { get; set; }
+    }
 }

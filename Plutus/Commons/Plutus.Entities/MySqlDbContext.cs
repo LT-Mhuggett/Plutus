@@ -48,6 +48,7 @@ namespace Plutus.Entities
         // Admin surface (WP3.2): audit trail + portal-only store fields.
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<StoreDetails> StoreDetails { get; set; }
+        public DbSet<TillDetails> TillDetails { get; set; }
         // Reporting projections (WP3.3): rebuildable rollups the dashboards read.
         public DbSet<SalesRollup> SalesRollups { get; set; }
         public DbSet<VatRollup> VatRollups { get; set; }
@@ -135,8 +136,8 @@ namespace Plutus.Entities
             typeof(SaleV2), typeof(SaleLine), typeof(SaleTender), typeof(SaleAdjustment),
             // RBAC (WP3.1) — real TenantId columns, per-tenant roles/assignments.
             typeof(RbacRole), typeof(RbacRoleGrant), typeof(RbacRoleAssignment),
-            // Admin surface (WP3.2).
-            typeof(AuditLog), typeof(StoreDetails),
+            // Admin surface (WP3.2, WP11.1).
+            typeof(AuditLog), typeof(StoreDetails), typeof(TillDetails),
             // Reporting projections (WP3.3).
             typeof(SalesRollup), typeof(VatRollup),
             // Financial periods (WP3.4).
@@ -312,6 +313,16 @@ namespace Plutus.Entities
                 e.ToTable("StoreDetails");
                 e.HasKey(x => x.StoreId);
                 e.Property(x => x.StoreId).ValueGeneratedNever();
+            });
+            modelBuilder.Entity<TillDetails>(e =>
+            {
+                e.ToTable("TillDetails");
+                e.HasKey(x => x.TillId);
+                e.Property(x => x.TillId).ValueGeneratedNever();
+                e.Property(x => x.Name).HasMaxLength(80).IsRequired();
+                // Tenant-unique names. The MySQL default collation is case-insensitive, so this
+                // index rejects "Front" vs "front" too (the app also guards explicitly for a clean 409).
+                e.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
             });
 
             // WP3.3 reporting rollups.

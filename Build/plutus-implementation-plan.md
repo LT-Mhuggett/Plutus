@@ -270,8 +270,44 @@ unaffected; `openapi.json` unchanged by the swap.
 
 ## Phase 10 — Platform billing & offboarding
 
-Entitlement-driven billing integration (Stripe Billing or similar writes entitlements); lifecycle states (suspended = portal locked, tills keep syncing — D16); tenant data export (CSV/JSON, all classes) + scheduled deletion; retention jobs (heartbeat purge, sales retained 6+ years).
-*DoD:* suspended tenant's till syncs a sale successfully while portal login is refused; export → fresh-tenant import round-trip sanity check.
+> **Started 2026-07-25 (Matt).** Build the buildable halves now; the Stripe concrete adapter stays
+> a seam until Matt picks a billing provider (same pattern as WP7.1 payments). Order: 10.1 → 10.2 →
+> 10.3 → 10.4.
+
+**WP10.1 — Entitlements + billing seam.**
+Per-tenant `Entitlements` (feature flags — e.g. `woo-connector` — + numeric limits like seat/till
+caps), read at module boundaries (`IEntitlementService.IsEnabled(tenant, feature)` → clean 403 +
+portal upsell state when off). `IBillingProvider` seam (create-checkout / webhook-verify /
+subscription-status) with a `NullBillingProvider` default; a webhook receiver (HMAC-verified)
+translates provider events → entitlement writes. The **concrete Stripe adapter is DEFERRED** to
+Matt's provider choice; the model + enforcement + webhook plumbing land now.
+*DoD:* toggling an entitlement flips a gated endpoint 200↔403; webhook payload writes the tenant's
+entitlements; core has zero reference to any concrete provider (arch test).
+
+**WP10.2 — Tenant lifecycle states.**
+`TenantStatus` (Active | Suspended | Closed) on the tenant record. **Suspended = portal login
+refused (402/403) but tills keep syncing sales** (decision D16 — a shop mid-day is never cut off
+for a billing lapse). Closed = read-only pending export/delete. Enforced in the auth path for
+portal scopes only; the `sales.ingest`/device path is exempt. Portal banner + a platform-admin
+control to set status.
+*DoD:* a suspended tenant's till POSTs a sale 200 while portal login returns the locked state.
+
+**WP10.3 — Tenant data export.**
+`GET /api/v1/admin/export` (platform-admin/company-admin) streaming a ZIP of every tenant-owned
+class as CSV **and** a single JSON document (sales, lines, tenders, stock, customers, credit,
+rollups, RBAC, audit…). Deterministic, resumable-friendly (paged internally), tenant-filtered by
+the same query filters so no cross-tenant leak. This is the portability half of offboarding.
+*DoD:* export a tenant → the JSON round-trips into a fresh tenant (sanity import) with matching
+row counts + penny-exact sales totals.
+
+**WP10.4 — Scheduled deletion + retention.**
+Soft-delete request (`DeletionSchedule`: requestedAt, executeAfter grace window) + a retention
+sweeper (the outbox dispatcher's timer host) that: purges device **heartbeats**/telemetry past a
+short window, **retains sales 6+ years** (legal), and executes due tenant deletions (hard-delete
+tenant-owned rows after export confirmation). All destructive actions audited; a closed tenant can
+cancel before the grace window elapses.
+*DoD:* a scheduled deletion past its window removes only that tenant's rows (others untouched);
+sales inside the 6-year window are never purged; heartbeats past the window are.
 
 ---
 

@@ -164,6 +164,90 @@ public class EnrolmentServiceTests
             var hash = CompactToken.Sha256(Crockford32.Normalise(res.EnrolmentCode));
             var stored = await ctx.EnrolmentCodes.FirstAsync(e => e.TillId == res.TillId);
             Assert.Equal(hash, stored.CodeHash); // plaintext never persisted
+            // WP11.1: the name is persisted in TillDetails (the legacy Till POCO has no Name).
+            var details = await ctx.TillDetails.FirstAsync(t => t.TillId == res.TillId);
+            Assert.Equal("Main", details.Name);
+        }
+    }
+
+    // ── WP11.1 till naming ──
+
+    private static async Task<(int storeId, Guid tenant, SqliteConnection conn)> SeededStore()
+    {
+        var tenant = Guid.NewGuid();
+        var conn = OpenDb(tenant);
+        using var ctx = Ctx(conn, tenant, "seed");
+        var biz = new Business { Id = Guid.NewGuid(), Name = "Kapow", NameAbbr = "KAP", VatIN = "GB000" };
+        ctx.Business.Add(biz);
+        ctx.SaveChanges();
+        var store = new Store
+        {
+            BusinessId = biz.Id, ContactNumber = "0", PostCode = "AB1 2CD",
+            AdLine1 = "1 High St", AdLine2 = "", City = "Town", Country = "UK",
+        };
+        ctx.Stores.Add(store);
+        ctx.SaveChanges();
+        return (store.Id, tenant, conn);
+    }
+
+    [Fact]
+    public async Task Till_names_are_tenant_unique_case_insensitive_at_create_and_rename()
+    {
+        var (storeId, tenant, conn) = await SeededStore();
+        using (conn)
+        {
+            using (var ctx = Ctx(conn, tenant, "portal"))
+                await new EnrolmentService(ctx, Opts).CreateTillAsync(tenant, storeId, "Front Desk", "portal");
+
+            // Same name (any case) at create → 409.
+            using (var ctx = Ctx(conn, tenant, "portal"))
+            {
+                var ex = await Assert.ThrowsAsync<EnrolmentException>(() =>
+                    new EnrolmentService(ctx, Opts).CreateTillAsync(tenant, storeId, "front desk", "portal"));
+                Assert.Equal(409, ex.StatusCode);
+            }
+
+            // A second, distinct till we can then try to rename into a clash.
+            Guid secondId;
+            using (var ctx = Ctx(conn, tenant, "portal"))
+                secondId = (await new EnrolmentService(ctx, Opts).CreateTillAsync(tenant, storeId, "Back Office", "portal")).TillId;
+
+            using (var ctx = Ctx(conn, tenant, "portal"))
+            {
+                var ex = await Assert.ThrowsAsync<EnrolmentException>(() =>
+                    new EnrolmentService(ctx, Opts).RenameTillAsync(tenant, secondId, "FRONT DESK", "portal"));
+                Assert.Equal(409, ex.StatusCode);
+            }
+
+            // A free name succeeds and is persisted.
+            using (var ctx = Ctx(conn, tenant, "portal"))
+                await new EnrolmentService(ctx, Opts).RenameTillAsync(tenant, secondId, "Kiosk 2", "portal");
+            using (var ctx = Ctx(conn, tenant))
+                Assert.Equal("Kiosk 2", (await ctx.TillDetails.FirstAsync(t => t.TillId == secondId)).Name);
+        }
+    }
+
+    [Fact]
+    public async Task Rename_upserts_details_for_a_till_that_predates_the_name_column()
+    {
+        var (storeId, tenant, conn) = await SeededStore();
+        using (conn)
+        {
+            // A till with NO TillDetails row (as every till had before WP11.1).
+            var tillId = Guid.NewGuid();
+            using (var ctx = Ctx(conn, tenant, "seed"))
+            {
+                var till = new Till { Id = tillId, StoreId = storeId, LastOnline = DateTime.UtcNow };
+                ctx.Till.Add(till);
+                ctx.Entry(till).Property("TenantId").CurrentValue = tenant;
+                ctx.SaveChanges();
+            }
+
+            using (var ctx = Ctx(conn, tenant, "portal"))
+                await new EnrolmentService(ctx, Opts).RenameTillAsync(tenant, tillId, "Renamed", "portal");
+
+            using (var ctx = Ctx(conn, tenant))
+                Assert.Equal("Renamed", (await ctx.TillDetails.FirstAsync(t => t.TillId == tillId)).Name);
         }
     }
 }

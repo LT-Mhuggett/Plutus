@@ -14,4 +14,8 @@ public static class PlutusPolicies
     /// <summary>Ingest policy: satisfied by a device token (scope "device") OR an operator
     /// token with "pos.sell".</summary>
     public const string SalesIngest = "sales.ingest";
+
+    /// <summary>WP11.1 rename policy: satisfied by a portal admin ("portal.tills.enrol") OR the
+    /// till's own device token ("device"), so a till can be named from the portal AND from itself.</summary>
+    public const string TillsName = "tills.name";
 }
