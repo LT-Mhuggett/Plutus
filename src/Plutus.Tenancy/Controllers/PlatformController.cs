@@ -164,6 +164,7 @@ namespace Plutus.Tenancy.Controllers
                 await JsonSerializer.SerializeAsync(ms, manifest, new JsonSerializerOptions { WriteIndented = true });
             }
 
+            _db.CurrentUser = Actor.ToString();
             _db.Audit(id, Actor, "tenant.export", nameof(Tenant), id.ToString(), new { tables = counts.Count });
             await _db.SaveChangesAsync();
             return File(buffer.ToArray(), "application/zip", $"tenant-{id}-export-{DateTime.UtcNow:yyyyMMddHHmm}.zip");
