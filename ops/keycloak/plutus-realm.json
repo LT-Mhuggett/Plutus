@@ -1,0 +1,97 @@
+{
+  "realm": "plutus",
+  "enabled": true,
+  "displayName": "Plutus",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "clientScopes": [
+    {
+      "name": "plutus-api-audience",
+      "description": "Adds aud=plutus-api so Plutus backend accepts the token",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" },
+      "protocolMappers": [
+        {
+          "name": "plutus-api-aud",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "plutus-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "plutus-portal",
+      "name": "Plutus Management Portal",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "rootUrl": "https://admin.plutus.huggett.dscloud.me",
+      "baseUrl": "/",
+      "redirectUris": [
+        "https://admin.plutus.huggett.dscloud.me/*",
+        "http://localhost:5274/*"
+      ],
+      "webOrigins": [
+        "https://admin.plutus.huggett.dscloud.me",
+        "http://localhost:5274"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "https://admin.plutus.huggett.dscloud.me/*##http://localhost:5274/*"
+      },
+      "defaultClientScopes": ["openid", "profile", "email", "plutus-api-audience"]
+    },
+    {
+      "clientId": "plutus-webpos",
+      "name": "Plutus Web POS (till)",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "rootUrl": "https://plutus.huggett.dscloud.me",
+      "baseUrl": "/",
+      "redirectUris": [
+        "https://plutus.huggett.dscloud.me/*",
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "https://plutus.huggett.dscloud.me",
+        "http://localhost:5173"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "https://plutus.huggett.dscloud.me/*##http://localhost:5173/*"
+      },
+      "defaultClientScopes": ["openid", "profile", "email", "plutus-api-audience"]
+    }
+  ],
+  "users": [
+    {
+      "username": "ada",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Ada",
+      "lastName": "Cashier",
+      "email": "ada@shop.test",
+      "credentials": [
+        { "type": "password", "value": "ChangeMe!2026", "temporary": false }
+      ]
+    }
+  ]
+}
