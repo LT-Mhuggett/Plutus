@@ -217,6 +217,82 @@ Entitlement-driven billing integration (Stripe Billing or similar writes entitle
 
 ---
 
+## Phase 11 — Operability & shopkeeper UX (Matt's punch list, 2026-07-25)
+
+> Requirements gathered from live use of the test environment. Planned 2026-07-25; **no code
+> yet**. Order chosen so the data-model WPs (11.1, 11.3) land before the surfaces that display
+> their output (11.2, 11.4). All web-till items should be mirrored into
+> `Build/till-retrofit-2026-07-25.md` for MAUI when Phase 4 re-baselines.
+
+**WP11.1 — Till naming (unique per tenant).**
+The legacy `Till` table has **no Name column** — the name typed at till-creation is currently
+dropped (`EnrolmentService.CreateTillAsync` accepts it, persists nothing). Fix WITHOUT touching
+the shared legacy POCO (MAUI Sqlite maps `Till`): a server-only **`TillDetails`** table
+(`TillId` PK, `TenantId`, `Name`) — the same evolve-in-place pattern as `StoreDetails`.
+- `PUT /api/v1/tills/{id}/name` — gated `portal.tills.enrol`, audited. **Uniqueness enforced
+  per tenant** (case-insensitive) server-side: duplicate → `409` with the clashing till's id;
+  plus a unique index `(TenantId, Name)` as the backstop.
+- Set from the **portal** (Stores & Tills: rename inline) and from the **till itself**
+  (Settings → Till device: "Name this till" — calls the same endpoint, so the same 409 surfaces
+  to the operator if the name is taken).
+- Backfill: `CreateTillAsync` writes the name it already receives; existing tills get a
+  migration-time default ("Till {short-id}") they can rename.
+- Display everywhere a bare till GUID shows today: portal tills list, Banking view, Stock
+  movements drill, report drill-downs, and the till's own Settings page.
+*DoD:* rename from portal AND from till; duplicate name (either surface) → clear 409 message,
+nothing saved; names visible in Banking + Stores & Tills; audit rows for every rename.
+
+**WP11.2 — Receipts: template editor, viewer, saleId barcode.**
+- **Barcode:** render the sale's unique code (`saleId`) on the receipt as a **hand-rolled
+  Code 39 SVG** (A–Z/0–9/'-' covers a UUID; no library — plan rule 7). Shown under the printed
+  saleId so a returned item can be scanned straight into the till's Return flow (extend Return
+  lookup to accept a scanned saleId).
+- **Template editor (portal):** per-store receipt config stored server-side alongside
+  `StoreDetails` — header lines (shop name/address auto-fill from Store, editable), footer
+  message (e.g. returns policy), toggles: show VAT number, show operator name, show barcode.
+  `GET/PUT /api/v1/stores/{id}/receipt-template`, gated `portal.company.manage`, audited. The
+  till caches the template with its catalogue sync and applies it to printed receipts.
+- **Receipt viewer:** recall any past sale as a rendered receipt — from the till (existing
+  Reporting sale-recall gains a "View receipt" that renders the stored sale through the current
+  template, reprintable) and from the portal (Dashboard sale drill-down gains the same).
+*DoD:* edit footer in portal → next till receipt shows it (after sync); scan a receipt barcode
+into the Return flow → original sale found; view+reprint a week-old sale's receipt from both
+till and portal.
+
+**WP11.3 — Stores & stock locations: create + friendlier hours.**
+- **Add store (portal):** `POST /api/v1/stores` exists — the portal lacks the button. Add
+  "New store" (address + phone), auto-creating its STORE stock location on first use as today.
+- **Warehouse locations:** `StockLocationType.Warehouse` exists in the model but nothing can
+  create one. Add `POST /api/v1/stock/locations` {storeId, type, name} + rename, gated
+  `portal.stock.adjust`, audited; portal Stock tab gains "New location". Transfers/stock-takes
+  already work per-location, so a warehouse is immediately usable once creatable.
+- **Opening hours editor:** replace the raw-JSON textarea with a structured control — a
+  tick-box per weekday (open/closed) and open/close times in **24-hour** inputs
+  (`<input type="time">`), writing the SAME JSON shape the API already stores
+  (`{"mon":[{"open":"09:00","close":"17:30"}],…}`) so no backend change. Pre-populate from the
+  stored JSON; keep an "advanced" JSON view for multi-interval days (e.g. lunch closing).
+*DoD:* create a store and a warehouse from the portal, transfer stock into the warehouse; set
+Mon–Sat 09:00–17:30 closed-Sunday via tick-boxes only; stored JSON round-trips unchanged.
+
+**WP11.4 — Items-sold report (NatApp "Stock Outtake Report" parity).**
+One line per item sold: **date sold, item (barcode + name), location sold (store/till name from
+WP11.1), qty, unit price, discount (if any), line gross** — with quick ranges **last day / last
+7 days / last 30 days** plus **pick a month / quarter / year**, and CSV export.
+- Backend: `GET /api/v1/reports/items-sold?from=&to=[&storeId=][&tillId=][&itemIdOne=]`, gated
+  `portal.reports.view`, capped + paged, plus a `.csv` variant (same pattern as the existing
+  exports). **Sourcing decision:** read from the LEGACY `Trans`+`Sales` tables for now — they
+  uniformly cover 2019→today (the bridge keeps writing them for new sales) and carry
+  `ItemIdOne` for name joins, whereas platform `SaleLines` only carry an item reference for
+  post-Phase-2 sales. Re-point to `SaleLines` when the legacy tables retire (the endpoint
+  contract doesn't change).
+- Surfaces: a **Reports → Items sold** view in the portal AND in the till's Reporting tab
+  (shopkeeper habit from NatApp); quick-range buttons render the same endpoint.
+*DoD:* the four quick ranges + month/quarter/year picker return correct rows (spot-check
+against a known day's sales to the penny incl. a discounted line); CSV totals match on-screen;
+a 30-day query on the full Kapow dataset returns in acceptable time.
+
+---
+
 ## Standing verification (every phase)
 
 1. WP1.7 suites (isolation, money, idempotency) green.
