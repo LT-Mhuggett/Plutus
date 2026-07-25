@@ -103,6 +103,16 @@ projections, financial periods, and the **management portal**. **79 unit + 5 int
   late sales (RECEIVED after close) post to the first open day + `period.late-post` audit
   flag; the received-vs-closed distinction is what keeps rebuild == locked figures.
   CSV export `/api/v1/reports/export.csv?type=summary|vat`.
+  ⚠ **Incident (fixed 2026-07-25):** the WP3.4 live-verification period ("H1 2026",
+  2026-01-01→06-30, closed 24 Jul 23:22 with an EMPTY snapshot) was left closed on live
+  `plutus`. The Kapow history ETL ran AFTER that close, so every Jan–Jun-2026 sale had
+  `ReceivedAtUtc` > close and the late-post rule lumped £44,060.53 onto 2026-07-01 in the
+  rollups (Matt spotted it in the portal). Fix: deleted the test period (row saved at
+  `~/PLUTUS/backups/financialperiod-h1-2026-removed-20260725.txt` — no reopen/delete
+  endpoint exists yet) + `POST /api/v1/reports/rebuild` → 1,955 day-rows, rollup total ==
+  SalesV2 total penny-exact (£556,859.41). LESSONS: (1) bulk history ETL must run BEFORE
+  any period close — or drop the closes first; (2) period reopen/delete endpoint is a
+  real gap (candidate for Phase 11+); (3) never leave verification artifacts on live.
 - **WP3.5 Portal** — new React app `Plutus/Frontend/Plutus.Frontend.Portal` (react+react-dom
   only, one CSS file, hand-rolled SVG chart). Login → dashboard (year→month→day→sale
   drill), VAT view, Users & Roles, Stores & Tills (enrolment codes), Periods.
