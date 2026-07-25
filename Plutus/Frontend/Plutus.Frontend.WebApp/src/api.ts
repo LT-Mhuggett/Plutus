@@ -37,12 +37,13 @@ function handle401(res: Response): void {
   if (res.status === 401) signOut();
 }
 
-/** WP11.1: this till's current name (from the fleet list), or null if not visible/none. */
+/** WP11.1: this till's current name. Uses the sales.ingest-gated endpoint so ANY signed-in
+ *  operator (not just till admins) can read it. Null if unavailable. */
 export async function fetchTillName(tillId: string): Promise<string | null> {
-  const res = await fetch(`/api/v1/tills`, { headers: headers() });
+  const res = await fetch(`/api/v1/tills/${tillId}/name`, { headers: headers() });
   if (!res.ok) return null;
-  const list = (await res.json()) as { id: string; name: string }[];
-  return list.find((t) => t.id === tillId)?.name ?? null;
+  const data = (await res.json()) as { id: string; name: string };
+  return data.name ?? null;
 }
 
 /** WP11.1: rename this till (tenant-unique; 409 surfaces as an Error). */

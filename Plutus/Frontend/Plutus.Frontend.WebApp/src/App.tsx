@@ -7,7 +7,8 @@ import StoreInformationPage from "./StoreInformationPage.tsx";
 import SettingsPage from "./SettingsPage.tsx";
 import EmployeesPage from "./EmployeesPage.tsx";
 import LoginPage from "./LoginPage.tsx";
-import { drainOutbox, loadReceiptTemplate, onOutboxChanged, syncCatalogue } from "./api.ts";
+import { drainOutbox, fetchTillName, loadReceiptTemplate, onOutboxChanged, syncCatalogue } from "./api.ts";
+import { getDeviceCredential } from "./pipeline.ts";
 import { queuedCount } from "./offline.ts";
 import { getSession, type Session } from "./session.ts";
 import { oidcMode, signOut } from "./auth.ts";
@@ -46,6 +47,7 @@ export default function App() {
   const [userMenu, setUserMenu] = useState(false);
   const [online, setOnline] = useState(navigator.onLine);
   const [queued, setQueued] = useState(0);
+  const [tillName, setTillName] = useState<string | null>(null);
 
   // OIDC mode: complete the redirect callback, or bounce to the IdP. Password mode: no-op.
   useEffect(() => {
@@ -86,6 +88,9 @@ export default function App() {
     void drainOutbox().then(refreshQueued); // catch anything queued before a reload
     void syncCatalogue().catch(() => undefined); // offline scanning working set
     void loadReceiptTemplate(); // WP11.2: cache the per-store receipt template for printing
+    // WP11.1: show this till's name in the header (from its enrolled device identity).
+    const cred = getDeviceCredential();
+    if (cred?.tillId) void fetchTillName(cred.tillId).then(setTillName).catch(() => undefined);
     return () => {
       offOutbox();
       window.removeEventListener("online", goOnline);
@@ -133,6 +138,7 @@ export default function App() {
             {queued} queued
           </span>
         )}
+        {tillName && <span className="till-name-badge" title="This till">{tillName}</span>}
         <span className="env-badge">test</span>
         {/* the users button — the original till's people icon, now functional */}
         <div className="user-wrap">
