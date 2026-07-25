@@ -3,6 +3,7 @@ import {
   csvUrl, fetchSaleDetail, fetchSales, fetchSummary, gbp,
   type SaleDetail, type SaleRow, type Summary,
 } from "./api.ts";
+import Barcode39 from "./Barcode39.tsx";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const daysAgo = (n: number) => new Date(Date.now() - n * 86400_000).toISOString().slice(0, 10);
@@ -34,18 +35,52 @@ function BarChart({ buckets }: { buckets: { period: string; grossPence: number }
   );
 }
 
+/** WP11.2: a past sale rendered as a printable receipt with its scannable barcode. */
+function ReceiptView({ id, sale }: { id: string; sale: SaleDetail }) {
+  return (
+    <div className="receipt-view" id="receipt-print">
+      <p className="centre small">{new Date(sale.occurredAtUtc + "Z").toLocaleString("en-GB")}</p>
+      <hr />
+      <table className="receipt-lines">
+        <tbody>
+          {sale.lines.map((l) => (
+            <tr key={l.lineNo}>
+              <td>{l.qty} ×</td>
+              <td className="num">{gbp(l.unitPricePence)}</td>
+              <td className="num">{l.discountPence ? `−${gbp(l.discountPence)}` : ""}</td>
+              <td className="num">{gbp(l.lineGrossPence)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <hr />
+      <p className="r-total"><span>Total</span><span>{gbp(sale.grossPence)}</span></p>
+      <p className="small"><span>VAT</span> <span>{gbp(sale.vatPence)}</span></p>
+      <hr />
+      <p className="centre small">{sale.tenders.map((t) => `${t.tenderType} ${gbp(t.amountPence)}`).join(" · ")}</p>
+      <div className="centre"><Barcode39 value={id} /></div>
+      <p className="centre mono tiny">{id}</p>
+    </div>
+  );
+}
+
 function SaleDialog({ id, onClose }: { id: string; onClose: () => void }) {
   const [sale, setSale] = useState<SaleDetail | null>(null);
   const [error, setError] = useState("");
+  const [asReceipt, setAsReceipt] = useState(false);
   useEffect(() => {
     fetchSaleDetail(id).then(setSale).catch((e) => setError(String(e)));
   }, [id]);
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="dialog">
-        <h3>Sale {id.slice(0, 8)}…</h3>
+        <div className="r-row">
+          <h3 className="grow">Sale {id.slice(0, 8)}…</h3>
+          {sale && <button className="ghost small" onClick={() => setAsReceipt((v) => !v)}>{asReceipt ? "Details" : "View receipt"}</button>}
+        </div>
         {error && <p className="error small">{error}</p>}
-        {sale && (
+        {sale && asReceipt && <ReceiptView id={id} sale={sale} />}
+        {sale && !asReceipt && (
           <>
             <dl className="kv">
               <dt>When</dt><dd>{new Date(sale.occurredAtUtc + "Z").toLocaleString("en-GB")} (day {sale.businessDay})</dd>
@@ -73,6 +108,7 @@ function SaleDialog({ id, onClose }: { id: string; onClose: () => void }) {
           </>
         )}
         <div className="dialog-actions">
+          {sale && asReceipt && <button className="ghost" onClick={() => window.print()}>Print / reprint</button>}
           <button className="ghost" onClick={onClose}>Close</button>
         </div>
       </div>

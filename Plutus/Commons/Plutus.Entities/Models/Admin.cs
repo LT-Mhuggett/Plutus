@@ -31,6 +31,10 @@ namespace Plutus.Entities.Models
         /// <summary>Opening hours as JSON: {"mon":[{"open":"09:00","close":"17:30"}],…} —
         /// shape owned by the portal; the API stores/echoes it opaquely.</summary>
         public string? OpeningHoursJson { get; set; }
+        /// <summary>WP11.2 receipt template as JSON: {headerLines,footerLines,showVatNumber,
+        /// showOperator,showBarcode} — shape owned by the frontends; API stores/echoes opaquely.
+        /// Cached by the till with its catalogue sync and applied to printed receipts.</summary>
+        public string? ReceiptTemplateJson { get; set; }
     }
 
     /// <summary>WP11.1: a human name for a till. The legacy <c>Till</c> POCO has NO Name column

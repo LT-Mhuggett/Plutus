@@ -360,6 +360,31 @@ export async function downloadSalesReport(from: Date, to: Date): Promise<void> {
 /** Receipts show the live business name; cache it so the Receipt component stays sync. */
 export const businessName = () => localStorage.getItem("plutus.businessName") || BUSINESS_NAME;
 
+// WP11.2: per-store receipt template (header/footer/toggles), fetched from the server and cached
+// so the Receipt component can read it synchronously. Read via the sales.ingest-gated endpoint.
+export interface ReceiptTemplate {
+  headerLines?: string[];
+  footerLines?: string[];
+  showVatNumber?: boolean;
+  showOperator?: boolean;
+  showBarcode?: boolean;
+}
+let _receiptTemplate: ReceiptTemplate | null = (() => {
+  try { const r = localStorage.getItem("plutus.receiptTemplate"); return r ? JSON.parse(r) : null; } catch { return null; }
+})();
+export const getReceiptTemplateCached = (): ReceiptTemplate | null => _receiptTemplate;
+export async function loadReceiptTemplate(): Promise<void> {
+  try {
+    const res = await fetch(`/api/v1/stores/${STORE_ID}/receipt-template`, { headers: headers() });
+    if (!res.ok) return;
+    const data = await res.json();
+    _receiptTemplate = data?.receiptTemplateJson ? (JSON.parse(data.receiptTemplateJson) as ReceiptTemplate) : null;
+    // Persist so an offline reload still prints with the last-known template.
+    if (_receiptTemplate) localStorage.setItem("plutus.receiptTemplate", JSON.stringify(_receiptTemplate));
+    else localStorage.removeItem("plutus.receiptTemplate");
+  } catch { /* keep last-known */ }
+}
+
 export const fetchBusiness = () =>
   get<BusinessInfo>(`/api/Business/${BUSINESS_ID}`).then((b) => {
     localStorage.setItem("plutus.businessName", b.name);

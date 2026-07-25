@@ -7,7 +7,7 @@ import StoreInformationPage from "./StoreInformationPage.tsx";
 import SettingsPage from "./SettingsPage.tsx";
 import EmployeesPage from "./EmployeesPage.tsx";
 import LoginPage from "./LoginPage.tsx";
-import { drainOutbox, onOutboxChanged, syncCatalogue } from "./api.ts";
+import { drainOutbox, loadReceiptTemplate, onOutboxChanged, syncCatalogue } from "./api.ts";
 import { queuedCount } from "./offline.ts";
 import { getSession, type Session } from "./session.ts";
 import { oidcMode, signOut } from "./auth.ts";
@@ -85,6 +85,7 @@ export default function App() {
     window.addEventListener("offline", goOffline);
     void drainOutbox().then(refreshQueued); // catch anything queued before a reload
     void syncCatalogue().catch(() => undefined); // offline scanning working set
+    void loadReceiptTemplate(); // WP11.2: cache the per-store receipt template for printing
     return () => {
       offOutbox();
       window.removeEventListener("online", goOnline);

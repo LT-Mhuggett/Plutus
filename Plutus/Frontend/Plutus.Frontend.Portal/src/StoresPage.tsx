@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
-  createTill, fetchCompanies, fetchStores, fetchTills, renameTill, revokeTill, updateCompany, updateStore,
-  type Company, type StoreRow, type TillRow,
+  createTill, fetchCompanies, fetchStores, fetchTills, putReceiptTemplate, renameTill, revokeTill,
+  updateCompany, updateStore, type Company, type ReceiptTemplate, type StoreRow, type TillRow,
 } from "./api.ts";
 
 /** Stores & tills admin: company details, store addresses + opening hours, and the till
@@ -215,6 +215,46 @@ function StoreCard({ store, onSaved }: { store: StoreRow; onSaved: () => Promise
           Save store
         </button>
       )}
+      <ReceiptTemplateEditor store={store} onSaved={onSaved} />
     </div>
+  );
+}
+
+/** WP11.2: per-store receipt template — header/footer lines (one per row) + toggles. */
+function ReceiptTemplateEditor({ store, onSaved }: { store: StoreRow; onSaved: () => Promise<void> | void }) {
+  const initial: ReceiptTemplate = (() => {
+    try { return store.receiptTemplateJson ? JSON.parse(store.receiptTemplateJson) : {}; } catch { return {}; }
+  })();
+  const [tpl, setTpl] = useState<ReceiptTemplate>(initial);
+  const [busy, setBusy] = useState(false);
+  const dirty = JSON.stringify(tpl) !== JSON.stringify(initial);
+  const linesToText = (a?: string[]) => (a ?? []).join("\n");
+  const textToLines = (s: string) => s.split("\n").map((l) => l.trimEnd()).filter((l, i, arr) => l !== "" || i < arr.length);
+
+  return (
+    <details className="receipt-tpl">
+      <summary className="muted small">Receipt template</summary>
+      <label className="block">Header lines (one per line)
+        <textarea rows={2} value={linesToText(tpl.headerLines)}
+          onChange={(e) => setTpl({ ...tpl, headerLines: textToLines(e.target.value) })} />
+      </label>
+      <label className="block">Footer lines (e.g. returns policy)
+        <textarea rows={2} value={linesToText(tpl.footerLines)}
+          onChange={(e) => setTpl({ ...tpl, footerLines: textToLines(e.target.value) })} />
+      </label>
+      <label className="chk"><input type="checkbox" checked={tpl.showBarcode !== false}
+        onChange={(e) => setTpl({ ...tpl, showBarcode: e.target.checked })} /> Show sale barcode</label>
+      <label className="chk"><input type="checkbox" checked={!!tpl.showOperator}
+        onChange={(e) => setTpl({ ...tpl, showOperator: e.target.checked })} /> Show operator name</label>
+      <label className="chk"><input type="checkbox" checked={!!tpl.showVatNumber}
+        onChange={(e) => setTpl({ ...tpl, showVatNumber: e.target.checked })} /> Show VAT number</label>
+      {dirty && (
+        <button className="primary small" disabled={busy} onClick={async () => {
+          setBusy(true);
+          await putReceiptTemplate(store.id, tpl).finally(() => setBusy(false));
+          await onSaved();
+        }}>Save receipt template</button>
+      )}
+    </details>
   );
 }

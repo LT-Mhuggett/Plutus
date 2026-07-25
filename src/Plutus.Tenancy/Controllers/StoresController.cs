@@ -23,7 +23,9 @@ namespace Plutus.Tenancy.Controllers
     /// untouched). Every mutation writes an AuditLogs row in the same SaveChanges.</summary>
     [ApiController]
     [Route("api/v1/stores")]
-    [Authorize(Policy = "perm:portal.company.manage")]
+    // Per-method policies (NOT class-level, which would AND with every action): management is
+    // portal.company.manage; the receipt-template READ is sales.ingest so a till (operator or
+    // device) can fetch the template it prints with.
     public sealed class StoresController : ControllerBase
     {
         private readonly MySqlDbContext _db;
@@ -38,6 +40,7 @@ namespace Plutus.Tenancy.Controllers
         private Guid Actor => Guid.TryParse(User?.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var g) ? g : Guid.Empty;
 
         [HttpGet]
+        [Authorize(Policy = "perm:portal.company.manage")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> List([FromQuery] Guid? companyId)
         {
@@ -49,16 +52,17 @@ namespace Plutus.Tenancy.Controllers
                     city = s.City, postCode = s.PostCode, country = s.Country, contactNumber = s.ContactNumber,
                 })
                 .ToListAsync();
-            var hours = await _db.StoreDetails.AsNoTracking()
-                .ToDictionaryAsync(d => d.StoreId, d => d.OpeningHoursJson);
+            var details = await _db.StoreDetails.AsNoTracking().ToDictionaryAsync(d => d.StoreId);
             return Ok(stores.Select(s => new
             {
                 s.id, s.companyId, s.adLine1, s.adLine2, s.city, s.postCode, s.country, s.contactNumber,
-                openingHoursJson = hours.TryGetValue(s.id, out var h) ? h : null,
+                openingHoursJson = details.TryGetValue(s.id, out var d) ? d.OpeningHoursJson : null,
+                receiptTemplateJson = details.TryGetValue(s.id, out var d2) ? d2.ReceiptTemplateJson : null,
             }));
         }
 
         [HttpPost]
+        [Authorize(Policy = "perm:portal.company.manage")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Create([FromBody] StoreAdminBody body)
@@ -93,6 +97,7 @@ namespace Plutus.Tenancy.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Policy = "perm:portal.company.manage")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> Update([FromRoute] int id, [FromBody] StoreAdminBody body)
@@ -125,7 +130,44 @@ namespace Plutus.Tenancy.Controllers
             return NoContent();
         }
 
+        // ── WP11.2 receipt template (per store) ──
+
+        [HttpGet("{id}/receipt-template")]
+        [Authorize(Policy = PlutusPolicies.SalesIngest)] // till (operator or device) reads its template
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetReceiptTemplate([FromRoute] int id)
+        {
+            var json = await _db.StoreDetails.AsNoTracking()
+                .Where(d => d.StoreId == id).Select(d => d.ReceiptTemplateJson).FirstOrDefaultAsync();
+            return Ok(new { storeId = id, receiptTemplateJson = json });
+        }
+
+        [HttpPut("{id}/receipt-template")]
+        [Authorize(Policy = "perm:portal.company.manage")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> PutReceiptTemplate([FromRoute] int id, [FromBody] ReceiptTemplateBody body)
+        {
+            if (!await _db.Stores.AnyAsync(s => s.Id == id)) return NotFound();
+
+            _db.CurrentUser = Actor.ToString();
+            var details = await _db.StoreDetails.FirstOrDefaultAsync(d => d.StoreId == id);
+            if (details == null)
+                _db.StoreDetails.Add(new StoreDetails
+                {
+                    StoreId = id, TenantId = _tenant.TenantId, ReceiptTemplateJson = body?.ReceiptTemplateJson,
+                });
+            else
+                details.ReceiptTemplateJson = body?.ReceiptTemplateJson;
+
+            _db.Audit(_tenant.TenantId, Actor, "store.receipt-template", nameof(Store), id.ToString(), body);
+            await _db.SaveChangesAsync();
+            return NoContent();
+        }
+
         private static string Or(string value, string fallback) =>
             string.IsNullOrWhiteSpace(value) ? fallback : value;
     }
+
+    public sealed record ReceiptTemplateBody(string ReceiptTemplateJson);
 }

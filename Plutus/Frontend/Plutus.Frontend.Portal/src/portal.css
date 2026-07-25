@@ -82,3 +82,15 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 /* WP11.1: inline-editable till name — looks like text, edits on click */
 .link-name { border: none; background: none; padding: 0; font: inherit; color: var(--accent); cursor: text; text-align: left; }
 .link-name:hover { text-decoration: underline; }
+
+/* WP11.2 receipt template editor + viewer */
+.receipt-tpl { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 8px; }
+.receipt-tpl summary { cursor: pointer; }
+.chk { display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 4px 0; }
+.chk input { width: auto; }
+.receipt-view { max-width: 300px; margin: 8px auto; font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 12px; }
+.receipt-view hr { border: none; border-top: 1px dashed #999; }
+.receipt-lines { width: 100%; }
+.receipt-lines td { border: none; padding: 1px 4px; }
+.r-total { display: flex; justify-content: space-between; font-weight: 700; }
+.barcode { max-width: 100%; height: auto; }

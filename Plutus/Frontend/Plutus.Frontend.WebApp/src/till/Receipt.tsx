@@ -1,7 +1,8 @@
 import { useEffect } from "react";
-import { businessName } from "../api.ts";
+import { businessName, getReceiptTemplateCached } from "../api.ts";
 import { gbp } from "../money.ts";
 import { lineDiscountPence, lineTotalPence, type BasketLine } from "./basket.ts";
+import Barcode39 from "./Barcode39.tsx";
 
 export interface ReceiptData {
   saleId: string;
@@ -29,12 +30,19 @@ export default function Receipt({ data, onClose, autoPrint }: Props) {
     }
   }, [autoPrint]);
 
+  // WP11.2: per-store template (header/footer lines + toggles), cached from the last catalogue
+  // sync. Sensible defaults preserve today's receipt when no template is set.
+  const tpl = getReceiptTemplateCached();
+  const headerLines = tpl?.headerLines?.length ? tpl.headerLines : ["Thank you for shopping with us"];
+  const footerLines = tpl?.footerLines ?? [];
+  const showBarcode = tpl?.showBarcode !== false;
+
   return (
     <div className="overlay receipt-overlay">
       <div className="dialog receipt-dialog">
         <div className="receipt" id="receipt">
           <h3>{businessName()}</h3>
-          <p className="centre small">Thank you for shopping with us</p>
+          {headerLines.map((l, i) => <p className="centre small" key={i}>{l}</p>)}
           <p className="centre small">{new Date(data.date).toLocaleString("en-GB")}</p>
           <hr />
           {data.lines.map((l) => (
@@ -86,7 +94,13 @@ export default function Receipt({ data, onClose, autoPrint }: Props) {
             </div>
           )}
           <hr />
+          {footerLines.map((l, i) => <p className="centre small" key={i}>{l}</p>)}
           {data.queued && <p className="centre small">* taken offline — will sync automatically *</p>}
+          {showBarcode && !data.saleId.startsWith("test-print") && (
+            <div className="centre receipt-barcode">
+              <Barcode39 value={data.saleId} />
+            </div>
+          )}
           <p className="centre mono tiny">{data.saleId}</p>
         </div>
 
