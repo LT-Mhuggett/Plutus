@@ -415,6 +415,32 @@ Note: the transitional `Sale/Summary`/`VatIntegrity`/`SaleReport` on Plutus.Sale
 
 ## 8. One-line status
 
+### Phase 10 record (Billing & offboarding) — COMPLETE & LIVE 2026-07-25
+
+All four WPs built, deployed, verified live. Migration `AddDeletionSchedule` (t1 → plutus).
+Backend rollback `~/PLUTUS/backend.pre-phase10b`. 119 unit + 5 arch green. Platform-admin surface
+is **API-only** (like tenant provisioning) — no portal tab.
+- **WP10.1 entitlements + billing seam**: `IEntitlementService` (SharedKernel) + `EntitlementService`
+  reads `Tenant.Entitlements`; `IBillingProvider` seam + `NullBillingProvider` (HMAC-verifies
+  `BILLING_WEBHOOK_SECRET` — **Stripe adapter deferred to Matt's provider choice**); billing webhook
+  applies changes. Verified: set/read entitlements 204/200; unsigned webhook → 400.
+- **WP10.2 lifecycle** (D16): `TenantStatus`; portal login refused when Suspended/Closed
+  (AuthController checks the user's tenant via People.TenantId) **while device tokens keep syncing**;
+  platform-admin `PUT /api/v1/tenants/{id}/status|entitlements`, `GET /api/v1/tenants`.
+- **WP10.3 export**: `GET /api/v1/tenants/{id}/export` streams a ZIP — a CSV per tenant table
+  (discovered from information_schema) + `manifest.json` (row counts + sales gross). **Verified
+  penny-exact**: 53 tables, 21,648 SalesV2, salesGrossPence 55,685,941 == DB SUM.
+- **WP10.4 deletion + retention**: `DeletionSchedule` + grace window; `RetentionSweeper`
+  (BackgroundService, runs on startup then hourly) executes due deletions via a schema-discovered
+  hard-delete (founding tenant guarded) + purges expired enrolment codes; sales never purged.
+  **Verified**: a throwaway tenant scheduled grace=0 was hard-deleted (52 tables) on the next
+  sweep, schedule→Executed, **Kapow untouched** (Business 1, SalesV2 21,648, TillDetails 4).
+- **Only Stripe left**: the concrete billing adapter (replace `NullBillingProvider`, set
+  `BILLING_WEBHOOK_SECRET`) — awaits Matt's provider choice. Everything else is live.
+
+---
+
+
 ### Phase 11 record (Operability & shopkeeper UX) — COMPLETE & LIVE 2026-07-25
 
 All four WPs built, deployed, and verified live (till names, items-sold 210 rows/7d, receipt-template
@@ -439,7 +465,7 @@ syncing — D16), WP10.3 tenant data export, WP10.4 scheduled deletion + retenti
 
 ---
 
-**Phases 0–3, 5, 7(cash), 8, 11 COMPLETE; Phase 9 IdP-swap BUILT & DEPLOYED (dormant)** — the web POS
+**Phases 0–3, 5, 7(cash), 8, 10, 11 COMPLETE; Phase 9 IdP-swap BUILT & DEPLOYED (dormant)** — the web POS
 trades through the idempotent v1 pipeline; RBAC, admin APIs, rollup reporting (penny-parity),
 financial periods, stock, pricing, cash sessions, customers/credit are live; portal at
 **https://admin.plutus.huggett.dscloud.me**. **Phase 9 (2026-07-25):** provider-agnostic auth seam
