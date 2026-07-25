@@ -13,6 +13,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Plutus.SharedKernel\Plutus.SharedKernel.csproj" />
     <ProjectReference Include="..\Plutus.Web.Infrastructure\Plutus.Web.Infrastructure.csproj" />
+    <!-- WP5.1: stock ledger tables live on MySqlDbContext. -->
+    <ProjectReference Include="..\..\Plutus\Commons\Plutus.Entities\Plutus.Entities.csproj" />
   </ItemGroup>
 
 </Project>

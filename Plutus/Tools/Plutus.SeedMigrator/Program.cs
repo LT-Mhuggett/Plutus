@@ -58,6 +58,23 @@ if (args[0] == "rollups-rebuild")
     return 0;
 }
 
+// ── WP5.1 runner: seed stock-ledger opening balances from the legacy Stocks table. ──
+//   Plutus.SeedMigrator stock-open --mysql "<connstring>"     (idempotent per item)
+if (args[0] == "stock-open")
+{
+    var soIdx = Array.IndexOf(args, "--mysql");
+    if (soIdx < 0 || soIdx + 1 >= args.Length)
+    { Console.Error.WriteLine("stock-open needs --mysql <conn>"); return 1; }
+
+    var soTenant = Plutus.Entities.Tenancy.KnownTenants.Kapow;
+    var soOptions = new DbContextOptionsBuilder<MySqlDbContext>()
+        .UseMySql(args[soIdx + 1], MySqlServerVersion.LatestSupportedServerVersion);
+    using var soDb = new MySqlDbContext(soOptions.Options, new Plutus.Entities.Tenancy.FixedTenantContext(soTenant));
+    var opened = await Plutus.Catalogue.StockRebuilder.SeedOpeningBalancesAsync(soDb, soTenant);
+    Console.WriteLine($"stock-open: {opened} opening-balance movement(s) added.");
+    return 0;
+}
+
 var oldDbPath = args[0];
 var dryRun = args[1] == "--dry-run";
 var mysqlConn = dryRun ? null : args[2 == args.Length ? 1 : 2];

@@ -39,6 +39,8 @@
     <ProjectReference Include="..\..\Plutus\Tools\Plutus.Migration.Kapow\Plutus.Migration.Kapow.csproj" />
     <!-- WP2.1: legacy sale bridge projection tests. -->
     <ProjectReference Include="..\..\src\Plutus.Reporting\Plutus.Reporting.csproj" />
+    <!-- WP5.1: stock ledger tests. -->
+    <ProjectReference Include="..\..\src\Plutus.Catalogue\Plutus.Catalogue.csproj" />
   </ItemGroup>
 
 </Project>

@@ -18,6 +18,8 @@
     <ProjectReference Include="..\..\..\src\Plutus.Identity\Plutus.Identity.csproj" />
     <!-- WP3.3: `rollups-rebuild` runner calls the Reporting module's RollupRebuilder. -->
     <ProjectReference Include="..\..\..\src\Plutus.Reporting\Plutus.Reporting.csproj" />
+    <!-- WP5.1: `stock-open` runner calls the Catalogue module's StockRebuilder. -->
+    <ProjectReference Include="..\..\..\src\Plutus.Catalogue\Plutus.Catalogue.csproj" />
   </ItemGroup>
 
 </Project>

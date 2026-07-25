@@ -53,6 +53,10 @@ namespace Plutus.Entities
         public DbSet<VatRollup> VatRollups { get; set; }
         // Financial periods (WP3.4): close/lock + snapshot.
         public DbSet<FinancialPeriod> FinancialPeriods { get; set; }
+        // Stock ledger (WP5.1): append-only movements + materialised levels.
+        public DbSet<StockLocation> StockLocations { get; set; }
+        public DbSet<StockMovement> StockMovements { get; set; }
+        public DbSet<StockLevel> StockLevels { get; set; }
         #endregion
 
         /// <summary>The tenant scoping every query and write is bound to. Referenced by the
@@ -119,6 +123,8 @@ namespace Plutus.Entities
             typeof(SalesRollup), typeof(VatRollup),
             // Financial periods (WP3.4).
             typeof(FinancialPeriod),
+            // Stock ledger (WP5.1).
+            typeof(StockLocation), typeof(StockMovement), typeof(StockLevel),
         };
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -309,6 +315,34 @@ namespace Plutus.Entities
                 e.Property(x => x.Id).ValueGeneratedNever();
                 e.Property(x => x.Name).HasMaxLength(100).IsRequired();
                 e.HasIndex(x => new { x.TenantId, x.CompanyId, x.StartDay });
+            });
+
+            // WP5.1 stock ledger.
+            modelBuilder.Entity<StockLocation>(e =>
+            {
+                e.ToTable("StockLocations");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Name).HasMaxLength(100).IsRequired();
+                e.HasIndex(x => new { x.TenantId, x.StoreId });
+            });
+            modelBuilder.Entity<StockMovement>(e =>
+            {
+                e.ToTable("StockMovements");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.ItemIdOne).HasMaxLength(20).IsRequired();
+                e.Property(x => x.Reason).HasMaxLength(500);
+                e.HasIndex(x => new { x.TenantId, x.StockLocationId, x.ItemIdOne });
+                e.HasIndex(x => new { x.TenantId, x.RefId });
+            });
+            modelBuilder.Entity<StockLevel>(e =>
+            {
+                e.ToTable("StockLevels");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedOnAdd();
+                e.Property(x => x.ItemIdOne).HasMaxLength(20).IsRequired();
+                e.HasIndex(x => new { x.TenantId, x.StockLocationId, x.ItemIdOne }).IsUnique();
             });
 
             // Test/dev harness only (WP2.1): on MySQL, Trans.IdOne is AUTO_INCREMENT within a
