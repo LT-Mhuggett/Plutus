@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Plutus.Entities;
 
@@ -11,9 +12,11 @@ using Plutus.Entities;
 namespace Plutus.Entities.Migrations.MySql
 {
     [DbContext(typeof(MySqlDbContext))]
-    partial class MySqlDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260725124447_AddGoodsIn")]
+    partial class AddGoodsIn
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -727,32 +730,6 @@ namespace Plutus.Entities.Migrations.MySql
                     b.ToTable("Items");
                 });
 
-            modelBuilder.Entity("Plutus.Entities.Models.ItemPricePolicy", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("ItemIdOne")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<byte>("Policy")
-                        .HasColumnType("tinyint unsigned");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("TenantId", "ItemIdOne")
-                        .IsUnique();
-
-                    b.ToTable("ItemPricePolicies", (string)null);
-                });
-
             modelBuilder.Entity("Plutus.Entities.Models.Note", b =>
                 {
                     b.Property<int>("IdOne")
@@ -1018,89 +995,6 @@ namespace Plutus.Entities.Migrations.MySql
                     b.ToTable("People");
 
                     b.UseTptMappingStrategy();
-                });
-
-            modelBuilder.Entity("Plutus.Entities.Models.PriceListEntry", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("EffectiveFromUtc")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<long>("ExPricePence")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("ItemIdOne")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<long>("PricePence")
-                        .HasColumnType("bigint");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("TenantId", "ItemIdOne", "EffectiveFromUtc");
-
-                    b.ToTable("PriceListEntries", (string)null);
-                });
-
-            modelBuilder.Entity("Plutus.Entities.Models.PriceOverride", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("EffectiveFromUtc")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<long>("ExPricePence")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("ItemIdOne")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<long>("PricePence")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTime?>("RevokedAtUtc")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("RevokedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<int>("StoreId")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("TenantId", "StoreId", "ItemIdOne", "EffectiveFromUtc");
-
-                    b.ToTable("PriceOverrides", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.ProcessedEvent", b =>

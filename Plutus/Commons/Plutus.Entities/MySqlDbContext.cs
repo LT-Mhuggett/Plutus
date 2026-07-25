@@ -59,6 +59,14 @@ namespace Plutus.Entities
         public DbSet<StockLevel> StockLevels { get; set; }
         // Transfers (WP5.2): paired movements with an in-transit state.
         public DbSet<StockTransfer> StockTransfers { get; set; }
+        // Goods-in (WP5.3): suppliers + purchase orders feeding RECEIPT movements.
+        public DbSet<Supplier> Suppliers { get; set; }
+        public DbSet<PurchaseOrder> PurchaseOrders { get; set; }
+        public DbSet<POLine> POLines { get; set; }
+        // Pricing (WP5.4): policy + effective-dated price list + store overrides.
+        public DbSet<ItemPricePolicy> ItemPricePolicies { get; set; }
+        public DbSet<PriceListEntry> PriceListEntries { get; set; }
+        public DbSet<PriceOverride> PriceOverrides { get; set; }
         #endregion
 
         /// <summary>The tenant scoping every query and write is bound to. Referenced by the
@@ -125,8 +133,11 @@ namespace Plutus.Entities
             typeof(SalesRollup), typeof(VatRollup),
             // Financial periods (WP3.4).
             typeof(FinancialPeriod),
-            // Stock ledger (WP5.1) + transfers (WP5.2).
+            // Stock ledger (WP5.1) + transfers (WP5.2) + goods-in (WP5.3).
             typeof(StockLocation), typeof(StockMovement), typeof(StockLevel), typeof(StockTransfer),
+            typeof(Supplier), typeof(PurchaseOrder), typeof(POLine),
+            // Pricing (WP5.4).
+            typeof(ItemPricePolicy), typeof(PriceListEntry), typeof(PriceOverride),
         };
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -354,6 +365,58 @@ namespace Plutus.Entities
                 e.Property(x => x.ItemIdOne).HasMaxLength(20).IsRequired();
                 e.Property(x => x.Reason).HasMaxLength(500);
                 e.HasIndex(x => new { x.TenantId, x.Status });
+            });
+            // WP5.3 goods-in.
+            modelBuilder.Entity<Supplier>(e =>
+            {
+                e.ToTable("Suppliers");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Name).HasMaxLength(200).IsRequired();
+                e.Property(x => x.Email).HasMaxLength(255);
+                e.Property(x => x.Phone).HasMaxLength(50);
+            });
+            modelBuilder.Entity<PurchaseOrder>(e =>
+            {
+                e.ToTable("PurchaseOrders");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Reference).HasMaxLength(100);
+                e.Property(x => x.Notes).HasMaxLength(1000);
+                e.HasIndex(x => new { x.TenantId, x.Status });
+                e.HasMany(x => x.Lines).WithOne().HasForeignKey(l => l.PurchaseOrderId);
+            });
+            modelBuilder.Entity<POLine>(e =>
+            {
+                e.ToTable("POLines");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.ItemIdOne).HasMaxLength(20).IsRequired();
+            });
+            // WP5.4 pricing.
+            modelBuilder.Entity<ItemPricePolicy>(e =>
+            {
+                e.ToTable("ItemPricePolicies");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.ItemIdOne).HasMaxLength(20).IsRequired();
+                e.HasIndex(x => new { x.TenantId, x.ItemIdOne }).IsUnique();
+            });
+            modelBuilder.Entity<PriceListEntry>(e =>
+            {
+                e.ToTable("PriceListEntries");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.ItemIdOne).HasMaxLength(20).IsRequired();
+                e.HasIndex(x => new { x.TenantId, x.ItemIdOne, x.EffectiveFromUtc });
+            });
+            modelBuilder.Entity<PriceOverride>(e =>
+            {
+                e.ToTable("PriceOverrides");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.ItemIdOne).HasMaxLength(20).IsRequired();
+                e.HasIndex(x => new { x.TenantId, x.StoreId, x.ItemIdOne, x.EffectiveFromUtc });
             });
 
             // Test/dev harness only (WP2.1): on MySQL, Trans.IdOne is AUTO_INCREMENT within a
