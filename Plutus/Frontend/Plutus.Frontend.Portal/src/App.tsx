@@ -2,6 +2,7 @@ import { useState } from "react";
 import Dashboard from "./Dashboard.tsx";
 import VatPage from "./VatPage.tsx";
 import BankingPage from "./BankingPage.tsx";
+import CustomersPage from "./CustomersPage.tsx";
 import StockPage from "./StockPage.tsx";
 import PricesPage from "./PricesPage.tsx";
 import UsersPage from "./UsersPage.tsx";
@@ -12,7 +13,7 @@ import { clearSession, getSession, type Session } from "./session.ts";
 
 declare const __BUILD_TIME__: string;
 
-const TABS = ["Dashboard", "VAT", "Banking", "Stock", "Prices", "Users & Roles", "Stores & Tills", "Periods"] as const;
+const TABS = ["Dashboard", "VAT", "Banking", "Stock", "Prices", "Customers", "Users & Roles", "Stores & Tills", "Periods"] as const;
 type Tab = (typeof TABS)[number];
 
 const PAGES: Record<Tab, () => React.JSX.Element> = {
@@ -21,6 +22,7 @@ const PAGES: Record<Tab, () => React.JSX.Element> = {
   Banking: BankingPage,
   Stock: StockPage,
   Prices: PricesPage,
+  Customers: CustomersPage,
   "Users & Roles": UsersPage,
   "Stores & Tills": StoresPage,
   Periods: PeriodsPage,

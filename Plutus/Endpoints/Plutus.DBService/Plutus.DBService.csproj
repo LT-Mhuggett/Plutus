@@ -47,6 +47,7 @@
     <ProjectReference Include="..\..\..\src\Plutus.Tenancy\Plutus.Tenancy.csproj" />
     <ProjectReference Include="..\..\..\src\Plutus.Cash\Plutus.Cash.csproj" />
     <ProjectReference Include="..\..\..\src\Plutus.Payments\Plutus.Payments.csproj" />
+    <ProjectReference Include="..\..\..\src\Plutus.Customers\Plutus.Customers.csproj" />
     <ProjectReference Include="..\..\Commons\Plutus.Reports\Plutus.Reports.csproj" />
     <ProjectReference Include="..\..\Commons\Plutus.Repository\Plutus.Repository.csproj" />
   </ItemGroup>

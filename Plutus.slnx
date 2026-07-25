@@ -19,6 +19,7 @@
   <Folder Name="/src/">
     <Project Path="src/Plutus.Cash/Plutus.Cash.csproj" />
     <Project Path="src/Plutus.Catalogue/Plutus.Catalogue.csproj" />
+    <Project Path="src/Plutus.Customers/Plutus.Customers.csproj" />
     <Project Path="src/Plutus.Identity/Plutus.Identity.csproj" />
     <Project Path="src/Plutus.Payments/Plutus.Payments.csproj" />
     <Project Path="src/Plutus.Reporting/Plutus.Reporting.csproj" />

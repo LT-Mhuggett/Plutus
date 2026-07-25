@@ -70,6 +70,11 @@ namespace Plutus.Entities
         // Cash sessions (WP7.2) + payment capture events (WP7.1).
         public DbSet<CashEvent> CashEvents { get; set; }
         public DbSet<PaymentEvent> PaymentEvents { get; set; }
+        // Customers, store credit, loyalty (Phase 8).
+        public DbSet<Customer> Customers { get; set; }
+        public DbSet<CreditAccount> CreditAccounts { get; set; }
+        public DbSet<CreditEntry> CreditEntries { get; set; }
+        public DbSet<Membership> Memberships { get; set; }
         #endregion
 
         /// <summary>The tenant scoping every query and write is bound to. Referenced by the
@@ -143,6 +148,8 @@ namespace Plutus.Entities
             typeof(ItemPricePolicy), typeof(PriceListEntry), typeof(PriceOverride),
             // Cash + payments (WP7).
             typeof(CashEvent), typeof(PaymentEvent),
+            // Customers, credit, loyalty (Phase 8).
+            typeof(Customer), typeof(CreditAccount), typeof(CreditEntry), typeof(Membership),
         };
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -442,6 +449,41 @@ namespace Plutus.Entities
                 e.Property(x => x.ProviderRef).HasMaxLength(200).IsRequired();
                 e.HasIndex(x => new { x.TenantId, x.ProviderRef });
                 e.HasIndex(x => new { x.TenantId, x.ResolvedAtUtc });
+            });
+
+            // Phase 8 customers / credit / loyalty.
+            modelBuilder.Entity<Customer>(e =>
+            {
+                e.ToTable("Customers");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Name).HasMaxLength(200).IsRequired();
+                e.Property(x => x.Email).HasMaxLength(255);
+                e.Property(x => x.Phone).HasMaxLength(50);
+                e.HasIndex(x => new { x.TenantId, x.Email });
+            });
+            modelBuilder.Entity<CreditAccount>(e =>
+            {
+                e.ToTable("CreditAccounts");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.HasIndex(x => new { x.TenantId, x.CustomerId }).IsUnique();
+            });
+            modelBuilder.Entity<CreditEntry>(e =>
+            {
+                e.ToTable("CreditEntries");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Reason).HasMaxLength(500);
+                e.HasIndex(x => new { x.TenantId, x.CreditAccountId });
+            });
+            modelBuilder.Entity<Membership>(e =>
+            {
+                e.ToTable("Memberships");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Tier).HasMaxLength(50).IsRequired();
+                e.HasIndex(x => new { x.TenantId, x.CustomerId });
             });
 
             // Test/dev harness only (WP2.1): on MySQL, Trans.IdOne is AUTO_INCREMENT within a

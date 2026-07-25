@@ -44,6 +44,8 @@
     <!-- WP7: cash sessions + payment reconciliation tests. -->
     <ProjectReference Include="..\..\src\Plutus.Cash\Plutus.Cash.csproj" />
     <ProjectReference Include="..\..\src\Plutus.Payments\Plutus.Payments.csproj" />
+    <!-- Phase 8: customers / store credit / loyalty tests. -->
+    <ProjectReference Include="..\..\src\Plutus.Customers\Plutus.Customers.csproj" />
   </ItemGroup>
 
 </Project>

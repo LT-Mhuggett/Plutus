@@ -16,6 +16,7 @@ using Plutus.Reporting;
 using Plutus.Tenancy;
 using Plutus.Cash;
 using Plutus.Payments;
+using Plutus.Customers;
 using Plutus.Entities;
 using Plutus.Infrastructure.Outbox;
 using System;
@@ -58,6 +59,7 @@ namespace Plutus.DBService
             services.AddPlutusTenancy(Configuration);
             services.AddPlutusCash();       // WP7.2 cash sessions
             services.AddPlutusPayments();   // WP7.1 provider seam + reconciliation
+            services.AddPlutusCustomers();  // Phase 8 customers / credit / loyalty
             services.AddPlutusOutbox(); // T1.5 broker-less dispatcher (consumers register their own IEventConsumer)
             ConfigureRateLimiting(services, Configuration);
             services.ConfigureSwaggerDocumentation(Configuration);

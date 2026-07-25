@@ -102,11 +102,18 @@ namespace Plutus.Reporting
                 .Where(r => r.BusinessDay >= period.StartDay && r.BusinessDay <= period.EndDay)
                 .ToListAsync();
 
+            // Phase 8 (architecture §7.1): outstanding store-credit liability at close — the
+            // running Σ of every credit entry up to the period end (issues − redeems − expiries).
+            var creditLiabilityPence = await _db.CreditEntries.AsNoTracking()
+                .Where(e => e.CreatedAtUtc < period.EndDay.AddDays(1).ToDateTime(TimeOnly.MinValue))
+                .SumAsync(e => (long?)e.AmountPence) ?? 0;
+
             var snapshot = new
             {
                 grossPence = rollups.Sum(r => r.GrossPence),
                 vatPence = rollups.Sum(r => r.VatPence),
                 txnCount = rollups.Sum(r => r.TxnCount),
+                outstandingCreditLiabilityPence = creditLiabilityPence,
                 vatByRate = vat.GroupBy(v => v.VatRateBp).OrderBy(g => g.Key).Select(g => new
                 {
                     vatRateBp = g.Key,
