@@ -415,7 +415,31 @@ Note: the transitional `Sale/Summary`/`VatIntegrity`/`SaleReport` on Plutus.Sale
 
 ## 8. One-line status
 
-**Phases 0–3, 5, 7(cash), 8 COMPLETE; Phase 9 IdP-swap BUILT & DEPLOYED (dormant)** — the web POS
+### Phase 11 record (Operability & shopkeeper UX) — COMPLETE & LIVE 2026-07-25
+
+All four WPs built, deployed, and verified live (till names, items-sold 210 rows/7d, receipt-template
+GET, warehouse create — all 200/201; ETRIE 200). Migrations `AddTillDetails` + `AddReceiptTemplate`
+rehearsed on plutus_t1 then applied to plutus; both frontends rebuilt+deployed. Backend rollback
+`~/PLUTUS/backend.pre-phase11`. 114 unit + 5 arch green.
+- **WP11.1 till naming** (`…`): server-only `TillDetails` (legacy Till has no Name), tenant-unique
+  (case-insensitive guard + unique index), `PUT /api/v1/tills/{id}/name` (portal admin OR device),
+  backfill "Till {short-id}", rename from portal (inline) + till Settings. Names shown in the fleet list.
+- **WP11.2 receipts**: `saleId` as hand-rolled Code39 SVG on the receipt; per-store template in
+  `StoreDetails.ReceiptTemplateJson` (GET sales.ingest so the till caches+applies; PUT company.manage);
+  portal template editor + receipt viewer/reprint. Follow-ups: scan-into-Returns, operator/VAT lines.
+- **WP11.3**: `POST /api/v1/stock/locations` (warehouse creation); portal add-store button, new-location
+  control, tick-box/24h opening-hours editor (same JSON, advanced-JSON fallback).
+- **WP11.4 items-sold report**: `GET /api/v1/reports/items-sold(.csv)` from legacy Trans+Sales;
+  portal "Items Sold" tab (today/7/30-day + month/quarter/year, totals, auth-correct CSV). Follow-up:
+  till Reporting mirror.
+
+**Phase 10 (billing & offboarding): PLANNED (4 WPs in the impl plan), not yet built.** WP10.1 entitlements
++ IBillingProvider seam (Stripe deferred), WP10.2 lifecycle states (suspended locks portal, tills keep
+syncing — D16), WP10.3 tenant data export, WP10.4 scheduled deletion + retention.
+
+---
+
+**Phases 0–3, 5, 7(cash), 8, 11 COMPLETE; Phase 9 IdP-swap BUILT & DEPLOYED (dormant)** — the web POS
 trades through the idempotent v1 pipeline; RBAC, admin APIs, rollup reporting (penny-parity),
 financial periods, stock, pricing, cash sessions, customers/credit are live; portal at
 **https://admin.plutus.huggett.dscloud.me**. **Phase 9 (2026-07-25):** provider-agnostic auth seam
