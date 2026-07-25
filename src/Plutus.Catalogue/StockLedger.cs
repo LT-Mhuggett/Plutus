@@ -173,7 +173,15 @@ namespace Plutus.Catalogue
         /// <summary>Opening balances: one ADJUSTMENT per legacy `Stocks` row (idempotent —
         /// skips items that already carry an opening movement). Run once per store at
         /// adoption; the ledger and the legacy table then evolve in parallel via the two
-        /// consumers until legacy retires.</summary>
+        /// consumers until legacy retires.
+        ///
+        /// Adoption-order proofing: the legacy quantity ALREADY reflects every sale the
+        /// bridge has applied, so pipeline history must not ALSO enter the ledger —
+        ///  (a) pipeline movements written BEFORE an item's opening are double-counts and
+        ///      are removed (heals a consumer-replayed-history-then-seed ordering), and
+        ///  (b) the stock consumer's offset is advanced to the outbox high-water mark so
+        ///      unprocessed history never replays after the seed (fresh-install ordering).
+        /// Levels are rebuilt from the ledger when anything was healed.</summary>
         public const string OpeningReason = "opening balance (legacy Stocks)";
 
         public static async Task<int> SeedOpeningBalancesAsync(MySqlDbContext db, Guid tenantId, CancellationToken ct = default)
@@ -200,7 +208,47 @@ namespace Plutus.Catalogue
                     added++;
                 }
             }
+
+            // Persist the new openings first — the heal below queries them from the DB.
             if (db.ChangeTracker.HasChanges()) await db.SaveChangesAsync(ct);
+
+            // (a) heal: pipeline movements older than the item's opening are double-counts.
+            var openings = await db.StockMovements.IgnoreQueryFilters().AsNoTracking()
+                .Where(m => m.TenantId == tenantId && m.Reason == OpeningReason)
+                .Select(m => new { m.StockLocationId, m.ItemIdOne, m.AtUtc })
+                .ToListAsync(ct);
+            var openingAt = openings.ToDictionary(o => (o.StockLocationId, o.ItemIdOne), o => o.AtUtc);
+            var pipeline = await db.StockMovements.IgnoreQueryFilters()
+                .Where(m => m.TenantId == tenantId &&
+                            (m.Type == StockMovementType.Sale || m.Type == StockMovementType.Return))
+                .ToListAsync(ct);
+            var stale = pipeline.Where(m =>
+                openingAt.TryGetValue((m.StockLocationId, m.ItemIdOne), out var at) && m.AtUtc < at).ToList();
+            db.StockMovements.RemoveRange(stale);
+
+            // (b) fence: unprocessed history must not replay into the ledger after the seed.
+            // Only when openings were actually written — a tenant with no legacy stock keeps
+            // full history replay (the pipeline IS its ledger from day one).
+            if (added > 0)
+            {
+                long mark = await db.OutboxEvents.AnyAsync(ct) ? await db.OutboxEvents.MaxAsync(e => e.Id, ct) : 0;
+                var offset = await db.ConsumerOffsets
+                    .FirstOrDefaultAsync(o => o.ConsumerName == StockProjectionConsumer.ConsumerName, ct);
+                if (offset == null)
+                    db.ConsumerOffsets.Add(new ConsumerOffset
+                    {
+                        ConsumerName = StockProjectionConsumer.ConsumerName,
+                        LastOutboxId = mark, UpdatedAtUtc = DateTime.UtcNow,
+                    });
+                else if (offset.LastOutboxId < mark)
+                {
+                    offset.LastOutboxId = mark;
+                    offset.UpdatedAtUtc = DateTime.UtcNow;
+                }
+            }
+
+            if (db.ChangeTracker.HasChanges()) await db.SaveChangesAsync(ct);
+            if (stale.Count > 0) await RebuildLevelsAsync(db, tenantId, ct);
             return added;
         }
     }

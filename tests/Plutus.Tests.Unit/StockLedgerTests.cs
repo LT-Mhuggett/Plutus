@@ -185,6 +185,43 @@ public class StockLedgerTests
     }
 
     [Fact]
+    public async Task Seed_heals_history_replayed_before_adoption_and_fences_unprocessed_history()
+    {
+        using var conn = OpenSeeded();
+
+        // A pipeline sale exists BEFORE adoption; the bridge has already decremented the
+        // legacy Stocks value (47 → 45), which is what the opening will capture.
+        var processedSale = Uuid7.New();
+        using (var ctx = Ctx(conn)) { RecordSale(ctx, processedSale, "GAME-9", 2); ctx.SaveChanges(); }
+        await DrainAsync(conn); // consumer replays history first (the wrong-order case)
+
+        // an UNPROCESSED historic event also sits in the outbox at seed time
+        using (var ctx = Ctx(conn)) { RecordSale(ctx, Uuid7.New(), "GAME-9", 1); ctx.SaveChanges(); }
+
+        using (var ctx = Ctx(conn))
+        {
+            ctx.Stocks.Add(new Stock { IdOne = "GAME-9", IdTwo = BusinessId, IdThree = StoreId, Quantity = 45 });
+            ctx.SaveChanges();
+        }
+        using (var db = Ctx(conn)) await StockRebuilder.SeedOpeningBalancesAsync(db, Tenant);
+        await DrainAsync(conn); // fenced history must NOT apply
+
+        using (var check = Ctx(conn))
+        {
+            // ledger == legacy: the replayed −2 was healed, the unprocessed −1 was fenced
+            Assert.Equal(45, (await check.StockLevels.SingleAsync(l => l.ItemIdOne == "GAME-9")).Quantity);
+            var movement = Assert.Single(await check.StockMovements.ToListAsync());
+            Assert.Equal(StockRebuilder.OpeningReason, movement.Reason);
+        }
+
+        // post-adoption sales flow normally
+        using (var ctx = Ctx(conn)) { RecordSale(ctx, Uuid7.New(), "GAME-9", 3); ctx.SaveChanges(); }
+        await DrainAsync(conn);
+        using (var check = Ctx(conn))
+            Assert.Equal(42, (await check.StockLevels.SingleAsync(l => l.ItemIdOne == "GAME-9")).Quantity);
+    }
+
+    [Fact]
     public async Task Opening_balance_seed_is_idempotent_and_matches_legacy_stocks()
     {
         using var conn = OpenSeeded();
