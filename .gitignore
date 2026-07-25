@@ -295,3 +295,7 @@ __pycache__/
 
 # T0.1 endpoint regression snapshots (contain real sale figures)
 Build/snapshots/
+
+# Editor workspace files (deliberately local-only)
+*.code-workspace
+.vscode/
