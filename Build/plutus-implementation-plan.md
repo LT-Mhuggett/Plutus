@@ -190,6 +190,8 @@ Modules communicate in-process via the `SharedKernel` event bus abstraction (int
 
 ## Phase 7 — Payments + cash (can pull forward after Phase 1)
 
+> 🟡 **WP7.2 cash sessions COMPLETE & LIVE (2026-07-25, `67b344e`)** — X/Z with server-computed expected+variance, one-Z-per-day, banking view; till Cash tab + portal Banking tab. **WP7.1 payments = provider-agnostic SEAM ONLY** (capture events + orphaned-payment reconciliation queue live; the first concrete adapter is BLOCKED on the commercial provider choice). The cash-up overdue monitor is deferred (needs the paused WP4.3 fleet framework). See HANDOVER §5.
+
 **WP7.1 — Payment provider adapter.** `IPaymentProvider` (authorise/capture/refund/settlement-report); first concrete provider per commercial choice; terminal ref written into pending sale pre-capture (D13); unresolved-payments queue + portal review screen; daily settlement reconciliation job.
 **WP7.2 — Cash sessions.** `CashSessions` as events through ingest (float, paid-in/out, X snapshot, Z close — one Z per business day enforced at till); portal banking view; activate overdue-cash-up monitor (defaults 3/7/14 trading days, per-tenant/store config) in the WP4.3 framework.
 *DoD:* orphaned-payment simulation (capture success, sale POST dropped) surfaces in the queue; Z-report day matches rollups to the penny; cash-up monitor fires per config, respects opening hours.

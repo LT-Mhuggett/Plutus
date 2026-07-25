@@ -163,6 +163,24 @@ the vhost, ETRIE health 200. The temporary LAN preview (pm2 `plutus-portal-previ
   legacy Item prices — wiring it to /prices/effective is the catalogue-sync follow-up.
 - **Phase 5 COMPLETE.** 105 tests green (95 unit + 5 integration + 5 arch).
 
+**Phase 7 progress (2026-07-25):**
+- **WP7.2 cash sessions — COMPLETE & LIVE** (`67b344e`): `CashEvents` (append-only,
+  idempotent by client eventId) — OpenFloat/PaidIn/PaidOut/XSnapshot/ZClose through the
+  sales-ingest discipline; X/Z compute the expected drawer server-side
+  (float + cash takings net of change + paid-ins − paid-outs) and freeze counted/expected/
+  variance; ONE Z per till per business day (409 on a second Z or any post-Z event).
+  `POST /api/v1/cash-events`, `GET /api/v1/cash-events`, `GET /api/v1/cash/banking`.
+  Till gained a **Cash** tab, portal a **Banking** tab. Live smoke: Z variance + banking
+  view + one-Z-per-day 409 all correct.
+- **WP7.1 payments — SEAM ONLY (deliberate)**: `IPaymentProvider` + `NullPaymentProvider`,
+  `PaymentEvents` capture + reconciliation (orphaned-payment queue that auto-resolves when
+  the sale's outbox drains), `POST /api/v1/payments/events`, `/unresolved`, `/reconcile`;
+  portal Banking surfaces the queue. ⚠ **The first concrete provider adapter (Dojo/Stripe
+  Terminal/SumUp/etc) is BLOCKED on Matt's commercial choice** — nothing downstream depends
+  on which. WP7.1's cash-up overdue monitor is deferred (it builds on the paused WP4.3
+  fleet framework).
+- 108 tests green (98 unit + 5 integration + 5 arch).
+
 **▶ NEXT (all need Matt's input):** Phase 4 (MAUI) remains **paused for upstream code**;
 Phase 6 is the WooCommerce connector (needs a Woo test store to develop against); the Kapow
 PRODUCTION cutover (final till backup → re-ETL → rollups+stock rebuild) is a deliberate op;
