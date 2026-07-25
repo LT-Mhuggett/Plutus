@@ -158,11 +158,25 @@ Then `pm2 delete plutus-portal-preview` (the LAN preview) if desired.
   returns the variance report. Portal gained a **Stock** tab: central/per-store views,
   in-transit receive/cancel, per-item movements drill, adjust/count/dispatch dialogs.
   Live smoke: a count of 46 vs expected 44 posted a +2 reasoned adjustment.
-- WP5.3 (goods-in: Suppliers/PurchaseOrders/POLines → RECEIPT movements) and WP5.4
-  (pricing: PriceLists/Overrides/Policy + 9-case matrix) — NOT started; next up.
+- **WP5.3 goods-in — COMPLETE & LIVE** (`c76a893`): Suppliers → PurchaseOrders → POLines;
+  receiving posts RECEIPT ledger movements (RefId = PO id; partials Open→Partially→Received;
+  door cost overrides ordered cost; over-receive 400; state conflicts 409; audited).
+- **WP5.4 pricing — COMPLETE & LIVE** (`c76a893`, architecture §7.4): per-item PricePolicy
+  (CENTRAL default / CENTRAL_WITH_OVERRIDE / LOCAL), append-only effective-dated
+  PriceListEntries, store PriceOverrides (survive HQ repricing; force-reset revokes —
+  409 under LOCAL; overrides 409 under CENTRAL). Resolution: store price → price list →
+  legacy Items price (evolve-in-place baseline). `GET /api/v1/prices/effective` is the
+  till-catalogue-sync feed (any authenticated principal). Portal: Prices tab (policy,
+  HQ price incl. scheduling, store price, force-reset, history, variance-vs-HQ).
+  FULL 9-case policy matrix + boundary-activation tests. ⚠ The web POS till still reads
+  legacy Item prices — wiring it to /prices/effective is the catalogue-sync follow-up.
+- **Phase 5 COMPLETE.** 105 tests green (95 unit + 5 integration + 5 arch).
 
-**▶ NEXT:** continue Phase 5 (WP5.2 → WP5.4). Phase 4 (MAUI) remains **paused for upstream
-code**. The Kapow PRODUCTION cutover (final till backup → re-ETL) is a separate future op.
+**▶ NEXT (all need Matt's input):** Phase 4 (MAUI) remains **paused for upstream code**;
+Phase 6 is the WooCommerce connector (needs a Woo test store to develop against); the Kapow
+PRODUCTION cutover (final till backup → re-ETL → rollups+stock rebuild) is a deliberate op;
+and the follow-ups: till reads /prices/effective, retire the legacy bridge when the till UI
+moves to /api/v1 reports, and the Caddy sudo block below.
 
 ---
 

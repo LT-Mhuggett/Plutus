@@ -167,6 +167,8 @@ Modules communicate in-process via the `SharedKernel` event bus abstraction (int
 
 ## Phase 5 — Stock + pricing
 
+> ✅ **COMPLETE & LIVE (2026-07-25)** — see HANDOVER.md §5 (commits `4e8d0f3`, `c0e87ff`, `8247ae9`, `c76a893`). All DoDs test-covered: level==ledger property, replay-idempotent sale consumer, in-transit no-double-count, scheduled-reprice boundary, 9-case policy matrix. Portal gained Stock + Prices tabs. Note: the web POS till still reads legacy prices — /api/v1/prices/effective adoption is a catalogue-sync follow-up.
+
 **WP5.1 — Stock ledger.** `StockLocations` (STORE/WAREHOUSE), typed `StockMovements` (RECEIPT, TRANSFER_OUT/IN, SALE, RETURN, ADJUSTMENT, WRITE_OFF), materialised `StockLevels` maintained by a `SaleRecorded` consumer + direct movement APIs. Rebuild command.
 *DoD:* level = ledger sum always (property test); sale consumer idempotent under replay.
 
