@@ -415,11 +415,36 @@ Note: the transitional `Sale/Summary`/`VatIntegrity`/`SaleReport` on Plutus.Sale
 
 ## 8. One-line status
 
-**Phases 0–3 AND 5 COMPLETE; Kapow history loaded** — the web POS trades through the
-idempotent v1 pipeline; RBAC, admin APIs, rollup reporting (8 years of Kapow data,
-penny-parity verified), financial periods, stock ledger (transfers/takes/goods-in) and
-policy-driven pricing are all live; the portal is at **https://admin.plutus.huggett.dscloud.me**
-(vhost applied by Matt 2026-07-25). 95 unit + 5 integration + 5 arch tests green. ETRIE
-untouched. Phase 4 (MAUI) paused for upstream; open moves (Matt's call): Phase 6 (Woo
-connector — needs a test store), production cutover, till → /prices/effective, retire the
-legacy bridge. Resume at §5.
+**Phases 0–3, 5, 7(cash), 8 COMPLETE; Phase 9 IdP-swap BUILT & DEPLOYED (dormant)** — the web POS
+trades through the idempotent v1 pipeline; RBAC, admin APIs, rollup reporting (penny-parity),
+financial periods, stock, pricing, cash sessions, customers/credit are live; portal at
+**https://admin.plutus.huggett.dscloud.me**. **Phase 9 (2026-07-25):** provider-agnostic auth seam
+(`IdP:Provider = test|entra|keycloak|b2c`) deployed — defaults to `test`, so live behaviour is
+unchanged (verified: legacy+v1 endpoints 200, 401 enforced, ETRIE 200). Live Keycloak running in
+Docker on the Mac (`plutus-keycloak`, :8089, realm `plutus`); both frontends have OIDC PKCE login
+behind `VITE_AUTH_MODE=oidc` (default password). **To flip to Keycloak (Matt):** apply the staged
+Caddy vhost (`ops/keycloak/README.md`, needs sudo), set `IdP__Provider=keycloak` +
+`IdP__Keycloak__Authority/Audience`, rebuild the frontends with the OIDC env, and ensure the
+Keycloak user's email matches a `WebCredentials` row. Entra is config-ready (`ops/entra/`, needs
+his Azure tenant). 112 unit + 5 arch green. Phase 4 (MAUI) paused; open moves: Phase 6 (Woo — needs
+a test store), Phase 10 billing, Phase 11 (Matt's punch list, planned), production cutover.
+
+### Phase 9 record (IdP swap) — BUILT 2026-07-25
+
+- **WP9.1 seam** (`be88494`): `ConfigureAuthentication` selector replaces the implicit B2C branch.
+  `entra`/`keycloak` = metadata-driven `AddJwtBearer` (`MapInboundClaims=false`); a policy-scheme
+  routes 2-segment HMAC device tokens → `PlutusTokenAuthHandler`, 3-segment JWTs → the IdP (till
+  client-credentials unaffected). `RbacClaimsTransformation` maps the token's verified email →
+  `WebCredentials` user → injects the SAME claims the HMAC login emits (EmployeeId + RBAC scopes +
+  legacy `scp`). Login endpoint + transformation share `EffectivePermissionsService.ResolveLoginScopesAsync`.
+- **WP9.2 Keycloak** (`…`): Dockerised KC26 (`plutus-keycloak`, 127.0.0.1:8089, `restart unless-stopped`),
+  realm export `ops/keycloak/plutus-realm.json` (2 public PKCE SPA clients, `aud=plutus-api`, demo
+  user `ada@shop.test`), `run-keycloak.sh`. Issuer `https://login.plutus.huggett.dscloud.me/realms/plutus`.
+  Caddy vhost staged (`ops/keycloak/caddy-login-vhost.caddy`, admin surface blocked) — **needs Matt's sudo**.
+- **WP9.3 Entra** (`ops/entra/README.md`): setup runbook; code path already live from 9.1.
+- **WP9.4 frontends**: hand-rolled OIDC PKCE (`oidc.ts` + `auth.ts` in both apps); access token in
+  memory only, IdP SSO cookie backs reload, refresh_token renews in-tab. Default password mode.
+- **WP9.5 tests**: `AuthSchemeRouter` (device-vs-JWT) + `RbacClaimsTransformation` unit-tested.
+- **Rollback:** backend `~/PLUTUS/backend.pre-phase9`. Keycloak: `docker stop plutus-keycloak`.
+
+Resume at §5 for earlier phases.
