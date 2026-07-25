@@ -40,5 +40,10 @@ namespace Plutus.Frontend.AppClient.Services.Analytics
         {
             _logLevel = level;
         }
+
+        public bool IsEmulatorOrSimulator()
+        {
+            return DeviceInfo.DeviceType == DeviceType.Virtual;
+        }
     }
 }

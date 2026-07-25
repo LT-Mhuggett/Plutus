@@ -7,7 +7,7 @@ namespace Plutus.Entities.FormBodies
         public int Id { get; set; }
         public string Name { get; set; }
         public Guid BusinessId { get; set; }
-        public int ParentRoleId { get; set; }
+        public int? ParentRoleId { get; set; }
 
 
         public override Role GenerateEntity()

@@ -62,10 +62,15 @@ namespace Plutus.Frontend.AppClient.Tests.Services
         public void LogEvent_AboveThreshold_DoesNotThrow()
         {
             // Observability.LoggerFactory defaults to NullLoggerFactory in the test process, so the
-            // underlying Log(...) call is a safe no-op, letting the gate-open branch - including
-            // DeviceInfo.DeviceType and the TestCloud environment-variable check - run without a live app.
+            // underlying Log(...) call is a safe no-op, letting the gate-open branch - including the
+            // TestCloud environment-variable check - run without a live app. IsEmulatorOrSimulator is
+            // pinned to false via the mock so this deterministically exercises the gate-open path
+            // instead of depending on whether the host happens to be a physical or virtual machine
+            // (every hosted CI runner is virtualized, so DeviceInfo.DeviceType would otherwise report
+            // Virtual there and silently no-op this call).
             var appState = new Mock<IAppState>();
             appState.Setup(a => a.GetAppLogLevel()).Returns(AppLogLevel.Verbose);
+            appState.Setup(a => a.IsEmulatorOrSimulator()).Returns(false);
             TestServices.AppState = appState.Object;
 
             var logger = new Logger();
@@ -80,6 +85,7 @@ namespace Plutus.Frontend.AppClient.Tests.Services
             var appState = new Mock<IAppState>();
             appState.Setup(a => a.GetAppLogLevel()).Returns(AppLogLevel.Verbose);
             appState.Setup(a => a.GetInstallId()).Returns(Guid.Empty);
+            appState.Setup(a => a.IsEmulatorOrSimulator()).Returns(false);
             TestServices.AppState = appState.Object;
 
             var logger = new Logger();

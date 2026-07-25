@@ -40,6 +40,7 @@ namespace Plutus.Frontend.AppClient.Tests.Helpers
         [InlineData("not-a-number", false)]
         public void CurrencyValueValidator_Check_DefaultStyle(string value, bool expected)
         {
+            using var _ = new CultureScope("en-GB");
             Assert.Equal(expected, new CurrencyValueValidator().Check(value));
         }
 

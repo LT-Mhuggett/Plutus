@@ -3,11 +3,13 @@ using NUnit.Framework;
 using Plutus.Entities;
 using Plutus.Entities.Models;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Plutus.Repository.Tests
 {
-    public class RepositoryTests 
+    [FixtureLifeCycle(LifeCycle.InstancePerTestCase)]
+    public class RepositoryTests
     {
         /*[SetUp]
         public void Setup()
@@ -28,37 +30,35 @@ namespace Plutus.Repository.Tests
         #region Data Persistance
         [Test]
         [Category("RecordPersistance")]
-        public void BusinessPersists()
+        public async Task BusinessPersists()
         {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
 
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            Assert.AreEqual(Business, DbContext.Business.Find(Business.Id));
-            //Assert.AreEqual(1, DbContext.Business.Count());
+            Assert.AreEqual(business, DbContext.Business.Find(business.Id));
         }
 
         [Test]
         [Category("RecordPersistance")]
-        public void NotePersists()
+        public async Task NotePersists()
         {
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+            var store = await RepositoryWrapper.Persist(TestFixtures.NewStore(business.Id));
+            var role = await RepositoryWrapper.Persist(TestFixtures.NewRole(business.Id));
+            var employee = await RepositoryWrapper.Persist(TestFixtures.NewEmployee(store.Id, business.Id, role.Id));
+            var till = await RepositoryWrapper.Persist(TestFixtures.NewTill(store.Id));
+            var sale = await RepositoryWrapper.Persist(TestFixtures.NewSale(store.Id, employee.Id, till.Id));
+
             var note = new Note()
             {
-                Text = "Note Text"
+                Text = "Note Text",
+                IdTwo = sale.Id
             };
 
-            RepositoryWrapper.NoteRepository.Create(note);
+            await RepositoryWrapper.NoteRepository.Create(note);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
             Assert.AreEqual(note, DbContext.Notes.Find(note.IdOne, note.IdTwo));
-            //Assert.AreEqual(1, DbContext.Business.Count());
         }
 
         [Test]
@@ -102,187 +102,58 @@ namespace Plutus.Repository.Tests
 
         [Test]
         [Category("RecordPersistance")]
-        public void CategoryPersists()
+        public async Task CategoryPersists()
         {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
-
-            var category = new Category()
-            {
-                Name = "Test Name",
-                Description = "Test Description",
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.CategoryRepository.Create(category);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+            var category = await RepositoryWrapper.Persist(TestFixtures.NewCategory(business.Id));
 
             Assert.AreEqual(category, DbContext.Category.Find(category.IdOne, category.IdTwo));
-            //Assert.AreEqual(1, DbContext.Category.Count());
         }
 
         [Test]
         [Category("RecordPersistance")]
-        public void RolePersists()
+        public async Task RolePersists()
         {
-            var role = new Role()
-            {
-                Name = "Test Role"
-            };
-
-            RepositoryWrapper.RoleRepository.Create(role);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+            var role = await RepositoryWrapper.Persist(TestFixtures.NewRole(business.Id, "Test Role"));
 
             Assert.AreEqual(role, DbContext.Role.Find(role.Id));
-            //Assert.AreEqual(1, DbContext.Category.Count());
         }
 
         [Test]
         [Category("RecordPersistance")]
-        public void StorePersists()
+        public async Task StorePersists()
         {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+            var store = await RepositoryWrapper.Persist(TestFixtures.NewStore(business.Id));
 
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var store = new Store()
-            {
-                ContactNumber = "+449672513556",
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "Test City",
-                PostCode = "201304",
-                Country = "England",
-                BusinessId = Business.Id
-            };
-
-            RepositoryWrapper.StoreRepository.Create(store);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            Assert.AreEqual(Business, DbContext.Business.Find(Business.Id));
+            Assert.AreEqual(business, DbContext.Business.Find(business.Id));
             Assert.AreEqual(store, DbContext.Stores.Find(store.Id));
         }
 
         [Test]
         [Category("RecordPersistance")]
-        public void TillPersists()
+        public async Task TillPersists()
         {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+            var store = await RepositoryWrapper.Persist(TestFixtures.NewStore(business.Id));
+            var till = await RepositoryWrapper.Persist(TestFixtures.NewTill(store.Id));
 
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var store = new Store()
-            {
-                ContactNumber = "+449672513556",
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "Test City",
-                PostCode = "201304",
-                Country = "England",
-                BusinessId = Business.Id
-            };
-
-            RepositoryWrapper.StoreRepository.Create(store);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var till = new Till()
-            {
-                Id = Guid.NewGuid(),
-                StoreId = store.Id,
-                CashFloat = 100,
-                LastOnline = DateTime.Now
-            };
-
-            RepositoryWrapper.TillRepository.Create(till);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            Assert.AreEqual(Business, DbContext.Business.Find(Business.Id));
+            Assert.AreEqual(business, DbContext.Business.Find(business.Id));
             Assert.AreEqual(store, DbContext.Stores.Find(store.Id));
             Assert.AreEqual(till, DbContext.Till.Find(till.Id));
         }
 
         [Test]
         [Category("RecordPersistance")]
-        public void EmployeePersists()
+        public async Task EmployeePersists()
         {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+            var store = await RepositoryWrapper.Persist(TestFixtures.NewStore(business.Id));
+            var role = await RepositoryWrapper.Persist(TestFixtures.NewRole(business.Id));
+            var employee = await RepositoryWrapper.Persist(TestFixtures.NewEmployee(store.Id, business.Id, role.Id));
 
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var store = new Store()
-            {
-                ContactNumber = "+449672513556",
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "Test City",
-                PostCode = "201304",
-                Country = "England",
-                BusinessId = Business.Id
-            };
-
-            RepositoryWrapper.StoreRepository.Create(store);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var role = new Role()
-            {
-                Name = "Employee Role"
-            };
-
-            RepositoryWrapper.RoleRepository.Create(role);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var employee = new Employee()
-            {
-                Wage = 1000,
-                ContractedHours = 40,
-                Active = true,
-                StoreId = store.Id,
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "London",
-                PostCode = "203440",
-                Country = "England",
-                FName = "John",
-                LName = "Doe",
-                Mobile = "+449672513556",
-                Email = store.Id + "@test.com",
-                BusinessId = Business.Id,
-                RoleId = role.Id
-            };
-
-            RepositoryWrapper.EmployeeRepository.Create(employee);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            Assert.AreEqual(Business, DbContext.Business.Find(Business.Id));
+            Assert.AreEqual(business, DbContext.Business.Find(business.Id));
             Assert.AreEqual(store, DbContext.Stores.Find(store.Id));
             Assert.AreEqual(role, DbContext.Role.Find(role.Id));
             Assert.AreEqual(employee, DbContext.Employees.Find(employee.Id));
@@ -290,17 +161,9 @@ namespace Plutus.Repository.Tests
 
         [Test]
         [Category("RecordPersistance")]
-        public void DiscountPersists()
+        public async Task DiscountPersists()
         {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
-
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
 
             var discount = new Discount()
             {
@@ -312,231 +175,56 @@ namespace Plutus.Repository.Tests
                 Amount = 13556,
                 UsesPerTransaction = 1,
                 RequiredNumOfItems = 1,
-                BusinessId = Business.Id
+                BusinessId = business.Id
             };
 
-            RepositoryWrapper.DiscountRepository.Create(discount);
+            await RepositoryWrapper.DiscountRepository.Create(discount);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
-            Assert.AreEqual(Business, DbContext.Business.Find(Business.Id));
+            Assert.AreEqual(business, DbContext.Business.Find(business.Id));
             Assert.AreEqual(discount, DbContext.Discounts.Find(discount.Id));
         }
 
         [Test]
         [Category("RecordPersistance")]
-        public void TaxPersists()
+        public async Task TaxPersists()
         {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+            var tax = await RepositoryWrapper.Persist(TestFixtures.NewTax(business.Id));
 
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var tax = new Tax()
-            {
-                Name = "Tax Name",
-                Rate = 4.8,
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.TaxRepository.Create(tax);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            Assert.AreEqual(Business, DbContext.Business.Find(Business.Id));
-            Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, Business.Id));
+            Assert.AreEqual(business, DbContext.Business.Find(business.Id));
+            Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, business.Id));
         }
 
         [Test]
         [Category("RecordPersistance")]
-        public void ItemPersists()
+        public async Task ItemPersists()
         {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+            var tax = await RepositoryWrapper.Persist(TestFixtures.NewTax(business.Id));
+            var category = await RepositoryWrapper.Persist(TestFixtures.NewCategory(business.Id));
+            var item = await RepositoryWrapper.Persist(TestFixtures.NewItem("ITEMPERSISTS01", business.Id, tax.IdOne, category.IdOne));
 
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var tax = new Tax()
-            {
-                Name = "Tax Name",
-                Rate = 4.8,
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.TaxRepository.Create(tax);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var category = new Category()
-            {
-                Name = "Test Name",
-                Description = "Test Description", 
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.CategoryRepository.Create(category);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-
-            var item = new Item()
-            {
-                Name = "Item Name",
-                Brand = "Item Brand Name",
-                Desc = "Y",
-                Cost = 9999,
-                ExPrice = 9999,
-                Price = 9999,
-                TaxId = tax.IdOne,
-                CatId = category.IdOne,
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.ItemRepository.Create(item);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            Assert.AreEqual(Business, DbContext.Business.Find(Business.Id));
-            Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, Business.Id));
-            Assert.AreEqual(category, DbContext.Category.Find(category.IdOne, Business.Id));
-            Assert.AreEqual(item, DbContext.Items.Find(item.IdOne, Business.Id));
+            Assert.AreEqual(business, DbContext.Business.Find(business.Id));
+            Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, business.Id));
+            Assert.AreEqual(category, DbContext.Category.Find(category.IdOne, business.Id));
+            Assert.AreEqual(item, DbContext.Items.Find(item.IdOne, business.Id));
         }
 
         [Test]
         [Category("RecordPersistance")]
-        public void TransactionPersists()
+        public async Task TransactionPersists()
         {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
-
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var tax = new Tax()
-            {
-                Name = "Tax Name",
-                Rate = 4.8,
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.TaxRepository.Create(tax);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var category = new Category()
-            {
-                Name = "Test Name",
-                Description = "Test Description",
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.CategoryRepository.Create(category);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-
-            var item = new Item()
-            {
-                Name = "Item Name",
-                Brand = "Item Brand Name",
-                Desc = "Y",
-                Cost = 9999,
-                ExPrice = 9999,
-                Price = 9999,
-                TaxId = tax.IdOne,
-                CatId = category.IdOne,
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.ItemRepository.Create(item);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var store = new Store()
-            {
-                ContactNumber = "+449672513556",
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "Test City",
-                PostCode = "201304",
-                Country = "England",
-                BusinessId = Business.Id
-            };
-
-            RepositoryWrapper.StoreRepository.Create(store);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var till = new Till()
-            {
-                Id = Guid.NewGuid(),
-                StoreId = store.Id,
-                CashFloat = 100,
-                LastOnline = DateTime.Now
-            };
-
-            RepositoryWrapper.TillRepository.Create(till);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var role = new Role()
-            {
-                Name = "Employee Role"
-            };
-
-            RepositoryWrapper.RoleRepository.Create(role);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var employee = new Employee()
-            {
-                Wage = 1000,
-                ContractedHours = 40,
-                Active = true,
-                StoreId = store.Id,
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "London",
-                PostCode = "203440",
-                Country = "England",
-                FName = "John",
-                LName = "Doe",
-                Mobile = "+449672513556",
-                Email = store.Id + "@test.com",
-                BusinessId = Business.Id,
-                RoleId = role.Id
-            };
-
-            RepositoryWrapper.EmployeeRepository.Create(employee);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var sale = new Sale()
-            {
-                Total = 2000,
-                TotalExTax = 2000,
-                DateOfSale = DateTime.Now,
-                StoreId = store.Id,
-                EmployeeId = employee.Id
-            };
-
-            RepositoryWrapper.SaleRepository.Create(sale);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+            var tax = await RepositoryWrapper.Persist(TestFixtures.NewTax(business.Id));
+            var category = await RepositoryWrapper.Persist(TestFixtures.NewCategory(business.Id));
+            var item = await RepositoryWrapper.Persist(TestFixtures.NewItem("ITEMTRANSPST01", business.Id, tax.IdOne, category.IdOne));
+            var store = await RepositoryWrapper.Persist(TestFixtures.NewStore(business.Id));
+            var till = await RepositoryWrapper.Persist(TestFixtures.NewTill(store.Id));
+            var role = await RepositoryWrapper.Persist(TestFixtures.NewRole(business.Id));
+            var employee = await RepositoryWrapper.Persist(TestFixtures.NewEmployee(store.Id, business.Id, role.Id));
+            var sale = await RepositoryWrapper.Persist(TestFixtures.NewSale(store.Id, employee.Id, till.Id));
 
             var transaction = new Transaction()
             {
@@ -549,85 +237,26 @@ namespace Plutus.Repository.Tests
                 ItemIdTwo = item.IdTwo,
             };
 
-            RepositoryWrapper.TransactionRepository.Create(transaction);
+            await RepositoryWrapper.TransactionRepository.Create(transaction);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
-            Assert.AreEqual(Business, DbContext.Business.Find(Business.Id));
-            Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, Business.Id));
-            Assert.AreEqual(category, DbContext.Category.Find(category.IdOne, Business.Id));
-            Assert.AreEqual(item, DbContext.Items.Find(item.IdOne, Business.Id));
+            Assert.AreEqual(business, DbContext.Business.Find(business.Id));
+            Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, business.Id));
+            Assert.AreEqual(category, DbContext.Category.Find(category.IdOne, business.Id));
+            Assert.AreEqual(item, DbContext.Items.Find(item.IdOne, business.Id));
             Assert.AreEqual(transaction, DbContext.Trans.Find(transaction.IdOne, transaction.IdTwo));
         }
 
         [Test]
         [Category("RecordPersistance")]
-        public void StockPersists()
+        public async Task StockPersists()
         {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
-
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var tax = new Tax()
-            {
-                Name = "Tax Name",
-                Rate = 4.8,
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.TaxRepository.Create(tax);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var category = new Category()
-            {
-                Name = "Test Name",
-                Description = "Test Description",
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.CategoryRepository.Create(category);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-
-            var item = new Item()
-            {
-                Name = "Item Name",
-                Brand = "Item Brand Name",
-                Desc = "Y",
-                Cost = 9999,
-                ExPrice = 9999,
-                Price = 9999,
-                TaxId = tax.IdOne,
-                CatId = category.IdOne,
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.ItemRepository.Create(item);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var store = new Store()
-            {
-                ContactNumber = "+449672513556",
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "Test City",
-                PostCode = "201304",
-                Country = "England",
-                BusinessId = Business.Id
-            };
-
-            RepositoryWrapper.StoreRepository.Create(store);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+            var tax = await RepositoryWrapper.Persist(TestFixtures.NewTax(business.Id));
+            var category = await RepositoryWrapper.Persist(TestFixtures.NewCategory(business.Id));
+            var item = await RepositoryWrapper.Persist(TestFixtures.NewItem("ITEMSTOCKPST01", business.Id, tax.IdOne, category.IdOne));
+            var store = await RepositoryWrapper.Persist(TestFixtures.NewStore(business.Id));
 
             var stock = new Stock()
             {
@@ -637,14 +266,14 @@ namespace Plutus.Repository.Tests
                 Quantity = 12
             };
 
-            RepositoryWrapper.StockRepository.Create(stock);
+            await RepositoryWrapper.StockRepository.Create(stock);
             RepositoryWrapper.SetCurrentUser("Test");
             RepositoryWrapper.Save();
 
-            Assert.AreEqual(Business, DbContext.Business.Find(Business.Id));
-            Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, Business.Id));
-            Assert.AreEqual(category, DbContext.Category.Find(category.IdOne, Business.Id));
-            Assert.AreEqual(item, DbContext.Items.Find(item.IdOne, Business.Id));
+            Assert.AreEqual(business, DbContext.Business.Find(business.Id));
+            Assert.AreEqual(tax, DbContext.Taxes.Find(tax.IdOne, business.Id));
+            Assert.AreEqual(category, DbContext.Category.Find(category.IdOne, business.Id));
+            Assert.AreEqual(item, DbContext.Items.Find(item.IdOne, business.Id));
             Assert.AreEqual(store, DbContext.Stores.Find(store.Id));
             Assert.AreEqual(stock, DbContext.Stocks.Find(stock.IdOne, stock.IdTwo, stock.IdThree));
         }
@@ -656,28 +285,20 @@ namespace Plutus.Repository.Tests
 
         #region Business
 
-        [Test]
-        [Category("RecordPropertyConstraint")]
-        public void BusinessRecordNameIsRequired()
+        private static IEnumerable<TestCaseData> BusinessRequiredFieldCases()
         {
-            var Business = new Business()
-            {
-                NameAbbr = "TN"
-            };
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+            yield return new TestCaseData((Action<Business>)(b => b.Name = null)).SetName("BusinessRecordFieldIsRequired(Name)");
+            yield return new TestCaseData((Action<Business>)(b => b.NameAbbr = null)).SetName("BusinessRecordFieldIsRequired(NameAbbr)");
         }
 
-        [Test]
+        [TestCaseSource(nameof(BusinessRequiredFieldCases))]
         [Category("RecordPropertyConstraint")]
-        public void BusinessRecordNameAbbrIsRequired()
+        public void BusinessRecordFieldIsRequired(Action<Business> omitField)
         {
-            var Business = new Business()
-            {
-                Name = "Test Name"
-            };
-            RepositoryWrapper.BusinessRepository.Create(Business);
+            var business = TestFixtures.NewBusiness();
+            omitField(business);
+
+            RepositoryWrapper.BusinessRepository.Create(business);
             RepositoryWrapper.SetCurrentUser("Test");
             Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
         }
@@ -685,28 +306,19 @@ namespace Plutus.Repository.Tests
         #endregion Business
 
         #region Category
-        [Test]
-        [Category("RecordPersistance")]
-        public void CategoryRecordNameIsRequired()
-        {
-            var category = new Category()
-            {
-                Description = "Test Description"
-            };
 
-            RepositoryWrapper.CategoryRepository.Create(category);
-            RepositoryWrapper.SetCurrentUser("Test");
-            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+        private static IEnumerable<TestCaseData> CategoryRequiredFieldCases()
+        {
+            yield return new TestCaseData((Action<Category>)(c => c.Name = null)).SetName("CategoryRecordFieldIsRequired(Name)");
+            yield return new TestCaseData((Action<Category>)(c => c.Description = null)).SetName("CategoryRecordFieldIsRequired(Description)");
         }
 
-        [Test]
-        [Category("RecordPersistance")]
-        public void CategoryRecordDescriptionIsRequired()
+        [TestCaseSource(nameof(CategoryRequiredFieldCases))]
+        [Category("RecordPropertyConstraint")]
+        public void CategoryRecordFieldIsRequired(Action<Category> omitField)
         {
-            var category = new Category()
-            {
-                Name = "Test Name"
-            };
+            var category = new Category { Name = "Test Name", Description = "Test Description" };
+            omitField(category);
 
             RepositoryWrapper.CategoryRepository.Create(category);
             RepositoryWrapper.SetCurrentUser("Test");
@@ -715,127 +327,28 @@ namespace Plutus.Repository.Tests
         #endregion Category
 
         #region Store
-        [Test]
-        [Category("RecordPersistance")]
-        public void StoreRecordContactNumberIsRequired()
+        private static IEnumerable<TestCaseData> StoreRequiredFieldCases()
         {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
-
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var store = new Store()
-            {
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "Test City",
-                PostCode = "201304",
-                Country = "England",
-                BusinessId = Business.Id
-            };
-
-            RepositoryWrapper.StoreRepository.Create(store);
-            RepositoryWrapper.SetCurrentUser("Test");
-            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+            yield return new TestCaseData((Action<Store>)(s => s.ContactNumber = null)).SetName("StoreRecordFieldIsRequired(ContactNumber)");
+            yield return new TestCaseData((Action<Store>)(s => s.PostCode = null)).SetName("StoreRecordFieldIsRequired(PostCode)");
+            yield return new TestCaseData((Action<Store>)(s => s.BusinessId = default)).SetName("StoreRecordFieldIsRequired(BusinessId)");
         }
 
-        [Test]
-        [Category("RecordPersistance")]
-        public void StoreRecordPostcodeIsRequired()
+        [TestCaseSource(nameof(StoreRequiredFieldCases))]
+        [Category("RecordPropertyConstraint")]
+        public async Task StoreRecordFieldIsRequired(Action<Store> omitField)
         {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+            var store = TestFixtures.NewStore(business.Id);
+            omitField(store);
 
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var store = new Store()
-            {
-                ContactNumber = "+449672513556",
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "Test City",
-                Country = "England",
-                BusinessId = Business.Id
-            };
-
-            RepositoryWrapper.StoreRepository.Create(store);
-            RepositoryWrapper.SetCurrentUser("Test");
-            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
-        }
-
-        [Test]
-        [Category("RecordPersistance")]
-        public void StoreRecordBusinessIdIsRequired()
-        {
-
-            var store = new Store()
-            {
-                ContactNumber = "+449672513556",
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "Test City",
-                PostCode = "201304",
-                Country = "England",
-            };
-
-            RepositoryWrapper.StoreRepository.Create(store);
+            await RepositoryWrapper.StoreRepository.Create(store);
             RepositoryWrapper.SetCurrentUser("Test");
             Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
         }
         #endregion Store
 
         #region Till
-        [Test]
-        [Category("RecordPersistance")]
-        public void TillRecordMachineIdIsRequired()
-        {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
-
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var store = new Store()
-            {
-                ContactNumber = "+449672513556",
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "Test City",
-                PostCode = "201304",
-                Country = "England",
-                BusinessId = Business.Id
-            };
-
-            RepositoryWrapper.StoreRepository.Create(store);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var till = new Till()
-            {
-                StoreId = store.Id,
-                CashFloat = 100,
-                LastOnline = DateTime.Now
-            };
-
-            RepositoryWrapper.TillRepository.Create(till);
-            RepositoryWrapper.SetCurrentUser("Test");
-            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
-        }
-
         [Test]
         [Category("RecordPersistance")]
         public void TillRecordStoreIdIsRequired()
@@ -855,248 +368,61 @@ namespace Plutus.Repository.Tests
         #endregion Till
 
         #region Item
-        [Test]
-        [Category("RecordPropertyConstraint")]
-        public void ItemRecordNameIsRequired()
+        private static IEnumerable<TestCaseData> ItemRequiredFieldCases()
         {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
-
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var tax = new Tax()
-            {
-                Name = "Tax Name",
-                Rate = 4.8,
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.TaxRepository.Create(tax);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var category = new Category()
-            {
-                Name = "Test Name",
-                Description = "Test Description",
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.CategoryRepository.Create(category);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-
-            var item = new Item()
-            {
-                Brand = "Item Brand Name",
-                Desc = "Y",
-                Cost = 9999,
-                ExPrice = 9999,
-                Price = 9999,
-                TaxId = tax.IdOne,
-                CatId = category.IdOne,
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.ItemRepository.Create(item);
-            RepositoryWrapper.SetCurrentUser("Test");
-            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
-
+            yield return new TestCaseData((Action<Item>)(i => i.Name = null)).SetName("ItemRecordFieldIsRequired(Name)");
+            yield return new TestCaseData((Action<Item>)(i => i.Brand = null)).SetName("ItemRecordFieldIsRequired(Brand)");
+            yield return new TestCaseData((Action<Item>)(i => i.TaxId = default)).SetName("ItemRecordFieldIsRequired(TaxId)");
+            yield return new TestCaseData((Action<Item>)(i => i.CatId = default)).SetName("ItemRecordFieldIsRequired(CatId)");
         }
 
-        [Test]
+        [TestCaseSource(nameof(ItemRequiredFieldCases))]
         [Category("RecordPropertyConstraint")]
-        public void ItemRecordBrandIsRequired()
+        public async Task ItemRecordFieldIsRequired(Action<Item> omitField)
         {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+            var tax = await RepositoryWrapper.Persist(TestFixtures.NewTax(business.Id));
+            var category = await RepositoryWrapper.Persist(TestFixtures.NewCategory(business.Id));
 
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
+            var item = TestFixtures.NewItem("ITEMREQFIELD01", business.Id, tax.IdOne, category.IdOne);
+            omitField(item);
 
-            var tax = new Tax()
-            {
-                Name = "Tax Name",
-                Rate = 4.8,
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.TaxRepository.Create(tax);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var category = new Category()
-            {
-                Name = "Test Name",
-                Description = "Test Description",
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.CategoryRepository.Create(category);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-
-            var item = new Item()
-            {
-                Name = "Item Name",
-                Desc = "Y",
-                Cost = 9999,
-                ExPrice = 9999,
-                Price = 9999,
-                TaxId = tax.IdOne,
-                CatId = category.IdOne,
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.ItemRepository.Create(item);
+            await RepositoryWrapper.ItemRepository.Create(item);
             RepositoryWrapper.SetCurrentUser("Test");
             Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
-
-        }
-
-        [Test]
-        [Category("RecordPropertyConstraint")]
-        public void ItemRecordTaxIdIsRequired()
-        {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
-
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var category = new Category()
-            {
-                Name = "Test Name",
-                Description = "Test Description",
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.CategoryRepository.Create(category);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-
-            var item = new Item()
-            {
-                Name = "Item Name",
-                Brand = "Item Brand Name",
-                Desc = "Y",
-                Cost = 9999,
-                ExPrice = 9999,
-                Price = 9999,
-                CatId = category.IdOne,
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.ItemRepository.Create(item);
-            RepositoryWrapper.SetCurrentUser("Test");
-            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
-
-        }
-
-        [Test]
-        [Category("RecordPropertyConstraint")]
-        public void ItemRecordCatIdIsRequired()
-        {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
-
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var tax = new Tax()
-            {
-                Name = "Tax Name",
-                Rate = 4.8,
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.TaxRepository.Create(tax);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var item = new Item()
-            {
-                Name = "Item Name",
-                Brand = "Item Brand Name",
-                Desc = "Y",
-                Cost = 9999,
-                ExPrice = 9999,
-                Price = 9999,
-                TaxId = tax.IdOne,
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.ItemRepository.Create(item);
-            RepositoryWrapper.SetCurrentUser("Test");
-            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
-
         }
         #endregion Item
 
         #region Tax
         [Test]
         [Category("RecordPropertyConstraint")]
-        public void TaxRecordNameIsRequired()
+        public async Task TaxRecordNameIsRequired()
         {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+            var tax = TestFixtures.NewTax(business.Id);
+            tax.Name = null;
 
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var tax = new Tax()
-            {
-                Rate = 4.8,
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.TaxRepository.Create(tax);
+            await RepositoryWrapper.TaxRepository.Create(tax);
             RepositoryWrapper.SetCurrentUser("Test");
             Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
         }
         #endregion Tax
 
         #region Discount
-        [Test]
-        [Category("RecordPropertyConstraint")]
-        public void DiscountRecordNameIsRequired()
+        private static IEnumerable<TestCaseData> DiscountRequiredFieldCases()
         {
-            var Business = new Business()
+            yield return new TestCaseData((Action<Discount>)(d => d.Name = null)).SetName("DiscountRecordFieldIsRequired(Name)");
+            yield return new TestCaseData((Action<Discount>)(d => d.BusinessId = default)).SetName("DiscountRecordFieldIsRequired(BusinessId)");
+        }
+
+        [TestCaseSource(nameof(DiscountRequiredFieldCases))]
+        [Category("RecordPropertyConstraint")]
+        public async Task DiscountRecordFieldIsRequired(Action<Discount> omitField)
+        {
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+            var discount = new Discount
             {
                 Name = "Test Name",
-                NameAbbr = "TN"
-            };
-
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var discount = new Discount()
-            {
                 AllApplicable = true,
                 CanUseWithOtherDiscounts = false,
                 AutoApply = true,
@@ -1104,31 +430,11 @@ namespace Plutus.Repository.Tests
                 Amount = 13556,
                 UsesPerTransaction = 1,
                 RequiredNumOfItems = 1,
-                BusinessId = Business.Id
+                BusinessId = business.Id
             };
+            omitField(discount);
 
-            RepositoryWrapper.DiscountRepository.Create(discount);
-            RepositoryWrapper.SetCurrentUser("Test");
-            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
-        }
-
-        [Test]
-        [Category("RecordPropertyConstraint")]
-        public void DiscountRecordBusinessIdIsRequired()
-        {
-            var discount = new Discount()
-            {
-                Name = "Test Name",
-                AllApplicable = true,
-                CanUseWithOtherDiscounts = false,
-                AutoApply = true,
-                Type = 1,
-                Amount = 13556,
-                UsesPerTransaction = 1,
-                RequiredNumOfItems = 1
-            };
-
-            RepositoryWrapper.DiscountRepository.Create(discount);
+            await RepositoryWrapper.DiscountRepository.Create(discount);
             RepositoryWrapper.SetCurrentUser("Test");
             Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
         }
@@ -1136,307 +442,27 @@ namespace Plutus.Repository.Tests
         #endregion Discount
 
         #region Employee
-        [Test]
-        [Category("RecordPropertyConstraint")]
-        public void EmployeeRecordFNameIsRequired()
+        private static IEnumerable<TestCaseData> EmployeeRequiredFieldCases()
         {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
-
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var store = new Store()
-            {
-                ContactNumber = "+449672513556",
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "Test City",
-                PostCode = "201304",
-                Country = "England",
-                BusinessId = Business.Id
-            };
-
-            RepositoryWrapper.StoreRepository.Create(store);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var role = new Role()
-            {
-                Name = "Employee Role"
-            };
-
-            RepositoryWrapper.RoleRepository.Create(role);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var employee = new Employee()
-            {
-                Wage = 1000,
-                ContractedHours = 40,
-                Active = true,
-                StoreId = store.Id,
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "London",
-                PostCode = "203440",
-                Country = "England",
-                LName = "Doe",
-                Mobile = "+449672513556",
-                Email = store.Id + "@test.com",
-                BusinessId = Business.Id,
-                RoleId = role.Id
-            };
-
-            RepositoryWrapper.EmployeeRepository.Create(employee);
-            RepositoryWrapper.SetCurrentUser("Test");
-            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+            yield return new TestCaseData((Action<Employee>)(e => e.FName = null)).SetName("EmployeeRecordFieldIsRequired(FName)");
+            yield return new TestCaseData((Action<Employee>)(e => e.LName = null)).SetName("EmployeeRecordFieldIsRequired(LName)");
+            yield return new TestCaseData((Action<Employee>)(e => e.StoreId = default)).SetName("EmployeeRecordFieldIsRequired(StoreId)");
+            yield return new TestCaseData((Action<Employee>)(e => e.Mobile = null)).SetName("EmployeeRecordFieldIsRequired(Mobile)");
+            yield return new TestCaseData((Action<Employee>)(e => e.Email = null)).SetName("EmployeeRecordFieldIsRequired(Email)");
         }
 
-        [Test]
+        [TestCaseSource(nameof(EmployeeRequiredFieldCases))]
         [Category("RecordPropertyConstraint")]
-        public void EmployeeRecordLNameIsRequired()
+        public async Task EmployeeRecordFieldIsRequired(Action<Employee> omitField)
         {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+            var store = await RepositoryWrapper.Persist(TestFixtures.NewStore(business.Id));
+            var role = await RepositoryWrapper.Persist(TestFixtures.NewRole(business.Id));
 
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
+            var employee = TestFixtures.NewEmployee(store.Id, business.Id, role.Id);
+            omitField(employee);
 
-            var store = new Store()
-            {
-                ContactNumber = "+449672513556",
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "Test City",
-                PostCode = "201304",
-                Country = "England",
-                BusinessId = Business.Id
-            };
-
-            RepositoryWrapper.StoreRepository.Create(store);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var role = new Role()
-            {
-                Name = "Employee Role"
-            };
-
-            RepositoryWrapper.RoleRepository.Create(role);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var employee = new Employee()
-            {
-                Wage = 1000,
-                ContractedHours = 40,
-                Active = true,
-                StoreId = store.Id,
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "London",
-                PostCode = "203440",
-                Country = "England",
-                FName = "John",
-                Mobile = "+449672513556",
-                Email = store.Id + "@test.com",
-                BusinessId = Business.Id,
-                RoleId = role.Id
-            };
-
-            RepositoryWrapper.EmployeeRepository.Create(employee);
-            RepositoryWrapper.SetCurrentUser("Test");
-            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
-        }
-
-        [Test]
-        [Category("RecordPropertyConstraint")]
-        public void EmployeeRecordStoreIdIsRequired()
-        {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
-
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var store = new Store()
-            {
-                ContactNumber = "+449672513556",
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "Test City",
-                PostCode = "201304",
-                Country = "England",
-                BusinessId = Business.Id
-            };
-
-            RepositoryWrapper.StoreRepository.Create(store);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var role = new Role()
-            {
-                Name = "Employee Role"
-            };
-
-            RepositoryWrapper.RoleRepository.Create(role);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var employee = new Employee()
-            {
-                Wage = 1000,
-                ContractedHours = 40,
-                Active = true,
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "London",
-                PostCode = "203440",
-                Country = "England",
-                FName = "John",
-                LName = "Doe",
-                Mobile = "+449672513556",
-                Email = store.Id + "@test.com",
-                BusinessId = Business.Id,
-                RoleId = role.Id
-            };
-
-            RepositoryWrapper.EmployeeRepository.Create(employee);
-            RepositoryWrapper.SetCurrentUser("Test");
-            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
-        }
-
-        [Test]
-        [Category("RecordPropertyConstraint")]
-        public void EmployeeRecordMobileIsRequired()
-        {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
-
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var store = new Store()
-            {
-                ContactNumber = "+449672513556",
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "Test City",
-                PostCode = "201304",
-                Country = "England",
-                BusinessId = Business.Id
-            };
-
-            RepositoryWrapper.StoreRepository.Create(store);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var role = new Role()
-            {
-                Name = "Employee Role"
-            };
-
-            RepositoryWrapper.RoleRepository.Create(role);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var employee = new Employee()
-            {
-                Wage = 1000,
-                ContractedHours = 40,
-                Active = true,
-                StoreId = store.Id,
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "London",
-                PostCode = "203440",
-                Country = "England",
-                FName = "John",
-                LName = "Doe",
-                Email = store.Id + "@test.com",
-                BusinessId = Business.Id,
-                RoleId = role.Id
-            };
-
-            RepositoryWrapper.EmployeeRepository.Create(employee);
-            RepositoryWrapper.SetCurrentUser("Test");
-            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
-        }
-
-        [Test]
-        [Category("RecordPropertyConstraint")]
-        public void EmployeeRecordEmailIsRequired()
-        {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
-
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var store = new Store()
-            {
-                ContactNumber = "+449672513556",
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "Test City",
-                PostCode = "201304",
-                Country = "England",
-                BusinessId = Business.Id
-            };
-
-            RepositoryWrapper.StoreRepository.Create(store);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var role = new Role()
-            {
-                Name = "Employee Role"
-            };
-
-            RepositoryWrapper.RoleRepository.Create(role);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var employee = new Employee()
-            {
-                Wage = 1000,
-                ContractedHours = 40,
-                Active = true,
-                StoreId = store.Id,
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "London",
-                PostCode = "203440",
-                Country = "England",
-                FName = "John",
-                LName = "Doe",
-                Mobile = "+449672513556",
-                BusinessId = Business.Id,
-                RoleId = role.Id
-            };
-
-            RepositoryWrapper.EmployeeRepository.Create(employee);
+            await RepositoryWrapper.EmployeeRepository.Create(employee);
             RepositoryWrapper.SetCurrentUser("Test");
             Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
         }
@@ -1444,236 +470,39 @@ namespace Plutus.Repository.Tests
 
         #region Transaction
 
-        [Test]
-        [Category("RecordPropertyConstraint")]
-        public void TransactionRecordTillIdIsRequired()
+        private static IEnumerable<TestCaseData> TransactionRequiredFieldCases()
         {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
-
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var tax = new Tax()
-            {
-                Name = "Tax Name",
-                Rate = 4.8,
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.TaxRepository.Create(tax);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var category = new Category()
-            {
-                Name = "Test Name",
-                Description = "Test Description",
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.CategoryRepository.Create(category);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-
-            var item = new Item()
-            {
-                Name = "Item Name",
-                Brand = "Item Brand Name",
-                Desc = "Y",
-                Cost = 9999,
-                ExPrice = 9999,
-                Price = 9999,
-                TaxId = tax.IdOne,
-                CatId = category.IdOne,
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.ItemRepository.Create(item);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var store = new Store()
-            {
-                ContactNumber = "+449672513556",
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "Test City",
-                PostCode = "201304",
-                Country = "England",
-                BusinessId = Business.Id
-            };
-
-            RepositoryWrapper.StoreRepository.Create(store);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var role = new Role()
-            {
-                Name = "Employee Role"
-            };
-
-            RepositoryWrapper.RoleRepository.Create(role);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var employee = new Employee()
-            {
-                Wage = 1000,
-                ContractedHours = 40,
-                Active = true,
-                StoreId = store.Id,
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "London",
-                PostCode = "203440",
-                Country = "England",
-                FName = "John",
-                LName = "Doe",
-                Mobile = "+449672513556",
-                Email = store.Id + "@test.com",
-                BusinessId = Business.Id,
-                RoleId = role.Id
-            };
-
-            RepositoryWrapper.EmployeeRepository.Create(employee);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var sale = new Sale()
-            {
-                Total = 2000,
-                TotalExTax = 2000,
-                DateOfSale = DateTime.Now,
-                StoreId = store.Id,
-                EmployeeId = employee.Id
-            };
-
-            RepositoryWrapper.SaleRepository.Create(sale);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var transaction = new Transaction()
-            {
-                Amount = 20000,
-                ItemCostExPrice = 20000,
-                ItemCostPrice = 20000,
-                IdTwo = sale.Id,
-                ItemIdOne = item.IdOne,
-                ItemIdTwo = item.IdTwo,
-            };
-
-            RepositoryWrapper.TransactionRepository.Create(transaction);
-            RepositoryWrapper.SetCurrentUser("Test");
-            Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
+            yield return new TestCaseData((Action<Transaction>)(t => t.TillId = default)).SetName("TransactionRecordFieldIsRequired(TillId)");
+            yield return new TestCaseData((Action<Transaction>)(t => t.IdTwo = default)).SetName("TransactionRecordFieldIsRequired(SaleId)");
         }
 
-        [Test]
+        [TestCaseSource(nameof(TransactionRequiredFieldCases))]
         [Category("RecordPropertyConstraint")]
-        public void TransactionRecordSaleIdIsRequired()
+        public async Task TransactionRecordFieldIsRequired(Action<Transaction> omitField)
         {
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN"
-            };
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+            var tax = await RepositoryWrapper.Persist(TestFixtures.NewTax(business.Id));
+            var category = await RepositoryWrapper.Persist(TestFixtures.NewCategory(business.Id));
+            var item = await RepositoryWrapper.Persist(TestFixtures.NewItem("ITEMTRANREQ001", business.Id, tax.IdOne, category.IdOne));
+            var store = await RepositoryWrapper.Persist(TestFixtures.NewStore(business.Id));
+            var role = await RepositoryWrapper.Persist(TestFixtures.NewRole(business.Id));
+            var employee = await RepositoryWrapper.Persist(TestFixtures.NewEmployee(store.Id, business.Id, role.Id));
+            var till = await RepositoryWrapper.Persist(TestFixtures.NewTill(store.Id));
+            var sale = await RepositoryWrapper.Persist(TestFixtures.NewSale(store.Id, employee.Id, till.Id));
 
-            RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var tax = new Tax()
-            {
-                Name = "Tax Name",
-                Rate = 4.8,
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.TaxRepository.Create(tax);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var category = new Category()
-            {
-                Name = "Test Name",
-                Description = "Test Description",
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.CategoryRepository.Create(category);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-
-            var item = new Item()
-            {
-                Name = "Item Name",
-                Brand = "Item Brand Name",
-                Desc = "Y",
-                Cost = 9999,
-                ExPrice = 9999,
-                Price = 9999,
-                TaxId = tax.IdOne,
-                CatId = category.IdOne,
-                IdTwo = Business.Id
-            };
-
-            RepositoryWrapper.ItemRepository.Create(item);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var store = new Store()
-            {
-                ContactNumber = "+449672513556",
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "Test City",
-                PostCode = "201304",
-                Country = "England",
-                BusinessId = Business.Id
-            };
-
-            RepositoryWrapper.StoreRepository.Create(store);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var till = new Till()
-            {
-                Id = Guid.NewGuid(),
-                StoreId = store.Id,
-                CashFloat = 100,
-                LastOnline = DateTime.Now
-            };
-
-            RepositoryWrapper.TillRepository.Create(till);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var role = new Role()
-            {
-                Name = "Employee Role"
-            };
-
-            RepositoryWrapper.RoleRepository.Create(role);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var transaction = new Transaction()
+            var transaction = new Transaction
             {
                 Amount = 20000,
                 ItemCostExPrice = 20000,
                 ItemCostPrice = 20000,
                 TillId = till.Id,
+                IdTwo = sale.Id,
                 ItemIdOne = item.IdOne,
                 ItemIdTwo = item.IdTwo,
             };
+            omitField(transaction);
 
-            RepositoryWrapper.TransactionRepository.Create(transaction);
+            await RepositoryWrapper.TransactionRepository.Create(transaction);
             RepositoryWrapper.SetCurrentUser("Test");
             Assert.Throws<DbUpdateException>(() => RepositoryWrapper.Save());
         }
@@ -1729,7 +558,8 @@ namespace Plutus.Repository.Tests
             var Business = new Business()
             {
                 Name = "Test Name",
-                NameAbbr = "TN"
+                NameAbbr = "TN",
+                VatIN = "GB123456789"
             };
 
             RepositoryWrapper.BusinessRepository.Create(Business);
@@ -1813,27 +643,23 @@ namespace Plutus.Repository.Tests
             var currentTime = DateTime.UtcNow;
             var systemName = "Plutus.Repository.Tests";
 
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN",
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
+            var business = TestFixtures.NewBusiness();
+            business.CreatedAt = currentTime;
+            business.CreatedBy = systemName;
+            business.ModifiedAt = currentTime;
+            business.ModifiedBy = systemName;
 
             RepositoryWrapper.SetSyncState(true);
             await Task.Delay(10);
             RepositoryWrapper.SetCurrentUser(systemName);
-            await RepositoryWrapper.BusinessRepository.Create(Business);
+            await RepositoryWrapper.BusinessRepository.Create(business);
             RepositoryWrapper.Save();
             RepositoryWrapper.SetSyncState();
 
-            Assert.AreEqual(Business.CreatedBy, systemName);
-            Assert.AreEqual(Business.ModifiedBy, systemName);
-            Assert.AreEqual(Business.CreatedAt, currentTime);
-            Assert.AreEqual(Business.ModifiedAt, currentTime);
+            Assert.AreEqual(business.CreatedBy, systemName);
+            Assert.AreEqual(business.ModifiedBy, systemName);
+            Assert.AreEqual(business.CreatedAt, currentTime);
+            Assert.AreEqual(business.ModifiedAt, currentTime);
         }
 
         [Test]
@@ -1843,9 +669,17 @@ namespace Plutus.Repository.Tests
             var currentTime = DateTime.UtcNow;
             var systemName = "Plutus.Repository.Tests";
 
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+            var store = await RepositoryWrapper.Persist(TestFixtures.NewStore(business.Id));
+            var role = await RepositoryWrapper.Persist(TestFixtures.NewRole(business.Id));
+            var employee = await RepositoryWrapper.Persist(TestFixtures.NewEmployee(store.Id, business.Id, role.Id));
+            var till = await RepositoryWrapper.Persist(TestFixtures.NewTill(store.Id));
+            var sale = await RepositoryWrapper.Persist(TestFixtures.NewSale(store.Id, employee.Id, till.Id));
+
             var note = new Note()
             {
                 Text = "Note Text",
+                IdTwo = sale.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,
                 ModifiedAt = currentTime,
@@ -1934,15 +768,13 @@ namespace Plutus.Repository.Tests
             var currentTime = DateTime.UtcNow;
             var systemName = "Plutus.Repository.Tests";
 
-            var category = new Category()
-            {
-                Name = "Test Name",
-                Description = "Test Description",
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+
+            var category = TestFixtures.NewCategory(business.Id);
+            category.CreatedAt = currentTime;
+            category.CreatedBy = systemName;
+            category.ModifiedAt = currentTime;
+            category.ModifiedBy = systemName;
 
             RepositoryWrapper.SetSyncState(true);
             await Task.Delay(10);
@@ -1963,34 +795,14 @@ namespace Plutus.Repository.Tests
         {
             var currentTime = DateTime.UtcNow;
             var systemName = "Plutus.Repository.Tests";
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN",
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
 
-            await RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
 
-            var store = new Store()
-            {
-                ContactNumber = "+449672513556",
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "Test City",
-                PostCode = "201304",
-                Country = "England",
-                BusinessId = Business.Id,
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
+            var store = TestFixtures.NewStore(business.Id);
+            store.CreatedAt = currentTime;
+            store.CreatedBy = systemName;
+            store.ModifiedAt = currentTime;
+            store.ModifiedBy = systemName;
 
             RepositoryWrapper.SetSyncState(true);
             await Task.Delay(10);
@@ -2011,50 +823,15 @@ namespace Plutus.Repository.Tests
         {
             var currentTime = DateTime.UtcNow;
             var systemName = "Plutus.Repository.Tests";
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN",
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
 
-            await RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+            var store = await RepositoryWrapper.Persist(TestFixtures.NewStore(business.Id));
 
-            var store = new Store()
-            {
-                ContactNumber = "+449672513556",
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "Test City",
-                PostCode = "201304",
-                Country = "England",
-                BusinessId = Business.Id,
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
-
-            await RepositoryWrapper.StoreRepository.Create(store);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var till = new Till()
-            {
-                Id = Guid.NewGuid(),
-                StoreId = store.Id,
-                CashFloat = 100,
-                LastOnline = DateTime.Now,
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
+            var till = TestFixtures.NewTill(store.Id);
+            till.CreatedAt = currentTime;
+            till.CreatedBy = systemName;
+            till.ModifiedAt = currentTime;
+            till.ModifiedBy = systemName;
 
             RepositoryWrapper.SetSyncState(true);
             await Task.Delay(10);
@@ -2075,74 +852,16 @@ namespace Plutus.Repository.Tests
         {
             var currentTime = DateTime.UtcNow;
             var systemName = "Plutus.Repository.Tests";
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN",
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
 
-            await RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+            var store = await RepositoryWrapper.Persist(TestFixtures.NewStore(business.Id));
+            var role = await RepositoryWrapper.Persist(TestFixtures.NewRole(business.Id, "Test Role"));
 
-            var store = new Store()
-            {
-                ContactNumber = "+449672513556",
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "Test City",
-                PostCode = "201304",
-                Country = "England",
-                BusinessId = Business.Id,
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
-
-            await RepositoryWrapper.StoreRepository.Create(store);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var role = new Role()
-            {
-                Name = "Test Role",
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
-
-            await RepositoryWrapper.RoleRepository.Create(role);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var employee = new Employee()
-            {
-                Wage = 1000,
-                ContractedHours = 40,
-                Active = true,
-                StoreId = store.Id,
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "London",
-                PostCode = "203440",
-                Country = "England",
-                FName = "John",
-                LName = "Doe",
-                Mobile = "+449672513556",
-                Email = store.Id+"@test.com",
-                BusinessId = Business.Id,
-                RoleId = role.Id,
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
+            var employee = TestFixtures.NewEmployee(store.Id, business.Id, role.Id);
+            employee.CreatedAt = currentTime;
+            employee.CreatedBy = systemName;
+            employee.ModifiedAt = currentTime;
+            employee.ModifiedBy = systemName;
 
             RepositoryWrapper.SetSyncState(true);
             await Task.Delay(10);
@@ -2163,19 +882,8 @@ namespace Plutus.Repository.Tests
         {
             var currentTime = DateTime.UtcNow;
             var systemName = "Plutus.Repository.Tests";
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN",
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
 
-            await RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
 
             var discount = new Discount()
             {
@@ -2187,7 +895,7 @@ namespace Plutus.Repository.Tests
                 Amount = 13556,
                 UsesPerTransaction = 1,
                 RequiredNumOfItems = 1,
-                BusinessId = Business.Id,
+                BusinessId = business.Id,
                 CreatedAt = currentTime,
                 CreatedBy = systemName,
                 ModifiedAt = currentTime,
@@ -2213,30 +921,14 @@ namespace Plutus.Repository.Tests
         {
             var currentTime = DateTime.UtcNow;
             var systemName = "Plutus.Repository.Tests";
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN",
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
 
-            await RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
 
-            var tax = new Tax()
-            {
-                Name = "Tax Name",
-                Rate = 4.8,
-                IdTwo = Business.Id,
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
+            var tax = TestFixtures.NewTax(business.Id);
+            tax.CreatedAt = currentTime;
+            tax.CreatedBy = systemName;
+            tax.ModifiedAt = currentTime;
+            tax.ModifiedBy = systemName;
 
             RepositoryWrapper.SetSyncState(true);
             await Task.Delay(10);
@@ -2257,66 +949,16 @@ namespace Plutus.Repository.Tests
         {
             var currentTime = DateTime.UtcNow;
             var systemName = "Plutus.Repository.Tests";
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN",
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
 
-            await RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+            var tax = await RepositoryWrapper.Persist(TestFixtures.NewTax(business.Id));
+            var category = await RepositoryWrapper.Persist(TestFixtures.NewCategory(business.Id));
 
-            var tax = new Tax()
-            {
-                Name = "Tax Name",
-                Rate = 4.8,
-                IdTwo = Business.Id,
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
-
-            await RepositoryWrapper.TaxRepository.Create(tax);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var category = new Category()
-            {
-                Name = "Test Name",
-                Description = "Test Description",
-                IdTwo = Business.Id,
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
-
-            await RepositoryWrapper.CategoryRepository.Create(category);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var item = new Item()
-            {
-                Name = "Item Name",
-                Brand = "Item Brand Name",
-                Desc = "Y",
-                Cost = 9999,
-                ExPrice = 9999,
-                Price = 9999,
-                TaxId = tax.IdOne,
-                CatId = category.IdOne,
-                IdTwo = Business.Id,
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
+            var item = TestFixtures.NewItem("ITEMSYNCONLY01", business.Id, tax.IdOne, category.IdOne);
+            item.CreatedAt = currentTime;
+            item.CreatedBy = systemName;
+            item.ModifiedAt = currentTime;
+            item.ModifiedBy = systemName;
 
             RepositoryWrapper.SetSyncState(true);
             await Task.Delay(10);
@@ -2337,162 +979,16 @@ namespace Plutus.Repository.Tests
         {
             var currentTime = DateTime.UtcNow;
             var systemName = "Plutus.Repository.Tests";
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN",
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
 
-            await RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var tax = new Tax()
-            {
-                Name = "Tax Name",
-                Rate = 4.8,
-                IdTwo = Business.Id,
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
-
-            await RepositoryWrapper.TaxRepository.Create(tax);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var category = new Category()
-            {
-                Name = "Test Name",
-                Description = "Test Description",
-                IdTwo = Business.Id,
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
-
-            await RepositoryWrapper.CategoryRepository.Create(category);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var item = new Item()
-            {
-                Name = "Item Name",
-                Brand = "Item Brand Name",
-                Desc = "Y",
-                Cost = 9999,
-                ExPrice = 9999,
-                Price = 9999,
-                TaxId = tax.IdOne,
-                CatId = category.IdOne,
-                IdTwo = Business.Id,
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
-
-            await RepositoryWrapper.ItemRepository.Create(item);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var store = new Store()
-            {
-                ContactNumber = "+449672513556",
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "Test City",
-                PostCode = "201304",
-                Country = "England",
-                BusinessId = Business.Id,
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
-
-            await RepositoryWrapper.StoreRepository.Create(store);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var till = new Till()
-            {
-                Id = Guid.NewGuid(),
-                StoreId = store.Id,
-                CashFloat = 100,
-                LastOnline = DateTime.Now,
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
-
-            await RepositoryWrapper.TillRepository.Create(till);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var role = new Role()
-            {
-                Name = "Employee Role",
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
-
-            await RepositoryWrapper.RoleRepository.Create(role);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var employee = new Employee()
-            {
-                Wage = 1000,
-                ContractedHours = 40,
-                Active = true,
-                StoreId = store.Id,
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "London",
-                PostCode = "203440",
-                Country = "England",
-                FName = "John",
-                LName = "Doe",
-                Mobile = "+449672513556",
-                Email = store.Id + "@test.com",
-                BusinessId = Business.Id,
-                RoleId = role.Id,
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
-
-            await RepositoryWrapper.EmployeeRepository.Create(employee);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var sale = new Sale()
-            {
-                Total = 2000,
-                TotalExTax = 2000,
-                DateOfSale = DateTime.Now,
-                StoreId = store.Id,
-                EmployeeId = employee.Id,
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
-
-            await RepositoryWrapper.SaleRepository.Create(sale);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+            var tax = await RepositoryWrapper.Persist(TestFixtures.NewTax(business.Id));
+            var category = await RepositoryWrapper.Persist(TestFixtures.NewCategory(business.Id));
+            var item = await RepositoryWrapper.Persist(TestFixtures.NewItem("ITEMTRANSYNC01", business.Id, tax.IdOne, category.IdOne));
+            var store = await RepositoryWrapper.Persist(TestFixtures.NewStore(business.Id));
+            var till = await RepositoryWrapper.Persist(TestFixtures.NewTill(store.Id));
+            var role = await RepositoryWrapper.Persist(TestFixtures.NewRole(business.Id));
+            var employee = await RepositoryWrapper.Persist(TestFixtures.NewEmployee(store.Id, business.Id, role.Id));
+            var sale = await RepositoryWrapper.Persist(TestFixtures.NewSale(store.Id, employee.Id, till.Id));
 
             var transaction = new Transaction()
             {
@@ -2529,89 +1025,12 @@ namespace Plutus.Repository.Tests
         {
             var currentTime = DateTime.UtcNow;
             var systemName = "Plutus.Repository.Tests";
-            var Business = new Business()
-            {
-                Name = "Test Name",
-                NameAbbr = "TN",
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
 
-            await RepositoryWrapper.BusinessRepository.Create(Business);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var tax = new Tax()
-            {
-                Name = "Tax Name",
-                Rate = 4.8,
-                IdTwo = Business.Id,
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
-
-            await RepositoryWrapper.TaxRepository.Create(tax);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var category = new Category()
-            {
-                Name = "Test Name",
-                Description = "Test Description",
-                IdTwo = Business.Id,
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
-
-            await RepositoryWrapper.CategoryRepository.Create(category);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var item = new Item()
-            {
-                Name = "Item Name",
-                Brand = "Item Brand Name",
-                Desc = "Y",
-                Cost = 9999,
-                ExPrice = 9999,
-                Price = 9999,
-                TaxId = tax.IdOne,
-                CatId = category.IdOne,
-                IdTwo = Business.Id,
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
-
-            await RepositoryWrapper.ItemRepository.Create(item);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
-
-            var store = new Store()
-            {
-                ContactNumber = "+449672513556",
-                AdLine1 = "Address Line 1",
-                AdLine2 = "Address Line 2",
-                City = "Test City",
-                PostCode = "201304",
-                Country = "England",
-                BusinessId = Business.Id,
-                CreatedAt = currentTime,
-                CreatedBy = systemName,
-                ModifiedAt = currentTime,
-                ModifiedBy = systemName
-            };
-
-            await RepositoryWrapper.StoreRepository.Create(store);
-            RepositoryWrapper.SetCurrentUser("Test");
-            RepositoryWrapper.Save();
+            var business = await RepositoryWrapper.Persist(TestFixtures.NewBusiness());
+            var tax = await RepositoryWrapper.Persist(TestFixtures.NewTax(business.Id));
+            var category = await RepositoryWrapper.Persist(TestFixtures.NewCategory(business.Id));
+            var item = await RepositoryWrapper.Persist(TestFixtures.NewItem("ITEMSTOCKSYNC1", business.Id, tax.IdOne, category.IdOne));
+            var store = await RepositoryWrapper.Persist(TestFixtures.NewStore(business.Id));
 
             var stock = new Stock()
             {

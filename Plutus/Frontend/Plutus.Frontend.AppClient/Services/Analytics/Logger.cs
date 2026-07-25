@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.Maui.ApplicationModel;
-using Microsoft.Maui.Devices;
 using Microsoft.Maui.Networking;
 using Microsoft.Maui.Storage;
 using Microsoft.Maui.Controls;
@@ -45,7 +44,7 @@ namespace Plutus.Frontend.AppClient.Services.Analytics
 
         public void LogError(Exception ex)
         {
-            if (IsOnTestCloud() || IsEmulatorOrSimulator())
+            if (IsOnTestCloud() || _appState.IsEmulatorOrSimulator())
                 return;
 
             Activity.Current?.RecordException(ex);
@@ -55,7 +54,7 @@ namespace Plutus.Frontend.AppClient.Services.Analytics
 
         public void LogError(Exception ex, Dictionary<string, string> properties)
         {
-            if (IsOnTestCloud() || IsEmulatorOrSimulator())
+            if (IsOnTestCloud() || _appState.IsEmulatorOrSimulator())
                 return;
 
             Activity.Current?.RecordException(ex);
@@ -65,7 +64,7 @@ namespace Plutus.Frontend.AppClient.Services.Analytics
         }
 
         private bool ShouldLog(AppLogLevel level) =>
-            _appState.GetAppLogLevel() <= level && !IsOnTestCloud() && !IsEmulatorOrSimulator();
+            _appState.GetAppLogLevel() <= level && !IsOnTestCloud() && !_appState.IsEmulatorOrSimulator();
 
         private static Microsoft.Extensions.Logging.LogLevel Map(AppLogLevel level) => level switch
         {
@@ -77,11 +76,6 @@ namespace Plutus.Frontend.AppClient.Services.Analytics
             AppLogLevel.Fatal => Microsoft.Extensions.Logging.LogLevel.Critical,
             _ => Microsoft.Extensions.Logging.LogLevel.None,
         };
-
-        private bool IsEmulatorOrSimulator()
-        {
-            return DeviceInfo.DeviceType == DeviceType.Virtual;
-        }
 
         private bool IsOnTestCloud()
         {

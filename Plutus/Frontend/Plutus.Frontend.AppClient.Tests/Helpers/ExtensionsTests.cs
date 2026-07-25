@@ -24,17 +24,6 @@ namespace Plutus.Frontend.AppClient.Tests.Helpers
             var monday = new DateTime(2024, 1, 8);
             Assert.Equal(monday, monday.StartOfWeek());
         }
-
-        private sealed class CultureScope : IDisposable
-        {
-            private readonly CultureInfo _original;
-            public CultureScope(string name)
-            {
-                _original = CultureInfo.CurrentCulture;
-                CultureInfo.CurrentCulture = new CultureInfo(name);
-            }
-            public void Dispose() => CultureInfo.CurrentCulture = _original;
-        }
     }
 
     public class DecimalExtensionsTests

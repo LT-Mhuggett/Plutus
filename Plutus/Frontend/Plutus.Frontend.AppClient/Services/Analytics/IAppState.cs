@@ -9,5 +9,6 @@ namespace Plutus.Frontend.AppClient.Services.Analytics
         Guid GetInstallId();
         AppLogLevel GetAppLogLevel();
         void SetAppLogLevel(AppLogLevel level);
+        bool IsEmulatorOrSimulator();
     }
 }
