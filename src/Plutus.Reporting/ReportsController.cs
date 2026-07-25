@@ -218,6 +218,116 @@ namespace Plutus.Reporting
             });
         }
 
+        public sealed record ItemSoldRow(
+            DateTime dateSold, string itemIdOne, string itemName, int storeId, Guid tillId,
+            string tillName, int qty, long unitPricePence, long discountPence, long lineGrossPence);
+
+        /// <summary>WP11.4 items-sold report (NatApp "Stock Outtake" parity). Sourced from the
+        /// LEGACY Trans+Sales tables (they carry ItemIdOne for name joins and uniformly cover
+        /// 2019→today; re-point to SaleLines when legacy retires — contract unchanged). Filters:
+        /// date range + optional store/till/item. Capped.</summary>
+        private async Task<List<ItemSoldRow>> ItemsSoldAsync(
+            DateOnly from, DateOnly to, int? storeId, Guid? tillId, string itemIdOne, int take)
+        {
+            var fromDt = from.ToDateTime(TimeOnly.MinValue);
+            var toDt = to.AddDays(1).ToDateTime(TimeOnly.MinValue); // inclusive end day
+
+            var q = from t in _db.Trans.AsNoTracking()
+                    join s in _db.Sales.AsNoTracking() on t.IdTwo equals s.Id
+                    where s.DateOfSale >= fromDt && s.DateOfSale < toDt
+                    select new
+                    {
+                        t.IdOne, SaleId = t.IdTwo, t.ItemIdOne, t.Amount, t.ItemCostPrice,
+                        t.TillId, s.DateOfSale, s.StoreId,
+                    };
+            if (storeId != null) q = q.Where(x => x.StoreId == storeId);
+            if (tillId != null) q = q.Where(x => x.TillId == tillId);
+            if (!string.IsNullOrWhiteSpace(itemIdOne)) q = q.Where(x => x.ItemIdOne == itemIdOne);
+
+            var lines = await q.OrderByDescending(x => x.DateOfSale).Take(take).ToListAsync();
+            if (lines.Count == 0) return new List<ItemSoldRow>();
+
+            var itemIds = lines.Select(l => l.ItemIdOne).Distinct().ToList();
+            var names = await _db.Items.AsNoTracking().IgnoreQueryFilters()
+                .Where(i => itemIds.Contains(i.IdOne))
+                .Select(i => new { i.IdOne, i.Name })
+                .ToDictionaryAsync(i => i.IdOne, i => i.Name);
+
+            var tillIds = lines.Select(l => l.TillId).Distinct().ToList();
+            var tillNames = await _db.TillDetails.AsNoTracking()
+                .Where(td => tillIds.Contains(td.TillId))
+                .ToDictionaryAsync(td => td.TillId, td => td.Name);
+
+            // Σ discount rate per legacy transaction line (TransactionId + SaleId composite).
+            var saleIds = lines.Select(l => l.SaleId).Distinct().ToList();
+            var discRows = await _db.Transaction_Discounts.AsNoTracking()
+                .Where(d => saleIds.Contains(d.SaleId))
+                .Select(d => new { d.TransactionId, d.SaleId, d.DiscountRate })
+                .ToListAsync();
+            var discByLine = discRows
+                .GroupBy(d => (d.TransactionId, d.SaleId))
+                .ToDictionary(g => g.Key, g => g.Sum(d => d.DiscountRate));
+
+            return lines.Select(l =>
+            {
+                var unitPence = (long)Math.Round(l.ItemCostPrice * 100m, MidpointRounding.AwayFromZero);
+                var beforeDiscount = unitPence * l.Amount;
+                discByLine.TryGetValue((l.IdOne, l.SaleId), out var rate);
+                var discountPence = (long)Math.Round(beforeDiscount * rate, MidpointRounding.AwayFromZero);
+                return new ItemSoldRow(
+                    l.DateOfSale, l.ItemIdOne, names.TryGetValue(l.ItemIdOne, out var n) ? n : "?",
+                    l.StoreId, l.TillId,
+                    tillNames.TryGetValue(l.TillId, out var tn) ? tn : $"Till {l.TillId.ToString()[..8]}",
+                    l.Amount, unitPence, discountPence, beforeDiscount - discountPence);
+            }).ToList();
+        }
+
+        [HttpGet("api/v1/reports/items-sold")]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> ItemsSold(
+            [FromQuery] DateOnly from, [FromQuery] DateOnly to, [FromQuery] int? storeId,
+            [FromQuery] Guid? tillId, [FromQuery] string itemIdOne, [FromQuery] int take = 1000)
+        {
+            if (to < from) return BadRequest(new { detail = "to must be >= from." });
+            take = Math.Clamp(take, 1, 5000);
+            var rows = await ItemsSoldAsync(from, to, storeId, tillId, itemIdOne, take);
+            return Ok(new
+            {
+                from = from.ToString("yyyy-MM-dd"), to = to.ToString("yyyy-MM-dd"), count = rows.Count,
+                totals = new
+                {
+                    qty = rows.Sum(r => r.qty),
+                    grossPence = rows.Sum(r => r.lineGrossPence),
+                    discountPence = rows.Sum(r => r.discountPence),
+                },
+                rows,
+            });
+        }
+
+        [HttpGet("api/v1/reports/items-sold.csv")]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView)]
+        [Produces("text/csv")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> ItemsSoldCsv(
+            [FromQuery] DateOnly from, [FromQuery] DateOnly to, [FromQuery] int? storeId,
+            [FromQuery] Guid? tillId, [FromQuery] string itemIdOne, [FromQuery] int take = 5000)
+        {
+            if (to < from) return BadRequest(new { detail = "to must be >= from." });
+            take = Math.Clamp(take, 1, 5000);
+            var rows = await ItemsSoldAsync(from, to, storeId, tillId, itemIdOne, take);
+            var inv = CultureInfo.InvariantCulture;
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("dateSold,itemBarcode,itemName,storeId,till,qty,unitPricePence,discountPence,lineGrossPence");
+            foreach (var r in rows)
+                sb.AppendLine(string.Format(inv, "{0:yyyy-MM-dd HH:mm},{1},\"{2}\",{3},\"{4}\",{5},{6},{7},{8}",
+                    r.dateSold, r.itemIdOne, r.itemName.Replace("\"", "\"\""), r.storeId,
+                    r.tillName.Replace("\"", "\"\""), r.qty, r.unitPricePence, r.discountPence, r.lineGrossPence));
+            return File(System.Text.Encoding.UTF8.GetBytes(sb.ToString()), "text/csv",
+                $"items-sold-{from:yyyyMMdd}-{to:yyyyMMdd}.csv");
+        }
+
         /// <summary>Rebuild the tenant's rollups from SalesV2 (platform-admin; also run at
         /// cutover to fold in migrated rows, which carry no outbox events).</summary>
         [HttpPost("api/v1/reports/rebuild")]

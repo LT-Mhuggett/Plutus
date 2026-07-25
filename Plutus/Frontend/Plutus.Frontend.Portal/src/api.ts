@@ -216,6 +216,32 @@ export interface ReceiptTemplate {
 export const putReceiptTemplate = (storeId: number, tpl: ReceiptTemplate) =>
   put<void>(`/api/v1/stores/${storeId}/receipt-template`, { receiptTemplateJson: JSON.stringify(tpl) });
 
+// ── WP11.4 items-sold report ──
+export interface ItemSoldRow {
+  dateSold: string; itemIdOne: string; itemName: string; storeId: number; tillId: string;
+  tillName: string; qty: number; unitPricePence: number; discountPence: number; lineGrossPence: number;
+}
+export interface ItemsSold {
+  from: string; to: string; count: number;
+  totals: { qty: number; grossPence: number; discountPence: number };
+  rows: ItemSoldRow[];
+}
+export const fetchItemsSold = (from: string, to: string) =>
+  get<ItemsSold>(`/api/v1/reports/items-sold?from=${from}&to=${to}&take=2000`);
+
+/** Auth-correct CSV download (a plain <a href> can't send the bearer token). */
+export async function downloadCsv(url: string, filename: string): Promise<void> {
+  const t = accessToken();
+  const res = await fetch(url, { headers: t ? { Authorization: `Bearer ${t}` } : {} });
+  if (!res.ok) throw new ApiError(res.status, `Export failed (${res.status}).`);
+  const blob = await res.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 export interface TillRow {
   id: string;
   name: string;
