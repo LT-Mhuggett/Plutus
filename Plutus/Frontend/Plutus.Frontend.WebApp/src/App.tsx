@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import TillPage from "./till/TillPage.tsx";
+import CashPage from "./CashPage.tsx";
 import InventoryPage from "./InventoryPage.tsx";
 import ReportingPage from "./reporting/ReportingPage.tsx";
 import StoreInformationPage from "./StoreInformationPage.tsx";
@@ -14,11 +15,12 @@ declare const __BUILD_TIME__: string;
 
 // Menu mirrors the original NatApp till — all sections live. "Users" is reached
 // via the people button, like the original intended.
-const TABS = ["Till", "Inventory Management", "Reporting", "Store Information", "Settings"] as const;
+const TABS = ["Till", "Cash", "Inventory Management", "Reporting", "Store Information", "Settings"] as const;
 type Tab = (typeof TABS)[number] | "Users";
 
 const PAGES: Record<Tab, () => React.JSX.Element> = {
   Till: TillPage,
+  Cash: CashPage,
   "Inventory Management": InventoryPage,
   Reporting: ReportingPage,
   "Store Information": StoreInformationPage,

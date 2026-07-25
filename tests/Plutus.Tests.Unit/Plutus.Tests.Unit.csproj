@@ -41,6 +41,9 @@
     <ProjectReference Include="..\..\src\Plutus.Reporting\Plutus.Reporting.csproj" />
     <!-- WP5.1: stock ledger tests. -->
     <ProjectReference Include="..\..\src\Plutus.Catalogue\Plutus.Catalogue.csproj" />
+    <!-- WP7: cash sessions + payment reconciliation tests. -->
+    <ProjectReference Include="..\..\src\Plutus.Cash\Plutus.Cash.csproj" />
+    <ProjectReference Include="..\..\src\Plutus.Payments\Plutus.Payments.csproj" />
   </ItemGroup>
 
 </Project>

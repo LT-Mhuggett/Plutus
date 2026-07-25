@@ -232,3 +232,48 @@ export async function postSale(request: IngestSaleRequest): Promise<PostSaleOutc
   if (res.status === 429 || res.status >= 500) return { kind: "retry", detail: `server ${res.status}` };
   return { kind: "rejected", detail: (await problemDetail(res)) ?? `server ${res.status}` };
 }
+
+// ── cash sessions (WP7.2) ────────────────────────────────────────────────────
+// Cash events go through the same device-token path as sales. Kept simple: the
+// drawer is a low-frequency, connectivity-assumed operation (float/paid-in/out at
+// the start/middle of a shift, Z at the end), so — unlike checkout — these post
+// directly rather than through the offline outbox.
+
+export type CashEventType = "OpenFloat" | "PaidIn" | "PaidOut" | "XSnapshot" | "ZClose";
+
+export interface CashEventResult {
+  type: CashEventType;
+  amountPence: number;
+  countedPence?: number | null;
+  expectedPence?: number | null;
+  variancePence?: number | null;
+}
+
+export async function postCashEvent(input: {
+  type: CashEventType;
+  amountPence?: number;
+  countedPence?: number;
+  reason?: string;
+}): Promise<CashEventResult> {
+  const cred = getDeviceCredential();
+  if (!cred) throw new Error("This till is not enrolled as a device — see Settings → Till device.");
+  const token = await getDeviceToken();
+
+  const res = await fetch(`/api/v1/cash-events`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      eventId: uuidv7(),
+      deviceId: cred.deviceId,
+      type: input.type,
+      businessDay: businessDay(),
+      occurredAtUtc: new Date().toISOString(),
+      amountPence: input.amountPence ?? 0,
+      countedPence: input.countedPence ?? null,
+      reason: input.reason ?? null,
+    }),
+  });
+  if (res.status === 409) throw new Error((await problemDetail(res)) ?? "The drawer is already closed for today.");
+  if (!res.ok) throw new Error((await problemDetail(res)) ?? `Cash event failed (${res.status}).`);
+  return res.json();
+}

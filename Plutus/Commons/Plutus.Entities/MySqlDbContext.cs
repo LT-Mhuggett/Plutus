@@ -67,6 +67,9 @@ namespace Plutus.Entities
         public DbSet<ItemPricePolicy> ItemPricePolicies { get; set; }
         public DbSet<PriceListEntry> PriceListEntries { get; set; }
         public DbSet<PriceOverride> PriceOverrides { get; set; }
+        // Cash sessions (WP7.2) + payment capture events (WP7.1).
+        public DbSet<CashEvent> CashEvents { get; set; }
+        public DbSet<PaymentEvent> PaymentEvents { get; set; }
         #endregion
 
         /// <summary>The tenant scoping every query and write is bound to. Referenced by the
@@ -138,6 +141,8 @@ namespace Plutus.Entities
             typeof(Supplier), typeof(PurchaseOrder), typeof(POLine),
             // Pricing (WP5.4).
             typeof(ItemPricePolicy), typeof(PriceListEntry), typeof(PriceOverride),
+            // Cash + payments (WP7).
+            typeof(CashEvent), typeof(PaymentEvent),
         };
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -417,6 +422,26 @@ namespace Plutus.Entities
                 e.Property(x => x.Id).ValueGeneratedNever();
                 e.Property(x => x.ItemIdOne).HasMaxLength(20).IsRequired();
                 e.HasIndex(x => new { x.TenantId, x.StoreId, x.ItemIdOne, x.EffectiveFromUtc });
+            });
+
+            // WP7 cash + payments.
+            modelBuilder.Entity<CashEvent>(e =>
+            {
+                e.ToTable("CashEvents");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Reason).HasMaxLength(500);
+                e.HasIndex(x => new { x.TenantId, x.TillId, x.BusinessDay });
+            });
+            modelBuilder.Entity<PaymentEvent>(e =>
+            {
+                e.ToTable("PaymentEvents");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Provider).HasMaxLength(50).IsRequired();
+                e.Property(x => x.ProviderRef).HasMaxLength(200).IsRequired();
+                e.HasIndex(x => new { x.TenantId, x.ProviderRef });
+                e.HasIndex(x => new { x.TenantId, x.ResolvedAtUtc });
             });
 
             // Test/dev harness only (WP2.1): on MySQL, Trans.IdOne is AUTO_INCREMENT within a

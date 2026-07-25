@@ -162,6 +162,8 @@ namespace Plutus.DBService.Extensions
                 .AddApplicationPart(typeof(Plutus.Tenancy.TenancyModule).Assembly)
                 .AddApplicationPart(typeof(Plutus.Identity.IdentityModule).Assembly)
                 .AddApplicationPart(typeof(Plutus.Reporting.ReportingModule).Assembly)
+                .AddApplicationPart(typeof(Plutus.Cash.CashModule).Assembly)
+                .AddApplicationPart(typeof(Plutus.Payments.PaymentsModule).Assembly)
                 .AddNewtonsoftJson(options => options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore);
         }
 

@@ -1119,3 +1119,9 @@ button.primary.slim {
     display: none;
   }
 }
+
+/* WP7.2 cash drawer */
+.cash-form { max-width: 420px; }
+.cash-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.cash-result { border: 1px solid var(--line, #d0d0d0); border-radius: 8px; padding: 12px 16px; margin-top: 8px; max-width: 420px; }
+.cash-result h3 { margin: 0 0 8px; }
