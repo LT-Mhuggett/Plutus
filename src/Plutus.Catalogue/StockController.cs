@@ -17,6 +17,8 @@ namespace Plutus.Catalogue
     public sealed record MovementBody(
         Guid? StockLocationId, int? StoreId, string ItemIdOne, string Type, int Qty, string Reason);
 
+    public sealed record CreateLocationBody(int StoreId, string Type, string Name);
+
     /// <summary>
     /// WP5.1 stock ledger API. Reads gated on portal.reports.view (stock views are a portal
     /// reporting surface); manual movements on portal.stock.adjust and audited; rebuild is
@@ -94,6 +96,32 @@ namespace Plutus.Catalogue
             Ok(await _db.StockLocations.AsNoTracking()
                 .Select(l => new { id = l.Id, storeId = l.StoreId, type = l.Type.ToString(), name = l.Name })
                 .ToListAsync());
+
+        /// <summary>WP11.3: create a stock location — notably a WAREHOUSE (the type existed but
+        /// nothing could create one). Transfers/stock-takes work per-location, so it's usable at once.</summary>
+        [HttpPost("api/v1/stock/locations")]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalStockAdjust)]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> CreateLocation([FromBody] CreateLocationBody body)
+        {
+            if (string.IsNullOrWhiteSpace(body?.Name)) return BadRequest(new { detail = "name is required." });
+            if (!Enum.TryParse<StockLocationType>(body.Type, true, out var type))
+                return BadRequest(new { detail = "type must be Store | Warehouse." });
+            if (!await _db.Stores.AsNoTracking().AnyAsync(s => s.Id == body.StoreId))
+                return BadRequest(new { detail = "Unknown storeId." });
+
+            _db.CurrentUser = Actor.ToString();
+            var loc = new StockLocation
+            {
+                Id = Uuid7.New(), TenantId = _tenant.TenantId, StoreId = body.StoreId,
+                Type = type, Name = body.Name.Trim(),
+            };
+            _db.StockLocations.Add(loc);
+            _db.Audit(_tenant.TenantId, Actor, "stock.location.create", nameof(StockLocation), loc.Id.ToString(), body);
+            await _db.SaveChangesAsync();
+            return Created($"/api/v1/stock/locations/{loc.Id}", new { id = loc.Id, name = loc.Name, type = loc.Type.ToString() });
+        }
 
         /// <summary>Manual movement: Receipt (goods-in until WP5.3), Adjustment (± with
         /// reason), WriteOff (negative). Audited; level updated atomically.</summary>

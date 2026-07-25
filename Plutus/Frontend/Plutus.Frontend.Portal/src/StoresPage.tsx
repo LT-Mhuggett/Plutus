@@ -1,8 +1,14 @@
 import { useEffect, useState } from "react";
 import {
-  createTill, fetchCompanies, fetchStores, fetchTills, putReceiptTemplate, renameTill, revokeTill,
-  updateCompany, updateStore, type Company, type ReceiptTemplate, type StoreRow, type TillRow,
+  createStore, createTill, fetchCompanies, fetchStores, fetchTills, putReceiptTemplate, renameTill,
+  revokeTill, updateCompany, updateStore,
+  type Company, type ReceiptTemplate, type StoreRow, type TillRow,
 } from "./api.ts";
+
+const DAYS: { key: string; label: string }[] = [
+  { key: "mon", label: "Mon" }, { key: "tue", label: "Tue" }, { key: "wed", label: "Wed" },
+  { key: "thu", label: "Thu" }, { key: "fri", label: "Fri" }, { key: "sat", label: "Sat" }, { key: "sun", label: "Sun" },
+];
 
 /** Stores & tills admin: company details, store addresses + opening hours, and the till
  *  fleet with enrolment codes (WP1.2 flow) + revoke. */
@@ -55,6 +61,7 @@ export default function StoresPage() {
       ))}
 
       <h2>Stores</h2>
+      <AddStore companies={companies} onSaved={refresh} />
       {stores.map((s) => (
         <StoreCard key={s.id} store={s} onSaved={refresh} />
       ))}
@@ -191,14 +198,7 @@ function StoreCard({ store, onSaved }: { store: StoreRow; onSaved: () => Promise
         <label>Postcode <input value={edit.postCode} onChange={(e) => setEdit({ ...edit, postCode: e.target.value })} /></label>
         <label>Phone <input value={edit.contactNumber} onChange={(e) => setEdit({ ...edit, contactNumber: e.target.value })} /></label>
       </div>
-      <label className="block">
-        Opening hours (JSON — e.g. {"{\"mon\":[{\"open\":\"09:00\",\"close\":\"17:30\"}]}"})
-        <textarea
-          rows={2}
-          value={edit.openingHoursJson ?? ""}
-          onChange={(e) => setEdit({ ...edit, openingHoursJson: e.target.value || null })}
-        />
-      </label>
+      <OpeningHoursEditor value={edit.openingHoursJson} onChange={(v) => setEdit({ ...edit, openingHoursJson: v })} />
       {dirty && (
         <button
           className="primary small"
@@ -216,6 +216,98 @@ function StoreCard({ store, onSaved }: { store: StoreRow; onSaved: () => Promise
         </button>
       )}
       <ReceiptTemplateEditor store={store} onSaved={onSaved} />
+    </div>
+  );
+}
+
+/** WP11.3: add a store from the portal (the API existed; the button did not). */
+function AddStore({ companies, onSaved }: { companies: Company[]; onSaved: () => Promise<void> | void }) {
+  const [open, setOpen] = useState(false);
+  const [f, setF] = useState({ adLine1: "", city: "", postCode: "", contactNumber: "" });
+  const [companyId, setCompanyId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  if (!open) return <button className="ghost small" onClick={() => setOpen(true)}>+ New store</button>;
+  return (
+    <div className="card">
+      <div className="toolbar">
+        {companies.length > 1 && (
+          <label>Company
+            <select value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
+              <option value="">(first)</option>
+              {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </label>
+        )}
+        <label>Address <input value={f.adLine1} onChange={(e) => setF({ ...f, adLine1: e.target.value })} /></label>
+        <label>City <input value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} /></label>
+        <label>Postcode <input value={f.postCode} onChange={(e) => setF({ ...f, postCode: e.target.value })} /></label>
+        <label>Phone <input value={f.contactNumber} onChange={(e) => setF({ ...f, contactNumber: e.target.value })} /></label>
+      </div>
+      {error && <p className="error small">{error}</p>}
+      <button className="primary small" disabled={busy} onClick={async () => {
+        setBusy(true); setError("");
+        try {
+          await createStore({ ...(companyId ? { companyId } : {}), ...f });
+          setOpen(false); setF({ adLine1: "", city: "", postCode: "", contactNumber: "" });
+          await onSaved();
+        } catch (e) { setError(String(e instanceof Error ? e.message : e)); } finally { setBusy(false); }
+      }}>Create store</button>
+      <button className="ghost small" onClick={() => setOpen(false)}>Cancel</button>
+    </div>
+  );
+}
+
+/** WP11.3: opening hours as tick-box days + 24-hour times, writing the same JSON the API stores.
+ *  Multi-interval days (e.g. lunch closing) drop to an advanced raw-JSON view. */
+function OpeningHoursEditor({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
+  const parsed: Record<string, { open: string; close: string }[]> = (() => {
+    try { return value ? JSON.parse(value) : {}; } catch { return {}; }
+  })();
+  const multiInterval = Object.values(parsed).some((a) => Array.isArray(a) && a.length > 1);
+  const [advanced, setAdvanced] = useState(multiInterval);
+
+  function setDay(day: string, next: { open: string; close: string } | null) {
+    const obj = { ...parsed };
+    if (next) obj[day] = [next];
+    else delete obj[day];
+    onChange(Object.keys(obj).length ? JSON.stringify(obj) : null);
+  }
+
+  if (advanced) {
+    return (
+      <label className="block">
+        Opening hours (advanced JSON)
+        <textarea rows={3} value={value ?? ""} onChange={(e) => onChange(e.target.value || null)} />
+        <button className="ghost small" type="button" onClick={() => setAdvanced(false)}>Back to simple editor</button>
+      </label>
+    );
+  }
+
+  return (
+    <div className="hours-editor">
+      <div className="muted small">Opening hours</div>
+      {DAYS.map((d) => {
+        const iv = parsed[d.key]?.[0];
+        return (
+          <div className="hours-row" key={d.key}>
+            <label className="chk">
+              <input type="checkbox" checked={!!iv}
+                onChange={(e) => setDay(d.key, e.target.checked ? { open: "09:00", close: "17:30" } : null)} />
+              {d.label}
+            </label>
+            {iv && (
+              <>
+                <input type="time" value={iv.open} onChange={(e) => setDay(d.key, { ...iv, open: e.target.value })} />
+                <span className="muted">to</span>
+                <input type="time" value={iv.close} onChange={(e) => setDay(d.key, { ...iv, close: e.target.value })} />
+              </>
+            )}
+            {!iv && <span className="muted small">closed</span>}
+          </div>
+        );
+      })}
+      <button className="ghost small" type="button" onClick={() => setAdvanced(true)}>Advanced (JSON)</button>
     </div>
   );
 }

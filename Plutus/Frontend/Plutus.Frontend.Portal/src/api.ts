@@ -199,6 +199,11 @@ export interface StoreRow {
 }
 export const fetchStores = () => get<StoreRow[]>(`/api/v1/stores`);
 export const updateStore = (id: number, body: Partial<StoreRow>) => put<void>(`/api/v1/stores/${id}`, body);
+// WP11.3
+export const createStore = (body: { companyId?: string; adLine1: string; city: string; postCode: string; contactNumber: string }) =>
+  post<{ id: number }>(`/api/v1/stores`, body);
+export const createStockLocation = (body: { storeId: number; type: string; name: string }) =>
+  post<{ id: string }>(`/api/v1/stock/locations`, body);
 
 // WP11.2 receipt template (per store). Shape owned here; stored/echoed opaquely by the API.
 export interface ReceiptTemplate {

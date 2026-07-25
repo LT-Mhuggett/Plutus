@@ -55,6 +55,7 @@ export default function StockPage() {
           </select>
         </label>
         <label>Search <input placeholder="barcode / id" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
+        <NewLocation defaultStoreId={locations[0]?.storeId ?? 1} onCreated={refresh} />
       </div>
       {error && <p className="error">{error}</p>}
 
@@ -99,6 +100,34 @@ export default function StockPage() {
 
       {drill && <ItemDialog level={drill} locations={locations} onClose={() => { setDrill(null); void refresh(); }} />}
     </section>
+  );
+}
+
+/** WP11.3: create a stock location (notably a warehouse). */
+function NewLocation({ defaultStoreId, onCreated }: { defaultStoreId: number; onCreated: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [type, setType] = useState("Warehouse");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  if (!open) return <button className="ghost small" onClick={() => setOpen(true)}>+ New location</button>;
+  return (
+    <span className="new-location">
+      <input placeholder="e.g. Back Warehouse" value={name} onChange={(e) => setName(e.target.value)} />
+      <select value={type} onChange={(e) => setType(e.target.value)}>
+        <option value="Warehouse">Warehouse</option>
+        <option value="Store">Store</option>
+      </select>
+      <button className="primary small" disabled={busy || !name.trim()} onClick={async () => {
+        setBusy(true); setError("");
+        try {
+          await j("POST", `/api/v1/stock/locations`, { storeId: defaultStoreId, type, name: name.trim() });
+          setOpen(false); setName(""); onCreated();
+        } catch (e) { setError(String(e instanceof Error ? e.message : e)); } finally { setBusy(false); }
+      }}>Create</button>
+      <button className="ghost small" onClick={() => setOpen(false)}>Cancel</button>
+      {error && <span className="error small">{error}</span>}
+    </span>
   );
 }
 
