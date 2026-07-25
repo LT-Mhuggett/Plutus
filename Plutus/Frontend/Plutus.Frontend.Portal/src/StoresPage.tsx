@@ -50,13 +50,6 @@ export default function StoresPage() {
       ))}
 
       <h2>Tills</h2>
-      {issued && (
-        <p className="callout">
-          Enrolment code for till {issued.tillId.slice(0, 8)}…: <strong className="mono">{issued.code}</strong>{" "}
-          (single-use, expires {new Date(issued.expires).toLocaleString("en-GB")}) — type it into the till's
-          Settings → Till device.
-        </p>
-      )}
       <table>
         <thead><tr><th>Till</th><th>Store</th><th>Devices</th><th>Last online</th><th /></tr></thead>
         <tbody>
@@ -91,6 +84,18 @@ export default function StoresPage() {
           </button>
         ))}
       </div>
+
+      {issued && (
+        <div className="enrol-code">
+          <div className="grow">
+            <span className="muted small">Enrolment code for till {issued.tillId.slice(0, 8)}… — enter it on the
+              till at Settings → Till device (single-use, expires {new Date(issued.expires).toLocaleString("en-GB")}).</span>
+            <div className="enrol-code-value mono">{issued.code}</div>
+          </div>
+          <button className="ghost small" onClick={() => void navigator.clipboard?.writeText(issued.code)}>Copy</button>
+          <button className="ghost small" onClick={() => setIssued(null)}>Dismiss</button>
+        </div>
+      )}
     </section>
   );
 }
