@@ -395,8 +395,10 @@ MySQL, after migration rehearsal): real webhook POST end-to-end.
 > registration + csproj ref. **10 new handler tests incl. the tenant-scope proof (delivery under
 > a deliberately WRONG ambient tenant lands every row under the webstore's tenant, and the
 > virtual Device row derives the sale's TillId) — 147 unit + 5 arch green; host builds.**
-> Remaining before live: WP6.1 provisioning (create the WebStores row + virtual till/device +
-> webhooks on the site), migration apply (`plutus_t1` → `plutus`), Mac integration smoke.
+> Committed `45914a6` + pushed. **Migration APPLIED 2026-07-26** — rehearsed on `plutus_t1`
+> (idempotency re-run = no-op) then live `plutus`; SalesV2 untouched (21,648); till/portal/ETRIE
+> all 200. Remaining before live inbound: deploy the new backend, WP6.1 provisioning (WebStores
+> row + virtual till/device + secret in config + webhooks via wp-cli), integration smoke.
 *DoD:* the tenant-scope proof test passes; a forged delivery leaves zero rows; Woo's activation
 ping succeeds during WP6.1 auto-provisioning; quarantined/parked deliveries do NOT cause Woo to
 disable the webhook (2xx verified); secret rotation = config change + webhook update, no deploy.

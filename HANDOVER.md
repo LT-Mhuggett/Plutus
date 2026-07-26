@@ -267,9 +267,14 @@ idempotently). Host: thin `WebstoreWebhookController` (`POST api/v1/webstores/{i
 (`Webstore:Secrets:{id}` from config), Startup wiring + csproj ref. **10 handler tests incl. the
 tenant-scope proof (wrong ambient tenant → rows still land under the webstore's tenant; virtual
 Device row derives TillId) — 147 unit + 5 arch green; host builds.** **No WP plugin**
-(re-confirmed — HMAC is the standard; a plugin can't solve tenant scoping). Remaining before
-live: WP6.1 provisioning (WebStores row + virtual till/device + webhooks on the site), migration
-apply (rehearse `plutus_t1` → `plutus`), Mac integration smoke.
+(re-confirmed — HMAC is the standard; a plugin can't solve tenant scoping). **Committed `45914a6` + pushed;
+migration APPLIED (2026-07-26):** rehearsed on `plutus_t1` (+ idempotency re-run = no-op), then
+live `plutus` — `WebStores` + `WebstoreSkuMaps` created, SalesV2 untouched (21,648), till 200 /
+portal 200 / **ETRIE 200** (note: ETRIE's vhost is the BARE `huggett.dscloud.me` — checking
+`etrie.…` gets 000 and means nothing). Script kept at `~/PLUTUS/webstore-migration.sql`.
+Remaining before live inbound: deploy the new backend (webhook endpoint + tables in model), WP6.1
+provisioning (WebStores row + virtual till/device + secret in config + webhooks on the site via
+wp-cli), Mac integration smoke.
 
 ---
 
