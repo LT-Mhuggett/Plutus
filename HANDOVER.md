@@ -274,9 +274,15 @@ now flow into Plutus automatically. **Deploy gotchas (cost 3 redeploys):** (1) p
 `processing`/`completed` orders ingest (Skipped→200 otherwise); (5) Woo's activation ping is
 FORM-encoded and the form feature drains Request.Body — controller reconstructs `webhook_id=N`
 from Request.Form. ⚠ MySQL `plutus` password echoed into a transcript while debugging — rotate at
-leisure (note in secrets.local.md). Remaining Phase 6: WP6.2 review screen + reconciliation poll +
-pick-from-floor notification; WP6.4 catalogue view/report; WP6.5 draft creation; WP6.3 outbound
-(gated on Matt).
+leisure (note in secrets.local.md). **Reconciliation poll LIVE too (2026-07-26 late,
+`0ba6223`):** `WebstoreReconciler` + BackgroundService — every 20 min, orders `modified_after`
+cursor−5min-overlap pulled via the REST read key (`Webstore__RestKeys__<id>` = "ck|cs" in the pm2
+ecosystem env) and routed through the SAME core as webhooks (status gate/SKU queue/quarantine/
+dedupe); ≤25/page, ≤4 pages/cycle, 24h initial lookback; cursor = max date_modified seen
+(`WebStores.OrdersCursorUtc`, migration `AddWebstoreOrdersCursor` rehearsed t1 → live). First live
+cycle verified: `webstores=1 requests=1 orders=0`, cursor persisted — 3 req/hour steady-state.
+150 unit + 5 arch green. Remaining Phase 6: WP6.2 review screen + pick-from-floor notification;
+WP6.4 catalogue view/report; WP6.5 draft creation; WP6.3 outbound (gated on Matt).
 
 **WP6.2a webhook receiver ✅ BUILT & TESTED (2026-07-26)** — design AND implementation done.
 Connector: `WebstoreWebhookHandler` (framework-free: unscoped lookup by URL id → Woo's UNSIGNED

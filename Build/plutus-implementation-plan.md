@@ -408,6 +408,14 @@ MySQL, after migration rehearsal): real webhook POST end-to-end.
 > committed): paid-status gate (Skipped→200), DI lifetimes, form-encoded unsigned ping handling.
 > Real web orders now flow into Plutus automatically. Remaining in WP6.2: review screen,
 > reconciliation poll + cursor, pick-from-floor notification.
+>
+> **Reconciliation poll ✅ LIVE (2026-07-26, `0ba6223`).** `WebstoreReconciler` (testable core) +
+> BackgroundService: 20-min cadence, orders `modified_after` cursor−5min via the REST read key,
+> routed through the SAME core as webhooks; ≤25/page, ≤4 pages/cycle, 24 h initial lookback;
+> cursor = max `date_modified_gmt` seen (`OrdersCursorUtc`, migration rehearsed t1 → live).
+> First live cycle: 1 request, cursor persisted — **3 req/hour steady state** (budget as
+> designed). Webhook-outage healing is now automatic. Remaining in WP6.2: the SKU-map review
+> screen + the pick-from-floor notification.
 *DoD:* the tenant-scope proof test passes; a forged delivery leaves zero rows; Woo's activation
 ping succeeds during WP6.1 auto-provisioning; quarantined/parked deliveries do NOT cause Woo to
 disable the webhook (2xx verified); secret rotation = config change + webhook update, no deploy.
