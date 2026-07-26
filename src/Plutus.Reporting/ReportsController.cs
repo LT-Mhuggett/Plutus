@@ -34,6 +34,30 @@ namespace Plutus.Reporting
             _tenant = tenant;
         }
 
+        /// <summary>Every period key in [from,to] at the granularity — the zero-fill spine so the
+        /// chart shows quiet days/months too.</summary>
+        private static List<string> EnumeratePeriods(string granularity, DateOnly from, DateOnly to)
+        {
+            var list = new List<string>();
+            switch ((granularity ?? "day").ToLowerInvariant())
+            {
+                case "week":
+                    var monday = from.AddDays(-(((int)from.DayOfWeek + 6) % 7));
+                    for (var d = monday; d <= to; d = d.AddDays(7)) list.Add(d.ToString("yyyy-MM-dd"));
+                    break;
+                case "month":
+                    for (var d = new DateOnly(from.Year, from.Month, 1); d <= to; d = d.AddMonths(1)) list.Add(d.ToString("yyyy-MM"));
+                    break;
+                case "year":
+                    for (var y = from.Year; y <= to.Year; y++) list.Add(y.ToString());
+                    break;
+                default: // day
+                    for (var d = from; d <= to; d = d.AddDays(1)) list.Add(d.ToString("yyyy-MM-dd"));
+                    break;
+            }
+            return list;
+        }
+
         private static bool TryPeriod(string granularity, DateOnly day, out string period)
         {
             switch ((granularity ?? "day").ToLowerInvariant())
@@ -77,16 +101,24 @@ namespace Plutus.Reporting
                 return BadRequest(new { detail = "granularity must be day|week|month|year." });
 
             var rows = await Filtered(level, id, from, to).ToListAsync();
-            var buckets = rows
+            var byPeriod = rows
                 .GroupBy(r => { TryPeriod(granularity, r.BusinessDay, out var p); return p; })
-                .OrderBy(g => g.Key, StringComparer.Ordinal)
-                .Select(g => new
+                .ToDictionary(g => g.Key, g => (Gross: g.Sum(r => r.GrossPence), Vat: g.Sum(r => r.VatPence), Txn: g.Sum(r => r.TxnCount)));
+
+            // Zero-fill EVERY period in the range so a day-granularity month shows every day and a
+            // month-granularity year shows every month, whether or not there was a sale.
+            var buckets = EnumeratePeriods(granularity, from, to)
+                .Select(p =>
                 {
-                    period = g.Key,
-                    grossPence = g.Sum(r => r.GrossPence),
-                    vatPence = g.Sum(r => r.VatPence),
-                    txnCount = g.Sum(r => r.TxnCount),
-                    avgBasketPence = g.Sum(r => r.TxnCount) == 0 ? 0 : g.Sum(r => r.GrossPence) / g.Sum(r => r.TxnCount),
+                    byPeriod.TryGetValue(p, out var v);
+                    return new
+                    {
+                        period = p,
+                        grossPence = v.Gross,
+                        vatPence = v.Vat,
+                        txnCount = v.Txn,
+                        avgBasketPence = v.Txn == 0 ? 0 : v.Gross / v.Txn,
+                    };
                 })
                 .ToList();
 

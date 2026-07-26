@@ -90,10 +90,10 @@ function ItemsSoldView() {
       </div>
       {denied ? <Denied /> : loading ? <p className="muted">Loading…</p> : error ? <p className="error">{error}</p> : data && (
         <>
-          <div className="stat-row">
-            <div className="stat"><span className="stat-label">Lines</span><span className="stat-value">{data.count}{data.count >= 2000 ? "+" : ""}</span></div>
-            <div className="stat"><span className="stat-label">Units</span><span className="stat-value">{data.totals.qty}</span></div>
-            <div className="stat"><span className="stat-label">Gross</span><span className="stat-value">{gbp(data.totals.grossPence)}</span></div>
+          <div className="stat-tiles">
+            <div className="stat-tile"><span className="stat-label">Lines</span><span className="stat-value">{data.count}{data.count >= 2000 ? "+" : ""}</span></div>
+            <div className="stat-tile"><span className="stat-label">Units</span><span className="stat-value">{data.totals.qty}</span></div>
+            <div className="stat-tile"><span className="stat-label">Gross</span><span className="stat-value">{gbp(data.totals.grossPence)}</span></div>
           </div>
           <table>
             <thead><tr><th>Date</th><th>Item</th><th>Staff</th><th className="num">Qty</th><th className="num">Unit</th><th className="num">Disc</th><th className="num">Gross</th></tr></thead>

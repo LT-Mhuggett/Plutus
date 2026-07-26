@@ -97,6 +97,10 @@ namespace Plutus.Entities.Models
         public Guid SaleId { get; set; }
         public int LineNo { get; set; }
         public Guid ItemId { get; set; }
+        /// <summary>The item's legacy barcode/natural key (Items.IdOne). Carried so sale lines join
+        /// back to the catalogue for item-level reports — the migrated ItemId is a minted surrogate
+        /// that doesn't. Null only for the reconciliation sentinel line.</summary>
+        public string? ItemIdOne { get; set; }
         public int Qty { get; set; }
         public long UnitPricePence { get; set; }
         public long LineGrossPence { get; set; }

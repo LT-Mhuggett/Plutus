@@ -100,6 +100,7 @@ namespace Plutus.Migration.Kapow
                         SaleId = saleId,
                         LineNo = lineNo,
                         ItemId = itemRemap.GetOrMint(l.OldItemId),
+                        ItemIdOne = l.OldItemId,   // barcode preserved for item-level reporting
                         Qty = l.Qty,
                         UnitPricePence = unit,
                         DiscountPence = disc,

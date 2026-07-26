@@ -90,7 +90,8 @@ namespace Plutus.Sales
             var lines = req.Lines.Select((l, i) => new SaleLine
             {
                 Id = Uuid7.New(), TenantId = tenantId, SaleId = req.SaleId, LineNo = i + 1,
-                ItemId = l.ItemId, Qty = l.Qty, UnitPricePence = l.UnitPricePence, DiscountPence = l.DiscountPence,
+                ItemId = l.ItemId, ItemIdOne = ExtractItemIdOne(l.DiscountsJson),
+                Qty = l.Qty, UnitPricePence = l.UnitPricePence, DiscountPence = l.DiscountPence,
                 LineGrossPence = l.LineGrossPence, VatRateBp = l.VatRateBp, VatAmountPence = l.VatAmountPence,
                 OverriddenFromPence = l.OverriddenFromPence, DiscountsJson = l.DiscountsJson,
             }).ToList();
@@ -132,6 +133,19 @@ namespace Plutus.Sales
                 if (existing != null) return existing;
                 throw;
             }
+        }
+
+        /// <summary>The web till carries the barcode in the line's DiscountsJson metadata
+        /// (`{"itemIdOne":"…"}`); pull it onto SaleLine.ItemIdOne so new sales are item-reportable.</summary>
+        private static string ExtractItemIdOne(string discountsJson)
+        {
+            if (string.IsNullOrWhiteSpace(discountsJson)) return null;
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(discountsJson);
+                return doc.RootElement.TryGetProperty("itemIdOne", out var v) ? v.GetString() : null;
+            }
+            catch (System.Text.Json.JsonException) { return null; }
         }
 
         private async Task<IngestOutcome> QuarantineAsync(
