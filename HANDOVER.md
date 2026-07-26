@@ -1,8 +1,53 @@
 # Handover — Plutus platform build
 
-**Date:** 2026-07-25 (early hours) — Phases 0–3 + 5 complete, Kapow history loaded, all pushed
-**Branch:** `Matt's-Horror` · remote `origin` = LT-Mhuggett/Plutus (everything pushed; CI green on head `8eb3073`)
+**Date:** 2026-07-27 (late night) — Phases 0–3, 5, 7(cash), 8, 9, 10, 11.1–11.4, **and ALL of
+Phase 6 (WooCommerce connector)** complete; Kapow history loaded; everything pushed (head `cba7bea`)
+**Branch:** `Matt's-Horror` · remote `origin` = LT-Mhuggett/Plutus
 **Hard rule:** **DO NOT TOUCH ETRIE** — it shares the Mac mini but is a separate product. Every Plutus change keeps ETRIE's ports/processes/paths/Caddy blocks untouched; verify ETRIE health (`https://10.1.1.40/health`, `https://huggett.dscloud.me/health` → 200) after any Mac change.
+
+---
+
+## ⏰ RESUME HERE (written 2026-07-27 night — Matt went to bed with Phase 6 just finished)
+
+**State right now, all live on the test env (test suite: 167 unit + 5 arch green):**
+- **Phase 6 inbound LIVE**: kapow-comics.co.uk webhooks (order.created/updated) + a 20-min
+  self-healing reconciliation poll ingest real web orders into SalesV2 (channel WebStore, virtual
+  till "Kapow Web"); refunds → idempotent SaleAdjustments (closed 2026-07-27); unmatched SKUs park
+  in the portal review queue (bind/ignore/create-item + Retry heals parked orders); pick-from-floor
+  till banner on every web sale; product cache (745 = whole site) + catalogue view + alignment
+  report (+CSV) in portal → Webstore.
+- **Phase 6 outbound in DRY-RUN**: journaling to portal → Webstore → Outbound what it WOULD
+  send (stock fast lane on every sale + slow-lane diff ≤100/cycle + WP6.5 draft scan). ZERO writes
+  to the site — mode = dry-run, and only the read-only REST key exists.
+- Two real orders ingested end-to-end as proof: #8505 £4.80, #8503 £67.49 (penny-exact).
+
+**Waiting on MATT (in order of value):**
+1. **Review the outbound dry-run journal** (portal → Webstore → Outbound) over ~a week of
+   trading. It currently shows web-vs-till stock disagreement (web was stocked independently) —
+   going live makes the TILL's ledger the truth for web stock. When satisfied: mint a WRITE REST
+   key on the kapow box (same `wp eval` as §secrets), swap `Webstore__RestKeys__<id>` in
+   `~/PLUTUS/plutus-ecosystem.config.js`, `pm2 delete plutus-backend && pm2 start` the ecosystem
+   (PATH needs `/opt/homebrew/bin`), then portal → Outbound → live. First live write: verify ONE
+   item on the storefront.
+2. **Test WP6.1 one-click onboarding** (portal → Webstore shows a Connect form when no
+   connection): browser flow only Matt can click. ⚠ A second connection to the same site
+   DOUBLE-INGESTS new orders — connect → verify (site gains 2 webhooks) → **Disconnect promptly**
+   (button removes its own webhooks + disables itself).
+3. **Rotate the MySQL `plutus` password at leisure** (it echoed into a session transcript —
+   LAN-only behind SSH, low risk). Change in MySQL + `~/PLUTUS/secrets/mysql.env` + the
+   ecosystem ConnectionString.
+4. Standing sudo items: Keycloak `login.plutus` Caddy vhost (Phase 9); portal basic_auth gap.
+
+**Next build work when sessions resume (nothing blocking):** WP11.5–11.7 portal IA restructure
+(Dashboard/Company tabs + Locations regroup — planned in the implementation plan, no code yet);
+Phase 12 (legacy retirement + ops hardening — incl. `pm2 save` so the backend survives a Mac
+reboot, nightly MySQL dumps); then the externally-gated items (Phase 4 MAUI upstream, Phase 7
+payments provider, Phase 10 Stripe).
+
+**Key session learnings live in:** §Phase-6 records below (deploy gotchas: pm2 PATH, ecosystem
+env restarts, form-encoded ping, DI lifetimes) + `Build/secrets.local.md` (gitignored: all
+webstore ids/secrets/keys + rotation steps) + the memory files (ETRIE health = bare
+`huggett.dscloud.me/health`; build loop = `C:\Program Files\dotnet\dotnet.exe`).
 
 This supersedes the earlier MAUI-only handover. Companion docs: `Build/` (platform architecture v3 + implementation plan + Sonnet/MAUI build specs + Kapow gap analysis), `WebApp-2026-07-23-plan.md`, `OfflineMode-2026-07-23-plan.md`, `VAT-Investigation-2026-07-23-plan.md`, `VAT-FixLater-Report-2026-07-23.md`.
 
@@ -70,7 +115,7 @@ Test totals: **Unit 5 + Architecture 6 (1 skip)** green. Whole `Plutus.slnx` bui
 
 Phases 2–10 not started.
 
-## 5. RESUME HERE — Phase 3 COMPLETE ✅ → Phase 4 paused / Phase 5 next
+## 5. Phase records (historical — the live RESUME HERE is at the top of this file)
 
 **Phase 3 (WP3.1–WP3.5) is COMPLETE and LIVE (2026-07-25)** — RBAC, admin APIs, reporting
 projections, financial periods, and the **management portal**. **79 unit + 5 integration +
