@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Phase 6 WooCommerce connector. Isolated feature module: the core platform holds ZERO
+       references to it (arch rule). It depends only on the shared foundations (SharedKernel)
+       and the entity model, so the order→sale mapper is pure, offline-testable logic. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Plutus.SharedKernel\Plutus.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\Plutus\Commons\Plutus.Entities\Plutus.Entities.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,101 @@
+using System;
+using System.Collections.Generic;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using Plutus.Entities.Models;
+
+namespace Plutus.Webstore
+{
+    /// <summary>Idempotently persists a mapped webstore sale — the connector's port over the
+    /// platform's sale ingest (implemented in the host against <c>SalesIngestService</c>, so the
+    /// connector never references the Sales module). Returns whether the sale was newly recorded
+    /// (false = a duplicate delivery that deduped on the deterministic saleId).</summary>
+    public interface IWebstoreSaleSink
+    {
+        Task<bool> SubmitAsync(SaleV2 sale, CancellationToken ct = default);
+    }
+
+    /// <summary>Parks an order whose line SKUs aren't in the catalogue into the WP6.2 review queue
+    /// (bind SKU→item / ignore / create item). Host-implemented over the WebstoreSkuMap table.</summary>
+    public interface IWebstoreSkuMapQueue
+    {
+        Task EnqueueAsync(WebstoreConnectionContext ctx, long wooOrderId, IReadOnlyList<string> unmatchedSkus, CancellationToken ct = default);
+    }
+
+    public enum WebstoreInboundStatus { Recorded, Duplicate, NeedsMapping, Quarantined, Rejected }
+
+    public sealed class WebstoreInboundResult
+    {
+        public WebstoreInboundStatus Status { get; init; }
+        public Guid? SaleId { get; init; }
+        public string? Detail { get; init; }
+        /// <summary>The Woo order id, once the payload parsed — lets the caller derive the
+        /// deterministic saleId (e.g. to park a quarantine idempotently). Null for Rejected.</summary>
+        public long? WooOrderId { get; init; }
+        public IReadOnlyList<string> UnmatchedSkus { get; init; } = Array.Empty<string>();
+
+        public static WebstoreInboundResult Recorded(Guid id, long orderId) =>
+            new() { Status = WebstoreInboundStatus.Recorded, SaleId = id, WooOrderId = orderId };
+        public static WebstoreInboundResult Duplicate(Guid id, long orderId) =>
+            new() { Status = WebstoreInboundStatus.Duplicate, SaleId = id, WooOrderId = orderId };
+        public static WebstoreInboundResult NeedsMapping(IReadOnlyList<string> skus, long orderId) =>
+            new() { Status = WebstoreInboundStatus.NeedsMapping, UnmatchedSkus = skus, WooOrderId = orderId };
+        public static WebstoreInboundResult Quarantined(string reason, long orderId) =>
+            new() { Status = WebstoreInboundStatus.Quarantined, Detail = reason, WooOrderId = orderId };
+        public static WebstoreInboundResult Rejected(string reason) => new() { Status = WebstoreInboundStatus.Rejected, Detail = reason };
+    }
+
+    /// <summary>
+    /// WP6.2 inbound pipeline: verify the webhook HMAC → parse the order → map it (WooOrderMapper) →
+    /// route the outcome — recorded/duplicate via the sale sink, unknown SKUs to the review queue,
+    /// unreconcilable money to quarantine, a forged/garbled delivery rejected. Pure orchestration
+    /// over injected ports, so it unit-tests end-to-end with fakes and no HTTP/DB.
+    /// </summary>
+    public sealed class WebstoreWebhookProcessor
+    {
+        private static readonly JsonSerializerOptions J = new()
+        {
+            PropertyNameCaseInsensitive = true,
+            NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString,
+        };
+
+        private readonly IWebstoreSaleSink _sink;
+        private readonly IWebstoreSkuMapQueue _queue;
+
+        public WebstoreWebhookProcessor(IWebstoreSaleSink sink, IWebstoreSkuMapQueue queue)
+        {
+            _sink = sink;
+            _queue = queue;
+        }
+
+        public async Task<WebstoreInboundResult> ProcessOrderWebhookAsync(
+            string rawBody, string? signatureHeader, string secret,
+            WebstoreConnectionContext ctx, IWebstoreSkuResolver resolver, CancellationToken ct = default)
+        {
+            if (!WooWebhookVerifier.Verify(rawBody, signatureHeader, secret))
+                return WebstoreInboundResult.Rejected("invalid or missing webhook signature.");
+
+            WooOrder? order;
+            try { order = JsonSerializer.Deserialize<WooOrder>(rawBody, J); }
+            catch (JsonException ex) { return WebstoreInboundResult.Rejected($"unparseable order payload — {ex.Message}"); }
+            if (order is null || order.Id == 0)
+                return WebstoreInboundResult.Rejected("order payload missing an id.");
+
+            var mapped = WooOrderMapper.MapOrder(order, ctx, resolver);
+
+            if (mapped.NeedsMapping)
+            {
+                await _queue.EnqueueAsync(ctx, order.Id, mapped.UnmatchedSkus, ct);
+                return WebstoreInboundResult.NeedsMapping(mapped.UnmatchedSkus, order.Id);
+            }
+            if (mapped.IsQuarantined)
+                return WebstoreInboundResult.Quarantined(mapped.QuarantineReason!, order.Id);
+
+            var wasNew = await _sink.SubmitAsync(mapped.Sale!, ct);
+            return wasNew
+                ? WebstoreInboundResult.Recorded(mapped.Sale!.Id, order.Id)
+                : WebstoreInboundResult.Duplicate(mapped.Sale!.Id, order.Id);
+        }
+    }
+}

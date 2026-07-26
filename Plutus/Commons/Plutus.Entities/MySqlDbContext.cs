@@ -50,6 +50,10 @@ namespace Plutus.Entities
         public DbSet<StoreDetails> StoreDetails { get; set; }
         public DbSet<TillDetails> TillDetails { get; set; }
         public DbSet<DeletionSchedule> DeletionSchedules { get; set; }
+
+        // Phase 6 WooCommerce connector (config + SKU review queue).
+        public DbSet<WebStoreDetails> WebStores { get; set; }
+        public DbSet<WebstoreSkuMap> WebstoreSkuMaps { get; set; }
         // Reporting projections (WP3.3): rebuildable rollups the dashboards read.
         public DbSet<SalesRollup> SalesRollups { get; set; }
         public DbSet<VatRollup> VatRollups { get; set; }
@@ -152,6 +156,8 @@ namespace Plutus.Entities
             typeof(CashEvent), typeof(PaymentEvent),
             // Customers, credit, loyalty (Phase 8).
             typeof(Customer), typeof(CreditAccount), typeof(CreditEntry), typeof(Membership),
+            // WooCommerce connector config + SKU review queue (Phase 6).
+            typeof(WebStoreDetails), typeof(WebstoreSkuMap),
         };
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -332,6 +338,30 @@ namespace Plutus.Entities
                 e.HasKey(x => x.Id);
                 e.Property(x => x.Id).ValueGeneratedNever();
                 e.HasIndex(x => new { x.TenantId, x.Status });
+            });
+
+            // Phase 6 WooCommerce connector.
+            modelBuilder.Entity<WebStoreDetails>(e =>
+            {
+                e.ToTable("WebStores");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Name).HasMaxLength(100).IsRequired();
+                e.Property(x => x.Url).HasMaxLength(255);
+                e.Property(x => x.Provider).HasMaxLength(50);
+                // Tenant-unique name (case-insensitive via the default collation + app-side guard).
+                e.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            });
+            modelBuilder.Entity<WebstoreSkuMap>(e =>
+            {
+                e.ToTable("WebstoreSkuMaps");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Sku).HasMaxLength(64).IsRequired();
+                e.Property(x => x.Status).HasMaxLength(20).IsRequired();
+                e.Property(x => x.BoundItemIdOne).HasMaxLength(20);
+                // One row per (tenant, webstore, SKU) — re-seeing bumps SeenCount, not a new row.
+                e.HasIndex(x => new { x.TenantId, x.WebStoreId, x.Sku }).IsUnique();
             });
 
             // WP3.3 reporting rollups.

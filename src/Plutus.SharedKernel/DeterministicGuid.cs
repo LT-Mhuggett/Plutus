@@ -24,7 +24,21 @@ public static class DeterministicGuid
     public static Guid ForItem(Guid businessId, string itemIdOne)
     {
         if (string.IsNullOrEmpty(itemIdOne)) throw new ArgumentException("itemIdOne is required.", nameof(itemIdOne));
-        var name = $"plutus:item:{businessId.ToString("D").ToLowerInvariant()}:{itemIdOne}";
+        return FromName($"plutus:item:{businessId.ToString("D").ToLowerInvariant()}:{itemIdOne}");
+    }
+
+    /// <summary>General name-derived GUID (same version-8 algorithm as <see cref="ForItem"/>).
+    /// Use for any deterministic id from a stable natural key — e.g. the Woo connector derives a
+    /// sale's id from its order id so re-delivered webhooks dedupe. Parts are joined with ':'.</summary>
+    public static Guid ForName(string ns, params string[] parts)
+    {
+        if (string.IsNullOrEmpty(ns)) throw new ArgumentException("namespace is required.", nameof(ns));
+        var name = parts is { Length: > 0 } ? ns + ":" + string.Join(":", parts) : ns;
+        return FromName(name);
+    }
+
+    private static Guid FromName(string name)
+    {
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(name));
 
         Span<byte> b = stackalloc byte[16];

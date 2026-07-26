@@ -17,6 +17,7 @@ using Plutus.Tenancy;
 using Plutus.Cash;
 using Plutus.Payments;
 using Plutus.Customers;
+using Plutus.Webstore;
 using Plutus.Entities;
 using Plutus.Infrastructure.Outbox;
 using System;
@@ -60,6 +61,12 @@ namespace Plutus.DBService
             services.AddPlutusCash();       // WP7.2 cash sessions
             services.AddPlutusPayments();   // WP7.1 provider seam + reconciliation
             services.AddPlutusCustomers();  // Phase 8 customers / credit / loyalty
+            // Phase 6 Woo connector (WP6.2a): host supplies the sink factory (adapter over
+            // SalesIngestService on the delivery's tenant-fixed context) + the secret provider.
+            services.AddSingleton<Func<MySqlDbContext, WebstoreConnectionContext, IWebstoreSaleSink>>(
+                sp => (db, ctx) => new WebstoreIngestSink(db, ctx));
+            services.AddSingleton<IWebstoreSecretProvider>(new ConfigWebstoreSecretProvider(Configuration));
+            services.AddPlutusWebstore();
             services.AddPlutusOutbox(); // T1.5 broker-less dispatcher (consumers register their own IEventConsumer)
             ConfigureRateLimiting(services, Configuration);
             services.ConfigureSwaggerDocumentation(Configuration);

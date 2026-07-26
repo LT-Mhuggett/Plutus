@@ -302,3 +302,7 @@ Build/snapshots/
 
 # ETRIE's runbook — shares the repo dir on the dev box, must never be committed
 Environment_Setup_Runbook.md
+
+# Local secrets (API keys, DB creds) — never commit. Server-side config only.
+secrets.local.md
+**/secrets.local.*

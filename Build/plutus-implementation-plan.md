@@ -181,10 +181,300 @@ Modules communicate in-process via the `SharedKernel` event bus abstraction (int
 
 ## Phase 6 — WooCommerce connector (add-on)
 
-**WP6.1 — Entitlements gate + connection config.** `WebstoreConnections` CRUD (portal), entitlement check (`woo-connector`) enforced at module boundary.
-**WP6.2 — Inbound orders.** Webhook receiver (HMAC), order → v1 sale event (`channel: WEB_STORE`) → internal `POST /sales`; reconciliation poll with sync cursor.
-**WP6.3 — Outbound stock/price.** `StockLevelChanged`/`ItemUpdated` consumer → Woo REST batch, debounced; per-tenant oversell buffer config.
-*DoD:* connector runs against a real Woo test store; kills/restarts resume from cursor; unentitled tenant gets clean 403 + portal upsell state; core platform has **zero** references to the connector (architecture test).
+> **Re-planned 2026-07-26 against the LIVE store.** Target is **kapow-comics.co.uk** — the shop's
+> real production site on a **low-resource DreamHost VPS** (`ssh kapow`, WordPress 7.0.2 /
+> WooCommerce 10.9.4 / PHP 8.2.30, wp-cli available; 739 published products, **648 (88%) carry
+> SKUs that are barcodes** — same shape as Plutus `ItemIdOne`, so SKU⇔barcode is the item join).
+> There is no test store; the live site is also under active development by the shop. Ground rules:
+>
+> 1. **Read-only by default.** Inbound (orders→Plutus) ships first and never writes to Woo.
+>    Outbound writes (WP6.3) are OFF until Matt explicitly enables them, and even then dry-run first.
+> 2. **Nothing installed on the Woo side — no plugin, deliberately.** Core Woo REST API + core
+>    webhooks cover everything this phase needs: orders, products, stock, webhook management, and
+>    key issuance via the built-in `/wc-auth/v1/authorize` browser flow (how future tenants'
+>    stores onboard without SSH — Matt's 2026-07-26 plugin assumption addressed: not required).
+>    A companion plugin would need maintaining against every WP/Woo upgrade on a live,
+>    low-resource site. Revisit ONLY if a concrete need appears that the core API can't meet.
+> 3. **Be gentle with the VPS.** Webhooks (push, near-zero cost to Woo) are the primary transport;
+>    polling is a slow reconciliation net, not the mechanism: small pages (≤25), `modified_after`
+>    cursor, generous intervals (≥15 min; full sweep nightly off-peak), back-off on any 429/5xx/slow
+>    response, and a per-tenant request budget logged so we can prove we're not the load.
+> 4. **Develop against fixtures, not the live site.** WP6.0 captures real order/product JSON once;
+>    unit/integration tests run on those fixtures. The live site is used for read-only smoke checks
+>    and the final DoD proof only — never as a dev loop.
+> 5. Two keys, minted via wp-cli: a **`read`-permission REST key now**; a separate **`write` key
+>    only when WP6.3 is approved** (so a leaked/buggy inbound path physically cannot write).
+>    UpdraftPlus backups exist on the site; confirm one is fresh before any write phase.
+
+**WP6.0 — Live-site recon, fixtures, read-only key (NEW).** ✅ **DONE (2026-07-26).**
+Mint the `read` REST key via wp-cli (recorded in HANDOVER secrets, never committed); capture
+fixtures: ~20 real orders (incl. a refund, a multi-line, a discounted line, guest + account
+customer), product pages, and a webhook sample payload. Audit item matching: how many of the 648
+Woo SKUs match a Plutus `Items.IdOne`? Produce the unmatched list (+ the 91 SKU-less products)
+as the seed for WP6.2's mapping table. Note VAT shape (Woo tax lines → per-line `VatRate`) and
+currency (site runs *price-based-on-countries* — decide GBP-only ingest, quarantine the rest).
+*DoD:* fixtures committed (PII scrubbed); SKU match-rate report; read key proven with a paged
+`orders?modified_after=` pull that stays inside the request budget.
+> **Delivered:** read-only key minted (`Build/secrets.local.md`, gitignored); **10 PII-scrubbed
+> fixtures** in `tests/Fixtures/Woo/` (6 orders incl. guest + 2 refunded, 2 refunds, 2 products)
+> + README of structural facts; **SKU audit** `Build/woo-sku-audit-2026-07-26.md` — **596/648
+> published SKUs (92.0%) match** a Plutus barcode, 52 unmatched + 91 SKU-less = 143 products
+> seeding the WP6.2 queue. REST transport proven: full product sweep ≈2 min (75 pages), the
+> incremental `modified_after` sweep is ~1 page/~1.6 s (near-free). **Findings that change later
+> WPs:** (a) **HPOS is OFF** — orders in `wp_posts`, ignore the inert `wc_orders` table;
+> (b) line `total`/`subtotal` are **net**, `total_tax` separate, order `total` gross — trust the
+> fields, don't recompute (per-line `taxes[]` round a penny off); (c) **currency is GBP-only in
+> practice** despite the price-based-on-countries plugin — no multi-currency orders seen, so
+> GBP-ingest + quarantine-others holds; (d) the 26-digit composite SKUs + one whitespace SKU are
+> a data-quality nudge for the shopkeeper.
+
+**WP6.1 — Entitlements gate + connection config.**
+Consumes the **WP11.7 `WebStoreDetails` shell** (name, URL, `StoreId` for stock fulfilment) —
+one config surface, not two: WP11.7's card gains the connection fields (REST key ref, webhook
+secret, enabled flag, oversell buffer). Secrets stored server-side only (config/user-secrets
+pattern, never in the row). Entitlement check (`woo-connector`, already live from WP10.1)
+enforced at the module boundary. Provision the **virtual webstore till/device** per connection
+(the ingest path requires a `deviceId`/`tillId`; a webstore is `SaleChannel.WebStore` on its own
+till so reports can slice channel × store cleanly).
+- **One-click onboarding (Matt, 2026-07-26 — "user friendly, authenticate from within
+  WordPress").** The portal's + Webstore card gets a **Connect** button driving WooCommerce's
+  native **`/wc-auth/v1/authorize`** flow: browser → the store's own WordPress login (their
+  existing wp-admin credentials — auth happens *inside* WordPress) → Woo's built-in approval
+  screen ("Plutus would like read/write access — Approve/Deny") → Woo generates API keys and
+  **POSTs them server-to-server to Plutus's HTTPS callback** (keys never shown on screen, nothing
+  to copy) → browser returns to the portal, card shows Connected ✓. Plutus then auto-provisions:
+  creates its webhooks via the API (this is why the flow requests `read_write` — webhook creation
+  needs write; Plutus-side WP6.3 gates + kill switch govern actual writes), mints the
+  per-connection webhook HMAC secret, runs the first product sweep. Card shows connection health:
+  key valid, webhook delivery OK, last sweep time.
+- **Fallback (manual keys):** wp-admin → WooCommerce → Settings → Advanced → REST API → create
+  key → paste consumer key/secret into the card — for hosts whose security plugins break the
+  redirect flow. **Kapow itself** stays on the stricter wp-cli-minted read-only key (rule 5)
+  until WP6.3; it becomes the first live test of the one-click flow when outbound is approved.
+*DoD:* unentitled tenant → clean 403 + portal upsell state; entitled tenant connects a store via
+the wc-auth flow end-to-end without touching wp-admin settings (keys stored, webhooks created,
+first sweep populated) AND via manual key paste; virtual till appears in Locations, excluded
+from enrolment-code flows; disconnect revokes cleanly (webhooks deleted, secrets purged).
+
+**WP6.2 — Inbound orders (read-only on Woo).**
+Core-Woo **webhook receiver** (`order.created/updated`, `refund.created`; HMAC-SHA256
+`X-WC-Webhook-Signature` verified against the per-connection secret) → map to a v1 sale
+(`channel: WebStore`, **deterministic `saleId` from the Woo order id** via
+SharedKernel.DeterministicGuid, so replays/duplicate webhook deliveries dedupe through the
+existing idempotent ingest) → internal ingest call. Item lines join by SKU⇔`ItemIdOne`; misses
+land in a **`WebstoreSkuMap`** review table (portal screen: bind SKU→item or ignore) and the
+order quarantines until resolved. Refunds map to the platform's return shape. The **reconciliation
+poll** (rule 3 cadence) sweeps `modified_after` ≥ cursor to catch dropped webhooks; cursor
+persists so kill/restart resumes. Woo stock is NOT adjusted by inbound sales in this WP —
+Plutus-side stock moves only (the webstore till's fulfilment `StoreId`).
+- **Pick-from-floor notification (Matt, 2026-07-26).** A web sale sells stock that is physically
+  on the shop floor — staff must be told to pull it. Each ingested web order raises a
+  notification: *"Item X sold online — check if it needs removing from the shop floor"* delivered
+  per connection config to **till pop-up** (the fulfilment store's tills; a
+  `GET /api/v1/notifications` feed the web POS polls on its existing sync cadence, acknowledge
+  to dismiss — acked-by/at audited) **and/or email** (per-connection address list) — both
+  configurable on the WP11.7 card. Unacknowledged notifications persist across till restarts.
+*DoD:* fixture suite green (multi-line, discount, refund, guest); duplicate webhook delivery →
+one sale; a webhook outage window is fully healed by one poll pass; a live-site smoke ingest of
+recent real orders matches Woo totals to the penny; request-budget log shows poll traffic within
+limits; a web order pops the notification on the store's till within one sync interval and the
+same order emails the configured address; ack on one till clears it on all.
+> **Mapper core ✅ DONE (2026-07-26).** New isolated module `src/Plutus.Webstore` (references only
+> SharedKernel + Entities — arch tests green, module stays off the core's reference graph):
+> `WooOrderMapper.MapOrder` maps a Woo order → validated `SaleV2` (channel WebStore) through
+> `SaleV2.Create`, so a mis-map **quarantines** rather than writing a wrong sale. Money model
+> handled: Woo's NET line total + separate tax → platform VAT-**inclusive** unit/line prices
+> (unit rounded up, residual+discount into `DiscountPence` so invariant-1 is exact); shipping/fees
+> become non-catalogue lines (null `ItemIdOne`, excluded from items-sold) so Σ gross == order
+> total == tender; **deterministic saleId** from the Woo order id (`DeterministicGuid.ForName`,
+> new general overload) → re-delivered webhooks dedupe through the idempotent ingest; unknown SKU
+> → `NeedsMapping` (WP6.2 queue) not a sale; non-GBP → quarantine; refund → `SaleAdjustment`.
+> **8 new unit tests against the real scrubbed fixtures pass** (127 unit + 5 arch green).
+>
+> **Inbound decision pipeline ✅ DONE (2026-07-26).** `WooWebhookVerifier` (constant-time
+> HMAC-SHA256 of the RAW body vs `X-WC-Webhook-Signature`; forged/garbled → rejected before any
+> parsing) + `WebstoreWebhookProcessor` (verify → parse → map → route) over two connector-owned
+> ports — `IWebstoreSaleSink` (idempotent submit; host adapts to `SalesIngestService`, so the
+> connector never references the Sales module) and `IWebstoreSkuMapQueue` (review queue). Routes to
+> Recorded / Duplicate / NeedsMapping / Quarantined / Rejected. **+6 unit tests (133 unit + 5 arch
+> green).** Still to build: the HTTP webhook controller + the real sink adapter, the review
+> screen, the reconciliation poll + cursor, and the pick-from-floor notification.
+>
+> **DB layer ✅ DONE (2026-07-26).** Two tenant-owned tables in the shared model: **`WebStores`**
+> (WP6.1 connection config — name/url/enabled/storeId/virtual till+device/oversell buffer; secrets
+> stay in server config keyed by Id, never on the row) and **`WebstoreSkuMaps`** (WP6.2 review
+> queue; one row per tenant×webstore×SKU). Registered on `MySqlDbContext` (DbSets, `TenantOwned`,
+> unique indexes). DB-backed **`CatalogueSkuResolver`** (connector module; depends only on the
+> shared context) resolves SKU⇔`Items.IdOne` → the web-POS deterministic ItemId. **EF migration
+> `AddWebstoreConnector` generated** (creates only the two tables + indexes — scope verified) but
+> **NOT yet applied to any DB** — that's the rehearse-on-`plutus_t1`-then-`plutus` ops step.
+> **+2 SQLite tests (persistence + tenant isolation + resolver); 135 unit + 5 arch green.**
+>
+> **Inbound wired end-to-end (in test) + connector-side DI complete ✅ DONE (2026-07-26).**
+> Real `WebstoreSkuMapQueue` (upsert per tenant×webstore×SKU, bumps SeenCount, leaves Bound/Ignored
+> alone); `WebstoreModule.AddPlutusWebstore` registers the resolver, queue, and processor (host
+> supplies `IWebstoreSaleSink`). **Keystone e2e test:** a signed order webhook flows verify → map →
+> the **real `SalesIngestService`** → SalesV2 + outbox, and a re-delivery dedupes on the
+> deterministic saleId. `WebStoreId` threaded through the connection context. **137 unit + 5 arch
+> green.** REMAINING host wiring (compile-only locally — needs the Mac MySQL to runtime-test): the
+> `WebstoresController` (CRUD + `POST …/{id}/webhook` reading the raw body for HMAC), the host
+> `WebstoreSaleSink` adapter over `SalesIngestService` (mirrors the e2e test's sink), `Startup`
+> registration, and virtual-till provisioning. **Design note to resolve there:** the webhook is
+> anonymous (HMAC-authed, tenant from the URL's webstore id), but `HttpTenantContext` derives the
+> tenant from JWT claims (falls back to Kapow) and has no setter — so the handler must run under a
+> **per-webhook tenant scope** (`FixedTenantContext(resolvedTenant)` / child DI scope) or the SKU
+> resolver/queue would query the wrong tenant once multi-tenant. Then apply the migration
+> (rehearse `plutus_t1` → `plutus`). **→ Resolved by the WP6.2a design below (2026-07-26).**
+
+**WP6.2a — Anonymous-webhook security & tenant-scoping design (decided 2026-07-26).**
+
+*The problem, precisely.* A Woo webhook delivery carries no JWT — its only credential is
+`X-WC-Webhook-Signature` = base64(HMAC-SHA256(raw body, per-connection secret)). Our tenant
+scoping (`HttpTenantContext`) reads `tid` from JWT claims and falls back to Kapow on anonymous
+requests — so an unscoped webhook handler would run resolver/queue/ingest against the wrong
+tenant the day a second tenant exists. Two sub-problems: (1) authenticate the caller; (2) run
+the pipeline under the right tenant. Neither requires touching core auth plumbing.
+
+*Decision — NO WordPress plugin (re-confirmed).* Matt asked again whether a small WP plugin
+should carry authentication. Honest analysis: a plugin *could* inject extra headers into
+webhook deliveries (`woocommerce_webhook_http_args` filter), e.g. a bearer token — but that is
+just a second shared secret in a different pocket. HMAC over the raw body IS the industry
+standard for webhook auth (Stripe `Stripe-Signature`, GitHub `X-Hub-Signature-256`, Woo — all
+identical model): it proves knowledge of the secret AND payload integrity, which a bearer
+header alone does not. And the actual hard part — mapping a delivery to a tenant scope — is
+OUR internal plumbing; no plugin can solve it. A plugin would reintroduce exactly the burdens
+rule 2 exists to avoid (per-site install, WP/Woo upgrade maintenance, friction for future
+non-SSH tenants). Rule 2 stands; the revisit clause remains for needs the core API truly
+cannot meet (none here).
+
+*Design (host-side, ~3 small classes, no core changes):*
+1. **Connection resolution.** `POST /api/v1/webstores/{id}/webhook` (`[AllowAnonymous]`,
+   rate-limited). Look up `WebStores` by `{id}` with **`IgnoreQueryFilters()`** — the one and
+   only unscoped read (same established pattern as ingest's idempotency re-read); the id is an
+   unguessable UUIDv7 and HMAC still gates everything. Unknown id → 404; row disabled or
+   `woo-connector` unentitled → 410 Gone (tells Woo to stop retrying).
+2. **Secret resolution.** Connector-owned port `IWebstoreSecretProvider.GetWebhookSecret(id)`;
+   host impl reads server config keyed by connection id (`Webstore:{id}:WebhookSecret` — the
+   TEST_TOKEN_SECRET pattern; pm2 env / user-secrets on the Mac). Secret absent → 500 +
+   error log (misconfiguration, never silent). Secrets never touch the DB row or the repo.
+3. **Verify BEFORE parse.** Read the RAW body once (`StreamReader(Request.Body)`, as the
+   billing webhook does); `WooWebhookVerifier.Verify` (constant-time, already built+tested);
+   bad/missing signature → 401 with no side effects. Handle Woo's **activation ping**
+   (form-encoded body `webhook_id=N`, sent when the webhook is created — and sent UNSIGNED by
+   Woo, so it must be answered before signature checking, with zero side effects) → 200, no
+   pipeline — webhook creation FAILS if the ping isn't 2xx, so this is required for WP6.1's
+   auto-provisioning. *(Corrected during build 2026-07-26: the ping carries no signature.)*
+4. **Per-delivery tenant scope.** Construct the pipeline against a tenant-fixed context:
+   `new MySqlDbContext(sp.GetRequiredService<DbContextOptions<MySqlDbContext>>(),
+   new FixedTenantContext(row.TenantId))` — `FixedTenantContext` already exists in
+   Plutus.Entities.Tenancy (what every unit test uses), and `AddDbContext<RepositoryContext,
+   MySqlDbContext>` already registers the options in DI. Build `CatalogueSkuResolver`,
+   `WebstoreSkuMapQueue`, the `WebstoreSaleSink` (over `SalesIngestService` on the SAME scoped
+   context — mirrors the proven e2e test sink), and `WebstoreWebhookProcessor` on top. One
+   host factory class (`WebstoreWebhookPipelineFactory`) owns this composition.
+5. **Outcome → HTTP status, chosen for Woo's retry/auto-disable behaviour.** Woo retries
+   non-2xx deliveries and **auto-disables a webhook after repeated failures** — so anything we
+   have durably recorded or parked MUST return 2xx: Recorded → 200, Duplicate → 200,
+   NeedsMapping → 202 (parked in review queue), Quarantined → 202 (parked in SaleQuarantine).
+   Non-2xx is reserved for: 401 bad signature, 404/410 unknown/disabled, 500 genuine transient
+   failure (where a Woo retry actually helps). Log `X-WC-Webhook-Delivery-ID` per delivery.
+6. **Replay safety.** Woo signatures aren't timestamped; a captured delivery can be replayed —
+   harmlessly: the deterministic saleId dedupes to a 200/Duplicate. No nonce store needed.
+
+*Tests.* Unit (offline, fake ports): signature pass/fail/missing; ping → 200 without pipeline;
+unknown id → 404; disabled/unentitled → 410; outcome→status table; tenant-scope proof — two
+webstores under two tenants on one SQLite DB, a delivery to tenant B's URL writes rows ONLY
+under tenant B (the multi-tenant regression this design exists to prevent). Integration (Mac
+MySQL, after migration rehearsal): real webhook POST end-to-end.
+> ✅ **BUILT & TESTED (2026-07-26).** Connector: `WebstoreWebhookHandler` (framework-free flow:
+> lookup → ping → HMAC → tenant-fixed pipeline → outcome→HTTP, quarantines PARKED into
+> SaleQuarantine idempotently by deterministic saleId) + `WebstoreWebhookPipelineFactory`
+> (per-delivery `FixedTenantContext`); `WooOrderId` threaded through the inbound result. Host:
+> `WebstoreWebhookController` (thin — raw body in, status out), `WebstoreIngestSink` (adapter
+> over `SalesIngestService`), `ConfigWebstoreSecretProvider` (`Webstore:Secrets:{id}`), Startup
+> registration + csproj ref. **10 new handler tests incl. the tenant-scope proof (delivery under
+> a deliberately WRONG ambient tenant lands every row under the webstore's tenant, and the
+> virtual Device row derives the sale's TillId) — 147 unit + 5 arch green; host builds.**
+> Remaining before live: WP6.1 provisioning (create the WebStores row + virtual till/device +
+> webhooks on the site), migration apply (`plutus_t1` → `plutus`), Mac integration smoke.
+*DoD:* the tenant-scope proof test passes; a forged delivery leaves zero rows; Woo's activation
+ping succeeds during WP6.1 auto-provisioning; quarantined/parked deliveries do NOT cause Woo to
+disable the webhook (2xx verified); secret rotation = config change + webhook update, no deploy.
+
+**WP6.3 — Outbound stock/price (WRITE — gated, off by default).**
+**Stock immediacy is the point of this WP (Matt, 2026-07-26):** a comic shop holds single-copy
+items — an in-store sale must reach the site *near-immediately* or the sold copy stays buyable
+online. Two lanes on the `StockLevelChanged`/`ItemUpdated` consumer:
+- **Fast lane — sale/return-driven stock changes:** push per-item as soon as the outbox delivers
+  the event (coalesced per item, no batching delay). **Target: till sale → Woo stock updated
+  p95 ≤ 60 s**, and a level hitting 0 marks the product out-of-stock in the same call. A few
+  dozen single-PUT calls a day is negligible VPS load — immediacy and gentleness don't conflict
+  here.
+- **Slow lane — bulk operations** (stock takes, goods-in, price-list changes, reprices): Woo REST
+  **batch** endpoint, debounced (coalesce per item; flush ≤1 batch/5 min, ≤100 items/batch — the
+  VPS budget, not ours). Prices stay slow-lane always: web prices may legitimately differ (see
+  WP6.4), so price pushes apply only to items explicitly marked web-price-follows-Plutus.
+Per-tenant **oversell buffer** (list `max(0, level − buffer)`) and a hard **kill switch**
+(connection flag, checked per push) cover both lanes. Ships behind THREE gates: Matt's explicit
+go-ahead, the separate `write` REST key minted only then, and a **dry-run mode that logs exactly
+what it would send** — dry-run runs in production for ≥ a week of real trading before the first
+live write. First live write is a single agreed item, verified on the storefront, before the
+consumer is opened up.
+*DoD:* dry-run log matches expected deltas over a real trading week; sell the last unit of an
+item in store → storefront shows out-of-stock within 60 s; kill switch halts mid-stream cleanly;
+bulk stock take flows through the slow lane within the debounce window without starving the fast
+lane; oversell buffer respected; write key absent → outbound refuses to start (fails safe).
+
+**WP6.4 — Webstore catalogue view + alignment report (Matt, 2026-07-26).**
+Both read the same **`WebstoreProducts` cache** — Plutus's copy of the webstore catalogue,
+maintained by the reconciliation poll's product sweep. **Cadence:** incremental
+(`modified_after` cursor — usually zero pages) every **15–30 min**; **full sweep nightly
+off-peak** (the only pass that can detect webstore-side *deletions*). Nothing queries the live
+site at render time; every screen shows "last refreshed". **Manual "Refresh now" button** on
+both screens for the just-edited-it-in-wp-admin case: triggers the *incremental* sweep only,
+rate-limited (min 5 min between manual runs per connection, counted in the request budget),
+button shows in-progress state and the resulting new timestamp.
+- **Webstore catalogue view (portal):** a browsable list of *what is on the webstore* — name,
+  SKU, web price, web stock status, Woo status (published/draft — WP6.5's drafts visible here),
+  and the linked Plutus item (or "unlinked"). Sortable/filterable (published/draft, in/out of
+  stock, linked/unlinked), paged, with the show-25/50/100 limit pattern from the Stock report.
+  Lives under the WP11.7 webstore card + a link from Stock. Product images stay on the webstore
+  (hotlinking thumbnails would put image traffic on the VPS) — link out to the product page
+  instead.
+- **Alignment report:** the comparison lens over the same cache, joined SKU⇔`ItemIdOne`:
+  **name drift** (both names shown), **prices on BOTH platforms side-by-side** — differing
+  prices are legitimate (web ≠ shelf), so this is *display*, not an error, with an optional
+  variance filter — **missing-on-either-side** lists (Woo products with no Plutus item incl.
+  the ~91 SKU-less; Plutus items not on the web), and stock disagreement once WP6.3 is live.
+  CSV export. WP6.0's one-off audit is the seed that becomes this report.
+*DoD:* the catalogue view lists every product the sweep saw with correct status/link flags and
+paging; renaming a product on either side surfaces in the next sweep; a price difference
+displays both values without flagging an error; the missing-on-either-side counts reconcile
+with WP6.0's audit; neither screen causes any live Woo request at render.
+
+**WP6.5 — Two-way item creation, webstore side as DRAFT (Matt, 2026-07-26).**
+Creating an item on either platform creates its counterpart on the other — **asymmetrically**,
+because the till needs less than the webstore (e.g. images: not needed on the till, required
+for the web):
+- **Plutus → Woo:** new Plutus item (with barcode) → Woo product created in **`draft` status**
+  (name, SKU=barcode, price as the default web price) — never published by Plutus. A human adds
+  images/description/categories and publishes from wp-admin. Portal shows "draft awaiting
+  publish" on the alignment report (WP6.4). Requires the WP6.3 write key + gates; per-connection
+  toggle, default OFF until enabled.
+- **Woo → Plutus:** new published Woo product (from the reconciliation poll's product sweep) with
+  an unknown SKU → lands in the WP6.2 `WebstoreSkuMap` review queue with a one-click **"create as
+  new Plutus item"** (name, barcode=SKU, web price as starting price) alongside the existing
+  bind/ignore actions — reviewed, not silent, so a typo'd SKU on the web can't mint a phantom
+  till item.
+*DoD:* new Plutus item → draft Woo product with matching SKU, invisible on the storefront until
+manually published; new Woo product → appears in the review queue and one click creates the till
+item; neither direction ever auto-publishes to shoppers; toggles independently disableable.
+
+*DoD (phase):* runs against the LIVE store within the request budget; kills/restarts resume from
+cursor; unentitled tenant gets clean 403 + portal upsell; core platform has **zero** references
+to the connector (architecture test); site performance unchanged for shoppers (spot-check
+storefront latency before/after enabling the connector); the oversell scenario — last copy sold
+in store while in a shopper's web basket — is demonstrated blocked at checkout.
 
 ---
 
@@ -207,6 +497,12 @@ Modules communicate in-process via the `SharedKernel` event bus abstraction (int
 
 ## Phase 9 — IdP swap
 
+> ✅ **CODE COMPLETE & LIVE (2026-07-25)** — see HANDOVER.md. Seam + both providers built
+> full-stack; Keycloak runs on the Mac (Docker `plutus-keycloak`, 127.0.0.1:8089) with the realm
+> export committed. **Default stays `IdP:Provider=test`** so live behaviour is unchanged until
+> flipped. Remaining: the `login.plutus` Caddy vhost is staged for **Matt's sudo**; Entra is
+> config-ready only (WP9.3 — needs Matt's Azure tenant, no live proof possible).
+>
 > **Decision (2026-07-25, Matt):** implement **BOTH** Entra External ID **and** Keycloak,
 > switchable by config; go full-stack (backend + both React frontends); map an IdP identity
 > to a Plutus user **by verified email**. Order: 9.1 seam → 9.2 live Keycloak → 9.3 Entra
@@ -270,6 +566,11 @@ unaffected; `openapi.json` unchanged by the swap.
 
 ## Phase 10 — Platform billing & offboarding
 
+> ✅ **COMPLETE & LIVE (2026-07-25)** — see HANDOVER.md. Entitlements + `IBillingProvider` seam
+> (`NullBillingProvider`, HMAC webhook), tenant lifecycle (Suspended = portal refused, tills keep
+> syncing — D16), tenant export ZIP, `DeletionSchedule` + `RetentionSweeper`. **The concrete
+> Stripe adapter remains DEFERRED** on Matt's billing-provider choice (same pattern as WP7.1).
+>
 > **Started 2026-07-25 (Matt).** Build the buildable halves now; the Stripe concrete adapter stays
 > a seam until Matt picks a billing provider (same pattern as WP7.1 payments). Order: 10.1 → 10.2 →
 > 10.3 → 10.4.
@@ -384,6 +685,126 @@ WP11.1), qty, unit price, discount (if any), line gross** — with quick ranges 
 *DoD:* the four quick ranges + month/quarter/year picker return correct rows (spot-check
 against a known day's sales to the penny incl. a discounted line); CSV totals match on-screen;
 a 30-day query on the full Kapow dataset returns in acceptable time.
+
+### Phase 11 (cont.) — Portal information architecture (Matt's follow-up, 2026-07-26)
+
+> Feedback from live use: the "Stores & Tills" tab conflates two backend concepts and the
+> top-level navigation is missing an obvious way home and a home for company/period settings.
+> **No code yet.** Frontend-only re-layout plus one small model addition (webstore channel row);
+> no change to how stores, stock locations, tills, or sales are stored. Ordered so the nav
+> shell (11.5) lands before the page it reveals (11.6), and the webstore card (11.7) last since
+> its behaviour depends on Phase 6.
+
+**The Stores-vs-Locations confusion (root cause).** Two distinct records overlap in the UI:
+- **`StoreDetails`** — the *shop*: name, address, phone, opening hours, receipt template, tills.
+- **`StockLocation`** (`Store` | `Warehouse`) — an *inventory bucket*. Every store
+  **auto-creates** a `Store`-type stock location (`StockLedger.cs`, `"Store {storeId}"`). That
+  auto-row is exactly the "Store 1" the user sees duplicated under "Physical locations".
+A **webstore** is neither: it is `SaleChannel.WebStore`, a *sales channel* (Phase 6 Woo), not a
+physical place. The fix is presentational — group by kind and nest the store's own stock bucket
+inside its store card instead of listing it flat — with **no schema change to stores/locations**.
+
+**WP11.5 — Portal navigation: Dashboard + Company tabs; Periods moves in.**
+Current tabs: `Reporting, Banking, Stock, Prices, Customers, Loyalty, Users & Roles, Stores &
+Tills, Periods`. Target order:
+`Dashboard, Reporting, Banking, Stock, Prices, Customers, Loyalty, Users & Roles, Locations,
+Company`.
+- **Dashboard tab (new, default landing):** the summary/analytics view currently reached via
+  Reporting → Summary becomes its own first tab so "Dashboard" always takes you home. Reporting
+  keeps its Summary sub-tab (or points at the same component) — decide during build whether to
+  de-duplicate; no data change either way.
+- **Company tab (new):** holds the company record (name, VAT — moved out of the top of the
+  Stores page) and **absorbs the Periods page** as a sub-section (Company details │ Financial
+  periods). Removes the standalone "Periods" tab.
+- Pure `App.tsx` tab-list + routing change plus moving `CompanyRow` and `PeriodsPage` under a new
+  `CompanyPage`. No API changes.
+*DoD:* Dashboard tab lands on the analytics view from any other tab; Company tab edits company
+details and creates/closes periods; no standalone Periods tab; every RBAC gate that applied to
+Periods still applies inside Company.
+
+**WP11.6 — "Locations" page: Company out, grouped collapsibles in.**
+Rename the "Stores & Tills" tab to **Locations** and restructure the page top-down:
+1. **Physical locations** heading with a one-line **summary** (e.g. "1 store · 1 warehouse · 0
+   webstores") and the action buttons in one row: **`+ New store`**, **`+ Warehouse / location`**,
+   **`+ Webstore`** (11.7).
+2. **Stores** — collapsible, **closed by default**. Each store card is the existing
+   `StoreCard` (address/phone, opening hours, tills, receipt template). The store's auto
+   `Store`-type stock location is shown **inside** its card (as its inventory bucket), not in a
+   separate flat table.
+3. **Warehouses** — collapsible, closed by default: the `Warehouse`-type `StockLocation` rows,
+   with the existing create/rename.
+4. **Webstores** — collapsible, closed by default (11.7).
+The current flat "Physical locations" `StockLocation` table is retired in favour of these three
+grouped sections. Company details are gone from this page (now in the Company tab, 11.5).
+- Frontend-only: re-compose `StoresPage.tsx` (`LocationsSection` folds into the Warehouses group;
+  the store-stock-bucket row is filtered by `storeId` into each `StoreCard`). Existing endpoints
+  (`fetchStores`, `fetchStockLocations`, `createStore`, `createStockLocation`) unchanged.
+*DoD:* opening the tab shows Company-free page: summary + three buttons at top, all three groups
+collapsed; expanding Stores shows store cards with their tills/receipt and their own stock bucket
+inline; a store no longer appears as a separate top-level "physical location"; adding a warehouse
+lands it in the Warehouses group.
+
+**WP11.7 — Webstore (online sales channel).**
+Add a webstore entry alongside stores and warehouses. A webstore is **`SaleChannel.WebStore`, a
+channel — not a `StockLocationType`**; do **not** add it to the stock-location enum. Model a
+minimal server-side **`WebStoreDetails`** row (`Id`, `TenantId`, `Name`, `Url`, `Enabled`,
+optional `StoreId` for stock fulfilment) — the same evolve-in-place pattern as `StoreDetails`.
+- `GET/POST/PUT /api/v1/webstores`, gated `portal.company.manage`, audited. Uniqueness on
+  `(TenantId, Name)`.
+- Portal: the **Webstores** group (11.6) lists them; `+ Webstore` captures name + URL. Editing is
+  a card like a store card.
+- **Sync is out of scope here** and gated behind **Phase 6 (WooCommerce connector)** plus the
+  `woo-connector` entitlement — this WP delivers the *configuration shell* only; when Phase 6
+  lands, the connector reads these rows. Show a clear "Connect via WooCommerce (Phase 6)" note on
+  the card so the shopkeeper knows sync isn't live yet.
+*DoD:* create/edit/list a webstore from the Locations page; row persists tenant-scoped and unique;
+card shows the not-yet-connected note; no impact on stock-location transfers or existing sales.
+
+---
+
+## Phase 12 — Legacy retirement & ops hardening (added 2026-07-26)
+
+> Collects every **known-interim contract** currently running (previously scattered as asides in
+> Phase 2/5/8/11 notes — easy to forget there) plus the ops debt of a now-live test environment.
+> Nothing here is urgent; all of it is deliberate debt that must not become permanent by default.
+> Sequencing: 12.1 (repoint the last legacy readers) is the prerequisite for 12.2 (turn the
+> bridge off) — do not attempt 12.2 first.
+
+**WP12.1 — Repoint the last legacy readers to /api/v1.**
+Three readers still consume legacy data:
+- **Till "Custom" report** still reads legacy `/api/Sale/Index` (near-empty legacy tables — it
+  shows 2 sales). Repoint to the v1 reports endpoints like Summary/VAT/Items-sold already were.
+- **Till catalogue prices** still read legacy prices (Phase 5 note): adopt
+  `/api/v1/prices/effective` in the catalogue sync.
+- **Checkout basket** doesn't yet apply Phase 8's credit-as-tender + membership auto-discount
+  (endpoints live, basket not wired).
+*DoD:* till Custom report matches v1 Summary for the same range to the penny; a WP5.4 scheduled
+price change reaches the till at the boundary; a member's auto-discount and a credit redemption
+both flow through a live checkout and land correctly in SalesV2 tenders/adjustments.
+
+**WP12.2 — Retire the legacy sale bridge + interim contracts.**
+Once 12.1 leaves zero readers on legacy tables: switch off `LegacySaleBridgeConsumer` (config
+flag first, delete later) and retire the interim encodings it required — projection metadata in
+`SaleLine.DiscountsJson`, legacy payId in `SaleTender.ProviderRef`, returns as negative-qty
+lines (give returns a first-class shape). Legacy `Sales`/`Trans` become frozen read-only archive
+(kept for the 6-year retention window, excluded from new writes).
+*DoD:* a day of live trading with the bridge OFF produces penny-identical v1 reports; nothing
+writes legacy sales tables (assert with a trigger or audit query); reconciliation report re-run
+clean; rollback = one config flag.
+
+**WP12.3 — Test-env ops hardening.**
+The Mac mini is now a de-facto staging environment with real (migrated) data and no safety net:
+- **Scheduled MySQL dumps** (launchd/cron, nightly, N-day retention, `plutus` + `plutus_t1`),
+  plus a **restore rehearsal** — a backup that's never been restored is a hope, not a backup.
+- **pm2 log rotation** (the DBService logs grow unbounded) and `pm2 save` verified so a Mac
+  reboot brings everything back.
+- **Uptime checks**: a tiny health-check script (plutus API, portal, web till, Keycloak — and
+  **ETRIE, alert-only, never touched**) so we learn about outages before Matt does.
+- Housekeeping: close the long-lived dev-box SSH tunnel when idle; prune `backend.pre-*`
+  rollback dirs older than N deploys; document the runbook in HANDOVER.
+*DoD:* kill the DBService → alerted; restore last night's dump into `plutus_t1` and row-counts
+match; reboot the Mac → all Plutus processes return without manual steps; ETRIE untouched
+throughout (200 before/after).
 
 ---
 

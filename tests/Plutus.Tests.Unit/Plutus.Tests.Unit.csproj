@@ -46,6 +46,13 @@
     <ProjectReference Include="..\..\src\Plutus.Payments\Plutus.Payments.csproj" />
     <!-- Phase 8: customers / store credit / loyalty tests. -->
     <ProjectReference Include="..\..\src\Plutus.Customers\Plutus.Customers.csproj" />
+    <!-- Phase 6: WooCommerce order→sale mapper tests. -->
+    <ProjectReference Include="..\..\src\Plutus.Webstore\Plutus.Webstore.csproj" />
+  </ItemGroup>
+
+  <!-- Phase 6: real, PII-scrubbed Woo fixtures loaded by WebstoreMapperTests at runtime. -->
+  <ItemGroup>
+    <None Include="..\Fixtures\Woo\*.json" Link="Fixtures\Woo\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

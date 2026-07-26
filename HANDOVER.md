@@ -207,10 +207,69 @@ checkout tender. Full gap list + per-item web(done)/MAUI(to-do) in
 backend follow-up — credit entries already carry the saleId, so the credit flow doesn't need it).
 
 **▶ NEXT (all need Matt's input):** Phase 4 (MAUI) remains **paused for upstream code**;
-Phase 6 is the WooCommerce connector (needs a Woo test store to develop against); the Kapow
-PRODUCTION cutover (final till backup → re-ETL → rollups+stock rebuild) is a deliberate op;
-and the follow-ups: till reads /prices/effective, retire the legacy bridge when the till UI
+the Kapow PRODUCTION cutover (final till backup → re-ETL → rollups+stock rebuild) is a deliberate
+op; and the follow-ups: till reads /prices/effective, retire the legacy bridge when the till UI
 moves to /api/v1 reports, and the Caddy sudo block below.
+
+**Phase 6 (WooCommerce connector) — STARTED 2026-07-26. WP6.0 (recon/fixtures/read-key) ✅ DONE.**
+Re-planned against the **LIVE** Kapow store (there is no test store) — `ssh kapow` →
+kapow-comics.co.uk, WooCommerce 10.9.4 on a low-resource DreamHost VPS. Ground rules + WP6.0–6.5
+are in `Build/plutus-implementation-plan.md` (Phase 6); the full WP6.0 audit is
+`Build/woo-sku-audit-2026-07-26.md`.
+- **Read-only REST key** minted via wp-cli → `Build/secrets.local.md` (**gitignored**). A write
+  key is deferred to WP6.3 approval.
+- **10 PII-scrubbed fixtures** in `tests/Fixtures/Woo/` (+ README) so the connector builds/tests
+  offline — the live site is read-only smoke/DoD only.
+- **SKU audit:** 596/648 published SKUs (**92.0%**) match a Plutus barcode; 52 unmatched + 91
+  SKU-less = 143 products seeding the WP6.2 review queue.
+- **Facts that shape later WPs:** HPOS is OFF (orders in `wp_posts`, ignore `wc_orders`); line
+  totals are **net** with separate `total_tax` (trust the fields, don't recompute); GBP-only in
+  practice; incremental `modified_after` product sweep is ~1 page/~1.6 s (near-free), full sweep
+  ~2 min. **Nothing on the Woo side was changed except adding one read-only API key.**
+- **Next:** WP6.1 (connection config on the WP11.7 webstore card + virtual webstore till) — all
+  buildable offline against fixtures; then WP6.2 inbound (webhooks) is the first live read path.
+
+**WP6.2 mapper core ✅ DONE (2026-07-26).** New isolated module **`src/Plutus.Webstore`** (in the
+slnx; references only SharedKernel + Entities, so the arch module-boundary test stays green and
+core never references the connector). `WooOrderMapper.MapOrder` → validated `SaleV2` (channel
+WebStore) via `SaleV2.Create`; deterministic saleId from the Woo order id (added a general
+`DeterministicGuid.ForName`); Woo net+tax → platform VAT-inclusive money, invariant-exact;
+shipping/fees as null-`ItemIdOne` lines; unknown SKU → needs-mapping queue; non-GBP/mismatch →
+quarantine; refund → `SaleAdjustment`. **8 new unit tests on the real scrubbed fixtures.** Then the **inbound decision
+pipeline** (`WooWebhookVerifier` constant-time HMAC + `WebstoreWebhookProcessor` verify→parse→map→
+route over ports `IWebstoreSaleSink`/`IWebstoreSkuMapQueue`; +6 tests). **133 unit + 5 arch green.**
+Local build/test loop: **no SDK on PATH or on the Mac — use `& "C:\Program Files\dotnet\dotnet.exe"`**
+(x64, SDK 10.0 builds net8; the x86 shim on PATH has no SDK). **DB layer ✅ DONE (2026-07-26):** two tenant-owned tables
+(`WebStores` config + `WebstoreSkuMaps` review queue) on `MySqlDbContext`, DB-backed
+`CatalogueSkuResolver` (SKU⇔Items.IdOne → web-POS deterministic ItemId), +2 SQLite tests
+(**135 unit + 5 arch green**). **EF migration `AddWebstoreConnector` generated but NOT applied** —
+rehearse on `plutus_t1` then `plutus`. To generate/apply migrations locally: **prepend
+`C:\Program Files\dotnet` to PATH** (else `dotnet ef`'s inner `dotnet msbuild` hits the SDK-less
+x86 shim) then `dotnet ef … --project Plutus\Commons\Plutus.Entities --startup-project
+Plutus\Database.Migrations.Startup --context MySqlDbContext -o Migrations/MySql`. **Connector-side DI complete + inbound proven e2e ✅ (2026-07-26):**
+real `WebstoreSkuMapQueue` (upsert/bump), `WebstoreModule.AddPlutusWebstore` (registers resolver +
+queue + processor; host supplies `IWebstoreSaleSink`), and a **keystone e2e test** — signed webhook
+→ verify → map → REAL `SalesIngestService` → SalesV2 + outbox → dedupe on redelivery. `WebStoreId`
+threaded through the context. **137 unit + 5 arch green.**
+
+**Remaining Phase 6 (host wiring — compile-only locally, needs Mac MySQL to runtime-test):**
+`WebstoresController` (CRUD + `POST api/v1/webstores/{id}/webhook` reading the RAW body for HMAC —
+mirror the billing webhook in `PlatformController`), the host `WebstoreSaleSink` adapter over
+`SalesIngestService` (mirror the e2e test's `IngestSink`), `Startup` `AddPlutusWebstore()` +
+`AddScoped<IWebstoreSaleSink, WebstoreSaleSink>()`, and virtual-till provisioning.
+**WP6.2a webhook receiver ✅ BUILT & TESTED (2026-07-26)** — design AND implementation done.
+Connector: `WebstoreWebhookHandler` (framework-free: unscoped lookup by URL id → Woo's UNSIGNED
+activation ping `webhook_id=N` → 200 before signature checks → HMAC over the raw body → pipeline
+on `FixedTenantContext(row.TenantId)` via `WebstoreWebhookPipelineFactory` → outcome→HTTP with
+parked-=-2xx for Woo's retry/auto-disable; mapper quarantines PARKED into SaleQuarantine
+idempotently). Host: thin `WebstoreWebhookController` (`POST api/v1/webstores/{id}/webhook`),
+`WebstoreIngestSink` over `SalesIngestService`, `ConfigWebstoreSecretProvider`
+(`Webstore:Secrets:{id}` from config), Startup wiring + csproj ref. **10 handler tests incl. the
+tenant-scope proof (wrong ambient tenant → rows still land under the webstore's tenant; virtual
+Device row derives TillId) — 147 unit + 5 arch green; host builds.** **No WP plugin**
+(re-confirmed — HMAC is the standard; a plugin can't solve tenant scoping). Remaining before
+live: WP6.1 provisioning (WebStores row + virtual till/device + webhooks on the site), migration
+apply (rehearse `plutus_t1` → `plutus`), Mac integration smoke.
 
 ---
 

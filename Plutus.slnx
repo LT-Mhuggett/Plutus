@@ -27,6 +27,7 @@
     <Project Path="src/Plutus.SharedKernel/Plutus.SharedKernel.csproj" />
     <Project Path="src/Plutus.Tenancy/Plutus.Tenancy.csproj" />
     <Project Path="src/Plutus.Web.Infrastructure/Plutus.Web.Infrastructure.csproj" />
+    <Project Path="src/Plutus.Webstore/Plutus.Webstore.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Plutus.Tests.Architecture/Plutus.Tests.Architecture.csproj" />
