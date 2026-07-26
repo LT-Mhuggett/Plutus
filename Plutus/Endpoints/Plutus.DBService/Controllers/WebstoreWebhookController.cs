@@ -30,8 +30,21 @@ namespace Plutus.DBService.Controllers
         [ProducesResponseType(StatusCodes.Status410Gone)]
         public async Task<IActionResult> Receive(Guid id)
         {
-            using var reader = new StreamReader(Request.Body);
-            var rawBody = await reader.ReadToEndAsync();
+            // Woo's ACTIVATION PING is form-encoded (`webhook_id=N`) — and the form feature
+            // drains Request.Body before we can read it raw (found live 2026-07-26: form-typed
+            // requests reached the handler with an empty body and fell through to a 401).
+            // Reconstruct the canonical ping body from the parsed form; real deliveries are
+            // application/json and take the raw-read path (the bytes the HMAC signs).
+            string rawBody;
+            if (Request.HasFormContentType && Request.Form.ContainsKey("webhook_id"))
+            {
+                rawBody = "webhook_id=" + Request.Form["webhook_id"].ToString();
+            }
+            else
+            {
+                using var reader = new StreamReader(Request.Body);
+                rawBody = await reader.ReadToEndAsync();
+            }
             var signature = Request.Headers["X-WC-Webhook-Signature"].ToString();
 
             var result = await _handler.HandleOrderWebhookAsync(

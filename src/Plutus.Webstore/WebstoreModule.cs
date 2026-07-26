@@ -20,13 +20,18 @@ namespace Plutus.Webstore
         {
             services.AddScoped<IWebstoreSkuResolver, CatalogueSkuResolver>();
             services.AddScoped<IWebstoreSkuMapQueue, WebstoreSkuMapQueue>();
-            // Resolves IWebstoreSaleSink (host-provided) + IWebstoreSkuMapQueue from DI.
-            services.AddScoped<WebstoreWebhookProcessor>();
+            // NOTE: WebstoreWebhookProcessor is deliberately NOT registered — it is constructed
+            // per delivery by the pipeline factory with a tenant-fixed context + per-delivery
+            // sink. A scoped registration here fails dev-mode ValidateOnBuild (IWebstoreSaleSink
+            // has no direct registration, only the per-delivery factory func) — it crashed the
+            // 2026-07-26 deploy until removed.
 
             // WP6.2a: per-delivery tenant-scoped pipeline + the anonymous-webhook handler.
             // DbContextOptions<MySqlDbContext> is registered by the host's
-            // AddDbContext<RepositoryContext, MySqlDbContext>.
-            services.AddSingleton(sp => new WebstoreWebhookPipelineFactory(
+            // AddDbContext<RepositoryContext, MySqlDbContext> — as a SCOPED service, so the
+            // factory must be scoped too (a singleton here 500s at controller activation:
+            // "Cannot resolve scoped service … from root provider", found live 2026-07-26).
+            services.AddScoped(sp => new WebstoreWebhookPipelineFactory(
                 sp.GetRequiredService<DbContextOptions<MySqlDbContext>>(),
                 sp.GetRequiredService<Func<MySqlDbContext, WebstoreConnectionContext, IWebstoreSaleSink>>()));
             services.AddScoped<WebstoreWebhookHandler>();

@@ -96,6 +96,10 @@ namespace Plutus.Webstore
                 case WebstoreInboundStatus.Quarantined:
                     await ParkQuarantineAsync(pipeline.Db, ctx, r, rawBody!, ct);
                     return new(202, new { status = "quarantined", detail = r.Detail });
+                case WebstoreInboundStatus.Skipped:
+                    // Not-ingestable status (pending/failed/cancelled/refunded…) — acknowledged,
+                    // deliberately no sale. order.updated re-delivers when it becomes paid.
+                    return new(200, new { status = "skipped", detail = r.Detail });
                 default:
                     return new(400, new { detail = r.Detail });
             }

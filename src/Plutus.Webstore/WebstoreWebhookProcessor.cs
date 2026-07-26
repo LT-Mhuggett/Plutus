@@ -23,7 +23,7 @@ namespace Plutus.Webstore
         Task EnqueueAsync(WebstoreConnectionContext ctx, long wooOrderId, IReadOnlyList<string> unmatchedSkus, CancellationToken ct = default);
     }
 
-    public enum WebstoreInboundStatus { Recorded, Duplicate, NeedsMapping, Quarantined, Rejected }
+    public enum WebstoreInboundStatus { Recorded, Duplicate, NeedsMapping, Quarantined, Rejected, Skipped }
 
     public sealed class WebstoreInboundResult
     {
@@ -44,6 +44,8 @@ namespace Plutus.Webstore
         public static WebstoreInboundResult Quarantined(string reason, long orderId) =>
             new() { Status = WebstoreInboundStatus.Quarantined, Detail = reason, WooOrderId = orderId };
         public static WebstoreInboundResult Rejected(string reason) => new() { Status = WebstoreInboundStatus.Rejected, Detail = reason };
+        public static WebstoreInboundResult Skipped(string reason, long orderId) =>
+            new() { Status = WebstoreInboundStatus.Skipped, Detail = reason, WooOrderId = orderId };
     }
 
     /// <summary>
@@ -81,6 +83,13 @@ namespace Plutus.Webstore
             catch (JsonException ex) { return WebstoreInboundResult.Rejected($"unparseable order payload — {ex.Message}"); }
             if (order is null || order.Id == 0)
                 return WebstoreInboundResult.Rejected("order payload missing an id.");
+
+            // Status gate: only PAID orders become sales. order.created fires for pending/unpaid
+            // baskets, and failed/cancelled orders must never ingest (this store has hundreds of
+            // failed orders). Refunded orders' money is handled via the refund path, not re-ingest.
+            var status = (order.Status ?? string.Empty).ToLowerInvariant();
+            if (status is not ("processing" or "completed"))
+                return WebstoreInboundResult.Skipped($"order status '{order.Status}' is not ingestable.", order.Id);
 
             var mapped = WooOrderMapper.MapOrder(order, ctx, resolver);
 

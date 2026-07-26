@@ -257,6 +257,27 @@ threaded through the context. **137 unit + 5 arch green.**
 mirror the billing webhook in `PlatformController`), the host `WebstoreSaleSink` adapter over
 `SalesIngestService` (mirror the e2e test's `IngestSink`), `Startup` `AddPlutusWebstore()` +
 `AddScoped<IWebstoreSaleSink, WebstoreSaleSink>()`, and virtual-till provisioning.
+**🎉 Phase 6 INBOUND IS LIVE (2026-07-26 evening).** Backend deployed (4 iterations — see gotchas
+below), Kapow connection provisioned (`WebStores` row + virtual till "Kapow Web" + device;
+`woo-connector` entitlement granted to the Kapow tenant — was `[]`), webhook secret in the pm2
+ecosystem env (`Webstore__Secrets__<id>`, ids+secret in gitignored `Build/secrets.local.md`), and
+**two webhooks live on kapow-comics.co.uk** (order.created + order.updated, both active — their
+activation pings got 200s). **End-to-end smoke PASSED from the DreamHost box over the public
+internet:** real order #8505 signed+POSTed → `recorded` in 0.85 s → SalesV2 penny-exact (£1.50
+zero-rated comic + £3.30 shipping line = £4.80, PayPal ref on the tender, virtual TillId,
+BusinessDay = paid date); re-delivery → `duplicate`, same saleId, still ONE row. Real web orders
+now flow into Plutus automatically. **Deploy gotchas (cost 3 redeploys):** (1) pm2 needs
+`export PATH=/opt/homebrew/bin:$PATH` in non-interactive ssh — bare `pm2` silently no-ops;
+(2) the backend was running UNMANAGED (pm2 daemon had no apps) — always verify with
+`lsof -nP -iTCP:5100` + process start time, not pm2's word; (3) restart from the ecosystem FILE
+(`pm2 delete` + `pm2 start ecosystem.config.js`) when env changes; (4) status gate added: only
+`processing`/`completed` orders ingest (Skipped→200 otherwise); (5) Woo's activation ping is
+FORM-encoded and the form feature drains Request.Body — controller reconstructs `webhook_id=N`
+from Request.Form. ⚠ MySQL `plutus` password echoed into a transcript while debugging — rotate at
+leisure (note in secrets.local.md). Remaining Phase 6: WP6.2 review screen + reconciliation poll +
+pick-from-floor notification; WP6.4 catalogue view/report; WP6.5 draft creation; WP6.3 outbound
+(gated on Matt).
+
 **WP6.2a webhook receiver ✅ BUILT & TESTED (2026-07-26)** — design AND implementation done.
 Connector: `WebstoreWebhookHandler` (framework-free: unscoped lookup by URL id → Woo's UNSIGNED
 activation ping `webhook_id=N` → 200 before signature checks → HMAC over the raw body → pipeline

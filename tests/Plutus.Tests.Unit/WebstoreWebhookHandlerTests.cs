@@ -251,6 +251,21 @@ public class WebstoreWebhookHandlerTests
     }
 
     [Fact]
+    public async Task Unpaid_or_failed_order_is_200_skipped_with_no_sale()
+    {
+        using var h = new Harness(seedItems: true);
+        foreach (var status in new[] { "pending", "failed", "cancelled", "refunded", "on-hold" })
+        {
+            var body = Body().Replace("\"status\":\"completed\"", $"\"status\":\"{status}\"");
+            var r = await h.Handler.HandleOrderWebhookAsync(h.WebStoreId, body, WooWebhookVerifier.Sign(body, Secret));
+            Assert.Equal(200, r.Status);
+        }
+        using var check = h.Ctx(TenantB);
+        Assert.Empty(check.SalesV2.IgnoreQueryFilters().ToList());     // none of them ingested
+        Assert.Empty(check.SaleQuarantine.IgnoreQueryFilters().ToList());
+    }
+
+    [Fact]
     public async Task Non_gbp_is_202_and_parks_one_quarantine_row_idempotently()
     {
         using var h = new Harness(seedItems: true);
