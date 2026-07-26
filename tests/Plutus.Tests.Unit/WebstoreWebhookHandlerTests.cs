@@ -37,6 +37,7 @@ public class WebstoreWebhookHandlerTests
     {
         public string? Secret = WebstoreWebhookHandlerTests.Secret;
         public string? GetWebhookSecret(Guid webStoreId) => Secret;
+        public WebstoreRestCredentials? GetRestCredentials(Guid webStoreId) => null;
     }
 
     /// <summary>The host sink shape: mapped SaleV2 → ingest DTO → the REAL SalesIngestService on

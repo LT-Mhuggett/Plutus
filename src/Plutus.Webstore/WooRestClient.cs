@@ -1,0 +1,61 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace Plutus.Webstore
+{
+    /// <summary>
+    /// Minimal WooCommerce REST v3 read client for the reconciliation poll. Deliberately tiny and
+    /// gentle (plan rule 3 — the VPS is low-resource): small pages, the caller bounds pages per
+    /// cycle, and every request is counted so the budget is observable. Basic auth (consumer
+    /// key/secret) over HTTPS — the standard Woo REST scheme.
+    /// </summary>
+    public sealed class WooRestClient
+    {
+        private readonly HttpClient _http;
+        private readonly string _base;
+        private readonly AuthenticationHeaderValue _auth;
+
+        /// <summary>Requests issued by this instance (budget observability).</summary>
+        public int RequestCount { get; private set; }
+
+        public WooRestClient(HttpClient http, string siteBaseUrl, WebstoreRestCredentials creds)
+        {
+            _http = http;
+            _base = siteBaseUrl.TrimEnd('/');
+            _auth = new AuthenticationHeaderValue("Basic",
+                Convert.ToBase64String(Encoding.ASCII.GetBytes($"{creds.ConsumerKey}:{creds.ConsumerSecret}")));
+        }
+
+        /// <summary>One page of orders modified at/after <paramref name="sinceUtc"/> (GMT), plus
+        /// the total page count from Woo's X-WP-TotalPages header.</summary>
+        public async Task<(List<WooOrder> Orders, int TotalPages)> GetOrdersModifiedSinceAsync(
+            DateTime sinceUtc, int page, int perPage, CancellationToken ct = default)
+        {
+            var url = $"{_base}/wp-json/wc/v3/orders" +
+                      $"?modified_after={sinceUtc.ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture)}" +
+                      $"&dates_are_gmt=true&per_page={perPage}&page={page}&order=asc&orderby=date";
+
+            using var req = new HttpRequestMessage(HttpMethod.Get, url);
+            req.Headers.Authorization = _auth;
+            RequestCount++;
+
+            using var resp = await _http.SendAsync(req, ct);
+            resp.EnsureSuccessStatusCode();
+
+            var totalPages = 1;
+            if (resp.Headers.TryGetValues("X-WP-TotalPages", out var v))
+                _ = int.TryParse(System.Linq.Enumerable.FirstOrDefault(v), out totalPages);
+
+            var json = await resp.Content.ReadAsStringAsync(ct);
+            var orders = JsonSerializer.Deserialize<List<WooOrder>>(json, WooJson.Options) ?? new List<WooOrder>();
+            return (orders, Math.Max(1, totalPages));
+        }
+    }
+}

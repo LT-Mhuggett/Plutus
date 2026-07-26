@@ -23,6 +23,7 @@ namespace Plutus.Webstore
         [JsonPropertyName("payment_method_title")] public string? PaymentMethodTitle { get; set; }
         [JsonPropertyName("transaction_id")] public string? TransactionId { get; set; }
         [JsonPropertyName("date_created_gmt")] public string? DateCreatedGmt { get; set; }
+        [JsonPropertyName("date_modified_gmt")] public string? DateModifiedGmt { get; set; }
         [JsonPropertyName("date_paid_gmt")] public string? DatePaidGmt { get; set; }
         [JsonPropertyName("line_items")] public List<WooLineItem> LineItems { get; set; } = new();
         [JsonPropertyName("tax_lines")] public List<WooTaxLine> TaxLines { get; set; } = new();

@@ -56,12 +56,6 @@ namespace Plutus.Webstore
     /// </summary>
     public sealed class WebstoreWebhookProcessor
     {
-        private static readonly JsonSerializerOptions J = new()
-        {
-            PropertyNameCaseInsensitive = true,
-            NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString,
-        };
-
         private readonly IWebstoreSaleSink _sink;
         private readonly IWebstoreSkuMapQueue _queue;
 
@@ -79,8 +73,18 @@ namespace Plutus.Webstore
                 return WebstoreInboundResult.Rejected("invalid or missing webhook signature.");
 
             WooOrder? order;
-            try { order = JsonSerializer.Deserialize<WooOrder>(rawBody, J); }
+            try { order = JsonSerializer.Deserialize<WooOrder>(rawBody, WooJson.Options); }
             catch (JsonException ex) { return WebstoreInboundResult.Rejected($"unparseable order payload — {ex.Message}"); }
+
+            return await RouteOrderAsync(order, ctx, resolver, ct);
+        }
+
+        /// <summary>The shared routing core — used by the webhook path (above, after HMAC+parse)
+        /// AND by the reconciliation poll (which gets orders from the authenticated REST pull, so
+        /// no signature step). One path = one set of safeguards.</summary>
+        public async Task<WebstoreInboundResult> RouteOrderAsync(
+            WooOrder? order, WebstoreConnectionContext ctx, IWebstoreSkuResolver resolver, CancellationToken ct = default)
+        {
             if (order is null || order.Id == 0)
                 return WebstoreInboundResult.Rejected("order payload missing an id.");
 

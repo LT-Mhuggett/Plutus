@@ -44,12 +44,21 @@ namespace Plutus.DBService.Extensions
         }
     }
 
-    /// <summary>WP6.2a step 2 — per-connection webhook secrets from server configuration
-    /// (<c>Webstore:Secrets:{webstoreId}</c>; pm2 env / user-secrets on the Mac). Never the DB.</summary>
+    /// <summary>WP6.2a step 2 — per-connection secrets from server configuration (pm2 env /
+    /// user-secrets on the Mac). Never the DB. Webhook HMAC: <c>Webstore:Secrets:{id}</c>;
+    /// REST read credentials for the reconciliation poll: <c>Webstore:RestKeys:{id}</c> = "ck|cs".</summary>
     public sealed class ConfigWebstoreSecretProvider : IWebstoreSecretProvider
     {
         private readonly IConfiguration _config;
         public ConfigWebstoreSecretProvider(IConfiguration config) => _config = config;
         public string GetWebhookSecret(Guid webStoreId) => _config[$"Webstore:Secrets:{webStoreId:D}"];
+
+        public WebstoreRestCredentials GetRestCredentials(Guid webStoreId)
+        {
+            var raw = _config[$"Webstore:RestKeys:{webStoreId:D}"];
+            if (string.IsNullOrWhiteSpace(raw)) return null;
+            var parts = raw.Split('|');
+            return parts.Length == 2 ? new WebstoreRestCredentials(parts[0].Trim(), parts[1].Trim()) : null;
+        }
     }
 }

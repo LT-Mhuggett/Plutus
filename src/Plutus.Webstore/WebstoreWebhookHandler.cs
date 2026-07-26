@@ -9,12 +9,17 @@ using Plutus.SharedKernel;
 
 namespace Plutus.Webstore
 {
-    /// <summary>Per-connection webhook secret, resolved from server config keyed by the webstore
-    /// id — NEVER from the DB row or the repo (WP6.2a step 2). Host impl reads configuration
-    /// (<c>Webstore:Secrets:{id}</c>); tests use a fake.</summary>
+    /// <summary>Woo REST API credentials (consumer key/secret) for one connection.</summary>
+    public sealed record WebstoreRestCredentials(string ConsumerKey, string ConsumerSecret);
+
+    /// <summary>Per-connection secrets, resolved from server config keyed by the webstore id —
+    /// NEVER from the DB row or the repo (WP6.2a step 2). Host impl reads configuration
+    /// (<c>Webstore:Secrets:{id}</c> for the webhook HMAC, <c>Webstore:RestKeys:{id}</c> as
+    /// "ck|cs" for the reconciliation poll's REST pull); tests use fakes.</summary>
     public interface IWebstoreSecretProvider
     {
         string? GetWebhookSecret(Guid webStoreId);
+        WebstoreRestCredentials? GetRestCredentials(Guid webStoreId);
     }
 
     /// <summary>What the thin HTTP controller returns: status code + response body.</summary>
@@ -94,7 +99,7 @@ namespace Plutus.Webstore
                 case WebstoreInboundStatus.NeedsMapping:
                     return new(202, new { status = "needs-mapping", skus = r.UnmatchedSkus });
                 case WebstoreInboundStatus.Quarantined:
-                    await ParkQuarantineAsync(pipeline.Db, ctx, r, rawBody!, ct);
+                    await WebstoreQuarantine.ParkAsync(pipeline.Db, ctx, r, rawBody!, ct);
                     return new(202, new { status = "quarantined", detail = r.Detail });
                 case WebstoreInboundStatus.Skipped:
                     // Not-ingestable status (pending/failed/cancelled/refunded…) — acknowledged,
@@ -105,25 +110,5 @@ namespace Plutus.Webstore
             }
         }
 
-        /// <summary>Park a mapper-level quarantine (non-GBP, total mismatch…) in SaleQuarantine so
-        /// the 202 means "durably held for review", keyed by the order's deterministic saleId so a
-        /// re-delivery doesn't duplicate the parked row.</summary>
-        private static async Task ParkQuarantineAsync(
-            MySqlDbContext db, WebstoreConnectionContext ctx, WebstoreInboundResult r, string rawBody, CancellationToken ct)
-        {
-            if (r.WooOrderId is not { } orderId) return;
-            var saleId = WooOrderMapper.SaleIdFor(ctx.DeviceId, orderId);
-            // Same idempotency pattern as the ingest's quarantine path (unique (TenantId, SaleId)).
-            if (await db.SaleQuarantine.IgnoreQueryFilters().AsNoTracking().AnyAsync(q => q.SaleId == saleId, ct))
-                return;
-            db.SaleQuarantine.Add(new SaleQuarantine
-            {
-                Id = Uuid7.New(), TenantId = ctx.TenantId, SaleId = saleId,
-                PayloadJson = rawBody,
-                Reason = r.Detail!.Length <= 500 ? r.Detail : r.Detail.Substring(0, 500),
-                ReceivedAtUtc = DateTime.UtcNow,
-            });
-            await db.SaveChangesAsync(ct);
-        }
     }
 }

@@ -26,6 +26,10 @@ namespace Plutus.Entities.Models
         public Guid DeviceId { get; set; }
         /// <summary>WP6.3 oversell buffer — list max(0, level − buffer) to the web.</summary>
         public int OversellBuffer { get; set; }
+        /// <summary>Reconciliation-poll cursor: the max order `date_modified_gmt` processed so far.
+        /// Null = never polled (first run looks back a bounded window). The poll re-reads a small
+        /// overlap behind this — the deterministic saleId dedupes the overlap.</summary>
+        public DateTime? OrdersCursorUtc { get; set; }
         public DateTime CreatedAtUtc { get; set; }
     }
 

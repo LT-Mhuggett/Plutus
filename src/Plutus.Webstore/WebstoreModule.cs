@@ -1,6 +1,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Plutus.Entities;
 
 namespace Plutus.Webstore
@@ -35,6 +36,21 @@ namespace Plutus.Webstore
                 sp.GetRequiredService<DbContextOptions<MySqlDbContext>>(),
                 sp.GetRequiredService<Func<MySqlDbContext, WebstoreConnectionContext, IWebstoreSaleSink>>()));
             services.AddScoped<WebstoreWebhookHandler>();
+
+            // WP6.2 reconciliation poll: heals webhook outages via the same routing core.
+            // Options default to the plan's gentle cadence; the host may pre-register its own
+            // WebstoreOptions instance to override (TryAdd keeps it).
+            services.TryAddSingleton(new WebstoreOptions());
+            services.AddHttpClient(nameof(WebstoreReconciler))
+                .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(30));
+            services.AddScoped(sp => new WebstoreReconciler(
+                sp.GetRequiredService<DbContextOptions<MySqlDbContext>>(),
+                sp.GetRequiredService<WebstoreWebhookPipelineFactory>(),
+                sp.GetRequiredService<IWebstoreSecretProvider>(),
+                sp.GetRequiredService<System.Net.Http.IHttpClientFactory>().CreateClient(nameof(WebstoreReconciler)),
+                sp.GetRequiredService<WebstoreOptions>(),
+                sp.GetService<Microsoft.Extensions.Logging.ILoggerFactory>()?.CreateLogger(nameof(WebstoreReconciler))));
+            services.AddHostedService<WebstoreReconciliationService>();
             return services;
         }
     }
