@@ -181,6 +181,23 @@ Modules communicate in-process via the `SharedKernel` event bus abstraction (int
 
 ## Phase 6 — WooCommerce connector (add-on)
 
+> ✅ **PHASE 6 CODE-COMPLETE (2026-07-27). Inbound LIVE; OUTBOUND BUILT & DEPLOYED IN DRY-RUN.**
+> WP6.3 + WP6.5 (Plutus→Woo drafts) are implemented end-to-end and running in **dry-run** on the
+> live connection: the fast lane (SaleRecorded consumer — an in-store sale reaches the outbound
+> engine in seconds), the slow lane (poll-cycle diff of Plutus levels vs the swept web cache,
+> LINKED products only, ≤100/cycle), the draft scan (new Plutus items → draft products), the
+> oversell buffer, and the kill switch (`WebStores.OutboundMode` off|dry-run|live, re-checked
+> per item). Everything journals to `WebstoreOutboundLogs` — in dry-run that journal IS the
+> review artefact ("exactly what would be sent"); in live it's the send audit. Portal → Webstore
+> → **Outbound** shows the journal + the mode switch (going live is REFUSED until a dry-run
+> journal exists, and is audited). First live dry-run caught a real bug before any write could
+> happen: unlinked web products would have been zeroed — fixed + regression-tested. Live now:
+> 180 journaled / 0 sent; the journal shows web-vs-till stock disagreement to review.
+> **160 unit + 5 arch green.** **To go LIVE (Matt):** review ≥1 week of dry-run journal → mint
+> the WRITE REST key (wp-cli) → replace `Webstore:RestKeys` in the pm2 env → flip the portal
+> switch to live (first item verified on the storefront per the DoD). Still open by design:
+> WP6.1 one-click wc-auth onboarding UI (needed for tenant #2), notification email (SMTP choice).
+>
 > ✅ **PHASE 6 INBOUND COMPLETE & LIVE (2026-07-26, `60c6867`)** — everything buildable without
 > Matt's outbound go-ahead is deployed and smoke-proven on the live store: WP6.0 recon/fixtures,
 > WP6.1 connection provisioning (manual for Kapow), WP6.2 webhooks + reconciliation poll + SKU

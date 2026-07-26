@@ -257,6 +257,23 @@ threaded through the context. **137 unit + 5 arch green.**
 mirror the billing webhook in `PlatformController`), the host `WebstoreSaleSink` adapter over
 `SalesIngestService` (mirror the e2e test's `IngestSink`), `Startup` `AddPlutusWebstore()` +
 `AddScoped<IWebstoreSaleSink, WebstoreSaleSink>()`, and virtual-till provisioning.
+**✅ PHASE 6 CODE-COMPLETE (2026-07-27): OUTBOUND BUILT, DEPLOYED IN DRY-RUN.** WP6.3+WP6.5
+drafts implemented: fast lane (`WebstoreStockOutboundConsumer` on SaleRecorded — caught up, outbox
+head 6), slow lane (poll diff, LINKED products only, ≤100/cycle), draft scan (48 h lookback,
+journal-idempotent), oversell buffer, kill switch (`WebStores.OutboundMode` off|dry-run|live,
+re-read per item). Journal = `WebstoreOutboundLogs` (dry-run review artefact / live send audit);
+portal → Webstore → **Outbound** tab (mode switch: live REFUSED without a dry-run journal;
+audited) + alignment CSV export. Migration `AddWebstoreOutbound` rehearsed t1 → live. **Kapow is
+in DRY-RUN now**: 180 journaled / 0 sent — the journal shows web-vs-till stock disagreement (the
+web was stocked independently of the till; review before live). ⚠ First dry-run caught a real
+bug: the diff included UNLINKED web products (26-digit SKUs overflowed ItemIdOne → cycle failed;
+and live would have zeroed them) — fixed (join to Items), regression-tested, polluted journal
+rows purged. **160 unit + 5 arch green.** **GO-LIVE RUNBOOK:** review ≥1 wk of journal → mint
+write key on kapow (`wp eval` like the read key) → swap `Webstore__RestKeys__<id>` in pm2
+ecosystem (ck|cs) → pm2 delete+start → portal Outbound → live (confirm dialog) → verify ONE item
+on the storefront. Kill switch = set mode off (portal or SQL). Still open: WP6.1 one-click
+wc-auth onboarding UI (tenant #2), notification email (SMTP choice).
+
 **✅ PHASE 6 INBOUND COMPLETE (2026-07-26 night, `60c6867`).** On top of the go-live below:
 **review queue** live (portal → Webstore tab: pending SKUs w/ webstore name/price from the cache,
 bind / ignore / **create-item** (WP6.5 Woo→Plutus: name+price from cache, tenant-default tax/

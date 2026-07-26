@@ -337,6 +337,81 @@ namespace Plutus.Webstore.Controllers
             });
         }
 
+        // ---- WP6.3 outbound: journal view + the mode switch (off | dry-run | live) ----
+
+        [HttpGet("{id:guid}/outbound-log")]
+        [Authorize(Policy = "perm:portal.reports.view")]
+        public async Task<IActionResult> OutboundLog(Guid id, [FromQuery] int take = 100, CancellationToken ct = default)
+        {
+            take = Math.Clamp(take, 1, 500);
+            var mode = await _db.WebStores.AsNoTracking().Where(w => w.Id == id).Select(w => w.OutboundMode).FirstOrDefaultAsync(ct);
+            if (mode is null) return NotFound();
+            var rows = await _db.WebstoreOutboundLogs.AsNoTracking()
+                .Where(l => l.WebStoreId == id).OrderByDescending(l => l.Id).Take(take)
+                .Select(l => new { l.Id, l.Kind, l.ItemIdOne, l.WooProductId, l.FromValue, l.ToValue, l.Mode, l.Result, l.Lane, l.CreatedAtUtc, l.SentAtUtc })
+                .ToListAsync(ct);
+            var pendingDry = await _db.WebstoreOutboundLogs.AsNoTracking()
+                .CountAsync(l => l.WebStoreId == id && l.Mode == "dry-run", ct);
+            return Ok(new { mode, pendingDry, rows });
+        }
+
+        public sealed record OutboundModeBody(string Mode);
+
+        /// <summary>The WP6.3 gates live here: off (kill switch) ↔ dry-run freely; LIVE is refused
+        /// unless a dry-run journal exists to have been reviewed (the plan's dry-run-first gate) —
+        /// and going live is audited with the actor.</summary>
+        [HttpPut("{id:guid}/outbound-mode")]
+        [Authorize(Policy = "perm:portal.company.manage")]
+        public async Task<IActionResult> SetOutboundMode(Guid id, [FromBody] OutboundModeBody body, CancellationToken ct)
+        {
+            var mode = body?.Mode?.Trim().ToLowerInvariant();
+            if (mode is not ("off" or "dry-run" or "live"))
+                return BadRequest(new { detail = "mode must be off | dry-run | live." });
+            var ws = await _db.WebStores.FirstOrDefaultAsync(w => w.Id == id, ct);
+            if (ws is null) return NotFound();
+
+            if (mode == "live")
+            {
+                var dryRows = await _db.WebstoreOutboundLogs.AsNoTracking().CountAsync(l => l.WebStoreId == id && l.Mode == "dry-run", ct);
+                if (dryRows == 0)
+                    return UnprocessableEntity(new { detail = "Refusing to go live with no dry-run journal to review — run dry-run first (plan WP6.3 gate)." });
+            }
+            var from = ws.OutboundMode;
+            ws.OutboundMode = mode;
+            _db.Audit(_tenant.TenantId, Actor, "webstore.outbound-mode", nameof(WebStoreDetails), id.ToString(), new { from, to = mode });
+            await _db.SaveChangesAsync(ct);
+            return Ok(new { mode });
+        }
+
+        /// <summary>WP6.4 CSV export of the alignment report (matched rows + web-only).</summary>
+        [HttpGet("{id:guid}/alignment.csv")]
+        [Authorize(Policy = "perm:portal.reports.view")]
+        public async Task<IActionResult> AlignmentCsv(Guid id, CancellationToken ct)
+        {
+            var web = await _db.WebstoreProducts.AsNoTracking()
+                .Where(p => p.WebStoreId == id && p.Status != "deleted")
+                .Select(p => new { p.Sku, p.Name, p.PricePence, p.Status })
+                .ToListAsync(ct);
+            var webSkus = web.Where(w => w.Sku != null).Select(w => w.Sku!).ToHashSet();
+            var items = await _db.Items.AsNoTracking().Where(i => webSkus.Contains(i.IdOne))
+                .Select(i => new { i.IdOne, i.Name, i.Price }).ToDictionaryAsync(i => i.IdOne, ct);
+
+            var sb = new System.Text.StringBuilder("sku,web_name,till_name,web_price,till_price,price_diff,status\n");
+            foreach (var w in web.OrderBy(x => x.Name))
+            {
+                var it = w.Sku != null && items.TryGetValue(w.Sku, out var v) ? v : null;
+                var tillPence = it is null ? (long?)null : (long)Math.Round(it.Price * 100m, MidpointRounding.AwayFromZero);
+                sb.Append(Csv(w.Sku ?? "")).Append(',').Append(Csv(w.Name)).Append(',').Append(Csv(it?.Name ?? ""))
+                  .Append(',').Append((w.PricePence / 100m).ToString("0.00"))
+                  .Append(',').Append(tillPence is { } t ? (t / 100m).ToString("0.00") : "")
+                  .Append(',').Append(tillPence is { } t2 ? ((w.PricePence - t2) / 100m).ToString("0.00") : "")
+                  .Append(',').Append(w.Status).Append('\n');
+            }
+            return File(System.Text.Encoding.UTF8.GetBytes(sb.ToString()), "text/csv", "webstore-alignment.csv");
+
+            static string Csv(string s) => s.Contains(',') || s.Contains('"') ? $"\"{s.Replace("\"", "\"\"")}\"" : s;
+        }
+
         // ---- WP6.2 pick-from-floor notifications (till-facing) ----
 
         [HttpGet("/api/v1/notifications")]

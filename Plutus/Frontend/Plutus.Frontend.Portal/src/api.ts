@@ -346,3 +346,15 @@ export const fetchWebstoreProducts = (id: string, opts: { status?: string; linke
 export const refreshWebstoreProducts = (id: string) =>
   post<{ refreshed: number; requests: number }>(`/api/v1/webstores/${id}/products/refresh`);
 export const fetchAlignment = (id: string) => get<AlignmentResp>(`/api/v1/webstores/${id}/alignment`);
+
+// ---- WP6.3 outbound (dry-run journal + mode switch) ----
+export interface OutboundLogRow {
+  id: number; kind: string; itemIdOne: string; wooProductId: number | null;
+  fromValue: string | null; toValue: string | null; mode: string; result: string; lane: string;
+  createdAtUtc: string; sentAtUtc: string | null;
+}
+export interface OutboundLogResp { mode: string; pendingDry: number; rows: OutboundLogRow[] }
+export const fetchOutboundLog = (id: string, take = 100) =>
+  get<OutboundLogResp>(`/api/v1/webstores/${id}/outbound-log?take=${take}`);
+export const setOutboundMode = (id: string, mode: string) =>
+  request<{ mode: string }>("PUT", `/api/v1/webstores/${id}/outbound-mode`, { mode });

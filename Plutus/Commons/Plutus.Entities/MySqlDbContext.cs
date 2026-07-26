@@ -56,6 +56,7 @@ namespace Plutus.Entities
         public DbSet<WebstoreSkuMap> WebstoreSkuMaps { get; set; }
         public DbSet<WebstoreProduct> WebstoreProducts { get; set; }
         public DbSet<WebstoreNotification> WebstoreNotifications { get; set; }
+        public DbSet<WebstoreOutboundLog> WebstoreOutboundLogs { get; set; }
         // Reporting projections (WP3.3): rebuildable rollups the dashboards read.
         public DbSet<SalesRollup> SalesRollups { get; set; }
         public DbSet<VatRollup> VatRollups { get; set; }
@@ -160,6 +161,7 @@ namespace Plutus.Entities
             typeof(Customer), typeof(CreditAccount), typeof(CreditEntry), typeof(Membership),
             // WooCommerce connector config + SKU review queue + product cache + notifications (Phase 6).
             typeof(WebStoreDetails), typeof(WebstoreSkuMap), typeof(WebstoreProduct), typeof(WebstoreNotification),
+            typeof(WebstoreOutboundLog),
         };
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -377,6 +379,21 @@ namespace Plutus.Entities
                 e.Property(x => x.Permalink).HasMaxLength(500);
                 e.HasIndex(x => new { x.TenantId, x.WebStoreId, x.WooProductId }).IsUnique();
                 e.HasIndex(x => new { x.TenantId, x.WebStoreId, x.Sku });
+            });
+            modelBuilder.Entity<WebstoreOutboundLog>(e =>
+            {
+                e.ToTable("WebstoreOutboundLogs");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedOnAdd();
+                e.Property(x => x.Kind).HasMaxLength(20).IsRequired();
+                e.Property(x => x.ItemIdOne).HasMaxLength(20).IsRequired();
+                e.Property(x => x.FromValue).HasMaxLength(300);
+                e.Property(x => x.ToValue).HasMaxLength(300);
+                e.Property(x => x.Mode).HasMaxLength(10).IsRequired();
+                e.Property(x => x.Result).HasMaxLength(300).IsRequired();
+                e.Property(x => x.Lane).HasMaxLength(12).IsRequired();
+                e.HasIndex(x => new { x.TenantId, x.WebStoreId, x.CreatedAtUtc });
+                e.HasIndex(x => new { x.TenantId, x.WebStoreId, x.Kind, x.ItemIdOne });
             });
             modelBuilder.Entity<WebstoreNotification>(e =>
             {

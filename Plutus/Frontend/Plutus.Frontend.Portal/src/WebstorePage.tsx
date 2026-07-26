@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import {
-  bindSku, createItemFromSku, fetchAlignment, fetchSkuMap, fetchWebstoreProducts, fetchWebstores,
-  gbp, ignoreSku, refreshWebstoreProducts, retryParkedOrders,
-  type AlignmentResp, type SkuMapRow, type WebstoreConn, type WebstoreProductsResp,
+  bindSku, createItemFromSku, downloadCsv, fetchAlignment, fetchOutboundLog, fetchSkuMap,
+  fetchWebstoreProducts, fetchWebstores, gbp, ignoreSku, refreshWebstoreProducts,
+  retryParkedOrders, setOutboundMode,
+  type AlignmentResp, type OutboundLogResp, type SkuMapRow, type WebstoreConn, type WebstoreProductsResp,
 } from "./api.ts";
 import { SortTh, useSort } from "./sortable.tsx";
 
@@ -12,7 +13,7 @@ import { SortTh, useSort } from "./sortable.tsx";
 export default function WebstorePage() {
   const [conns, setConns] = useState<WebstoreConn[]>([]);
   const [error, setError] = useState("");
-  const [sub, setSub] = useState<"queue" | "catalogue" | "alignment">("queue");
+  const [sub, setSub] = useState<"queue" | "catalogue" | "alignment" | "outbound">("queue");
 
   useEffect(() => { fetchWebstores().then(setConns).catch((e) => setError(String(e))); }, []);
   const conn = conns[0];   // one connection today; the list API is ready for more
@@ -38,9 +39,10 @@ export default function WebstorePage() {
           </div>
 
           <div className="subtabs">
-            {(["queue", "catalogue", "alignment"] as const).map((t) => (
+            {(["queue", "catalogue", "alignment", "outbound"] as const).map((t) => (
               <button key={t} className={t === sub ? "subtab active" : "subtab"} onClick={() => setSub(t)}>
-                {t === "queue" ? `Review queue${conn.pendingSkus ? ` (${conn.pendingSkus})` : ""}` : t === "catalogue" ? "Webstore catalogue" : "Alignment"}
+                {t === "queue" ? `Review queue${conn.pendingSkus ? ` (${conn.pendingSkus})` : ""}`
+                  : t === "catalogue" ? "Webstore catalogue" : t === "alignment" ? "Alignment" : "Outbound"}
               </button>
             ))}
           </div>
@@ -48,6 +50,7 @@ export default function WebstorePage() {
           {sub === "queue" && <ReviewQueue id={conn.id} />}
           {sub === "catalogue" && <Catalogue id={conn.id} />}
           {sub === "alignment" && <Alignment id={conn.id} />}
+          {sub === "outbound" && <Outbound id={conn.id} />}
         </>
       )}
     </section>
@@ -208,6 +211,62 @@ function Catalogue({ id }: { id: string }) {
   );
 }
 
+function Outbound({ id }: { id: string }) {
+  const [data, setData] = useState<OutboundLogResp | null>(null);
+  const [error, setError] = useState("");
+  const [msg, setMsg] = useState("");
+  const refresh = () => fetchOutboundLog(id).then(setData).catch((e) => setError(String(e)));
+  useEffect(() => { void refresh(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const switchMode = (mode: string) => {
+    if (mode === "live" && !window.confirm(
+      "Go LIVE? Plutus will start WRITING stock levels and draft products to the webstore. " +
+      "Only do this after reviewing the dry-run journal below (and with the WRITE REST key configured).")) return;
+    setError(""); setMsg("");
+    setOutboundMode(id, mode).then(() => { setMsg(`Outbound mode set to ${mode}.`); return refresh(); })
+      .catch((e) => setError(String(e)));
+  };
+
+  if (error && !data) return <p className="error">{error}</p>;
+  if (!data) return <p className="muted">Loading…</p>;
+  return (
+    <div>
+      <div className="toolbar">
+        <label>Outbound mode
+          <select value={data.mode || "off"} onChange={(e) => switchMode(e.target.value)}>
+            <option value="off">Off (kill switch)</option>
+            <option value="dry-run">Dry-run — journal only, send nothing</option>
+            <option value="live">LIVE — write to the webstore</option>
+          </select>
+        </label>
+        <span className="muted small grow">
+          Dry-run journals exactly what WOULD be sent. Review it for a week of real trading before going live (plan WP6.3).
+        </span>
+        <span className="muted small">{data.pendingDry} dry-run entries</span>
+      </div>
+      {error && <p className="error small">{error}</p>}
+      {msg && <p className="callout small">{msg}</p>}
+      <table>
+        <thead><tr><th>When</th><th>Kind</th><th>Lane</th><th>Item</th><th>From</th><th>To</th><th>Mode</th><th>Result</th></tr></thead>
+        <tbody>
+          {data.rows.map((r) => (
+            <tr key={r.id}>
+              <td className="small">{new Date(r.createdAtUtc + "Z").toLocaleString("en-GB")}</td>
+              <td>{r.kind}</td><td>{r.lane}</td>
+              <td className="mono small">{r.itemIdOne}</td>
+              <td className="num">{r.fromValue ?? "—"}</td><td>{r.toValue ?? "—"}</td>
+              <td>{r.mode}</td>
+              <td className={r.result.startsWith("failed") ? "error small" : "small"}>{r.result}</td>
+            </tr>
+          ))}
+          {data.rows.length === 0 && <tr><td colSpan={8} className="muted">
+            Nothing journaled yet — set mode to dry-run and the next sale / poll cycle starts writing entries.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function Alignment({ id }: { id: string }) {
   const [data, setData] = useState<AlignmentResp | null>(null);
   const [error, setError] = useState("");
@@ -223,6 +282,13 @@ function Alignment({ id }: { id: string }) {
         <div className="stat"><span className="stat-label">Web-only products</span><span className="stat-value">{data.webOnly.length}</span></div>
       </div>
 
+      <div className="toolbar">
+        <span className="grow" />
+        <button className="ghost small" onClick={() =>
+          void downloadCsv(`/api/v1/webstores/${id}/alignment.csv`, "webstore-alignment.csv")}>
+          Export CSV
+        </button>
+      </div>
       <h3>Prices on both platforms (largest differences first)</h3>
       <table>
         <thead><tr><th>SKU</th><th>Name (web)</th><th className="num">Web price</th><th className="num">Till price</th><th className="num">Difference</th></tr></thead>

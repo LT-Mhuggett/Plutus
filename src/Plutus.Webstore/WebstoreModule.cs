@@ -51,6 +51,13 @@ namespace Plutus.Webstore
                 sp.GetRequiredService<WebstoreOptions>(),
                 sp.GetService<Microsoft.Extensions.Logging.ILoggerFactory>()?.CreateLogger(nameof(WebstoreReconciler))));
             services.AddHostedService<WebstoreReconciliationService>();
+
+            // WP6.3 FAST lane: sale-driven stock pushes ride the outbox dispatcher. Registered
+            // like every other consumer; it exits instantly while OutboundMode is "off".
+            services.AddScoped<Plutus.SharedKernel.IEventConsumer>(sp => new WebstoreStockOutboundConsumer(
+                sp.GetRequiredService<MySqlDbContext>(),
+                sp.GetRequiredService<IWebstoreSecretProvider>(),
+                sp.GetRequiredService<System.Net.Http.IHttpClientFactory>()));
             return services;
         }
     }

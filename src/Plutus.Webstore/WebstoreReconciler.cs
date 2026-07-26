@@ -34,15 +34,22 @@ namespace Plutus.Webstore
         public int FullSweepHourUtc { get; init; } = 2;
         /// <summary>Page cap for a FULL product sweep (nightly; ~75 pages on the Kapow store).</summary>
         public int MaxFullSweepPages { get; init; } = 200;
+        /// <summary>WP6.3 slow lane: max stock corrections journaled/sent per cycle (a big stock
+        /// take drains over cycles instead of hammering the site).</summary>
+        public int MaxOutboundPerCycle { get; init; } = 100;
+        /// <summary>WP6.5 draft scan: how far back "recently created Plutus items" reaches.</summary>
+        public int DraftScanLookbackHours { get; init; } = 48;
     }
 
     /// <summary>Summary of one reconciliation pass (logged; asserted in tests).</summary>
     public sealed class ReconcileSummary
     {
-        public int Webstores, Requests, Orders, Recorded, Duplicates, Skipped, NeedsMapping, Quarantined, ProductsSeen;
+        public int Webstores, Requests, Orders, Recorded, Duplicates, Skipped, NeedsMapping, Quarantined, ProductsSeen,
+            OutboundStock, OutboundDrafts;
         public override string ToString() =>
             $"webstores={Webstores} requests={Requests} orders={Orders} recorded={Recorded} " +
-            $"dup={Duplicates} skipped={Skipped} needs-mapping={NeedsMapping} quarantined={Quarantined} products={ProductsSeen}";
+            $"dup={Duplicates} skipped={Skipped} needs-mapping={NeedsMapping} quarantined={Quarantined} products={ProductsSeen} " +
+            $"outbound-stock={OutboundStock} outbound-drafts={OutboundDrafts}";
     }
 
     /// <summary>
@@ -149,6 +156,18 @@ namespace Plutus.Webstore
                 var swept = await SweepProductsAsync(pipeline.Db, client, ctx, ws, fullDue, ct);
                 summary.ProductsSeen += swept;
 
+                // WP6.3 SLOW lane: catch everything the fast lane can't see (stock takes,
+                // transfers, goods-in, manual corrections) by diffing Plutus levels against the
+                // freshly-swept web cache. WP6.5: newly-created Plutus items → draft products.
+                // Both no-op instantly unless OutboundMode is dry-run/live.
+                if (ws.OutboundMode is "dry-run" or "live")
+                {
+                    var diff = await StockDiffAsync(pipeline.Db, ws, _options.MaxOutboundPerCycle, ct);
+                    summary.OutboundStock += await WebstoreOutbound.PushStockAsync(pipeline.Db, client, ws, diff, lane: "slow", ct);
+                    summary.OutboundDrafts += await WebstoreOutbound.PushNewItemDraftsAsync(
+                        pipeline.Db, client, ws, TimeSpan.FromHours(_options.DraftScanLookbackHours), ct);
+                }
+
                 summary.Requests += client.RequestCount;
 
                 if (maxSeen > (ws.OrdersCursorUtc ?? DateTime.MinValue))
@@ -224,6 +243,37 @@ namespace Plutus.Webstore
             }
             await db.SaveChangesAsync(ct);
             return seen;
+        }
+
+        /// <summary>Items whose web-listed quantity disagrees with the Plutus level (post-buffer)
+        /// — the slow lane's work list, capped per cycle.</summary>
+        private static async Task<System.Collections.Generic.List<string>> StockDiffAsync(
+            MySqlDbContext db, Entities.Models.WebStoreDetails ws, int cap, CancellationToken ct)
+        {
+            var locationId = await db.StockLocations.IgnoreQueryFilters().AsNoTracking()
+                .Where(l => l.TenantId == ws.TenantId && l.StoreId == (ws.StoreId ?? 1) && l.Type == Entities.Models.StockLocationType.Store)
+                .Select(l => (Guid?)l.Id).FirstOrDefaultAsync(ct);
+            if (locationId is null) return new System.Collections.Generic.List<string>();
+
+            var levels = db.StockLevels.IgnoreQueryFilters().AsNoTracking()
+                .Where(s => s.TenantId == ws.TenantId && s.StockLocationId == locationId);
+            // ONLY products linked to a catalogue item — Plutus must never adjust stock on web
+            // products it doesn't manage. (Caught by the first LIVE dry-run 2026-07-27: unlinked
+            // products — incl. 26-digit composite SKUs — would have been zeroed on go-live.)
+            var itemSkus = db.Items.IgnoreQueryFilters().AsNoTracking().Select(i => i.IdOne);
+            var products = db.WebstoreProducts.IgnoreQueryFilters().AsNoTracking()
+                .Where(p => p.WebStoreId == ws.Id && p.Sku != null && p.Status != "deleted"
+                            && itemSkus.Contains(p.Sku));
+
+            // Left-join products→levels: a listed product with NO level row is level 0.
+            var diff = await (from p in products
+                              join s in levels on p.Sku equals s.ItemIdOne into g
+                              from s in g.DefaultIfEmpty()
+                              let level = (int?)s.Quantity ?? 0
+                              let target = Math.Max(0, level - ws.OversellBuffer)
+                              where p.StockQuantity != target
+                              select p.Sku!).Take(cap).ToListAsync(ct);
+            return diff;
         }
     }
 

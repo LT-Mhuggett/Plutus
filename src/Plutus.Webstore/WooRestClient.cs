@@ -83,5 +83,43 @@ namespace Plutus.Webstore
             var products = JsonSerializer.Deserialize<List<WooProduct>>(json, WooJson.Options) ?? new List<WooProduct>();
             return (products, Math.Max(1, totalPages));
         }
+
+        // ---- WP6.3 WRITES — called ONLY in live outbound mode (dry-run never reaches here).
+        //      With the read-only key configured these 401 and the journal records the failure
+        //      (fails safe, plan rule 5). ----
+
+        /// <summary>Set a product's stock quantity (also flips Woo's in-stock status).</summary>
+        public async Task UpdateProductStockAsync(long wooProductId, int quantity, CancellationToken ct = default)
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Put, $"{_base}/wp-json/wc/v3/products/{wooProductId}");
+            req.Headers.Authorization = _auth;
+            req.Content = new StringContent(
+                JsonSerializer.Serialize(new { manage_stock = true, stock_quantity = quantity }),
+                Encoding.UTF8, "application/json");
+            RequestCount++;
+            using var resp = await _http.SendAsync(req, ct);
+            resp.EnsureSuccessStatusCode();
+        }
+
+        /// <summary>WP6.5: create a DRAFT product (never published by Plutus — a human adds
+        /// images/description in wp-admin and publishes there). Returns the new Woo product id.</summary>
+        public async Task<long> CreateDraftProductAsync(string sku, string name, long pricePence, CancellationToken ct = default)
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, $"{_base}/wp-json/wc/v3/products");
+            req.Headers.Authorization = _auth;
+            req.Content = new StringContent(
+                JsonSerializer.Serialize(new
+                {
+                    status = "draft", sku, name,
+                    regular_price = (pricePence / 100m).ToString("0.00", CultureInfo.InvariantCulture),
+                    manage_stock = true, stock_quantity = 0,
+                }),
+                Encoding.UTF8, "application/json");
+            RequestCount++;
+            using var resp = await _http.SendAsync(req, ct);
+            resp.EnsureSuccessStatusCode();
+            var body = JsonSerializer.Deserialize<WooProduct>(await resp.Content.ReadAsStringAsync(ct), WooJson.Options);
+            return body?.Id ?? 0;
+        }
     }
 }

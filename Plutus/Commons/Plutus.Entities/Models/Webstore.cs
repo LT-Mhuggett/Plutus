@@ -26,6 +26,10 @@ namespace Plutus.Entities.Models
         public Guid DeviceId { get; set; }
         /// <summary>WP6.3 oversell buffer — list max(0, level − buffer) to the web.</summary>
         public int OversellBuffer { get; set; }
+        /// <summary>WP6.3 outbound gate: "off" (default) | "dry-run" (journal what WOULD be sent,
+        /// send nothing) | "live" (actually PUT to Woo — needs the write REST key). The kill
+        /// switch: set "off" and every push loop halts at its next item.</summary>
+        public string OutboundMode { get; set; } = "off";
         /// <summary>Reconciliation-poll cursor: the max order `date_modified_gmt` processed so far.
         /// Null = never polled (first run looks back a bounded window). The poll re-reads a small
         /// overlap behind this — the deterministic saleId dedupes the overlap.</summary>
@@ -57,6 +61,30 @@ namespace Plutus.Entities.Models
         public string? Permalink { get; set; }
         public DateTime? WooModifiedUtc { get; set; }
         public DateTime LastSeenUtc { get; set; }
+    }
+
+    /// <summary>WP6.3 outbound journal — one row per push decision. In DRY-RUN this is the review
+    /// artefact ("exactly the batch it would send"); in LIVE it is the send audit. Idempotence
+    /// helper for slow-lane/draft scans: skip when an identical unsent row already exists.</summary>
+    public class WebstoreOutboundLog
+    {
+        public long Id { get; set; }                 // AUTO_INCREMENT — natural time order
+        public Guid TenantId { get; set; }
+        public Guid WebStoreId { get; set; }
+        /// <summary>stock | draft-product</summary>
+        public string Kind { get; set; }
+        public string ItemIdOne { get; set; }
+        public long? WooProductId { get; set; }
+        public string? FromValue { get; set; }
+        public string? ToValue { get; set; }
+        /// <summary>dry-run | live</summary>
+        public string Mode { get; set; }
+        /// <summary>logged (dry-run) | sent | failed: …</summary>
+        public string Result { get; set; }
+        /// <summary>fast (sale-driven) | slow (sweep diff) | draft-scan</summary>
+        public string Lane { get; set; }
+        public DateTime CreatedAtUtc { get; set; }
+        public DateTime? SentAtUtc { get; set; }
     }
 
     /// <summary>WP6.2 pick-from-floor notification: a web sale sells stock that is physically on
