@@ -24,25 +24,31 @@ async function j<T>(method: string, url: string, body?: unknown): Promise<T> {
   return res.status === 204 ? (undefined as T) : res.json();
 }
 
+interface StockResp { totalCatalogueItems: number; inStock: number; matched: number; skip: number; take: number; rows: LevelRow[] }
+
 export default function StockPage() {
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [locationId, setLocationId] = useState(""); // "" = central view
   const [search, setSearch] = useState("");
-  const [levels, setLevels] = useState<LevelRow[]>([]);
+  const [take, setTake] = useState(25);
+  const [skip, setSkip] = useState(0);
+  const [stock, setStock] = useState<StockResp | null>(null);
   const [transfers, setTransfers] = useState<TransferRow[]>([]);
   const [drill, setDrill] = useState<LevelRow | null>(null);
   const [error, setError] = useState("");
 
   const refresh = () =>
     Promise.all([
-      j<LevelRow[]>("GET", `/api/v1/stock/levels?take=200${locationId ? `&locationId=${locationId}` : ""}${search ? `&search=${encodeURIComponent(search)}` : ""}`),
+      j<StockResp>("GET", `/api/v1/stock/levels?skip=${skip}&take=${take}${locationId ? `&locationId=${locationId}` : ""}${search ? `&search=${encodeURIComponent(search)}` : ""}`),
       j<LocationRow[]>("GET", `/api/v1/stock/locations`),
       j<TransferRow[]>("GET", `/api/v1/stock/transfers?status=InTransit`),
     ])
-      .then(([lv, lo, tr]) => { setLevels(lv); setLocations(lo); setTransfers(tr); setError(""); })
+      .then(([lv, lo, tr]) => { setStock(lv); setLocations(lo); setTransfers(tr); setError(""); })
       .catch((e) => setError(String(e instanceof Error ? e.message : e)));
 
-  useEffect(() => { void refresh(); }, [locationId, search]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setSkip(0); }, [locationId, search, take]);
+  useEffect(() => { void refresh(); }, [locationId, search, take, skip]); // eslint-disable-line react-hooks/exhaustive-deps
+  const levels = stock?.rows ?? [];
 
   return (
     <section className="panel">
@@ -55,8 +61,18 @@ export default function StockPage() {
           </select>
         </label>
         <label>Search <input placeholder="barcode / id" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
+        <label>Show{" "}
+          <select value={take} onChange={(e) => setTake(Number(e.target.value))}>
+            <option value={25}>25</option><option value={50}>50</option><option value={100}>100</option>
+          </select>
+        </label>
         <NewLocation defaultStoreId={locations[0]?.storeId ?? 1} onCreated={refresh} />
       </div>
+      {stock && (
+        <p className="muted small">
+          {stock.inStock.toLocaleString()} in stock{locationId ? " at this location" : ""} · {stock.matched.toLocaleString()} with a stock record · {stock.totalCatalogueItems.toLocaleString()} products in the catalogue
+        </p>
+      )}
       {error && <p className="error">{error}</p>}
 
       {transfers.length > 0 && (
@@ -97,6 +113,14 @@ export default function StockPage() {
           {levels.length === 0 && <tr><td colSpan={5} className="muted">No stock rows.</td></tr>}
         </tbody>
       </table>
+
+      {stock && stock.matched > take && (
+        <div className="toolbar">
+          <button className="ghost small" disabled={skip === 0} onClick={() => setSkip(Math.max(0, skip - take))}>← Prev</button>
+          <span className="muted small">{skip + 1}–{Math.min(skip + take, stock.matched)} of {stock.matched.toLocaleString()}</span>
+          <button className="ghost small" disabled={skip + take >= stock.matched} onClick={() => setSkip(skip + take)}>Next →</button>
+        </div>
+      )}
 
       {drill && <ItemDialog level={drill} locations={locations} onClose={() => { setDrill(null); void refresh(); }} />}
     </section>

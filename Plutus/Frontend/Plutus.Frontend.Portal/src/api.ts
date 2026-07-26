@@ -208,6 +208,14 @@ export const createStockLocation = (body: { storeId: number; type: string; name:
 export interface StockLocationRow { id: string; storeId: number; type: string; name: string }
 export const fetchStockLocations = () => get<StockLocationRow[]>(`/api/v1/stock/locations`);
 
+// ── loyalty ──
+export interface LoyaltyRow {
+  id: string; name: string; email: string | null; phone: string | null;
+  tier: string | null; autoDiscountRate: number | null; renewalDay: string | null; expired: boolean; creditBalancePence: number;
+}
+export const fetchLoyalty = (search?: string) =>
+  get<{ count: number; rows: LoyaltyRow[] }>(`/api/v1/loyalty${search ? `?search=${encodeURIComponent(search)}` : ""}`);
+
 // WP11.2 receipt template (per store) + NatApp receipt fields. Stored/echoed opaquely by the API.
 export interface ReceiptTemplate {
   storeName?: string;

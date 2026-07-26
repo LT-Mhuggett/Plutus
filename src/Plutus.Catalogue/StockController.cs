@@ -42,30 +42,40 @@ namespace Plutus.Catalogue
         [HttpGet("api/v1/stock/levels")]
         [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView)]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<IActionResult> Levels([FromQuery] Guid? locationId, [FromQuery] string search, [FromQuery] int take = 100)
+        public async Task<IActionResult> Levels(
+            [FromQuery] Guid? locationId, [FromQuery] string search, [FromQuery] int skip = 0, [FromQuery] int take = 25)
         {
-            take = Math.Clamp(take, 1, 500);
+            take = Math.Clamp(take, 1, 200);
+            skip = Math.Max(0, skip);
             var q = _db.StockLevels.AsNoTracking()
                 .Where(l => locationId == null || l.StockLocationId == locationId)
                 .Where(l => search == null || l.ItemIdOne.Contains(search));
-            var rows = await q.OrderBy(l => l.ItemIdOne).Take(take).ToListAsync();
+
+            var matched = await q.CountAsync();                         // rows for the current filter (for pagination)
+            var inStock = await q.CountAsync(l => l.Quantity > 0);      // of those, how many are actually in stock
+            var totalCatalogueItems = await _db.Items.AsNoTracking().CountAsync(); // all possible products
+            var rows = await q.OrderBy(l => l.ItemIdOne).Skip(skip).Take(take).ToListAsync();
             var locations = await _db.StockLocations.AsNoTracking().ToListAsync();
 
-            // item names from the legacy catalogue for display
             var ids = rows.Select(r => r.ItemIdOne).Distinct().ToList();
             var names = await _db.Items.AsNoTracking()
-                .Where(i => ids.Contains(i.IdOne))
-                .Select(i => new { i.IdOne, i.Name })
-                .ToListAsync();
+                .Where(i => ids.Contains(i.IdOne)).Select(i => new { i.IdOne, i.Name }).ToListAsync();
 
-            return Ok(rows.Select(r => new
+            return Ok(new
             {
-                stockLocationId = r.StockLocationId,
-                location = locations.FirstOrDefault(l => l.Id == r.StockLocationId)?.Name ?? "?",
-                itemIdOne = r.ItemIdOne,
-                name = names.FirstOrDefault(n => n.IdOne == r.ItemIdOne)?.Name,
-                quantity = r.Quantity,
-            }));
+                totalCatalogueItems,   // total list of possible items (catalogue)
+                inStock,               // items in stock (qty > 0) for this filter/location
+                matched,               // rows matching the filter (page count basis)
+                skip, take,
+                rows = rows.Select(r => new
+                {
+                    stockLocationId = r.StockLocationId,
+                    location = locations.FirstOrDefault(l => l.Id == r.StockLocationId)?.Name ?? "?",
+                    itemIdOne = r.ItemIdOne,
+                    name = names.FirstOrDefault(n => n.IdOne == r.ItemIdOne)?.Name,
+                    quantity = r.Quantity,
+                }),
+            });
         }
 
         [HttpGet("api/v1/stock/movements")]

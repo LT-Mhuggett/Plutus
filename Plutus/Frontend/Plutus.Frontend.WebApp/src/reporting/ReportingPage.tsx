@@ -4,7 +4,7 @@ import CustomReport from "../StatisticsPage.tsx";
 import VatReport from "./VatReport.tsx";
 import {
   fetchV1ItemsSold, fetchV1Staff, fetchV1StockLevels,
-  type V1ItemsSold, type V1Staff, type V1StockLevel,
+  type V1ItemsSold, type V1Staff, type V1StockResp,
 } from "../api.ts";
 import { gbp } from "../money.ts";
 
@@ -120,23 +120,40 @@ function ItemsSoldView() {
 /** Live on-hand stock at this store (v1 — same data as the portal). */
 function StockView() {
   const [search, setSearch] = useState("");
-  const { data, error, denied, loading } = useReport<V1StockLevel[]>(() => fetchV1StockLevels(search), [search]);
+  const [take, setTake] = useState(25);
+  const [skip, setSkip] = useState(0);
+  useEffect(() => { setSkip(0); }, [search, take]);
+  const { data, error, denied, loading } = useReport<V1StockResp>(() => fetchV1StockLevels(search, skip, take), [search, take, skip]);
   return (
     <>
       <div className="toolbar">
         <label>Search <input placeholder="barcode / name" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
-        <span className="muted small">Live on-hand.</span>
+        <label>Show
+          <select value={take} onChange={(e) => setTake(Number(e.target.value))}>
+            <option value={25}>25</option><option value={50}>50</option><option value={100}>100</option>
+          </select>
+        </label>
       </div>
+      {data && <p className="muted small">{data.inStock.toLocaleString()} in stock · {data.matched.toLocaleString()} with a stock record · {data.totalCatalogueItems.toLocaleString()} products in the catalogue</p>}
       {denied ? <Denied /> : loading ? <p className="muted">Loading…</p> : error ? <p className="error">{error}</p> : data && (
-        <table>
-          <thead><tr><th>Item</th><th>Name</th><th>Location</th><th className="num">On hand</th></tr></thead>
-          <tbody>
-            {data.map((l, i) => (
-              <tr key={i}><td className="mono small">{l.itemIdOne}</td><td>{l.name ?? <span className="muted">?</span>}</td><td>{l.location}</td><td className="num">{l.quantity}</td></tr>
-            ))}
-            {data.length === 0 && <tr><td colSpan={4} className="muted">No stock rows.</td></tr>}
-          </tbody>
-        </table>
+        <>
+          <table>
+            <thead><tr><th>Item</th><th>Name</th><th>Location</th><th className="num">On hand</th></tr></thead>
+            <tbody>
+              {data.rows.map((l, i) => (
+                <tr key={i}><td className="mono small">{l.itemIdOne}</td><td>{l.name ?? <span className="muted">?</span>}</td><td>{l.location}</td><td className="num">{l.quantity}</td></tr>
+              ))}
+              {data.rows.length === 0 && <tr><td colSpan={4} className="muted">No stock rows.</td></tr>}
+            </tbody>
+          </table>
+          {data.matched > take && (
+            <div className="toolbar">
+              <button className="ghost small" disabled={skip === 0} onClick={() => setSkip(Math.max(0, skip - take))}>&larr; Prev</button>
+              <span className="muted small">{skip + 1}&ndash;{Math.min(skip + take, data.matched)} of {data.matched.toLocaleString()}</span>
+              <button className="ghost small" disabled={skip + take >= data.matched} onClick={() => setSkip(skip + take)}>Next &rarr;</button>
+            </div>
+          )}
+        </>
       )}
     </>
   );

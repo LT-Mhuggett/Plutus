@@ -57,6 +57,45 @@ namespace Plutus.Customers
                 .ToListAsync());
         }
 
+        /// <summary>Loyalty view (till + portal): customers who are members OR hold store credit,
+        /// with their tier, auto-discount, renewal and live balance. Balances summed in bulk.</summary>
+        [HttpGet("api/v1/loyalty")]
+        [Authorize]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> Loyalty([FromQuery] string search, [FromQuery] int take = 200)
+        {
+            take = Math.Clamp(take, 1, 500);
+            var members = await _db.Memberships.AsNoTracking().Where(m => m.Active).ToListAsync();
+            var accounts = await _db.CreditAccounts.AsNoTracking().ToListAsync();
+            var balByAccount = (await _db.CreditEntries.AsNoTracking()
+                    .GroupBy(e => e.CreditAccountId).Select(g => new { AccountId = g.Key, Bal = g.Sum(e => e.AmountPence) }).ToListAsync())
+                .ToDictionary(x => x.AccountId, x => x.Bal);
+
+            var custIds = members.Select(m => m.CustomerId).Concat(accounts.Select(a => a.CustomerId)).Distinct().ToList();
+            var customers = await _db.Customers.AsNoTracking().Where(c => c.Active && custIds.Contains(c.Id)).ToListAsync();
+            if (!string.IsNullOrWhiteSpace(search))
+                customers = customers.Where(c => (c.Name ?? "").Contains(search, StringComparison.OrdinalIgnoreCase)
+                    || (c.Email ?? "").Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var rows = customers.Select(c =>
+            {
+                var acc = accounts.FirstOrDefault(a => a.CustomerId == c.Id);
+                var bal = acc != null && balByAccount.TryGetValue(acc.Id, out var b) ? b : 0L;
+                var mem = members.Where(m => m.CustomerId == c.Id).OrderByDescending(m => m.RenewalDay).FirstOrDefault();
+                return new
+                {
+                    id = c.Id, name = c.Name, email = c.Email, phone = c.Phone,
+                    tier = mem?.Tier,
+                    autoDiscountRate = mem?.AutoDiscountRate,
+                    renewalDay = mem?.RenewalDay,
+                    expired = mem != null && mem.RenewalDay < today,
+                    creditBalancePence = bal,
+                };
+            }).OrderByDescending(r => r.creditBalancePence).ThenBy(r => r.name).Take(take);
+            return Ok(new { count = customers.Count, rows });
+        }
+
         /// <summary>Customer with live credit balance + active membership (the till's
         /// at-sale lookup).</summary>
         [HttpGet("api/v1/customers/{id}")]

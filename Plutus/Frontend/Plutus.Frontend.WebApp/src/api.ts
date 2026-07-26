@@ -305,8 +305,10 @@ export interface SalesSummary {
   byTaxRate: { tax: string; gross: number; net: number; vat: number }[];
 }
 
+// Repointed to the v1 endpoint (reads SalesV2 — the full history) so the till Summary shows all
+// sales, not the near-empty legacy Sales table. Same shape as the old /api/Sale/Summary.
 export const fetchSalesSummary = (from: Date, to: Date) =>
-  get<SalesSummary>(`/api/Sale/Summary?minDate=${dateOnly(from)}&maxDate=${dateOnly(to)}`);
+  get<SalesSummary>(`/api/v1/reports/summary-rich?from=${dateOnly(from)}&to=${dateOnly(to)}`);
 
 // ── v1 reports (parity with the portal — same endpoints, scoped to THIS store) ──
 // Gated server-side on portal.reports.view / portal.financials.view via RBAC, so a cashier
@@ -342,8 +344,16 @@ export interface V1Staff { id: string; name: string }
 export const fetchV1Staff = () => get<V1Staff[]>(`/api/v1/reports/staff?storeId=${STORE_ID}`);
 
 export interface V1StockLevel { stockLocationId: string; location: string; itemIdOne: string; name: string | null; quantity: number }
-export const fetchV1StockLevels = (search = "") =>
-  get<V1StockLevel[]>(`/api/v1/stock/levels?take=500${search ? `&search=${encodeURIComponent(search)}` : ""}`);
+export interface V1StockResp { totalCatalogueItems: number; inStock: number; matched: number; skip: number; take: number; rows: V1StockLevel[] }
+export const fetchV1StockLevels = (search = "", skip = 0, take = 25) =>
+  get<V1StockResp>(`/api/v1/stock/levels?skip=${skip}&take=${take}${search ? `&search=${encodeURIComponent(search)}` : ""}`);
+
+export interface V1LoyaltyRow {
+  id: string; name: string; email: string | null; phone: string | null;
+  tier: string | null; autoDiscountRate: number | null; renewalDay: string | null; expired: boolean; creditBalancePence: number;
+}
+export const fetchLoyalty = (search = "") =>
+  get<{ count: number; rows: V1LoyaltyRow[] }>(`/api/v1/loyalty${search ? `?search=${encodeURIComponent(search)}` : ""}`);
 
 export interface SaleDetail {
   id: string;

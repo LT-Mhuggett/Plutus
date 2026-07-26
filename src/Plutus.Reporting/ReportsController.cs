@@ -140,6 +140,77 @@ namespace Plutus.Reporting
             });
         }
 
+        /// <summary>The rich sales summary the till's Summary view renders (totals, by-day,
+        /// top items, by-payment-method, by-tax-rate) — from v1 SalesV2/SaleLines/SaleTenders so it
+        /// shows the FULL history. Same JSON shape as the legacy /api/Sale/Summary (amounts in
+        /// pounds). Gated on reports.view (the shopkeeper reporting permission).</summary>
+        [HttpGet("api/v1/reports/summary-rich")]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> SummaryRich([FromQuery] DateOnly from, [FromQuery] DateOnly to)
+        {
+            if (to < from) return BadRequest(new { detail = "to must be >= from." });
+            decimal P(long pence) => pence / 100m;
+
+            var sales = await _db.SalesV2.AsNoTracking()
+                .Where(s => s.BusinessDay >= from && s.BusinessDay <= to)
+                .Select(s => new { s.Id, s.BusinessDay, s.GrossPence, s.VatPence }).ToListAsync();
+
+            var byDay = sales.GroupBy(s => s.BusinessDay).OrderBy(g => g.Key).Select(g => new
+            {
+                date = g.Key.ToString("yyyy-MM-dd"),
+                total = P(g.Sum(s => s.GrossPence)),
+                totalExTax = P(g.Sum(s => s.GrossPence - s.VatPence)),
+                orders = g.Count(),
+            });
+
+            var lines = await (from l in _db.SaleLines.AsNoTracking()
+                               join s in _db.SalesV2.AsNoTracking() on l.SaleId equals s.Id
+                               where s.BusinessDay >= @from && s.BusinessDay <= to && l.ItemIdOne != null
+                               select new { l.ItemIdOne, l.Qty, l.LineGrossPence, l.VatAmountPence, l.VatRateBp }).ToListAsync();
+
+            var barcodes = lines.Select(l => l.ItemIdOne).Distinct().ToList();
+            var names = (await _db.Items.AsNoTracking().IgnoreQueryFilters()
+                    .Where(i => barcodes.Contains(i.IdOne)).Select(i => new { i.IdOne, i.Name }).ToListAsync())
+                .GroupBy(i => i.IdOne).ToDictionary(g => g.Key, g => g.First().Name);
+
+            var topItems = lines.GroupBy(l => l.ItemIdOne).Select(g => new
+            {
+                itemId = g.Key,
+                name = names.TryGetValue(g.Key, out var n) ? n : g.Key,
+                quantity = g.Sum(l => l.Qty),
+                gross = P(g.Sum(l => l.LineGrossPence)),
+                grossExTax = P(g.Sum(l => l.LineGrossPence - l.VatAmountPence)),
+            }).OrderByDescending(x => x.gross).Take(10);
+
+            var byTaxRate = lines.GroupBy(l => l.VatRateBp).Select(g => new
+            {
+                tax = g.Key == 0 ? "Zero" : $"{g.Key / 100m:0.##}%",
+                gross = P(g.Sum(l => l.LineGrossPence)),
+                net = P(g.Sum(l => l.LineGrossPence - l.VatAmountPence)),
+                vat = P(g.Sum(l => l.VatAmountPence)),
+            }).OrderByDescending(x => x.gross);
+
+            var tenders = await (from t in _db.SaleTenders.AsNoTracking()
+                                 join s in _db.SalesV2.AsNoTracking() on t.SaleId equals s.Id
+                                 where s.BusinessDay >= @from && s.BusinessDay <= to
+                                 select new { t.TenderType, t.AmountPence, t.ChangePence }).ToListAsync();
+            var byPayMethod = tenders.GroupBy(t => t.TenderType).Select(g => new
+            {
+                method = g.Key.ToString(),
+                total = P(g.Sum(t => t.AmountPence - t.ChangePence)),
+            }).OrderByDescending(x => x.total);
+
+            return Ok(new
+            {
+                totalSales = P(sales.Sum(s => s.GrossPence)),
+                totalSalesExTax = P(sales.Sum(s => s.GrossPence - s.VatPence)),
+                totalOrders = sales.Count,
+                byDay, topItems, byPayMethod, byTaxRate,
+            });
+        }
+
         [HttpGet("api/v1/reports/vat")]
         [Authorize(Policy = "perm:" + PermissionCatalogue.PortalFinancialsView)]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -255,72 +326,58 @@ namespace Plutus.Reporting
             string tillName, Guid staffId, string staffName,
             int qty, long unitPricePence, long discountPence, long lineGrossPence);
 
-        /// <summary>WP11.4 items-sold report (NatApp "Stock Outtake" parity). Sourced from the
-        /// LEGACY Trans+Sales tables (they carry ItemIdOne for name joins and uniformly cover
-        /// 2019→today; re-point to SaleLines when legacy retires — contract unchanged). Filters:
-        /// date range + optional store/till/item/staff. Capped.</summary>
+        /// <summary>WP11.4 items-sold report (NatApp "Stock Outtake" parity). Reads the v1
+        /// SaleLines + SalesV2 (the full history); item name via SaleLine.ItemIdOne → Items.IdOne
+        /// (barcode preserved by the migration). Reconciliation sentinel lines (no barcode) are
+        /// excluded — they aren't sellable items. Filters: date + optional store/till/item/staff.</summary>
         private async Task<List<ItemSoldRow>> ItemsSoldAsync(
             DateOnly from, DateOnly to, int? storeId, Guid? tillId, Guid? operatorUserId, string itemIdOne, int take)
         {
-            var fromDt = from.ToDateTime(TimeOnly.MinValue);
-            var toDt = to.AddDays(1).ToDateTime(TimeOnly.MinValue); // inclusive end day
-
-            var q = from t in _db.Trans.AsNoTracking()
-                    join s in _db.Sales.AsNoTracking() on t.IdTwo equals s.Id
-                    where s.DateOfSale >= fromDt && s.DateOfSale < toDt
+            var q = from l in _db.SaleLines.AsNoTracking()
+                    join s in _db.SalesV2.AsNoTracking() on l.SaleId equals s.Id
+                    where s.BusinessDay >= @from && s.BusinessDay <= to && l.ItemIdOne != null
                     select new
                     {
-                        t.IdOne, SaleId = t.IdTwo, t.ItemIdOne, t.Amount, t.ItemCostPrice,
-                        t.TillId, s.DateOfSale, s.StoreId, s.EmployeeId,
+                        l.ItemIdOne, l.Qty, l.UnitPricePence, l.DiscountPence, l.LineGrossPence,
+                        s.OccurredAtUtc, s.TillId, s.OperatorUserId,
                     };
-            if (storeId != null) q = q.Where(x => x.StoreId == storeId);
             if (tillId != null) q = q.Where(x => x.TillId == tillId);
-            if (operatorUserId != null) q = q.Where(x => x.EmployeeId == operatorUserId);
+            if (operatorUserId != null) q = q.Where(x => x.OperatorUserId == operatorUserId);
             if (!string.IsNullOrWhiteSpace(itemIdOne)) q = q.Where(x => x.ItemIdOne == itemIdOne);
 
-            var lines = await q.OrderByDescending(x => x.DateOfSale).Take(take).ToListAsync();
+            var lines = await q.OrderByDescending(x => x.OccurredAtUtc).Take(take).ToListAsync();
             if (lines.Count == 0) return new List<ItemSoldRow>();
 
-            var itemIds = lines.Select(l => l.ItemIdOne).Distinct().ToList();
-            var names = await _db.Items.AsNoTracking().IgnoreQueryFilters()
-                .Where(i => itemIds.Contains(i.IdOne))
-                .Select(i => new { i.IdOne, i.Name })
-                .ToDictionaryAsync(i => i.IdOne, i => i.Name);
+            var barcodes = lines.Select(l => l.ItemIdOne).Distinct().ToList();
+            var names = (await _db.Items.AsNoTracking().IgnoreQueryFilters()
+                    .Where(i => barcodes.Contains(i.IdOne)).Select(i => new { i.IdOne, i.Name }).ToListAsync())
+                .GroupBy(i => i.IdOne).ToDictionary(g => g.Key, g => g.First().Name);
 
             var tillIds = lines.Select(l => l.TillId).Distinct().ToList();
             var tillNames = await _db.TillDetails.AsNoTracking()
-                .Where(td => tillIds.Contains(td.TillId))
-                .ToDictionaryAsync(td => td.TillId, td => td.Name);
+                .Where(td => tillIds.Contains(td.TillId)).ToDictionaryAsync(td => td.TillId, td => td.Name);
+            // Migrated sales carry a synthetic TillId not in the Till table → attribute to the
+            // tenant's primary store so a store filter (single-store tenant) still includes them.
+            var tillStore = await _db.Till.AsNoTracking().ToDictionaryAsync(t => t.Id, t => t.StoreId);
+            var primaryStore = await _db.Stores.AsNoTracking().Select(s => (int?)s.Id).FirstOrDefaultAsync() ?? 0;
 
-            var staffIds = lines.Select(l => l.EmployeeId).Distinct().ToList();
-            var staffNames = await _db.People.AsNoTracking().IgnoreQueryFilters()
-                .Where(p => staffIds.Contains(p.Id))
-                .Select(p => new { p.Id, p.FName, p.LName })
-                .ToDictionaryAsync(p => p.Id, p => $"{p.FName} {p.LName}".Trim());
+            var staffIds = lines.Where(l => l.OperatorUserId != null).Select(l => l.OperatorUserId.Value).Distinct().ToList();
+            var staffNames = (await _db.People.AsNoTracking().IgnoreQueryFilters()
+                    .Where(p => staffIds.Contains(p.Id)).Select(p => new { p.Id, p.FName, p.LName }).ToListAsync())
+                .GroupBy(p => p.Id).ToDictionary(g => g.Key, g => $"{g.First().FName} {g.First().LName}".Trim());
 
-            // Σ discount rate per legacy transaction line (TransactionId + SaleId composite).
-            var saleIds = lines.Select(l => l.SaleId).Distinct().ToList();
-            var discRows = await _db.Transaction_Discounts.AsNoTracking()
-                .Where(d => saleIds.Contains(d.SaleId))
-                .Select(d => new { d.TransactionId, d.SaleId, d.DiscountRate })
-                .ToListAsync();
-            var discByLine = discRows
-                .GroupBy(d => (d.TransactionId, d.SaleId))
-                .ToDictionary(g => g.Key, g => g.Sum(d => d.DiscountRate));
-
-            return lines.Select(l =>
+            var rows = lines.Select(l =>
             {
-                var unitPence = (long)Math.Round(l.ItemCostPrice * 100m, MidpointRounding.AwayFromZero);
-                var beforeDiscount = unitPence * l.Amount;
-                discByLine.TryGetValue((l.IdOne, l.SaleId), out var rate);
-                var discountPence = (long)Math.Round(beforeDiscount * rate, MidpointRounding.AwayFromZero);
+                var staffId = l.OperatorUserId ?? Guid.Empty;
                 return new ItemSoldRow(
-                    l.DateOfSale, l.ItemIdOne, names.TryGetValue(l.ItemIdOne, out var n) ? n : "?",
-                    l.StoreId, l.TillId,
-                    tillNames.TryGetValue(l.TillId, out var tn) ? tn : $"Till {l.TillId.ToString()[..8]}",
-                    l.EmployeeId, staffNames.TryGetValue(l.EmployeeId, out var sn) && !string.IsNullOrWhiteSpace(sn) ? sn : "—",
-                    l.Amount, unitPence, discountPence, beforeDiscount - discountPence);
-            }).ToList();
+                    l.OccurredAtUtc, l.ItemIdOne, names.TryGetValue(l.ItemIdOne, out var n) ? n : l.ItemIdOne,
+                    tillStore.TryGetValue(l.TillId, out var st) ? st : primaryStore, l.TillId,
+                    tillNames.TryGetValue(l.TillId, out var tn) ? tn : "(historic till)",
+                    staffId, staffNames.TryGetValue(staffId, out var sn) && !string.IsNullOrWhiteSpace(sn) ? sn : "—",
+                    l.Qty, l.UnitPricePence, l.DiscountPence, l.LineGrossPence);
+            });
+            if (storeId != null) rows = rows.Where(r => r.storeId == storeId);
+            return rows.ToList();
         }
 
         [HttpGet("api/v1/reports/items-sold")]
