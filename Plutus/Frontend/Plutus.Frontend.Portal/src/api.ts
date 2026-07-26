@@ -294,3 +294,55 @@ export const fetchPeriods = () => get<Period[]>(`/api/v1/periods`);
 export const createPeriod = (name: string, startDay: string, endDay: string) =>
   post<{ id: string }>(`/api/v1/periods`, { name, startDay, endDay });
 export const closePeriod = (id: string) => post<{ id: string; snapshot: unknown }>(`/api/v1/periods/${id}/close`);
+
+// ---- Phase 6: webstore connector (WP6.2 review queue, WP6.4 catalogue/alignment) ----
+export interface WebstoreConn {
+  id: string; name: string; url: string | null; provider: string; storeId: number | null;
+  enabled: boolean; oversellBuffer: number;
+  ordersCursorUtc: string | null; productsCursorUtc: string | null; lastFullProductSweepUtc: string | null;
+  pendingSkus: number;
+}
+export interface SkuMapRow {
+  id: string; sku: string; status: string; boundItemIdOne: string | null; seenCount: number;
+  firstSeenWooOrderId: number | null; firstSeenUtc: string; updatedAtUtc: string;
+  web: { name: string; pricePence: number; status: string } | null;
+}
+export interface WebstoreProductRow {
+  wooProductId: number; sku: string | null; name: string; pricePence: number;
+  regularPricePence: number | null; stockQuantity: number | null; stockStatus: string | null;
+  status: string; permalink: string | null; wooModifiedUtc: string | null; linkedItem: boolean;
+}
+export interface WebstoreProductsResp {
+  total: number; skip: number; take: number; lastRefreshed: string | null; rows: WebstoreProductRow[];
+}
+export interface AlignmentRow {
+  sku: string; webName: string; tillName: string; nameDrift: boolean;
+  webPricePence: number; tillPricePence: number; priceDiffPence: number; status: string; stockStatus: string | null;
+}
+export interface AlignmentResp {
+  matched: number; nameDrift: AlignmentRow[]; priceDiffers: AlignmentRow[];
+  webOnly: { sku: string | null; name: string; pricePence: number; status: string }[];
+  tillOnlyCount: number;
+}
+export const fetchWebstores = () => get<WebstoreConn[]>(`/api/v1/webstores`);
+export const fetchSkuMap = (id: string, status?: string) =>
+  get<SkuMapRow[]>(`/api/v1/webstores/${id}/skumap${status ? `?status=${status}` : ""}`);
+export const bindSku = (id: string, mapId: string, itemIdOne: string) =>
+  post<unknown>(`/api/v1/webstores/${id}/skumap/${mapId}/bind`, { itemIdOne });
+export const ignoreSku = (id: string, mapId: string) =>
+  post<unknown>(`/api/v1/webstores/${id}/skumap/${mapId}/ignore`);
+export const createItemFromSku = (id: string, mapId: string, name?: string, pricePence?: number) =>
+  post<unknown>(`/api/v1/webstores/${id}/skumap/${mapId}/create-item`, { name, pricePence });
+export const retryParkedOrders = (id: string) =>
+  post<{ recorded: number; still: number; notOurs: number }>(`/api/v1/webstores/${id}/retry`);
+export const fetchWebstoreProducts = (id: string, opts: { status?: string; linked?: string; skip?: number; take?: number }) => {
+  const p = new URLSearchParams();
+  if (opts.status) p.set("status", opts.status);
+  if (opts.linked) p.set("linked", opts.linked);
+  p.set("skip", String(opts.skip ?? 0));
+  p.set("take", String(opts.take ?? 50));
+  return get<WebstoreProductsResp>(`/api/v1/webstores/${id}/products?${p}`);
+};
+export const refreshWebstoreProducts = (id: string) =>
+  post<{ refreshed: number; requests: number }>(`/api/v1/webstores/${id}/products/refresh`);
+export const fetchAlignment = (id: string) => get<AlignmentResp>(`/api/v1/webstores/${id}/alignment`);

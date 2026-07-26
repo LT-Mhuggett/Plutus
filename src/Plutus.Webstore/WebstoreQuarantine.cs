@@ -23,7 +23,8 @@ namespace Plutus.Webstore
             // Same idempotency pattern as the ingest's quarantine path (unique (TenantId, SaleId)).
             if (await db.SaleQuarantine.IgnoreQueryFilters().AsNoTracking().AnyAsync(q => q.SaleId == saleId, ct))
                 return;
-            var reason = r.Detail ?? "webstore quarantine";
+            var reason = r.Detail
+                ?? (r.UnmatchedSkus.Count > 0 ? $"needs-mapping: {string.Join(", ", r.UnmatchedSkus)}" : "webstore quarantine");
             db.SaleQuarantine.Add(new SaleQuarantine
             {
                 Id = Uuid7.New(), TenantId = ctx.TenantId, SaleId = saleId,

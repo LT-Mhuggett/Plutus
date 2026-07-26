@@ -732,3 +732,22 @@ export async function drainOutbox(): Promise<{ sent: number; remaining: number }
   }
   return { sent, remaining: (await queuedSales()).length };
 }
+
+// ---- Phase 6: pick-from-floor notifications (a web sale sold stock on the shop floor) ----
+export interface PickNotification {
+  id: string;
+  message: string;
+  wooOrderId: number;
+  storeId: number | null;
+  createdAtUtc: string;
+}
+export async function fetchPickNotifications(): Promise<PickNotification[]> {
+  const res = await fetch(`/api/v1/notifications?unackedOnly=true`, { headers: headers() });
+  if (!res.ok) return [];   // quietly absent when unauthorised/offline — the till keeps trading
+  return (await res.json()) as PickNotification[];
+}
+export async function ackPickNotification(id: string): Promise<void> {
+  const res = await fetch(`/api/v1/notifications/${id}/ack`, { method: "POST", headers: headers() });
+  handle401(res);
+  if (!res.ok) throw new Error(`ack failed (${res.status})`);
+}

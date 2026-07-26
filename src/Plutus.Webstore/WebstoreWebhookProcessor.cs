@@ -33,6 +33,9 @@ namespace Plutus.Webstore
         /// <summary>The Woo order id, once the payload parsed — lets the caller derive the
         /// deterministic saleId (e.g. to park a quarantine idempotently). Null for Rejected.</summary>
         public long? WooOrderId { get; init; }
+        /// <summary>The parsed order (callers use it for quarantine payloads + the pick-from-floor
+        /// notification). Null for Rejected.</summary>
+        public WooOrder? Order { get; set; }
         public IReadOnlyList<string> UnmatchedSkus { get; init; } = Array.Empty<string>();
 
         public static WebstoreInboundResult Recorded(Guid id, long orderId) =>
@@ -97,18 +100,25 @@ namespace Plutus.Webstore
 
             var mapped = WooOrderMapper.MapOrder(order, ctx, resolver);
 
+            WebstoreInboundResult result;
             if (mapped.NeedsMapping)
             {
                 await _queue.EnqueueAsync(ctx, order.Id, mapped.UnmatchedSkus, ct);
-                return WebstoreInboundResult.NeedsMapping(mapped.UnmatchedSkus, order.Id);
+                result = WebstoreInboundResult.NeedsMapping(mapped.UnmatchedSkus, order.Id);
             }
-            if (mapped.IsQuarantined)
-                return WebstoreInboundResult.Quarantined(mapped.QuarantineReason!, order.Id);
-
-            var wasNew = await _sink.SubmitAsync(mapped.Sale!, ct);
-            return wasNew
-                ? WebstoreInboundResult.Recorded(mapped.Sale!.Id, order.Id)
-                : WebstoreInboundResult.Duplicate(mapped.Sale!.Id, order.Id);
+            else if (mapped.IsQuarantined)
+            {
+                result = WebstoreInboundResult.Quarantined(mapped.QuarantineReason!, order.Id);
+            }
+            else
+            {
+                var wasNew = await _sink.SubmitAsync(mapped.Sale!, ct);
+                result = wasNew
+                    ? WebstoreInboundResult.Recorded(mapped.Sale!.Id, order.Id)
+                    : WebstoreInboundResult.Duplicate(mapped.Sale!.Id, order.Id);
+            }
+            result.Order = order;
+            return result;
         }
     }
 }

@@ -8,7 +8,7 @@ import StoreInformationPage from "./StoreInformationPage.tsx";
 import SettingsPage from "./SettingsPage.tsx";
 import EmployeesPage from "./EmployeesPage.tsx";
 import LoginPage from "./LoginPage.tsx";
-import { drainOutbox, fetchTillName, loadReceiptTemplate, onOutboxChanged, syncCatalogue } from "./api.ts";
+import { ackPickNotification, drainOutbox, fetchPickNotifications, fetchTillName, loadReceiptTemplate, onOutboxChanged, syncCatalogue, type PickNotification } from "./api.ts";
 import { getDeviceCredential } from "./pipeline.ts";
 import { queuedCount } from "./offline.ts";
 import { getSession, type Session } from "./session.ts";
@@ -50,6 +50,7 @@ export default function App() {
   const [online, setOnline] = useState(navigator.onLine);
   const [queued, setQueued] = useState(0);
   const [tillName, setTillName] = useState<string | null>(null);
+  const [pickNotes, setPickNotes] = useState<PickNotification[]>([]);
 
   // OIDC mode: complete the redirect callback, or bounce to the IdP. Password mode: no-op.
   useEffect(() => {
@@ -93,8 +94,14 @@ export default function App() {
     // WP11.1: show this till's name in the header (from its enrolled device identity).
     const cred = getDeviceCredential();
     if (cred?.tillId) void fetchTillName(cred.tillId).then(setTillName).catch(() => undefined);
+    // Phase 6 pick-from-floor: poll for "sold online — pull it off the shelf" notifications on
+    // the same cadence as the rest of the till's background sync (60 s; unacked persist).
+    const pollNotes = () => void fetchPickNotifications().then(setPickNotes).catch(() => undefined);
+    pollNotes();
+    const notesTimer = window.setInterval(pollNotes, 60_000);
     return () => {
       offOutbox();
+      window.clearInterval(notesTimer);
       window.removeEventListener("online", goOnline);
       window.removeEventListener("offline", goOffline);
     };
@@ -167,6 +174,23 @@ export default function App() {
           )}
         </div>
       </header>
+
+      {/* Phase 6 pick-from-floor: a web sale sold stock that's physically on the shelf. */}
+      {pickNotes.map((n) => (
+        <div key={n.id} className="pick-note">
+          <span className="grow">🛒 {n.message}</span>
+          <button
+            className="ghost small"
+            onClick={() =>
+              void ackPickNotification(n.id)
+                .then(() => setPickNotes((xs) => xs.filter((x) => x.id !== n.id)))
+                .catch(() => undefined)
+            }
+          >
+            Done — acknowledged
+          </button>
+        </div>
+      ))}
 
       <div className="page">
         <Page tab={tab} />

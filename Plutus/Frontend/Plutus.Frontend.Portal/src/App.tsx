@@ -7,6 +7,7 @@ import StockPage from "./StockPage.tsx";
 import PricesPage from "./PricesPage.tsx";
 import UsersPage from "./UsersPage.tsx";
 import StoresPage from "./StoresPage.tsx";
+import WebstorePage from "./WebstorePage.tsx";
 import PeriodsPage from "./PeriodsPage.tsx";
 import LoginPage from "./LoginPage.tsx";
 import { getSession, type Session } from "./session.ts";
@@ -15,7 +16,7 @@ import { beginLogin, completeLoginIfCallback } from "./oidc.ts";
 
 declare const __BUILD_TIME__: string;
 
-const TABS = ["Reporting", "Banking", "Stock", "Prices", "Customers", "Loyalty", "Users & Roles", "Stores & Tills", "Periods"] as const;
+const TABS = ["Reporting", "Banking", "Stock", "Prices", "Customers", "Loyalty", "Webstore", "Users & Roles", "Stores & Tills", "Periods"] as const;
 type Tab = (typeof TABS)[number];
 
 const PAGES: Record<Tab, () => React.JSX.Element> = {
@@ -25,6 +26,7 @@ const PAGES: Record<Tab, () => React.JSX.Element> = {
   Prices: PricesPage,
   Customers: CustomersPage,
   Loyalty: LoyaltyPage,
+  Webstore: WebstorePage,
   "Users & Roles": UsersPage,
   "Stores & Tills": StoresPage,
   Periods: PeriodsPage,

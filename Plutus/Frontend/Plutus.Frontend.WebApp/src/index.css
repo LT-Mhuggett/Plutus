@@ -1144,3 +1144,12 @@ button.primary.slim {
 .cust-input { min-width: 240px; }
 .cust-results { position: absolute; top: 100%; left: 0; z-index: 5; background: #fff; border: 1px solid var(--line, #d0d0d0); border-radius: 8px; min-width: 280px; max-height: 240px; overflow: auto; margin: 2px 0; }
 .cust-results .no-cust { padding: 8px 12px; }
+
+/* Phase 6 pick-from-floor notification — prominent, persists until acknowledged */
+.pick-note {
+  display: flex; align-items: center; gap: 12px;
+  margin: 8px 0; padding: 10px 16px;
+  background: #fff7ed; border: 2px solid #f59e0b; border-radius: 8px;
+  font-weight: 600;
+}
+.pick-note .grow { flex: 1; }

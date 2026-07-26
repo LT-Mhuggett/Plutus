@@ -76,6 +76,22 @@ namespace Plutus.Webstore
         [JsonPropertyName("total_tax")] public string? TotalTax { get; set; }
     }
 
+    /// <summary>A WooCommerce product (the WP6.4 product-sweep shape — only the fields the
+    /// catalogue cache needs).</summary>
+    public sealed class WooProduct
+    {
+        [JsonPropertyName("id")] public long Id { get; set; }
+        [JsonPropertyName("sku")] public string? Sku { get; set; }
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("price")] public string? Price { get; set; }
+        [JsonPropertyName("regular_price")] public string? RegularPrice { get; set; }
+        [JsonPropertyName("stock_quantity")] public int? StockQuantity { get; set; }
+        [JsonPropertyName("stock_status")] public string? StockStatus { get; set; }
+        [JsonPropertyName("status")] public string? Status { get; set; }
+        [JsonPropertyName("permalink")] public string? Permalink { get; set; }
+        [JsonPropertyName("date_modified_gmt")] public string? DateModifiedGmt { get; set; }
+    }
+
     /// <summary>A WooCommerce refund (from <c>GET orders/{id}/refunds</c> or the order's
     /// <c>refunds</c> array). Kapow's refunds are whole-order amount refunds (empty line_items).</summary>
     public sealed class WooRefund

@@ -51,9 +51,11 @@ namespace Plutus.Entities
         public DbSet<TillDetails> TillDetails { get; set; }
         public DbSet<DeletionSchedule> DeletionSchedules { get; set; }
 
-        // Phase 6 WooCommerce connector (config + SKU review queue).
+        // Phase 6 WooCommerce connector (config + SKU review queue + product cache + notifications).
         public DbSet<WebStoreDetails> WebStores { get; set; }
         public DbSet<WebstoreSkuMap> WebstoreSkuMaps { get; set; }
+        public DbSet<WebstoreProduct> WebstoreProducts { get; set; }
+        public DbSet<WebstoreNotification> WebstoreNotifications { get; set; }
         // Reporting projections (WP3.3): rebuildable rollups the dashboards read.
         public DbSet<SalesRollup> SalesRollups { get; set; }
         public DbSet<VatRollup> VatRollups { get; set; }
@@ -156,8 +158,8 @@ namespace Plutus.Entities
             typeof(CashEvent), typeof(PaymentEvent),
             // Customers, credit, loyalty (Phase 8).
             typeof(Customer), typeof(CreditAccount), typeof(CreditEntry), typeof(Membership),
-            // WooCommerce connector config + SKU review queue (Phase 6).
-            typeof(WebStoreDetails), typeof(WebstoreSkuMap),
+            // WooCommerce connector config + SKU review queue + product cache + notifications (Phase 6).
+            typeof(WebStoreDetails), typeof(WebstoreSkuMap), typeof(WebstoreProduct), typeof(WebstoreNotification),
         };
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -362,6 +364,29 @@ namespace Plutus.Entities
                 e.Property(x => x.BoundItemIdOne).HasMaxLength(20);
                 // One row per (tenant, webstore, SKU) — re-seeing bumps SeenCount, not a new row.
                 e.HasIndex(x => new { x.TenantId, x.WebStoreId, x.Sku }).IsUnique();
+            });
+            modelBuilder.Entity<WebstoreProduct>(e =>
+            {
+                e.ToTable("WebstoreProducts");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Sku).HasMaxLength(64);
+                e.Property(x => x.Name).HasMaxLength(300).IsRequired();
+                e.Property(x => x.StockStatus).HasMaxLength(20);
+                e.Property(x => x.Status).HasMaxLength(20).IsRequired();
+                e.Property(x => x.Permalink).HasMaxLength(500);
+                e.HasIndex(x => new { x.TenantId, x.WebStoreId, x.WooProductId }).IsUnique();
+                e.HasIndex(x => new { x.TenantId, x.WebStoreId, x.Sku });
+            });
+            modelBuilder.Entity<WebstoreNotification>(e =>
+            {
+                e.ToTable("WebstoreNotifications");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Message).HasMaxLength(1000).IsRequired();
+                e.Property(x => x.AckedBy).HasMaxLength(100);
+                e.HasIndex(x => new { x.TenantId, x.AckedAtUtc });
+                e.HasIndex(x => new { x.TenantId, x.WebStoreId, x.WooOrderId }).IsUnique();  // one per order
             });
 
             // WP3.3 reporting rollups.

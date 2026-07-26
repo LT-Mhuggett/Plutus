@@ -10,6 +10,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Plutus.Entities;
 using Plutus.Entities.Tenancy;
+using Plutus.SharedKernel;
 
 namespace Plutus.Webstore
 {
@@ -28,15 +29,20 @@ namespace Plutus.Webstore
         /// <summary>First-ever poll looks back this far (webhooks carry the live load; the poll
         /// only heals gaps, so a bounded backfill is right).</summary>
         public int InitialLookbackHours { get; init; } = 24;
+        /// <summary>Nightly FULL product sweep runs in the 4-hour window starting at this UTC hour
+        /// (off-peak for the shop). The first-ever sweep runs immediately regardless.</summary>
+        public int FullSweepHourUtc { get; init; } = 2;
+        /// <summary>Page cap for a FULL product sweep (nightly; ~75 pages on the Kapow store).</summary>
+        public int MaxFullSweepPages { get; init; } = 200;
     }
 
     /// <summary>Summary of one reconciliation pass (logged; asserted in tests).</summary>
     public sealed class ReconcileSummary
     {
-        public int Webstores, Requests, Orders, Recorded, Duplicates, Skipped, NeedsMapping, Quarantined;
+        public int Webstores, Requests, Orders, Recorded, Duplicates, Skipped, NeedsMapping, Quarantined, ProductsSeen;
         public override string ToString() =>
             $"webstores={Webstores} requests={Requests} orders={Orders} recorded={Recorded} " +
-            $"dup={Duplicates} skipped={Skipped} needs-mapping={NeedsMapping} quarantined={Quarantined}";
+            $"dup={Duplicates} skipped={Skipped} needs-mapping={NeedsMapping} quarantined={Quarantined} products={ProductsSeen}";
     }
 
     /// <summary>
@@ -107,10 +113,18 @@ namespace Plutus.Webstore
                         var r = await pipeline.Processor.RouteOrderAsync(order, ctx, pipeline.Resolver, ct);
                         switch (r.Status)
                         {
-                            case WebstoreInboundStatus.Recorded: summary.Recorded++; break;
+                            case WebstoreInboundStatus.Recorded:
+                                summary.Recorded++;
+                                await WebstoreNotifications.CreateForRecordedAsync(pipeline.Db, ctx, order, ws.StoreId, ct);
+                                break;
                             case WebstoreInboundStatus.Duplicate: summary.Duplicates++; break;
                             case WebstoreInboundStatus.Skipped: summary.Skipped++; break;
-                            case WebstoreInboundStatus.NeedsMapping: summary.NeedsMapping++; break;
+                            case WebstoreInboundStatus.NeedsMapping:
+                                summary.NeedsMapping++;
+                                // Park the payload so bind→retry can heal it (same as the webhook path).
+                                await WebstoreQuarantine.ParkAsync(
+                                    pipeline.Db, ctx, r, JsonSerializer.Serialize(order, WooJson.Options), ct);
+                                break;
                             case WebstoreInboundStatus.Quarantined:
                                 summary.Quarantined++;
                                 await WebstoreQuarantine.ParkAsync(
@@ -125,6 +139,16 @@ namespace Plutus.Webstore
                     }
                     if (page >= totalPages || orders.Count == 0) break;
                 }
+
+                // WP6.4 product sweep — incremental every cycle; FULL when never swept or the
+                // nightly window comes round (the only pass that detects deletions).
+                var fullDue = ws.LastFullProductSweepUtc is null ||
+                              (DateTime.UtcNow - ws.LastFullProductSweepUtc.Value > TimeSpan.FromHours(20)
+                               && DateTime.UtcNow.Hour >= _options.FullSweepHourUtc
+                               && DateTime.UtcNow.Hour < _options.FullSweepHourUtc + 4);
+                var swept = await SweepProductsAsync(pipeline.Db, client, ctx, ws, fullDue, ct);
+                summary.ProductsSeen += swept;
+
                 summary.Requests += client.RequestCount;
 
                 if (maxSeen > (ws.OrdersCursorUtc ?? DateTime.MinValue))
@@ -137,6 +161,69 @@ namespace Plutus.Webstore
 
             _log?.LogInformation("webstore reconciliation: {Summary}", summary);
             return summary;
+        }
+
+        /// <summary>Upsert the product cache from an incremental (`modified_after` cursor) or FULL
+        /// pull. A full pass also stamps deletions: previously-cached rows not seen in this pass →
+        /// Status="deleted" (kept, so the alignment report can show what vanished).</summary>
+        private async Task<int> SweepProductsAsync(
+            MySqlDbContext db, WooRestClient client, WebstoreConnectionContext ctx,
+            Entities.Models.WebStoreDetails ws, bool full, CancellationToken ct)
+        {
+            var sweepStart = DateTime.UtcNow;
+            DateTime? since = full ? null : (ws.ProductsCursorUtc ?? sweepStart.AddHours(-_options.InitialLookbackHours));
+            var maxPages = full ? _options.MaxFullSweepPages : _options.MaxPagesPerCycle;
+            var seen = 0;
+            var maxModified = ws.ProductsCursorUtc ?? DateTime.MinValue;
+
+            for (var page = 1; page <= maxPages; page++)
+            {
+                var (products, totalPages) = await client.GetProductsAsync(since, page, _options.PerPage, ct);
+                foreach (var p in products)
+                {
+                    seen++;
+                    var row = await db.WebstoreProducts
+                        .FirstOrDefaultAsync(x => x.WebStoreId == ctx.WebStoreId && x.WooProductId == p.Id, ct);
+                    if (row is null)
+                    {
+                        row = new Entities.Models.WebstoreProduct
+                        {
+                            Id = Uuid7.New(), TenantId = ctx.TenantId, WebStoreId = ctx.WebStoreId, WooProductId = p.Id,
+                        };
+                        db.WebstoreProducts.Add(row);
+                    }
+                    row.Sku = string.IsNullOrWhiteSpace(p.Sku) ? null : p.Sku.Trim();
+                    row.Name = p.Name ?? $"product {p.Id}";
+                    row.PricePence = WebstoreMoney.ParsePence(p.Price);
+                    row.RegularPricePence = string.IsNullOrWhiteSpace(p.RegularPrice) ? null : WebstoreMoney.ParsePence(p.RegularPrice);
+                    row.StockQuantity = p.StockQuantity;
+                    row.StockStatus = p.StockStatus;
+                    row.Status = p.Status ?? "publish";
+                    row.Permalink = p.Permalink;
+                    if (p.DateModifiedGmt is { } m)
+                    {
+                        row.WooModifiedUtc = WebstoreMoney.ParseGmt(m);
+                        if (row.WooModifiedUtc > maxModified) maxModified = row.WooModifiedUtc.Value;
+                    }
+                    row.LastSeenUtc = sweepStart;
+                }
+                await db.SaveChangesAsync(ct);
+                if (page >= totalPages || products.Count == 0) break;
+            }
+
+            var wsRow = await db.WebStores.FirstAsync(w => w.Id == ws.Id, ct);
+            if (maxModified > DateTime.MinValue) wsRow.ProductsCursorUtc = maxModified;
+            if (full)
+            {
+                wsRow.LastFullProductSweepUtc = sweepStart;
+                // Anything cached but not seen by the full pass no longer exists on the site.
+                await foreach (var gone in db.WebstoreProducts
+                    .Where(x => x.WebStoreId == ctx.WebStoreId && x.LastSeenUtc < sweepStart && x.Status != "deleted")
+                    .AsAsyncEnumerable().WithCancellation(ct))
+                    gone.Status = "deleted";
+            }
+            await db.SaveChangesAsync(ct);
+            return seen;
         }
     }
 

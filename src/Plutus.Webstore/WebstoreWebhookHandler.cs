@@ -93,10 +93,16 @@ namespace Plutus.Webstore
             switch (r.Status)
             {
                 case WebstoreInboundStatus.Recorded:
+                    // WP6.2 pick-from-floor: tell the shop floor a web sale took their stock.
+                    if (r.Order is not null)
+                        await WebstoreNotifications.CreateForRecordedAsync(pipeline.Db, ctx, r.Order, row.StoreId, ct);
                     return new(200, new { status = "recorded", saleId = r.SaleId });
                 case WebstoreInboundStatus.Duplicate:
                     return new(200, new { status = "duplicate", saleId = r.SaleId });
                 case WebstoreInboundStatus.NeedsMapping:
+                    // Park the PAYLOAD too — the review screen's "retry" re-processes it after the
+                    // SKU is bound/created, so a needs-mapping order can never be lost.
+                    await WebstoreQuarantine.ParkAsync(pipeline.Db, ctx, r, rawBody!, ct);
                     return new(202, new { status = "needs-mapping", skus = r.UnmatchedSkus });
                 case WebstoreInboundStatus.Quarantined:
                     await WebstoreQuarantine.ParkAsync(pipeline.Db, ctx, r, rawBody!, ct);

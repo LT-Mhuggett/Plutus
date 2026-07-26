@@ -57,5 +57,31 @@ namespace Plutus.Webstore
             var orders = JsonSerializer.Deserialize<List<WooOrder>>(json, WooJson.Options) ?? new List<WooOrder>();
             return (orders, Math.Max(1, totalPages));
         }
+
+        /// <summary>One page of products — either the incremental shape (<paramref name="sinceUtc"/>
+        /// set → `modified_after`) or a full-sweep page (null). `_fields` keeps the payload tiny.</summary>
+        public async Task<(List<WooProduct> Products, int TotalPages)> GetProductsAsync(
+            DateTime? sinceUtc, int page, int perPage, CancellationToken ct = default)
+        {
+            var url = $"{_base}/wp-json/wc/v3/products?per_page={perPage}&page={page}&order=asc&orderby=id" +
+                      "&status=any&_fields=id,sku,name,price,regular_price,stock_quantity,stock_status,status,permalink,date_modified_gmt";
+            if (sinceUtc is { } s)
+                url += $"&modified_after={s.ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture)}&dates_are_gmt=true";
+
+            using var req = new HttpRequestMessage(HttpMethod.Get, url);
+            req.Headers.Authorization = _auth;
+            RequestCount++;
+
+            using var resp = await _http.SendAsync(req, ct);
+            resp.EnsureSuccessStatusCode();
+
+            var totalPages = 1;
+            if (resp.Headers.TryGetValues("X-WP-TotalPages", out var v))
+                _ = int.TryParse(System.Linq.Enumerable.FirstOrDefault(v), out totalPages);
+
+            var json = await resp.Content.ReadAsStringAsync(ct);
+            var products = JsonSerializer.Deserialize<List<WooProduct>>(json, WooJson.Options) ?? new List<WooProduct>();
+            return (products, Math.Max(1, totalPages));
+        }
     }
 }

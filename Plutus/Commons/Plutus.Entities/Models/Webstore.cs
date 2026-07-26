@@ -30,7 +30,49 @@ namespace Plutus.Entities.Models
         /// Null = never polled (first run looks back a bounded window). The poll re-reads a small
         /// overlap behind this — the deterministic saleId dedupes the overlap.</summary>
         public DateTime? OrdersCursorUtc { get; set; }
+        /// <summary>WP6.4 product-sweep cursors: incremental (`modified_after`) cursor + when the
+        /// last FULL sweep ran (the only pass that can detect webstore-side deletions).</summary>
+        public DateTime? ProductsCursorUtc { get; set; }
+        public DateTime? LastFullProductSweepUtc { get; set; }
         public DateTime CreatedAtUtc { get; set; }
+    }
+
+    /// <summary>WP6.4: Plutus's cached copy of one webstore product — maintained by the product
+    /// sweep so the catalogue view + alignment report NEVER query the live site at render time.
+    /// Status mirrors Woo (publish/draft/…); "deleted" is stamped by a full sweep when a
+    /// previously-seen product vanishes.</summary>
+    public class WebstoreProduct
+    {
+        public Guid Id { get; set; }                 // PK (UUIDv7)
+        public Guid TenantId { get; set; }
+        public Guid WebStoreId { get; set; }
+        public long WooProductId { get; set; }
+        public string? Sku { get; set; }
+        public string Name { get; set; }
+        public long PricePence { get; set; }
+        public long? RegularPricePence { get; set; }
+        public int? StockQuantity { get; set; }
+        public string? StockStatus { get; set; }     // instock / outofstock / onbackorder
+        public string Status { get; set; }           // publish / draft / … / deleted (ours)
+        public string? Permalink { get; set; }
+        public DateTime? WooModifiedUtc { get; set; }
+        public DateTime LastSeenUtc { get; set; }
+    }
+
+    /// <summary>WP6.2 pick-from-floor notification: a web sale sells stock that is physically on
+    /// the shop floor — staff must be told to pull it. Created on every recorded webstore sale;
+    /// the till polls unacked rows and shows a banner; ack clears it for all tills (audited).</summary>
+    public class WebstoreNotification
+    {
+        public Guid Id { get; set; }                 // PK (UUIDv7)
+        public Guid TenantId { get; set; }
+        public Guid WebStoreId { get; set; }
+        public int? StoreId { get; set; }            // fulfilment store (null = all stores' tills)
+        public long WooOrderId { get; set; }
+        public string Message { get; set; }
+        public DateTime CreatedAtUtc { get; set; }
+        public DateTime? AckedAtUtc { get; set; }
+        public string? AckedBy { get; set; }
     }
 
     /// <summary>WP6.2 review queue: a Woo SKU that didn't match a catalogue item on ingest. A human
