@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import Dashboard from "./Dashboard.tsx";
-import VatPage from "./VatPage.tsx";
+import ReportingPage from "./ReportingPage.tsx";
 import BankingPage from "./BankingPage.tsx";
 import CustomersPage from "./CustomersPage.tsx";
 import StockPage from "./StockPage.tsx";
@@ -8,7 +7,6 @@ import PricesPage from "./PricesPage.tsx";
 import UsersPage from "./UsersPage.tsx";
 import StoresPage from "./StoresPage.tsx";
 import PeriodsPage from "./PeriodsPage.tsx";
-import ItemsSoldPage from "./ItemsSoldPage.tsx";
 import LoginPage from "./LoginPage.tsx";
 import { getSession, type Session } from "./session.ts";
 import { oidcMode, signOut } from "./auth.ts";
@@ -16,16 +14,14 @@ import { beginLogin, completeLoginIfCallback } from "./oidc.ts";
 
 declare const __BUILD_TIME__: string;
 
-const TABS = ["Dashboard", "VAT", "Banking", "Stock", "Prices", "Items Sold", "Customers", "Users & Roles", "Stores & Tills", "Periods"] as const;
+const TABS = ["Reporting", "Banking", "Stock", "Prices", "Customers", "Users & Roles", "Stores & Tills", "Periods"] as const;
 type Tab = (typeof TABS)[number];
 
 const PAGES: Record<Tab, () => React.JSX.Element> = {
-  Dashboard: Dashboard,
-  VAT: VatPage,
+  Reporting: ReportingPage,
   Banking: BankingPage,
   Stock: StockPage,
   Prices: PricesPage,
-  "Items Sold": ItemsSoldPage,
   Customers: CustomersPage,
   "Users & Roles": UsersPage,
   "Stores & Tills": StoresPage,
@@ -38,7 +34,7 @@ function Page({ tab }: { tab: Tab }) {
 }
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>("Dashboard");
+  const [tab, setTab] = useState<Tab>("Reporting");
   // password mode: seed from the stored session. oidc mode: resolved by the effect below.
   const [name, setName] = useState<string | null>(() => (oidcMode ? null : getSession()?.name ?? null));
   const [booting, setBooting] = useState<boolean>(oidcMode);

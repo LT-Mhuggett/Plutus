@@ -13,6 +13,10 @@ body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-ser
 .tabs { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; }
 .tab { border: none; background: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font: inherit; color: var(--muted); }
 .tab.active { background: var(--accent); color: var(--accent-ink); }
+/* sub-tabs inside the Reporting tab */
+.subtabs { display: flex; gap: 4px; flex-wrap: wrap; margin: 0 0 12px; }
+.subtab { border: 1px solid var(--line); background: var(--panel); padding: 6px 12px; border-radius: 6px; cursor: pointer; font: inherit; color: var(--muted); }
+.subtab.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 footer { margin-top: 24px; text-align: center; }
 
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
