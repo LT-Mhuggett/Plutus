@@ -55,6 +55,71 @@ namespace Plutus.Webstore.Controllers
         private async Task<bool> EntitledAsync(CancellationToken ct) =>
             await _entitlements.IsEnabledAsync(_tenant.TenantId, Entitlements.WooConnector, ct);
 
+        // ---- WP6.1 onboarding: create → wc-auth redirect → callback → webhooks; + disconnect ----
+
+        public sealed record CreateConnectionBody(string Name, string Url, int? StoreId, string ReturnUrl);
+
+        [HttpPost]
+        [Authorize(Policy = "perm:portal.company.manage")]
+        public async Task<IActionResult> CreateConnection([FromBody] CreateConnectionBody body, CancellationToken ct)
+        {
+            if (!await EntitledAsync(ct)) return StatusCode(403, new { detail = "woo-connector is not enabled." });
+            if (string.IsNullOrWhiteSpace(body?.Name) || string.IsNullOrWhiteSpace(body?.Url) || string.IsNullOrWhiteSpace(body?.ReturnUrl))
+                return BadRequest(new { detail = "name, url, and returnUrl are required." });
+            if (string.IsNullOrWhiteSpace(_options.PublicBaseUrl))
+                return StatusCode(500, new { detail = "Webstore:PublicBaseUrl is not configured on the server." });
+
+            try
+            {
+                var store = _secrets as IWebstoreSecretStore
+                    ?? throw new InvalidOperationException("secret provider is read-only — file store not configured.");
+                var r = await WebstoreOnboarding.CreateConnectionAsync(
+                    _db, store, _tenant.TenantId, body.Name.Trim(), body.Url.Trim(), body.StoreId ?? 1,
+                    _options.PublicBaseUrl!, body.ReturnUrl.Trim(), ct);
+                _db.Audit(_tenant.TenantId, Actor, "webstore.create", nameof(WebStoreDetails), r.Id.ToString(), new { body.Name, body.Url });
+                await _db.SaveChangesAsync(ct);
+                return Ok(new { id = r.Id, authorizeUrl = r.AuthorizeUrl });
+            }
+            catch (ArgumentException ex) { return BadRequest(new { detail = ex.Message }); }
+            catch (DbUpdateException) { return Conflict(new { detail = "A webstore with that name already exists." }); }
+        }
+
+        /// <summary>Woo POSTs {key_id, user_id, consumer_key, consumer_secret, key_permissions}
+        /// here server-to-server after the shopkeeper clicks Approve. Anonymous by protocol; the
+        /// one-shot guard + unguessable connection id are the protections (WP6.2a posture).</summary>
+        public sealed record WcAuthCallbackBody(long key_id, string user_id, string consumer_key, string consumer_secret, string key_permissions);
+
+        [HttpPost("wc-auth/callback")]
+        [AllowAnonymous]
+        public async Task<IActionResult> WcAuthCallback([FromBody] WcAuthCallbackBody body, CancellationToken ct)
+        {
+            if (!Guid.TryParse(body?.user_id, out var webStoreId))
+                return BadRequest(new { detail = "user_id is not a webstore id." });
+            if (string.IsNullOrWhiteSpace(_options.PublicBaseUrl))
+                return StatusCode(500, new { detail = "Webstore:PublicBaseUrl is not configured." });
+            var store = _secrets as IWebstoreSecretStore;
+            if (store is null) return StatusCode(500, new { detail = "secret store not configured." });
+
+            var (status, detail) = await WebstoreOnboarding.HandleCallbackAsync(
+                _db, _secrets, store, _httpFactory.CreateClient(nameof(WebstoreReconciler)),
+                webStoreId, body!.consumer_key, body.consumer_secret, _options.PublicBaseUrl!, ct);
+            return StatusCode(status, new { detail });
+        }
+
+        [HttpDelete("{id:guid}")]
+        [Authorize(Policy = "perm:portal.company.manage")]
+        public async Task<IActionResult> Disconnect(Guid id, CancellationToken ct)
+        {
+            var (status, detail) = await WebstoreOnboarding.DisconnectAsync(
+                _db, _secrets, _httpFactory.CreateClient(nameof(WebstoreReconciler)), id, ct);
+            if (status == 200)
+            {
+                _db.Audit(_tenant.TenantId, Actor, "webstore.disconnect", nameof(WebStoreDetails), id.ToString(), new { detail });
+                await _db.SaveChangesAsync(ct);
+            }
+            return StatusCode(status, new { detail });
+        }
+
         // ---- connections ----
 
         [HttpGet]

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import {
-  bindSku, createItemFromSku, downloadCsv, fetchAlignment, fetchOutboundLog, fetchSkuMap,
-  fetchWebstoreProducts, fetchWebstores, gbp, ignoreSku, refreshWebstoreProducts,
-  retryParkedOrders, setOutboundMode,
+  bindSku, createItemFromSku, createWebstoreConnection, disconnectWebstore, downloadCsv,
+  fetchAlignment, fetchOutboundLog, fetchSkuMap, fetchWebstoreProducts, fetchWebstores, gbp,
+  ignoreSku, refreshWebstoreProducts, retryParkedOrders, setOutboundMode,
   type AlignmentResp, type OutboundLogResp, type SkuMapRow, type WebstoreConn, type WebstoreProductsResp,
 } from "./api.ts";
 import { SortTh, useSort } from "./sortable.tsx";
@@ -22,7 +22,7 @@ export default function WebstorePage() {
     <section className="panel">
       <h2>Webstore</h2>
       {error && <p className="error">{error}</p>}
-      {!conn && !error && <p className="muted">No webstore connected yet.</p>}
+      {!conn && !error && <ConnectForm />}
       {conn && (
         <>
           <div className="stat-row">
@@ -36,6 +36,12 @@ export default function WebstorePage() {
               <span className="stat-value small">{conn.ordersCursorUtc ? new Date(conn.ordersCursorUtc + "Z").toLocaleString("en-GB") : "—"}</span></div>
             <div className="stat"><span className="stat-label">Catalogue swept</span>
               <span className="stat-value small">{conn.lastFullProductSweepUtc ? new Date(conn.lastFullProductSweepUtc + "Z").toLocaleString("en-GB") : "pending first sweep"}</span></div>
+            <div className="stat">
+              <button className="ghost small" onClick={() => {
+                if (!window.confirm(`Disconnect "${conn.name}"? Its webhooks are removed from the site and syncing stops. Already-ingested sales are kept.`)) return;
+                void disconnectWebstore(conn.id).then(() => fetchWebstores().then(setConns)).catch((e) => setError(String(e)));
+              }}>Disconnect</button>
+            </div>
           </div>
 
           <div className="subtabs">
@@ -54,6 +60,40 @@ export default function WebstorePage() {
         </>
       )}
     </section>
+  );
+}
+
+/** WP6.1 one-click connect: name + site URL → redirect to the store's OWN WordPress login +
+ *  WooCommerce approval screen. Keys come back server-to-server; webhooks self-provision. */
+function ConnectForm() {
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("https://");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const justConnected = new URLSearchParams(window.location.search).get("connected") === "1";
+  return (
+    <div className="card">
+      {justConnected && <p className="callout">Connection approved — the store is provisioning. Refresh in a few seconds.</p>}
+      <h3>Connect a WooCommerce webstore</h3>
+      <p className="muted small">
+        You'll be sent to the store's own WordPress login to approve the connection — no keys to
+        copy, nothing to install on the site.
+      </p>
+      <div className="toolbar">
+        <label>Name <input placeholder="e.g. Kapow Comics Web" value={name} onChange={(e) => setName(e.target.value)} /></label>
+        <label className="grow">Site URL <input placeholder="https://www.example.co.uk" value={url} onChange={(e) => setUrl(e.target.value)} /></label>
+        <button className="primary" disabled={busy || !name.trim() || !url.startsWith("https://")}
+          onClick={() => {
+            setBusy(true); setError("");
+            createWebstoreConnection(name.trim(), url.trim())
+              .then((r) => { window.location.href = r.authorizeUrl; })
+              .catch((e) => { setError(String(e)); setBusy(false); });
+          }}>
+          {busy ? "Redirecting…" : "Connect"}
+        </button>
+      </div>
+      {error && <p className="error small">{error}</p>}
+    </div>
   );
 }
 

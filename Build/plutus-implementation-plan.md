@@ -195,8 +195,24 @@ Modules communicate in-process via the `SharedKernel` event bus abstraction (int
 > 180 journaled / 0 sent; the journal shows web-vs-till stock disagreement to review.
 > **160 unit + 5 arch green.** **To go LIVE (Matt):** review ≥1 week of dry-run journal → mint
 > the WRITE REST key (wp-cli) → replace `Webstore:RestKeys` in the pm2 env → flip the portal
-> switch to live (first item verified on the storefront per the DoD). Still open by design:
-> WP6.1 one-click wc-auth onboarding UI (needed for tenant #2), notification email (SMTP choice).
+> switch to live (first item verified on the storefront per the DoD).
+>
+> ✅ **FINAL CLOSURES (2026-07-27, Matt's decisions).** (1) **Web refunds gap CLOSED**: an
+> order's Woo refunds now become idempotent `SaleAdjustment` rows (Id derived from the Woo refund
+> id) against the deterministic sale — applied on every inbound path; a refund on a never-ingested
+> (pre-connector) order is a deliberate no-op; full/partial both covered; live smoke: refunded
+> order #8347 → 200 skipped, zero adjustments (correct — no sale). (2) **WP6.1 one-click
+> onboarding BUILT** (Matt to live-test): `POST /api/v1/webstores` → rows + minted webhook secret
+> + the store's own `/wc-auth/v1/authorize` URL; anonymous one-shot callback stores the keys
+> (file-backed secret store, `Webstore:SecretsFile`, survives deploys; config still wins for the
+> hand-provisioned Kapow connection) and auto-creates both order webhooks; `DELETE
+> /api/v1/webstores/{id}` = clean revoke (site webhooks removed, connection disabled); portal
+> Connect form + Disconnect button. Needs `Webstore__PublicBaseUrl` env (set on the Mac).
+> ⚠ Testing note: a second connection to the SAME site double-ingests new orders under a second
+> deviceId — test, verify, then **Disconnect promptly**. (3) **Notification email channel CLOSED
+> as won't-do** (Matt, 2026-07-27) — the till banner is the delivery mechanism; revisit only if a
+> real need + SMTP infrastructure appear. (4) Outbound stays in dry-run pending Matt's journal
+> review. **167 unit + 5 arch green.**
 >
 > ✅ **PHASE 6 INBOUND COMPLETE & LIVE (2026-07-26, `60c6867`)** — everything buildable without
 > Matt's outbound go-ahead is deployed and smoke-proven on the live store: WP6.0 recon/fixtures,

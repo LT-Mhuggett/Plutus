@@ -96,7 +96,14 @@ namespace Plutus.Webstore
             // failed orders). Refunded orders' money is handled via the refund path, not re-ingest.
             var status = (order.Status ?? string.Empty).ToLowerInvariant();
             if (status is not ("processing" or "completed"))
-                return WebstoreInboundResult.Skipped($"order status '{order.Status}' is not ingestable.", order.Id);
+            {
+                // The parsed order rides along so callers can still apply REFUNDS on it — a fully
+                // refunded order arrives with status "refunded" (skipped as a sale, adjusted if
+                // its sale exists).
+                var skipped = WebstoreInboundResult.Skipped($"order status '{order.Status}' is not ingestable.", order.Id);
+                skipped.Order = order;
+                return skipped;
+            }
 
             var mapped = WooOrderMapper.MapOrder(order, ctx, resolver);
 

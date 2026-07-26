@@ -26,6 +26,7 @@ namespace Plutus.Webstore
         [JsonPropertyName("date_modified_gmt")] public string? DateModifiedGmt { get; set; }
         [JsonPropertyName("date_paid_gmt")] public string? DatePaidGmt { get; set; }
         [JsonPropertyName("line_items")] public List<WooLineItem> LineItems { get; set; } = new();
+        [JsonPropertyName("refunds")] public List<WooOrderRefundSummary> Refunds { get; set; } = new();
         [JsonPropertyName("tax_lines")] public List<WooTaxLine> TaxLines { get; set; } = new();
         [JsonPropertyName("shipping_lines")] public List<WooShippingLine> ShippingLines { get; set; } = new();
         [JsonPropertyName("fee_lines")] public List<WooFeeLine> FeeLines { get; set; } = new();
@@ -90,6 +91,15 @@ namespace Plutus.Webstore
         [JsonPropertyName("status")] public string? Status { get; set; }
         [JsonPropertyName("permalink")] public string? Permalink { get; set; }
         [JsonPropertyName("date_modified_gmt")] public string? DateModifiedGmt { get; set; }
+    }
+
+    /// <summary>The refund summary embedded in an ORDER body's <c>refunds</c> array —
+    /// <c>total</c> is a NEGATIVE decimal string (e.g. "-61.49").</summary>
+    public sealed class WooOrderRefundSummary
+    {
+        [JsonPropertyName("id")] public long Id { get; set; }
+        [JsonPropertyName("reason")] public string? Reason { get; set; }
+        [JsonPropertyName("total")] public string? Total { get; set; }
     }
 
     /// <summary>A WooCommerce refund (from <c>GET orders/{id}/refunds</c> or the order's

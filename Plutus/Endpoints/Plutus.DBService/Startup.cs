@@ -65,7 +65,15 @@ namespace Plutus.DBService
             // SalesIngestService on the delivery's tenant-fixed context) + the secret provider.
             services.AddSingleton<Func<MySqlDbContext, WebstoreConnectionContext, IWebstoreSaleSink>>(
                 sp => (db, ctx) => new WebstoreIngestSink(db, ctx));
-            services.AddSingleton<IWebstoreSecretProvider>(new ConfigWebstoreSecretProvider(Configuration));
+            // Secrets: config first (pm2 env — the hand-provisioned Kapow connection), then the
+            // server-side file the WP6.1 wc-auth callback writes (survives deploys).
+            var webstoreSecrets = new FileWebstoreSecretProvider(Configuration,
+                Configuration["Webstore:SecretsFile"]
+                    ?? System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "PLUTUS", "secrets", "webstore-secrets.json"));
+            services.AddSingleton<IWebstoreSecretProvider>(webstoreSecrets);
+            services.AddSingleton<IWebstoreSecretStore>(webstoreSecrets);
+            // Options BEFORE AddPlutusWebstore (its TryAdd keeps this instance).
+            services.AddSingleton(new WebstoreOptions { PublicBaseUrl = Configuration["Webstore:PublicBaseUrl"] });
             services.AddPlutusWebstore();
             services.AddPlutusOutbox(); // T1.5 broker-less dispatcher (consumers register their own IEventConsumer)
             ConfigureRateLimiting(services, Configuration);

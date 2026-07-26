@@ -39,6 +39,9 @@ namespace Plutus.Webstore
         public int MaxOutboundPerCycle { get; init; } = 100;
         /// <summary>WP6.5 draft scan: how far back "recently created Plutus items" reaches.</summary>
         public int DraftScanLookbackHours { get; init; } = 48;
+        /// <summary>WP6.1 onboarding: the PUBLIC https base of this API (wc-auth callback +
+        /// webhook delivery URLs). Unset → onboarding endpoints refuse with a clear error.</summary>
+        public string? PublicBaseUrl { get; init; }
     }
 
     /// <summary>Summary of one reconciliation pass (logged; asserted in tests).</summary>
@@ -118,6 +121,8 @@ namespace Plutus.Webstore
                     {
                         summary.Orders++;
                         var r = await pipeline.Processor.RouteOrderAsync(order, ctx, pipeline.Resolver, ct);
+                        if (r.Status is WebstoreInboundStatus.Recorded or WebstoreInboundStatus.Duplicate or WebstoreInboundStatus.Skipped)
+                            await WebstoreRefunds.ApplyAsync(pipeline.Db, ctx, order, ct);
                         switch (r.Status)
                         {
                             case WebstoreInboundStatus.Recorded:

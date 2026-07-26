@@ -88,6 +88,12 @@ namespace Plutus.Webstore
             var r = await pipeline.Processor.ProcessOrderWebhookAsync(
                 rawBody!, signatureHeader, secret, ctx, pipeline.Resolver, ct);
 
+            // Refunds ride order.updated (full refund → status "refunded"/Skipped; partial →
+            // still Recorded/Duplicate). Idempotent per Woo refund id; no-op if the sale is absent.
+            if (r.Order is not null &&
+                r.Status is WebstoreInboundStatus.Recorded or WebstoreInboundStatus.Duplicate or WebstoreInboundStatus.Skipped)
+                await WebstoreRefunds.ApplyAsync(pipeline.Db, ctx, r.Order, ct);
+
             // 5. Outcome → HTTP. Durably recorded/parked = 2xx (Woo auto-disables webhooks that
             //    keep failing); non-2xx is reserved for cases where a retry or a stop is right.
             switch (r.Status)

@@ -101,6 +101,46 @@ namespace Plutus.Webstore
             resp.EnsureSuccessStatusCode();
         }
 
+        /// <summary>WP6.1 auto-provision: create a webhook (Woo pings the delivery URL on
+        /// activation — creation fails unless the ping gets a 2xx).</summary>
+        public async Task<long> CreateWebhookAsync(string name, string topic, string deliveryUrl, string secret, CancellationToken ct = default)
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, $"{_base}/wp-json/wc/v3/webhooks");
+            req.Headers.Authorization = _auth;
+            req.Content = new StringContent(
+                JsonSerializer.Serialize(new { name, topic, delivery_url = deliveryUrl, secret, status = "active" }),
+                Encoding.UTF8, "application/json");
+            RequestCount++;
+            using var resp = await _http.SendAsync(req, ct);
+            resp.EnsureSuccessStatusCode();
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
+            return doc.RootElement.TryGetProperty("id", out var id) ? id.GetInt64() : 0;
+        }
+
+        /// <summary>WP6.1 disconnect: webhooks pointing at a delivery URL, then delete by id.</summary>
+        public async Task<List<(long Id, string DeliveryUrl)>> ListWebhooksAsync(CancellationToken ct = default)
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, $"{_base}/wp-json/wc/v3/webhooks?per_page=100&_fields=id,delivery_url");
+            req.Headers.Authorization = _auth;
+            RequestCount++;
+            using var resp = await _http.SendAsync(req, ct);
+            resp.EnsureSuccessStatusCode();
+            var list = new List<(long, string)>();
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
+            foreach (var el in doc.RootElement.EnumerateArray())
+                list.Add((el.GetProperty("id").GetInt64(), el.TryGetProperty("delivery_url", out var u) ? u.GetString() ?? "" : ""));
+            return list;
+        }
+
+        public async Task DeleteWebhookAsync(long webhookId, CancellationToken ct = default)
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Delete, $"{_base}/wp-json/wc/v3/webhooks/{webhookId}?force=true");
+            req.Headers.Authorization = _auth;
+            RequestCount++;
+            using var resp = await _http.SendAsync(req, ct);
+            resp.EnsureSuccessStatusCode();
+        }
+
         /// <summary>WP6.5: create a DRAFT product (never published by Plutus — a human adds
         /// images/description in wp-admin and publishes there). Returns the new Woo product id.</summary>
         public async Task<long> CreateDraftProductAsync(string sku, string name, long pricePence, CancellationToken ct = default)

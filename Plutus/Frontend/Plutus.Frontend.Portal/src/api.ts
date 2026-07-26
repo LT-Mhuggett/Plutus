@@ -358,3 +358,11 @@ export const fetchOutboundLog = (id: string, take = 100) =>
   get<OutboundLogResp>(`/api/v1/webstores/${id}/outbound-log?take=${take}`);
 export const setOutboundMode = (id: string, mode: string) =>
   request<{ mode: string }>("PUT", `/api/v1/webstores/${id}/outbound-mode`, { mode });
+
+// ---- WP6.1 one-click onboarding ----
+export const createWebstoreConnection = (name: string, url: string, storeId?: number) =>
+  post<{ id: string; authorizeUrl: string }>(`/api/v1/webstores`, {
+    name, url, storeId, returnUrl: `${window.location.origin}${window.location.pathname}?connected=1`,
+  });
+export const disconnectWebstore = (id: string) =>
+  request<{ detail: string }>("DELETE", `/api/v1/webstores/${id}`);

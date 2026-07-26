@@ -257,6 +257,20 @@ threaded through the context. **137 unit + 5 arch green.**
 mirror the billing webhook in `PlatformController`), the host `WebstoreSaleSink` adapter over
 `SalesIngestService` (mirror the e2e test's `IngestSink`), `Startup` `AddPlutusWebstore()` +
 `AddScoped<IWebstoreSaleSink, WebstoreSaleSink>()`, and virtual-till provisioning.
+**✅ PHASE 6 FINAL CLOSURES (2026-07-27 late, Matt's decisions).** (1) **Refund gap closed:**
+`WebstoreRefunds.ApplyAsync` — Woo refunds → idempotent SaleAdjustments (Id from Woo refund id;
+full via status "refunded"/Skipped, partial via Recorded/Duplicate; no-op when the sale predates
+the connector); wired into webhook + poll; smoke: #8347 → 200 skipped/0 adjustments (correct).
+(2) **WP6.1 onboarding built** — portal Connect form → `/wc-auth/v1/authorize` on the store's own
+WordPress → anonymous ONE-SHOT callback stores keys in `~/PLUTUS/secrets/webstore-secrets.json`
+(config wins for Kapow's hand-provisioned creds) → auto-creates both webhooks; Disconnect button
+removes the site's webhooks + disables the row. Env `Webstore__PublicBaseUrl` added to the pm2
+ecosystem. **MATT TO TEST** the browser flow — ⚠ a second connection to the same site
+DOUBLE-INGESTS new orders (separate deviceId): connect → verify → Disconnect promptly.
+(3) **Email channel closed as won't-do** (till banner is the mechanism). (4) **Outbound: dry-run
+continues** pending Matt's journal review (portal → Webstore → Outbound). **167 unit + 5 arch
+green.**
+
 **✅ PHASE 6 CODE-COMPLETE (2026-07-27): OUTBOUND BUILT, DEPLOYED IN DRY-RUN.** WP6.3+WP6.5
 drafts implemented: fast lane (`WebstoreStockOutboundConsumer` on SaleRecorded — caught up, outbox
 head 6), slow lane (poll diff, LINKED products only, ≤100/cycle), draft scan (48 h lookback,
