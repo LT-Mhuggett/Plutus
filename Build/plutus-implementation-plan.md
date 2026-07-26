@@ -397,8 +397,17 @@ MySQL, after migration rehearsal): real webhook POST end-to-end.
 > virtual Device row derives the sale's TillId) — 147 unit + 5 arch green; host builds.**
 > Committed `45914a6` + pushed. **Migration APPLIED 2026-07-26** — rehearsed on `plutus_t1`
 > (idempotency re-run = no-op) then live `plutus`; SalesV2 untouched (21,648); till/portal/ETRIE
-> all 200. Remaining before live inbound: deploy the new backend, WP6.1 provisioning (WebStores
-> row + virtual till/device + secret in config + webhooks via wp-cli), integration smoke.
+> all 200.
+>
+> 🎉 **INBOUND LIVE (2026-07-26 evening, `cbd66fb`).** Backend deployed; Kapow connection
+> provisioned (WebStores row + virtual till "Kapow Web" + device + `woo-connector` entitlement);
+> webhook secret in pm2 ecosystem env; **order.created + order.updated webhooks ACTIVE on
+> kapow-comics.co.uk**. E2E smoke from the DreamHost box over the public internet: real order
+> #8505 → `recorded` 0.85 s, SalesV2 penny-exact (£1.50 zero-rated + £3.30 shipping = £4.80,
+> PayPal ref, virtual till), re-delivery → `duplicate`, one row. Go-live fixes en route (all
+> committed): paid-status gate (Skipped→200), DI lifetimes, form-encoded unsigned ping handling.
+> Real web orders now flow into Plutus automatically. Remaining in WP6.2: review screen,
+> reconciliation poll + cursor, pick-from-floor notification.
 *DoD:* the tenant-scope proof test passes; a forged delivery leaves zero rows; Woo's activation
 ping succeeds during WP6.1 auto-provisioning; quarantined/parked deliveries do NOT cause Woo to
 disable the webhook (2xx verified); secret rotation = config change + webhook update, no deploy.
