@@ -20,27 +20,62 @@ function periodLabel(period: string): string {
   return period;
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
-const daysAgo = (n: number) => new Date(Date.now() - n * 86400_000).toISOString().slice(0, 10);
+const iso = (d: Date) => d.toISOString().slice(0, 10);
+const today = () => iso(new Date());
+const daysAgo = (n: number) => iso(new Date(Date.now() - n * 86400_000));
 
-/** Hand-rolled SVG bar chart (plan discipline: no chart libraries). */
+/** A sensible default span per granularity, so "Month" shows a year of months, "Week" a run of
+ *  weeks, "Year" all trading years — rather than only what the current 30-day range touches. */
+function rangeFor(g: "day" | "week" | "month" | "year"): { from: string; to: string } {
+  const to = today();
+  const n = new Date();
+  if (g === "day") return { from: daysAgo(30), to };
+  if (g === "week") return { from: daysAgo(7 * 12), to };            // last 12 weeks
+  if (g === "month") return { from: iso(new Date(n.getFullYear(), n.getMonth() - 11, 1)), to }; // last 12 months
+  return { from: iso(new Date(n.getFullYear() - 7, 0, 1)), to };     // all trading years
+}
+
+/** Short x-axis label per period type (18 Jul / Jul 26 / 2026). */
+function chartLabel(period: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(period))
+    return new Date(period + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+  if (/^\d{4}-\d{2}$/.test(period)) {
+    const [y, m] = period.split("-").map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+  }
+  return period;
+}
+
+/** Hand-rolled SVG bar chart with a currency Y-axis (plan discipline: no chart libraries). */
 function BarChart({ buckets }: { buckets: { period: string; grossPence: number }[] }) {
   if (buckets.length === 0) return <p className="muted">No trade in this range.</p>;
-  const w = 720, h = 200, pad = 4;
-  const bw = Math.max(4, Math.floor(w / buckets.length) - pad);
+  const gutter = 64, top = 8, h = 200, gap = 6, w = 780;
+  const plotW = w - gutter;
+  const bw = Math.max(3, Math.floor(plotW / buckets.length) - gap);
   const max = Math.max(...buckets.map((b) => b.grossPence), 1);
+  const showLabels = buckets.length <= 20;
   return (
-    <svg className="chart" viewBox={`0 0 ${w} ${h + 18}`} role="img" aria-label="Gross by period">
+    <svg className="chart" viewBox={`0 0 ${w} ${h + top + 24}`} role="img" aria-label="Gross by period">
+      {[0, 0.25, 0.5, 0.75, 1].map((f) => {
+        const y = top + h - f * h;
+        return (
+          <g key={f}>
+            <line x1={gutter} y1={y} x2={w} y2={y} className="grid-line" />
+            <text x={gutter - 6} y={y + 3} textAnchor="end" className="chart-label">£{Math.round((f * max) / 100).toLocaleString("en-GB")}</text>
+          </g>
+        );
+      })}
       {buckets.map((b, i) => {
         const bh = Math.max(1, Math.round((b.grossPence / max) * h));
+        const x = gutter + i * (bw + gap);
         return (
           <g key={b.period}>
-            <rect x={i * (bw + pad)} y={h - bh} width={bw} height={bh} rx="2">
+            <rect x={x} y={top + h - bh} width={bw} height={bh} rx="2">
               <title>{`${b.period}: ${gbp(b.grossPence)}`}</title>
             </rect>
-            {buckets.length <= 16 && (
-              <text x={i * (bw + pad) + bw / 2} y={h + 13} textAnchor="middle" className="chart-label">
-                {b.period.slice(-5)}
+            {showLabels && (
+              <text x={x + bw / 2} y={top + h + 14} textAnchor="middle" className="chart-label">
+                {chartLabel(b.period)}
               </text>
             )}
           </g>
@@ -174,7 +209,12 @@ export default function Dashboard() {
         <label>To <input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
         <label>
           Granularity{" "}
-          <select value={granularity} onChange={(e) => setGranularity(e.target.value as typeof granularity)}>
+          <select value={granularity} onChange={(e) => {
+            const g = e.target.value as typeof granularity;
+            setGranularity(g);
+            const r = rangeFor(g); // widen the window to suit the level (month → 12 months, etc.)
+            setFrom(r.from); setTo(r.to);
+          }}>
             <option value="day">Day</option><option value="week">Week</option>
             <option value="month">Month</option><option value="year">Year</option>
           </select>
