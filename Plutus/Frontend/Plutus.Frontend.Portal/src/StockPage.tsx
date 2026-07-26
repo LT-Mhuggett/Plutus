@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "./api.ts";
+import { SortTh, useSort } from "./sortable.tsx";
 
 // WP5.2 stock screens: central view (all locations) / per-store view (location filter),
 // per-item movements drill, manual adjustment, stock-take count, transfers + in-transit.
@@ -48,7 +49,8 @@ export default function StockPage() {
 
   useEffect(() => { setSkip(0); }, [locationId, search, take]);
   useEffect(() => { void refresh(); }, [locationId, search, take, skip]); // eslint-disable-line react-hooks/exhaustive-deps
-  const levels = stock?.rows ?? [];
+  const st = useSort(stock?.rows ?? [], "itemIdOne", "asc");
+  const levels = st.sorted;
 
   return (
     <section className="panel">
@@ -99,7 +101,13 @@ export default function StockPage() {
       )}
 
       <table>
-        <thead><tr><th>Item</th><th>Name</th><th>Location</th><th className="num">On hand</th><th /></tr></thead>
+        <thead><tr>
+          <SortTh label="Item" k="itemIdOne" {...st} />
+          <SortTh label="Name" k="name" {...st} />
+          <SortTh label="Location" k="location" {...st} />
+          <SortTh label="On hand" k="quantity" num {...st} />
+          <th />
+        </tr></thead>
         <tbody>
           {levels.map((l) => (
             <tr key={`${l.stockLocationId}-${l.itemIdOne}`}>

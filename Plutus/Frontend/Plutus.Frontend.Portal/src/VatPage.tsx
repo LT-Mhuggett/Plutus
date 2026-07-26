@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { csvUrl, fetchVat, gbp, type VatBucket } from "./api.ts";
+import { SortTh, useSort } from "./sortable.tsx";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const startOfYear = () => `${new Date().getFullYear()}-01-01`;
@@ -44,24 +45,37 @@ export default function VatPage() {
         </div>
       )}
 
-      <table>
-        <thead><tr><th>Period</th><th className="num">Rate</th><th className="num">Gross</th><th className="num">Net</th><th className="num">VAT</th></tr></thead>
-        <tbody>
-          {buckets.map((b) => (
-            <tr key={`${b.period}-${b.vatRateBp}`}>
-              <td>{b.period}</td>
-              <td className="num">{(b.vatRateBp / 100).toFixed(2)}%</td>
-              <td className="num">{gbp(b.grossPence)}</td>
-              <td className="num">{gbp(b.netPence)}</td>
-              <td className="num">{gbp(b.vatPence)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <VatTable buckets={buckets} />
       <p className="muted small">
         Rates are as recorded at the till (basis points from the item's price band) — legacy data
         can show near-20% oddities like 19.81%; those are the source data, not a calculation error.
       </p>
     </section>
+  );
+}
+
+function VatTable({ buckets }: { buckets: VatBucket[] }) {
+  const s = useSort(buckets, "period", "asc");
+  return (
+    <table>
+      <thead><tr>
+        <SortTh label="Period" k="period" {...s} />
+        <SortTh label="Rate" k="vatRateBp" num {...s} />
+        <SortTh label="Gross" k="grossPence" num {...s} />
+        <SortTh label="Net" k="netPence" num {...s} />
+        <SortTh label="VAT" k="vatPence" num {...s} />
+      </tr></thead>
+      <tbody>
+        {s.sorted.map((b) => (
+          <tr key={`${b.period}-${b.vatRateBp}`}>
+            <td>{b.period}</td>
+            <td className="num">{(b.vatRateBp / 100).toFixed(2)}%</td>
+            <td className="num">{gbp(b.grossPence)}</td>
+            <td className="num">{gbp(b.netPence)}</td>
+            <td className="num">{gbp(b.vatPence)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

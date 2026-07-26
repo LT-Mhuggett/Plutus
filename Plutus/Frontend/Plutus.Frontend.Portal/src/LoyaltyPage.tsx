@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchLoyalty, gbp, type LoyaltyRow } from "./api.ts";
+import { SortTh, useSort } from "./sortable.tsx";
 
 /** Members & store-credit view — customers who are members or hold a credit balance. */
 export default function LoyaltyPage() {
@@ -19,6 +20,7 @@ export default function LoyaltyPage() {
 
   const members = rows.filter((r) => r.tier).length;
   const totalCredit = rows.reduce((s, r) => s + r.creditBalancePence, 0);
+  const so = useSort(rows, "creditBalancePence", "desc");
 
   return (
     <section className="panel">
@@ -34,9 +36,15 @@ export default function LoyaltyPage() {
       {error && <p className="error">{error}</p>}
       {loading ? <p className="muted">Loading…</p> : (
         <table>
-          <thead><tr><th>Customer</th><th>Tier</th><th className="num">Discount</th><th>Renews</th><th className="num">Credit balance</th></tr></thead>
+          <thead><tr>
+            <SortTh label="Customer" k="name" {...so} />
+            <SortTh label="Tier" k="tier" {...so} />
+            <SortTh label="Discount" k="autoDiscountRate" num {...so} />
+            <SortTh label="Renews" k="renewalDay" {...so} />
+            <SortTh label="Credit balance" k="creditBalancePence" num {...so} />
+          </tr></thead>
           <tbody>
-            {rows.map((r) => (
+            {so.sorted.map((r) => (
               <tr key={r.id}>
                 <td>{r.name}{r.email && <span className="muted small"> · {r.email}</span>}</td>
                 <td>{r.tier ?? <span className="muted">—</span>}{r.expired && <span className="error small"> (expired)</span>}</td>

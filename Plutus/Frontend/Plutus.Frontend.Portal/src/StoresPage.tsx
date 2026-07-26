@@ -5,6 +5,7 @@ import {
   type Company, type ReceiptTemplate, type StockLocationRow, type StoreRow, type TillRow,
 } from "./api.ts";
 import Barcode39 from "./Barcode39.tsx";
+import { SortTh, useSort } from "./sortable.tsx";
 
 const DAYS: { key: string; label: string }[] = [
   { key: "mon", label: "Mon" }, { key: "tue", label: "Tue" }, { key: "wed", label: "Wed" },
@@ -67,56 +68,6 @@ export default function StoresPage() {
   return (
     <section className="panel">
       {error && <p className="error">{error}</p>}
-
-      <h2>Company</h2>
-      {companies.map((c) => (
-        <CompanyRow key={c.id} company={c} onSaved={refresh} />
-      ))}
-
-      <h2>Stores</h2>
-      <AddStore companies={companies} onSaved={refresh} />
-      {stores.map((s) => (
-        <StoreCard key={s.id} store={s} onSaved={refresh} />
-      ))}
-
-      <h2>Stock locations</h2>
-      <LocationsSection stores={stores} />
-
-      <h2>Tills</h2>
-      <table>
-        <thead><tr><th>Name</th><th>Store</th><th>Devices</th><th>Last online</th><th /></tr></thead>
-        <tbody>
-          {tills.map((t) => (
-            <tr key={t.id}>
-              <td><TillNameCell till={t} onRename={rename} /></td>
-              <td>{t.storeId}</td>
-              <td>
-                {t.devices.length === 0 && <span className="muted">none</span>}
-                {t.devices.map((d) => (
-                  <span key={d.id} className={`chip ${d.status === "Active" ? "ok" : "bad"}`}>
-                    {d.id.slice(0, 8)}… {d.status} (seq {d.lastSeenSeq})
-                  </span>
-                ))}
-              </td>
-              <td>{new Date(t.lastOnline + "Z").toLocaleString("en-GB")}</td>
-              <td>
-                {t.devices.some((d) => d.status === "Active") && (
-                  <button className="ghost small" disabled={busy} onClick={() => void revokeTill(t.id).then(refresh)}>
-                    Revoke devices
-                  </button>
-                )}{" "}
-                <button className="ghost small" disabled={busy} onClick={() => void removeTill(t)} title="Delete this till (only if it has no sales)">
-                  Delete
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {stores.map((s) => (
-        <NewTillRow key={s.id} storeId={s.id} busy={busy} onCreate={newTill} />
-      ))}
-
       {issued && (
         <div className="enrol-code">
           <div className="grow">
@@ -128,7 +79,71 @@ export default function StoresPage() {
           <button className="ghost small" onClick={() => setIssued(null)}>Dismiss</button>
         </div>
       )}
+
+      <h2>Company</h2>
+      {companies.map((c) => (
+        <CompanyRow key={c.id} company={c} onSaved={refresh} />
+      ))}
+
+      <h2>Stores</h2>
+      <AddStore companies={companies} onSaved={refresh} />
+      {stores.length === 0 && <p className="muted">No stores yet — add one above.</p>}
+      {stores.map((s, idx) => (
+        <StoreCard
+          key={s.id} store={s} defaultOpen={idx === 0} onSaved={refresh}
+          tills={tills.filter((t) => t.storeId === s.id)} busy={busy}
+          onRename={rename} onRemoveTill={removeTill} onNewTill={newTill}
+          onRevoke={(id) => void revokeTill(id).then(refresh)}
+        />
+      ))}
+
+      <h2>Physical locations</h2>
+      <p className="muted small">Set up a store or warehouse/distribution location.</p>
+      <LocationsSection stores={stores} />
     </section>
+  );
+}
+
+/** One store's tills — sortable, with rename/revoke/delete + create. */
+function TillsTable({ tills, busy, onRename, onRemove, onRevoke, storeId, onNewTill }: {
+  tills: TillRow[]; busy: boolean; storeId: number;
+  onRename: (id: string, name: string) => Promise<void>;
+  onRemove: (t: TillRow) => void; onRevoke: (id: string) => void;
+  onNewTill: (storeId: number, name: string) => Promise<void>;
+}) {
+  const s = useSort(tills, "name", "asc");
+  return (
+    <>
+      <table>
+        <thead><tr>
+          <SortTh label="Name" k="name" {...s} />
+          <SortTh label="Last online" k="lastOnline" {...s} />
+          <th>Devices</th><th />
+        </tr></thead>
+        <tbody>
+          {s.sorted.map((t) => (
+            <tr key={t.id}>
+              <td><TillNameCell till={t} onRename={onRename} /></td>
+              <td className="small">{new Date(t.lastOnline + "Z").toLocaleString("en-GB")}</td>
+              <td>
+                {t.devices.length === 0 && <span className="muted">none</span>}
+                {t.devices.map((d) => (
+                  <span key={d.id} className={`chip ${d.status === "Active" ? "ok" : "bad"}`}>{d.status}</span>
+                ))}
+              </td>
+              <td>
+                {t.devices.some((d) => d.status === "Active") && (
+                  <button className="ghost small" disabled={busy} onClick={() => onRevoke(t.id)}>Revoke</button>
+                )}{" "}
+                <button className="ghost small" disabled={busy} onClick={() => onRemove(t)} title="Delete (only if no sales)">Delete</button>
+              </td>
+            </tr>
+          ))}
+          {tills.length === 0 && <tr><td colSpan={4} className="muted">No tills for this store yet.</td></tr>}
+        </tbody>
+      </table>
+      <NewTillRow storeId={storeId} busy={busy} onCreate={onNewTill} />
+    </>
   );
 }
 
@@ -204,43 +219,62 @@ function CompanyRow({ company, onSaved }: { company: Company; onSaved: () => Pro
   );
 }
 
-function StoreCard({ store, onSaved }: { store: StoreRow; onSaved: () => Promise<void> | void }) {
+function StoreCard({ store, defaultOpen, onSaved, tills, busy, onRename, onRemoveTill, onNewTill, onRevoke }: {
+  store: StoreRow; defaultOpen: boolean; onSaved: () => Promise<void> | void;
+  tills: TillRow[]; busy: boolean;
+  onRename: (id: string, name: string) => Promise<void>;
+  onRemoveTill: (t: TillRow) => void; onNewTill: (storeId: number, name: string) => Promise<void>;
+  onRevoke: (id: string) => void;
+}) {
   const [edit, setEdit] = useState<StoreRow>(store);
-  const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
   const dirty = JSON.stringify(edit) !== JSON.stringify(store);
+  const addr = [store.adLine1, store.city, store.postCode].filter((x) => x && x !== "N/A").join(", ");
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await updateStore(store.id, {
+        name: edit.name, adLine1: edit.adLine1, city: edit.city, postCode: edit.postCode,
+        contactNumber: edit.contactNumber, openingHoursJson: edit.openingHoursJson,
+      });
+      await onSaved();
+    } catch (e) {
+      alert(String(e instanceof Error ? e.message : e)); // 409 = store name taken
+    } finally { setSaving(false); }
+  };
+
   return (
-    <div className="card">
+    <details className="card store-card" open={defaultOpen}>
+      <summary className="store-summary">
+        <strong>{store.name || `Store ${store.id}`}</strong>
+        {addr && <span className="muted small"> — {addr}</span>}
+      </summary>
+
+      {/* address + phone (top part) */}
       <div className="toolbar">
-        <span className="muted small">Store {store.id}</span>
         <label>Name <input placeholder="e.g. High Street" value={edit.name ?? ""} onChange={(e) => setEdit({ ...edit, name: e.target.value || null })} /></label>
         <label>Address <input value={edit.adLine1} onChange={(e) => setEdit({ ...edit, adLine1: e.target.value })} /></label>
         <label>City <input value={edit.city} onChange={(e) => setEdit({ ...edit, city: e.target.value })} /></label>
         <label>Postcode <input value={edit.postCode} onChange={(e) => setEdit({ ...edit, postCode: e.target.value })} /></label>
         <label>Phone <input value={edit.contactNumber} onChange={(e) => setEdit({ ...edit, contactNumber: e.target.value })} /></label>
+        {dirty && <button className="primary small" disabled={saving} onClick={() => void save()}>Save</button>}
       </div>
-      <OpeningHoursEditor value={edit.openingHoursJson} onChange={(v) => setEdit({ ...edit, openingHoursJson: v })} />
-      {dirty && (
-        <button
-          className="primary small"
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await updateStore(store.id, {
-                name: edit.name, adLine1: edit.adLine1, city: edit.city, postCode: edit.postCode,
-                contactNumber: edit.contactNumber, openingHoursJson: edit.openingHoursJson,
-              });
-              await onSaved();
-            } catch (e) {
-              alert(String(e instanceof Error ? e.message : e)); // 409 = store name taken
-            } finally { setBusy(false); }
-          }}
-        >
-          Save store
-        </button>
-      )}
+
+      <details className="sub">
+        <summary className="muted small">Opening hours</summary>
+        <OpeningHoursEditor value={edit.openingHoursJson} onChange={(v) => setEdit({ ...edit, openingHoursJson: v })} />
+        {dirty && <p className="muted small">Edit hours above, then press "Save" in the address row.</p>}
+      </details>
+
+      <details className="sub" open>
+        <summary className="muted small">Tills ({tills.length})</summary>
+        <TillsTable tills={tills} busy={busy} storeId={store.id}
+          onRename={onRename} onRemove={onRemoveTill} onRevoke={onRevoke} onNewTill={onNewTill} />
+      </details>
+
       <ReceiptTemplateEditor store={store} onSaved={onSaved} />
-    </div>
+    </details>
   );
 }
 

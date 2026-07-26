@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { closePeriod, createPeriod, fetchPeriods, gbp, type Period } from "./api.ts";
+import { SortTh, useSort } from "./sortable.tsx";
 
 /** Financial periods (WP3.4): create, close (snapshot + lock). Late sales into a closed
  *  period post to the next open day and are flagged in the audit trail. */
@@ -37,15 +38,22 @@ export default function PeriodsPage() {
     }
   }
 
+  const pSort = useSort(periods, "startDay", "asc");
+
   return (
     <section className="panel">
       <h2>Financial periods</h2>
       {error && <p className="error">{error}</p>}
 
       <table>
-        <thead><tr><th>Name</th><th>Range</th><th>Status</th><th>Snapshot at close</th><th /></tr></thead>
+        <thead><tr>
+          <SortTh label="Name" k="name" {...pSort} />
+          <SortTh label="Range" k="startDay" {...pSort} />
+          <SortTh label="Status" k="status" {...pSort} />
+          <th>Snapshot at close</th><th />
+        </tr></thead>
         <tbody>
-          {periods.map((p) => (
+          {pSort.sorted.map((p) => (
             <tr key={p.id}>
               <td>{p.name}</td>
               <td>{p.startDay} → {p.endDay}</td>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { SortTh, useSort } from "./sortable.tsx";
 import {
   assignRole, createUser, deactivateUser, fetchAssignments, fetchCompanies, fetchEffectivePermissions,
   fetchRoles, fetchUsers, unassignRole,
@@ -39,6 +40,8 @@ export default function UsersPage() {
     }
   }
 
+  const uSort = useSort(users, "fName", "asc");
+
   return (
     <section className="panel">
       <div className="toolbar">
@@ -48,9 +51,15 @@ export default function UsersPage() {
       {error && <p className="error">{error}</p>}
 
       <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Roles</th><th>Status</th><th /></tr></thead>
+        <thead><tr>
+          <SortTh label="Name" k="fName" {...uSort} />
+          <SortTh label="Email" k="email" {...uSort} />
+          <th>Roles</th>
+          <SortTh label="Status" k="active" {...uSort} />
+          <th />
+        </tr></thead>
         <tbody>
-          {users.map((u) => (
+          {uSort.sorted.map((u) => (
             <tr key={u.id} className={u.active ? "" : "muted"}>
               <td>{u.fName} {u.lName}</td>
               <td>{u.email}</td>

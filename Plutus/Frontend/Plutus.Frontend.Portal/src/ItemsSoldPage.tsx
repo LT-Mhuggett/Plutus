@@ -3,6 +3,7 @@ import {
   downloadCsv, fetchItemsSold, fetchReportStaff, fetchStores, gbp,
   type ItemsSold, type StaffRow, type StoreRow,
 } from "./api.ts";
+import { SortTh, useSort } from "./sortable.tsx";
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const today = () => iso(new Date());
@@ -98,13 +99,29 @@ export default function ItemsSoldPage() {
             <div className="stat"><span className="stat-label">Gross</span><span className="stat-value">{gbp(data.totals.grossPence)}</span></div>
           </div>
           {data.count >= 2000 && <p className="muted small">Showing the most recent 2,000 lines — narrow the filters or export CSV for the full set.</p>}
+          <ItemsSoldTable rows={data.rows} />
+        </>
+      )}
+    </section>
+  );
+}
+
+function ItemsSoldTable({ rows }: { rows: ItemsSold["rows"] }) {
+  const s = useSort(rows, "dateSold", "desc");
+  return (
           <table>
             <thead><tr>
-              <th>Date sold</th><th>Item</th><th>Location</th><th>Staff</th>
-              <th className="num">Qty</th><th className="num">Unit</th><th className="num">Discount</th><th className="num">Line gross</th>
+              <SortTh label="Date sold" k="dateSold" {...s} />
+              <SortTh label="Item" k="itemName" {...s} />
+              <SortTh label="Location" k="tillName" {...s} />
+              <SortTh label="Staff" k="staffName" {...s} />
+              <SortTh label="Qty" k="qty" num {...s} />
+              <SortTh label="Unit" k="unitPricePence" num {...s} />
+              <SortTh label="Discount" k="discountPence" num {...s} />
+              <SortTh label="Line gross" k="lineGrossPence" num {...s} />
             </tr></thead>
             <tbody>
-              {data.rows.map((r, i) => (
+              {s.sorted.map((r, i) => (
                 <tr key={i}>
                   <td className="small">{new Date(r.dateSold + "Z").toLocaleString("en-GB")}</td>
                   <td><span className="mono small">{r.itemIdOne}</span> {r.itemName}</td>
@@ -116,11 +133,8 @@ export default function ItemsSoldPage() {
                   <td className="num">{gbp(r.lineGrossPence)}</td>
                 </tr>
               ))}
-              {data.rows.length === 0 && <tr><td colSpan={8} className="muted">No items sold for these filters.</td></tr>}
+              {rows.length === 0 && <tr><td colSpan={8} className="muted">No items sold for these filters.</td></tr>}
             </tbody>
           </table>
-        </>
-      )}
-    </section>
   );
 }

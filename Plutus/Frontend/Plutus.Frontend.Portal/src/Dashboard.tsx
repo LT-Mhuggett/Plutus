@@ -4,6 +4,21 @@ import {
   type SaleDetail, type SaleRow, type Summary,
 } from "./api.ts";
 import Barcode39 from "./Barcode39.tsx";
+import { SortTh, useSort } from "./sortable.tsx";
+
+/** Adds the weekday to a day period (2026-07-18 → "2026-07-18 · Sat") and the month name to a
+ *  month period; year unchanged. */
+function periodLabel(period: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(period)) {
+    const d = new Date(period + "T00:00:00");
+    return `${period} · ${d.toLocaleDateString("en-GB", { weekday: "short" })}`;
+  }
+  if (/^\d{4}-\d{2}$/.test(period)) {
+    const [y, m] = period.split("-").map(Number);
+    return `${period} · ${new Date(y, m - 1, 1).toLocaleDateString("en-GB", { month: "short" })}`;
+  }
+  return period;
+}
 
 const today = () => new Date().toISOString().slice(0, 10);
 const daysAgo = (n: number) => new Date(Date.now() - n * 86400_000).toISOString().slice(0, 10);
@@ -149,6 +164,8 @@ export default function Dashboard() {
 
   const t = summary?.totals;
   const buckets = useMemo(() => summary?.buckets ?? [], [summary]);
+  const bk = useSort(buckets, "period", "asc");
+  const sl = useSort(sales ?? [], "occurredAtUtc", "asc");
 
   return (
     <section className="panel">
@@ -179,11 +196,18 @@ export default function Dashboard() {
       <BarChart buckets={buckets} />
 
       <table>
-        <thead><tr><th>Period</th><th className="num">Gross</th><th className="num">VAT</th><th className="num">Txns</th><th className="num">Avg basket</th><th /></tr></thead>
+        <thead><tr>
+          <SortTh label="Period" k="period" {...bk} />
+          <SortTh label="Gross" k="grossPence" num {...bk} />
+          <SortTh label="VAT" k="vatPence" num {...bk} />
+          <SortTh label="Txns" k="txnCount" num {...bk} />
+          <SortTh label="Avg basket" k="avgBasketPence" num {...bk} />
+          <th />
+        </tr></thead>
         <tbody>
-          {buckets.map((b) => (
+          {bk.sorted.map((b) => (
             <tr key={b.period}>
-              <td>{b.period}</td>
+              <td>{periodLabel(b.period)}</td>
               <td className="num">{gbp(b.grossPence)}</td>
               <td className="num">{gbp(b.vatPence)}</td>
               <td className="num">{b.txnCount}</td>
@@ -199,9 +223,15 @@ export default function Dashboard() {
           <h3>Sales</h3>
           {sales.length === 0 && <p className="muted">No sales that day.</p>}
           <table>
-            <thead><tr><th>Time</th><th>Channel</th><th className="num">Gross</th><th className="num">VAT</th><th /></tr></thead>
+            <thead><tr>
+              <SortTh label="Time" k="occurredAtUtc" {...sl} />
+              <SortTh label="Channel" k="channel" {...sl} />
+              <SortTh label="Gross" k="grossPence" num {...sl} />
+              <SortTh label="VAT" k="vatPence" num {...sl} />
+              <th />
+            </tr></thead>
             <tbody>
-              {sales.map((s) => (
+              {sl.sorted.map((s) => (
                 <tr key={s.id}>
                   <td>{new Date(s.occurredAtUtc + "Z").toLocaleTimeString("en-GB")}</td>
                   <td>{s.channel}{s.legacyRef ? " (migrated)" : ""}</td>
