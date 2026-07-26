@@ -257,6 +257,23 @@ threaded through the context. **137 unit + 5 arch green.**
 mirror the billing webhook in `PlatformController`), the host `WebstoreSaleSink` adapter over
 `SalesIngestService` (mirror the e2e test's `IngestSink`), `Startup` `AddPlutusWebstore()` +
 `AddScoped<IWebstoreSaleSink, WebstoreSaleSink>()`, and virtual-till provisioning.
+**✅ PHASE 6 INBOUND COMPLETE (2026-07-26 night, `60c6867`).** On top of the go-live below:
+**review queue** live (portal → Webstore tab: pending SKUs w/ webstore name/price from the cache,
+bind / ignore / **create-item** (WP6.5 Woo→Plutus: name+price from cache, tenant-default tax/
+category) / **Retry parked orders** — needs-mapping orders now PARK their payload in SaleQuarantine
+so the bind→retry loop heals them into real sales); **pick-from-floor notification** live (one per
+web order, idempotent; till polls 60 s → amber banner → "Done — acknowledged" clears for all
+tills, audited; EMAIL channel pending an SMTP choice — no mail infra on the env); **WP6.4 product
+cache** live (**745 products cached** on first full sweep = the whole site incl. drafts; 31
+requests one-off, then incremental ~2/cycle; nightly full sweep 02:00–06:00 UTC stamps deletions
+Status="deleted"); **catalogue view** (paged/filterable, Refresh-now rate-limited 5 min, links out
+to the site — no image hotlinking) + **alignment report** (name drift, prices both sides as
+display, web-only list) render from cache — zero live-site requests. Migration
+`AddWebstorePhase6Completion` rehearsed t1 → live. Live smoke: order #8503 → £67.49 recorded +
+notification minted. **153 unit + 5 arch green.** Remaining (gated/deferred): WP6.3 outbound +
+WP6.5 Plutus→Woo drafts (Matt's gates + write key); WP6.1 one-click wc-auth onboarding UI (needed
+for tenant #2); notification email channel (SMTP); WP6.4 CSV export.
+
 **🎉 Phase 6 INBOUND IS LIVE (2026-07-26 evening).** Backend deployed (4 iterations — see gotchas
 below), Kapow connection provisioned (`WebStores` row + virtual till "Kapow Web" + device;
 `woo-connector` entitlement granted to the Kapow tenant — was `[]`), webhook secret in the pm2

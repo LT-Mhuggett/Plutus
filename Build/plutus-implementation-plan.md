@@ -181,6 +181,20 @@ Modules communicate in-process via the `SharedKernel` event bus abstraction (int
 
 ## Phase 6 — WooCommerce connector (add-on)
 
+> ✅ **PHASE 6 INBOUND COMPLETE & LIVE (2026-07-26, `60c6867`)** — everything buildable without
+> Matt's outbound go-ahead is deployed and smoke-proven on the live store: WP6.0 recon/fixtures,
+> WP6.1 connection provisioning (manual for Kapow), WP6.2 webhooks + reconciliation poll + SKU
+> review queue (portal Webstore tab: bind / ignore / create-item / retry-parked) + pick-from-floor
+> notification (till banner, 60 s poll, ack clears all tills), WP6.2a anonymous-webhook security,
+> WP6.4 product cache (745 cached = the whole site; nightly full sweep detects deletions) +
+> catalogue view + alignment report, WP6.5's Woo→Plutus create-item half. Live proof: orders
+> #8505 (£4.80) and #8503 (£67.49) recorded penny-exact over the public internet; notification
+> minted; dedupe on re-delivery; ETRIE 200 throughout. **Still gated/deferred:** WP6.3 outbound
+> stock/price (Matt's three gates + write key) and WP6.5's Plutus→Woo draft direction (same write
+> key); WP6.1's one-click `/wc-auth` onboarding UI (needed when tenant #2 connects a store — Kapow
+> was provisioned via SSH); email channel for the notification (no SMTP configured on the env —
+> seam noted); WP6.4 CSV export (trivial follow-up).
+
 > **Re-planned 2026-07-26 against the LIVE store.** Target is **kapow-comics.co.uk** — the shop's
 > real production site on a **low-resource DreamHost VPS** (`ssh kapow`, WordPress 7.0.2 /
 > WooCommerce 10.9.4 / PHP 8.2.30, wp-cli available; 739 published products, **648 (88%) carry
