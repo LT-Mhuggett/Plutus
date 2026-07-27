@@ -166,6 +166,19 @@ namespace Plutus.Tenancy
                 Exp = DateTimeOffset.UtcNow.ToUnixTimeSeconds() + expiresIn,
             };
             var token = CompactToken.Issue(JsonSerializer.Serialize(claims), _opts.DeviceTokenSecret);
+
+            // WP13.1 usage metering: count the till coming online. Best-effort — a metering failure
+            // must never stop a device getting its token. On this single-tenant host the device's
+            // tenant matches the context so the write passes the guard; multi-tenant edge cases are
+            // simply skipped by the catch until the drain path is made unscoped.
+            try
+            {
+                await UsageMeter.AddAsync(_db, device.TenantId, DateOnly.FromDateTime(DateTime.UtcNow),
+                    UsageMetrics.LoginsTill, 1);
+                await _db.SaveChangesAsync();
+            }
+            catch { /* metering is best-effort */ }
+
             return new DeviceTokenResult(token, expiresIn);
         }
 

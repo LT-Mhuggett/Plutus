@@ -144,4 +144,54 @@ public class UsageMeteringTests
             .ToList()
             .ToDictionary(x => (x.TenantId, x.BusinessDay, x.Metric), x => x.Value);
     }
+
+    private static void SeedTenantSpine(SqliteConnection conn, Guid tenant, int storeIdStart,
+        int storeCount, int tillCount, int peopleCount, long[] sales)
+    {
+        var bizId = Guid.NewGuid();
+        using var db = new MySqlDbContext(
+            new DbContextOptionsBuilder<MySqlDbContext>().UseSqlite(conn).Options,
+            new FixedTenantContext(tenant)) { CurrentUser = "seed" }; // per-tenant ctx stamps the shadow TenantId
+        db.Business.Add(new Business { Id = bizId, Name = "B", NameAbbr = "B", VatIN = "GB0" });
+        for (int i = 0; i < storeCount; i++)
+            db.Stores.Add(new Store { Id = storeIdStart + i, BusinessId = bizId, ContactNumber = "-", AdLine1 = "-", AdLine2 = "", City = "-", PostCode = "-", Country = "-" });
+        for (int i = 0; i < tillCount; i++)
+            db.Till.Add(new Till { Id = Guid.NewGuid(), StoreId = storeIdStart, LastOnline = DateTime.UtcNow });
+        for (int i = 0; i < peopleCount; i++)
+            db.People.Add(new Person { Id = Guid.NewGuid(), FName = "P", LName = "Q", Email = $"{Guid.NewGuid():N}@t.local", Mobile = "0", AdLine1 = "-", AdLine2 = "", City = "-", PostCode = "-", Country = "-" });
+        foreach (var g in sales) db.SalesV2.Add(Sale(tenant, DayA, g));
+        db.SaveChanges();
+    }
+
+    [Fact]
+    public async Task Nightly_sweep_counts_stores_tills_users_and_sales_per_tenant()
+    {
+        using var conn = Open();
+        SeedTenantSpine(conn, T1, storeIdStart: 1, storeCount: 2, tillCount: 1, peopleCount: 3, sales: new long[] { 1000, 500 });
+        SeedTenantSpine(conn, T2, storeIdStart: 10, storeCount: 1, tillCount: 2, peopleCount: 1, sales: new long[] { 300 });
+        using (var db = Unscoped(conn))
+        {
+            db.Tenants.Add(new Tenant { Id = T1, Name = "T1", Status = 1, Plan = "std", Entitlements = "[]", ConnectionRef = "", CreatedAtUtc = DateTime.UtcNow });
+            db.Tenants.Add(new Tenant { Id = T2, Name = "T2", Status = 1, Plan = "std", Entitlements = "[]", ConnectionRef = "", CreatedAtUtc = DateTime.UtcNow });
+            db.SaveChanges();
+        }
+
+        using (var db = Unscoped(conn)) { await UsageSweep.RunAsync(db, DayA); }
+
+        using var check = Unscoped(conn);
+        Assert.Equal(2, Cell(check, T1, DayA, UsageMetrics.StoresActive));
+        Assert.Equal(1, Cell(check, T1, DayA, UsageMetrics.TillsActive));
+        Assert.Equal(3, Cell(check, T1, DayA, UsageMetrics.UsersActive));
+        Assert.Equal(2, Cell(check, T1, DayA, UsageMetrics.StorageRowsSalesV2));
+        Assert.Equal(1, Cell(check, T2, DayA, UsageMetrics.StoresActive));
+        Assert.Equal(2, Cell(check, T2, DayA, UsageMetrics.TillsActive));
+        Assert.Equal(1, Cell(check, T2, DayA, UsageMetrics.UsersActive));
+        Assert.Equal(1, Cell(check, T2, DayA, UsageMetrics.StorageRowsSalesV2));
+
+        // idempotent: a second sweep sets the same values (not doubled)
+        using (var db = Unscoped(conn)) { await UsageSweep.RunAsync(db, DayA); }
+        using var check2 = Unscoped(conn);
+        Assert.Equal(2, Cell(check2, T1, DayA, UsageMetrics.StoresActive));
+        Assert.Equal(2, Cell(check2, T1, DayA, UsageMetrics.StorageRowsSalesV2));
+    }
 }

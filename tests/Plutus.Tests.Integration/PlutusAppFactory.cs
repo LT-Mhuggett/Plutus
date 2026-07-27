@@ -53,11 +53,15 @@ public sealed class PlutusAppFactory : WebApplicationFactory<Program>
 
             services.AddDbContext<RepositoryContext, MySqlDbContext>(o => o.UseSqlite(_conn));
 
-            // Stop the OutboxDispatcher hosted service — its background polling opens its own
-            // transactions on our single shared SQLite connection and races the test requests
-            // (SQLite is single-writer). Dispatch itself is covered by OutboxDispatcherTests.
+            // Stop the background hosted services — their polling opens its own transactions on
+            // our single shared SQLite connection and races the test requests AND the startup
+            // EnsureCreated (SQLite is single-writer / single-connection, not thread-safe). Their
+            // logic is covered by unit tests (OutboxDispatcherTests, UsageMeteringTests). On real
+            // MySQL each context gets its own pooled connection, so this race can't happen there.
             foreach (var d in services
-                         .Where(d => d.ImplementationType?.FullName == "Plutus.Infrastructure.Outbox.OutboxDispatcher")
+                         .Where(d => d.ImplementationType?.FullName is
+                             "Plutus.Infrastructure.Outbox.OutboxDispatcher" or
+                             "Plutus.Tenancy.RetentionSweeper")
                          .ToList())
                 services.Remove(d);
         });

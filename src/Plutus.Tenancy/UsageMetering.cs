@@ -104,4 +104,36 @@ namespace Plutus.Tenancy
             return perDay.Count;
         }
     }
+
+    /// <summary>
+    /// WP13.1 nightly counted-metrics sweep: recomputes the point-in-time counts
+    /// (stores/tills/users.active, storage.rowsSalesV2) into TODAY's cell for every tenant. Runs
+    /// off the RetentionSweeper timer. MUST be handed an UNSCOPED context (Guid.Empty) — it reads
+    /// every tenant and writes cross-tenant, which StampAndGuardTenant only permits unscoped.
+    /// Idempotent (SET, not add), so re-running each tick just refreshes the snapshot.
+    /// </summary>
+    public static class UsageSweep
+    {
+        public static async Task RunAsync(MySqlDbContext db, DateOnly day, CancellationToken ct = default)
+        {
+            db.CurrentUser = "usage-sweep";
+            var tenants = await db.Tenants.Select(t => t.Id).ToListAsync(ct);
+            foreach (var t in tenants)
+            {
+                // Store/Till/Person carry a SHADOW TenantId (legacy entities) → EF.Property;
+                // SalesV2 has a real column. The unscoped context bypasses the query filter, so
+                // IgnoreQueryFilters is belt-and-braces.
+                long stores = await db.Stores.IgnoreQueryFilters().CountAsync(x => EF.Property<Guid>(x, "TenantId") == t, ct);
+                long tills = await db.Till.IgnoreQueryFilters().CountAsync(x => EF.Property<Guid>(x, "TenantId") == t, ct);
+                long users = await db.People.IgnoreQueryFilters().CountAsync(x => EF.Property<Guid>(x, "TenantId") == t, ct);
+                long salesRows = await db.SalesV2.IgnoreQueryFilters().CountAsync(x => x.TenantId == t, ct);
+
+                await UsageMeter.SetAsync(db, t, day, UsageMetrics.StoresActive, stores, ct);
+                await UsageMeter.SetAsync(db, t, day, UsageMetrics.TillsActive, tills, ct);
+                await UsageMeter.SetAsync(db, t, day, UsageMetrics.UsersActive, users, ct);
+                await UsageMeter.SetAsync(db, t, day, UsageMetrics.StorageRowsSalesV2, salesRows, ct);
+            }
+            await db.SaveChangesAsync(ct);
+        }
+    }
 }

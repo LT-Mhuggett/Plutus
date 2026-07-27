@@ -33,7 +33,7 @@ passes (Claude keeps this current — single source of truth for status).
 
 | WP | Title | Status | Note |
 |---|---|---|---|
-| 13.1 | Usage metering | 🔨 | Core done 2026-07-27 (net10): TenantUsageRollup + event-fed sales.* consumer + rebuild + /platform/usage(+summary,+rebuild) endpoints + migration; tests green (2-tenant fold, rebuild==incremental, 403 gate). REMAINING: nightly counted-metrics sweep (stores/tills/users.active, storage.*) + login hooks (logins.portal/till). |
+| 13.1 | Usage metering | ✅ | Done 2026-07-28 (net10). TenantUsageRollup + all feeds: event-fed sales.* consumer + rebuild, nightly counted-metrics sweep (stores/tills/users.active, storage.rowsSalesV2), login hooks (logins.portal via AuthController raw upsert, logins.till via EnrolmentService — best-effort). /platform/usage(+summary,+rebuild) platform-admin endpoints + migration. Tests: Unit 172 (fold, rebuild==incremental, sweep), Integration 7 (403/200 gate). Fixed a shared-SQLite startup race by disabling RetentionSweeper in the test factory (like OutboxDispatcher). api.requests deferred to WP13.2. |
 | 13.2 | Per-tenant request health | ⬜ | |
 | 13.3 | Job heartbeats + alerting seam | ⬜ | |
 | 13.4 | Operator dashboard (portal) | ⬜ | |

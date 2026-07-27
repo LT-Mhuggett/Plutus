@@ -8,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Plutus.Entities;
 using Plutus.Entities.Models;
+using Plutus.Entities.Tenancy;
 
 namespace Plutus.Tenancy
 {
@@ -52,6 +53,18 @@ namespace Plutus.Tenancy
                         await ExecuteDueDeletionsAsync(db, lifecycle, stoppingToken);
                         var purged = await lifecycle.PurgeExpiredEnrolmentCodesAsync(_opts.EnrolmentCodeRetentionDays, stoppingToken);
                         if (purged > 0) _logger.LogInformation("Retention: purged {Count} expired enrolment codes.", purged);
+
+                        // WP13.1 counted-metrics sweep. Needs a fresh UNSCOPED context (the scoped
+                        // one resolves to a single tenant) so it can write every tenant's counts.
+                        // MySQL-only: like the rest of the sweeper it's inert on the SQLite dev
+                        // host, and a second context on that host's shared in-memory connection
+                        // would contend with the request pipeline.
+                        var opts = scope.ServiceProvider.GetService<DbContextOptions<MySqlDbContext>>();
+                        if (opts != null && db.Database.ProviderName?.Contains("MySql", StringComparison.OrdinalIgnoreCase) == true)
+                        {
+                            using var meterDb = new MySqlDbContext(opts, new FixedTenantContext(Guid.Empty));
+                            await UsageSweep.RunAsync(meterDb, DateOnly.FromDateTime(DateTime.UtcNow), stoppingToken);
+                        }
                     }
                 }
                 catch (OperationCanceledException) { break; }

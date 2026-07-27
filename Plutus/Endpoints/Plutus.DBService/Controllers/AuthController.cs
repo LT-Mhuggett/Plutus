@@ -111,15 +111,18 @@ namespace Plutus.DBService.Controllers
             // WP10.2 (D16): a Suspended/Closed tenant's PORTAL login is refused — but its tills keep
             // syncing, because the device-token path (TokensController) never consults this. The
             // user's tenant is the TenantId shadow on their People row.
+            var tenantId = Guid.Empty;
             await using (var statusCmd = conn.CreateCommand())
             {
                 statusCmd.CommandText =
-                    "SELECT t.Status FROM Tenants t JOIN People p ON p.TenantId = t.Id WHERE p.Id = @empId LIMIT 1";
+                    "SELECT t.Id, t.Status FROM Tenants t JOIN People p ON p.TenantId = t.Id WHERE p.Id = @empId LIMIT 1";
                 statusCmd.Parameters.AddWithValue("@empId", employeeId.ToString());
-                var statusObj = await statusCmd.ExecuteScalarAsync();
-                if (statusObj != null && statusObj != DBNull.Value)
+                await using var statusReader = await statusCmd.ExecuteReaderAsync();
+                if (await statusReader.ReadAsync())
                 {
-                    var status = Convert.ToByte(statusObj);
+                    tenantId = statusReader.GetGuid(0);
+                    var status = statusReader.GetByte(1);
+                    await statusReader.CloseAsync();
                     if (status == 3 /*Suspended*/ || status == 4 /*Closed*/)
                         return StatusCode(403, "Your organisation's portal access is suspended. Please contact billing.");
                 }
@@ -139,6 +142,25 @@ namespace Plutus.DBService.Controllers
                 Scope = scope,
                 Exp = DateTimeOffset.UtcNow.AddHours(12).ToUnixTimeSeconds(),
             };
+
+            // WP13.1 usage metering: count the portal login. Raw upsert on the SAME connection
+            // (bypasses the EF tenant guard) and best-effort — a metering hiccup must NEVER fail a
+            // login. Keyed on (TenantId, BusinessDay, Metric) so ON DUPLICATE KEY just increments.
+            if (tenantId != Guid.Empty)
+            {
+                try
+                {
+                    await using var meterCmd = conn.CreateCommand();
+                    meterCmd.CommandText = @"INSERT INTO TenantUsageRollups (TenantId, BusinessDay, Metric, Value)
+                                             VALUES (@tid, @day, @metric, 1)
+                                             ON DUPLICATE KEY UPDATE Value = Value + 1";
+                    meterCmd.Parameters.AddWithValue("@tid", tenantId.ToString());
+                    meterCmd.Parameters.AddWithValue("@day", DateTime.UtcNow.Date);
+                    meterCmd.Parameters.AddWithValue("@metric", Plutus.Entities.Models.UsageMetrics.LoginsPortal);
+                    await meterCmd.ExecuteNonQueryAsync();
+                }
+                catch { /* metering is best-effort — never break authentication */ }
+            }
 
             return Ok(new
             {
