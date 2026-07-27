@@ -286,6 +286,12 @@ __pycache__/
 *.btm.cs
 *.odx.cs
 *.xsd.cs
+
+# Local secrets (e.g. NEW_RELIC_LICENSE_KEY) - never commit these
+.env
+.env.*
+!.env.example
+
 /Plutus/Endpoints/Plutus.DBService/Database.db
 
 # Live till database backups (real business data - never commit)

@@ -1,7 +1,6 @@
 ﻿using CommunityToolkit.Maui;
 using CommunityToolkit.Maui.Markup;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Maui.Controls.Compatibility.Hosting;
 using Microsoft.Maui.LifecycleEvents;
 using Plutus.Entities;
 using Plutus.Frontend.ClientUI.Core;
@@ -33,7 +32,6 @@ namespace Plutus.Frontend.ClientUI
                     fonts.AddFont("FontAwesome5_Free_Regular_400.otf", "FARegular");
                     fonts.AddFont("FontAwesome5_Free_Solid_900.otf", "FASolid");
                 })
-                .UseMauiCompatibility()
                 .UseMauiCommunityToolkit()
                 .UseMauiCommunityToolkitMarkup()
                 .ConfigureSyncfusionCore();

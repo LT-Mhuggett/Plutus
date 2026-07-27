@@ -297,7 +297,10 @@ namespace Plutus.Entities
                 .HasForeignKey(r => r.AuthoriserId);
 
             modelBuilder.Entity<Role>()
-               .HasOne(r => r.ParentRole);
+                .HasOne(r => r.ParentRole)
+                .WithMany()
+                .HasForeignKey(r => r.ParentId)
+                .IsRequired(false);
 
             modelBuilder.Entity<Role>()
                 .HasMany(r => r.Employees)

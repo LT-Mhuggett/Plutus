@@ -1639,17 +1639,14 @@ namespace Plutus.Entities.Migrations.MySql
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<int>("ParentId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ParentRoleId")
+                    b.Property<int?>("ParentId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
                     b.HasIndex("BusinessId");
 
-                    b.HasIndex("ParentRoleId");
+                    b.HasIndex("ParentId");
 
                     b.ToTable("Role");
                 });
@@ -3254,9 +3251,7 @@ namespace Plutus.Entities.Migrations.MySql
 
                     b.HasOne("Plutus.Entities.Models.Role", "ParentRole")
                         .WithMany()
-                        .HasForeignKey("ParentRoleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("ParentId");
 
                     b.Navigation("Business");
 

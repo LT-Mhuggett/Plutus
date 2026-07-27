@@ -48,10 +48,10 @@ public static class Pbkdf2
 
     private static byte[] Derive(string secret, byte[] salt)
     {
-#pragma warning disable SYSLIB0041 // params fixed to match the legacy hashes stored by the till
-        using var kdf = new Rfc2898DeriveBytes(secret, salt) { IterationCount = Iterations };
-#pragma warning restore SYSLIB0041
-        return kdf.GetBytes(HashBytes);
+        // Matches the legacy till hash exactly: the old Rfc2898DeriveBytes(string, byte[]) ctor
+        // UTF8-encoded the password and defaulted to SHA-1 - preserved explicitly here since
+        // that ctor is now obsolete in favour of this static method.
+        return Rfc2898DeriveBytes.Pbkdf2(Encoding.UTF8.GetBytes(secret), salt, Iterations, HashAlgorithmName.SHA1, HashBytes);
     }
 }
 

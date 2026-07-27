@@ -1,11 +1,16 @@
 ﻿using CommonPOSLibrary.Exceptions;
+using CommunityToolkit.Maui.Extensions;
 using CommunityToolkit.Maui.Views;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using Mapster;
 using Newtonsoft.Json;
 using Plutus.Entities.Models;
+using CoreSettings = Plutus.Frontend.ClientUI.Core.Settings;
 using Plutus.Frontend.ClientUI.Core;
 using Plutus.Frontend.ClientUI.Core.Enum;
+using Plutus.Frontend.ClientUI.Core.Messages;
 using Plutus.Frontend.ClientUI.Core.Models;
 using Plutus.Frontend.ClientUI.Domain.Models;
 using Plutus.Frontend.ClientUI.Helpers;
@@ -43,7 +48,7 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
 
         #region Properties
         public ObservableCollection<Discount> Alterations { get; }
-        public ObservableCollection<IBasketRecord> Basket => Settings.TillListViewOrderReversed ? new ObservableCollection<IBasketRecord>(_basket.Reverse()) : _basket;
+        public ObservableCollection<IBasketRecord> Basket => CoreSettings.TillListViewOrderReversed ? new ObservableCollection<IBasketRecord>(_basket.Reverse()) : _basket;
         public decimal SalesExTax => Basket.Sum(bR => bR.PriceExTax * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
         public decimal SalesIncTax => Basket.Sum(bR => bR.Price * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
         public ObservableCollection<SavedTransaction> StoredTransactions { get; }
@@ -57,7 +62,7 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
             _basket = new ObservableCollection<IBasketRecord>();
             StoredTransactions = new ObservableCollection<SavedTransaction>();
             Alterations = new ObservableCollection<Discount>();
-            DefaultBagId = Settings.DefaultBagId;
+            DefaultBagId = CoreSettings.DefaultBagId;
             Quantity = 1;
             #endregion
 
@@ -89,16 +94,16 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
                 OnPropertyChanged(nameof(CanCheckoutAlterOrSave));
             };
 
-            Settings.StaticPropertyChanged += (sender, e) =>
+            CoreSettings.StaticPropertyChanged += (sender, e) =>
             {
-                if (e.PropertyName == nameof(Settings.DefaultBagId))
+                if (e.PropertyName == nameof(CoreSettings.DefaultBagId))
                 {
-                    DefaultBagId = Settings.DefaultBagId;
+                    DefaultBagId = CoreSettings.DefaultBagId;
                 }
             };
             #endregion
 
-            MessagingCenter.Subscribe<MainPage>(this, "MainUILoaded", async (sender) =>
+            WeakReferenceMessenger.Default.Register<MainUILoadedMessage>(this, async (recipient, message) =>
             {
                 foreach (var savedTrans in await RepositoryWrapper.SavedTransactionRepository.GetAll())
                 {
@@ -106,9 +111,9 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
                 }
             });
 
-            MessagingCenter.Subscribe<Inventory.ViewAllInventoryViewModel, string>(this, "AddToBasket", (sender, arg) =>
+            WeakReferenceMessenger.Default.Register<AddToBasketMessage>(this, (recipient, message) =>
             {
-                AddItem(arg);
+                AddItem(message.Value);
             });
 
             IsDesktop = deviceInfo.Idiom.Equals(DeviceIdiom.Desktop);
@@ -195,12 +200,13 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
                 {
                     var returnedPopup = ServiceHelper.GetService<AdjustItemPage>();
                     returnedPopup.SetData(basketItem.Price, basketItem.PriceExTax);
-                    var returnedValues = await ServiceHelper.GetService<TillPage>().ShowPopupAsync(returnedPopup) as PopupReturnValue<Tuple<decimal, decimal>>;
+                    await ServiceHelper.GetService<TillPage>().ShowPopupAsync(returnedPopup);
+                    var returnedValues = returnedPopup.Result;
                     //Countermesaure code till CommunityToolkit/Maui#568 is merged to release branch
 #if WINDOWS
-                    var mauiPopup = (CommunityToolkit.Maui.Core.Views.MauiPopup)returnedPopup.Handler?.PlatformView;
-                    var panel = mauiPopup.Target as Microsoft.Maui.Platform.ContentPanel;
-                    if (panel != null)
+                    // Popup v2 made Popup a plain ContentView, so PlatformView is now the
+                    // ContentPanel itself - no more MauiPopup wrapper/.Target indirection.
+                    if (returnedPopup.Handler?.PlatformView is Microsoft.Maui.Platform.ContentPanel panel)
                         panel.ContextFlyout = null;
 #endif
                     //End of Countermesaure code
@@ -231,11 +237,13 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
             {
                 if (basketItemParameter is BasketItem basketItem)
                 {
-                    var returnedValues = await ServiceHelper.GetService<TillPage>().ShowPopupAsync(ServiceHelper.GetService<ReturnItemPage>()) as PopupReturnValue<Tuple<string, string>>;
+                    var returnItemPopup = ServiceHelper.GetService<ReturnItemPage>();
+                    await ServiceHelper.GetService<TillPage>().ShowPopupAsync(returnItemPopup);
+                    var returnedValues = returnItemPopup.Result;
 
                     if (returnedValues.PopupReturnStatus == PopupReturnStatus.Completed)
                     {
-                        var returnItem = AppState.Mapper.Map<BasketReturnItem>(basketItem);
+                        var returnItem = basketItem.Adapt<BasketReturnItem>();
 
                         //Start Auth checking
 
@@ -262,7 +270,7 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
             {
                 if (basketReturnItemParameter is BasketReturnItem basketReturnItem)
                 {
-                    var basketItem = AppState.Mapper.Map<BasketItem>(basketReturnItem);
+                    var basketItem = basketReturnItem.Adapt<BasketItem>();
 
                     Basket.Remove(basketReturnItem);
                     Basket.Add(basketItem);
@@ -313,12 +321,13 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
                 }
                 var popup = ServiceHelper.GetService<AlterationPage>();
                 popup.SetData(alteration, items);
-                var adjustmentsResponse = await ServiceHelper.GetService<TillPage>().ShowPopupAsync(popup) as PopupReturnValue<List<BasketAlteration>>;
+                await ServiceHelper.GetService<TillPage>().ShowPopupAsync(popup);
+                var adjustmentsResponse = popup.Result;
                 //Countermesaure code till CommunityToolkit/Maui#568 is merged to release branch
 #if WINDOWS
-                var mauiPopup = (CommunityToolkit.Maui.Core.Views.MauiPopup)popup.Handler?.PlatformView;
-                var panel = mauiPopup.Target as Microsoft.Maui.Platform.ContentPanel;
-                if (panel != null)
+                // Popup v2 made Popup a plain ContentView, so PlatformView is now the
+                // ContentPanel itself - no more MauiPopup wrapper/.Target indirection.
+                if (popup.Handler?.PlatformView is Microsoft.Maui.Platform.ContentPanel panel)
                     panel.ContextFlyout = null;
 #endif
                 //End of Countermesaure code
@@ -527,12 +536,13 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
 
                     var moniesInputPage = ServiceHelper.GetService<MoniesInputPage>();
                     moniesInputPage.SetData(chosenPayMeth, sale.Total);
-                    var moniesInputReturn = await ServiceHelper.GetService<TillPage>().ShowPopupAsync(moniesInputPage) as PopupReturnValue<decimal>;
+                    await ServiceHelper.GetService<TillPage>().ShowPopupAsync(moniesInputPage);
+                    var moniesInputReturn = moniesInputPage.Result;
                     //Countermesaure code till CommunityToolkit/Maui#568 is merged to release branch
 #if WINDOWS
-                    var mauiPopup = (CommunityToolkit.Maui.Core.Views.MauiPopup)moniesInputPage.Handler?.PlatformView;
-                    var panel = mauiPopup.Target as Microsoft.Maui.Platform.ContentPanel;
-                    if (panel != null)
+                    // Popup v2 made Popup a plain ContentView, so PlatformView is now the
+                    // ContentPanel itself - no more MauiPopup wrapper/.Target indirection.
+                    if (moniesInputPage.Handler?.PlatformView is Microsoft.Maui.Platform.ContentPanel panel)
                         panel.ContextFlyout = null;
 #endif
                     if (moniesInputReturn.PopupReturnStatus == PopupReturnStatus.Completed)
@@ -557,7 +567,7 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
                     sale.PaySales.Add(pay);
                 }
 
-                if (chosenPayMeths.Any(p => p.IsChangeable) && Settings.CashbackEnabled)
+                if (chosenPayMeths.Any(p => p.IsChangeable) && CoreSettings.CashbackEnabled)
                 {
                     //Cashback stuff
                 }
@@ -724,7 +734,7 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
             };
 
             using var posPrinterManager = ServiceHelper.GetService<PosPrinterManager>();
-            if (!Settings.AskForReceipt || await App.Current.MainPage.DisplayAlert(Strings.Hmm, Strings.ReceiptRequired, Strings.Yes, Strings.No))
+            if (!CoreSettings.AskForReceipt || await App.Current.MainPage.DisplayAlert(Strings.Hmm, Strings.ReceiptRequired, Strings.Yes, Strings.No))
             {
                 trackEventsArgs.Add("Receipt Requested", "True");
                 tasks[0] = Task.Run(async () =>
@@ -737,7 +747,7 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
                 });
             }
 
-            if (Settings.TryCashDrawer | change != default)
+            if (CoreSettings.TryCashDrawer | change != default)
             {
                 trackEventsArgs.Add("Cash Drawer Open Requested", "True");
                 tasks[1] = posPrinterManager.OpenCashDrawer();
@@ -758,9 +768,9 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
                         break;
                     case CommonPOSLibrary.Enums.POSTargetObjectType.CashDrawer:
                         trackEventsArgs.Add("Cash Drawer Opened Successfully", "False");
-                        trackEventsArgs.Add("Cash Drawer Warning Already Silenced", Settings.CashDrawerWarningSilenced.ToString());
-                        if (!Settings.CashDrawerWarningSilenced)
-                            Settings.CashDrawerWarningSilenced = !await Application.Current.MainPage.DisplayAlert(Strings.Hmm, Strings.CashDrawerErrorWarning, Strings.OK, Strings.Silence);
+                        trackEventsArgs.Add("Cash Drawer Warning Already Silenced", CoreSettings.CashDrawerWarningSilenced.ToString());
+                        if (!CoreSettings.CashDrawerWarningSilenced)
+                            CoreSettings.CashDrawerWarningSilenced = !await Application.Current.MainPage.DisplayAlert(Strings.Hmm, Strings.CashDrawerErrorWarning, Strings.OK, Strings.Silence);
                         break;
                 }
             }

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <!-- Exclude generated code that inherently can't be "covered" by tests in any meaningful
+               sense: XAML source-generated partial classes, resx Designer accessors, and EF Core
+               migrations (each migration is machine-written from the model snapshot, not authored logic). -->
+          <ExcludeByFile>**/obj/**/*.sg.cs,**/*.Designer.cs,**/Migrations/**/*.cs,**/AppDBContextModelSnapshot.cs</ExcludeByFile>
+          <ExcludeByAttribute>GeneratedCodeAttribute,CompilerGeneratedAttribute</ExcludeByAttribute>
+          <!-- Views/* (XAML-backed pages), Platforms/* (Windows POS/hardware + WinRT interop), Controls/*,
+               Behaviors/*, and every other BindableObject-derived type below are confirmed unreachable
+               from a plain xUnit process: constructing (or, for MainThread.BeginInvokeOnMainThread /
+               Preferences.Get-Set, calling into) anything that needs a live WinUI3 dispatcher throws
+               System.Runtime.InteropServices.COMException ("ClassFactory cannot supply requested class")
+               - there is no dispatcher outside a real running app. See ValidationGroupBehaviorTests,
+               AppViewModelTests, and the (deleted) probe tests that established this boundary for each
+               namespace/class below. A second, distinct wall - App.GetViewModel()/App.Current throwing
+               NullReferenceException because the static App instance is never constructed in tests -
+               rules out Helpers.Database.Database and anything that constructs it (e.g. Authorisation).
+               Excluded from the coverage calculation, not from testing effort:
+                 - Views.*, Platforms.*, Controls.*, Behaviors.*, Pages.* (InputAlert's namespace doesn't
+                   match its Views/ folder) - BindableObject construction wall.
+                 - Helpers.Compatibility.IconImage/IconToolbarItem - same wall (Image/ToolbarItem base).
+                 - Helpers.Validators.ErrorHandling.* - BasicErrorStyle takes a View parameter.
+                 - Helpers.Database.* and Helpers.Security.Authorisation - App.GetViewModel() NRE wall.
+                 - ViewModels.Settings and the ViewModels whose constructors call
+                   MainThread.BeginInvokeOnMainThread or take a StackLayout parameter (AddEditViewModel,
+                   ViewAllViewModel, SalesReportsViewModel, StockOuttakeViewModel, TillViewModel,
+                   InventoryViewModel, StatisticsViewModel, StoreInformationViewModel, SettingsViewModel).
+                 - MauiProgram - constructs the real MauiApp bootstrap.
+                 - AppShell (Shell-derived) and CustomViews.AlertDialogBase`1 (PopupPage-derived).
+                 - Helpers.CustomViews.InputAlertHelper - constructs InputAlert (a ContentView) directly.
+                 - Helpers.Extensions.XAML.BasketDataTemplateSelector - DataTemplateSelector derives from
+                   BindableObject, so even constructing the selector itself hits the wall.
+                 - CustomViews.Control.IdentifiableEntry (Entry-derived) and
+                   Helpers.Extensions.XAML.ListViewWithContextMenu.ListViewWithContextMenu (SfListView,
+                   itself Syncfusion's BindableObject-derived list control).
+                 - WinRT.* (generated interop). -->
+          <Exclude>[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.Views.*,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.Platforms.*,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.Controls.*,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.Behaviors.*,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.Pages.*,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.Helpers.Compatibility.IconImage,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.Helpers.Compatibility.IconToolbarItem,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.Helpers.Validators.ErrorHandling.*,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.Helpers.Database.*,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.Helpers.Security.Authorisation,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.Helpers.CustomViews.InputAlertHelper,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.Helpers.Extensions.XAML.BasketDataTemplateSelector,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.Helpers.Extensions.XAML.ListViewWithContextMenu.*,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.ViewModels.Settings,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items.AddEditViewModel,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items.ViewAllViewModel,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.ViewModels.MainTill.Statistics.SalesReportsViewModel,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.ViewModels.MainTill.Statistics.StockOuttakeViewModel,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.ViewModels.MainTill.Statistics.StatisticsViewModel,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.ViewModels.MainTill.Till.TillViewModel,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.InventoryViewModel,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.ViewModels.MainTill.StoreOptions.StoreInformationViewModel,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.ViewModels.MainTill.Settings.SettingsViewModel,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.MauiProgram,[Plutus.Frontend.AppClient]Plutus.Frontend.AppClient.AppShell,[CustomViews]CustomViews.AlertDialogBase*,[CustomViews]CustomViews.Control.IdentifiableEntry,[Plutus.Frontend.AppClient]WinRT.*,[CustomViews]WinRT.*</Exclude>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

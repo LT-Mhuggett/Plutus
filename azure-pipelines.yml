@@ -1,0 +1,157 @@
+trigger:
+  branches:
+    include:
+      - master
+
+pr:
+  branches:
+    include:
+      - '*'
+
+resources:
+  containers:
+    # Plutus.Entities.Tests / Plutus.Repository.Tests construct MySqlDbContext directly against
+    # 127.0.0.1:3306 (root/root, database "plutus") with no mocking - a live MySQL instance is
+    # required for these to pass, not just to build. The GlobalAdmin user is for the EF Core
+    # design-time factory (Data/Database.Migrations.Startup/MySqlDbContextFactory.cs, used by
+    # `dotnet ef database update`, which ignores CLI overrides) - its password comes from the
+    # $(MySqlGlobalAdminPassword) secret pipeline variable (Pipeline > Edit > Variables > add
+    # "MySqlGlobalAdminPassword", check "Keep this value secret") rather than being hardcoded here.
+    # The "Apply EF Core migrations" step below passes it through as MYSQL_GLOBALADMIN_PASSWORD,
+    # which the factory reads via Environment.GetEnvironmentVariable.
+    - container: mysql
+      image: mysql:8.0
+      ports:
+        - 3306:3306
+      env:
+        MYSQL_ROOT_PASSWORD: root
+        MYSQL_DATABASE: plutus
+        MYSQL_USER: GlobalAdmin
+        MYSQL_PASSWORD: $(MySqlGlobalAdminPassword)
+      options: >-
+        --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+        --health-interval=10s
+        --health-timeout=5s
+        --health-retries=10
+
+jobs:
+  - job: BackendTests
+    displayName: 'Backend tests (Plutus.Entities / Plutus.Repository)'
+    pool:
+      vmImage: 'ubuntu-latest'
+    services:
+      mysql: mysql
+    steps:
+      - task: UseDotNet@2
+        displayName: 'Setup .NET 7.0'
+        inputs:
+          packageType: 'sdk'
+          version: '7.0.x'
+
+      - task: DotNetCoreCLI@2
+        displayName: 'Restore'
+        inputs:
+          command: 'restore'
+          projects: |
+            Plutus/Tests/Commons/Plutus.Entities.Tests/Plutus.Entities.Tests.csproj
+            Plutus/Tests/Commons/Plutus.Repository.Tests/Plutus.Repository.Tests.csproj
+            Plutus/Data/Database.Migrations.Startup/Database.Migrations.Startup.csproj
+
+      # Plutus.Entities.Tests queries tables directly with no schema setup of its own - the
+      # database needs migrations applied before it runs (Plutus.Repository.Tests migrates itself
+      # via TestWithMySql's fixture, so it doesn't need this, but running it here too is harmless).
+      # The dotnet-ef tool version must match the EF Core Tools package version the target project
+      # references (6.0.5) - the latest tool crashes at runtime (FileNotFoundException loading
+      # System.Runtime 8.0.0.0) against a net7.0/EF Core 6 project.
+      - script: dotnet tool install --global dotnet-ef --version 6.0.5
+        displayName: 'Install dotnet-ef'
+
+      - script: >
+          dotnet ef database update
+          --project Plutus/Commons/Plutus.Entities/Plutus.Entities.csproj
+          --startup-project Plutus/Data/Database.Migrations.Startup/Database.Migrations.Startup.csproj
+          --context MySqlDbContext
+        displayName: 'Apply EF Core migrations'
+        name: migrate
+        continueOnError: true
+        env:
+          MYSQL_GLOBALADMIN_PASSWORD: $(MySqlGlobalAdminPassword)
+
+      # succeededOrFailed() so both test projects always run (and always get their results
+      # published) even if migrations above failed - matching the GitHub Actions job, which lets
+      # both test steps run regardless so a single CI run gives full diagnostic signal.
+      - task: DotNetCoreCLI@2
+        displayName: 'Test - Plutus.Entities.Tests'
+        condition: succeededOrFailed()
+        inputs:
+          command: 'test'
+          projects: 'Plutus/Tests/Commons/Plutus.Entities.Tests/Plutus.Entities.Tests.csproj'
+          arguments: '--no-restore --collect:"XPlat Code Coverage" --logger trx'
+          publishTestResults: true
+
+      - task: DotNetCoreCLI@2
+        displayName: 'Test - Plutus.Repository.Tests'
+        condition: succeededOrFailed()
+        inputs:
+          command: 'test'
+          projects: 'Plutus/Tests/Commons/Plutus.Repository.Tests/Plutus.Repository.Tests.csproj'
+          arguments: '--no-restore --collect:"XPlat Code Coverage" --logger trx'
+          publishTestResults: true
+
+      - task: PublishCodeCoverageResults@2
+        displayName: 'Publish code coverage'
+        condition: always()
+        inputs:
+          summaryFileLocation: '$(Agent.TempDirectory)/**/coverage.cobertura.xml'
+
+      # continueOnError on the migrate step above means its own failure never fails the job by
+      # itself (that's what lets both test tasks still run for full diagnostics) - this step is
+      # what actually fails the job if migrations didn't apply, mirroring the GitHub Actions job's
+      # explicit "Fail job if migrations ... failed" gate.
+      - script: |
+          if [ "$(migrate.result)" = "Failed" ] || [ "$(migrate.result)" = "SucceededWithIssues" ]; then
+            echo "##vso[task.logissue type=error]EF Core migrations failed."
+            exit 1
+          fi
+        displayName: 'Fail job if migrations failed'
+        condition: always()
+
+  - job: AppClientTests
+    displayName: 'AppClient tests (Windows, MAUI)'
+    pool:
+      vmImage: 'windows-latest'
+    steps:
+      - task: UseDotNet@2
+        displayName: 'Setup .NET 10.0'
+        inputs:
+          packageType: 'sdk'
+          version: '10.0.x'
+
+      # Plutus.Frontend.AppClient.Tests targets net10.0-windows10.0.19041.0 and references the MAUI
+      # app project (UseMaui=true) - hosted agents don't ship the MAUI workload by default.
+      - script: dotnet workload install maui --skip-manifest-update
+        displayName: 'Install MAUI workload'
+
+      - task: DotNetCoreCLI@2
+        displayName: 'Restore'
+        inputs:
+          command: 'restore'
+          projects: 'Plutus/Frontend/Plutus.Frontend.AppClient.Tests/Plutus.Frontend.AppClient.Tests.csproj'
+
+      - task: DotNetCoreCLI@2
+        displayName: 'Test'
+        inputs:
+          command: 'test'
+          projects: 'Plutus/Frontend/Plutus.Frontend.AppClient.Tests/Plutus.Frontend.AppClient.Tests.csproj'
+          arguments: >-
+            --no-restore
+            --collect:"XPlat Code Coverage"
+            --settings "Plutus/Frontend/Plutus.Frontend.AppClient.Tests/coverlet.runsettings"
+            --logger trx
+          publishTestResults: true
+
+      - task: PublishCodeCoverageResults@2
+        displayName: 'Publish code coverage'
+        condition: always()
+        inputs:
+          summaryFileLocation: '$(Agent.TempDirectory)/**/coverage.cobertura.xml'

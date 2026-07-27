@@ -20,8 +20,8 @@ namespace Plutus.Entities.Models
         public Guid BusinessId { get; set; }
 
         [Exportable]
-        public int ParentId { get; set; }
-        public virtual Role ParentRole { get; set; }
+        public int? ParentId { get; set; }
+        public virtual Role? ParentRole { get; set; }
         #region Collections
 
         public virtual ICollection<AuthActionAPIMapping> AuthActionAPIMappings { get; set; }

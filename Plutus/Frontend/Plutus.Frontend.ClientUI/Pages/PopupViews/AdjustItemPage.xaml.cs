@@ -1,5 +1,6 @@
 using CommunityToolkit.Maui.Views;
 using Plutus.Frontend.ClientUI.Core.EventArgs;
+using Plutus.Frontend.ClientUI.Core.Models;
 using Plutus.Frontend.ClientUI.Services.PopupSize;
 using Plutus.Frontend.ClientUI.ViewModels.PopupViewModels;
 
@@ -7,11 +8,17 @@ namespace Plutus.Frontend.ClientUI.Pages.PopupViews;
 
 public partial class AdjustItemPage : Popup
 {
+	// Captured from the RaisePopupCloseRequest event below (before CloseAsync fires), so callers
+	// awaiting ShowPopupAsync() can read the typed result off this instance afterwards without
+	// needing a generic Popup<T>/x:TypeArguments XAML change.
+	public PopupReturnValue<Tuple<decimal, decimal>> Result { get; private set; }
+
 	public AdjustItemPage(IPopupSize popupSize, AdjustItemViewModel viewModel)
 	{
 		InitializeComponent();
 
-        Size = new Size(400, 250);
+        WidthRequest = 400;
+        HeightRequest = 250;
         CanBeDismissedByTappingOutsideOfPopup = false;
 
 		BindingContext = viewModel;
@@ -25,8 +32,9 @@ public partial class AdjustItemPage : Popup
         ((AdjustItemViewModel)BindingContext).PriceExTax = priceExTax;
     }
 
-    private void AdjustItem_RaisePopupCloseRequest(object sender, PopupCloseRequestEventArgs<Tuple<decimal, decimal>> popupCloseEventArgs)
+    private async void AdjustItem_RaisePopupCloseRequest(object sender, PopupCloseRequestEventArgs<Tuple<decimal, decimal>> popupCloseEventArgs)
     {
-        Close(popupCloseEventArgs.PopupReturnValue);
+        Result = popupCloseEventArgs.PopupReturnValue;
+        await CloseAsync();
     }
 }

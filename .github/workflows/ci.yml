@@ -1,50 +1,167 @@
 name: CI
 
-# Backend build + tests for the Plutus platform solution (T0.3).
-# NOTE: untested until GitHub Actions is enabled on this repo. Only the platform
-# projects in Plutus.slnx build here — the MAUI (Windows/workloads) and web frontends
-# are out of this solution by design. Integration tests needing MySQL arrive in Phase 1
-# (a MySQL service container gets added then).
-
 on:
   push:
-    branches: ["**"]
+    branches: [ master ]
   pull_request:
+  workflow_dispatch:
+
+env:
+  BACKEND_RESULTS_DIR: TestResults/backend
+  APPCLIENT_RESULTS_DIR: TestResults/appclient
 
 jobs:
-  build-test:
+  backend-tests:
+    name: Backend tests (Plutus.Entities / Plutus.Repository)
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - name: Setup .NET
+    # Plutus.Entities.Tests / Plutus.Repository.Tests construct MySqlDbContext directly against
+    # 127.0.0.1:3306 (root/root, database "plutus") with no mocking - a live MySQL instance is
+    # required for these to pass, not just to build. The GlobalAdmin user is for the EF Core
+    # design-time factory (Data/Database.Migrations.Startup/MySqlDbContextFactory.cs, used by
+    # `dotnet ef database update`, which ignores CLI overrides) - its password comes from the
+    # MYSQL_GLOBALADMIN_PASSWORD repo secret rather than being hardcoded here. The factory reads
+    # it via Environment.GetEnvironmentVariable, falling back to a local-dev-only default.
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: plutus
+          MYSQL_USER: GlobalAdmin
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_GLOBALADMIN_PASSWORD }}
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10.0
         uses: actions/setup-dotnet@v4
         with:
-          # 9.0.x SDK is needed to parse the .slnx solution; it builds the net8 targets fine.
-          dotnet-version: |
-            8.0.x
-            9.0.x
+          dotnet-version: '10.0.x'
 
-      - run: dotnet restore Plutus.slnx
-      - run: dotnet build Plutus.slnx -c Release --no-restore
-      - run: dotnet test Plutus.slnx -c Release --no-build --verbosity minimal
+      - name: Restore
+        run: |
+          dotnet restore Plutus/Tests/Commons/Plutus.Entities.Tests/Plutus.Entities.Tests.csproj
+          dotnet restore Plutus/Tests/Commons/Plutus.Repository.Tests/Plutus.Repository.Tests.csproj
+          dotnet restore Plutus/Data/Database.Migrations.Startup/Database.Migrations.Startup.csproj
 
-  # OpenAPI drift gate (T1.6 contract freeze): boot the host on the SQLite dev context,
-  # regenerate the spec from its live Swagger, and fail if it differs from the committed
-  # openapi.json — so a controller signature change without a regen breaks CI.
-  # NOTE: untested until GitHub Actions is enabled on this repo (same caveat as build-test).
+      # Plutus.Entities.Tests queries tables directly with no schema setup of its own - the
+      # database needs migrations applied before it runs (Plutus.Repository.Tests migrates itself
+      # via TestWithMySql's fixture, so it doesn't need this, but running it here too is harmless).
+      # dotnet-ef 10.0.9 works natively against the net10.0/EF Core 9.0.18 projects with no
+      # rollForward workaround needed.
+      - name: Install dotnet-ef
+        run: dotnet tool install --global dotnet-ef --version 10.0.9
+
+      - name: Apply EF Core migrations
+        id: migrate
+        continue-on-error: true
+        env:
+          MYSQL_GLOBALADMIN_PASSWORD: ${{ secrets.MYSQL_GLOBALADMIN_PASSWORD }}
+        run: >
+          dotnet ef database update
+          --project Plutus/Commons/Plutus.Entities/Plutus.Entities.csproj
+          --startup-project Plutus/Data/Database.Migrations.Startup/Database.Migrations.Startup.csproj
+          --context MySqlDbContext
+
+      - name: Test - Plutus.Entities.Tests
+        id: entities_tests
+        continue-on-error: true
+        run: >
+          dotnet test Plutus/Tests/Commons/Plutus.Entities.Tests/Plutus.Entities.Tests.csproj
+          --no-restore
+          --logger "trx;LogFileName=Plutus.Entities.Tests.trx"
+          --results-directory ${{ env.BACKEND_RESULTS_DIR }}
+          --collect:"XPlat Code Coverage"
+
+      - name: Test - Plutus.Repository.Tests
+        id: repository_tests
+        continue-on-error: true
+        run: >
+          dotnet test Plutus/Tests/Commons/Plutus.Repository.Tests/Plutus.Repository.Tests.csproj
+          --no-restore
+          --logger "trx;LogFileName=Plutus.Repository.Tests.trx"
+          --results-directory ${{ env.BACKEND_RESULTS_DIR }}
+          --collect:"XPlat Code Coverage"
+
+      - name: Upload backend test results & coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: ${{ env.BACKEND_RESULTS_DIR }}/**
+
+      # continue-on-error above lets both test projects always run (and always upload results)
+      # even if one fails - this step is what actually fails the job if either one did.
+      - name: Fail job if migrations or any backend test project failed
+        if: steps.migrate.outcome == 'failure' || steps.entities_tests.outcome == 'failure' || steps.repository_tests.outcome == 'failure'
+        run: exit 1
+
+  appclient-tests:
+    name: AppClient tests (Windows, MAUI)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10.0
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # Plutus.Frontend.AppClient.Tests targets net10.0-windows10.0.19041.0 and references the MAUI
+      # app project (UseMaui=true) - hosted runners don't ship the MAUI workload by default.
+      - name: Install MAUI workload
+        run: dotnet workload install maui --skip-manifest-update
+
+      - name: Restore
+        run: dotnet restore "Plutus/Frontend/Plutus.Frontend.AppClient.Tests/Plutus.Frontend.AppClient.Tests.csproj"
+
+      - name: Test
+        run: >
+          dotnet test "Plutus/Frontend/Plutus.Frontend.AppClient.Tests/Plutus.Frontend.AppClient.Tests.csproj"
+          --no-restore
+          --logger "trx;LogFileName=Plutus.Frontend.AppClient.Tests.trx"
+          --results-directory ${{ env.APPCLIENT_RESULTS_DIR }}
+          --collect:"XPlat Code Coverage"
+          --settings "Plutus/Frontend/Plutus.Frontend.AppClient.Tests/coverlet.runsettings"
+
+      - name: Upload AppClient test results & coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appclient-test-results
+          path: ${{ env.APPCLIENT_RESULTS_DIR }}/**
+
+  # OpenAPI drift gate (from Matt's-Horror, T1.6 contract freeze): boot the DBService host and
+  # diff its live Swagger output against the committed openapi.json, so a controller/DTO change
+  # without a regenerated spec fails CI.
   openapi-drift:
+    name: OpenAPI drift (Plutus.DBService)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: |
-            8.0.x
-            9.0.x
+          dotnet-version: '10.0.x'
+
       - name: Build host
         run: dotnet build Plutus/Endpoints/Plutus.DBService/Plutus.DBService.csproj -c Debug
+
+      # `dotnet run` (rather than invoking the built .dll directly) avoids hardcoding the
+      # TFM-specific bin/Debug/<tfm> output path, which would go stale on every retarget.
       - name: Boot host (SQLite dev context) and dump the spec
         env:
           ASPNETCORE_ENVIRONMENT: Development
@@ -52,7 +169,7 @@ jobs:
           DISABLE_AUTH_DEV_ONLY: "true"
           TEST_TOKEN_SECRET: ci-drift-secret
         run: |
-          dotnet Plutus/Endpoints/Plutus.DBService/bin/Debug/net8.0/Plutus.DBService.dll &
+          dotnet run --project Plutus/Endpoints/Plutus.DBService/Plutus.DBService.csproj -c Debug --no-build &
           APP_PID=$!
           for i in $(seq 1 30); do
             curl -sf http://localhost:5199/swagger/v1/swagger.json -o openapi.regen.json && break
@@ -61,6 +178,7 @@ jobs:
           kill $APP_PID 2>/dev/null || true
           # Fail loudly here rather than letting the drift step report a confusing "file missing".
           if [ ! -s openapi.regen.json ]; then echo "::error::host never served swagger.json (see boot log)"; exit 1; fi
+
       - name: Fail on drift
         run: |
           if ! diff -q openapi.json openapi.regen.json; then
@@ -69,3 +187,42 @@ jobs:
             exit 1
           fi
           echo "OpenAPI contract is in sync."
+
+  publish-results:
+    name: Publish test results & coverage summary
+    needs: [ backend-tests, appclient-tests ]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      # dorny/test-reporter shells out to `git ls-files` to map test failures to source lines -
+      # without a checkout there's no .git directory and it errors out.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all test result artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-results
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Unit Test Results
+          path: 'all-results/**/*.trx'
+          reporter: dotnet-trx
+          fail-on-error: false
+
+      - name: Coverage summary
+        if: always()
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: 'all-results/**/*.cobertura.xml'
+          badge: true
+          format: markdown
+          output: both
+
+      - name: Add coverage to job summary
+        if: always()
+        run: cat code-coverage-results.md >> "$GITHUB_STEP_SUMMARY"

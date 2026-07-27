@@ -1,3 +1,6 @@
+using CommunityToolkit.Mvvm.Messaging;
+using Plutus.Frontend.ClientUI.Core.Messages;
+
 namespace Plutus.Frontend.ClientUI.Pages.MainTill;
 public partial class MainPage
 {
@@ -21,6 +24,6 @@ public partial class MainPage
 		if (_loaded) return;
 
 		_loaded = true;
-		MessagingCenter.Send(this, "MainUILoaded");
+		WeakReferenceMessenger.Default.Send(new MainUILoadedMessage());
 	}
 }
