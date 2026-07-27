@@ -416,7 +416,9 @@ export interface VatIntegrity {
   offBandItems: { id: string; name: string; band: string; price: number; exPrice: number; expectedPrice: number }[];
 }
 
-export const fetchVatIntegrity = () => get<VatIntegrity>(`/api/Sale/VatIntegrity`);
+// WP12 tidy-up (2026-07-27): the off-band VAT check reads the catalogue, not sales — moved off
+// the legacy /api/Sale/VatIntegrity to its v1 equivalent (identical shape).
+export const fetchVatIntegrity = () => get<VatIntegrity>(`/api/v1/reports/vat-integrity`);
 
 /** WP12.1: the Custom report reads the v1 sales list (SalesV2 — real data), not the near-empty
  *  legacy /api/Sale/Index. Pence from the server, mapped to the existing Sale shape. */

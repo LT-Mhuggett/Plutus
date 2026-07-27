@@ -265,6 +265,33 @@ namespace Plutus.Reporting
             });
         }
 
+        /// <summary>VAT off-band CATALOGUE check (moved off legacy /api/Sale/VatIntegrity, 2026-07-27):
+        /// items whose stored inc-VAT Price disagrees (by &gt;2p) with ExPrice × their tax rate.
+        /// Reads the catalogue (Items+Tax) — nothing to do with sales/the bridge. Reachable by any
+        /// report viewer (till or portal).</summary>
+        [HttpGet("api/v1/reports/vat-integrity")]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView + "," + PermissionCatalogue.PosReportsView)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> VatIntegrity()
+        {
+            var items = await _db.Items.AsNoTracking().Include(i => i.Tax)
+                .Where(i => i.Tax != null)
+                .Select(i => new { i.IdOne, i.Name, i.Price, i.ExPrice, Band = i.Tax.Name, Rate = i.Tax.Rate })
+                .ToListAsync();
+
+            var offBand = items
+                .Select(i => new
+                {
+                    id = i.IdOne, name = i.Name, band = i.Band, price = i.Price, exPrice = i.ExPrice,
+                    expectedPrice = Math.Round(i.ExPrice * (decimal)i.Rate, 2),
+                })
+                .Where(i => Math.Abs(i.price - i.expectedPrice) > 0.02m)
+                .OrderByDescending(i => Math.Abs(i.price - i.expectedPrice))
+                .ToList();
+
+            return Ok(new { offBandCount = offBand.Count, offBandItems = offBand });
+        }
+
         /// <summary>WP3.5 drill-down support: the sales in a day range (day-level view between
         /// the rollup buckets and the single-sale detail). Capped at 500 rows per call.</summary>
         // Sale HEADERS only (id/day/time/gross/vat/till/channel — no lines, no PII): same
