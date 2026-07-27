@@ -56,6 +56,16 @@ namespace Plutus.Tenancy
             services.AddSingleton<IBillingProvider>(new NullBillingProvider(configuration["BILLING_WEBHOOK_SECRET"]));
             services.AddSingleton(new RetentionOptions());
             services.AddHostedService<RetentionSweeper>();
+
+            // WP13.1 usage metering: the SaleRecorded → sales.* fold. Own consumer name → own
+            // offset + dedupe, drained by the outbox dispatcher exactly like the rollup projection.
+            services.AddScoped<IEventConsumer>(sp =>
+            {
+                var ctx = sp.GetRequiredService<RepositoryContext>() as MySqlDbContext
+                    ?? throw new InvalidOperationException(
+                        "Usage metering requires the MySqlDbContext (server build).");
+                return new UsageMeteringConsumer(ctx);
+            });
             return services;
         }
     }

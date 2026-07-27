@@ -60,6 +60,8 @@ namespace Plutus.Entities
         // Reporting projections (WP3.3): rebuildable rollups the dashboards read.
         public DbSet<SalesRollup> SalesRollups { get; set; }
         public DbSet<VatRollup> VatRollups { get; set; }
+        // WP13.1 operator usage metering: (TenantId, BusinessDay, Metric) → Value.
+        public DbSet<TenantUsageRollup> TenantUsageRollups { get; set; }
         // Financial periods (WP3.4): close/lock + snapshot.
         public DbSet<FinancialPeriod> FinancialPeriods { get; set; }
         // Stock ledger (WP5.1): append-only movements + materialised levels.
@@ -148,6 +150,8 @@ namespace Plutus.Entities
             typeof(AuditLog), typeof(StoreDetails), typeof(TillDetails),
             // Reporting projections (WP3.3).
             typeof(SalesRollup), typeof(VatRollup),
+            // Operator usage metering (WP13.1) — per-tenant rows, platform-admin reads cross-tenant.
+            typeof(TenantUsageRollup),
             // Financial periods (WP3.4).
             typeof(FinancialPeriod),
             // Stock ledger (WP5.1) + transfers (WP5.2) + goods-in (WP5.3).
@@ -422,6 +426,13 @@ namespace Plutus.Entities
                 e.HasKey(x => x.Id);
                 e.Property(x => x.Id).ValueGeneratedOnAdd();
                 e.HasIndex(x => new { x.TenantId, x.StoreId, x.BusinessDay, x.VatRateBp }).IsUnique();
+            });
+            // WP13.1 operator usage metering — composite key on the natural grain.
+            modelBuilder.Entity<TenantUsageRollup>(e =>
+            {
+                e.ToTable("TenantUsageRollups");
+                e.HasKey(x => new { x.TenantId, x.BusinessDay, x.Metric });
+                e.Property(x => x.Metric).HasMaxLength(64);
             });
 
             // WP3.4 financial periods.
