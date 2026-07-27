@@ -46,17 +46,27 @@ survives a Mac reboot), logrotate.** Till Custom report + export repointed to v1
 `/api/Sale/Index`/`SaleReport` readers gone); legacy bridge behind `LegacyBridge:Enabled` (still
 ON). Prices/credit/membership were already wired.
 
-**WP12.2 progress (2026-07-27):** `/api/v1/sales/{id}` is now ENRICHED (additive) with per-line
-`itemIdOne`+`itemName` (barcode from SaleLine.ItemIdOne OR DiscountsJson for web-till sales),
-`operatorName`, and refund `adjustments` — verified live (names resolve). Portal drill-down shows
-product names now. **Still to do to flip the bridge off:** (1) repoint the till's `fetchSaleDetail`
-(used by BOTH the view dialog AND ReturnDialog) to `/api/v1/sales/{id}` — but that endpoint is
-gated `PortalFinancialsView` while RETURNS are done by supervisors holding `pos.refund` not
-financials, so returns need either a pos-gated sale-lookup or a re-gate, PLUS a live return test
-(trading-critical — do with Matt present); (2) then `LegacyBridge:Enabled=false` + delete the
-bridge/legacy tables. `VatIntegrity` (`/api/Sale/VatIntegrity`) is a CATALOGUE check, not
-bridge-fed — it can stay or move independently. After that, only externally-gated items remain
-(Phase 4 MAUI upstream, Phase 7 payments provider, Phase 10 Stripe, Phase 6 outbound go-live).
+**✅ WP12.2 COMPLETE — LEGACY BRIDGE OFF (2026-07-27, `8856bcf`).** Matt authorised the flip
+(tills idle). Done: `/api/v1/sales/{id}` enriched (per-line `itemIdOne`+`itemName` — barcode from
+SaleLine.ItemIdOne OR DiscountsJson for web-till sales — `operatorName`, refund `adjustments`);
+the `perm:` policy now accepts an OR-list (`perm:a,b,c` → any), so that endpoint is gated
+`portal.financials.view | pos.reports.view | pos.refund` (reachable by portal drill-down AND a
+till operator doing a return, matching the legacy endpoint's any-auth reach); till `fetchSaleDetail`
+(view dialog + ReturnDialog) reads v1. `LegacyBridge__Enabled=false` set in the pm2 ecosystem env
+(backup `.pre-bridgeoff`), restarted — bridge consumer no longer registered; the OTHER outbox
+consumers (rollups, stock-ledger, webstore-stock-outbound) keep running. Legacy `Sales`/`Trans`/
+`Stock` FROZEN (kept for 6-yr retention + rollback), NOT dropped. Baseline: legacy Sales was only
+2 rows (migrated history went straight to v1), so sale-detail was effectively broken for ~all
+sales before — the repoint is also a fix. Verified live: app healthy (0 restarts), sale-detail +
+summary-rich + till/portal/ETRIE all 200.
+⚠ **Not yet done:** (a) a real end-to-end RETURN through the till UI (data path verified 200 + type-checked,
+but the React return flow wasn't clicked — worth Matt doing once); (b) `VatIntegrity`
+(`/api/Sale/VatIntegrity`) still hits legacy — it's a CATALOGUE check (reads Items), NOT bridge-fed,
+so unaffected by the flip; repoint whenever; (c) deleting the legacy tables (a later, deliberate op
+once confident). **To ROLL BACK the flip:** set `LegacyBridge__Enabled=true` (or restore the
+ecosystem backup) + pm2 restart — the bridge re-registers and resumes feeding legacy from the outbox.
+Remaining plan items are all externally-gated (Phase 4 MAUI upstream, Phase 7 payments, Phase 10
+Stripe, Phase 6 outbound go-live).
 
 **Key session learnings live in:** §Phase-6 records below (deploy gotchas: pm2 PATH, ecosystem
 env restarts, form-encoded ping, DI lifetimes) + `Build/secrets.local.md` (gitignored: all

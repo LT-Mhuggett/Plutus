@@ -854,8 +854,20 @@ card shows the not-yet-connected note; no impact on stock-location transfers or 
 > proven** (dump → `plutus_t1`, row counts MATCH live for SalesV2/SaleLines/Items/WebStores/
 > WebstoreProducts); `pm2-logrotate` (10 MB × 14, compressed); **`pm2 save` + a resurrect-at-login
 > LaunchAgent so the backend survives a Mac reboot**; old `backend.pre-*` rollback dirs pruned to
-> 2. Still open in WP12.2: flip the bridge off once the last `/api/Sale/*` till readers move to
-> v1 (small follow-up); WP12's "retire legacy tables" step waits on that.
+> 2.
+>
+> 🟢 **WP12.2 COMPLETE — BRIDGE OFF (2026-07-27, `8856bcf`).** Repointed the last bridge-fed reader:
+> `/api/v1/sales/{id}` enriched with item names/operator/adjustments, gated via a new **OR-list
+> perm policy** (`perm:portal.financials.view,pos.reports.view,pos.refund` — so a refund-capable
+> till operator reaches the sale it's returning, matching the legacy endpoint's any-auth reach);
+> the till's `fetchSaleDetail` (view + return) now reads v1. With no live reader left on legacy
+> Sales/Trans/Stock (portal Stock is v1; the till never showed legacy stock; Summary/Custom already
+> v1), **`LegacyBridge__Enabled=false`** is set live — the bridge consumer is deregistered, the
+> other outbox consumers keep running, legacy tables are **frozen** (6-yr retention/rollback), not
+> dropped. Rollback = flip the flag + restart. Left: a Matt-clicked end-to-end return through the
+> till UI (data path verified); `VatIntegrity` (a catalogue check, not bridge-fed) repoint whenever;
+> the eventual legacy-table drop (deliberate, later). WP12's interim-contract retirement (DiscountsJson
+> metadata, ProviderRef payId, negative-qty returns) can now proceed independently.
 
 > Collects every **known-interim contract** currently running (previously scattered as asides in
 > Phase 2/5/8/11 notes — easy to forget there) plus the ops debt of a now-live test environment.
