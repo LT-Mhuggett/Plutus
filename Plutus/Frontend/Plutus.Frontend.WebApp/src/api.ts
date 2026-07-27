@@ -375,7 +375,41 @@ export interface SaleDetail {
   notes: string[];
 }
 
-export const fetchSaleDetail = (id: string) => get<SaleDetail>(`/api/Sale/Detail/${id}`);
+/** WP12.2: read sale detail from v1 (SalesV2 — the source of truth), not the legacy
+ *  /api/Sale/Detail (bridge-fed). Maps the v1 shape → the existing SaleDetail the view dialog and
+ *  return flow consume; prices are pence → pounds, ex-VAT derived from the line's VAT rate, and
+ *  the barcode is the enriched itemIdOne (so returns still key on the item's natural id). */
+interface V1SaleDetail {
+  id: string; occurredAtUtc: string; grossPence: number; vatPence: number; operatorName: string | null; note: string | null;
+  lines: { itemId: string; itemIdOne: string | null; itemName: string | null; qty: number; unitPricePence: number; vatRateBp: number; overriddenFromPence: number | null }[];
+  tenders: { tenderType: string; amountPence: number; changePence: number }[];
+  adjustments: { type: string; itemId: string | null; qty: number | null; amountPence: number; reason: string }[];
+}
+export async function fetchSaleDetail(id: string): Promise<SaleDetail> {
+  const s = await get<V1SaleDetail>(`/api/v1/sales/${id}`);
+  const exUnit = (pence: number, rateBp: number) => Math.round(pence * 10000 / (10000 + rateBp)) / 100;
+  return {
+    id: s.id,
+    dateOfSale: s.occurredAtUtc,
+    total: s.grossPence / 100,
+    totalExTax: (s.grossPence - s.vatPence) / 100,
+    employee: s.operatorName,
+    lines: s.lines.map((l) => ({
+      itemId: l.itemIdOne ?? l.itemId,            // barcode — what the return flow needs
+      name: l.itemName ?? l.itemIdOne ?? "(item)",
+      quantity: l.qty,
+      unitPrice: l.unitPricePence / 100,
+      unitExPrice: exUnit(l.unitPricePence, l.vatRateBp),
+      priceAdjusted: l.overriddenFromPence != null,
+      discounts: [],
+    })),
+    payments: s.tenders.map((t) => ({ method: t.tenderType, amount: t.amountPence / 100, change: t.changePence / 100 })),
+    refunds: s.adjustments.filter((a) => a.type === "Refund").map((a) => ({
+      itemId: a.itemId ?? "", name: "", quantity: a.qty ?? 0, reason: a.reason, originalSaleId: s.id,
+    })),
+    notes: s.note ? [s.note] : [],
+  };
+}
 
 export interface VatIntegrity {
   offBandCount: number;

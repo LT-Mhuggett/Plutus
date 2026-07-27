@@ -297,8 +297,11 @@ namespace Plutus.Reporting
 
         /// <summary>Full drill-down of one platform sale (the immutable record: lines,
         /// tenders, device, operator).</summary>
+        // Reachable by a portal financials drill-down AND a till operator viewing/returning a sale
+        // (WP12.2: this replaces the legacy /api/Sale/Detail, which was open to any authenticated
+        // user — a supervisor doing a return holds pos.refund, not portal.financials.view).
         [HttpGet("api/v1/sales/{saleId}")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalFinancialsView)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalFinancialsView + "," + PermissionCatalogue.PosReportsView + "," + PermissionCatalogue.PosRefund)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> SaleDetail([FromRoute] Guid saleId)

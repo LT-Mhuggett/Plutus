@@ -21,8 +21,14 @@ namespace Plutus.Identity
     public sealed class PermissionRequirement : IAuthorizationRequirement
     {
         public const string PolicyPrefix = "perm:";
-        public PermissionRequirement(string code) => Code = code;
-        public string Code { get; }
+        /// <summary>One or more permission codes; the caller passing ANY of them satisfies the
+        /// requirement (OR). A policy name may list them comma-separated, e.g.
+        /// <c>perm:portal.financials.view,pos.reports.view,pos.refund</c> — used where several
+        /// distinct roles legitimately reach the same read (e.g. a sale drill-down that both a
+        /// portal auditor and a till operator doing a return need).</summary>
+        public PermissionRequirement(params string[] codes) => Codes = codes;
+        public string[] Codes { get; }
+        public string Code => Codes.Length > 0 ? Codes[0] : "";
     }
 
     public sealed class PermissionAuthorizationHandler : AuthorizationHandler<PermissionRequirement>
@@ -45,8 +51,12 @@ namespace Plutus.Identity
             // Scoped resolution: the handler is a singleton, the DbContext is per-request.
             using var scope = _services.CreateScope();
             var permissions = scope.ServiceProvider.GetRequiredService<EffectivePermissionsService>();
-            if (await permissions.HasAnywhereAsync(id, requirement.Code, DateTime.Now))
-                context.Succeed(requirement);
+            foreach (var code in requirement.Codes)
+                if (await permissions.HasAnywhereAsync(id, code, DateTime.Now))
+                {
+                    context.Succeed(requirement);
+                    return;
+                }
         }
     }
 
@@ -62,10 +72,11 @@ namespace Plutus.Identity
         {
             if (policyName != null && policyName.StartsWith(PermissionRequirement.PolicyPrefix, StringComparison.Ordinal))
             {
-                var code = policyName.Substring(PermissionRequirement.PolicyPrefix.Length);
+                var codes = policyName.Substring(PermissionRequirement.PolicyPrefix.Length)
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                 var policy = new AuthorizationPolicyBuilder()
                     .RequireAuthenticatedUser()
-                    .AddRequirements(new PermissionRequirement(code))
+                    .AddRequirements(new PermissionRequirement(codes))
                     .Build();
                 return Task.FromResult(policy);
             }
