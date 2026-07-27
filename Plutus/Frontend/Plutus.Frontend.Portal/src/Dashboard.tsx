@@ -95,7 +95,7 @@ function ReceiptView({ id, sale }: { id: string; sale: SaleDetail }) {
         <tbody>
           {sale.lines.map((l) => (
             <tr key={l.lineNo}>
-              <td>{l.qty} ×</td>
+              <td>{l.qty} × {l.itemName ?? ""}</td>
               <td className="num">{gbp(l.unitPricePence)}</td>
               <td className="num">{l.discountPence ? `−${gbp(l.discountPence)}` : ""}</td>
               <td className="num">{gbp(l.lineGrossPence)}</td>
@@ -139,11 +139,11 @@ function SaleDialog({ id, onClose }: { id: string; onClose: () => void }) {
               {sale.note && (<><dt>Note</dt><dd>{sale.note}</dd></>)}
             </dl>
             <table>
-              <thead><tr><th>#</th><th>Qty</th><th className="num">Unit</th><th className="num">Disc</th><th className="num">Gross</th><th className="num">VAT</th></tr></thead>
+              <thead><tr><th>#</th><th>Item</th><th>Qty</th><th className="num">Unit</th><th className="num">Disc</th><th className="num">Gross</th><th className="num">VAT</th></tr></thead>
               <tbody>
                 {sale.lines.map((l) => (
                   <tr key={l.lineNo}>
-                    <td>{l.lineNo}</td><td>{l.qty}</td>
+                    <td>{l.lineNo}</td><td>{l.itemName ?? l.itemIdOne ?? "—"}</td><td>{l.qty}</td>
                     <td className="num">{gbp(l.unitPricePence)}</td>
                     <td className="num">{l.discountPence ? gbp(l.discountPence) : "—"}</td>
                     <td className="num">{gbp(l.lineGrossPence)}</td>

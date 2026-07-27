@@ -36,6 +36,20 @@ namespace Plutus.Reporting
 
         /// <summary>Every period key in [from,to] at the granularity — the zero-fill spine so the
         /// chart shows quiet days/months too.</summary>
+        /// <summary>Barcode carried in a web-till line's DiscountsJson metadata
+        /// (<c>{"itemIdOne":"…"}</c>) — the same key the ingest reads onto SaleLine.ItemIdOne.
+        /// Null on parse failure / absent key.</summary>
+        private static string BarcodeFromDiscountsJson(string discountsJson)
+        {
+            if (string.IsNullOrWhiteSpace(discountsJson)) return null;
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(discountsJson);
+                return doc.RootElement.TryGetProperty("itemIdOne", out var v) ? v.GetString() : null;
+            }
+            catch (System.Text.Json.JsonException) { return null; }
+        }
+
         private static List<string> EnumeratePeriods(string granularity, DateOnly from, DateOnly to)
         {
             var list = new List<string>();
@@ -294,6 +308,27 @@ namespace Plutus.Reporting
                 .FirstOrDefaultAsync(s => s.Id == saleId);
             if (sale == null) return NotFound();
 
+            // WP12.2 enrichment (ADDITIVE — the portal's existing fields are untouched): resolve
+            // per-line item NAMES (barcode → Items.Name), the operator NAME, and the sale's refund
+            // ADJUSTMENTS, so the TILL can read this instead of the legacy /api/Sale/Detail (the
+            // last bridge-fed reader). The barcode is on SaleLine.ItemIdOne for migrated sales, but
+            // web-till sales carry it in DiscountsJson ({"itemIdOne":"…"}) — resolve both.
+            var lineBarcode = sale.Lines.ToDictionary(l => l.LineNo, l => l.ItemIdOne ?? BarcodeFromDiscountsJson(l.DiscountsJson));
+            var barcodes = lineBarcode.Values.Where(b => b != null).Select(b => b!).Distinct().ToList();
+            var names = (await _db.Items.AsNoTracking().IgnoreQueryFilters()
+                    .Where(i => barcodes.Contains(i.IdOne)).Select(i => new { i.IdOne, i.Name }).ToListAsync())
+                .GroupBy(i => i.IdOne).ToDictionary(g => g.Key, g => g.First().Name);
+
+            string operatorName = null;
+            if (sale.OperatorUserId is { } op)
+                operatorName = (await _db.People.AsNoTracking().IgnoreQueryFilters()
+                    .Where(p => p.Id == op).Select(p => $"{p.FName} {p.LName}").FirstOrDefaultAsync())?.Trim();
+
+            var adjustments = await _db.SaleAdjustments.AsNoTracking().IgnoreQueryFilters()
+                .Where(a => a.OriginalSaleId == saleId)
+                .Select(a => new { type = a.Type.ToString(), itemId = a.ItemId, qty = a.Qty, amountPence = a.AmountPence, reason = a.Reason, createdAtUtc = a.CreatedAtUtc })
+                .ToListAsync();
+
             return Ok(new
             {
                 id = sale.Id,
@@ -307,12 +342,16 @@ namespace Plutus.Reporting
                 grossPence = sale.GrossPence,
                 vatPence = sale.VatPence,
                 operatorUserId = sale.OperatorUserId,
+                operatorName,
                 legacyRef = sale.LegacyRef,
                 note = sale.Note,
                 vatReconstructed = sale.VatReconstructed,
                 lines = sale.Lines.OrderBy(l => l.LineNo).Select(l => new
                 {
-                    lineNo = l.LineNo, itemId = l.ItemId, qty = l.Qty,
+                    lineNo = l.LineNo, itemId = l.ItemId,
+                    itemIdOne = lineBarcode[l.LineNo],
+                    itemName = lineBarcode[l.LineNo] is { } bc && names.TryGetValue(bc, out var n) ? n : lineBarcode[l.LineNo],
+                    qty = l.Qty,
                     unitPricePence = l.UnitPricePence, discountPence = l.DiscountPence,
                     lineGrossPence = l.LineGrossPence, vatRateBp = l.VatRateBp, vatAmountPence = l.VatAmountPence,
                     overriddenFromPence = l.OverriddenFromPence, discountsJson = l.DiscountsJson,
@@ -322,6 +361,7 @@ namespace Plutus.Reporting
                     tenderType = t.TenderType.ToString(), amountPence = t.AmountPence,
                     changePence = t.ChangePence, providerRef = t.ProviderRef,
                 }),
+                adjustments,
             });
         }
 

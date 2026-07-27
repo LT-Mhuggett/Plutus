@@ -118,8 +118,10 @@ export interface SaleDetail {
   legacyRef: string | null;
   note: string | null;
   vatReconstructed: boolean;
-  lines: { lineNo: number; itemId: string; qty: number; unitPricePence: number; discountPence: number; lineGrossPence: number; vatRateBp: number; vatAmountPence: number; discountsJson: string | null }[];
+  operatorName?: string | null;
+  lines: { lineNo: number; itemId: string; itemIdOne?: string | null; itemName?: string | null; qty: number; unitPricePence: number; discountPence: number; lineGrossPence: number; vatRateBp: number; vatAmountPence: number; discountsJson: string | null }[];
   tenders: { tenderType: string; amountPence: number; changePence: number }[];
+  adjustments?: { type: string; itemId: string | null; qty: number | null; amountPence: number; reason: string; createdAtUtc: string }[];
 }
 export const fetchSaleDetail = (id: string) => get<SaleDetail>(`/api/v1/sales/${id}`);
 
