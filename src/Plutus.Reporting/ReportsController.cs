@@ -253,8 +253,12 @@ namespace Plutus.Reporting
 
         /// <summary>WP3.5 drill-down support: the sales in a day range (day-level view between
         /// the rollup buckets and the single-sale detail). Capped at 500 rows per call.</summary>
+        // Sale HEADERS only (id/day/time/gross/vat/till/channel — no lines, no PII): same
+        // sensitivity tier as summary-rich, so gated at ReportsView (WP12.1: the till's Custom
+        // report reads this, and must be reachable by whoever can see the Summary beside it).
+        // The deeper per-line drill-down (`/{saleId}`) stays FinancialsView.
         [HttpGet("api/v1/sales")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalFinancialsView)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> SalesList(
