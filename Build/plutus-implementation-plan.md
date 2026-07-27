@@ -754,6 +754,17 @@ a 30-day query on the full Kapow dataset returns in acceptable time.
 
 ### Phase 11 (cont.) — Portal information architecture (Matt's follow-up, 2026-07-26)
 
+> ✅ **DONE & LIVE (2026-07-27).** WP11.5: new tab order `Dashboard · Reporting · … · Webstore ·
+> Users & Roles · Locations · Company`; **Dashboard** tab (default landing, same analytics
+> component as Reporting → Summary); **Company** tab (company details moved off the old Stores
+> page + Financial periods absorbed — standalone Periods tab gone). WP11.6: "Stores & Tills"
+> renamed **Locations** — top shows a physical-locations summary line + `+ New store` /
+> `+ Warehouse / location` actions (+ a pointer to the Webstore tab), then **Stores /
+> Warehouses / Webstores** as collapsible groups CLOSED by default; a store's own Store-type
+> stock location now shows INSIDE its card as its inventory bucket (the confusing flat
+> "physical locations" list is gone). WP11.7: the webstore card/summary lives here; the full
+> webstore workspace is the Phase-6 Webstore tab. Portal built + deployed; ETRIE 200.
+
 > Feedback from live use: the "Stores & Tills" tab conflates two backend concepts and the
 > top-level navigation is missing an obvious way home and a home for company/period settings.
 > **No code yet.** Frontend-only re-layout plus one small model addition (webstore channel row);
@@ -829,6 +840,22 @@ card shows the not-yet-connected note; no impact on stock-location transfers or 
 ---
 
 ## Phase 12 — Legacy retirement & ops hardening (added 2026-07-26)
+
+> 🟢 **WP12.1 + 12.2 + 12.3 DONE (2026-07-27).** **WP12.1:** the till Custom report + its export
+> now read `/api/v1/sales` (SalesV2 — real data) and a client-side CSV, dropping the last
+> `/api/Sale/Index` + `/api/Sale/SaleReport` legacy readers; till prices (`/api/v1/prices/
+> effective`) and checkout credit-as-tender + membership auto-discount were ALREADY wired
+> (verified in `TillPage`/`CheckoutDialog` — the old handover notes were stale). **WP12.2:** the
+> legacy sale bridge is now behind `LegacyBridge:Enabled` (default ON) — a restart-flag kill
+> switch; leave ON until the till's remaining legacy read paths (sale detail, VAT integrity via
+> `/api/Sale/*`) are also repointed, then flip off and delete. **WP12.3:** nightly MySQL dumps
+> (launchd 03:30, `plutus` + `plutus_t1`, `--set-gtid-purged=OFF --no-tablespaces
+> --skip-lock-tables`, 7-day retention, `~/PLUTUS/backups/nightly/`) + **restore rehearsal
+> proven** (dump → `plutus_t1`, row counts MATCH live for SalesV2/SaleLines/Items/WebStores/
+> WebstoreProducts); `pm2-logrotate` (10 MB × 14, compressed); **`pm2 save` + a resurrect-at-login
+> LaunchAgent so the backend survives a Mac reboot**; old `backend.pre-*` rollback dirs pruned to
+> 2. Still open in WP12.2: flip the bridge off once the last `/api/Sale/*` till readers move to
+> v1 (small follow-up); WP12's "retire legacy tables" step waits on that.
 
 > Collects every **known-interim contract** currently running (previously scattered as asides in
 > Phase 2/5/8/11 notes — easy to forget there) plus the ops debt of a now-live test environment.

@@ -384,23 +384,33 @@ export interface VatIntegrity {
 
 export const fetchVatIntegrity = () => get<VatIntegrity>(`/api/Sale/VatIntegrity`);
 
-/** All sales in the date range (IgnorePagination — ranges are shop-scale, not web-scale). */
-export const fetchSales = (from: Date, to: Date) =>
-  get<Sale[]>(
-    `/api/Sale/Index?IgnorePagination=true&MinDateOfSale=${dateOnly(from)}&MaxDateOfSale=${dateOnly(to)}`,
-  );
+/** WP12.1: the Custom report reads the v1 sales list (SalesV2 — real data), not the near-empty
+ *  legacy /api/Sale/Index. Pence from the server, mapped to the existing Sale shape. */
+export async function fetchSales(from: Date, to: Date): Promise<Sale[]> {
+  const rows = await get<Array<{
+    id: string; occurredAtUtc: string; grossPence: number; vatPence: number; operatorUserId: string | null;
+  }>>(`/api/v1/sales?from=${dateOnly(from)}&to=${dateOnly(to)}&take=500`);
+  return rows.map((r) => ({
+    id: r.id,
+    total: r.grossPence / 100,
+    totalExTax: (r.grossPence - r.vatPence) / 100,
+    dateOfSale: r.occurredAtUtc,
+    employeeId: r.operatorUserId ?? "",
+  }));
+}
 
+/** WP12.1: CSV export built client-side from the v1 rows — drops the legacy /api/Sale/SaleReport
+ *  .xls dependency (the last legacy reader in the Custom report). */
 export async function downloadSalesReport(from: Date, to: Date): Promise<void> {
-  const res = await fetch(`/api/Sale/SaleReport?minDate=${dateOnly(from)}&maxDate=${dateOnly(to)}`, {
-    headers: headers(),
-  });
-  handle401(res);
-  if (!res.ok) throw new Error(`Report failed: API ${res.status}`);
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
+  const sales = await fetchSales(from, to);
+  const rows = [["sale_id", "date", "net_ex_vat", "vat", "total_inc_vat"]];
+  for (const s of sales)
+    rows.push([s.id, s.dateOfSale, s.totalExTax.toFixed(2), (s.total - s.totalExTax).toFixed(2), s.total.toFixed(2)]);
+  const csv = rows.map((r) => r.map((c) => (c.includes(",") ? `"${c}"` : c)).join(",")).join("\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${dateOnly(from)}-${dateOnly(to)}-SalesReport.xls`;
+  a.download = `${dateOnly(from)}-${dateOnly(to)}-sales.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }

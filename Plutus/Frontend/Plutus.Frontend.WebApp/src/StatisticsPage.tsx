@@ -61,7 +61,7 @@ export default function StatisticsPage() {
           Load
         </button>
         <button className="ghost" onClick={download} disabled={downloading}>
-          {downloading ? "Preparing…" : "Download Excel report"}
+          {downloading ? "Preparing…" : "Download CSV"}
         </button>
       </div>
 

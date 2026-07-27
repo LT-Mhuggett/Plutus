@@ -56,7 +56,7 @@ namespace Plutus.DBService
             services.AddPlutusIdentity(Configuration);
             services.AddPlutusCatalogue();
             services.AddPlutusSales();
-            services.AddPlutusReporting();
+            services.AddPlutusReporting(Configuration);   // WP12.2: LegacyBridge:Enabled gate (default on)
             services.AddPlutusTenancy(Configuration);
             services.AddPlutusCash();       // WP7.2 cash sessions
             services.AddPlutusPayments();   // WP7.1 provider seam + reconciliation

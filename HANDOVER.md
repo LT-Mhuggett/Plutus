@@ -38,11 +38,18 @@ Phase 6 (WooCommerce connector)** complete; Kapow history loaded; everything pus
    ecosystem ConnectionString.
 4. Standing sudo items: Keycloak `login.plutus` Caddy vhost (Phase 9); portal basic_auth gap.
 
-**Next build work when sessions resume (nothing blocking):** WP11.5–11.7 portal IA restructure
-(Dashboard/Company tabs + Locations regroup — planned in the implementation plan, no code yet);
-Phase 12 (legacy retirement + ops hardening — incl. `pm2 save` so the backend survives a Mac
-reboot, nightly MySQL dumps); then the externally-gated items (Phase 4 MAUI upstream, Phase 7
-payments provider, Phase 10 Stripe).
+**✅ Phase 11 (11.5–11.7) + Phase 12 (12.1–12.3) DONE & LIVE 2026-07-27** (head after this
+session's commits). Portal: Dashboard + Company tabs (Periods absorbed), Locations page with
+collapsible Stores/Warehouses/Webstores groups. Ops HARDENED: **nightly MySQL backups (launchd
+03:30, restore-rehearsed, row-counts match), pm2 save + resurrect LaunchAgent (backend now
+survives a Mac reboot), logrotate.** Till Custom report + export repointed to v1 (last
+`/api/Sale/Index`/`SaleReport` readers gone); legacy bridge behind `LegacyBridge:Enabled` (still
+ON). Prices/credit/membership were already wired.
+
+**Next build work when sessions resume (nothing blocking):** finish WP12.2 — repoint the till's
+remaining `/api/Sale/*` readers (sale detail, VAT integrity) to v1, then flip `LegacyBridge:Enabled=false`
+and eventually delete the bridge + legacy tables. Then only externally-gated items remain
+(Phase 4 MAUI upstream, Phase 7 payments provider, Phase 10 Stripe, Phase 6 outbound go-live).
 
 **Key session learnings live in:** §Phase-6 records below (deploy gotchas: pm2 PATH, ecosystem
 env restarts, form-encoded ping, DI lifetimes) + `Build/secrets.local.md` (gitignored: all

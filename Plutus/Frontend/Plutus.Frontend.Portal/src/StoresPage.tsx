@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import {
   createStockLocation, createStore, createTill, deleteTill, fetchCompanies, fetchStockLocations,
-  fetchStores, fetchTills, gbp, putReceiptTemplate, renameTill, revokeTill, updateCompany, updateStore,
-  type Company, type ReceiptTemplate, type StockLocationRow, type StoreRow, type TillRow,
+  fetchStores, fetchTills, fetchWebstores, gbp, putReceiptTemplate, renameTill, revokeTill, updateStore,
+  type Company, type ReceiptTemplate, type StockLocationRow, type StoreRow, type TillRow, type WebstoreConn,
 } from "./api.ts";
 import Barcode39 from "./Barcode39.tsx";
 import { SortTh, useSort } from "./sortable.tsx";
@@ -12,19 +12,27 @@ const DAYS: { key: string; label: string }[] = [
   { key: "thu", label: "Thu" }, { key: "fri", label: "Fri" }, { key: "sat", label: "Sat" }, { key: "sun", label: "Sun" },
 ];
 
-/** Stores & tills admin: company details, store addresses + opening hours, and the till
- *  fleet with enrolment codes (WP1.2 flow) + revoke. */
+/** WP11.6 "Locations": physical locations at the top (summary + the three add actions), then
+ *  Stores / Warehouses / Webstores as collapsible groups, all CLOSED by default. Company details
+ *  moved to the Company tab (WP11.5). A store's own Store-type stock location shows INSIDE its
+ *  card as its inventory bucket — never as a confusing flat "physical locations" row. */
 export default function StoresPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [stores, setStores] = useState<StoreRow[]>([]);
   const [tills, setTills] = useState<TillRow[]>([]);
+  const [locations, setLocations] = useState<StockLocationRow[]>([]);
+  const [webstores, setWebstores] = useState<WebstoreConn[]>([]);
   const [error, setError] = useState("");
   const [issued, setIssued] = useState<{ tillId: string; code: string; expires: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const refresh = () =>
-    Promise.all([fetchCompanies(), fetchStores(), fetchTills()])
-      .then(([c, s, t]) => { setCompanies(c); setStores(s); setTills(t); })
+    Promise.all([
+      fetchCompanies(), fetchStores(), fetchTills(),
+      fetchStockLocations().catch(() => [] as StockLocationRow[]),
+      fetchWebstores().catch(() => [] as WebstoreConn[]),   // 403 when unentitled — group just shows none
+    ])
+      .then(([c, s, t, l, w]) => { setCompanies(c); setStores(s); setTills(t); setLocations(l); setWebstores(w); })
       .catch((e) => setError(String(e)));
 
   useEffect(() => { void refresh(); }, []);
@@ -80,27 +88,95 @@ export default function StoresPage() {
         </div>
       )}
 
-      <h2>Company</h2>
-      {companies.map((c) => (
-        <CompanyRow key={c.id} company={c} onSaved={refresh} />
-      ))}
-
-      <h2>Stores</h2>
-      <AddStore companies={companies} onSaved={refresh} />
-      {stores.length === 0 && <p className="muted">No stores yet — add one above.</p>}
-      {stores.map((s, idx) => (
-        <StoreCard
-          key={s.id} store={s} defaultOpen={idx === 0} onSaved={refresh}
-          tills={tills.filter((t) => t.storeId === s.id)} busy={busy}
-          onRename={rename} onRemoveTill={removeTill} onNewTill={newTill}
-          onRevoke={(id) => void revokeTill(id).then(refresh)}
-        />
-      ))}
-
       <h2>Physical locations</h2>
-      <p className="muted small">Set up a store or warehouse/distribution location.</p>
-      <LocationsSection stores={stores} />
+      <p className="muted small">
+        {stores.length} store{stores.length === 1 ? "" : "s"} ·{" "}
+        {locations.filter((l) => l.type === "Warehouse").length} warehouse
+        {locations.filter((l) => l.type === "Warehouse").length === 1 ? "" : "s"} ·{" "}
+        {webstores.length} webstore{webstores.length === 1 ? "" : "s"}
+      </p>
+      <div className="toolbar">
+        <AddStore companies={companies} onSaved={refresh} />
+        <AddWarehouse stores={stores} onSaved={refresh} />
+        <span className="muted small">+ Webstore — connect one in the <strong>Webstore</strong> tab.</span>
+      </div>
+
+      <details className="card store-card">
+        <summary><strong>Stores ({stores.length})</strong></summary>
+        {stores.length === 0 && <p className="muted">No stores yet — add one above.</p>}
+        {stores.map((s) => (
+          <StoreCard
+            key={s.id} store={s} defaultOpen={false} onSaved={refresh}
+            tills={tills.filter((t) => t.storeId === s.id)} busy={busy}
+            buckets={locations.filter((l) => l.storeId === s.id && l.type === "Store")}
+            onRename={rename} onRemoveTill={removeTill} onNewTill={newTill}
+            onRevoke={(id) => void revokeTill(id).then(refresh)}
+          />
+        ))}
+      </details>
+
+      <details className="card store-card">
+        <summary><strong>Warehouses ({locations.filter((l) => l.type === "Warehouse").length})</strong></summary>
+        <table>
+          <thead><tr><th>Name</th><th>Backing store</th></tr></thead>
+          <tbody>
+            {locations.filter((l) => l.type === "Warehouse").map((l) => (
+              <tr key={l.id}><td>{l.name}</td><td>{stores.find((s) => s.id === l.storeId)?.name ?? `Store ${l.storeId}`}</td></tr>
+            ))}
+            {locations.filter((l) => l.type === "Warehouse").length === 0 && (
+              <tr><td colSpan={2} className="muted">No warehouses yet — add one above.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </details>
+
+      <details className="card store-card">
+        <summary><strong>Webstores ({webstores.length})</strong></summary>
+        <table>
+          <thead><tr><th>Name</th><th>Site</th><th>Status</th><th>Pending SKUs</th></tr></thead>
+          <tbody>
+            {webstores.map((w) => (
+              <tr key={w.id}>
+                <td>{w.name}</td>
+                <td className="small">{w.url}</td>
+                <td>{w.enabled ? <span className="chip ok">connected</span> : <span className="chip bad">disabled</span>}</td>
+                <td className="num">{w.pendingSkus}</td>
+              </tr>
+            ))}
+            {webstores.length === 0 && <tr><td colSpan={4} className="muted">No webstores connected — use the Webstore tab.</td></tr>}
+          </tbody>
+        </table>
+        <p className="muted small">Full webstore workspace (review queue, catalogue, alignment, outbound) lives in the <strong>Webstore</strong> tab.</p>
+      </details>
     </section>
+  );
+}
+
+/** "+ Warehouse / location" as a top-row action (the create form the old flat section had). */
+function AddWarehouse({ stores, onSaved }: { stores: StoreRow[]; onSaved: () => Promise<void> | void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [storeId, setStoreId] = useState<number>(stores[0]?.id ?? 1);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => { if (stores[0]) setStoreId(stores[0].id); }, [stores]);
+  if (!open) return <button className="ghost small" onClick={() => setOpen(true)}>+ Warehouse / location</button>;
+  return (
+    <span className="new-location">
+      <input placeholder="unique, e.g. Back Warehouse" value={name} onChange={(e) => setName(e.target.value)} />
+      <select value={storeId} onChange={(e) => setStoreId(Number(e.target.value))}>
+        {stores.map((s) => <option key={s.id} value={s.id}>{s.name ?? `Store ${s.id}`}</option>)}
+      </select>
+      <button className="primary small" disabled={busy || !name.trim()} onClick={async () => {
+        setBusy(true); setError("");
+        try {
+          await createStockLocation({ storeId, type: "Warehouse", name: name.trim() });
+          setOpen(false); setName(""); await onSaved();
+        } catch (e) { setError(String(e instanceof Error ? e.message : e)); } finally { setBusy(false); }
+      }}>Create</button>
+      <button className="ghost small" onClick={() => setOpen(false)}>Cancel</button>
+      {error && <span className="error small">{error}</span>}
+    </span>
   );
 }
 
@@ -193,35 +269,9 @@ function NewTillRow({ storeId, busy, onCreate }: { storeId: number; busy: boolea
   );
 }
 
-function CompanyRow({ company, onSaved }: { company: Company; onSaved: () => Promise<void> | void }) {
-  const [name, setName] = useState(company.name);
-  const [vat, setVat] = useState(company.vatIN);
-  const [busy, setBusy] = useState(false);
-  const dirty = name !== company.name || vat !== company.vatIN;
-  return (
-    <div className="toolbar">
-      <label>Name <input value={name} onChange={(e) => setName(e.target.value)} /></label>
-      <label>VAT no. <input value={vat} onChange={(e) => setVat(e.target.value)} /></label>
-      {dirty && (
-        <button
-          className="primary small"
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true);
-            await updateCompany(company.id, { name, vatIN: vat }).finally(() => setBusy(false));
-            await onSaved();
-          }}
-        >
-          Save
-        </button>
-      )}
-    </div>
-  );
-}
-
-function StoreCard({ store, defaultOpen, onSaved, tills, busy, onRename, onRemoveTill, onNewTill, onRevoke }: {
+function StoreCard({ store, defaultOpen, onSaved, tills, busy, buckets, onRename, onRemoveTill, onNewTill, onRevoke }: {
   store: StoreRow; defaultOpen: boolean; onSaved: () => Promise<void> | void;
-  tills: TillRow[]; busy: boolean;
+  tills: TillRow[]; busy: boolean; buckets: StockLocationRow[];
   onRename: (id: string, name: string) => Promise<void>;
   onRemoveTill: (t: TillRow) => void; onNewTill: (storeId: number, name: string) => Promise<void>;
   onRevoke: (id: string) => void;
@@ -267,68 +317,21 @@ function StoreCard({ store, defaultOpen, onSaved, tills, busy, onRename, onRemov
         {dirty && <p className="muted small">Edit hours above, then press "Save" in the address row.</p>}
       </details>
 
-      <details className="sub" open>
+      <details className="sub">
         <summary className="muted small">Tills ({tills.length})</summary>
         <TillsTable tills={tills} busy={busy} storeId={store.id}
           onRename={onRename} onRemove={onRemoveTill} onRevoke={onRevoke} onNewTill={onNewTill} />
       </details>
 
+      {/* WP11.6: the store's own inventory bucket lives HERE, not in a flat "locations" list. */}
+      {buckets.length > 0 && (
+        <p className="muted small">
+          Inventory bucket{buckets.length === 1 ? "" : "s"}: {buckets.map((b) => b.name).join(", ")} (auto-created; stock counts and transfers use this)
+        </p>
+      )}
+
       <ReceiptTemplateEditor store={store} onSaved={onSaved} />
     </details>
-  );
-}
-
-/** Stock locations list + a clear "Add warehouse" button (name checked for uniqueness). */
-function LocationsSection({ stores }: { stores: StoreRow[] }) {
-  const [locations, setLocations] = useState<StockLocationRow[]>([]);
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [type, setType] = useState("Warehouse");
-  const [storeId, setStoreId] = useState<number>(stores[0]?.id ?? 1);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const refresh = () => fetchStockLocations().then(setLocations).catch(() => undefined);
-  useEffect(() => { void refresh(); }, []);
-  useEffect(() => { if (stores[0]) setStoreId(stores[0].id); }, [stores]);
-
-  return (
-    <div className="card">
-      <table>
-        <thead><tr><th>Name</th><th>Type</th><th>Store</th></tr></thead>
-        <tbody>
-          {locations.map((l) => (
-            <tr key={l.id}><td>{l.name}</td><td>{l.type}</td><td>{l.storeId}</td></tr>
-          ))}
-          {locations.length === 0 && <tr><td colSpan={3} className="muted">No locations yet.</td></tr>}
-        </tbody>
-      </table>
-      {open ? (
-        <div className="toolbar">
-          <label>Name <input placeholder="unique, e.g. Back Warehouse" value={name} onChange={(e) => setName(e.target.value)} /></label>
-          <label>Type
-            <select value={type} onChange={(e) => setType(e.target.value)}>
-              <option value="Warehouse">Warehouse</option><option value="Store">Store</option>
-            </select>
-          </label>
-          <label>Store
-            <select value={storeId} onChange={(e) => setStoreId(Number(e.target.value))}>
-              {stores.map((s) => <option key={s.id} value={s.id}>{s.name ?? `Store ${s.id}`}</option>)}
-            </select>
-          </label>
-          <button className="primary small" disabled={busy || !name.trim()} onClick={async () => {
-            setBusy(true); setError("");
-            try {
-              await createStockLocation({ storeId, type, name: name.trim() });
-              setOpen(false); setName(""); await refresh();
-            } catch (e) { setError(String(e instanceof Error ? e.message : e)); } finally { setBusy(false); }
-          }}>Create</button>
-          <button className="ghost small" onClick={() => setOpen(false)}>Cancel</button>
-          {error && <span className="error small">{error}</span>}
-        </div>
-      ) : (
-        <button className="primary small" onClick={() => setOpen(true)}>+ Add warehouse / location</button>
-      )}
-    </div>
   );
 }
 

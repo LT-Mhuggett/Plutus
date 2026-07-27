@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Dashboard from "./Dashboard.tsx";
 import ReportingPage from "./ReportingPage.tsx";
 import BankingPage from "./BankingPage.tsx";
 import CustomersPage from "./CustomersPage.tsx";
@@ -8,7 +9,7 @@ import PricesPage from "./PricesPage.tsx";
 import UsersPage from "./UsersPage.tsx";
 import StoresPage from "./StoresPage.tsx";
 import WebstorePage from "./WebstorePage.tsx";
-import PeriodsPage from "./PeriodsPage.tsx";
+import CompanyPage from "./CompanyPage.tsx";
 import LoginPage from "./LoginPage.tsx";
 import { getSession, type Session } from "./session.ts";
 import { oidcMode, signOut } from "./auth.ts";
@@ -16,10 +17,13 @@ import { beginLogin, completeLoginIfCallback } from "./oidc.ts";
 
 declare const __BUILD_TIME__: string;
 
-const TABS = ["Reporting", "Banking", "Stock", "Prices", "Customers", "Loyalty", "Webstore", "Users & Roles", "Stores & Tills", "Periods"] as const;
+// WP11.5 (Matt): "Dashboard" always takes you home; "Company" holds company details + the
+// absorbed Financial periods; "Locations" is the WP11.6 grouped stores/warehouses/webstores page.
+const TABS = ["Dashboard", "Reporting", "Banking", "Stock", "Prices", "Customers", "Loyalty", "Webstore", "Users & Roles", "Locations", "Company"] as const;
 type Tab = (typeof TABS)[number];
 
 const PAGES: Record<Tab, () => React.JSX.Element> = {
+  Dashboard: DashboardTab,
   Reporting: ReportingPage,
   Banking: BankingPage,
   Stock: StockPage,
@@ -28,9 +32,15 @@ const PAGES: Record<Tab, () => React.JSX.Element> = {
   Loyalty: LoyaltyPage,
   Webstore: WebstorePage,
   "Users & Roles": UsersPage,
-  "Stores & Tills": StoresPage,
-  Periods: PeriodsPage,
+  Locations: StoresPage,
+  Company: CompanyPage,
 };
+
+// The same analytics view Reporting → Summary shows — one component, two doors (decided at
+// build time per the WP11.5 note; no data difference).
+function DashboardTab() {
+  return <Dashboard />;
+}
 
 function Page({ tab }: { tab: Tab }) {
   const Component = PAGES[tab];
@@ -38,7 +48,7 @@ function Page({ tab }: { tab: Tab }) {
 }
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>("Reporting");
+  const [tab, setTab] = useState<Tab>("Dashboard");
   // password mode: seed from the stored session. oidc mode: resolved by the effect below.
   const [name, setName] = useState<string | null>(() => (oidcMode ? null : getSession()?.name ?? null));
   const [booting, setBooting] = useState<boolean>(oidcMode);

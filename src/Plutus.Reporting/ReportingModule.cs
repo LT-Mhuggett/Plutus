@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Plutus.Entities;
 using Plutus.SharedKernel;
@@ -15,17 +16,24 @@ namespace Plutus.Reporting
     /// </summary>
     public static class ReportingModule
     {
-        public static IServiceCollection AddPlutusReporting(this IServiceCollection services)
+        public static IServiceCollection AddPlutusReporting(this IServiceCollection services, IConfiguration configuration = null)
         {
+            // WP12.2 kill switch: the Phase-2 legacy bridge keeps the old Sales/Trans read model
+            // fed from the v1 pipeline. It stays ON by default; once every legacy reader is
+            // repointed to /api/v1 (WP12.1) it can be switched off (LegacyBridge:Enabled=false)
+            // and later deleted. Config-gated so it's a restart, not a redeploy, to flip.
+            var bridgeEnabled = configuration?.GetValue<bool?>("LegacyBridge:Enabled") ?? true;
+
             // Resolves the SAME scoped context the OutboxDrainer saves — each consumer's
             // writes commit atomically with its offset (see the consumers' class comments).
-            services.AddScoped<IEventConsumer>(sp =>
-            {
-                var ctx = sp.GetRequiredService<RepositoryContext>() as MySqlDbContext
-                    ?? throw new InvalidOperationException(
-                        "The legacy sale bridge requires the MySqlDbContext (server build).");
-                return new LegacySaleBridgeConsumer(ctx);
-            });
+            if (bridgeEnabled)
+                services.AddScoped<IEventConsumer>(sp =>
+                {
+                    var ctx = sp.GetRequiredService<RepositoryContext>() as MySqlDbContext
+                        ?? throw new InvalidOperationException(
+                            "The legacy sale bridge requires the MySqlDbContext (server build).");
+                    return new LegacySaleBridgeConsumer(ctx);
+                });
             // WP3.3: the rollup projection the report endpoints read.
             services.AddScoped<IEventConsumer>(sp =>
             {
