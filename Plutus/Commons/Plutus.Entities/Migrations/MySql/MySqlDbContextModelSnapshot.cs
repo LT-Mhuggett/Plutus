@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Plutus.Entities;
 
@@ -16,8 +17,56 @@ namespace Plutus.Entities.Migrations.MySql
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "6.0.5")
+                .HasAnnotation("ProductVersion", "8.0.10")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
+
+            MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
+
+            modelBuilder.Entity("Plutus.Entities.Models.AuditLog", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("AtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DetailJson")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("EntityId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "AtUtc");
+
+                    b.HasIndex("TenantId", "EntityType", "EntityId");
+
+                    b.ToTable("AuditLogs", (string)null);
+                });
 
             modelBuilder.Entity("Plutus.Entities.Models.AuthActionAPIMapping", b =>
                 {
@@ -59,6 +108,8 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(65,30)");
@@ -124,13 +175,72 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Property<decimal?>("RecMarkup")
                         .HasColumnType("decimal(65,30)");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
                     b.Property<string>("VatIN")
                         .IsRequired()
                         .HasColumnType("longtext");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId");
+
                     b.ToTable("Business");
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.CashEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<long>("AmountPence")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateOnly>("BusinessDay")
+                        .HasColumnType("date");
+
+                    b.Property<long?>("CountedPence")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("DeviceId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<long?>("ExpectedPence")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("OperatorUserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<DateTime>("ReceivedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("TillId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<byte>("Type")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.Property<long?>("VariancePence")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "TillId", "BusinessDay");
+
+                    b.ToTable("CashEvents", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Category", b =>
@@ -165,9 +275,14 @@ namespace Plutus.Entities.Migrations.MySql
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
                     b.HasKey("IdOne", "IdTwo");
 
                     b.HasIndex("IdTwo");
+
+                    b.HasIndex("TenantId");
 
                     b.ToTable("Category");
                 });
@@ -177,6 +292,8 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -205,11 +322,241 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(65,30)");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
 
                     b.HasIndex("ItemIdOne", "ItemIdTwo");
 
                     b.ToTable("CheckoutItemChange");
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.ConsumerDeadLetter", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("ConsumerName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Error")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<long>("OutboxId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConsumerName");
+
+                    b.ToTable("ConsumerDeadLetters", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.ConsumerOffset", b =>
+                {
+                    b.Property<string>("ConsumerName")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<long>("LastOutboxId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("ConsumerName");
+
+                    b.ToTable("ConsumerOffsets", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.CreditAccount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "CustomerId")
+                        .IsUnique();
+
+                    b.ToTable("CreditAccounts", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.CreditEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<long>("AmountPence")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("CreditAccountId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<Guid?>("SaleId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<byte>("Type")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "CreditAccountId");
+
+                    b.ToTable("CreditEntries", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.Customer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Email");
+
+                    b.ToTable("Customers", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.DeletionSchedule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("ExecuteAfterUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("ExecutedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("RequestedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("RequestedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Status");
+
+                    b.ToTable("DeletionSchedules", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.Device", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long>("LastSeenSeq")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("SecretHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varbinary(64)");
+
+                    b.Property<byte[]>("SecretSalt")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varbinary(32)");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("TillId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TillId");
+
+                    b.ToTable("Devices", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Discount", b =>
@@ -217,6 +564,8 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<bool>("AllApplicable")
                         .HasColumnType("tinyint(1)");
@@ -255,6 +604,9 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Property<int>("RequiredNumOfItems")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
                     b.Property<int>("Type")
                         .HasColumnType("int");
 
@@ -265,6 +617,8 @@ namespace Plutus.Entities.Migrations.MySql
 
                     b.HasIndex("BusinessId");
 
+                    b.HasIndex("TenantId");
+
                     b.ToTable("Discounts");
                 });
 
@@ -273,6 +627,8 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<Guid>("CatIdOne")
                         .HasColumnType("char(36)");
@@ -303,9 +659,14 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Property<DateTime>("StartDateTime")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("DiscountId");
+
+                    b.HasIndex("TenantId");
 
                     b.HasIndex("CatIdOne", "CatIdTwo");
 
@@ -317,6 +678,8 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -348,9 +711,14 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Property<DateTime>("StartDateTime")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("DiscountId");
+
+                    b.HasIndex("TenantId");
 
                     b.HasIndex("ItemIdOne", "ItemIdTwo");
 
@@ -387,6 +755,88 @@ namespace Plutus.Entities.Migrations.MySql
                     b.HasIndex("EmpId");
 
                     b.ToTable("EmpAuthActions");
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.EnrolmentCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<byte[]>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varbinary(32)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("TillId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UsedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CodeHash")
+                        .IsUnique();
+
+                    b.HasIndex("TillId");
+
+                    b.ToTable("EnrolmentCodes", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.FinancialPeriod", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("ClosedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("ClosedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateOnly>("EndDay")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("SnapshotJson")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateOnly>("StartDay")
+                        .HasColumnType("date");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "CompanyId", "StartDay");
+
+                    b.ToTable("FinancialPeriods", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Item", b =>
@@ -444,9 +894,14 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Property<int>("TaxId")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
                     b.HasKey("IdOne", "IdTwo");
 
                     b.HasIndex("IdTwo");
+
+                    b.HasIndex("TenantId");
 
                     b.HasIndex("CatId", "IdTwo");
 
@@ -455,11 +910,79 @@ namespace Plutus.Entities.Migrations.MySql
                     b.ToTable("Items");
                 });
 
+            modelBuilder.Entity("Plutus.Entities.Models.ItemPricePolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("ItemIdOne")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<byte>("Policy")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "ItemIdOne")
+                        .IsUnique();
+
+                    b.ToTable("ItemPricePolicies", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.Membership", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<decimal>("AutoDiscountRate")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateOnly>("RenewalDay")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("StartDay")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Tier")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "CustomerId");
+
+                    b.ToTable("Memberships", (string)null);
+                });
+
             modelBuilder.Entity("Plutus.Entities.Models.Note", b =>
                 {
                     b.Property<int>("IdOne")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("IdOne"));
 
                     b.Property<Guid>("IdTwo")
                         .ValueGeneratedOnAdd()
@@ -479,6 +1002,9 @@ namespace Plutus.Entities.Migrations.MySql
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
                     b.Property<string>("Text")
                         .IsRequired()
                         .HasColumnType("longtext");
@@ -487,7 +1013,127 @@ namespace Plutus.Entities.Migrations.MySql
 
                     b.HasIndex("IdTwo");
 
+                    b.HasIndex("TenantId");
+
                     b.ToTable("Notes");
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.OutboxEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId")
+                        .IsUnique();
+
+                    b.ToTable("OutboxEvents", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.POLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("ItemIdOne")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<Guid>("PurchaseOrderId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("QtyOrdered")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QtyReceived")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<long>("UnitCostPence")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PurchaseOrderId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("POLines", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.PaymentEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<long>("AmountPence")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CapturedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("MatchedSaleId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("ProviderRef")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime>("ReceivedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("ResolvedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "ProviderRef");
+
+                    b.HasIndex("TenantId", "ResolvedAtUtc");
+
+                    b.ToTable("PaymentEvents", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.PaymentMethod", b =>
@@ -495,6 +1141,8 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<decimal>("Charge")
                         .HasColumnType("decimal(65,30)");
@@ -559,9 +1207,14 @@ namespace Plutus.Entities.Migrations.MySql
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
                     b.HasKey("PayId", "SaleId");
 
                     b.HasIndex("SaleId");
+
+                    b.HasIndex("TenantId");
 
                     b.ToTable("PaySales");
                 });
@@ -625,9 +1278,267 @@ namespace Plutus.Entities.Migrations.MySql
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId");
+
                     b.ToTable("People");
+
+                    b.UseTptMappingStrategy();
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.PriceListEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("EffectiveFromUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long>("ExPricePence")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ItemIdOne")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<long>("PricePence")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "ItemIdOne", "EffectiveFromUtc");
+
+                    b.ToTable("PriceListEntries", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.PriceOverride", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("EffectiveFromUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long>("ExPricePence")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ItemIdOne")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<long>("PricePence")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("RevokedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("StoreId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "StoreId", "ItemIdOne", "EffectiveFromUtc");
+
+                    b.ToTable("PriceOverrides", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.ProcessedEvent", b =>
+                {
+                    b.Property<string>("ConsumerName")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("ProcessedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("ConsumerName", "EventId");
+
+                    b.ToTable("ProcessedEvents", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.PurchaseOrder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.Property<int>("StoreId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Status");
+
+                    b.ToTable("PurchaseOrders", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.RbacRole", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsBuiltIn")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("RbacRoles", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.RbacRoleAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<byte?>("DaysOfWeekMask")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("ScopeId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<byte>("ScopeType")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("ValidFromUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("ValidToUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<TimeOnly?>("WindowEndLocal")
+                        .HasColumnType("time(6)");
+
+                    b.Property<TimeOnly?>("WindowStartLocal")
+                        .HasColumnType("time(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoleId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "UserId");
+
+                    b.HasIndex("TenantId", "ScopeType", "ScopeId");
+
+                    b.ToTable("RbacRoleAssignments", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.RbacRoleGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<long?>("MaxPence")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("PermissionCode")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("RoleId", "PermissionCode")
+                        .IsUnique();
+
+                    b.ToTable("RbacRoleGrants", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Refund", b =>
@@ -635,6 +1546,8 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int>("Amount")
                         .HasColumnType("int");
@@ -676,6 +1589,9 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Property<Guid>("SaleIdReturned")
                         .HasColumnType("char(36)");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AuthoriserId");
@@ -687,6 +1603,8 @@ namespace Plutus.Entities.Migrations.MySql
 
                     b.HasIndex("SaleIdReturned");
 
+                    b.HasIndex("TenantId");
+
                     b.HasIndex("ItemIdOne", "ItemIdTwo");
 
                     b.ToTable("Refunds");
@@ -697,6 +1615,8 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<Guid>("BusinessId")
                         .HasColumnType("char(36)");
@@ -748,6 +1668,8 @@ namespace Plutus.Entities.Migrations.MySql
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime(6)");
 
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<DateTime>("DateOfSale"));
+
                     b.Property<Guid>("EmployeeId")
                         .HasColumnType("char(36)");
 
@@ -760,6 +1682,9 @@ namespace Plutus.Entities.Migrations.MySql
 
                     b.Property<int>("StoreId")
                         .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
 
                     b.Property<Guid>("TillId")
                         .HasColumnType("char(36)");
@@ -776,9 +1701,291 @@ namespace Plutus.Entities.Migrations.MySql
 
                     b.HasIndex("StoreId");
 
+                    b.HasIndex("TenantId");
+
                     b.HasIndex("TillId");
 
                     b.ToTable("Sales");
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.SaleAdjustment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("AdjustmentSaleId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<long>("AmountPence")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("AuthoriserUserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("OriginalSaleId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int?>("Qty")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<byte>("Type")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "OriginalSaleId");
+
+                    b.ToTable("SaleAdjustments", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.SaleLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<long>("DiscountPence")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("DiscountsJson")
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("ItemIdOne")
+                        .HasColumnType("longtext");
+
+                    b.Property<long>("LineGrossPence")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("LineNo")
+                        .HasColumnType("int");
+
+                    b.Property<long?>("OverriddenFromPence")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Qty")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("SaleId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<long>("UnitPricePence")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("VatAmountPence")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("VatRateBp")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SaleId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "ItemId");
+
+                    b.HasIndex("TenantId", "SaleId");
+
+                    b.ToTable("SaleLines", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.SaleQuarantine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<DateTime>("ReceivedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("ResolvedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("SaleId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "SaleId")
+                        .IsUnique();
+
+                    b.ToTable("SaleQuarantine", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.SaleTender", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<long>("AmountPence")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("ChangePence")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ProviderRef")
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("SaleId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<byte>("TenderType")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SaleId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "SaleId");
+
+                    b.ToTable("SaleTenders", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.SaleV2", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateOnly>("BusinessDay")
+                        .HasColumnType("date");
+
+                    b.Property<byte>("Channel")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.Property<Guid>("DeviceId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<long>("DeviceSeq")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("GrossPence")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("LegacyRef")
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("OperatorUserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("ReceivedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("TillId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<long>("VatPence")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("VatReconstructed")
+                        .HasColumnType("tinyint(1)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "BusinessDay");
+
+                    b.HasIndex("TenantId", "DeviceId", "DeviceSeq")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "TillId", "BusinessDay");
+
+                    b.ToTable("SalesV2", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.SalesRollup", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateOnly>("BusinessDay")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<long>("GrossPence")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("StoreId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("TillId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("TxnCount")
+                        .HasColumnType("int");
+
+                    b.Property<long>("VatPence")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "CompanyId", "BusinessDay");
+
+                    b.HasIndex("TenantId", "StoreId", "BusinessDay");
+
+                    b.HasIndex("TenantId", "TillId", "BusinessDay")
+                        .IsUnique();
+
+                    b.ToTable("SalesRollups", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.SavedTransaction", b =>
@@ -809,7 +2016,12 @@ namespace Plutus.Entities.Migrations.MySql
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
 
                     b.ToTable("SavedTransactions");
                 });
@@ -846,9 +2058,14 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
                     b.HasKey("IdOne", "IdTwo", "IdThree");
 
                     b.HasIndex("IdThree");
+
+                    b.HasIndex("TenantId");
 
                     b.HasIndex("IdOne", "IdTwo")
                         .IsUnique();
@@ -856,11 +2073,175 @@ namespace Plutus.Entities.Migrations.MySql
                     b.ToTable("Stocks");
                 });
 
+            modelBuilder.Entity("Plutus.Entities.Models.StockLevel", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ItemIdOne")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("StockLocationId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "StockLocationId", "ItemIdOne")
+                        .IsUnique();
+
+                    b.ToTable("StockLevels", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.StockLocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<int>("StoreId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<byte>("Type")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "StoreId");
+
+                    b.ToTable("StockLocations", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.StockMovement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("AtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("ItemIdOne")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<int>("QtyDelta")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<Guid?>("RefId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("StockLocationId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<byte>("Type")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "RefId");
+
+                    b.HasIndex("TenantId", "StockLocationId", "ItemIdOne");
+
+                    b.ToTable("StockMovements", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.StockTransfer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("FromLocationId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("ItemIdOne")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<int>("Qty")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<DateTime?>("ReceivedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("ReceivedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("ToLocationId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Status");
+
+                    b.ToTable("StockTransfers", (string)null);
+                });
+
             modelBuilder.Entity("Plutus.Entities.Models.Store", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("AdLine1")
                         .IsRequired()
@@ -906,11 +2287,74 @@ namespace Plutus.Entities.Migrations.MySql
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("BusinessId");
 
+                    b.HasIndex("TenantId");
+
                     b.ToTable("Stores");
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.StoreDetails", b =>
+                {
+                    b.Property<int>("StoreId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("OpeningHoursJson")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ReceiptTemplateJson")
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("StoreId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("StoreDetails", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.Supplier", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("Suppliers", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Tax", b =>
@@ -918,6 +2362,8 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Property<int>("IdOne")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("IdOne"));
 
                     b.Property<Guid>("IdTwo")
                         .ValueGeneratedOnAdd()
@@ -944,11 +2390,52 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Property<double>("Rate")
                         .HasColumnType("double");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
                     b.HasKey("IdOne", "IdTwo");
 
                     b.HasIndex("IdTwo");
 
+                    b.HasIndex("TenantId");
+
                     b.ToTable("Taxes");
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.Tenant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("ConnectionRef")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Entitlements")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Plan")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Tenants", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Till", b =>
@@ -980,11 +2467,39 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Property<int>("StoreId")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("StoreId");
 
+                    b.HasIndex("TenantId");
+
                     b.ToTable("Till");
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.TillDetails", b =>
+                {
+                    b.Property<Guid>("TillId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("TillId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("TillDetails", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Transaction", b =>
@@ -992,6 +2507,8 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Property<int>("IdOne")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("IdOne"));
 
                     b.Property<Guid>("IdTwo")
                         .ValueGeneratedOnAdd()
@@ -1030,6 +2547,9 @@ namespace Plutus.Entities.Migrations.MySql
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
                     b.Property<Guid>("TillId")
                         .HasColumnType("char(36)");
 
@@ -1039,6 +2559,8 @@ namespace Plutus.Entities.Migrations.MySql
                         .IsUnique();
 
                     b.HasIndex("IdTwo");
+
+                    b.HasIndex("TenantId");
 
                     b.HasIndex("TillId");
 
@@ -1075,13 +2597,366 @@ namespace Plutus.Entities.Migrations.MySql
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
                     b.HasKey("TransactionId", "DiscountId", "SaleId");
 
                     b.HasIndex("DiscountId");
 
+                    b.HasIndex("TenantId");
+
                     b.HasIndex("TransactionId", "SaleId");
 
                     b.ToTable("Transaction_Discounts");
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.VatRollup", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateOnly>("BusinessDay")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<long>("GrossPence")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("NetPence")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("StoreId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<long>("VatPence")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("VatRateBp")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "StoreId", "BusinessDay", "VatRateBp")
+                        .IsUnique();
+
+                    b.ToTable("VatRollups", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.WebCredential", b =>
+                {
+                    b.Property<string>("Email")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("HashedPassword")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Salt")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Email");
+
+                    b.ToTable("WebCredentials", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.WebStoreDetails", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("DeviceId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("LastFullProductSweepUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime?>("OrdersCursorUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("OutboundMode")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("OversellBuffer")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ProductsCursorUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<int?>("StoreId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("TillId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Url")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("WebStores", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.WebstoreNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("AckedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("AckedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<int?>("StoreId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("WebStoreId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<long>("WooOrderId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "AckedAtUtc");
+
+                    b.HasIndex("TenantId", "WebStoreId", "WooOrderId")
+                        .IsUnique();
+
+                    b.ToTable("WebstoreNotifications", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.WebstoreOutboundLog", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("FromValue")
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<string>("ItemIdOne")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Lane")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("varchar(12)");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
+
+                    b.Property<string>("Result")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<DateTime?>("SentAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("ToValue")
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<Guid>("WebStoreId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<long?>("WooProductId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "WebStoreId", "CreatedAtUtc");
+
+                    b.HasIndex("TenantId", "WebStoreId", "Kind", "ItemIdOne");
+
+                    b.ToTable("WebstoreOutboundLogs", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.WebstoreProduct", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("LastSeenUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<string>("Permalink")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<long>("PricePence")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("RegularPricePence")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Sku")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<int?>("StockQuantity")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StockStatus")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("WebStoreId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("WooModifiedUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long>("WooProductId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "WebStoreId", "Sku");
+
+                    b.HasIndex("TenantId", "WebStoreId", "WooProductId")
+                        .IsUnique();
+
+                    b.ToTable("WebstoreProducts", (string)null);
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.WebstoreSkuMap", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("BoundItemIdOne")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("FirstSeenUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("FirstSeenWooOrderId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("SeenCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Sku")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("WebStoreId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "WebStoreId", "Sku")
+                        .IsUnique();
+
+                    b.ToTable("WebstoreSkuMaps", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Employee", b =>
@@ -1277,6 +3152,15 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Navigation("Sale");
                 });
 
+            modelBuilder.Entity("Plutus.Entities.Models.POLine", b =>
+                {
+                    b.HasOne("Plutus.Entities.Models.PurchaseOrder", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("PurchaseOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Plutus.Entities.Models.PaymentMethod_Sale", b =>
                 {
                     b.HasOne("Plutus.Entities.Models.PaymentMethod", "PayMethod")
@@ -1294,6 +3178,26 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Navigation("PayMethod");
 
                     b.Navigation("Sale");
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.RbacRoleAssignment", b =>
+                {
+                    b.HasOne("Plutus.Entities.Models.RbacRole", "Role")
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.RbacRoleGrant", b =>
+                {
+                    b.HasOne("Plutus.Entities.Models.RbacRole", null)
+                        .WithMany("Grants")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Refund", b =>
@@ -1379,6 +3283,24 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Navigation("Store");
 
                     b.Navigation("Till");
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.SaleLine", b =>
+                {
+                    b.HasOne("Plutus.Entities.Models.SaleV2", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("SaleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.SaleTender", b =>
+                {
+                    b.HasOne("Plutus.Entities.Models.SaleV2", null)
+                        .WithMany("Tenders")
+                        .HasForeignKey("SaleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Stock", b =>
@@ -1589,6 +3511,16 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Navigation("PaySales");
                 });
 
+            modelBuilder.Entity("Plutus.Entities.Models.PurchaseOrder", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.RbacRole", b =>
+                {
+                    b.Navigation("Grants");
+                });
+
             modelBuilder.Entity("Plutus.Entities.Models.Role", b =>
                 {
                     b.Navigation("AuthActionAPIMappings");
@@ -1607,6 +3539,13 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Navigation("Refunds");
 
                     b.Navigation("Transactions");
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.SaleV2", b =>
+                {
+                    b.Navigation("Lines");
+
+                    b.Navigation("Tenders");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Store", b =>

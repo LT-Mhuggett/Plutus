@@ -1,0 +1,18 @@
+# Phase 9 (WP9.2) — Keycloak vhost for the Plutus test env.
+# Append this block to the shared /etc/caddy/Caddyfile AFTER the ETRIE + Plutus blocks.
+# Terminates TLS for the login subdomain and proxies to the Dockerised Keycloak on :8089.
+#
+# The admin console + master realm are blocked from the public edge — only the OIDC
+# endpoints under /realms/plutus/* (and Keycloak's shared /resources assets) are reachable.
+# Manage the realm via the container locally (docker exec / SSH tunnel to 127.0.0.1:8089).
+
+login.plutus.huggett.dscloud.me {
+	# Block the admin surface at the edge (test env has no basic_auth — see HANDOVER §5).
+	@admin path /admin* /realms/master* /realms/master/*
+	respond @admin "Not found" 404
+
+	reverse_proxy 127.0.0.1:8089 {
+		header_up X-Forwarded-Proto https
+		header_up X-Forwarded-Host {host}
+	}
+}

@@ -66,9 +66,20 @@ namespace Plutus.Frontend.AppClient.ViewModels
         #endregion
 
         #region Command Execution
-        private void ExecuteShowLoggedUsers()
+        private async void ExecuteShowLoggedUsers()
         {
-            throw new NotImplementedException();
+            // BugFix plan, Bug 1 stopgap: this was `throw new NotImplementedException()`
+            // on a synchronous command with no try/catch — tapping the people icon
+            // crashed the app. Show a friendly notice until the users page is built.
+            try
+            {
+                await App.Current.MainPage.DisplayAlert(
+                    "Users", "User management is not available in this version yet.", "OK");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex);
+            }
             //Implement Show Logged Users Page
         }
         #endregion

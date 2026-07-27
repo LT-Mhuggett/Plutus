@@ -63,11 +63,15 @@ namespace Plutus.Frontend.AppClient.Tests.ViewModels
         }
 
         [Fact]
-        public void ShowLoggedUsersCommand_Execute_ThrowsNotImplemented()
+        public void ShowLoggedUsersCommand_Execute_DoesNotThrow()
         {
-            // ExecuteShowLoggedUsers is an explicit stub ("Implement Show Logged Users Page").
+            // ExecuteShowLoggedUsers used to be `throw new NotImplementedException()` on a
+            // synchronous command with no try/catch - tapping the people icon crashed the app.
+            // It's now a friendly stopgap notice with its own internal try/catch, so executing
+            // the command must never throw (regression test for that crash).
             var vm = new LoginViewModel();
-            Assert.Throws<NotImplementedException>(() => vm.ShowLoggedUsersCommand.Execute(null));
+            var exception = Record.Exception(() => vm.ShowLoggedUsersCommand.Execute(null));
+            Assert.Null(exception);
         }
     }
 }

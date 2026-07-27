@@ -1,0 +1,63 @@
+<Solution>
+  <Folder Name="/Plutus/">
+    <Project Path="Plutus/docker-compose.dcproj" />
+  </Folder>
+  <Folder Name="/Plutus/Commons/">
+    <Project Path="Plutus/Commons/CommonPOSLibrary/CommonPOSLibrary.csproj" />
+    <Project Path="Plutus/Commons/CoppperToCSV/CoppperToCSV.csproj" />
+    <Project Path="Plutus/Commons/Plutus.Authentication/Plutus.Authentication.csproj" />
+    <Project Path="Plutus/Commons/Plutus.Contracts/Plutus.Contracts.csproj" />
+    <Project Path="Plutus/Commons/Plutus.Entities/Plutus.Entities.csproj" />
+    <Project Path="Plutus/Commons/Plutus.Reports/Plutus.Reports.csproj" />
+    <Project Path="Plutus/Commons/Plutus.Repository/Plutus.Repository.csproj" />
+  </Folder>
+  <Folder Name="/Plutus/Data/">
+    <Project Path="Plutus/Data/Database.Migrations.Startup/Database.Migrations.Startup.csproj" />
+    <Project Path="Plutus/Data/Database/Database.csproj" />
+  </Folder>
+  <Folder Name="/Plutus/Endpoints/">
+    <Project Path="Plutus/Endpoints/Plutus.DBService/Plutus.DBService.csproj" />
+  </Folder>
+  <Folder Name="/Plutus/Frontend/">
+    <Project Path="Plutus/Frontend/Plutus.Frontend.AppClient.Tests/Plutus.Frontend.AppClient.Tests.csproj" />
+    <Project Path="Plutus/Frontend/Plutus.Frontend.AppClient/Plutus.Frontend.AppClient.csproj" />
+    <Project Path="Plutus/Frontend/Plutus.Frontend.ClientUI/Plutus.Frontend.ClientUI.csproj" />
+    <Project Path="Plutus/Frontend/Plutus.Frontend.WebUI/Plutus.Frontend.WebUI.csproj" />
+  </Folder>
+  <Folder Name="/Plutus/Shared/">
+    <Project Path="Plutus/Shared/CommonPOSLibrary/CommonPOSLibrary.csproj" />
+    <Project Path="Plutus/Shared/CustomViews/CustomViews.csproj" />
+    <Project Path="Plutus/Shared/I18N_L10N/I18N_L10N.csproj" />
+  </Folder>
+  <Folder Name="/Plutus/Tests/" />
+  <Folder Name="/Plutus/Tests/Commons/">
+    <Project Path="Plutus/Tests/Commons/Plutus.Entities.Tests/Plutus.Entities.Tests.csproj" />
+    <Project Path="Plutus/Tests/Commons/Plutus.Repository.Tests/Plutus.Repository.Tests.csproj" />
+  </Folder>
+  <Folder Name="/Plutus/Tools/">
+    <Project Path="Plutus/Tools/CoppperToCSV/CoppperToCSV.csproj" />
+    <Project Path="Plutus/Tools/Plutus.Migration.Kapow/Plutus.Migration.Kapow.csproj" />
+    <Project Path="Plutus/Tools/Plutus.SeedMigrator/Plutus.SeedMigrator.csproj" />
+  </Folder>
+  <Folder Name="/Plutus/Tools/Plutus Database updater/">
+    <Project Path="Plutus/Tools/Plutus Database updater/Plutus Database updater/Plutus Database updater.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Plutus.Cash/Plutus.Cash.csproj" />
+    <Project Path="src/Plutus.Catalogue/Plutus.Catalogue.csproj" />
+    <Project Path="src/Plutus.Customers/Plutus.Customers.csproj" />
+    <Project Path="src/Plutus.Identity/Plutus.Identity.csproj" />
+    <Project Path="src/Plutus.Payments/Plutus.Payments.csproj" />
+    <Project Path="src/Plutus.Reporting/Plutus.Reporting.csproj" />
+    <Project Path="src/Plutus.Sales/Plutus.Sales.csproj" />
+    <Project Path="src/Plutus.SharedKernel/Plutus.SharedKernel.csproj" />
+    <Project Path="src/Plutus.Tenancy/Plutus.Tenancy.csproj" />
+    <Project Path="src/Plutus.Web.Infrastructure/Plutus.Web.Infrastructure.csproj" />
+    <Project Path="src/Plutus.Webstore/Plutus.Webstore.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Plutus.Tests.Architecture/Plutus.Tests.Architecture.csproj" />
+    <Project Path="tests/Plutus.Tests.Integration/Plutus.Tests.Integration.csproj" />
+    <Project Path="tests/Plutus.Tests.Unit/Plutus.Tests.Unit.csproj" />
+  </Folder>
+</Solution>

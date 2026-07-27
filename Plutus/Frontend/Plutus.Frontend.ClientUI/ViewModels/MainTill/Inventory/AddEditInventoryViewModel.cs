@@ -1,4 +1,5 @@
-﻿using CommunityToolkit.Maui.Views;
+﻿using CommunityToolkit.Maui.Extensions;
+using CommunityToolkit.Maui.Views;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Plutus.Entities.Models;
@@ -104,12 +105,13 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill.Inventory
             {
                 Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Category Create (from AddEditViewModel)");
                 var popup = ServiceHelper.GetService<CategoryCreatePage>();
-                var categoryCreateResponse = await page.ShowPopupAsync(popup) as PopupReturnValue<Category>;
+                await page.ShowPopupAsync(popup);
+                var categoryCreateResponse = popup.Result;
                 //Countermesaure code till CommunityToolkit/Maui#568 is merged to release branch
 #if WINDOWS
-                var mauiPopup = (CommunityToolkit.Maui.Core.Views.MauiPopup)popup.Handler?.PlatformView;
-                var panel = mauiPopup.Target as Microsoft.Maui.Platform.ContentPanel;
-                if (panel != null)
+                // Popup v2 made Popup a plain ContentView, so PlatformView is now the
+                // ContentPanel itself - no more MauiPopup wrapper/.Target indirection.
+                if (popup.Handler?.PlatformView is Microsoft.Maui.Platform.ContentPanel panel)
                     panel.ContextFlyout = null;
 #endif
                 if (categoryCreateResponse.PopupReturnStatus == Core.Enum.PopupReturnStatus.Completed)

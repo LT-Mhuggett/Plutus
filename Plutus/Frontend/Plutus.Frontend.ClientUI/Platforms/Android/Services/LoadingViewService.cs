@@ -1,9 +1,8 @@
-﻿using Microsoft.Maui.Controls.Compatibility.Platform.Android;
+﻿using Microsoft.Maui.Platform;
 using Plutus.Frontend.ClientUI.Pages;
 using DroidApp = Android.App;
 using DroidGraphics = Android.Graphics;
 using DroidViews = Android.Views;
-using Platform = Microsoft.Maui.Controls.Compatibility.Platform.Android.Platform;
 
 namespace Plutus.Frontend.ClientUI.Services.Loading
 {
@@ -20,14 +19,12 @@ namespace Plutus.Frontend.ClientUI.Services.Loading
                 LoadingIndicatorPage.Parent = App.Current.MainPage;
                 LoadingIndicatorPage.Layout(new Microsoft.Maui.Graphics.Rect(0, 0, App.Current.MainPage.Width, App.Current.MainPage.Height));
 
-                var renderer = Platform.GetRenderer(LoadingIndicatorPage);
-                if (renderer == null)
-                {
-                    renderer = Platform.CreateRendererWithContext(LoadingIndicatorPage, DroidApp.Application.Context);
-                    Platform.SetRenderer(LoadingIndicatorPage, renderer);
-                }
-
-                _nativeView = renderer.View;
+                // Handler-based replacement for the removed Compatibility renderer API
+                // (Platform.GetRenderer/CreateRendererWithContext/SetRenderer) - ToPlatform()
+                // creates (or reuses) the page's native view via its MAUI handler.
+                var mauiContext = App.Current.Windows[0].Handler?.MauiContext
+                    ?? throw new InvalidOperationException("No MauiContext available to render the loading view.");
+                _nativeView = (DroidViews.View)LoadingIndicatorPage.ToPlatform(mauiContext);
 
                 _dialog = new DroidApp.Dialog(DroidApp.Application.Context);
 

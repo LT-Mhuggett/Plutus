@@ -42,10 +42,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET 7.0
+      - name: Setup .NET 10.0
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '7.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Restore
         run: |
@@ -56,11 +56,10 @@ jobs:
       # Plutus.Entities.Tests queries tables directly with no schema setup of its own - the
       # database needs migrations applied before it runs (Plutus.Repository.Tests migrates itself
       # via TestWithMySql's fixture, so it doesn't need this, but running it here too is harmless).
-      # The dotnet-ef tool version must match the EF Core Tools package version the target project
-      # references (6.0.5) - the latest tool crashes at runtime (FileNotFoundException loading
-      # System.Runtime 8.0.0.0) against a net7.0/EF Core 6 project.
+      # dotnet-ef 10.0.9 works natively against the net10.0/EF Core 9.0.18 projects with no
+      # rollForward workaround needed.
       - name: Install dotnet-ef
-        run: dotnet tool install --global dotnet-ef --version 6.0.5
+        run: dotnet tool install --global dotnet-ef --version 10.0.9
 
       - name: Apply EF Core migrations
         id: migrate
@@ -142,6 +141,52 @@ jobs:
         with:
           name: appclient-test-results
           path: ${{ env.APPCLIENT_RESULTS_DIR }}/**
+
+  # OpenAPI drift gate (from Matt's-Horror, T1.6 contract freeze): boot the DBService host and
+  # diff its live Swagger output against the committed openapi.json, so a controller/DTO change
+  # without a regenerated spec fails CI.
+  openapi-drift:
+    name: OpenAPI drift (Plutus.DBService)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build host
+        run: dotnet build Plutus/Endpoints/Plutus.DBService/Plutus.DBService.csproj -c Debug
+
+      # `dotnet run` (rather than invoking the built .dll directly) avoids hardcoding the
+      # TFM-specific bin/Debug/<tfm> output path, which would go stale on every retarget.
+      - name: Boot host (SQLite dev context) and dump the spec
+        env:
+          ASPNETCORE_ENVIRONMENT: Development
+          ASPNETCORE_URLS: http://localhost:5199
+          DISABLE_AUTH_DEV_ONLY: "true"
+          TEST_TOKEN_SECRET: ci-drift-secret
+        run: |
+          dotnet run --project Plutus/Endpoints/Plutus.DBService/Plutus.DBService.csproj -c Debug --no-build &
+          APP_PID=$!
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:5199/swagger/v1/swagger.json -o openapi.regen.json && break
+            sleep 1
+          done
+          kill $APP_PID 2>/dev/null || true
+          # Fail loudly here rather than letting the drift step report a confusing "file missing".
+          if [ ! -s openapi.regen.json ]; then echo "::error::host never served swagger.json (see boot log)"; exit 1; fi
+
+      - name: Fail on drift
+        run: |
+          if ! diff -q openapi.json openapi.regen.json; then
+            echo "::error::openapi.json is stale — run frontends/codegen.sh's refresh step and commit."
+            diff openapi.json openapi.regen.json || true
+            exit 1
+          fi
+          echo "OpenAPI contract is in sync."
 
   publish-results:
     name: Publish test results & coverage summary

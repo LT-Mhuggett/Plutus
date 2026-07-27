@@ -15,7 +15,7 @@ namespace Plutus.Entities.Migrations.Sqlite
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "6.0.5");
+            modelBuilder.HasAnnotation("ProductVersion", "9.0.18");
 
             modelBuilder.Entity("Plutus.Entities.Models.AuthActionAPIMapping", b =>
                 {
@@ -49,7 +49,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("IdTwo");
 
-                    b.ToTable("AuthActionAPIMapping", (string)null);
+                    b.ToTable("AuthActionAPIMapping");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.AuthActions", b =>
@@ -85,7 +85,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasKey("Id");
 
-                    b.ToTable("AuthActions", (string)null);
+                    b.ToTable("AuthActions");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Business", b =>
@@ -128,7 +128,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasKey("Id");
 
-                    b.ToTable("Business", (string)null);
+                    b.ToTable("Business");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Category", b =>
@@ -167,7 +167,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("IdTwo");
 
-                    b.ToTable("Category", (string)null);
+                    b.ToTable("Category");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.CheckoutItemChange", b =>
@@ -207,7 +207,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("ItemIdOne", "ItemIdTwo");
 
-                    b.ToTable("CheckoutItemChange", (string)null);
+                    b.ToTable("CheckoutItemChange");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.DBAction", b =>
@@ -243,7 +243,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasKey("Id");
 
-                    b.ToTable("DbActions", (string)null);
+                    b.ToTable("DbActions");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Discount", b =>
@@ -299,7 +299,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("BusinessId");
 
-                    b.ToTable("Discounts", (string)null);
+                    b.ToTable("Discounts");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Discount_Category", b =>
@@ -343,7 +343,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("CatIdOne", "CatIdTwo");
 
-                    b.ToTable("DiscountCats", (string)null);
+                    b.ToTable("DiscountCats");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Discount_Item", b =>
@@ -388,7 +388,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("ItemIdOne", "ItemIdTwo");
 
-                    b.ToTable("DiscountItems", (string)null);
+                    b.ToTable("DiscountItems");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Emp_AuthActions", b =>
@@ -420,7 +420,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("EmpId");
 
-                    b.ToTable("EmpAuthActions", (string)null);
+                    b.ToTable("EmpAuthActions");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Item", b =>
@@ -486,7 +486,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("TaxId", "IdTwo");
 
-                    b.ToTable("Items", (string)null);
+                    b.ToTable("Items");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Note", b =>
@@ -521,7 +521,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("IdTwo");
 
-                    b.ToTable("Notes", (string)null);
+                    b.ToTable("Notes");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.PaymentMethod", b =>
@@ -562,7 +562,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasKey("Id");
 
-                    b.ToTable("PayMethods", (string)null);
+                    b.ToTable("PayMethods");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.PaymentMethod_Sale", b =>
@@ -597,7 +597,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("SaleId");
 
-                    b.ToTable("PaySales", (string)null);
+                    b.ToTable("PaySales");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Person", b =>
@@ -661,7 +661,9 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasKey("Id");
 
-                    b.ToTable("People", (string)null);
+                    b.ToTable("People");
+
+                    b.UseTptMappingStrategy();
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Refund", b =>
@@ -723,7 +725,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("ItemIdOne", "ItemIdTwo");
 
-                    b.ToTable("Refunds", (string)null);
+                    b.ToTable("Refunds");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Role", b =>
@@ -753,19 +755,16 @@ namespace Plutus.Entities.Migrations.Sqlite
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("ParentId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("ParentRoleId")
+                    b.Property<int?>("ParentId")
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
                     b.HasIndex("BusinessId");
 
-                    b.HasIndex("ParentRoleId");
+                    b.HasIndex("ParentId");
 
-                    b.ToTable("Role", (string)null);
+                    b.ToTable("Role");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Sale", b =>
@@ -815,7 +814,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("TillId");
 
-                    b.ToTable("Sales", (string)null);
+                    b.ToTable("Sales");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.SavedTransaction", b =>
@@ -848,7 +847,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasKey("Id");
 
-                    b.ToTable("SavedTransactions", (string)null);
+                    b.ToTable("SavedTransactions");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Stock", b =>
@@ -890,7 +889,7 @@ namespace Plutus.Entities.Migrations.Sqlite
                     b.HasIndex("IdOne", "IdTwo")
                         .IsUnique();
 
-                    b.ToTable("Stocks", (string)null);
+                    b.ToTable("Stocks");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Store", b =>
@@ -947,7 +946,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("BusinessId");
 
-                    b.ToTable("Stores", (string)null);
+                    b.ToTable("Stores");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Tax", b =>
@@ -985,7 +984,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("IdTwo");
 
-                    b.ToTable("Taxes", (string)null);
+                    b.ToTable("Taxes");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Till", b =>
@@ -1021,7 +1020,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("StoreId");
 
-                    b.ToTable("Till", (string)null);
+                    b.ToTable("Till");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Transaction", b =>
@@ -1081,7 +1080,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("ItemIdOne", "ItemIdTwo");
 
-                    b.ToTable("Trans", (string)null);
+                    b.ToTable("Trans");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Transaction_Discount", b =>
@@ -1118,7 +1117,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasIndex("TransactionId", "SaleId");
 
-                    b.ToTable("Transaction_Discounts", (string)null);
+                    b.ToTable("Transaction_Discounts");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Employee", b =>
@@ -1164,7 +1163,7 @@ namespace Plutus.Entities.Migrations.Sqlite
                     b.HasIndex("Id", "BusinessId")
                         .IsUnique();
 
-                    b.ToTable("Employees", (string)null);
+                    b.ToTable("Employees");
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.AuthActionAPIMapping", b =>
@@ -1384,9 +1383,7 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.HasOne("Plutus.Entities.Models.Role", "ParentRole")
                         .WithMany()
-                        .HasForeignKey("ParentRoleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("ParentId");
 
                     b.Navigation("Business");
 

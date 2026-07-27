@@ -1,0 +1,533 @@
+import { useEffect, useState } from "react";
+import {
+  createStockLocation, createStore, createTill, deleteTill, fetchCompanies, fetchStockLocations,
+  fetchStores, fetchTills, fetchWebstores, gbp, putReceiptTemplate, renameTill, revokeTill, updateStore,
+  type Company, type ReceiptTemplate, type StockLocationRow, type StoreRow, type TillRow, type WebstoreConn,
+} from "./api.ts";
+import Barcode39 from "./Barcode39.tsx";
+import { SortTh, useSort } from "./sortable.tsx";
+
+const DAYS: { key: string; label: string }[] = [
+  { key: "mon", label: "Mon" }, { key: "tue", label: "Tue" }, { key: "wed", label: "Wed" },
+  { key: "thu", label: "Thu" }, { key: "fri", label: "Fri" }, { key: "sat", label: "Sat" }, { key: "sun", label: "Sun" },
+];
+
+/** WP11.6 "Locations": physical locations at the top (summary + the three add actions), then
+ *  Stores / Warehouses / Webstores as collapsible groups, all CLOSED by default. Company details
+ *  moved to the Company tab (WP11.5). A store's own Store-type stock location shows INSIDE its
+ *  card as its inventory bucket — never as a confusing flat "physical locations" row. */
+export default function StoresPage() {
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [stores, setStores] = useState<StoreRow[]>([]);
+  const [tills, setTills] = useState<TillRow[]>([]);
+  const [locations, setLocations] = useState<StockLocationRow[]>([]);
+  const [webstores, setWebstores] = useState<WebstoreConn[]>([]);
+  const [error, setError] = useState("");
+  const [issued, setIssued] = useState<{ tillId: string; code: string; expires: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = () =>
+    Promise.all([
+      fetchCompanies(), fetchStores(), fetchTills(),
+      fetchStockLocations().catch(() => [] as StockLocationRow[]),
+      fetchWebstores().catch(() => [] as WebstoreConn[]),   // 403 when unentitled — group just shows none
+    ])
+      .then(([c, s, t, l, w]) => { setCompanies(c); setStores(s); setTills(t); setLocations(l); setWebstores(w); })
+      .catch((e) => setError(String(e)));
+
+  useEffect(() => { void refresh(); }, []);
+
+  async function newTill(storeId: number, name: string) {
+    setBusy(true);
+    setError("");
+    try {
+      const r = await createTill(storeId, name.trim());
+      setIssued({ tillId: r.tillId, code: r.enrolmentCode, expires: r.expiresAtUtc });
+      await refresh();
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function rename(id: string, name: string) {
+    setError("");
+    try {
+      await renameTill(id, name);
+      await refresh();
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    }
+  }
+
+  async function removeTill(t: TillRow) {
+    if (!window.confirm(`Delete till "${t.name}"? This can't be undone.`)) return;
+    setError("");
+    try {
+      await deleteTill(t.id);
+      await refresh();
+    } catch (e) {
+      // 409 = the till has recorded sales and is protected.
+      setError(String(e instanceof Error ? e.message : e));
+    }
+  }
+
+  return (
+    <section className="panel">
+      {error && <p className="error">{error}</p>}
+      {issued && (
+        <div className="enrol-code">
+          <div className="grow">
+            <span className="muted small">Enrolment code for till {issued.tillId.slice(0, 8)}… — enter it on the
+              till at Settings → Till device (single-use, expires {new Date(issued.expires).toLocaleString("en-GB")}).</span>
+            <div className="enrol-code-value mono">{issued.code}</div>
+          </div>
+          <button className="ghost small" onClick={() => void navigator.clipboard?.writeText(issued.code)}>Copy</button>
+          <button className="ghost small" onClick={() => setIssued(null)}>Dismiss</button>
+        </div>
+      )}
+
+      <h2>Physical locations</h2>
+      <p className="muted small">
+        {stores.length} store{stores.length === 1 ? "" : "s"} ·{" "}
+        {locations.filter((l) => l.type === "Warehouse").length} warehouse
+        {locations.filter((l) => l.type === "Warehouse").length === 1 ? "" : "s"} ·{" "}
+        {webstores.length} webstore{webstores.length === 1 ? "" : "s"}
+      </p>
+      <div className="toolbar">
+        <AddStore companies={companies} onSaved={refresh} />
+        <AddWarehouse stores={stores} onSaved={refresh} />
+        <span className="muted small">+ Webstore — connect one in the <strong>Webstore</strong> tab.</span>
+      </div>
+
+      <details className="card store-card">
+        <summary><strong>Stores ({stores.length})</strong></summary>
+        {stores.length === 0 && <p className="muted">No stores yet — add one above.</p>}
+        {stores.map((s) => (
+          <StoreCard
+            key={s.id} store={s} defaultOpen={false} onSaved={refresh}
+            tills={tills.filter((t) => t.storeId === s.id)} busy={busy}
+            buckets={locations.filter((l) => l.storeId === s.id && l.type === "Store")}
+            onRename={rename} onRemoveTill={removeTill} onNewTill={newTill}
+            onRevoke={(id) => void revokeTill(id).then(refresh)}
+          />
+        ))}
+      </details>
+
+      <details className="card store-card">
+        <summary><strong>Warehouses ({locations.filter((l) => l.type === "Warehouse").length})</strong></summary>
+        <table>
+          <thead><tr><th>Name</th><th>Backing store</th></tr></thead>
+          <tbody>
+            {locations.filter((l) => l.type === "Warehouse").map((l) => (
+              <tr key={l.id}><td>{l.name}</td><td>{stores.find((s) => s.id === l.storeId)?.name ?? `Store ${l.storeId}`}</td></tr>
+            ))}
+            {locations.filter((l) => l.type === "Warehouse").length === 0 && (
+              <tr><td colSpan={2} className="muted">No warehouses yet — add one above.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </details>
+
+      <details className="card store-card">
+        <summary><strong>Webstores ({webstores.length})</strong></summary>
+        <table>
+          <thead><tr><th>Name</th><th>Site</th><th>Status</th><th>Pending SKUs</th></tr></thead>
+          <tbody>
+            {webstores.map((w) => (
+              <tr key={w.id}>
+                <td>{w.name}</td>
+                <td className="small">{w.url}</td>
+                <td>{w.enabled ? <span className="chip ok">connected</span> : <span className="chip bad">disabled</span>}</td>
+                <td className="num">{w.pendingSkus}</td>
+              </tr>
+            ))}
+            {webstores.length === 0 && <tr><td colSpan={4} className="muted">No webstores connected — use the Webstore tab.</td></tr>}
+          </tbody>
+        </table>
+        <p className="muted small">Full webstore workspace (review queue, catalogue, alignment, outbound) lives in the <strong>Webstore</strong> tab.</p>
+      </details>
+    </section>
+  );
+}
+
+/** "+ Warehouse / location" as a top-row action (the create form the old flat section had). */
+function AddWarehouse({ stores, onSaved }: { stores: StoreRow[]; onSaved: () => Promise<void> | void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [storeId, setStoreId] = useState<number>(stores[0]?.id ?? 1);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => { if (stores[0]) setStoreId(stores[0].id); }, [stores]);
+  if (!open) return <button className="ghost small" onClick={() => setOpen(true)}>+ Warehouse / location</button>;
+  return (
+    <span className="new-location">
+      <input placeholder="unique, e.g. Back Warehouse" value={name} onChange={(e) => setName(e.target.value)} />
+      <select value={storeId} onChange={(e) => setStoreId(Number(e.target.value))}>
+        {stores.map((s) => <option key={s.id} value={s.id}>{s.name ?? `Store ${s.id}`}</option>)}
+      </select>
+      <button className="primary small" disabled={busy || !name.trim()} onClick={async () => {
+        setBusy(true); setError("");
+        try {
+          await createStockLocation({ storeId, type: "Warehouse", name: name.trim() });
+          setOpen(false); setName(""); await onSaved();
+        } catch (e) { setError(String(e instanceof Error ? e.message : e)); } finally { setBusy(false); }
+      }}>Create</button>
+      <button className="ghost small" onClick={() => setOpen(false)}>Cancel</button>
+      {error && <span className="error small">{error}</span>}
+    </span>
+  );
+}
+
+/** One store's tills — sortable, with rename/revoke/delete + create. */
+function TillsTable({ tills, busy, onRename, onRemove, onRevoke, storeId, onNewTill }: {
+  tills: TillRow[]; busy: boolean; storeId: number;
+  onRename: (id: string, name: string) => Promise<void>;
+  onRemove: (t: TillRow) => void; onRevoke: (id: string) => void;
+  onNewTill: (storeId: number, name: string) => Promise<void>;
+}) {
+  const s = useSort(tills, "name", "asc");
+  return (
+    <>
+      <table>
+        <thead><tr>
+          <SortTh label="Name" k="name" {...s} />
+          <SortTh label="Last online" k="lastOnline" {...s} />
+          <th>Devices</th><th />
+        </tr></thead>
+        <tbody>
+          {s.sorted.map((t) => (
+            <tr key={t.id}>
+              <td><TillNameCell till={t} onRename={onRename} /></td>
+              <td className="small">{new Date(t.lastOnline + "Z").toLocaleString("en-GB")}</td>
+              <td>
+                {t.devices.length === 0 && <span className="muted">none</span>}
+                {t.devices.map((d) => (
+                  <span key={d.id} className={`chip ${d.status === "Active" ? "ok" : "bad"}`}>{d.status}</span>
+                ))}
+              </td>
+              <td>
+                {t.devices.some((d) => d.status === "Active") && (
+                  <button className="ghost small" disabled={busy} onClick={() => onRevoke(t.id)}>Revoke</button>
+                )}{" "}
+                <button className="ghost small" disabled={busy} onClick={() => onRemove(t)} title="Delete (only if no sales)">Delete</button>
+              </td>
+            </tr>
+          ))}
+          {tills.length === 0 && <tr><td colSpan={4} className="muted">No tills for this store yet.</td></tr>}
+        </tbody>
+      </table>
+      <NewTillRow storeId={storeId} busy={busy} onCreate={onNewTill} />
+    </>
+  );
+}
+
+/** Inline till rename: click the name to edit, Enter/blur saves (409 surfaces via onRename). */
+function TillNameCell({ till, onRename }: { till: TillRow; onRename: (id: string, name: string) => Promise<void> }) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(till.name);
+  if (!editing) {
+    return (
+      <button className="link-name" title={till.id} onClick={() => { setName(till.name); setEditing(true); }}>
+        {till.name}
+      </button>
+    );
+  }
+  const commit = async () => {
+    setEditing(false);
+    if (name.trim() && name.trim() !== till.name) await onRename(till.id, name.trim());
+  };
+  return (
+    <input
+      autoFocus
+      value={name}
+      maxLength={80}
+      onChange={(e) => setName(e.target.value)}
+      onBlur={() => void commit()}
+      onKeyDown={(e) => { if (e.key === "Enter") void commit(); if (e.key === "Escape") setEditing(false); }}
+    />
+  );
+}
+
+/** New till + enrolment code, with a required unique name. */
+function NewTillRow({ storeId, busy, onCreate }: { storeId: number; busy: boolean; onCreate: (storeId: number, name: string) => Promise<void> }) {
+  const [name, setName] = useState("");
+  return (
+    <div className="toolbar">
+      <label>New till (store {storeId})
+        <input value={name} maxLength={80} placeholder="e.g. Front Desk" onChange={(e) => setName(e.target.value)} />
+      </label>
+      <button
+        className="primary small"
+        disabled={busy || !name.trim()}
+        onClick={async () => { await onCreate(storeId, name); setName(""); }}
+      >
+        Create till + code
+      </button>
+    </div>
+  );
+}
+
+function StoreCard({ store, defaultOpen, onSaved, tills, busy, buckets, onRename, onRemoveTill, onNewTill, onRevoke }: {
+  store: StoreRow; defaultOpen: boolean; onSaved: () => Promise<void> | void;
+  tills: TillRow[]; busy: boolean; buckets: StockLocationRow[];
+  onRename: (id: string, name: string) => Promise<void>;
+  onRemoveTill: (t: TillRow) => void; onNewTill: (storeId: number, name: string) => Promise<void>;
+  onRevoke: (id: string) => void;
+}) {
+  const [edit, setEdit] = useState<StoreRow>(store);
+  const [saving, setSaving] = useState(false);
+  const dirty = JSON.stringify(edit) !== JSON.stringify(store);
+  const addr = [store.adLine1, store.city, store.postCode].filter((x) => x && x !== "N/A").join(", ");
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await updateStore(store.id, {
+        name: edit.name, adLine1: edit.adLine1, city: edit.city, postCode: edit.postCode,
+        contactNumber: edit.contactNumber, openingHoursJson: edit.openingHoursJson,
+      });
+      await onSaved();
+    } catch (e) {
+      alert(String(e instanceof Error ? e.message : e)); // 409 = store name taken
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <details className="card store-card" open={defaultOpen}>
+      <summary className="store-summary">
+        <strong>{store.name || `Store ${store.id}`}</strong>
+        {addr && <span className="muted small"> — {addr}</span>}
+      </summary>
+
+      {/* address + phone (top part) */}
+      <div className="toolbar">
+        <label>Name <input placeholder="e.g. High Street" value={edit.name ?? ""} onChange={(e) => setEdit({ ...edit, name: e.target.value || null })} /></label>
+        <label>Address <input value={edit.adLine1} onChange={(e) => setEdit({ ...edit, adLine1: e.target.value })} /></label>
+        <label>City <input value={edit.city} onChange={(e) => setEdit({ ...edit, city: e.target.value })} /></label>
+        <label>Postcode <input value={edit.postCode} onChange={(e) => setEdit({ ...edit, postCode: e.target.value })} /></label>
+        <label>Phone <input value={edit.contactNumber} onChange={(e) => setEdit({ ...edit, contactNumber: e.target.value })} /></label>
+        {dirty && <button className="primary small" disabled={saving} onClick={() => void save()}>Save</button>}
+      </div>
+
+      <details className="sub">
+        <summary className="muted small">Opening hours</summary>
+        <OpeningHoursEditor value={edit.openingHoursJson} onChange={(v) => setEdit({ ...edit, openingHoursJson: v })} />
+        {dirty && <p className="muted small">Edit hours above, then press "Save" in the address row.</p>}
+      </details>
+
+      <details className="sub">
+        <summary className="muted small">Tills ({tills.length})</summary>
+        <TillsTable tills={tills} busy={busy} storeId={store.id}
+          onRename={onRename} onRemove={onRemoveTill} onRevoke={onRevoke} onNewTill={onNewTill} />
+      </details>
+
+      {/* WP11.6: the store's own inventory bucket lives HERE, not in a flat "locations" list. */}
+      {buckets.length > 0 && (
+        <p className="muted small">
+          Inventory bucket{buckets.length === 1 ? "" : "s"}: {buckets.map((b) => b.name).join(", ")} (auto-created; stock counts and transfers use this)
+        </p>
+      )}
+
+      <ReceiptTemplateEditor store={store} onSaved={onSaved} />
+    </details>
+  );
+}
+
+/** WP11.3: add a store from the portal (the API existed; the button did not). */
+function AddStore({ companies, onSaved }: { companies: Company[]; onSaved: () => Promise<void> | void }) {
+  const [open, setOpen] = useState(false);
+  const [f, setF] = useState({ name: "", adLine1: "", city: "", postCode: "", contactNumber: "" });
+  const [companyId, setCompanyId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  if (!open) return <button className="ghost small" onClick={() => setOpen(true)}>+ New store</button>;
+  return (
+    <div className="card">
+      <div className="toolbar">
+        {companies.length > 1 && (
+          <label>Company
+            <select value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
+              <option value="">(first)</option>
+              {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </label>
+        )}
+        <label>Name <input placeholder="unique, e.g. High Street" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
+        <label>Address <input value={f.adLine1} onChange={(e) => setF({ ...f, adLine1: e.target.value })} /></label>
+        <label>City <input value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} /></label>
+        <label>Postcode <input value={f.postCode} onChange={(e) => setF({ ...f, postCode: e.target.value })} /></label>
+        <label>Phone <input value={f.contactNumber} onChange={(e) => setF({ ...f, contactNumber: e.target.value })} /></label>
+      </div>
+      {error && <p className="error small">{error}</p>}
+      <button className="primary small" disabled={busy} onClick={async () => {
+        setBusy(true); setError("");
+        try {
+          await createStore({ ...(companyId ? { companyId } : {}), ...f });
+          setOpen(false); setF({ name: "", adLine1: "", city: "", postCode: "", contactNumber: "" });
+          await onSaved();
+        } catch (e) { setError(String(e instanceof Error ? e.message : e)); } finally { setBusy(false); }
+      }}>Create store</button>
+      <button className="ghost small" onClick={() => setOpen(false)}>Cancel</button>
+    </div>
+  );
+}
+
+/** WP11.3: opening hours as tick-box days + 24-hour times, writing the same JSON the API stores.
+ *  Multi-interval days (e.g. lunch closing) drop to an advanced raw-JSON view. */
+function OpeningHoursEditor({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
+  const parsed: Record<string, { open: string; close: string }[]> = (() => {
+    try { return value ? JSON.parse(value) : {}; } catch { return {}; }
+  })();
+  const multiInterval = Object.values(parsed).some((a) => Array.isArray(a) && a.length > 1);
+  const [advanced, setAdvanced] = useState(multiInterval);
+
+  function setDay(day: string, next: { open: string; close: string } | null) {
+    const obj = { ...parsed };
+    if (next) obj[day] = [next];
+    else delete obj[day];
+    onChange(Object.keys(obj).length ? JSON.stringify(obj) : null);
+  }
+
+  if (advanced) {
+    return (
+      <label className="block">
+        Opening hours (advanced JSON)
+        <textarea rows={3} value={value ?? ""} onChange={(e) => onChange(e.target.value || null)} />
+        <button className="ghost small" type="button" onClick={() => setAdvanced(false)}>Back to simple editor</button>
+      </label>
+    );
+  }
+
+  return (
+    <div className="hours-editor">
+      <div className="muted small">Opening hours</div>
+      {DAYS.map((d) => {
+        const iv = parsed[d.key]?.[0];
+        return (
+          <div className="hours-row" key={d.key}>
+            <label className="chk">
+              <input type="checkbox" checked={!!iv}
+                onChange={(e) => setDay(d.key, e.target.checked ? { open: "09:00", close: "17:30" } : null)} />
+              {d.label}
+            </label>
+            {iv && (
+              <>
+                <input type="time" value={iv.open} onChange={(e) => setDay(d.key, { ...iv, open: e.target.value })} />
+                <span className="muted">to</span>
+                <input type="time" value={iv.close} onChange={(e) => setDay(d.key, { ...iv, close: e.target.value })} />
+              </>
+            )}
+            {!iv && <span className="muted small">closed</span>}
+          </div>
+        );
+      })}
+      <button className="ghost small" type="button" onClick={() => setAdvanced(true)}>Advanced (JSON)</button>
+    </div>
+  );
+}
+
+/** WP11.2: per-store receipt template — header/footer lines (one per row) + toggles. */
+function ReceiptTemplateEditor({ store, onSaved }: { store: StoreRow; onSaved: () => Promise<void> | void }) {
+  const initial: ReceiptTemplate = (() => {
+    try { return store.receiptTemplateJson ? JSON.parse(store.receiptTemplateJson) : {}; } catch { return {}; }
+  })();
+  const [tpl, setTpl] = useState<ReceiptTemplate>(initial);
+  const [busy, setBusy] = useState(false);
+  const dirty = JSON.stringify(tpl) !== JSON.stringify(initial);
+  const linesToText = (a?: string[]) => (a ?? []).join("\n");
+  const textToLines = (s: string) => s.split("\n").map((l) => l.trimEnd()).filter((l, i, arr) => l !== "" || i < arr.length);
+
+  return (
+    <details className="receipt-tpl">
+      <summary className="muted small">Receipt template</summary>
+      <p className="muted small">Ported from the NatApp receipt — everything below prints on the receipt and is editable. The preview on the right updates as you type.</p>
+      <div className="receipt-tpl-body">
+        <div className="receipt-tpl-fields">
+          <div className="toolbar">
+            <label>Shop name <input placeholder={store.name ?? "business name"} value={tpl.storeName ?? ""}
+              onChange={(e) => setTpl({ ...tpl, storeName: e.target.value })} /></label>
+            <label>Phone <input placeholder={store.contactNumber} value={tpl.phone ?? ""}
+              onChange={(e) => setTpl({ ...tpl, phone: e.target.value })} /></label>
+            <label>VAT number <input value={tpl.vatNumber ?? ""} onChange={(e) => setTpl({ ...tpl, vatNumber: e.target.value })} /></label>
+          </div>
+          <label className="block">Address (one line per row)
+            <textarea rows={2} placeholder={[store.adLine1, store.city, store.postCode].filter(Boolean).join("\n")}
+              value={linesToText(tpl.addressLines)} onChange={(e) => setTpl({ ...tpl, addressLines: textToLines(e.target.value) })} />
+          </label>
+          <label className="block">Header lines (e.g. "Thank you for shopping with us")
+            <textarea rows={2} value={linesToText(tpl.headerLines)}
+              onChange={(e) => setTpl({ ...tpl, headerLines: textToLines(e.target.value) })} />
+          </label>
+          <label className="block">Footer lines (e.g. returns policy)
+            <textarea rows={2} value={linesToText(tpl.footerLines)}
+              onChange={(e) => setTpl({ ...tpl, footerLines: textToLines(e.target.value) })} />
+          </label>
+          <label className="chk"><input type="checkbox" checked={tpl.showBarcode !== false}
+            onChange={(e) => setTpl({ ...tpl, showBarcode: e.target.checked })} /> Show sale barcode</label>
+          <label className="chk"><input type="checkbox" checked={!!tpl.showOperator}
+            onChange={(e) => setTpl({ ...tpl, showOperator: e.target.checked })} /> Show operator name</label>
+          <label className="chk"><input type="checkbox" checked={!!tpl.showVatNumber}
+            onChange={(e) => setTpl({ ...tpl, showVatNumber: e.target.checked })} /> Show VAT number</label>
+          {dirty && (
+            <button className="primary small" disabled={busy} onClick={async () => {
+              setBusy(true);
+              await putReceiptTemplate(store.id, tpl).finally(() => setBusy(false));
+              await onSaved();
+            }}>Save receipt template</button>
+          )}
+        </div>
+        <div className="receipt-tpl-preview">
+          <div className="muted small centre">Preview</div>
+          <ReceiptPreview tpl={tpl} store={store} />
+        </div>
+      </div>
+    </details>
+  );
+}
+
+/** Live preview of the receipt as the till would print it, from the current template + store,
+ *  with sample sale data. Mirrors the web POS Receipt component's layout (NatApp order). */
+function ReceiptPreview({ tpl, store }: { tpl: ReceiptTemplate; store: StoreRow }) {
+  const headerLines = tpl.headerLines?.length ? tpl.headerLines : ["Thank you for shopping with us"];
+  const shopName = tpl.storeName || store.name || "Your business";
+  const phone = tpl.phone || store.contactNumber;
+  const address = tpl.addressLines?.length ? tpl.addressLines : [store.adLine1, store.city, store.postCode].filter(Boolean);
+  const showBarcode = tpl.showBarcode !== false;
+  // Sample basket for the preview.
+  const lines = [
+    { name: "Comic Book", qty: 1, pricePence: 349 },
+    { name: "Sticker Pack", qty: 2, pricePence: 100 },
+  ];
+  const gross = lines.reduce((s, l) => s + l.pricePence * l.qty, 0);
+  const vat = Math.round(gross - gross / 1.2);
+
+  return (
+    <div className="receipt-view">
+      {headerLines.map((l, i) => <p className="centre small" key={`h${i}`}>{l}</p>)}
+      <p className="centre" style={{ fontWeight: 700 }}>{shopName}</p>
+      {phone && <p className="centre small">{phone}</p>}
+      {address.map((l, i) => <p className="centre small" key={`a${i}`}>{l}</p>)}
+      {tpl.showVatNumber && tpl.vatNumber && <p className="centre small">VAT No: {tpl.vatNumber}</p>}
+      <p className="centre small">{new Date().toLocaleString("en-GB")}</p>
+      {tpl.showOperator && <p className="centre small">Served by Sample Staff</p>}
+      <hr />
+      <table className="receipt-lines">
+        <tbody>
+          {lines.map((l, i) => (
+            <tr key={i}><td>{l.qty} × {l.name}</td><td className="num">{gbp(l.pricePence * l.qty)}</td></tr>
+          ))}
+        </tbody>
+      </table>
+      <hr />
+      <p className="r-total"><span>Total</span><span>{gbp(gross)}</span></p>
+      <p className="small r-total"><span>VAT</span><span>{gbp(vat)}</span></p>
+      <hr />
+      <p className="centre small">Cash {gbp(600)} (change {gbp(600 - gross)})</p>
+      {(tpl.footerLines ?? []).map((l, i) => <p className="centre small" key={`f${i}`}>{l}</p>)}
+      {showBarcode && <div className="centre"><Barcode39 value="019f9a8d-sample-sale" height={38} /></div>}
+      <p className="centre mono tiny">019f9a8d-…-sample</p>
+    </div>
+  );
+}

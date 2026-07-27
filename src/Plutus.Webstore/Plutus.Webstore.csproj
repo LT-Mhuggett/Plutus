@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Phase 6 WooCommerce connector. Isolated feature module: the core platform holds ZERO
+       references to it (arch rule). It depends only on the shared foundations (SharedKernel)
+       and the entity model, so the order→sale mapper is pure, offline-testable logic. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- BackgroundService / ILogger / IHttpClientFactory for the reconciliation poll (same
+         pattern as the other modules). Still NO module→module project references. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Plutus.SharedKernel\Plutus.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\Plutus\Commons\Plutus.Entities\Plutus.Entities.csproj" />
+  </ItemGroup>
+
+</Project>

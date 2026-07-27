@@ -29,7 +29,10 @@ namespace Plutus.DBService.Controllers
         {
             HttpContextAccessor = httpContextAccessor;
             RepositoryWrapper = repositoryWrapper;
-            RepositoryWrapper.SetCurrentUser(HttpContextAccessor.HttpContext.User.Claims.First(c => c.Type == "http://schemas.microsoft.com/identity/claims/objectidentifier").Value);
+            // FirstOrDefault + guard (BugFix plan): First() 500'd when the claim was absent.
+            var objectId = HttpContextAccessor.HttpContext.User.Claims.FirstOrDefault(c => c.Type == "http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
+            if (objectId != null)
+                RepositoryWrapper.SetCurrentUser(objectId);
         }
 
         protected IEmployeeRepository Repository => RepositoryWrapper.EmployeeRepository;
@@ -146,8 +149,14 @@ namespace Plutus.DBService.Controllers
             if(businessId == Guid.Empty)
                 return BadRequest("Business ID not provided");
 
-            if(employeeBody.Id == Guid.Empty)
-                employeeBody.Id = Guid.Parse(HttpContextAccessor.HttpContext.User.Claims.First(c => c.Type == "http://schemas.microsoft.com/identity/claims/objectidentifier").Value);
+            if (employeeBody.Id == Guid.Empty)
+            {
+                // FirstOrDefault + guard (BugFix plan): First() 500'd when the claim was absent.
+                var oid = HttpContextAccessor.HttpContext.User.Claims.FirstOrDefault(c => c.Type == "http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
+                if (oid == null)
+                    return BadRequest("Employee id not provided and no object identifier claim present.");
+                employeeBody.Id = Guid.Parse(oid);
+            }
             employeeBody.BusinessId = businessId;
             var employee = employeeBody.GenerateEntity();
 

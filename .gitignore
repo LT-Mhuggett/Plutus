@@ -293,3 +293,22 @@ __pycache__/
 !.env.example
 
 /Plutus/Endpoints/Plutus.DBService/Database.db
+
+# Live till database backups (real business data - never commit)
+*Database*.db
+*.db-wal
+*.db-shm
+
+# T0.1 endpoint regression snapshots (contain real sale figures)
+Build/snapshots/
+
+# Editor workspace files (deliberately local-only)
+*.code-workspace
+.vscode/
+
+# ETRIE's runbook — shares the repo dir on the dev box, must never be committed
+Environment_Setup_Runbook.md
+
+# Local secrets (API keys, DB creds) — never commit. Server-side config only.
+secrets.local.md
+**/secrets.local.*

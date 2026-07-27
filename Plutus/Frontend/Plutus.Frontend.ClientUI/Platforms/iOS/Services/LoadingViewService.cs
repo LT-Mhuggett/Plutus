@@ -1,6 +1,6 @@
-﻿using Plutus.Frontend.ClientUI.Pages;
+﻿using Microsoft.Maui.Platform;
+using Plutus.Frontend.ClientUI.Pages;
 using UIKit;
-using Platform = Microsoft.Maui.Controls.Compatibility.Platform.iOS.Platform;
 
 namespace Plutus.Frontend.ClientUI.Services.Loading
 {
@@ -16,14 +16,12 @@ namespace Plutus.Frontend.ClientUI.Services.Loading
                 LoadingIndicatorPage.Parent = Application.Current.MainPage;
                 LoadingIndicatorPage.Layout(new Microsoft.Maui.Graphics.Rect(0, 0, Application.Current.MainPage.Width, Application.Current.MainPage.Height));
 
-                var renderer = Platform.GetRenderer(LoadingIndicatorPage);
-                if (renderer == null)
-                {
-                    renderer = Platform.CreateRenderer(LoadingIndicatorPage);
-                    Platform.SetRenderer(LoadingIndicatorPage, renderer);
-                }
-
-                _nativeView = renderer.NativeView;
+                // Handler-based replacement for the removed Compatibility renderer API
+                // (Platform.GetRenderer/CreateRenderer/SetRenderer) - ToPlatform() creates (or
+                // reuses) the page's native view via its MAUI handler.
+                var mauiContext = Application.Current.Windows[0].Handler?.MauiContext
+                    ?? throw new InvalidOperationException("No MauiContext available to render the loading view.");
+                _nativeView = (UIView)LoadingIndicatorPage.ToPlatform(mauiContext);
 
                 _isInitialized = true;
             }
