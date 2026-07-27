@@ -42,6 +42,13 @@ namespace Plutus.DBService.Extensions
                     Version = "v1"
                 });
 
+                // The legacy DBService ItemController (api/Item CRUD — still serves the till's
+                // item GETs) and Plutus.Catalogue's ItemController both expose PUT api/Item/{id1};
+                // Swashbuckle throws (500) on the collision, breaking the whole /swagger doc.
+                // Neither controller can be dropped, so resolve the DOC conflict by taking the
+                // first action. Routing behaviour is unaffected (this only touches doc generation).
+                c.ResolveConflictingActions(apiDescriptions => apiDescriptions.First());
+
                 // B2C OAuth2 scheme/requirement ONLY when B2C is actually configured. Without
                 // it the scope keys built from empty config collapse to duplicate "https:///"
                 // and Swagger generation throws (500) — which broke every config-less boot

@@ -123,6 +123,22 @@ function RolesDialog({ user, roles, companyId, onClose }: { user: PortalUser; ro
     }
   }
 
+  // Only offer roles the user does NOT already hold at the scope we'd assign into (company, or
+  // tenant when no company) — no duplicate assignments. Scope match is case-insensitive.
+  const targetType = companyId ? "company" : "tenant";
+  const targetId = (companyId ?? "").toLowerCase();
+  const heldRoleIds = new Set(
+    assignments
+      .filter((a) => a.scopeType.toLowerCase() === targetType && (a.scopeId ?? "").toLowerCase() === targetId)
+      .map((a) => a.roleId),
+  );
+  const available = roles.filter((r) => !heldRoleIds.has(r.id));
+
+  // Keep the selection valid as assignments change (after adding one it drops off the list).
+  useEffect(() => {
+    setRoleId((prev) => (available.some((r) => r.id === prev) ? prev : available[0]?.id ?? ""));
+  }, [assignments, roles]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="dialog">
@@ -145,10 +161,11 @@ function RolesDialog({ user, roles, companyId, onClose }: { user: PortalUser; ro
         </table>
 
         <div className="toolbar">
-          <select value={roleId} onChange={(e) => setRoleId(e.target.value)}>
-            {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+          <select value={roleId} onChange={(e) => setRoleId(e.target.value)} disabled={available.length === 0}>
+            {available.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
-          <button className="primary small" onClick={() => void add()}>Assign at company scope</button>
+          <button className="primary small" disabled={!roleId} onClick={() => void add()}>Assign at company scope</button>
+          {available.length === 0 && <span className="muted small">All roles already assigned at this scope.</span>}
         </div>
 
         <h4>Effective permissions (company scope)</h4>
