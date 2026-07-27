@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ApiError, gbp } from "./api.ts";
+import { accessToken } from "./auth.ts";
 
 // WP5.4 portal pricing: global price editor (policy, HQ price incl. scheduling, store
 // override, force-reset) + the per-store variance view.
@@ -15,10 +16,10 @@ interface PriceDetail {
 interface VarianceRow { storeId: number; itemIdOne: string; name: string | null; policy: string; hqPence: number; storePence: number; deltaPence: number }
 
 async function j<T>(method: string, url: string, body?: unknown): Promise<T> {
-  const s = JSON.parse(localStorage.getItem("plutus.portal.session") ?? "null");
+  const token = accessToken();
   const res = await fetch(url, {
     method,
-    headers: { ...(s ? { Authorization: `Bearer ${s.token}` } : {}), ...(body !== undefined ? { "Content-Type": "application/json" } : {}) },
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body !== undefined ? { "Content-Type": "application/json" } : {}) },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!res.ok) {

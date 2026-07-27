@@ -227,6 +227,17 @@ export const searchCustomers = (term: string) =>
 
 export const getCustomer = (id: string) => get<CustomerDetail>(`/api/v1/customers/${id}`);
 
+/** Create a customer from the till (supervisors/managers — gated on customers.manage). */
+export async function createCustomer(body: { name: string; email?: string; phone?: string }): Promise<{ id: string }> {
+  const res = await send("POST", `/api/v1/customers`, body);
+  return res.json();
+}
+
+/** Edit a customer's contact details (customers.manage). */
+export async function updateCustomer(id: string, body: { name: string; email?: string; phone?: string }): Promise<void> {
+  await send("PUT", `/api/v1/customers/${encodeURIComponent(id)}`, body);
+}
+
 /** Redeem store credit against a sale. Idempotent by entryId; throws on overdraw (400). */
 export async function redeemCredit(customerId: string, amountPence: number, saleId: string, entryId: string): Promise<void> {
   await send("POST", `/api/v1/customers/${encodeURIComponent(customerId)}/credit/redeem`, {

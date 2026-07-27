@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { ApiError, gbp } from "./api.ts";
+import { accessToken } from "./auth.ts";
 
 // Phase 8 portal: customers, store-credit ledger (issue/view), membership.
+// Loyalty usability: reads the bearer via the auth.ts facade (works in both password and OIDC
+// modes) and writes go through the customers.manage-gated endpoints.
 
 interface CustomerRow { id: string; name: string; email: string | null; phone: string | null }
 interface CustomerDetail {
@@ -15,13 +18,15 @@ interface CreditView {
 }
 
 async function j<T>(method: string, url: string, body?: unknown): Promise<T> {
-  const s = JSON.parse(localStorage.getItem("plutus.portal.session") ?? "null");
+  const token = accessToken();
   const res = await fetch(url, {
     method,
-    headers: { ...(s ? { Authorization: `Bearer ${s.token}` } : {}), ...(body !== undefined ? { "Content-Type": "application/json" } : {}) },
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body !== undefined ? { "Content-Type": "application/json" } : {}) },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!res.ok) {
+    if (res.status === 403)
+      throw new ApiError(403, "You need the ‘customers.manage’ permission to do this — ask an administrator.");
     let detail = `${res.status}`;
     try { detail = (await res.json())?.detail ?? detail; } catch { /* keep */ }
     throw new ApiError(res.status, detail);
@@ -106,6 +111,7 @@ function CustomerDialog({ id, onClose }: { id: string; onClose: () => void }) {
   const [issueReason, setIssueReason] = useState("");
   const [tier, setTier] = useState("Club");
   const [rate, setRate] = useState("10");
+  const [edit, setEdit] = useState<{ name: string; email: string; phone: string } | null>(null);
 
   const refresh = () =>
     Promise.all([j<CustomerDetail>("GET", `/api/v1/customers/${id}`), j<CreditView>("GET", `/api/v1/customers/${id}/credit`)])
@@ -121,16 +127,40 @@ function CustomerDialog({ id, onClose }: { id: string; onClose: () => void }) {
         {error && <p className="error small">{error}</p>}
         {detail && (
           <>
-            <h3>{detail.name}</h3>
-            <dl className="kv">
-              <dt>Email</dt><dd>{detail.email ?? "—"}</dd>
-              <dt>Phone</dt><dd>{detail.phone ?? "—"}</dd>
-              <dt>Store credit</dt><dd><strong>{gbp(detail.creditBalancePence)}</strong></dd>
-              <dt>Membership</dt>
-              <dd>{detail.membership
-                ? `${detail.membership.tier} · ${(detail.membership.autoDiscountRate * 100).toFixed(0)}% · renews ${detail.membership.renewalDay}${detail.membership.expired ? " (EXPIRED)" : ""}`
-                : "—"}</dd>
-            </dl>
+            <div className="toolbar" style={{ justifyContent: "space-between" }}>
+              <h3>{detail.name}</h3>
+              {!edit && <button className="ghost small"
+                onClick={() => setEdit({ name: detail.name, email: detail.email ?? "", phone: detail.phone ?? "" })}>
+                Edit details
+              </button>}
+            </div>
+
+            {edit ? (
+              <form className="stack" onSubmit={(e) => {
+                e.preventDefault();
+                run(j("PUT", `/api/v1/customers/${id}`,
+                  { name: edit.name, email: edit.email || undefined, phone: edit.phone || undefined })
+                  .then(() => setEdit(null)));
+              }}>
+                <label>Name <input required value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} /></label>
+                <label>Email <input type="email" value={edit.email} onChange={(e) => setEdit({ ...edit, email: e.target.value })} /></label>
+                <label>Phone <input value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} /></label>
+                <div className="dialog-actions">
+                  <button type="button" className="ghost" onClick={() => setEdit(null)}>Cancel</button>
+                  <button className="primary" disabled={!edit.name.trim()}>Save details</button>
+                </div>
+              </form>
+            ) : (
+              <dl className="kv">
+                <dt>Email</dt><dd>{detail.email ?? "—"}</dd>
+                <dt>Phone</dt><dd>{detail.phone ?? "—"}</dd>
+                <dt>Store credit</dt><dd><strong>{gbp(detail.creditBalancePence)}</strong></dd>
+                <dt>Membership</dt>
+                <dd>{detail.membership
+                  ? `${detail.membership.tier} · ${(detail.membership.autoDiscountRate * 100).toFixed(0)}% · renews ${detail.membership.renewalDay}${detail.membership.expired ? " (EXPIRED)" : ""}`
+                  : "—"}</dd>
+              </dl>
+            )}
 
             <h4>Grant credit</h4>
             <div className="toolbar">

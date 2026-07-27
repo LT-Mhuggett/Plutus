@@ -21,8 +21,8 @@ namespace Plutus.Customers
     /// <summary>
     /// Phase 8 customers / store credit / loyalty. Reads for the till (customer lookup, credit
     /// balance, membership auto-discount) are open to any authenticated principal — tills and
-    /// the web POS consume them; management writes (create customer, grant/expire credit,
-    /// memberships) are gated on portal.users.manage and audited. Refund-to-credit and
+    /// the web POS consume them; management writes (create/edit customer, grant/expire credit,
+    /// memberships) are gated on customers.manage and audited. Refund-to-credit and
     /// redeem-as-tender issue credit entries tied to the sale.
     /// </summary>
     [ApiController]
@@ -125,7 +125,7 @@ namespace Plutus.Customers
         }
 
         [HttpPost("api/v1/customers")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalUsersManage)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.CustomersManage)]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Create([FromBody] CustomerBody body)
@@ -141,6 +141,28 @@ namespace Plutus.Customers
             _db.Audit(_tenant.TenantId, Actor, "customer.create", nameof(Customer), customer.Id.ToString(), body);
             await _db.SaveChangesAsync();
             return Created($"/api/v1/customers/{customer.Id}", new { id = customer.Id });
+        }
+
+        /// <summary>Edit a customer's contact details (name/email/phone). Loyalty usability:
+        /// customers were previously write-once. Master-data mutation (not an event), audited.</summary>
+        [HttpPut("api/v1/customers/{id}")]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.CustomersManage)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] CustomerBody body)
+        {
+            if (string.IsNullOrWhiteSpace(body?.Name)) return BadRequest(new { detail = "name is required." });
+            var customer = await _db.Customers.FirstOrDefaultAsync(c => c.Id == id && c.Active);
+            if (customer == null) return NotFound();
+
+            _db.CurrentUser = Actor.ToString();
+            customer.Name = body.Name.Trim();
+            customer.Email = body.Email?.Trim();
+            customer.Phone = body.Phone?.Trim();
+            _db.Audit(_tenant.TenantId, Actor, "customer.update", nameof(Customer), customer.Id.ToString(), body);
+            await _db.SaveChangesAsync();
+            return Ok(new { id = customer.Id, name = customer.Name, email = customer.Email, phone = customer.Phone });
         }
 
         // ── store credit ──
@@ -168,7 +190,7 @@ namespace Plutus.Customers
 
         /// <summary>Grant credit (refund-to-credit or a permission-gated goodwill grant).</summary>
         [HttpPost("api/v1/customers/{id}/credit/issue")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalUsersManage)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.CustomersManage)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -216,7 +238,7 @@ namespace Plutus.Customers
         // ── membership / loyalty ──
 
         [HttpPost("api/v1/customers/{id}/membership")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalUsersManage)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.CustomersManage)]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]

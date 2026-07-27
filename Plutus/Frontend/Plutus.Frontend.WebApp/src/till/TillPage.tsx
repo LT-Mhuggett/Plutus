@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import {
   effectivePriceFor, fetchItems, findItemById, getCustomer, parkTransaction, searchCustomers,
+  createCustomer, updateCustomer,
   type CustomerDetail, type CustomerSummary, type Item,
 } from "../api.ts";
+import { canManageCustomers } from "../pipeline.ts";
 import { gbp, parsePence } from "../money.ts";
 import { useBasket, basketTotals, lineDiscountPence, lineTotalPence, type BasketState } from "./basket.ts";
 import { getPrefs } from "../prefs.ts";
@@ -36,6 +38,8 @@ export default function TillPage() {
   const [showCust, setShowCust] = useState(false);
   const [custSearch, setCustSearch] = useState("");
   const [custResults, setCustResults] = useState<CustomerSummary[] | null>(null);
+  // Loyalty usability: create/edit a customer at the till (supervisors/managers only). id=null → create.
+  const [custForm, setCustForm] = useState<{ id: string | null; name: string; email: string; phone: string } | null>(null);
 
   const totals = basketTotals(basket.lines);
 
@@ -69,6 +73,27 @@ export default function TillPage() {
   function detachCustomer() {
     setCustomer(null);
     dispatch({ type: "clearMemberDiscount" });
+  }
+
+  async function submitCustForm(e: React.FormEvent) {
+    e.preventDefault();
+    if (!custForm || !custForm.name.trim()) return;
+    const body = { name: custForm.name.trim(), email: custForm.email.trim() || undefined, phone: custForm.phone.trim() || undefined };
+    try {
+      if (custForm.id) {
+        await updateCustomer(custForm.id, body);
+        setCustomer(await getCustomer(custForm.id)); // reflect the edit on the attached chip
+      } else {
+        const { id } = await createCustomer(body);
+        setCustomer(await getCustomer(id)); // create then auto-attach to the sale
+        setShowCust(false);
+        setCustResults(null);
+        setCustSearch("");
+      }
+      setCustForm(null);
+    } catch (err) {
+      setNotice(String(err));
+    }
   }
 
   // Keyboard-wedge scanners type + Enter: keep the scan input focused.
@@ -178,12 +203,29 @@ export default function TillPage() {
 
       {/* customer bar (Phase 8 retrofit): attach a customer for member discount + store credit */}
       <div className="customer-bar">
-        {customer ? (
+        {custForm ? (
+          <form className="customer-search" onSubmit={submitCustForm}>
+            <input className="cust-input" placeholder="name" value={custForm.name} autoFocus required
+              onChange={(e) => setCustForm({ ...custForm, name: e.target.value })} />
+            <input className="cust-input" placeholder="email" value={custForm.email}
+              onChange={(e) => setCustForm({ ...custForm, email: e.target.value })} />
+            <input className="cust-input" placeholder="phone" value={custForm.phone}
+              onChange={(e) => setCustForm({ ...custForm, phone: e.target.value })} />
+            <button className="primary small" disabled={!custForm.name.trim()}>{custForm.id ? "Save" : "Create"}</button>
+            <button type="button" className="linklike small" onClick={() => setCustForm(null)}>cancel</button>
+          </form>
+        ) : customer ? (
           <span className="customer-chip">
             👤 {customer.name}
             {customer.creditBalancePence > 0 && <> · {gbp(customer.creditBalancePence)} credit</>}
             {customer.membership && !customer.membership.expired && (
               <> · {customer.membership.tier} {(customer.membership.autoDiscountRate * 100).toFixed(0)}%</>
+            )}{" "}
+            {canManageCustomers() && (
+              <button className="linklike small"
+                onClick={() => setCustForm({ id: customer.id, name: customer.name, email: customer.email ?? "", phone: customer.phone ?? "" })}>
+                edit
+              </button>
             )}{" "}
             <button className="linklike small" onClick={detachCustomer}>remove</button>
           </span>
@@ -198,6 +240,12 @@ export default function TillPage() {
               onKeyDown={(e) => e.key === "Enter" && doCustSearch()}
             />
             <button className="ghost small" onClick={doCustSearch}>Find</button>
+            {canManageCustomers() && (
+              <button className="ghost small"
+                onClick={() => setCustForm({ id: null, name: custSearch.trim(), email: "", phone: "" })}>
+                ＋ New
+              </button>
+            )}
             <button className="linklike small" onClick={() => { setShowCust(false); setCustResults(null); }}>cancel</button>
             {custResults && (
               <ul className="results cust-results">

@@ -269,6 +269,32 @@ public class RbacTests
     }
 
     [Fact]
+    public async Task BuiltIn_roles_grant_customers_manage_to_managers_and_supervisors_not_cashier()
+    {
+        using var conn = OpenSeeded();
+        using (var db = Ctx(conn))
+            await RbacSeeder.EnsureBuiltInRolesAsync(db, Tenant);
+
+        using var ctx = Ctx(conn);
+        var roles = await ctx.RbacRoles.Include(r => r.Grants)
+            .Where(r => r.TenantId == Tenant).ToDictionaryAsync(r => r.Name);
+
+        bool Has(string role) =>
+            roles[role].Grants.Any(g => g.PermissionCode == PermissionCatalogue.CustomersManage);
+
+        // supervisor/manager surfaces carry it (loyalty usability decision)…
+        Assert.True(Has("Owner"));
+        Assert.True(Has("Company Admin"));
+        Assert.True(Has("Store Manager"));
+        Assert.True(Has("Supervisor"));
+        // …the front-line cashier does not.
+        Assert.False(Has("Cashier"));
+
+        // and it is a known catalogue code (else grants are rejected at write time)
+        Assert.True(PermissionCatalogue.IsKnown(PermissionCatalogue.CustomersManage));
+    }
+
+    [Fact]
     public void ScopeNode_parses_the_endpoint_scope_format()
     {
         Assert.True(ScopeNode.TryParse(null, out var t) && t == ScopeNode.Tenant);

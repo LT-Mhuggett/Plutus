@@ -32,6 +32,9 @@ export function sessionScopes(): string[] {
 
 export const canEnrolTills = () => sessionScopes().includes("portal.tills.enrol");
 
+/** Loyalty usability: create/edit customers at the till (supervisors/managers only). */
+export const canManageCustomers = () => sessionScopes().includes("customers.manage");
+
 // ── device credential (WP2.2) — one per browser, stored locally like the native till ──
 
 export interface DeviceCredential {

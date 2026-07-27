@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ApiError, gbp } from "./api.ts";
+import { accessToken } from "./auth.ts";
 
 // WP7.2 banking view + WP7.1 unresolved-payments queue.
 
@@ -19,8 +20,8 @@ interface BankingRow {
 interface OrphanRow { eventId: string; provider: string; providerRef: string; amountPence: number; capturedAtUtc: string; ageMinutes: number }
 
 async function j<T>(method: string, url: string): Promise<T> {
-  const s = JSON.parse(localStorage.getItem("plutus.portal.session") ?? "null");
-  const res = await fetch(url, { method, headers: s ? { Authorization: `Bearer ${s.token}` } : {} });
+  const token = accessToken();
+  const res = await fetch(url, { method, headers: token ? { Authorization: `Bearer ${token}` } : {} });
   if (!res.ok) {
     let detail = `${res.status}`;
     try { detail = (await res.json())?.detail ?? detail; } catch { /* keep */ }

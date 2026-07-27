@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "./api.ts";
+import { accessToken } from "./auth.ts";
 import { SortTh, useSort } from "./sortable.tsx";
 
 // WP5.2 stock screens: central view (all locations) / per-store view (location filter),
@@ -11,10 +12,10 @@ interface MovementRow { id: string; type: string; qtyDelta: number; reason: stri
 interface TransferRow { id: string; fromLocationId: string; toLocationId: string; itemIdOne: string; qty: number; status: string; createdAtUtc: string }
 
 async function j<T>(method: string, url: string, body?: unknown): Promise<T> {
-  const s = JSON.parse(localStorage.getItem("plutus.portal.session") ?? "null");
+  const token = accessToken();
   const res = await fetch(url, {
     method,
-    headers: { ...(s ? { Authorization: `Bearer ${s.token}` } : {}), ...(body !== undefined ? { "Content-Type": "application/json" } : {}) },
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body !== undefined ? { "Content-Type": "application/json" } : {}) },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!res.ok) {

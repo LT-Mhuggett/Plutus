@@ -22,6 +22,11 @@ public static class PermissionCatalogue
     public const string PortalReportsView = "portal.reports.view";
     /// <summary>WP3.2: company + store administration (names, addresses, opening hours).</summary>
     public const string PortalCompanyManage = "portal.company.manage";
+    /// <summary>Loyalty usability: create/edit customers, issue store credit, set membership.
+    /// Surface-neutral (portal AND till) — a supervisor/manager holds it wherever they sign in.
+    /// Deliberately distinct from portal.users.manage (staff admin) so front-line customer
+    /// management is not tied to staff-user administration.</summary>
+    public const string CustomersManage = "customers.manage";
 
     // ── POS ──
     public const string PosSell = "pos.sell";
@@ -35,7 +40,7 @@ public static class PermissionCatalogue
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
         PortalFinancialsView, PortalUsersManage, PortalStockAdjust, PortalPricesManage,
-        PortalTillsEnrol, PortalReportsView, PortalCompanyManage,
+        PortalTillsEnrol, PortalReportsView, PortalCompanyManage, CustomersManage,
         PosSell, PosRefund, PosVoid, PosDiscount, PosPriceOverride, PosNoSale, PosReportsView,
     };
 

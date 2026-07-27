@@ -103,14 +103,18 @@ namespace Plutus.Identity
             static List<EffectivePermission> G(params string[] codes) =>
                 codes.Select(c => new EffectivePermission(c, null)).ToList();
 
+            // Loyalty usability: customer management is a supervisor/manager capability on both
+            // surfaces — granted to Owner, Company Admin, Store Manager and Supervisor, never the
+            // front-line Cashier. EnsureBuiltInRolesAsync backfills it onto already-seeded tenants.
             return new List<(string, List<EffectivePermission>)>
             {
-                ("Owner", G(allPortal.Concat(allPos).ToArray())),
-                ("Company Admin", G(allPortal.Concat(allPos).ToArray())),
+                ("Owner", G(allPortal.Concat(allPos).Append(PermissionCatalogue.CustomersManage).ToArray())),
+                ("Company Admin", G(allPortal.Concat(allPos).Append(PermissionCatalogue.CustomersManage).ToArray())),
                 ("Store Manager", G(new[]
                 {
                     PermissionCatalogue.PortalFinancialsView, PermissionCatalogue.PortalReportsView,
                     PermissionCatalogue.PortalStockAdjust, PermissionCatalogue.PortalTillsEnrol,
+                    PermissionCatalogue.CustomersManage,
                 }.Concat(allPos).ToArray())),
                 ("Supervisor", new List<EffectivePermission>
                 {
@@ -121,6 +125,7 @@ namespace Plutus.Identity
                     new(PermissionCatalogue.PosPriceOverride, null),
                     new(PermissionCatalogue.PosNoSale, null),
                     new(PermissionCatalogue.PosReportsView, null),
+                    new(PermissionCatalogue.CustomersManage, null),
                 }),
                 ("Cashier", G(PermissionCatalogue.PosSell)),
                 ("Auditor", G(PermissionCatalogue.PortalFinancialsView, PermissionCatalogue.PortalReportsView,
