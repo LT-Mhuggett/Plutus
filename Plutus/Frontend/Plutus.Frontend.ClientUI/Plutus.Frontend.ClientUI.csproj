@@ -1,15 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<!-- TEMP (revert to 4-head net10 at cleanup): Windows-only single TFM to build/run the desktop head for review.
-		     Original was net7.0-android;net7.0-ios;net7.0-maccatalyst(+windows). Target after migration: net10.0-android;net10.0-ios;net10.0-maccatalyst;net10.0-windows10.0.19041.0 -->
-		<TargetFrameworks>net10.0-windows10.0.19041.0</TargetFrameworks>
+		<TargetFrameworks>net7.0-android;net7.0-ios;net7.0-maccatalyst</TargetFrameworks>
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows')) and '$(MSBuildRuntimeType)' == 'Full'">$(TargetFrameworks);net7.0-windows10.0.19041</TargetFrameworks>
 		<!-- Uncomment to also build the tizen app. You will need to install tizen by following this: https://github.com/Samsung/Tizen.NET -->
 		<!-- <TargetFrameworks>$(TargetFrameworks);net6.0-tizen</TargetFrameworks> -->
 		<OutputType>Exe</OutputType>
 		<RootNamespace>Plutus.Frontend.ClientUI</RootNamespace>
 		<UseMaui>true</UseMaui>
-		<!-- Pin MAUI packages up to satisfy CommunityToolkit.Maui 14.x (needs >= 10.0.60). -->
-		<MauiVersion>10.0.60</MauiVersion>
 		<SingleProject>true</SingleProject>
 		<ImplicitUsings>enable</ImplicitUsings>
 
@@ -121,25 +118,24 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <PackageReference Include="AutoMapper" Version="12.0.1" />
-	  <PackageReference Include="CommunityToolkit.Maui" Version="14.2.2" />
-	  <PackageReference Include="CommunityToolkit.Maui.Markup" Version="7.0.1" />
-	  <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-	  <PackageReference Include="Microsoft.AppCenter" Version="5.0.7" />
-	  <PackageReference Include="Microsoft.AppCenter.Analytics" Version="5.0.7" />
-	  <PackageReference Include="Microsoft.AppCenter.Crashes" Version="5.0.7" />
-	  <PackageReference Include="Microsoft.AspNetCore.JsonPatch" Version="10.0.10" />
-	  <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.10" />
-	  <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.10" />
-	  <PackageReference Include="Microsoft.Identity.Client" Version="4.86.1" />
-	  <!-- Syncfusion.Maui.ListView removed: replaced with built-in CollectionView (no license required). -->
-	  <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.21.0" />
+	  <PackageReference Include="AutoMapper" Version="12.0.0" />
+	  <PackageReference Include="CommunityToolkit.Maui" Version="3.1.0" />
+	  <PackageReference Include="CommunityToolkit.Maui.Markup" Version="2.1.0" />
+	  <PackageReference Include="CommunityToolkit.Mvvm" Version="8.0.0" />
+	  <PackageReference Include="Microsoft.AppCenter" Version="5.0.1" />
+	  <PackageReference Include="Microsoft.AppCenter.Analytics" Version="5.0.1" />
+	  <PackageReference Include="Microsoft.AppCenter.Crashes" Version="5.0.1" />
+	  <PackageReference Include="Microsoft.AspNetCore.JsonPatch" Version="7.0.2" />
+	  <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="7.0.2" />
+	  <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="7.0.0" />
+	  <PackageReference Include="Microsoft.Identity.Client" Version="4.49.1" />
+	  <PackageReference Include="Syncfusion.Maui.ListView" Version="20.4.43" />
+	  <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="6.25.1" />
 	</ItemGroup>
 
 	<ItemGroup>
 	  <ProjectReference Include="..\..\Commons\CommonPOSLibrary\CommonPOSLibrary.csproj" />
-	  <!-- CoppperToCSV reference removed: it was an unused net472 console tool that broke the cross-platform build.
-	       A modern replacement import tool needs to be reinvestigated separately (see Migration plan §Import tools). -->
+	  <ProjectReference Include="..\..\Commons\CoppperToCSV\CoppperToCSV.csproj" />
 	  <ProjectReference Include="..\..\Commons\Plutus.Repository\Plutus.Repository.csproj" />
 	</ItemGroup>
 

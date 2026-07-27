@@ -11,8 +11,7 @@ public partial class AdjustItemPage : Popup
 	{
 		InitializeComponent();
 
-        WidthRequest = 400;
-        HeightRequest = 250;
+        Size = new Size(400, 250);
         CanBeDismissedByTappingOutsideOfPopup = false;
 
 		BindingContext = viewModel;
@@ -26,11 +25,8 @@ public partial class AdjustItemPage : Popup
         ((AdjustItemViewModel)BindingContext).PriceExTax = priceExTax;
     }
 
-    public object ReturnValue { get; private set; }
-
-    private async void AdjustItem_RaisePopupCloseRequest(object sender, PopupCloseRequestEventArgs<Tuple<decimal, decimal>> popupCloseEventArgs)
+    private void AdjustItem_RaisePopupCloseRequest(object sender, PopupCloseRequestEventArgs<Tuple<decimal, decimal>> popupCloseEventArgs)
     {
-        ReturnValue = popupCloseEventArgs.PopupReturnValue;
-        await CloseAsync();
+        Close(popupCloseEventArgs.PopupReturnValue);
     }
 }

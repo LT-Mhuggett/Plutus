@@ -13,8 +13,7 @@ public partial class AlterationPage : Popup
 	{
 		InitializeComponent();
 
-		WidthRequest = 400;
-		HeightRequest = 350;
+		Size = new Size(400, 350);
 		CanBeDismissedByTappingOutsideOfPopup = false;
 
 		BindingContext = viewModel;
@@ -29,11 +28,8 @@ public partial class AlterationPage : Popup
 			(BindingContext as AlterationViewModel).BasketItems.Add(basketItem);
     }
 
-    public object ReturnValue { get; private set; }
-
-    private async void AlterationPage_RaisePopupCloseRequest(object sender, Core.EventArgs.PopupCloseRequestEventArgs<List<BasketAlteration>> popupCloseEventArgs)
+    private void AlterationPage_RaisePopupCloseRequest(object sender, Core.EventArgs.PopupCloseRequestEventArgs<List<BasketAlteration>> popupCloseEventArgs)
     {
-		ReturnValue = popupCloseEventArgs.PopupReturnValue;
-		await CloseAsync();
+		Close(popupCloseEventArgs.PopupReturnValue);
     }
 }

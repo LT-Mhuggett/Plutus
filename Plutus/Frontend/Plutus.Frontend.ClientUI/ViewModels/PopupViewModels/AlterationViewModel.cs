@@ -9,6 +9,7 @@ using Plutus.Frontend.ClientUI.Domain.Models;
 using Plutus.Frontend.ClientUI.Resources.I18N_L10N;
 using Plutus.Frontend.ClientUI.Services.Analytics;
 using Plutus.Frontend.ClientUI.Services.Loading;
+using Syncfusion.Maui.ListView;
 using System.Collections.ObjectModel;
 using System.Globalization;
 
@@ -63,18 +64,18 @@ namespace Plutus.Frontend.ClientUI.ViewModels.PopupViewModels
         [RelayCommand]
         private void SelectAll(object sfListViewParameter)
         {
-            // CollectionView has no SelectAll(); drive selection through the bound SelectedItems collection.
-            if (SelectAllText == Strings.SelectAll)
+            if (sfListViewParameter is SfListView sfListView)
             {
-                SelectedItems.Clear();
-                foreach (var item in BasketItems)
-                    SelectedItems.Add(item);
-                SelectAllText = Strings.UnselectAll;
-            }
-            else
-            {
-                SelectedItems.Clear();
-                SelectAllText = Strings.SelectAll;
+                if (SelectAllText == Strings.SelectAll)
+                {
+                    sfListView.SelectAll();
+                    SelectAllText = Strings.UnselectAll;
+                }
+                else
+                {
+                    SelectedItems.Clear();
+                    SelectAllText = Strings.SelectAll;
+                }
             }
         }
 

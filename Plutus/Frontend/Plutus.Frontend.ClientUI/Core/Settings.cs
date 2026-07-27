@@ -140,14 +140,12 @@ namespace Plutus.Frontend.ClientUI.Core
         public static bool TillListViewOrderReversed
         {
             get => Preferences.Get(nameof(TillListViewOrderReversed), true);
-            set
+            set 
             {
-                // Fixed inverted guard + missing braces (BugFix plan, Bug 2): the old code
-                // only persisted when the value was UNCHANGED, so the toggle never stuck.
-                if (EqualityComparer<bool>.Default.Equals(TillListViewOrderReversed, value)) return;
+                if(EqualityComparer<bool>.Default.Equals(TillListViewOrderReversed, value))
                 Preferences.Set(nameof(TillListViewOrderReversed), value);
                 StaticOnPropertyChanged();
-            }
+            } 
         }
 
         #region INotifyPropertyChanged

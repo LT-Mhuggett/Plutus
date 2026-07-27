@@ -11,8 +11,7 @@ public partial class ReturnItemPage : Popup
 	{
 		InitializeComponent();
 
-		WidthRequest = 400;
-		HeightRequest = 250;
+		Size = new Size(400, 250);
 		CanBeDismissedByTappingOutsideOfPopup = false;
 
 		BindingContext = viewModel;
@@ -20,11 +19,8 @@ public partial class ReturnItemPage : Popup
 		((ReturnItemViewModel)BindingContext).RaisePopupCloseRequest += ReturnItem_RaisePopupCloseRequest;
 	}
 
-    public object ReturnValue { get; private set; }
-
-    private async void ReturnItem_RaisePopupCloseRequest(object sender, PopupCloseRequestEventArgs<Tuple<string, string>> popupCloseEventArgs)
+    private void ReturnItem_RaisePopupCloseRequest(object sender, PopupCloseRequestEventArgs<Tuple<string, string>> popupCloseEventArgs)
     {
-		ReturnValue = popupCloseEventArgs.PopupReturnValue;
-		await CloseAsync();
+		Close(popupCloseEventArgs.PopupReturnValue);
     }
 }

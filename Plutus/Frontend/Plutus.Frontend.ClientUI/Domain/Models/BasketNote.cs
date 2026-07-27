@@ -25,7 +25,7 @@ namespace Plutus.Frontend.ClientUI.Domain.Models
                 OnPropertyChanged();
             }
         }
-        public string Name => Note?.Text ?? string.Empty; // null-guarded (BugFix plan, Bug 3 latent)
+        public string Name => Note.Text;
         public decimal Price
         {
             get => _price;

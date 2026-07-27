@@ -1,5 +1,4 @@
-﻿using CommunityToolkit.Maui.Extensions;
-using CommunityToolkit.Maui.Views;
+﻿using CommunityToolkit.Maui.Views;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Plutus.Entities.Models;
@@ -105,8 +104,14 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill.Inventory
             {
                 Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Category Create (from AddEditViewModel)");
                 var popup = ServiceHelper.GetService<CategoryCreatePage>();
-                await page.ShowPopupAsync(popup);
-                var categoryCreateResponse = popup.ReturnValue as PopupReturnValue<Category>;
+                var categoryCreateResponse = await page.ShowPopupAsync(popup) as PopupReturnValue<Category>;
+                //Countermesaure code till CommunityToolkit/Maui#568 is merged to release branch
+#if WINDOWS
+                var mauiPopup = (CommunityToolkit.Maui.Core.Views.MauiPopup)popup.Handler?.PlatformView;
+                var panel = mauiPopup.Target as Microsoft.Maui.Platform.ContentPanel;
+                if (panel != null)
+                    panel.ContextFlyout = null;
+#endif
                 if (categoryCreateResponse.PopupReturnStatus == Core.Enum.PopupReturnStatus.Completed)
                 {
                     Categories.Clear();

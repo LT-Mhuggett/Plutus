@@ -28,8 +28,7 @@ namespace Plutus.Frontend.ClientUI.ViewModels.PopupViewModels
         #endregion
 
         #region Properties
-        // null-guarded (BugFix plan, Bug 1 latent): employee emails can be null.
-        public bool IsPasswordRequired => !AppState.LoggedInEmployees.Any(e => (e.Email ?? string.Empty).ToLower().Equals(Email?.ToLower()));
+        public bool IsPasswordRequired => !AppState.LoggedInEmployees.Any(e => e.Email.ToLower().Equals(Email));
         #endregion
 
         public AuthorisationViewModel(ILogger logger, IAppState appState, LoadingViewService loadingViewService) : base(logger, appState, loadingViewService)
@@ -37,9 +36,7 @@ namespace Plutus.Frontend.ClientUI.ViewModels.PopupViewModels
         }
 
         #region Command Can Executes
-        // Fixed inverted logic (BugFix plan, Bug 1 latent): previously enabled only when
-        // the email was EMPTY.
-        private bool CanAuthorise() => !string.IsNullOrEmpty(_email) && (!IsPasswordRequired || !string.IsNullOrEmpty(_password));
+        private bool CanAuthorise() => string.IsNullOrEmpty(_email) && (string.IsNullOrEmpty(_password) || !IsPasswordRequired);
         #endregion
 
         #region Commands

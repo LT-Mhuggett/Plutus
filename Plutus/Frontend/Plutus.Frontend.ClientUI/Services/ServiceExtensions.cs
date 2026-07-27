@@ -18,7 +18,6 @@ namespace Plutus.Frontend.ClientUI.Services
             builder.Services.AddSingleton<LoadingViewService>();
             builder.Services.AddTransient<IAuthService, AuthService>();
             builder.Services.AddTransient<PosPrinterManager>();
-            builder.Services.AddSingleton<IOHandeling.IFileService, IOHandeling.FileService>();
             return builder;
         }
     }

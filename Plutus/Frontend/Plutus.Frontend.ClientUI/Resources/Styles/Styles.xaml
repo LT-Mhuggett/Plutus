@@ -80,7 +80,7 @@
     </Style>
 
     <Style TargetType="DatePicker">
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={DynamicResource Primary}, Dark={DynamicResource White}}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={DynamicResource Tertiary}, Dark={DynamicResource White}}" />
         <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="FontFamily" Value="OpenSansRegular"/>
         <Setter Property="FontSize" Value="14"/>
@@ -164,7 +164,7 @@
     </Style>
 
     <Style TargetType="Label">
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={DynamicResource Primary}, Dark={DynamicResource White}}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={DynamicResource Tertiary}, Dark={DynamicResource White}}" />
         <Setter Property="FontFamily" Value="OpenSansRegular" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="VisualStateManager.VisualStateGroups">
@@ -187,8 +187,8 @@
     </Style>
 
     <Style TargetType="Picker">
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={DynamicResource Primary}, Dark={DynamicResource White}}" />
-        <Setter Property="TitleColor" Value="{AppThemeBinding Light={DynamicResource Quinary}, Dark={DynamicResource Quinary}}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={DynamicResource Tertiary}, Dark={DynamicResource White}}" />
+        <Setter Property="TitleColor" Value="{AppThemeBinding Light={DynamicResource Tertiary}, Dark={DynamicResource Quinary}}" />
         <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="FontFamily" Value="OpenSansRegular"/>
         <Setter Property="FontSize" Value="14"/>
@@ -247,7 +247,7 @@
     </Style>
 
     <Style TargetType="SearchBar">
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={DynamicResource Primary}, Dark={DynamicResource White}}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={DynamicResource Tertiary}, Dark={DynamicResource White}}" />
         <Setter Property="PlaceholderColor" Value="{DynamicResource Quaternary}" />
         <Setter Property="CancelButtonColor" Value="{DynamicResource Quaternary}" />
         <Setter Property="BackgroundColor" Value="Transparent" />
@@ -269,7 +269,7 @@
     </Style>
 
     <Style TargetType="SearchHandler">
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={DynamicResource Primary}, Dark={DynamicResource White}}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={DynamicResource Tertiary}, Dark={DynamicResource White}}" />
         <Setter Property="PlaceholderColor" Value="{DynamicResource Quaternary}" />
         <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="FontFamily" Value="OpenSansRegular" />
@@ -350,7 +350,7 @@
     </Style>
 
     <Style TargetType="TimePicker">
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={DynamicResource Primary}, Dark={DynamicResource White}}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={DynamicResource Tertiary}, Dark={DynamicResource White}}" />
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="FontFamily" Value="OpenSansRegular"/>
         <Setter Property="FontSize" Value="14"/>

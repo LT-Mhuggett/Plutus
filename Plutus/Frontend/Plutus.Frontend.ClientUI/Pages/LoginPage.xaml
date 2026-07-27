@@ -20,18 +20,10 @@
             <BoxView Grid.Row="0" Grid.Column="1"                        
                      HeightRequest="500" WidthRequest="2"
                      VerticalOptions="Fill" Color="{DynamicResource Primary}" />
-            <VerticalStackLayout Grid.Row="0" Grid.Column="2"
-                                 VerticalOptions="Center" Spacing="12">
-                <Button Padding="0,20"
-                        Text="Login" Command="{Binding LoginCommand}"
-                        HorizontalOptions="Fill" />
-                <!-- DEBUG-only dev bypass (hidden in Release via IsDebugBuild). -->
-                <Button Padding="0,10"
-                        Text="Skip login (dev)" Command="{Binding DevSkipLoginCommand}"
-                        IsVisible="{Binding IsDebugBuild}"
-                        BackgroundColor="#8A2BE2"
-                        HorizontalOptions="Fill" />
-            </VerticalStackLayout>
+            <Button Grid.Row="0" Grid.Column="2"
+                    Padding="0,20"
+                    Text="Login" Command="{Binding LoginCommand}"
+                    VerticalOptions="CenterAndExpand" HorizontalOptions="FillAndExpand" />
         </Grid>
     </ContentPage.Content>
 </ContentPage>

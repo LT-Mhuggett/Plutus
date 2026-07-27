@@ -16,7 +16,6 @@ namespace Plutus.Frontend.ClientUI.Pages
             builder.Services.AddSingleton<MainTill.Statistics.StatisticsPage>();
             builder.Services.AddTransient<MainTill.Statistics.SalesReportPage>();
             builder.Services.AddTransient<MainTill.Statistics.StockOuttakePage>();
-            builder.Services.AddTransient<MainTill.Settings.SettingsPage>();
             #endregion
 
             #region Popup Pages

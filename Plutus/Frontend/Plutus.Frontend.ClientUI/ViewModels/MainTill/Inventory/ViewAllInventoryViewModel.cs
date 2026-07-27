@@ -1,11 +1,9 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Maui.Dispatching;
 using Plutus.Entities.Models;
 using Plutus.Frontend.ClientUI.Core;
-using Plutus.Frontend.ClientUI.Core.Messages;
 using Plutus.Frontend.ClientUI.Helpers;
 using Plutus.Frontend.ClientUI.Pages.MainTill.Inventory;
 using Plutus.Frontend.ClientUI.Resources.I18N_L10N;
@@ -64,7 +62,7 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill.Inventory
             {
                 if (itemParameter is Item item)
                 {
-                    WeakReferenceMessenger.Default.Send(new AddToBasketMessage(item.IdOne));
+                    MessagingCenter.Send(this, "AddToBasket", item.IdOne);
                     Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Item Added To Basket Requested (from ViewAllViewModel)");
                 }
             }

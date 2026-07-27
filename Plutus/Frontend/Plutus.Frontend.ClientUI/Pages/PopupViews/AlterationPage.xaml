@@ -3,6 +3,7 @@
                xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
                xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
                x:Class="Plutus.Frontend.ClientUI.Pages.PopupViews.AlterationPage"
+               xmlns:syncfusion="clr-namespace:Syncfusion.Maui.ListView;assembly=Syncfusion.Maui.ListView"
                xmlns:I18N_L10N="clr-namespace:Plutus.Frontend.ClientUI.Resources.I18N_L10N"
                Color="Transparent">
     <Frame CornerRadius="{OnPlatform Default='10', Android='15', UWP='15'}"
@@ -32,18 +33,34 @@
                    Text="{Binding Discount.Amount}" />
             <Label Grid.Row="3" Grid.RowSpan="3" Text="{x:Static I18N_L10N:Strings.Items}"
                    FontSize="Subtitle"/>
-            <CollectionView x:Name="sfListView" Grid.Row="4" Grid.ColumnSpan="3"
-                            ItemsSource="{Binding BasketItems}"
-                            SelectedItems="{Binding SelectedItems}"
-                            SelectionMode="Multiple"
-                            SelectionChangedCommand="{Binding BasketItemSelectionChangedCommand}"
-                            BackgroundColor="WhiteSmoke">
+            <syncfusion:SfListView x:Name="sfListView" Grid.Row="4" Grid.ColumnSpan="3"
+                                   ItemsSource="{Binding BasketItems}" SelectedItems="{Binding SelectedItems}" SelectionMode="Multiple" SelectionGesture="Tap"
+                                   ItemSize="30"
+                                   BackgroundColor="WhiteSmoke" ItemSpacing="5,0,5,5">
+                <syncfusion:SfListView.ItemTemplate>
+                    <DataTemplate>
+                                <Label Text="{Binding Name}"/>
+                    </DataTemplate>
+                </syncfusion:SfListView.ItemTemplate>
+            </syncfusion:SfListView>
+            <!--<CollectionView Grid.Row="3" Grid.ColumnSpan="2"
+                            ItemsSource="{Binding BasketItems}" SelectionMode="Multiple" SelectedItems="{Binding SelectedItems}"
+                            SelectionChangedCommand="{Binding BasketItemSelectionChangedCommand}">
+                <CollectionView.Header>
+                    <Label Text="{x:Static I18N_L10N:Strings.Items}"
+                           FontSize="Medium"/>
+                </CollectionView.Header>
                 <CollectionView.ItemTemplate>
                     <DataTemplate>
-                        <Label Text="{Binding Name}" Padding="5,0,5,5" />
+                        <Grid Padding="10">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Label Grid.Row="0" Text="{Binding Name}"/>
+                        </Grid>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
-            </CollectionView>
+            </CollectionView>-->
             <Button Grid.Row="5" Grid.Column="0"
                     Text="{x:Static I18N_L10N:Strings.Cancel}" Command="{Binding CancelAlterationCommand}" />
             <Button Grid.Row="5" Grid.Column="1"

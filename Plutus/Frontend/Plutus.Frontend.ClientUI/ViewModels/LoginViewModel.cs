@@ -20,13 +20,6 @@ namespace Plutus.Frontend.ClientUI.ViewModels
     {
         #region Properties
         public IAuthService AuthService { get; }
-
-        // Controls visibility of the DEBUG-only dev login bypass button (see DevSkipLogin).
-#if DEBUG
-        public bool IsDebugBuild => true;
-#else
-        public bool IsDebugBuild => false;
-#endif
         #endregion
 
         public LoginViewModel(ILogger logger, IAppState appState, LoadingViewService loadingViewService, IRepositoryWrapper repositoryWrapper, IAuthService authService) : base(logger, appState, loadingViewService, repositoryWrapper)
@@ -80,60 +73,6 @@ namespace Plutus.Frontend.ClientUI.ViewModels
                 IsBusy = false;
             }
         }
-
-#if DEBUG
-        // DEBUG-ONLY dev bypass: skip Azure AD B2C entirely and load the app with a minimal
-        // in-memory AppState so the UI can be toured without valid tenant credentials.
-        // NOTE: data-bound screens (inventory, saved baskets, sales) will be empty because the
-        // backend API calls are unauthenticated. Not compiled into Release builds.
-        [RelayCommand]
-        private void DevSkipLogin()
-        {
-            var businessId = Guid.NewGuid();
-            // Use one identity for both the "current active user" and the logged-in employee so
-            // that user-scoped checks (e.g. Settings' admin guard) resolve to a real session.
-            var userId = Guid.NewGuid();
-            AppState.CurrentActiveUser = new KeyValuePair<Guid, string>(userId, "dev-bypass");
-            RepositoryWrapper.SetCurrentUser(userId.ToString());
-
-            var devEmployee = new Employee
-            {
-                Id = userId,
-                Email = "dev@plutus.local",
-                FName = "Dev",
-                LName = "User",
-                Active = true,
-                BusinessId = businessId,
-                StoreId = 1
-            };
-
-            AppState.Business = new Business
-            {
-                Id = businessId,
-                Name = "Dev Business",
-                NameAbbr = "DEV",
-                VatIN = string.Empty,
-                Categories = new List<Category>(),
-                Discounts = new List<Discount>(),
-                Employees = new List<Employee> { devEmployee },
-                Items = new List<Item>(),
-                Roles = new List<Role>(),
-                Stores = new List<Store>(),
-                Taxes = new List<Tax>()
-            };
-            AppState.Store = new Store { Id = 1, BusinessId = businessId, AdLine1 = "Dev Store" };
-            AppState.Till = new Till { Id = AppState.DeviceVendorId, StoreId = 1, CashFloat = decimal.Zero, LastOnline = DateTime.Now };
-            AppState.LoggedInEmployees.Add(devEmployee);
-
-            // "Everything enabled": turn on all optional POS features so nothing is gated while
-            // touring the app under the dev bypass.
-            Core.Settings.CashbackEnabled = true;
-            Core.Settings.TryCashDrawer = true;
-            Core.Settings.AskForReceipt = true;
-
-            App.Current.MainPage = ServiceHelper.GetService<MainPage>();
-        }
-#endif
         #endregion
 
         #region Operations

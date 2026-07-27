@@ -12,8 +12,7 @@ public partial class AuthorisationPage : Popup
     {
         InitializeComponent();
 
-        WidthRequest = popupSize.Medium.Width;
-        HeightRequest = popupSize.Medium.Height;
+        Size = popupSize.Medium;
         CanBeDismissedByTappingOutsideOfPopup = true;
 
         BindingContext = viewModel;
@@ -21,11 +20,8 @@ public partial class AuthorisationPage : Popup
         ((AuthorisationViewModel)BindingContext).RaisePopupCloseRequest += AuthorisationView_RaisePopupCloseRequest;
     }
 
-    public object ReturnValue { get; private set; }
-
-    private async void AuthorisationView_RaisePopupCloseRequest(object sender, PopupCloseRequestEventArgs<Employee> popupCloseEventArgs)
+    private void AuthorisationView_RaisePopupCloseRequest(object sender, PopupCloseRequestEventArgs<Employee> popupCloseEventArgs)
     {
-        ReturnValue = popupCloseEventArgs.PopupReturnValue;
-        await CloseAsync();
+        Close(popupCloseEventArgs.PopupReturnValue);
     }
 }

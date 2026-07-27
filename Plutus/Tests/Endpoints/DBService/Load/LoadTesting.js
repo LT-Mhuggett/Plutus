@@ -1,21 +1,13 @@
 import http from 'k6/http';
 import { check, group, sleep } from 'k6';
 
-function getRequiredEnv(name) {
-    const value = __ENV[name];
-    if (!value) {
-        throw new Error(`Missing required env var: ${name}`);
-    }
-    return value;
-}
-
-const AZURE_TENANT_ID = getRequiredEnv('AZURE_TENANT_ID');
-const AZURE_CLIENT_ID = getRequiredEnv('AZURE_CLIENT_ID');
-const AZURE_CLIENT_SECRET = getRequiredEnv('AZURE_CLIENT_SECRET');
-const USERNAME = getRequiredEnv('AZURE_USERNAME');
-const PASSWORD = getRequiredEnv('AZURE_PASSWORD');
-const RESOURCE = getRequiredEnv('AZURE_RESOURCE');
-const AZURE_SCOPES = getRequiredEnv('AZURE_SCOPES');
+const AZURE_TENANT_ID = 'ed398300-920d-4d36-9cde-5d3937f19b7b';
+const AZURE_CLIENT_ID = '131ab37b-4251-4c37-b0cc-ce3aaf390de2';
+const AZURE_CLIENT_SECRET = 'N9sSbvitt~aJN4XlNNCb5_HX.22_B77uq0';
+const USERNAME = 'isid@plutusdevenv.onmicrosoft.com';
+const PASSWORD = 'Anshul@123';
+const RESOURCE = 'https://plutusdevenv.onmicrosoft.com/131ab37b-4251-4c37-b0cc-ce3aaf390de2';
+const AZURE_SCOPES = 'https://plutusdevenv.onmicrosoft.com/131ab37b-4251-4c37-b0cc-ce3aaf390de2/Things.Read https://plutusdevenv.onmicrosoft.com/131ab37b-4251-4c37-b0cc-ce3aaf390de2/OtherThings.Read https://plutusdevenv.onmicrosoft.com/131ab37b-4251-4c37-b0cc-ce3aaf390de2/Permission.Write';
 
 export function setup() {
     // Use either password authentication flow

@@ -1,21 +1,14 @@
 import http from 'k6/http';
 import { sleep } from 'k6';
 
-function getRequiredEnv(name) {
-    const value = __ENV[name];
-    if (!value) {
-        throw new Error(`Missing required env var: ${name}`);
-    }
-    return value;
-}
 
-const AZURE_TENANT_ID = getRequiredEnv('AZURE_TENANT_ID');
-const AZURE_CLIENT_ID = getRequiredEnv('AZURE_CLIENT_ID');
-const AZURE_CLIENT_SECRET = getRequiredEnv('AZURE_CLIENT_SECRET');
-const USERNAME = getRequiredEnv('AZURE_USERNAME');
-const PASSWORD = getRequiredEnv('AZURE_PASSWORD');
-const RESOURCE = getRequiredEnv('AZURE_RESOURCE');
-const AZURE_SCOPES = getRequiredEnv('AZURE_SCOPES');
+const AZURE_TENANT_ID = 'ed398300-920d-4d36-9cde-5d3937f19b7b';
+const AZURE_CLIENT_ID = '131ab37b-4251-4c37-b0cc-ce3aaf390de2';
+const AZURE_CLIENT_SECRET = 'N9sSbvitt~aJN4XlNNCb5_HX.22_B77uq0';
+const USERNAME = 'isid@plutusdevenv.onmicrosoft.com';
+const PASSWORD = 'Anshul@123';
+const RESOURCE = 'https://plutusdevenv.onmicrosoft.com/131ab37b-4251-4c37-b0cc-ce3aaf390de2';
+const AZURE_SCOPES = 'https://plutusdevenv.onmicrosoft.com/131ab37b-4251-4c37-b0cc-ce3aaf390de2/Things.Read https://plutusdevenv.onmicrosoft.com/131ab37b-4251-4c37-b0cc-ce3aaf390de2/OtherThings.Read https://plutusdevenv.onmicrosoft.com/131ab37b-4251-4c37-b0cc-ce3aaf390de2/Permission.Write';
 
 export function setup() {
     // Use either password authentication flow
@@ -92,6 +85,13 @@ export let options = {
 };
 
 export default (data) => {
+
+   /* let params = {
+        cookies: { my_cookie: 'value' },
+        headers: { 'Authorization': 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6Im5PbzNaRHJPRFhFSzFqS1doWHNsSFJfS1hFZyJ9.eyJhdWQiOiIxMzFhYjM3Yi00MjUxLTRjMzctYjBjYy1jZTNhYWYzOTBkZTIiLCJpc3MiOiJodHRwczovL2xvZ2luLm1pY3Jvc29mdG9ubGluZS5jb20vZWQzOTgzMDAtOTIwZC00ZDM2LTljZGUtNWQzOTM3ZjE5YjdiL3YyLjAiLCJpYXQiOjE2MjkxMjEzNTcsIm5iZiI6MTYyOTEyMTM1NywiZXhwIjoxNjI5MTI1MjU3LCJhaW8iOiJBWVFBZS84VEFBQUFSRW8xcWxiRGhnOVY3TzJPS2xlK2hnbmpKZWJTQk9abXNKRWJtbERCTWd5dTc3c0NHNlUrM2U3cm01QTkxSXZPRUNKU2thbGQ1aVBMbmpRc05xS2lHdHMxYzNvUWpmbUJ4azhDdHJid09rWXZFMTVQQnVRY3h1ako1R0hyL095dEV6bkIyejB4WTVhRm4yNXhKSWQ3SVdnclJGcDFncmJMVFdLbnUzd1p3ZlE9IiwiYXpwIjoiMTMxYWIzN2ItNDI1MS00YzM3LWIwY2MtY2UzYWFmMzkwZGUyIiwiYXpwYWNyIjoiMCIsImlkcCI6ImxpdmUuY29tIiwibmFtZSI6IlNpZGRoYXJ0aCBBZ3Jhd2FsIiwib2lkIjoiNGYyZWJhZTMtMmRjYy00ODQxLWEwOWUtMzIwOTAzZjJhODUzIiwicHJlZmVycmVkX3VzZXJuYW1lIjoic2lkZGhhcnRoYWdyYXdhbEBvdXRsb29rLmNvbSIsInJoIjoiMC5BU0lBQUlNNTdRMlNOazJjM2wwNU5fR2JlM3V6R2hOUlFqZE1zTXpPT3E4NURlSWtBRk0uIiwic2NwIjoiVGhpbmdzLlJlYWQgT3RoZXJUaGluZ3MuUmVhZCBQZXJtaXNzaW9uLldyaXRlIiwic3ViIjoia3hLOGtmUTBYSGJVZm1RRVBQLVNXckJEZDh1TkY1UmkxNE4wdC1hSWc0YyIsInRpZCI6ImVkMzk4MzAwLTkyMGQtNGQzNi05Y2RlLTVkMzkzN2YxOWI3YiIsInV0aSI6Ikt4Y3RSalY4TjBhOXozZnBiaTB6QmciLCJ2ZXIiOiIyLjAifQ.XQ6gvFARe0IliSMCZwFv22abrPHpPFZEFvFKeHRdu85KA_1UhpU_wYbJDnb5FR0Y3d0baBtfRV3oTRWhx-hXDFSeTI9exhlUlQBGnqgjzVHBjL8PJww-f3HYkCxtlzdDTBOLK3WTJqOPsA3EptU7nQYKnPRlt_88fmWpXCC22aqT-f_7PUWhqGD0j9iaz0wKEksGE8woZsODoNn0t1U8oIfoBYIFN0DoIg7THQ3VAZD3FjohSWTsR_Y7JJKsyR3PbY_cMcjrNXECSCh9fOsjXRVmJc86Wzis9jmrZ8EijNIVY7gE1fDyNhHmDyv11M1-2PfSv1-L9--begM5ATZgDg' },
+        redirects: 5,
+        tags: { k6test: 'yes' },
+    };*/
     let params = {
         headers: {
             'Content-Type': 'application/json',

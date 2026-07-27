@@ -54,10 +54,9 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
         }
         public ObservableCollection<SavedTransactionModel> StoredTransactions { get; } = new ObservableCollection<SavedTransactionModel>();
 
-        // BugFix plan, Bug 2: the reversed COPY meant new items appeared at the top and
-        // any mutation through Basket hit a throwaway collection. Bind the real one —
-        // new items now land at the bottom.
-        public ObservableCollection<IBasketRecord> Basket => _basket;
+        public ObservableCollection<IBasketRecord> Basket => TillListViewOrderReversed
+            ? new ObservableCollection<IBasketRecord>(_basket.Reverse())
+            : _basket;
         public IBasketRecord SelectedBasketRecord
         {
             get => _selectedBasketRecord;
@@ -743,9 +742,7 @@ namespace NatApp.Plutus.ViewModels.MainTill.Till
                     if (!db.Save())
                     {
                         await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "CriticalIssue".Translate(), "OK".Translate());
-                        // BugFix plan, Bug 3 extra: RemoveAt(Count()) is off by one and threw
-                        // ArgumentOutOfRangeException on the save-failure path.
-                        StoredTransactions.RemoveAt(StoredTransactions.Count - 1);
+                        StoredTransactions.RemoveAt(StoredTransactions.Count());
                         return;
                     }
                 }

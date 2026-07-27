@@ -13,6 +13,8 @@ namespace Plutus.Frontend.ClientUI
     {
         public App()
         {
+            Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense("NzE1MTY3QDMyMzAyZTMyMmUzMG1OVkUwL1Jsd0p2VGpQRVRqRXZMQTVsbGViV0hPaitSa2tIZzJKdjZrZlU9");
+
             InitializeComponent();
 
 

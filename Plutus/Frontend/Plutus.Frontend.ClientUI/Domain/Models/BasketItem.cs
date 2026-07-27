@@ -54,9 +54,7 @@ namespace Plutus.Frontend.ClientUI.Domain.Models
 
         public string Tax
         {
-            // null-guarded (BugFix plan, Bug 3 latent): Tax navigation may be unloaded
-            // after a saved basket is deserialized.
-            get => Item?.Tax?.Name ?? string.Empty;
+            get => Item.Tax.Name;
         }
         #endregion
         #endregion

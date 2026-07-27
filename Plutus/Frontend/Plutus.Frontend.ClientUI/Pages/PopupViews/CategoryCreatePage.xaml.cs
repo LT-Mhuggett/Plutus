@@ -9,8 +9,7 @@ public partial class CategoryCreatePage : Popup
 	public CategoryCreatePage(IPopupSize popupSize, CategoryCreateViewModel viewModel)
 	{
 		InitializeComponent();
-		WidthRequest = 400;
-		HeightRequest = 250;
+		Size = new Size(400, 250);
 		CanBeDismissedByTappingOutsideOfPopup = false;
 
 		BindingContext = viewModel;
@@ -18,11 +17,8 @@ public partial class CategoryCreatePage : Popup
 		(BindingContext as CategoryCreateViewModel).RaisePopupCloseRequest += CategoryCreatePage_RaisePopupCloseRequest;
 	}
 
-	public object ReturnValue { get; private set; }
-
-	private async void CategoryCreatePage_RaisePopupCloseRequest(object sender, Core.EventArgs.PopupCloseRequestEventArgs<Entities.Models.Category> popupCloseEventArgs)
+	private void CategoryCreatePage_RaisePopupCloseRequest(object sender, Core.EventArgs.PopupCloseRequestEventArgs<Entities.Models.Category> popupCloseEventArgs)
 	{
-		ReturnValue = popupCloseEventArgs.PopupReturnValue;
-		await CloseAsync();
+		Close(popupCloseEventArgs.PopupReturnValue);
 	}
 }

@@ -14,7 +14,6 @@ namespace Plutus.Frontend.ClientUI.ViewModels
             builder.Services.AddTransient<MainTill.Inventory.AddEditInventoryItemViewModel>();
             builder.Services.AddSingleton<MainTill.Statistics.StatisticsViewModel>();
             builder.Services.AddTransient<MainTill.Statistics.SalesReportViewModel>();
-            builder.Services.AddTransient<MainTill.Settings.SettingsViewModel>();
             #endregion
 
             #region Popup ViewModels

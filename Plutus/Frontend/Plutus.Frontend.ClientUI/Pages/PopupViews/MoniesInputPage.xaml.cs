@@ -9,8 +9,7 @@ public partial class MoniesInputPage : Popup
 	public MoniesInputPage(MoniesInputViewModel viewModel)
 	{
 		InitializeComponent();
-		WidthRequest = 400;
-		HeightRequest = 350;
+		Size = new Size(400, 350);
 		CanBeDismissedByTappingOutsideOfPopup = false;
 		BindingContext = viewModel;
 		(BindingContext as MoniesInputViewModel).RaisePopupCloseRequest += MoniesInputPage_RaisePopupCloseRequest;
@@ -22,11 +21,8 @@ public partial class MoniesInputPage : Popup
         (BindingContext as MoniesInputViewModel).AmountRemaining = amountRemaining;
     }
 
-    public object ReturnValue { get; private set; }
-
-    private async void MoniesInputPage_RaisePopupCloseRequest(object sender, Core.EventArgs.PopupCloseRequestEventArgs<decimal> popupCloseEventArgs)
+    private void MoniesInputPage_RaisePopupCloseRequest(object sender, Core.EventArgs.PopupCloseRequestEventArgs<decimal> popupCloseEventArgs)
 	{
-		ReturnValue = popupCloseEventArgs.PopupReturnValue;
-		await CloseAsync();
+		Close(popupCloseEventArgs.PopupReturnValue);
 	}
 }

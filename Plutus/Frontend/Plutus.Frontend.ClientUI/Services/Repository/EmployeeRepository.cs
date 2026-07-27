@@ -70,9 +70,7 @@ namespace Plutus.Frontend.ClientUI.Services.Repository
                 if (Connectivity.NetworkAccess == NetworkAccess.Internet)
                 {
                     var message = CreateHttpMessage(HttpMethod.Post, $"{EndpointEntity}?IsSync=True");
-                    // Fixed (BugFix plan, Bug 1 latent): previously sent the AppState CLASS
-                    // NAME as the business id header.
-                    message.Headers.Add("businessId", AppState.Business.Id.ToString());
+                    message.Headers.Add("businessId", AppState.ToString());
                     message.Content = new StringContent(JsonConvert.SerializeObject(new EmployeeBody(employee)), Encoding.UTF8, "application/json");
                     var response = await Client.SendAsync(message);
                     if (!response.IsSuccessStatusCode)
@@ -425,9 +423,7 @@ namespace Plutus.Frontend.ClientUI.Services.Repository
                         DetachEntity(employee);
                     }
                 }
-                // FirstOrDefault (BugFix plan, Bug 1 latent): First() threw when the user
-                // wasn't in the local DB; callers already null-check.
-                return RepositoryContext.Set<Employee>().FirstOrDefault(e=>e.Id.Equals(employeeId) && e.BusinessId.Equals(businessId));
+                return RepositoryContext.Set<Employee>().First(e=>e.Id.Equals(employeeId) && e.BusinessId.Equals(businessId));
             }
             finally
             {
