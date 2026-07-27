@@ -1,25 +1,27 @@
 # Handover — Plutus platform build
 
-**Date:** 2026-07-27 (late night) — Phases 0–3, 5, 7(cash), 8, 9, 10, 11.1–11.4, **and ALL of
-Phase 6 (WooCommerce connector)** complete; Kapow history loaded; everything pushed (head `cba7bea`)
+**Date:** 2026-07-27 — Phases 0–3, 5, 6 (all), 7(cash), 8, 9, 10, **11 (all), 12.1–12.3 + bridge
+OFF** complete; Kapow history loaded; everything pushed (head `21daac5`)
 **Branch:** `Matt's-Horror` · remote `origin` = LT-Mhuggett/Plutus
 **Hard rule:** **DO NOT TOUCH ETRIE** — it shares the Mac mini but is a separate product. Every Plutus change keeps ETRIE's ports/processes/paths/Caddy blocks untouched; verify ETRIE health (`https://10.1.1.40/health`, `https://huggett.dscloud.me/health` → 200) after any Mac change.
 
 ---
 
-## ⏰ RESUME HERE (written 2026-07-27 night — Matt went to bed with Phase 6 just finished)
+## ⏰ RESUME HERE (updated 2026-07-27 — every buildable phase now complete & live)
 
-**State right now, all live on the test env (test suite: 167 unit + 5 arch green):**
-- **Phase 6 inbound LIVE**: kapow-comics.co.uk webhooks (order.created/updated) + a 20-min
-  self-healing reconciliation poll ingest real web orders into SalesV2 (channel WebStore, virtual
-  till "Kapow Web"); refunds → idempotent SaleAdjustments (closed 2026-07-27); unmatched SKUs park
-  in the portal review queue (bind/ignore/create-item + Retry heals parked orders); pick-from-floor
-  till banner on every web sale; product cache (745 = whole site) + catalogue view + alignment
-  report (+CSV) in portal → Webstore.
-- **Phase 6 outbound in DRY-RUN**: journaling to portal → Webstore → Outbound what it WOULD
-  send (stock fast lane on every sale + slow-lane diff ≤100/cycle + WP6.5 draft scan). ZERO writes
-  to the site — mode = dry-run, and only the read-only REST key exists.
-- Two real orders ingested end-to-end as proof: #8505 £4.80, #8503 £67.49 (penny-exact).
+**State right now, all live on the test env (test suite: 168 unit + 5 arch green; head `21daac5`):**
+- **All platform phases 0–12 are built & live** except the externally-gated tails (see the list
+  at the very bottom). Nothing more is buildable without Matt's input or upstream code.
+- **Phase 6 (Woo connector) inbound LIVE**: kapow-comics.co.uk webhooks + 20-min self-healing
+  poll ingest real web orders (+ refunds) into SalesV2; unmatched-SKU review queue, pick-from-floor
+  till banner, product cache/catalogue/alignment in portal → Webstore. **Outbound in DRY-RUN**
+  (journals what it WOULD send; zero writes; read-only key only).
+- **Phase 11 portal restructure LIVE**: Dashboard + Company tabs (Periods absorbed), Locations
+  page with collapsible Stores/Warehouses/Webstores groups.
+- **Phase 12 LIVE**: ops hardened (nightly MySQL backups launchd 03:30 restore-rehearsed; pm2 save
+  + resurrect agent so the backend survives a Mac reboot; logrotate); legacy readers repointed to
+  v1; **legacy sale bridge is OFF** (`LegacyBridge__Enabled=false`) — legacy Sales/Trans/Stock
+  frozen (not dropped). Rollback = flip the flag + restart.
 
 **Waiting on MATT (in order of value):**
 1. **Review the outbound dry-run journal** (portal → Webstore → Outbound) over ~a week of
@@ -29,14 +31,17 @@ Phase 6 (WooCommerce connector)** complete; Kapow history loaded; everything pus
    `~/PLUTUS/plutus-ecosystem.config.js`, `pm2 delete plutus-backend && pm2 start` the ecosystem
    (PATH needs `/opt/homebrew/bin`), then portal → Outbound → live. First live write: verify ONE
    item on the storefront.
-2. **Test WP6.1 one-click onboarding** (portal → Webstore shows a Connect form when no
+2. **Do ONE end-to-end return through the till UI** now the bridge is off — the sale-detail data
+   path is verified (endpoint 200 + correct shape + till type-checks) but the React return flow
+   wasn't clicked. If anything's wrong: rollback is `LegacyBridge__Enabled=true` + restart.
+3. **Test WP6.1 one-click onboarding** (portal → Webstore shows a Connect form when no
    connection): browser flow only Matt can click. ⚠ A second connection to the same site
    DOUBLE-INGESTS new orders — connect → verify (site gains 2 webhooks) → **Disconnect promptly**
    (button removes its own webhooks + disables itself).
-3. **Rotate the MySQL `plutus` password at leisure** (it echoed into a session transcript —
+4. **Rotate the MySQL `plutus` password at leisure** (it echoed into a session transcript —
    LAN-only behind SSH, low risk). Change in MySQL + `~/PLUTUS/secrets/mysql.env` + the
    ecosystem ConnectionString.
-4. Standing sudo items: Keycloak `login.plutus` Caddy vhost (Phase 9); portal basic_auth gap.
+5. Standing sudo items: Keycloak `login.plutus` Caddy vhost (Phase 9); portal basic_auth gap.
 
 **✅ Phase 11 (11.5–11.7) + Phase 12 (12.1–12.3) DONE & LIVE 2026-07-27** (head after this
 session's commits). Portal: Dashboard + Company tabs (Periods absorbed), Locations page with
