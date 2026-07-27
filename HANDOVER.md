@@ -46,9 +46,16 @@ survives a Mac reboot), logrotate.** Till Custom report + export repointed to v1
 `/api/Sale/Index`/`SaleReport` readers gone); legacy bridge behind `LegacyBridge:Enabled` (still
 ON). Prices/credit/membership were already wired.
 
-**Next build work when sessions resume (nothing blocking):** finish WP12.2 — repoint the till's
-remaining `/api/Sale/*` readers (sale detail, VAT integrity) to v1, then flip `LegacyBridge:Enabled=false`
-and eventually delete the bridge + legacy tables. Then only externally-gated items remain
+**WP12.2 progress (2026-07-27):** `/api/v1/sales/{id}` is now ENRICHED (additive) with per-line
+`itemIdOne`+`itemName` (barcode from SaleLine.ItemIdOne OR DiscountsJson for web-till sales),
+`operatorName`, and refund `adjustments` — verified live (names resolve). Portal drill-down shows
+product names now. **Still to do to flip the bridge off:** (1) repoint the till's `fetchSaleDetail`
+(used by BOTH the view dialog AND ReturnDialog) to `/api/v1/sales/{id}` — but that endpoint is
+gated `PortalFinancialsView` while RETURNS are done by supervisors holding `pos.refund` not
+financials, so returns need either a pos-gated sale-lookup or a re-gate, PLUS a live return test
+(trading-critical — do with Matt present); (2) then `LegacyBridge:Enabled=false` + delete the
+bridge/legacy tables. `VatIntegrity` (`/api/Sale/VatIntegrity`) is a CATALOGUE check, not
+bridge-fed — it can stay or move independently. After that, only externally-gated items remain
 (Phase 4 MAUI upstream, Phase 7 payments provider, Phase 10 Stripe, Phase 6 outbound go-live).
 
 **Key session learnings live in:** §Phase-6 records below (deploy gotchas: pm2 PATH, ecosystem
