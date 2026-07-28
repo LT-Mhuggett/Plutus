@@ -31,6 +31,7 @@ public class WebstoreWebhookHandlerTests
     {
         public bool Enabled = true;
         public Task<bool> IsEnabledAsync(Guid tenantId, string feature, CancellationToken ct = default) => Task.FromResult(Enabled);
+        public Task<long?> GetLimitAsync(Guid tenantId, string key, CancellationToken ct = default) => Task.FromResult<long?>(null);
     }
 
     private sealed class FakeSecrets : IWebstoreSecretProvider

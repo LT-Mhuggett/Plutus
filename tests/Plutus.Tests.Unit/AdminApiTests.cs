@@ -114,7 +114,7 @@ public class AdminApiTests
         int storeId;
         using (var db = Ctx(conn, TenantA))
         {
-            var res = await WithActor(new StoresController(db, new FixedTenantContext(TenantA)))
+            var res = await WithActor(new StoresController(db, new FixedTenantContext(TenantA), new QuotaGuard(new EntitlementService(db))))
                 .Create(new StoreAdminBody(companyId, "Test Store", "1 High St", "", "Town", "AB1 2CD", "UK", "0123", hours));
             var created = Assert.IsType<CreatedResult>(res);
             storeId = (int)created.Value!.GetType().GetProperty("id")!.GetValue(created.Value)!;
@@ -129,7 +129,7 @@ public class AdminApiTests
         const string newHours = "{\"sat\":[{\"open\":\"10:00\",\"close\":\"16:00\"}]}";
         using (var db = Ctx(conn, TenantA))
         {
-            var res = await WithActor(new StoresController(db, new FixedTenantContext(TenantA)))
+            var res = await WithActor(new StoresController(db, new FixedTenantContext(TenantA), new QuotaGuard(new EntitlementService(db))))
                 .Update(storeId, new StoreAdminBody(null, null, null, null, null, null, null, null, newHours));
             Assert.IsType<NoContentResult>(res);
         }

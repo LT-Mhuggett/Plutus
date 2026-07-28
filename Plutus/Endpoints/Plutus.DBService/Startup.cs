@@ -22,6 +22,7 @@ using Plutus.Entities;
 using Plutus.Infrastructure.Health;
 using Plutus.Infrastructure.Monitoring;
 using Plutus.Infrastructure.Outbox;
+using Plutus.Infrastructure.RateLimiting;
 using System;
 using System.Diagnostics;
 using System.Net.Http;
@@ -80,6 +81,7 @@ namespace Plutus.DBService
             services.AddPlutusOutbox(); // T1.5 broker-less dispatcher (consumers register their own IEventConsumer)
             services.AddPlutusRequestHealth(); // WP13.2 per-tenant request-health accumulator + per-minute flusher
             services.AddPlutusJobMonitoring(); // WP13.3 IJobHeartbeat + IOperatorAlerter seams
+            services.AddPlutusTenantRateLimiting(Configuration); // WP13.5 per-tenant rate limiting
             ConfigureRateLimiting(services, Configuration);
             services.ConfigureSwaggerDocumentation(Configuration);
             services.ConfigureHttpAccessor();
@@ -120,6 +122,10 @@ namespace Plutus.DBService
 
             app.UseAuthentication();
             app.UseAuthorization();
+
+            // WP13.5: per-tenant rate limiting AFTER auth (tenant resolved) and BEFORE the health
+            // middleware so throttled (429) requests don't skew the request-health stats.
+            app.UsePlutusTenantRateLimiting();
 
             // WP13.2: record per-tenant request health AFTER auth (tenant resolved), wrapping
             // endpoint execution for latency + final status code.

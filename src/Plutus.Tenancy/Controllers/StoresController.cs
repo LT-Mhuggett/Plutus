@@ -30,11 +30,13 @@ namespace Plutus.Tenancy.Controllers
     {
         private readonly MySqlDbContext _db;
         private readonly ITenantContext _tenant;
+        private readonly IQuotaGuard _quota;
 
-        public StoresController(MySqlDbContext db, ITenantContext tenant)
+        public StoresController(MySqlDbContext db, ITenantContext tenant, IQuotaGuard quota)
         {
             _db = db;
             _tenant = tenant;
+            _quota = quota;
         }
 
         private Guid Actor => Guid.TryParse(User?.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var g) ? g : Guid.Empty;
@@ -74,6 +76,10 @@ namespace Plutus.Tenancy.Controllers
                 return BadRequest(new { detail = "companyId must reference one of the tenant's companies." });
             if (!string.IsNullOrWhiteSpace(body.Name) && await StoreNameTakenAsync(body.Name, null))
                 return Conflict(new { detail = $"A store named '{body.Name.Trim()}' already exists." });
+
+            // WP13.5 quota: refuse the (limit+1)th store per the tenant's stores.max entitlement.
+            try { await _quota.EnforceAsync(_tenant.TenantId, Entitlements.StoresMax, await _db.Stores.CountAsync()); }
+            catch (QuotaExceededException ex) { return Conflict(new { detail = ex.Message, limitKey = ex.LimitKey, limit = ex.Limit }); }
 
             _db.CurrentUser = Actor.ToString();
             var store = new Store

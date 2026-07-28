@@ -97,6 +97,14 @@ namespace Plutus.Tenancy
             return Parse(json).Contains(feature, StringComparer.OrdinalIgnoreCase);
         }
 
+        public async Task<long?> GetLimitAsync(Guid tenantId, string key, CancellationToken ct = default)
+        {
+            if (tenantId == Guid.Empty || string.IsNullOrWhiteSpace(key)) return null; // unlimited
+            var json = await _db.Tenants.AsNoTracking()
+                .Where(t => t.Id == tenantId).Select(t => t.Entitlements).FirstOrDefaultAsync(ct);
+            return Plutus.SharedKernel.Entitlements.ParseLimit(Parse(json), key);
+        }
+
         /// <summary>The tenant's entitlement list (empty on null/parse failure).</summary>
         public static string[] Parse(string json)
         {
@@ -107,6 +115,21 @@ namespace Plutus.Tenancy
                     .Where(s => !string.IsNullOrWhiteSpace(s)).ToArray() ?? Array.Empty<string>();
             }
             catch (JsonException) { return Array.Empty<string>(); }
+        }
+    }
+
+    /// <summary>WP13.5 provisioning-quota guard: refuses the (limit+1)th store/user/till by reading
+    /// the tenant's valued entitlement (stores.max etc.). Absent entitlement = unlimited.</summary>
+    public sealed class QuotaGuard : IQuotaGuard
+    {
+        private readonly IEntitlementService _entitlements;
+        public QuotaGuard(IEntitlementService entitlements) => _entitlements = entitlements;
+
+        public async Task EnforceAsync(Guid tenantId, string limitKey, long currentCount, CancellationToken ct = default)
+        {
+            var limit = await _entitlements.GetLimitAsync(tenantId, limitKey, ct);
+            if (limit is long max && currentCount >= max)
+                throw new QuotaExceededException(limitKey, max);
         }
     }
 }

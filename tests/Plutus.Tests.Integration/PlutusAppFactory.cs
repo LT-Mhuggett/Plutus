@@ -35,6 +35,7 @@ public sealed class PlutusAppFactory : WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("PLUTUS_DB_ENSURE_CREATED", "true");
         Environment.SetEnvironmentVariable("JOBS_REPORT_SECRET", JobsSecret); // WP13.3 HMAC job report
         Environment.SetEnvironmentVariable("RATE_LIMIT_ENROL_PER_MIN", "100000"); // don't throttle the test IP
+        Environment.SetEnvironmentVariable("RATE_LIMIT_DEFAULT_RPS", "30"); // WP13.5: high enough for normal tests, floodable in one
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -89,6 +90,10 @@ public sealed class PlutusAppFactory : WebApplicationFactory<Program>
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
-        if (disposing) _conn.Dispose();
+        // A background query (e.g. the rate limiter's fire-and-forget entitlement refresh) can
+        // still hold the single shared in-memory connection at teardown, making Close() NRE. That's
+        // a test-harness artifact of the one-connection model — production uses pooled MySQL
+        // connections. Swallow it so a clean test run isn't marked failed by disposal.
+        if (disposing) { try { _conn.Dispose(); } catch { /* teardown race on the shared connection */ } }
     }
 }

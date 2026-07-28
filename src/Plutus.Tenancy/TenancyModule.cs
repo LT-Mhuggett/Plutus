@@ -51,6 +51,7 @@ namespace Plutus.Tenancy
             // Phase 10: entitlements, billing seam, tenant lifecycle, retention sweeper.
             services.AddScoped<TenantLifecycleService>(sp => new TenantLifecycleService(sp.GetRequiredService<MySqlDbContext>()));
             services.AddScoped<IEntitlementService>(sp => new EntitlementService(sp.GetRequiredService<MySqlDbContext>()));
+            services.AddScoped<IQuotaGuard>(sp => new QuotaGuard(sp.GetRequiredService<IEntitlementService>())); // WP13.5
             // Provider seam — NullBillingProvider stands in until the commercial choice; verifies
             // BILLING_WEBHOOK_SECRET so the entitlement-write path is testable now.
             services.AddSingleton<IBillingProvider>(new NullBillingProvider(configuration["BILLING_WEBHOOK_SECRET"]));
