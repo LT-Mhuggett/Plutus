@@ -3,7 +3,7 @@
 **Date:** 2026-07-23
 **Scope:** MAUI `Plutus.Frontend.ClientUI` (Windows head; applies to all heads once migrated).
 **Status:** Design for review. No code changed by this document.
-**Companion docs:** [HANDOVER.md](HANDOVER.md), [Migration-2026-07-22-plan.md](Migration-2026-07-22-plan.md), [BugFix-2026-07-22-plan.md](BugFix-2026-07-22-plan.md).
+**Companion docs:** [HANDOVER.md](../HANDOVER.md), [Migration-2026-07-22-plan.md](Migration-2026-07-22-plan.md), [BugFix-2026-07-22-plan.md](BugFix-2026-07-22-plan.md).
 
 ---
 

@@ -1,7 +1,7 @@
 # Plutus Operator Platform — Implementation Plan
 
 **For execution by Claude Sonnet, one work package (WP) at a time.**
-**Authority:** `Plutus Operator Platform.md` (repo root — the requirements doc) and
+**Authority:** `plutus-operator-platform-requirements.md` (this folder — the requirements doc) and
 `plutus-platform-architecture.md` (v3). If this plan and the architecture doc conflict, the
 architecture doc wins; stop and flag the conflict.
 **Continues:** `plutus-implementation-plan.md` (phases 0–12, complete except externally-gated

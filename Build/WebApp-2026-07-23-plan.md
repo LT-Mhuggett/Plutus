@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-23
 **Status:** Design for review. No code changed by this document.
-**Companion docs:** [HANDOVER.md](HANDOVER.md), [Migration-2026-07-22-plan.md](Migration-2026-07-22-plan.md), [OfflineMode-2026-07-23-plan.md](OfflineMode-2026-07-23-plan.md).
+**Companion docs:** [HANDOVER.md](../HANDOVER.md), [Migration-2026-07-22-plan.md](Migration-2026-07-22-plan.md), [OfflineMode-2026-07-23-plan.md](OfflineMode-2026-07-23-plan.md).
 
 ---
 
@@ -33,7 +33,7 @@ Rebuild the Plutus POS client as a browser-based webapp: till/checkout, inventor
 
 ### 2.4 Seed data — live till backup (added 2026-07-23)
 
-`Kapow Comics ltd - Database - 23_07_2026 15_57_23.db` (repo root, 35MB, **gitignored — real business data, never commit**) is the latest backup from the live NatApp till. Inspected read-only 2026-07-23; healthy SQLite, 22 tables:
+`Kapow Comics ltd - Database - 23_07_2026 15_57_23.db` (`Build/seed-data/`, 35MB, **gitignored — real business data, never commit**) is the latest backup from the live NatApp till. Inspected read-only 2026-07-23; healthy SQLite, 22 tables:
 
 | Table | Rows | Table | Rows |
 |---|---|---|---|
