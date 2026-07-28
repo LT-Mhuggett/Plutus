@@ -147,6 +147,15 @@ async function renew(): Promise<void> {
  */
 export async function completeLoginIfCallback(): Promise<OidcUser | null> {
   const url = new URL(window.location.href);
+  // The IdP bounced us back with an error (e.g. invalid_scope, access_denied): surface it
+  // instead of returning null — otherwise the caller immediately re-runs beginLogin() and the
+  // browser loops IdP → error → IdP forever.
+  const idpError = url.searchParams.get("error");
+  if (idpError) {
+    const detail = url.searchParams.get("error_description") ?? "";
+    window.history.replaceState({}, document.title, redirectUri());
+    throw new Error(`Sign-in failed at the identity provider: ${idpError}${detail ? ` — ${detail}` : ""}`);
+  }
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   if (!code || !state) return null;

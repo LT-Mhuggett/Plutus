@@ -29,6 +29,77 @@
           }
         }
       ]
+    },
+    {
+      "name": "profile",
+      "description": "Minimal profile scope (an explicit clientScopes list suppresses Keycloak's built-ins, so the ones we use are defined here)",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" },
+      "protocolMappers": [
+        {
+          "name": "full name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-full-name-mapper",
+          "consentRequired": false,
+          "config": { "id.token.claim": "true", "access.token.claim": "true", "userinfo.token.claim": "true" }
+        },
+        {
+          "name": "username",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "username", "claim.name": "preferred_username", "jsonType.label": "String",
+            "id.token.claim": "true", "access.token.claim": "true", "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "email",
+      "description": "Email claim — the backend's RbacClaimsTransformation matches it to a Plutus user",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" },
+      "protocolMappers": [
+        {
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "email", "claim.name": "email", "jsonType.label": "String",
+            "id.token.claim": "true", "access.token.claim": "true", "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "email verified",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "emailVerified", "claim.name": "email_verified", "jsonType.label": "boolean",
+            "id.token.claim": "true", "access.token.claim": "true", "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "roles",
+      "description": "Realm roles in realm_access.roles — WP18.1 maps platform-admin from here",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "false", "display.on.consent.screen": "false" },
+      "protocolMappers": [
+        {
+          "name": "realm roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true", "claim.name": "realm_access.roles", "jsonType.label": "String",
+            "id.token.claim": "true", "access.token.claim": "true", "userinfo.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
   "clients": [
@@ -54,7 +125,7 @@
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": "https://admin.plutus.huggett.dscloud.me/*##http://localhost:5274/*"
       },
-      "defaultClientScopes": ["openid", "profile", "email", "plutus-api-audience"]
+      "defaultClientScopes": ["profile", "email", "roles", "plutus-api-audience"]
     },
     {
       "clientId": "plutus-webpos",
@@ -78,7 +149,7 @@
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": "https://plutus.huggett.dscloud.me/*##http://localhost:5173/*"
       },
-      "defaultClientScopes": ["openid", "profile", "email", "plutus-api-audience"]
+      "defaultClientScopes": ["profile", "email", "roles", "plutus-api-audience"]
     }
   ],
   "roles": {
