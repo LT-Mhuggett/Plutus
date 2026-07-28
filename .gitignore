@@ -312,3 +312,7 @@ Environment_Setup_Runbook.md
 # Local secrets (API keys, DB creds) — never commit. Server-side config only.
 secrets.local.md
 **/secrets.local.*
+
+# Self-contained publish outputs (large native binaries — regenerable, never commit).
+publish-osx/
+**/publish-osx/

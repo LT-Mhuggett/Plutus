@@ -8,7 +8,7 @@ import StoreInformationPage from "./StoreInformationPage.tsx";
 import SettingsPage from "./SettingsPage.tsx";
 import EmployeesPage from "./EmployeesPage.tsx";
 import LoginPage from "./LoginPage.tsx";
-import { ackPickNotification, drainOutbox, fetchPickNotifications, fetchTillName, loadReceiptTemplate, onOutboxChanged, syncCatalogue, type PickNotification } from "./api.ts";
+import { ackPickNotification, drainOutbox, fetchActiveAnnouncements, fetchPickNotifications, fetchTillName, loadReceiptTemplate, onOutboxChanged, syncCatalogue, type ActiveAnnouncement, type PickNotification } from "./api.ts";
 import { getDeviceCredential } from "./pipeline.ts";
 import { queuedCount } from "./offline.ts";
 import { getSession, type Session } from "./session.ts";
@@ -51,6 +51,7 @@ export default function App() {
   const [queued, setQueued] = useState(0);
   const [tillName, setTillName] = useState<string | null>(null);
   const [pickNotes, setPickNotes] = useState<PickNotification[]>([]);
+  const [announcements, setAnnouncements] = useState<ActiveAnnouncement[]>([]);
 
   // OIDC mode: complete the redirect callback, or bounce to the IdP. Password mode: no-op.
   useEffect(() => {
@@ -99,9 +100,16 @@ export default function App() {
     const pollNotes = () => void fetchPickNotifications().then(setPickNotes).catch(() => undefined);
     pollNotes();
     const notesTimer = window.setInterval(pollNotes, 60_000);
+    // WP15.1: show Maintenance/Incident announcements (Info is portal-only) on the same cadence.
+    const pollAnn = () => void fetchActiveAnnouncements()
+      .then((a) => setAnnouncements(a.filter((x) => x.severity === "Maintenance" || x.severity === "Incident")))
+      .catch(() => undefined);
+    pollAnn();
+    const annTimer = window.setInterval(pollAnn, 60_000);
     return () => {
       offOutbox();
       window.clearInterval(notesTimer);
+      window.clearInterval(annTimer);
       window.removeEventListener("online", goOnline);
       window.removeEventListener("offline", goOffline);
     };
@@ -174,6 +182,13 @@ export default function App() {
           )}
         </div>
       </header>
+
+      {/* WP15.1 platform announcements (Maintenance/Incident) — same banner style as pick-notes. */}
+      {announcements.map((a) => (
+        <div key={a.id} className="pick-note" style={{ background: a.severity === "Incident" ? "#dc2626" : "#d97706", color: "white" }}>
+          <span className="grow">{a.severity === "Incident" ? "⛔" : "🛠"} {a.title}{a.body ? ` — ${a.body}` : ""}</span>
+        </div>
+      ))}
 
       {/* Phase 6 pick-from-floor: a web sale sold stock that's physically on the shelf. */}
       {pickNotes.map((n) => (

@@ -14,6 +14,7 @@ import PlatformPage from "./PlatformPage.tsx";
 import LoginPage from "./LoginPage.tsx";
 import { getSession, type Session } from "./session.ts";
 import { impersonatingAs, isPlatformAdmin, oidcMode, signOut, stopImpersonation } from "./auth.ts";
+import { fetchActiveAnnouncements, type ActiveAnnouncement } from "./api.ts";
 import { beginLogin, completeLoginIfCallback } from "./oidc.ts";
 
 declare const __BUILD_TIME__: string;
@@ -49,6 +50,33 @@ function DashboardTab() {
 function Page({ tab }: { tab: Tab }) {
   const Component = PAGES[tab];
   return <Component />;
+}
+
+// WP15.1: dismissible announcement banners (dismissal is a localStorage flag keyed by id — not
+// the API token — so it survives reloads). Polls on mount + every 2 min (the sync cadence).
+function Announcements() {
+  const [items, setItems] = useState<ActiveAnnouncement[]>([]);
+  const [, force] = useState(0);
+  useEffect(() => {
+    const load = () => fetchActiveAnnouncements().then(setItems).catch(() => undefined);
+    void load();
+    const t = setInterval(load, 120_000);
+    return () => clearInterval(t);
+  }, []);
+  const colour = (s: string) => (s === "Incident" ? "#dc2626" : s === "Maintenance" ? "#d97706" : "#2563eb");
+  const shown = items.filter((a) => localStorage.getItem(`plutus.portal.dismissed.${a.id}`) == null);
+  if (shown.length === 0) return null;
+  return (
+    <>
+      {shown.map((a) => (
+        <div key={a.id} style={{ background: colour(a.severity), color: "white", padding: "6px 12px", display: "flex", gap: 12, alignItems: "center" }}>
+          <strong>{a.severity}:</strong> <span className="grow">{a.title}{a.body ? ` — ${a.body}` : ""}</span>
+          <button className="ghost small" style={{ background: "white", color: colour(a.severity) }}
+            onClick={() => { localStorage.setItem(`plutus.portal.dismissed.${a.id}`, "1"); force((n) => n + 1); }}>Dismiss</button>
+        </div>
+      ))}
+    </>
+  );
 }
 
 export default function App() {
@@ -119,6 +147,8 @@ export default function App() {
           Sign out
         </button>
       </header>
+
+      <Announcements />
 
       <div className="page">
         <Page tab={tab} />

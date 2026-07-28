@@ -1,0 +1,30 @@
+# Phase 15 (WP15.2) — public status page vhost for the Plutus test env.
+# Append this block to the shared /etc/caddy/Caddyfile AFTER the ETRIE + Plutus + login blocks.
+# STAGED ONLY — applying it needs Matt's sudo (edit /etc/caddy/Caddyfile + `caddy reload`).
+#
+# This vhost serves ONLY static files (status.html + status.json) from a docroot the backend
+# writes into. It does NOT reverse_proxy to the app — that is the whole point: when the backend
+# is down the status page stays up, and the page flags the snapshot as stale (StatusPageWriter
+# stops updating status.json, so generatedAtUtc falls behind and status.html shows "unknown").
+#
+# Deploy steps (Matt, on the Mac):
+#   1. mkdir -p /srv/apps/PLUTUS/status
+#   2. cp ops/status/status.html /srv/apps/PLUTUS/status/index.html
+#   3. Set STATUS_JSON_PATH=/srv/apps/PLUTUS/status/status.json in the backend's pm2 env and
+#      restart it (the StatusPageWriter is inert until this is set), then confirm status.json
+#      appears and refreshes.
+#   4. Append this block to /etc/caddy/Caddyfile and `sudo caddy reload`.
+#   5. Verify: curl -s https://status.plutus.huggett.dscloud.me/status.json | jq .status
+
+status.plutus.huggett.dscloud.me {
+	root * /srv/apps/PLUTUS/status
+	file_server
+
+	# status.html is the landing page.
+	@root path /
+	rewrite @root /index.html
+
+	# status.json must never be cached at the edge — the page cache-busts too, belt and braces.
+	@json path /status.json
+	header @json Cache-Control "no-store"
+}

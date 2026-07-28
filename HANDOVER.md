@@ -1,7 +1,7 @@
 # Handover — Plutus platform build
 
 **Date:** 2026-07-28 — Platform now on **.NET 10** (merged Development: net10 + MAUI + Mapster).
-Phases 0–13 complete; **Phase 13 (13.1–13.5) built, tested & LIVE**. Head `50c0b9d`.
+Phases 0–15 built & tested; **13 & 14 LIVE; Phase 15 built + tested, deploying**.
 **Branch:** `Matt's-Horror` · **dev remote is now `upstream` = seank842/Plutus** (bare `git push`/`pull`
 go there). `origin` = LT-Mhuggett/Plutus is **parked on net8** (a 151 MB `Publishing/` artifact blocks
 pushing the net10 line there — reconcile later, coordinated with Sean).
@@ -9,10 +9,28 @@ pushing the net10 line there — reconcile later, coordinated with Sean).
 
 ---
 
-## ⏰ RESUME HERE (updated 2026-07-28 — net10 + Phase 13 complete & LIVE)
+## ⏰ RESUME HERE (updated 2026-07-28 — Phases 13–15 built; 13 & 14 LIVE; 15 deploying)
 
-**Test suite (net10, SDK 10.0.302): Unit 190 · Architecture 5 · Integration 13 — all green.**
-Everything committed + pushed to **`upstream/Matt's-Horror`** (seank842), head `50c0b9d`.
+**Test suite (net10, SDK 10.0.302): Unit 191 · Architecture 5 · Integration 17 — all green.**
+Committed to **`upstream/Matt's-Horror`** (seank842).
+
+### Phase 15 — comms & trust (built + tested this session; deploy in progress)
+- **15.1 Announcements** — `PlatformAnnouncement` (Info/Maintenance/Incident, window, TenantIds
+  JSON nullable=all) + migration `20260728150118_AddAnnouncements`. `GET /announcements/active`
+  (any auth, tenant-scoped + time-bounded); platform-admin GET/POST/DELETE `/platform/announcements`.
+  Portal dismissible banner + **Comms** authoring screen; till Maintenance/Incident-only banner.
+- **15.2 Status page + SLA** — `GET /platform/sla?tenantId=&month=` (advisory monthly availability
+  from `TenantRequestStats`, on the portal tenant detail). `StatusPageWriter` hosted service writes
+  `status.json` every 30s **only if `STATUS_JSON_PATH` is set** → static `ops/status/status.html`
+  served by its own Caddy vhost (`ops/status/caddy-status-vhost.caddy`, **staged for Matt's sudo**),
+  so it stays up when the backend is down and flags staleness >2min.
+- **15.3 Per-tenant restore** — `tools/Plutus.TenantRestore` (schema-driven via information_schema,
+  `--verify`/`--apply`, INSERT-only-missing = immutability-safe, other-tenant fingerprint guard).
+  **Rehearsed on the test env** (demo tenant, 211 rows/£150 deleted from `plutus_t1` → restored,
+  Kapow byte-identical). Runbook `tools/Plutus.TenantRestore/RUNBOOK.md`.
+- **Deploy remaining for Phase 15:** publish+swap backend (migration auto-applies), set
+  `STATUS_JSON_PATH` in pm2 env, copy portal+webapp `dist`, copy `status.html` to the status
+  docroot, hand Matt the status Caddy block.
 
 ### Toolchain / repo (changed this session)
 - **Merged `Development` into `Matt's-Horror`** on Sean's repo → the platform is now **.NET 10**
@@ -69,8 +87,10 @@ Rollback dirs kept: `backend.pre-phase13`, `backend.pre-p135`, etc.
 - **Still open from before:** Phase 6 outbound go-live (review dry-run journal → write key → live);
   one end-to-end **return** through the till UI; WP6.1 onboarding click-test; **rotate the MySQL
   `plutus` password**; Keycloak `login.plutus` vhost + portal basic_auth (Matt's sudo).
-- **Next in the plan:** **Phase 14** (support & rollout — impersonation, feature flags, sandbox
-  tenants), then 15–18. Gated tails: billing adapter, payments, mailer, Keycloak.
+- **Phase 14 (LIVE):** impersonation, feature flags/kill switches, sandbox + a permanent **Demo
+  Store** tenant (`de300000-…-0001`). See the plan board for per-WP detail.
+- **Next in the plan:** **Phase 16** (commercial ops — churn signals, dunning, plan changes,
+  product analytics WP16.5), then 17–18. Gated tails: billing adapter, payments, mailer, Keycloak.
 
 ---
 

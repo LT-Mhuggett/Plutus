@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import {
   fetchTenants, fetchUsageSummary, fetchHealth, fetchTenantHealth, fetchAlerts, fetchJobs, setTenantStatus, impersonate,
   fetchOverrides, setOverrides, fetchFlags, setFlag, setSandbox, resetSandbox,
+  fetchAnnouncements, createAnnouncement, deleteAnnouncement, fetchSla,
   type PlatformTenant, type UsageSummaryRow, type HealthResponse, type HealthTenantRow,
-  type HealthDrillRow, type AlertRow, type JobRow, type OverrideRow, type FlagRow,
+  type HealthDrillRow, type AlertRow, type JobRow, type OverrideRow, type FlagRow, type AnnouncementRow, type SlaResponse,
 } from "./api.ts";
 import { beginImpersonation } from "./auth.ts";
 
@@ -38,12 +39,12 @@ function Sparkline({ values, w = 120, h = 26 }: { values: number[]; w?: number; 
 }
 
 export default function PlatformPage() {
-  const [screen, setScreen] = useState<"Tenants" | "Health" | "Jobs" | "Flags">("Tenants");
+  const [screen, setScreen] = useState<"Tenants" | "Health" | "Jobs" | "Flags" | "Comms">("Tenants");
   return (
     <section className="panel">
       <div className="toolbar">
         <h2 className="grow">Platform</h2>
-        {(["Tenants", "Health", "Jobs", "Flags"] as const).map((s) => (
+        {(["Tenants", "Health", "Jobs", "Flags", "Comms"] as const).map((s) => (
           <button key={s} className={s === screen ? "tab active" : "tab"} onClick={() => setScreen(s)}>{s}</button>
         ))}
       </div>
@@ -51,7 +52,59 @@ export default function PlatformPage() {
       {screen === "Health" && <HealthScreen />}
       {screen === "Jobs" && <JobsScreen />}
       {screen === "Flags" && <FlagsScreen />}
+      {screen === "Comms" && <CommsScreen />}
     </section>
+  );
+}
+
+function CommsScreen() {
+  const [items, setItems] = useState<AnnouncementRow[]>([]);
+  const [form, setForm] = useState({ severity: 0, title: "", body: "", hours: 24, tenantIds: "" });
+  const [error, setError] = useState("");
+  const refresh = () => fetchAnnouncements().then((a) => { setItems(a); setError(""); }).catch((e) => setError(String(e)));
+  useEffect(() => { void refresh(); }, []);
+
+  function submit() {
+    const now = new Date();
+    const ids = form.tenantIds.split(",").map((s) => s.trim()).filter(Boolean);
+    void createAnnouncement({
+      severity: form.severity, title: form.title.trim(), body: form.body,
+      startsAtUtc: now.toISOString(), endsAtUtc: new Date(now.getTime() + form.hours * 3600_000).toISOString(),
+      tenantIds: ids.length ? ids : undefined,
+    }).then(() => { setForm({ severity: 0, title: "", body: "", hours: 24, tenantIds: "" }); return refresh(); })
+      .catch((e) => setError(String(e)));
+  }
+
+  return (
+    <>
+      {error && <p className="error">{error}</p>}
+      <div className="toolbar" style={{ flexWrap: "wrap" }}>
+        <label>Severity
+          <select value={form.severity} onChange={(e) => setForm({ ...form, severity: Number(e.target.value) })}>
+            <option value={0}>Info</option><option value={1}>Maintenance</option><option value={2}>Incident</option>
+          </select>
+        </label>
+        <label>Title <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
+        <label>Body <input value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} /></label>
+        <label>Hours <input className="short" inputMode="numeric" value={form.hours} onChange={(e) => setForm({ ...form, hours: Number(e.target.value) || 24 })} /></label>
+        <label>Tenants <input className="mono" placeholder="all (or comma guids)" value={form.tenantIds} onChange={(e) => setForm({ ...form, tenantIds: e.target.value })} /></label>
+        <button className="primary small" disabled={!form.title.trim()} onClick={submit}>Publish</button>
+      </div>
+      <table>
+        <thead><tr><th>Severity</th><th>Title</th><th>Window</th><th>Targets</th><th /></tr></thead>
+        <tbody>
+          {items.map((a) => (
+            <tr key={a.id}>
+              <td>{a.severity}</td><td>{a.title}</td>
+              <td className="small">{new Date(a.startsAtUtc + "Z").toLocaleString("en-GB")} → {new Date(a.endsAtUtc + "Z").toLocaleString("en-GB")}</td>
+              <td className="small">{a.tenantIds ? "targeted" : "all"}</td>
+              <td><button className="ghost small" onClick={() => void deleteAnnouncement(a.id).then(refresh)}>Delete</button></td>
+            </tr>
+          ))}
+          {items.length === 0 && !error && <tr><td colSpan={5} className="muted">No announcements.</td></tr>}
+        </tbody>
+      </table>
+    </>
   );
 }
 
@@ -147,12 +200,15 @@ function TenantDetail({ tenantId, tenant, onClose }: { tenantId: string; tenant?
   const [impMins, setImpMins] = useState(30);
   const [overrides, setOvrs] = useState<OverrideRow[]>([]);
   const [newFeature, setNewFeature] = useState("");
+  const [sla, setSla] = useState<SlaResponse | null>(null);
 
   const refresh = () =>
     Promise.all([fetchTenantHealth(tenantId), fetchOverrides(tenantId)])
       .then(([h, o]) => { setRows(h.rows); setOvrs(o); setError(""); })
       .catch((e) => setError(String(e instanceof Error ? e.message : e)));
   useEffect(() => { void refresh(); }, [tenantId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // WP15.2 advisory SLA for the current month (a failed fetch just leaves it blank).
+  useEffect(() => { fetchSla(tenantId).then(setSla).catch(() => setSla(null)); }, [tenantId]);
 
   const saveOverrides = (next: OverrideRow[]) =>
     void setOverrides(tenantId, next.map((o) => ({ entitlement: o.entitlement, deny: o.deny, reason: o.reason ?? undefined })))
@@ -190,6 +246,16 @@ function TenantDetail({ tenantId, tenant, onClose }: { tenantId: string; tenant?
           Set status
         </button>
       </div>
+
+      {sla && (
+        <dl className="kv">
+          <dt>SLA ({sla.month})</dt>
+          <dd>
+            <strong>{sla.availabilityPct}%</strong> availability
+            <span className="muted small"> — {sla.goodMinutes}/{sla.minutesWithTraffic} good minutes (&lt;{sla.thresholdPct}% 5xx); advisory, single-box</span>
+          </dd>
+        </dl>
+      )}
 
       <h4>Response p95 (last 24h, ms)</h4>
       {p95.length ? <P95Chart values={p95} /> : <p className="muted small">No request stats yet for this tenant.</p>}

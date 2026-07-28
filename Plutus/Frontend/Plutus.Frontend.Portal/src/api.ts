@@ -64,6 +64,10 @@ export const fetchUsageSummary = () => get<UsageSummaryRow[]>("/api/v1/platform/
 export const fetchHealth = () => get<HealthResponse>("/api/v1/platform/health");
 export const fetchTenantHealth = (tenantId: string) =>
   get<{ tenantId: string; from: string; to: string; rows: HealthDrillRow[] }>(`/api/v1/platform/health/${tenantId}`);
+// WP15.2 advisory SLA: monthly availability from TenantRequestStats. month = "YYYY-MM" (omit ⇒ current).
+export interface SlaResponse { tenantId: string; month: string; thresholdPct: number; minutesWithTraffic: number; goodMinutes: number; availabilityPct: number; advisory: boolean }
+export const fetchSla = (tenantId: string, month?: string) =>
+  get<SlaResponse>(`/api/v1/platform/sla?tenantId=${tenantId}${month ? `&month=${month}` : ""}`);
 export const fetchAlerts = () => get<AlertRow[]>("/api/v1/platform/alerts");
 export const fetchJobs = () => get<JobRow[]>("/api/v1/platform/jobs");
 export const setTenantStatus = (tenantId: string, status: number) =>
@@ -83,6 +87,14 @@ export const setSandbox = (tenantId: string, isSandbox: boolean) =>
   put<void>(`/api/v1/platform/tenants/${tenantId}/sandbox`, { isSandbox });
 export const resetSandbox = (tenantId: string) =>
   post<{ tenantId: string; sales: number; grossPence: number }>(`/api/v1/platform/tenants/${tenantId}/reset`);
+// WP15.1 announcements
+export interface ActiveAnnouncement { id: string; severity: string; title: string; body: string; startsAtUtc: string; endsAtUtc: string }
+export interface AnnouncementRow extends ActiveAnnouncement { tenantIds: string | null; createdBy: string; createdAtUtc: string }
+export const fetchActiveAnnouncements = () => get<ActiveAnnouncement[]>("/api/v1/announcements/active");
+export const fetchAnnouncements = () => get<AnnouncementRow[]>("/api/v1/platform/announcements");
+export const createAnnouncement = (body: { severity: number; title: string; body: string; startsAtUtc: string; endsAtUtc: string; tenantIds?: string[] }) =>
+  post<{ id: string }>("/api/v1/platform/announcements", body);
+export const deleteAnnouncement = (id: string) => del<void>(`/api/v1/platform/announcements/${id}`);
 
 // ── auth ──
 

@@ -58,6 +58,11 @@ namespace Plutus.Tenancy
             services.AddSingleton(new RetentionOptions());
             services.AddHostedService<RetentionSweeper>();
 
+            // WP15.2 status-page feeder: writes status.json to the status vhost's docroot every
+            // 30s (inert unless STATUS_JSON_PATH is set, so dev/test never touch the disk).
+            services.AddSingleton(new StatusPageOptions { OutputPath = configuration["STATUS_JSON_PATH"] });
+            services.AddHostedService<StatusPageWriter>();
+
             // WP13.1 usage metering: the SaleRecorded → sales.* fold. Own consumer name → own
             // offset + dedupe, drained by the outbox dispatcher exactly like the rollup projection.
             services.AddScoped<IEventConsumer>(sp =>

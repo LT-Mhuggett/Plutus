@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Plutus — Service status</title>
+  <style>
+    :root { --bg:#0b1020; --card:#151b2e; --ink:#e8ecf5; --muted:#9aa4bd; --line:#26304d;
+            --ok:#16a34a; --degraded:#d97706; --incident:#dc2626; --unknown:#6b7280; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+           background:var(--bg); color:var(--ink); line-height:1.5; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 40px 20px; }
+    h1 { font-size: 1.4rem; margin: 0 0 4px; }
+    .sub { color: var(--muted); font-size: .9rem; margin: 0 0 28px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
+            padding:20px 22px; margin-bottom:16px; }
+    .banner { display:flex; align-items:center; gap:14px; }
+    .dot { width:16px; height:16px; border-radius:50%; flex:0 0 auto; }
+    .banner .label { font-size:1.15rem; font-weight:600; }
+    .ok .dot{background:var(--ok)} .degraded .dot{background:var(--degraded)}
+    .incident .dot{background:var(--incident)} .unknown .dot{background:var(--unknown)}
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .metric .k { color:var(--muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; }
+    .metric .v { font-size:1.5rem; font-weight:600; margin-top:2px; }
+    .incidents li { margin:6px 0; }
+    .incidents .since { color:var(--muted); font-size:.82rem; }
+    .stale { border-color:var(--degraded); }
+    .stale-note { color:var(--degraded); font-size:.85rem; margin-top:10px; }
+    footer { color:var(--muted); font-size:.78rem; margin-top:8px; text-align:center; }
+    @media (max-width:520px){ .grid{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Plutus — Service status</h1>
+    <p class="sub">Live operational status of the Plutus platform. Refreshes automatically.</p>
+
+    <div id="banner" class="card banner unknown">
+      <span class="dot"></span>
+      <span class="label" id="statusLabel">Checking…</span>
+    </div>
+
+    <div class="card">
+      <div class="grid">
+        <div class="metric"><div class="k">Error rate (1h)</div><div class="v" id="errorRate">—</div></div>
+        <div class="metric"><div class="k">Requests (1h)</div><div class="v" id="requests">—</div></div>
+      </div>
+    </div>
+
+    <div class="card incidents" id="incidentsCard" style="display:none">
+      <div class="metric"><div class="k">Open incidents</div></div>
+      <ul id="incidents"></ul>
+    </div>
+
+    <footer id="footer">—</footer>
+  </div>
+
+  <script>
+    // The status.json snapshot is written by the backend every 30s (see StatusPageWriter). This
+    // page is served by a STATIC vhost, not the app — so it stays reachable when the backend is
+    // down. A dead backend simply stops updating the file; once generatedAtUtc falls more than two
+    // minutes behind we surface that as "Status unknown (stale)".
+    var STALE_MS = 2 * 60 * 1000;
+    var LABELS = { operational:"All systems operational", degraded:"Degraded performance",
+                   incident:"Active incident", unknown:"Status unknown" };
+
+    function setBanner(kind, label) {
+      var b = document.getElementById("banner");
+      b.className = "card banner " + (kind === "operational" ? "ok" : kind);
+      document.getElementById("statusLabel").textContent = label;
+    }
+
+    function render(data, fetchedAt) {
+      var gen = new Date(data.generatedAtUtc);
+      var stale = (fetchedAt - gen.getTime()) > STALE_MS;
+      var kind = stale ? "unknown" : (data.status || "unknown");
+      setBanner(kind, stale ? "Status unknown (data is stale)" : (LABELS[kind] || kind));
+
+      document.getElementById("errorRate").textContent = (data.errorRatePct != null ? data.errorRatePct : "—") + "%";
+      document.getElementById("requests").textContent = (data.requestsLastHour != null ? data.requestsLastHour : "—");
+
+      var inc = data.openIncidents || [];
+      var card = document.getElementById("incidentsCard"), list = document.getElementById("incidents");
+      list.innerHTML = "";
+      if (inc.length && !stale) {
+        card.style.display = "";
+        inc.forEach(function (i) {
+          var li = document.createElement("li");
+          li.innerHTML = '<strong></strong> <span class="since"></span>';
+          li.querySelector("strong").textContent = i.title;
+          li.querySelector(".since").textContent = "since " + new Date(i.since).toLocaleString();
+          list.appendChild(li);
+        });
+      } else {
+        card.style.display = "none";
+      }
+
+      var f = document.getElementById("footer");
+      f.className = stale ? "stale-note" : "";
+      f.textContent = "Snapshot: " + gen.toLocaleString() + (stale ? " (stale — backend may be unreachable)" : "");
+    }
+
+    function poll() {
+      // cache-bust so a proxy/browser never serves an old snapshot
+      fetch("status.json?_=" + new Date().getTime(), { cache: "no-store" })
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(function (d) { render(d, new Date().getTime()); })
+        .catch(function () {
+          // No snapshot at all → unknown (the vhost is up but the file is missing/unreadable).
+          setBanner("unknown", "Status unknown (no data)");
+          document.getElementById("footer").textContent = "Could not load status snapshot.";
+        });
+    }
+
+    poll();
+    setInterval(poll, 30000);
+  </script>
+</body>
+</html>

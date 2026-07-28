@@ -71,6 +71,47 @@ namespace Plutus.Tenancy.Controllers
             return Ok(new { generatedAtUtc = DateTime.UtcNow, tenants, consumerLag });
         }
 
+        /// <summary>WP15.2 advisory SLA: monthly availability = minutes whose 5xx-rate is under the
+        /// threshold ÷ minutes with traffic, from TenantRequestStats. Single-box, advisory-grade.</summary>
+        [HttpGet("api/v1/platform/sla")]
+        [Authorize(Policy = PlutusPolicies.PlatformAdmin)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> Sla([FromQuery] Guid tenantId, [FromQuery] string month)
+        {
+            // month = "YYYY-MM" (default: current month).
+            var now = DateTime.UtcNow;
+            int y = now.Year, m = now.Month;
+            if (!string.IsNullOrWhiteSpace(month))
+            {
+                var parts = month.Split('-');
+                if (parts.Length != 2 || !int.TryParse(parts[0], out y) || !int.TryParse(parts[1], out m) || m < 1 || m > 12)
+                    return BadRequest(new { detail = "month must be YYYY-MM." });
+            }
+            var start = new DateTime(y, m, 1, 0, 0, 0, DateTimeKind.Utc);
+            var end = start.AddMonths(1);
+            const double threshold = 0.01; // 1% 5xx in a minute marks it bad
+
+            var rows = await _db.TenantRequestStats.AsNoTracking()
+                .Where(x => x.TenantId == tenantId && x.MinuteUtc >= start && x.MinuteUtc < end)
+                .Select(x => new { x.MinuteUtc, x.Count, x.Err5xx }).ToListAsync();
+
+            // Collapse route-group rows to one figure per minute, then classify each minute.
+            var byMinute = rows.GroupBy(r => r.MinuteUtc)
+                .Select(g => new { Count = g.Sum(r => r.Count), Err5xx = g.Sum(r => r.Err5xx) })
+                .Where(x => x.Count > 0).ToList();
+            var withTraffic = byMinute.Count;
+            var good = byMinute.Count(x => (double)x.Err5xx / x.Count < threshold);
+            var pct = withTraffic == 0 ? 100.0 : Math.Round(good * 100.0 / withTraffic, 3);
+
+            return Ok(new
+            {
+                tenantId, month = $"{y:D4}-{m:D2}", thresholdPct = threshold * 100,
+                minutesWithTraffic = withTraffic, goodMinutes = good, availabilityPct = pct,
+                advisory = true,
+            });
+        }
+
         /// <summary>Drill-down: one tenant's per-minute request-stat rows over a window
         /// (default the last 24h).</summary>
         [HttpGet("api/v1/platform/health/{tenantId}")]

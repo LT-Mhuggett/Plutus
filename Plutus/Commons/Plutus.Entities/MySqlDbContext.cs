@@ -70,6 +70,8 @@ namespace Plutus.Entities
         // WP14.2 feature flags + entitlement overrides (GLOBAL — platform-admin managed).
         public DbSet<TenantEntitlementOverride> TenantEntitlementOverrides { get; set; }
         public DbSet<PlatformFlag> PlatformFlags { get; set; }
+        // WP15.1 in-app announcements (GLOBAL — TenantIds is data).
+        public DbSet<PlatformAnnouncement> PlatformAnnouncements { get; set; }
         // Financial periods (WP3.4): close/lock + snapshot.
         public DbSet<FinancialPeriod> FinancialPeriods { get; set; }
         // Stock ledger (WP5.1): append-only movements + materialised levels.
@@ -487,6 +489,15 @@ namespace Plutus.Entities
                 e.HasKey(x => x.FlagName);
                 e.Property(x => x.FlagName).HasMaxLength(64);
                 e.Property(x => x.Reason).IsRequired(false);
+            });
+            modelBuilder.Entity<PlatformAnnouncement>(e =>
+            {
+                e.ToTable("PlatformAnnouncements");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Title).HasMaxLength(200).IsRequired();
+                e.Property(x => x.TenantIds).IsRequired(false);
+                e.HasIndex(x => new { x.StartsAtUtc, x.EndsAtUtc });
             });
 
             // WP3.4 financial periods.
