@@ -54,6 +54,12 @@ namespace Plutus.Tenancy
                         var purged = await lifecycle.PurgeExpiredEnrolmentCodesAsync(_opts.EnrolmentCodeRetentionDays, stoppingToken);
                         if (purged > 0) _logger.LogInformation("Retention: purged {Count} expired enrolment codes.", purged);
 
+                        // WP13.2 request-health retention (35 days). Deletes bypass the tenant
+                        // guard, so the scoped context purges all tenants via IgnoreQueryFilters.
+                        var statsPurged = await RequestStatsRetention.PurgeAsync(
+                            db, DateTime.UtcNow.AddDays(-RequestStatsRetention.RetentionDays), stoppingToken);
+                        if (statsPurged > 0) _logger.LogInformation("Retention: purged {Count} request-stat rows.", statsPurged);
+
                         // WP13.1 counted-metrics sweep. Needs a fresh UNSCOPED context (the scoped
                         // one resolves to a single tenant) so it can write every tenant's counts.
                         // MySQL-only: like the rest of the sweeper it's inert on the SQLite dev

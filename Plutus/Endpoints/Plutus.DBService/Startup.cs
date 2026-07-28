@@ -19,6 +19,7 @@ using Plutus.Payments;
 using Plutus.Customers;
 using Plutus.Webstore;
 using Plutus.Entities;
+using Plutus.Infrastructure.Health;
 using Plutus.Infrastructure.Outbox;
 using System;
 using System.Diagnostics;
@@ -76,6 +77,7 @@ namespace Plutus.DBService
             services.AddSingleton(new WebstoreOptions { PublicBaseUrl = Configuration["Webstore:PublicBaseUrl"] });
             services.AddPlutusWebstore();
             services.AddPlutusOutbox(); // T1.5 broker-less dispatcher (consumers register their own IEventConsumer)
+            services.AddPlutusRequestHealth(); // WP13.2 per-tenant request-health accumulator + per-minute flusher
             ConfigureRateLimiting(services, Configuration);
             services.ConfigureSwaggerDocumentation(Configuration);
             services.ConfigureHttpAccessor();
@@ -116,6 +118,10 @@ namespace Plutus.DBService
 
             app.UseAuthentication();
             app.UseAuthorization();
+
+            // WP13.2: record per-tenant request health AFTER auth (tenant resolved), wrapping
+            // endpoint execution for latency + final status code.
+            app.UsePlutusRequestHealth();
 
             app.UseEndpoints(endpoints =>
             {

@@ -34,7 +34,7 @@ passes (Claude keeps this current — single source of truth for status).
 | WP | Title | Status | Note |
 |---|---|---|---|
 | 13.1 | Usage metering | ✅ | Done 2026-07-28 (net10). TenantUsageRollup + all feeds: event-fed sales.* consumer + rebuild, nightly counted-metrics sweep (stores/tills/users.active, storage.rowsSalesV2), login hooks (logins.portal via AuthController raw upsert, logins.till via EnrolmentService — best-effort). /platform/usage(+summary,+rebuild) platform-admin endpoints + migration. Tests: Unit 172 (fold, rebuild==incremental, sweep), Integration 7 (403/200 gate). Fixed a shared-SQLite startup race by disabling RetentionSweeper in the test factory (like OutboxDispatcher). api.requests deferred to WP13.2. |
-| 13.2 | Per-tenant request health | ⬜ | |
+| 13.2 | Per-tenant request health | ✅ | Done 2026-07-28 (net10). TenantRequestStats + middleware (after-auth, in-memory (tenant,route-group) accumulator + fixed-bucket latency histogram, bounded route groups) → per-minute flusher (unscoped ctx, MySQL-only) writing rows + folding api.requests (closes the WP13.1 api.requests feed). 35-day retention in sweeper. /platform/health (last-hour per-tenant error rate + peak p95 + quarantine depth + consumer lag) + /platform/health/{tenantId} drill-down, platform-admin. Tests: Unit 181 (accumulator A-not-B, percentiles, flush+fold, purge, <1ms overhead), Integration 8 (403/200 gate). Flusher removed in the test factory (shared-SQLite race), integration 5/5 deterministic. |
 | 13.3 | Job heartbeats + alerting seam | ⬜ | |
 | 13.4 | Operator dashboard (portal) | ⬜ | |
 | 13.5 | Resource controls (rate-limit + quotas) | ⬜ | Added 2026-07-27 (req §3). |

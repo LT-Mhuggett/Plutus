@@ -61,7 +61,8 @@ public sealed class PlutusAppFactory : WebApplicationFactory<Program>
             foreach (var d in services
                          .Where(d => d.ImplementationType?.FullName is
                              "Plutus.Infrastructure.Outbox.OutboxDispatcher" or
-                             "Plutus.Tenancy.RetentionSweeper")
+                             "Plutus.Tenancy.RetentionSweeper" or
+                             "Plutus.Infrastructure.Health.RequestStatsFlusher")
                          .ToList())
                 services.Remove(d);
         });

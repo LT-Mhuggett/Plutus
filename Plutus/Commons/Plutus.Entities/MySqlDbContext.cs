@@ -62,6 +62,8 @@ namespace Plutus.Entities
         public DbSet<VatRollup> VatRollups { get; set; }
         // WP13.1 operator usage metering: (TenantId, BusinessDay, Metric) → Value.
         public DbSet<TenantUsageRollup> TenantUsageRollups { get; set; }
+        // WP13.2 per-tenant request health: (TenantId, MinuteUtc, RouteGroup) → counts + latency.
+        public DbSet<TenantRequestStats> TenantRequestStats { get; set; }
         // Financial periods (WP3.4): close/lock + snapshot.
         public DbSet<FinancialPeriod> FinancialPeriods { get; set; }
         // Stock ledger (WP5.1): append-only movements + materialised levels.
@@ -150,8 +152,9 @@ namespace Plutus.Entities
             typeof(AuditLog), typeof(StoreDetails), typeof(TillDetails),
             // Reporting projections (WP3.3).
             typeof(SalesRollup), typeof(VatRollup),
-            // Operator usage metering (WP13.1) — per-tenant rows, platform-admin reads cross-tenant.
-            typeof(TenantUsageRollup),
+            // Operator usage metering (WP13.1) + request health (WP13.2) — per-tenant rows,
+            // platform-admin reads cross-tenant.
+            typeof(TenantUsageRollup), typeof(TenantRequestStats),
             // Financial periods (WP3.4).
             typeof(FinancialPeriod),
             // Stock ledger (WP5.1) + transfers (WP5.2) + goods-in (WP5.3).
@@ -433,6 +436,14 @@ namespace Plutus.Entities
                 e.ToTable("TenantUsageRollups");
                 e.HasKey(x => new { x.TenantId, x.BusinessDay, x.Metric });
                 e.Property(x => x.Metric).HasMaxLength(64);
+            });
+            // WP13.2 per-tenant request health — composite key per minute per route group.
+            modelBuilder.Entity<TenantRequestStats>(e =>
+            {
+                e.ToTable("TenantRequestStats");
+                e.HasKey(x => new { x.TenantId, x.MinuteUtc, x.RouteGroup });
+                e.Property(x => x.RouteGroup).HasMaxLength(64);
+                e.HasIndex(x => x.MinuteUtc); // retention purge scans by minute
             });
 
             // WP3.4 financial periods.

@@ -136,4 +136,23 @@ namespace Plutus.Tenancy
             await db.SaveChangesAsync(ct);
         }
     }
+
+    /// <summary>WP13.2 retention: drop request-health rows older than the window. Deletes are
+    /// exempt from the tenant stamp/guard, so the sweeper's tenant-scoped context purges every
+    /// tenant's rows via IgnoreQueryFilters.</summary>
+    public static class RequestStatsRetention
+    {
+        public const int RetentionDays = 35;
+
+        public static async Task<int> PurgeAsync(MySqlDbContext db, DateTime cutoffUtc, CancellationToken ct = default)
+        {
+            var stale = await db.TenantRequestStats.IgnoreQueryFilters()
+                .Where(x => x.MinuteUtc < cutoffUtc).ToListAsync(ct);
+            if (stale.Count == 0) return 0;
+            db.CurrentUser = "request-health-retention";
+            db.TenantRequestStats.RemoveRange(stale);
+            await db.SaveChangesAsync(ct);
+            return stale.Count;
+        }
+    }
 }
