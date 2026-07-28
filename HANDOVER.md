@@ -1,13 +1,80 @@
 # Handover — Plutus platform build
 
-**Date:** 2026-07-27 — Phases 0–3, 5, 6 (all), 7(cash), 8, 9, 10, **11 (all), 12.1–12.3 + bridge
-OFF** complete; Kapow history loaded; everything pushed (head `21daac5`)
-**Branch:** `Matt's-Horror` · remote `origin` = LT-Mhuggett/Plutus
+**Date:** 2026-07-28 — Platform now on **.NET 10** (merged Development: net10 + MAUI + Mapster).
+Phases 0–13 complete; **Phase 13 (13.1–13.5) built, tested & LIVE**. Head `50c0b9d`.
+**Branch:** `Matt's-Horror` · **dev remote is now `upstream` = seank842/Plutus** (bare `git push`/`pull`
+go there). `origin` = LT-Mhuggett/Plutus is **parked on net8** (a 151 MB `Publishing/` artifact blocks
+pushing the net10 line there — reconcile later, coordinated with Sean).
 **Hard rule:** **DO NOT TOUCH ETRIE** — it shares the Mac mini but is a separate product. Every Plutus change keeps ETRIE's ports/processes/paths/Caddy blocks untouched; verify ETRIE health (`https://10.1.1.40/health`, `https://huggett.dscloud.me/health` → 200) after any Mac change.
 
 ---
 
-## ⏰ RESUME HERE (updated 2026-07-27 — every buildable phase now complete & live)
+## ⏰ RESUME HERE (updated 2026-07-28 — net10 + Phase 13 complete & LIVE)
+
+**Test suite (net10, SDK 10.0.302): Unit 190 · Architecture 5 · Integration 13 — all green.**
+Everything committed + pushed to **`upstream/Matt's-Horror`** (seank842), head `50c0b9d`.
+
+### Toolchain / repo (changed this session)
+- **Merged `Development` into `Matt's-Horror`** on Sean's repo → the platform is now **.NET 10**
+  (EF Core 9 / Pomelo 9), with the **MAUI** client rename + **Mapster**. Backend + all 3 test
+  suites verified green on net10 before every push.
+- **Build loop unchanged:** `& "C:\Program Files\dotnet\dotnet.exe"` (SDK 10.0.302 builds net10).
+  Migrations: `dotnet ef … --project Plutus/Commons/Plutus.Entities --startup-project
+  Plutus/Data/Database.Migrations.Startup --context MySqlDbContext -o Migrations/MySql` (the EF
+  tool is 8.0.10 → prints a version warning vs the 9.x runtime, but scaffolds fine; **`ef
+  migrations remove` needs a live DB** — hand-edit the migration + snapshot instead if you must).
+- **Dev is now on Sean's upstream** — bare `git push`/`pull` target `upstream/Matt's-Horror`.
+  `origin` (LT-Mhuggett) stays net8, parked (GitHub rejects a 151 MB `Publishing/*.zip` raw blob
+  in history; needs an LFS-migrate/purge — do deliberately, don't force).
+- **MAUI/web frontend** builds on the Mac/Windows with the workload — NOT verified on this box.
+
+### Shipped & LIVE this session (all on the test env)
+1. **Loyalty usability** — dedicated **`customers.manage`** permission (Owner/Company Admin/Store
+   Manager/Supervisor, NOT Cashier); portal **Customers** tab add **+ edit** (`PUT
+   /api/v1/customers/{id}`); till **＋New customer** (create-and-attach, supervisor-gated). Deployed
+   + **RBAC reseeded** (`Plutus.SeedMigrator rbac --mysql`). Also fixed the OIDC token-read bug in
+   Customers/Banking/Prices/Stock portal pages (now use the `auth.ts` facade).
+2. **Swagger 500 fixed** (`ResolveConflictingActions` — duplicate `PUT api/Item/{id1}`) + **Users &
+   Roles dropdown** now hides already-held roles. Deployed.
+3. **Phase 13 — operator platform, COMPLETE & LIVE:**
+   - **13.1 Usage metering** — `TenantUsageRollups` (sales.*, logins.*, counted sweep, api.requests).
+   - **13.2 Request health** — after-auth middleware → `TenantRequestStats` (per-tenant error/p95),
+     35-day retention, `/platform/health(+/{tenantId})`.
+   - **13.3 Job heartbeats + alerts** — `JobRuns`/`OperatorAlerts`, `IJobHeartbeat`/`IOperatorAlerter`
+     seams, cadence monitor (silent/failed → one keyed alert), HMAC `/platform/jobs/report`,
+     `/platform/alerts`, `/platform/jobs`.
+   - **13.4 Operator dashboard** — portal **Platform** tab (platform-admin only): Tenants (usage
+     sparkline + health dot + p95 drill), Health (error/lag/quarantine + alerts), Jobs grid.
+   - **13.5 Resource controls** — valued entitlements (`ratelimit.rps`, `stores.max` …); per-tenant
+     rate limiting (default 50 rps, platform-admin + device/till exempt, 429+Retry-After); quota
+     guard on store creation (409). 3 migrations applied live (usage/reqstats/jobmonitoring).
+   - Full per-WP detail + DoD in **`Build/plutus-operator-platform-plan.md`** (progress board).
+
+### Deploy process (used twice today — repeat for the next backend change)
+Publish `dotnet publish -c Release -r osx-arm64 --self-contained` → tar → `scp` to
+`~/PLUTUS/staging/` → on Mac: `pm2 stop`, `mv backend backend.pre-<tag>`, extract, `chmod +x
+backend/Plutus.DBService`, `pm2 restart plutus-backend --update-env` → poll `/swagger/v1/swagger.json`
+=200. **Migrations auto-apply on startup** (`Migrate()`); a fresh boot has a **transient ~2 s race**
+where background services query tables mid-migration — self-heals, no data loss (hardening: add a
+startup delay to the hosted services). Portal: `npm run build` on the Mac (src synced) → copy `dist/*`
+→ `/srv/apps/PLUTUS/portal/current`. Verify platform-admin APIs by minting a CompactToken with node
+(`body=b64url(payloadJSON{Scope:"platform-admin",Exp}), sig=b64url(HMAC-SHA256(body, TEST_TOKEN_SECRET))`).
+Rollback dirs kept: `backend.pre-phase13`, `backend.pre-p135`, etc.
+
+### Loose ends / waiting on Matt (carry forward)
+- **Click-test** (browser only): portal **Customers** add/edit, the new **Platform** tab, and the
+  loyalty **till ＋New**. APIs verified 200 — the UI wasn't clicked.
+- **Small Phase-13 follow-ups** (noted in plan): quota hooks on till/user creation + the
+  tenant-detail "usage vs limit" surface; outbox startup-race hardening; `openapi.json` regen.
+- **Still open from before:** Phase 6 outbound go-live (review dry-run journal → write key → live);
+  one end-to-end **return** through the till UI; WP6.1 onboarding click-test; **rotate the MySQL
+  `plutus` password**; Keycloak `login.plutus` vhost + portal basic_auth (Matt's sudo).
+- **Next in the plan:** **Phase 14** (support & rollout — impersonation, feature flags, sandbox
+  tenants), then 15–18. Gated tails: billing adapter, payments, mailer, Keycloak.
+
+---
+
+## ⏰ (previous resume — 2026-07-27, pre-net10 — kept for history)
 
 **State right now, all live on the test env (test suite: 168 unit + 5 arch green; head `21daac5`):**
 - **All platform phases 0–12 are built & live** except the externally-gated tails (see the list
