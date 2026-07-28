@@ -13,7 +13,7 @@ import CompanyPage from "./CompanyPage.tsx";
 import PlatformPage from "./PlatformPage.tsx";
 import LoginPage from "./LoginPage.tsx";
 import { getSession, type Session } from "./session.ts";
-import { isPlatformAdmin, oidcMode, signOut } from "./auth.ts";
+import { impersonatingAs, isPlatformAdmin, oidcMode, signOut, stopImpersonation } from "./auth.ts";
 import { beginLogin, completeLoginIfCallback } from "./oidc.ts";
 
 declare const __BUILD_TIME__: string;
@@ -95,9 +95,16 @@ export default function App() {
   if (!name) return <LoginPage onLogin={(s: Session) => setName(s.name)} />;
 
   const tabs: Tab[] = isPlatformAdmin() ? [...TABS, PLATFORM_TAB] : [...TABS];
+  const impersonating = impersonatingAs();
 
   return (
     <main className="shell">
+      {impersonating && (
+        <div style={{ background: "#dc2626", color: "white", padding: "6px 12px", display: "flex", alignItems: "center", gap: 12, fontWeight: 600 }}>
+          <span>⚠ Viewing as {impersonating} — actions are audited</span>
+          <button className="ghost small" style={{ background: "white", color: "#dc2626" }} onClick={() => stopImpersonation()}>Stop</button>
+        </div>
+      )}
       <header className="appbar">
         <h1>Plutus Portal</h1>
         <nav className="tabs">

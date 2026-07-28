@@ -127,6 +127,9 @@ namespace Plutus.DBService
             // middleware so throttled (429) requests don't skew the request-health stats.
             app.UsePlutusTenantRateLimiting();
 
+            // WP14.1: log every impersonated request (actor + target) for the audit trail.
+            app.UsePlutusImpersonationAudit();
+
             // WP13.2: record per-tenant request health AFTER auth (tenant resolved), wrapping
             // endpoint execution for latency + final status code.
             app.UsePlutusRequestHealth();

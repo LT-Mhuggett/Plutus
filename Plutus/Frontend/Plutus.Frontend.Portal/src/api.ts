@@ -66,6 +66,9 @@ export const fetchAlerts = () => get<AlertRow[]>("/api/v1/platform/alerts");
 export const fetchJobs = () => get<JobRow[]>("/api/v1/platform/jobs");
 export const setTenantStatus = (tenantId: string, status: number) =>
   put<void>(`/api/v1/tenants/${tenantId}/status`, { status });
+export const impersonate = (tenantId: string, userId: string, minutes: number) =>
+  post<{ token: string; name: string; expiresAt: string; impersonating: boolean }>(
+    `/api/v1/platform/tenants/${tenantId}/impersonate`, { userId, minutes });
 
 // ── auth ──
 

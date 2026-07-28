@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  fetchTenants, fetchUsageSummary, fetchHealth, fetchTenantHealth, fetchAlerts, fetchJobs, setTenantStatus,
+  fetchTenants, fetchUsageSummary, fetchHealth, fetchTenantHealth, fetchAlerts, fetchJobs, setTenantStatus, impersonate,
   type PlatformTenant, type UsageSummaryRow, type HealthResponse, type HealthTenantRow,
   type HealthDrillRow, type AlertRow, type JobRow,
 } from "./api.ts";
+import { beginImpersonation } from "./auth.ts";
 
 // WP13.4 operator dashboard (platform-admin only). Three screens answering "is anyone having a
 // bad day?": Tenants (usage sparkline + health dot, drill to a tenant's p95), Health (error/lag/
@@ -104,6 +105,8 @@ function TenantDetail({ tenantId, tenant, onClose }: { tenantId: string; tenant?
   const [rows, setRows] = useState<HealthDrillRow[]>([]);
   const [status, setStatus] = useState<number>(tenant?.status ?? 1);
   const [error, setError] = useState("");
+  const [impUser, setImpUser] = useState("");
+  const [impMins, setImpMins] = useState(30);
 
   const refresh = () =>
     fetchTenantHealth(tenantId).then((r) => { setRows(r.rows); setError(""); })
@@ -145,6 +148,19 @@ function TenantDetail({ tenantId, tenant, onClose }: { tenantId: string; tenant?
 
       <h4>Response p95 (last 24h, ms)</h4>
       {p95.length ? <P95Chart values={p95} /> : <p className="muted small">No request stats yet for this tenant.</p>}
+
+      <h4>Impersonate a user</h4>
+      <p className="muted small">Opens the portal AS that user (their scopes minus refunds/void/admin), audited, expires automatically.</p>
+      <div className="toolbar">
+        <label>User id <input className="mono" value={impUser} onChange={(e) => setImpUser(e.target.value)} placeholder="employee guid" /></label>
+        <label>Minutes <input className="short" inputMode="numeric" value={impMins} onChange={(e) => setImpMins(Number(e.target.value) || 30)} /></label>
+        <button className="primary small" disabled={!impUser.trim()}
+          onClick={() => void impersonate(tenantId, impUser.trim(), impMins)
+            .then((r) => beginImpersonation({ token: r.token, employeeId: impUser.trim(), name: r.name, expiresAt: r.expiresAt }))
+            .catch((e) => setError(String(e instanceof Error ? e.message : e)))}>
+          Impersonate
+        </button>
+      </div>
     </>
   );
 }

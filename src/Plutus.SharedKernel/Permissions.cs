@@ -50,6 +50,15 @@ public static class PermissionCatalogue
         PosRefund, PosDiscount,
     };
 
+    /// <summary>WP14.1: permissions an IMPERSONATED session may never exercise, even if the target
+    /// holds them — money movement + account/customer administration. Enforced BOTH by filtering
+    /// the minted token's scopes AND in the permission handler (perm:* gates resolve from RBAC, not
+    /// the token, so filtering alone is not enough).</summary>
+    public static readonly IReadOnlySet<string> ImpersonationDenied = new HashSet<string>(StringComparer.Ordinal)
+    {
+        PosRefund, PosVoid, PortalUsersManage, PortalCompanyManage, CustomersManage,
+    };
+
     public static bool IsKnown(string code) => code != null && All.Contains(code);
 }
 

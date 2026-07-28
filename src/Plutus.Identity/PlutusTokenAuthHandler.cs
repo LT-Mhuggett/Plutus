@@ -93,6 +93,15 @@ namespace Plutus.Identity
                     if (root.TryGetProperty("Tid", out var t) && t.GetString() is { Length: > 0 } tid)
                         identity.AddClaim(new Claim("tid", tid));
                     AddScopes(identity, root.TryGetProperty("Scope", out var scp) ? scp.GetString() : null);
+
+                    // WP14.1 impersonation markers — carried through so the audit middleware can
+                    // log every impersonated request and the portal can show the red banner.
+                    if (root.TryGetProperty("Impersonating", out var imp) && imp.ValueKind == JsonValueKind.True)
+                    {
+                        identity.AddClaim(new Claim("impersonating", "true"));
+                        if (root.TryGetProperty("Actor", out var act) && act.GetString() is { Length: > 0 } actor)
+                            identity.AddClaim(new Claim("actor", actor));
+                    }
                 }
 
                 // Stand in for the B2C API scopes the legacy [RequiredScope] filters demand

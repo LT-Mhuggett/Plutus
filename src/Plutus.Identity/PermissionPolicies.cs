@@ -48,15 +48,23 @@ namespace Plutus.Identity
             var userId = context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!Guid.TryParse(userId, out var id)) return;
 
+            // WP14.1: an impersonated session may never satisfy a deny-listed permission, even
+            // though the target user holds it in RBAC — this is the real enforcement point, since
+            // perm:* gates resolve from RBAC (not the minted token's filtered scopes).
+            var impersonating = context.User?.HasClaim("impersonating", "true") == true;
+
             // Scoped resolution: the handler is a singleton, the DbContext is per-request.
             using var scope = _services.CreateScope();
             var permissions = scope.ServiceProvider.GetRequiredService<EffectivePermissionsService>();
             foreach (var code in requirement.Codes)
+            {
+                if (impersonating && PermissionCatalogue.ImpersonationDenied.Contains(code)) continue;
                 if (await permissions.HasAnywhereAsync(id, code, DateTime.Now))
                 {
                     context.Succeed(requirement);
                     return;
                 }
+            }
         }
     }
 

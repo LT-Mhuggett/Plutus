@@ -24,6 +24,10 @@ namespace Plutus.Identity
             // tokens — the auth handler simply emits no scope claims for those.
             public string Scope { get; set; }
             public Guid? Tid { get; set; }
+            // WP14.1 support impersonation: set on an operator-minted "act as this user" token.
+            // Actor = the platform operator; the session runs with the target's (deny-listed) scopes.
+            public bool Impersonating { get; set; }
+            public Guid? Actor { get; set; }
         }
 
         private static string B64Url(byte[] data) =>
