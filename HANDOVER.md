@@ -1,7 +1,30 @@
 # Handover — Plutus platform build
 
 **Date:** 2026-07-28 — Platform now on **.NET 10** (merged Development: net10 + MAUI + Mapster).
-**All 18 phases built** (17.2 gated; 17.3 seam-only; 18.1 flag-gated/staged); **13–17 LIVE; Phase 18 built + tested, deploying**.
+**All 18 phases + the Operator Portal (OP1–OP4) built & LIVE.** Head `00d4074`.
+
+### ⏰⏰ RESUME TOMORROW (2026-07-29)
+Everything below is DONE, deployed & verified live; working tree clean, pushed to
+`upstream/Matt's-Horror`. Suite: **Unit 214 · Architecture 6 · Integration 39 — green.**
+- **Operator Portal (OP1–OP4) complete this session** (see `Build/operator-portal-plan.md`, all
+  boxes ticked): OP1 operator/client data boundary (operators 403'd off client data, operator-only
+  console); OP2 subscription plans & pricing; OP3 subscribers landing (MRR/renewals/users);
+  OP4 support tickets (client Help tab + till card + operator inbox) closing the `support-heavy`
+  churn signal. Rollback dirs `backend.pre-op{1..4}`.
+- **Operator SSO is LIVE**: `matt@huggett.co.uk` logs into the portal via Keycloak (TOTP enrolled);
+  `OPERATOR_SSO_ENFORCED` still **OFF** (flip it once you're happy operator SSO is solid — that's
+  the last WP18.1 step).
+- **Docs cleaned up**: repo root now holds only README (rewritten as the doc index) + HANDOVER;
+  all plans in `Build/`, seed `.db` in `Build/seed-data/`. `Environment_Setup_Runbook.md`
+  (gitignored) now documents the **Plutus** env (was ETRIE's).
+- **Good next options** (nothing urgent): flip `OPERATOR_SSO_ENFORCED`; the small audit gaps
+  (onboarding checklist, PastDue read-only, schema-version tracking); or a gated adapter once you
+  have an account (billing / mailer / payment gateway — config UIs already live). Carry-forwards:
+  MySQL password rotation, `origin`/net8 reconciliation, Phase-6 Woo outbound go-live.
+
+---
+
+**(historical header)** All 18 phases built (17.2 gated; 17.3 seam-only; 18.1 flag-gated/staged); 13–17 LIVE; Phase 18 built + tested, deploying.
 **Branch:** `Matt's-Horror` · **dev remote is now `upstream` = seank842/Plutus** (bare `git push`/`pull`
 go there). `origin` = LT-Mhuggett/Plutus is **parked on net8** (a 151 MB `Publishing/` artifact blocks
 pushing the net10 line there — reconcile later, coordinated with Sean).
