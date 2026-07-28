@@ -12,6 +12,18 @@ connectors (exists: Platform → Billing), and a ticket system ("Ask for help" �
 
 ---
 
+## 0a. Execution protocol (for the implementing session)
+
+1. Execute WPs **strictly in order** (OP1 → OP2 → OP3 → OP4). Finish one — suites green, committed,
+   checkbox ticked, HANDOVER updated — before starting the next.
+2. **Stop and ask the operator instead of improvising** when: a spec'd file/route/pattern doesn't
+   match the codebase; a test fails and two focused fix attempts haven't cured it; anything would
+   touch Keycloak state, the Caddyfile, ETRIE, or secrets; or you believe the spec is wrong.
+   Deviating silently is the failure mode this document exists to prevent.
+3. **Deploy only when the operator asks.** Building, testing and committing are always safe.
+4. If context is running low, finish the current WP cleanly and record exact resume state in
+   `HANDOVER.md` rather than starting the next WP.
+
 ## 0. Repo runbook — read first, applies to every WP
 
 **Environment:** Windows dev box; backend .NET 10 (`"C:\Program Files\dotnet\dotnet.exe"`, SDK
@@ -239,7 +251,8 @@ returns seeded RBAC users for Kapow.
   `string RaisedByName` (max 100), `DateTime CreatedAtUtc`, `UpdatedAtUtc`,
   `string AssignedTo` (nullable, max 100 — operator display name). Index (TenantId, Status).
 - `SupportMessage` — tenant-owned: `Guid Id`, `Guid TenantId`, `Guid TicketId` (index),
-  `bool FromOperator`, `string AuthorName` (max 100), `string Body`, `DateTime AtUtc`.
+  `bool FromOperator`, `string AuthorName` (max 100), `string Body` (max 4000 — 400 on exceed,
+  same for Subject at 200), `DateTime AtUtc`.
 
 ### OP4.2 Client endpoints (`src/Plutus.Customers/SupportController.cs` — or a new
 `src/Plutus.Tenancy/Controllers/SupportController.cs`; either module works, pick Tenancy)
@@ -301,6 +314,9 @@ In `ChurnSweep.EvaluateAsync` add: count this tenant's tickets created in the la
   `OPERATOR_BOUNDARY_DISABLED=true` (pm2 env) bypasses the middleware. It's a security control on
   the live login path; if it ever mis-fires it must be switch-off-able without a rollback deploy.
   Default off (i.e. boundary ACTIVE). Log a startup warning when disabled.
+  ⚠ If you test the escape hatch, use a derived factory with in-memory config (copy
+  `SsoEnforcedFactory` in `OperatorSsoE2eTests.cs`) — NEVER `Environment.SetEnvironmentVariable`
+  in a test, it leaks process-wide into every other test.
 - **Verify the allow-list, don't trust it:** for each allowed prefix, grep every controller on
   that route and confirm each action is `[Authorize(Policy = PlutusPolicies.PlatformAdmin)]` or
   anonymous-by-design (billing webhook, jobs HMAC report). Verified today: `/api/v1/tenants` has
