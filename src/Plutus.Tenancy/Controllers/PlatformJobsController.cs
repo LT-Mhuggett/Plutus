@@ -82,6 +82,37 @@ namespace Plutus.Tenancy.Controllers
             return NoContent();
         }
 
+        /// <summary>WP13.4 Jobs grid: the latest run per (JobName, TenantId) with a derived cadence
+        /// status — "failed" (last run failed), "silent" (past its max-silence window), or "ok".</summary>
+        [HttpGet("api/v1/platform/jobs")]
+        [Authorize(Policy = PlutusPolicies.PlatformAdmin)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> Jobs()
+        {
+            var now = DateTime.UtcNow;
+            var runs = await _db.JobRuns.AsNoTracking().ToListAsync();
+            var latest = runs
+                .GroupBy(r => (r.JobName, r.TenantId))
+                .Select(g => g.OrderByDescending(r => r.StartedAtUtc).First())
+                .Select(r =>
+                {
+                    var reference = r.FinishedAtUtc ?? r.StartedAtUtc;
+                    string status;
+                    if (r.Status == JobStatus.Failed) status = "failed";
+                    else if (JobCadence.MaxSilence.TryGetValue(r.JobName, out var w) && now - reference > w) status = "silent";
+                    else status = "ok";
+                    return new
+                    {
+                        jobName = r.JobName, tenantId = r.TenantId, runStatus = r.Status.ToString(),
+                        startedAtUtc = r.StartedAtUtc, finishedAtUtc = r.FinishedAtUtc, detail = r.Detail,
+                        cadenceStatus = status,
+                    };
+                })
+                .OrderBy(x => x.cadenceStatus == "ok").ThenBy(x => x.jobName).ThenBy(x => x.tenantId)
+                .ToList();
+            return Ok(latest);
+        }
+
         /// <summary>The operator alerts feed. Open alerts by default; ?includeCleared=true for the
         /// full recent history.</summary>
         [HttpGet("api/v1/platform/alerts")]

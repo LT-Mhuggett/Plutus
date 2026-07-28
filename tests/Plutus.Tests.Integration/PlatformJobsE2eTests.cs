@@ -61,6 +61,40 @@ public class PlatformJobsE2eTests : IClassFixture<PlutusAppFactory>
     }
 
     [Fact]
+    public async Task Jobs_grid_is_platform_admin_only_and_derives_cadence_status()
+    {
+        using (var scope = _f.Services.CreateScope())
+        {
+            var db = (MySqlDbContext)scope.ServiceProvider.GetRequiredService<RepositoryContext>();
+            db.CurrentUser = "jobs-grid-seed";
+            var old = DateTime.UtcNow.AddHours(-3); // woo-poll cadence is 30m → "silent"
+            db.JobRuns.Add(new JobRun
+            {
+                Id = Uuid7.New(), JobName = "woo-poll", TenantId = Guid.NewGuid(),
+                StartedAtUtc = old, FinishedAtUtc = old, Status = JobStatus.Succeeded,
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var client = _f.CreateClient();
+
+        using (var req = new HttpRequestMessage(HttpMethod.Get, "/api/v1/platform/jobs"))
+        {
+            req.Headers.Authorization = new("Bearer", PlutusAppFactory.OperatorToken("pos.sell"));
+            Assert.Equal(HttpStatusCode.Forbidden, (await client.SendAsync(req)).StatusCode);
+        }
+        using (var req = new HttpRequestMessage(HttpMethod.Get, "/api/v1/platform/jobs"))
+        {
+            req.Headers.Authorization = new("Bearer", PlutusAppFactory.OperatorToken(PlutusPolicies.PlatformAdmin));
+            var resp = await client.SendAsync(req);
+            Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+            var body = await resp.Content.ReadAsStringAsync();
+            Assert.Contains("\"jobName\":\"woo-poll\"", body);
+            Assert.Contains("\"cadenceStatus\":\"silent\"", body);
+        }
+    }
+
+    [Fact]
     public async Task Alerts_feed_is_platform_admin_only()
     {
         using (var scope = _f.Services.CreateScope())

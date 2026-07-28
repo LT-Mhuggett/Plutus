@@ -48,6 +48,25 @@ const del = <T>(url: string) => request<T>("DELETE", url);
 export const gbp = (pence: number) =>
   new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
 
+// ── platform / operator dashboard (WP13.1–13.4; all platform-admin) ──
+export interface PlatformTenant { id: string; name: string; status: number; plan: string; entitlements: string[]; createdAtUtc: string }
+export interface UsageSummaryRow { tenantId: string; totals: Record<string, number>; salesDaily: { day: string; value: number }[] }
+export interface HealthTenantRow { tenantId: string; requests: number; err4xx: number; err5xx: number; errorRatePct: number; peakP95Ms: number; maxMs: number; quarantineOpen: number }
+export interface HealthResponse { generatedAtUtc: string; tenants: HealthTenantRow[]; consumerLag: { consumer: string; lag: number }[] }
+export interface HealthDrillRow { minuteUtc: string; routeGroup: string; count: number; err4xx: number; err5xx: number; p50Ms: number; p95Ms: number; maxMs: number }
+export interface AlertRow { alertKey: string; jobName: string; tenantId: string | null; kind: string; message: string; raisedAtUtc: string; lastSeenAtUtc: string; clearedAtUtc: string | null; occurrences: number }
+export interface JobRow { jobName: string; tenantId: string | null; runStatus: string; startedAtUtc: string; finishedAtUtc: string | null; detail: string | null; cadenceStatus: string }
+
+export const fetchTenants = () => get<PlatformTenant[]>("/api/v1/tenants");
+export const fetchUsageSummary = () => get<UsageSummaryRow[]>("/api/v1/platform/usage/summary");
+export const fetchHealth = () => get<HealthResponse>("/api/v1/platform/health");
+export const fetchTenantHealth = (tenantId: string) =>
+  get<{ tenantId: string; from: string; to: string; rows: HealthDrillRow[] }>(`/api/v1/platform/health/${tenantId}`);
+export const fetchAlerts = () => get<AlertRow[]>("/api/v1/platform/alerts");
+export const fetchJobs = () => get<JobRow[]>("/api/v1/platform/jobs");
+export const setTenantStatus = (tenantId: string, status: number) =>
+  put<void>(`/api/v1/tenants/${tenantId}/status`, { status });
+
 // ── auth ──
 
 export async function login(email: string, password: string): Promise<Session> {
