@@ -33,10 +33,14 @@ do **notifications first**. Delivered this session:
   integrations + gateway health monitoring stay gated on a wired gateway.
 - **17.3 concrete mailer:** PARKED by the operator (framework is live; revisit when ready).
 - **IdP #4 answer:** Keycloak chosen; Entra stays optional via the `IdP:Provider` seam.
-  **2026-07-28: keycloak README corrected for macOS (no systemctl; explicit caddy path), files
-  re-staged on the Mac, realm re-imported with the operators group + TOTP — Matt's sudo block in
-  `ops/keycloak/README.md` is now literally paste-and-run.** After the vhost: I set
-  `IdP:Provider=keycloak`, verify portal SSO, then flip `OPERATOR_SSO_ENFORCED=true`.
+  **2026-07-28 evening: Matt applied the `login.plutus` vhost (serving 200); realm re-imported
+  with operators group + TOTP; backend flipped to `IdP__Provider=keycloak`** (pm2 env, rollback
+  `plutus-ecosystem.config.js.pre-keycloak`). Additive — HMAC + password logins verified still
+  working; portal remains password-mode; `OPERATOR_SSO_ENFORCED` still OFF. **Remaining for full
+  operator SSO:** (1) rebuild the portal in OIDC mode pointed at the issuer (changes the login UX —
+  do alongside a click-test), (2) a real operator account in the `operators` group + TOTP enrolment
+  (seeded `operator` / `ChangeMe!2026` exists; its email must match a WebCredentials row for RBAC),
+  (3) then flip `OPERATOR_SSO_ENFORCED=true`.
 Committed to **`upstream/Matt's-Horror`** (seank842). **The whole operator-platform plan
 (Phases 13–18) is now built**; the only unbuilt work is explicitly gated (see below).
 
