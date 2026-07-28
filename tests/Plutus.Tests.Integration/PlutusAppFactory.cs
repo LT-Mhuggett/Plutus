@@ -23,6 +23,7 @@ namespace Plutus.Tests.Integration;
 public sealed class PlutusAppFactory : WebApplicationFactory<Program>
 {
     public const string Secret = "integration-test-secret";
+    public const string JobsSecret = "integration-jobs-secret";
     private readonly SqliteConnection _conn;
 
     public PlutusAppFactory()
@@ -32,6 +33,7 @@ public sealed class PlutusAppFactory : WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("DISABLE_AUTH_DEV_ONLY", "true");
         Environment.SetEnvironmentVariable("TEST_TOKEN_SECRET", Secret);
         Environment.SetEnvironmentVariable("PLUTUS_DB_ENSURE_CREATED", "true");
+        Environment.SetEnvironmentVariable("JOBS_REPORT_SECRET", JobsSecret); // WP13.3 HMAC job report
         Environment.SetEnvironmentVariable("RATE_LIMIT_ENROL_PER_MIN", "100000"); // don't throttle the test IP
     }
 

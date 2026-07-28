@@ -20,6 +20,7 @@ using Plutus.Customers;
 using Plutus.Webstore;
 using Plutus.Entities;
 using Plutus.Infrastructure.Health;
+using Plutus.Infrastructure.Monitoring;
 using Plutus.Infrastructure.Outbox;
 using System;
 using System.Diagnostics;
@@ -78,6 +79,7 @@ namespace Plutus.DBService
             services.AddPlutusWebstore();
             services.AddPlutusOutbox(); // T1.5 broker-less dispatcher (consumers register their own IEventConsumer)
             services.AddPlutusRequestHealth(); // WP13.2 per-tenant request-health accumulator + per-minute flusher
+            services.AddPlutusJobMonitoring(); // WP13.3 IJobHeartbeat + IOperatorAlerter seams
             ConfigureRateLimiting(services, Configuration);
             services.ConfigureSwaggerDocumentation(Configuration);
             services.ConfigureHttpAccessor();

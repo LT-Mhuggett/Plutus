@@ -64,6 +64,9 @@ namespace Plutus.Entities
         public DbSet<TenantUsageRollup> TenantUsageRollups { get; set; }
         // WP13.2 per-tenant request health: (TenantId, MinuteUtc, RouteGroup) → counts + latency.
         public DbSet<TenantRequestStats> TenantRequestStats { get; set; }
+        // WP13.3 job heartbeats + operator alerts (GLOBAL — TenantId is plain data).
+        public DbSet<JobRun> JobRuns { get; set; }
+        public DbSet<OperatorAlert> OperatorAlerts { get; set; }
         // Financial periods (WP3.4): close/lock + snapshot.
         public DbSet<FinancialPeriod> FinancialPeriods { get; set; }
         // Stock ledger (WP5.1): append-only movements + materialised levels.
@@ -444,6 +447,26 @@ namespace Plutus.Entities
                 e.HasKey(x => new { x.TenantId, x.MinuteUtc, x.RouteGroup });
                 e.Property(x => x.RouteGroup).HasMaxLength(64);
                 e.HasIndex(x => x.MinuteUtc); // retention purge scans by minute
+            });
+            // WP13.3 job heartbeats + operator alerts — GLOBAL tables (TenantId as data).
+            modelBuilder.Entity<JobRun>(e =>
+            {
+                e.ToTable("JobRuns");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.JobName).HasMaxLength(100).IsRequired();
+                e.Property(x => x.Detail).IsRequired(false); // a successful run carries no detail
+                e.HasIndex(x => new { x.JobName, x.TenantId, x.StartedAtUtc });
+            });
+            modelBuilder.Entity<OperatorAlert>(e =>
+            {
+                e.ToTable("OperatorAlerts");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.AlertKey).HasMaxLength(200).IsRequired();
+                e.Property(x => x.JobName).HasMaxLength(100);
+                e.Property(x => x.Kind).HasMaxLength(32);
+                e.HasIndex(x => x.AlertKey).IsUnique();
             });
 
             // WP3.4 financial periods.

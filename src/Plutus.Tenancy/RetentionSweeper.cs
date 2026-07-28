@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Plutus.Entities;
 using Plutus.Entities.Models;
 using Plutus.Entities.Tenancy;
+using Plutus.SharedKernel;
 
 namespace Plutus.Tenancy
 {
@@ -60,6 +61,14 @@ namespace Plutus.Tenancy
                             db, DateTime.UtcNow.AddDays(-RequestStatsRetention.RetentionDays), stoppingToken);
                         if (statsPurged > 0) _logger.LogInformation("Retention: purged {Count} request-stat rows.", statsPurged);
 
+                        // WP13.3 job-cadence evaluation + JobRuns retention (JobRuns/OperatorAlerts
+                        // are global tables — no tenant guard). The alerter is registered by the host.
+                        var alerter = scope.ServiceProvider.GetService<IOperatorAlerter>();
+                        if (alerter != null)
+                            await JobMonitor.EvaluateAsync(db, alerter, DateTime.UtcNow, stoppingToken);
+                        await JobRunsRetention.PurgeAsync(
+                            db, DateTime.UtcNow.AddDays(-JobRunsRetention.RetentionDays), stoppingToken);
+
                         // WP13.1 counted-metrics sweep. Needs a fresh UNSCOPED context (the scoped
                         // one resolves to a single tenant) so it can write every tenant's counts.
                         // MySQL-only: like the rest of the sweeper it's inert on the SQLite dev
@@ -68,8 +77,15 @@ namespace Plutus.Tenancy
                         var opts = scope.ServiceProvider.GetService<DbContextOptions<MySqlDbContext>>();
                         if (opts != null && db.Database.ProviderName?.Contains("MySql", StringComparison.OrdinalIgnoreCase) == true)
                         {
-                            using var meterDb = new MySqlDbContext(opts, new FixedTenantContext(Guid.Empty));
-                            await UsageSweep.RunAsync(meterDb, DateOnly.FromDateTime(DateTime.UtcNow), stoppingToken);
+                            var heartbeat = scope.ServiceProvider.GetService<IJobHeartbeat>();
+                            var day = DateOnly.FromDateTime(DateTime.UtcNow);
+                            async Task Sweep(System.Threading.CancellationToken c)
+                            {
+                                using var meterDb = new MySqlDbContext(opts, new FixedTenantContext(Guid.Empty));
+                                await UsageSweep.RunAsync(meterDb, day, c);
+                            }
+                            if (heartbeat != null) await heartbeat.TrackAsync("usage-sweep", null, Sweep, stoppingToken);
+                            else await Sweep(stoppingToken);
                         }
                     }
                 }

@@ -71,10 +71,12 @@ namespace Plutus.Webstore
         private readonly HttpClient _http;
         private readonly WebstoreOptions _options;
         private readonly ILogger? _log;
+        private readonly Plutus.SharedKernel.IJobHeartbeat? _heartbeat;
 
         public WebstoreReconciler(
             DbContextOptions<MySqlDbContext> dbOptions, WebstoreWebhookPipelineFactory pipelines,
-            IWebstoreSecretProvider secrets, HttpClient http, WebstoreOptions options, ILogger? log = null)
+            IWebstoreSecretProvider secrets, HttpClient http, WebstoreOptions options, ILogger? log = null,
+            Plutus.SharedKernel.IJobHeartbeat? heartbeat = null)
         {
             _dbOptions = dbOptions;
             _pipelines = pipelines;
@@ -82,6 +84,7 @@ namespace Plutus.Webstore
             _http = http;
             _options = options;
             _log = log;
+            _heartbeat = heartbeat;
         }
 
         public async Task<ReconcileSummary> RunOnceAsync(CancellationToken ct = default)
@@ -93,14 +96,16 @@ namespace Plutus.Webstore
             await using (var root = new MySqlDbContext(_dbOptions, new FixedTenantContext(Guid.Empty)) { CurrentUser = "webstore-poll" })
                 stores = await root.WebStores.AsNoTracking().Where(w => w.Enabled).ToArrayAsync(ct);
 
-            foreach (var ws in stores)
+            // Each store's poll is tracked per tenant (WP13.3 "woo-poll") so a stalled or failing
+            // per-tenant poll surfaces as an operator alert. Body unchanged — just wrapped.
+            async Task PollOneAsync(Entities.Models.WebStoreDetails ws)
             {
-                if (string.IsNullOrWhiteSpace(ws.Url)) continue;
+                if (string.IsNullOrWhiteSpace(ws.Url)) return;
                 var creds = _secrets.GetRestCredentials(ws.Id);
                 if (creds is null)
                 {
                     _log?.LogWarning("webstore {Id}: no REST credentials configured — poll skipped.", ws.Id);
-                    continue;
+                    return;
                 }
                 summary.Webstores++;
 
@@ -181,6 +186,14 @@ namespace Plutus.Webstore
                     row.OrdersCursorUtc = maxSeen;
                     await pipeline.Db.SaveChangesAsync(ct);
                 }
+            }
+
+            foreach (var ws in stores)
+            {
+                if (_heartbeat != null)
+                    await _heartbeat.TrackAsync("woo-poll", ws.TenantId, _ => PollOneAsync(ws), ct);
+                else
+                    await PollOneAsync(ws);
             }
 
             _log?.LogInformation("webstore reconciliation: {Summary}", summary);
