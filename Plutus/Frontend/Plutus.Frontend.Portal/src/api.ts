@@ -148,6 +148,12 @@ export const updatePlan = (id: string, body: { name: string; pricePenceMonthly: 
 export const deletePlan = (id: string) => del<void>(`/api/v1/platform/plans/${id}`);
 export const assignPlan = (tenantId: string, planId: string | null) =>
   put<void>(`/api/v1/tenants/${tenantId}/plan`, { planId });
+// OP3 subscribers landing
+export interface ContractLite { tenantId: string; renewalAtUtc: string; pricePenceMonthly: number; termMonths: number }
+export const fetchContracts = () => get<ContractLite[]>("/api/v1/platform/contracts");
+export interface TenantUser { id: string; name: string; email: string | null; roles: string[] }
+export interface TenantUsersResp { lastPortalActivityDay: string | null; users: TenantUser[] }
+export const fetchTenantUsers = (tenantId: string) => get<TenantUsersResp>(`/api/v1/platform/tenants/${tenantId}/users`);
 // 16.4 billing provider (operator, platform-wide)
 export interface CommerceProviderInfo { key: string; label: string; blurb: string; fields: ProviderField[] }
 export interface BillingConfig { provider: string; enabled: boolean; config: Record<string, string>; updatedAtUtc: string | null }

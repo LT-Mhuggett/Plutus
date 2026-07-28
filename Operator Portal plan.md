@@ -410,5 +410,10 @@ vars), commit with a descriptive message, and deploy only when the operator asks
       delete-in-use 409), `PUT /tenants/{id}/plan` copies name+entitlements onto the tenant. Margin
       + tenants-list use contract-price ?? plan-price. Portal: **Plans** screen + plan selector on
       the tenant detail. Tests: `SubscriptionPlansE2eTests`. Suites: Unit 211 · Arch 6 · Integration 35.
-- [ ] OP3 subscribers landing
+- [x] OP3 subscribers landing — DONE 2026-07-28 (no migration). Bulk `GET /platform/contracts`
+      + `GET /platform/tenants/{id}/users` (platform-admin). Subscribers screen: MRR strip (live =
+      Trial/Active non-sandbox, contract-price ?? plan-price) + status headcounts, £/mo + renewal
+      countdown columns (amber ≤30d). Tenant detail: read-only users list (RBAC-assigned employees
+      + roles) with the tenant's last portal-activity day. Tests: `SubscribersLandingE2eTests`
+      (gates + last-login-day). Suites: Unit 211 · Arch 6 · Integration 37.
 - [ ] OP4 tickets end-to-end + support-heavy signal

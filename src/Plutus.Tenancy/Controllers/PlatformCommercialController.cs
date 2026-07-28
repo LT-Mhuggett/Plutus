@@ -52,6 +52,43 @@ namespace Plutus.Tenancy.Controllers
                 .Select(s => new { tenantId = s.TenantId, signal = s.Signal, detail = s.Detail, raisedAtUtc = s.RaisedAtUtc })
                 .ToListAsync());
 
+        // ── OP3 subscribers landing: bulk renewals + per-tenant users ──
+
+        /// <summary>All tenant contracts in one call — for the Subscribers list's renewal countdown
+        /// + MRR (avoids an N+1 of per-tenant contract fetches).</summary>
+        [HttpGet("api/v1/platform/contracts")]
+        [Authorize(Policy = PlutusPolicies.PlatformAdmin)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> Contracts() =>
+            Ok(await _db.TenantContracts.AsNoTracking()
+                .Select(c => new { c.TenantId, c.RenewalAtUtc, c.PricePenceMonthly, c.TermMonths }).ToListAsync());
+
+        /// <summary>One tenant's users (read-only): the employees with an RBAC assignment in that
+        /// tenant + their roles, plus the tenant's last portal-login day (WP13.1 metering is
+        /// per-tenant, not per-user, so login recency is reported at tenant level).</summary>
+        [HttpGet("api/v1/platform/tenants/{id}/users")]
+        [Authorize(Policy = PlutusPolicies.PlatformAdmin)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> TenantUsers([FromRoute] Guid id)
+        {
+            var employees = await _db.Employees.IgnoreQueryFilters().AsNoTracking()
+                .Where(e => EF.Property<Guid>(e, "TenantId") == id)
+                .Select(e => new { e.Id, e.FName, e.LName, e.Email }).ToListAsync();
+            var assignments = await _db.RbacRoleAssignments.IgnoreQueryFilters().AsNoTracking().Include(a => a.Role)
+                .Where(a => a.TenantId == id).Select(a => new { a.UserId, Role = a.Role.Name }).ToListAsync();
+            var lastPortalDay = await _db.TenantUsageRollups.IgnoreQueryFilters().AsNoTracking()
+                .Where(r => r.TenantId == id && r.Metric == UsageMetrics.LoginsPortal && r.Value > 0)
+                .Select(r => (DateOnly?)r.BusinessDay).OrderByDescending(d => d).FirstOrDefaultAsync();
+
+            var users = employees.Select(e => new
+            {
+                id = e.Id, name = $"{e.FName} {e.LName}".Trim(), email = e.Email,
+                roles = assignments.Where(a => a.UserId == e.Id).Select(a => a.Role).Distinct().ToArray(),
+            }).Where(u => u.roles.Length > 0 || !string.IsNullOrEmpty(u.email)).OrderBy(u => u.name).ToList();
+
+            return Ok(new { lastPortalActivityDay = lastPortalDay?.ToString("yyyy-MM-dd"), users });
+        }
+
         // ── WP16.2 contract / renewal tracking ──
 
         [HttpGet("api/v1/platform/tenants/{id}/contract")]

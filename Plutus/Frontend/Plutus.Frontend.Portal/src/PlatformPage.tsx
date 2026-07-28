@@ -8,6 +8,7 @@ import {
   fetchSendingIdentities, setSendingIdentity,
   fetchBillingCatalogue, fetchBillingConfig, setBillingConfig, type CommerceProviderInfo, type BillingConfig,
   fetchPlans, createPlan, updatePlan, deletePlan, assignPlan, type PlanRow,
+  fetchContracts, fetchTenantUsers, type ContractLite, type TenantUser,
   type PlatformTenant, type UsageSummaryRow, type HealthResponse, type HealthTenantRow,
   type HealthDrillRow, type AlertRow, type JobRow, type OverrideRow, type FlagRow, type AnnouncementRow, type SlaResponse,
   type SignalRow, type ContractRow, type MarginResponse, type AnalyticsResponse, type ConnectorRow,
@@ -453,30 +454,46 @@ function TenantsScreen() {
   const [usage, setUsage] = useState<UsageSummaryRow[]>([]);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [signals, setSignals] = useState<SignalRow[]>([]);
+  const [contracts, setContracts] = useState<ContractLite[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   const refresh = () =>
-    Promise.all([fetchTenants(), fetchUsageSummary(), fetchHealth(), fetchSignals()])
-      .then(([t, u, h, s]) => { setTenants(t); setUsage(u); setHealth(h); setSignals(s); setError(""); })
+    Promise.all([fetchTenants(), fetchUsageSummary(), fetchHealth(), fetchSignals(), fetchContracts()])
+      .then(([t, u, h, s, c]) => { setTenants(t); setUsage(u); setHealth(h); setSignals(s); setContracts(c); setError(""); })
       .catch((e) => setError(String(e instanceof Error ? e.message : e)));
   useEffect(() => { void refresh(); }, []);
 
   const usageBy = useMemo(() => new Map(usage.map((u) => [u.tenantId, u])), [usage]);
   const healthBy = useMemo(() => new Map((health?.tenants ?? []).map((h) => [h.tenantId, h])), [health]);
+  const contractsBy = useMemo(() => new Map(contracts.map((c) => [c.tenantId, c])), [contracts]);
   const signalsBy = useMemo(() => {
     const m = new Map<string, string[]>();
     for (const s of signals) m.set(s.tenantId, [...(m.get(s.tenantId) ?? []), s.signal]);
     return m;
   }, [signals]);
 
+  // A tenant's monthly value = negotiated contract price if set, else the assigned plan's list price.
+  const priceOf = (t: PlatformTenant) => contractsBy.get(t.id)?.pricePenceMonthly ?? t.planPricePenceMonthly ?? 0;
+  // MRR = live (Trial/Active) non-sandbox subscribers; plus a status headcount.
+  const live = tenants.filter((t) => !t.isSandbox && (t.status === 0 || t.status === 1));
+  const mrr = live.reduce((sum, t) => sum + priceOf(t), 0);
+  const statusCounts = STATUS.map((label, i) => ({ label, n: tenants.filter((t) => !t.isSandbox && t.status === i).length }));
+  const daysUntil = (iso: string) => Math.ceil((new Date(iso + "Z").getTime() - Date.now()) / 86_400_000);
+
   if (openId) return <TenantDetail tenantId={openId} tenant={tenants.find((t) => t.id === openId)} onClose={() => setOpenId(null)} />;
 
   return (
     <>
       {error && <p className="error">{error}</p>}
+      <div className="stat-row">
+        <div className="stat"><span className="stat-label">MRR (live subscribers)</span><span className="stat-value">{pounds(mrr)}</span><span className="muted small">{live.length} paying</span></div>
+        {statusCounts.filter((s) => s.n > 0).map((s) => (
+          <div className="stat" key={s.label}><span className="stat-label">{s.label}</span><span className="stat-value">{s.n}</span></div>
+        ))}
+      </div>
       <table>
-        <thead><tr><th /><th>Tenant</th><th>Status</th><th>Plan</th><th>Signals</th><th>30-day sales</th><th className="num">Sales</th><th className="num">Err 5xx</th><th /></tr></thead>
+        <thead><tr><th /><th>Subscriber</th><th>Status</th><th>Plan</th><th className="num">£/mo</th><th>Renewal</th><th>Signals</th><th>30-day sales</th><th className="num">Sales</th><th className="num">Err 5xx</th><th /></tr></thead>
         <tbody>
           {tenants.map((t) => {
             const u = usageBy.get(t.id);
@@ -488,6 +505,13 @@ function TenantsScreen() {
                 <td>{t.name} {t.isSandbox && <span style={{ background: "#7c3aed", color: "white", fontSize: 10, padding: "1px 5px", borderRadius: 3 }}>SANDBOX</span>}<br /><span className="muted small">{short(t.id)}</span></td>
                 <td>{STATUS[t.status] ?? t.status}</td>
                 <td>{t.plan || "—"}</td>
+                <td className="num">{priceOf(t) ? pounds(priceOf(t)) : "—"}</td>
+                <td className="small">{(() => {
+                  const c = contractsBy.get(t.id);
+                  if (!c) return <span className="muted">—</span>;
+                  const d = daysUntil(c.renewalAtUtc);
+                  return <span style={{ color: d <= 30 ? "#d97706" : undefined }}>{new Date(c.renewalAtUtc + "Z").toLocaleDateString("en-GB")}{d >= 0 ? ` (${d}d)` : " (past)"}</span>;
+                })()}</td>
                 <td>
                   {(signalsBy.get(t.id) ?? []).map((s) => (
                     <span key={s} title={s} style={{ background: "#d97706", color: "white", fontSize: 10, padding: "1px 5px", borderRadius: 3, marginRight: 3 }}>{s}</span>
@@ -501,7 +525,7 @@ function TenantsScreen() {
               </tr>
             );
           })}
-          {tenants.length === 0 && !error && <tr><td colSpan={9} className="muted">No tenants.</td></tr>}
+          {tenants.length === 0 && !error && <tr><td colSpan={11} className="muted">No subscribers.</td></tr>}
         </tbody>
       </table>
     </>
@@ -526,6 +550,9 @@ function TenantDetail({ tenantId, tenant, onClose }: { tenantId: string; tenant?
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<string>(tenant?.planId ?? "");
   useEffect(() => { fetchPlans().then(setPlans).catch(() => undefined); }, []);
+  const [users, setUsers] = useState<TenantUser[]>([]);
+  const [lastPortal, setLastPortal] = useState<string | null>(null);
+  useEffect(() => { fetchTenantUsers(tenantId).then((r) => { setUsers(r.users); setLastPortal(r.lastPortalActivityDay); }).catch(() => undefined); }, [tenantId]);
   const [sendFrom, setSendFrom] = useState({ fromAddress: "", domain: "" });
   useEffect(() => {
     fetchSendingIdentities(tenantId).then((rows) => {
@@ -600,6 +627,17 @@ function TenantDetail({ tenantId, tenant, onClose }: { tenantId: string; tenant?
           </dd>
         </dl>
       )}
+
+      <h4>Users {lastPortal && <span className="muted small">· last portal activity {lastPortal}</span>}</h4>
+      <table>
+        <thead><tr><th>Name</th><th>Email</th><th>Roles</th></tr></thead>
+        <tbody>
+          {users.map((u) => (
+            <tr key={u.id}><td>{u.name || short(u.id)}</td><td className="small">{u.email ?? "—"}</td><td className="small">{u.roles.join(", ") || "—"}</td></tr>
+          ))}
+          {users.length === 0 && <tr><td colSpan={3} className="muted">No users found for this subscriber.</td></tr>}
+        </tbody>
+      </table>
 
       <h4>Subscription plan</h4>
       <p className="muted small">Assigning a plan sets this tenant's list price + entitlement bundle. A negotiated contract price (below) overrides the list price for margin.</p>
