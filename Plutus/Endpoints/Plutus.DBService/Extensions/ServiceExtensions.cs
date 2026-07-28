@@ -203,6 +203,10 @@ namespace Plutus.DBService.Extensions
                     ValidateAudience = !string.IsNullOrWhiteSpace(audience),
                     NameClaimType = "preferred_username",
                     RoleClaimType = "roles",
+                    // Without this the ClaimsIdentity is labelled "AuthenticationTypes.Federation"
+                    // and RbacClaimsTransformation (which maps only "Bearer" identities) never runs
+                    // for real IdP logins — no RBAC scopes, no platform-admin, blanket 403s.
+                    AuthenticationType = "Bearer",
                 };
             })
             .AddScheme<AuthenticationSchemeOptions, PlutusTokenAuthHandler>(PlutusTokenAuthHandler.SchemeName, null);
