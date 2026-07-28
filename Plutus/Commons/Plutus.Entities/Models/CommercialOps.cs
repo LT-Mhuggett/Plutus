@@ -63,6 +63,25 @@ namespace Plutus.Entities.Models
     }
 
     /// <summary>
+    /// OP2 subscription plan — the operator's named price list (e.g. "Standard £99/mo"). GLOBAL,
+    /// operator-managed. Assigning a plan to a tenant copies its Name into <c>Tenant.Plan</c> and
+    /// its entitlement bundle into <c>Tenant.Entitlements</c> (so every existing entitlement read
+    /// keeps working); a <see cref="TenantContract"/> price, if present, is the negotiated override
+    /// that wins over the plan's list price for margin/billing.
+    /// </summary>
+    public class SubscriptionPlan
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; }
+        public long PricePenceMonthly { get; set; }
+        public string EntitlementsJson { get; set; }   // JSON array, same vocabulary as Tenant.Entitlements
+        public bool Active { get; set; }
+        public DateTime CreatedAtUtc { get; set; }
+        public DateTime UpdatedAtUtc { get; set; }
+        public string UpdatedBy { get; set; }
+    }
+
+    /// <summary>
     /// WP16.2 contract / renewal record — deliberately thin. The billing provider owns money truth
     /// once it exists; this tracks the *relationship* (negotiated monthly price, term, renewal date)
     /// that no provider webhook carries. GLOBAL, operator-managed, one row per tenant (TenantId is

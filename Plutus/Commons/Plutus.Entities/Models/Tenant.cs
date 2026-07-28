@@ -24,5 +24,8 @@ namespace Plutus.Entities.Models
         public string DataRegion { get; set; } = "UK";
         public DateTime? DpaSignedAtUtc { get; set; }
         public string DpaRef { get; set; }
+        // OP2: assigned subscription plan (nullable). The free-text Plan/Entitlements above are
+        // kept in sync from the plan on assignment, so existing reads are unaffected.
+        public Guid? PlanId { get; set; }
     }
 }

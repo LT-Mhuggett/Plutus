@@ -7,6 +7,7 @@ import {
   fetchNotificationCatalogue, fetchNotificationConfig, setNotificationConfig, sendNotificationTest, fetchNotificationEvents,
   fetchSendingIdentities, setSendingIdentity,
   fetchBillingCatalogue, fetchBillingConfig, setBillingConfig, type CommerceProviderInfo, type BillingConfig,
+  fetchPlans, createPlan, updatePlan, deletePlan, assignPlan, type PlanRow,
   type PlatformTenant, type UsageSummaryRow, type HealthResponse, type HealthTenantRow,
   type HealthDrillRow, type AlertRow, type JobRow, type OverrideRow, type FlagRow, type AnnouncementRow, type SlaResponse,
   type SignalRow, type ContractRow, type MarginResponse, type AnalyticsResponse, type ConnectorRow,
@@ -45,16 +46,17 @@ function Sparkline({ values, w = 120, h = 26 }: { values: number[]; w?: number; 
 }
 
 export default function PlatformPage() {
-  const [screen, setScreen] = useState<"Tenants" | "Health" | "Jobs" | "Flags" | "Comms" | "Commercial" | "Analytics" | "Notifications" | "Billing">("Tenants");
+  const [screen, setScreen] = useState<"Subscribers" | "Health" | "Jobs" | "Flags" | "Comms" | "Commercial" | "Analytics" | "Notifications" | "Billing" | "Plans">("Subscribers");
   return (
     <section className="panel">
       <div className="toolbar">
         <h2 className="grow">Platform</h2>
-        {(["Tenants", "Health", "Jobs", "Flags", "Comms", "Commercial", "Analytics", "Notifications", "Billing"] as const).map((s) => (
+        {(["Subscribers", "Plans", "Health", "Jobs", "Flags", "Comms", "Commercial", "Analytics", "Notifications", "Billing"] as const).map((s) => (
           <button key={s} className={s === screen ? "tab active" : "tab"} onClick={() => setScreen(s)}>{s}</button>
         ))}
       </div>
-      {screen === "Tenants" && <TenantsScreen />}
+      {screen === "Plans" && <PlansScreen />}
+      {screen === "Subscribers" && <TenantsScreen />}
       {screen === "Health" && <HealthScreen />}
       {screen === "Jobs" && <JobsScreen />}
       {screen === "Flags" && <FlagsScreen />}
@@ -64,6 +66,65 @@ export default function PlatformPage() {
       {screen === "Notifications" && <NotificationsScreen />}
       {screen === "Billing" && <BillingScreen />}
     </section>
+  );
+}
+
+// OP2: subscription plans — the operator's named price list. Assigning a plan to a tenant (on the
+// tenant detail) copies its name + entitlement bundle onto that tenant.
+function PlansScreen() {
+  const [plans, setPlans] = useState<PlanRow[]>([]);
+  const [form, setForm] = useState({ id: "", name: "", price: "", entitlements: "", active: true });
+  const [error, setError] = useState("");
+  const refresh = () => fetchPlans().then((p) => { setPlans(p); setError(""); }).catch((e) => setError(String(e)));
+  useEffect(() => { void refresh(); }, []);
+
+  const edit = (p: PlanRow) => setForm({ id: p.id, name: p.name, price: (p.pricePenceMonthly / 100).toString(), entitlements: p.entitlements.join(", "), active: p.active });
+  const reset = () => setForm({ id: "", name: "", price: "", entitlements: "", active: true });
+
+  function save() {
+    const body = {
+      name: form.name.trim(),
+      pricePenceMonthly: Math.round((Number(form.price) || 0) * 100),
+      entitlements: form.entitlements.split(",").map((s) => s.trim()).filter(Boolean),
+      active: form.active,
+    };
+    const op = form.id ? updatePlan(form.id, body) : createPlan(body).then(() => undefined);
+    void op.then(() => { reset(); return refresh(); }).catch((e) => setError(String(e)));
+  }
+
+  return (
+    <>
+      <p className="muted small">Named price list. Assign a plan to a subscriber on their detail page — it sets their entitlement bundle and list price (a negotiated contract price still overrides it for margin).</p>
+      {error && <p className="error">{error}</p>}
+      <div className="toolbar" style={{ flexWrap: "wrap" }}>
+        <label>Name <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Standard" /></label>
+        <label>£/mo <input className="short" inputMode="decimal" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></label>
+        <label>Entitlements <input className="mono" value={form.entitlements} onChange={(e) => setForm({ ...form, entitlements: e.target.value })} placeholder="woo-connector, …" /></label>
+        <label>Active <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} /></label>
+        <button className="primary small" disabled={!form.name.trim()} onClick={save}>{form.id ? "Update" : "Create"} plan</button>
+        {form.id && <button className="ghost small" onClick={reset}>Cancel</button>}
+      </div>
+      <table>
+        <thead><tr><th>Plan</th><th className="num">£/mo</th><th>Entitlements</th><th>Active</th><th className="num">Tenants</th><th /></tr></thead>
+        <tbody>
+          {plans.map((p) => (
+            <tr key={p.id}>
+              <td>{p.name}</td>
+              <td className="num">{pounds(p.pricePenceMonthly)}</td>
+              <td className="small mono">{p.entitlements.join(", ") || "—"}</td>
+              <td>{p.active ? "yes" : "no"}</td>
+              <td className="num">{p.tenantCount}</td>
+              <td>
+                <button className="ghost small" onClick={() => edit(p)}>Edit</button>
+                <button className="ghost small" disabled={p.tenantCount > 0} title={p.tenantCount > 0 ? "reassign tenants first" : ""}
+                  onClick={() => { if (confirm(`Delete plan "${p.name}"?`)) void deletePlan(p.id).then(refresh).catch((e) => setError(String(e))); }}>Delete</button>
+              </td>
+            </tr>
+          ))}
+          {plans.length === 0 && !error && <tr><td colSpan={6} className="muted">No plans yet — create one above.</td></tr>}
+        </tbody>
+      </table>
+    </>
   );
 }
 
@@ -462,6 +523,9 @@ function TenantDetail({ tenantId, tenant, onClose }: { tenantId: string; tenant?
     dpaSigned: (tenant?.dpaSignedAtUtc ?? "").slice(0, 10),
     dpaRef: tenant?.dpaRef ?? "",
   });
+  const [plans, setPlans] = useState<PlanRow[]>([]);
+  const [selectedPlan, setSelectedPlan] = useState<string>(tenant?.planId ?? "");
+  useEffect(() => { fetchPlans().then(setPlans).catch(() => undefined); }, []);
   const [sendFrom, setSendFrom] = useState({ fromAddress: "", domain: "" });
   useEffect(() => {
     fetchSendingIdentities(tenantId).then((rows) => {
@@ -536,6 +600,21 @@ function TenantDetail({ tenantId, tenant, onClose }: { tenantId: string; tenant?
           </dd>
         </dl>
       )}
+
+      <h4>Subscription plan</h4>
+      <p className="muted small">Assigning a plan sets this tenant's list price + entitlement bundle. A negotiated contract price (below) overrides the list price for margin.</p>
+      <div className="toolbar">
+        <label>Plan
+          <select value={selectedPlan} onChange={(e) => setSelectedPlan(e.target.value)}>
+            <option value="">(none)</option>
+            {plans.map((p) => <option key={p.id} value={p.id}>{p.name} — {pounds(p.pricePenceMonthly)}/mo</option>)}
+          </select>
+        </label>
+        <button className="primary small" onClick={() =>
+          void assignPlan(tenantId, selectedPlan || null).then(() => setError("")).catch((e) => setError(String(e)))}>
+          Assign plan
+        </button>
+      </div>
 
       <h4>Residency & DPA</h4>
       <p className="muted small">Data region (UK today, modelled for the future) + the signed Data Processing Agreement. No signed DPA raises a <span className="mono">dpa-missing</span> signal. Portability = the tenant export; retention = the offboarding sweeper.</p>

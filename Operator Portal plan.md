@@ -405,6 +405,10 @@ vars), commit with a descriptive message, and deploy only when the operator asks
       shell (no client tabs, Account&MFA link). Tests: `OperatorBoundaryE2eTests` (operator 403 on
       /customers+/loyalty, 200 on /platform+/tenants; staff token 200; tid-bearing passes). Suites:
       Unit 211 · Arch 6 · Integration 34.
-- [ ] OP2 plans & pricing
+- [x] OP2 plans & pricing — DONE 2026-07-28. `SubscriptionPlan` (global) + `Tenant.PlanId` +
+      migration `AddSubscriptionPlans`. `PlatformPlansController`: CRUD (dup-name 409,
+      delete-in-use 409), `PUT /tenants/{id}/plan` copies name+entitlements onto the tenant. Margin
+      + tenants-list use contract-price ?? plan-price. Portal: **Plans** screen + plan selector on
+      the tenant detail. Tests: `SubscriptionPlansE2eTests`. Suites: Unit 211 · Arch 6 · Integration 35.
 - [ ] OP3 subscribers landing
 - [ ] OP4 tickets end-to-end + support-heavy signal

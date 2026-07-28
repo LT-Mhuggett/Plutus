@@ -113,9 +113,12 @@ namespace Plutus.Tenancy.Controllers
             long totalActivity = activity.Values.Sum();
 
             var tenants = await _db.Tenants.AsNoTracking().Where(t => !t.IsSandbox)
-                .Select(t => new { t.Id, t.Name }).ToListAsync();
+                .Select(t => new { t.Id, t.Name, t.PlanId }).ToListAsync();
             var contracts = (await _db.TenantContracts.AsNoTracking().ToListAsync())
                 .ToDictionary(c => c.TenantId, c => c.PricePenceMonthly);
+            // OP2: revenue = negotiated contract price if set, else the assigned plan's list price, else 0.
+            var planPrices = (await _db.SubscriptionPlans.AsNoTracking().ToListAsync())
+                .ToDictionary(p => p.Id, p => p.PricePenceMonthly);
 
             var rows = tenants.Select(t =>
             {
@@ -124,7 +127,8 @@ namespace Plutus.Tenancy.Controllers
                 long attributedInfra = (long)Math.Round(costs.MonthlyInfraPence * share);
                 long direct = costs.DirectCostsPence != null && costs.DirectCostsPence.TryGetValue(t.Id.ToString(), out var d) ? d : 0;
                 long cost = attributedInfra + direct;
-                long revenue = contracts.TryGetValue(t.Id, out var r) ? r : 0;
+                long revenue = contracts.TryGetValue(t.Id, out var r) ? r
+                    : (t.PlanId is Guid pid && planPrices.TryGetValue(pid, out var pp) ? pp : 0);
                 return new
                 {
                     tenantId = t.Id, name = t.Name, activityShare = Math.Round(share, 4),

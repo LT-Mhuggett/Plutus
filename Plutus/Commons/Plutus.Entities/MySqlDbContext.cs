@@ -80,6 +80,7 @@ namespace Plutus.Entities
         public DbSet<NotificationSettings> NotificationSettings { get; set; }
         public DbSet<BillingSettings> BillingSettings { get; set; }
         public DbSet<PaymentGatewaySettings> PaymentGatewaySettings { get; set; }
+        public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
         // Financial periods (WP3.4): close/lock + snapshot.
         public DbSet<FinancialPeriod> FinancialPeriods { get; set; }
         // Stock ledger (WP5.1): append-only movements + materialised levels.
@@ -590,6 +591,16 @@ namespace Plutus.Entities
                 e.Property(x => x.ConfigJson).IsRequired(false);
                 e.Property(x => x.UpdatedBy).HasMaxLength(128);
                 e.HasIndex(x => x.TenantId).IsUnique();
+            });
+            modelBuilder.Entity<SubscriptionPlan>(e =>   // OP2 — GLOBAL price list
+            {
+                e.ToTable("SubscriptionPlans");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Name).HasMaxLength(100).IsRequired();
+                e.Property(x => x.EntitlementsJson).IsRequired(false);
+                e.Property(x => x.UpdatedBy).HasMaxLength(128);
+                e.HasIndex(x => x.Name).IsUnique();
             });
 
             // WP3.4 financial periods.

@@ -49,7 +49,7 @@ export const gbp = (pence: number) =>
   new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
 
 // ── platform / operator dashboard (WP13.1–13.4; all platform-admin) ──
-export interface PlatformTenant { id: string; name: string; status: number; plan: string; entitlements: string[]; createdAtUtc: string; isSandbox: boolean; dataRegion?: string; dpaSignedAtUtc?: string | null; dpaRef?: string | null }
+export interface PlatformTenant { id: string; name: string; status: number; plan: string; entitlements: string[]; createdAtUtc: string; isSandbox: boolean; dataRegion?: string; dpaSignedAtUtc?: string | null; dpaRef?: string | null; planId?: string | null; planPricePenceMonthly?: number | null }
 export interface OverrideRow { entitlement: string; deny: boolean; reason: string | null; createdAtUtc: string }
 export interface FlagRow { flagName: string; enabled: boolean; reason: string | null; updatedAtUtc: string }
 export interface UsageSummaryRow { tenantId: string; totals: Record<string, number>; salesDaily: { day: string; value: number }[] }
@@ -138,6 +138,16 @@ export const fetchNotificationEvents = () => get<MessageEventRow[]>("/api/v1/pla
 export const fetchSendingIdentities = (tenantId: string) => get<SendingIdentityRow[]>(`/api/v1/platform/tenants/${tenantId}/sending-identity`);
 export const setSendingIdentity = (tenantId: string, body: { channel: number; fromAddress: string; domain: string; verified: boolean }) =>
   put<void>(`/api/v1/platform/tenants/${tenantId}/sending-identity`, body);
+// OP2 subscription plans (operator)
+export interface PlanRow { id: string; name: string; pricePenceMonthly: number; entitlements: string[]; active: boolean; tenantCount: number; updatedAtUtc: string }
+export const fetchPlans = () => get<PlanRow[]>("/api/v1/platform/plans");
+export const createPlan = (body: { name: string; pricePenceMonthly: number; entitlements: string[]; active: boolean }) =>
+  post<{ id: string }>("/api/v1/platform/plans", body);
+export const updatePlan = (id: string, body: { name: string; pricePenceMonthly: number; entitlements: string[]; active: boolean }) =>
+  put<void>(`/api/v1/platform/plans/${id}`, body);
+export const deletePlan = (id: string) => del<void>(`/api/v1/platform/plans/${id}`);
+export const assignPlan = (tenantId: string, planId: string | null) =>
+  put<void>(`/api/v1/tenants/${tenantId}/plan`, { planId });
 // 16.4 billing provider (operator, platform-wide)
 export interface CommerceProviderInfo { key: string; label: string; blurb: string; fields: ProviderField[] }
 export interface BillingConfig { provider: string; enabled: boolean; config: Record<string, string>; updatedAtUtc: string | null }

@@ -112,14 +112,20 @@ namespace Plutus.Tenancy.Controllers
         [HttpGet("api/v1/tenants")]
         [Authorize(Policy = PlutusPolicies.PlatformAdmin)]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<IActionResult> List() =>
-            Ok(await _db.Tenants.AsNoTracking().OrderBy(t => t.Name).Select(t => new
+        public async Task<IActionResult> List()
+        {
+            var planPrices = (await _db.SubscriptionPlans.AsNoTracking().ToListAsync())
+                .ToDictionary(p => p.Id, p => p.PricePenceMonthly); // OP2
+            return Ok((await _db.Tenants.AsNoTracking().OrderBy(t => t.Name).ToListAsync()).Select(t => new
             {
                 id = t.Id, name = t.Name, status = t.Status, plan = t.Plan,
                 entitlements = EntitlementService.Parse(t.Entitlements), createdAtUtc = t.CreatedAtUtc,
                 isSandbox = t.IsSandbox,
                 dataRegion = t.DataRegion, dpaSignedAtUtc = t.DpaSignedAtUtc, dpaRef = t.DpaRef, // WP18.2
-            }).ToListAsync());
+                planId = t.PlanId, // OP2
+                planPricePenceMonthly = t.PlanId is Guid pid && planPrices.TryGetValue(pid, out var pp) ? pp : (long?)null,
+            }));
+        }
 
         /// <summary>WP18.2 residency & DPA registry: set the tenant's data region + DPA reference /
         /// signed date. Audited. Clearing the signed date re-raises the "dpa-missing" signal on the
