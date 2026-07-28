@@ -330,6 +330,32 @@ In `ChurnSweep.EvaluateAsync` add: count this tenant's tickets created in the la
 - **Retention:** tickets are business records — NOT added to the retention sweeper. Closed-ticket
   archival is a future decision.
 
+### OP1.2 corrections (token-shape details)
+- `isOperatorOnly()` must check BOTH claim casings: HMAC CompactTokens carry `Tid` (capital),
+  Keycloak JWTs carry `tid`/none — so: `isPlatformAdmin() && !(c?.tid ?? c?.Tid)`. (Impersonation
+  tokens carry `Tid` + `Impersonating`, so they correctly render the client chrome.)
+
+### ⚠ Known regression to acknowledge (pre-existing, caused by the SSO switch — decide, don't drift)
+Since 2026-07-28 the portal is **OIDC-only** (`VITE_AUTH_MODE=oidc`): the old email/password form
+is gone, so **tenant staff can only reach the client portal if they have a Keycloak account**
+whose email matches their `WebCredentials` row (seeded demo: `ada@shop.test`). Matt is the only
+real portal user on the test env today, so nothing is broken in practice — but the plan must not
+paper over it. Options (operator decision, not implementer's):
+  a) **Onboard staff into Keycloak** (admin-created accounts, TOTP optional for non-operators) —
+     cleanest, matches production intent;
+  b) restore the WP9.4 dual-mode login page (email/password + "Sign in with SSO" button on one
+     screen) — more code, keeps the HMAC path alive for tenants.
+Default assumption for this plan: **(a)**; the till (WebApp) stays password/HMAC mode regardless.
+
+### Operator acceptance checklist (Matt, after each deploy)
+- OP1: operator login → only operator screens; Banking/Stock/etc. gone; any tenant API from the
+  operator session → 403; impersonate a tenant → client view appears with the red banner; stop →
+  operator view returns.
+- OP2: create a plan, assign it to Demo Store, see the price on Subscribers + margin.
+- OP3: landing page answers subscriber count/MRR/status mix at a glance.
+- OP4: raise a ticket from the client side (impersonated or till), see the operator alert, reply,
+  see the reply as the client.
+
 ### Ops hardening (schedule with OP1, it protects the login itself)
 - **Keycloak persistence:** the container is stateless — a `docker rm`/re-run (or image upgrade)
   wipes enrolled passwords/TOTP back to the seed; only the big warning in `run-keycloak.sh`
