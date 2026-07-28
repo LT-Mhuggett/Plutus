@@ -3,7 +3,7 @@ import {
   fetchTenants, fetchUsageSummary, fetchHealth, fetchTenantHealth, fetchAlerts, fetchJobs, setTenantStatus, impersonate,
   fetchOverrides, setOverrides, fetchFlags, setFlag, setSandbox, resetSandbox,
   fetchAnnouncements, createAnnouncement, deleteAnnouncement, fetchSla,
-  fetchSignals, fetchContract, setContract, fetchMargin, fetchAnalytics, fetchConnectors,
+  fetchSignals, fetchContract, setContract, fetchMargin, fetchAnalytics, fetchConnectors, setCompliance,
   type PlatformTenant, type UsageSummaryRow, type HealthResponse, type HealthTenantRow,
   type HealthDrillRow, type AlertRow, type JobRow, type OverrideRow, type FlagRow, type AnnouncementRow, type SlaResponse,
   type SignalRow, type ContractRow, type MarginResponse, type AnalyticsResponse, type ConnectorRow,
@@ -289,6 +289,11 @@ function TenantDetail({ tenantId, tenant, onClose }: { tenantId: string; tenant?
   const [newFeature, setNewFeature] = useState("");
   const [sla, setSla] = useState<SlaResponse | null>(null);
   const [contract, setContractState] = useState<{ renewalAtUtc: string; termMonths: number; pricePenceMonthly: number; notes: string }>({ renewalAtUtc: "", termMonths: 12, pricePenceMonthly: 0, notes: "" });
+  const [compliance, setComplianceState] = useState({
+    dataRegion: tenant?.dataRegion ?? "UK",
+    dpaSigned: (tenant?.dpaSignedAtUtc ?? "").slice(0, 10),
+    dpaRef: tenant?.dpaRef ?? "",
+  });
 
   const refresh = () =>
     Promise.all([fetchTenantHealth(tenantId), fetchOverrides(tenantId)])
@@ -356,6 +361,20 @@ function TenantDetail({ tenantId, tenant, onClose }: { tenantId: string; tenant?
           </dd>
         </dl>
       )}
+
+      <h4>Residency & DPA</h4>
+      <p className="muted small">Data region (UK today, modelled for the future) + the signed Data Processing Agreement. No signed DPA raises a <span className="mono">dpa-missing</span> signal. Portability = the tenant export; retention = the offboarding sweeper.</p>
+      <div className="toolbar" style={{ flexWrap: "wrap" }}>
+        <label>Region <input className="short" value={compliance.dataRegion} onChange={(e) => setComplianceState({ ...compliance, dataRegion: e.target.value })} /></label>
+        <label>DPA signed <input type="date" value={compliance.dpaSigned} onChange={(e) => setComplianceState({ ...compliance, dpaSigned: e.target.value })} /></label>
+        <label>DPA ref <input value={compliance.dpaRef} onChange={(e) => setComplianceState({ ...compliance, dpaRef: e.target.value })} /></label>
+        <button className="primary small" onClick={() =>
+          void setCompliance(tenantId, {
+            dataRegion: compliance.dataRegion.trim() || "UK",
+            dpaSignedAtUtc: compliance.dpaSigned ? new Date(compliance.dpaSigned + "T00:00:00Z").toISOString() : null,
+            dpaRef: compliance.dpaRef.trim() || null,
+          }).then(() => setError("")).catch((e) => setError(String(e)))}>Save compliance</button>
+      </div>
 
       <h4>Contract & renewal</h4>
       <p className="muted small">The relationship record (renewal date, term, negotiated monthly price). Billing owns money-truth once it exists; a renewal-due signal fires 60/30/7 days out.</p>

@@ -18,5 +18,11 @@ namespace Plutus.Entities.Models
         public string ConnectionRef { get; set; } // null = pooled DB; set = dedicated (escape hatch)
         public DateTime CreatedAtUtc { get; set; }
         public bool IsSandbox { get; set; }        // WP14.3: demo/sandbox tenant (resettable, excluded from commercial rollups)
+        // WP18.2 residency & DPA registry — compliance state made visible (portability = WP10.3
+        // export; retention deletion = WP10.4 sweeper). DataRegion is constant "UK" today but
+        // modelled now; a null DpaSignedAtUtc raises the WP16.1-style "dpa-missing" signal.
+        public string DataRegion { get; set; } = "UK";
+        public DateTime? DpaSignedAtUtc { get; set; }
+        public string DpaRef { get; set; }
     }
 }

@@ -58,3 +58,23 @@ Rollback: `sudo cp /etc/caddy/Caddyfile.pre-keycloak.bak /etc/caddy/Caddyfile &&
 - Logs: `docker logs -f plutus-keycloak`. Stop: `docker stop plutus-keycloak`.
 - Admin console (local only): `ssh -L 8089:127.0.0.1:8089 …` then `http://127.0.0.1:8089/admin`
   (bootstrap admin from `KC_ADMIN_USER`/`KC_ADMIN_PASS` at first run). The edge blocks `/admin*`.
+
+## WP18.1 — Operator MFA/SSO (staged; activation gated on the `login.plutus` vhost)
+
+The realm export now carries a `platform-admin` realm role, an `operators` group that grants it,
+and an `operator` user forced to enrol TOTP (`requiredActions: [CONFIGURE_TOTP]`, realm
+`otpPolicyType: totp`). Backend side, `PlutusTokenAuthHandler` gained a flag
+**`OPERATOR_SSO_ENFORCED`** (default off): when on, HMAC ("test") logins are stripped of the
+`platform-admin` scope, so operator access is only obtainable via the Keycloak/OIDC path.
+
+**Do NOT set `OPERATOR_SSO_ENFORCED=true` until all of these are true**, or operators lose the
+Platform tab on the live test env:
+1. Matt has applied the `login.plutus` Caddy vhost (`ops/keycloak/caddy-login-vhost.caddy`, sudo).
+2. Keycloak is reachable and the portal's Keycloak login path is verified end-to-end.
+3. A real operator account is in the `operators` group and has enrolled TOTP.
+4. The OIDC claims-transformation emits `scope=platform-admin` for `operators`-group members.
+
+Then set `OPERATOR_SSO_ENFORCED=true` in the backend pm2 env and restart. Verify: an HMAC
+platform-admin token gets 403 on `/api/v1/platform/*`; a Keycloak operator login (post-TOTP) sees
+the Platform section. Group-conditional "force OTP at every login" (not just first-enrolment) is
+applied by cloning the browser flow with a Conditional-OTP sub-flow bound to the `operators` group.

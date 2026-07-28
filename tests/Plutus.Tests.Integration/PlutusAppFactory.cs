@@ -20,7 +20,7 @@ namespace Plutus.Tests.Integration;
 /// EnsureCreated (PLUTUS_DB_ENSURE_CREATED). Tokens are minted with the same HMAC secret the
 /// PlutusTokenAuthHandler validates.
 /// </summary>
-public sealed class PlutusAppFactory : WebApplicationFactory<Program>
+public class PlutusAppFactory : WebApplicationFactory<Program>
 {
     public const string Secret = "integration-test-secret";
     public const string JobsSecret = "integration-jobs-secret";

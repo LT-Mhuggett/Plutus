@@ -111,6 +111,36 @@ namespace Plutus.Tenancy
     }
 
     /// <summary>
+    /// WP18.2 compliance sweep (a RetentionSweeper pass): raise a "dpa-missing" signal (+ keyed
+    /// alert) for every live, non-sandbox tenant with no signed DPA on record; clear it once signed.
+    /// Makes the compliance gap visible on the dashboard exactly like the churn signals.
+    /// </summary>
+    public static class ComplianceSweep
+    {
+        public static async Task EvaluateAsync(MySqlDbContext db, IOperatorAlerter alerter, DateTime nowUtc, CancellationToken ct = default)
+        {
+            var tenants = await db.Tenants.AsNoTracking()
+                .Where(t => !t.IsSandbox && t.Status != 4)
+                .Select(t => new { t.Id, t.DpaSignedAtUtc }).ToListAsync(ct);
+            foreach (var t in tenants)
+            {
+                var key = ChurnSweep.AlertKey(t.Id, TenantSignals.DpaMissing);
+                if (t.DpaSignedAtUtc == null)
+                {
+                    await TenantSignalStore.RaiseAsync(db, t.Id, TenantSignals.DpaMissing, "No signed DPA on record.", nowUtc, ct);
+                    await alerter.RaiseAsync(key, TenantSignals.DpaMissing, t.Id, "signal", "No signed DPA on record.", ct);
+                }
+                else
+                {
+                    await TenantSignalStore.ClearAsync(db, t.Id, TenantSignals.DpaMissing, nowUtc, ct);
+                    await alerter.ClearAsync(key, ct);
+                }
+            }
+            await db.SaveChangesAsync(ct);
+        }
+    }
+
+    /// <summary>
     /// WP16.2 renewal-due sweep (a RetentionSweeper pass): for every tenant with a contract, raise a
     /// single "renewal-due" signal (+ keyed alert) as the renewal crosses 60/30/7 days out, clearing
     /// it once past. Uses the ChurnSweep raise/clear helpers so it shares the one signal table.

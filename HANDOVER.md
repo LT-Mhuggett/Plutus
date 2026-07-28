@@ -1,7 +1,7 @@
 # Handover — Plutus platform build
 
 **Date:** 2026-07-28 — Platform now on **.NET 10** (merged Development: net10 + MAUI + Mapster).
-Phases 0–17 built & tested (17.2 payments-gated, 17.3 = seam only); **13–16 LIVE; Phase 17 built + tested, deploying**.
+**All 18 phases built** (17.2 gated; 17.3 seam-only; 18.1 flag-gated/staged); **13–17 LIVE; Phase 18 built + tested, deploying**.
 **Branch:** `Matt's-Horror` · **dev remote is now `upstream` = seank842/Plutus** (bare `git push`/`pull`
 go there). `origin` = LT-Mhuggett/Plutus is **parked on net8** (a 151 MB `Publishing/` artifact blocks
 pushing the net10 line there — reconcile later, coordinated with Sean).
@@ -9,10 +9,28 @@ pushing the net10 line there — reconcile later, coordinated with Sean).
 
 ---
 
-## ⏰ RESUME HERE (updated 2026-07-28 — Phases 13–17 built; 13–16 LIVE; 17 deploying)
+## ⏰ RESUME HERE (updated 2026-07-28 — all 18 phases built; 13–17 LIVE; 18 deploying)
 
-**Test suite (net10, SDK 10.0.302): Unit 209 · Architecture 6 · Integration 25 — all green.**
-Committed to **`upstream/Matt's-Horror`** (seank842).
+**Test suite (net10, SDK 10.0.302): Unit 209 · Architecture 6 · Integration 26 — all green.**
+Committed to **`upstream/Matt's-Horror`** (seank842). **The whole operator-platform plan
+(Phases 13–18) is now built**; the only unbuilt work is explicitly gated (see below).
+
+### Phase 18 — operator security & compliance (built + tested this session)
+- **18.2 Residency & DPA** — Tenant `DataRegion`/`DpaSignedAtUtc`/`DpaRef` + migration; audited
+  `PUT /platform/tenants/{id}/compliance`; `ComplianceSweep` raises a `dpa-missing` signal; portal
+  editor on the tenant detail. LIVE-ready.
+- **18.3 Incident runbook** — `ops/incident-runbook.md` + a rehearsed SEV1 backend-down scenario
+  (recorded in the runbook's rehearsal log). Doc only.
+- **18.1 Operator MFA/SSO (flag-gated, NOT active)** — `OPERATOR_SSO_ENFORCED` (default off) strips
+  `platform-admin` from HMAC logins when on; realm export updated with `platform-admin` role +
+  `operators` group + TOTP-forced `operator` user. **Do not flip the flag** until Matt applies the
+  `login.plutus` vhost and the portal Keycloak path is verified — otherwise operators lose the
+  Platform tab (full activation checklist in `ops/keycloak/README.md`).
+
+### Gated tails remaining (nothing else to build)
+- **16.4 dunning** → needs the billing-provider choice. **17.2 payment gateway health** → needs
+  Phase 7 payments. **17.3 concrete mailer** → needs a mailer choice (seam is in). **18.1
+  activation** → needs the `login.plutus` vhost (Matt's sudo) + Keycloak SSO verified.
 
 ### Phase 17 — integration health & deliverability (built + tested this session)
 - **17.1 Connector health** — `ConnectorRun` + migration; SharedKernel `IConnectorHealth` /
@@ -118,10 +136,10 @@ Rollback dirs kept: `backend.pre-phase13`, `backend.pre-p135`, etc.
   `plutus` password**; Keycloak `login.plutus` vhost + portal basic_auth (Matt's sudo).
 - **Phase 14 (LIVE):** impersonation, feature flags/kill switches, sandbox + a permanent **Demo
   Store** tenant (`de300000-…-0001`). See the plan board for per-WP detail.
-- **Next in the plan:** **Phase 18** (operator security & compliance — 18.1 MFA/SSO gated on the
-  `login.plutus` vhost; 18.2 residency/DPA registry + 18.3 incident-response runbook buildable).
-  Gated tails: billing adapter (unblocks 16.4), payments (17.2 + 7), mailer (17.3 concrete),
-  Keycloak (18.1).
+- **Plan complete:** Phases 13–18 are all built. Remaining work is the gated tails listed in the
+  Phase-18 block above (billing adapter → 16.4; payments → 17.2; mailer → 17.3; Keycloak vhost →
+  18.1 activation). Beyond the plan: the earlier carry-forwards below (click-tests, MySQL password
+  rotation, origin/net8 reconciliation, Phase 6 outbound go-live).
 
 ---
 

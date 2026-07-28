@@ -26,6 +26,11 @@ namespace Plutus.Identity
         public const string SchemeName = "PlutusToken";
         private readonly string _secret;
         private readonly string _apiScopes;
+        // WP18.1: when operator SSO is enforced, HMAC ("test") logins must NEVER carry
+        // platform-admin — that scope may only arrive via the Keycloak/OIDC path (which requires
+        // TOTP for the operators group). Default off so the test env keeps working until the
+        // login.plutus vhost + SSO are live (Matt's sudo); flip on once verified.
+        private readonly bool _operatorSsoEnforced;
 
         public PlutusTokenAuthHandler(
             IOptionsMonitor<AuthenticationSchemeOptions> options,
@@ -44,6 +49,7 @@ namespace Plutus.Identity
             var write = configuration["OpenAPI:Scopes:APIWrite:Name"];
             var scopes = new[] { read, write }.Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
             _apiScopes = scopes.Length > 0 ? string.Join(' ', scopes) : "API.Read API.Write";
+            _operatorSsoEnforced = string.Equals(configuration["OPERATOR_SSO_ENFORCED"], "true", StringComparison.OrdinalIgnoreCase);
         }
 
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
@@ -118,11 +124,16 @@ namespace Plutus.Identity
             }
         }
 
-        private static void AddScopes(ClaimsIdentity identity, string? scope)
+        private void AddScopes(ClaimsIdentity identity, string? scope)
         {
             if (string.IsNullOrWhiteSpace(scope)) return;
             foreach (var s in scope.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                // WP18.1: HMAC tokens may not carry platform-admin once SSO is enforced.
+                if (_operatorSsoEnforced && string.Equals(s, PlutusPolicies.PlatformAdmin, StringComparison.Ordinal))
+                    continue;
                 identity.AddClaim(new Claim("scope", s));
+            }
         }
     }
 }

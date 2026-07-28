@@ -24,6 +24,7 @@ namespace Plutus.Tenancy.Controllers
     public sealed record OverrideItem(string Entitlement, bool Deny, string Reason);
     public sealed record SetOverridesBody(OverrideItem[] Overrides);
     public sealed record SetFlagBody(bool Enabled, string Reason);
+    public sealed record SetComplianceBody(string DataRegion, DateTime? DpaSignedAtUtc, string DpaRef); // WP18.2
 
     /// <summary>
     /// Phase 10 platform admin: tenant lifecycle (status + entitlements), offboarding (scheduled
@@ -117,7 +118,30 @@ namespace Plutus.Tenancy.Controllers
                 id = t.Id, name = t.Name, status = t.Status, plan = t.Plan,
                 entitlements = EntitlementService.Parse(t.Entitlements), createdAtUtc = t.CreatedAtUtc,
                 isSandbox = t.IsSandbox,
+                dataRegion = t.DataRegion, dpaSignedAtUtc = t.DpaSignedAtUtc, dpaRef = t.DpaRef, // WP18.2
             }).ToListAsync());
+
+        /// <summary>WP18.2 residency & DPA registry: set the tenant's data region + DPA reference /
+        /// signed date. Audited. Clearing the signed date re-raises the "dpa-missing" signal on the
+        /// next sweep; setting it clears the signal.</summary>
+        [HttpPut("api/v1/tenants/{id}/compliance")]
+        [Authorize(Policy = PlutusPolicies.PlatformAdmin)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public Task<IActionResult> SetCompliance([FromRoute] Guid id, [FromBody] SetComplianceBody body) =>
+            Guarded(async () =>
+            {
+                var t = await _db.Tenants.FirstOrDefaultAsync(x => x.Id == id);
+                if (t == null) return NotFound();
+                _db.CurrentUser = Actor.ToString();
+                if (!string.IsNullOrWhiteSpace(body?.DataRegion)) t.DataRegion = body.DataRegion.Trim();
+                t.DpaSignedAtUtc = body?.DpaSignedAtUtc;
+                t.DpaRef = string.IsNullOrWhiteSpace(body?.DpaRef) ? null : body.DpaRef.Trim();
+                _db.Audit(id, Actor, "tenant.compliance", nameof(Tenant), id.ToString(),
+                    new { t.DataRegion, t.DpaSignedAtUtc, t.DpaRef });
+                await _db.SaveChangesAsync();
+                return NoContent();
+            });
 
         [HttpPut("api/v1/tenants/{id}/status")]
         [Authorize(Policy = PlutusPolicies.PlatformAdmin)]

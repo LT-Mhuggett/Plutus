@@ -196,6 +196,9 @@ namespace Plutus.Entities
                 e.Property(t => t.Name).HasMaxLength(200);
                 e.Property(t => t.Plan).HasMaxLength(50);
                 e.Property(t => t.ConnectionRef).HasMaxLength(100);
+                // WP18.2 residency & DPA registry.
+                e.Property(t => t.DataRegion).HasMaxLength(16).HasDefaultValue("UK");
+                e.Property(t => t.DpaRef).HasMaxLength(128).IsRequired(false);
             });
 
             // T1.2 enrolment (server-side, global/unscoped — see entity docs).

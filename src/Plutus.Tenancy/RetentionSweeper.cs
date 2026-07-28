@@ -100,6 +100,7 @@ namespace Plutus.Tenancy
                                     using var opsDb = new MySqlDbContext(opts, new FixedTenantContext(Guid.Empty));
                                     await ChurnSweep.EvaluateAsync(opsDb, alerter, DateTime.UtcNow, c);
                                     await RenewalSweep.EvaluateAsync(opsDb, alerter, DateTime.UtcNow, c);
+                                    await ComplianceSweep.EvaluateAsync(opsDb, alerter, DateTime.UtcNow, c); // WP18.2 dpa-missing
                                 }
                                 if (heartbeat != null) await heartbeat.TrackAsync("commercial-sweep", null, CommercialSweep, stoppingToken);
                                 else await CommercialSweep(stoppingToken);

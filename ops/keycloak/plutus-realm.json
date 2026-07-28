@@ -81,7 +81,29 @@
       "defaultClientScopes": ["openid", "profile", "email", "plutus-api-audience"]
     }
   ],
+  "roles": {
+    "realm": [
+      { "name": "platform-admin", "description": "Plutus operator platform admin (WP18.1) — maps to the platform-admin scope the backend policy requires." }
+    ]
+  },
+  "groups": [
+    { "name": "operators", "realmRoles": ["platform-admin"] }
+  ],
+  "otpPolicyType": "totp",
   "users": [
+    {
+      "username": "operator",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Plutus",
+      "lastName": "Operator",
+      "email": "ops@plutus.test",
+      "groups": ["/operators"],
+      "requiredActions": ["CONFIGURE_TOTP"],
+      "credentials": [
+        { "type": "password", "value": "ChangeMe!2026", "temporary": false }
+      ]
+    },
     {
       "username": "ada",
       "enabled": true,

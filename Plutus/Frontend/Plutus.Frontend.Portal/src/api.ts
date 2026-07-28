@@ -49,7 +49,7 @@ export const gbp = (pence: number) =>
   new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
 
 // ── platform / operator dashboard (WP13.1–13.4; all platform-admin) ──
-export interface PlatformTenant { id: string; name: string; status: number; plan: string; entitlements: string[]; createdAtUtc: string; isSandbox: boolean }
+export interface PlatformTenant { id: string; name: string; status: number; plan: string; entitlements: string[]; createdAtUtc: string; isSandbox: boolean; dataRegion?: string; dpaSignedAtUtc?: string | null; dpaRef?: string | null }
 export interface OverrideRow { entitlement: string; deny: boolean; reason: string | null; createdAtUtc: string }
 export interface FlagRow { flagName: string; enabled: boolean; reason: string | null; updatedAtUtc: string }
 export interface UsageSummaryRow { tenantId: string; totals: Record<string, number>; salesDaily: { day: string; value: number }[] }
@@ -119,6 +119,9 @@ export const fetchAnalytics = () => get<AnalyticsResponse>("/api/v1/platform/ana
 export interface ConnectorRow { connector: string; tenantId?: string; lastPollAtUtc: string | null; lastWebhookAtUtc: string | null; lastOutboundAtUtc: string | null; errorStreak: number; lastError: string | null; silent: boolean }
 export const fetchConnectors = () => get<ConnectorRow[]>("/api/v1/platform/connectors");
 export const fetchConnectorHealth = () => get<ConnectorRow[]>("/api/v1/webstores/connector-health");
+// WP18.2 residency & DPA
+export const setCompliance = (tenantId: string, body: { dataRegion: string; dpaSignedAtUtc: string | null; dpaRef: string | null }) =>
+  put<void>(`/api/v1/tenants/${tenantId}/compliance`, body);
 
 // ── auth ──
 

@@ -30,6 +30,7 @@ namespace Plutus.Entities.Models
         public const string GoneQuiet = "gone-quiet";           // no portal login for 14 days
         public const string SupportHeavy = "support-heavy";     // seam only — no ticket source yet
         public const string RenewalDue = "renewal-due";         // WP16.2 — renewal within 60/30/7 days
+        public const string DpaMissing = "dpa-missing";         // WP18.2 — no signed DPA on record
     }
 
     /// <summary>Keyed upsert for TenantSignals (global table), mirroring OperatorAlertStore: raising
