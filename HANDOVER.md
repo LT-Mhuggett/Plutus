@@ -1,7 +1,7 @@
 # Handover — Plutus platform build
 
 **Date:** 2026-07-28 — Platform now on **.NET 10** (merged Development: net10 + MAUI + Mapster).
-Phases 0–15 built & tested; **13 & 14 LIVE; Phase 15 built + tested, deploying**.
+Phases 0–16 built & tested (16.4 dunning gated); **13, 14 & 15 LIVE; Phase 16 built + tested, deploying**.
 **Branch:** `Matt's-Horror` · **dev remote is now `upstream` = seank842/Plutus** (bare `git push`/`pull`
 go there). `origin` = LT-Mhuggett/Plutus is **parked on net8** (a 151 MB `Publishing/` artifact blocks
 pushing the net10 line there — reconcile later, coordinated with Sean).
@@ -9,10 +9,24 @@ pushing the net10 line there — reconcile later, coordinated with Sean).
 
 ---
 
-## ⏰ RESUME HERE (updated 2026-07-28 — Phases 13–15 built; 13 & 14 LIVE; 15 deploying)
+## ⏰ RESUME HERE (updated 2026-07-28 — Phases 13–16 built; 13/14/15 LIVE; 16 deploying)
 
-**Test suite (net10, SDK 10.0.302): Unit 191 · Architecture 5 · Integration 17 — all green.**
+**Test suite (net10, SDK 10.0.302): Unit 209 · Architecture 5 · Integration 21 — all green.**
 Committed to **`upstream/Matt's-Horror`** (seank842).
+
+### Phase 16 — commercial ops (built + tested this session; 16.4 gated)
+- **16.1 Churn signals** — `TenantSignal` (global, keyed) + `ChurnSweep` (RetentionSweeper pass):
+  `usage-declining` / `gone-quiet` (`support-heavy` = seam), each raising a keyed operator alert.
+  Portal signals badge on the Tenants list. Thresholds unit-tested at boundaries.
+- **16.2 Contracts** — `TenantContract` + audited `GET/PUT /platform/tenants/{id}/contract`;
+  `RenewalSweep` raises `renewal-due` at 60/30/7 days. Portal contract editor on tenant detail.
+- **16.3 Margin** — `GET /platform/margin` from `platform-costs.json` (`PLATFORM_COSTS_PATH`, not
+  set on the server yet → empty state); usage-share cost attribution. Portal Commercial screen.
+- **16.5 Analytics** — `GET /platform/analytics`, aggregate-only with a **k=3 anonymity floor**;
+  test asserts no TenantId leaks. Portal Analytics screen.
+- **16.4 Dunning** — GATED on the billing-provider choice; spec-only, not built.
+- **Migration** `20260728163823_AddCommercialOps` (TenantSignals + TenantContracts) auto-applies.
+  Commercial sweeps run as RetentionSweeper passes (job name `commercial-sweep`).
 
 ### Phase 15 — comms & trust (built + tested this session; deploy in progress)
 - **15.1 Announcements** — `PlatformAnnouncement` (Info/Maintenance/Incident, window, TenantIds
@@ -89,8 +103,9 @@ Rollback dirs kept: `backend.pre-phase13`, `backend.pre-p135`, etc.
   `plutus` password**; Keycloak `login.plutus` vhost + portal basic_auth (Matt's sudo).
 - **Phase 14 (LIVE):** impersonation, feature flags/kill switches, sandbox + a permanent **Demo
   Store** tenant (`de300000-…-0001`). See the plan board for per-WP detail.
-- **Next in the plan:** **Phase 16** (commercial ops — churn signals, dunning, plan changes,
-  product analytics WP16.5), then 17–18. Gated tails: billing adapter, payments, mailer, Keycloak.
+- **Next in the plan:** **Phase 17** (integration health — connector health framework WP17.1;
+  17.2/17.3 gated on payments), then Phase 18. Gated tails: billing adapter (unblocks 16.4),
+  payments (17.2), mailer, Keycloak.
 
 ---
 

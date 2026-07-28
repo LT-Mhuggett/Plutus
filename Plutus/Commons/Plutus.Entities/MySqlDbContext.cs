@@ -72,6 +72,8 @@ namespace Plutus.Entities
         public DbSet<PlatformFlag> PlatformFlags { get; set; }
         // WP15.1 in-app announcements (GLOBAL — TenantIds is data).
         public DbSet<PlatformAnnouncement> PlatformAnnouncements { get; set; }
+        public DbSet<TenantSignal> TenantSignals { get; set; }
+        public DbSet<TenantContract> TenantContracts { get; set; }
         // Financial periods (WP3.4): close/lock + snapshot.
         public DbSet<FinancialPeriod> FinancialPeriods { get; set; }
         // Stock ledger (WP5.1): append-only movements + materialised levels.
@@ -498,6 +500,24 @@ namespace Plutus.Entities
                 e.Property(x => x.Title).HasMaxLength(200).IsRequired();
                 e.Property(x => x.TenantIds).IsRequired(false);
                 e.HasIndex(x => new { x.StartsAtUtc, x.EndsAtUtc });
+            });
+            // WP16.1/16.2 commercial ops — GLOBAL tables (operator-managed, TenantId as data).
+            modelBuilder.Entity<TenantSignal>(e =>
+            {
+                e.ToTable("TenantSignals");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Signal).HasMaxLength(64).IsRequired();
+                e.Property(x => x.Detail).IsRequired(false);
+                e.HasIndex(x => new { x.TenantId, x.Signal });
+            });
+            modelBuilder.Entity<TenantContract>(e =>
+            {
+                e.ToTable("TenantContracts");
+                e.HasKey(x => x.TenantId);
+                e.Property(x => x.TenantId).ValueGeneratedNever();
+                e.Property(x => x.Notes).IsRequired(false);
+                e.Property(x => x.UpdatedBy).HasMaxLength(128);
             });
 
             // WP3.4 financial periods.

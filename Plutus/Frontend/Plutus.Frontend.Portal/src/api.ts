@@ -95,6 +95,26 @@ export const fetchAnnouncements = () => get<AnnouncementRow[]>("/api/v1/platform
 export const createAnnouncement = (body: { severity: number; title: string; body: string; startsAtUtc: string; endsAtUtc: string; tenantIds?: string[] }) =>
   post<{ id: string }>("/api/v1/platform/announcements", body);
 export const deleteAnnouncement = (id: string) => del<void>(`/api/v1/platform/announcements/${id}`);
+// WP16.1 churn signals
+export interface SignalRow { tenantId: string; signal: string; detail: string; raisedAtUtc: string }
+export const fetchSignals = () => get<SignalRow[]>("/api/v1/platform/signals");
+// WP16.2 contracts / renewals
+export interface ContractRow { tenantId: string; renewalAtUtc: string; termMonths: number; pricePenceMonthly: number; notes: string | null; updatedAtUtc: string; updatedBy: string }
+export const fetchContract = (tenantId: string) => get<ContractRow | null>(`/api/v1/platform/tenants/${tenantId}/contract`);
+export const setContract = (tenantId: string, body: { renewalAtUtc: string; termMonths: number; pricePenceMonthly: number; notes: string }) =>
+  put<void>(`/api/v1/platform/tenants/${tenantId}/contract`, body);
+// WP16.3 margin
+export interface MarginRow { tenantId: string; name: string; activityShare: number; revenuePence: number; attributedInfraPence: number; directCostPence: number; costPence: number; marginPence: number }
+export interface MarginResponse { configured: boolean; monthlyInfraPence: number; tenants: MarginRow[] }
+export const fetchMargin = () => get<MarginResponse>("/api/v1/platform/margin");
+// WP16.5 anonymised product analytics
+export interface AnalyticsResponse {
+  from: string; to: string; kAnonymityFloor: number;
+  adoption: { metric: string; tenantsUsing: number; totalUses: number }[];
+  routeGroups: { routeGroup: string; tenantsActive: number; requests: number }[];
+  funnel: { stage: string; tenants: number; value: number | null }[];
+}
+export const fetchAnalytics = () => get<AnalyticsResponse>("/api/v1/platform/analytics");
 
 // ── auth ──
 

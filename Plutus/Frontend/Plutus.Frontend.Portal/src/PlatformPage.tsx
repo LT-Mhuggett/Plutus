@@ -3,8 +3,10 @@ import {
   fetchTenants, fetchUsageSummary, fetchHealth, fetchTenantHealth, fetchAlerts, fetchJobs, setTenantStatus, impersonate,
   fetchOverrides, setOverrides, fetchFlags, setFlag, setSandbox, resetSandbox,
   fetchAnnouncements, createAnnouncement, deleteAnnouncement, fetchSla,
+  fetchSignals, fetchContract, setContract, fetchMargin, fetchAnalytics,
   type PlatformTenant, type UsageSummaryRow, type HealthResponse, type HealthTenantRow,
   type HealthDrillRow, type AlertRow, type JobRow, type OverrideRow, type FlagRow, type AnnouncementRow, type SlaResponse,
+  type SignalRow, type ContractRow, type MarginResponse, type AnalyticsResponse,
 } from "./api.ts";
 import { beginImpersonation } from "./auth.ts";
 
@@ -39,12 +41,12 @@ function Sparkline({ values, w = 120, h = 26 }: { values: number[]; w?: number; 
 }
 
 export default function PlatformPage() {
-  const [screen, setScreen] = useState<"Tenants" | "Health" | "Jobs" | "Flags" | "Comms">("Tenants");
+  const [screen, setScreen] = useState<"Tenants" | "Health" | "Jobs" | "Flags" | "Comms" | "Commercial" | "Analytics">("Tenants");
   return (
     <section className="panel">
       <div className="toolbar">
         <h2 className="grow">Platform</h2>
-        {(["Tenants", "Health", "Jobs", "Flags", "Comms"] as const).map((s) => (
+        {(["Tenants", "Health", "Jobs", "Flags", "Comms", "Commercial", "Analytics"] as const).map((s) => (
           <button key={s} className={s === screen ? "tab active" : "tab"} onClick={() => setScreen(s)}>{s}</button>
         ))}
       </div>
@@ -53,7 +55,80 @@ export default function PlatformPage() {
       {screen === "Jobs" && <JobsScreen />}
       {screen === "Flags" && <FlagsScreen />}
       {screen === "Comms" && <CommsScreen />}
+      {screen === "Commercial" && <CommercialScreen />}
+      {screen === "Analytics" && <AnalyticsScreen />}
     </section>
+  );
+}
+
+// WP16.3 margin view + WP16.5 anonymised analytics.
+const pounds = (pence: number) => `£${(pence / 100).toFixed(2)}`;
+
+function CommercialScreen() {
+  const [margin, setMargin] = useState<MarginResponse | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => { fetchMargin().then(setMargin).catch((e) => setError(String(e))); }, []);
+  if (error) return <p className="error">{error}</p>;
+  if (!margin) return <p className="muted">Loading…</p>;
+  if (!margin.configured)
+    return <p className="muted">Margin is unconfigured. Set <span className="mono">PLATFORM_COSTS_PATH</span> to a <span className="mono">platform-costs.json</span> ({"{ monthlyInfraPence, directCostsPence }"}) to enable it.</p>;
+  return (
+    <>
+      <p className="muted small">Advisory. Revenue from the contract price; cost = share of {pounds(margin.monthlyInfraPence)}/mo infra (by 30-day sales activity) + direct costs. Single shared box — not metered allocation.</p>
+      <table>
+        <thead><tr><th>Tenant</th><th className="num">Activity</th><th className="num">Revenue</th><th className="num">Infra</th><th className="num">Direct</th><th className="num">Cost</th><th className="num">Margin</th></tr></thead>
+        <tbody>
+          {margin.tenants.map((t) => (
+            <tr key={t.tenantId}>
+              <td>{t.name}</td>
+              <td className="num">{(t.activityShare * 100).toFixed(1)}%</td>
+              <td className="num">{pounds(t.revenuePence)}</td>
+              <td className="num">{pounds(t.attributedInfraPence)}</td>
+              <td className="num">{pounds(t.directCostPence)}</td>
+              <td className="num">{pounds(t.costPence)}</td>
+              <td className="num" style={{ color: t.marginPence >= 0 ? "#16a34a" : "#dc2626" }}>{pounds(t.marginPence)}</td>
+            </tr>
+          ))}
+          {margin.tenants.length === 0 && <tr><td colSpan={7} className="muted">No tenants.</td></tr>}
+        </tbody>
+      </table>
+    </>
+  );
+}
+
+function AnalyticsScreen() {
+  const [a, setA] = useState<AnalyticsResponse | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => { fetchAnalytics().then(setA).catch((e) => setError(String(e))); }, []);
+  if (error) return <p className="error">{error}</p>;
+  if (!a) return <p className="muted">Loading…</p>;
+  return (
+    <>
+      <p className="muted small">Aggregate-only, anonymised. {a.from} → {a.to}. Metrics with fewer than {a.kAnonymityFloor} contributing tenants are suppressed (k-anonymity).</p>
+      <h4>Feature adoption</h4>
+      <table>
+        <thead><tr><th>Metric</th><th className="num">Tenants using</th><th className="num">Total uses</th></tr></thead>
+        <tbody>
+          {a.adoption.map((m) => <tr key={m.metric}><td className="mono">{m.metric}</td><td className="num">{m.tenantsUsing}</td><td className="num">{m.totalUses}</td></tr>)}
+          {a.adoption.length === 0 && <tr><td colSpan={3} className="muted">Nothing above the k-anonymity floor yet.</td></tr>}
+        </tbody>
+      </table>
+      <h4>Surface activity (route groups)</h4>
+      <table>
+        <thead><tr><th>Route group</th><th className="num">Tenants active</th><th className="num">Requests</th></tr></thead>
+        <tbody>
+          {a.routeGroups.map((r) => <tr key={r.routeGroup}><td className="mono">{r.routeGroup}</td><td className="num">{r.tenantsActive}</td><td className="num">{r.requests}</td></tr>)}
+          {a.routeGroups.length === 0 && <tr><td colSpan={3} className="muted">Nothing above the k-anonymity floor yet.</td></tr>}
+        </tbody>
+      </table>
+      <h4>Login → sale funnel (coarse)</h4>
+      <table>
+        <thead><tr><th>Stage</th><th className="num">Tenants</th><th className="num">Volume</th></tr></thead>
+        <tbody>
+          {a.funnel.map((f) => <tr key={f.stage}><td className="mono">{f.stage}</td><td className="num">{f.tenants}</td><td className="num">{f.value ?? "—"}</td></tr>)}
+        </tbody>
+      </table>
+    </>
   );
 }
 
@@ -148,17 +223,23 @@ function TenantsScreen() {
   const [tenants, setTenants] = useState<PlatformTenant[]>([]);
   const [usage, setUsage] = useState<UsageSummaryRow[]>([]);
   const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [signals, setSignals] = useState<SignalRow[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   const refresh = () =>
-    Promise.all([fetchTenants(), fetchUsageSummary(), fetchHealth()])
-      .then(([t, u, h]) => { setTenants(t); setUsage(u); setHealth(h); setError(""); })
+    Promise.all([fetchTenants(), fetchUsageSummary(), fetchHealth(), fetchSignals()])
+      .then(([t, u, h, s]) => { setTenants(t); setUsage(u); setHealth(h); setSignals(s); setError(""); })
       .catch((e) => setError(String(e instanceof Error ? e.message : e)));
   useEffect(() => { void refresh(); }, []);
 
   const usageBy = useMemo(() => new Map(usage.map((u) => [u.tenantId, u])), [usage]);
   const healthBy = useMemo(() => new Map((health?.tenants ?? []).map((h) => [h.tenantId, h])), [health]);
+  const signalsBy = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const s of signals) m.set(s.tenantId, [...(m.get(s.tenantId) ?? []), s.signal]);
+    return m;
+  }, [signals]);
 
   if (openId) return <TenantDetail tenantId={openId} tenant={tenants.find((t) => t.id === openId)} onClose={() => setOpenId(null)} />;
 
@@ -166,7 +247,7 @@ function TenantsScreen() {
     <>
       {error && <p className="error">{error}</p>}
       <table>
-        <thead><tr><th /><th>Tenant</th><th>Status</th><th>Plan</th><th>30-day sales</th><th className="num">Sales</th><th className="num">Err 5xx</th><th /></tr></thead>
+        <thead><tr><th /><th>Tenant</th><th>Status</th><th>Plan</th><th>Signals</th><th>30-day sales</th><th className="num">Sales</th><th className="num">Err 5xx</th><th /></tr></thead>
         <tbody>
           {tenants.map((t) => {
             const u = usageBy.get(t.id);
@@ -178,6 +259,12 @@ function TenantsScreen() {
                 <td>{t.name} {t.isSandbox && <span style={{ background: "#7c3aed", color: "white", fontSize: 10, padding: "1px 5px", borderRadius: 3 }}>SANDBOX</span>}<br /><span className="muted small">{short(t.id)}</span></td>
                 <td>{STATUS[t.status] ?? t.status}</td>
                 <td>{t.plan || "—"}</td>
+                <td>
+                  {(signalsBy.get(t.id) ?? []).map((s) => (
+                    <span key={s} title={s} style={{ background: "#d97706", color: "white", fontSize: 10, padding: "1px 5px", borderRadius: 3, marginRight: 3 }}>{s}</span>
+                  ))}
+                  {!(signalsBy.get(t.id)?.length) && <span className="muted small">—</span>}
+                </td>
                 <td>{series.length ? <Sparkline values={series} /> : <span className="muted small">—</span>}</td>
                 <td className="num">{u?.totals?.["sales.count"] ?? 0}</td>
                 <td className="num">{h?.err5xx ?? 0}</td>
@@ -185,7 +272,7 @@ function TenantsScreen() {
               </tr>
             );
           })}
-          {tenants.length === 0 && !error && <tr><td colSpan={8} className="muted">No tenants.</td></tr>}
+          {tenants.length === 0 && !error && <tr><td colSpan={9} className="muted">No tenants.</td></tr>}
         </tbody>
       </table>
     </>
@@ -201,6 +288,7 @@ function TenantDetail({ tenantId, tenant, onClose }: { tenantId: string; tenant?
   const [overrides, setOvrs] = useState<OverrideRow[]>([]);
   const [newFeature, setNewFeature] = useState("");
   const [sla, setSla] = useState<SlaResponse | null>(null);
+  const [contract, setContractState] = useState<{ renewalAtUtc: string; termMonths: number; pricePenceMonthly: number; notes: string }>({ renewalAtUtc: "", termMonths: 12, pricePenceMonthly: 0, notes: "" });
 
   const refresh = () =>
     Promise.all([fetchTenantHealth(tenantId), fetchOverrides(tenantId)])
@@ -209,6 +297,18 @@ function TenantDetail({ tenantId, tenant, onClose }: { tenantId: string; tenant?
   useEffect(() => { void refresh(); }, [tenantId]); // eslint-disable-line react-hooks/exhaustive-deps
   // WP15.2 advisory SLA for the current month (a failed fetch just leaves it blank).
   useEffect(() => { fetchSla(tenantId).then(setSla).catch(() => setSla(null)); }, [tenantId]);
+  // WP16.2 contract (204/null when none — leaves the form at its defaults).
+  useEffect(() => {
+    fetchContract(tenantId).then((c: ContractRow | null) => {
+      if (c) setContractState({ renewalAtUtc: c.renewalAtUtc.slice(0, 10), termMonths: c.termMonths, pricePenceMonthly: c.pricePenceMonthly, notes: c.notes ?? "" });
+    }).catch(() => undefined);
+  }, [tenantId]);
+
+  const saveContract = () =>
+    void setContract(tenantId, {
+      renewalAtUtc: new Date(contract.renewalAtUtc + "T00:00:00Z").toISOString(),
+      termMonths: contract.termMonths, pricePenceMonthly: contract.pricePenceMonthly, notes: contract.notes,
+    }).then(() => setError("")).catch((e) => setError(String(e)));
 
   const saveOverrides = (next: OverrideRow[]) =>
     void setOverrides(tenantId, next.map((o) => ({ entitlement: o.entitlement, deny: o.deny, reason: o.reason ?? undefined })))
@@ -256,6 +356,16 @@ function TenantDetail({ tenantId, tenant, onClose }: { tenantId: string; tenant?
           </dd>
         </dl>
       )}
+
+      <h4>Contract & renewal</h4>
+      <p className="muted small">The relationship record (renewal date, term, negotiated monthly price). Billing owns money-truth once it exists; a renewal-due signal fires 60/30/7 days out.</p>
+      <div className="toolbar" style={{ flexWrap: "wrap" }}>
+        <label>Renewal <input type="date" value={contract.renewalAtUtc} onChange={(e) => setContractState({ ...contract, renewalAtUtc: e.target.value })} /></label>
+        <label>Term (months) <input className="short" inputMode="numeric" value={contract.termMonths} onChange={(e) => setContractState({ ...contract, termMonths: Number(e.target.value) || 0 })} /></label>
+        <label>Price £/mo <input className="short" inputMode="numeric" value={(contract.pricePenceMonthly / 100).toString()} onChange={(e) => setContractState({ ...contract, pricePenceMonthly: Math.round((Number(e.target.value) || 0) * 100) })} /></label>
+        <label>Notes <input value={contract.notes} onChange={(e) => setContractState({ ...contract, notes: e.target.value })} /></label>
+        <button className="primary small" disabled={!contract.renewalAtUtc} onClick={saveContract}>Save contract</button>
+      </div>
 
       <h4>Response p95 (last 24h, ms)</h4>
       {p95.length ? <P95Chart values={p95} /> : <p className="muted small">No request stats yet for this tenant.</p>}

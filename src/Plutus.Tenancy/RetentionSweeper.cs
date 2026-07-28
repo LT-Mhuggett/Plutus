@@ -86,6 +86,21 @@ namespace Plutus.Tenancy
                             }
                             if (heartbeat != null) await heartbeat.TrackAsync("usage-sweep", null, Sweep, stoppingToken);
                             else await Sweep(stoppingToken);
+
+                            // WP16.1/16.2 commercial-ops sweeps — cross-tenant, unscoped, alerter-backed
+                            // (raise once / clear on recovery). Wrapped in a heartbeat so their own
+                            // silence is monitored. Inert without an alerter.
+                            if (alerter != null)
+                            {
+                                async Task CommercialSweep(System.Threading.CancellationToken c)
+                                {
+                                    using var opsDb = new MySqlDbContext(opts, new FixedTenantContext(Guid.Empty));
+                                    await ChurnSweep.EvaluateAsync(opsDb, alerter, DateTime.UtcNow, c);
+                                    await RenewalSweep.EvaluateAsync(opsDb, alerter, DateTime.UtcNow, c);
+                                }
+                                if (heartbeat != null) await heartbeat.TrackAsync("commercial-sweep", null, CommercialSweep, stoppingToken);
+                                else await CommercialSweep(stoppingToken);
+                            }
                         }
                     }
                 }

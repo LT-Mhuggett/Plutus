@@ -38,6 +38,8 @@ public static class JobCadence
         {
             ["retention-sweeper"] = TimeSpan.FromHours(2),
             ["usage-sweep"] = TimeSpan.FromHours(2),
+            ["commercial-sweep"] = TimeSpan.FromHours(26), // WP16.1/16.2 daily-ish churn + renewal pass
+
             ["woo-poll"] = TimeSpan.FromMinutes(30),
             ["request-stats-flush"] = TimeSpan.FromMinutes(5),
             ["backup"] = TimeSpan.FromHours(26),   // nightly + slack
