@@ -22,14 +22,21 @@ do **notifications first**. Delivered this session:
   **SIMULATED** so the flow works now; a concrete `INotificationProvider` adapter drops into the
   seam when an account exists (arch test keeps SDKs out of core). Per-tenant email sending-identity
   on the tenant detail. `NotificationSettings` migration auto-applies.
-- **Still to build (same pattern, in order):** billing-provider selector + adapters (Stripe/Paddle/
-  Chargebee/manual), per-tenant payment-gateway config on the tenant detail (client-specific), and
-  the IdP selector (Keycloak default, Entra kept as an option). Each is a config catalogue + seam +
-  dashboard form + Null/simulated adapter, exactly like notifications.
-- **IdP #4 answer:** Keycloak chosen; Entra stays optional via the `IdP:Provider` seam. Go-live
-  steps for operator SSO are in `ops/keycloak/README.md` (Matt applies the `login.plutus` vhost,
-  re-import realm, create operator + TOTP, set `IdP:Provider=keycloak`, then flip
-  `OPERATOR_SSO_ENFORCED=true`).
+- **Billing framework (16.4 config) — BUILT:** Platform → **Billing** screen; manual (default) /
+  Stripe Billing / Paddle / Chargebee, secrets write-only in `BillingSettings`. Only the concrete
+  `IBillingProvider` adapter per provider stays gated on an account; keys are stored ready.
+- **Payment gateways (17.2 config) — BUILT, per-tenant:** client portal Company tab → **Card
+  payments**: **standalone (default — external chip & pin, cashier confirms; today's flow made
+  explicit)** or stripe-terminal/sumup/square/adyen/worldpay (keys stored, write-only). Till
+  checkout shows the setup (`/api/v1/payments/gateway/active`); non-standalone selections read
+  "integration pending" and keep the standalone confirm flow, so selling never blocks. Terminal
+  integrations + gateway health monitoring stay gated on a wired gateway.
+- **17.3 concrete mailer:** PARKED by the operator (framework is live; revisit when ready).
+- **IdP #4 answer:** Keycloak chosen; Entra stays optional via the `IdP:Provider` seam.
+  **2026-07-28: keycloak README corrected for macOS (no systemctl; explicit caddy path), files
+  re-staged on the Mac, realm re-imported with the operators group + TOTP — Matt's sudo block in
+  `ops/keycloak/README.md` is now literally paste-and-run.** After the vhost: I set
+  `IdP:Provider=keycloak`, verify portal SSO, then flip `OPERATOR_SSO_ENFORCED=true`.
 Committed to **`upstream/Matt's-Horror`** (seank842). **The whole operator-platform plan
 (Phases 13–18) is now built**; the only unbuilt work is explicitly gated (see below).
 

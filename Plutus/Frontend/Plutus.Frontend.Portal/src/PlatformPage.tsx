@@ -6,6 +6,7 @@ import {
   fetchSignals, fetchContract, setContract, fetchMargin, fetchAnalytics, fetchConnectors, setCompliance,
   fetchNotificationCatalogue, fetchNotificationConfig, setNotificationConfig, sendNotificationTest, fetchNotificationEvents,
   fetchSendingIdentities, setSendingIdentity,
+  fetchBillingCatalogue, fetchBillingConfig, setBillingConfig, type CommerceProviderInfo, type BillingConfig,
   type PlatformTenant, type UsageSummaryRow, type HealthResponse, type HealthTenantRow,
   type HealthDrillRow, type AlertRow, type JobRow, type OverrideRow, type FlagRow, type AnnouncementRow, type SlaResponse,
   type SignalRow, type ContractRow, type MarginResponse, type AnalyticsResponse, type ConnectorRow,
@@ -44,12 +45,12 @@ function Sparkline({ values, w = 120, h = 26 }: { values: number[]; w?: number; 
 }
 
 export default function PlatformPage() {
-  const [screen, setScreen] = useState<"Tenants" | "Health" | "Jobs" | "Flags" | "Comms" | "Commercial" | "Analytics" | "Notifications">("Tenants");
+  const [screen, setScreen] = useState<"Tenants" | "Health" | "Jobs" | "Flags" | "Comms" | "Commercial" | "Analytics" | "Notifications" | "Billing">("Tenants");
   return (
     <section className="panel">
       <div className="toolbar">
         <h2 className="grow">Platform</h2>
-        {(["Tenants", "Health", "Jobs", "Flags", "Comms", "Commercial", "Analytics", "Notifications"] as const).map((s) => (
+        {(["Tenants", "Health", "Jobs", "Flags", "Comms", "Commercial", "Analytics", "Notifications", "Billing"] as const).map((s) => (
           <button key={s} className={s === screen ? "tab active" : "tab"} onClick={() => setScreen(s)}>{s}</button>
         ))}
       </div>
@@ -61,7 +62,68 @@ export default function PlatformPage() {
       {screen === "Commercial" && <CommercialScreen />}
       {screen === "Analytics" && <AnalyticsScreen />}
       {screen === "Notifications" && <NotificationsScreen />}
+      {screen === "Billing" && <BillingScreen />}
     </section>
+  );
+}
+
+// 16.4: the operator's platform-wide billing provider (Stripe / Paddle / Chargebee / manual).
+// Secrets are write-only (shown as __set__ once saved); the concrete adapter is wired when an
+// account exists — until then selection + keys are stored and dunning stays manual.
+function BillingScreen() {
+  const [catalogue, setCatalogue] = useState<CommerceProviderInfo[]>([]);
+  const [current, setCurrent] = useState<BillingConfig | null>(null);
+  const [provider, setProvider] = useState("manual");
+  const [enabled, setEnabled] = useState(false);
+  const [config, setConfig] = useState<Record<string, string>>({});
+  const [msg, setMsg] = useState("");
+  const [error, setError] = useState("");
+
+  const refresh = () =>
+    Promise.all([fetchBillingCatalogue(), fetchBillingConfig()])
+      .then(([c, cfg]) => { setCatalogue(c); setCurrent(cfg); setError(""); })
+      .catch((e) => setError(String(e)));
+  useEffect(() => { void refresh(); }, []);
+  useEffect(() => {
+    if (!current) return;
+    setProvider(current.provider); setEnabled(current.enabled); setConfig(current.config);
+  }, [current]);
+
+  const info = catalogue.find((p) => p.key === provider);
+
+  return (
+    <>
+      <p className="muted small">One platform-wide choice: who bills your tenants. <strong>Manual</strong> = you invoice yourself (no automation). Selecting Stripe/Paddle/Chargebee stores the keys now; automated dunning activates when that provider's adapter is wired.</p>
+      {error && <p className="error">{error}</p>}
+      {msg && <p className="muted small">{msg}</p>}
+      <div className="toolbar" style={{ flexWrap: "wrap" }}>
+        <label>Provider
+          <select value={provider} onChange={(e) => { setProvider(e.target.value); setConfig({}); }}>
+            {catalogue.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+          </select>
+        </label>
+        <label>Enabled <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} /></label>
+      </div>
+      {info && <p className="muted small">{info.blurb}</p>}
+      {info && info.fields.length > 0 && (
+        <div className="toolbar" style={{ flexWrap: "wrap" }}>
+          {info.fields.map((f) => (
+            <label key={f.name}>{f.label}{f.required ? " *" : ""}
+              <input type={f.secret ? "password" : "text"} value={config[f.name] ?? ""}
+                placeholder={f.secret ? "(unchanged)" : ""}
+                onChange={(e) => setConfig({ ...config, [f.name]: e.target.value })} />
+            </label>
+          ))}
+        </div>
+      )}
+      <div className="toolbar">
+        <button className="primary small" onClick={() =>
+          void setBillingConfig({ provider, enabled, config })
+            .then(() => { setMsg("Saved."); return refresh(); }).catch((e) => setError(String(e)))}>
+          Save billing configuration
+        </button>
+      </div>
+    </>
   );
 }
 

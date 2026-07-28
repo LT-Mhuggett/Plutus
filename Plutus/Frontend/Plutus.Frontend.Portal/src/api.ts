@@ -138,6 +138,19 @@ export const fetchNotificationEvents = () => get<MessageEventRow[]>("/api/v1/pla
 export const fetchSendingIdentities = (tenantId: string) => get<SendingIdentityRow[]>(`/api/v1/platform/tenants/${tenantId}/sending-identity`);
 export const setSendingIdentity = (tenantId: string, body: { channel: number; fromAddress: string; domain: string; verified: boolean }) =>
   put<void>(`/api/v1/platform/tenants/${tenantId}/sending-identity`, body);
+// 16.4 billing provider (operator, platform-wide)
+export interface CommerceProviderInfo { key: string; label: string; blurb: string; fields: ProviderField[] }
+export interface BillingConfig { provider: string; enabled: boolean; config: Record<string, string>; updatedAtUtc: string | null }
+export const fetchBillingCatalogue = () => get<CommerceProviderInfo[]>("/api/v1/platform/billing/catalogue");
+export const fetchBillingConfig = () => get<BillingConfig>("/api/v1/platform/billing/config");
+export const setBillingConfig = (body: { provider: string; enabled: boolean; config: Record<string, string> }) =>
+  put<void>("/api/v1/platform/billing/config", body);
+// 17.2 per-tenant payment gateway (client-facing, portal.company.manage)
+export interface GatewayConfig { provider: string; config: Record<string, string>; updatedAtUtc: string | null }
+export const fetchGatewayCatalogue = () => get<CommerceProviderInfo[]>("/api/v1/payments/gateway/catalogue");
+export const fetchGatewayConfig = () => get<GatewayConfig>("/api/v1/payments/gateway");
+export const setGatewayConfig = (body: { provider: string; config: Record<string, string> }) =>
+  put<void>("/api/v1/payments/gateway", body);
 
 // ── auth ──
 

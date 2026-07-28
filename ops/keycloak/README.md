@@ -39,18 +39,19 @@ Keycloak user's email must match a `WebCredentials.Email` (either edit the realm
 ## Apply the Caddy vhost (Matt — sudo)
 
 ```bash
+# (files are pre-staged at ~/PLUTUS/ops/keycloak/ — re-synced from the repo 2026-07-28)
 # 1. Back up and stage
 sudo cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.pre-keycloak.bak
-sudo sh -c 'cat ~/PLUTUS/ops/keycloak/caddy-login-vhost.caddy >> /etc/caddy/Caddyfile'
-# 2. Validate + graceful reload
-caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-sudo systemctl reload caddy    # or: sudo caddy reload --config /etc/caddy/Caddyfile
+sudo sh -c 'cat /Users/admin/PLUTUS/ops/keycloak/caddy-login-vhost.caddy >> /etc/caddy/Caddyfile'
+# 2. Validate + graceful reload (macOS/Homebrew — there is NO systemctl on this box)
+/opt/homebrew/bin/caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+sudo /opt/homebrew/bin/caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
 # 3. Verify (Plutus login up, ETRIE untouched)
 curl -s -o /dev/null -w "keycloak: %{http_code}\n" https://login.plutus.huggett.dscloud.me/realms/plutus/.well-known/openid-configuration
 curl -s -o /dev/null -w "etrie:    %{http_code}\n" https://huggett.dscloud.me/health
 ```
 
-Rollback: `sudo cp /etc/caddy/Caddyfile.pre-keycloak.bak /etc/caddy/Caddyfile && sudo systemctl reload caddy`.
+Rollback: `sudo cp /etc/caddy/Caddyfile.pre-keycloak.bak /etc/caddy/Caddyfile && sudo /opt/homebrew/bin/caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile`.
 
 ## Lifecycle
 

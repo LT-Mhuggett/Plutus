@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { checkout, fetchPayMethods, type CustomerDetail, type PayMethod } from "../api.ts";
+import { checkout, fetchActiveGateway, fetchPayMethods, type ActiveGateway, type CustomerDetail, type PayMethod } from "../api.ts";
 import { gbp, parsePence } from "../money.ts";
 import type { BasketLine } from "./basket.ts";
 import type { ReceiptData } from "./Receipt.tsx";
@@ -21,6 +21,10 @@ export default function CheckoutDialog({ lines, totals, customer, onClose, onCom
   const [amounts, setAmounts] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // 17.2: the tenant's card-payment setup — shown as a hint on the tender screen. Offline or
+  // unfetchable → assume standalone (today's flow); never blocks checkout.
+  const [gateway, setGateway] = useState<ActiveGateway | null>(null);
+  useEffect(() => { fetchActiveGateway().then(setGateway).catch(() => undefined); }, []);
 
   useEffect(() => {
     fetchPayMethods()
@@ -123,6 +127,14 @@ export default function CheckoutDialog({ lines, totals, customer, onClose, onCom
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <div className="dialog">
         <h2>Checkout — {gbp(totals.totalPence)}</h2>
+
+        {/* 17.2 card-payment setup hint: standalone (default) = external chip & pin, cashier
+            confirms; an integrated provider shows its name until its integration is wired. */}
+        {(!gateway || gateway.provider === "standalone") ? (
+          <p className="muted small">💳 Card: take payment on the chip &amp; pin terminal, confirm it's approved, then complete.</p>
+        ) : (
+          <p className="muted small">💳 Card via <strong>{gateway.label}</strong>{!gateway.integrated && " (integration pending — use the terminal and confirm approval as usual)"}.</p>
+        )}
 
         <div className="pay-methods">
           {methods.map((m) => (

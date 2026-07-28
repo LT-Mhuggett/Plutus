@@ -231,6 +231,11 @@ export const getCustomer = (id: string) => get<CustomerDetail>(`/api/v1/customer
 export interface ActiveAnnouncement { id: string; severity: string; title: string; body: string; startsAtUtc: string; endsAtUtc: string }
 export const fetchActiveAnnouncements = () => get<ActiveAnnouncement[]>("/api/v1/announcements/active");
 
+// 17.2 the tenant's card-payment setup: provider label + whether an integration is wired.
+// "standalone" (the default) = external chip & pin, cashier confirms approval before completing.
+export interface ActiveGateway { provider: string; label: string; integrated: boolean }
+export const fetchActiveGateway = () => get<ActiveGateway>("/api/v1/payments/gateway/active");
+
 /** Create a customer from the till (supervisors/managers — gated on customers.manage). */
 export async function createCustomer(body: { name: string; email?: string; phone?: string }): Promise<{ id: string }> {
   const res = await send("POST", `/api/v1/customers`, body);

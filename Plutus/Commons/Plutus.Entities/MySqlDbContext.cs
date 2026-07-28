@@ -78,6 +78,8 @@ namespace Plutus.Entities
         public DbSet<TenantSendingIdentity> TenantSendingIdentities { get; set; }
         public DbSet<MessageEvent> MessageEvents { get; set; }
         public DbSet<NotificationSettings> NotificationSettings { get; set; }
+        public DbSet<BillingSettings> BillingSettings { get; set; }
+        public DbSet<PaymentGatewaySettings> PaymentGatewaySettings { get; set; }
         // Financial periods (WP3.4): close/lock + snapshot.
         public DbSet<FinancialPeriod> FinancialPeriods { get; set; }
         // Stock ledger (WP5.1): append-only movements + materialised levels.
@@ -183,6 +185,8 @@ namespace Plutus.Entities
             // WooCommerce connector config + SKU review queue + product cache + notifications (Phase 6).
             typeof(WebStoreDetails), typeof(WebstoreSkuMap), typeof(WebstoreProduct), typeof(WebstoreNotification),
             typeof(WebstoreOutboundLog),
+            // 17.2 per-tenant payment gateway selection (client-managed).
+            typeof(PaymentGatewaySettings),
         };
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -566,6 +570,26 @@ namespace Plutus.Entities
                 e.Property(x => x.Provider).HasMaxLength(32).IsRequired();
                 e.Property(x => x.ConfigJson).IsRequired(false);
                 e.Property(x => x.UpdatedBy).HasMaxLength(128);
+            });
+            // 16.4 billing provider (GLOBAL single row) + 17.2 per-tenant payment gateway.
+            modelBuilder.Entity<BillingSettings>(e =>
+            {
+                e.ToTable("BillingSettings");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Provider).HasMaxLength(32).IsRequired();
+                e.Property(x => x.ConfigJson).IsRequired(false);
+                e.Property(x => x.UpdatedBy).HasMaxLength(128);
+            });
+            modelBuilder.Entity<PaymentGatewaySettings>(e =>
+            {
+                e.ToTable("PaymentGatewaySettings");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Provider).HasMaxLength(32).IsRequired();
+                e.Property(x => x.ConfigJson).IsRequired(false);
+                e.Property(x => x.UpdatedBy).HasMaxLength(128);
+                e.HasIndex(x => x.TenantId).IsUnique();
             });
 
             // WP3.4 financial periods.
