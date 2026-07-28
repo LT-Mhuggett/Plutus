@@ -77,6 +77,7 @@ namespace Plutus.Entities
         public DbSet<ConnectorRun> ConnectorRuns { get; set; }
         public DbSet<TenantSendingIdentity> TenantSendingIdentities { get; set; }
         public DbSet<MessageEvent> MessageEvents { get; set; }
+        public DbSet<NotificationSettings> NotificationSettings { get; set; }
         // Financial periods (WP3.4): close/lock + snapshot.
         public DbSet<FinancialPeriod> FinancialPeriods { get; set; }
         // Stock ledger (WP5.1): append-only movements + materialised levels.
@@ -557,6 +558,14 @@ namespace Plutus.Entities
                 e.Property(x => x.Detail).IsRequired(false);
                 e.HasIndex(x => x.ProviderMessageId);
                 e.HasIndex(x => new { x.TenantId, x.Status });
+            });
+            modelBuilder.Entity<NotificationSettings>(e =>
+            {
+                e.ToTable("NotificationSettings");
+                e.HasKey(x => x.Channel);
+                e.Property(x => x.Provider).HasMaxLength(32).IsRequired();
+                e.Property(x => x.ConfigJson).IsRequired(false);
+                e.Property(x => x.UpdatedBy).HasMaxLength(128);
             });
 
             // WP3.4 financial periods.

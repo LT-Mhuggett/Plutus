@@ -122,6 +122,22 @@ export const fetchConnectorHealth = () => get<ConnectorRow[]>("/api/v1/webstores
 // WP18.2 residency & DPA
 export const setCompliance = (tenantId: string, body: { dataRegion: string; dpaSignedAtUtc: string | null; dpaRef: string | null }) =>
   put<void>(`/api/v1/tenants/${tenantId}/compliance`, body);
+// Notifications (17.3 config layer)
+export interface ProviderField { name: string; label: string; secret: boolean; required: boolean }
+export interface ProviderInfo { key: string; label: string; channel: number; fields: ProviderField[] }
+export interface NotificationConfigRow { channel: number; provider: string; enabled: boolean; config: Record<string, string>; updatedAtUtc: string }
+export interface MessageEventRow { tenantId: string; channel: number; toAddress: string; fromAddress: string; status: number; providerMessageId: string | null; detail: string | null; atUtc: string }
+export interface SendingIdentityRow { channel: number; fromAddress: string; domain: string | null; verified: boolean }
+export const fetchNotificationCatalogue = () => get<ProviderInfo[]>("/api/v1/platform/notifications/catalogue");
+export const fetchNotificationConfig = () => get<NotificationConfigRow[]>("/api/v1/platform/notifications/config");
+export const setNotificationConfig = (body: { channel: number; provider: string; enabled: boolean; config: Record<string, string> }) =>
+  put<void>("/api/v1/platform/notifications/config", body);
+export const sendNotificationTest = (body: { channel: number; tenantId: string; to: string }) =>
+  post<{ accepted: boolean; providerMessageId: string | null; detail: string | null }>("/api/v1/platform/notifications/test", body);
+export const fetchNotificationEvents = () => get<MessageEventRow[]>("/api/v1/platform/notifications/events");
+export const fetchSendingIdentities = (tenantId: string) => get<SendingIdentityRow[]>(`/api/v1/platform/tenants/${tenantId}/sending-identity`);
+export const setSendingIdentity = (tenantId: string, body: { channel: number; fromAddress: string; domain: string; verified: boolean }) =>
+  put<void>(`/api/v1/platform/tenants/${tenantId}/sending-identity`, body);
 
 // ── auth ──
 

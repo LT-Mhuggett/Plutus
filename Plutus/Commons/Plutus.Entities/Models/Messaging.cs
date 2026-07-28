@@ -41,6 +41,24 @@ namespace Plutus.Entities.Models
         public DateTime UpdatedAtUtc { get; set; }
     }
 
+    /// <summary>
+    /// Notification framework (17.3 config layer): the selected provider + its config for one
+    /// channel (email/sms). GLOBAL, one row per channel (Channel is the key). ConfigJson holds the
+    /// provider's fields (API key, sending domain, …) as a JSON object; fields the provider
+    /// catalogue marks secret are never returned to the dashboard (write-only, redacted on read).
+    /// Provider "none" = notifications off. NOTE: on the test env secrets live in this column; a
+    /// production hardening moves them to the same file/secret store the webstore secrets use.
+    /// </summary>
+    public class NotificationSettings
+    {
+        public byte Channel { get; set; }          // MessageChannel
+        public string Provider { get; set; } = "none";
+        public string ConfigJson { get; set; }      // provider field values (JSON object)
+        public bool Enabled { get; set; }
+        public DateTime UpdatedAtUtc { get; set; }
+        public string UpdatedBy { get; set; }
+    }
+
     /// <summary>Records a send and maps a later delivery webhook onto it (by ProviderMessageId),
     /// preserving tenant attribution. Caller saves. GLOBAL table.</summary>
     public static class MessageEventStore

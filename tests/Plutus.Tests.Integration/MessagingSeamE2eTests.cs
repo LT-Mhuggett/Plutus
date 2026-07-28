@@ -34,10 +34,13 @@ public class MessagingSeamE2eTests : IClassFixture<PlutusAppFactory>
     }
 
     [Fact]
-    public void Default_sender_is_the_null_seam()
+    public async Task Sender_sends_nothing_until_a_provider_is_configured()
     {
+        // The registered sender is the config-driven dispatcher; with no provider selected for a
+        // channel it accepts nothing (the seam's "nothing sends until configured" guarantee).
         var sender = _f.Services.GetRequiredService<IMessageSender>();
-        Assert.IsType<NullMessageSender>(sender); // nothing sends until an adapter is chosen
+        var result = await sender.SendAsync(new OutboundMessage(Guid.NewGuid(), MessageChannel.Sms, "07000000000", "x", "s", "b"));
+        Assert.False(result.Accepted);
     }
 
     [Fact]

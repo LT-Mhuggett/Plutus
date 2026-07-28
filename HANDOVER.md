@@ -9,9 +9,27 @@ pushing the net10 line there — reconcile later, coordinated with Sean).
 
 ---
 
-## ⏰ RESUME HERE (updated 2026-07-28 — all 18 phases built; 13–17 LIVE; 18 deploying)
+## ⏰ RESUME HERE (updated 2026-07-28 — all 18 phases built + notifications config layer)
 
-**Test suite (net10, SDK 10.0.302): Unit 209 · Architecture 6 · Integration 26 — all green.**
+**Test suite (net10, SDK 10.0.302): Unit 209 · Architecture 6 · Integration 29 — all green.**
+
+### Provider-configuration frameworks (operator's "build options I can configure" request)
+Decision taken: build **config framework + seams** (I have no third-party accounts/keys here), and
+do **notifications first**. Delivered this session:
+- **Notifications framework (17.3 config layer)** — operator **Platform → Notifications**: pick a
+  provider per channel (none/smtp/postmark/ses/sendgrid/mailgun email · twilio SMS), fill its fields
+  (secrets write-only), fire a test, read the delivery log. Selected-but-unwired providers run
+  **SIMULATED** so the flow works now; a concrete `INotificationProvider` adapter drops into the
+  seam when an account exists (arch test keeps SDKs out of core). Per-tenant email sending-identity
+  on the tenant detail. `NotificationSettings` migration auto-applies.
+- **Still to build (same pattern, in order):** billing-provider selector + adapters (Stripe/Paddle/
+  Chargebee/manual), per-tenant payment-gateway config on the tenant detail (client-specific), and
+  the IdP selector (Keycloak default, Entra kept as an option). Each is a config catalogue + seam +
+  dashboard form + Null/simulated adapter, exactly like notifications.
+- **IdP #4 answer:** Keycloak chosen; Entra stays optional via the `IdP:Provider` seam. Go-live
+  steps for operator SSO are in `ops/keycloak/README.md` (Matt applies the `login.plutus` vhost,
+  re-import realm, create operator + TOTP, set `IdP:Provider=keycloak`, then flip
+  `OPERATOR_SSO_ENFORCED=true`).
 Committed to **`upstream/Matt's-Horror`** (seank842). **The whole operator-platform plan
 (Phases 13–18) is now built**; the only unbuilt work is explicitly gated (see below).
 

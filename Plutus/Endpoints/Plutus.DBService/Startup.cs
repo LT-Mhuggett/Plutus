@@ -21,6 +21,7 @@ using Plutus.Webstore;
 using Plutus.Entities;
 using Plutus.Infrastructure.Health;
 using Plutus.Infrastructure.Monitoring;
+using Plutus.Infrastructure.Notifications;
 using Plutus.Infrastructure.Outbox;
 using Plutus.Infrastructure.RateLimiting;
 using System;
@@ -81,7 +82,7 @@ namespace Plutus.DBService
             services.AddPlutusOutbox(); // T1.5 broker-less dispatcher (consumers register their own IEventConsumer)
             services.AddPlutusRequestHealth(); // WP13.2 per-tenant request-health accumulator + per-minute flusher
             services.AddPlutusJobMonitoring(); // WP13.3 IJobHeartbeat + IOperatorAlerter + WP17.1 IConnectorHealth seams
-            services.AddSingleton<Plutus.SharedKernel.IMessageSender, Plutus.SharedKernel.NullMessageSender>(); // WP17.3 messaging seam (null until a mailer is chosen)
+            services.AddPlutusNotifications(); // 17.3 config layer: ConfiguredMessageSender dispatches to the operator-selected provider (simulated until an adapter is wired)
             services.AddPlutusTenantRateLimiting(Configuration); // WP13.5 per-tenant rate limiting
             ConfigureRateLimiting(services, Configuration);
             services.ConfigureSwaggerDocumentation(Configuration);

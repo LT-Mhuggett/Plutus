@@ -4,9 +4,12 @@ import {
   fetchOverrides, setOverrides, fetchFlags, setFlag, setSandbox, resetSandbox,
   fetchAnnouncements, createAnnouncement, deleteAnnouncement, fetchSla,
   fetchSignals, fetchContract, setContract, fetchMargin, fetchAnalytics, fetchConnectors, setCompliance,
+  fetchNotificationCatalogue, fetchNotificationConfig, setNotificationConfig, sendNotificationTest, fetchNotificationEvents,
+  fetchSendingIdentities, setSendingIdentity,
   type PlatformTenant, type UsageSummaryRow, type HealthResponse, type HealthTenantRow,
   type HealthDrillRow, type AlertRow, type JobRow, type OverrideRow, type FlagRow, type AnnouncementRow, type SlaResponse,
   type SignalRow, type ContractRow, type MarginResponse, type AnalyticsResponse, type ConnectorRow,
+  type ProviderInfo, type NotificationConfigRow, type MessageEventRow,
 } from "./api.ts";
 import { beginImpersonation } from "./auth.ts";
 
@@ -41,12 +44,12 @@ function Sparkline({ values, w = 120, h = 26 }: { values: number[]; w?: number; 
 }
 
 export default function PlatformPage() {
-  const [screen, setScreen] = useState<"Tenants" | "Health" | "Jobs" | "Flags" | "Comms" | "Commercial" | "Analytics">("Tenants");
+  const [screen, setScreen] = useState<"Tenants" | "Health" | "Jobs" | "Flags" | "Comms" | "Commercial" | "Analytics" | "Notifications">("Tenants");
   return (
     <section className="panel">
       <div className="toolbar">
         <h2 className="grow">Platform</h2>
-        {(["Tenants", "Health", "Jobs", "Flags", "Comms", "Commercial", "Analytics"] as const).map((s) => (
+        {(["Tenants", "Health", "Jobs", "Flags", "Comms", "Commercial", "Analytics", "Notifications"] as const).map((s) => (
           <button key={s} className={s === screen ? "tab active" : "tab"} onClick={() => setScreen(s)}>{s}</button>
         ))}
       </div>
@@ -57,7 +60,110 @@ export default function PlatformPage() {
       {screen === "Comms" && <CommsScreen />}
       {screen === "Commercial" && <CommercialScreen />}
       {screen === "Analytics" && <AnalyticsScreen />}
+      {screen === "Notifications" && <NotificationsScreen />}
     </section>
+  );
+}
+
+// Notifications (17.3 config layer): pick a provider per channel, fill its fields (secrets are
+// write-only), fire a test (SIMULATED until an adapter is wired), and read the delivery ledger.
+function NotificationsScreen() {
+  const [catalogue, setCatalogue] = useState<ProviderInfo[]>([]);
+  const [rows, setRows] = useState<NotificationConfigRow[]>([]);
+  const [events, setEvents] = useState<MessageEventRow[]>([]);
+  const [channel, setChannel] = useState(0);
+  const [provider, setProvider] = useState("none");
+  const [enabled, setEnabled] = useState(false);
+  const [config, setConfig] = useState<Record<string, string>>({});
+  const [testTo, setTestTo] = useState("");
+  const [testTenant, setTestTenant] = useState("");
+  const [msg, setMsg] = useState("");
+  const [error, setError] = useState("");
+
+  const refresh = () =>
+    Promise.all([fetchNotificationCatalogue(), fetchNotificationConfig(), fetchNotificationEvents()])
+      .then(([c, cfg, e]) => { setCatalogue(c); setRows(cfg); setEvents(e); setError(""); })
+      .catch((ex) => setError(String(ex)));
+  useEffect(() => { void refresh(); }, []);
+
+  // when channel or config rows change, load that channel's saved state into the editor
+  useEffect(() => {
+    const row = rows.find((r) => r.channel === channel);
+    setProvider(row?.provider ?? "none");
+    setEnabled(row?.enabled ?? false);
+    setConfig(row?.config ?? {});
+  }, [channel, rows]);
+
+  const providersForChannel = catalogue.filter((p) => p.channel === channel || p.key === "none");
+  const fields = catalogue.find((p) => p.key === provider)?.fields ?? [];
+  const STATUS = ["Queued", "Sent", "Bounced", "Complained", "Failed"];
+
+  function save() {
+    void setNotificationConfig({ channel, provider, enabled, config })
+      .then(() => { setMsg("Saved."); return refresh(); }).catch((e) => setError(String(e)));
+  }
+  function test() {
+    void sendNotificationTest({ channel, tenantId: testTenant.trim() || "00000000-0000-0000-0000-000000000000", to: testTo.trim() })
+      .then((r) => { setMsg(`Test: ${r.accepted ? "accepted" : "not sent"} — ${r.detail ?? ""}`); return refresh(); })
+      .catch((e) => setError(String(e)));
+  }
+
+  return (
+    <>
+      <p className="muted small">Choose a provider per channel and fill in its keys (secrets are write-only — shown as <span className="mono">__set__</span> once saved). With no adapter wired yet a selected provider runs in <strong>SIMULATED</strong> mode so you can exercise the whole flow now.</p>
+      {error && <p className="error">{error}</p>}
+      {msg && <p className="muted small">{msg}</p>}
+      <div className="toolbar" style={{ flexWrap: "wrap" }}>
+        <label>Channel
+          <select value={channel} onChange={(e) => setChannel(Number(e.target.value))}>
+            <option value={0}>Email</option><option value={1}>SMS</option>
+          </select>
+        </label>
+        <label>Provider
+          <select value={provider} onChange={(e) => { setProvider(e.target.value); setConfig({}); }}>
+            {providersForChannel.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+          </select>
+        </label>
+        <label>Enabled <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} /></label>
+      </div>
+      {fields.length > 0 && (
+        <div className="toolbar" style={{ flexWrap: "wrap" }}>
+          {fields.map((f) => (
+            <label key={f.name}>{f.label}{f.required ? " *" : ""}
+              <input type={f.secret ? "password" : "text"} value={config[f.name] ?? ""}
+                placeholder={f.secret ? "(unchanged)" : ""}
+                onChange={(e) => setConfig({ ...config, [f.name]: e.target.value })} />
+            </label>
+          ))}
+        </div>
+      )}
+      <div className="toolbar"><button className="primary small" onClick={save}>Save configuration</button></div>
+
+      <h4>Send a test</h4>
+      <div className="toolbar" style={{ flexWrap: "wrap" }}>
+        <label>Tenant id <input className="mono" placeholder="(optional)" value={testTenant} onChange={(e) => setTestTenant(e.target.value)} /></label>
+        <label>To <input value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder="buyer@example.com" /></label>
+        <button className="ghost small" disabled={!testTo.trim()} onClick={test}>Send test</button>
+      </div>
+
+      <h4>Delivery log</h4>
+      <table>
+        <thead><tr><th>When</th><th>Ch</th><th>To</th><th>From</th><th>Status</th><th>Detail</th></tr></thead>
+        <tbody>
+          {events.map((e, i) => (
+            <tr key={i}>
+              <td className="small">{new Date(e.atUtc + "Z").toLocaleString("en-GB")}</td>
+              <td>{e.channel === 0 ? "email" : "sms"}</td>
+              <td className="small">{e.toAddress}</td>
+              <td className="small">{e.fromAddress}</td>
+              <td>{STATUS[e.status] ?? e.status}</td>
+              <td className="small">{e.detail ?? "—"}</td>
+            </tr>
+          ))}
+          {events.length === 0 && <tr><td colSpan={6} className="muted">No messages sent yet.</td></tr>}
+        </tbody>
+      </table>
+    </>
   );
 }
 
@@ -294,6 +400,13 @@ function TenantDetail({ tenantId, tenant, onClose }: { tenantId: string; tenant?
     dpaSigned: (tenant?.dpaSignedAtUtc ?? "").slice(0, 10),
     dpaRef: tenant?.dpaRef ?? "",
   });
+  const [sendFrom, setSendFrom] = useState({ fromAddress: "", domain: "" });
+  useEffect(() => {
+    fetchSendingIdentities(tenantId).then((rows) => {
+      const email = rows.find((r) => r.channel === 0);
+      if (email) setSendFrom({ fromAddress: email.fromAddress, domain: email.domain ?? "" });
+    }).catch(() => undefined);
+  }, [tenantId]);
 
   const refresh = () =>
     Promise.all([fetchTenantHealth(tenantId), fetchOverrides(tenantId)])
@@ -374,6 +487,16 @@ function TenantDetail({ tenantId, tenant, onClose }: { tenantId: string; tenant?
             dpaSignedAtUtc: compliance.dpaSigned ? new Date(compliance.dpaSigned + "T00:00:00Z").toISOString() : null,
             dpaRef: compliance.dpaRef.trim() || null,
           }).then(() => setError("")).catch((e) => setError(String(e)))}>Save compliance</button>
+      </div>
+
+      <h4>Email sending identity</h4>
+      <p className="muted small">The from-address this tenant's notifications send as (per-tenant, so a shared domain is never poisoned). Verify SPF/DKIM on the domain before going live.</p>
+      <div className="toolbar" style={{ flexWrap: "wrap" }}>
+        <label>From <input value={sendFrom.fromAddress} onChange={(e) => setSendFrom({ ...sendFrom, fromAddress: e.target.value })} placeholder="no-reply@shop.example" /></label>
+        <label>Domain <input value={sendFrom.domain} onChange={(e) => setSendFrom({ ...sendFrom, domain: e.target.value })} placeholder="shop.example" /></label>
+        <button className="primary small" disabled={!sendFrom.fromAddress.trim()} onClick={() =>
+          void setSendingIdentity(tenantId, { channel: 0, fromAddress: sendFrom.fromAddress.trim(), domain: sendFrom.domain.trim(), verified: false })
+            .then(() => setError("")).catch((e) => setError(String(e)))}>Save sending identity</button>
       </div>
 
       <h4>Contract & renewal</h4>

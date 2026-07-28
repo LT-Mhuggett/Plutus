@@ -73,23 +73,27 @@ public class ConventionTests
     }
 
     [Fact]
-    public void Messaging_seam_has_no_concrete_provider_in_core()
+    public void Messaging_seam_has_no_concrete_provider_wired_in_core()
     {
-        // WP17.3: like the billing seam, core keeps ZERO reference to any concrete mail/SMS
-        // provider — only the IMessageSender abstraction + NullMessageSender default exist until an
-        // adapter is deliberately added. Scans src/ + the host for banned provider types/packages.
-        var banned = new Regex(@"(SendGrid|Mailgun|Twilio|Amazon\.SimpleEmail|\bSmtpClient\b|MailKit|Postmark|SparkPost)",
+        // WP17.3: like the billing seam, core wires ZERO concrete mail/SMS provider — only the
+        // IMessageSender abstraction + the config catalogue (provider *names* + field schemas) live
+        // here; the actual SDK/adapter drops in later. So we ban real USAGE (SDK `using`s, the
+        // System.Net.Mail SmtpClient type, provider NuGet packages) — NOT provider names as strings,
+        // which the notification catalogue legitimately carries.
+        var bannedUsage = new Regex(@"\busing\s+(SendGrid|Twilio|MailKit|PostmarkDotNet|Amazon\.SimpleEmail|SparkPost|Mailgun)\b|\bSmtpClient\b|\bnew\s+SendGridClient\b",
+            RegexOptions.IgnoreCase);
+        var bannedPackage = new Regex(@"PackageReference[^>]*Include\s*=\s*""[^""]*(SendGrid|Mailgun|Twilio|MailKit|Postmark|AWSSDK\.SimpleEmail|SparkPost)[^""]*""",
             RegexOptions.IgnoreCase);
 
         var offenders = new List<string>();
         foreach (var file in Repo.CsFiles("src"))
-            foreach (Match m in banned.Matches(File.ReadAllText(file)))
-                offenders.Add($"{Path.GetFileName(file)}: {m.Value}");
+            foreach (Match m in bannedUsage.Matches(File.ReadAllText(file)))
+                offenders.Add($"{Path.GetFileName(file)}: {m.Value.Trim()}");
         foreach (var csproj in Directory.EnumerateFiles(Path.Combine(Repo.Root(), "src"), "*.csproj", SearchOption.AllDirectories))
-            if (banned.IsMatch(File.ReadAllText(csproj))) offenders.Add($"{Path.GetFileName(csproj)}: provider package");
+            if (bannedPackage.IsMatch(File.ReadAllText(csproj))) offenders.Add($"{Path.GetFileName(csproj)}: provider package");
 
         Assert.True(offenders.Count == 0,
-            "The messaging seam must stay provider-free in core (WP17.3). Offenders:\n  " + string.Join("\n  ", offenders));
+            "The messaging seam must stay provider-free in core — config catalogue only, no wired SDK (WP17.3). Offenders:\n  " + string.Join("\n  ", offenders));
     }
 
     // spec T0.4 rule 3 (tenant-owned entities carry a global query filter) is now enforced
