@@ -24,6 +24,7 @@ using Plutus.Infrastructure.Monitoring;
 using Plutus.Infrastructure.Notifications;
 using Plutus.Infrastructure.Outbox;
 using Plutus.Infrastructure.RateLimiting;
+using Plutus.Infrastructure.Security;
 using System;
 using System.Diagnostics;
 using System.Net.Http;
@@ -131,6 +132,12 @@ namespace Plutus.DBService
 
             // WP14.1: log every impersonated request (actor + target) for the audit trail.
             app.UsePlutusImpersonationAudit();
+
+            // OP1: block pure operators (platform-admin, no tenant identity) from client-data APIs —
+            // they reach client data only via the audited impersonation flow. After auth so claims
+            // are resolved; after the impersonation audit so impersonated requests are logged then
+            // allowed through (they carry a tid).
+            app.UsePlutusOperatorBoundary();
 
             // WP13.2: record per-tenant request health AFTER auth (tenant resolved), wrapping
             // endpoint execution for latency + final status code.

@@ -398,7 +398,13 @@ After each WP: run all three suites, compile BOTH frontends on the Mac (portal n
 vars), commit with a descriptive message, and deploy only when the operator asks. Update
 `HANDOVER.md`'s RESUME section and this file's checkboxes:
 
-- [ ] OP1 backend boundary + portal separation + tests
+- [x] OP1 backend boundary + portal separation + tests — DONE 2026-07-28 (built + tested, not yet
+      deployed). `OperatorBoundaryMiddleware` (403s pure operators off tenant-data routes, allow-list
+      + `OPERATOR_BOUNDARY_DISABLED` escape hatch), wired after the impersonation audit;
+      `HttpTenantContext.IsPlatformAdmin` → `HasClaim`; portal `isOperatorOnly()` → operator-only
+      shell (no client tabs, Account&MFA link). Tests: `OperatorBoundaryE2eTests` (operator 403 on
+      /customers+/loyalty, 200 on /platform+/tenants; staff token 200; tid-bearing passes). Suites:
+      Unit 211 · Arch 6 · Integration 34.
 - [ ] OP2 plans & pricing
 - [ ] OP3 subscribers landing
 - [ ] OP4 tickets end-to-end + support-heavy signal

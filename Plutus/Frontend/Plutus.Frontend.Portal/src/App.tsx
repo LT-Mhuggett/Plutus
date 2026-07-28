@@ -13,7 +13,10 @@ import CompanyPage from "./CompanyPage.tsx";
 import PlatformPage from "./PlatformPage.tsx";
 import LoginPage from "./LoginPage.tsx";
 import { getSession, type Session } from "./session.ts";
-import { impersonatingAs, isPlatformAdmin, oidcMode, signOut, stopImpersonation } from "./auth.ts";
+import { impersonatingAs, isOperatorOnly, isPlatformAdmin, oidcMode, signOut, stopImpersonation } from "./auth.ts";
+
+// Keycloak self-service (password + MFA). Only meaningful in OIDC mode.
+const ACCOUNT_CONSOLE = "https://login.plutus.huggett.dscloud.me/realms/plutus/account";
 import { fetchActiveAnnouncements, type ActiveAnnouncement } from "./api.ts";
 import { beginLogin, completeLoginIfCallback } from "./oidc.ts";
 
@@ -121,6 +124,25 @@ export default function App() {
   // Password mode only: no session → show the login form. (OIDC never reaches here unauthenticated
   // — it either redirects or errors above.)
   if (!name) return <LoginPage onLogin={(s: Session) => setName(s.name)} />;
+
+  // OP1: a pure operator (platform-admin, no tenant identity) gets the OPERATOR portal only —
+  // no client tabs at all. The Platform screens ARE the app. Client data is reachable only by
+  // impersonating a tenant (which swaps in a tid-bearing session → the branch below).
+  if (isOperatorOnly()) {
+    return (
+      <main className="shell">
+        <header className="appbar">
+          <h1>Plutus Operator</h1>
+          <span className="grow" />
+          <span className="muted small">{name}</span>
+          {oidcMode && <a className="ghost small" href={ACCOUNT_CONSOLE} target="_blank" rel="noreferrer">Account &amp; MFA</a>}
+          <button className="ghost small" onClick={() => signOut()}>Sign out</button>
+        </header>
+        <PlatformPage />
+        <footer className="muted small">Plutus operator console · built {__BUILD_TIME__}</footer>
+      </main>
+    );
+  }
 
   const tabs: Tab[] = isPlatformAdmin() ? [...TABS, PLATFORM_TAB] : [...TABS];
   const impersonating = impersonatingAs();

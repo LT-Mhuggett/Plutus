@@ -25,8 +25,9 @@ namespace Plutus.Tenancy
         {
             get
             {
-                var scope = User?.FindFirst("scope")?.Value;
-                return string.Equals(scope, "platform-admin", StringComparison.OrdinalIgnoreCase)
+                // HasClaim (not FindFirst) — a multi-scope token has several "scope" claims and
+                // FindFirst would only inspect the first, missing platform-admin behind another.
+                return (User?.HasClaim("scope", "platform-admin") ?? false)
                     || (User?.IsInRole("platform-admin") ?? false);
             }
         }

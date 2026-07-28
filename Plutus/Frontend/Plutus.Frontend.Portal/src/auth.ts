@@ -50,6 +50,16 @@ function currentScopes(): string[] {
   return scopes;
 }
 
+/** OP1: a PURE operator — platform-admin with no tenant identity (no tid). Such a session sees
+ *  the operator portal ONLY; the client tabs are hidden and the backend 403s their tenant APIs.
+ *  Impersonation tokens carry a Tid, so they are NOT operator-only (client view returns). Handles
+ *  both token casings: HMAC CompactToken uses `Tid`, an OIDC JWT uses `tid`/none. */
+export function isOperatorOnly(): boolean {
+  if (!isPlatformAdmin()) return false;
+  const c = tokenClaims();
+  return !(c?.tid ?? c?.Tid);
+}
+
 /** WP13.4: reveal the Platform section only for operator tokens carrying platform-admin.
  *  (The backend 403s every /api/v1/platform/* route regardless — this is UI only.) */
 export function isPlatformAdmin(): boolean {
