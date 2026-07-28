@@ -294,6 +294,51 @@ In `ChurnSweep.EvaluateAsync` add: count this tenant's tickets created in the la
 
 ---
 
+## Addendum (2026-07-28 self-review) — items added after a second pass
+
+### OP1 additions
+- **Escape hatch:** wrap the boundary in config —
+  `OPERATOR_BOUNDARY_DISABLED=true` (pm2 env) bypasses the middleware. It's a security control on
+  the live login path; if it ever mis-fires it must be switch-off-able without a rollback deploy.
+  Default off (i.e. boundary ACTIVE). Log a startup warning when disabled.
+- **Verify the allow-list, don't trust it:** for each allowed prefix, grep every controller on
+  that route and confirm each action is `[Authorize(Policy = PlutusPolicies.PlatformAdmin)]` or
+  anonymous-by-design (billing webhook, jobs HMAC report). Verified today: `/api/v1/tenants` has
+  a single platform-gated action — re-verify at implementation time in case routes moved.
+- **Operator actor identity (audit gap):** OIDC operators have no Plutus EmployeeId, so `Actor`
+  resolves to `Guid.Empty` and every platform audit row Matt writes says actor
+  `00000000-…`. Fix alongside OP1: in platform controllers' audit calls, include the operator's
+  display name from the token (`User.Identity.Name` → `preferred_username`, fallback "operator")
+  in the audit detail object. Cheap: add a shared `ActorName` property (copy the one in
+  `WebstoresController`) to the platform controllers as they're touched; do NOT invent a new
+  identity system.
+- **"My account" link:** in the operator-only header, link "Account & MFA" →
+  `https://login.plutus.huggett.dscloud.me/realms/plutus/account` (password/TOTP self-service —
+  answers "can I change my password" permanently).
+
+### OP2 addition
+- **Precedence note:** `TenantEntitlementOverride` (WP14.2 grant/deny) still wins over the plan
+  bundle, and `PlatformFlag` kill switches win over everything — `Entitlements.ComputeEffective`
+  already implements this; assigning a plan only rewrites the tenant's BASE entitlements. Don't
+  touch the compute path.
+
+### OP4 additions
+- **Anti-spam cap:** max 20 OPEN tickets per tenant → `POST` returns 409 with a friendly detail.
+  (The per-tenant rate limiter already throttles request floods; this caps queue abuse.)
+- **Explicit non-goals for this WP:** no attachments, no email notifications (framework exists
+  but is provider-less until 17.3 un-parks), no SLA timers, no ticket categories. Resist scope.
+- **Retention:** tickets are business records — NOT added to the retention sweeper. Closed-ticket
+  archival is a future decision.
+
+### Ops hardening (schedule with OP1, it protects the login itself)
+- **Keycloak persistence:** the container is stateless — a `docker rm`/re-run (or image upgrade)
+  wipes enrolled passwords/TOTP back to the seed; only the big warning in `run-keycloak.sh`
+  protects it today. Fix: add a named volume for Keycloak's H2 data dir
+  (`-v plutus-keycloak-data:/opt/keycloak/data/h2`) in `run-keycloak.sh` — **coordinate the
+  one-off recreation with Matt** (he must re-enrol once), then his state survives restarts and
+  upgrades. Note: `--import-realm` skips import when the realm already exists in the volume, so
+  future realm-JSON changes are applied via `kcadm` (or a deliberate volume reset).
+
 ## OP5 — later / gated (do NOT build in this plan)
 Self-serve signup (needs OP2 + billing adapter); billing automation (16.4 reaction exists — needs
 a provider account); client-side "banking connectors" (client-configured, payment-gateway
