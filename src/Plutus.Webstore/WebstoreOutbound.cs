@@ -169,12 +169,14 @@ namespace Plutus.Webstore
         private readonly MySqlDbContext _db;
         private readonly IWebstoreSecretProvider _secrets;
         private readonly IHttpClientFactory _httpFactory;
+        private readonly IConnectorHealth? _connectorHealth;
 
-        public WebstoreStockOutboundConsumer(MySqlDbContext db, IWebstoreSecretProvider secrets, IHttpClientFactory httpFactory)
+        public WebstoreStockOutboundConsumer(MySqlDbContext db, IWebstoreSecretProvider secrets, IHttpClientFactory httpFactory, IConnectorHealth? connectorHealth = null)
         {
             _db = db;
             _secrets = secrets;
             _httpFactory = httpFactory;
+            _connectorHealth = connectorHealth;
         }
 
         public string Name => ConsumerName;
@@ -199,6 +201,8 @@ namespace Plutus.Webstore
                 if (creds is null || string.IsNullOrWhiteSpace(ws.Url)) continue;
                 var client = new WooRestClient(_httpFactory.CreateClient(nameof(WebstoreReconciler)), ws.Url!, creds);
                 await WebstoreOutbound.PushStockAsync(_db, client, ws, itemIdOnes, lane: "fast", ct);
+                if (_connectorHealth != null) // WP17.1 record outbound activity for connector health
+                    await _connectorHealth.RecordAsync(ConnectorRegistry.Woo, ws.TenantId, ConnectorActivity.Outbound, true, null, ct);
             }
         }
     }

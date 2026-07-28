@@ -99,12 +99,42 @@ namespace Plutus.Infrastructure.Monitoring
         }
     }
 
+    /// <summary>WP17.1 IConnectorHealth default impl: keyed upsert into ConnectorRuns (via
+    /// ConnectorRunStore). Best-effort — a write failure is logged and swallowed so it can never
+    /// break the connector it monitors. Inert on the SQLite dev host.</summary>
+    public sealed class ConnectorHealth : IConnectorHealth
+    {
+        private readonly IServiceScopeFactory _scopes;
+        private readonly ILogger<ConnectorHealth> _logger;
+
+        public ConnectorHealth(IServiceScopeFactory scopes, ILogger<ConnectorHealth> logger)
+        {
+            _scopes = scopes;
+            _logger = logger;
+        }
+
+        public async Task RecordAsync(string connector, Guid tenantId, ConnectorActivity activity, bool ok, string error = null, CancellationToken ct = default)
+        {
+            try
+            {
+                using var scope = _scopes.CreateScope();
+                var db = scope.ServiceProvider.GetService<RepositoryContext>() as MySqlDbContext;
+                if (db == null) return; // dev/SQLite host — no ConnectorRuns to write
+                db.CurrentUser = "connector-health";
+                await ConnectorRunStore.RecordAsync(db, connector, tenantId, activity, ok, error, DateTime.UtcNow, ct);
+                await db.SaveChangesAsync(ct);
+            }
+            catch (Exception ex) { _logger.LogWarning(ex, "ConnectorHealth write failed (non-fatal)."); }
+        }
+    }
+
     public static class JobMonitoringRegistration
     {
         public static IServiceCollection AddPlutusJobMonitoring(this IServiceCollection services)
         {
             services.AddSingleton<IJobHeartbeat, JobHeartbeat>();
             services.AddSingleton<IOperatorAlerter, OperatorAlerter>();
+            services.AddSingleton<IConnectorHealth, ConnectorHealth>();
             return services;
         }
     }

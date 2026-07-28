@@ -115,6 +115,10 @@ export interface AnalyticsResponse {
   funnel: { stage: string; tenants: number; value: number | null }[];
 }
 export const fetchAnalytics = () => get<AnalyticsResponse>("/api/v1/platform/analytics");
+// WP17.1 connector health
+export interface ConnectorRow { connector: string; tenantId?: string; lastPollAtUtc: string | null; lastWebhookAtUtc: string | null; lastOutboundAtUtc: string | null; errorStreak: number; lastError: string | null; silent: boolean }
+export const fetchConnectors = () => get<ConnectorRow[]>("/api/v1/platform/connectors");
+export const fetchConnectorHealth = () => get<ConnectorRow[]>("/api/v1/webstores/connector-health");
 
 // ── auth ──
 

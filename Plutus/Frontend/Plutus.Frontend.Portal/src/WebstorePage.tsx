@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import {
   bindSku, createItemFromSku, createWebstoreConnection, disconnectWebstore, downloadCsv,
-  fetchAlignment, fetchOutboundLog, fetchSkuMap, fetchWebstoreProducts, fetchWebstores, gbp,
+  fetchAlignment, fetchConnectorHealth, fetchOutboundLog, fetchSkuMap, fetchWebstoreProducts, fetchWebstores, gbp,
   ignoreSku, refreshWebstoreProducts, retryParkedOrders, setOutboundMode,
-  type AlignmentResp, type OutboundLogResp, type SkuMapRow, type WebstoreConn, type WebstoreProductsResp,
+  type AlignmentResp, type ConnectorRow, type OutboundLogResp, type SkuMapRow, type WebstoreConn, type WebstoreProductsResp,
 } from "./api.ts";
 import { SortTh, useSort } from "./sortable.tsx";
 
@@ -14,8 +14,11 @@ export default function WebstorePage() {
   const [conns, setConns] = useState<WebstoreConn[]>([]);
   const [error, setError] = useState("");
   const [sub, setSub] = useState<"queue" | "catalogue" | "alignment" | "outbound">("queue");
+  const [health, setHealth] = useState<ConnectorRow | null>(null);
 
   useEffect(() => { fetchWebstores().then(setConns).catch((e) => setError(String(e))); }, []);
+  // WP17.1 connector health for this tenant (the "woo" row, if any).
+  useEffect(() => { fetchConnectorHealth().then((rows) => setHealth(rows.find((r) => r.connector === "woo") ?? null)).catch(() => undefined); }, []);
   const conn = conns[0];   // one connection today; the list API is ready for more
 
   return (
@@ -36,6 +39,13 @@ export default function WebstorePage() {
               <span className="stat-value small">{conn.ordersCursorUtc ? new Date(conn.ordersCursorUtc + "Z").toLocaleString("en-GB") : "—"}</span></div>
             <div className="stat"><span className="stat-label">Catalogue swept</span>
               <span className="stat-value small">{conn.lastFullProductSweepUtc ? new Date(conn.lastFullProductSweepUtc + "Z").toLocaleString("en-GB") : "pending first sweep"}</span></div>
+            {health && (
+              <div className="stat"><span className="stat-label">Connector health</span>
+                <span className="stat-value small" style={{ color: health.silent || health.errorStreak > 0 ? "#dc2626" : "#16a34a" }}>
+                  {health.silent ? "silent" : health.errorStreak > 0 ? `${health.errorStreak} error(s)` : "healthy"}
+                </span>
+                <span className="muted small">last poll {health.lastPollAtUtc ? new Date(health.lastPollAtUtc + "Z").toLocaleString("en-GB") : "—"}</span></div>
+            )}
             <div className="stat">
               <button className="ghost small" onClick={() => {
                 if (!window.confirm(`Disconnect "${conn.name}"? Its webhooks are removed from the site and syncing stops. Already-ingested sales are kept.`)) return;

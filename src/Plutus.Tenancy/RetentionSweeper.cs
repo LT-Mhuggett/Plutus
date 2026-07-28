@@ -65,7 +65,10 @@ namespace Plutus.Tenancy
                         // are global tables — no tenant guard). The alerter is registered by the host.
                         var alerter = scope.ServiceProvider.GetService<IOperatorAlerter>();
                         if (alerter != null)
+                        {
                             await JobMonitor.EvaluateAsync(db, alerter, DateTime.UtcNow, stoppingToken);
+                            await ConnectorMonitor.EvaluateAsync(db, alerter, DateTime.UtcNow, stoppingToken); // WP17.1
+                        }
                         await JobRunsRetention.PurgeAsync(
                             db, DateTime.UtcNow.AddDays(-JobRunsRetention.RetentionDays), stoppingToken);
 

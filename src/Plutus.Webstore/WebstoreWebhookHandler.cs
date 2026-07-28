@@ -45,15 +45,18 @@ namespace Plutus.Webstore
         private readonly IEntitlementService _entitlements;
         private readonly IWebstoreSecretProvider _secrets;
         private readonly WebstoreWebhookPipelineFactory _pipelines;
+        private readonly Plutus.SharedKernel.IConnectorHealth? _connectorHealth;
 
         public WebstoreWebhookHandler(
             MySqlDbContext db, IEntitlementService entitlements,
-            IWebstoreSecretProvider secrets, WebstoreWebhookPipelineFactory pipelines)
+            IWebstoreSecretProvider secrets, WebstoreWebhookPipelineFactory pipelines,
+            Plutus.SharedKernel.IConnectorHealth? connectorHealth = null)
         {
             _db = db;
             _entitlements = entitlements;
             _secrets = secrets;
             _pipelines = pipelines;
+            _connectorHealth = connectorHealth;
         }
 
         public async Task<WebhookHttpResult> HandleOrderWebhookAsync(
@@ -84,6 +87,9 @@ namespace Plutus.Webstore
             {
                 WebStoreId = row.Id, TenantId = row.TenantId, TillId = row.TillId, DeviceId = row.DeviceId,
             };
+            // WP17.1: a verified webhook for a known, enabled, entitled store is connector activity.
+            if (_connectorHealth != null)
+                await _connectorHealth.RecordAsync(Plutus.SharedKernel.ConnectorRegistry.Woo, row.TenantId, Plutus.SharedKernel.ConnectorActivity.Webhook, true, null, ct);
             using var pipeline = _pipelines.Create(ctx);
             var r = await pipeline.Processor.ProcessOrderWebhookAsync(
                 rawBody!, signatureHeader, secret, ctx, pipeline.Resolver, ct);

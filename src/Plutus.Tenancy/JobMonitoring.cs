@@ -46,6 +46,39 @@ namespace Plutus.Tenancy
         }
     }
 
+    /// <summary>
+    /// WP17.1 connector-health evaluation (a RetentionSweeper pass, sibling of JobMonitor). For each
+    /// (Connector, TenantId) in ConnectorRuns: raise a keyed alert if the connector has been silent
+    /// longer than its registered window OR its error streak has crossed the threshold (naming the
+    /// connector + tenant); clear it when it recovers. Generalises the woo-poll heartbeat to every
+    /// connector for free.
+    /// </summary>
+    public static class ConnectorMonitor
+    {
+        public static async Task EvaluateAsync(MySqlDbContext db, IOperatorAlerter alerter, DateTime nowUtc, CancellationToken ct = default)
+        {
+            var runs = await db.ConnectorRuns.AsNoTracking().ToListAsync(ct);
+            foreach (var r in runs)
+            {
+                var silenceKey = ConnectorRegistry.SilentAlertKey(r.Connector, r.TenantId);
+                var window = ConnectorRegistry.SilenceWindow(r.Connector);
+                var last = r.LastActivityAtUtc;
+                if (last == null || nowUtc - last.Value > window)
+                    await alerter.RaiseAsync(silenceKey, r.Connector, r.TenantId, "connector-silent",
+                        $"Connector '{r.Connector}' silent for tenant {r.TenantId} since {(last?.ToString("u") ?? "never")} (max {window}).", ct);
+                else
+                    await alerter.ClearAsync(silenceKey, ct);
+
+                var errorKey = ConnectorRegistry.ErrorAlertKey(r.Connector, r.TenantId);
+                if (r.ErrorStreak >= ConnectorRegistry.ErrorStreakAlertThreshold)
+                    await alerter.RaiseAsync(errorKey, r.Connector, r.TenantId, "connector-error",
+                        $"Connector '{r.Connector}' has {r.ErrorStreak} consecutive failures for tenant {r.TenantId}: {r.LastError}", ct);
+                else
+                    await alerter.ClearAsync(errorKey, ct);
+            }
+        }
+    }
+
     /// <summary>WP13.3 retention: drop JobRuns older than the window, but always KEEP the latest
     /// run per (JobName, TenantId) so cadence evaluation and the dashboard never lose a job's last
     /// state, however long ago it ran.</summary>

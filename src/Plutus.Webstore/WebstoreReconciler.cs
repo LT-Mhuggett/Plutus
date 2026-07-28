@@ -72,11 +72,12 @@ namespace Plutus.Webstore
         private readonly WebstoreOptions _options;
         private readonly ILogger? _log;
         private readonly Plutus.SharedKernel.IJobHeartbeat? _heartbeat;
+        private readonly Plutus.SharedKernel.IConnectorHealth? _connectorHealth;
 
         public WebstoreReconciler(
             DbContextOptions<MySqlDbContext> dbOptions, WebstoreWebhookPipelineFactory pipelines,
             IWebstoreSecretProvider secrets, HttpClient http, WebstoreOptions options, ILogger? log = null,
-            Plutus.SharedKernel.IJobHeartbeat? heartbeat = null)
+            Plutus.SharedKernel.IJobHeartbeat? heartbeat = null, Plutus.SharedKernel.IConnectorHealth? connectorHealth = null)
         {
             _dbOptions = dbOptions;
             _pipelines = pipelines;
@@ -85,6 +86,7 @@ namespace Plutus.Webstore
             _options = options;
             _log = log;
             _heartbeat = heartbeat;
+            _connectorHealth = connectorHealth;
         }
 
         public async Task<ReconcileSummary> RunOnceAsync(CancellationToken ct = default)
@@ -190,10 +192,24 @@ namespace Plutus.Webstore
 
             foreach (var ws in stores)
             {
-                if (_heartbeat != null)
-                    await _heartbeat.TrackAsync("woo-poll", ws.TenantId, _ => PollOneAsync(ws), ct);
-                else
-                    await PollOneAsync(ws);
+                // WP17.1: record the poll into ConnectorRuns ("woo") for connector health/alerting —
+                // additive to the existing WP13.3 woo-poll heartbeat, and behaviour-preserving (a
+                // failing poll is recorded then re-thrown exactly as before).
+                try
+                {
+                    if (_heartbeat != null)
+                        await _heartbeat.TrackAsync("woo-poll", ws.TenantId, _ => PollOneAsync(ws), ct);
+                    else
+                        await PollOneAsync(ws);
+                    if (_connectorHealth != null)
+                        await _connectorHealth.RecordAsync(Plutus.SharedKernel.ConnectorRegistry.Woo, ws.TenantId, Plutus.SharedKernel.ConnectorActivity.Poll, true, null, ct);
+                }
+                catch (Exception ex)
+                {
+                    if (_connectorHealth != null)
+                        await _connectorHealth.RecordAsync(Plutus.SharedKernel.ConnectorRegistry.Woo, ws.TenantId, Plutus.SharedKernel.ConnectorActivity.Poll, false, ex.Message, ct);
+                    throw;
+                }
             }
 
             _log?.LogInformation("webstore reconciliation: {Summary}", summary);

@@ -49,7 +49,9 @@ namespace Plutus.Webstore
                 sp.GetRequiredService<IWebstoreSecretProvider>(),
                 sp.GetRequiredService<System.Net.Http.IHttpClientFactory>().CreateClient(nameof(WebstoreReconciler)),
                 sp.GetRequiredService<WebstoreOptions>(),
-                sp.GetService<Microsoft.Extensions.Logging.ILoggerFactory>()?.CreateLogger(nameof(WebstoreReconciler))));
+                sp.GetService<Microsoft.Extensions.Logging.ILoggerFactory>()?.CreateLogger(nameof(WebstoreReconciler)),
+                sp.GetService<Plutus.SharedKernel.IJobHeartbeat>(),
+                sp.GetService<Plutus.SharedKernel.IConnectorHealth>())); // WP17.1 connector health
             services.AddHostedService<WebstoreReconciliationService>();
 
             // WP6.3 FAST lane: sale-driven stock pushes ride the outbox dispatcher. Registered
@@ -57,7 +59,8 @@ namespace Plutus.Webstore
             services.AddScoped<Plutus.SharedKernel.IEventConsumer>(sp => new WebstoreStockOutboundConsumer(
                 sp.GetRequiredService<MySqlDbContext>(),
                 sp.GetRequiredService<IWebstoreSecretProvider>(),
-                sp.GetRequiredService<System.Net.Http.IHttpClientFactory>()));
+                sp.GetRequiredService<System.Net.Http.IHttpClientFactory>(),
+                sp.GetService<Plutus.SharedKernel.IConnectorHealth>())); // WP17.1
             return services;
         }
     }

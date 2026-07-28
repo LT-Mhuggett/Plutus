@@ -80,7 +80,8 @@ namespace Plutus.DBService
             services.AddPlutusWebstore();
             services.AddPlutusOutbox(); // T1.5 broker-less dispatcher (consumers register their own IEventConsumer)
             services.AddPlutusRequestHealth(); // WP13.2 per-tenant request-health accumulator + per-minute flusher
-            services.AddPlutusJobMonitoring(); // WP13.3 IJobHeartbeat + IOperatorAlerter seams
+            services.AddPlutusJobMonitoring(); // WP13.3 IJobHeartbeat + IOperatorAlerter + WP17.1 IConnectorHealth seams
+            services.AddSingleton<Plutus.SharedKernel.IMessageSender, Plutus.SharedKernel.NullMessageSender>(); // WP17.3 messaging seam (null until a mailer is chosen)
             services.AddPlutusTenantRateLimiting(Configuration); // WP13.5 per-tenant rate limiting
             ConfigureRateLimiting(services, Configuration);
             services.ConfigureSwaggerDocumentation(Configuration);

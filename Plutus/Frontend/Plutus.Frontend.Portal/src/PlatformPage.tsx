@@ -3,10 +3,10 @@ import {
   fetchTenants, fetchUsageSummary, fetchHealth, fetchTenantHealth, fetchAlerts, fetchJobs, setTenantStatus, impersonate,
   fetchOverrides, setOverrides, fetchFlags, setFlag, setSandbox, resetSandbox,
   fetchAnnouncements, createAnnouncement, deleteAnnouncement, fetchSla,
-  fetchSignals, fetchContract, setContract, fetchMargin, fetchAnalytics,
+  fetchSignals, fetchContract, setContract, fetchMargin, fetchAnalytics, fetchConnectors,
   type PlatformTenant, type UsageSummaryRow, type HealthResponse, type HealthTenantRow,
   type HealthDrillRow, type AlertRow, type JobRow, type OverrideRow, type FlagRow, type AnnouncementRow, type SlaResponse,
-  type SignalRow, type ContractRow, type MarginResponse, type AnalyticsResponse,
+  type SignalRow, type ContractRow, type MarginResponse, type AnalyticsResponse, type ConnectorRow,
 } from "./api.ts";
 import { beginImpersonation } from "./auth.ts";
 
@@ -440,11 +440,12 @@ function P95Chart({ values }: { values: number[] }) {
 function HealthScreen() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
+  const [connectors, setConnectors] = useState<ConnectorRow[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    Promise.all([fetchHealth(), fetchAlerts()])
-      .then(([h, a]) => { setHealth(h); setAlerts(a); setError(""); })
+    Promise.all([fetchHealth(), fetchAlerts(), fetchConnectors()])
+      .then(([h, a, c]) => { setHealth(h); setAlerts(a); setConnectors(c); setError(""); })
       .catch((e) => setError(String(e instanceof Error ? e.message : e)));
   }, []);
 
@@ -482,6 +483,25 @@ function HealthScreen() {
             </tr>
           ))}
           {(health?.tenants?.length ?? 0) === 0 && <tr><td colSpan={8} className="muted">No request traffic in the last hour.</td></tr>}
+        </tbody>
+      </table>
+
+      <h4>Connector health</h4>
+      <table>
+        <thead><tr><th /><th>Connector</th><th>Tenant</th><th>Last poll</th><th>Last webhook</th><th>Last outbound</th><th className="num">Err streak</th></tr></thead>
+        <tbody>
+          {connectors.map((c, i) => (
+            <tr key={`${c.connector}:${c.tenantId}:${i}`}>
+              <td><Dot color={c.silent || c.errorStreak > 0 ? "#dc2626" : "#16a34a"} title={c.silent ? "silent" : "healthy"} /></td>
+              <td className="mono">{c.connector}</td>
+              <td>{short(c.tenantId ?? null)}</td>
+              <td className="small">{c.lastPollAtUtc ? new Date(c.lastPollAtUtc + "Z").toLocaleString("en-GB") : "—"}</td>
+              <td className="small">{c.lastWebhookAtUtc ? new Date(c.lastWebhookAtUtc + "Z").toLocaleString("en-GB") : "—"}</td>
+              <td className="small">{c.lastOutboundAtUtc ? new Date(c.lastOutboundAtUtc + "Z").toLocaleString("en-GB") : "—"}</td>
+              <td className="num">{c.errorStreak}</td>
+            </tr>
+          ))}
+          {connectors.length === 0 && <tr><td colSpan={7} className="muted">No connectors have reported yet.</td></tr>}
         </tbody>
       </table>
 

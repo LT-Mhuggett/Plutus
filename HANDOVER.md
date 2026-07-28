@@ -1,7 +1,7 @@
 # Handover — Plutus platform build
 
 **Date:** 2026-07-28 — Platform now on **.NET 10** (merged Development: net10 + MAUI + Mapster).
-Phases 0–16 built & tested (16.4 dunning gated); **13, 14 & 15 LIVE; Phase 16 built + tested, deploying**.
+Phases 0–17 built & tested (17.2 payments-gated, 17.3 = seam only); **13–16 LIVE; Phase 17 built + tested, deploying**.
 **Branch:** `Matt's-Horror` · **dev remote is now `upstream` = seank842/Plutus** (bare `git push`/`pull`
 go there). `origin` = LT-Mhuggett/Plutus is **parked on net8** (a 151 MB `Publishing/` artifact blocks
 pushing the net10 line there — reconcile later, coordinated with Sean).
@@ -9,10 +9,25 @@ pushing the net10 line there — reconcile later, coordinated with Sean).
 
 ---
 
-## ⏰ RESUME HERE (updated 2026-07-28 — Phases 13–16 built; 13/14/15 LIVE; 16 deploying)
+## ⏰ RESUME HERE (updated 2026-07-28 — Phases 13–17 built; 13–16 LIVE; 17 deploying)
 
-**Test suite (net10, SDK 10.0.302): Unit 209 · Architecture 5 · Integration 21 — all green.**
+**Test suite (net10, SDK 10.0.302): Unit 209 · Architecture 6 · Integration 25 — all green.**
 Committed to **`upstream/Matt's-Horror`** (seank842).
+
+### Phase 17 — integration health & deliverability (built + tested this session)
+- **17.1 Connector health** — `ConnectorRun` + migration; SharedKernel `IConnectorHealth` /
+  `ConnectorBase` (health + retry + journal) / `ConnectorRegistry`; `ConnectorMonitor` (a
+  RetentionSweeper pass) raises a keyed WP13.3 alert on connector silence/error-streak. Woo is the
+  first consumer (poll/webhook/outbound record health — additive; Woo tests unchanged). Operator
+  `GET /platform/connectors` + tenant `GET /webstores/connector-health`; portal surfaces on
+  Platform→Health and the Webstore tab. A `SampleConnector` proves the base in <50 lines.
+- **17.3 messaging seam (seam only)** — `IMessageSender` + `NullMessageSender` default (nothing
+  sends); `TenantSendingIdentity` (per-tenant from-identity from day one) + `MessageEvent` ledger +
+  `MessageEventStore` + migration. Arch test bans concrete providers in core; round-trip test
+  covers send→bounce with tenant attribution. Concrete mailer + deliverability dashboard still gated.
+- **17.2 payment gateway health** — GATED on Phase 7 payments; spec-only, not built.
+- **Migrations** `AddConnectorRuns` + `AddMessaging` auto-apply. `NullMessageSender` registered as
+  the default `IMessageSender` in the host.
 
 ### Phase 16 — commercial ops (built + tested this session; 16.4 gated)
 - **16.1 Churn signals** — `TenantSignal` (global, keyed) + `ChurnSweep` (RetentionSweeper pass):
@@ -103,9 +118,10 @@ Rollback dirs kept: `backend.pre-phase13`, `backend.pre-p135`, etc.
   `plutus` password**; Keycloak `login.plutus` vhost + portal basic_auth (Matt's sudo).
 - **Phase 14 (LIVE):** impersonation, feature flags/kill switches, sandbox + a permanent **Demo
   Store** tenant (`de300000-…-0001`). See the plan board for per-WP detail.
-- **Next in the plan:** **Phase 17** (integration health — connector health framework WP17.1;
-  17.2/17.3 gated on payments), then Phase 18. Gated tails: billing adapter (unblocks 16.4),
-  payments (17.2), mailer, Keycloak.
+- **Next in the plan:** **Phase 18** (operator security & compliance — 18.1 MFA/SSO gated on the
+  `login.plutus` vhost; 18.2 residency/DPA registry + 18.3 incident-response runbook buildable).
+  Gated tails: billing adapter (unblocks 16.4), payments (17.2 + 7), mailer (17.3 concrete),
+  Keycloak (18.1).
 
 ---
 

@@ -72,6 +72,26 @@ public class ConventionTests
             "Backend must stay isolated from frontends (static SPAs, /api only). Offenders:\n  " + string.Join("\n  ", offenders));
     }
 
+    [Fact]
+    public void Messaging_seam_has_no_concrete_provider_in_core()
+    {
+        // WP17.3: like the billing seam, core keeps ZERO reference to any concrete mail/SMS
+        // provider — only the IMessageSender abstraction + NullMessageSender default exist until an
+        // adapter is deliberately added. Scans src/ + the host for banned provider types/packages.
+        var banned = new Regex(@"(SendGrid|Mailgun|Twilio|Amazon\.SimpleEmail|\bSmtpClient\b|MailKit|Postmark|SparkPost)",
+            RegexOptions.IgnoreCase);
+
+        var offenders = new List<string>();
+        foreach (var file in Repo.CsFiles("src"))
+            foreach (Match m in banned.Matches(File.ReadAllText(file)))
+                offenders.Add($"{Path.GetFileName(file)}: {m.Value}");
+        foreach (var csproj in Directory.EnumerateFiles(Path.Combine(Repo.Root(), "src"), "*.csproj", SearchOption.AllDirectories))
+            if (banned.IsMatch(File.ReadAllText(csproj))) offenders.Add($"{Path.GetFileName(csproj)}: provider package");
+
+        Assert.True(offenders.Count == 0,
+            "The messaging seam must stay provider-free in core (WP17.3). Offenders:\n  " + string.Join("\n  ", offenders));
+    }
+
     // spec T0.4 rule 3 (tenant-owned entities carry a global query filter) is now enforced
     // via IModel metadata in Plutus.Tests.Unit.TenancyTests — it needs a product reference
     // (MySqlDbContext), which this disk-scanning project deliberately avoids.

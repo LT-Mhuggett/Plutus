@@ -112,6 +112,24 @@ namespace Plutus.Tenancy.Controllers
             });
         }
 
+        /// <summary>WP17.1 connector health across all tenants — last poll/webhook/outbound, error
+        /// streak, and whether the connector is currently silent past its registered window.</summary>
+        [HttpGet("api/v1/platform/connectors")]
+        [Authorize(Policy = PlutusPolicies.PlatformAdmin)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> Connectors()
+        {
+            var now = DateTime.UtcNow;
+            var rows = await _db.ConnectorRuns.AsNoTracking().OrderBy(r => r.Connector).ThenBy(r => r.TenantId).ToListAsync();
+            return Ok(rows.Select(r => new
+            {
+                connector = r.Connector, tenantId = r.TenantId,
+                lastPollAtUtc = r.LastPollAtUtc, lastWebhookAtUtc = r.LastWebhookAtUtc, lastOutboundAtUtc = r.LastOutboundAtUtc,
+                errorStreak = r.ErrorStreak, lastError = r.LastError,
+                silent = r.LastActivityAtUtc == null || now - r.LastActivityAtUtc.Value > Plutus.SharedKernel.ConnectorRegistry.SilenceWindow(r.Connector),
+            }));
+        }
+
         /// <summary>Drill-down: one tenant's per-minute request-stat rows over a window
         /// (default the last 24h).</summary>
         [HttpGet("api/v1/platform/health/{tenantId}")]

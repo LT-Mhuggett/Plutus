@@ -55,6 +55,25 @@ namespace Plutus.Webstore.Controllers
         private async Task<bool> EntitledAsync(CancellationToken ct) =>
             await _entitlements.IsEnabledAsync(_tenant.TenantId, Entitlements.WooConnector, ct);
 
+        /// <summary>WP17.1 tenant-facing connector health for the portal Webstore tab: this tenant's
+        /// connector rows (last poll/webhook/outbound + error streak + current silence).</summary>
+        [HttpGet("connector-health")]
+        [Authorize]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> ConnectorHealth(CancellationToken ct)
+        {
+            var now = DateTime.UtcNow;
+            var rows = await _db.ConnectorRuns.AsNoTracking()
+                .Where(r => r.TenantId == _tenant.TenantId).OrderBy(r => r.Connector).ToListAsync(ct);
+            return Ok(rows.Select(r => new
+            {
+                connector = r.Connector,
+                lastPollAtUtc = r.LastPollAtUtc, lastWebhookAtUtc = r.LastWebhookAtUtc, lastOutboundAtUtc = r.LastOutboundAtUtc,
+                errorStreak = r.ErrorStreak, lastError = r.LastError,
+                silent = r.LastActivityAtUtc == null || now - r.LastActivityAtUtc.Value > ConnectorRegistry.SilenceWindow(r.Connector),
+            }));
+        }
+
         // ---- WP6.1 onboarding: create → wc-auth redirect → callback → webhooks; + disconnect ----
 
         public sealed record CreateConnectionBody(string Name, string Url, int? StoreId, string ReturnUrl);

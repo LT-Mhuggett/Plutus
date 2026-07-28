@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Plutus.Entities;
 
@@ -11,9 +12,11 @@ using Plutus.Entities;
 namespace Plutus.Entities.Migrations.MySql
 {
     [DbContext(typeof(MySqlDbContext))]
-    partial class MySqlDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260728172417_AddConnectorRuns")]
+    partial class AddConnectorRuns
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1048,53 +1051,6 @@ namespace Plutus.Entities.Migrations.MySql
                     b.HasIndex("TenantId", "CustomerId");
 
                     b.ToTable("Memberships", (string)null);
-                });
-
-            modelBuilder.Entity("Plutus.Entities.Models.MessageEvent", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("AtUtc")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<byte>("Channel")
-                        .HasColumnType("tinyint unsigned");
-
-                    b.Property<string>("Detail")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("FromAddress")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("varchar(256)");
-
-                    b.Property<string>("ProviderMessageId")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<byte>("Status")
-                        .HasColumnType("tinyint unsigned");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("ToAddress")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("varchar(256)");
-
-                    b.Property<DateTime>("UpdatedAtUtc")
-                        .HasColumnType("datetime(6)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProviderMessageId");
-
-                    b.HasIndex("TenantId", "Status");
-
-                    b.ToTable("MessageEvents", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.Note", b =>
@@ -2764,41 +2720,6 @@ namespace Plutus.Entities.Migrations.MySql
                     b.HasIndex("TenantId");
 
                     b.ToTable("TenantRequestStats", (string)null);
-                });
-
-            modelBuilder.Entity("Plutus.Entities.Models.TenantSendingIdentity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("char(36)");
-
-                    b.Property<byte>("Channel")
-                        .HasColumnType("tinyint unsigned");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Domain")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("varchar(256)");
-
-                    b.Property<string>("FromAddress")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("varchar(256)");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<bool>("Verified")
-                        .HasColumnType("tinyint(1)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId", "Channel")
-                        .IsUnique();
-
-                    b.ToTable("TenantSendingIdentities", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.TenantSignal", b =>

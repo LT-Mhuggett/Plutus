@@ -74,6 +74,9 @@ namespace Plutus.Entities
         public DbSet<PlatformAnnouncement> PlatformAnnouncements { get; set; }
         public DbSet<TenantSignal> TenantSignals { get; set; }
         public DbSet<TenantContract> TenantContracts { get; set; }
+        public DbSet<ConnectorRun> ConnectorRuns { get; set; }
+        public DbSet<TenantSendingIdentity> TenantSendingIdentities { get; set; }
+        public DbSet<MessageEvent> MessageEvents { get; set; }
         // Financial periods (WP3.4): close/lock + snapshot.
         public DbSet<FinancialPeriod> FinancialPeriods { get; set; }
         // Stock ledger (WP5.1): append-only movements + materialised levels.
@@ -518,6 +521,39 @@ namespace Plutus.Entities
                 e.Property(x => x.TenantId).ValueGeneratedNever();
                 e.Property(x => x.Notes).IsRequired(false);
                 e.Property(x => x.UpdatedBy).HasMaxLength(128);
+            });
+            // WP17.1 connector health — GLOBAL table (TenantId as data).
+            modelBuilder.Entity<ConnectorRun>(e =>
+            {
+                e.ToTable("ConnectorRuns");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Connector).HasMaxLength(64).IsRequired();
+                e.Property(x => x.LastError).IsRequired(false);
+                e.Ignore(x => x.LastActivityAtUtc); // computed
+                e.HasIndex(x => new { x.Connector, x.TenantId }).IsUnique();
+            });
+            // WP17.3 messaging seam — GLOBAL tables (operator/provider-managed, tenant-attributed).
+            modelBuilder.Entity<TenantSendingIdentity>(e =>
+            {
+                e.ToTable("TenantSendingIdentities");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.FromAddress).HasMaxLength(256).IsRequired();
+                e.Property(x => x.Domain).HasMaxLength(256);
+                e.HasIndex(x => new { x.TenantId, x.Channel }).IsUnique();
+            });
+            modelBuilder.Entity<MessageEvent>(e =>
+            {
+                e.ToTable("MessageEvents");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.ToAddress).HasMaxLength(256).IsRequired();
+                e.Property(x => x.FromAddress).HasMaxLength(256);
+                e.Property(x => x.ProviderMessageId).HasMaxLength(200);
+                e.Property(x => x.Detail).IsRequired(false);
+                e.HasIndex(x => x.ProviderMessageId);
+                e.HasIndex(x => new { x.TenantId, x.Status });
             });
 
             // WP3.4 financial periods.
