@@ -37,10 +37,17 @@ function tokenClaims(): Record<string, unknown> | null {
 }
 
 function currentScopes(): string[] {
-  const raw = tokenClaims()?.Scope ?? tokenClaims()?.scope;
-  if (typeof raw === "string") return raw.split(" ").filter(Boolean);
-  if (Array.isArray(raw)) return (raw as string[]).filter(Boolean);
-  return [];
+  const c = tokenClaims();
+  const raw = c?.Scope ?? c?.scope;
+  const scopes =
+    typeof raw === "string" ? raw.split(" ").filter(Boolean)
+    : Array.isArray(raw) ? (raw as string[]).filter(Boolean)
+    : [];
+  // WP18.1: a Keycloak JWT carries realm roles in realm_access.roles (the backend maps the
+  // platform-admin role to the scope server-side; mirrored here for the UI-only tab check).
+  const roles = (c?.realm_access as { roles?: unknown[] } | undefined)?.roles;
+  if (Array.isArray(roles)) scopes.push(...roles.filter((r): r is string => typeof r === "string"));
+  return scopes;
 }
 
 /** WP13.4: reveal the Platform section only for operator tokens carrying platform-admin.

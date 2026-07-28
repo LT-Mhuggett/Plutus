@@ -69,6 +69,14 @@ public sealed class RbacClaimsTransformation : IClaimsTransformation
             return principal;
         id.AddClaim(new Claim(MarkerClaim, "1"));
 
+        // WP18.1: the Keycloak realm role `platform-admin` (granted only via the `operators`
+        // group, whose members must enrol TOTP) maps to the platform-admin scope. This is the
+        // ONLY way the scope can arrive once OPERATOR_SSO_ENFORCED strips it from HMAC logins.
+        // Added before the WebCredentials match so a pure operator (no tenant identity) still
+        // gets the Platform surface.
+        if (HasPlatformAdminRole(principal))
+            id.AddClaim(new Claim("scope", PlutusPolicies.PlatformAdmin));
+
         var email = EmailClaimTypes
             .Select(t => principal.FindFirst(t)?.Value)
             .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
@@ -111,5 +119,20 @@ public sealed class RbacClaimsTransformation : IClaimsTransformation
         id.AddClaim(new Claim("scp", apiScopes.Length > 0 ? string.Join(' ', apiScopes) : "API.Read API.Write"));
 
         return principal;
+    }
+
+    /// <summary>Does the IdP token carry the platform-admin realm role? Keycloak puts realm roles
+    /// in the `realm_access` claim ({"roles":[…]} JSON); some mappers flatten them to `roles` /
+    /// role claims — accept either shape.</summary>
+    private static bool HasPlatformAdminRole(ClaimsPrincipal principal)
+    {
+        foreach (var c in principal.FindAll("realm_access"))
+            if (c.Value.Contains($"\"{PlutusPolicies.PlatformAdmin}\"", StringComparison.Ordinal))
+                return true;
+        foreach (var type in new[] { "roles", ClaimTypes.Role })
+            foreach (var c in principal.FindAll(type))
+                if (string.Equals(c.Value, PlutusPolicies.PlatformAdmin, StringComparison.Ordinal))
+                    return true;
+        return false;
     }
 }

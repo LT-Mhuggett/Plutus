@@ -92,6 +92,19 @@
   "otpPolicyType": "totp",
   "users": [
     {
+      "username": "matt",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Matt",
+      "lastName": "Huggett",
+      "email": "matt@huggett.co.uk",
+      "groups": ["/operators"],
+      "requiredActions": ["UPDATE_PASSWORD", "CONFIGURE_TOTP"],
+      "credentials": [
+        { "type": "password", "value": "ChangeMe!2026", "temporary": true }
+      ]
+    },
+    {
       "username": "operator",
       "enabled": true,
       "emailVerified": true,

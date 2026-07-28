@@ -113,6 +113,40 @@ public class Phase9AuthTests
         Assert.Empty(result.FindAll("scope"));
     }
 
+    // ── WP18.1: the Keycloak `platform-admin` realm role (operators group) → the scope ──
+
+    [Fact]
+    public async Task Operators_realm_role_maps_to_the_platform_admin_scope()
+    {
+        using var conn = OpenSeeded();
+        // Keycloak's default shape: realm roles arrive as the realm_access JSON claim. An
+        // operator need not exist as a tenant user — the Platform surface must still open.
+        var principal = Jwt(
+            new Claim("email", "ops@plutus.test"),
+            new Claim("realm_access", "{\"roles\":[\"default-roles-plutus\",\"platform-admin\"]}"));
+
+        var result = await Transform(conn).TransformAsync(principal);
+
+        Assert.Contains(result.FindAll("scope"), c => c.Value == PlutusPolicies.PlatformAdmin);
+    }
+
+    [Fact]
+    public async Task Idp_token_without_the_role_gets_no_platform_admin()
+    {
+        using var conn = OpenSeeded();
+        // A tenant user with ordinary RBAC — and a realm_access WITHOUT the role — must not
+        // gain platform-admin (the role, not the group name or any other claim, is the key).
+        var principal = Jwt(
+            new Claim("email", AdaEmail),
+            new Claim("realm_access", "{\"roles\":[\"default-roles-plutus\"]}"));
+
+        var result = await Transform(conn).TransformAsync(principal);
+
+        var scopes = result.FindAll("scope").Select(c => c.Value).ToArray();
+        Assert.Contains(PlutusPolicies.PosSell, scopes);
+        Assert.DoesNotContain(PlutusPolicies.PlatformAdmin, scopes);
+    }
+
     [Fact]
     public async Task Device_and_test_principals_pass_through_untouched()
     {
