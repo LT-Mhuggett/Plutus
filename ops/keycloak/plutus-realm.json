@@ -2,6 +2,7 @@
   "realm": "plutus",
   "enabled": true,
   "displayName": "Plutus",
+  "loginTheme": "plutus",
   "sslRequired": "external",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,

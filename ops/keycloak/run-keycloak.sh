@@ -28,8 +28,13 @@ docker run -d --name "$NAME" --restart unless-stopped \
   -e KC_PROXY_HEADERS=xforwarded \
   -e KC_HEALTH_ENABLED=true \
   -v "$HERE/plutus-realm.json":/opt/keycloak/data/import/plutus-realm.json:ro \
+  -v "$HERE/themes/plutus":/opt/keycloak/themes/plutus:ro \
   "$IMAGE" \
   start-dev --import-realm
+
+# ⚠ Recreating this container WIPES all user state (passwords changed since import, TOTP
+# enrolments) back to the committed realm seed — the container is stateless by design on the
+# test env. Re-onboard operators (or kcadm set-password) after any re-run.
 
 echo "Started $NAME on 127.0.0.1:${PORT}. Waiting for realm to import..."
 for i in $(seq 1 60); do

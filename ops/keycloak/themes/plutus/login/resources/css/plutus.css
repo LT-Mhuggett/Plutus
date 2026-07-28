@@ -1,0 +1,22 @@
+/* Plutus login theme (WP18.1 polish): make the one-time-code step unmistakable.
+   The stock screen renders a small bare input that reads like a broken page. */
+
+/* The OTP challenge + TOTP-setup code inputs: big, centred, digit-spaced. */
+input#otp,
+input#totp {
+  font-size: 1.7rem;
+  letter-spacing: 0.35em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  padding: 0.55em 0.4em;
+  max-width: 14em;
+}
+
+/* Their labels: prominent instead of fine print. */
+label[for="otp"],
+label[for="totp"] {
+  font-size: 1.05rem;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 0.4em;
+}
