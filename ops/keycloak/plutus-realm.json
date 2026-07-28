@@ -161,6 +161,11 @@
     { "name": "operators", "realmRoles": ["platform-admin"] }
   ],
   "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyDigits": 6,
+  "otpPolicyLookAheadWindow": 1,
+  "otpPolicyPeriod": 30,
+  "otpPolicyInitialCounter": 0,
   "users": [
     {
       "username": "matt",
