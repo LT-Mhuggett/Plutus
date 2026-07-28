@@ -60,4 +60,25 @@ public class ResourceControlsTests
         var guard = new QuotaGuard(new FakeEntitlements(null)); // no limit set
         await guard.EnforceAsync(Guid.NewGuid(), Entitlements.StoresMax, 9999); // never throws
     }
+
+    // ── WP14.2 effective entitlements ──
+
+    [Fact]
+    public void ComputeEffective_grant_adds_deny_removes_valued_override_wins()
+    {
+        var plan = new[] { "woo-connector", "ratelimit.rps:50" };
+
+        // beta grant adds a feature the plan lacks
+        var betaed = Entitlements.ComputeEffective(plan, new[] { ("advanced-reports", false) });
+        Assert.Contains("advanced-reports", betaed);
+        Assert.Contains("woo-connector", betaed);
+
+        // deny removes a plan feature (deny wins)
+        var denied = Entitlements.ComputeEffective(plan, new[] { ("woo-connector", true) });
+        Assert.DoesNotContain("woo-connector", denied);
+
+        // a valued override wins over the plan value (grants sort first → ParseLimit picks it)
+        var tuned = Entitlements.ComputeEffective(plan, new[] { ("ratelimit.rps:100", false) });
+        Assert.Equal(100, Entitlements.ParseLimit(tuned, Entitlements.RateLimitRps));
+    }
 }

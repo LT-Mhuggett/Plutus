@@ -92,17 +92,29 @@ namespace Plutus.Tenancy
         {
             if (tenantId == Guid.Empty) return true; // platform-admin / unscoped
             if (string.IsNullOrWhiteSpace(feature)) return false;
-            var json = await _db.Tenants.AsNoTracking()
-                .Where(t => t.Id == tenantId).Select(t => t.Entitlements).FirstOrDefaultAsync(ct);
-            return Parse(json).Contains(feature, StringComparer.OrdinalIgnoreCase);
+            // WP14.2 global kill switch beats everything — off for every tenant instantly.
+            if (await _db.PlatformFlags.AsNoTracking().AnyAsync(f => f.FlagName == feature && !f.Enabled, ct))
+                return false;
+            var eff = await EffectiveAsync(tenantId, ct);
+            return eff.Contains(feature, StringComparer.OrdinalIgnoreCase);
         }
 
         public async Task<long?> GetLimitAsync(Guid tenantId, string key, CancellationToken ct = default)
         {
             if (tenantId == Guid.Empty || string.IsNullOrWhiteSpace(key)) return null; // unlimited
+            return Plutus.SharedKernel.Entitlements.ParseLimit(await EffectiveAsync(tenantId, ct), key);
+        }
+
+        /// <summary>WP14.2 effective entitlements: plan ∪ operator grants − denies (grants first so
+        /// a valued override wins). Read live so flag/override changes take effect with no restart.</summary>
+        private async Task<System.Collections.Generic.IReadOnlyList<string>> EffectiveAsync(Guid tenantId, CancellationToken ct)
+        {
             var json = await _db.Tenants.AsNoTracking()
                 .Where(t => t.Id == tenantId).Select(t => t.Entitlements).FirstOrDefaultAsync(ct);
-            return Plutus.SharedKernel.Entitlements.ParseLimit(Parse(json), key);
+            var overrides = await _db.TenantEntitlementOverrides.AsNoTracking()
+                .Where(o => o.TenantId == tenantId).Select(o => new { o.Entitlement, o.Deny }).ToListAsync(ct);
+            return Plutus.SharedKernel.Entitlements.ComputeEffective(
+                Parse(json), overrides.Select(o => (o.Entitlement, o.Deny)));
         }
 
         /// <summary>The tenant's entitlement list (empty on null/parse failure).</summary>

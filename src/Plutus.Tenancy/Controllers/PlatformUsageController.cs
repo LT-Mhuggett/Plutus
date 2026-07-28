@@ -50,11 +50,18 @@ namespace Plutus.Tenancy.Controllers
         [HttpGet("api/v1/platform/usage/summary")]
         [Authorize(Policy = PlutusPolicies.PlatformAdmin)]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<IActionResult> Summary()
+        public async Task<IActionResult> Summary([FromQuery] bool includeSandbox = false)
         {
             var since = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-30);
             var rows = await _db.TenantUsageRollups.AsNoTracking()
                 .Where(x => x.BusinessDay >= since).ToListAsync();
+
+            // WP14.3: sandbox/demo tenants are excluded from commercial usage by default.
+            if (!includeSandbox)
+            {
+                var sandbox = await _db.Tenants.AsNoTracking().Where(t => t.IsSandbox).Select(t => t.Id).ToListAsync();
+                if (sandbox.Count > 0) rows = rows.Where(r => !sandbox.Contains(r.TenantId)).ToList();
+            }
 
             var byTenant = rows.GroupBy(r => r.TenantId).Select(g => new
             {

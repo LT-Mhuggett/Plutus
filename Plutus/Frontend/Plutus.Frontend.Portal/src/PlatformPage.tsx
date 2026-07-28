@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   fetchTenants, fetchUsageSummary, fetchHealth, fetchTenantHealth, fetchAlerts, fetchJobs, setTenantStatus, impersonate,
+  fetchOverrides, setOverrides, fetchFlags, setFlag, setSandbox, resetSandbox,
   type PlatformTenant, type UsageSummaryRow, type HealthResponse, type HealthTenantRow,
-  type HealthDrillRow, type AlertRow, type JobRow,
+  type HealthDrillRow, type AlertRow, type JobRow, type OverrideRow, type FlagRow,
 } from "./api.ts";
 import { beginImpersonation } from "./auth.ts";
 
@@ -37,19 +38,56 @@ function Sparkline({ values, w = 120, h = 26 }: { values: number[]; w?: number; 
 }
 
 export default function PlatformPage() {
-  const [screen, setScreen] = useState<"Tenants" | "Health" | "Jobs">("Tenants");
+  const [screen, setScreen] = useState<"Tenants" | "Health" | "Jobs" | "Flags">("Tenants");
   return (
     <section className="panel">
       <div className="toolbar">
         <h2 className="grow">Platform</h2>
-        {(["Tenants", "Health", "Jobs"] as const).map((s) => (
+        {(["Tenants", "Health", "Jobs", "Flags"] as const).map((s) => (
           <button key={s} className={s === screen ? "tab active" : "tab"} onClick={() => setScreen(s)}>{s}</button>
         ))}
       </div>
       {screen === "Tenants" && <TenantsScreen />}
       {screen === "Health" && <HealthScreen />}
       {screen === "Jobs" && <JobsScreen />}
+      {screen === "Flags" && <FlagsScreen />}
     </section>
+  );
+}
+
+function FlagsScreen() {
+  const [flags, setFlags] = useState<FlagRow[]>([]);
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  const refresh = () => fetchFlags().then((f) => { setFlags(f); setError(""); }).catch((e) => setError(String(e)));
+  useEffect(() => { void refresh(); }, []);
+
+  const toggle = (n: string, enabled: boolean) =>
+    void setFlag(n, enabled, enabled ? "re-enabled" : "kill switch").then(refresh).catch((e) => setError(String(e)));
+
+  return (
+    <>
+      <p className="muted small">A kill switch (Enabled off) disables that feature for EVERY tenant instantly — before plan or overrides.</p>
+      {error && <p className="error">{error}</p>}
+      <div className="toolbar">
+        <input placeholder="feature key (e.g. woo-outbound)" value={name} onChange={(e) => setName(e.target.value)} />
+        <button className="ghost small" disabled={!name.trim()} onClick={() => toggle(name.trim(), false)}>Add kill switch</button>
+      </div>
+      <table>
+        <thead><tr><th>Feature</th><th>State</th><th>Reason</th><th /></tr></thead>
+        <tbody>
+          {flags.map((f) => (
+            <tr key={f.flagName}>
+              <td className="mono">{f.flagName}</td>
+              <td><span style={{ color: f.enabled ? "#16a34a" : "#dc2626" }}>{f.enabled ? "enabled" : "KILLED"}</span></td>
+              <td className="small">{f.reason ?? "—"}</td>
+              <td><button className="ghost small" onClick={() => toggle(f.flagName, !f.enabled)}>{f.enabled ? "Kill" : "Enable"}</button></td>
+            </tr>
+          ))}
+          {flags.length === 0 && !error && <tr><td colSpan={4} className="muted">No global flags set.</td></tr>}
+        </tbody>
+      </table>
+    </>
   );
 }
 
@@ -84,7 +122,7 @@ function TenantsScreen() {
             return (
               <tr key={t.id}>
                 <td><Dot color={healthColor(h)} title={h ? `err5xx ${h.err5xx}, p95 ${h.peakP95Ms}ms, quarantine ${h.quarantineOpen}` : "no traffic (last hour)"} /></td>
-                <td>{t.name}<br /><span className="muted small">{short(t.id)}</span></td>
+                <td>{t.name} {t.isSandbox && <span style={{ background: "#7c3aed", color: "white", fontSize: 10, padding: "1px 5px", borderRadius: 3 }}>SANDBOX</span>}<br /><span className="muted small">{short(t.id)}</span></td>
                 <td>{STATUS[t.status] ?? t.status}</td>
                 <td>{t.plan || "—"}</td>
                 <td>{series.length ? <Sparkline values={series} /> : <span className="muted small">—</span>}</td>
@@ -107,11 +145,18 @@ function TenantDetail({ tenantId, tenant, onClose }: { tenantId: string; tenant?
   const [error, setError] = useState("");
   const [impUser, setImpUser] = useState("");
   const [impMins, setImpMins] = useState(30);
+  const [overrides, setOvrs] = useState<OverrideRow[]>([]);
+  const [newFeature, setNewFeature] = useState("");
 
   const refresh = () =>
-    fetchTenantHealth(tenantId).then((r) => { setRows(r.rows); setError(""); })
+    Promise.all([fetchTenantHealth(tenantId), fetchOverrides(tenantId)])
+      .then(([h, o]) => { setRows(h.rows); setOvrs(o); setError(""); })
       .catch((e) => setError(String(e instanceof Error ? e.message : e)));
   useEffect(() => { void refresh(); }, [tenantId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const saveOverrides = (next: OverrideRow[]) =>
+    void setOverrides(tenantId, next.map((o) => ({ entitlement: o.entitlement, deny: o.deny, reason: o.reason ?? undefined })))
+      .then(refresh).catch((e) => setError(String(e)));
 
   // p95 series over the drill window (all route groups collapsed to the max p95 per minute).
   const p95 = useMemo(() => {
@@ -148,6 +193,42 @@ function TenantDetail({ tenantId, tenant, onClose }: { tenantId: string; tenant?
 
       <h4>Response p95 (last 24h, ms)</h4>
       {p95.length ? <P95Chart values={p95} /> : <p className="muted small">No request stats yet for this tenant.</p>}
+
+      <h4>Entitlement overrides</h4>
+      <p className="muted small">Grant a feature (beta) or deny it (temporary disable). Deny wins over the plan; takes effect immediately.</p>
+      <table>
+        <thead><tr><th>Entitlement</th><th>Effect</th><th /></tr></thead>
+        <tbody>
+          {overrides.map((o) => (
+            <tr key={o.entitlement + o.deny}>
+              <td className="mono">{o.entitlement}</td>
+              <td><span style={{ color: o.deny ? "#dc2626" : "#16a34a" }}>{o.deny ? "deny" : "grant"}</span></td>
+              <td><button className="ghost small" onClick={() => saveOverrides(overrides.filter((x) => x !== o))}>Remove</button></td>
+            </tr>
+          ))}
+          {overrides.length === 0 && <tr><td colSpan={3} className="muted">No overrides.</td></tr>}
+        </tbody>
+      </table>
+      <div className="toolbar">
+        <input className="mono" placeholder="feature or ratelimit.rps:100" value={newFeature} onChange={(e) => setNewFeature(e.target.value)} />
+        <button className="ghost small" disabled={!newFeature.trim()} onClick={() => saveOverrides([...overrides, { entitlement: newFeature.trim(), deny: false, reason: "beta", createdAtUtc: "" }])}>Grant</button>
+        <button className="ghost small" disabled={!newFeature.trim()} onClick={() => saveOverrides([...overrides, { entitlement: newFeature.trim(), deny: true, reason: "disabled", createdAtUtc: "" }])}>Deny</button>
+      </div>
+
+      <h4>Sandbox</h4>
+      <div className="toolbar">
+        <span className="small">{tenant?.isSandbox ? "This is a SANDBOX tenant." : "Live tenant."}</span>
+        <button className="ghost small"
+          onClick={() => void setSandbox(tenantId, !(tenant?.isSandbox ?? false)).then(() => window.location.reload()).catch((e) => setError(String(e)))}>
+          {tenant?.isSandbox ? "Unmark sandbox" : "Mark as sandbox"}
+        </button>
+        {tenant?.isSandbox && (
+          <button className="primary small"
+            onClick={() => { if (confirm("Reset this sandbox to the demo seed? This wipes its transactional data.")) void resetSandbox(tenantId).then(() => refresh()).catch((e) => setError(String(e))); }}>
+            Reset to demo
+          </button>
+        )}
+      </div>
 
       <h4>Impersonate a user</h4>
       <p className="muted small">Opens the portal AS that user (their scopes minus refunds/void/admin), audited, expires automatically.</p>

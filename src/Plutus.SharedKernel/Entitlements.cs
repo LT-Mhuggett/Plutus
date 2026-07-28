@@ -33,6 +33,43 @@ public static class Entitlements
     public const string UsersMax = "users.max";
     public const string TillsMax = "tills.max";
 
+    /// <summary>The key of an entitlement string — the part before ':' for a valued
+    /// ("ratelimit.rps:100" → "ratelimit.rps"), else the whole string.</summary>
+    public static string KeyOf(string entitlement)
+    {
+        if (string.IsNullOrEmpty(entitlement)) return entitlement;
+        var i = entitlement.IndexOf(':');
+        return i > 0 ? entitlement.Substring(0, i) : entitlement;
+    }
+
+    /// <summary>WP14.2: fold plan entitlements with operator overrides — grants first (so an
+    /// override's valued limit wins over the plan's), plan entries whose key is denied or already
+    /// granted dropped. Deny wins.</summary>
+    public static System.Collections.Generic.IReadOnlyList<string> ComputeEffective(
+        System.Collections.Generic.IEnumerable<string> plan,
+        System.Collections.Generic.IEnumerable<(string Entitlement, bool Deny)> overrides)
+    {
+        var ov = new System.Collections.Generic.List<(string Entitlement, bool Deny)>(overrides ?? System.Array.Empty<(string, bool)>());
+        var denyKeys = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+        var grants = new System.Collections.Generic.List<string>();
+        var grantKeys = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+        foreach (var (ent, deny) in ov)
+        {
+            if (string.IsNullOrWhiteSpace(ent)) continue;
+            if (deny) denyKeys.Add(KeyOf(ent));
+            else { grants.Add(ent); grantKeys.Add(KeyOf(ent)); }
+        }
+        var result = new System.Collections.Generic.List<string>(grants);
+        foreach (var p in plan ?? System.Array.Empty<string>())
+        {
+            if (string.IsNullOrWhiteSpace(p)) continue;
+            var k = KeyOf(p);
+            if (denyKeys.Contains(k) || grantKeys.Contains(k)) continue;
+            result.Add(p);
+        }
+        return result;
+    }
+
     /// <summary>Extract the numeric value of a "key:value" entitlement, or null if not present.</summary>
     public static long? ParseLimit(System.Collections.Generic.IEnumerable<string> entitlements, string key)
     {

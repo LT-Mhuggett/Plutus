@@ -49,7 +49,9 @@ export const gbp = (pence: number) =>
   new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
 
 // ── platform / operator dashboard (WP13.1–13.4; all platform-admin) ──
-export interface PlatformTenant { id: string; name: string; status: number; plan: string; entitlements: string[]; createdAtUtc: string }
+export interface PlatformTenant { id: string; name: string; status: number; plan: string; entitlements: string[]; createdAtUtc: string; isSandbox: boolean }
+export interface OverrideRow { entitlement: string; deny: boolean; reason: string | null; createdAtUtc: string }
+export interface FlagRow { flagName: string; enabled: boolean; reason: string | null; updatedAtUtc: string }
 export interface UsageSummaryRow { tenantId: string; totals: Record<string, number>; salesDaily: { day: string; value: number }[] }
 export interface HealthTenantRow { tenantId: string; requests: number; err4xx: number; err5xx: number; errorRatePct: number; peakP95Ms: number; maxMs: number; quarantineOpen: number }
 export interface HealthResponse { generatedAtUtc: string; tenants: HealthTenantRow[]; consumerLag: { consumer: string; lag: number }[] }
@@ -69,6 +71,18 @@ export const setTenantStatus = (tenantId: string, status: number) =>
 export const impersonate = (tenantId: string, userId: string, minutes: number) =>
   post<{ token: string; name: string; expiresAt: string; impersonating: boolean }>(
     `/api/v1/platform/tenants/${tenantId}/impersonate`, { userId, minutes });
+// WP14.2 overrides + flags
+export const fetchOverrides = (tenantId: string) => get<OverrideRow[]>(`/api/v1/platform/tenants/${tenantId}/overrides`);
+export const setOverrides = (tenantId: string, overrides: { entitlement: string; deny: boolean; reason?: string }[]) =>
+  put<void>(`/api/v1/platform/tenants/${tenantId}/overrides`, { overrides });
+export const fetchFlags = () => get<FlagRow[]>("/api/v1/platform/flags");
+export const setFlag = (name: string, enabled: boolean, reason?: string) =>
+  put<void>(`/api/v1/platform/flags/${encodeURIComponent(name)}`, { enabled, reason });
+// WP14.3 sandbox
+export const setSandbox = (tenantId: string, isSandbox: boolean) =>
+  put<void>(`/api/v1/platform/tenants/${tenantId}/sandbox`, { isSandbox });
+export const resetSandbox = (tenantId: string) =>
+  post<{ tenantId: string; sales: number; grossPence: number }>(`/api/v1/platform/tenants/${tenantId}/reset`);
 
 // ── auth ──
 

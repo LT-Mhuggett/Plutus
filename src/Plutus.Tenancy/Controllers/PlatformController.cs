@@ -20,6 +20,10 @@ namespace Plutus.Tenancy.Controllers
     public sealed record SetStatusBody(byte Status);
     public sealed record SetEntitlementsBody(string[] Entitlements, string Plan);
     public sealed record RequestDeletionBody(int GraceDays);
+    // WP14.2
+    public sealed record OverrideItem(string Entitlement, bool Deny, string Reason);
+    public sealed record SetOverridesBody(OverrideItem[] Overrides);
+    public sealed record SetFlagBody(bool Enabled, string Reason);
 
     /// <summary>
     /// Phase 10 platform admin: tenant lifecycle (status + entitlements), offboarding (scheduled
@@ -44,6 +48,66 @@ namespace Plutus.Tenancy.Controllers
 
         private Guid Actor => Guid.TryParse(User?.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var g) ? g : Guid.Empty;
 
+        // ── WP14.2 entitlement overrides + global kill switches ──
+
+        [HttpGet("api/v1/platform/tenants/{id}/overrides")]
+        [Authorize(Policy = PlutusPolicies.PlatformAdmin)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> Overrides([FromRoute] Guid id) =>
+            Ok(await _db.TenantEntitlementOverrides.AsNoTracking().Where(o => o.TenantId == id)
+                .OrderBy(o => o.Entitlement)
+                .Select(o => new { o.Entitlement, o.Deny, o.Reason, o.CreatedAtUtc }).ToListAsync());
+
+        /// <summary>Replace a tenant's operator overrides (grants/denies). Takes effect on the next
+        /// entitlement read — no restart, no token reissue.</summary>
+        [HttpPut("api/v1/platform/tenants/{id}/overrides")]
+        [Authorize(Policy = PlutusPolicies.PlatformAdmin)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        public async Task<IActionResult> SetOverrides([FromRoute] Guid id, [FromBody] SetOverridesBody body)
+        {
+            _db.CurrentUser = Actor.ToString();
+            var existing = await _db.TenantEntitlementOverrides.Where(o => o.TenantId == id).ToListAsync();
+            _db.TenantEntitlementOverrides.RemoveRange(existing);
+            foreach (var o in body?.Overrides ?? Array.Empty<OverrideItem>())
+            {
+                if (string.IsNullOrWhiteSpace(o.Entitlement)) continue;
+                _db.TenantEntitlementOverrides.Add(new TenantEntitlementOverride
+                {
+                    Id = Uuid7.New(), TenantId = id, Entitlement = o.Entitlement.Trim(),
+                    Deny = o.Deny, Reason = o.Reason, CreatedAtUtc = DateTime.UtcNow,
+                });
+            }
+            _db.Audit(id, Actor, "entitlement.overrides.set", "Tenant", id.ToString(), body?.Overrides);
+            await _db.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpGet("api/v1/platform/flags")]
+        [Authorize(Policy = PlutusPolicies.PlatformAdmin)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> Flags() =>
+            Ok(await _db.PlatformFlags.AsNoTracking().OrderBy(f => f.FlagName)
+                .Select(f => new { f.FlagName, f.Enabled, f.Reason, f.UpdatedAtUtc }).ToListAsync());
+
+        /// <summary>Set a global kill switch. Enabled=false disables the feature for EVERY tenant
+        /// instantly (checked before plan/overrides).</summary>
+        [HttpPut("api/v1/platform/flags/{name}")]
+        [Authorize(Policy = PlutusPolicies.PlatformAdmin)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        public async Task<IActionResult> SetFlag([FromRoute] string name, [FromBody] SetFlagBody body)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return BadRequest(new { detail = "flag name required." });
+            _db.CurrentUser = Actor.ToString();
+            var flag = await _db.PlatformFlags.FirstOrDefaultAsync(f => f.FlagName == name);
+            if (flag == null) _db.PlatformFlags.Add(flag = new PlatformFlag { FlagName = name.Trim() });
+            flag.Enabled = body?.Enabled ?? true;
+            flag.Reason = body?.Reason;
+            flag.UpdatedAtUtc = DateTime.UtcNow;
+            _db.Audit(Guid.Empty, Actor, "platform.flag.set", "PlatformFlag", name, new { body?.Enabled, body?.Reason });
+            await _db.SaveChangesAsync();
+            return NoContent();
+        }
+
         [HttpGet("api/v1/tenants")]
         [Authorize(Policy = PlutusPolicies.PlatformAdmin)]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -52,6 +116,7 @@ namespace Plutus.Tenancy.Controllers
             {
                 id = t.Id, name = t.Name, status = t.Status, plan = t.Plan,
                 entitlements = EntitlementService.Parse(t.Entitlements), createdAtUtc = t.CreatedAtUtc,
+                isSandbox = t.IsSandbox,
             }).ToListAsync());
 
         [HttpPut("api/v1/tenants/{id}/status")]

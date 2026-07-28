@@ -17,5 +17,6 @@ namespace Plutus.Entities.Models
         public string Entitlements { get; set; } // JSON (e.g. ["woo-connector"])
         public string ConnectionRef { get; set; } // null = pooled DB; set = dedicated (escape hatch)
         public DateTime CreatedAtUtc { get; set; }
+        public bool IsSandbox { get; set; }        // WP14.3: demo/sandbox tenant (resettable, excluded from commercial rollups)
     }
 }

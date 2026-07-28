@@ -67,6 +67,9 @@ namespace Plutus.Entities
         // WP13.3 job heartbeats + operator alerts (GLOBAL — TenantId is plain data).
         public DbSet<JobRun> JobRuns { get; set; }
         public DbSet<OperatorAlert> OperatorAlerts { get; set; }
+        // WP14.2 feature flags + entitlement overrides (GLOBAL — platform-admin managed).
+        public DbSet<TenantEntitlementOverride> TenantEntitlementOverrides { get; set; }
+        public DbSet<PlatformFlag> PlatformFlags { get; set; }
         // Financial periods (WP3.4): close/lock + snapshot.
         public DbSet<FinancialPeriod> FinancialPeriods { get; set; }
         // Stock ledger (WP5.1): append-only movements + materialised levels.
@@ -467,6 +470,23 @@ namespace Plutus.Entities
                 e.Property(x => x.JobName).HasMaxLength(100);
                 e.Property(x => x.Kind).HasMaxLength(32);
                 e.HasIndex(x => x.AlertKey).IsUnique();
+            });
+            // WP14.2 feature flags + entitlement overrides — GLOBAL tables.
+            modelBuilder.Entity<TenantEntitlementOverride>(e =>
+            {
+                e.ToTable("TenantEntitlementOverrides");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Entitlement).HasMaxLength(128).IsRequired();
+                e.Property(x => x.Reason).IsRequired(false);
+                e.HasIndex(x => x.TenantId);
+            });
+            modelBuilder.Entity<PlatformFlag>(e =>
+            {
+                e.ToTable("PlatformFlags");
+                e.HasKey(x => x.FlagName);
+                e.Property(x => x.FlagName).HasMaxLength(64);
+                e.Property(x => x.Reason).IsRequired(false);
             });
 
             // WP3.4 financial periods.
