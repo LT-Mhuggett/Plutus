@@ -148,6 +148,22 @@ export const updatePlan = (id: string, body: { name: string; pricePenceMonthly: 
 export const deletePlan = (id: string) => del<void>(`/api/v1/platform/plans/${id}`);
 export const assignPlan = (tenantId: string, planId: string | null) =>
   put<void>(`/api/v1/tenants/${tenantId}/plan`, { planId });
+// OP4 support tickets
+export interface TicketRow { id: string; tenantId?: string; tenant?: string; subject: string; status: number; severity: number; raisedByName: string; assignedTo?: string | null; createdAtUtc: string; updatedAtUtc: string }
+export interface TicketMessage { fromOperator: boolean; authorName: string; body: string; atUtc: string }
+export const SUPPORT_STATUS = ["Open", "Waiting on client", "Closed"];
+export const SUPPORT_SEVERITY = ["Question", "Problem", "Urgent"];
+// client side
+export const fetchMyTickets = () => get<TicketRow[]>("/api/v1/support/tickets");
+export const createTicket = (body: { subject: string; body: string; severity: number }) => post<{ id: string }>("/api/v1/support/tickets", body);
+export const fetchMyThread = (id: string) => get<TicketMessage[]>(`/api/v1/support/tickets/${id}/messages`);
+export const clientReply = (id: string, body: string) => post<void>(`/api/v1/support/tickets/${id}/messages`, { body });
+// operator side
+export const fetchTickets = (status?: number) => get<TicketRow[]>(`/api/v1/platform/tickets${status != null ? `?status=${status}` : ""}`);
+export const fetchOperatorThread = (id: string) => get<TicketMessage[]>(`/api/v1/platform/tickets/${id}/messages`);
+export const operatorReply = (id: string, body: string) => post<void>(`/api/v1/platform/tickets/${id}/reply`, { body });
+export const setTicket = (id: string, body: { status?: number; assignedTo?: string }) => put<void>(`/api/v1/platform/tickets/${id}`, body);
+
 // OP3 subscribers landing
 export interface ContractLite { tenantId: string; renewalAtUtc: string; pricePenceMonthly: number; termMonths: number }
 export const fetchContracts = () => get<ContractLite[]>("/api/v1/platform/contracts");

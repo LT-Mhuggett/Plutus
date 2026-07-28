@@ -9,6 +9,7 @@ import {
   fetchBillingCatalogue, fetchBillingConfig, setBillingConfig, type CommerceProviderInfo, type BillingConfig,
   fetchPlans, createPlan, updatePlan, deletePlan, assignPlan, type PlanRow,
   fetchContracts, fetchTenantUsers, type ContractLite, type TenantUser,
+  fetchTickets, fetchOperatorThread, operatorReply, setTicket, SUPPORT_STATUS, SUPPORT_SEVERITY, type TicketRow, type TicketMessage,
   type PlatformTenant, type UsageSummaryRow, type HealthResponse, type HealthTenantRow,
   type HealthDrillRow, type AlertRow, type JobRow, type OverrideRow, type FlagRow, type AnnouncementRow, type SlaResponse,
   type SignalRow, type ContractRow, type MarginResponse, type AnalyticsResponse, type ConnectorRow,
@@ -47,15 +48,16 @@ function Sparkline({ values, w = 120, h = 26 }: { values: number[]; w?: number; 
 }
 
 export default function PlatformPage() {
-  const [screen, setScreen] = useState<"Subscribers" | "Health" | "Jobs" | "Flags" | "Comms" | "Commercial" | "Analytics" | "Notifications" | "Billing" | "Plans">("Subscribers");
+  const [screen, setScreen] = useState<"Subscribers" | "Tickets" | "Health" | "Jobs" | "Flags" | "Comms" | "Commercial" | "Analytics" | "Notifications" | "Billing" | "Plans">("Subscribers");
   return (
     <section className="panel">
       <div className="toolbar">
         <h2 className="grow">Platform</h2>
-        {(["Subscribers", "Plans", "Health", "Jobs", "Flags", "Comms", "Commercial", "Analytics", "Notifications", "Billing"] as const).map((s) => (
+        {(["Subscribers", "Tickets", "Plans", "Health", "Jobs", "Flags", "Comms", "Commercial", "Analytics", "Notifications", "Billing"] as const).map((s) => (
           <button key={s} className={s === screen ? "tab active" : "tab"} onClick={() => setScreen(s)}>{s}</button>
         ))}
       </div>
+      {screen === "Tickets" && <TicketsScreen />}
       {screen === "Plans" && <PlansScreen />}
       {screen === "Subscribers" && <TenantsScreen />}
       {screen === "Health" && <HealthScreen />}
@@ -67,6 +69,78 @@ export default function PlatformPage() {
       {screen === "Notifications" && <NotificationsScreen />}
       {screen === "Billing" && <BillingScreen />}
     </section>
+  );
+}
+
+// OP4: operator ticket inbox — cross-tenant support tickets, reply + set status/assignee.
+function TicketsScreen() {
+  const [tickets, setTickets] = useState<TicketRow[]>([]);
+  const [filter, setFilter] = useState<number | "">("");
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const refresh = () => fetchTickets(filter === "" ? undefined : filter).then((t) => { setTickets(t); setError(""); }).catch((e) => setError(String(e)));
+  useEffect(() => { void refresh(); }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (openId) {
+    const t = tickets.find((x) => x.id === openId);
+    return <TicketThread ticket={t} onBack={() => { setOpenId(null); void refresh(); }} />;
+  }
+  return (
+    <>
+      {error && <p className="error">{error}</p>}
+      <div className="toolbar">
+        <label>Status
+          <select value={filter} onChange={(e) => setFilter(e.target.value === "" ? "" : Number(e.target.value))}>
+            <option value="">All</option>{SUPPORT_STATUS.map((s, i) => <option key={i} value={i}>{s}</option>)}
+          </select>
+        </label>
+      </div>
+      <table>
+        <thead><tr><th>Subscriber</th><th>Subject</th><th>Severity</th><th>Status</th><th>Updated</th><th /></tr></thead>
+        <tbody>
+          {tickets.map((t) => (
+            <tr key={t.id}>
+              <td>{t.tenant}</td><td>{t.subject}</td>
+              <td>{SUPPORT_SEVERITY[t.severity] ?? t.severity}</td>
+              <td>{SUPPORT_STATUS[t.status] ?? t.status}</td>
+              <td className="small">{new Date(t.updatedAtUtc + "Z").toLocaleString("en-GB")}</td>
+              <td><button className="ghost small" onClick={() => setOpenId(t.id)}>Open</button></td>
+            </tr>
+          ))}
+          {tickets.length === 0 && !error && <tr><td colSpan={6} className="muted">No tickets.</td></tr>}
+        </tbody>
+      </table>
+    </>
+  );
+}
+
+function TicketThread({ ticket, onBack }: { ticket?: TicketRow; onBack: () => void }) {
+  const [msgs, setMsgs] = useState<TicketMessage[]>([]);
+  const [reply, setReply] = useState("");
+  const [error, setError] = useState("");
+  const id = ticket?.id ?? "";
+  const load = () => fetchOperatorThread(id).then(setMsgs).catch((e) => setError(String(e)));
+  useEffect(() => { if (id) void load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const act = (p: Promise<unknown>) => void p.then(() => { setReply(""); return load(); }).catch((e) => setError(String(e)));
+  return (
+    <>
+      <div className="toolbar"><button className="ghost small" onClick={onBack}>← Tickets</button><h3 className="grow">{ticket?.tenant}: {ticket?.subject}</h3></div>
+      {error && <p className="error small">{error}</p>}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {msgs.map((m, i) => (
+          <div key={i} style={{ alignSelf: m.fromOperator ? "flex-end" : "flex-start", maxWidth: "75%", background: m.fromOperator ? "#dcfce7" : "#e0e7ff", padding: "8px 12px", borderRadius: 8 }}>
+            <div className="muted small">{m.authorName} · {new Date(m.atUtc + "Z").toLocaleString("en-GB")}</div>
+            <div>{m.body}</div>
+          </div>
+        ))}
+        {msgs.length === 0 && <p className="muted">No messages.</p>}
+      </div>
+      <div className="toolbar" style={{ marginTop: 12 }}>
+        <input className="grow" placeholder="Reply to the client…" value={reply} maxLength={4000} onChange={(e) => setReply(e.target.value)} />
+        <button className="primary small" disabled={!reply.trim()} onClick={() => act(operatorReply(id, reply.trim()))}>Reply</button>
+        <button className="ghost small" onClick={() => act(setTicket(id, { status: 2 }))}>Close</button>
+      </div>
+    </>
   );
 }
 

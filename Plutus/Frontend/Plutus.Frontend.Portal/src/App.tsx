@@ -11,6 +11,7 @@ import StoresPage from "./StoresPage.tsx";
 import WebstorePage from "./WebstorePage.tsx";
 import CompanyPage from "./CompanyPage.tsx";
 import PlatformPage from "./PlatformPage.tsx";
+import HelpPage from "./HelpPage.tsx";
 import LoginPage from "./LoginPage.tsx";
 import { getSession, type Session } from "./session.ts";
 import { impersonatingAs, isOperatorOnly, isPlatformAdmin, oidcMode, signOut, stopImpersonation } from "./auth.ts";
@@ -24,7 +25,7 @@ declare const __BUILD_TIME__: string;
 
 // WP11.5 (Matt): "Dashboard" always takes you home; "Company" holds company details + the
 // absorbed Financial periods; "Locations" is the WP11.6 grouped stores/warehouses/webstores page.
-const TABS = ["Dashboard", "Reporting", "Banking", "Stock", "Prices", "Customers", "Loyalty", "Webstore", "Users & Roles", "Locations", "Company"] as const;
+const TABS = ["Dashboard", "Reporting", "Banking", "Stock", "Prices", "Customers", "Loyalty", "Webstore", "Users & Roles", "Locations", "Company", "Help"] as const;
 // WP13.4: the operator-only Platform section, shown only when the token carries platform-admin.
 const PLATFORM_TAB = "Platform" as const;
 type Tab = (typeof TABS)[number] | typeof PLATFORM_TAB;
@@ -41,6 +42,7 @@ const PAGES: Record<Tab, () => React.JSX.Element> = {
   "Users & Roles": UsersPage,
   Locations: StoresPage,
   Company: CompanyPage,
+  Help: HelpPage,
   Platform: PlatformPage,
 };
 

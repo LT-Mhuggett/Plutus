@@ -81,6 +81,8 @@ namespace Plutus.Entities
         public DbSet<BillingSettings> BillingSettings { get; set; }
         public DbSet<PaymentGatewaySettings> PaymentGatewaySettings { get; set; }
         public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
+        public DbSet<SupportTicket> SupportTickets { get; set; }
+        public DbSet<SupportMessage> SupportMessages { get; set; }
         // Financial periods (WP3.4): close/lock + snapshot.
         public DbSet<FinancialPeriod> FinancialPeriods { get; set; }
         // Stock ledger (WP5.1): append-only movements + materialised levels.
@@ -188,6 +190,8 @@ namespace Plutus.Entities
             typeof(WebstoreOutboundLog),
             // 17.2 per-tenant payment gateway selection (client-managed).
             typeof(PaymentGatewaySettings),
+            // OP4 support tickets (client-raised, operator-answered).
+            typeof(SupportTicket), typeof(SupportMessage),
         };
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -601,6 +605,25 @@ namespace Plutus.Entities
                 e.Property(x => x.EntitlementsJson).IsRequired(false);
                 e.Property(x => x.UpdatedBy).HasMaxLength(128);
                 e.HasIndex(x => x.Name).IsUnique();
+            });
+            modelBuilder.Entity<SupportTicket>(e =>   // OP4 — tenant-owned (shadow TenantId via the loop)
+            {
+                e.ToTable("SupportTickets");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Subject).HasMaxLength(200).IsRequired();
+                e.Property(x => x.RaisedByName).HasMaxLength(100);
+                e.Property(x => x.AssignedTo).HasMaxLength(100).IsRequired(false);
+                e.HasIndex(x => new { x.TenantId, x.Status });
+            });
+            modelBuilder.Entity<SupportMessage>(e =>
+            {
+                e.ToTable("SupportMessages");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.AuthorName).HasMaxLength(100);
+                e.Property(x => x.Body).HasMaxLength(4000).IsRequired();
+                e.HasIndex(x => x.TicketId);
             });
 
             // WP3.4 financial periods.

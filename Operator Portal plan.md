@@ -416,4 +416,11 @@ vars), commit with a descriptive message, and deploy only when the operator asks
       countdown columns (amber ≤30d). Tenant detail: read-only users list (RBAC-assigned employees
       + roles) with the tenant's last portal-activity day. Tests: `SubscribersLandingE2eTests`
       (gates + last-login-day). Suites: Unit 211 · Arch 6 · Integration 37.
-- [ ] OP4 tickets end-to-end + support-heavy signal
+- [x] OP4 tickets end-to-end + support-heavy signal — DONE 2026-07-28. `SupportTicket` +
+      `SupportMessage` (tenant-owned) + migration `AddSupportTickets`. `SupportController`: client
+      `/api/v1/support/*` (any-auth, tenant-isolated, 20-open cap, keyed alerts) + operator
+      `/api/v1/platform/tickets*` (cross-tenant inbox, reply → WaitingOnClient, status/assign).
+      `support-heavy` signal now fires from ChurnSweep (≥5 tickets / 28 days; `IsSupportHeavy` unit
+      tested). UIs: client portal **Help** tab, till Settings **Ask for help** card, operator
+      **Tickets** screen. Tests: `SupportTicketsE2eTests` (isolation, full client↔operator flow,
+      signal) + threshold unit test. Suites: Unit 214 · Arch 6 · Integration 39.

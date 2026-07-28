@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchPayMethods, fetchTillName, onOutboxChanged, renameTill, BUSINESS_ID, STORE_ID } from "./api.ts";
+import { fetchPayMethods, fetchTillName, onOutboxChanged, raiseTicket, renameTill, BUSINESS_ID, STORE_ID } from "./api.ts";
 import { parkedCount, queuedCount, resetDeviceSeq } from "./offline.ts";
 import {
   canEnrolTills,
@@ -291,6 +291,9 @@ export default function SettingsPage() {
 
       <TillDeviceSection />
 
+      <h3 className="settings-h">Help</h3>
+      <AskForHelp />
+
       <h3 className="settings-h">Environment</h3>
       <dl className="env-info">
         <dt>Signed in as</dt>
@@ -305,5 +308,33 @@ export default function SettingsPage() {
 
       {testPrint && <Receipt data={{ ...TEST_RECEIPT, date: new Date().toISOString() }} onClose={() => setTestPrint(false)} />}
     </section>
+  );
+}
+
+/** OP4: raise a support ticket to the Plutus operator from the till. Minimal — subject + message;
+ *  the reply thread lives in the management portal's Help tab. */
+function AskForHelp() {
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [urgent, setUrgent] = useState(false);
+  const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
+  const [error, setError] = useState("");
+  function send() {
+    setState("sending"); setError("");
+    void raiseTicket(subject.trim(), body.trim(), urgent ? 2 : 1)
+      .then(() => { setState("sent"); setSubject(""); setBody(""); setUrgent(false); })
+      .catch((e) => { setError(String(e)); setState("idle"); });
+  }
+  if (state === "sent")
+    return <p className="muted small">✅ Ticket raised — the Plutus team will reply in the management portal's Help tab. <button className="ghost small" onClick={() => setState("idle")}>Raise another</button></p>;
+  return (
+    <div className="setting-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 6 }}>
+      <span className="muted small">Something not working? Send the Plutus team a message.</span>
+      {error && <span className="error small">{error}</span>}
+      <input className="pref-input" placeholder="Subject" value={subject} maxLength={200} onChange={(e) => setSubject(e.target.value)} />
+      <textarea className="pref-input" style={{ minHeight: 60 }} placeholder="Describe the problem…" value={body} maxLength={4000} onChange={(e) => setBody(e.target.value)} />
+      <label className="muted small"><input type="checkbox" checked={urgent} onChange={(e) => setUrgent(e.target.checked)} /> Urgent — this is stopping us trading</label>
+      <button className="ghost" disabled={state === "sending" || !subject.trim() || !body.trim()} onClick={send}>{state === "sending" ? "Sending…" : "Send to Plutus"}</button>
+    </div>
   );
 }

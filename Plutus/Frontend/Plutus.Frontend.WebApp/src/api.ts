@@ -236,6 +236,11 @@ export const fetchActiveAnnouncements = () => get<ActiveAnnouncement[]>("/api/v1
 export interface ActiveGateway { provider: string; label: string; integrated: boolean }
 export const fetchActiveGateway = () => get<ActiveGateway>("/api/v1/payments/gateway/active");
 
+// OP4: raise a support ticket from the till ("Ask for help"). Fire-and-confirm; no thread UI here.
+export async function raiseTicket(subject: string, body: string, severity: number): Promise<void> {
+  await send("POST", "/api/v1/support/tickets", { subject, body, severity });
+}
+
 /** Create a customer from the till (supervisors/managers — gated on customers.manage). */
 export async function createCustomer(body: { name: string; email?: string; phone?: string }): Promise<{ id: string }> {
   const res = await send("POST", `/api/v1/customers`, body);

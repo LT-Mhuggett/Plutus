@@ -22,6 +22,7 @@ namespace Plutus.Tenancy
         public const int LookbackDays = 28;         // window length for the usage comparison
         public const double DeclineFraction = 0.30; // "declining" = current < prior * (1 - this)
         public const int GoneQuietDays = 14;        // no portal login for this many days
+        public const int SupportHeavyTickets28d = 5; // OP4: this many tickets in 28 days = support-heavy
         public static readonly int[] RenewalDueDays = { 60, 30, 7 }; // renewal-due thresholds
 
         /// <summary>Sales fell by MORE than 30% vs the prior equal window. Needs a prior baseline
@@ -31,6 +32,9 @@ namespace Plutus.Tenancy
 
         /// <summary>Silent for MORE than the window (strictly &gt;, so exactly 14 days is still OK).</summary>
         public static bool IsGoneQuiet(int daysSinceLastLogin) => daysSinceLastLogin > GoneQuietDays;
+
+        /// <summary>At or above the ticket threshold over the trailing 28 days (OP4).</summary>
+        public static bool IsSupportHeavy(int tickets28d) => tickets28d >= SupportHeavyTickets28d;
 
         /// <summary>The largest threshold the renewal has crossed (60/30/7), or null if further out /
         /// already past. Drives one "renewal-due" signal that escalates as the date nears.</summary>
@@ -47,7 +51,7 @@ namespace Plutus.Tenancy
     /// WP16.1 churn-signal sweep (a RetentionSweeper pass). Cross-tenant: reads WP13.1 usage rollups
     /// (unscoped, so it spans every tenant) and raises/clears TenantSignals + a keyed operator alert
     /// per signal — exactly the WP13.3 "raise once, clear on recovery" pattern. Sandbox tenants are
-    /// skipped. `support-heavy` is a seam only (no ticket source yet), so it's never raised here.
+    /// skipped. OP4 closed the `support-heavy` seam: it now fires on ticket volume (≥5 in 28 days).
     /// </summary>
     public static class ChurnSweep
     {
@@ -71,6 +75,13 @@ namespace Plutus.Tenancy
                 .Select(r => new { r.TenantId, r.BusinessDay, r.Metric, r.Value })
                 .ToListAsync(ct);
 
+            // OP4: tickets raised in the trailing 28 days, per tenant (support-heavy input).
+            var ticketCutoff = nowUtc.AddDays(-ChurnThresholds.LookbackDays);
+            var ticketCounts = (await db.SupportTickets.IgnoreQueryFilters().AsNoTracking()
+                    .Where(t => t.CreatedAtUtc >= ticketCutoff)
+                    .GroupBy(t => t.TenantId).Select(g => new { g.Key, C = g.Count() }).ToListAsync(ct))
+                .ToDictionary(x => x.Key, x => x.C);
+
             foreach (var tenantId in tenants)
             {
                 var mine = cells.Where(c => c.TenantId == tenantId).ToList();
@@ -92,6 +103,14 @@ namespace Plutus.Tenancy
                         $"No portal login since {d:yyyy-MM-dd} ({today.DayNumber - d.DayNumber} days).", nowUtc, ct);
                 else
                     await ClearAsync(db, alerter, tenantId, TenantSignals.GoneQuiet, ct);
+
+                // support-heavy (OP4): ticket volume over the trailing 28 days
+                var tickets = ticketCounts.TryGetValue(tenantId, out var tc) ? tc : 0;
+                if (ChurnThresholds.IsSupportHeavy(tickets))
+                    await RaiseAsync(db, alerter, tenantId, TenantSignals.SupportHeavy,
+                        $"{tickets} support tickets in the last {ChurnThresholds.LookbackDays} days.", nowUtc, ct);
+                else
+                    await ClearAsync(db, alerter, tenantId, TenantSignals.SupportHeavy, ct);
             }
 
             await db.SaveChangesAsync(ct);

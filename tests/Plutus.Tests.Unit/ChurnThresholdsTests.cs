@@ -27,6 +27,13 @@ public class ChurnThresholdsTests
         Assert.Equal(expected, ChurnThresholds.IsGoneQuiet(days));
 
     [Theory]
+    [InlineData(4, false)]
+    [InlineData(5, true)]    // OP4: 5 tickets in 28 days → support-heavy (at-or-above)
+    [InlineData(6, true)]
+    public void IsSupportHeavy_at_the_5_ticket_boundary(int tickets, bool expected) =>
+        Assert.Equal(expected, ChurnThresholds.IsSupportHeavy(tickets));
+
+    [Theory]
     [InlineData(90, null)]  // further out than 60 → not due
     [InlineData(61, null)]
     [InlineData(60, 60)]    // crosses the 60-day threshold
