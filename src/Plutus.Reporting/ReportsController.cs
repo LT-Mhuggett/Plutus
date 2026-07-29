@@ -154,6 +154,40 @@ namespace Plutus.Reporting
             });
         }
 
+        /// <summary>WP2.1 dashboard KPIs — the pills on the portal home. One call (the underlying
+        /// sources have mixed policies; counts are not sensitive and are computed server-side under
+        /// this one policy). "This week" = Monday→today of the CURRENT week (server-local = store tz),
+        /// not a trailing 7 days. All counts auto-scope to the tenant via the global query filter.</summary>
+        [HttpGet("api/v1/reports/dashboard")]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> Dashboard()
+        {
+            var today = DateOnly.FromDateTime(DateTime.Now);
+            var monday = today.AddDays(-(((int)today.DayOfWeek + 6) % 7)); // ISO week start
+
+            var weekRows = await _db.SalesRollups.AsNoTracking()
+                .Where(r => r.BusinessDay >= monday && r.BusinessDay <= today)
+                .Select(r => new { r.BusinessDay, r.GrossPence })
+                .ToListAsync();
+
+            var activeTills = await _db.Devices.AsNoTracking()
+                .Where(d => d.Status == DeviceStatus.Active)
+                .Select(d => d.TillId).Distinct().CountAsync();
+
+            return Ok(new
+            {
+                salesTodayPence = weekRows.Where(r => r.BusinessDay == today).Sum(r => r.GrossPence),
+                salesWeekPence = weekRows.Sum(r => r.GrossPence),
+                weekStart = monday.ToString("yyyy-MM-dd"),
+                activeUsers = await _db.People.AsNoTracking().CountAsync(),
+                activeTills,
+                activeStores = await _db.Stores.AsNoTracking().CountAsync(),
+                activeWarehouses = await _db.StockLocations.AsNoTracking().CountAsync(l => l.Type == StockLocationType.Warehouse),
+                activeWebstores = await _db.WebStores.AsNoTracking().CountAsync(w => w.Enabled),
+            });
+        }
+
         /// <summary>The rich sales summary the till's Summary view renders (totals, by-day,
         /// top items, by-payment-method, by-tax-rate) — from v1 SalesV2/SaleLines/SaleTenders so it
         /// shows the FULL history. Same JSON shape as the legacy /api/Sale/Summary (amounts in
