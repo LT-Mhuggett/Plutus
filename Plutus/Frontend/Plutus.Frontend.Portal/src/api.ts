@@ -394,7 +394,7 @@ export const putReceiptTemplate = (storeId: number, tpl: ReceiptTemplate) =>
 
 // ── WP11.4 items-sold report ──
 export interface ItemSoldRow {
-  dateSold: string; itemIdOne: string; itemName: string; storeId: number; tillId: string;
+  dateSold: string; itemIdOne: string; itemName: string; category: string | null; storeId: number; tillId: string;
   tillName: string; staffId: string; staffName: string;
   qty: number; unitPricePence: number; discountPence: number; lineGrossPence: number;
 }
@@ -411,6 +411,27 @@ export const fetchItemsSold = (from: string, to: string, storeId?: number, opera
   get<ItemsSold>(itemsSoldQuery(from, to, storeId, operatorUserId));
 export const fetchReportStaff = (storeId?: number) =>
   get<StaffRow[]>(`/api/v1/reports/staff${storeId != null ? `?storeId=${storeId}` : ""}`);
+
+// WP3.7 category sales
+export interface CategorySalesRow { category: string; qty: number; grossPence: number; discountPence: number; sharePct: number }
+export interface CategorySales { from: string; to: string; totals: { grossPence: number; qty: number; categories: number }; rows: CategorySalesRow[] }
+export const fetchCategorySales = (from: string, to: string) =>
+  get<CategorySales>(`/api/v1/reports/category-sales?from=${from}&to=${to}`);
+// WP3.8 best sellers
+export interface BestSellerRow { rank: number; itemIdOne: string; itemName: string; category: string | null; qty: number; grossPence: number; sharePct: number }
+export const fetchBestSellers = (from: string, to: string, by: "qty" | "gross", take = 25) =>
+  get<{ from: string; to: string; by: string; rows: BestSellerRow[] }>(`/api/v1/reports/best-sellers?from=${from}&to=${to}&by=${by}&take=${take}`);
+// WP3.9 stock levels (also drives the negative-stock report via filter=negative)
+export interface StockLevelRow { stockLocationId: string; location: string; itemIdOne: string; name: string | null; category: string | null; quantity: number }
+export interface StockLevels { totalCatalogueItems: number; inStock: number; matched: number; skip: number; take: number; rows: StockLevelRow[] }
+export const fetchStockLevels = (opts: { filter?: string; search?: string; locationId?: string; skip?: number; take?: number }) => {
+  const p = new URLSearchParams();
+  if (opts.filter) p.set("filter", opts.filter);
+  if (opts.search) p.set("search", opts.search);
+  if (opts.locationId) p.set("locationId", opts.locationId);
+  p.set("skip", String(opts.skip ?? 0)); p.set("take", String(opts.take ?? 25));
+  return get<StockLevels>(`/api/v1/stock/levels?${p}`);
+};
 
 /** Auth-correct CSV download (a plain <a href> can't send the bearer token). */
 export async function downloadCsv(url: string, filename: string): Promise<void> {

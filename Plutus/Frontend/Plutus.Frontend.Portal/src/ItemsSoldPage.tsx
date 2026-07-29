@@ -113,6 +113,7 @@ function ItemsSoldTable({ rows }: { rows: ItemsSold["rows"] }) {
             <thead><tr>
               <SortTh label="Date sold" k="dateSold" {...s} />
               <SortTh label="Item" k="itemName" {...s} />
+              <SortTh label="Category" k="category" {...s} />
               <SortTh label="Location" k="tillName" {...s} />
               <SortTh label="Staff" k="staffName" {...s} />
               <SortTh label="Qty" k="qty" num {...s} />
@@ -125,6 +126,7 @@ function ItemsSoldTable({ rows }: { rows: ItemsSold["rows"] }) {
                 <tr key={i}>
                   <td className="small">{new Date(r.dateSold + "Z").toLocaleString("en-GB")}</td>
                   <td><span className="mono small">{r.itemIdOne}</span> {r.itemName}</td>
+                  <td className="small">{r.category ?? "—"}</td>
                   <td className="small">Store {r.storeId} · {r.tillName}</td>
                   <td className="small">{r.staffName}</td>
                   <td className="num">{r.qty}</td>
@@ -133,7 +135,7 @@ function ItemsSoldTable({ rows }: { rows: ItemsSold["rows"] }) {
                   <td className="num">{gbp(r.lineGrossPence)}</td>
                 </tr>
               ))}
-              {rows.length === 0 && <tr><td colSpan={8} className="muted">No items sold for these filters.</td></tr>}
+              {rows.length === 0 && <tr><td colSpan={9} className="muted">No items sold for these filters.</td></tr>}
             </tbody>
           </table>
   );

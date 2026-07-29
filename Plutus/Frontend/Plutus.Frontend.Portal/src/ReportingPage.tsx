@@ -2,11 +2,12 @@ import { useState } from "react";
 import Dashboard from "./Dashboard.tsx";
 import VatPage from "./VatPage.tsx";
 import ItemsSoldPage from "./ItemsSoldPage.tsx";
+import { CategorySalesReport, BestSellersReport, NegativeStockReport } from "./ReportsExtra.tsx";
 
 // All the portal's analytics reports under one "Reporting" tab (Summary = the dashboard).
 // Banking, Stock, Prices etc. stay as their own top-level tabs (they carry actions, not just
 // reporting). Each sub-view keeps its own look — the till has its own Reporting tab too.
-const SUBTABS = ["Summary", "VAT", "Items sold"] as const;
+const SUBTABS = ["Summary", "VAT", "Items sold", "Category sales", "Best sellers", "Negative stock"] as const;
 type SubTab = (typeof SUBTABS)[number];
 
 export default function ReportingPage() {
@@ -21,6 +22,9 @@ export default function ReportingPage() {
       {sub === "Summary" && <Dashboard />}
       {sub === "VAT" && <VatPage />}
       {sub === "Items sold" && <ItemsSoldPage />}
+      {sub === "Category sales" && <CategorySalesReport />}
+      {sub === "Best sellers" && <BestSellersReport />}
+      {sub === "Negative stock" && <NegativeStockReport />}
     </>
   );
 }
