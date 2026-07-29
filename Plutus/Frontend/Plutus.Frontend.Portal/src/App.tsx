@@ -15,6 +15,7 @@ import HelpPage from "./HelpPage.tsx";
 import LoginPage from "./LoginPage.tsx";
 import { clearSession, getSession, type Session } from "./session.ts";
 import { impersonatingAs, isOidcSession, isOperatorOnly, isPlatformAdmin, signOut, stopImpersonation } from "./auth.ts";
+import { NavContext, tabSlug } from "./nav.tsx";
 
 // Keycloak self-service (password + MFA). Only meaningful for an OIDC session.
 const ACCOUNT_CONSOLE = "https://login.plutus.huggett.dscloud.me/realms/plutus/account";
@@ -84,8 +85,30 @@ function Announcements() {
   );
 }
 
+const ALL_TABS: Tab[] = [...TABS, PLATFORM_TAB];
+const tabFromHash = (): Tab => {
+  const h = window.location.hash.replace(/^#/, "");
+  return (ALL_TABS.find((t) => tabSlug(t) === h) as Tab | undefined) ?? "Dashboard";
+};
+
 export default function App() {
-  const [tab, setTab] = useState<Tab>("Dashboard");
+  const [tab, setTabState] = useState<Tab>(tabFromHash);
+  const [focus, setFocus] = useState<string | undefined>(undefined);
+  // Navigate to a tab (from a nav button or a pill/link elsewhere). Mirrors into the URL hash so
+  // reload + deep-links work; `focus` is an optional hint the target page may consume.
+  const go = (t: string, f?: string) => {
+    const match = ALL_TABS.find((x) => x === t || tabSlug(x) === t);
+    if (!match) return;
+    setTabState(match);
+    setFocus(f);
+    if (window.location.hash !== `#${tabSlug(match)}`) window.location.hash = tabSlug(match);
+  };
+  useEffect(() => {
+    const onHash = () => setTabState(tabFromHash());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
   // Email-first: the boot effect resolves the name — first any Keycloak callback, then a stored
   // password session. No auto-redirect to the IdP; the landing decides per-email.
   const [name, setName] = useState<string | null>(null);
@@ -148,6 +171,7 @@ export default function App() {
   const impersonating = impersonatingAs();
 
   return (
+    <NavContext.Provider value={{ tab, focus, go }}>
     <main className="shell">
       {impersonating && (
         <div style={{ background: "#dc2626", color: "white", padding: "6px 12px", display: "flex", alignItems: "center", gap: 12, fontWeight: 600 }}>
@@ -159,7 +183,7 @@ export default function App() {
         <h1>Plutus Portal</h1>
         <nav className="tabs">
           {tabs.map((t) => (
-            <button key={t} className={t === tab ? "tab active" : "tab"} onClick={() => setTab(t)}>
+            <button key={t} className={t === tab ? "tab active" : "tab"} onClick={() => go(t)}>
               {t}
             </button>
           ))}
@@ -178,5 +202,6 @@ export default function App() {
 
       <footer className="muted small">Plutus management portal · built {__BUILD_TIME__}</footer>
     </main>
+    </NavContext.Provider>
   );
 }

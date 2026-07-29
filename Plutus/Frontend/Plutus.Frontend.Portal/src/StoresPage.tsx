@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   createStockLocation, createStore, createTill, deleteTill, fetchCompanies, fetchStockLocations,
   fetchStores, fetchTills, fetchWebstores, gbp, putReceiptTemplate, renameTill, revokeTill, updateStore,
@@ -6,6 +6,7 @@ import {
 } from "./api.ts";
 import Barcode39 from "./Barcode39.tsx";
 import { SortTh, useSort } from "./sortable.tsx";
+import { useNav } from "./nav.tsx";
 
 const DAYS: { key: string; label: string }[] = [
   { key: "mon", label: "Mon" }, { key: "tue", label: "Tue" }, { key: "wed", label: "Wed" },
@@ -25,6 +26,14 @@ export default function StoresPage() {
   const [error, setError] = useState("");
   const [issued, setIssued] = useState<{ tillId: string; code: string; expires: string } | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // A Dashboard pill (or any go("Locations", "warehouses")) opens + scrolls to the matching group.
+  const { focus } = useNav();
+  const groupRefs = { stores: useRef<HTMLDetailsElement>(null), warehouses: useRef<HTMLDetailsElement>(null), webstores: useRef<HTMLDetailsElement>(null) };
+  useEffect(() => {
+    const r = focus ? groupRefs[focus as keyof typeof groupRefs]?.current : null;
+    if (r) { r.open = true; r.scrollIntoView({ behavior: "smooth", block: "start" }); }
+  }, [focus]);
 
   const refresh = () =>
     Promise.all([
@@ -101,7 +110,7 @@ export default function StoresPage() {
         <span className="muted small">+ Webstore — connect one in the <strong>Webstore</strong> tab.</span>
       </div>
 
-      <details className="card store-card">
+      <details className="card store-card" ref={groupRefs.stores}>
         <summary><strong>Stores ({stores.length})</strong></summary>
         {stores.length === 0 && <p className="muted">No stores yet — add one above.</p>}
         {stores.map((s) => (
@@ -115,7 +124,7 @@ export default function StoresPage() {
         ))}
       </details>
 
-      <details className="card store-card">
+      <details className="card store-card" ref={groupRefs.warehouses}>
         <summary><strong>Warehouses ({locations.filter((l) => l.type === "Warehouse").length})</strong></summary>
         <table>
           <thead><tr><th>Name</th><th>Backing store</th></tr></thead>
@@ -130,7 +139,7 @@ export default function StoresPage() {
         </table>
       </details>
 
-      <details className="card store-card">
+      <details className="card store-card" ref={groupRefs.webstores}>
         <summary><strong>Webstores ({webstores.length})</strong></summary>
         <table>
           <thead><tr><th>Name</th><th>Site</th><th>Status</th><th>Pending SKUs</th></tr></thead>
