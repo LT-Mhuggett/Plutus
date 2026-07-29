@@ -23,15 +23,15 @@ Legend: ✅ done & deployed · 🟡 committed, not yet deployed · ⬜ not start
 | **P3** WP3.7 Category sales report | ✅ | Both platforms. |
 | **P3** WP3.8 Best sellers report | ✅ | Both platforms. |
 | **P3** WP3.9 Negative stock report → edit | ✅ | `filter=negative` on stock/levels; portal report + till toggle. |
-| **P4** WP4.1 Rename Stock → Inventory | 🟡 | Committed `7b510c9`; Inventory tab now the sub-tabbed page below. |
-| **P4** WP4.2 Portal item CRUD | 🟡 | New Inventory→Items sub-tab; add/edit via legacy `api/Item`+`api/Tax` (VAT guardrail) through an `api.ts` legacy bridge (businessId resolved from the tenant's first company + cached). Initial stock routed via the v1 ledger, not legacy `/api/Stock`. |
-| **P4** WP4.3 Category column on both inventory lists | 🟡 | Category column on portal Items + till InventoryPage (catId→name); portal Items also has a page-scoped category filter. |
-| **P4** WP4.4 Category manager UI (webstore-critical) | 🟡 | **Deviation from plan (safer):** built a *guarded v1* `categories` controller instead of raw legacy `api/Category`, whose DELETE cascade-deletes every item in the category. New surface carries item counts, blocks delete while items reference it (409) and refuses the last category, adds bulk `/reassign`. Reads `perm:portal.reports.view`, writes `perm:portal.stock.adjust`. Portal Inventory→Categories sub-tab (add/rename/reassign+delete). Integration test green. |
+| **P4** WP4.1 Rename Stock → Inventory | ✅ | Committed `7b510c9`; Inventory tab now the sub-tabbed page below. |
+| **P4** WP4.2 Portal item CRUD | ✅ | New Inventory→Items sub-tab; add/edit via legacy `api/Item`+`api/Tax` (VAT guardrail) through an `api.ts` legacy bridge (businessId resolved from the tenant's first company + cached). Initial stock routed via the v1 ledger, not legacy `/api/Stock`. |
+| **P4** WP4.3 Category column on both inventory lists | ✅ | Category column on portal Items + till InventoryPage (catId→name); portal Items also has a page-scoped category filter. |
+| **P4** WP4.4 Category manager UI (webstore-critical) | ✅ | **Deviation from plan (safer):** built a *guarded v1* `categories` controller instead of raw legacy `api/Category`, whose DELETE cascade-deletes every item in the category. New surface carries item counts, blocks delete while items reference it (409) and refuses the last category, adds bulk `/reassign`. Reads `perm:portal.reports.view`, writes `perm:portal.stock.adjust`. Portal Inventory→Categories sub-tab (add/rename/reassign+delete). Integration test green. |
 | **P5** WP5.1–5.3 Loyalty edit + webstore link | ⬜ | 5.3 carries a migration + Woo webhook change. |
 | **P6** WP6.1–6.3 Store info / un-enrol approval / Help | ⬜ | 6.2 carries a `DeviceStatus.PendingRemoval` migration. |
 
-**Live deploy tag:** P1+P2+P3(substance) deployed; rollbacks `backend.pre-p3`, `current.pre-p3` (portal + web). ETRIE verified 200 after each deploy. **P4 (all of it) is committed + fully verified (Unit 214 · Arch 6 · Integration 45, both frontends typecheck) but NOT yet deployed** — it needs a backend deploy (new `categories` controller) + portal deploy + till deploy.
-**Resume point:** deploy P4, then P3 rich-report ports (3.1/3.2/3.5), then P5/P6.
+**Live deploy tag:** P1+P2+P3(substance)+**P4 (all)** deployed. P4 rollbacks: `backend.pre-p4`, portal `current.pre-p4`, till `web/current.pre-p4` (earlier: `.pre-p3`). Pushed as `4a97c1d`. Verified live 2026-07-30: portal 200, till 200, backend `/api/v1/categories` 401 (route up), ETRIE 200. Suites Unit 214 · Arch 6 · Integration 45.
+**Resume point:** P3 rich-report ports (portal Summary 3.1 / VAT 3.5 / standalone Custom 3.2), then P5 loyalty, then P6.
 
 ---
 
