@@ -27,5 +27,9 @@ namespace Plutus.Entities.Models
         // OP2: assigned subscription plan (nullable). The free-text Plan/Entitlements above are
         // kept in sync from the plan on assignment, so existing reads are unaffected.
         public Guid? PlanId { get; set; }
+        // SSO/MFA (email-first login): when true, this tenant's users must authenticate via the
+        // IdP (Keycloak) with a forced second-factor enrolment — the portal's email-first landing
+        // routes them there instead of the password form. Off = the existing password login.
+        public bool MfaRequired { get; set; }
     }
 }

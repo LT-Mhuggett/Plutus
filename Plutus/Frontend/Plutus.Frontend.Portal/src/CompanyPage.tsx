@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   fetchCompanies, updateCompany, fetchGatewayCatalogue, fetchGatewayConfig, setGatewayConfig,
+  fetchMfaRequired, setMfaRequired,
   type Company, type CommerceProviderInfo, type GatewayConfig,
 } from "./api.ts";
 import PeriodsPage from "./PeriodsPage.tsx";
@@ -22,8 +23,66 @@ export default function CompanyPage() {
         {companies.length === 0 && !error && <p className="muted">Loading…</p>}
       </section>
       <PaymentGatewaySection />
+      <SecuritySection />
       <PeriodsPage />
     </>
+  );
+}
+
+/** Company → Security: the MFA/SSO requirement toggle. When on, everyone in this company is routed
+ *  to Plutus secure sign-in (Keycloak) and forced to enrol an authenticator on next login. Gated on
+ *  portal.company.manage (403 → hidden). */
+function SecuritySection() {
+  const [current, setCurrent] = useState<boolean | null>(null);
+  const [mfa, setMfa] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [error, setError] = useState("");
+  const [denied, setDenied] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    fetchMfaRequired()
+      .then((r) => { setCurrent(r.mfaRequired); setMfa(r.mfaRequired); })
+      .catch(() => setDenied(true)); // 403 = can't manage company settings → hide
+  }, []);
+
+  if (denied) return null;
+  const dirty = current !== null && mfa !== current;
+
+  return (
+    <section className="panel">
+      <h2>Security &amp; sign-in</h2>
+      <p className="muted small">Control how your team signs in to Plutus.</p>
+      {error && <p className="error">{error}</p>}
+      {msg && <p className="muted small">{msg}</p>}
+      <label className="toolbar" style={{ gap: 8, alignItems: "center" }}>
+        <input type="checkbox" checked={mfa} disabled={current === null}
+          onChange={(e) => { setMfa(e.target.checked); setMsg(""); }} />
+        <span><strong>Require multi-factor authentication (MFA)</strong> for everyone in this company</span>
+      </label>
+      <div className="panel" style={{ background: "#f8fafc", marginTop: 8 }}>
+        <p className="small" style={{ margin: 0 }}><strong>What happens when you turn this on</strong></p>
+        <ul className="small muted" style={{ marginTop: 4, marginBottom: 0 }}>
+          <li>Everyone in your company is <strong>emailed a heads-up</strong> as soon as you turn this on.</li>
+          <li>Everyone is then taken to Plutus secure sign-in instead of the password box.</li>
+          <li>On their next login each person is <strong>forced to set up an authenticator app</strong> (Google Authenticator, Microsoft Authenticator, 1Password, …) — they scan a QR code once.</li>
+          <li>After that, every sign-in needs their password <em>and</em> a 6-digit code from that app.</li>
+          <li>The password-only login is disabled for your company while this is on.</li>
+        </ul>
+      </div>
+      {dirty && (
+        <div className="toolbar" style={{ marginTop: 8 }}>
+          <button className="primary small" disabled={busy} onClick={() => {
+            setBusy(true);
+            void setMfaRequired(mfa)
+              .then(() => { setCurrent(mfa); setMsg(mfa ? "MFA is now required for your company." : "MFA requirement removed."); setError(""); })
+              .catch((e) => setError(String(e)))
+              .finally(() => setBusy(false));
+          }}>{mfa ? "Turn MFA on" : "Turn MFA off"}</button>
+          <button className="ghost small" onClick={() => { if (current !== null) setMfa(current); setMsg(""); }}>Cancel</button>
+        </div>
+      )}
+    </section>
   );
 }
 

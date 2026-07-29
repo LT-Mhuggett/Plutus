@@ -209,6 +209,8 @@ namespace Plutus.Entities
                 // WP18.2 residency & DPA registry.
                 e.Property(t => t.DataRegion).HasMaxLength(16).HasDefaultValue("UK");
                 e.Property(t => t.DpaRef).HasMaxLength(128).IsRequired(false);
+                // Email-first login: per-tenant MFA/SSO requirement.
+                e.Property(t => t.MfaRequired).HasDefaultValue(false);
             });
 
             // T1.2 enrolment (server-side, global/unscoped — see entity docs).

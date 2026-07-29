@@ -183,8 +183,24 @@ export const fetchGatewayCatalogue = () => get<CommerceProviderInfo[]>("/api/v1/
 export const fetchGatewayConfig = () => get<GatewayConfig>("/api/v1/payments/gateway");
 export const setGatewayConfig = (body: { provider: string; config: Record<string, string> }) =>
   put<void>("/api/v1/payments/gateway", body);
+// Company → Security: this tenant's MFA/SSO requirement (portal.company.manage).
+export const fetchMfaRequired = () => get<{ mfaRequired: boolean }>("/api/v1/company/security");
+export const setMfaRequired = (mfaRequired: boolean) => put<void>("/api/v1/company/security", { mfaRequired });
 
 // ── auth ──
+
+// Email-first login: ask the server HOW this email should authenticate (password vs Keycloak/OIDC),
+// without revealing whether the account exists. Unauthenticated — a plain fetch, not the token client.
+export interface AuthMethod { method: "password" | "oidc"; loginHint: string }
+export async function fetchAuthMethod(email: string): Promise<AuthMethod> {
+  const res = await fetch(`/api/auth/method`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw new Error(`Could not start sign-in (${res.status}).`);
+  return res.json();
+}
 
 export async function login(email: string, password: string): Promise<Session> {
   const res = await fetch(`/api/Auth/Login`, {

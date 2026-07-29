@@ -40,6 +40,54 @@ namespace Plutus.DBService.Controllers
             public string Password { get; set; }
         }
 
+        public class AuthMethodRequest
+        {
+            public string Email { get; set; }
+        }
+
+        /// <summary>
+        /// Email-first login: tells the portal HOW an email should sign in, WITHOUT revealing whether
+        /// the account exists. Returns "password" ONLY when a Plutus web login exists AND its tenant
+        /// has not turned on MFA; otherwise "oidc". That covers operators (who have no WebCredential),
+        /// any MFA-required tenant, and unknown emails alike — so account existence never leaks here.
+        /// No [Authorize] — this runs before a session exists.
+        /// </summary>
+        [HttpPost("method")]
+        public async Task<ActionResult> Method([FromBody] AuthMethodRequest request)
+        {
+            var email = request?.Email?.Trim();
+            if (string.IsNullOrWhiteSpace(email))
+                return Ok(new { method = "oidc", loginHint = "" });
+
+            var method = "oidc"; // safe default (operators, MFA tenants, unknown emails, lookup errors)
+            try
+            {
+                await using var conn = new MySqlConnection(_configuration["ConnectionString"]);
+                await conn.OpenAsync();
+                await using var cmd = conn.CreateCommand();
+                cmd.CommandText = @"
+                    SELECT t.MfaRequired
+                    FROM WebCredentials w
+                    JOIN People p ON p.Id = w.EmployeeId
+                    LEFT JOIN Tenants t ON t.Id = p.TenantId
+                    WHERE LOWER(w.Email) = LOWER(@email)
+                    LIMIT 1";
+                cmd.Parameters.AddWithValue("@email", email);
+                var result = await cmd.ExecuteScalarAsync();
+                // result == null  => no web login (operator / unknown)          => oidc
+                // result == DBNull => web login but no tenant                   => password
+                // result 0/1       => web login; password unless the tenant requires MFA
+                if (result != null)
+                {
+                    var mfa = result != DBNull.Value && Convert.ToBoolean(result);
+                    method = mfa ? "oidc" : "password";
+                }
+            }
+            catch { /* any lookup failure falls back to the safe oidc default */ }
+
+            return Ok(new { method, loginHint = email });
+        }
+
         /// <summary>Create or replace an employee's web login. Requires a signed-in user.</summary>
         [Microsoft.AspNetCore.Authorization.Authorize]
         [HttpPost("SetPassword")]

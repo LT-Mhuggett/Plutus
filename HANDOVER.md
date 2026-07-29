@@ -7,6 +7,21 @@
 Suite: **Unit 214 · Architecture 6 · Integration 39 — green.**
 
 **This session (2026-07-29):**
+- **Email-first login + per-tenant MFA — BUILT, DEPLOYED & LIVE.** The portal landing is now an
+  email box for everyone (no more forced-MFA redirect). Enter email → `POST /api/auth/method` returns
+  `password` (a WebCredential exists AND its tenant `MfaRequired`=false) or `oidc` (operators — no
+  WebCredential — and MFA-required tenants); password→client portal, oidc→Keycloak with `login_hint`.
+  New per-tenant `Tenant.MfaRequired` flag (migration `AddTenantMfaRequired`, auto-applied), client
+  toggle at **Company → Security** (`GET/PUT /api/v1/company/security`, `portal.company.manage`).
+  Turning MFA **on** emails that tenant's login users a heads-up via the `IMessageSender` seam
+  (SIMULATED + logged in MessageEvents until an Email provider is configured+enabled in
+  **Platform → Notifications** — that's the switch that makes it deliver for real). Backend + portal
+  both deployed & verified (swagger 200, migration in `__EFMigrationsHistory`, email-first endpoint
+  routing correct live, ETRIE 200). **Rollback:** backend `~/PLUTUS/backend.pre-mfa`, portal
+  `/srv/apps/PLUTUS/portal/current.pre-mfa`. Suites green: **Unit 214 · Architecture 6 · Integration 39.**
+  ⚠ Client MFA is forward-looking: client users aren't provisioned into Keycloak yet (only operators
+  are), so a client flipping it on can't complete a Keycloak login until per-tenant IdP provisioning
+  ships (the deferred "provision on enable / federation" piece). Operators are unaffected.
 - **Operator SSO now ENFORCED — WP18.1 complete.** Flipped `OPERATOR_SSO_ENFORCED=true` (ecosystem
   env; backup `~/PLUTUS/plutus-ecosystem.config.js.pre-sso-enforce`). Verified live: an HMAC operator
   token carrying `platform-admin` now gets **403** on `/api/v1/platform/plans` (was 200) — that scope

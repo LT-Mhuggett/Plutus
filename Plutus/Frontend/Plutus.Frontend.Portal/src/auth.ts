@@ -3,15 +3,23 @@
 //  - oidc mode (VITE_AUTH_MODE="oidc"): Keycloak/Entra auth-code + PKCE, token in memory.
 
 import { clearSession, getSession, setSession, type Session } from "./session.ts";
-import { getAccessToken as oidcToken, logout as oidcLogout, oidcMode } from "./oidc.ts";
+import { getAccessToken as oidcToken, logout as oidcLogout, oidcConfigured, oidcMode } from "./oidc.ts";
 
 const OPERATOR_STASH = "plutus.portal.session.operator";
 
-export { oidcMode };
+export { oidcMode, oidcConfigured };
 
-/** The bearer token for API calls, whichever mode is active (null when signed out). */
+/** The bearer token for API calls. The portal is email-first, so BOTH session kinds can occur in
+ *  one build: an OIDC login holds its token in memory; a password login stores a Session. Prefer
+ *  the in-memory OIDC token (the active kind right after a Keycloak sign-in), else the stored one. */
 export function accessToken(): string | null {
-  return oidcMode ? oidcToken() : (getSession()?.token ?? null);
+  return oidcToken() ?? getSession()?.token ?? null;
+}
+
+/** True when the current session came from the IdP (Keycloak) — used to show self-service links
+ *  like "Account & MFA" that only make sense for an OIDC login. */
+export function isOidcSession(): boolean {
+  return oidcToken() != null;
 }
 
 /** The current token's payload claims. Handles both shapes: the password-mode CompactToken
@@ -90,7 +98,7 @@ export function stopImpersonation(): void {
 }
 
 export function signOut(): void {
-  if (oidcMode) {
+  if (isOidcSession()) {
     void oidcLogout(); // redirects to the IdP end-session endpoint
     return;
   }

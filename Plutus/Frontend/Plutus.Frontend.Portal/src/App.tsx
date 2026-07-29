@@ -13,13 +13,13 @@ import CompanyPage from "./CompanyPage.tsx";
 import PlatformPage from "./PlatformPage.tsx";
 import HelpPage from "./HelpPage.tsx";
 import LoginPage from "./LoginPage.tsx";
-import { getSession, type Session } from "./session.ts";
-import { impersonatingAs, isOperatorOnly, isPlatformAdmin, oidcMode, signOut, stopImpersonation } from "./auth.ts";
+import { clearSession, getSession, type Session } from "./session.ts";
+import { impersonatingAs, isOidcSession, isOperatorOnly, isPlatformAdmin, signOut, stopImpersonation } from "./auth.ts";
 
-// Keycloak self-service (password + MFA). Only meaningful in OIDC mode.
+// Keycloak self-service (password + MFA). Only meaningful for an OIDC session.
 const ACCOUNT_CONSOLE = "https://login.plutus.huggett.dscloud.me/realms/plutus/account";
 import { fetchActiveAnnouncements, type ActiveAnnouncement } from "./api.ts";
-import { beginLogin, completeLoginIfCallback } from "./oidc.ts";
+import { completeLoginIfCallback } from "./oidc.ts";
 
 declare const __BUILD_TIME__: string;
 
@@ -86,45 +86,43 @@ function Announcements() {
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("Dashboard");
-  // password mode: seed from the stored session. oidc mode: resolved by the effect below.
-  const [name, setName] = useState<string | null>(() => (oidcMode ? null : getSession()?.name ?? null));
-  const [booting, setBooting] = useState<boolean>(oidcMode);
+  // Email-first: the boot effect resolves the name — first any Keycloak callback, then a stored
+  // password session. No auto-redirect to the IdP; the landing decides per-email.
+  const [name, setName] = useState<string | null>(null);
+  const [booting, setBooting] = useState<boolean>(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!oidcMode) return;
     void (async () => {
       try {
+        // Returning from Keycloak (?code=&state=) completes the OIDC login; otherwise this is null
+        // and we fall back to any stored password session.
         const user = await completeLoginIfCallback();
-        if (user) {
-          setName(user.name);
-          setBooting(false);
-        } else {
-          // Not a callback and no token — bounce to the IdP (seamless if SSO cookie is live).
-          await beginLogin();
-        }
+        if (user) { clearSession(); setName(user.name); } // drop any stale password session
+        else setName(getSession()?.name ?? null);
       } catch (e) {
         setError(String(e instanceof Error ? e.message : e));
+      } finally {
         setBooting(false);
       }
     })();
   }, []);
 
-  if (booting) {
+  if (booting || error) {
     return (
       <main className="login-shell">
         <div className="login-card">
           <h1>Plutus Portal</h1>
-          <p className="muted small">Signing in…</p>
+          <p className="muted small">{error ? "Sign-in problem" : "Loading…"}</p>
           {error && <p className="error small">{error}</p>}
-          {error && <button className="primary" onClick={() => void beginLogin()}>Try again</button>}
+          {error && <button className="primary" onClick={() => window.location.assign("/")}>Back to sign in</button>}
         </div>
       </main>
     );
   }
 
-  // Password mode only: no session → show the login form. (OIDC never reaches here unauthenticated
-  // — it either redirects or errors above.)
+  // No session → the email-first landing. Password users sign in here; MFA/SSO users are redirected
+  // to Keycloak from within it.
   if (!name) return <LoginPage onLogin={(s: Session) => setName(s.name)} />;
 
   // OP1: a pure operator (platform-admin, no tenant identity) gets the OPERATOR portal only —
@@ -137,7 +135,7 @@ export default function App() {
           <h1>Plutus Operator</h1>
           <span className="grow" />
           <span className="muted small">{name}</span>
-          {oidcMode && <a className="ghost small" href={ACCOUNT_CONSOLE} target="_blank" rel="noreferrer">Account &amp; MFA</a>}
+          {isOidcSession() && <a className="ghost small" href={ACCOUNT_CONSOLE} target="_blank" rel="noreferrer">Account &amp; MFA</a>}
           <button className="ghost small" onClick={() => signOut()}>Sign out</button>
         </header>
         <PlatformPage />

@@ -33,7 +33,12 @@ const SCOPE = "openid profile email";
 const VERIFIER_KEY = "plutus.oidc.verifier";
 const STATE_KEY = "plutus.oidc.state";
 
+// Legacy build-time flag (kept for any callers); the portal is now email-first and decides the
+// method per-login at runtime, so what matters is whether OIDC is *available* in this build.
 export const oidcMode = (import.meta.env.VITE_AUTH_MODE ?? "password") === "oidc";
+/** True when this build can drive an OIDC login (authority + client id are configured). The
+ *  email-first landing routes to Keycloak only when this is true. */
+export const oidcConfigured = Boolean(AUTHORITY && CLIENT_ID);
 
 // In-memory only.
 let accessToken: string | null = null;
@@ -78,8 +83,9 @@ function claims(jwt: string): Record<string, unknown> {
   }
 }
 
-/** Redirect the browser to the IdP to sign in. */
-export async function beginLogin(): Promise<void> {
+/** Redirect the browser to the IdP to sign in. `loginHint` pre-fills the IdP's username field
+ *  with the email the user already typed on the email-first landing. */
+export async function beginLogin(loginHint?: string): Promise<void> {
   const { authorization_endpoint } = await discover();
   const verifier = randomString();
   const state = randomString();
@@ -94,6 +100,7 @@ export async function beginLogin(): Promise<void> {
     code_challenge: await challengeFor(verifier),
     code_challenge_method: "S256",
   });
+  if (loginHint) params.set("login_hint", loginHint);
   window.location.assign(`${authorization_endpoint}?${params}`);
 }
 
