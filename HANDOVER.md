@@ -7,6 +7,15 @@
 Suite: **Unit 214 · Architecture 6 · Integration 39 — green.**
 
 **This session (2026-07-29):**
+- **Hotfix — two live 500s fixed & deployed.** (1) Till **Inventory** 500'd: a duplicate
+  `ItemController` (legacy stub in `Plutus.DBService` **and** the VAT-guardrail one in
+  `Plutus.Catalogue`) both mapped `api/Item` → `AmbiguousMatchException`; removed the legacy stub,
+  kept the Catalogue version. (2) Portal orphaned-payments queue (`GET /api/v1/payments/unresolved`)
+  500'd: EF Core can't translate `TimeSpan.TotalMinutes` inside the `Select`; now computed in memory.
+  Both verified **401 not 500** live; ETRIE 200. Backend rollback `~/PLUTUS/backend.pre-itemfix`.
+  ⚠ Only `ItemController` collided; the two same-named `StockController`s do NOT (legacy `api/Stock/*`
+  vs new ledger `api/v1/stock/*`) — both are live and intentional. (An arch test asserting no two
+  actions share a route would have caught this — worth adding.)
 - **Email-first login + per-tenant MFA — BUILT, DEPLOYED & LIVE.** The portal landing is now an
   email box for everyone (no more forced-MFA redirect). Enter email → `POST /api/auth/method` returns
   `password` (a WebCredential exists AND its tenant `MfaRequired`=false) or `oidc` (operators — no

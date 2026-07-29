@@ -97,17 +97,23 @@ namespace Plutus.Payments
         [HttpGet("api/v1/payments/unresolved")]
         [Authorize(Policy = "perm:" + PermissionCatalogue.PortalFinancialsView)]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<IActionResult> Unresolved() =>
-            Ok(await _db.PaymentEvents.AsNoTracking()
+        public async Task<IActionResult> Unresolved()
+        {
+            // Pull the columns first, then compute age in memory: EF Core can't translate the
+            // TimeSpan.TotalMinutes arithmetic to SQL, and inside the projection it 500s.
+            var rows = await _db.PaymentEvents.AsNoTracking()
                 .Where(p => p.ResolvedAtUtc == null)
                 .OrderBy(p => p.CapturedAtUtc)
-                .Select(p => new
-                {
-                    eventId = p.Id, provider = p.Provider, providerRef = p.ProviderRef,
-                    amountPence = p.AmountPence, capturedAtUtc = p.CapturedAtUtc,
-                    ageMinutes = (int)(DateTime.UtcNow - p.CapturedAtUtc).TotalMinutes,
-                })
-                .ToListAsync());
+                .Select(p => new { p.Id, p.Provider, p.ProviderRef, p.AmountPence, p.CapturedAtUtc })
+                .ToListAsync();
+            var now = DateTime.UtcNow;
+            return Ok(rows.Select(p => new
+            {
+                eventId = p.Id, provider = p.Provider, providerRef = p.ProviderRef,
+                amountPence = p.AmountPence, capturedAtUtc = p.CapturedAtUtc,
+                ageMinutes = (int)(now - p.CapturedAtUtc).TotalMinutes,
+            }));
+        }
 
         /// <summary>Re-run matching (e.g. after an offline till drained its outbox).</summary>
         [HttpPost("api/v1/payments/reconcile")]
