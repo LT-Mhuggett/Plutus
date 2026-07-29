@@ -10,7 +10,7 @@ now a tenant-isolated platform.
 |---|---|---|
 | Backend API | `Plutus/Endpoints/Plutus.DBService` (host) + `src/Plutus.*` (modules) | .NET 10 modular monolith — tenancy, identity/RBAC, sales, catalogue, reporting, cash, payments, customers, webstore (Woo), platform-operator surfaces. MySQL via EF Core/Pomelo; migrations auto-apply on startup. |
 | Web till (POS) | `Plutus/Frontend/Plutus.Frontend.WebApp` | React + TS + Vite. Offline-capable; password/HMAC login. |
-| Management portal | `Plutus/Frontend/Plutus.Frontend.Portal` | React + TS + Vite. Client screens (per tenant) + the operator console (`platform-admin` only). OIDC (Keycloak) login. |
+| Management portal | `Plutus/Frontend/Plutus.Frontend.Portal` | React + TS + Vite. Client screens (per tenant) + the operator console (`platform-admin` only). Email-first login: password → client portal, or OIDC/Keycloak + TOTP for operators and MFA-required tenants. |
 | Native till (legacy) | `Plutus/Frontend/Plutus.Frontend.AppClient` + `.ClientUI` | Xamarin (NatApp, being retired) and its .NET MAUI successor. |
 | Shared entities | `Plutus/Commons/Plutus.Entities` | EF model + `Migrations/MySql`. |
 | Tests | `tests/` | `Plutus.Tests.Unit`, `.Architecture`, `.Integration` (in-memory SQLite host). |
@@ -28,10 +28,10 @@ DOTNET="/c/Program Files/dotnet/dotnet.exe"
 "$DOTNET" test tests/Plutus.Tests.Integration/Plutus.Tests.Integration.csproj -c Debug
 ```
 
-Frontends build with Node (`npm run build` in each frontend folder; the portal needs
-`VITE_AUTH_MODE=oidc` + authority/client-id env vars — see HANDOVER §deploy). The test
-environment (Mac mini) deploy procedure, secrets locations and environment map live in
-**HANDOVER.md**.
+Frontends build with Node (`npm run build` in each frontend folder; the portal's email-first
+login needs `VITE_OIDC_AUTHORITY` + `VITE_OIDC_CLIENT_ID` set so it can route MFA/operator users
+to Keycloak — see HANDOVER §deploy). The test environment (Mac mini) deploy procedure, secrets
+locations and environment map live in **HANDOVER.md**.
 
 ## 📚 Documentation index
 
@@ -64,6 +64,7 @@ environment (Mac mini) deploy procedure, secrets locations and environment map l
 
 - `Build/seed-data/Kapow Comics ltd - Database - 23_07_2026 15_57_23.db` — the live-till backup used by the seed/ETL migrator (**real business data — never commit**).
 - `Build/secrets.local.md` — local secrets notes. `Build/archive/` — regenerable local dev artifacts.
+- `Archive/` (repo root, **gitignored**) — local-only holding area for files we've pulled out of the tree but aren't ready to delete. See `Archive/README.md`.
 
 ## Test environment
 
