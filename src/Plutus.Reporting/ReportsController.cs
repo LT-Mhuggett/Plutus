@@ -430,7 +430,7 @@ namespace Plutus.Reporting
         }
 
         public sealed record ItemSoldRow(
-            DateTime dateSold, string itemIdOne, string itemName, int storeId, Guid tillId,
+            DateTime dateSold, string itemIdOne, string itemName, string category, int storeId, Guid tillId,
             string tillName, Guid staffId, string staffName,
             int qty, long unitPricePence, long discountPence, long lineGrossPence);
 
@@ -457,9 +457,15 @@ namespace Plutus.Reporting
             if (lines.Count == 0) return new List<ItemSoldRow>();
 
             var barcodes = lines.Select(l => l.ItemIdOne).Distinct().ToList();
-            var names = (await _db.Items.AsNoTracking().IgnoreQueryFilters()
-                    .Where(i => barcodes.Contains(i.IdOne)).Select(i => new { i.IdOne, i.Name }).ToListAsync())
-                .GroupBy(i => i.IdOne).ToDictionary(g => g.Key, g => g.First().Name);
+            var items = await _db.Items.AsNoTracking().IgnoreQueryFilters()
+                    .Where(i => barcodes.Contains(i.IdOne)).Select(i => new { i.IdOne, i.Name, i.CatId }).ToListAsync();
+            var names = items.GroupBy(i => i.IdOne).ToDictionary(g => g.Key, g => g.First().Name);
+            var itemCat = items.GroupBy(i => i.IdOne).ToDictionary(g => g.Key, g => g.First().CatId);
+            // barcode → category name (WP3.3): Item.CatId → Category.Name.
+            var catIds = items.Select(i => i.CatId).Distinct().ToList();
+            var catNames = (await _db.Category.AsNoTracking().IgnoreQueryFilters()
+                    .Where(c => catIds.Contains(c.IdOne)).Select(c => new { c.IdOne, c.Name }).ToListAsync())
+                .GroupBy(c => c.IdOne).ToDictionary(g => g.Key, g => g.First().Name);
 
             var tillIds = lines.Select(l => l.TillId).Distinct().ToList();
             var tillNames = await _db.TillDetails.AsNoTracking()
@@ -479,6 +485,7 @@ namespace Plutus.Reporting
                 var staffId = l.OperatorUserId ?? Guid.Empty;
                 return new ItemSoldRow(
                     l.OccurredAtUtc, l.ItemIdOne, names.TryGetValue(l.ItemIdOne, out var n) ? n : l.ItemIdOne,
+                    itemCat.TryGetValue(l.ItemIdOne, out var cid) && catNames.TryGetValue(cid, out var cn) ? cn : null,
                     tillStore.TryGetValue(l.TillId, out var st) ? st : primaryStore, l.TillId,
                     tillNames.TryGetValue(l.TillId, out var tn) ? tn : "(historic till)",
                     staffId, staffNames.TryGetValue(staffId, out var sn) && !string.IsNullOrWhiteSpace(sn) ? sn : "—",
@@ -525,10 +532,10 @@ namespace Plutus.Reporting
             var rows = await ItemsSoldAsync(from, to, storeId, tillId, operatorUserId, itemIdOne, take);
             var inv = CultureInfo.InvariantCulture;
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine("dateSold,itemBarcode,itemName,storeId,till,staff,qty,unitPricePence,discountPence,lineGrossPence");
+            sb.AppendLine("dateSold,itemBarcode,itemName,category,storeId,till,staff,qty,unitPricePence,discountPence,lineGrossPence");
             foreach (var r in rows)
-                sb.AppendLine(string.Format(inv, "{0:yyyy-MM-dd HH:mm},{1},\"{2}\",{3},\"{4}\",\"{5}\",{6},{7},{8},{9}",
-                    r.dateSold, r.itemIdOne, r.itemName.Replace("\"", "\"\""), r.storeId,
+                sb.AppendLine(string.Format(inv, "{0:yyyy-MM-dd HH:mm},{1},\"{2}\",\"{3}\",{4},\"{5}\",\"{6}\",{7},{8},{9},{10}",
+                    r.dateSold, r.itemIdOne, r.itemName.Replace("\"", "\"\""), (r.category ?? "").Replace("\"", "\"\""), r.storeId,
                     r.tillName.Replace("\"", "\"\""), r.staffName.Replace("\"", "\"\""),
                     r.qty, r.unitPricePence, r.discountPence, r.lineGrossPence));
             return File(System.Text.Encoding.UTF8.GetBytes(sb.ToString()), "text/csv",
