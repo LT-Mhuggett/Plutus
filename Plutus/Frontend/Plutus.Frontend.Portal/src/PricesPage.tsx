@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError, gbp } from "./api.ts";
 import { accessToken } from "./auth.ts";
+import DataTable from "./DataTable.tsx";
 
 // WP5.4 portal pricing: global price editor (policy, HQ price incl. scheduling, store
 // override, force-reset) + the per-store variance view.
@@ -14,6 +15,8 @@ interface PriceDetail {
   overrides: { storeId: number; pricePence: number; exPricePence: number; effectiveFromUtc: string }[];
 }
 interface VarianceRow { storeId: number; itemIdOne: string; name: string | null; policy: string; hqPence: number; storePence: number; deltaPence: number }
+interface PriceListRow { itemIdOne: string; name: string; category: string | null; policy: string; hqPence: number; overrides: number }
+interface PriceList { total: number; skip: number; take: number; rows: PriceListRow[] }
 
 async function j<T>(method: string, url: string, body?: unknown): Promise<T> {
   const token = accessToken();
@@ -37,10 +40,20 @@ export default function PricesPage() {
   const [detail, setDetail] = useState<PriceDetail | null>(null);
   const [variance, setVariance] = useState<VarianceRow[]>([]);
   const [error, setError] = useState("");
+  // WP3.6 browsable price list (server-paged) so the page opens on the whole catalogue.
+  const [list, setList] = useState<PriceList | null>(null);
+  const [skip, setSkip] = useState(0);
+  const [take, setTake] = useState(25);
+  const [search, setSearch] = useState("");
+  const [deviationsOnly, setDeviationsOnly] = useState(false);
 
   const refreshVariance = () =>
     j<VarianceRow[]>("GET", `/api/v1/prices/variance`).then(setVariance).catch((e) => setError(String(e)));
+  const refreshList = () =>
+    j<PriceList>("GET", `/api/v1/prices/list?skip=${skip}&take=${take}${search ? `&search=${encodeURIComponent(search)}` : ""}`)
+      .then(setList).catch((e) => setError(String(e)));
   useEffect(() => { void refreshVariance(); }, []);
+  useEffect(() => { void refreshList(); /* eslint-disable-next-line */ }, [skip, take, search]);
 
   const open = (id: string) =>
     j<PriceDetail>("GET", `/api/v1/prices/${encodeURIComponent(id)}`)
@@ -49,12 +62,32 @@ export default function PricesPage() {
 
   return (
     <section className="panel">
+      <h2>Prices</h2>
       <div className="toolbar">
-        <label>Item (barcode / id) <input value={lookup} onChange={(e) => setLookup(e.target.value)} placeholder="5011921068203" /></label>
+        <label>Quick open (barcode / id) <input value={lookup} onChange={(e) => setLookup(e.target.value)} placeholder="5011921068203" /></label>
         <button className="primary small" disabled={!lookup.trim()} onClick={() => void open(lookup.trim())}>Open price editor</button>
+        <span className="grow" />
+        <label><input type="checkbox" checked={deviationsOnly} onChange={(e) => setDeviationsOnly(e.target.checked)} /> Only where stores deviate</label>
       </div>
       {error && <p className="error">{error}</p>}
 
+      {!deviationsOnly && (
+        <DataTable<PriceListRow>
+          columns={[
+            { key: "name", label: "Item", render: (r) => <><span className="mono small">{r.itemIdOne}</span> {r.name}</> },
+            { key: "category", label: "Category", render: (r) => r.category ?? "—" },
+            { key: "policy", label: "Policy" },
+            { key: "hqPence", label: "HQ price", numeric: true, render: (r) => gbp(r.hqPence) },
+            { key: "overrides", label: "Store prices", numeric: true },
+          ]}
+          rows={list?.rows ?? []} getKey={(r) => r.itemIdOne}
+          server={{ total: list?.total ?? 0, skip, take, search, onSearch: (s) => { setSearch(s); setSkip(0); }, onPage: (sk, tk) => { setSkip(sk); setTake(tk); } }}
+          rowActions={(r) => <button className="ghost small" onClick={() => void open(r.itemIdOne)}>Edit</button>}
+          emptyText="No items."
+        />
+      )}
+
+      {deviationsOnly && (<>
       <h3>Store price variance vs HQ</h3>
       <table>
         <thead><tr><th>Store</th><th>Item</th><th>Name</th><th>Policy</th><th className="num">HQ</th><th className="num">Store</th><th className="num">Δ</th><th /></tr></thead>
@@ -74,9 +107,10 @@ export default function PricesPage() {
           {variance.length === 0 && <tr><td colSpan={8} className="muted">No store deviates from the HQ price.</td></tr>}
         </tbody>
       </table>
+      </>)}
 
       {detail && (
-        <PriceDialog detail={detail} onClose={() => { setDetail(null); void refreshVariance(); }}
+        <PriceDialog detail={detail} onClose={() => { setDetail(null); void refreshVariance(); void refreshList(); }}
           onChanged={() => void open(detail.itemIdOne)} />
       )}
     </section>

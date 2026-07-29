@@ -208,6 +208,55 @@ namespace Plutus.Catalogue
         }
 
         /// <summary>Variance view: items whose store price differs from the central/HQ price.</summary>
+        /// <summary>WP3.6 browsable price list: every item paged, with category, policy, current HQ
+        /// price (latest central entry, else the legacy item price) and active-override count — so
+        /// the Prices page opens on the whole catalogue, not just the rows that deviate.</summary>
+        [HttpGet("api/v1/prices/list")]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalPricesManage)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> List([FromQuery] string search, [FromQuery] int skip = 0, [FromQuery] int take = 25)
+        {
+            take = Math.Clamp(take, 1, 200);
+            skip = Math.Max(0, skip);
+            var itemsQ = _db.Items.AsNoTracking()
+                .Where(i => search == null || i.IdOne.Contains(search) || i.Name.Contains(search));
+            var total = await itemsQ.CountAsync();
+            var items = await itemsQ.OrderBy(i => i.Name).Skip(skip).Take(take)
+                .Select(i => new { i.IdOne, i.Name, i.Price, i.CatId }).ToListAsync();
+            var ids = items.Select(i => i.IdOne).ToList();
+
+            var central = (await _db.PriceListEntries.AsNoTracking()
+                    .Where(p => ids.Contains(p.ItemIdOne))
+                    .Select(p => new { p.ItemIdOne, p.PricePence, p.EffectiveFromUtc }).ToListAsync())
+                .GroupBy(p => p.ItemIdOne).ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.EffectiveFromUtc).First().PricePence);
+            var overrides = (await _db.PriceOverrides.AsNoTracking()
+                    .Where(o => ids.Contains(o.ItemIdOne) && o.RevokedAtUtc == null)
+                    .Select(o => o.ItemIdOne).ToListAsync())
+                .GroupBy(x => x).ToDictionary(g => g.Key, g => g.Count());
+            var policies = (await _db.ItemPricePolicies.AsNoTracking()
+                    .Where(p => ids.Contains(p.ItemIdOne))
+                    .Select(p => new { p.ItemIdOne, p.Policy }).ToListAsync())
+                .GroupBy(p => p.ItemIdOne).ToDictionary(g => g.Key, g => g.First().Policy.ToString());
+            var catIds = items.Select(i => i.CatId).Distinct().ToList();
+            var catNames = (await _db.Category.AsNoTracking()
+                    .Where(c => catIds.Contains(c.IdOne)).Select(c => new { c.IdOne, c.Name }).ToListAsync())
+                .GroupBy(c => c.IdOne).ToDictionary(g => g.Key, g => g.First().Name);
+
+            return Ok(new
+            {
+                total, skip, take,
+                rows = items.Select(i => new
+                {
+                    itemIdOne = i.IdOne,
+                    name = i.Name,
+                    category = catNames.TryGetValue(i.CatId, out var cn) ? cn : null,
+                    policy = policies.TryGetValue(i.IdOne, out var pol) ? pol : "Central",
+                    hqPence = central.TryGetValue(i.IdOne, out var hq) ? hq : (long)Math.Round(i.Price * 100),
+                    overrides = overrides.TryGetValue(i.IdOne, out var oc) ? oc : 0,
+                }),
+            });
+        }
+
         [HttpGet("api/v1/prices/variance")]
         [Authorize(Policy = "perm:" + PermissionCatalogue.PortalPricesManage)]
         [ProducesResponseType(StatusCodes.Status200OK)]
