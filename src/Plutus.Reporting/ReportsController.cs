@@ -542,6 +542,93 @@ namespace Plutus.Reporting
                 $"items-sold-{from:yyyyMMdd}-{to:yyyyMMdd}.csv");
         }
 
+        /// <summary>Sold quantity/gross/discount per item (barcode) in range — grouped in SQL so
+        /// ~83k lines collapse to #distinct-items before the in-memory name/category resolve.</summary>
+        private async Task<List<(string barcode, long qty, long gross, long discount)>> SoldByItemAsync(DateOnly from, DateOnly to)
+        {
+            var g = await (from l in _db.SaleLines.AsNoTracking()
+                           join s in _db.SalesV2.AsNoTracking() on l.SaleId equals s.Id
+                           where s.BusinessDay >= @from && s.BusinessDay <= to && l.ItemIdOne != null
+                           group l by l.ItemIdOne into grp
+                           select new
+                           {
+                               barcode = grp.Key,
+                               qty = grp.Sum(x => (long)x.Qty),
+                               gross = grp.Sum(x => x.LineGrossPence),
+                               discount = grp.Sum(x => x.DiscountPence),
+                           }).ToListAsync();
+            return g.Select(x => (x.barcode, x.qty, x.gross, x.discount)).ToList();
+        }
+
+        /// <summary>barcode → (name, category name) — the same resolve the items-sold report uses.</summary>
+        private async Task<(Dictionary<string, string> names, Dictionary<string, string> cats)> ItemMetaAsync(List<string> barcodes)
+        {
+            var items = await _db.Items.AsNoTracking().IgnoreQueryFilters()
+                .Where(i => barcodes.Contains(i.IdOne)).Select(i => new { i.IdOne, i.Name, i.CatId }).ToListAsync();
+            var names = items.GroupBy(i => i.IdOne).ToDictionary(g => g.Key, g => g.First().Name);
+            var catId = items.GroupBy(i => i.IdOne).ToDictionary(g => g.Key, g => g.First().CatId);
+            var catIds = items.Select(i => i.CatId).Distinct().ToList();
+            var catName = (await _db.Category.AsNoTracking().IgnoreQueryFilters()
+                .Where(c => catIds.Contains(c.IdOne)).Select(c => new { c.IdOne, c.Name }).ToListAsync())
+                .GroupBy(c => c.IdOne).ToDictionary(g => g.Key, g => g.First().Name);
+            var cats = catId.ToDictionary(kv => kv.Key, kv => catName.TryGetValue(kv.Value, out var n) ? n : null);
+            return (names, cats);
+        }
+
+        /// <summary>WP3.7 category-sales: sold gross/qty grouped by item category (+ share of gross).
+        /// Uncategorised lines roll into "(no category)".</summary>
+        [HttpGet("api/v1/reports/category-sales")]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> CategorySales([FromQuery] DateOnly from, [FromQuery] DateOnly to)
+        {
+            if (to < from) return BadRequest(new { detail = "to must be >= from." });
+            var byItem = await SoldByItemAsync(from, to);
+            var (_, cats) = await ItemMetaAsync(byItem.Select(x => x.barcode).Distinct().ToList());
+            var grouped = byItem
+                .GroupBy(x => cats.TryGetValue(x.barcode, out var c) && c != null ? c : "(no category)")
+                .Select(gr => new { category = gr.Key, qty = gr.Sum(x => x.qty), grossPence = gr.Sum(x => x.gross), discountPence = gr.Sum(x => x.discount) })
+                .OrderByDescending(r => r.grossPence).ToList();
+            var total = grouped.Sum(r => r.grossPence);
+            return Ok(new
+            {
+                from = from.ToString("yyyy-MM-dd"), to = to.ToString("yyyy-MM-dd"),
+                totals = new { grossPence = total, qty = grouped.Sum(r => r.qty), categories = grouped.Count },
+                rows = grouped.Select(r => new { r.category, r.qty, r.grossPence, r.discountPence, sharePct = total == 0 ? 0 : Math.Round(100.0 * r.grossPence / total, 1) }),
+            });
+        }
+
+        /// <summary>WP3.8 best-sellers: top items by qty (default) or gross, with category + share.</summary>
+        [HttpGet("api/v1/reports/best-sellers")]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> BestSellers([FromQuery] DateOnly from, [FromQuery] DateOnly to, [FromQuery] string by = "qty", [FromQuery] int take = 25)
+        {
+            if (to < from) return BadRequest(new { detail = "to must be >= from." });
+            take = Math.Clamp(take, 1, 200);
+            var byGross = string.Equals(by, "gross", StringComparison.OrdinalIgnoreCase);
+            var byItem = await SoldByItemAsync(from, to);
+            var (names, cats) = await ItemMetaAsync(byItem.Select(x => x.barcode).Distinct().ToList());
+            long totalQty = byItem.Sum(x => x.qty), totalGross = byItem.Sum(x => x.gross);
+            var ranked = byItem
+                .OrderByDescending(x => byGross ? x.gross : x.qty)
+                .Take(take)
+                .Select((x, i) => new
+                {
+                    rank = i + 1,
+                    itemIdOne = x.barcode,
+                    itemName = names.TryGetValue(x.barcode, out var n) ? n : x.barcode,
+                    category = cats.TryGetValue(x.barcode, out var c) ? c : null,
+                    qty = x.qty,
+                    grossPence = x.gross,
+                    sharePct = byGross ? (totalGross == 0 ? 0 : Math.Round(100.0 * x.gross / totalGross, 1))
+                                       : (totalQty == 0 ? 0 : Math.Round(100.0 * x.qty / totalQty, 1)),
+                }).ToList();
+            return Ok(new { from = from.ToString("yyyy-MM-dd"), to = to.ToString("yyyy-MM-dd"), by = byGross ? "gross" : "qty", rows = ranked });
+        }
+
         /// <summary>Staff who have sold (for the report filters), optionally scoped to a store.
         /// Distinct sellers with names — the store-level filter on the POS and the cross-store
         /// filter in the portal both read this.</summary>

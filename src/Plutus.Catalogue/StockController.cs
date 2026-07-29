@@ -43,13 +43,15 @@ namespace Plutus.Catalogue
         [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> Levels(
-            [FromQuery] Guid? locationId, [FromQuery] string search, [FromQuery] int skip = 0, [FromQuery] int take = 25)
+            [FromQuery] Guid? locationId, [FromQuery] string search, [FromQuery] string filter, [FromQuery] int skip = 0, [FromQuery] int take = 25)
         {
             take = Math.Clamp(take, 1, 200);
             skip = Math.Max(0, skip);
             var q = _db.StockLevels.AsNoTracking()
                 .Where(l => locationId == null || l.StockLocationId == locationId)
                 .Where(l => search == null || l.ItemIdOne.Contains(search));
+            // WP3.9 negative-stock report: only rows that have gone below zero.
+            if (string.Equals(filter, "negative", StringComparison.OrdinalIgnoreCase)) q = q.Where(l => l.Quantity < 0);
 
             var matched = await q.CountAsync();                         // rows for the current filter (for pagination)
             var inStock = await q.CountAsync(l => l.Quantity > 0);      // of those, how many are actually in stock
@@ -58,8 +60,12 @@ namespace Plutus.Catalogue
             var locations = await _db.StockLocations.AsNoTracking().ToListAsync();
 
             var ids = rows.Select(r => r.ItemIdOne).Distinct().ToList();
-            var names = await _db.Items.AsNoTracking()
-                .Where(i => ids.Contains(i.IdOne)).Select(i => new { i.IdOne, i.Name }).ToListAsync();
+            var items = await _db.Items.AsNoTracking()
+                .Where(i => ids.Contains(i.IdOne)).Select(i => new { i.IdOne, i.Name, i.CatId }).ToListAsync();
+            var catIds = items.Select(i => i.CatId).Distinct().ToList();
+            var catNames = (await _db.Category.AsNoTracking()
+                .Where(c => catIds.Contains(c.IdOne)).Select(c => new { c.IdOne, c.Name }).ToListAsync())
+                .GroupBy(c => c.IdOne).ToDictionary(g => g.Key, g => g.First().Name);
 
             return Ok(new
             {
@@ -67,13 +73,18 @@ namespace Plutus.Catalogue
                 inStock,               // items in stock (qty > 0) for this filter/location
                 matched,               // rows matching the filter (page count basis)
                 skip, take,
-                rows = rows.Select(r => new
+                rows = rows.Select(r =>
                 {
-                    stockLocationId = r.StockLocationId,
-                    location = locations.FirstOrDefault(l => l.Id == r.StockLocationId)?.Name ?? "?",
-                    itemIdOne = r.ItemIdOne,
-                    name = names.FirstOrDefault(n => n.IdOne == r.ItemIdOne)?.Name,
-                    quantity = r.Quantity,
+                    var it = items.FirstOrDefault(n => n.IdOne == r.ItemIdOne);
+                    return new
+                    {
+                        stockLocationId = r.StockLocationId,
+                        location = locations.FirstOrDefault(l => l.Id == r.StockLocationId)?.Name ?? "?",
+                        itemIdOne = r.ItemIdOne,
+                        name = it?.Name,
+                        category = it != null && catNames.TryGetValue(it.CatId, out var cn) ? cn : null,
+                        quantity = r.Quantity,
+                    };
                 }),
             });
         }
