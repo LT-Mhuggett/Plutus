@@ -31,6 +31,17 @@ function healthColor(h?: HealthTenantRow): string {
   return "#16a34a";                                                     // green
 }
 
+// Plain-English hover text for the health dot — the words match healthColor's thresholds exactly,
+// and it always lists the underlying last-hour numbers so a red dot is self-explanatory (e.g. a
+// tenant can be red on an open quarantine or error rate even when the visible "5xx" column is 0).
+function healthTitle(h?: HealthTenantRow): string {
+  if (!h) return "No activity in the last hour — nothing to report.";
+  const stats = `5xx errors ${h.err5xx} · error rate ${h.errorRatePct}% · peak p95 ${h.peakP95Ms}ms · quarantined ${h.quarantineOpen} (last hour)`;
+  if (h.err5xx > 0 || h.quarantineOpen > 0 || h.errorRatePct >= 5) return `Needs attention — ${stats}`;
+  if (h.peakP95Ms >= 1000 || h.errorRatePct > 0) return `Slow or minor errors — ${stats}`;
+  return `Healthy — ${stats}`;
+}
+
 function Dot({ color, title }: { color: string; title: string }) {
   return <span title={title} style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", background: color }} />;
 }
@@ -575,7 +586,7 @@ function TenantsScreen() {
             const series = (u?.salesDaily ?? []).map((d) => d.value);
             return (
               <tr key={t.id}>
-                <td><Dot color={healthColor(h)} title={h ? `err5xx ${h.err5xx}, p95 ${h.peakP95Ms}ms, quarantine ${h.quarantineOpen}` : "no traffic (last hour)"} /></td>
+                <td><Dot color={healthColor(h)} title={healthTitle(h)} /></td>
                 <td>{t.name} {t.isSandbox && <span style={{ background: "#7c3aed", color: "white", fontSize: 10, padding: "1px 5px", borderRadius: 3 }}>SANDBOX</span>}<br /><span className="muted small">{short(t.id)}</span></td>
                 <td>{STATUS[t.status] ?? t.status}</td>
                 <td>{t.plan || "—"}</td>
@@ -871,7 +882,7 @@ function HealthScreen() {
         <tbody>
           {(health?.tenants ?? []).map((h) => (
             <tr key={h.tenantId}>
-              <td><Dot color={healthColor(h)} title="health" /></td>
+              <td><Dot color={healthColor(h)} title={healthTitle(h)} /></td>
               <td>{short(h.tenantId)}</td>
               <td className="num">{h.requests}</td><td className="num">{h.err4xx}</td><td className="num">{h.err5xx}</td>
               <td className="num">{h.errorRatePct}</td><td className="num">{h.peakP95Ms}ms</td><td className="num">{h.quarantineOpen}</td>
