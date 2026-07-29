@@ -121,7 +121,7 @@ export function NegativeStockReport() {
         ]}
         rows={rows} getKey={(r) => `${r.stockLocationId}-${r.itemIdOne}`}
         server={{ total, skip, take, search, onSearch: (s) => { setSearch(s); setSkip(0); }, onPage: (sk, tk) => { setSkip(sk); setTake(tk); } }}
-        rowActions={() => <button className="ghost small" onClick={() => go("Stock")}>Edit in Inventory</button>}
+        rowActions={() => <button className="ghost small" onClick={() => go("Inventory")}>Edit in Inventory</button>}
         emptyText="No negative stock — everything's at or above zero."
       />
     </section>

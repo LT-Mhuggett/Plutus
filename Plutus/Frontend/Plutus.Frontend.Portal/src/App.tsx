@@ -26,7 +26,7 @@ declare const __BUILD_TIME__: string;
 
 // WP11.5 (Matt): "Dashboard" always takes you home; "Company" holds company details + the
 // absorbed Financial periods; "Locations" is the WP11.6 grouped stores/warehouses/webstores page.
-const TABS = ["Dashboard", "Reporting", "Banking", "Stock", "Prices", "Customers", "Loyalty", "Webstore", "Users & Roles", "Locations", "Company", "Help"] as const;
+const TABS = ["Dashboard", "Reporting", "Banking", "Inventory", "Prices", "Customers", "Loyalty", "Webstore", "Users & Roles", "Locations", "Company", "Help"] as const;
 // WP13.4: the operator-only Platform section, shown only when the token carries platform-admin.
 const PLATFORM_TAB = "Platform" as const;
 type Tab = (typeof TABS)[number] | typeof PLATFORM_TAB;
@@ -35,7 +35,7 @@ const PAGES: Record<Tab, () => React.JSX.Element> = {
   Dashboard: DashboardTab,
   Reporting: ReportingPage,
   Banking: BankingPage,
-  Stock: StockPage,
+  Inventory: StockPage,
   Prices: PricesPage,
   Customers: CustomersPage,
   Loyalty: LoyaltyPage,
