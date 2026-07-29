@@ -1,8 +1,37 @@
 # Portal & Till Refresh Plan — dashboard pills, report parity, inventory, loyalty, till hardening
 
-**Date:** 2026-07-29 · **Requested by:** Matt · **Status:** PLANNED (not started)
+**Date:** 2026-07-29 · **Requested by:** Matt · **Status:** IN PROGRESS — P1, P2, P3 (substance) + P4.1 done & LIVE; remainder pending
 **Scope:** Plutus.Frontend.Portal, Plutus.Frontend.WebApp (web till), backend modules (`src/Plutus.*`), RBAC.
 **Read first:** `Build/operator-portal-plan.md` §Repo runbook (build/test/deploy commands, pitfalls) — everything there applies here too.
+
+### Progress snapshot (updated 2026-07-29)
+Legend: ✅ done & deployed · 🟡 committed, not yet deployed · ⬜ not started.
+
+| WP | State | Notes |
+|---|---|---|
+| **P1** WP1.1 DataTable + table-standard.md | ✅ | Twin `DataTable.tsx` in portal + till; `Build/table-standard.md` written + linked in README; PlatformPage converted. |
+| **P1** WP1.2 Portal nav plumbing | ✅ | `NavContext`/`useNav`/hash routing; StoresPage honours `focus`. |
+| **P1** WP1.3 Migrate remaining legacy tables (sweep) | ⬜ | Opportunistic follow-up; not run. |
+| **P2** WP2.1 Dashboard KPI endpoint | ✅ | `GET /api/v1/reports/dashboard` + integration test. |
+| **P2** WP2.2 Pills + remove table + day labels | ✅ | 7 clickable pills; `variant="dashboard"` hides tables; label thinning fixed. |
+| **P3** WP3.1 Portal Summary = till Summary | ⬜ | Rich port pending (portal Summary still the simpler rollup). |
+| **P3** WP3.2 Portal Custom report + category | ⬜ | Net-new screen, not started. |
+| **P3** WP3.3 Backend category on sold-lines | ✅ | `category` on items-sold JSON+CSV, category-sales, best-sellers. |
+| **P3** WP3.4 Items sold: Category column | ✅ | Both platforms; category column added. |
+| **P3** WP3.5 Portal VAT = till VAT (+integrity) | ⬜ | Rich port pending. |
+| **P3** WP3.6 Prices browsable landing | ✅ | `GET /api/v1/prices/list`; DataTable landing + "deviate only" toggle. |
+| **P3** WP3.7 Category sales report | ✅ | Both platforms. |
+| **P3** WP3.8 Best sellers report | ✅ | Both platforms. |
+| **P3** WP3.9 Negative stock report → edit | ✅ | `filter=negative` on stock/levels; portal report + till toggle. |
+| **P4** WP4.1 Rename Stock → Inventory | 🟡 | Committed `7b510c9`; Inventory tab now the sub-tabbed page below. |
+| **P4** WP4.2 Portal item CRUD | 🟡 | New Inventory→Items sub-tab; add/edit via legacy `api/Item`+`api/Tax` (VAT guardrail) through an `api.ts` legacy bridge (businessId resolved from the tenant's first company + cached). Initial stock routed via the v1 ledger, not legacy `/api/Stock`. |
+| **P4** WP4.3 Category column on both inventory lists | 🟡 | Category column on portal Items + till InventoryPage (catId→name); portal Items also has a page-scoped category filter. |
+| **P4** WP4.4 Category manager UI (webstore-critical) | 🟡 | **Deviation from plan (safer):** built a *guarded v1* `categories` controller instead of raw legacy `api/Category`, whose DELETE cascade-deletes every item in the category. New surface carries item counts, blocks delete while items reference it (409) and refuses the last category, adds bulk `/reassign`. Reads `perm:portal.reports.view`, writes `perm:portal.stock.adjust`. Portal Inventory→Categories sub-tab (add/rename/reassign+delete). Integration test green. |
+| **P5** WP5.1–5.3 Loyalty edit + webstore link | ⬜ | 5.3 carries a migration + Woo webhook change. |
+| **P6** WP6.1–6.3 Store info / un-enrol approval / Help | ⬜ | 6.2 carries a `DeviceStatus.PendingRemoval` migration. |
+
+**Live deploy tag:** P1+P2+P3(substance) deployed; rollbacks `backend.pre-p3`, `current.pre-p3` (portal + web). ETRIE verified 200 after each deploy. **P4 (all of it) is committed + fully verified (Unit 214 · Arch 6 · Integration 45, both frontends typecheck) but NOT yet deployed** — it needs a backend deploy (new `categories` controller) + portal deploy + till deploy.
+**Resume point:** deploy P4, then P3 rich-report ports (3.1/3.2/3.5), then P5/P6.
 
 ---
 
@@ -10,7 +39,7 @@
 
 1. **DO NOT TOUCH ETRIE.** After any Mac change: `curl https://huggett.dscloud.me/health` → 200.
 2. Deploy only when Matt asks. Backend swap keeps a `backend.pre-<tag>` rollback; portal/till keep `current.pre-<tag>`.
-3. Suites must stay green: Unit 214 · Architecture 6 · Integration 39 (counts grow as you add tests — never shrink).
+3. Suites must stay green: Unit 214 · Architecture 6 · Integration 43 (was 39; grew as WPs added tests — never shrink).
 4. Tenancy: every new backend query runs under the ambient tenant filter; new tenant-owned entities go in the `TenantOwned` list in `MySqlDbContext` (~line 150).
 5. No chart libraries (hand-rolled SVG only — enforced by comment convention in `Dashboard.tsx:49` and `SummaryReport.tsx`).
 6. Commit per work package. Don't push without Matt's ask (bare `git push` goes to `upstream` = seank842).

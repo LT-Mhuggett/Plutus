@@ -4,7 +4,7 @@ import ReportingPage from "./ReportingPage.tsx";
 import BankingPage from "./BankingPage.tsx";
 import CustomersPage from "./CustomersPage.tsx";
 import LoyaltyPage from "./LoyaltyPage.tsx";
-import StockPage from "./StockPage.tsx";
+import InventoryPage from "./InventoryPage.tsx";
 import PricesPage from "./PricesPage.tsx";
 import UsersPage from "./UsersPage.tsx";
 import StoresPage from "./StoresPage.tsx";
@@ -35,7 +35,7 @@ const PAGES: Record<Tab, () => React.JSX.Element> = {
   Dashboard: DashboardTab,
   Reporting: ReportingPage,
   Banking: BankingPage,
-  Inventory: StockPage,
+  Inventory: InventoryPage,
   Prices: PricesPage,
   Customers: CustomersPage,
   Loyalty: LoyaltyPage,

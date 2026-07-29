@@ -346,6 +346,87 @@ export interface Company {
 export const fetchCompanies = () => get<Company[]>(`/api/v1/companies`);
 export const updateCompany = (id: string, body: Partial<Company>) => put<void>(`/api/v1/companies/${id}`, body);
 
+// ── catalogue management: LEGACY bridge (WP4.2/4.4) ──────────────────────────
+// The portal normally speaks only /api/v1. Item + category + tax MANAGEMENT is the one
+// deliberate exception: it reuses the guardrailed legacy MVC controllers the web till already
+// drives (api/Item, api/Category, api/Tax) — identical VAT guardrail, no parallel v1 CRUD to
+// build and keep in sync. These controllers scope by a `BusinessId` request header (the till
+// hardcodes its single tenant); the portal resolves it once from the tenant's first company
+// and caches it. Composite legacy keys are (IdOne = row id, IdTwo = business id).
+let _businessId: string | null = null;
+export async function businessId(): Promise<string> {
+  if (_businessId) return _businessId;
+  const companies = await fetchCompanies();
+  if (companies.length === 0) throw new ApiError(404, "No company found for this tenant.");
+  _businessId = companies[0].id;
+  return _businessId;
+}
+
+async function legacy<T>(method: string, url: string, body?: unknown): Promise<T> {
+  const bid = await businessId();
+  const res = await fetch(url, {
+    method,
+    headers: { ...authHeaders(), BusinessId: bid, ...(body !== undefined ? { "Content-Type": "application/json" } : {}) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (res.status === 401) { signOut(); throw new ApiError(401, "Signed out."); }
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try { const parsed = await res.json(); detail = parsed?.detail ?? JSON.stringify(parsed); } catch { /* keep */ }
+    throw new ApiError(res.status, detail);
+  }
+  return res.status === 204 ? (undefined as T) : res.json();
+}
+
+export interface Tax { idOne: number; name: string; rate: number } // rate = multiplier, 1.2 = 20%
+export interface CatalogueItem {
+  idOne: string; name: string; brand: string; desc: string;
+  cost: number; exPrice: number; price: number; taxId: number; catId: string;
+}
+export interface ItemInput {
+  id: string; name: string; brand: string; desc: string;
+  cost: number; price: number; exPrice: number; taxId: number; catId: string;
+}
+
+export const fetchTaxes = () => legacy<Tax[]>("GET", `/api/Tax/Index?PageNumber=1&PageSize=50`);
+// The legacy Item/Index rows already carry every field the edit dialog needs (brand, cost, tax,
+// catId), so the list row IS the edit payload — no separate detail fetch.
+export const fetchCatalogueItems = (pageNumber: number, pageSize: number, search = "") =>
+  legacy<CatalogueItem[]>("GET",
+    `/api/Item/Index?PageNumber=${pageNumber}&PageSize=${pageSize}` + (search ? `&Search=${encodeURIComponent(search)}` : ""));
+
+// PUT/POST bind the full legacy entity — the composite key + businessId must be present, and the
+// server overrides exPrice from the tax band (the VAT guardrail), so we send our derived value
+// but the band is authoritative. Mirrors the till's itemBody exactly (WebApp/src/api.ts).
+async function itemBody(i: ItemInput) {
+  const bid = await businessId();
+  return {
+    id: i.id, idOne: i.id, idTwo: bid,
+    name: i.name, brand: i.brand || "-", desc: i.desc ?? "",
+    cost: i.cost, exPrice: i.exPrice, price: i.price,
+    image: null, amount: 0, taxId: i.taxId, catId: i.catId, businessId: bid,
+  };
+}
+export const createItem = async (i: ItemInput) => legacy<void>("POST", `/api/Item`, await itemBody(i));
+export const updateItem = async (i: ItemInput) => legacy<void>("PUT", `/api/Item/${encodeURIComponent(i.id)}`, await itemBody(i));
+// NB: initial stock is set through the v1 Stock ledger (per-location, multi-store correct), not the
+// till's legacy /api/Stock write (which assumes store 1) — see the Inventory page's Stock ledger tab.
+
+// ── categories: guarded v1 manager (WP4.4) ──────────────────────────────────
+// NOT the legacy api/Category CRUD (whose DELETE cascade-deletes every item in the category — a
+// data-loss trap for the webstore). This v1 surface carries item counts, blocks a delete while
+// items reference the category (reassign first), and refuses the last category. `id` = the legacy
+// Category.IdOne, so it drops straight into an item's catId.
+export interface Category { id: string; name: string; description: string; itemCount: number }
+export const fetchCategories = () => get<Category[]>(`/api/v1/categories`);
+export const createCategory = (name: string, description?: string) =>
+  post<{ id: string; name: string }>(`/api/v1/categories`, { name, description });
+export const renameCategory = (id: string, name: string, description?: string) =>
+  put<void>(`/api/v1/categories/${id}`, { name, description });
+export const reassignCategory = (id: string, toId: string) =>
+  post<{ moved: number }>(`/api/v1/categories/${encodeURIComponent(id)}/reassign`, { toId });
+export const deleteCategory = (id: string) => del<void>(`/api/v1/categories/${id}`);
+
 export interface StoreRow {
   id: number;
   companyId: string;

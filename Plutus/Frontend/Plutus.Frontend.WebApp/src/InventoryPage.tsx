@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   createItem,
   createStock,
@@ -17,6 +17,7 @@ const PAGE_SIZE = 25;
 
 export default function InventoryPage() {
   const [items, setItems] = useState<Item[]>([]);
+  const [cats, setCats] = useState<Category[]>([]);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [applied, setApplied] = useState("");
@@ -24,6 +25,10 @@ export default function InventoryPage() {
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Item | "new" | null>(null);
   const [notice, setNotice] = useState("");
+
+  // WP4.3: show each item's category in the list (the dialog already assigns it; the list didn't).
+  const catName = useMemo(() => new Map(cats.map((c) => [c.idOne, c.name])), [cats]);
+  useEffect(() => { void fetchCategories().then(setCats).catch(() => undefined); }, []);
 
   function load() {
     setState("loading");
@@ -81,6 +86,7 @@ export default function InventoryPage() {
               <th>Barcode / Id</th>
               <th>Name</th>
               <th>Brand</th>
+              <th>Category</th>
               <th className="num">Price</th>
               <th />
             </tr>
@@ -91,6 +97,7 @@ export default function InventoryPage() {
                 <td className="mono">{i.idOne}</td>
                 <td>{i.name}</td>
                 <td>{i.brand === "NOT EXIST" || i.brand === "-" ? "" : i.brand}</td>
+                <td>{catName.get(i.catId) ?? "—"}</td>
                 <td className="num">{gbp(Math.round(i.price * 100))}</td>
                 <td>
                   <button className="ghost small" onClick={() => setEditing(i)}>
