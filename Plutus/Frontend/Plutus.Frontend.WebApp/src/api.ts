@@ -354,7 +354,7 @@ export const fetchV1Vat = (from: string, to: string, granularity = "month") =>
   get<V1Vat>(`/api/v1/reports/vat?level=store&id=${STORE_ID}&from=${from}&to=${to}&granularity=${granularity}`);
 
 export interface V1ItemSoldRow {
-  dateSold: string; itemIdOne: string; itemName: string; storeId: number; tillId: string;
+  dateSold: string; itemIdOne: string; itemName: string; category: string | null; storeId: number; tillId: string;
   tillName: string; staffId: string; staffName: string;
   qty: number; unitPricePence: number; discountPence: number; lineGrossPence: number;
 }
@@ -368,10 +368,19 @@ export const fetchV1ItemsSold = (from: string, to: string, operatorUserId?: stri
 export interface V1Staff { id: string; name: string }
 export const fetchV1Staff = () => get<V1Staff[]>(`/api/v1/reports/staff?storeId=${STORE_ID}`);
 
-export interface V1StockLevel { stockLocationId: string; location: string; itemIdOne: string; name: string | null; quantity: number }
+export interface V1StockLevel { stockLocationId: string; location: string; itemIdOne: string; name: string | null; category: string | null; quantity: number }
 export interface V1StockResp { totalCatalogueItems: number; inStock: number; matched: number; skip: number; take: number; rows: V1StockLevel[] }
-export const fetchV1StockLevels = (search = "", skip = 0, take = 25) =>
-  get<V1StockResp>(`/api/v1/stock/levels?skip=${skip}&take=${take}${search ? `&search=${encodeURIComponent(search)}` : ""}`);
+export const fetchV1StockLevels = (search = "", skip = 0, take = 25, filter = "") =>
+  get<V1StockResp>(`/api/v1/stock/levels?skip=${skip}&take=${take}${search ? `&search=${encodeURIComponent(search)}` : ""}${filter ? `&filter=${filter}` : ""}`);
+
+// WP3.7/3.8 new reports (till). Tenant-wide (a till tenant is typically one store).
+export interface V1CategorySalesRow { category: string; qty: number; grossPence: number; discountPence: number; sharePct: number }
+export interface V1CategorySales { totals: { grossPence: number; qty: number; categories: number }; rows: V1CategorySalesRow[] }
+export const fetchV1CategorySales = (from: string, to: string) =>
+  get<V1CategorySales>(`/api/v1/reports/category-sales?from=${from}&to=${to}`);
+export interface V1BestSellerRow { rank: number; itemIdOne: string; itemName: string; category: string | null; qty: number; grossPence: number; sharePct: number }
+export const fetchV1BestSellers = (from: string, to: string, by: "qty" | "gross", take = 25) =>
+  get<{ rows: V1BestSellerRow[] }>(`/api/v1/reports/best-sellers?from=${from}&to=${to}&by=${by}&take=${take}`);
 
 export interface V1LoyaltyRow {
   id: string; name: string; email: string | null; phone: string | null;
