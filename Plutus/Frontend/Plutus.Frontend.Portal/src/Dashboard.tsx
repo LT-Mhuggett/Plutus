@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  csvUrl, fetchSaleDetail, fetchSales, fetchSummary, gbp,
-  type SaleDetail, type SaleRow, type Summary,
+  csvUrl, fetchSaleDetail, fetchSales, fetchSummary, fetchDashboard, gbp,
+  type SaleDetail, type SaleRow, type Summary, type DashboardKpis,
 } from "./api.ts";
 import Barcode39 from "./Barcode39.tsx";
 import { SortTh, useSort } from "./sortable.tsx";
+import { useNav } from "./nav.tsx";
 
 /** Adds the weekday to a day period (2026-07-18 → "2026-07-18 · Sat") and the month name to a
  *  month period; year unchanged. */
@@ -53,7 +54,9 @@ function BarChart({ buckets }: { buckets: { period: string; grossPence: number }
   const plotW = w - gutter;
   const bw = Math.max(3, Math.floor(plotW / buckets.length) - gap);
   const max = Math.max(...buckets.map((b) => b.grossPence), 1);
-  const showLabels = buckets.length <= 20;
+  // Always label, thinned to ~10 ticks — the old "only if <=20 bars" hid every label on the
+  // default 30-day day view.
+  const labelEvery = Math.max(1, Math.ceil(buckets.length / 10));
   return (
     <svg className="chart" viewBox={`0 0 ${w} ${h + top + 24}`} role="img" aria-label="Gross by period">
       {[0, 0.25, 0.5, 0.75, 1].map((f) => {
@@ -73,7 +76,7 @@ function BarChart({ buckets }: { buckets: { period: string; grossPence: number }
             <rect x={x} y={top + h - bh} width={bw} height={bh} rx="2">
               <title>{`${b.period}: ${gbp(b.grossPence)}`}</title>
             </rect>
-            {showLabels && (
+            {i % labelEvery === 0 && (
               <text x={x + bw / 2} y={top + h + 14} textAnchor="middle" className="chart-label">
                 {chartLabel(b.period)}
               </text>
@@ -166,9 +169,37 @@ function SaleDialog({ id, onClose }: { id: string; onClose: () => void }) {
   );
 }
 
+/** WP2.2 dashboard pills: today/this-week sales + active counts, each clickable to the relevant
+ *  tab. One `/reports/dashboard` call. Shown only on the Dashboard tab (variant="dashboard"). */
+function Pills() {
+  const { go } = useNav();
+  const [k, setK] = useState<DashboardKpis | null>(null);
+  useEffect(() => { fetchDashboard().then(setK).catch(() => undefined); }, []);
+  if (!k) return null;
+  const wc = k.weekStart ? new Date(k.weekStart + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "";
+  const pill = (label: string, value: string, onClick: () => void) => (
+    <button className="stat" style={{ cursor: "pointer", textAlign: "left", border: "none" }} onClick={onClick} title="Open">
+      <span className="stat-label">{label}</span><span className="stat-value">{value}</span>
+    </button>
+  );
+  return (
+    <div className="stat-row">
+      {pill("Sales today", gbp(k.salesTodayPence), () => go("Reporting"))}
+      {pill(`Sales this week${wc ? ` (w/c ${wc})` : ""}`, gbp(k.salesWeekPence), () => go("Reporting"))}
+      {pill("Active users", String(k.activeUsers), () => go("Users & Roles"))}
+      {pill("Active tills", String(k.activeTills), () => go("Locations", "stores"))}
+      {pill("Active stores", String(k.activeStores), () => go("Locations", "stores"))}
+      {pill("Active warehouses", String(k.activeWarehouses), () => go("Locations", "warehouses"))}
+      {pill("Active webstores", String(k.activeWebstores), () => go("Webstore"))}
+    </div>
+  );
+}
+
 /** Company dashboard: rollup buckets with drill — coarser granularity → click a bucket to
- *  zoom in → at day level the individual sales list → click a sale for the full record. */
-export default function Dashboard() {
+ *  zoom in → at day level the individual sales list → click a sale for the full record.
+ *  variant="dashboard" (the Dashboard tab) shows the KPI pills and hides the per-period + sales
+ *  tables ("remove the table below the graph"); variant="report" keeps the full drill-down. */
+export default function Dashboard({ variant = "report" }: { variant?: "report" | "dashboard" }) {
   const [from, setFrom] = useState(daysAgo(30));
   const [to, setTo] = useState(today());
   const [granularity, setGranularity] = useState<"day" | "week" | "month" | "year">("day");
@@ -204,6 +235,7 @@ export default function Dashboard() {
 
   return (
     <section className="panel">
+      {variant === "dashboard" && <Pills />}
       <div className="toolbar">
         <label>From <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
         <label>To <input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
@@ -235,6 +267,7 @@ export default function Dashboard() {
 
       <BarChart buckets={buckets} />
 
+      {variant === "report" && (<>
       <table>
         <thead><tr>
           <SortTh label="Period" k="period" {...bk} />
@@ -284,6 +317,7 @@ export default function Dashboard() {
           </table>
         </>
       )}
+      </>)}
 
       {openSale && <SaleDialog id={openSale} onClose={() => setOpenSale(null)} />}
     </section>

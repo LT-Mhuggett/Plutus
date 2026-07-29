@@ -218,6 +218,13 @@ export async function login(email: string, password: string): Promise<Session> {
 
 // ── reports ──
 
+// WP2.1 dashboard KPIs (the home-screen pills).
+export interface DashboardKpis {
+  salesTodayPence: number; salesWeekPence: number; weekStart: string;
+  activeUsers: number; activeTills: number; activeStores: number; activeWarehouses: number; activeWebstores: number;
+}
+export const fetchDashboard = () => get<DashboardKpis>("/api/v1/reports/dashboard");
+
 export interface SummaryBucket {
   period: string;
   grossPence: number;

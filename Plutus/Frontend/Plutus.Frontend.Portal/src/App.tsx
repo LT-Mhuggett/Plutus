@@ -50,7 +50,7 @@ const PAGES: Record<Tab, () => React.JSX.Element> = {
 // The same analytics view Reporting → Summary shows — one component, two doors (decided at
 // build time per the WP11.5 note; no data difference).
 function DashboardTab() {
-  return <Dashboard />;
+  return <Dashboard variant="dashboard" />;
 }
 
 function Page({ tab }: { tab: Tab }) {
