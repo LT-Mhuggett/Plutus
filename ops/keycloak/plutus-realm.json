@@ -11,6 +11,8 @@
   "accessTokenLifespan": 900,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 36000,
+  "defaultDefaultClientScopes": ["profile", "email", "roles"],
+  "defaultOptionalClientScopes": ["offline_access"],
   "clientScopes": [
     {
       "name": "plutus-api-audience",
@@ -86,7 +88,7 @@
     },
     {
       "name": "roles",
-      "description": "Realm roles in realm_access.roles — WP18.1 maps platform-admin from here",
+      "description": "Realm roles in realm_access.roles (WP18.1 maps platform-admin from here) + client roles in resource_access (Keycloak account console needs this)",
       "protocol": "openid-connect",
       "attributes": { "include.in.token.scope": "false", "display.on.consent.screen": "false" },
       "protocolMappers": [
@@ -98,6 +100,16 @@
           "config": {
             "multivalued": "true", "claim.name": "realm_access.roles", "jsonType.label": "String",
             "id.token.claim": "true", "access.token.claim": "true", "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "client roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true", "claim.name": "resource_access.${client_id}.roles", "jsonType.label": "String",
+            "id.token.claim": "false", "access.token.claim": "true", "userinfo.token.claim": "false"
           }
         }
       ]
@@ -151,6 +163,33 @@
         "post.logout.redirect.uris": "https://plutus.huggett.dscloud.me/*##http://localhost:5173/*"
       },
       "defaultClientScopes": ["profile", "email", "roles", "plutus-api-audience"]
+    },
+    {
+      "clientId": "account",
+      "name": "${client_account}",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "baseUrl": "/realms/plutus/account/",
+      "redirectUris": ["/realms/plutus/account/*"],
+      "fullScopeAllowed": true,
+      "defaultClientScopes": ["profile", "email", "roles"]
+    },
+    {
+      "clientId": "account-console",
+      "name": "${client_account-console}",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "rootUrl": "${authBaseUrl}",
+      "baseUrl": "/realms/plutus/account/",
+      "redirectUris": ["/realms/plutus/account/*"],
+      "webOrigins": [],
+      "fullScopeAllowed": true,
+      "attributes": { "pkce.code.challenge.method": "S256" },
+      "defaultClientScopes": ["profile", "email", "roles"]
     }
   ],
   "roles": {
@@ -176,6 +215,7 @@
       "lastName": "Huggett",
       "email": "matt@huggett.co.uk",
       "groups": ["/operators"],
+      "realmRoles": ["default-roles-plutus"],
       "requiredActions": ["UPDATE_PASSWORD", "CONFIGURE_TOTP"],
       "credentials": [
         { "type": "password", "value": "ChangeMe!2026", "temporary": true }
@@ -189,6 +229,7 @@
       "lastName": "Operator",
       "email": "ops@plutus.test",
       "groups": ["/operators"],
+      "realmRoles": ["default-roles-plutus"],
       "requiredActions": ["CONFIGURE_TOTP"],
       "credentials": [
         { "type": "password", "value": "ChangeMe!2026", "temporary": false }
@@ -201,6 +242,7 @@
       "firstName": "Ada",
       "lastName": "Cashier",
       "email": "ada@shop.test",
+      "realmRoles": ["default-roles-plutus"],
       "credentials": [
         { "type": "password", "value": "ChangeMe!2026", "temporary": false }
       ]

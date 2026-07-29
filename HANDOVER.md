@@ -3,24 +3,49 @@
 **Date:** 2026-07-28 — Platform now on **.NET 10** (merged Development: net10 + MAUI + Mapster).
 **All 18 phases + the Operator Portal (OP1–OP4) built & LIVE.** Head `00d4074`.
 
-### ⏰⏰ RESUME TOMORROW (2026-07-29)
-Everything below is DONE, deployed & verified live; working tree clean, pushed to
-`upstream/Matt's-Horror`. Suite: **Unit 214 · Architecture 6 · Integration 39 — green.**
-- **Operator Portal (OP1–OP4) complete this session** (see `Build/operator-portal-plan.md`, all
+### ⏰⏰ RESUME HERE (2026-07-29)
+Suite: **Unit 214 · Architecture 6 · Integration 39 — green.**
+
+**This session (2026-07-29):**
+- **Operator SSO now ENFORCED — WP18.1 complete.** Flipped `OPERATOR_SSO_ENFORCED=true` (ecosystem
+  env; backup `~/PLUTUS/plutus-ecosystem.config.js.pre-sso-enforce`). Verified live: an HMAC operator
+  token carrying `platform-admin` now gets **403** on `/api/v1/platform/plans` (was 200) — that scope
+  can only arrive via Keycloak JWT now. Pre-flight all green: portal deployed OIDC, backend validates
+  Keycloak JWTs, operators group→platform-admin realm role, matt enrolled (password+otp, no pending
+  actions). **Rollback:** restore the `.pre-sso-enforce` backup + `pm2 restart ~/PLUTUS/plutus-ecosystem.config.js --update-env`.
+  ⚠ pm2 gotcha learned: `pm2 restart <name> --update-env` does NOT load new keys from the ecosystem
+  FILE — must restart from the file path.
+- **Portal login CONFIRMED by Matt** — operator SSO + platform screens work end-to-end.
+- **Found & fixed a live outage:** Colima (the Docker VM hosting Keycloak) was **down** (Mac
+  reboot/crash) → `login.plutus` 502 → **operator login was silently broken**. Recovered via
+  `colima stop --force && colima start`. **Now auto-starts on reboot:** registered the Homebrew
+  LaunchAgent (`brew services start colima` → `~/Library/LaunchAgents/homebrew.mxcl.colima.plist`,
+  `RunAtLoad=true`, `colima start -f`); auto-login is on for `admin` (uid 502) so it loads at boot.
+  ⚠ Still outstanding: `pm2 save`/`pm2 resurrect` for plutus-backend (also not boot-persisted).
+- **Fixed the Keycloak self-service Account Console (the portal's "Account & MFA" link 401'd).**
+  Root cause was the stripped-down realm import, NOT the SSO enforcement: the `roles` client scope
+  was missing its standard **"client roles" mapper** (so `resource_access` was empty in every token),
+  the `account`/`account-console` clients had no scopes, and `matt` lacked the `default-roles-plutus`
+  baseline. Fixed live AND persisted to `ops/keycloak/plutus-realm.json` (client-roles mapper,
+  `defaultDefaultClientScopes`, explicit account/account-console clients w/ `fullScopeAllowed`,
+  `default-roles-plutus` on the seed users). ⚠ re-import still wipes operator TOTP enrolments —
+  the json is for a clean/DR rebuild, the live realm is otherwise the source of truth.
+
+**Prior (2026-07-28), all DONE & live:**
+- **Operator Portal (OP1–OP4) complete** (see `Build/operator-portal-plan.md`, all
   boxes ticked): OP1 operator/client data boundary (operators 403'd off client data, operator-only
   console); OP2 subscription plans & pricing; OP3 subscribers landing (MRR/renewals/users);
   OP4 support tickets (client Help tab + till card + operator inbox) closing the `support-heavy`
   churn signal. Rollback dirs `backend.pre-op{1..4}`.
-- **Operator SSO is LIVE**: `matt@huggett.co.uk` logs into the portal via Keycloak (TOTP enrolled);
-  `OPERATOR_SSO_ENFORCED` still **OFF** (flip it once you're happy operator SSO is solid — that's
-  the last WP18.1 step).
+- **Operator SSO went LIVE**: `matt@huggett.co.uk` logs into the portal via Keycloak (TOTP enrolled).
 - **Docs cleaned up**: repo root now holds only README (rewritten as the doc index) + HANDOVER;
   all plans in `Build/`, seed `.db` in `Build/seed-data/`. `Environment_Setup_Runbook.md`
   (gitignored) now documents the **Plutus** env (was ETRIE's).
-- **Good next options** (nothing urgent): flip `OPERATOR_SSO_ENFORCED`; the small audit gaps
-  (onboarding checklist, PastDue read-only, schema-version tracking); or a gated adapter once you
-  have an account (billing / mailer / payment gateway — config UIs already live). Carry-forwards:
-  MySQL password rotation, `origin`/net8 reconciliation, Phase-6 Woo outbound go-live.
+- **Good next options** (nothing urgent): the small audit gaps (onboarding checklist, PastDue
+  read-only, schema-version tracking); or a gated adapter once you have an account (billing / mailer /
+  payment gateway — config UIs already live). Carry-forwards: **Colima + pm2 boot-persistence**
+  (see this session's note), MySQL password rotation, `origin`/net8 reconciliation, Phase-6 Woo
+  outbound go-live.
 
 ---
 
