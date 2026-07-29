@@ -53,6 +53,10 @@ locations and environment map live in **HANDOVER.md**.
 - [portal-till-refresh-plan.md](Build/portal-till-refresh-plan.md) — P1–P6 (dashboard pills, report parity across portal/till, inventory rename + category manager, loyalty editing + webstore linking, till hardening: store info / un-enrol approval / Help). **Planned, not started.**
 - Historical/dated plans: [WebApp](Build/WebApp-2026-07-23-plan.md) · [OfflineMode](Build/OfflineMode-2026-07-23-plan.md) · [Migration](Build/Migration-2026-07-22-plan.md) · [BugFix](Build/BugFix-2026-07-22-plan.md) · [VAT investigation](Build/VAT-Investigation-2026-07-23-plan.md) / [VAT fix-later report](Build/VAT-FixLater-Report-2026-07-23.md) · [loyalty](Build/loyalty-usability-plan.md) · [till retrofit](Build/till-retrofit-2026-07-25.md) · [Woo SKU audit](Build/woo-sku-audit-2026-07-26.md) · [Kapow DB gap analysis](Build/kapow-db-gap-analysis.md) · [MAUI build spec](Build/plutus-maui-build-spec.md) · [Sonnet build spec](Build/plutus-sonnet-build-spec.md)
 
+**Conventions**
+
+- [table-standard.md](Build/table-standard.md) — the shared `DataTable` (sort / search / 25-50-100 / pagination) all tables must use, across till, portal, and operator console.
+
 **Operations**
 
 - [ops/incident-runbook.md](ops/incident-runbook.md) — severity ladder, first-15-minutes checklists, rollback levers. Rehearsed.
