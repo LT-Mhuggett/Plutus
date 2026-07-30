@@ -14,8 +14,21 @@ namespace Plutus.Entities.Models
         public string Name { get; set; }
         public string? Email { get; set; }
         public string? Phone { get; set; }
+        /// <summary>FE2: the human-usable membership number — tenant-unique, immutable, assigned at
+        /// creation and printed on loyalty cards as a Code 39 barcode. Nullable only so pre-FE2 rows
+        /// exist before the backfill fills them; new customers always get one.</summary>
+        public string? MemberNo { get; set; }
         public bool Active { get; set; }
         public DateTime CreatedAtUtc { get; set; }
+    }
+
+    /// <summary>FE2: per-tenant membership-number sequence. One row per tenant; <see cref="Next"/>
+    /// doubles as the optimistic-concurrency token, so two simultaneous customer creates cannot
+    /// hand out the same number (the loser retries).</summary>
+    public class MemberNoCounter
+    {
+        public Guid TenantId { get; set; }   // PK
+        public long Next { get; set; }
     }
 
     /// <summary>One store-credit account per customer. Balance is NEVER stored here — it is

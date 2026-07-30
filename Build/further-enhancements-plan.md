@@ -169,10 +169,23 @@ reveal rough member counts; accepted for this product's scale.
 ### Work packages
 | WP | Scope | Status |
 |---|---|---|
-| FE2.1 | Backend: column + counter + backfill migration; assignment on create; search match; MemberNo in all reads. Tests: uniqueness under concurrent create, check-char validation, search-by-scan. | ☐ |
-| FE2.2 | Portal: MemberNo in dialog + tables; barcode; Print-card view. | ☐ |
-| FE2.3 | Till: scan-to-attach in the at-sale bar; MemberNo display. | ☐ |
-| FE2.4 | Gate + deploy (EF migration on test env); print a real card and scan it at the till. | ☐ |
+| FE2.1 | Backend: column + counter + backfill migration; assignment on create; search match; MemberNo in all reads. Tests: uniqueness under concurrent create, check-char validation, search-by-scan. | ✅ 2026-07-30 (27 unit + 1 integration) |
+| FE2.2 | Portal: MemberNo in dialog + tables; barcode; Print-card view. | ✅ 2026-07-30 |
+| FE2.3 | Till: scan-to-attach in the at-sale bar; MemberNo display. | ✅ 2026-07-30 |
+| FE2.4 | Gate + deploy (EF migration on test env); print a real card and scan it at the till. | ✅ 2026-07-30 deployed — rollbacks `backend.pre-fe2` + portal/till `current.pre-fe2`, DB dump `plutus-pre-fe2-20260730.sql.gz`; migration `AddMemberNumbers` applied, backfill numbered the existing customer; DoD verified live. ⏳ Matt to print a real card and scan it |
+
+**Format as built:** `NNNNNNC` — 6-digit per-tenant sequence + a check character from
+`Crockford32.Alphabet` (the codebase's existing human-keyable set: no I/L/O/U, all Code 39-safe).
+Barcode payload is `C` + the number. Two things the build corrected against the original sketch:
+the check character is **not** classic mod-43 (that set includes space/`$`/`%`/`+`/`.`/`/`, unusable
+in a spoken or typed number), and parsing keys off **length, not "looks numeric"** — a check
+character is frequently itself a digit (sequence 1 → `0000011`), which an all-digits branch would
+mis-read as a bare sequence. Input is folded through `Crockford32.Normalise`, so O-for-0 and
+I-for-1 mis-keys still resolve. Weighted (7,3,1) so adjacent transpositions are caught.
+
+**Till scan behaviour:** only the `C`-prefixed payload triggers a customer lookup, and if no
+customer matches it falls through to the normal item lookup — so a real SKU beginning with "C" is
+never hijacked.
 
 **DoD:** every customer (new + backfilled) has a unique MemberNo; typing or scanning it in
 the till customer search attaches that customer; Print card renders CR80 with a barcode

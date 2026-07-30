@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { ApiError, fetchLoyaltyTiers, gbp, type LoyaltyTier } from "./api.ts";
 import { accessToken } from "./auth.ts";
+import Barcode39 from "./Barcode39.tsx";
+import MemberCard from "./MemberCard.tsx";
 
 // The full customer editor (details / store credit / membership), extracted from CustomersPage
 // (WP5.1) so BOTH the Customers tab and the Loyalty tab open the same dialog — loyalty is now
@@ -11,6 +13,7 @@ import { accessToken } from "./auth.ts";
 
 interface CustomerDetail {
   id: string; name: string; email: string | null; phone: string | null;
+  memberNo: string | null; memberBarcode: string | null;   // FE2
   creditAccountId: string | null; creditBalancePence: number;
   membership: { tierId: string | null; tier: string; autoDiscountRate: number; renewalDay: string; expired: boolean } | null;
   externalRefs: { provider: string; externalId: string; email: string | null; lastSeenAtUtc: string }[];
@@ -50,6 +53,7 @@ export default function CustomerDialog({ id, onClose }: { id: string; onClose: (
   const [tiers, setTiers] = useState<LoyaltyTier[]>([]);
   const [tierId, setTierId] = useState("");
   const [edit, setEdit] = useState<{ name: string; email: string; phone: string } | null>(null);
+  const [card, setCard] = useState(false); // FE2 printable membership card
 
   const refresh = () =>
     Promise.all([j<CustomerDetail>("GET", `/api/v1/customers/${id}`), j<CreditView>("GET", `/api/v1/customers/${id}/credit`)])
@@ -92,6 +96,18 @@ export default function CustomerDialog({ id, onClose }: { id: string; onClose: (
               </form>
             ) : (
               <dl className="kv">
+                <dt>Member no.</dt>
+                <dd>
+                  {detail.memberNo ? (
+                    <>
+                      <span className="mono">{detail.memberNo}</span>{" "}
+                      <button className="ghost small" onClick={() => setCard(true)}>Print card</button>
+                      {detail.memberBarcode && (
+                        <div><Barcode39 value={detail.memberBarcode} height={30} showText={false} /></div>
+                      )}
+                    </>
+                  ) : <span className="muted">—</span>}
+                </dd>
                 <dt>Email</dt><dd>{detail.email ?? "—"}</dd>
                 <dt>Phone</dt><dd>{detail.phone ?? "—"}</dd>
                 <dt>Store credit</dt><dd><strong>{gbp(detail.creditBalancePence)}</strong></dd>
@@ -163,6 +179,15 @@ export default function CustomerDialog({ id, onClose }: { id: string; onClose: (
           </>
         )}
         <div className="dialog-actions"><button className="ghost" onClick={onClose}>Close</button></div>
+        {card && detail?.memberNo && detail.memberBarcode && (
+          <MemberCard
+            data={{
+              name: detail.name, memberNo: detail.memberNo, memberBarcode: detail.memberBarcode,
+              tier: detail.membership?.tier, renewalDay: detail.membership?.renewalDay,
+            }}
+            onClose={() => setCard(false)}
+          />
+        )}
       </div>
     </div>
   );

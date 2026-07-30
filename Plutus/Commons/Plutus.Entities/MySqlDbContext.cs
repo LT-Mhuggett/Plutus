@@ -109,6 +109,8 @@ namespace Plutus.Entities
         public DbSet<Membership> Memberships { get; set; }
         // FE1: pre-defined loyalty levels a membership is assigned (instead of free-text tiers).
         public DbSet<LoyaltyTier> LoyaltyTiers { get; set; }
+        // FE2: per-tenant membership-number sequence (printed on loyalty cards).
+        public DbSet<MemberNoCounter> MemberNoCounters { get; set; }
         // WP5.3 cross-channel identity (webstore ⇄ loyalty link by email).
         public DbSet<CustomerExternalRef> CustomerExternalRefs { get; set; }
         #endregion
@@ -762,6 +764,19 @@ namespace Plutus.Entities
                 e.Property(x => x.Email).HasMaxLength(255);
                 e.Property(x => x.Phone).HasMaxLength(50);
                 e.HasIndex(x => new { x.TenantId, x.Email });
+                // FE2: the membership number is tenant-unique. MySQL (and SQLite) allow repeated
+                // NULLs in a unique index, so pre-backfill rows coexist happily.
+                e.Property(x => x.MemberNo).HasMaxLength(16);
+                e.HasIndex(x => new { x.TenantId, x.MemberNo }).IsUnique();
+            });
+            modelBuilder.Entity<MemberNoCounter>(e =>
+            {
+                e.ToTable("MemberNoCounters");
+                e.HasKey(x => x.TenantId);
+                e.Property(x => x.TenantId).ValueGeneratedNever();
+                // the sequence value IS the concurrency token — a racing allocation gets 0 rows
+                // updated and throws, and the allocator retries with the fresh value.
+                e.Property(x => x.Next).IsConcurrencyToken();
             });
             modelBuilder.Entity<CreditAccount>(e =>
             {

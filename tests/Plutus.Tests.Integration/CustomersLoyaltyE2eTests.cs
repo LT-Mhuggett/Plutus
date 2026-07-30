@@ -99,6 +99,69 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
         }
     }
 
+    /// <summary>FE2 (DoD): a new customer is given a unique membership number, and scanning that
+    /// card (the "C…" barcode payload) or typing the number resolves to exactly that customer —
+    /// which is what makes scan-to-attach work at the till, since scanners are keyboard-wedge into
+    /// the ordinary customer search.</summary>
+    [Fact]
+    public async Task Member_numbers_are_issued_and_a_scanned_card_finds_its_customer()
+    {
+        var client = _f.CreateClient();
+        var managerId = await SeedCustomerManagerAsync();
+        var manager = PlutusAppFactory.OperatorTokenFor(managerId, "pos.sell");
+        var name = $"Card Carrier {Guid.NewGuid().ToString()[..8]}";
+
+        Guid custId;
+        string memberNo;
+        using (var req = new HttpRequestMessage(HttpMethod.Post, "/api/v1/customers"))
+        {
+            req.Headers.Authorization = new("Bearer", manager);
+            req.Content = JsonContent.Create(new { name });
+            var resp = await client.SendAsync(req);
+            Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
+            var body = JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement;
+            custId = body.GetProperty("id").GetGuid();
+            memberNo = body.GetProperty("memberNo").GetString()!;
+        }
+        Assert.True(Plutus.Customers.MemberNumbers.IsValid(memberNo), memberNo);
+
+        // the detail read exposes the number and the barcode payload to print on a card
+        using (var req = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/customers/{custId}"))
+        {
+            req.Headers.Authorization = new("Bearer", manager);
+            var body = JsonDocument.Parse(await (await client.SendAsync(req)).Content.ReadAsStringAsync()).RootElement;
+            Assert.Equal(memberNo, body.GetProperty("memberNo").GetString());
+            Assert.Equal("C" + memberNo, body.GetProperty("memberBarcode").GetString());
+        }
+
+        async Task<System.Collections.Generic.List<Guid>> SearchAsync(string term)
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/customers?search={Uri.EscapeDataString(term)}");
+            req.Headers.Authorization = new("Bearer", manager);
+            var resp = await client.SendAsync(req);
+            Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+            return JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement
+                .EnumerateArray().Select(e => e.GetProperty("id").GetGuid()).ToList();
+        }
+
+        // scan the card (barcode payload), type the bare number, or type just the sequence
+        Assert.Contains(custId, await SearchAsync("C" + memberNo));
+        Assert.Contains(custId, await SearchAsync(memberNo));
+        Assert.Contains(custId, await SearchAsync(memberNo[..6]));
+        // a mis-keyed digit must NOT silently attach the wrong customer
+        var mistyped = memberNo[..5] + (memberNo[5] == '7' ? '8' : '7') + memberNo[^1];
+        Assert.DoesNotContain(custId, await SearchAsync(mistyped));
+
+        // a second customer gets a different number
+        using (var req = new HttpRequestMessage(HttpMethod.Post, "/api/v1/customers"))
+        {
+            req.Headers.Authorization = new("Bearer", manager);
+            req.Content = JsonContent.Create(new { name = name + " II" });
+            var body = JsonDocument.Parse(await (await client.SendAsync(req)).Content.ReadAsStringAsync()).RootElement;
+            Assert.NotEqual(memberNo, body.GetProperty("memberNo").GetString());
+        }
+    }
+
     /// <summary>FE1 (DoD): the tier catalogue is gated on customers.manage; names are unique;
     /// assigning a tier derives name/rate/renewal from it; and re-rating the tier moves every
     /// member of it at once (live-follow) without re-assignment.</summary>

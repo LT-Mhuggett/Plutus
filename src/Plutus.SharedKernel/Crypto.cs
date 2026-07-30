@@ -7,7 +7,9 @@ namespace Plutus.SharedKernel;
 /// <summary>Crockford base32 (no I, L, O, U) — for human-keyable enrolment codes.</summary>
 public static class Crockford32
 {
-    private const string Alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+    /// <summary>The 32 human-keyable characters (no I, L, O, U) — also entirely within the Code 39
+    /// charset, so codes built from it can be printed as barcodes.</summary>
+    public const string Alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
     /// <summary>A random code of <paramref name="length"/> Crockford base32 chars (uppercase).</summary>
     public static string NewCode(int length = 8)

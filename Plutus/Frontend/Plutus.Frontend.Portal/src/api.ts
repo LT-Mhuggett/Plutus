@@ -477,6 +477,7 @@ export const fetchStockLocations = () => get<StockLocationRow[]>(`/api/v1/stock/
 // ── loyalty ──
 export interface LoyaltyRow {
   id: string; name: string; email: string | null; phone: string | null;
+  memberNo: string | null;
   tierId: string | null;
   tier: string | null; autoDiscountRate: number | null; renewalDay: string | null; expired: boolean; creditBalancePence: number;
 }

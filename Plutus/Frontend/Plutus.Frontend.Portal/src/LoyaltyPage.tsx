@@ -60,14 +60,15 @@ export default function LoyaltyPage() {
         <DataTable<LoyaltyRow>
           columns={[
             { key: "name", label: "Customer", render: (r) => <>{r.name}{r.email && <span className="muted small"> · {r.email}</span>}</> },
+            { key: "memberNo", label: "Member no.", render: (r) => r.memberNo ? <span className="mono small">{r.memberNo}</span> : <span className="muted">—</span> },
             { key: "tier", label: "Tier", render: (r) => <>{r.tier ?? <span className="muted">—</span>}{r.expired && <span className="error small"> (expired)</span>}</> },
             { key: "autoDiscountRate", label: "Discount", numeric: true, render: (r) => (r.autoDiscountRate ? `${Math.round(r.autoDiscountRate * 100)}%` : "—") },
             { key: "renewalDay", label: "Renews", render: (r) => r.renewalDay ?? "—" },
             { key: "creditBalancePence", label: "Credit balance", numeric: true, render: (r) => gbp(r.creditBalancePence) },
           ]}
           rows={rows} getKey={(r) => r.id} initialSortKey="creditBalancePence" initialSortDir="desc"
-          search={(r) => `${r.name} ${r.email ?? ""} ${r.tier ?? ""}`}
-          searchPlaceholder="Search name / email / tier…"
+          search={(r) => `${r.name} ${r.email ?? ""} ${r.tier ?? ""} ${r.memberNo ?? ""}`}
+          searchPlaceholder="Search name / email / tier / member no…"
           rowActions={(r) => <button className="ghost small" onClick={() => setOpen(r.id)}>Open</button>}
           emptyText="No members or credit holders yet."
         />

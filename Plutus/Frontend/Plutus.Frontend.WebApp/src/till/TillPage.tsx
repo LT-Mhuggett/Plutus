@@ -20,6 +20,11 @@ type Dialog = "none" | "checkout" | "discount" | "return" | "parked" | "receipt"
  *  one-letter search can't jank the till with tens of thousands of DOM nodes. */
 const MAX_SHOWN = 500;
 
+/** FE2: the shape of a membership-card barcode payload — "C" + 6-digit sequence + check character
+ *  (see MemberNumbers on the server, which validates the check character for real). A shape test is
+ *  enough here: it only decides whether to TRY a customer lookup before the item lookup. */
+const MEMBER_CARD = /^C[0-9A-Z]{7}$/i;
+
 export default function TillPage() {
   const [basket, dispatch] = useBasket();
   const [scan, setScan] = useState("");
@@ -136,6 +141,20 @@ export default function TillPage() {
     setBusy(true);
     setNotice("");
     try {
+      // FE2: a scanned LOYALTY CARD attaches its customer instead of adding an item. Only the
+      // "C"-prefixed payload is treated this way, so product barcodes are never hijacked — and if
+      // no customer matches (a real SKU that happens to start with C) it falls through to the
+      // normal item lookup below. The server does the authoritative check-character validation.
+      if (MEMBER_CARD.test(term.replace(/[\s-]/g, ""))) {
+        const matches = await searchCustomers(term);
+        if (matches.length === 1) {
+          await attachCustomer(matches[0].id);
+          setScan("");
+          setNotice(`Member ${matches[0].name} attached.`);
+          return;
+        }
+      }
+
       const exact = await findItemById(term);
       if (exact) {
         await addItem(exact);
@@ -234,6 +253,7 @@ export default function TillPage() {
         ) : customer ? (
           <span className="customer-chip">
             👤 {customer.name}
+            {customer.memberNo && <> · <span className="mono">{customer.memberNo}</span></>}
             {customer.creditBalancePence > 0 && <> · {gbp(customer.creditBalancePence)} credit</>}
             {customer.membership && !customer.membership.expired && (
               <> · {customer.membership.tier} {(customer.membership.autoDiscountRate * 100).toFixed(0)}%</>
@@ -250,7 +270,7 @@ export default function TillPage() {
           <span className="customer-search">
             <input
               className="cust-input"
-              placeholder="customer name / email / phone"
+              placeholder="scan card, or name / email / phone / member no"
               value={custSearch}
               autoFocus
               onChange={(e) => setCustSearch(e.target.value)}
@@ -270,6 +290,7 @@ export default function TillPage() {
                   <li key={c.id}>
                     <button onClick={() => attachCustomer(c.id)}>
                       <span className="grow">{c.name}</span>
+                      {c.memberNo && <span className="mono small">{c.memberNo}</span>}
                       <span className="muted small">{c.email ?? c.phone ?? ""}</span>
                     </button>
                   </li>

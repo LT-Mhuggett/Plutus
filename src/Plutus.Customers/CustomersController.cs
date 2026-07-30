@@ -59,9 +59,18 @@ namespace Plutus.Customers
             take = Math.Clamp(take, 1, 200);
             var q = _db.Customers.AsNoTracking().Where(c => c.Active);
             if (!string.IsNullOrWhiteSpace(search))
-                q = q.Where(c => c.Name.Contains(search) || c.Email.Contains(search) || c.Phone.Contains(search));
+            {
+                // FE2: a scanned loyalty card (or a typed membership number) resolves to that exact
+                // customer — this is what makes scan-to-attach work at the till, since scanners are
+                // keyboard-wedge into this same search box.
+                var memberNo = MemberNumbers.TryCanonicalise(search);
+                q = memberNo == null
+                    ? q.Where(c => c.Name.Contains(search) || c.Email.Contains(search) || c.Phone.Contains(search))
+                    : q.Where(c => c.MemberNo == memberNo
+                        || c.Name.Contains(search) || c.Email.Contains(search) || c.Phone.Contains(search));
+            }
             return Ok(await q.OrderBy(c => c.Name).Take(take)
-                .Select(c => new { id = c.Id, name = c.Name, email = c.Email, phone = c.Phone })
+                .Select(c => new { id = c.Id, name = c.Name, email = c.Email, phone = c.Phone, memberNo = c.MemberNo })
                 .ToListAsync());
         }
 
@@ -84,8 +93,12 @@ namespace Plutus.Customers
             var custIds = members.Select(m => m.CustomerId).Concat(accounts.Select(a => a.CustomerId)).Distinct().ToList();
             var customers = await _db.Customers.AsNoTracking().Where(c => c.Active && custIds.Contains(c.Id)).ToListAsync();
             if (!string.IsNullOrWhiteSpace(search))
+            {
+                var memberNo = MemberNumbers.TryCanonicalise(search); // FE2: scan/type a card number
                 customers = customers.Where(c => (c.Name ?? "").Contains(search, StringComparison.OrdinalIgnoreCase)
-                    || (c.Email ?? "").Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
+                    || (c.Email ?? "").Contains(search, StringComparison.OrdinalIgnoreCase)
+                    || (memberNo != null && c.MemberNo == memberNo)).ToList();
+            }
 
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
             var rows = customers.Select(c =>
@@ -97,6 +110,7 @@ namespace Plutus.Customers
                 return new
                 {
                     id = c.Id, name = c.Name, email = c.Email, phone = c.Phone,
+                    memberNo = c.MemberNo,
                     tierId = mem?.TierId,
                     tier = memTier?.Name ?? mem?.Tier,
                     autoDiscountRate = memTier?.AutoDiscountRate ?? mem?.AutoDiscountRate,
@@ -135,6 +149,8 @@ namespace Plutus.Customers
             return Ok(new
             {
                 id = c.Id, name = c.Name, email = c.Email, phone = c.Phone,
+                memberNo = c.MemberNo,
+                memberBarcode = c.MemberNo == null ? null : MemberNumbers.BarcodePayload(c.MemberNo),
                 creditAccountId = account?.Id,
                 creditBalancePence = balance,
                 membership = membership == null ? null : new
@@ -156,15 +172,19 @@ namespace Plutus.Customers
         {
             if (string.IsNullOrWhiteSpace(body?.Name)) return BadRequest(new { detail = "name is required." });
             _db.CurrentUser = Actor.ToString();
+            // FE2: claim the tenant's next membership number first (its own save — the counter row
+            // serialises concurrent creates), then create the customer holding it.
+            var memberNo = await MemberNoAllocator.NextAsync(_db, _tenant.TenantId);
             var customer = new Customer
             {
                 Id = Uuid7.New(), TenantId = _tenant.TenantId, Name = body.Name.Trim(),
-                Email = body.Email?.Trim(), Phone = body.Phone?.Trim(), Active = true, CreatedAtUtc = DateTime.UtcNow,
+                Email = body.Email?.Trim(), Phone = body.Phone?.Trim(), MemberNo = memberNo,
+                Active = true, CreatedAtUtc = DateTime.UtcNow,
             };
             _db.Customers.Add(customer);
             _db.Audit(_tenant.TenantId, Actor, "customer.create", nameof(Customer), customer.Id.ToString(), body);
             await _db.SaveChangesAsync();
-            return Created($"/api/v1/customers/{customer.Id}", new { id = customer.Id });
+            return Created($"/api/v1/customers/{customer.Id}", new { id = customer.Id, memberNo });
         }
 
         /// <summary>Edit a customer's contact details (name/email/phone). Loyalty usability:

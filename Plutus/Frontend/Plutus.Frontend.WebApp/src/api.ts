@@ -233,8 +233,12 @@ export interface CustomerSummary {
   name: string;
   email: string | null;
   phone: string | null;
+  /** FE2: membership number — printed on the customer's card as a "C…" barcode. */
+  memberNo: string | null;
 }
 export interface CustomerDetail extends CustomerSummary {
+  /** FE2: the card's barcode payload ("C" + memberNo). */
+  memberBarcode: string | null;
   creditAccountId: string | null;
   creditBalancePence: number;
   membership: { tierId: string | null; tier: string; autoDiscountRate: number; renewalDay: string; expired: boolean } | null;
@@ -425,6 +429,7 @@ export const fetchV1BestSellers = (from: string, to: string, by: "qty" | "gross"
 
 export interface V1LoyaltyRow {
   id: string; name: string; email: string | null; phone: string | null;
+  memberNo: string | null;
   tierId: string | null;
   tier: string | null; autoDiscountRate: number | null; renewalDay: string | null; expired: boolean; creditBalancePence: number;
 }

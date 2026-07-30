@@ -122,3 +122,31 @@ th.sortable:hover { color: var(--ink); }
 .hours-row { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
 .hours-row .chk { min-width: 70px; margin: 0; }
 .new-location { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+/* FE2 membership card — CR80 (85.6 × 54 mm), the standard loyalty/bank card size */
+.member-card {
+  width: 85.6mm; height: 54mm; box-sizing: border-box;
+  margin: 8px auto; padding: 5mm;
+  display: flex; flex-direction: column; justify-content: space-between;
+  border: 1px solid var(--line); border-radius: 3mm; background: #fff; color: #000;
+}
+.mc-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; }
+.mc-company { font-weight: 700; letter-spacing: 0.3px; }
+.mc-tier { border: 1px solid #000; border-radius: 999px; padding: 0 8px; font-size: 10px; text-transform: uppercase; }
+.mc-name { font-size: 15px; font-weight: 600; }
+.mc-barcode { text-align: center; }
+.mc-foot { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; }
+.mc-no { font-family: ui-monospace, "Cascadia Mono", monospace; letter-spacing: 2px; }
+.mc-renew { color: #444; font-size: 10px; }
+
+/* Print ONLY the thing being printed. The portal had NO print rules at all, so "Print card" and
+   SaleDialog's existing "Print / reprint" both dumped the entire page; this covers both (only one
+   of the two is ever mounted, so listing both is safe). Visibility rather than display:none keeps
+   the printed element's layout box intact. */
+@media print {
+  body * { visibility: hidden; }
+  .member-card, .member-card *,
+  .receipt-view, .receipt-view * { visibility: visible; }
+  .member-card, .receipt-view { position: absolute; inset: 0 auto auto 0; margin: 0; border: none; }
+  .no-print { display: none !important; }
+}

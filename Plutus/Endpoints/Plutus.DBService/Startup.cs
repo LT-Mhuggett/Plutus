@@ -197,6 +197,11 @@ namespace Plutus.DBService
                     var (tiers, linked) = Plutus.Customers.LoyaltyTierBackfill.ApplyAsync(db).GetAwaiter().GetResult();
                     if (tiers > 0 || linked > 0)
                         Console.WriteLine($"[loyalty] tier backfill: {tiers} tier(s) created, {linked} membership(s) linked.");
+
+                    // FE2: give pre-existing customers a membership number (oldest first).
+                    var numbered = Plutus.Customers.MemberNoBackfill.ApplyAsync(db).GetAwaiter().GetResult();
+                    if (numbered > 0)
+                        Console.WriteLine($"[loyalty] member-number backfill: {numbered} customer(s) numbered.");
                 }
             }
             catch (Exception ex)

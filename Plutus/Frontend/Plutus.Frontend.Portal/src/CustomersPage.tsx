@@ -8,7 +8,7 @@ import DataTable from "./DataTable.tsx";
 // is the shared CustomerDialog, also opened from the Loyalty tab (WP5.1). WP1.3: the list is now the
 // standard DataTable (client mode — sort/search/paginate over the loaded set).
 
-interface CustomerRow { id: string; name: string; email: string | null; phone: string | null }
+interface CustomerRow { id: string; name: string; email: string | null; phone: string | null; memberNo: string | null }
 
 async function j<T>(method: string, url: string, body?: unknown): Promise<T> {
   const token = accessToken();
@@ -63,12 +63,14 @@ export default function CustomersPage() {
       <DataTable<CustomerRow>
         columns={[
           { key: "name", label: "Name" },
+          // FE2: the membership number is how a card scan or a phone caller identifies themselves
+          { key: "memberNo", label: "Member no.", render: (c) => c.memberNo ? <span className="mono small">{c.memberNo}</span> : <span className="muted">—</span> },
           { key: "email", label: "Email", render: (c) => c.email ?? "—" },
           { key: "phone", label: "Phone", render: (c) => c.phone ?? "—" },
         ]}
         rows={rows} getKey={(c) => c.id} initialSortKey="name"
-        search={(c) => `${c.name} ${c.email ?? ""} ${c.phone ?? ""}`}
-        searchPlaceholder="Search name / email / phone…"
+        search={(c) => `${c.name} ${c.email ?? ""} ${c.phone ?? ""} ${c.memberNo ?? ""}`}
+        searchPlaceholder="Search name / email / phone / member no…"
         rowActions={(c) => <button className="ghost small" onClick={() => setOpen(c.id)}>Open</button>}
         emptyText="No customers."
       />
