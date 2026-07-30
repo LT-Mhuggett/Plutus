@@ -1,6 +1,8 @@
 # Further enhancements — implementation plan
 
-Requested by Matt, 2026-07-30. Three items, in priority order:
+Requested by Matt 2026-07-30 (first batch FE1–FE3; second batch FE4–FE8 same day).
+Suggested build order at the bottom.
+
 1. **FE1 — Loyalty tier catalogue**: pre-defined loyalty levels (name + discount), assignable
    from a dropdown — no more free-text tiers.
 2. **FE2 — Member number + barcode cards**: a unique, company-scoped ID per customer,
@@ -8,9 +10,19 @@ Requested by Matt, 2026-07-30. Three items, in priority order:
 3. **FE3 — Hardware helper agent**: the local agent (flagged in
    [WebApp-2026-07-23-plan.md](WebApp-2026-07-23-plan.md) §3.5) so the browser till can drive
    installed hardware — receipt printer, cash drawer — on the physical till PC.
+4. **FE4 — Table standard everywhere**: every portal + till table sortable, searchable,
+   paginated with a 25/50/100 page-size selector.
+5. **FE5 — Inventory upgrade**: portal/till parity, working category filter + click-through,
+   current-stock column, permission-gated bulk edit, a Bin instead of delete, untracked
+   ("unlimited") stock items.
+6. **FE6 — Locations & till identity cleanup**: a Tills view, re-issue enrolment codes,
+   till↔store assignment; answers to "why 3 tills?".
+7. **FE7 — Gift cards**: unique tracked codes, sold/redeemed lifecycle, printable.
+8. **FE8 — Search refinements**: quoted "exact phrase" support (word-search itself shipped
+   2026-07-30).
 
 FE1+FE2 are one coherent loyalty slice and should ship together. FE3 is independent and
-larger; it can follow.
+larger. FE4/FE5/FE6 are portal/till UX slices; FE7 is a full feature (schema + till + portal).
 
 ## Current state (verified 2026-07-30)
 
@@ -19,21 +31,41 @@ larger; it can follow.
   every assignment re-types both values. One active membership per customer, enforced in
   `SetMembership` (`src/Plutus.Customers/CustomersController.cs`).
 - `Customer` has **no human-usable identifier** — only the Guid `Id`. Till attach is by
-  name/email/phone search (`GET /api/v1/customers?search=`, CustomersController.cs:46-58).
-- The portal already has a **hand-rolled Code 39 renderer**
-  (`Plutus\Frontend\Plutus.Frontend.Portal\src\Barcode39.tsx`, WP11.2 — used for receipt
-  saleId barcodes). Code 39 charset = 0-9 A-Z '-' '.' — a member number designed for it
-  costs nothing. The till WebApp has **no** Barcode39 twin yet.
-- Tier is set in two UIs: portal `CustomerDialog.tsx` (Membership section, free-text) and
-  till `LoyaltyPage.tsx` MemberDialog (free-text). Both gated `customers.manage`.
-- Barcode scanners are keyboard-wedge — they already type into the till's customer-search
-  box; scanning a card only needs the search to match member numbers.
-- Receipt printing/cash drawer from the browser till: **not possible directly** (browser
-  sandbox). The WebApp plan §3.5 chose a local agent as the primary path, PDF receipts as
-  the agentless fallback; PDF is what's live today. Cash drawer = ESC/POS kick pulse
-  (`ESC p`) sent to the receipt printer — solve printing and the drawer comes free.
+  name/email/phone search (`GET /api/v1/customers?search=`).
+- The portal and till both have the **hand-rolled Code 39 renderer** (`Barcode39.tsx`
+  twins; 2026-07-30 gained a `fit` prop so long payloads scale to their container). Code 39
+  charset = 0-9 A-Z '-' '.' — short codes designed for it scan reliably; 36-char UUIDs do not.
+- Tier is set in two UIs: portal `CustomerDialog.tsx` and till `LoyaltyPage.tsx` MemberDialog,
+  both free-text, both gated `customers.manage`.
+- Barcode scanners are keyboard-wedge — they already type into search boxes.
+- Receipt printing/cash drawer from the browser till: PDF/browser-print today; the agent
+  (FE3) is the chosen path for silent printing + drawer kick (`ESC p`).
+- **Search**: word-based matching (`ItemParameters.MatchAllWords`) SHIPPED 2026-07-30 with a
+  till Settings toggle + offline parity; scan-bar search returns all matches in a scrollable
+  list. Quoted-phrase handling (FE8) not yet built.
+- **Tables**: the shared `DataTable` standard exists ([table-standard.md](table-standard.md),
+  byte-identical twins in portal + till) with client and server modes — but only SOME pages
+  use it (P1.3 landed Customers + Loyalty; earlier P-phases covered several report tables).
+  The rest are hand-rolled and inconsistent (see FE4 audit).
+- **Inventory category filter bug** (root cause found, portal `InventoryItems.tsx`): the
+  Category dropdown filters CLIENT-SIDE over the current 25-row page
+  (`items.filter(i => i.catId === catFilter)`), so any category not present on that page
+  shows nothing. The legacy `api/Item/Index` has no category parameter — filtering must move
+  server-side.
+- **Category delete protection: ALREADY DONE** — the portal's category manager is built on
+  the guarded v1 categories API (P4), which 409s a delete while items reference the category
+  (and on the last category). The legacy cascade-delete `api/Category` route is deliberately
+  not used by the portal.
+- `Item` has `Stock` (legacy per-item stock) + platform `StockLevels` (ledger-backed, P4);
+  no soft-delete flag — a Bin (FE5) needs a new column. `CatId` is REQUIRED — "remove from
+  category" must mean "move to an Uncategorised category", not null.
 
 ## FE1 — Loyalty tier catalogue
+
+> 2026-07-30, Matt: "I need to be able to set specific tiers, I can't see where I can do
+> this?" — correct: **this screen does not exist yet**; it is NOT hidden behind RBAC. Once
+> FE1 ships it will be gated on `customers.manage`, which Owner already holds, so no role
+> change is needed.
 
 ### Design
 New tenant-owned entity (Phase-8 conventions: UUIDv7 ids, TenantId, audited writes):
@@ -92,6 +124,11 @@ data becomes catalogue-managed with zero operator effort.
 | FE1.3 | Till WebApp: MemberDialog dropdown. | ☐ |
 | FE1.4 | Gate: unit/arch/integration green; click-test both UIs; deploy + run EF migration on test env. | ☐ |
 
+**DoD:** create tier "Gold 15%" in the portal → assign from the dropdown in BOTH UIs (no
+free-text input remains visible) → edit Gold to 12% → every Gold member's loyalty row and
+the till's at-sale discount show 12% without re-assignment; existing free-text memberships
+appear as backfilled tiers; deactivated tier vanishes from dropdowns but keeps its members.
+
 ## FE2 — Member number + barcode cards
 
 ### Design
@@ -121,17 +158,20 @@ reveal rough member counts; accepted for this product's scale.
   (85.6 × 54 mm): company/store name, customer name, tier, barcode. Browser print to a card
   printer or onto adhesive card stock — no new hardware dependency.
 - **Portal Loyalty/Customers DataTables**: MemberNo column (`mono small`, searchable).
-- **Till**: copy `Barcode39.tsx` in (byte-identical twin, per the DataTable convention in
-  [table-standard.md](table-standard.md)); show MemberNo in the at-sale customer panel;
-  till auto-scan recognises the `C…` payload and attaches the customer directly.
+- **Till**: show MemberNo in the at-sale customer panel; till auto-scan recognises the
+  `C…` payload and attaches the customer directly.
 
 ### Work packages
 | WP | Scope | Status |
 |---|---|---|
 | FE2.1 | Backend: column + counter + backfill migration; assignment on create; search match; MemberNo in all reads. Tests: uniqueness under concurrent create, check-char validation, search-by-scan. | ☐ |
 | FE2.2 | Portal: MemberNo in dialog + tables; barcode; Print-card view. | ☐ |
-| FE2.3 | Till: Barcode39 twin; scan-to-attach in the at-sale bar; MemberNo display. | ☐ |
+| FE2.3 | Till: scan-to-attach in the at-sale bar; MemberNo display. | ☐ |
 | FE2.4 | Gate + deploy (EF migration on test env); print a real card and scan it at the till. | ☐ |
+
+**DoD:** every customer (new + backfilled) has a unique MemberNo; typing or scanning it in
+the till customer search attaches that customer; Print card renders CR80 with a barcode
+that scans; two concurrent creates never collide (test proves it).
 
 ## FE3 — Hardware helper agent ("Plutus Till Agent")
 
@@ -180,7 +220,8 @@ Client side is plain `fetch` — zero new npm dependencies (per §3.5's contract
 - OPOS driver variance per printer model is the real-world risk — `CommonPOSLibrary`
   already encapsulates what the Xamarin NatApp ships with; start with the printer models
   actually deployed.
-- Out of scope for v1, enabled by the seam: scales, customer-facing display, label printers.
+- Out of scope for v1, enabled by the seam: scales, customer-facing display, label printers
+  — and FE7 gift-card voucher printing could route through it later.
 
 ### Work packages
 | WP | Scope | Status |
@@ -191,10 +232,392 @@ Client side is plain `fetch` — zero new npm dependencies (per §3.5's contract
 | FE3.4 | Packaging: MSI/winget, auto-start; install doc in HANDOVER.md. | ☐ |
 | FE3.5 | Gate: end-to-end on a physical till PC — sale → silent receipt + drawer kick; unplug printer → PDF fallback + red indicator. | ☐ |
 
-## Open decisions (assumed for now, cheap to change before build starts)
-1. **FE2 member-number format** — 6-digit sequence + check char assumed. Alternative:
-   random 8-digit (hides member counts). Decide before FE2.1.
-2. **FE1 live-follow** — tier edits apply to all members immediately (assumed, recommended).
-   Alternative: snapshot-at-assignment with an explicit "apply to existing" action.
-3. **FE3 agent scope v1** — printer + drawer only (assumed). Label/card printing via the
-   agent could later replace FE2's browser-print path for cards.
+## FE4 — Table standard everywhere
+
+**Requirement (Matt, 2026-07-30):** every table across the portal (and till) must be
+orderable, split into pages, and have a 25/50/100 page-size dropdown. "Looking at the tables
+across the portal, they are not all consistent." The standard already exists
+([table-standard.md](table-standard.md): shared `DataTable` twins, client + server modes,
+search box, sortable headers, pager with page-size select) — this WP finishes the rollout
+instead of the current page-by-page drift.
+
+### Work
+1. **Audit** (FE4.1): sweep every portal tab + till page for `<table>`s not rendered by
+   `DataTable`. Known stragglers: portal `InventoryItems` (hand-rolled Prev/Next pager),
+   `UsersPage`, `StoresPage` tills tables, `PlatformPage` sub-screens, `CategoryManager`,
+   reporting detail tables; till `InventoryPage` (own pager), reporting lists, parked/return
+   dialog lists. Output: checklist table in this doc with per-page mode (client vs server).
+2. **Server-mode plumbing** (FE4.2): the legacy `Index` endpoints already return an
+   `X-Pagination` header (`TotalCount/PageSize/CurrentPage/TotalPages`) that the frontends
+   currently DISCARD — expose it through the `api.ts` fetch helpers so server-mode
+   `DataTable` gets real totals ("X–Y of N") instead of the blind Next-button heuristic.
+   v1 endpoints that lack `skip/take` get them (additive).
+3. **Port pages** (FE4.3, mechanical): swap each straggler to `DataTable`, preserving any
+   page-specific cells (chips, inline edit). Small pages (<1 page of data) still use it —
+   consistency IS the requirement; the pager collapses when there's one page.
+4. Conventions stay as documented: `num` cells right-aligned, ids `mono small`, money via
+   `gbp()`.
+
+| WP | Scope | Status |
+|---|---|---|
+| FE4.1 | Audit checklist (portal + till), agree client/server mode per page. | ☐ |
+| FE4.2 | X-Pagination surfaced through api helpers; skip/take on v1 lists that lack it. | ☐ |
+| FE4.3 | Port all stragglers to DataTable (portal, then till). | ☐ |
+| FE4.4 | Gate: click-through every tab; deploy. | ☐ |
+
+**DoD:** the FE4.1 checklist shows every data table on portal + till rendered by
+`DataTable`; each has sortable headers, a 25/50/100 page-size select, a pager showing
+"X–Y of N" (server mode included, via X-Pagination), and search where the page had one;
+the two DataTable twins remain byte-identical.
+
+## FE5 — Inventory upgrade (portal + till parity)
+
+**Requirements (Matt, 2026-07-30):** inventory must behave the same on till and portal;
+permission-gated bulk edit (on-screen selection or select-all-matching); add/remove
+category, add/remove brand, move to Bin (never delete); a hidden RBAC-gated Bin view;
+category delete protection (already done — see current state); category click-through to
+filtered items; **fix the category filter showing nothing**; a "Current stock" column;
+an "unlimited stock" per-item flag.
+
+### FE5.0 — BUG: category filter shows nothing (fix first, it's small)
+Root cause (verified): portal `InventoryItems.tsx` filters client-side over the current
+25-row page. Fix server-side: `ItemParameters` gains `CatId Guid?` (composes with `Search`
+exactly like `MatchAllWords` did); portal sends it and resets paging on change; the "in this
+category on this page" empty-state hack is deleted. Till gains the same category dropdown
+(parity). Applies to FE4's server-mode totals automatically.
+
+### FE5.1 — Category click-through
+In Inventory → Categories, clicking a category row navigates to the Items sub-tab with
+`CatId` pre-applied (portal has the `useNav` focus pattern for cross-tab navigation
+already — reuse it for sub-tab + filter state). Breadcrumb/chip shows the active category
+filter with an ✕ to clear.
+
+### FE5.2 — "Current stock" column
+Items lists (portal + till) show the item's current stock level next to price. Source: the
+platform stock ledger's `StockLevels` (P4), fetched batched for the visible page (extend the
+items read or a `POST /api/v1/stock/levels/bulk` with the page's item ids — NOT one call per
+row). Untracked items (FE5.5) show "∞".
+
+### FE5.3 — Bulk edit (permission-gated)
+- **Permission:** new `inventory.bulk` in the catalogue; seed to Owner / Company Admin /
+  Store Manager (NOT Supervisor/Cashier). ⚠ deploy note: `Plutus.SeedMigrator rbac` needed
+  to backfill grants (RBAC seeding doesn't run on startup).
+- **Selection model** (both modes explicit in the UI):
+  1. Tick rows on the current page (+ page select-all header checkbox).
+  2. "Select everything matching the current filter" — banner shows the SERVER count
+     ("all 412 items matching 'batman' in Comics") and the action runs server-side against
+     the same criteria, not against fetched rows.
+- **Actions:** set category · set brand · clear brand · move to Bin. ("Remove from
+  category" = move to a per-tenant **Uncategorised** category, auto-created on first use —
+  `Item.CatId` is a required FK, so bare removal is impossible by design.)
+- **API:** `POST /api/v1/items/bulk` `{ action, value?, ids? | criteria? }`, gated
+  `inventory.bulk`, audited with the criteria + affected count; response returns affected
+  ids/count for the UI toast. Price/VAT deliberately NOT bulk-editable (keeps the P-phase
+  VAT guardrail meaningful).
+- **Safety:** "select all matching" always shows a confirmation with the live server count
+  before running ("Move 412 items to Comics?"). No undo in v1 — but the audit row stores the
+  affected ids + prior values, so a manual revert is always possible; category/brand/bin are
+  all non-destructive anyway (bin restores, category/brand re-set). Cap one bulk call at
+  10,000 items (409 above — refine the filter).
+- Till: read-only benefit (sees the results); bulk UI is portal-only in v1.
+
+### FE5.4 — Bin (soft delete, RBAC-hidden)
+- `Item` gains `BinnedAtUtc DateTime?` (+ who, via audit). Migration, EF filter helpers.
+- Binned items are excluded from: till scan/search + sale, webstore outbound listing sync,
+  inventory default views, price lists. Historical sales/reports untouched (the item row
+  still exists — that's the point of Bin over delete).
+- **Bin view**: an Inventory sub-tab visible only with `inventory.bulk` (reuse — the same
+  people who can bulk-bin can see/restore the bin; separate perm felt like catalogue bloat,
+  flag if you disagree). Actions: restore, and nothing else — no hard delete anywhere.
+- Attempting to sell a binned barcode at the till → "item is in the bin" notice.
+
+### FE5.5 — Untracked ("unlimited") stock
+Per-item flag `StockUntracked bool` (tick box in the item dialog on BOTH portal + till:
+"Don't track stock — e.g. carrier bags, back-issues"). Behaviour:
+- Sales/returns of the item post NO stock movements (skip in the `SaleRecorded` stock
+  consumer + direct movement APIs); **SaleLines are recorded as normal**, so "how many
+  sold" reporting is unaffected.
+- Stock views/current-stock column show "∞ untracked"; negative-stock report excludes them;
+  webstore outbound treats them as always-in-stock (respecting the oversell buffer = n/a).
+- Existing movements for an item being flipped to untracked are left as history (level
+  simply stops mattering); flipping back resumes from the ledger level — document this in
+  the dialog help text.
+
+| WP | Scope | Status |
+|---|---|---|
+| FE5.0 | Server-side CatId filter + portal/till dropdown fix (bug). | ☐ |
+| FE5.1 | Category → filtered Items click-through. | ☐ |
+| FE5.2 | Current-stock column (batched levels) portal + till. | ☐ |
+| FE5.3 | `inventory.bulk` perm + bulk endpoint + portal bulk UI (both selection modes). | ☐ |
+| FE5.4 | Bin: migration, exclusions, RBAC-gated Bin view with restore. | ☐ |
+| FE5.5 | `StockUntracked`: migration, consumer/API skips, UI tick box, report/outbound handling. | ☐ |
+| FE5.6 | Gate: tests (bulk criteria vs ids, bin exclusions, untracked sale posts no movement), deploy + `SeedMigrator rbac`. | ☐ |
+
+**DoD:** pick any category in portal Items → correct items appear across pages (and on the
+till); click a category in Categories → filtered Items view; every item row shows current
+stock (∞ for untracked); as Owner, bulk-move 3 ticked items + "all matching" a filter (with
+count confirmation) between categories/brands; bulk-bin → items vanish from till search,
+webstore sync, and default views, visible only in the RBAC-gated Bin with restore; a
+Supervisor sees no bulk UI and the endpoint 403s; sell an untracked item → sale + reports
+count it, stock level unchanged.
+
+## FE6 — Locations & till identity cleanup
+
+### The questions answered (2026-07-30, live data)
+- **"Why 3 tills?"** — every enrolled browser is a *device* under a *till*: ①
+  `Till 019f9630` = a leftover **test till** from the 24 Jul enrolment build (auto-named,
+  2 test sales — rename or revoke it; delete is blocked because it has sales); ②
+  `Kapow Web Till` = the real enrolled browser till; ③ `Kapow Web` = the **webstore's
+  virtual till** that carries WooCommerce orders (badged "webstore" in the portal since
+  2026-07-30, actions locked).
+- **"Do I need cookies / logged-in user?"** — neither. Till identity = the **device
+  credential** in that browser's localStorage (enrolment), independent of who logs in.
+  Logins say *who*, the device says *which till*. Clearing site data / incognito loses the
+  credential → re-enrol.
+- **"Will a till lose connectivity / can I recreate a code?"** — connectivity loss is fine
+  (offline queue); losing the *credential* (cleared storage, new PC) currently has NO
+  recovery path short of creating a brand-new till — that's exactly how stray tills get
+  created (the till Settings "Generate a code" button also creates a NEW till every time).
+  FE6.1 fixes this properly.
+
+### FE6.1 — Re-issue an enrolment code for an EXISTING till
+- `POST /api/v1/tills/{id}/enrol-code` (gated `portal.tills.enrol`, audited): mints a fresh
+  single-use code bound to that till. On enrolment with it, the till's previous Active
+  device is auto-revoked — **rule: one active device per till** (a till is one counter);
+  the old browser stops trading at its next sync.
+- Portal: "New code" button on each till row (Locations + the FE6.2 Tills view).
+- Till Settings: "Generate a code" is renamed/reworked to make the two flows explicit —
+  "re-enrol THIS till elsewhere" (new code for an existing till) vs "create a NEW till"
+  (moves to the portal as the primary path).
+
+### FE6.2 — Locations IA rework
+Groups become: **Stores** (as-is — each store card lists its linked tills) · **Tills**
+(NEW — flat view of ALL tills: name, store/location assignment, device status, last online,
+webstore badge; assign/move a till between stores via `PUT /api/v1/tills/{id}/store`,
+gated `portal.tills.enrol`, audited; the webstore's virtual till appears here badged AND
+under its webstore) · **Warehouses** (as-is) · **Webstores** (as-is, plus its virtual till
+listed on the card).
+
+### FE6.3 — Hygiene
+One-off on the test env: rename `Till 019f9630` → "Test till (retired)" and revoke its
+device (keep — it has sales history), or leave as a visible example; Matt's call.
+
+| WP | Scope | Status |
+|---|---|---|
+| FE6.1 | Re-issue code endpoint + one-active-device rule + portal/till UI wording. | ☐ |
+| FE6.2 | Tills group in Locations + till→store move endpoint. | ☐ |
+| FE6.3 | Test-env till hygiene (user decision). | ☐ |
+
+**DoD:** issue a new code for an existing till from the portal → enrol a fresh browser
+profile with it → the till trades under the SAME till id and the old device shows Revoked;
+Locations shows the new Tills group with every till's store + status (webstore till badged
+in both places); moving a till between stores updates both store cards; audit rows exist
+for re-issue + move.
+
+## FE7 — Gift cards
+
+**Requirement (Matt, 2026-07-30):** generate gift cards with a unique tracked code shown as
+a barcode or QR; track when bought, when redeemed, who it's linked to; printable as a
+receipt or an A4 page.
+
+### Design
+Follow the store-credit pattern (D15: append-only ledger, no mutable balance):
+
+```
+GiftCard
+  Id           Guid (UUIDv7)
+  TenantId     Guid
+  Code         string  — unique per tenant; Crockford32, 12 chars + mod-43 check char
+                         (Code 39-safe, keyboard-wedge scannable, hand-typeable)
+  CustomerId   Guid?   — optional link to a loyalty customer (buyer or giftee)
+  SoldSaleId   Guid?   — the sale that activated it
+  IssuedAtUtc  DateTime?  — null = generated but not yet sold/active
+  ExpiresAtUtc DateTime?  — tenant-configurable duration at issue (default none)
+  VoidedAtUtc  DateTime?  — manual void (audited)
+  CreatedAtUtc DateTime
+
+GiftCardEntries — append-only, balance = Σ entries
+  (Id, TenantId, GiftCardId, Type Issue|Redeem|Adjust|Expire, AmountPence signed,
+   SaleId?, ActorUserId?, CreatedAtUtc)
+```
+
+Lifecycle: **generate** (portal, batch of N or single — codes exist, worthless until sold)
+→ **sell/activate** at the till (scan the card/voucher, take payment; Issue entry for the
+loaded amount, SoldSaleId set) → **redeem** as a tender at checkout (scan; partial
+redemption leaves a balance — Redeem entries are negative) → optional **void/expire**.
+Redeeming and selling are ordinary sale/tender flows, so all existing reporting sees them.
+
+### Code on the card: barcode vs QR
+**v1 = Code 39** via the existing `Barcode39` (a 13-char code renders compact and scans on
+the keyboard-wedge scanners already in use — this is why the code format is short, unlike
+saleId UUIDs). QR needs an encoder we don't have (no-library rule) — defer; the printed
+voucher also shows the code in text, and phone-camera use cases can come with a QR
+follow-up if wanted.
+
+### ⚠ VAT & accounting treatment (the trap — do NOT sell cards as normal items)
+Selling a gift card is **not revenue and not a VAT-able sale** — it creates a liability
+(like store credit); the VAT-able sale happens at REDEMPTION, when real goods leave at
+their own tax bands. A naive build that rings the card through as a standard-rated item
+would charge VAT twice (once on the card, again on the redeemed goods) and corrupt every
+VAT report. Under UK voucher rules a mixed-rate store's card is a multi-purpose voucher —
+VAT at redemption — which is also the only model that composes with the existing pipeline:
+- **Activation**: the card sale line posts at a **zero/out-of-scope tax band** (activation
+  is money-in + `Issue` ledger entry; no VAT, no product revenue). The existing VAT-integrity
+  guardrail must accept this line shape.
+- **Redemption**: a gift card is a **tender** (like store credit) against an otherwise
+  normal sale — VAT falls out of the goods lines as usual; nothing special to do.
+- **Reporting**: activation amounts appear as "gift cards sold" (liability), NOT in product
+  revenue; an **outstanding gift-card liability report** (Σ unredeemed balances) mirrors the
+  store-credit outstanding number. Redemptions show as tender split, as with any tender.
+
+### Offline rule
+The server is the balance authority. **Activation and redemption require connectivity** —
+the till blocks both with a clear "gift cards need a connection" notice when offline (normal
+sales stay offline-capable). No offline gift-card queue in v1.
+
+### Out of scope v1 (noted, not forgotten)
+Refund-to-gift-card (store credit already covers refund-to-credit); reloading a card after
+initial activation (buy a new one); cross-tenant/portability; QR.
+
+### API (gated: reads any authenticated; writes `giftcards.manage`, new perm seeded to
+Owner / Company Admin / Store Manager; redeem/sell at till gated `pos.sell`)
+- `POST /api/v1/giftcards/generate` `{ count, amountPence?, expiresMonths? }` → codes.
+- `GET /api/v1/giftcards?search=` (code/customer), `GET /api/v1/giftcards/{code}` →
+  status, balance, full entry history (bought when, redeemed when/where, linked customer).
+- `POST /api/v1/giftcards/{code}/activate` `{ amountPence, saleId, customerId? }`.
+- `POST /api/v1/giftcards/{code}/redeem` `{ amountPence, saleId }` (409 over-balance /
+  expired / void / inactive).
+- `POST /api/v1/giftcards/{code}/void` + `{customerId}` link/unlink. All writes audited.
+
+### UI
+- **Portal**: new "Gift cards" section (Loyalty tab or its own tab — decide at build):
+  DataTable (code, status chip, balance, customer, sold/redeemed dates), generate dialog,
+  detail dialog (history + void + link customer + **Print**).
+- **Print**: two print-CSS templates — receipt-width voucher (works with FE3's agent
+  later) and A4 gift certificate (store name/logo line, amount, code text + barcode,
+  expiry, "redeem in store" footer). Browser print in v1.
+- **Till**: sell/activate flow (scan an unactivated code at the basket → "activate for
+  £X"), redeem as tender in CheckoutDialog (scan → applies balance like store credit).
+  Auto-scan distinguishes the `G…`-prefixed payload (same trick as FE2's `C…` member cards).
+
+| WP | Scope | Status |
+|---|---|---|
+| FE7.1 | Entities + migration; generate/activate/redeem/void endpoints + ledger; `giftcards.manage` perm; tests (over-redeem, expiry, double-activate, idempotent redeem per sale, **activation posts zero VAT**). | ☐ |
+| FE7.2 | Till: activate at basket + redeem tender in checkout + auto-scan prefix; offline block. | ☐ |
+| FE7.3 | Portal: gift-cards table + detail/void/link + generate dialog. | ☐ |
+| FE7.4 | Print templates (voucher + A4). | ☐ |
+| FE7.5 | Outstanding-liability report (portal Reporting + dashboard pill next to store-credit). | ☐ |
+| FE7.6 | Gate + deploy (migration + `SeedMigrator rbac`). | ☐ |
+
+**DoD:** sell + activate a card at the till (offline attempt blocked) → VAT report for the
+day shows ZERO VAT from the activation; redeem partially against a mixed-band basket → goods
+VAT normal, card balance reduced, tender split correct; redeem the remainder; over-redeem
+409s; liability report reconciles to Σ unredeemed balances; A4 + voucher print render with a
+scannable code; scan a printed voucher's barcode into the till and it resolves.
+
+## FE8 — Search refinements
+
+**Shipped 2026-07-30** (for the record): word-based matching — "batman one" finds
+"Batman Year One" — as `ItemParameters.MatchAllWords`, till device pref (default ON) with a
+Settings toggle, offline IndexedDB parity, scan-bar search returning ALL matches in a
+scrollable list.
+
+**Remaining — quoted exact phrases:** `"batman one"` (in quotes) must match the LITERAL
+phrase only, regardless of the word-matching toggle; mixed input composes, e.g.
+`"year one" batman` = items containing the exact phrase *year one* AND the word *batman*.
+
+### Design
+- Tokeniser in `ItemParameters` (server) mirrored in `offline.ts` (till offline search):
+  split the input into quoted segments (kept verbatim, unclosed quote = treated as opening
+  a phrase to end-of-input) and remaining whitespace-separated words; every token must
+  match (against name/barcode/brand). With `MatchAllWords=false`, the whole input minus
+  quote characters stays one phrase (today's behaviour — quotes are then redundant but
+  harmless).
+- No UI change needed; update the Settings toggle description to mention quotes.
+- Tests extend `ItemSearchTests`: quoted phrase misses interleaved words, mixed
+  phrase+word, unclosed quote, quotes-only input.
+
+| WP | Scope | Status |
+|---|---|---|
+| FE8.1 | Tokeniser in ItemParameters + offline mirror + tests + toggle help text. | ☐ |
+| FE8.2 | Deploy (backend + till). | ☐ |
+
+**DoD:** `"batman one"` finds only literal "…batman one…" (not Batman Year One);
+`"year one" batman` finds Batman Year One but not other "year one" titles; behaviour
+identical offline; `ItemSearchTests` cover phrase, mixed, unclosed-quote, quotes-only.
+
+## Suggested build order
+
+1. **FE5.0** (category-filter bug — small, it's broken today) + **FE8.1** (quoted search —
+   tiny, same file as the shipped word search).
+2. **FE1 + FE2** (the loyalty slice — tiers then member cards).
+3. **FE4** (table rollout — mechanical, big consistency win).
+4. **FE5** remainder (stock column → bulk edit → bin → untracked stock).
+5. **FE6** (till identity + Locations IA).
+6. **FE7** (gift cards — biggest new surface, benefits from FE2's scan-prefix pattern).
+7. **FE3** (hardware agent — independent; schedule around physical access to a till PC).
+
+## Decisions — DEFAULTS ARE BINDING for an autonomous build
+An agent building from this doc follows these WITHOUT asking; Matt can veto any of them
+before (or after — they're all cheap to change) the relevant WP starts:
+1. **FE2 member-number format**: 6-digit per-tenant sequence + mod-43 check char, `C` prefix
+   in the barcode payload. (Alternative if vetoed: random 8-digit.)
+2. **FE1 live-follow**: tier edits apply to all members immediately.
+3. **FE3 agent scope v1**: printer + drawer only.
+4. **FE5.4 Bin visibility**: reuse `inventory.bulk` (no dedicated bin permission).
+5. **FE6.1 one-active-device rule**: re-enrolling a till auto-revokes its previous device.
+6. **FE7 QR**: deferred; Code 39 only in v1.
+7. **FE7 placement**: a **"Gift cards" section on the portal Loyalty tab** (not a new tab —
+   the tab bar is already 12 wide; promote later if it earns it).
+8. **FE5.3 "remove from category"**: moves items to an auto-created per-tenant
+   "Uncategorised" category.
+9. **FE7 gift-card expiry default**: none (no expiry) unless set at generation.
+
+## Build notes for an autonomous agent (Sonnet)
+
+**Read first:** `HANDOVER.md` (architecture + conventions), `Build/table-standard.md`
+(DataTable contract), `src/Plutus.Customers/CustomersController.cs` (the v1 controller
+idiom this plan's endpoints copy: `[Authorize(Policy="perm:…")]`, `_db.Audit(…)`, tenant
+context, UUIDv7 ids), `src/Plutus.Identity/RbacSeeder.cs` + `PermissionCatalogue` (how
+permissions are declared/seeded).
+
+**Hard conventions:**
+- New v1 endpoints = the CustomersController pattern; NEVER extend the legacy generic CRUD
+  controllers for new features (additive query params on legacy `Index` are fine — see
+  `ItemParameters.MatchAllWords` as the exemplar).
+- Every write: audited, permission-gated, tenant-scoped. New permissions go in
+  `PermissionCatalogue` + `RbacSeeder` + a `RbacTests` case.
+- Migrations: EF, MySql folder; tests use EnsureCreated so migration + model must agree.
+  ⚠ live deploys auto-apply migrations on startup — the deploy step (human) dumps the DB
+  first. RBAC changes additionally need `Plutus.SeedMigrator rbac` run on the env (human).
+- Frontends: React+TS, no new npm dependencies (hand-rolled per the no-library rule);
+  portal/till shared components (`DataTable.tsx`, `Barcode39.tsx`) are byte-identical
+  twins — change BOTH or neither; money is pence + `gbp()`; till device prefs live in
+  `prefs.ts` (localStorage).
+- Frontend TS is NOT compiler-verified on the Windows dev box (no Node — by choice); write
+  conservatively to existing idioms. The Mac builds catch errors at deploy time.
+
+**Gate (every feature, before it's called done):**
+```bash
+DOTNET="/c/Program Files/dotnet/dotnet.exe"
+"$DOTNET" build Plutus/Endpoints/Plutus.DBService/Plutus.DBService.csproj -c Debug
+"$DOTNET" test tests/Plutus.Tests.Unit/Plutus.Tests.Unit.csproj -c Debug
+"$DOTNET" test tests/Plutus.Tests.Architecture/Plutus.Tests.Architecture.csproj -c Debug
+"$DOTNET" test tests/Plutus.Tests.Integration/Plutus.Tests.Integration.csproj -c Debug
+```
+Plus each feature's **DoD block** — the click-test parts are for Matt on the test env; the
+testable parts must be pinned by automated tests.
+
+**What an agent CANNOT do alone (plan around it):**
+- **FE3.1/FE3.5** — needs a human at a physical till PC with the real printer (the whole
+  spike exists to de-risk exactly what can't be simulated). Build FE3.2's agent + FE3.3's
+  facade headless; hardware verification is Matt's.
+- **Deploys to the test env** — builds/publishes are scriptable, but DB dumps, pm2 swaps and
+  `SeedMigrator rbac` on the Mac follow the session runbook; treat deploy WPs as handover
+  points, not build steps.
+- **FE6.3** — a data-hygiene choice on live data (Matt decides rename vs revoke).
+- **FE4.1's audit** produces a checklist for review before the mechanical port — one
+  checkpoint, not a question storm.
+
+**Sequencing within a feature:** backend + tests → portal → till → DoD sweep. Keep WPs as
+separate commits (`FEx.y: …` prefix) so a bad slice rolls back alone.
