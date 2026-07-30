@@ -477,6 +477,7 @@ export const fetchStockLocations = () => get<StockLocationRow[]>(`/api/v1/stock/
 // ── loyalty ──
 export interface LoyaltyRow {
   id: string; name: string; email: string | null; phone: string | null;
+  tierId: string | null;
   tier: string | null; autoDiscountRate: number | null; renewalDay: string | null; expired: boolean; creditBalancePence: number;
 }
 export const fetchLoyalty = (search?: string) =>
@@ -485,6 +486,22 @@ export const fetchLoyalty = (search?: string) =>
 // then opens the shared CustomerDialog to set the membership tier.
 export const createCustomer = (body: { name: string; email?: string; phone?: string }) =>
   post<{ id: string }>(`/api/v1/customers`, body);
+
+// FE1: the tier catalogue — pre-defined loyalty levels a membership is ASSIGNED (no free text).
+// Editing a tier's rate moves every member of it at once (live-follow, server-side).
+export interface LoyaltyTier {
+  id: string; name: string; autoDiscountRate: number; durationMonths: number;
+  active: boolean; sortOrder: number; memberCount: number;
+}
+export interface LoyaltyTierInput {
+  name: string; autoDiscountRate: number; durationMonths?: number; sortOrder?: number; active?: boolean;
+}
+export const fetchLoyaltyTiers = (includeInactive = false) =>
+  get<LoyaltyTier[]>(`/api/v1/loyalty/tiers${includeInactive ? "?includeInactive=true" : ""}`);
+export const createLoyaltyTier = (body: LoyaltyTierInput) =>
+  post<{ id: string }>(`/api/v1/loyalty/tiers`, body);
+export const updateLoyaltyTier = (id: string, body: LoyaltyTierInput) =>
+  put<LoyaltyTier>(`/api/v1/loyalty/tiers/${id}`, body);
 
 // WP11.2 receipt template (per store) + NatApp receipt fields. Stored/echoed opaquely by the API.
 export interface ReceiptTemplate {

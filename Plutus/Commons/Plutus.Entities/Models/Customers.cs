@@ -51,6 +51,24 @@ namespace Plutus.Entities.Models
         public DateTime CreatedAtUtc { get; set; }
     }
 
+    /// <summary>FE1: the tenant's catalogue of loyalty levels — pre-defined so a membership is
+    /// ASSIGNED a tier rather than re-typing a name + rate every time. Reads resolve the name and
+    /// rate through this row (live-follow: re-rating "Gold" updates every Gold member at once);
+    /// recorded sales are immutable, so history never retro-changes. Never hard-deleted —
+    /// <see cref="Active"/> false hides it from pickers while its memberships keep working.</summary>
+    public class LoyaltyTier
+    {
+        public Guid Id { get; set; }
+        public Guid TenantId { get; set; }
+        public string Name { get; set; }               // tenant-unique (case-insensitive), e.g. "Gold"
+        public decimal AutoDiscountRate { get; set; }  // 0.10 = 10% off
+        /// <summary>Membership length in months — SetMembership derives RenewalDay from it.</summary>
+        public int DurationMonths { get; set; }
+        public bool Active { get; set; }
+        public int SortOrder { get; set; }             // display order in pickers
+        public DateTime CreatedAtUtc { get; set; }
+    }
+
     /// <summary>Membership/loyalty: benefits express as an auto-applied discount (a fraction,
     /// e.g. 0.10 = 10% members' discount) through the promotion machinery. Renewal-dated.</summary>
     public class Membership
@@ -60,6 +78,11 @@ namespace Plutus.Entities.Models
         public Guid CustomerId { get; set; }
         public string Tier { get; set; }           // e.g. "Club", "Gold"
         public decimal AutoDiscountRate { get; set; } // 0.10 = 10% off, applied at till/webstore
+        /// <summary>FE1: the catalogue tier this membership was assigned. Null = a legacy
+        /// free-text membership, where <see cref="Tier"/>/<see cref="AutoDiscountRate"/> ARE the
+        /// truth. When set, reads prefer the tier's live name/rate and these columns act as the
+        /// as-assigned snapshot (and the fallback if a tier row ever goes missing).</summary>
+        public Guid? TierId { get; set; }
         public DateOnly StartDay { get; set; }
         public DateOnly RenewalDay { get; set; }
         public bool Active { get; set; }

@@ -184,6 +184,25 @@ namespace Plutus.DBService
                 context.Database.EnsureCreated();
             else
                 context.Database.Migrate();
+
+            // FE1: turn pre-catalogue free-text memberships into LoyaltyTier rows once the schema
+            // is in place. Idempotent (no-op when every membership already has a TierId), so it is
+            // safe on every boot; a failure here must not stop the service starting.
+            try
+            {
+                using var scope = app.ApplicationServices.GetRequiredService<IServiceScopeFactory>().CreateScope();
+                var db = scope.ServiceProvider.GetService<Plutus.Entities.MySqlDbContext>();
+                if (db != null)
+                {
+                    var (tiers, linked) = Plutus.Customers.LoyaltyTierBackfill.ApplyAsync(db).GetAwaiter().GetResult();
+                    if (tiers > 0 || linked > 0)
+                        Console.WriteLine($"[loyalty] tier backfill: {tiers} tier(s) created, {linked} membership(s) linked.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[loyalty] tier backfill skipped: {ex.Message}");
+            }
         }
     }
 }

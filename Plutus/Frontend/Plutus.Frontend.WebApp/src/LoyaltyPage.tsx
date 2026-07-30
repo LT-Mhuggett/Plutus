@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
-import { createCustomer, fetchLoyalty, setMembership, updateCustomer, type V1LoyaltyRow } from "./api.ts";
+import {
+  createCustomer, fetchLoyalty, fetchLoyaltyTiers, setMembership, updateCustomer,
+  type LoyaltyTier, type V1LoyaltyRow,
+} from "./api.ts";
 import { gbp } from "./money.ts";
 import { canManageCustomers } from "./pipeline.ts";
 import DataTable from "./DataTable.tsx";
 
 /** Members & store-credit view. WP5.2: managers (customers.manage) can add a member and edit an
- *  existing one's details + tier here. WP1.3: the list is the standard DataTable. */
+ *  existing one's details + tier here. WP1.3: the list is the standard DataTable.
+ *  FE1: the tier is PICKED from the tenant's catalogue (defined in the portal), not typed. */
 export default function LoyaltyPage() {
   const [rows, setRows] = useState<V1LoyaltyRow[]>([]);
   const [error, setError] = useState("");
@@ -61,10 +65,13 @@ function MemberDialog({ row, onClose, onDone }: { row: V1LoyaltyRow | null; onCl
   const [name, setName] = useState(row?.name ?? "");
   const [email, setEmail] = useState(row?.email ?? "");
   const [phone, setPhone] = useState(row?.phone ?? "");
-  const [tier, setTier] = useState(row?.tier ?? "");
-  const [rate, setRate] = useState(row?.autoDiscountRate != null ? String(Math.round(row.autoDiscountRate * 100)) : "");
+  const [tiers, setTiers] = useState<LoyaltyTier[]>([]);
+  const [tierId, setTierId] = useState(row?.tierId ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  // active tiers for the picker; tiers themselves are managed in the portal
+  useEffect(() => { void fetchLoyaltyTiers().then(setTiers).catch(() => undefined); }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -72,8 +79,8 @@ function MemberDialog({ row, onClose, onDone }: { row: V1LoyaltyRow | null; onCl
     try {
       const body = { name: name.trim(), email: email.trim() || undefined, phone: phone.trim() || undefined };
       const id = row ? (await updateCustomer(row.id, body), row.id) : (await createCustomer(body)).id;
-      // set the tier only when one is entered (blank leaves membership untouched)
-      if (tier.trim()) await setMembership(id, tier.trim(), (parseFloat(rate) || 0) / 100);
+      // assign the tier only when one is picked AND it changed (blank leaves membership untouched)
+      if (tierId && tierId !== (row?.tierId ?? "")) await setMembership(id, tierId);
       onDone();
     } catch (err) {
       setError(String(err instanceof Error ? err.message : err));
@@ -89,9 +96,18 @@ function MemberDialog({ row, onClose, onDone }: { row: V1LoyaltyRow | null; onCl
           <label>Name <input value={name} onChange={(e) => setName(e.target.value)} required disabled={busy} /></label>
           <label>Email <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={busy} /></label>
           <label>Phone <input value={phone} onChange={(e) => setPhone(e.target.value)} disabled={busy} /></label>
-          <label>Membership tier <input value={tier} onChange={(e) => setTier(e.target.value)} placeholder="e.g. Club (blank = none)" disabled={busy} /></label>
-          <label>Discount % <input inputMode="numeric" value={rate} onChange={(e) => setRate(e.target.value)} disabled={busy || !tier.trim()} /></label>
+          <label>Membership tier
+            <select value={tierId} onChange={(e) => setTierId(e.target.value)} disabled={busy || tiers.length === 0}>
+              <option value="">{row?.tier ? `${row.tier} (leave unchanged)` : "— none —"}</option>
+              {tiers.map((t) => (
+                <option key={t.id} value={t.id}>{t.name} · {Math.round(t.autoDiscountRate * 1000) / 10}%</option>
+              ))}
+            </select>
+          </label>
         </div>
+        {tiers.length === 0 && (
+          <p className="muted small">No loyalty tiers defined yet — a manager sets them up in the management portal (Loyalty → Manage tiers).</p>
+        )}
         {error && <p className="error small">{error}</p>}
         <div className="dialog-actions">
           <button type="button" className="ghost" onClick={onClose} disabled={busy}>Cancel</button>

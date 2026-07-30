@@ -237,7 +237,7 @@ export interface CustomerSummary {
 export interface CustomerDetail extends CustomerSummary {
   creditAccountId: string | null;
   creditBalancePence: number;
-  membership: { tier: string; autoDiscountRate: number; renewalDay: string; expired: boolean } | null;
+  membership: { tierId: string | null; tier: string; autoDiscountRate: number; renewalDay: string; expired: boolean } | null;
 }
 
 export const searchCustomers = (term: string) =>
@@ -279,10 +279,19 @@ export async function updateCustomer(id: string, body: { name: string; email?: s
   await send("PUT", `/api/v1/customers/${encodeURIComponent(id)}`, body);
 }
 
-/** Set/replace a customer's membership tier (customers.manage). autoDiscountRate is a fraction (0.1 = 10%). */
-export async function setMembership(id: string, tier: string, autoDiscountRate: number): Promise<void> {
-  await send("POST", `/api/v1/customers/${encodeURIComponent(id)}/membership`, { tier, autoDiscountRate });
+/** FE1: assign a customer one of the tenant's loyalty tiers (customers.manage). The tier owns the
+ *  discount and renewal length — the till no longer types a name/rate. */
+export async function setMembership(id: string, tierId: string): Promise<void> {
+  await send("POST", `/api/v1/customers/${encodeURIComponent(id)}/membership`, { tierId });
 }
+
+/** FE1: the tenant's loyalty tier catalogue (active only). Readable by any signed-in operator so
+ *  the till's assign-tier picker works; tiers are DEFINED in the portal (Loyalty → Manage tiers). */
+export interface LoyaltyTier {
+  id: string; name: string; autoDiscountRate: number; durationMonths: number;
+  active: boolean; sortOrder: number; memberCount: number;
+}
+export const fetchLoyaltyTiers = () => get<LoyaltyTier[]>(`/api/v1/loyalty/tiers`);
 
 /** Redeem store credit against a sale. Idempotent by entryId; throws on overdraw (400). */
 export async function redeemCredit(customerId: string, amountPence: number, saleId: string, entryId: string): Promise<void> {
@@ -416,6 +425,7 @@ export const fetchV1BestSellers = (from: string, to: string, by: "qty" | "gross"
 
 export interface V1LoyaltyRow {
   id: string; name: string; email: string | null; phone: string | null;
+  tierId: string | null;
   tier: string | null; autoDiscountRate: number | null; renewalDay: string | null; expired: boolean; creditBalancePence: number;
 }
 export const fetchLoyalty = (search = "") =>

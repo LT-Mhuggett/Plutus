@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
-import { ApiError, gbp } from "./api.ts";
+import { ApiError, fetchLoyaltyTiers, gbp, type LoyaltyTier } from "./api.ts";
 import { accessToken } from "./auth.ts";
 
 // The full customer editor (details / store credit / membership), extracted from CustomersPage
 // (WP5.1) so BOTH the Customers tab and the Loyalty tab open the same dialog — loyalty is now
 // editable where you look at it, not only on the Customers page. Writes are gated server-side on
 // customers.manage; a 403 is turned into a friendly message.
+// FE1: membership is ASSIGNED from the tier catalogue (Loyalty → Manage tiers) — the tier owns the
+// discount and renewal length, so there is no free-typed tier name or rate here any more.
 
 interface CustomerDetail {
   id: string; name: string; email: string | null; phone: string | null;
   creditAccountId: string | null; creditBalancePence: number;
-  membership: { tier: string; autoDiscountRate: number; renewalDay: string; expired: boolean } | null;
+  membership: { tierId: string | null; tier: string; autoDiscountRate: number; renewalDay: string; expired: boolean } | null;
   externalRefs: { provider: string; externalId: string; email: string | null; lastSeenAtUtc: string }[];
 }
 
@@ -45,15 +47,17 @@ export default function CustomerDialog({ id, onClose }: { id: string; onClose: (
   const [error, setError] = useState("");
   const [issue, setIssue] = useState("");
   const [issueReason, setIssueReason] = useState("");
-  const [tier, setTier] = useState("Club");
-  const [rate, setRate] = useState("10");
+  const [tiers, setTiers] = useState<LoyaltyTier[]>([]);
+  const [tierId, setTierId] = useState("");
   const [edit, setEdit] = useState<{ name: string; email: string; phone: string } | null>(null);
 
   const refresh = () =>
     Promise.all([j<CustomerDetail>("GET", `/api/v1/customers/${id}`), j<CreditView>("GET", `/api/v1/customers/${id}/credit`)])
-      .then(([d, c]) => { setDetail(d); setCredit(c); setError(""); })
+      .then(([d, c]) => { setDetail(d); setCredit(c); setError(""); setTierId(d.membership?.tierId ?? ""); })
       .catch((e) => setError(String(e instanceof Error ? e.message : e)));
   useEffect(() => { void refresh(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // active tiers only — a retired tier can't be assigned (the server rejects it too)
+  useEffect(() => { void fetchLoyaltyTiers().then(setTiers).catch(() => undefined); }, []);
 
   const run = (p: Promise<unknown>) => void p.then(refresh).catch((e) => setError(String(e instanceof Error ? e.message : e)));
 
@@ -124,12 +128,21 @@ export default function CustomerDialog({ id, onClose }: { id: string; onClose: (
 
             <h4>Membership</h4>
             <div className="toolbar">
-              <label>Tier <input className="short" value={tier} onChange={(e) => setTier(e.target.value)} /></label>
-              <label>Discount % <input className="short" inputMode="numeric" value={rate} onChange={(e) => setRate(e.target.value)} /></label>
-              <button className="ghost small" disabled={!tier}
-                onClick={() => run(j("POST", `/api/v1/customers/${id}/membership`, { tier, autoDiscountRate: (parseFloat(rate) || 0) / 100 }))}>
+              <label>Tier
+                <select className="short" value={tierId} onChange={(e) => setTierId(e.target.value)}>
+                  <option value="">— pick a tier —</option>
+                  {tiers.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name} · {Math.round(t.autoDiscountRate * 1000) / 10}%</option>
+                  ))}
+                </select>
+              </label>
+              <button className="ghost small" disabled={!tierId}
+                onClick={() => run(j("POST", `/api/v1/customers/${id}/membership`, { tierId }))}>
                 Set membership
               </button>
+              {tiers.length === 0 && (
+                <span className="muted small">No tiers defined yet — set them up in Loyalty → Manage tiers.</span>
+              )}
             </div>
 
             <h4>Credit history</h4>

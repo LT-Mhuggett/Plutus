@@ -16,7 +16,10 @@ namespace Plutus.Customers
 {
     public sealed record CustomerBody(string Name, string Email, string Phone);
     public sealed record CreditBody(long AmountPence, string Reason, Guid? SaleId, Guid? EntryId);
-    public sealed record MembershipBody(string Tier, decimal AutoDiscountRate, DateOnly? StartDay, DateOnly? RenewalDay);
+    /// <summary>FE1: pass <paramref name="TierId"/> to assign a catalogue tier — its name, rate and
+    /// duration win and Tier/AutoDiscountRate are ignored. The free-text pair stays accepted for
+    /// back-compat (legacy callers / pre-catalogue clients).</summary>
+    public sealed record MembershipBody(string Tier, decimal AutoDiscountRate, DateOnly? StartDay, DateOnly? RenewalDay, Guid? TierId);
 
     /// <summary>
     /// Phase 8 customers / store credit / loyalty. Reads for the till (customer lookup, credit
@@ -40,6 +43,11 @@ namespace Plutus.Customers
         }
 
         private Guid Actor => Guid.TryParse(User?.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var g) ? g : Guid.Empty;
+
+        /// <summary>FE1: the catalogue tier behind a membership, or null for the legacy free-text
+        /// path (and for a tier row that has since vanished — the snapshot columns cover it).</summary>
+        private static LoyaltyTier ResolveTier(Membership m, System.Collections.Generic.IReadOnlyDictionary<Guid, LoyaltyTier> tiers) =>
+            m?.TierId is Guid id && tiers.TryGetValue(id, out var t) ? t : null;
 
         // ── customers ──
 
@@ -66,6 +74,8 @@ namespace Plutus.Customers
         {
             take = Math.Clamp(take, 1, 500);
             var members = await _db.Memberships.AsNoTracking().Where(m => m.Active).ToListAsync();
+            // FE1 live-follow: a tier-assigned membership shows the tier's CURRENT name + rate.
+            var tiers = await _db.LoyaltyTiers.AsNoTracking().ToDictionaryAsync(t => t.Id);
             var accounts = await _db.CreditAccounts.AsNoTracking().ToListAsync();
             var balByAccount = (await _db.CreditEntries.AsNoTracking()
                     .GroupBy(e => e.CreditAccountId).Select(g => new { AccountId = g.Key, Bal = g.Sum(e => e.AmountPence) }).ToListAsync())
@@ -83,11 +93,13 @@ namespace Plutus.Customers
                 var acc = accounts.FirstOrDefault(a => a.CustomerId == c.Id);
                 var bal = acc != null && balByAccount.TryGetValue(acc.Id, out var b) ? b : 0L;
                 var mem = members.Where(m => m.CustomerId == c.Id).OrderByDescending(m => m.RenewalDay).FirstOrDefault();
+                var memTier = ResolveTier(mem, tiers);
                 return new
                 {
                     id = c.Id, name = c.Name, email = c.Email, phone = c.Phone,
-                    tier = mem?.Tier,
-                    autoDiscountRate = mem?.AutoDiscountRate,
+                    tierId = mem?.TierId,
+                    tier = memTier?.Name ?? mem?.Tier,
+                    autoDiscountRate = memTier?.AutoDiscountRate ?? mem?.AutoDiscountRate,
                     renewalDay = mem?.RenewalDay,
                     expired = mem != null && mem.RenewalDay < today,
                     creditBalancePence = bal,
@@ -111,6 +123,9 @@ namespace Plutus.Customers
             var membership = await _db.Memberships.AsNoTracking()
                 .Where(m => m.CustomerId == id && m.Active)
                 .OrderByDescending(m => m.RenewalDay).FirstOrDefaultAsync();
+            // FE1 live-follow: prefer the catalogue tier's current name/rate over the snapshot.
+            var tier = membership?.TierId == null ? null
+                : await _db.LoyaltyTiers.AsNoTracking().FirstOrDefaultAsync(t => t.Id == membership.TierId.Value);
             // WP5.3: cross-channel links (e.g. a WooCommerce account matched by email).
             var externalRefs = await _db.CustomerExternalRefs.AsNoTracking()
                 .Where(r => r.CustomerId == id)
@@ -124,7 +139,9 @@ namespace Plutus.Customers
                 creditBalancePence = balance,
                 membership = membership == null ? null : new
                 {
-                    tier = membership.Tier, autoDiscountRate = membership.AutoDiscountRate,
+                    tierId = membership.TierId,
+                    tier = tier?.Name ?? membership.Tier,
+                    autoDiscountRate = tier?.AutoDiscountRate ?? membership.AutoDiscountRate,
                     renewalDay = membership.RenewalDay, expired = membership.RenewalDay < DateOnly.FromDateTime(DateTime.UtcNow),
                 },
                 externalRefs,
@@ -251,9 +268,22 @@ namespace Plutus.Customers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> SetMembership([FromRoute] Guid id, [FromBody] MembershipBody body)
         {
-            if (string.IsNullOrWhiteSpace(body?.Tier)) return BadRequest(new { detail = "tier is required." });
-            if (body.AutoDiscountRate < 0 || body.AutoDiscountRate > 1)
-                return BadRequest(new { detail = "autoDiscountRate must be between 0 and 1." });
+            if (body == null) return BadRequest(new { detail = "a body is required." });
+
+            // FE1: a catalogue tier supplies name + rate + duration; free-text is the legacy path.
+            LoyaltyTier tier = null;
+            if (body.TierId is Guid tierId)
+            {
+                tier = await _db.LoyaltyTiers.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tierId);
+                if (tier == null) return BadRequest(new { detail = "unknown tierId." });
+                if (!tier.Active) return BadRequest(new { detail = $"tier '{tier.Name}' is inactive." });
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(body.Tier)) return BadRequest(new { detail = "tier is required." });
+                if (body.AutoDiscountRate < 0 || body.AutoDiscountRate > 1)
+                    return BadRequest(new { detail = "autoDiscountRate must be between 0 and 1." });
+            }
             if (await _db.Customers.AllAsync(c => c.Id != id)) return NotFound();
 
             _db.CurrentUser = Actor.ToString();
@@ -264,9 +294,14 @@ namespace Plutus.Customers
             var start = body.StartDay ?? DateOnly.FromDateTime(DateTime.UtcNow);
             var membership = new Membership
             {
-                Id = Uuid7.New(), TenantId = _tenant.TenantId, CustomerId = id, Tier = body.Tier.Trim(),
-                AutoDiscountRate = body.AutoDiscountRate, StartDay = start,
-                RenewalDay = body.RenewalDay ?? start.AddYears(1), Active = true, CreatedAtUtc = DateTime.UtcNow,
+                Id = Uuid7.New(), TenantId = _tenant.TenantId, CustomerId = id,
+                TierId = tier?.Id,
+                // when a tier is assigned these are the as-assigned snapshot; reads prefer the tier
+                Tier = tier?.Name ?? body.Tier.Trim(),
+                AutoDiscountRate = tier?.AutoDiscountRate ?? body.AutoDiscountRate,
+                StartDay = start,
+                RenewalDay = body.RenewalDay ?? (tier != null ? start.AddMonths(tier.DurationMonths) : start.AddYears(1)),
+                Active = true, CreatedAtUtc = DateTime.UtcNow,
             };
             _db.Memberships.Add(membership);
             _db.Audit(_tenant.TenantId, Actor, "membership.set", nameof(Membership), membership.Id.ToString(), body);

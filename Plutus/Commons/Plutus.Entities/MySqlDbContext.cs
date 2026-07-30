@@ -107,6 +107,8 @@ namespace Plutus.Entities
         public DbSet<CreditAccount> CreditAccounts { get; set; }
         public DbSet<CreditEntry> CreditEntries { get; set; }
         public DbSet<Membership> Memberships { get; set; }
+        // FE1: pre-defined loyalty levels a membership is assigned (instead of free-text tiers).
+        public DbSet<LoyaltyTier> LoyaltyTiers { get; set; }
         // WP5.3 cross-channel identity (webstore ⇄ loyalty link by email).
         public DbSet<CustomerExternalRef> CustomerExternalRefs { get; set; }
         #endregion
@@ -783,6 +785,19 @@ namespace Plutus.Entities
                 e.Property(x => x.Id).ValueGeneratedNever();
                 e.Property(x => x.Tier).HasMaxLength(50).IsRequired();
                 e.HasIndex(x => new { x.TenantId, x.CustomerId });
+                // FE1: no FK constraint — tiers are never hard-deleted (deactivated instead), and
+                // a constraint would block the legacy/null path. Resolution is an explicit join.
+                e.HasIndex(x => new { x.TenantId, x.TierId });
+            });
+            modelBuilder.Entity<LoyaltyTier>(e =>
+            {
+                e.ToTable("LoyaltyTiers");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Name).HasMaxLength(50).IsRequired();
+                // one tier per name per tenant; MySQL's default collation makes this
+                // case-insensitive, which is the intent ("gold" must not shadow "Gold").
+                e.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
             });
             modelBuilder.Entity<CustomerExternalRef>(e =>
             {

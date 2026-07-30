@@ -119,10 +119,15 @@ data becomes catalogue-managed with zero operator effort.
 ### Work packages
 | WP | Scope | Status |
 |---|---|---|
-| FE1.1 | Entity + migration + backfill; `LoyaltyTiersController` CRUD, audited; `SetMembership` accepts `tierId`; reads resolve via join. Tests: uniqueness, rate bounds, live-follow (edit tier → loyalty row shows new rate), backfill round-trip. | ☐ |
-| FE1.2 | Portal: tier-manager dialog on Loyalty tab; CustomerDialog dropdown. | ☐ |
-| FE1.3 | Till WebApp: MemberDialog dropdown. | ☐ |
-| FE1.4 | Gate: unit/arch/integration green; click-test both UIs; deploy + run EF migration on test env. | ☐ |
+| FE1.1 | Entity + migration + backfill; `LoyaltyTiersController` CRUD, audited; `SetMembership` accepts `tierId`; reads resolve via join. Tests: uniqueness, rate bounds, live-follow (edit tier → loyalty row shows new rate), backfill round-trip. | ✅ 2026-07-30 (8 unit + 1 integration) |
+| FE1.2 | Portal: tier-manager dialog on Loyalty tab; CustomerDialog dropdown. | ✅ 2026-07-30 |
+| FE1.3 | Till WebApp: MemberDialog dropdown. | ✅ 2026-07-30 |
+| FE1.4 | Gate: unit/arch/integration green; click-test both UIs; deploy + run EF migration on test env. | ✅ 2026-07-30 deployed — rollbacks `backend.pre-fe1` + portal/till `current.pre-fe1`, DB dump `~/PLUTUS/backups/plutus-pre-fe1-20260730.sql.gz`; migration `AddLoyaltyTiers` applied, backfill created the "Club" tier from live data; full DoD sequence verified live. ⏳ Matt to click-test both UIs |
+
+**Backfill runs at startup** (after `Database.Migrate()`, `LoyaltyTierBackfill.ApplyAsync`) and is
+idempotent, so it self-heals on any future deploy. It names itself `loyalty-tier-backfill` as the
+audit actor — the context refuses to save without one (caught on the first FE1 deploy attempt;
+pinned by `Backfill_works_without_a_CurrentUser_set`).
 
 **DoD:** create tier "Gold 15%" in the portal → assign from the dropdown in BOTH UIs (no
 free-text input remains visible) → edit Gold to 12% → every Gold member's loyalty row and

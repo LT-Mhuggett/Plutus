@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createCustomer, fetchLoyalty, gbp, type LoyaltyRow } from "./api.ts";
 import DataTable from "./DataTable.tsx";
 import CustomerDialog from "./CustomerDialog.tsx";
+import TierManagerDialog from "./TierManagerDialog.tsx";
 
 /** Members & store-credit view — customers who are members or hold a credit balance. WP5.1: now
  *  EDITABLE where you look at it — each row opens the shared CustomerDialog (details/credit/
@@ -13,6 +14,7 @@ export default function LoyaltyPage() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [tiers, setTiers] = useState(false); // FE1: the tier catalogue manager
   const [form, setForm] = useState({ name: "", email: "", phone: "" });
 
   const refresh = () => {
@@ -43,7 +45,10 @@ export default function LoyaltyPage() {
     <section className="panel">
       <div className="toolbar" style={{ justifyContent: "space-between" }}>
         <h2>Loyalty &amp; store credit</h2>
-        <button className="primary" onClick={() => setAdding(true)}>Add member</button>
+        <span>
+          <button className="ghost" onClick={() => setTiers(true)}>Manage tiers</button>{" "}
+          <button className="primary" onClick={() => setAdding(true)}>Add member</button>
+        </span>
       </div>
       <div className="stat-row">
         <div className="stat"><span className="stat-label">Members</span><span className="stat-value">{members}</span></div>
@@ -84,6 +89,7 @@ export default function LoyaltyPage() {
         </div>
       )}
 
+      {tiers && <TierManagerDialog onClose={() => { setTiers(false); refresh(); }} />}
       {open && <CustomerDialog id={open} onClose={() => { setOpen(null); refresh(); }} />}
     </section>
   );
