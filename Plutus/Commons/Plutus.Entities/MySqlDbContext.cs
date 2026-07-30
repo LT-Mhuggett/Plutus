@@ -107,6 +107,8 @@ namespace Plutus.Entities
         public DbSet<CreditAccount> CreditAccounts { get; set; }
         public DbSet<CreditEntry> CreditEntries { get; set; }
         public DbSet<Membership> Memberships { get; set; }
+        // WP5.3 cross-channel identity (webstore ⇄ loyalty link by email).
+        public DbSet<CustomerExternalRef> CustomerExternalRefs { get; set; }
         #endregion
 
         /// <summary>The tenant scoping every query and write is bound to. Referenced by the
@@ -183,8 +185,9 @@ namespace Plutus.Entities
             typeof(ItemPricePolicy), typeof(PriceListEntry), typeof(PriceOverride),
             // Cash + payments (WP7).
             typeof(CashEvent), typeof(PaymentEvent),
-            // Customers, credit, loyalty (Phase 8).
+            // Customers, credit, loyalty (Phase 8) + cross-channel identity (WP5.3).
             typeof(Customer), typeof(CreditAccount), typeof(CreditEntry), typeof(Membership),
+            typeof(CustomerExternalRef),
             // WooCommerce connector config + SKU review queue + product cache + notifications (Phase 6).
             typeof(WebStoreDetails), typeof(WebstoreSkuMap), typeof(WebstoreProduct), typeof(WebstoreNotification),
             typeof(WebstoreOutboundLog),
@@ -779,6 +782,18 @@ namespace Plutus.Entities
                 e.HasKey(x => x.Id);
                 e.Property(x => x.Id).ValueGeneratedNever();
                 e.Property(x => x.Tier).HasMaxLength(50).IsRequired();
+                e.HasIndex(x => new { x.TenantId, x.CustomerId });
+            });
+            modelBuilder.Entity<CustomerExternalRef>(e =>
+            {
+                e.ToTable("CustomerExternalRefs");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Provider).HasMaxLength(20).IsRequired();
+                e.Property(x => x.ExternalId).HasMaxLength(64).IsRequired();
+                e.Property(x => x.Email).HasMaxLength(255);
+                // one link per (tenant, provider, external account); look-ups by customer for the dialog.
+                e.HasIndex(x => new { x.TenantId, x.Provider, x.ExternalId }).IsUnique();
                 e.HasIndex(x => new { x.TenantId, x.CustomerId });
             });
 

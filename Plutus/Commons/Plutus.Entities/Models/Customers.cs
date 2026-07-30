@@ -65,4 +65,20 @@ namespace Plutus.Entities.Models
         public bool Active { get; set; }
         public DateTime CreatedAtUtc { get; set; }
     }
+
+    /// <summary>WP5.3 cross-channel identity: links a loyalty <see cref="Customer"/> to their
+    /// account on an external channel (currently WooCommerce). First slice is LINK-ONLY, by email —
+    /// a webstore order whose buyer email matches an existing customer records a ref here; a
+    /// non-match records nothing (no auto-create — D3). One row per (tenant, provider, externalId).</summary>
+    public class CustomerExternalRef
+    {
+        public Guid Id { get; set; }
+        public Guid TenantId { get; set; }
+        public Guid CustomerId { get; set; }
+        public string Provider { get; set; }        // "woo"
+        public string ExternalId { get; set; }      // the provider's customer/order key (as text)
+        public string? Email { get; set; }          // the email the match was made on (audit trail)
+        public DateTime CreatedAtUtc { get; set; }
+        public DateTime LastSeenAtUtc { get; set; }
+    }
 }

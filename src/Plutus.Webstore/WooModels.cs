@@ -19,6 +19,7 @@ namespace Plutus.Webstore
         [JsonPropertyName("shipping_total")] public string? ShippingTotal { get; set; }
         [JsonPropertyName("shipping_tax")] public string? ShippingTax { get; set; }
         [JsonPropertyName("customer_id")] public long CustomerId { get; set; }
+        [JsonPropertyName("billing")] public WooBilling? Billing { get; set; }   // WP5.3: buyer email lives here
         [JsonPropertyName("payment_method")] public string? PaymentMethod { get; set; }
         [JsonPropertyName("payment_method_title")] public string? PaymentMethodTitle { get; set; }
         [JsonPropertyName("transaction_id")] public string? TransactionId { get; set; }
@@ -30,6 +31,13 @@ namespace Plutus.Webstore
         [JsonPropertyName("tax_lines")] public List<WooTaxLine> TaxLines { get; set; } = new();
         [JsonPropertyName("shipping_lines")] public List<WooShippingLine> ShippingLines { get; set; } = new();
         [JsonPropertyName("fee_lines")] public List<WooFeeLine> FeeLines { get; set; } = new();
+    }
+
+    /// <summary>The order's billing block — WP5.3 uses only the buyer email (guest checkouts have
+    /// customer_id = 0, so email is the reliable key for linking to a loyalty customer).</summary>
+    public sealed class WooBilling
+    {
+        [JsonPropertyName("email")] public string? Email { get; set; }
     }
 
     public sealed class WooLineItem

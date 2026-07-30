@@ -11,7 +11,10 @@ interface CustomerDetail {
   id: string; name: string; email: string | null; phone: string | null;
   creditAccountId: string | null; creditBalancePence: number;
   membership: { tier: string; autoDiscountRate: number; renewalDay: string; expired: boolean } | null;
+  externalRefs: { provider: string; externalId: string; email: string | null; lastSeenAtUtc: string }[];
 }
+
+const providerLabel = (p: string) => (p === "woo" ? "WooCommerce" : p);
 interface CreditView {
   balancePence: number;
   entries: { type: string; amountPence: number; reason: string | null; saleId: string | null; createdAtUtc: string }[];
@@ -93,6 +96,20 @@ export default function CustomerDialog({ id, onClose }: { id: string; onClose: (
                   ? `${detail.membership.tier} · ${(detail.membership.autoDiscountRate * 100).toFixed(0)}% · renews ${detail.membership.renewalDay}${detail.membership.expired ? " (EXPIRED)" : ""}`
                   : "—"}</dd>
               </dl>
+            )}
+
+            {detail.externalRefs.length > 0 && (
+              <>
+                <h4>Linked accounts</h4>
+                <ul className="small">
+                  {detail.externalRefs.map((r) => (
+                    <li key={`${r.provider}-${r.externalId}`}>
+                      {providerLabel(r.provider)} <span className="mono">{r.externalId}</span>
+                      {r.email ? ` · ${r.email}` : ""} <span className="muted">· last seen {new Date(r.lastSeenAtUtc + "Z").toLocaleDateString("en-GB")}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
 
             <h4>Grant credit</h4>

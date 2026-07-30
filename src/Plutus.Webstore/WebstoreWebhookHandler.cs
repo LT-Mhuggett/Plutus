@@ -100,6 +100,11 @@ namespace Plutus.Webstore
                 r.Status is WebstoreInboundStatus.Recorded or WebstoreInboundStatus.Duplicate or WebstoreInboundStatus.Skipped)
                 await WebstoreRefunds.ApplyAsync(pipeline.Db, ctx, r.Order, ct);
 
+            // WP5.3 cross-channel identity: link the buyer to an existing loyalty customer by email
+            // (link-only; a non-match records nothing). Only for orders that became a sale.
+            if (r.Order is not null && r.Status is WebstoreInboundStatus.Recorded or WebstoreInboundStatus.Duplicate)
+                await WebstoreCustomerLink.ApplyAsync(pipeline.Db, ctx, r.Order, ct);
+
             // 5. Outcome → HTTP. Durably recorded/parked = 2xx (Woo auto-disables webhooks that
             //    keep failing); non-2xx is reserved for cases where a retry or a stop is right.
             switch (r.Status)

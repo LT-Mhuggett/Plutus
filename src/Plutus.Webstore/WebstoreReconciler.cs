@@ -130,6 +130,9 @@ namespace Plutus.Webstore
                         var r = await pipeline.Processor.RouteOrderAsync(order, ctx, pipeline.Resolver, ct);
                         if (r.Status is WebstoreInboundStatus.Recorded or WebstoreInboundStatus.Duplicate or WebstoreInboundStatus.Skipped)
                             await WebstoreRefunds.ApplyAsync(pipeline.Db, ctx, order, ct);
+                        // WP5.3 link buyer → loyalty customer by email (same as the webhook path).
+                        if (r.Status is WebstoreInboundStatus.Recorded or WebstoreInboundStatus.Duplicate)
+                            await WebstoreCustomerLink.ApplyAsync(pipeline.Db, ctx, order, ct);
                         switch (r.Status)
                         {
                             case WebstoreInboundStatus.Recorded:

@@ -111,6 +111,12 @@ namespace Plutus.Customers
             var membership = await _db.Memberships.AsNoTracking()
                 .Where(m => m.CustomerId == id && m.Active)
                 .OrderByDescending(m => m.RenewalDay).FirstOrDefaultAsync();
+            // WP5.3: cross-channel links (e.g. a WooCommerce account matched by email).
+            var externalRefs = await _db.CustomerExternalRefs.AsNoTracking()
+                .Where(r => r.CustomerId == id)
+                .OrderBy(r => r.Provider)
+                .Select(r => new { provider = r.Provider, externalId = r.ExternalId, email = r.Email, lastSeenAtUtc = r.LastSeenAtUtc })
+                .ToListAsync();
             return Ok(new
             {
                 id = c.Id, name = c.Name, email = c.Email, phone = c.Phone,
@@ -121,6 +127,7 @@ namespace Plutus.Customers
                     tier = membership.Tier, autoDiscountRate = membership.AutoDiscountRate,
                     renewalDay = membership.RenewalDay, expired = membership.RenewalDay < DateOnly.FromDateTime(DateTime.UtcNow),
                 },
+                externalRefs,
             });
         }
 

@@ -25,6 +25,8 @@
     <ProjectReference Include="..\..\Plutus\Endpoints\Plutus.DBService\Plutus.DBService.csproj" />
     <ProjectReference Include="..\..\src\Plutus.SharedKernel\Plutus.SharedKernel.csproj" />
     <ProjectReference Include="..\..\Plutus\Commons\Plutus.Entities\Plutus.Entities.csproj" />
+    <!-- WP5.3: exercises WebstoreCustomerLink (order email → loyalty customer) directly. -->
+    <ProjectReference Include="..\..\src\Plutus.Webstore\Plutus.Webstore.csproj" />
   </ItemGroup>
 
 </Project>
