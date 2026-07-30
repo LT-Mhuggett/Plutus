@@ -3,6 +3,7 @@
 using System;
 using System.Linq;
 using System.Security.Claims;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -38,6 +39,42 @@ namespace Plutus.Catalogue
         }
 
         private Guid Actor => Guid.TryParse(User?.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var g) ? g : Guid.Empty;
+
+        /// <summary>
+        /// FE5.2: on-hand quantity for a SET of items — one call per visible page of an inventory
+        /// list, never one per row. Sums across locations (the inventory lists are catalogue-wide).
+        /// `untracked` items report null quantity: their level is meaningless by design (FE5.5), and
+        /// the UI shows ∞ rather than a misleading 0.
+        /// </summary>
+        [HttpPost("api/v1/stock/levels/bulk")]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> LevelsBulk([FromBody] string[] itemIdOnes, CancellationToken ct = default)
+        {
+            if (itemIdOnes == null || itemIdOnes.Length == 0) return Ok(Array.Empty<object>());
+            if (itemIdOnes.Length > 200) itemIdOnes = itemIdOnes.Take(200).ToArray();
+
+            var untracked = (await _db.Items.AsNoTracking()
+                    .Where(i => itemIdOnes.Contains(i.IdOne) && i.StockUntracked)
+                    .Select(i => i.IdOne).ToListAsync(ct))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var levels = await _db.StockLevels.AsNoTracking()
+                .Where(l => itemIdOnes.Contains(l.ItemIdOne))
+                .GroupBy(l => l.ItemIdOne)
+                .Select(g => new { ItemIdOne = g.Key, Quantity = g.Sum(x => x.Quantity) })
+                .ToListAsync(ct);
+            var byId = levels.ToDictionary(x => x.ItemIdOne, x => x.Quantity, StringComparer.OrdinalIgnoreCase);
+
+            return Ok(itemIdOnes.Distinct(StringComparer.OrdinalIgnoreCase).Select(id => new
+            {
+                itemIdOne = id,
+                untracked = untracked.Contains(id),
+                // null = no stock record at all (never received) OR untracked; the UI distinguishes
+                // via the flag rather than inventing a zero.
+                quantity = untracked.Contains(id) ? (int?)null : (byId.TryGetValue(id, out var q) ? q : (int?)null),
+            }));
+        }
 
         [HttpGet("api/v1/stock/levels")]
         [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView)]

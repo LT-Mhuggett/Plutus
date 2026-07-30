@@ -24,8 +24,10 @@ namespace Plutus.Webstore
             var s = sku.Trim();
             // Project only the business key — cheap, and the item's IdTwo is the businessId the
             // deterministic id is namespaced by.
+            // FE5.4: a binned item no longer resolves, so a webstore order for it routes to the
+            // review queue (unknown SKU) instead of silently selling something withdrawn.
             var hit = _db.Items.AsNoTracking()
-                .Where(i => i.IdOne == s)
+                .Where(i => i.IdOne == s && i.BinnedAtUtc == null)
                 .Select(i => new { i.IdTwo })
                 .FirstOrDefault();
             return hit is null ? (Guid?)null : DeterministicGuid.ForItem(hit.IdTwo, s);

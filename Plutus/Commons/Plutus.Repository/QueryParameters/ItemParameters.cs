@@ -30,13 +30,23 @@ namespace Plutus.Repository.QueryParameters
         /// moves it server-side. Composes with <see cref="Search"/>.</summary>
         public Guid? CatId { get; set; }
 
+        /// <summary>
+        /// FE5.4 the Bin. Default (false) hides binned items EVERYWHERE this filter is used — till
+        /// scan/search, both inventory lists, the webstore feed — which is the whole point of a bin
+        /// that isn't a delete. Set true to see the Bin itself (gated on inventory.bulk).
+        /// </summary>
+        public bool Binned { get; set; }
+
         public override Expression<Func<Item, bool>> GetExpression()
         {
-            if (string.IsNullOrWhiteSpace(Search) && CatId == null)
-                return base.GetExpression();
-
+            // NB: unlike Search/CatId, the bin filter must apply even with no other criteria —
+            // "no filters" must still mean "no binned items".
             Expression<Func<Item, bool>> expr = i => i.CreatedAt.Date >= MinCreatedDate.Date &&
                                                      i.CreatedAt.Date <= MaxCreatedDate.Date;
+            expr = Binned
+                ? expr.And(i => i.BinnedAtUtc != null)
+                : expr.And(i => i.BinnedAtUtc == null);
+
             if (CatId is Guid cat)
                 expr = expr.And(i => i.CatId == cat);
 

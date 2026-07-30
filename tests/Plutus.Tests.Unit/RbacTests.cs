@@ -294,6 +294,30 @@ public class RbacTests
         Assert.True(PermissionCatalogue.IsKnown(PermissionCatalogue.CustomersManage));
     }
 
+    /// <summary>FE5.3: inventory.bulk is a management-only permission — a single call can move
+    /// thousands of items, so it must NOT reach Supervisor or Cashier.</summary>
+    [Fact]
+    public async Task BuiltIn_roles_grant_inventory_bulk_to_managers_only()
+    {
+        using var conn = OpenSeeded();
+        using (var db = Ctx(conn))
+            await RbacSeeder.EnsureBuiltInRolesAsync(db, Tenant);
+
+        using var ctx = Ctx(conn);
+        var roles = await ctx.RbacRoles.Include(r => r.Grants)
+            .Where(r => r.TenantId == Tenant).ToDictionaryAsync(r => r.Name);
+
+        bool Has(string role) =>
+            roles[role].Grants.Any(g => g.PermissionCode == PermissionCatalogue.InventoryBulk);
+
+        Assert.True(Has("Owner"));
+        Assert.True(Has("Company Admin"));
+        Assert.True(Has("Store Manager"));
+        Assert.False(Has("Supervisor"));
+        Assert.False(Has("Cashier"));
+        Assert.True(PermissionCatalogue.IsKnown(PermissionCatalogue.InventoryBulk));
+    }
+
     [Fact]
     public void ScopeNode_parses_the_endpoint_scope_format()
     {

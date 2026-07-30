@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import DataTable from "./DataTable.tsx";
+import { useNav } from "./nav.tsx";
 import {
   createCategory, deleteCategory, fetchCategories, reassignCategory, renameCategory,
   type Category,
@@ -11,6 +12,7 @@ import {
 // orphaned or cascade-deleted.
 
 export default function CategoryManager() {
+  const { go } = useNav();
   const [cats, setCats] = useState<Category[]>([]);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Category | "new" | null>(null);
@@ -42,11 +44,21 @@ export default function CategoryManager() {
       <DataTable<Category>
         columns={[
           { key: "name", label: "Category" },
-          { key: "itemCount", label: "Items", numeric: true },
+          {
+            // FE5.1: the count is the way in — click it to see those items, pre-filtered.
+            key: "itemCount", label: "Items", numeric: true,
+            render: (c) => c.itemCount > 0
+              ? <button className="linklike" title={`Show the ${c.itemCount} items in ${c.name}`}
+                  onClick={() => go("Inventory", `cat:${c.id}`)}>{c.itemCount}</button>
+              : <span className="muted">0</span>,
+          },
         ]}
         rows={cats} getKey={(c) => c.id} search={(c) => c.name} initialSortKey="name"
         rowActions={(c) => (
           <>
+            {c.itemCount > 0 && (
+              <><button className="ghost small" onClick={() => go("Inventory", `cat:${c.id}`)}>View items</button>{" "}</>
+            )}
             <button className="ghost small" onClick={() => setEditing(c)}>Rename</button>{" "}
             <button className="ghost small" onClick={() => void onDelete(c)}>Delete</button>
           </>

@@ -41,6 +41,17 @@ namespace Plutus.Entities.Models
         [Exportable]
         public byte[]? Image { get; set; }
 
+        /// <summary>FE5.5: don't track stock for this item — carrier bags, back-issues, anything
+        /// effectively unlimited. Sales and returns are still RECORDED (so "how many sold" reporting
+        /// is unaffected); only the stock ledger skips it. Existing movements are left as history.</summary>
+        public bool StockUntracked { get; set; }
+
+        /// <summary>FE5.4 the Bin: a soft delete. Non-null = binned, and the item disappears from
+        /// till search, sale, the webstore feed and the default inventory views — but the row (and
+        /// therefore every historic sale line that references it) stays intact. There is no hard
+        /// delete anywhere; restore clears this.</summary>
+        public DateTime? BinnedAtUtc { get; set; }
+
         [NotMapped]
         public int Amount { get; set; }
 

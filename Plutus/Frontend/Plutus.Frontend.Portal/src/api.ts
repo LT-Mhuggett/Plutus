@@ -469,10 +469,41 @@ export interface Tax { idOne: number; name: string; rate: number } // rate = mul
 export interface CatalogueItem {
   idOne: string; name: string; brand: string; desc: string;
   cost: number; exPrice: number; price: number; taxId: number; catId: string;
+  /** FE5.5 — true = stock isn't tracked for this item (bags, back-issues) */
+  stockUntracked?: boolean;
+  /** FE5.4 — non-null = in the Bin (only ever populated in the Bin view) */
+  binnedAtUtc?: string | null;
 }
+
+// ── FE5.2 current stock (batched — one call per visible page, never one per row) ──
+export interface StockLevelLite { itemIdOne: string; untracked: boolean; quantity: number | null }
+export const fetchStockLevelsFor = (itemIdOnes: string[]) =>
+  post<StockLevelLite[]>(`/api/v1/stock/levels/bulk`, itemIdOnes);
+
+// ── FE5.3 bulk catalogue edits (gated inventory.bulk server-side) ──
+export interface BulkCriteria { search?: string; matchAllWords?: boolean; catId?: string | null; binned?: boolean }
+export type BulkAction =
+  | "set-category" | "clear-category" | "set-brand" | "clear-brand"
+  | "bin" | "restore" | "set-untracked" | "clear-untracked";
+export interface BulkRequest {
+  action: BulkAction;
+  value?: string;
+  categoryId?: string | null;
+  ids?: string[];        // the tick-list…
+  criteria?: BulkCriteria; // …or everything matching the current filter
+}
+/** How many items a criteria selection covers — shown in the confirmation BEFORE anything runs. */
+export const bulkCount = (criteria: BulkCriteria) =>
+  post<{ count: number; capped: boolean; max: number }>(`/api/v1/items/bulk/count`, criteria);
+export const bulkItems = (req: BulkRequest) =>
+  post<{ affected: number; detail: string; ids: string[] }>(`/api/v1/items/bulk`, req);
 export interface ItemInput {
   id: string; name: string; brand: string; desc: string;
   cost: number; price: number; exPrice: number; taxId: number; catId: string;
+  /** FE5.5 — must be carried through an edit; the legacy PUT binds the WHOLE entity, so omitting
+   *  it would silently reset the flag (and likewise un-bin a binned item). */
+  stockUntracked?: boolean;
+  binnedAtUtc?: string | null;
 }
 
 export const fetchTaxes = () => legacy<Tax[]>("GET", `/api/Tax/Index?PageNumber=1&PageSize=50`);
@@ -480,12 +511,14 @@ export const fetchTaxes = () => legacy<Tax[]>("GET", `/api/Tax/Index?PageNumber=
 // catId), so the list row IS the edit payload — no separate detail fetch.
 /** FE4.2: returns rows AND the true total from X-Pagination, so the items list can show
  *  "X–Y of N" instead of a blind Next button. */
-export const fetchCatalogueItemsPaged = (pageNumber: number, pageSize: number, search = "", catId = "") =>
+export const fetchCatalogueItemsPaged = (pageNumber: number, pageSize: number, search = "", catId = "", binned = false) =>
   legacyPaged<CatalogueItem[]>("GET",
     `/api/Item/Index?PageNumber=${pageNumber}&PageSize=${pageSize}` +
       (search ? `&Search=${encodeURIComponent(search)}` : "") +
       // FE5.0: category filtering is server-side (client-side over one page showed nothing)
-      (catId ? `&CatId=${encodeURIComponent(catId)}` : ""));
+      (catId ? `&CatId=${encodeURIComponent(catId)}` : "") +
+      // FE5.4: default excludes binned items everywhere; the Bin view opts in
+      (binned ? `&Binned=true` : ""));
 
 export const fetchCatalogueItems = (pageNumber: number, pageSize: number, search = "", catId = "") =>
   fetchCatalogueItemsPaged(pageNumber, pageSize, search, catId).then((p) => p.rows);
@@ -500,6 +533,10 @@ async function itemBody(i: ItemInput) {
     name: i.name, brand: i.brand || "-", desc: i.desc ?? "",
     cost: i.cost, exPrice: i.exPrice, price: i.price,
     image: null, amount: 0, taxId: i.taxId, catId: i.catId, businessId: bid,
+    // FE5.4/5.5: the legacy PUT binds the whole Item, so these MUST be echoed back or an ordinary
+    // edit would clear the untracked flag / silently restore a binned item.
+    stockUntracked: i.stockUntracked ?? false,
+    binnedAtUtc: i.binnedAtUtc ?? null,
   };
 }
 export const createItem = async (i: ItemInput) => legacy<void>("POST", `/api/Item`, await itemBody(i));

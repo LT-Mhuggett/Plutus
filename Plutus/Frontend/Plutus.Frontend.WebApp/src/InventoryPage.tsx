@@ -4,6 +4,7 @@ import {
   createStock,
   fetchCategories,
   fetchItemsPaged,
+  fetchStockLevelsFor,
   fetchTaxes,
   updateItem,
   type Category,
@@ -29,6 +30,8 @@ export default function InventoryPage() {
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Item | "new" | null>(null);
   const [notice, setNotice] = useState("");
+  // FE5.2 current stock for the visible page (one batched call)
+  const [levels, setLevels] = useState<Map<string, { untracked: boolean; quantity: number | null }>>(new Map());
 
   // WP4.3: show each item's category in the list (the dialog already assigns it; the list didn't).
   const catName = useMemo(() => new Map(cats.map((c) => [c.idOne, c.name])), [cats]);
@@ -42,6 +45,11 @@ export default function InventoryPage() {
         setItems(rows);
         setTotal(n ?? skip + rows.length + (rows.length === take ? take : 0)); // pre-FE4.2 fallback
         setState("ready");
+        if (rows.length > 0) {
+          void fetchStockLevelsFor(rows.map((r) => r.idOne))
+            .then((ls) => setLevels(new Map(ls.map((l) => [l.itemIdOne, { untracked: l.untracked, quantity: l.quantity }]))))
+            .catch(() => setLevels(new Map()));
+        } else setLevels(new Map());
       })
       .catch((e) => {
         setError(String(e));
@@ -78,6 +86,17 @@ export default function InventoryPage() {
           { key: "name", label: "Name" },
           { key: "brand", label: "Brand", render: (i) => (i.brand === "NOT EXIST" || i.brand === "-" ? "" : i.brand) },
           { key: "catId", label: "Category", render: (i) => catName.get(i.catId) ?? "—" },
+          {
+            // FE5.2: on-hand stock; ∞ for items whose stock deliberately isn't tracked.
+            key: "stock", label: "Stock", numeric: true, sortable: false,
+            render: (i) => {
+              const l = levels.get(i.idOne);
+              if (!l) return <span className="muted">…</span>;
+              if (l.untracked) return <span title="Stock isn't tracked for this item">∞</span>;
+              if (l.quantity == null) return <span className="muted" title="No stock record yet">—</span>;
+              return <span className={l.quantity < 0 ? "error" : undefined}>{l.quantity}</span>;
+            },
+          },
           { key: "price", label: "Price", numeric: true, render: (i) => gbp(Math.round(i.price * 100)) },
         ]}
         rows={items}
@@ -119,6 +138,7 @@ function ItemDialog({ item, onClose, onDone }: { item: Item | null; onClose: () 
   const [taxId, setTaxId] = useState<number>(item?.taxId ?? 0);
   const [catId, setCatId] = useState("");
   const [stock, setStock] = useState("");
+  const [untracked, setUntracked] = useState(item?.stockUntracked ?? false); // FE5.5
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -152,6 +172,9 @@ function ItemDialog({ item, onClose, onDone }: { item: Item | null; onClose: () 
       exPrice: Math.round(exPrice * 100) / 100,
       taxId,
       catId,
+      // carried through so an edit can't reset them (see itemBody)
+      stockUntracked: untracked,
+      binnedAtUtc: item?.binnedAtUtc ?? null,
     };
     try {
       if (item) {
@@ -218,13 +241,23 @@ function ItemDialog({ item, onClose, onDone }: { item: Item | null; onClose: () 
               ))}
             </select>
           </label>
-          {!item && (
+          {!item && !untracked && (
             <label>
               Initial stock (optional)
               <input inputMode="numeric" value={stock} onChange={(e) => setStock(e.target.value)} disabled={busy} />
             </label>
           )}
         </div>
+        <label className="setting-row">
+          <span className="grow">
+            Don't track stock for this item
+            <span className="muted small block">
+              For things that are effectively unlimited — carrier bags, back-issues. Sales are still
+              recorded and reported; the stock count is skipped and the item shows ∞.
+            </span>
+          </span>
+          <input type="checkbox" checked={untracked} onChange={(e) => setUntracked(e.target.checked)} disabled={busy} />
+        </label>
         <p className="muted small">Ex-tax price: £{exPrice.toFixed(2)} (derived from the selected tax)</p>
         {error && <p className="error small">{error}</p>}
         <div className="dialog-actions">

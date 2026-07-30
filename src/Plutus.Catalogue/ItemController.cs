@@ -40,6 +40,21 @@ namespace Plutus.DBService.Controllers
             return null;
         }
 
+        /// <summary>
+        /// FE5.4: the till's barcode lookup goes through FindById, NOT the ItemParameters filter —
+        /// so without this override a binned item could still be scanned and sold. A binned barcode
+        /// now behaves like an unknown one (404), which the till already handles.
+        /// `includeBinned=true` lets the portal's Bin view load a binned item for restore/inspection.
+        /// </summary>
+        public override async Task<ActionResult<Item>> FindById([FromRoute] string id1, [FromHeader] Guid businessId)
+        {
+            var result = await base.FindById(id1, businessId);
+            var includeBinned = string.Equals(Request.Query["includeBinned"], "true", StringComparison.OrdinalIgnoreCase);
+            if (!includeBinned && result.Result is OkObjectResult ok && ok.Value is Item item && item.BinnedAtUtc != null)
+                return NotFound();
+            return result;
+        }
+
         public override async Task<ActionResult<Item>> Post([FromHeader] Guid businessId, [FromBody] ItemBody body, [FromQuery] bool isSync = false)
         {
             if (!isSync && body != null)

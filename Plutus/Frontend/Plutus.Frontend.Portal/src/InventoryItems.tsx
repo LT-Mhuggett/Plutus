@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  createItem, fetchCatalogueItemsPaged, fetchCategories, fetchTaxes, gbp, updateItem,
-  type CatalogueItem, type Category, type ItemInput, type Tax,
+  bulkCount, bulkItems, createItem, fetchCatalogueItemsPaged, fetchCategories, fetchStockLevelsFor,
+  fetchTaxes, gbp, updateItem,
+  type BulkAction, type BulkCriteria, type CatalogueItem, type Category, type ItemInput, type Tax,
 } from "./api.ts";
+import { canBulkEditInventory } from "./auth.ts";
 import DataTable from "./DataTable.tsx";
+import { useNav } from "./nav.tsx";
 
 // WP4.2/4.3 portal item catalogue: add/edit items (name, brand, cost, price inc VAT with ex-VAT
 // derived, tax band, category) — parity with the till's inventory dialog, reusing the guardrailed
@@ -11,8 +14,11 @@ import DataTable from "./DataTable.tsx";
 // SERVER-side (it used to narrow only the fetched page, usually showing nothing). FE4.3: the list
 // is now the standard DataTable in SERVER mode — 20k+ items stay server-windowed, and FE4.2's
 // X-Pagination total turns the old "page N" guess into a true "X–Y of N".
+// FE5.2/5.3/5.4: current-stock column, bulk edit (tick-list or whole-filter) behind
+// inventory.bulk, and the Bin — a soft delete that keeps history.
 
-export default function InventoryItems() {
+export default function InventoryItems({ binView = false }: { binView?: boolean }) {
+  const { focus } = useNav();
   const [items, setItems] = useState<CatalogueItem[]>([]);
   const [cats, setCats] = useState<Category[]>([]);
   const [skip, setSkip] = useState(0);
@@ -24,16 +30,35 @@ export default function InventoryItems() {
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<CatalogueItem | "new" | null>(null);
   const [notice, setNotice] = useState("");
+  // FE5.2 current stock, fetched once per visible page
+  const [levels, setLevels] = useState<Map<string, { untracked: boolean; quantity: number | null }>>(new Map());
+  // FE5.3 selection
+  const [ticked, setTicked] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const canBulk = canBulkEditInventory();
 
   const catName = useMemo(() => new Map(cats.map((c) => [c.id, c.name])), [cats]);
+  const criteria = (): BulkCriteria => ({ search: search || undefined, matchAllWords: true, catId: catFilter || null, binned: binView });
+
+  // FE5.1: a category clicked in the Categories manager deep-links here pre-filtered.
+  useEffect(() => {
+    if (focus && focus.startsWith("cat:")) { setCatFilter(focus.slice(4)); setSkip(0); }
+  }, [focus]);
 
   const load = () => {
     setState("loading");
-    fetchCatalogueItemsPaged(Math.floor(skip / take) + 1, take, search, catFilter)
+    setTicked(new Set());
+    fetchCatalogueItemsPaged(Math.floor(skip / take) + 1, take, search, catFilter, binView)
       .then(({ rows, total: n }) => {
         setItems(rows);
         setTotal(n ?? skip + rows.length + (rows.length === take ? take : 0)); // pre-FE4.2 fallback
         setState("ready");
+        // one batched call for the page's stock, never one per row
+        if (rows.length > 0) {
+          void fetchStockLevelsFor(rows.map((r) => r.idOne))
+            .then((ls) => setLevels(new Map(ls.map((l) => [l.itemIdOne, { untracked: l.untracked, quantity: l.quantity }]))))
+            .catch(() => setLevels(new Map()));
+        } else setLevels(new Map());
       })
       .catch((e) => { setError(String(e instanceof Error ? e.message : e)); setState("error"); });
   };
@@ -41,30 +66,100 @@ export default function InventoryItems() {
   useEffect(() => {
     const t = setTimeout(load, search ? 300 : 0);
     return () => clearTimeout(t);
-  }, [skip, take, search, catFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [skip, take, search, catFilter, binView]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { void fetchCategories().then(setCats).catch(() => undefined); }, []);
+
+  const toggle = (id: string) => setTicked((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const allOnPageTicked = items.length > 0 && items.every((i) => ticked.has(i.idOne));
+
+  /** Run a bulk action. `whole` = everything matching the current filter (server-resolved),
+   *  otherwise just the ticked rows. Criteria mode always confirms with the SERVER's count. */
+  async function runBulk(action: BulkAction, whole: boolean, extra?: { value?: string; categoryId?: string }) {
+    setError(""); setNotice("");
+    try {
+      if (whole) {
+        const { count, capped, max } = await bulkCount(criteria());
+        if (count === 0) { setNotice("Nothing matches the current filter."); return; }
+        if (capped) { setError(`That filter matches ${count} items — over the ${max} limit. Narrow it first.`); return; }
+        if (!window.confirm(`${describe(action, extra, catName)} for ALL ${count} item${count === 1 ? "" : "s"} matching the current filter?\n\nThis cannot be undone from the UI (the change is audited with the previous values).`))
+          return;
+      } else if (!window.confirm(`${describe(action, extra, catName)} for the ${ticked.size} selected item${ticked.size === 1 ? "" : "s"}?`)) {
+        return;
+      }
+      setBulkBusy(true);
+      const r = await bulkItems({
+        action, value: extra?.value, categoryId: extra?.categoryId,
+        ...(whole ? { criteria: criteria() } : { ids: [...ticked] }),
+      });
+      setNotice(`${r.affected} item${r.affected === 1 ? "" : "s"}: ${r.detail}.`);
+      load();
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   return (
     <section className="panel">
       <div className="toolbar">
-        <h2 className="grow">Items</h2>
+        <h2 className="grow">{binView ? "Bin" : "Items"}</h2>
         <label>Category{" "}
           <select value={catFilter} onChange={(e) => { setSkip(0); setCatFilter(e.target.value); }}>
             <option value="">All</option>
             {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </label>
-        <button className="primary small" onClick={() => setEditing("new")}>+ Add item</button>
+        {!binView && <button className="primary small" onClick={() => setEditing("new")}>+ Add item</button>}
       </div>
+
+      {binView && (
+        <p className="muted small">
+          Binned items are hidden from the till, the webstore feed and the normal Items list — but
+          nothing is deleted, so past sales and reports still show them. Restore puts an item back
+          on sale.
+        </p>
+      )}
+
+      {canBulk && (
+        <BulkBar
+          binView={binView} cats={cats} busy={bulkBusy}
+          tickedCount={ticked.size} filterActive={!!search || !!catFilter}
+          onRun={runBulk}
+        />
+      )}
 
       {notice && <p className="small discount-note">{notice}</p>}
       {state === "error" && <p className="error">Could not load items: {error}</p>}
       <DataTable<CatalogueItem>
         columns={[
+          ...(canBulk ? [{
+            key: "tick",
+            label: "",
+            sortable: false,
+            render: (i: CatalogueItem) => (
+              <input type="checkbox" checked={ticked.has(i.idOne)} onChange={() => toggle(i.idOne)}
+                aria-label={`Select ${i.name}`} />
+            ),
+          }] : []),
           { key: "idOne", label: "Barcode / Id", render: (i) => <span className="mono small">{i.idOne}</span> },
           { key: "name", label: "Name" },
           { key: "brand", label: "Brand", render: (i) => (i.brand === "NOT EXIST" || i.brand === "-" ? "" : i.brand) },
           { key: "catId", label: "Category", render: (i) => catName.get(i.catId) ?? "—" },
+          {
+            key: "stock", label: "Stock", numeric: true, sortable: false,
+            render: (i) => {
+              const l = levels.get(i.idOne);
+              if (!l) return <span className="muted">…</span>;
+              if (l.untracked) return <span title="Stock isn't tracked for this item">∞</span>;
+              if (l.quantity == null) return <span className="muted" title="No stock record yet">—</span>;
+              return <span className={l.quantity < 0 ? "error" : undefined}>{l.quantity}</span>;
+            },
+          },
           { key: "price", label: "Price", numeric: true, render: (i) => gbp(Math.round(i.price * 100)) },
         ]}
         rows={items}
@@ -75,10 +170,27 @@ export default function InventoryItems() {
           onPage: (s, t) => { setSkip(s); setTake(t); },
         }}
         searchPlaceholder="Search name, barcode, brand…"
-        rowActions={(i) => <button className="ghost small" onClick={() => setEditing(i)}>Edit</button>}
+        rowActions={(i) => binView
+          ? <button className="ghost small" disabled={bulkBusy} onClick={async () => {
+              setBulkBusy(true);
+              try { await bulkItems({ action: "restore", ids: [i.idOne] }); setNotice(`${i.name} restored.`); load(); }
+              catch (e) { setError(String(e instanceof Error ? e.message : e)); }
+              finally { setBulkBusy(false); }
+            }}>Restore</button>
+          : <button className="ghost small" onClick={() => setEditing(i)}>Edit</button>}
         emptyText={state === "loading" ? "Loading…"
+          : binView ? "The Bin is empty."
           : `No items${search ? ` matching “${search}”` : ""}${catFilter ? ` in ${catName.get(catFilter) ?? "this category"}` : ""}.`}
       />
+
+      {canBulk && items.length > 0 && (
+        <div className="toolbar">
+          <button className="ghost small" onClick={() => setTicked(allOnPageTicked ? new Set() : new Set(items.map((i) => i.idOne)))}>
+            {allOnPageTicked ? "Clear page selection" : `Select all ${items.length} on this page`}
+          </button>
+          {ticked.size > 0 && <span className="muted small">{ticked.size} selected</span>}
+        </div>
+      )}
 
       {editing && (
         <ItemDialog
@@ -88,6 +200,88 @@ export default function InventoryItems() {
         />
       )}
     </section>
+  );
+}
+
+/** Human sentence for a bulk action, used in the confirmations so the operator reads what they're
+ *  about to do rather than an action code. */
+function describe(action: BulkAction, extra: { value?: string; categoryId?: string } | undefined,
+                  catName: Map<string, string>): string {
+  switch (action) {
+    case "set-category": return `Move to category "${catName.get(extra?.categoryId ?? "") ?? "?"}"`;
+    case "clear-category": return "Move to Uncategorised";
+    case "set-brand": return `Set brand to "${extra?.value}"`;
+    case "clear-brand": return "Clear the brand";
+    case "bin": return "Move to the Bin (hidden from sale, nothing deleted)";
+    case "restore": return "Restore from the Bin";
+    case "set-untracked": return "Stop tracking stock (∞)";
+    case "clear-untracked": return "Start tracking stock again";
+  }
+}
+
+/** FE5.3 bulk toolbar. Both selection scopes are explicit buttons — "selected" acts on the
+ *  tick-list, "all matching filter" is resolved SERVER-side and always confirms with the real
+ *  count, so it can't quietly act on more (or fewer) rows than the operator believes. */
+function BulkBar({ binView, cats, busy, tickedCount, filterActive, onRun }: {
+  binView: boolean;
+  cats: Category[];
+  busy: boolean;
+  tickedCount: number;
+  filterActive: boolean;
+  onRun: (action: BulkAction, whole: boolean, extra?: { value?: string; categoryId?: string }) => void;
+}) {
+  const [action, setAction] = useState<BulkAction>(binView ? "restore" : "set-category");
+  const [categoryId, setCategoryId] = useState("");
+  const [brand, setBrand] = useState("");
+  useEffect(() => { if (!categoryId && cats[0]) setCategoryId(cats[0].id); }, [cats]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const needsCategory = action === "set-category";
+  const needsBrand = action === "set-brand";
+  const ready = !needsCategory ? (!needsBrand || !!brand.trim()) : !!categoryId;
+  const extra = { value: brand.trim() || undefined, categoryId: categoryId || undefined };
+
+  const actions: { v: BulkAction; label: string }[] = binView
+    ? [{ v: "restore", label: "Restore from Bin" }]
+    : [
+        { v: "set-category", label: "Set category" },
+        { v: "clear-category", label: "Remove from category" },
+        { v: "set-brand", label: "Set brand" },
+        { v: "clear-brand", label: "Clear brand" },
+        { v: "set-untracked", label: "Stop tracking stock" },
+        { v: "clear-untracked", label: "Track stock again" },
+        { v: "bin", label: "Move to Bin" },
+      ];
+
+  return (
+    <div className="callout">
+      <div className="toolbar">
+        <strong className="small">Bulk edit</strong>
+        <select value={action} onChange={(e) => setAction(e.target.value as BulkAction)} disabled={busy}>
+          {actions.map((a) => <option key={a.v} value={a.v}>{a.label}</option>)}
+        </select>
+        {needsCategory && (
+          <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} disabled={busy}>
+            {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        )}
+        {needsBrand && (
+          <input placeholder="brand" value={brand} onChange={(e) => setBrand(e.target.value)} disabled={busy} />
+        )}
+        <button className="ghost small" disabled={busy || !ready || tickedCount === 0}
+          onClick={() => onRun(action, false, extra)}>
+          Apply to {tickedCount} selected
+        </button>
+        <button className="ghost small" disabled={busy || !ready}
+          title={filterActive ? "Every item matching the current search/category filter" : "EVERY item in the catalogue"}
+          onClick={() => onRun(action, true, extra)}>
+          Apply to all {filterActive ? "matching the filter" : "items"}…
+        </button>
+      </div>
+      <p className="muted small">
+        There's no undo button — but every bulk change is audited with the previous values, so a
+        mistake can be unpicked. Prices and VAT bands are deliberately not bulk-editable.
+      </p>
+    </div>
   );
 }
 
@@ -102,6 +296,7 @@ function ItemDialog({ item, cats, onClose, onDone }:
   const [price, setPrice] = useState(item ? String(item.price) : "");
   const [taxId, setTaxId] = useState<number>(item?.taxId ?? 0);
   const [catId, setCatId] = useState(item?.catId ?? "");
+  const [untracked, setUntracked] = useState(item?.stockUntracked ?? false); // FE5.5
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -121,6 +316,9 @@ function ItemDialog({ item, cats, onClose, onDone }:
     const input: ItemInput = {
       id: id.trim(), name: name.trim(), brand: brand.trim(), desc: desc.trim(),
       cost: parseFloat(cost) || 0, price: priceNum, exPrice: Math.round(exPrice * 100) / 100, taxId, catId,
+      // carried through so an edit can't reset them (see itemBody)
+      stockUntracked: untracked,
+      binnedAtUtc: item?.binnedAtUtc ?? null,
     };
     try {
       if (item) { await updateItem(input); onDone(`Updated ${input.name}.`); }
@@ -150,6 +348,15 @@ function ItemDialog({ item, cats, onClose, onDone }:
             </select>
           </label>
         </div>
+        <label className="chk">
+          <input type="checkbox" checked={untracked} onChange={(e) => setUntracked(e.target.checked)} disabled={busy} />
+          Don't track stock for this item
+        </label>
+        <p className="muted small">
+          For things that are effectively unlimited — carrier bags, back-issues. Sales are still
+          recorded and reported; only the stock count is skipped, and the item shows ∞ instead of a
+          number. Turning it back on resumes from the existing ledger level.
+        </p>
         <p className="muted small">Ex-VAT price: £{exPrice.toFixed(2)} (derived from the selected tax band; the server rejects a band mismatch)</p>
         {error && <p className="error small">{error}</p>}
         <div className="dialog-actions">

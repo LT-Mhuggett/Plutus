@@ -109,6 +109,17 @@ namespace Plutus.Catalogue
                 .ToList();
             if (lines.Count == 0) return;
 
+            // FE5.5: items flagged "don't track stock" (carrier bags, back-issues) post NO stock
+            // movement. The SaleLines are already written, so items-sold / best-seller reporting is
+            // unaffected — only the ledger skips them.
+            var idOnes = lines.Select(x => x.ItemIdOne).Distinct().ToList();
+            var untracked = (await _db.Items.IgnoreQueryFilters().AsNoTracking()
+                    .Where(i => idOnes.Contains(i.IdOne) && i.StockUntracked)
+                    .Select(i => i.IdOne).ToListAsync(ct))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            lines = lines.Where(x => !untracked.Contains(x.ItemIdOne)).ToList();
+            if (lines.Count == 0) return;
+
             var storeId = await ResolveStoreAsync(_db, sale.TillId, ct);
             var service = new StockLedgerService(_db);
             var location = await service.EnsureStoreLocationAsync(sale.TenantId, storeId, ct);

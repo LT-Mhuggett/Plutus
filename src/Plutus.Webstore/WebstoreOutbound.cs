@@ -99,7 +99,9 @@ namespace Plutus.Webstore
             var cutoff = DateTime.UtcNow - lookback;
 
             var recent = await db.Items.IgnoreQueryFilters().AsNoTracking()
-                .Where(i => i.CreatedAt >= cutoff)
+                // FE5.4: never push a binned item to the web — the Bin has to mean "gone from
+                // every selling surface", not just the ones that share ItemParameters.
+                .Where(i => i.CreatedAt >= cutoff && i.BinnedAtUtc == null)
                 .Select(i => new { i.IdOne, i.Name, i.Price })
                 .Take(100).ToListAsync(ct);
             if (recent.Count == 0) return 0;

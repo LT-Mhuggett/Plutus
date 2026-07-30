@@ -241,4 +241,51 @@ public class StockLedgerTests
         Assert.Equal(7, (await check.StockLevels.SingleAsync(l => l.ItemIdOne == "BRUSH-1")).Quantity);
         Assert.Equal(2, await check.StockMovements.CountAsync());
     }
+
+    /// <summary>
+    /// FE5.5: an item flagged "don't track stock" (carrier bags, back-issues) posts NO stock
+    /// movement when sold — but the sale and its line are recorded exactly as normal, so
+    /// items-sold / best-seller reporting is untouched. A tracked item in the SAME basket still
+    /// moves, which is the case a naive "skip the whole sale" implementation would break.
+    /// </summary>
+    [Fact]
+    public async Task An_untracked_item_records_the_sale_but_never_moves_stock()
+    {
+        using var conn = OpenSeeded();
+        using (var ctx = Ctx(conn))
+        {
+            ctx.Items.Add(new Item
+            {
+                IdOne = "BAG-1", IdTwo = BusinessId, Name = "Carrier bag", Brand = "-", Desc = "-",
+                Cost = 0, ExPrice = 0.04m, Price = 0.05m, TaxId = 1, CatId = Uuid7.New(),
+                StockUntracked = true,
+            });
+            ctx.Items.Add(new Item
+            {
+                IdOne = "COMIC-1", IdTwo = BusinessId, Name = "A comic", Brand = "-", Desc = "-",
+                Cost = 1, ExPrice = 1, Price = 1.2m, TaxId = 1, CatId = Uuid7.New(),
+                StockUntracked = false,
+            });
+            ctx.SaveChanges();
+        }
+
+        // one sale per item (the harness writes a single line per sale)
+        using (var ctx = Ctx(conn))
+        {
+            RecordSale(ctx, Uuid7.New(), "BAG-1", 3);
+            RecordSale(ctx, Uuid7.New(), "COMIC-1", 2);
+            await ctx.SaveChangesAsync();
+        }
+        await DrainAsync(conn);
+
+        using var check = Ctx(conn);
+        // the untracked item has NO level and NO movement…
+        Assert.Empty(check.StockLevels.Where(l => l.ItemIdOne == "BAG-1"));
+        Assert.Empty(check.StockMovements.Where(m => m.ItemIdOne == "BAG-1"));
+        // …while the tracked item in the same batch moved normally
+        Assert.Equal(-2, (await check.StockLevels.SingleAsync(l => l.ItemIdOne == "COMIC-1")).Quantity);
+        // and BOTH sales + their lines are recorded, so reporting sees the bags
+        Assert.Equal(2, await check.SalesV2.CountAsync());
+        Assert.Equal(1, await check.SaleLines.CountAsync(l => l.DiscountsJson.Contains("BAG-1")));
+    }
 }

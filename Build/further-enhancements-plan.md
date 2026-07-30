@@ -445,12 +445,43 @@ Per-item flag `StockUntracked bool` (tick box in the item dialog on BOTH portal 
 | WP | Scope | Status |
 |---|---|---|
 | FE5.0 | Server-side CatId filter + portal/till dropdown fix (bug). | ✅ 2026-07-30, deployed (`*-fe58` rollbacks) |
-| FE5.1 | Category → filtered Items click-through. | ☐ |
-| FE5.2 | Current-stock column (batched levels) portal + till. | ☐ |
-| FE5.3 | `inventory.bulk` perm + bulk endpoint + portal bulk UI (both selection modes). | ☐ |
-| FE5.4 | Bin: migration, exclusions, RBAC-gated Bin view with restore. | ☐ |
-| FE5.5 | `StockUntracked`: migration, consumer/API skips, UI tick box, report/outbound handling. | ☐ |
-| FE5.6 | Gate: tests (bulk criteria vs ids, bin exclusions, untracked sale posts no movement), deploy + `SeedMigrator rbac`. | ☐ |
+| FE5.1 | Category → filtered Items click-through. | ✅ 2026-07-30 |
+| FE5.2 | Current-stock column (batched levels) portal + till. | ✅ 2026-07-30 |
+| FE5.3 | `inventory.bulk` perm + bulk endpoint + portal bulk UI (both selection modes). | ✅ 2026-07-30 |
+| FE5.4 | Bin: migration, exclusions, RBAC-gated Bin view with restore. | ✅ 2026-07-30 |
+| FE5.5 | `StockUntracked`: migration, consumer/API skips, UI tick box, report/outbound handling. | ✅ 2026-07-30 |
+| FE5.6 | Gate: tests (bulk criteria vs ids, bin exclusions, untracked sale posts no movement), deploy + `SeedMigrator rbac`. | ✅ 2026-07-30 deployed — rollbacks `backend.pre-fe5`, portal/till `current.pre-fe5`, `seedmigrator.pre-fe5`; DB dump `plutus-pre-fe5-20260730.sql.gz` |
+
+### FE5 as built — four things worth knowing
+
+**1. The Bin needed FOUR exclusions, not one.** `ItemParameters` covers the lists, but three other
+paths read items directly and would each have leaked a withdrawn item:
+- **the till's barcode lookup** (`GET api/Item/{id}`) goes through the generic `FindById`, NOT the
+  filter — so a binned item could still be **scanned and sold**. `ItemController` now overrides it:
+  a binned barcode 404s exactly like an unknown one (verified live), with `?includeBinned=true` for
+  the Bin view;
+- **webstore outbound** (`PushNewItemDraftsAsync`) would have pushed binned items as web drafts;
+- **the webstore SKU resolver** would still match a binned SKU, silently selling a withdrawn item
+  online instead of routing the order to the review queue.
+
+**2. The legacy item PUT binds the WHOLE entity**, so `itemBody` in BOTH frontends had to echo the
+new columns back. Without that, an ordinary "edit item" would have cleared `StockUntracked` — and
+**silently un-binned a binned item**. Fixed in the portal and till, with the reason commented at
+both sites.
+
+**3. `[Required]` rejects empty strings**, which `Category.Description` is. The Uncategorised bucket
+had to be created with a real description; a test caught it before the code could fail on live data.
+
+**4. The SeedMigrator binary had to be rebuilt.** `RbacSeeder` compiles INTO it, so the 27-Jul binary
+on the Mac would have re-seeded the OLD permission set and silently not granted `inventory.bulk`.
+Republished, then run: grants landed on exactly Owner / Company Admin / Store Manager.
+
+**Live DoD run:** bulk count by filter (790 for "batman") · a user with **no roles** is 403'd (the
+right gate test — `perm:*` resolves from RBAC, not token scopes, so an Owner token passes whatever
+scope string it carries) · mark untracked → stock reads ∞ · bin → **barcode scan 404s** → appears in
+the Bin view → hidden from the normal list → restore → scannable again → untracked cleared ·
+ids+criteria together 400s. Live state left clean (0 binned, 0 untracked, no stray Uncategorised),
+with four `inventory.bulk.*` audit rows as the trail.
 
 **DoD:** pick any category in portal Items → correct items appear across pages (and on the
 till); click a category in Categories → filtered Items view; every item row shows current
@@ -840,8 +871,8 @@ Platform tab alone) and `web/current.pre-fe4`.
 2. **FE1 + FE2** (the loyalty slice — tiers then member cards).
 3. ~~**FE4** (table rollout)~~ — ✅ **COMPLETE 2026-07-30** (FE4.1–4.5, 29 tables).
 4. ~~**FE9** (users & roles)~~ — ✅ **COMPLETE 2026-07-30** (FE9.1–9.6; audit-slice link deferred).
-5. **FE5** remainder (stock column → bulk edit → bin → untracked stock).
-6. **FE6** (till identity + Locations IA).
+5. ~~**FE5** remainder~~ — ✅ **COMPLETE 2026-07-30** (FE5.0–5.6).
+6. **FE6** (till identity + Locations IA) ← **next**; also deletes `sortable.tsx`.
 7. **FE7** (gift cards — biggest new surface, benefits from FE2's scan-prefix pattern).
 8. **FE3** (hardware agent — independent; schedule around physical access to a till PC).
 

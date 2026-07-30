@@ -110,13 +110,18 @@ namespace Plutus.Identity
             // support.tickets → EVERY role (appended below).
             var roles = new List<(string, List<EffectivePermission>)>
             {
-                ("Owner", G(allPortal.Concat(allPos).Append(PermissionCatalogue.CustomersManage).Append(PermissionCatalogue.PosSettingsManage).ToArray())),
-                ("Company Admin", G(allPortal.Concat(allPos).Append(PermissionCatalogue.CustomersManage).Append(PermissionCatalogue.PosSettingsManage).ToArray())),
+                // FE5.3: inventory.bulk → Owner / Company Admin / Store Manager only (a single
+                // bulk action can move thousands of items, so it stays off Supervisor downwards).
+                ("Owner", G(allPortal.Concat(allPos).Append(PermissionCatalogue.CustomersManage)
+                    .Append(PermissionCatalogue.PosSettingsManage).Append(PermissionCatalogue.InventoryBulk).ToArray())),
+                ("Company Admin", G(allPortal.Concat(allPos).Append(PermissionCatalogue.CustomersManage)
+                    .Append(PermissionCatalogue.PosSettingsManage).Append(PermissionCatalogue.InventoryBulk).ToArray())),
                 ("Store Manager", G(new[]
                 {
                     PermissionCatalogue.PortalFinancialsView, PermissionCatalogue.PortalReportsView,
                     PermissionCatalogue.PortalStockAdjust, PermissionCatalogue.PortalTillsEnrol,
                     PermissionCatalogue.CustomersManage, PermissionCatalogue.PosSettingsManage,
+                    PermissionCatalogue.InventoryBulk,
                 }.Concat(allPos).ToArray())),
                 ("Supervisor", new List<EffectivePermission>
                 {

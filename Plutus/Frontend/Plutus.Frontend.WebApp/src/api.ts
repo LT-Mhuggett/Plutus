@@ -95,6 +95,17 @@ export interface Item {
   price: number;
   taxId: number;
   catId: string;
+  /** FE5.5 — stock isn't tracked for this item (bags, back-issues); shows ∞ instead of a count. */
+  stockUntracked?: boolean;
+  /** FE5.4 — binned items never reach the till (the API filters them); present for completeness. */
+  binnedAtUtc?: string | null;
+}
+
+// FE5.2: on-hand quantity for a page of items — one call, not one per row.
+export interface StockLevelLite { itemIdOne: string; untracked: boolean; quantity: number | null }
+export async function fetchStockLevelsFor(itemIdOnes: string[]): Promise<StockLevelLite[]> {
+  const res = await send("POST", "/api/v1/stock/levels/bulk", itemIdOnes);
+  return res.json();
 }
 
 export interface PayMethod {
@@ -699,6 +710,9 @@ export interface ItemInput {
   exPrice: number;
   taxId: number;
   catId: string;
+  /** FE5.5 — carried through an edit so the flag survives (see itemBody). */
+  stockUntracked?: boolean;
+  binnedAtUtc?: string | null;
 }
 
 const itemBody = (i: ItemInput) => ({
@@ -717,6 +731,10 @@ const itemBody = (i: ItemInput) => ({
   taxId: i.taxId,
   catId: i.catId,
   businessId: BUSINESS_ID,
+  // FE5.4/5.5: the PUT binds the WHOLE entity, so these must be echoed back — otherwise an
+  // ordinary edit here would clear the untracked flag or silently un-bin a binned item.
+  stockUntracked: i.stockUntracked ?? false,
+  binnedAtUtc: i.binnedAtUtc ?? null,
 });
 
 export const createItem = (i: ItemInput) => send("POST", `/api/Item`, itemBody(i));

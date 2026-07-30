@@ -105,3 +105,10 @@ export function signOut(): void {
   clearSession();
   window.location.reload();
 }
+
+/** FE5.3: does this session hold `inventory.bulk`? UI-only — the backend gates every bulk
+ *  endpoint on the same permission regardless, so hiding the toolbar is convenience, not
+ *  security. (Same pattern as isPlatformAdmin above.) */
+export function canBulkEditInventory(): boolean {
+  return currentScopes().includes("inventory.bulk");
+}

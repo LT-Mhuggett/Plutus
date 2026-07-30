@@ -17,6 +17,10 @@ public static class PermissionCatalogue
     public const string PortalFinancialsView = "portal.financials.view";
     public const string PortalUsersManage = "portal.users.manage";
     public const string PortalStockAdjust = "portal.stock.adjust";
+    /// <summary>FE5.3: bulk catalogue edits (re-category, re-brand, move to the Bin) and the Bin
+    /// view itself. Deliberately separate from portal.stock.adjust — one mistake here moves
+    /// thousands of items, so it is granted to Owner / Company Admin / Store Manager only.</summary>
+    public const string InventoryBulk = "inventory.bulk";
     public const string PortalPricesManage = "portal.prices.manage";
     public const string PortalTillsEnrol = "portal.tills.enrol";
     public const string PortalReportsView = "portal.reports.view";
@@ -47,6 +51,7 @@ public static class PermissionCatalogue
     {
         PortalFinancialsView, PortalUsersManage, PortalStockAdjust, PortalPricesManage,
         PortalTillsEnrol, PortalReportsView, PortalCompanyManage, CustomersManage, SupportTickets,
+        InventoryBulk,
         PosSell, PosRefund, PosVoid, PosDiscount, PosPriceOverride, PosNoSale, PosReportsView, PosSettingsManage,
     };
 
@@ -73,6 +78,7 @@ public static class PermissionCatalogue
     {
         CustomersManage => "Customers",
         SupportTickets => "Support",
+        InventoryBulk => "Portal",
         _ when code != null && code.StartsWith("portal.", StringComparison.Ordinal) => "Portal",
         _ when code != null && code.StartsWith("pos.", StringComparison.Ordinal) => "Till (POS)",
         _ => "Other",
@@ -88,6 +94,7 @@ public static class PermissionCatalogue
         [PortalFinancialsView] = "See takings, banking and financial periods in the portal.",
         [PortalUsersManage] = "Add and edit staff users, set their passwords, and grant or remove roles.",
         [PortalStockAdjust] = "Adjust stock levels, run stock-takes and move stock between locations.",
+        [InventoryBulk] = "Bulk-edit the catalogue — change category or brand on many items at once, move items to the Bin, and see/restore the Bin.",
         [PortalPricesManage] = "Change prices — the central price list and per-store overrides.",
         [PortalTillsEnrol] = "Create tills, issue enrolment codes, and revoke or un-enrol devices.",
         [PortalReportsView] = "View reports (sales, items sold, VAT, stock).",
