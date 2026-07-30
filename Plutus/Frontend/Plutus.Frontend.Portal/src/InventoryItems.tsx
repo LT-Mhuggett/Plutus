@@ -7,8 +7,8 @@ import {
 // WP4.2/4.3 portal item catalogue: add/edit items (name, brand, cost, price inc VAT with ex-VAT
 // derived, tax band, category) — parity with the till's inventory dialog, reusing the guardrailed
 // legacy api/Item so the VAT band check applies identically. The list is server-paged (the legacy
-// Index has no total, so it's a Prev/Next pager, not the standard DataTable); the Category filter
-// narrows the CURRENT page.
+// Index has no total, so it's a Prev/Next pager, not the standard DataTable). FE5.0: the Category
+// filter is SERVER-side (it used to narrow only the fetched page, usually showing nothing).
 
 const PAGE_SIZE_DEFAULT = 25;
 
@@ -29,14 +29,14 @@ export default function InventoryItems() {
 
   const load = () => {
     setState("loading");
-    fetchCatalogueItems(page, size, applied)
+    fetchCatalogueItems(page, size, applied, catFilter)
       .then((data) => { setItems(data); setState("ready"); })
       .catch((e) => { setError(String(e instanceof Error ? e.message : e)); setState("error"); });
   };
-  useEffect(load, [page, size, applied]);
+  useEffect(load, [page, size, applied, catFilter]);
   useEffect(() => { void fetchCategories().then(setCats).catch(() => undefined); }, []);
 
-  const shown = catFilter ? items.filter((i) => i.catId === catFilter) : items;
+  const shown = items;
 
   return (
     <section className="panel">
@@ -50,8 +50,8 @@ export default function InventoryItems() {
           onKeyDown={(e) => { if (e.key === "Enter") { setPage(1); setApplied(search.trim()); } }} />
         <button className="ghost small" onClick={() => { setPage(1); setApplied(search.trim()); }}>Search</button>
         <label>Category{" "}
-          <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)}>
-            <option value="">All (this page)</option>
+          <select value={catFilter} onChange={(e) => { setPage(1); setCatFilter(e.target.value); }}>
+            <option value="">All</option>
             {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </label>
@@ -65,7 +65,7 @@ export default function InventoryItems() {
       {notice && <p className="small discount-note">{notice}</p>}
       {state === "error" && <p className="error">Could not load items: {error}</p>}
       {state === "loading" && <p className="muted">Loading…</p>}
-      {state === "ready" && shown.length === 0 && <p className="muted">No items{applied ? ` matching “${applied}”` : ""}{catFilter ? " in this category on this page" : ""}.</p>}
+      {state === "ready" && shown.length === 0 && <p className="muted">No items{applied ? ` matching “${applied}”` : ""}{catFilter ? ` in ${catName.get(catFilter) ?? "this category"}` : ""}.</p>}
       {state === "ready" && shown.length > 0 && (
         <table>
           <thead><tr>

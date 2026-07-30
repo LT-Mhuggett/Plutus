@@ -54,12 +54,32 @@ export async function cacheItems(items: Item[]): Promise<void> {
 export const cachedItemById = (id: string): Promise<Item | undefined> =>
   tx("items", "readonly", (s) => s.get(id) as IDBRequest<Item | undefined>);
 
+/** Mirror of the server's ItemParameters.Tokenise (keep in sync). Word mode: quoted
+ *  segments are literal-phrase tokens (unclosed quote runs to end), the rest splits on
+ *  whitespace. Phrase mode: whole input (quotes stripped) is one token. */
+export function searchTokens(term: string, matchAllWords: boolean): string[] {
+  const lower = term.toLowerCase();
+  if (!matchAllWords) {
+    const phrase = lower.replace(/"/g, "").trim();
+    return phrase ? [phrase] : [];
+  }
+  const tokens: string[] = [];
+  lower.split('"').forEach((part, i) => {
+    if (i % 2 === 1) {
+      const phrase = part.trim();
+      if (phrase) tokens.push(phrase);
+    } else {
+      tokens.push(...part.split(/\s+/).filter(Boolean));
+    }
+  });
+  return tokens;
+}
+
 export async function cachedItemSearch(term: string, limit = 8, matchAllWords = false): Promise<Item[]> {
   const all = await tx("items", "readonly", (s) => s.getAll() as IDBRequest<Item[]>);
-  // mirror the server's ItemParameters: match-each-word when the pref is on, whole phrase otherwise
-  const words = matchAllWords ? term.toLowerCase().split(/\s+/).filter(Boolean) : [term.toLowerCase()];
+  const tokens = searchTokens(term, matchAllWords);
   return all
-    .filter((i) => words.every((q) => i.name.toLowerCase().includes(q) || i.idOne.toLowerCase().includes(q) || i.brand.toLowerCase().includes(q)))
+    .filter((i) => tokens.every((q) => i.name.toLowerCase().includes(q) || i.idOne.toLowerCase().includes(q) || i.brand.toLowerCase().includes(q)))
     .slice(0, limit);
 }
 

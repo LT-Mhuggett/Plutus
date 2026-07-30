@@ -62,5 +62,67 @@ namespace Plutus.Tests.Unit
             Assert.True(Matches(new ItemParameters { Search = "batman" }, item));
             Assert.True(Matches(new ItemParameters { Search = "batman", MatchAllWords = true }, item));
         }
+
+        // ── FE8.1: quoted segments are literal phrases, composing with words ──
+
+        [Fact]
+        public void Quoted_phrase_is_literal_even_in_word_mode()
+        {
+            var p = new ItemParameters { Search = "\"batman one\"", MatchAllWords = true };
+            Assert.False(Matches(p, MakeItem("Batman Year One")));
+            Assert.True(Matches(p, MakeItem("Batman One Bad Day")));
+        }
+
+        [Fact]
+        public void Mixed_phrase_and_word_compose()
+        {
+            var p = new ItemParameters { Search = "\"year one\" batman", MatchAllWords = true };
+            Assert.True(Matches(p, MakeItem("Batman: Year One")));
+            Assert.False(Matches(p, MakeItem("Spider-Man: Year One"))); // phrase hits, word doesn't
+            Assert.False(Matches(p, MakeItem("Batman: One Year Later"))); // word hits, phrase doesn't
+        }
+
+        [Fact]
+        public void Unclosed_quote_runs_to_end_of_input()
+        {
+            var p = new ItemParameters { Search = "\"year one", MatchAllWords = true };
+            Assert.True(Matches(p, MakeItem("Batman: Year One")));
+            Assert.False(Matches(p, MakeItem("Batman: One Year Later")));
+        }
+
+        [Fact]
+        public void Quotes_only_input_matches_everything()
+        {
+            // no tokens → only the date-window base filter applies
+            var p = new ItemParameters { Search = "\"\"", MatchAllWords = true };
+            Assert.True(Matches(p, MakeItem("Anything")));
+        }
+
+        [Fact]
+        public void Phrase_mode_strips_quotes_and_stays_whole_phrase()
+        {
+            var p = new ItemParameters { Search = "\"batman one\"" }; // MatchAllWords off
+            Assert.True(Matches(p, MakeItem("Batman One Bad Day")));
+            Assert.False(Matches(p, MakeItem("Batman Year One")));
+        }
+
+        // ── FE5.0: server-side category filter ──
+
+        [Fact]
+        public void CatId_filters_and_composes_with_search()
+        {
+            var comics = Guid.NewGuid();
+            var toys = Guid.NewGuid();
+            var inComics = MakeItem("Batman Year One"); inComics.CatId = comics;
+            var inToys = MakeItem("Batman Figure"); inToys.CatId = toys;
+
+            var catOnly = new ItemParameters { CatId = comics };
+            Assert.True(Matches(catOnly, inComics));
+            Assert.False(Matches(catOnly, inToys));
+
+            var both = new ItemParameters { CatId = toys, Search = "batman", MatchAllWords = true };
+            Assert.False(Matches(both, inComics));
+            Assert.True(Matches(both, inToys));
+        }
     }
 }

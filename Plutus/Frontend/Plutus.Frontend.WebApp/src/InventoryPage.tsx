@@ -21,6 +21,7 @@ export default function InventoryPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [applied, setApplied] = useState("");
+  const [catFilter, setCatFilter] = useState(""); // FE5.0: server-side category filter
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Item | "new" | null>(null);
@@ -32,7 +33,7 @@ export default function InventoryPage() {
 
   function load() {
     setState("loading");
-    fetchItems(page, PAGE_SIZE, applied)
+    fetchItems(page, PAGE_SIZE, applied, catFilter)
       .then((data) => {
         setItems(data);
         setState("ready");
@@ -43,7 +44,7 @@ export default function InventoryPage() {
       });
   }
 
-  useEffect(load, [page, applied]);
+  useEffect(load, [page, applied, catFilter]);
 
   return (
     <section className="panel">
@@ -64,6 +65,12 @@ export default function InventoryPage() {
             }
           }}
         />
+        <label className="small">Category{" "}
+          <select value={catFilter} onChange={(e) => { setPage(1); setCatFilter(e.target.value); }}>
+            <option value="">All</option>
+            {cats.map((c) => <option key={c.idOne} value={c.idOne}>{c.name}</option>)}
+          </select>
+        </label>
         <nav className="pager">
           <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1 || state === "loading"}>
             ‹ Prev

@@ -412,9 +412,12 @@ export interface ItemInput {
 export const fetchTaxes = () => legacy<Tax[]>("GET", `/api/Tax/Index?PageNumber=1&PageSize=50`);
 // The legacy Item/Index rows already carry every field the edit dialog needs (brand, cost, tax,
 // catId), so the list row IS the edit payload — no separate detail fetch.
-export const fetchCatalogueItems = (pageNumber: number, pageSize: number, search = "") =>
+export const fetchCatalogueItems = (pageNumber: number, pageSize: number, search = "", catId = "") =>
   legacy<CatalogueItem[]>("GET",
-    `/api/Item/Index?PageNumber=${pageNumber}&PageSize=${pageSize}` + (search ? `&Search=${encodeURIComponent(search)}` : ""));
+    `/api/Item/Index?PageNumber=${pageNumber}&PageSize=${pageSize}` +
+      (search ? `&Search=${encodeURIComponent(search)}` : "") +
+      // FE5.0: category filtering is server-side (client-side over one page showed nothing)
+      (catId ? `&CatId=${encodeURIComponent(catId)}` : ""));
 
 // PUT/POST bind the full legacy entity — the composite key + businessId must be present, and the
 // server overrides exPrice from the tax band (the VAT guardrail), so we send our derived value
@@ -557,6 +560,8 @@ export interface TillRow {
   name: string;
   storeId: number;
   lastOnline: string;
+  /** true = the virtual till a webstore connection sells through (not an enrollable device) */
+  isWebstore: boolean;
   devices: { id: string; status: string; lastSeenSeq: number; createdAtUtc: string }[];
 }
 export const fetchTills = () => get<TillRow[]>(`/api/v1/tills`);

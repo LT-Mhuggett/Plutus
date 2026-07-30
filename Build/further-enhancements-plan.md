@@ -345,7 +345,7 @@ Per-item flag `StockUntracked bool` (tick box in the item dialog on BOTH portal 
 
 | WP | Scope | Status |
 |---|---|---|
-| FE5.0 | Server-side CatId filter + portal/till dropdown fix (bug). | ☐ |
+| FE5.0 | Server-side CatId filter + portal/till dropdown fix (bug). | ✅ 2026-07-30, deployed (`*-fe58` rollbacks) |
 | FE5.1 | Category → filtered Items click-through. | ☐ |
 | FE5.2 | Current-stock column (batched levels) portal + till. | ☐ |
 | FE5.3 | `inventory.bulk` perm + bulk endpoint + portal bulk UI (both selection modes). | ☐ |
@@ -539,8 +539,8 @@ phrase only, regardless of the word-matching toggle; mixed input composes, e.g.
 
 | WP | Scope | Status |
 |---|---|---|
-| FE8.1 | Tokeniser in ItemParameters + offline mirror + tests + toggle help text. | ☐ |
-| FE8.2 | Deploy (backend + till). | ☐ |
+| FE8.1 | Tokeniser in ItemParameters + offline mirror + tests + toggle help text. | ✅ 2026-07-30 |
+| FE8.2 | Deploy (backend + till). | ✅ 2026-07-30 (`*-fe58` rollbacks; verified live: quoted=11 literal hits vs 40 word-mode, mixed composes) | 
 
 **DoD:** `"batman one"` finds only literal "…batman one…" (not Batman Year One);
 `"year one" batman` finds Batman Year One but not other "year one" titles; behaviour

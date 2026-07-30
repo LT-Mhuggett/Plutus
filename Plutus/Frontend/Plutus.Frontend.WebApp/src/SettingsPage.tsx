@@ -266,7 +266,7 @@ export default function SettingsPage() {
       <label className="setting-row">
         <span className="grow">
           Item search matches each word
-          <span className="muted small block">On: “batman one” finds “Batman Year One”. Off: the whole phrase must appear in the name/barcode/brand.</span>
+          <span className="muted small block">On: “batman one” finds “Batman Year One”; wrap words in quotes ("batman one") for an exact phrase. Off: the whole phrase must always appear in the name/barcode/brand.</span>
         </span>
         <input type="checkbox" checked={prefs.matchAllWords} disabled={!canSettings} onChange={() => toggle("matchAllWords")} />
       </label>

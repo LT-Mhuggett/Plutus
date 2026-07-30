@@ -148,12 +148,14 @@ async function send(method: string, url: string, body?: unknown, extraHeaders?: 
   return res;
 }
 
-export const fetchItems = (pageNumber: number, pageSize: number, search = "") =>
+export const fetchItems = (pageNumber: number, pageSize: number, search = "", catId = "") =>
   get<Item[]>(
     `/api/Item/Index?PageNumber=${pageNumber}&PageSize=${pageSize}` +
       (search ? `&Search=${encodeURIComponent(search)}` : "") +
       // device pref: match each word ("batman one" → "Batman Year One"); server default is whole-phrase
-      (search && getPrefs().matchAllWords ? "&MatchAllWords=true" : ""),
+      (search && getPrefs().matchAllWords ? "&MatchAllWords=true" : "") +
+      // FE5.0: server-side category filter (was client-side over one page — showed nothing)
+      (catId ? `&CatId=${encodeURIComponent(catId)}` : ""),
   );
 
 /** Till scan-bar search — ALL matches (server-filtered, no paging: the generic Index caps
