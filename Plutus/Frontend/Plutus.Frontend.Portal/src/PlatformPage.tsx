@@ -12,10 +12,16 @@ import {
   fetchTickets, fetchOperatorThread, operatorReply, setTicket, SUPPORT_STATUS, SUPPORT_SEVERITY, type TicketRow, type TicketMessage,
   type PlatformTenant, type UsageSummaryRow, type HealthResponse, type HealthTenantRow,
   type HealthDrillRow, type AlertRow, type JobRow, type OverrideRow, type FlagRow, type AnnouncementRow, type SlaResponse,
-  type SignalRow, type ContractRow, type MarginResponse, type AnalyticsResponse, type ConnectorRow,
+  type SignalRow, type ContractRow, type MarginResponse, type MarginRow, type AnalyticsResponse, type ConnectorRow,
   type ProviderInfo, type NotificationConfigRow, type MessageEventRow,
 } from "./api.ts";
 import { beginImpersonation } from "./auth.ts";
+import DataTable from "./DataTable.tsx";
+
+// FE4.5 row aliases for tables whose rows the API nests inside a response object.
+type AdoptionRow = AnalyticsResponse["adoption"][number];
+type RouteGroupRow = AnalyticsResponse["routeGroups"][number];
+type ConsumerLagRow = HealthResponse["consumerLag"][number];
 
 // WP13.4 operator dashboard (platform-admin only). Three screens answering "is anyone having a
 // bad day?": Tenants (usage sparkline + health dot, drill to a tenant's p95), Health (error/lag/
@@ -106,21 +112,20 @@ function TicketsScreen() {
           </select>
         </label>
       </div>
-      <table>
-        <thead><tr><th>Subscriber</th><th>Subject</th><th>Severity</th><th>Status</th><th>Updated</th><th /></tr></thead>
-        <tbody>
-          {tickets.map((t) => (
-            <tr key={t.id}>
-              <td>{t.tenant}</td><td>{t.subject}</td>
-              <td>{SUPPORT_SEVERITY[t.severity] ?? t.severity}</td>
-              <td>{SUPPORT_STATUS[t.status] ?? t.status}</td>
-              <td className="small">{new Date(t.updatedAtUtc + "Z").toLocaleString("en-GB")}</td>
-              <td><button className="ghost small" onClick={() => setOpenId(t.id)}>Open</button></td>
-            </tr>
-          ))}
-          {tickets.length === 0 && !error && <tr><td colSpan={6} className="muted">No tickets.</td></tr>}
-        </tbody>
-      </table>
+      <DataTable<TicketRow>
+        columns={[
+          { key: "tenant", label: "Subscriber", render: (t) => t.tenant ?? "—" },
+          { key: "subject", label: "Subject" },
+          { key: "severity", label: "Severity", render: (t) => SUPPORT_SEVERITY[t.severity] ?? String(t.severity) },
+          { key: "status", label: "Status", render: (t) => SUPPORT_STATUS[t.status] ?? String(t.status) },
+          { key: "updatedAtUtc", label: "Updated", render: (t) => <span className="small">{new Date(t.updatedAtUtc + "Z").toLocaleString("en-GB")}</span> },
+        ]}
+        rows={tickets} getKey={(t) => t.id} initialSortKey="updatedAtUtc" initialSortDir="desc"
+        search={(t) => `${t.tenant ?? ""} ${t.subject} ${t.raisedByName}`}
+        searchPlaceholder="Search subscriber / subject…"
+        rowActions={(t) => <button className="ghost small" onClick={() => setOpenId(t.id)}>Open</button>}
+        emptyText="No tickets."
+      />
     </>
   );
 }
@@ -190,26 +195,26 @@ function PlansScreen() {
         <button className="primary small" disabled={!form.name.trim()} onClick={save}>{form.id ? "Update" : "Create"} plan</button>
         {form.id && <button className="ghost small" onClick={reset}>Cancel</button>}
       </div>
-      <table>
-        <thead><tr><th>Plan</th><th className="num">£/mo</th><th>Entitlements</th><th>Active</th><th className="num">Tenants</th><th /></tr></thead>
-        <tbody>
-          {plans.map((p) => (
-            <tr key={p.id}>
-              <td>{p.name}</td>
-              <td className="num">{pounds(p.pricePenceMonthly)}</td>
-              <td className="small mono">{p.entitlements.join(", ") || "—"}</td>
-              <td>{p.active ? "yes" : "no"}</td>
-              <td className="num">{p.tenantCount}</td>
-              <td>
-                <button className="ghost small" onClick={() => edit(p)}>Edit</button>
-                <button className="ghost small" disabled={p.tenantCount > 0} title={p.tenantCount > 0 ? "reassign tenants first" : ""}
-                  onClick={() => { if (confirm(`Delete plan "${p.name}"?`)) void deletePlan(p.id).then(refresh).catch((e) => setError(String(e))); }}>Delete</button>
-              </td>
-            </tr>
-          ))}
-          {plans.length === 0 && !error && <tr><td colSpan={6} className="muted">No plans yet — create one above.</td></tr>}
-        </tbody>
-      </table>
+      <DataTable<PlanRow>
+        columns={[
+          { key: "name", label: "Plan" },
+          { key: "pricePenceMonthly", label: "£/mo", numeric: true, render: (p) => pounds(p.pricePenceMonthly) },
+          { key: "entitlements", label: "Entitlements", sortable: false, render: (p) => <span className="small mono">{p.entitlements.join(", ") || "—"}</span> },
+          { key: "active", label: "Active", render: (p) => (p.active ? "yes" : "no") },
+          { key: "tenantCount", label: "Tenants", numeric: true },
+        ]}
+        rows={plans} getKey={(p) => p.id} initialSortKey="name"
+        search={(p) => `${p.name} ${p.entitlements.join(" ")}`}
+        searchPlaceholder="Search plan / entitlement…"
+        rowActions={(p) => (
+          <>
+            <button className="ghost small" onClick={() => edit(p)}>Edit</button>
+            <button className="ghost small" disabled={p.tenantCount > 0} title={p.tenantCount > 0 ? "reassign tenants first" : ""}
+              onClick={() => { if (confirm(`Delete plan "${p.name}"?`)) void deletePlan(p.id).then(refresh).catch((e) => setError(String(e))); }}>Delete</button>
+          </>
+        )}
+        emptyText="No plans yet — create one above."
+      />
     </>
   );
 }
@@ -356,22 +361,21 @@ function NotificationsScreen() {
       </div>
 
       <h4>Delivery log</h4>
-      <table>
-        <thead><tr><th>When</th><th>Ch</th><th>To</th><th>From</th><th>Status</th><th>Detail</th></tr></thead>
-        <tbody>
-          {events.map((e, i) => (
-            <tr key={i}>
-              <td className="small">{new Date(e.atUtc + "Z").toLocaleString("en-GB")}</td>
-              <td>{e.channel === 0 ? "email" : "sms"}</td>
-              <td className="small">{e.toAddress}</td>
-              <td className="small">{e.fromAddress}</td>
-              <td>{STATUS[e.status] ?? e.status}</td>
-              <td className="small">{e.detail ?? "—"}</td>
-            </tr>
-          ))}
-          {events.length === 0 && <tr><td colSpan={6} className="muted">No messages sent yet.</td></tr>}
-        </tbody>
-      </table>
+      <DataTable<MessageEventRow>
+        columns={[
+          { key: "atUtc", label: "When", render: (e) => <span className="small">{new Date(e.atUtc + "Z").toLocaleString("en-GB")}</span> },
+          { key: "channel", label: "Ch", render: (e) => (e.channel === 0 ? "email" : "sms") },
+          { key: "toAddress", label: "To", render: (e) => <span className="small">{e.toAddress}</span> },
+          { key: "fromAddress", label: "From", render: (e) => <span className="small">{e.fromAddress}</span> },
+          { key: "status", label: "Status", render: (e) => STATUS[e.status] ?? String(e.status) },
+          { key: "detail", label: "Detail", render: (e) => <span className="small">{e.detail ?? "—"}</span> },
+        ]}
+        rows={events} getKey={(e) => `${e.atUtc}-${e.toAddress}-${e.channel}`}
+        initialSortKey="atUtc" initialSortDir="desc"
+        search={(e) => `${e.toAddress} ${e.fromAddress} ${e.detail ?? ""} ${e.tenantId}`}
+        searchPlaceholder="Search recipient / detail…"
+        emptyText="No messages sent yet."
+      />
     </>
   );
 }
@@ -390,23 +394,24 @@ function CommercialScreen() {
   return (
     <>
       <p className="muted small">Advisory. Revenue from the contract price; cost = share of {pounds(margin.monthlyInfraPence)}/mo infra (by 30-day sales activity) + direct costs. Single shared box — not metered allocation.</p>
-      <table>
-        <thead><tr><th>Tenant</th><th className="num">Activity</th><th className="num">Revenue</th><th className="num">Infra</th><th className="num">Direct</th><th className="num">Cost</th><th className="num">Margin</th></tr></thead>
-        <tbody>
-          {margin.tenants.map((t) => (
-            <tr key={t.tenantId}>
-              <td>{t.name}</td>
-              <td className="num">{(t.activityShare * 100).toFixed(1)}%</td>
-              <td className="num">{pounds(t.revenuePence)}</td>
-              <td className="num">{pounds(t.attributedInfraPence)}</td>
-              <td className="num">{pounds(t.directCostPence)}</td>
-              <td className="num">{pounds(t.costPence)}</td>
-              <td className="num" style={{ color: t.marginPence >= 0 ? "#16a34a" : "#dc2626" }}>{pounds(t.marginPence)}</td>
-            </tr>
-          ))}
-          {margin.tenants.length === 0 && <tr><td colSpan={7} className="muted">No tenants.</td></tr>}
-        </tbody>
-      </table>
+      <DataTable<MarginRow>
+        columns={[
+          { key: "name", label: "Tenant" },
+          { key: "activityShare", label: "Activity", numeric: true, render: (t) => `${(t.activityShare * 100).toFixed(1)}%` },
+          { key: "revenuePence", label: "Revenue", numeric: true, render: (t) => pounds(t.revenuePence) },
+          { key: "attributedInfraPence", label: "Infra", numeric: true, render: (t) => pounds(t.attributedInfraPence) },
+          { key: "directCostPence", label: "Direct", numeric: true, render: (t) => pounds(t.directCostPence) },
+          { key: "costPence", label: "Cost", numeric: true, render: (t) => pounds(t.costPence) },
+          {
+            key: "marginPence", label: "Margin", numeric: true,
+            render: (t) => <span style={{ color: t.marginPence >= 0 ? "#16a34a" : "#dc2626" }}>{pounds(t.marginPence)}</span>,
+          },
+        ]}
+        rows={margin.tenants} getKey={(t) => t.tenantId} initialSortKey="marginPence" initialSortDir="desc"
+        search={(t) => t.name}
+        searchPlaceholder="Search tenant…"
+        emptyText="No tenants."
+      />
     </>
   );
 }
@@ -421,22 +426,33 @@ function AnalyticsScreen() {
     <>
       <p className="muted small">Aggregate-only, anonymised. {a.from} → {a.to}. Metrics with fewer than {a.kAnonymityFloor} contributing tenants are suppressed (k-anonymity).</p>
       <h4>Feature adoption</h4>
-      <table>
-        <thead><tr><th>Metric</th><th className="num">Tenants using</th><th className="num">Total uses</th></tr></thead>
-        <tbody>
-          {a.adoption.map((m) => <tr key={m.metric}><td className="mono">{m.metric}</td><td className="num">{m.tenantsUsing}</td><td className="num">{m.totalUses}</td></tr>)}
-          {a.adoption.length === 0 && <tr><td colSpan={3} className="muted">Nothing above the k-anonymity floor yet.</td></tr>}
-        </tbody>
-      </table>
+      <DataTable<AdoptionRow>
+        columns={[
+          { key: "metric", label: "Metric", render: (m) => <span className="mono">{m.metric}</span> },
+          { key: "tenantsUsing", label: "Tenants using", numeric: true },
+          { key: "totalUses", label: "Total uses", numeric: true },
+        ]}
+        rows={a.adoption} getKey={(m) => m.metric} initialSortKey="totalUses" initialSortDir="desc"
+        search={(m) => m.metric}
+        searchPlaceholder="Search metric…"
+        emptyText="Nothing above the k-anonymity floor yet."
+      />
       <h4>Surface activity (route groups)</h4>
-      <table>
-        <thead><tr><th>Route group</th><th className="num">Tenants active</th><th className="num">Requests</th></tr></thead>
-        <tbody>
-          {a.routeGroups.map((r) => <tr key={r.routeGroup}><td className="mono">{r.routeGroup}</td><td className="num">{r.tenantsActive}</td><td className="num">{r.requests}</td></tr>)}
-          {a.routeGroups.length === 0 && <tr><td colSpan={3} className="muted">Nothing above the k-anonymity floor yet.</td></tr>}
-        </tbody>
-      </table>
+      <DataTable<RouteGroupRow>
+        columns={[
+          { key: "routeGroup", label: "Route group", render: (r) => <span className="mono">{r.routeGroup}</span> },
+          { key: "tenantsActive", label: "Tenants active", numeric: true },
+          { key: "requests", label: "Requests", numeric: true },
+        ]}
+        rows={a.routeGroups} getKey={(r) => r.routeGroup} initialSortKey="requests" initialSortDir="desc"
+        search={(r) => r.routeGroup}
+        searchPlaceholder="Search route group…"
+        emptyText="Nothing above the k-anonymity floor yet."
+      />
       <h4>Login → sale funnel (coarse)</h4>
+      {/* FE4.5: deliberately NOT a DataTable — the funnel is a fixed ordered sequence of stages
+          (that order IS the meaning), so sorting or paging it would only destroy information.
+          Same call as VAT-by-band and the payment split. */}
       <table>
         <thead><tr><th>Stage</th><th className="num">Tenants</th><th className="num">Volume</th></tr></thead>
         <tbody>
@@ -480,20 +496,22 @@ function CommsScreen() {
         <label>Tenants <input className="mono" placeholder="all (or comma guids)" value={form.tenantIds} onChange={(e) => setForm({ ...form, tenantIds: e.target.value })} /></label>
         <button className="primary small" disabled={!form.title.trim()} onClick={submit}>Publish</button>
       </div>
-      <table>
-        <thead><tr><th>Severity</th><th>Title</th><th>Window</th><th>Targets</th><th /></tr></thead>
-        <tbody>
-          {items.map((a) => (
-            <tr key={a.id}>
-              <td>{a.severity}</td><td>{a.title}</td>
-              <td className="small">{new Date(a.startsAtUtc + "Z").toLocaleString("en-GB")} → {new Date(a.endsAtUtc + "Z").toLocaleString("en-GB")}</td>
-              <td className="small">{a.tenantIds ? "targeted" : "all"}</td>
-              <td><button className="ghost small" onClick={() => void deleteAnnouncement(a.id).then(refresh)}>Delete</button></td>
-            </tr>
-          ))}
-          {items.length === 0 && !error && <tr><td colSpan={5} className="muted">No announcements.</td></tr>}
-        </tbody>
-      </table>
+      <DataTable<AnnouncementRow>
+        columns={[
+          { key: "severity", label: "Severity" },
+          { key: "title", label: "Title" },
+          {
+            key: "startsAtUtc", label: "Window",
+            render: (a) => <span className="small">{new Date(a.startsAtUtc + "Z").toLocaleString("en-GB")} → {new Date(a.endsAtUtc + "Z").toLocaleString("en-GB")}</span>,
+          },
+          { key: "tenantIds", label: "Targets", render: (a) => <span className="small">{a.tenantIds ? "targeted" : "all"}</span> },
+        ]}
+        rows={items} getKey={(a) => a.id} initialSortKey="startsAtUtc" initialSortDir="desc"
+        search={(a) => `${a.title} ${a.severity} ${a.body}`}
+        searchPlaceholder="Search title / severity…"
+        rowActions={(a) => <button className="ghost small" onClick={() => void deleteAnnouncement(a.id).then(refresh)}>Delete</button>}
+        emptyText="No announcements."
+      />
     </>
   );
 }
@@ -516,20 +534,18 @@ function FlagsScreen() {
         <input placeholder="feature key (e.g. woo-outbound)" value={name} onChange={(e) => setName(e.target.value)} />
         <button className="ghost small" disabled={!name.trim()} onClick={() => toggle(name.trim(), false)}>Add kill switch</button>
       </div>
-      <table>
-        <thead><tr><th>Feature</th><th>State</th><th>Reason</th><th /></tr></thead>
-        <tbody>
-          {flags.map((f) => (
-            <tr key={f.flagName}>
-              <td className="mono">{f.flagName}</td>
-              <td><span style={{ color: f.enabled ? "#16a34a" : "#dc2626" }}>{f.enabled ? "enabled" : "KILLED"}</span></td>
-              <td className="small">{f.reason ?? "—"}</td>
-              <td><button className="ghost small" onClick={() => toggle(f.flagName, !f.enabled)}>{f.enabled ? "Kill" : "Enable"}</button></td>
-            </tr>
-          ))}
-          {flags.length === 0 && !error && <tr><td colSpan={4} className="muted">No global flags set.</td></tr>}
-        </tbody>
-      </table>
+      <DataTable<FlagRow>
+        columns={[
+          { key: "flagName", label: "Feature", render: (f) => <span className="mono">{f.flagName}</span> },
+          { key: "enabled", label: "State", render: (f) => <span style={{ color: f.enabled ? "#16a34a" : "#dc2626" }}>{f.enabled ? "enabled" : "KILLED"}</span> },
+          { key: "reason", label: "Reason", render: (f) => <span className="small">{f.reason ?? "—"}</span> },
+        ]}
+        rows={flags} getKey={(f) => f.flagName} initialSortKey="flagName"
+        search={(f) => `${f.flagName} ${f.reason ?? ""}`}
+        searchPlaceholder="Search feature…"
+        rowActions={(f) => <button className="ghost small" onClick={() => toggle(f.flagName, !f.enabled)}>{f.enabled ? "Kill" : "Enable"}</button>}
+        emptyText="No global flags set."
+      />
     </>
   );
 }
@@ -577,42 +593,65 @@ function TenantsScreen() {
           <div className="stat" key={s.label}><span className="stat-label">{s.label}</span><span className="stat-value">{s.n}</span></div>
         ))}
       </div>
-      <table>
-        <thead><tr><th /><th>Subscriber</th><th>Status</th><th>Plan</th><th className="num">£/mo</th><th>Renewal</th><th>Signals</th><th>30-day sales</th><th className="num">Sales</th><th className="num">Err 5xx</th><th /></tr></thead>
-        <tbody>
-          {tenants.map((t) => {
-            const u = usageBy.get(t.id);
-            const h = healthBy.get(t.id);
-            const series = (u?.salesDaily ?? []).map((d) => d.value);
-            return (
-              <tr key={t.id}>
-                <td><Dot color={healthColor(h)} title={healthTitle(h)} /></td>
-                <td>{t.name} {t.isSandbox && <span style={{ background: "#7c3aed", color: "white", fontSize: 10, padding: "1px 5px", borderRadius: 3 }}>SANDBOX</span>}<br /><span className="muted small">{short(t.id)}</span></td>
-                <td>{STATUS[t.status] ?? t.status}</td>
-                <td>{t.plan || "—"}</td>
-                <td className="num">{priceOf(t) ? pounds(priceOf(t)) : "—"}</td>
-                <td className="small">{(() => {
-                  const c = contractsBy.get(t.id);
-                  if (!c) return <span className="muted">—</span>;
-                  const d = daysUntil(c.renewalAtUtc);
-                  return <span style={{ color: d <= 30 ? "#d97706" : undefined }}>{new Date(c.renewalAtUtc + "Z").toLocaleDateString("en-GB")}{d >= 0 ? ` (${d}d)` : " (past)"}</span>;
-                })()}</td>
-                <td>
-                  {(signalsBy.get(t.id) ?? []).map((s) => (
+      <DataTable<PlatformTenant>
+        columns={[
+          {
+            key: "health", label: "", sortable: false,
+            render: (t) => { const h = healthBy.get(t.id); return <Dot color={healthColor(h)} title={healthTitle(h)} />; },
+          },
+          {
+            key: "name", label: "Subscriber",
+            render: (t) => (
+              <>
+                {t.name} {t.isSandbox && <span style={{ background: "#7c3aed", color: "white", fontSize: 10, padding: "1px 5px", borderRadius: 3 }}>SANDBOX</span>}
+                <br /><span className="muted small">{short(t.id)}</span>
+              </>
+            ),
+          },
+          { key: "status", label: "Status", render: (t) => STATUS[t.status] ?? String(t.status) },
+          { key: "plan", label: "Plan", render: (t) => t.plan || "—" },
+          { key: "price", label: "£/mo", numeric: true, sort: (t) => priceOf(t), render: (t) => (priceOf(t) ? pounds(priceOf(t)) : "—") },
+          {
+            key: "renewal", label: "Renewal",
+            sort: (t) => contractsBy.get(t.id)?.renewalAtUtc ?? "",
+            render: (t) => {
+              const c = contractsBy.get(t.id);
+              if (!c) return <span className="muted">—</span>;
+              const d = daysUntil(c.renewalAtUtc);
+              return (
+                <span className="small" style={{ color: d <= 30 ? "#d97706" : undefined }}>
+                  {new Date(c.renewalAtUtc + "Z").toLocaleDateString("en-GB")}{d >= 0 ? ` (${d}d)` : " (past)"}
+                </span>
+              );
+            },
+          },
+          {
+            key: "signals", label: "Signals", sortable: false,
+            render: (t) => {
+              const sigs = signalsBy.get(t.id) ?? [];
+              return sigs.length
+                ? <>{sigs.map((s) => (
                     <span key={s} title={s} style={{ background: "#d97706", color: "white", fontSize: 10, padding: "1px 5px", borderRadius: 3, marginRight: 3 }}>{s}</span>
-                  ))}
-                  {!(signalsBy.get(t.id)?.length) && <span className="muted small">—</span>}
-                </td>
-                <td>{series.length ? <Sparkline values={series} /> : <span className="muted small">—</span>}</td>
-                <td className="num">{u?.totals?.["sales.count"] ?? 0}</td>
-                <td className="num">{h?.err5xx ?? 0}</td>
-                <td><button className="ghost small" onClick={() => setOpenId(t.id)}>Open</button></td>
-              </tr>
-            );
-          })}
-          {tenants.length === 0 && !error && <tr><td colSpan={11} className="muted">No subscribers.</td></tr>}
-        </tbody>
-      </table>
+                  ))}</>
+                : <span className="muted small">—</span>;
+            },
+          },
+          {
+            key: "sparkline", label: "30-day sales", sortable: false,
+            render: (t) => {
+              const series = (usageBy.get(t.id)?.salesDaily ?? []).map((d) => d.value);
+              return series.length ? <Sparkline values={series} /> : <span className="muted small">—</span>;
+            },
+          },
+          { key: "sales", label: "Sales", numeric: true, sort: (t) => usageBy.get(t.id)?.totals?.["sales.count"] ?? 0, render: (t) => usageBy.get(t.id)?.totals?.["sales.count"] ?? 0 },
+          { key: "err5xx", label: "Err 5xx", numeric: true, sort: (t) => healthBy.get(t.id)?.err5xx ?? 0, render: (t) => healthBy.get(t.id)?.err5xx ?? 0 },
+        ]}
+        rows={tenants} getKey={(t) => t.id} initialSortKey="name"
+        search={(t) => `${t.name} ${t.id} ${t.plan ?? ""} ${STATUS[t.status] ?? ""} ${(signalsBy.get(t.id) ?? []).join(" ")}`}
+        searchPlaceholder="Search subscriber / plan / signal…"
+        rowActions={(t) => <button className="ghost small" onClick={() => setOpenId(t.id)}>Open</button>}
+        emptyText="No subscribers."
+      />
     </>
   );
 }
@@ -714,15 +753,17 @@ function TenantDetail({ tenantId, tenant, onClose }: { tenantId: string; tenant?
       )}
 
       <h4>Users {lastPortal && <span className="muted small">· last portal activity {lastPortal}</span>}</h4>
-      <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Roles</th></tr></thead>
-        <tbody>
-          {users.map((u) => (
-            <tr key={u.id}><td>{u.name || short(u.id)}</td><td className="small">{u.email ?? "—"}</td><td className="small">{u.roles.join(", ") || "—"}</td></tr>
-          ))}
-          {users.length === 0 && <tr><td colSpan={3} className="muted">No users found for this subscriber.</td></tr>}
-        </tbody>
-      </table>
+      <DataTable<TenantUser>
+        columns={[
+          { key: "name", label: "Name", render: (u) => u.name || short(u.id) },
+          { key: "email", label: "Email", render: (u) => <span className="small">{u.email ?? "—"}</span> },
+          { key: "roles", label: "Roles", sortable: false, render: (u) => <span className="small">{u.roles.join(", ") || "—"}</span> },
+        ]}
+        rows={users} getKey={(u) => u.id} initialSortKey="name"
+        search={(u) => `${u.name} ${u.email ?? ""} ${u.roles.join(" ")}`}
+        searchPlaceholder="Search name / email / role…"
+        emptyText="No users found for this subscriber."
+      />
 
       <h4>Subscription plan</h4>
       <p className="muted small">Assigning a plan sets this tenant's list price + entitlement bundle. A negotiated contract price (below) overrides the list price for margin.</p>
@@ -778,19 +819,17 @@ function TenantDetail({ tenantId, tenant, onClose }: { tenantId: string; tenant?
 
       <h4>Entitlement overrides</h4>
       <p className="muted small">Grant a feature (beta) or deny it (temporary disable). Deny wins over the plan; takes effect immediately.</p>
-      <table>
-        <thead><tr><th>Entitlement</th><th>Effect</th><th /></tr></thead>
-        <tbody>
-          {overrides.map((o) => (
-            <tr key={o.entitlement + o.deny}>
-              <td className="mono">{o.entitlement}</td>
-              <td><span style={{ color: o.deny ? "#dc2626" : "#16a34a" }}>{o.deny ? "deny" : "grant"}</span></td>
-              <td><button className="ghost small" onClick={() => saveOverrides(overrides.filter((x) => x !== o))}>Remove</button></td>
-            </tr>
-          ))}
-          {overrides.length === 0 && <tr><td colSpan={3} className="muted">No overrides.</td></tr>}
-        </tbody>
-      </table>
+      <DataTable<OverrideRow>
+        columns={[
+          { key: "entitlement", label: "Entitlement", render: (o) => <span className="mono">{o.entitlement}</span> },
+          { key: "deny", label: "Effect", render: (o) => <span style={{ color: o.deny ? "#dc2626" : "#16a34a" }}>{o.deny ? "deny" : "grant"}</span> },
+        ]}
+        rows={overrides} getKey={(o) => `${o.entitlement}-${o.deny}`} initialSortKey="entitlement"
+        search={(o) => o.entitlement}
+        searchPlaceholder="Search entitlement…"
+        rowActions={(o) => <button className="ghost small" onClick={() => saveOverrides(overrides.filter((x) => x !== o))}>Remove</button>}
+        emptyText="No overrides."
+      />
       <div className="toolbar">
         <input className="mono" placeholder="feature or ratelimit.rps:100" value={newFeature} onChange={(e) => setNewFeature(e.target.value)} />
         <button className="ghost small" disabled={!newFeature.trim()} onClick={() => saveOverrides([...overrides, { entitlement: newFeature.trim(), deny: false, reason: "beta", createdAtUtc: "" }])}>Grant</button>
@@ -860,67 +899,72 @@ function HealthScreen() {
       {error && <p className="error">{error}</p>}
       <h4>Open alerts</h4>
       {alerts.length === 0 ? <p className="muted small">No open alerts. 🎉</p> : (
-        <table>
-          <thead><tr><th>Kind</th><th>Job</th><th>Tenant</th><th>Message</th><th className="num">×</th><th>Since</th></tr></thead>
-          <tbody>
-            {alerts.map((a) => (
-              <tr key={a.alertKey}>
-                <td><span style={{ color: a.kind === "failed" ? "#dc2626" : "#d97706" }}>{a.kind}</span></td>
-                <td>{a.jobName}</td><td>{short(a.tenantId)}</td>
-                <td className="small">{a.message}</td>
-                <td className="num">{a.occurrences}</td>
-                <td className="small">{new Date(a.raisedAtUtc + "Z").toLocaleString("en-GB")}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <DataTable<AlertRow>
+          columns={[
+            { key: "kind", label: "Kind", render: (a) => <span style={{ color: a.kind === "failed" ? "#dc2626" : "#d97706" }}>{a.kind}</span> },
+            { key: "jobName", label: "Job" },
+            { key: "tenantId", label: "Tenant", render: (a) => short(a.tenantId) },
+            { key: "message", label: "Message", render: (a) => <span className="small">{a.message}</span> },
+            { key: "occurrences", label: "×", numeric: true },
+            { key: "raisedAtUtc", label: "Since", render: (a) => <span className="small">{new Date(a.raisedAtUtc + "Z").toLocaleString("en-GB")}</span> },
+          ]}
+          rows={alerts} getKey={(a) => a.alertKey} initialSortKey="raisedAtUtc" initialSortDir="desc"
+          search={(a) => `${a.kind} ${a.jobName} ${a.message}`}
+          searchPlaceholder="Search job / message…"
+          emptyText="No open alerts."
+        />
       )}
 
       <h4>Per-tenant request health (last hour)</h4>
-      <table>
-        <thead><tr><th /><th>Tenant</th><th className="num">Requests</th><th className="num">4xx</th><th className="num">5xx</th><th className="num">Err %</th><th className="num">Peak p95</th><th className="num">Quarantine</th></tr></thead>
-        <tbody>
-          {(health?.tenants ?? []).map((h) => (
-            <tr key={h.tenantId}>
-              <td><Dot color={healthColor(h)} title={healthTitle(h)} /></td>
-              <td>{short(h.tenantId)}</td>
-              <td className="num">{h.requests}</td><td className="num">{h.err4xx}</td><td className="num">{h.err5xx}</td>
-              <td className="num">{h.errorRatePct}</td><td className="num">{h.peakP95Ms}ms</td><td className="num">{h.quarantineOpen}</td>
-            </tr>
-          ))}
-          {(health?.tenants?.length ?? 0) === 0 && <tr><td colSpan={8} className="muted">No request traffic in the last hour.</td></tr>}
-        </tbody>
-      </table>
+      <DataTable<HealthTenantRow>
+        columns={[
+          { key: "dot", label: "", sortable: false, render: (h) => <Dot color={healthColor(h)} title={healthTitle(h)} /> },
+          { key: "tenantId", label: "Tenant", render: (h) => short(h.tenantId) },
+          { key: "requests", label: "Requests", numeric: true },
+          { key: "err4xx", label: "4xx", numeric: true },
+          { key: "err5xx", label: "5xx", numeric: true },
+          { key: "errorRatePct", label: "Err %", numeric: true },
+          { key: "peakP95Ms", label: "Peak p95", numeric: true, render: (h) => `${h.peakP95Ms}ms` },
+          { key: "quarantineOpen", label: "Quarantine", numeric: true },
+        ]}
+        rows={health?.tenants ?? []} getKey={(h) => h.tenantId} initialSortKey="requests" initialSortDir="desc"
+        search={(h) => h.tenantId}
+        searchPlaceholder="Search tenant…"
+        emptyText="No request traffic in the last hour."
+      />
 
       <h4>Connector health</h4>
-      <table>
-        <thead><tr><th /><th>Connector</th><th>Tenant</th><th>Last poll</th><th>Last webhook</th><th>Last outbound</th><th className="num">Err streak</th></tr></thead>
-        <tbody>
-          {connectors.map((c, i) => (
-            <tr key={`${c.connector}:${c.tenantId}:${i}`}>
-              <td><Dot color={c.silent || c.errorStreak > 0 ? "#dc2626" : "#16a34a"} title={c.silent ? "silent" : "healthy"} /></td>
-              <td className="mono">{c.connector}</td>
-              <td>{short(c.tenantId ?? null)}</td>
-              <td className="small">{c.lastPollAtUtc ? new Date(c.lastPollAtUtc + "Z").toLocaleString("en-GB") : "—"}</td>
-              <td className="small">{c.lastWebhookAtUtc ? new Date(c.lastWebhookAtUtc + "Z").toLocaleString("en-GB") : "—"}</td>
-              <td className="small">{c.lastOutboundAtUtc ? new Date(c.lastOutboundAtUtc + "Z").toLocaleString("en-GB") : "—"}</td>
-              <td className="num">{c.errorStreak}</td>
-            </tr>
-          ))}
-          {connectors.length === 0 && <tr><td colSpan={7} className="muted">No connectors have reported yet.</td></tr>}
-        </tbody>
-      </table>
+      <DataTable<ConnectorRow>
+        columns={[
+          {
+            key: "dot", label: "", sortable: false,
+            render: (c) => <Dot color={c.silent || c.errorStreak > 0 ? "#dc2626" : "#16a34a"} title={c.silent ? "silent" : "healthy"} />,
+          },
+          { key: "connector", label: "Connector", render: (c) => <span className="mono">{c.connector}</span> },
+          { key: "tenantId", label: "Tenant", render: (c) => short(c.tenantId ?? null) },
+          { key: "lastPollAtUtc", label: "Last poll", render: (c) => <span className="small">{c.lastPollAtUtc ? new Date(c.lastPollAtUtc + "Z").toLocaleString("en-GB") : "—"}</span> },
+          { key: "lastWebhookAtUtc", label: "Last webhook", render: (c) => <span className="small">{c.lastWebhookAtUtc ? new Date(c.lastWebhookAtUtc + "Z").toLocaleString("en-GB") : "—"}</span> },
+          { key: "lastOutboundAtUtc", label: "Last outbound", render: (c) => <span className="small">{c.lastOutboundAtUtc ? new Date(c.lastOutboundAtUtc + "Z").toLocaleString("en-GB") : "—"}</span> },
+          { key: "errorStreak", label: "Err streak", numeric: true },
+        ]}
+        rows={connectors} getKey={(c) => `${c.connector}:${c.tenantId ?? "platform"}`}
+        initialSortKey="errorStreak" initialSortDir="desc"
+        search={(c) => `${c.connector} ${c.tenantId ?? ""} ${c.lastError ?? ""}`}
+        searchPlaceholder="Search connector / tenant…"
+        emptyText="No connectors have reported yet."
+      />
 
       <h4>Outbox consumer lag</h4>
-      <table>
-        <thead><tr><th>Consumer</th><th className="num">Lag</th></tr></thead>
-        <tbody>
-          {(health?.consumerLag ?? []).map((c) => (
-            <tr key={c.consumer}><td>{c.consumer}</td><td className="num">{c.lag}</td></tr>
-          ))}
-          {(health?.consumerLag?.length ?? 0) === 0 && <tr><td colSpan={2} className="muted">No consumers registered.</td></tr>}
-        </tbody>
-      </table>
+      <DataTable<ConsumerLagRow>
+        columns={[
+          { key: "consumer", label: "Consumer" },
+          { key: "lag", label: "Lag", numeric: true },
+        ]}
+        rows={health?.consumerLag ?? []} getKey={(c) => c.consumer} initialSortKey="lag" initialSortDir="desc"
+        search={(c) => c.consumer}
+        searchPlaceholder="Search consumer…"
+        emptyText="No consumers registered."
+      />
     </>
   );
 }
@@ -937,21 +981,25 @@ function JobsScreen() {
   return (
     <>
       {error && <p className="error">{error}</p>}
-      <table>
-        <thead><tr><th /><th>Job</th><th>Tenant</th><th>Last run</th><th>Outcome</th><th>Detail</th></tr></thead>
-        <tbody>
-          {jobs.map((j, i) => (
-            <tr key={`${j.jobName}:${j.tenantId}:${i}`}>
-              <td><Dot color={color(j.cadenceStatus)} title={j.cadenceStatus} /></td>
-              <td>{j.jobName}</td><td>{short(j.tenantId)}</td>
-              <td className="small">{new Date((j.finishedAtUtc ?? j.startedAtUtc) + "Z").toLocaleString("en-GB")}</td>
-              <td>{j.runStatus}</td>
-              <td className="small">{j.detail ?? "—"}</td>
-            </tr>
-          ))}
-          {jobs.length === 0 && !error && <tr><td colSpan={6} className="muted">No jobs have reported yet.</td></tr>}
-        </tbody>
-      </table>
+      <DataTable<JobRow>
+        columns={[
+          { key: "dot", label: "", sortable: false, render: (j) => <Dot color={color(j.cadenceStatus)} title={j.cadenceStatus} /> },
+          { key: "jobName", label: "Job" },
+          { key: "tenantId", label: "Tenant", render: (j) => short(j.tenantId) },
+          {
+            key: "lastRun", label: "Last run",
+            sort: (j) => j.finishedAtUtc ?? j.startedAtUtc,
+            render: (j) => <span className="small">{new Date((j.finishedAtUtc ?? j.startedAtUtc) + "Z").toLocaleString("en-GB")}</span>,
+          },
+          { key: "runStatus", label: "Outcome" },
+          { key: "detail", label: "Detail", render: (j) => <span className="small">{j.detail ?? "—"}</span> },
+        ]}
+        rows={jobs} getKey={(j) => `${j.jobName}:${j.tenantId ?? "platform"}`}
+        initialSortKey="lastRun" initialSortDir="desc"
+        search={(j) => `${j.jobName} ${j.tenantId ?? ""} ${j.runStatus} ${j.detail ?? ""}`}
+        searchPlaceholder="Search job / outcome…"
+        emptyText="No jobs have reported yet."
+      />
     </>
   );
 }

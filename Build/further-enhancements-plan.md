@@ -326,7 +326,23 @@ Applying that, here is every table:
 | FE4.2 | X-Pagination surfaced through api helpers; skip/take on v1 lists that lack it. | ✅ 2026-07-30 |
 | FE4.3 | Port all stragglers to DataTable (portal, then till). | ✅ 2026-07-30 — **13 tables** (9 portal + 4 till); PlatformPage split to FE4.5 |
 | FE4.4 | Gate: click-through every tab; deploy. | ✅ 2026-07-30 deployed (`*.pre-fe4`); totals + new search verified live. ⏳ Matt to click-through |
-| FE4.5 | PlatformPage's 17 operator tables (split out if FE4.3 runs long). | ☐ **next** |
+| FE4.5 | PlatformPage's 17 operator tables (split out if FE4.3 runs long). | ✅ 2026-07-30 — **16 ported**, funnel left as a breakdown; deployed (`portal/current.pre-fe45`) |
+
+**FE4.5 as built.** All 16 browsable operator tables now use `DataTable`: Tickets, Plans,
+Notifications delivery log, Commercial margin, Analytics adoption + route groups, Comms
+announcements, Flags, **Tenants** (the big one — health dot, sparkline and signal chips survive as
+non-sortable `render` columns; £/mo, renewal, sales and 5xx sort via `sort:` accessors over the
+side-loaded maps), TenantDetail users + entitlement overrides, Health alerts + per-tenant health +
+connectors + consumer lag, and Jobs. The status-dot columns turned out to be plain columns, not
+row expanders, so every table mapped cleanly.
+
+**Left deliberately:** the login→sale **funnel** — a fixed ordered sequence where the order *is*
+the meaning, so sorting or paging would destroy information (same call as VAT-by-band). Marked
+with a comment in the code so it isn't mistaken for a miss.
+
+**FE4 is now complete: 29 tables ported across both apps.** `sortable.tsx` (`useSort`/`SortTh`,
+the pre-DataTable helper) has exactly ONE remaining consumer — `StoresPage`, deferred to FE6.
+**Delete `sortable.tsx` when FE6 rebuilds that page.**
 
 **FE4.2 as built.** `legacyPaged()`/`getPaged()` in each app's `api.ts` read the `X-Pagination`
 header (`TotalCount`) that the legacy `Index` endpoints have always sent and every frontend threw
@@ -764,21 +780,38 @@ On each table check the same four things: **sortable headers** (click one, ▲/�
 | 28 | Reporting → Custom | sales list | **was capped at 100** — page past it; row click became **Open** |
 | 29 | Settings/Staff → Employees | staff | "Set password" still works |
 
+### Platform tab — operator login only (FE4.5, deployed 2026-07-30)
+Only reachable with the operator/SSO login, and only worth checking if you use it. 16 tables:
+| # | Sub-screen | Tables |
+|---|---|---|
+| 30 | Tenants | subscriber list — **health dot, sparkline and signal chips must still render**; £/mo, Renewal, Sales and Err 5xx are now sortable |
+| 31 | Tenants → Open | that tenant's users + entitlement overrides (Remove still works) |
+| 32 | Health | open alerts · per-tenant request health · connector health · consumer lag |
+| 33 | Jobs | job cadence grid (status dot intact) |
+| 34 | Tickets | inbox (Open still opens the thread) |
+| 35 | Plans | plan list (Edit/Delete; Delete still disabled while tenants are on a plan) |
+| 36 | Notifications | delivery log |
+| 37 | Commercial | per-tenant margin (Margin column still red/green) |
+| 38 | Analytics | feature adoption · route groups (the **funnel below them stays unsorted by design**) |
+| 39 | Comms | announcements (Delete still works) |
+| 40 | Flags | feature flags (Kill/Enable still works) |
+
 ### Deliberately unchanged (don't report these as missed)
 Receipts and the sale-detail dialog · the till basket · VAT-by-band and payment-split
-breakdowns · a price's effective-date history · credit history and the tier list inside dialogs ·
-**Locations** (tills/warehouses/webstores — deferred to FE6, which rebuilds that page) ·
-**Platform** tab (operator-only, 17 tables — FE4.5, next).
+breakdowns · the Platform **login→sale funnel** (fixed ordered stages) · a price's effective-date
+history · credit history and the tier list inside dialogs · **Locations**
+(tills/warehouses/webstores — deferred to FE6, which rebuilds that page).
 
-If a table misbehaves, the rollback is `portal/current.pre-fe4` and `web/current.pre-fe4`.
+If a table misbehaves, the rollback is `portal/current.pre-fe4` (or `current.pre-fe45` for the
+Platform tab alone) and `web/current.pre-fe4`.
 
 ## Suggested build order
 
 1. **FE5.0** (category-filter bug — small, it's broken today) + **FE8.1** (quoted search —
    tiny, same file as the shipped word search).
 2. **FE1 + FE2** (the loyalty slice — tiers then member cards).
-3. **FE4** (table rollout — mechanical, big consistency win).
-4. **FE9** (users & roles — self-contained, and password reset is an operational need).
+3. ~~**FE4** (table rollout)~~ — ✅ **COMPLETE 2026-07-30** (FE4.1–4.5, 29 tables).
+4. **FE9** (users & roles — self-contained, and password reset is an operational need). ← **next**
 5. **FE5** remainder (stock column → bulk edit → bin → untracked stock).
 6. **FE6** (till identity + Locations IA).
 7. **FE7** (gift cards — biggest new surface, benefits from FE2's scan-prefix pattern).
