@@ -54,11 +54,12 @@ export async function cacheItems(items: Item[]): Promise<void> {
 export const cachedItemById = (id: string): Promise<Item | undefined> =>
   tx("items", "readonly", (s) => s.get(id) as IDBRequest<Item | undefined>);
 
-export async function cachedItemSearch(term: string, limit = 8): Promise<Item[]> {
+export async function cachedItemSearch(term: string, limit = 8, matchAllWords = false): Promise<Item[]> {
   const all = await tx("items", "readonly", (s) => s.getAll() as IDBRequest<Item[]>);
-  const q = term.toLowerCase();
+  // mirror the server's ItemParameters: match-each-word when the pref is on, whole phrase otherwise
+  const words = matchAllWords ? term.toLowerCase().split(/\s+/).filter(Boolean) : [term.toLowerCase()];
   return all
-    .filter((i) => i.name.toLowerCase().includes(q) || i.idOne.toLowerCase().includes(q) || i.brand.toLowerCase().includes(q))
+    .filter((i) => words.every((q) => i.name.toLowerCase().includes(q) || i.idOne.toLowerCase().includes(q) || i.brand.toLowerCase().includes(q)))
     .slice(0, limit);
 }
 

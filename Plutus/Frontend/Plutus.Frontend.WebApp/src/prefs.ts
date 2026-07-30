@@ -10,10 +10,13 @@ export interface Prefs {
   newestFirst: boolean;
   /** barcode of the carrier-bag item for the till's quick "Bag" button */
   bagBarcode: string;
+  /** item search matches each word separately — "batman one" finds "Batman Year One";
+   *  off = the whole phrase must appear (the original behaviour) */
+  matchAllWords: boolean;
 }
 
 const KEY = "plutus.prefs";
-const DEFAULTS: Prefs = { autoPrintReceipt: false, askReceipt: false, newestFirst: false, bagBarcode: "" };
+const DEFAULTS: Prefs = { autoPrintReceipt: false, askReceipt: false, newestFirst: false, bagBarcode: "", matchAllWords: true };
 
 export function getPrefs(): Prefs {
   try {

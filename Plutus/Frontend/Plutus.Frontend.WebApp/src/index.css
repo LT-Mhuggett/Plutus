@@ -217,8 +217,19 @@ footer {
   font-size: 1.1rem;
 }
 
-.scan-results {
+/* double class: must out-rank .results' later `overflow: hidden` so the list can scroll */
+.results.scan-results {
   margin-top: 0.35rem;
+  /* all matches are returned — keep the till layout intact and scroll inside the list */
+  max-height: 45vh;
+  overflow-y: auto;
+}
+
+.scan-count {
+  margin: 0.35rem 0 0;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 .basket-grid {

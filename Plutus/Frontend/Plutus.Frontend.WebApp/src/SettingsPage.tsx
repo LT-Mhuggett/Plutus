@@ -244,7 +244,7 @@ export default function SettingsPage() {
   }, []);
 
   const canSettings = canManageSettings();
-  const toggle = (key: "autoPrintReceipt" | "askReceipt" | "newestFirst") =>
+  const toggle = (key: "autoPrintReceipt" | "askReceipt" | "newestFirst" | "matchAllWords") =>
     setPrefsState(setPrefs({ [key]: !prefs[key] }));
 
   return (
@@ -262,6 +262,13 @@ export default function SettingsPage() {
           <span className="muted small block">Off = new items appended at the bottom (recommended).</span>
         </span>
         <input type="checkbox" checked={prefs.newestFirst} disabled={!canSettings} onChange={() => toggle("newestFirst")} />
+      </label>
+      <label className="setting-row">
+        <span className="grow">
+          Item search matches each word
+          <span className="muted small block">On: “batman one” finds “Batman Year One”. Off: the whole phrase must appear in the name/barcode/brand.</span>
+        </span>
+        <input type="checkbox" checked={prefs.matchAllWords} disabled={!canSettings} onChange={() => toggle("matchAllWords")} />
       </label>
       <label className="setting-row">
         <span className="grow">

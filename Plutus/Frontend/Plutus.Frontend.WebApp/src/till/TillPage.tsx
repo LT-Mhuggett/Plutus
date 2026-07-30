@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  effectivePriceFor, fetchItems, findItemById, getCustomer, parkTransaction, searchCustomers,
+  effectivePriceFor, findItemById, getCustomer, parkTransaction, searchCustomers, searchItemsOfflineAware,
   createCustomer, updateCustomer,
   type CustomerDetail, type CustomerSummary, type Item,
 } from "../api.ts";
@@ -15,6 +15,10 @@ import ParkedDialog from "./ParkedDialog.tsx";
 import Receipt, { type ReceiptData } from "./Receipt.tsx";
 
 type Dialog = "none" | "checkout" | "discount" | "return" | "parked" | "receipt";
+
+/** Search returns ALL matches (the count is always true); render at most this many rows so a
+ *  one-letter search can't jank the till with tens of thousands of DOM nodes. */
+const MAX_SHOWN = 500;
 
 export default function TillPage() {
   const [basket, dispatch] = useBasket();
@@ -124,7 +128,7 @@ export default function TillPage() {
         await addItem(exact);
         return;
       }
-      const found = await fetchItems(1, 8, term);
+      const found = await searchItemsOfflineAware(term); // all matches — the list scrolls
       if (found.length === 0) setNotice(`Nothing found for “${term}”`);
       setResults(found.length ? found : null);
     } catch (e) {
@@ -268,16 +272,23 @@ export default function TillPage() {
 
       {notice && <p className="error small">{notice}</p>}
       {results && (
-        <ul className="results scan-results">
-          {results.map((i) => (
-            <li key={i.idOne}>
-              <button onClick={() => addItem(i)}>
-                <span className="grow">{i.name}</span>
-                <span>{gbp(Math.round(i.price * 100))}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <>
+          <p className="muted small scan-count">
+            {results.length} match{results.length === 1 ? "" : "es"}
+            {results.length > MAX_SHOWN && ` — showing the first ${MAX_SHOWN}, keep typing to narrow`}
+            <button className="linklike small" onClick={() => { setResults(null); scanRef.current?.focus(); }}>clear</button>
+          </p>
+          <ul className="results scan-results">
+            {results.slice(0, MAX_SHOWN).map((i) => (
+              <li key={i.idOne}>
+                <button onClick={() => addItem(i)}>
+                  <span className="grow">{i.name}</span>
+                  <span>{gbp(Math.round(i.price * 100))}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
 
       {/* basket grid */}

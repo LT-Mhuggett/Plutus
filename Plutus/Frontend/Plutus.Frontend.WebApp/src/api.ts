@@ -16,6 +16,7 @@ import {
   removeQueued,
 } from "./offline.ts";
 import { businessDay, getDeviceCredential, itemGuid, postSale, uuidv7, type IngestLine, type IngestSaleRequest } from "./pipeline.ts";
+import { getPrefs } from "./prefs.ts";
 import { lineDiscountPence, type BasketLine } from "./till/basket.ts";
 import { toPence } from "./money.ts";
 
@@ -150,15 +151,21 @@ async function send(method: string, url: string, body?: unknown, extraHeaders?: 
 export const fetchItems = (pageNumber: number, pageSize: number, search = "") =>
   get<Item[]>(
     `/api/Item/Index?PageNumber=${pageNumber}&PageSize=${pageSize}` +
-      (search ? `&Search=${encodeURIComponent(search)}` : ""),
+      (search ? `&Search=${encodeURIComponent(search)}` : "") +
+      // device pref: match each word ("batman one" → "Batman Year One"); server default is whole-phrase
+      (search && getPrefs().matchAllWords ? "&MatchAllWords=true" : ""),
   );
 
-/** Till search — network first, IndexedDB cache when offline. */
-export async function searchItemsOfflineAware(term: string, limit = 8): Promise<Item[]> {
+/** Till scan-bar search — ALL matches (server-filtered, no paging: the generic Index caps
+ *  PageSize at 50, so "all" needs IgnorePagination); IndexedDB cache when offline. */
+export async function searchItemsOfflineAware(term: string): Promise<Item[]> {
   try {
-    return await fetchItems(1, limit, term);
+    return await get<Item[]>(
+      `/api/Item/Index?IgnorePagination=true&Search=${encodeURIComponent(term)}` +
+        (getPrefs().matchAllWords ? "&MatchAllWords=true" : ""),
+    );
   } catch {
-    return cachedItemSearch(term, limit);
+    return cachedItemSearch(term, Number.POSITIVE_INFINITY, getPrefs().matchAllWords);
   }
 }
 
