@@ -718,6 +718,60 @@ keeps their sales/audit history, blocks removing yourself or the last Owner; res
 the Roles table lists every built-in role with grants matching `RbacSeeder`; each user's
 collapsed matrix matches the effective-permissions endpoint and names the granting role.
 
+## FE4 click-test checklist (Matt) — 2026-07-30
+
+Every row below is DEPLOYED and typecheck-clean, but only Matt can confirm it *reads* right.
+**Hard-refresh both apps first** (Ctrl+Shift+R) — the portal shell and till bundle both changed.
+
+On each table check the same four things: **sortable headers** (click one, ▲/▼ flips) ·
+**search box** narrows rows · **Show 25/50/100** changes page length · **pager reads
+"X–Y of N"** with a real N (not "page 3").
+
+### Portal — https://admin.plutus.huggett.dscloud.me
+| # | Where | Table | Watch for |
+|---|---|---|---|
+| 1 | Inventory → Items | items (**server** mode) | N should read **20,341**; the Category dropdown moved next to "+ Add item"; search is debounced 300 ms so it fires once you stop typing |
+| 2 | Inventory → Stock ledger | stock levels (**server**) | N ≈ **3,198**; the old separate Search + Show controls are gone (now in the table toolbar) |
+| 3 | Inventory → Stock ledger | "In transit" (only if transfers exist) | Receive/Cancel buttons still work |
+| 4 | Inventory → Stock ledger → Detail | movement history (in dialog) | sort by When |
+| 5 | Reporting → Summary | period breakdown | drill button (Sales/Drill) still opens the day |
+| 6 | Reporting → Summary → a day | that day's sales | "Detail" opens the sale dialog |
+| 7 | Reporting → Custom | sales list | **was capped at 100 rows** — page past 100 now; row click became an **Open** button |
+| 8 | Reporting → Items sold | items sold | up to 2,000 lines — the biggest win; search by item/staff |
+| 9 | Reporting → VAT | off-band integrity list ("show list") | only appears if off-band items exist; by-band totals below are deliberately NOT paged |
+| 10 | Banking | unresolved payments | only if any exist; "Re-run matching" still works |
+| 11 | Banking | per till per day | variance still red |
+| 12 | Prices | store variance vs HQ | Edit button still opens the price dialog |
+| 13 | Customers | customer list | member-no column (FE2) sorts + searches |
+| 14 | Loyalty | members list | member-no column; Open still works |
+| 15 | Users & Roles | users list | Roles/Deactivate buttons still work; deactivated rows still greyed |
+| 16 | Company → Financial periods | periods | "Close period" only on Open rows |
+| 17 | Webstore → Review queue | pending SKUs | Bind/Create item/Ignore only on Pending rows |
+| 18 | Webstore → Catalogue | products (**server**) | N ≈ **745**; **search is new** (name/SKU — try "batman", expect ~10); "view on site" link moved to the actions column |
+| 19 | Webstore → Outbound | journal | failed rows still red |
+| 20 | Webstore → Alignment | price differences | sorted biggest-difference first |
+| 21 | Webstore → Alignment | name drift | — |
+| 22 | Webstore → Alignment | web-only SKUs | **was capped at 200** — page past it now |
+| 23 | Help | your tickets | Open still opens the thread |
+
+### Till — https://plutus.huggett.dscloud.me
+| # | Where | Table | Watch for |
+|---|---|---|---|
+| 24 | Inventory Management | items (**server**) | N = **20,341**; Category filter kept; Add item + Edit still work |
+| 25 | Reporting → Items sold | items sold | search by item/category/staff |
+| 26 | Reporting → Stock | stock levels (**server**) | old Search/Show controls replaced by the table toolbar |
+| 27 | Reporting → Negative stock | same table, negative filter | empty-state message differs |
+| 28 | Reporting → Custom | sales list | **was capped at 100** — page past it; row click became **Open** |
+| 29 | Settings/Staff → Employees | staff | "Set password" still works |
+
+### Deliberately unchanged (don't report these as missed)
+Receipts and the sale-detail dialog · the till basket · VAT-by-band and payment-split
+breakdowns · a price's effective-date history · credit history and the tier list inside dialogs ·
+**Locations** (tills/warehouses/webstores — deferred to FE6, which rebuilds that page) ·
+**Platform** tab (operator-only, 17 tables — FE4.5, next).
+
+If a table misbehaves, the rollback is `portal/current.pre-fe4` and `web/current.pre-fe4`.
+
 ## Suggested build order
 
 1. **FE5.0** (category-filter bug — small, it's broken today) + **FE8.1** (quoted search —
