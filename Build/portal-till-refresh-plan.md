@@ -147,7 +147,13 @@ Portal `ItemsSoldPage.tsx` and till `ItemsSoldView` (ReportingPage.tsx:67-118): 
 ### WP3.5 VAT report: replicate the till's onto the portal
 Replace portal `VatPage.tsx` internals with a port of till `VatReport.tsx`: Month/Quarter toggle, year select, **vat-integrity guardrail banner** (off-band offenders table — the portal currently doesn't surface this at all), stat tiles, by-band table + unallocated row. Both use `summary-rich` + `vat-integrity` (endpoints exist; portal api.ts needs the `fetchVatIntegrity` wrapper).
 
-**DoD:** portal VAT matches till's including the integrity banner.
+**⚠ VAT pre-flight audit (2026-07-30, before starting this WP) — findings BINDING on the port:**
+- Live cross-check: SalesV2 headers == Σ SaleLines == VatRollups == SalesRollups **to the penny** (gross 55,708,170p / VAT 2,555,970p). The projection pipeline has zero drift.
+- **Bug found & FIXED in `summary-rich`**: its byTaxRate table filtered `ItemIdOne != null` (the topItems barcode filter applied too broadly), silently dropping 8,118 ETL reconciliation-sentinel lines — the whole **19.81% legacy band disappeared** and the zero band under-reported £4,847.59 gross (£3.72 VAT dumped into "unallocated"). Fix: byTaxRate now aggregates ALL lines; only topItems keeps the barcode filter. Pinned by `VatBandCoverageE2eTests` (Σ band VAT == header VAT).
+- **Source decision for the PORTAL port: keep `/api/v1/reports/vat` (VatRollups) as the numbers source** and port only the till's *UX* (month/quarter, tiles, integrity banner via `vat-integrity`). Reason: rollups honour financial-period locks (`EffectiveDay` late-post redirect); `summary-rich` buckets by raw `BusinessDay`. Today that's a no-op (0 closed periods, 0 late posts) but the portal is the financial surface — it must stay on the lock-respecting source. The till keeps `summary-rich` (now exact after the fix).
+- FYI: 21,646 of 21,680 sales have `VatReconstructed=true` (ETL'd legacy data) — consistent (headers==lines), presentational note only.
+
+**DoD:** portal VAT matches till's UX including the integrity banner; portal numbers still come from VatRollups; band table on BOTH surfaces sums exactly to the headline VAT.
 
 ### WP3.6 Prices page gets a real landing (resolves the "shows one item" confusion)
 Prices stays a management tab. Replace the landing: a paginated **DataTable of ALL items** — barcode, name, category, band, policy, HQ price (falls back to legacy price), override count / max Δ — per-row **Edit** opens the existing `PriceDialog` unchanged. The current variance view becomes a **"Only where stores deviate"** filter toggle (same data, no longer the only view). Backend: needs a paged price-list endpoint — extend `/api/v1/prices` with a `GET /api/v1/prices/list?search=&skip=&take=` that joins Items (+CatId→name after WP3.3) with current central price + override counts. Keep the barcode quick-open box. No separate Reports entry.

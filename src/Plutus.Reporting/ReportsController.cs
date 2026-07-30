@@ -213,17 +213,22 @@ namespace Plutus.Reporting
                 orders = g.Count(),
             });
 
+            // ALL lines (incl. ItemIdOne == null): the by-tax-rate table must cover every line or
+            // legacy barcode-less lines fall out of their band (found 2026-07-30: the 19.81% band
+            // disappeared entirely and the zero band under-reported ~£4.8k gross; the VAT landed in
+            // the report's "unallocated" row). Only topItems needs a barcode to group by.
             var lines = await (from l in _db.SaleLines.AsNoTracking()
                                join s in _db.SalesV2.AsNoTracking() on l.SaleId equals s.Id
-                               where s.BusinessDay >= @from && s.BusinessDay <= to && l.ItemIdOne != null
+                               where s.BusinessDay >= @from && s.BusinessDay <= to
                                select new { l.ItemIdOne, l.Qty, l.LineGrossPence, l.VatAmountPence, l.VatRateBp }).ToListAsync();
+            var itemLines = lines.Where(l => l.ItemIdOne != null).ToList();
 
-            var barcodes = lines.Select(l => l.ItemIdOne).Distinct().ToList();
+            var barcodes = itemLines.Select(l => l.ItemIdOne).Distinct().ToList();
             var names = (await _db.Items.AsNoTracking().IgnoreQueryFilters()
                     .Where(i => barcodes.Contains(i.IdOne)).Select(i => new { i.IdOne, i.Name }).ToListAsync())
                 .GroupBy(i => i.IdOne).ToDictionary(g => g.Key, g => g.First().Name);
 
-            var topItems = lines.GroupBy(l => l.ItemIdOne).Select(g => new
+            var topItems = itemLines.GroupBy(l => l.ItemIdOne).Select(g => new
             {
                 itemId = g.Key,
                 name = names.TryGetValue(g.Key, out var n) ? n : g.Key,
