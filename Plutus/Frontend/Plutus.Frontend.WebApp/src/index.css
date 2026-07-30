@@ -474,9 +474,24 @@ tr.adjusted td:first-child {
 }
 
 .sale-done {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
+  opacity: 1;
+  transition: opacity 0.6s ease;
+}
+
+/* auto-dismiss: TillPage flips this on 3s after the sale, then unmounts at 3.6s */
+.sale-done.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sale-done-x {
+  position: absolute;
+  top: -0.4rem;
+  right: 0.4rem;
 }
 
 .sale-done strong {

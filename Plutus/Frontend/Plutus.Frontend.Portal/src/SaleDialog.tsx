@@ -29,7 +29,7 @@ function ReceiptView({ id, sale }: { id: string; sale: SaleDetail }) {
       <p className="small"><span>VAT</span> <span>{gbp(sale.vatPence)}</span></p>
       <hr />
       <p className="centre small">{sale.tenders.map((t) => `${t.tenderType} ${gbp(t.amountPence)}`).join(" · ")}</p>
-      <div className="centre"><Barcode39 value={id} /></div>
+      <div className="centre"><Barcode39 value={id} fit showText={false} /></div>
       <p className="centre mono tiny">{id}</p>
     </div>
   );

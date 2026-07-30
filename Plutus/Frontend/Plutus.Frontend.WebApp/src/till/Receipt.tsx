@@ -106,7 +106,9 @@ export default function Receipt({ data, onClose, autoPrint }: Props) {
           {data.queued && <p className="centre small">* taken offline — will sync automatically *</p>}
           {showBarcode && !data.saleId.startsWith("test-print") && (
             <div className="centre receipt-barcode">
-              <Barcode39 value={data.saleId} />
+              {/* fit: a 36-char UUID at natural size is ~1200px wide — scale to the receipt.
+                  The human-readable id is printed just below, so no in-barcode text. */}
+              <Barcode39 value={data.saleId} fit showText={false} />
             </div>
           )}
           <p className="centre mono tiny">{data.saleId}</p>

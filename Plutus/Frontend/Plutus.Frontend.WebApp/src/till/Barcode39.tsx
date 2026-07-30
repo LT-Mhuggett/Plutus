@@ -20,8 +20,10 @@ function encodable(value: string): string {
 }
 
 export default function Barcode39({
-  value, height = 46, narrow = 2, ratio = 3, showText = true,
-}: { value: string; height?: number; narrow?: number; ratio?: number; showText?: boolean }) {
+  value, height = 46, narrow = 2, ratio = 3, showText = true, fit = false,
+}: { value: string; height?: number; narrow?: number; ratio?: number; showText?: boolean;
+  /** scale to the container's width (long payloads like UUIDs otherwise overflow receipts) */
+  fit?: boolean }) {
   const text = encodable(value);
   if (!text) return null;
   const wide = narrow * ratio;
@@ -44,8 +46,9 @@ export default function Barcode39({
     <svg
       className="barcode"
       viewBox={`0 0 ${width} ${height + (showText ? 14 : 0)}`}
-      width={width}
+      width={fit ? "100%" : width}
       height={height + (showText ? 14 : 0)}
+      preserveAspectRatio={fit ? "none" : undefined}
       role="img"
       aria-label={`Barcode ${text}`}
     >

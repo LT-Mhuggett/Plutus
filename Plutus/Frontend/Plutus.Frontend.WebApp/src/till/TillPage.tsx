@@ -30,6 +30,19 @@ export default function TillPage() {
   const [dialog, setDialog] = useState<Dialog>("none");
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [printOnShow, setPrintOnShow] = useState(false);
+  // "Sale complete ✓" banner: shows on completion, fades after 3s (or on its ✕).
+  const [donePhase, setDonePhase] = useState<"shown" | "fading" | "gone">("gone");
+  useEffect(() => { if (receipt) setDonePhase("shown"); }, [receipt]);
+  // The countdown runs ONLY while the banner is actually on screen — while the receipt
+  // dialog is up the banner is hidden and the timer is parked, so dismissing the receipt
+  // always gives the full 3s (then a 600ms fade, matching the CSS transition).
+  useEffect(() => {
+    if (!receipt || dialog === "receipt" || donePhase === "gone") return;
+    const t = donePhase === "shown"
+      ? setTimeout(() => setDonePhase("fading"), 3000)
+      : setTimeout(() => setDonePhase("gone"), 600);
+    return () => clearTimeout(t);
+  }, [receipt, dialog, donePhase]);
   const prefs = getPrefs();
   // NatApp TillListOrderReversed: display order only — checkout order is unaffected
   const displayLines = prefs.newestFirst ? [...basket.lines].reverse() : basket.lines;
@@ -363,8 +376,9 @@ export default function TillPage() {
         </table>
         {basket.lines.length === 0 && (
           <div className="empty">
-            {receipt && dialog !== "receipt" ? (
-              <div className="sale-done">
+            {receipt && dialog !== "receipt" && donePhase !== "gone" ? (
+              <div className={`sale-done${donePhase === "fading" ? " fade-out" : ""}`}>
+                <button className="ghost small sale-done-x" title="Dismiss" onClick={() => setDonePhase("gone")}>✕</button>
                 <strong>Sale complete ✓</strong>
                 <span>
                   {gbp(receipt.totalPence)} taken
