@@ -21,6 +21,7 @@ import { NavContext, tabSlug } from "./nav.tsx";
 const ACCOUNT_CONSOLE = "https://login.plutus.huggett.dscloud.me/realms/plutus/account";
 import { fetchActiveAnnouncements, type ActiveAnnouncement } from "./api.ts";
 import { completeLoginIfCallback } from "./oidc.ts";
+import AskHost from "./Ask.tsx";
 
 declare const __BUILD_TIME__: string;
 
@@ -194,6 +195,7 @@ export default function App() {
         </button>
       </header>
 
+      <AskHost />
       <Announcements />
 
       <div className="page">

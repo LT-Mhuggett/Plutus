@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { closePeriod, createPeriod, fetchPeriods, gbp, type Period } from "./api.ts";
 import DataTable from "./DataTable.tsx";
+import { ask } from "./Ask.tsx";
 
 /** Financial periods (WP3.4): create, close (snapshot + lock). Late sales into a closed
  *  period post to the next open day and are flagged in the audit trail. */
@@ -57,9 +58,24 @@ export default function PeriodsPage() {
           <button
             className="ghost small"
             disabled={busy}
-            onClick={() => {
-              if (window.confirm(`Close ${p.name}? This snapshots and LOCKS ${p.startDay} → ${p.endDay}; late sales will post to the next open day.`))
-                void closePeriod(p.id).then(refresh).catch((e) => setError(String(e)));
+            onClick={async () => {
+              if (!await ask.confirm({
+                title: `Close ${p.name}?`,
+                body: (
+                  <>
+                    <p className="small">
+                      This snapshots and <strong>locks</strong> {p.startDay} → {p.endDay}.
+                    </p>
+                    <p className="muted small">
+                      Sales that arrive for those dates afterwards post to the next open day instead,
+                      so a published figure never silently changes.
+                    </p>
+                  </>
+                ),
+                confirmLabel: "Close period",
+                danger: true,
+              })) return;
+              void closePeriod(p.id).then(refresh).catch((e) => setError(String(e)));
             }}
           >
             Close period

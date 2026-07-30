@@ -7,6 +7,7 @@ import {
   type SkuMapRow, type WebstoreConn, type WebstoreProductRow, type WebstoreProductsResp,
 } from "./api.ts";
 import DataTable from "./DataTable.tsx";
+import { ask } from "./Ask.tsx";
 
 // FE4.3 row aliases for the alignment tables (the API groups them under AlignmentResp).
 type PriceDiffRow = AlignmentRow;
@@ -53,8 +54,18 @@ export default function WebstorePage() {
                 <span className="muted small">last poll {health.lastPollAtUtc ? new Date(health.lastPollAtUtc + "Z").toLocaleString("en-GB") : "—"}</span></div>
             )}
             <div className="stat">
-              <button className="ghost small" onClick={() => {
-                if (!window.confirm(`Disconnect "${conn.name}"? Its webhooks are removed from the site and syncing stops. Already-ingested sales are kept.`)) return;
+              <button className="ghost small" onClick={async () => {
+                if (!await ask.confirm({
+                  title: `Disconnect “${conn.name}”?`,
+                  body: (
+                    <>
+                      <p className="small">Its webhooks are removed from the site and syncing stops.</p>
+                      <p className="muted small">Sales already ingested are kept — nothing is deleted.</p>
+                    </>
+                  ),
+                  confirmLabel: "Disconnect",
+                  danger: true,
+                })) return;
                 void disconnectWebstore(conn.id).then(() => fetchWebstores().then(setConns)).catch((e) => setError(String(e)));
               }}>Disconnect</button>
             </div>
@@ -264,10 +275,23 @@ function Outbound({ id }: { id: string }) {
   const refresh = () => fetchOutboundLog(id).then(setData).catch((e) => setError(String(e)));
   useEffect(() => { void refresh(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const switchMode = (mode: string) => {
-    if (mode === "live" && !window.confirm(
-      "Go LIVE? Plutus will start WRITING stock levels and draft products to the webstore. " +
-      "Only do this after reviewing the dry-run journal below (and with the WRITE REST key configured).")) return;
+  const switchMode = async (mode: string) => {
+    if (mode === "live" && !await ask.confirm({
+      title: "Go LIVE with outbound writes?",
+      body: (
+        <>
+          <p className="small">
+            Plutus will start <strong>writing</strong> stock levels and draft products to the webstore.
+          </p>
+          <p className="muted small">
+            Only do this after reviewing the dry-run journal below, and with the WRITE REST key
+            configured. You can switch back to “off” at any time — it's a kill switch.
+          </p>
+        </>
+      ),
+      confirmLabel: "Go live",
+      danger: true,
+    })) return;
     setError(""); setMsg("");
     setOutboundMode(id, mode).then(() => { setMsg(`Outbound mode set to ${mode}.`); return refresh(); })
       .catch((e) => setError(String(e)));
@@ -279,7 +303,7 @@ function Outbound({ id }: { id: string }) {
     <div>
       <div className="toolbar">
         <label>Outbound mode
-          <select value={data.mode || "off"} onChange={(e) => switchMode(e.target.value)}>
+          <select value={data.mode || "off"} onChange={(e) => void switchMode(e.target.value)}>
             <option value="off">Off (kill switch)</option>
             <option value="dry-run">Dry-run — journal only, send nothing</option>
             <option value="live">LIVE — write to the webstore</option>

@@ -15,6 +15,7 @@ import { queuedCount } from "./offline.ts";
 import { getSession, type Session } from "./session.ts";
 import { oidcMode, signOut } from "./auth.ts";
 import { beginLogin, completeLoginIfCallback } from "./oidc.ts";
+import AskHost from "./Ask.tsx";
 
 declare const __BUILD_TIME__: string;
 
@@ -211,6 +212,7 @@ export default function App() {
         </div>
       ))}
 
+      <AskHost />
       <div className="page">
         <Page tab={tab} />
       </div>

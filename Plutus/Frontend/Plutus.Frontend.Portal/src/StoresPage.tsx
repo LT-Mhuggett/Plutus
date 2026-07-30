@@ -8,6 +8,7 @@ import {
 import Barcode39 from "./Barcode39.tsx";
 import DataTable from "./DataTable.tsx";
 import { useNav } from "./nav.tsx";
+import { ask } from "./Ask.tsx";
 
 /**
  * A till's device state. Only the LIVE device (Active, or PendingRemoval awaiting approval) is a
@@ -100,13 +101,24 @@ export default function StoresPage() {
    *  Spelled out in the confirmation because it retires the till's current device. */
   async function reissue(t: TillRow) {
     const active = t.devices.some((d) => d.status === "Active");
-    if (!window.confirm(
-      `Issue a new enrolment code for “${t.name}”?\n\n` +
-      (active
-        ? "When the code is used, this till's CURRENT device stops trading (a till is one counter). "
-        : "") +
-      "The till keeps its identity, so all its sales history stays with it."
-    )) return;
+    if (!await ask.confirm({
+      title: `Issue a new enrolment code for “${t.name}”?`,
+      body: (
+        <>
+          {active && (
+            <p className="small">
+              When the code is used, this till's <strong>current device stops trading</strong> — a
+              till is one counter.
+            </p>
+          )}
+          <p className="small">
+            The till keeps its identity, so all of its sales history stays with it. Use this to
+            re-enrol a till whose browser has lost its credential.
+          </p>
+        </>
+      ),
+      confirmLabel: "Issue code",
+    })) return;
     setBusy(true); setError("");
     try {
       const r = await reissueTillCode(t.id);
@@ -117,23 +129,31 @@ export default function StoresPage() {
     } finally { setBusy(false); }
   }
 
-  /** FE6.2: move a till between stores. */
+  /** FE6.2: move a till between stores — pick the destination from a list of store NAMES. */
   async function move(t: TillRow) {
     const options = stores.filter((s) => s.id !== t.storeId);
     if (options.length === 0) return;
-    const target = window.prompt(
-      `Move “${t.name}” to which store?\n\n` +
-      options.map((s) => `${s.id} = ${s.name ?? `Store ${s.id}`}`).join("\n") +
-      "\n\nEnter the store number. Note: reports bucket by the till's CURRENT store, so its past " +
-      "figures move with it.",
-      String(options[0].id),
-    );
-    if (target === null) return;
-    const storeId = Number(target);
-    if (!options.some((s) => s.id === storeId)) { setError(`“${target}” isn't one of the listed stores.`); return; }
+    const chosen = await ask.choose({
+      title: `Move “${t.name}”`,
+      body: (
+        <>
+          <p className="small">
+            Currently at <strong>{stores.find((s) => s.id === t.storeId)?.name ?? `Store ${t.storeId}`}</strong>.
+            Choose where it should live:
+          </p>
+          <p className="muted small">
+            The till keeps its identity and its sales, but reports bucket by the till's CURRENT
+            store — so its past figures move with it.
+          </p>
+        </>
+      ),
+      options: options.map((s) => ({ value: String(s.id), label: s.name ?? `Store ${s.id}` })),
+      confirmLabel: "Move till",
+    });
+    if (chosen === null) return;
     setBusy(true); setError("");
     try {
-      await moveTillToStore(t.id, storeId);
+      await moveTillToStore(t.id, Number(chosen));
       await refresh();
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
@@ -151,7 +171,12 @@ export default function StoresPage() {
   }
 
   async function removeTill(t: TillRow) {
-    if (!window.confirm(`Delete till "${t.name}"? This can't be undone.`)) return;
+    if (!await ask.confirm({
+      title: `Delete till “${t.name}”?`,
+      body: <p className="small">This can't be undone. A till that has recorded sales is protected and will be refused.</p>,
+      confirmLabel: "Delete till",
+      danger: true,
+    })) return;
     setError("");
     try {
       await deleteTill(t.id);
@@ -467,11 +492,13 @@ function StoreCard({ store, defaultOpen, onSaved, tills, busy, buckets, onRename
 }) {
   const [edit, setEdit] = useState<StoreRow>(store);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const dirty = JSON.stringify(edit) !== JSON.stringify(store);
   const addr = [store.adLine1, store.city, store.postCode].filter((x) => x && x !== "N/A").join(", ");
 
   const save = async () => {
     setSaving(true);
+    setSaveError("");
     try {
       await updateStore(store.id, {
         name: edit.name, adLine1: edit.adLine1, city: edit.city, postCode: edit.postCode,
@@ -479,7 +506,9 @@ function StoreCard({ store, defaultOpen, onSaved, tills, busy, buckets, onRename
       });
       await onSaved();
     } catch (e) {
-      alert(String(e instanceof Error ? e.message : e)); // 409 = store name taken
+      // 409 = store name taken. Inline, next to the form — an alert() popup for a validation
+      // message is both ugly and easy to dismiss without reading.
+      setSaveError(String(e instanceof Error ? e.message : e));
     } finally { setSaving(false); }
   };
 
@@ -498,6 +527,7 @@ function StoreCard({ store, defaultOpen, onSaved, tills, busy, buckets, onRename
         <label>Postcode <input value={edit.postCode} onChange={(e) => setEdit({ ...edit, postCode: e.target.value })} /></label>
         <label>Phone <input value={edit.contactNumber} onChange={(e) => setEdit({ ...edit, contactNumber: e.target.value })} /></label>
         {dirty && <button className="primary small" disabled={saving} onClick={() => void save()}>Save</button>}
+        {saveError && <span className="error small">{saveError}</span>}
       </div>
 
       <details className="sub">

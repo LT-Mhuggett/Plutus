@@ -11,6 +11,7 @@ import {
   type DeviceCredential,
 } from "./pipeline.ts";
 import { getPrefs, setPrefs, type Prefs } from "./prefs.ts";
+import { ask } from "./Ask.tsx";
 import { getSession } from "./session.ts";
 import Receipt, { type ReceiptData } from "./till/Receipt.tsx";
 
@@ -76,7 +77,17 @@ function TillDeviceSection() {
 
   async function requestRemoval() {
     if (!cred) return;
-    if (!window.confirm("Un-enrol this device? It keeps working until a manager approves the removal in the management portal.")) return;
+    if (!await ask.confirm({
+      title: "Un-enrol this device?",
+      body: (
+        <p className="small">
+          This till keeps working until a manager approves the removal in the management portal.
+          Once approved, this browser stops trading and forgets its credential.
+        </p>
+      ),
+      confirmLabel: "Request un-enrolment",
+      danger: true,
+    })) return;
     setBusy(true); setError("");
     try { const r = await requestUnenrol(cred.deviceId); setDeviceStatus(r.status); }
     catch (e) { setError(String(e instanceof Error ? e.message : e)); }

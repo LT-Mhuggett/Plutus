@@ -7,6 +7,7 @@ import {
 import { canBulkEditInventory } from "./auth.ts";
 import DataTable from "./DataTable.tsx";
 import { useNav } from "./nav.tsx";
+import { ask } from "./Ask.tsx";
 
 // WP4.2/4.3 portal item catalogue: add/edit items (name, brand, cost, price inc VAT with ex-VAT
 // derived, tax band, category) — parity with the till's inventory dialog, reusing the guardrailed
@@ -85,9 +86,28 @@ export default function InventoryItems({ binView = false }: { binView?: boolean 
         const { count, capped, max } = await bulkCount(criteria());
         if (count === 0) { setNotice("Nothing matches the current filter."); return; }
         if (capped) { setError(`That filter matches ${count} items — over the ${max} limit. Narrow it first.`); return; }
-        if (!window.confirm(`${describe(action, extra, catName)} for ALL ${count} item${count === 1 ? "" : "s"} matching the current filter?\n\nThis cannot be undone from the UI (the change is audited with the previous values).`))
-          return;
-      } else if (!window.confirm(`${describe(action, extra, catName)} for the ${ticked.size} selected item${ticked.size === 1 ? "" : "s"}?`)) {
+        if (!await ask.confirm({
+          title: `${describe(action, extra, catName)}?`,
+          body: (
+            <>
+              <p className="small">
+                This applies to <strong>ALL {count} item{count === 1 ? "" : "s"}</strong> matching the
+                current filter — not just the ones on screen.
+              </p>
+              <p className="muted small">
+                There's no undo button, but the change is audited with the previous values.
+              </p>
+            </>
+          ),
+          confirmLabel: `Apply to ${count} item${count === 1 ? "" : "s"}`,
+          danger: action === "bin",
+        })) return;
+      } else if (!await ask.confirm({
+        title: `${describe(action, extra, catName)}?`,
+        body: <p className="small">For the {ticked.size} selected item{ticked.size === 1 ? "" : "s"}.</p>,
+        confirmLabel: `Apply to ${ticked.size}`,
+        danger: action === "bin",
+      })) {
         return;
       }
       setBulkBusy(true);

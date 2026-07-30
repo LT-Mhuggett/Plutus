@@ -3,6 +3,7 @@ import {
   createLoyaltyTier, fetchLoyaltyTiers, updateLoyaltyTier,
   type LoyaltyTier, type LoyaltyTierInput,
 } from "./api.ts";
+import { ask } from "./Ask.tsx";
 
 // FE1: the loyalty tier catalogue manager — this is where "specific tiers" are defined so a
 // membership is ASSIGNED a level instead of re-typing a name + rate every time. Writes are gated
@@ -28,9 +29,21 @@ export default function TierManagerDialog({ onClose }: { onClose: () => void }) 
   useEffect(refresh, []);
 
   const toggleActive = async (t: LoyaltyTier) => {
-    if (t.active && t.memberCount > 0 &&
-        !window.confirm(`“${t.name}” has ${t.memberCount} member${t.memberCount === 1 ? "" : "s"}. Deactivating only hides it from the pickers — existing members keep their discount. Continue?`))
-      return;
+    if (t.active && t.memberCount > 0 && !await ask.confirm({
+      title: `Deactivate “${t.name}”?`,
+      body: (
+        <>
+          <p className="small">
+            It has <strong>{t.memberCount} member{t.memberCount === 1 ? "" : "s"}</strong>.
+          </p>
+          <p className="muted small">
+            Deactivating only hides the tier from the pickers — existing members keep their discount,
+            and you can re-activate it at any time.
+          </p>
+        </>
+      ),
+      confirmLabel: "Deactivate tier",
+    })) return;
     setError("");
     try {
       await updateLoyaltyTier(t.id, {

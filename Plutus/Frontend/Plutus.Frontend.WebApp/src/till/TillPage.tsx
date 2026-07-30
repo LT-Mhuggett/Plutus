@@ -8,6 +8,7 @@ import { canManageCustomers } from "../pipeline.ts";
 import { gbp, parsePence } from "../money.ts";
 import { useBasket, basketTotals, lineDiscountPence, lineTotalPence, type BasketState } from "./basket.ts";
 import { getPrefs } from "../prefs.ts";
+import { ask } from "../Ask.tsx";
 import CheckoutDialog from "./CheckoutDialog.tsx";
 import DiscountDialog from "./DiscountDialog.tsx";
 import ReturnDialog from "./ReturnDialog.tsx";
@@ -182,7 +183,14 @@ export default function TillPage() {
   }
 
   async function saveTransaction() {
-    const name = window.prompt("Name this saved transaction (e.g. customer name):");
+    const name = await ask.prompt({
+      title: "Save this transaction",
+      body: <p className="muted small">Give it a name so you can find it again from “Retrieve Transaction”.</p>,
+      label: "Name",
+      placeholder: "e.g. the customer's name",
+      confirmLabel: "Save transaction",
+      required: false,
+    });
     if (name === null) return;
     setBusy(true);
     try {
@@ -454,14 +462,25 @@ export default function TillPage() {
           totals={totals}
           customer={customer}
           onClose={() => setDialog("none")}
-          onComplete={(data) => {
+          onComplete={async (data) => {
             setReceipt(data);
             dispatch({ type: "clear" });
             setCustomer(null); // fresh sale starts with no customer attached
-            // NatApp AskForReceipt: prompt wins over auto-print when enabled
+            // NatApp AskForReceipt: the ask wins over auto-print when enabled.
+            // The sale is ALREADY committed at this point, so awaiting the operator's answer can't
+            // affect it — the basket is cleared first and the receipt dialog opens either way.
             const p = getPrefs();
-            setPrintOnShow(p.askReceipt ? window.confirm("Print receipt?") : p.autoPrintReceipt);
-            setDialog("receipt");
+            if (p.askReceipt) {
+              setDialog("receipt");
+              setPrintOnShow(await ask.confirm({
+                title: "Print receipt?",
+                confirmLabel: "Print",
+                cancelLabel: "No receipt",
+              }));
+            } else {
+              setPrintOnShow(p.autoPrintReceipt);
+              setDialog("receipt");
+            }
           }}
         />
       )}

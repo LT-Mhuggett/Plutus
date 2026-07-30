@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import DataTable from "./DataTable.tsx";
 import { useNav } from "./nav.tsx";
+import { ask } from "./Ask.tsx";
 import {
   createCategory, deleteCategory, fetchCategories, reassignCategory, renameCategory,
   type Category,
@@ -25,7 +26,12 @@ export default function CategoryManager() {
 
   const onDelete = async (c: Category) => {
     if (c.itemCount > 0) { setReassign(c); return; }        // blocked → open the reassign flow
-    if (!window.confirm(`Delete the empty category “${c.name}”?`)) return;
+    if (!await ask.confirm({
+      title: `Delete the category “${c.name}”?`,
+      body: <p className="small">It holds no items, so nothing is affected.</p>,
+      confirmLabel: "Delete category",
+      danger: true,
+    })) return;
     try { await deleteCategory(c.id); await load(); }
     catch (e) { setError(String(e instanceof Error ? e.message : e)); }
   };
