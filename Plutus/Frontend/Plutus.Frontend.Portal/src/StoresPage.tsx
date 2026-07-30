@@ -85,17 +85,6 @@ export default function StoresPage() {
   return (
     <section className="panel">
       {error && <p className="error">{error}</p>}
-      {issued && (
-        <div className="enrol-code">
-          <div className="grow">
-            <span className="muted small">Enrolment code for till {issued.tillId.slice(0, 8)}… — enter it on the
-              till at Settings → Till device (single-use, expires {new Date(issued.expires).toLocaleString("en-GB")}).</span>
-            <div className="enrol-code-value mono">{issued.code}</div>
-          </div>
-          <button className="ghost small" onClick={() => void navigator.clipboard?.writeText(issued.code)}>Copy</button>
-          <button className="ghost small" onClick={() => setIssued(null)}>Dismiss</button>
-        </div>
-      )}
 
       <h2>Physical locations</h2>
       <p className="muted small">
@@ -119,6 +108,7 @@ export default function StoresPage() {
             tills={tills.filter((t) => t.storeId === s.id)} busy={busy}
             buckets={locations.filter((l) => l.storeId === s.id && l.type === "Store")}
             onRename={rename} onRemoveTill={removeTill} onNewTill={newTill}
+            issued={issued} onDismissIssued={() => setIssued(null)}
             onRevoke={(id) => void revokeTill(id).then(refresh)}
             onDecide={(deviceId, approve) => void decideDeviceRemoval(deviceId, approve).then(refresh)}
           />
@@ -191,12 +181,14 @@ function AddWarehouse({ stores, onSaved }: { stores: StoreRow[]; onSaved: () => 
 }
 
 /** One store's tills — sortable, with rename/revoke/delete + create. */
-function TillsTable({ tills, busy, onRename, onRemove, onRevoke, storeId, onNewTill, onDecide }: {
+function TillsTable({ tills, busy, onRename, onRemove, onRevoke, storeId, onNewTill, onDecide, issued, onDismissIssued }: {
   tills: TillRow[]; busy: boolean; storeId: number;
   onRename: (id: string, name: string) => Promise<void>;
   onRemove: (t: TillRow) => void; onRevoke: (id: string) => void;
   onNewTill: (storeId: number, name: string) => Promise<void>;
   onDecide: (deviceId: string, approve: boolean) => void;
+  issued: { tillId: string; code: string; expires: string } | null;
+  onDismissIssued: () => void;
 }) {
   const s = useSort(tills, "name", "asc");
   return (
@@ -210,11 +202,14 @@ function TillsTable({ tills, busy, onRename, onRemove, onRevoke, storeId, onNewT
         <tbody>
           {s.sorted.map((t) => (
             <tr key={t.id}>
-              <td><TillNameCell till={t} onRename={onRename} /></td>
+              <td>
+                <TillNameCell till={t} onRename={onRename} />
+                {t.isWebstore && <span className="chip" title="Virtual till — carries this store's webstore (e.g. WooCommerce) orders. Managed from the Webstore tab."> webstore</span>}
+              </td>
               <td className="small">{new Date(t.lastOnline + "Z").toLocaleString("en-GB")}</td>
               <td>
                 {t.devices.length === 0 && <span className="muted">none</span>}
-                {t.devices.map((d) => (
+                {t.isWebstore ? <span className="muted small">webstore channel — no enrolment</span> : t.devices.map((d) => (
                   <span key={d.id} className={`chip ${d.status === "Active" ? "ok" : d.status === "PendingRemoval" ? "warn" : "bad"}`}>
                     {d.status === "PendingRemoval" ? "Pending removal" : d.status}
                   </span>
@@ -228,10 +223,16 @@ function TillsTable({ tills, busy, onRename, onRemove, onRevoke, storeId, onNewT
                 ))}
               </td>
               <td>
-                {t.devices.some((d) => d.status === "Active" || d.status === "PendingRemoval") && (
-                  <button className="ghost small" disabled={busy} onClick={() => onRevoke(t.id)}>Revoke</button>
-                )}{" "}
-                <button className="ghost small" disabled={busy} onClick={() => onRemove(t)} title="Delete (only if no sales)">Delete</button>
+                {t.isWebstore ? (
+                  <span className="muted small" title="Disconnect it from the Webstore tab instead — deleting here would break order ingest.">managed by Webstore</span>
+                ) : (
+                  <>
+                    {t.devices.some((d) => d.status === "Active" || d.status === "PendingRemoval") && (
+                      <button className="ghost small" disabled={busy} onClick={() => onRevoke(t.id)}>Revoke</button>
+                    )}{" "}
+                    <button className="ghost small" disabled={busy} onClick={() => onRemove(t)} title="Delete (only if no sales)">Delete</button>
+                  </>
+                )}
               </td>
             </tr>
           ))}
@@ -239,6 +240,21 @@ function TillsTable({ tills, busy, onRename, onRemove, onRevoke, storeId, onNewT
         </tbody>
       </table>
       <NewTillRow storeId={storeId} busy={busy} onCreate={onNewTill} />
+      {/* the code shows HERE, next to the button that made it (it used to sit at the top of the
+          page, off-screen when the store list is long) */}
+      {issued && tills.some((t) => t.id === issued.tillId) && (
+        <div className="enrol-code">
+          <div className="grow">
+            <span className="muted small">
+              Enrolment code for “{tills.find((t) => t.id === issued.tillId)?.name}” — on the till device open
+              Settings → Till device and enter it (single-use, expires {new Date(issued.expires).toLocaleString("en-GB")}).
+            </span>
+            <div className="enrol-code-value mono">{issued.code}</div>
+          </div>
+          <button className="ghost small" onClick={() => void navigator.clipboard?.writeText(issued.code)}>Copy</button>
+          <button className="ghost small" onClick={onDismissIssued}>Dismiss</button>
+        </div>
+      )}
     </>
   );
 }
@@ -289,12 +305,14 @@ function NewTillRow({ storeId, busy, onCreate }: { storeId: number; busy: boolea
   );
 }
 
-function StoreCard({ store, defaultOpen, onSaved, tills, busy, buckets, onRename, onRemoveTill, onNewTill, onRevoke, onDecide }: {
+function StoreCard({ store, defaultOpen, onSaved, tills, busy, buckets, onRename, onRemoveTill, onNewTill, onRevoke, onDecide, issued, onDismissIssued }: {
   store: StoreRow; defaultOpen: boolean; onSaved: () => Promise<void> | void;
   tills: TillRow[]; busy: boolean; buckets: StockLocationRow[];
   onRename: (id: string, name: string) => Promise<void>;
   onRemoveTill: (t: TillRow) => void; onNewTill: (storeId: number, name: string) => Promise<void>;
   onRevoke: (id: string) => void; onDecide: (deviceId: string, approve: boolean) => void;
+  issued: { tillId: string; code: string; expires: string } | null;
+  onDismissIssued: () => void;
 }) {
   const [edit, setEdit] = useState<StoreRow>(store);
   const [saving, setSaving] = useState(false);
@@ -340,7 +358,8 @@ function StoreCard({ store, defaultOpen, onSaved, tills, busy, buckets, onRename
       <details className="sub">
         <summary className="muted small">Tills ({tills.length})</summary>
         <TillsTable tills={tills} busy={busy} storeId={store.id}
-          onRename={onRename} onRemove={onRemoveTill} onRevoke={onRevoke} onNewTill={onNewTill} onDecide={onDecide} />
+          onRename={onRename} onRemove={onRemoveTill} onRevoke={onRevoke} onNewTill={onNewTill} onDecide={onDecide}
+          issued={issued} onDismissIssued={onDismissIssued} />
       </details>
 
       {/* WP11.6: the store's own inventory bucket lives HERE, not in a flat "locations" list. */}

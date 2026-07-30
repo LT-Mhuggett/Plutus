@@ -52,12 +52,17 @@ namespace Plutus.Tenancy.Controllers
             // WP11.1: names live in the TillDetails side table (older tills may have none yet).
             var names = await _db.TillDetails.AsNoTracking()
                 .Where(t => tillIds.Contains(t.TillId)).ToDictionaryAsync(t => t.TillId, t => t.Name);
+            // A webstore connection provisions a VIRTUAL till/device to carry its channel's
+            // sales — flag those so the portal can badge them and hide enrol/revoke actions.
+            var webstoreTillIds = await _db.WebStores.AsNoTracking()
+                .Select(w => w.TillId).ToListAsync();
             return Ok(tills.Select(t => new
             {
                 id = t.Id,
                 name = names.TryGetValue(t.Id, out var n) ? n : $"Till {t.Id.ToString()[..8]}",
                 storeId = t.StoreId,
                 lastOnline = t.LastOnline,
+                isWebstore = webstoreTillIds.Contains(t.Id),
                 devices = devices.Where(d => d.TillId == t.Id).Select(d => new
                 {
                     id = d.Id, status = d.Status.ToString(), lastSeenSeq = d.LastSeenSeq, createdAtUtc = d.CreatedAtUtc,
