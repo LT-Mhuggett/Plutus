@@ -9,6 +9,36 @@ import Barcode39 from "./Barcode39.tsx";
 import DataTable from "./DataTable.tsx";
 import { useNav } from "./nav.tsx";
 
+/**
+ * A till's device state. Only the LIVE device (Active, or PendingRemoval awaiting approval) is a
+ * chip — revoked devices are dead history and were previously rendered one chip each, so a till
+ * that had been re-enrolled twice read "Revoked Revoked Active", which looks like a fault rather
+ * than a normal audit trail. Retired devices now collapse into a single muted count.
+ *
+ * Note there can be at most one live device per till (FE6.1's one-active-device rule), so the
+ * common case is exactly one chip.
+ */
+function DeviceChips({ devices }: { devices: TillRow["devices"] }) {
+  const live = devices.filter((d) => d.status !== "Revoked");
+  const retired = devices.length - live.length;
+  if (devices.length === 0) return <span className="muted">none — needs enrolling</span>;
+  return (
+    <>
+      {live.map((d) => (
+        <span key={d.id} className={`chip ${d.status === "Active" ? "ok" : "warn"}`}>
+          {d.status === "PendingRemoval" ? "Pending removal" : d.status}
+        </span>
+      ))}
+      {live.length === 0 && <span className="chip bad" title="Every device for this till has been revoked — issue a New code to enrol one">not enrolled</span>}
+      {retired > 0 && (
+        <span className="muted small" title={`${retired} previously enrolled device${retired === 1 ? "" : "s"}, retired when this till was re-enrolled. Kept for the audit trail.`}>
+          {" "}+{retired} retired
+        </span>
+      )}
+    </>
+  );
+}
+
 const DAYS: { key: string; label: string }[] = [
   { key: "mon", label: "Mon" }, { key: "tue", label: "Tue" }, { key: "wed", label: "Wed" },
   { key: "thu", label: "Thu" }, { key: "fri", label: "Fri" }, { key: "sat", label: "Sat" }, { key: "sun", label: "Sun" },
@@ -188,13 +218,7 @@ export default function StoresPage() {
               key: "devices", label: "Devices", sortable: false,
               render: (t) => t.isWebstore
                 ? <span className="muted small">n/a</span>
-                : t.devices.length === 0
-                  ? <span className="muted">none — needs enrolling</span>
-                  : <>{t.devices.map((d) => (
-                      <span key={d.id} className={`chip ${d.status === "Active" ? "ok" : d.status === "PendingRemoval" ? "warn" : "bad"}`}>
-                        {d.status === "PendingRemoval" ? "Pending removal" : d.status}
-                      </span>
-                    ))}</>,
+                : <DeviceChips devices={t.devices} />,
             },
             { key: "lastOnline", label: "Last online", render: (t) => <span className="small">{new Date(t.lastOnline + "Z").toLocaleString("en-GB")}</span> },
           ]}
@@ -335,13 +359,7 @@ function TillsTable({ tills, busy, onRename, onRemove, onRevoke, storeId, onNewT
               <>
                 {t.isWebstore
                   ? <span className="muted small">webstore channel — no enrolment</span>
-                  : t.devices.length === 0
-                    ? <span className="muted">none</span>
-                    : t.devices.map((d) => (
-                        <span key={d.id} className={`chip ${d.status === "Active" ? "ok" : d.status === "PendingRemoval" ? "warn" : "bad"}`}>
-                          {d.status === "PendingRemoval" ? "Pending removal" : d.status}
-                        </span>
-                      ))}
+                  : <DeviceChips devices={t.devices} />}
                 {/* WP6.2: a device that asked to be un-enrolled — approve (revoke) or reject (keep). */}
                 {t.devices.filter((d) => d.status === "PendingRemoval").map((d) => (
                   <span key={`act-${d.id}`} className="small" style={{ display: "inline-flex", gap: 4, marginLeft: 6 }}>

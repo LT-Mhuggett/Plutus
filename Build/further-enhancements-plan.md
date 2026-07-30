@@ -891,6 +891,18 @@ Only reachable with the operator/SSO login, and only worth checking if you use i
 | 39 | Comms | announcements (Delete still works) |
 | 40 | Flags | feature flags (Kill/Enable still works) |
 
+### OUT OF SCOPE — Matt's decision, 2026-07-30
+Matt reviewed the deployed tables and confirmed two are **not** to be brought onto the standard
+table, despite being inconsistent with the rest:
+
+- **Reporting → Summary → "Top selling items"**
+- **Reporting → Summary → "Sales by payment method"** (same screen)
+
+Both are report breakdowns inside a summary view rather than browsable collections. They keep their
+current hand-rolled look. Noting it explicitly so a later sweep doesn't "fix" them and so the FE4
+audit doesn't read as incomplete. (The till's mirror of the same screen is out of scope for the same
+reason.) If they ever grow long enough to need paging, revisit.
+
 ### Deliberately unchanged (don't report these as missed)
 Receipts and the sale-detail dialog · the till basket · VAT-by-band and payment-split
 breakdowns · the Platform **login→sale funnel** (fixed ordered stages) · a price's effective-date
