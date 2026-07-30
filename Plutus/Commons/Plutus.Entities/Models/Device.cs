@@ -6,6 +6,10 @@ namespace Plutus.Entities.Models
     {
         Active = 0,
         Revoked = 1,
+        // WP6.2: the device has asked to be un-enrolled and is awaiting portal approval. It KEEPS
+        // TRADING (token issuance still allowed) until an admin approves (→ Revoked) or rejects
+        // (→ Active). A plain byte value on the existing tinyint column — no schema migration.
+        PendingRemoval = 2,
     }
 
     /// <summary>

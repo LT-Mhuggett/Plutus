@@ -7,6 +7,7 @@ import LoyaltyPage from "./LoyaltyPage.tsx";
 import StoreInformationPage from "./StoreInformationPage.tsx";
 import SettingsPage from "./SettingsPage.tsx";
 import EmployeesPage from "./EmployeesPage.tsx";
+import HelpPanel from "./HelpPanel.tsx";
 import LoginPage from "./LoginPage.tsx";
 import { ackPickNotification, drainOutbox, fetchActiveAnnouncements, fetchPickNotifications, fetchTillName, loadReceiptTemplate, onOutboxChanged, syncCatalogue, type ActiveAnnouncement, type PickNotification } from "./api.ts";
 import { getDeviceCredential } from "./pipeline.ts";
@@ -47,6 +48,7 @@ export default function App() {
   const [booting, setBooting] = useState<boolean>(oidcMode);
   const [authError, setAuthError] = useState("");
   const [userMenu, setUserMenu] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [online, setOnline] = useState(navigator.onLine);
   const [queued, setQueued] = useState(0);
   const [tillName, setTillName] = useState<string | null>(null);
@@ -157,6 +159,8 @@ export default function App() {
         )}
         {tillName && <span className="till-name-badge" title="This till">{tillName}</span>}
         <span className="env-badge">test</span>
+        {/* WP6.3: Help, top-right next to the users button — raise/track support tickets. */}
+        <button className="user-btn" title="Help &amp; support" onClick={() => setHelpOpen(true)}>❓</button>
         {/* the users button — the original till's people icon, now functional */}
         <div className="user-wrap">
           <button className="user-btn" title="Users" onClick={() => setUserMenu((v) => !v)}>
@@ -210,6 +214,8 @@ export default function App() {
       <div className="page">
         <Page tab={tab} />
       </div>
+
+      {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
 
       <footer className="muted">
         {session.name} · Kapow Comics ltd — seeded test data · built {__BUILD_TIME__}

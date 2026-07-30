@@ -565,6 +565,9 @@ export const createTill = (storeId: number, name: string) =>
 export const renameTill = (id: string, name: string) => put<void>(`/api/v1/tills/${id}/name`, { name });
 export const revokeTill = (id: string) => post<void>(`/api/v1/tills/${id}/revoke`);
 export const deleteTill = (id: string) => del<void>(`/api/v1/tills/${id}`);
+// WP6.2: approve (→ revoke) or reject (→ active) a device's pending un-enrol request.
+export const decideDeviceRemoval = (deviceId: string, approve: boolean) =>
+  post<{ status: string }>(`/api/v1/tills/devices/${deviceId}/removal`, { approve });
 
 // ── periods ──
 

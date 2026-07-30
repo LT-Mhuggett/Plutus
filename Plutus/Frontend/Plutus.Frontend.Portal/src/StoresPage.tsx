@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  createStockLocation, createStore, createTill, deleteTill, fetchCompanies, fetchStockLocations,
+  createStockLocation, createStore, createTill, decideDeviceRemoval, deleteTill, fetchCompanies, fetchStockLocations,
   fetchStores, fetchTills, fetchWebstores, gbp, putReceiptTemplate, renameTill, revokeTill, updateStore,
   type Company, type ReceiptTemplate, type StockLocationRow, type StoreRow, type TillRow, type WebstoreConn,
 } from "./api.ts";
@@ -120,6 +120,7 @@ export default function StoresPage() {
             buckets={locations.filter((l) => l.storeId === s.id && l.type === "Store")}
             onRename={rename} onRemoveTill={removeTill} onNewTill={newTill}
             onRevoke={(id) => void revokeTill(id).then(refresh)}
+            onDecide={(deviceId, approve) => void decideDeviceRemoval(deviceId, approve).then(refresh)}
           />
         ))}
       </details>
@@ -190,11 +191,12 @@ function AddWarehouse({ stores, onSaved }: { stores: StoreRow[]; onSaved: () => 
 }
 
 /** One store's tills — sortable, with rename/revoke/delete + create. */
-function TillsTable({ tills, busy, onRename, onRemove, onRevoke, storeId, onNewTill }: {
+function TillsTable({ tills, busy, onRename, onRemove, onRevoke, storeId, onNewTill, onDecide }: {
   tills: TillRow[]; busy: boolean; storeId: number;
   onRename: (id: string, name: string) => Promise<void>;
   onRemove: (t: TillRow) => void; onRevoke: (id: string) => void;
   onNewTill: (storeId: number, name: string) => Promise<void>;
+  onDecide: (deviceId: string, approve: boolean) => void;
 }) {
   const s = useSort(tills, "name", "asc");
   return (
@@ -213,11 +215,20 @@ function TillsTable({ tills, busy, onRename, onRemove, onRevoke, storeId, onNewT
               <td>
                 {t.devices.length === 0 && <span className="muted">none</span>}
                 {t.devices.map((d) => (
-                  <span key={d.id} className={`chip ${d.status === "Active" ? "ok" : "bad"}`}>{d.status}</span>
+                  <span key={d.id} className={`chip ${d.status === "Active" ? "ok" : d.status === "PendingRemoval" ? "warn" : "bad"}`}>
+                    {d.status === "PendingRemoval" ? "Pending removal" : d.status}
+                  </span>
+                ))}
+                {/* WP6.2: a device that asked to be un-enrolled — approve (revoke) or reject (keep). */}
+                {t.devices.filter((d) => d.status === "PendingRemoval").map((d) => (
+                  <span key={`act-${d.id}`} className="small" style={{ display: "inline-flex", gap: 4, marginLeft: 6 }}>
+                    <button className="ghost small" disabled={busy} onClick={() => onDecide(d.id, true)} title="Approve removal — revokes this device">Approve</button>
+                    <button className="ghost small" disabled={busy} onClick={() => onDecide(d.id, false)} title="Reject — device stays enrolled">Reject</button>
+                  </span>
                 ))}
               </td>
               <td>
-                {t.devices.some((d) => d.status === "Active") && (
+                {t.devices.some((d) => d.status === "Active" || d.status === "PendingRemoval") && (
                   <button className="ghost small" disabled={busy} onClick={() => onRevoke(t.id)}>Revoke</button>
                 )}{" "}
                 <button className="ghost small" disabled={busy} onClick={() => onRemove(t)} title="Delete (only if no sales)">Delete</button>
@@ -278,12 +289,12 @@ function NewTillRow({ storeId, busy, onCreate }: { storeId: number; busy: boolea
   );
 }
 
-function StoreCard({ store, defaultOpen, onSaved, tills, busy, buckets, onRename, onRemoveTill, onNewTill, onRevoke }: {
+function StoreCard({ store, defaultOpen, onSaved, tills, busy, buckets, onRename, onRemoveTill, onNewTill, onRevoke, onDecide }: {
   store: StoreRow; defaultOpen: boolean; onSaved: () => Promise<void> | void;
   tills: TillRow[]; busy: boolean; buckets: StockLocationRow[];
   onRename: (id: string, name: string) => Promise<void>;
   onRemoveTill: (t: TillRow) => void; onNewTill: (storeId: number, name: string) => Promise<void>;
-  onRevoke: (id: string) => void;
+  onRevoke: (id: string) => void; onDecide: (deviceId: string, approve: boolean) => void;
 }) {
   const [edit, setEdit] = useState<StoreRow>(store);
   const [saving, setSaving] = useState(false);
@@ -329,7 +340,7 @@ function StoreCard({ store, defaultOpen, onSaved, tills, busy, buckets, onRename
       <details className="sub">
         <summary className="muted small">Tills ({tills.length})</summary>
         <TillsTable tills={tills} busy={busy} storeId={store.id}
-          onRename={onRename} onRemove={onRemoveTill} onRevoke={onRevoke} onNewTill={onNewTill} />
+          onRename={onRename} onRemove={onRemoveTill} onRevoke={onRevoke} onNewTill={onNewTill} onDecide={onDecide} />
       </details>
 
       {/* WP11.6: the store's own inventory bucket lives HERE, not in a flat "locations" list. */}

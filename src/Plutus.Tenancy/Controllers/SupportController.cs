@@ -45,7 +45,7 @@ namespace Plutus.Tenancy.Controllers
         // ── CLIENT ─────────────────────────────────────────────────────────────
 
         [HttpPost("api/v1/support/tickets")]
-        [Authorize]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.SupportTickets)]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -79,14 +79,14 @@ namespace Plutus.Tenancy.Controllers
         }
 
         [HttpGet("api/v1/support/tickets")]
-        [Authorize]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.SupportTickets)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> MyTickets(CancellationToken ct) =>
             Ok(await _db.SupportTickets.AsNoTracking().OrderByDescending(t => t.UpdatedAtUtc)
                 .Select(t => new { t.Id, t.Subject, t.Status, t.Severity, t.RaisedByName, t.CreatedAtUtc, t.UpdatedAtUtc }).ToListAsync(ct));
 
         [HttpGet("api/v1/support/tickets/{id}/messages")]
-        [Authorize]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.SupportTickets)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> MyThread([FromRoute] Guid id, CancellationToken ct)
@@ -96,7 +96,7 @@ namespace Plutus.Tenancy.Controllers
         }
 
         [HttpPost("api/v1/support/tickets/{id}/messages")]
-        [Authorize]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.SupportTickets)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]

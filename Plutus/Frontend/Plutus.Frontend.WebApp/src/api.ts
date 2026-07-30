@@ -61,6 +61,15 @@ export async function renameTill(tillId: string, name: string): Promise<void> {
   }
 }
 
+// WP6.2 un-enrol with portal approval: request removal (marks the device PendingRemoval; it keeps
+// trading), and poll this device's status so the till forgets its credential once approved (Revoked).
+export async function requestUnenrol(deviceId: string): Promise<{ status: string }> {
+  const res = await send("POST", "/api/v1/tills/unenrol-request", { deviceId });
+  return res.json();
+}
+export const fetchDeviceStatus = (deviceId: string) =>
+  get<{ status: string }>(`/api/v1/tills/devices/${encodeURIComponent(deviceId)}/status`);
+
 export async function login(email: string, password: string): Promise<Session> {
   const res = await fetch(`/api/Auth/Login`, {
     method: "POST",
@@ -236,9 +245,18 @@ export const fetchActiveAnnouncements = () => get<ActiveAnnouncement[]>("/api/v1
 export interface ActiveGateway { provider: string; label: string; integrated: boolean }
 export const fetchActiveGateway = () => get<ActiveGateway>("/api/v1/payments/gateway/active");
 
-// OP4: raise a support ticket from the till ("Ask for help"). Fire-and-confirm; no thread UI here.
+// OP4 / WP6.3: support tickets from the till — raise + read history + reply (gated support.tickets).
+export interface SupportTicket { id: string; subject: string; status: number; severity: number; raisedByName: string; createdAtUtc: string; updatedAtUtc: string }
+export interface SupportMessage { fromOperator: boolean; authorName: string; body: string; atUtc: string }
+export const SUPPORT_STATUS = ["Open", "Waiting on client", "Closed"];
+export const SUPPORT_SEVERITY = ["Question", "Problem", "Urgent"];
 export async function raiseTicket(subject: string, body: string, severity: number): Promise<void> {
   await send("POST", "/api/v1/support/tickets", { subject, body, severity });
+}
+export const fetchMyTickets = () => get<SupportTicket[]>("/api/v1/support/tickets");
+export const fetchMyThread = (id: string) => get<SupportMessage[]>(`/api/v1/support/tickets/${id}/messages`);
+export async function clientReply(id: string, body: string): Promise<void> {
+  await send("POST", `/api/v1/support/tickets/${encodeURIComponent(id)}/messages`, { body });
 }
 
 /** Create a customer from the till (supervisors/managers — gated on customers.manage). */
@@ -529,6 +547,15 @@ export const fetchBusiness = () =>
     return b;
   });
 export const fetchStore = () => get<StoreInfo>(`/api/Store/${STORE_ID}`);
+
+// WP6.1: read-only store info from the v1 endpoint (the portal is the source of truth for edits).
+// Gated on sales.ingest so the till's operator/device token can read it.
+export interface StoreInfoView {
+  storeId: number; name: string | null; businessName: string | null; vatNumber: string | null;
+  adLine1: string; adLine2: string; city: string; postCode: string; country: string;
+  contactNumber: string; openingHoursJson: string | null;
+}
+export const fetchStoreInfo = () => get<StoreInfoView>(`/api/v1/stores/${STORE_ID}/info`);
 
 // PUT binds the full entity — fetch, merge edits, echo back. MVC validation demands
 // the collection navigations be non-null (and Store its Business nav), so they're

@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Plutus.Entities;
+using Plutus.Entities.Models;
 using Plutus.SharedKernel;
 
 namespace Plutus.Tenancy.Controllers
@@ -14,6 +15,8 @@ namespace Plutus.Tenancy.Controllers
     public sealed record CreateTillRequest(int StoreId, string Name);
     public sealed record EnrolRequest(string EnrolmentCode);
     public sealed record RenameTillRequest(string Name);
+    public sealed record UnenrolRequestBody(Guid DeviceId);
+    public sealed record RemovalDecisionBody(bool Approve);
 
     /// <summary>T1.2 till lifecycle: portal creates tills + enrolment codes; a device redeems a
     /// code anonymously. Business logic lives in <see cref="EnrolmentService"/>.</summary>
@@ -160,6 +163,57 @@ namespace Plutus.Tenancy.Controllers
             _db.Audit(_tenant.TenantId, Actor, "till.revoke", "Till", id.ToString(), new { devicesRevoked = revoked });
             await _db.SaveChangesAsync();
             return NoContent();
+        }
+
+        // ── WP6.2 un-enrol with portal approval ─────────────────────────────────────────────────
+        // A till admin requests removal → the device is marked PendingRemoval (keeps trading) → a
+        // portal admin approves (→ Revoked, the till then forgets its credential) or rejects (→
+        // Active). Devices are UNSCOPED by the tenant filter, so every action verifies TenantId.
+
+        /// <summary>A till asks to be un-enrolled — marks its device PendingRemoval (still trades).</summary>
+        [HttpPost("unenrol-request")]
+        [Authorize(Policy = PlutusPolicies.PortalTillsEnrol)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> RequestUnenrol([FromBody] UnenrolRequestBody body)
+        {
+            var device = await _db.Devices.FirstOrDefaultAsync(d => d.Id == body.DeviceId && d.TenantId == _tenant.TenantId);
+            if (device == null) return NotFound(new { detail = "Unknown device." });
+            if (device.Status == DeviceStatus.Active) device.Status = DeviceStatus.PendingRemoval;
+            _db.CurrentUser = Actor.ToString();
+            _db.Audit(_tenant.TenantId, Actor, "device.unenrol-request", "Device", device.Id.ToString(), new { device.TillId });
+            await _db.SaveChangesAsync();
+            return Ok(new { status = device.Status.ToString() });
+        }
+
+        /// <summary>Portal decision on a pending removal: approve → revoke, reject → active.</summary>
+        [HttpPost("devices/{deviceId}/removal")]
+        [Authorize(Policy = PlutusPolicies.PortalTillsEnrol)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> DecideRemoval([FromRoute] Guid deviceId, [FromBody] RemovalDecisionBody body)
+        {
+            var device = await _db.Devices.FirstOrDefaultAsync(d => d.Id == deviceId && d.TenantId == _tenant.TenantId);
+            if (device == null) return NotFound(new { detail = "Unknown device." });
+            device.Status = body.Approve ? DeviceStatus.Revoked : DeviceStatus.Active;
+            _db.CurrentUser = Actor.ToString();
+            _db.Audit(_tenant.TenantId, Actor, body.Approve ? "device.unenrol-approve" : "device.unenrol-reject",
+                "Device", device.Id.ToString(), new { device.TillId });
+            await _db.SaveChangesAsync();
+            return Ok(new { status = device.Status.ToString() });
+        }
+
+        /// <summary>The till polls its own device status to know when an approved removal has taken
+        /// effect (Revoked) so it can forget the local credential. Readable by operator OR device.</summary>
+        [HttpGet("devices/{deviceId}/status")]
+        [Authorize(Policy = PlutusPolicies.SalesIngest)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetDeviceStatus([FromRoute] Guid deviceId)
+        {
+            var device = await _db.Devices.AsNoTracking().FirstOrDefaultAsync(d => d.Id == deviceId && d.TenantId == _tenant.TenantId);
+            if (device == null) return NotFound(new { detail = "Unknown device." });
+            return Ok(new { status = device.Status.ToString() });
         }
     }
 }

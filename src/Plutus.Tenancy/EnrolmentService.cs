@@ -152,7 +152,9 @@ namespace Plutus.Tenancy
         public async Task<DeviceTokenResult> IssueDeviceTokenAsync(Guid deviceId, string clientSecret)
         {
             var device = await _db.Devices.FirstOrDefaultAsync(d => d.Id == deviceId);
-            if (device == null || device.Status != DeviceStatus.Active)
+            // WP6.2: a PendingRemoval device keeps trading until an admin approves its removal —
+            // only a Revoked (or unknown) device is refused a token.
+            if (device == null || device.Status == DeviceStatus.Revoked)
                 throw new EnrolmentException(401, "Device not enrolled or revoked.");
             if (!Pbkdf2.Verify(clientSecret, device.SecretSalt, device.SecretHash))
                 throw new EnrolmentException(401, "Invalid device credentials.");

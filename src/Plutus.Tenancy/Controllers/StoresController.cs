@@ -64,6 +64,36 @@ namespace Plutus.Tenancy.Controllers
             }));
         }
 
+        /// <summary>WP6.1: read-only store info for the till (name, VAT, address, contact, opening
+        /// hours). Gated like the receipt-template read (sales.ingest) so an operator OR a device
+        /// token can fetch it; the portal (Company / Locations) remains the source of truth for
+        /// editing. Tenant-scoped via the query filter, so a device only sees its own store.</summary>
+        [HttpGet("{id}/info")]
+        [Authorize(Policy = PlutusPolicies.SalesIngest)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetInfo([FromRoute] int id)
+        {
+            var s = await _db.Stores.AsNoTracking()
+                .Where(x => x.Id == id)
+                .Select(x => new { x.Id, x.AdLine1, x.AdLine2, x.City, x.PostCode, x.Country, x.ContactNumber, x.BusinessId })
+                .FirstOrDefaultAsync();
+            if (s == null) return NotFound();
+            var d = await _db.StoreDetails.AsNoTracking().FirstOrDefaultAsync(x => x.StoreId == id);
+            var biz = await _db.Business.AsNoTracking().Where(b => b.Id == s.BusinessId)
+                .Select(b => new { b.Name, b.VatIN }).FirstOrDefaultAsync();
+            return Ok(new
+            {
+                storeId = s.Id,
+                name = d != null ? d.Name : null,
+                businessName = biz?.Name,
+                vatNumber = biz?.VatIN,
+                adLine1 = s.AdLine1, adLine2 = s.AdLine2, city = s.City,
+                postCode = s.PostCode, country = s.Country, contactNumber = s.ContactNumber,
+                openingHoursJson = d != null ? d.OpeningHoursJson : null,
+            });
+        }
+
         [HttpPost]
         [Authorize(Policy = "perm:portal.company.manage")]
         [ProducesResponseType(StatusCodes.Status201Created)]

@@ -106,15 +106,17 @@ namespace Plutus.Identity
             // Loyalty usability: customer management is a supervisor/manager capability on both
             // surfaces — granted to Owner, Company Admin, Store Manager and Supervisor, never the
             // front-line Cashier. EnsureBuiltInRolesAsync backfills it onto already-seeded tenants.
-            return new List<(string, List<EffectivePermission>)>
+            // WP6.3: pos.settings.manage → Owner / Company Admin / Store Manager (device settings);
+            // support.tickets → EVERY role (appended below).
+            var roles = new List<(string, List<EffectivePermission>)>
             {
-                ("Owner", G(allPortal.Concat(allPos).Append(PermissionCatalogue.CustomersManage).ToArray())),
-                ("Company Admin", G(allPortal.Concat(allPos).Append(PermissionCatalogue.CustomersManage).ToArray())),
+                ("Owner", G(allPortal.Concat(allPos).Append(PermissionCatalogue.CustomersManage).Append(PermissionCatalogue.PosSettingsManage).ToArray())),
+                ("Company Admin", G(allPortal.Concat(allPos).Append(PermissionCatalogue.CustomersManage).Append(PermissionCatalogue.PosSettingsManage).ToArray())),
                 ("Store Manager", G(new[]
                 {
                     PermissionCatalogue.PortalFinancialsView, PermissionCatalogue.PortalReportsView,
                     PermissionCatalogue.PortalStockAdjust, PermissionCatalogue.PortalTillsEnrol,
-                    PermissionCatalogue.CustomersManage,
+                    PermissionCatalogue.CustomersManage, PermissionCatalogue.PosSettingsManage,
                 }.Concat(allPos).ToArray())),
                 ("Supervisor", new List<EffectivePermission>
                 {
@@ -133,6 +135,14 @@ namespace Plutus.Identity
                 ("Stock & Items", G(PermissionCatalogue.PortalStockAdjust, PermissionCatalogue.PortalPricesManage)),
                 ("Staff Admin", G(PermissionCatalogue.PortalUsersManage)),
             };
+
+            // WP6.3: everyone can raise/read support tickets (a lone cashier with a dead till must
+            // be able to shout for help). Backfilled onto already-seeded roles by EnsureBuiltInRolesAsync.
+            foreach (var (_, grants) in roles)
+                if (grants.All(x => x.Code != PermissionCatalogue.SupportTickets))
+                    grants.Add(new EffectivePermission(PermissionCatalogue.SupportTickets, null));
+
+            return roles;
         }
 
         /// <summary>Maps every employee's legacy AuthActions to role assignments at COMPANY

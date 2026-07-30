@@ -27,6 +27,9 @@ public static class PermissionCatalogue
     /// Deliberately distinct from portal.users.manage (staff admin) so front-line customer
     /// management is not tied to staff-user administration.</summary>
     public const string CustomersManage = "customers.manage";
+    /// <summary>WP6.3: raise / read / reply to support tickets. Surface-neutral and seeded to EVERY
+    /// built-in role — a lone cashier with a dead till must be able to shout for help.</summary>
+    public const string SupportTickets = "support.tickets";
 
     // ── POS ──
     public const string PosSell = "pos.sell";
@@ -36,12 +39,15 @@ public static class PermissionCatalogue
     public const string PosPriceOverride = "pos.price-override";
     public const string PosNoSale = "pos.no-sale";
     public const string PosReportsView = "pos.reports.view";
+    /// <summary>WP6.3: manage the till's device-level settings (receipt behaviour, carrier-bag
+    /// barcode, printer). Seeded to Owner / Company Admin / Store Manager.</summary>
+    public const string PosSettingsManage = "pos.settings.manage";
 
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
         PortalFinancialsView, PortalUsersManage, PortalStockAdjust, PortalPricesManage,
-        PortalTillsEnrol, PortalReportsView, PortalCompanyManage, CustomersManage,
-        PosSell, PosRefund, PosVoid, PosDiscount, PosPriceOverride, PosNoSale, PosReportsView,
+        PortalTillsEnrol, PortalReportsView, PortalCompanyManage, CustomersManage, SupportTickets,
+        PosSell, PosRefund, PosVoid, PosDiscount, PosPriceOverride, PosNoSale, PosReportsView, PosSettingsManage,
     };
 
     /// <summary>Permissions that may carry a MaxPence ceiling on a grant.</summary>

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { fetchPayMethods, fetchTillName, onOutboxChanged, raiseTicket, renameTill, BUSINESS_ID, STORE_ID } from "./api.ts";
+import { fetchDeviceStatus, fetchPayMethods, fetchTillName, onOutboxChanged, renameTill, requestUnenrol, BUSINESS_ID, STORE_ID } from "./api.ts";
 import { parkedCount, queuedCount, resetDeviceSeq } from "./offline.ts";
 import {
   canEnrolTills,
+  canManageSettings,
   clearDeviceCredential,
   createTillEnrolCode,
   enrolDevice,
@@ -52,12 +53,35 @@ function TillDeviceSection() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [counts, setCounts] = useState({ queued: 0, parked: 0 });
+  // WP6.2: this device's server-side enrolment status (Active / PendingRemoval / Revoked).
+  const [deviceStatus, setDeviceStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const refresh = () => void Promise.all([queuedCount(), parkedCount()]).then(([q, p]) => setCounts({ queued: q, parked: p }));
     refresh();
     return onOutboxChanged(refresh) as () => void;
   }, []);
+
+  // Poll our own device status: once approved (Revoked) we forget the local credential; while
+  // PendingRemoval we show the "awaiting approval" note. This till keeps trading throughout.
+  useEffect(() => {
+    if (!cred) return;
+    const check = () => void fetchDeviceStatus(cred.deviceId)
+      .then((r) => { setDeviceStatus(r.status); if (r.status === "Revoked") { clearDeviceCredential(); setCred(null); } })
+      .catch(() => undefined);
+    check();
+    const timer = window.setInterval(check, 20_000);
+    return () => window.clearInterval(timer);
+  }, [cred]);
+
+  async function requestRemoval() {
+    if (!cred) return;
+    if (!window.confirm("Un-enrol this device? It keeps working until a manager approves the removal in the management portal.")) return;
+    setBusy(true); setError("");
+    try { const r = await requestUnenrol(cred.deviceId); setDeviceStatus(r.status); }
+    catch (e) { setError(String(e instanceof Error ? e.message : e)); }
+    finally { setBusy(false); }
+  }
 
   async function enrol(withCode: string) {
     setBusy(true);
@@ -110,19 +134,16 @@ function TillDeviceSection() {
             </dd>
           </dl>
           {canEnrolTills() && <TillNameSetting tillId={cred.tillId} />}
-          <div className="setting-row">
-            <span className="grow muted small">Un-enrol this browser (sales are blocked until it is enrolled again).</span>
-            <button
-              className="ghost"
-              disabled={busy}
-              onClick={() => {
-                clearDeviceCredential();
-                setCred(null);
-              }}
-            >
-              Forget this device
-            </button>
-          </div>
+          {deviceStatus === "PendingRemoval" ? (
+            <p className="small discount-note">⏳ Removal requested — awaiting approval in the management portal (Locations → this till). This device keeps working until then.</p>
+          ) : canEnrolTills() ? (
+            <div className="setting-row">
+              <span className="grow muted small">Un-enrol this browser — a manager approves it in the portal, then this device stops trading and forgets its credential.</span>
+              <button className="ghost" disabled={busy} onClick={requestRemoval}>Un-enrol this device</button>
+            </div>
+          ) : (
+            <p className="muted small">Un-enrolling this till needs a manager (the <span className="mono">portal.tills.enrol</span> permission).</p>
+          )}
         </>
       ) : (
         <>
@@ -222,6 +243,7 @@ export default function SettingsPage() {
       .catch(() => setApiStatus("down"));
   }, []);
 
+  const canSettings = canManageSettings();
   const toggle = (key: "autoPrintReceipt" | "askReceipt" | "newestFirst") =>
     setPrefsState(setPrefs({ [key]: !prefs[key] }));
 
@@ -229,6 +251,9 @@ export default function SettingsPage() {
     <section className="panel">
       <h2>Settings</h2>
       <p className="muted small">These options apply to this device only (like the native till's preferences).</p>
+      {!canSettings && (
+        <p className="error small">You don't have permission to change device settings — ask a manager (you can still view them and get help).</p>
+      )}
 
       <h3 className="settings-h">Till</h3>
       <label className="setting-row">
@@ -236,7 +261,7 @@ export default function SettingsPage() {
           Newest items at the top of the basket
           <span className="muted small block">Off = new items appended at the bottom (recommended).</span>
         </span>
-        <input type="checkbox" checked={prefs.newestFirst} onChange={() => toggle("newestFirst")} />
+        <input type="checkbox" checked={prefs.newestFirst} disabled={!canSettings} onChange={() => toggle("newestFirst")} />
       </label>
       <label className="setting-row">
         <span className="grow">
@@ -247,6 +272,7 @@ export default function SettingsPage() {
           className="pref-input"
           placeholder="scan or type barcode"
           value={prefs.bagBarcode}
+          disabled={!canSettings}
           onChange={(e) => setPrefsState(setPrefs({ bagBarcode: e.target.value.trim() }))}
         />
       </label>
@@ -257,7 +283,7 @@ export default function SettingsPage() {
           Ask "print receipt?" after each sale
           <span className="muted small block">The NatApp behaviour — a yes/no prompt when the sale completes.</span>
         </span>
-        <input type="checkbox" checked={prefs.askReceipt} onChange={() => toggle("askReceipt")} />
+        <input type="checkbox" checked={prefs.askReceipt} disabled={!canSettings} onChange={() => toggle("askReceipt")} />
       </label>
       <label className="setting-row">
         <span className="grow">
@@ -266,7 +292,7 @@ export default function SettingsPage() {
             Silent when the browser runs with kiosk-printing; otherwise shows the print dialog. Ignored when "ask" is on.
           </span>
         </span>
-        <input type="checkbox" checked={prefs.autoPrintReceipt} onChange={() => toggle("autoPrintReceipt")} />
+        <input type="checkbox" checked={prefs.autoPrintReceipt} disabled={!canSettings} onChange={() => toggle("autoPrintReceipt")} />
       </label>
 
       <h3 className="settings-h">Printer</h3>
@@ -278,7 +304,7 @@ export default function SettingsPage() {
             "open drawer on print").
           </span>
         </span>
-        <button className="ghost" onClick={() => setTestPrint(true)}>
+        <button className="ghost" disabled={!canSettings} onClick={() => setTestPrint(true)}>
           Print test receipt
         </button>
       </div>
@@ -290,9 +316,6 @@ export default function SettingsPage() {
       </p>
 
       <TillDeviceSection />
-
-      <h3 className="settings-h">Help</h3>
-      <AskForHelp />
 
       <h3 className="settings-h">Environment</h3>
       <dl className="env-info">
@@ -308,33 +331,5 @@ export default function SettingsPage() {
 
       {testPrint && <Receipt data={{ ...TEST_RECEIPT, date: new Date().toISOString() }} onClose={() => setTestPrint(false)} />}
     </section>
-  );
-}
-
-/** OP4: raise a support ticket to the Plutus operator from the till. Minimal — subject + message;
- *  the reply thread lives in the management portal's Help tab. */
-function AskForHelp() {
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
-  const [urgent, setUrgent] = useState(false);
-  const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
-  const [error, setError] = useState("");
-  function send() {
-    setState("sending"); setError("");
-    void raiseTicket(subject.trim(), body.trim(), urgent ? 2 : 1)
-      .then(() => { setState("sent"); setSubject(""); setBody(""); setUrgent(false); })
-      .catch((e) => { setError(String(e)); setState("idle"); });
-  }
-  if (state === "sent")
-    return <p className="muted small">✅ Ticket raised — the Plutus team will reply in the management portal's Help tab. <button className="ghost small" onClick={() => setState("idle")}>Raise another</button></p>;
-  return (
-    <div className="setting-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 6 }}>
-      <span className="muted small">Something not working? Send the Plutus team a message.</span>
-      {error && <span className="error small">{error}</span>}
-      <input className="pref-input" placeholder="Subject" value={subject} maxLength={200} onChange={(e) => setSubject(e.target.value)} />
-      <textarea className="pref-input" style={{ minHeight: 60 }} placeholder="Describe the problem…" value={body} maxLength={4000} onChange={(e) => setBody(e.target.value)} />
-      <label className="muted small"><input type="checkbox" checked={urgent} onChange={(e) => setUrgent(e.target.checked)} /> Urgent — this is stopping us trading</label>
-      <button className="ghost" disabled={state === "sending" || !subject.trim() || !body.trim()} onClick={send}>{state === "sending" ? "Sending…" : "Send to Plutus"}</button>
-    </div>
   );
 }

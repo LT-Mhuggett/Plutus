@@ -1,170 +1,85 @@
 import { useEffect, useState } from "react";
-import {
-  fetchBusiness,
-  fetchStore,
-  updateBusiness,
-  updateStore,
-  TILL_ID,
-  type BusinessInfo,
-  type StoreInfo,
-} from "./api.ts";
+import { fetchStoreInfo, TILL_ID, type StoreInfoView } from "./api.ts";
 
-/** Store Information — the webapp counterpart of NatApp's Store Options screen
- *  (name / VAT number / contact / address editable; logo + currency/date display
- *  are deferred — see notes at the bottom of the page). */
+// WP6.1: Store Information is now READ-ONLY on the till — the management portal (Company /
+// Locations) is the single source of truth. This shows the store's name, VAT, address, contact and
+// opening hours from the v1 endpoint; editing happens in the portal.
+
+const DAYS: [string, string][] = [
+  ["mon", "Monday"], ["tue", "Tuesday"], ["wed", "Wednesday"], ["thu", "Thursday"],
+  ["fri", "Friday"], ["sat", "Saturday"], ["sun", "Sunday"],
+];
+
+/** Render the opaque opening-hours JSON ({"mon":[{"open":"09:00","close":"17:30"}],…}) as a list;
+ *  anything unparseable just isn't shown. */
+function OpeningHours({ json }: { json: string | null }) {
+  let parsed: Record<string, { open: string; close: string }[]> | null = null;
+  try { parsed = json ? JSON.parse(json) : null; } catch { parsed = null; }
+  if (!parsed) return <p className="muted small">Not set — add opening hours in the management portal.</p>;
+  return (
+    <dl className="env-info">
+      {DAYS.map(([key, label]) => {
+        const spans = parsed![key] ?? [];
+        return (
+          <div key={key} style={{ display: "contents" }}>
+            <dt>{label}</dt>
+            <dd>{spans.length === 0 ? <span className="muted">Closed</span> : spans.map((s) => `${s.open}–${s.close}`).join(", ")}</dd>
+          </div>
+        );
+      })}
+    </dl>
+  );
+}
+
 export default function StoreInformationPage() {
-  const [business, setBusiness] = useState<BusinessInfo | null>(null);
-  const [store, setStore] = useState<StoreInfo | null>(null);
+  const [info, setInfo] = useState<StoreInfoView | null>(null);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  // edit state
-  const [bName, setBName] = useState("");
-  const [bAbbr, setBAbbr] = useState("");
-  const [bVat, setBVat] = useState("");
-  const [sAd1, setSAd1] = useState("");
-  const [sAd2, setSAd2] = useState("");
-  const [sCity, setSCity] = useState("");
-  const [sPost, setSPost] = useState("");
-  const [sCountry, setSCountry] = useState("");
-  const [sContact, setSContact] = useState("");
 
   useEffect(() => {
-    fetchBusiness()
-      .then((b) => {
-        setBusiness(b);
-        setBName(b.name);
-        setBAbbr(b.nameAbbr);
-        setBVat(b.vatIN === "-" ? "" : b.vatIN);
-      })
-      .catch((e) => setError(String(e)));
-    fetchStore()
-      .then((s) => {
-        setStore(s);
-        setSAd1(s.adLine1 === "-" ? "" : s.adLine1);
-        setSAd2(s.adLine2 ?? "");
-        setSCity(s.city === "-" ? "" : s.city);
-        setSPost(s.postCode === "-" ? "" : s.postCode);
-        setSCountry(s.country === "-" ? "" : s.country);
-        setSContact(s.contactNumber === "-" ? "" : s.contactNumber);
-      })
-      .catch((e) => setError(String(e)));
+    fetchStoreInfo().then(setInfo).catch((e) => setError(String(e instanceof Error ? e.message : e)));
   }, []);
 
-  async function saveBusiness(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      await updateBusiness({ name: bName.trim(), nameAbbr: bAbbr.trim() || "-", vatIN: bVat.trim() || "-" });
-      setNotice("Business details saved.");
-    } catch (err) {
-      setError(String(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function saveStore(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      await updateStore({
-        adLine1: sAd1.trim() || "-",
-        adLine2: sAd2.trim(),
-        city: sCity.trim() || "-",
-        postCode: sPost.trim() || "-",
-        country: sCountry.trim() || "-",
-        contactNumber: sContact.trim() || "-",
-        fullAddress: "", // keep derived from the lines
-      });
-      setNotice("Store details saved.");
-    } catch (err) {
-      setError(String(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const addressLines = info
+    ? [info.adLine1, info.adLine2, info.city, info.postCode, info.country].map((l) => (l === "-" ? "" : l)).filter(Boolean)
+    : [];
 
   return (
     <section className="panel">
       <h2>Store Information</h2>
+      <p className="muted small">
+        Read-only here — edit these details in the management portal under <strong>Company</strong> and <strong>Locations</strong>.
+      </p>
       {error && <p className="error small">{error}</p>}
-      {notice && <p className="small discount-note">{notice}</p>}
-      {!business && !store && !error && <p className="muted">Loading…</p>}
+      {!info && !error && <p className="muted">Loading…</p>}
 
-      <div className="info-cards">
-        {business && (
-          <form className="info-card" onSubmit={saveBusiness}>
+      {info && (
+        <div className="info-cards">
+          <div className="info-card">
             <h3>Business</h3>
-            <div className="form-grid one-col">
-              <label>
-                Name (appears on receipts)
-                <input value={bName} onChange={(e) => setBName(e.target.value)} required disabled={busy} />
-              </label>
-              <label>
-                Abbreviation
-                <input value={bAbbr} onChange={(e) => setBAbbr(e.target.value)} maxLength={10} disabled={busy} />
-              </label>
-              <label>
-                VAT number
-                <input value={bVat} onChange={(e) => setBVat(e.target.value)} disabled={busy} />
-              </label>
-            </div>
-            <button className="primary slim" type="submit" disabled={busy || !bName.trim()}>
-              Save business
-            </button>
-          </form>
-        )}
-
-        {store && (
-          <form className="info-card" onSubmit={saveStore}>
+            <dl className="env-info">
+              <dt>Name</dt><dd>{info.businessName ?? "—"}</dd>
+              <dt>VAT number</dt><dd>{info.vatNumber && info.vatNumber !== "-" ? info.vatNumber : "—"}</dd>
+            </dl>
+          </div>
+          <div className="info-card">
             <h3>Store</h3>
-            <div className="form-grid one-col">
-              <label>
-                Address line 1
-                <input value={sAd1} onChange={(e) => setSAd1(e.target.value)} disabled={busy} />
-              </label>
-              <label>
-                Address line 2
-                <input value={sAd2} onChange={(e) => setSAd2(e.target.value)} disabled={busy} />
-              </label>
-              <label>
-                City
-                <input value={sCity} onChange={(e) => setSCity(e.target.value)} disabled={busy} />
-              </label>
-              <label>
-                Postcode
-                <input value={sPost} onChange={(e) => setSPost(e.target.value)} disabled={busy} />
-              </label>
-              <label>
-                Country
-                <input value={sCountry} onChange={(e) => setSCountry(e.target.value)} disabled={busy} />
-              </label>
-              <label>
-                Contact number
-                <input value={sContact} onChange={(e) => setSContact(e.target.value)} disabled={busy} />
-              </label>
-            </div>
-            <button className="primary slim" type="submit" disabled={busy}>
-              Save store
-            </button>
-          </form>
-        )}
-      </div>
+            <dl className="env-info">
+              <dt>Store name</dt><dd>{info.name ?? "—"}</dd>
+              <dt>Address</dt><dd>{addressLines.length ? addressLines.join(", ") : "—"}</dd>
+              <dt>Contact number</dt><dd>{info.contactNumber && info.contactNumber !== "-" ? info.contactNumber : "—"}</dd>
+            </dl>
+          </div>
+          <div className="info-card">
+            <h3>Opening hours</h3>
+            <OpeningHours json={info.openingHoursJson} />
+          </div>
+        </div>
+      )}
 
       <dl className="env-info">
-        <dt>Store id</dt>
-        <dd>{store?.id ?? "—"}</dd>
-        <dt>Till id</dt>
-        <dd className="mono small">{TILL_ID}</dd>
+        <dt>Store id</dt><dd>{info?.storeId ?? "—"}</dd>
+        <dt>Till id</dt><dd className="mono small">{TILL_ID}</dd>
       </dl>
-      <p className="muted small">
-        Deferred from NatApp Store Options: logo upload (receipt logo) and currency/date display formats — the webapp
-        currently uses UK formats throughout. Employee management lives under the 👥 users menu.
-      </p>
     </section>
   );
 }

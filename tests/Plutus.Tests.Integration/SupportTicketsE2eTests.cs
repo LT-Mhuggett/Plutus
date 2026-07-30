@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Plutus.Entities;
 using Plutus.Entities.Models;
 using Plutus.Entities.Tenancy;
+using Plutus.Identity;
 using Plutus.SharedKernel;
 using Plutus.Tenancy;
 using Xunit;
@@ -44,12 +45,31 @@ public class SupportTicketsE2eTests : IClassFixture<PlutusAppFactory>
         public Task ClearAsync(string k, CancellationToken ct = default) { Open.Remove(k); return Task.CompletedTask; }
     }
 
+    /// <summary>WP6.3: support endpoints are now gated on support.tickets — assign the staff user a
+    /// built-in role (Cashier carries it) so their token resolves the permission from RBAC.</summary>
+    private async Task<Guid> SeedStaffAsync()
+    {
+        var userId = Guid.NewGuid();
+        using var scope = _f.Services.CreateScope();
+        var db = (MySqlDbContext)scope.ServiceProvider.GetRequiredService<RepositoryContext>();
+        db.CurrentUser = "support-e2e-seed";
+        await RbacSeeder.EnsureBuiltInRolesAsync(db, Kapow);
+        var cashier = await db.RbacRoles.FirstAsync(r => r.Name == "Cashier");
+        db.RbacRoleAssignments.Add(new RbacRoleAssignment
+        {
+            Id = Uuid7.New(), TenantId = Kapow, UserId = userId, RoleId = cashier.Id,
+            ScopeType = RbacScopeType.Tenant, ScopeId = "", CreatedAtUtc = DateTime.UtcNow,
+        });
+        await db.SaveChangesAsync();
+        return userId;
+    }
+
     [Fact]
     public async Task Client_raises_operator_replies_and_isolation_holds()
     {
         var client = _f.CreateClient();
-        // Kapow staff (ambient tenant = Kapow via the fallback)
-        var staff = PlutusAppFactory.OperatorToken("pos.sell");
+        // Kapow staff (ambient tenant = Kapow via the fallback) — holds support.tickets via Cashier.
+        var staff = PlutusAppFactory.OperatorTokenFor(await SeedStaffAsync(), "pos.sell");
         var admin = PlutusAppFactory.OperatorToken(PlutusPolicies.PlatformAdmin);
 
         // client raises a ticket

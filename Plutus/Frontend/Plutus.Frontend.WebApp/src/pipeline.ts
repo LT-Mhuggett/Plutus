@@ -35,6 +35,9 @@ export const canEnrolTills = () => sessionScopes().includes("portal.tills.enrol"
 /** Loyalty usability: create/edit customers at the till (supervisors/managers only). */
 export const canManageCustomers = () => sessionScopes().includes("customers.manage");
 
+/** WP6.3: manage this device's settings (receipt behaviour, carrier-bag barcode, printer). */
+export const canManageSettings = () => sessionScopes().includes("pos.settings.manage");
+
 // ── device credential (WP2.2) — one per browser, stored locally like the native till ──
 
 export interface DeviceCredential {
