@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { ApiError } from "./api.ts";
 import { accessToken } from "./auth.ts";
 import CustomerDialog from "./CustomerDialog.tsx";
+import DataTable from "./DataTable.tsx";
 
 // Phase 8 portal: the full customer book. The per-customer editor (details / credit / membership)
-// is the shared CustomerDialog, also opened from the Loyalty tab (WP5.1).
+// is the shared CustomerDialog, also opened from the Loyalty tab (WP5.1). WP1.3: the list is now the
+// standard DataTable (client mode — sort/search/paginate over the loaded set).
 
 interface CustomerRow { id: string; name: string; email: string | null; phone: string | null }
 
@@ -26,7 +28,6 @@ async function j<T>(method: string, url: string, body?: unknown): Promise<T> {
 }
 
 export default function CustomersPage() {
-  const [search, setSearch] = useState("");
   const [rows, setRows] = useState<CustomerRow[]>([]);
   const [open, setOpen] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -34,10 +35,10 @@ export default function CustomersPage() {
   const [error, setError] = useState("");
 
   const refresh = () =>
-    j<CustomerRow[]>("GET", `/api/v1/customers?take=100${search ? `&search=${encodeURIComponent(search)}` : ""}`)
+    j<CustomerRow[]>("GET", `/api/v1/customers?take=500`)
       .then((r) => { setRows(r); setError(""); })
       .catch((e) => setError(String(e instanceof Error ? e.message : e)));
-  useEffect(() => { void refresh(); }, [search]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void refresh(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function submitCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -53,24 +54,24 @@ export default function CustomersPage() {
 
   return (
     <section className="panel">
-      <div className="toolbar">
-        <label>Search <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="name / email / phone" /></label>
+      <div className="toolbar" style={{ justifyContent: "space-between" }}>
+        <h2>Customers</h2>
         <button className="primary" onClick={() => setCreating(true)}>Add customer</button>
       </div>
       {error && <p className="error">{error}</p>}
 
-      <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th /></tr></thead>
-        <tbody>
-          {rows.map((c) => (
-            <tr key={c.id}>
-              <td>{c.name}</td><td>{c.email}</td><td>{c.phone}</td>
-              <td><button className="ghost small" onClick={() => setOpen(c.id)}>Open</button></td>
-            </tr>
-          ))}
-          {rows.length === 0 && <tr><td colSpan={4} className="muted">No customers.</td></tr>}
-        </tbody>
-      </table>
+      <DataTable<CustomerRow>
+        columns={[
+          { key: "name", label: "Name" },
+          { key: "email", label: "Email", render: (c) => c.email ?? "—" },
+          { key: "phone", label: "Phone", render: (c) => c.phone ?? "—" },
+        ]}
+        rows={rows} getKey={(c) => c.id} initialSortKey="name"
+        search={(c) => `${c.name} ${c.email ?? ""} ${c.phone ?? ""}`}
+        searchPlaceholder="Search name / email / phone…"
+        rowActions={(c) => <button className="ghost small" onClick={() => setOpen(c.id)}>Open</button>}
+        emptyText="No customers."
+      />
 
       {creating && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && setCreating(false)}>

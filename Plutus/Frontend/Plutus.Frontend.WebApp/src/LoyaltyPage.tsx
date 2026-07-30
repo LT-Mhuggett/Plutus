@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { createCustomer, fetchLoyalty, setMembership, updateCustomer, type V1LoyaltyRow } from "./api.ts";
 import { gbp } from "./money.ts";
 import { canManageCustomers } from "./pipeline.ts";
+import DataTable from "./DataTable.tsx";
 
 /** Members & store-credit view. WP5.2: managers (customers.manage) can add a member and edit an
- *  existing one's details + tier here, not only mid-sale on the till page. */
+ *  existing one's details + tier here. WP1.3: the list is the standard DataTable. */
 export default function LoyaltyPage() {
-  const [search, setSearch] = useState("");
   const [rows, setRows] = useState<V1LoyaltyRow[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -15,12 +15,12 @@ export default function LoyaltyPage() {
 
   const refresh = () => {
     setLoading(true); setError("");
-    fetchLoyalty(search)
+    fetchLoyalty()
       .then((r) => setRows(r.rows))
       .catch((e) => setError(String(e instanceof Error ? e.message : e)))
       .finally(() => setLoading(false));
   };
-  useEffect(refresh, [search]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(refresh, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <section className="panel">
@@ -28,27 +28,22 @@ export default function LoyaltyPage() {
         <h2>Loyalty &amp; store credit</h2>
         {canManage && <button className="ghost" onClick={() => setEditing("new")}>Add member</button>}
       </div>
-      <div className="toolbar">
-        <label>Search <input placeholder="name / email" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
-      </div>
       {error && <p className="error">{error}</p>}
       {loading ? <p className="muted">Loading…</p> : (
-        <table>
-          <thead><tr><th>Customer</th><th>Tier</th><th className="num">Discount</th><th>Renews</th><th className="num">Credit</th>{canManage && <th />}</tr></thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id}>
-                <td>{r.name}{r.email && <span className="muted small block">{r.email}</span>}</td>
-                <td>{r.tier ?? <span className="muted">—</span>}{r.expired && <span className="error small"> (expired)</span>}</td>
-                <td className="num">{r.autoDiscountRate ? `${Math.round(r.autoDiscountRate * 100)}%` : "—"}</td>
-                <td>{r.renewalDay ?? "—"}</td>
-                <td className="num">{gbp(r.creditBalancePence)}</td>
-                {canManage && <td><button className="ghost small" onClick={() => setEditing(r)}>Edit</button></td>}
-              </tr>
-            ))}
-            {rows.length === 0 && <tr><td colSpan={canManage ? 6 : 5} className="muted">No members or credit holders yet.</td></tr>}
-          </tbody>
-        </table>
+        <DataTable<V1LoyaltyRow>
+          columns={[
+            { key: "name", label: "Customer", render: (r) => <>{r.name}{r.email && <span className="muted small block">{r.email}</span>}</> },
+            { key: "tier", label: "Tier", render: (r) => <>{r.tier ?? <span className="muted">—</span>}{r.expired && <span className="error small"> (expired)</span>}</> },
+            { key: "autoDiscountRate", label: "Discount", numeric: true, render: (r) => (r.autoDiscountRate ? `${Math.round(r.autoDiscountRate * 100)}%` : "—") },
+            { key: "renewalDay", label: "Renews", render: (r) => r.renewalDay ?? "—" },
+            { key: "creditBalancePence", label: "Credit", numeric: true, render: (r) => gbp(r.creditBalancePence) },
+          ]}
+          rows={rows} getKey={(r) => r.id} initialSortKey="creditBalancePence" initialSortDir="desc"
+          search={(r) => `${r.name} ${r.email ?? ""} ${r.tier ?? ""}`}
+          searchPlaceholder="Search name / email / tier…"
+          rowActions={canManage ? (r) => <button className="ghost small" onClick={() => setEditing(r)}>Edit</button> : undefined}
+          emptyText="No members or credit holders yet."
+        />
       )}
 
       {editing && (

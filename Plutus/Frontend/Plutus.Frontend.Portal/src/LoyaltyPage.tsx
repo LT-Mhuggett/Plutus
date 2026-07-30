@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { createCustomer, fetchLoyalty, gbp, type LoyaltyRow } from "./api.ts";
-import { SortTh, useSort } from "./sortable.tsx";
+import DataTable from "./DataTable.tsx";
 import CustomerDialog from "./CustomerDialog.tsx";
 
 /** Members & store-credit view — customers who are members or hold a credit balance. WP5.1: now
  *  EDITABLE where you look at it — each row opens the shared CustomerDialog (details/credit/
- *  membership), and "Add member" creates a customer then opens the dialog to set their tier. */
+ *  membership), and "Add member" creates a customer then opens the dialog to set their tier.
+ *  WP1.3: the list is the standard DataTable (client sort/search/paginate). */
 export default function LoyaltyPage() {
-  const [search, setSearch] = useState("");
   const [rows, setRows] = useState<LoyaltyRow[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -17,12 +17,12 @@ export default function LoyaltyPage() {
 
   const refresh = () => {
     setLoading(true); setError("");
-    fetchLoyalty(search || undefined)
+    fetchLoyalty()
       .then((r) => setRows(r.rows))
       .catch((e) => setError(String(e instanceof Error ? e.message : e)))
       .finally(() => setLoading(false));
   };
-  useEffect(refresh, [search]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(refresh, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function submitAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -38,16 +38,12 @@ export default function LoyaltyPage() {
 
   const members = rows.filter((r) => r.tier).length;
   const totalCredit = rows.reduce((s, r) => s + r.creditBalancePence, 0);
-  const so = useSort(rows, "creditBalancePence", "desc");
 
   return (
     <section className="panel">
       <div className="toolbar" style={{ justifyContent: "space-between" }}>
         <h2>Loyalty &amp; store credit</h2>
         <button className="primary" onClick={() => setAdding(true)}>Add member</button>
-      </div>
-      <div className="toolbar">
-        <label>Search <input placeholder="name / email" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
       </div>
       <div className="stat-row">
         <div className="stat"><span className="stat-label">Members</span><span className="stat-value">{members}</span></div>
@@ -56,29 +52,20 @@ export default function LoyaltyPage() {
       </div>
       {error && <p className="error">{error}</p>}
       {loading ? <p className="muted">Loading…</p> : (
-        <table>
-          <thead><tr>
-            <SortTh label="Customer" k="name" {...so} />
-            <SortTh label="Tier" k="tier" {...so} />
-            <SortTh label="Discount" k="autoDiscountRate" num {...so} />
-            <SortTh label="Renews" k="renewalDay" {...so} />
-            <SortTh label="Credit balance" k="creditBalancePence" num {...so} />
-            <th />
-          </tr></thead>
-          <tbody>
-            {so.sorted.map((r) => (
-              <tr key={r.id}>
-                <td>{r.name}{r.email && <span className="muted small"> · {r.email}</span>}</td>
-                <td>{r.tier ?? <span className="muted">—</span>}{r.expired && <span className="error small"> (expired)</span>}</td>
-                <td className="num">{r.autoDiscountRate ? `${Math.round(r.autoDiscountRate * 100)}%` : "—"}</td>
-                <td>{r.renewalDay ?? "—"}</td>
-                <td className="num">{gbp(r.creditBalancePence)}</td>
-                <td><button className="ghost small" onClick={() => setOpen(r.id)}>Open</button></td>
-              </tr>
-            ))}
-            {rows.length === 0 && <tr><td colSpan={6} className="muted">No members or credit holders yet.</td></tr>}
-          </tbody>
-        </table>
+        <DataTable<LoyaltyRow>
+          columns={[
+            { key: "name", label: "Customer", render: (r) => <>{r.name}{r.email && <span className="muted small"> · {r.email}</span>}</> },
+            { key: "tier", label: "Tier", render: (r) => <>{r.tier ?? <span className="muted">—</span>}{r.expired && <span className="error small"> (expired)</span>}</> },
+            { key: "autoDiscountRate", label: "Discount", numeric: true, render: (r) => (r.autoDiscountRate ? `${Math.round(r.autoDiscountRate * 100)}%` : "—") },
+            { key: "renewalDay", label: "Renews", render: (r) => r.renewalDay ?? "—" },
+            { key: "creditBalancePence", label: "Credit balance", numeric: true, render: (r) => gbp(r.creditBalancePence) },
+          ]}
+          rows={rows} getKey={(r) => r.id} initialSortKey="creditBalancePence" initialSortDir="desc"
+          search={(r) => `${r.name} ${r.email ?? ""} ${r.tier ?? ""}`}
+          searchPlaceholder="Search name / email / tier…"
+          rowActions={(r) => <button className="ghost small" onClick={() => setOpen(r.id)}>Open</button>}
+          emptyText="No members or credit holders yet."
+        />
       )}
 
       {adding && (
