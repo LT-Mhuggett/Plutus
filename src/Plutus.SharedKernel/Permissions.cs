@@ -66,6 +66,47 @@ public static class PermissionCatalogue
     };
 
     public static bool IsKnown(string code) => code != null && All.Contains(code);
+
+    /// <summary>FE9.3: which broad surface a permission belongs to — groups the roles reference and
+    /// the per-user access matrix so a long flat list becomes readable.</summary>
+    public static string GroupOf(string code) => code switch
+    {
+        CustomersManage => "Customers",
+        SupportTickets => "Support",
+        _ when code != null && code.StartsWith("portal.", StringComparison.Ordinal) => "Portal",
+        _ when code != null && code.StartsWith("pos.", StringComparison.Ordinal) => "Till (POS)",
+        _ => "Other",
+    };
+
+    /// <summary>
+    /// FE9.3: plain-English descriptions, so "what does this role actually let someone do?" is
+    /// answerable without reading the source. Code-defined for the same reason the catalogue is:
+    /// a permission and its meaning ship together.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string> Descriptions = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        [PortalFinancialsView] = "See takings, banking and financial periods in the portal.",
+        [PortalUsersManage] = "Add and edit staff users, set their passwords, and grant or remove roles.",
+        [PortalStockAdjust] = "Adjust stock levels, run stock-takes and move stock between locations.",
+        [PortalPricesManage] = "Change prices — the central price list and per-store overrides.",
+        [PortalTillsEnrol] = "Create tills, issue enrolment codes, and revoke or un-enrol devices.",
+        [PortalReportsView] = "View reports (sales, items sold, VAT, stock).",
+        [PortalCompanyManage] = "Edit company and store details — names, addresses, opening hours, receipt template.",
+        [CustomersManage] = "Add and edit customers, grant store credit, and set loyalty tiers. Works in the portal AND at the till.",
+        [SupportTickets] = "Raise support tickets with the Plutus team and read the replies.",
+        [PosSell] = "Ring up sales at the till.",
+        [PosRefund] = "Give refunds. Can carry a per-refund money ceiling.",
+        [PosVoid] = "Void a line or a whole transaction at the till.",
+        [PosDiscount] = "Apply discounts. Can carry a per-discount money ceiling.",
+        [PosPriceOverride] = "Override an item's price at the point of sale.",
+        [PosNoSale] = "Open the cash drawer without a sale.",
+        [PosReportsView] = "View reports on the till.",
+        [PosSettingsManage] = "Change this till's device settings — receipt behaviour, carrier-bag barcode, printer.",
+    };
+
+    /// <summary>The description, or a readable fallback for a permission added without one.</summary>
+    public static string DescribeOf(string code) =>
+        code != null && Descriptions.TryGetValue(code, out var d) ? d : code ?? string.Empty;
 }
 
 /// <summary>One resolved permission: a code plus its effective ceiling (null = unlimited /

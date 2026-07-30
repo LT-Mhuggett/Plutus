@@ -157,7 +157,7 @@ public class AdminApiTests
         Guid assignmentId;
         using (var db = Ctx(conn, TenantA))
         {
-            var res = await WithActor(new AdminUsersController(db, new FixedTenantContext(TenantA)))
+            var res = await WithActor(new AdminUsersController(db, new FixedTenantContext(TenantA), new PasswordResetService(db), new NullMessageSender()))
                 .Assign(userId, new AssignRoleBody(roleId, $"company:{companyId}", null, null, null, null, null));
             var created = Assert.IsType<CreatedResult>(res);
             assignmentId = (Guid)created.Value!.GetType().GetProperty("id")!.GetValue(created.Value)!;
@@ -172,7 +172,7 @@ public class AdminApiTests
 
         using (var db = Ctx(conn, TenantA))
         {
-            var res = await WithActor(new AdminUsersController(db, new FixedTenantContext(TenantA)))
+            var res = await WithActor(new AdminUsersController(db, new FixedTenantContext(TenantA), new PasswordResetService(db), new NullMessageSender()))
                 .Unassign(userId, assignmentId);
             Assert.IsType<NoContentResult>(res);
         }
@@ -204,7 +204,7 @@ public class AdminApiTests
 
         using (var db = Ctx(conn, TenantA))
         {
-            var res = await WithActor(new AdminUsersController(db, new FixedTenantContext(TenantA)))
+            var res = await WithActor(new AdminUsersController(db, new FixedTenantContext(TenantA), new PasswordResetService(db), new NullMessageSender()))
                 .CreateUser(new CreateUserBody("Jo", "Bloggs", "jo@example.com", null, 5, "s3cret-pass"));
             Assert.IsType<CreatedResult>(res);
         }

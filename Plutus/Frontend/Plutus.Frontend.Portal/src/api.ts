@@ -318,19 +318,61 @@ export interface PortalUser {
   active: boolean;
   storeId: number;
   roles: string[];
+  /** FE9.5 — null = never signed in */
+  lastLoginAtUtc: string | null;
+  /** FE9.1 — false = staff record with no web login yet (invite them) */
+  hasLogin: boolean;
 }
-export const fetchUsers = () => get<PortalUser[]>(`/api/v1/users`);
+export const fetchUsers = (includeRemoved = false) =>
+  get<PortalUser[]>(`/api/v1/users${includeRemoved ? "?includeRemoved=true" : ""}`);
 export const createUser = (u: { fName: string; lName: string; email: string; password?: string }) =>
   post<{ id: string }>(`/api/v1/users`, u);
 export const deactivateUser = (id: string) => post<void>(`/api/v1/users/${id}/deactivate`);
 
+// FE9.1 passwords: an admin can set one directly, or email a single-use link (an "invite" when the
+// user has no login yet). Delivery is simulated until an Email provider is enabled in Platform.
+export const setUserPassword = (id: string, password: string) =>
+  post<void>(`/api/v1/users/${id}/password`, { password });
+export const sendPasswordReset = (id: string) =>
+  post<{ sent: boolean; expiresAtUtc: string; isInvite: boolean }>(`/api/v1/users/${id}/password-reset`);
+
+// FE9.2 remove = deactivate + revoke login + drop roles; the person row (and all history) stays.
+export const removeUser = (id: string) =>
+  post<{ removed: boolean; loginRevoked: boolean; rolesRemoved: number }>(`/api/v1/users/${id}/remove`);
+export const restoreUser = (id: string) => post<void>(`/api/v1/users/${id}/restore`);
+
+// FE9.3 the permission catalogue, described + grouped.
+export interface PermissionInfo { code: string; group: string; description: string; ceilingCapable: boolean }
+export const fetchPermissions = () => get<PermissionInfo[]>(`/api/v1/permissions`);
+
+export interface RoleGrant { code: string; maxPence: number | null; group: string; description: string }
 export interface Role {
   id: string;
   name: string;
   isBuiltIn: boolean;
-  grants: { code: string; maxPence: number | null }[];
+  memberCount: number;
+  grants: RoleGrant[];
 }
 export const fetchRoles = () => get<Role[]>(`/api/v1/roles`);
+
+// FE9.1 self-service (anonymous, rate-limited) — the login page's "Forgot password?" + completion.
+export async function requestPasswordReset(email: string): Promise<void> {
+  await fetch(`/api/auth/password-reset/request`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }),
+  });
+  // deliberately ignores the response: the API always 204s so it can't be used to test whether an
+  // address has an account
+}
+export async function completePasswordReset(token: string, newPassword: string): Promise<void> {
+  const res = await fetch(`/api/auth/password-reset/complete`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, newPassword }),
+  });
+  if (!res.ok) {
+    let detail = res.status === 410 ? "This link has expired or has already been used." : `${res.status}`;
+    try { detail = (await res.json())?.detail ?? detail; } catch { /* keep */ }
+    throw new ApiError(res.status, detail);
+  }
+}
 
 export interface Assignment {
   id: string;

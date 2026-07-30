@@ -111,6 +111,8 @@ namespace Plutus.Entities
         public DbSet<LoyaltyTier> LoyaltyTiers { get; set; }
         // FE2: per-tenant membership-number sequence (printed on loyalty cards).
         public DbSet<MemberNoCounter> MemberNoCounters { get; set; }
+        // FE9: hashed, single-use password-reset / invite tokens.
+        public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
         // WP5.3 cross-channel identity (webstore ⇄ loyalty link by email).
         public DbSet<CustomerExternalRef> CustomerExternalRefs { get; set; }
         #endregion
@@ -768,6 +770,17 @@ namespace Plutus.Entities
                 // NULLs in a unique index, so pre-backfill rows coexist happily.
                 e.Property(x => x.MemberNo).HasMaxLength(16);
                 e.HasIndex(x => new { x.TenantId, x.MemberNo }).IsUnique();
+            });
+            modelBuilder.Entity<PasswordResetToken>(e =>
+            {
+                e.ToTable("PasswordResetTokens");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Email).HasMaxLength(255).IsRequired();
+                e.Property(x => x.TokenHash).HasMaxLength(32).IsRequired();
+                // completion looks the token up by hash alone (the user isn't signed in yet)
+                e.HasIndex(x => x.TokenHash).IsUnique();
+                e.HasIndex(x => new { x.TenantId, x.UserId });
             });
             modelBuilder.Entity<MemberNoCounter>(e =>
             {

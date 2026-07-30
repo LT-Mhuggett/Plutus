@@ -25,6 +25,14 @@ namespace Plutus.Identity
                         "RBAC requires the MySqlDbContext (server build), not the SQLite dev context.");
                 return new EffectivePermissionsService(ctx);
             });
+            // FE9.1 password set / reset / invite tokens.
+            services.AddScoped(sp =>
+            {
+                var ctx = sp.GetRequiredService<RepositoryContext>() as MySqlDbContext
+                    ?? throw new InvalidOperationException(
+                        "Password reset requires the MySqlDbContext (server build), not the SQLite dev context.");
+                return new PasswordResetService(ctx);
+            });
             services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
             services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
 

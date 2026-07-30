@@ -18,6 +18,10 @@ namespace Plutus.Entities.Models
         [Exportable]
         public bool Active { get; set; }
 
+        /// <summary>FE9.5: stamped whenever this user is issued a token (portal password login or
+        /// till sign-in). Surfaces dormant accounts for the FE9.2 clean-up. Null = never signed in.</summary>
+        public DateTime? LastLoginAtUtc { get; set; }
+
         [NotMapped]
         public string AddressDis => string.IsNullOrEmpty(FullAddress) ? AdLine1 : FullAddress.Split(',')[0];
 

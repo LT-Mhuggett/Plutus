@@ -720,12 +720,40 @@ answer to "why can Dave refund?"). Plus chips for caps (refund limit).
 
 | WP | Scope | Status |
 |---|---|---|
-| FE9.1 | Set-password + reset-token endpoints, IMessageSender email, login-page forgot/complete flow, rate limiting. Tests: token single-use/expiry/hashing, no-email 409, min-length. | ☐ |
-| FE9.2 | Remove/restore endpoints + self/last-Owner guards; typed-name confirm dialog; pickers exclude removed. Tests: guards, credential revoked, history intact. | ☐ |
-| FE9.3 | Permission descriptions + enriched roles endpoint; portal Roles section + matrix. Test: role grants in the API match RbacSeeder exactly. | ☐ |
-| FE9.4 | Per-user collapsed access matrix with role attribution. | ☐ |
-| FE9.5 | Last-login stamp + column; invite variant; audit slice link. | ☐ |
-| FE9.6 | Gate + deploy (no migration except LastLoginAtUtc + reset-token table; `SeedMigrator rbac` not needed — no new permissions). | ☐ |
+| FE9.1 | Set-password + reset-token endpoints, IMessageSender email, login-page forgot/complete flow, rate limiting. Tests: token single-use/expiry/hashing, no-email 409, min-length. | ✅ 2026-07-30 (11 tests) |
+| FE9.2 | Remove/restore endpoints + self/last-Owner guards; typed-name confirm dialog; pickers exclude removed. Tests: guards, credential revoked, history intact. | ✅ 2026-07-30 (6 tests) |
+| FE9.3 | Permission descriptions + enriched roles endpoint; portal Roles section + matrix. Test: role grants in the API match RbacSeeder exactly. | ✅ 2026-07-30 (2 tests) |
+| FE9.4 | Per-user collapsed access matrix with role attribution. | ✅ 2026-07-30 |
+| FE9.5 | Last-login stamp + column; invite variant; audit slice link. | ✅ 2026-07-30 — stamp + column + invite done; **audit-slice link deferred** (see below) |
+| FE9.6 | Gate + deploy (no migration except LastLoginAtUtc + reset-token table; `SeedMigrator rbac` not needed — no new permissions). | ✅ 2026-07-30 deployed — rollbacks `backend.pre-fe9` + `portal/current.pre-fe9`, DB dump `plutus-pre-fe9-20260730.sql.gz`; DoD verified live |
+
+### FE9 as built — three things that differ from the sketch
+
+**1. ⚠ Reset emails do NOT currently reach anyone, and the UI now says so.** No Email provider is
+enabled in Platform → Notifications, and `ConfiguredMessageSender` returns early in that case —
+it doesn't even journal to MessageEvents (journaling starts only once a provider is *selected*,
+which then simulates). The plan assumed "simulated but journaled"; that's only true post-selection.
+So the endpoint returns `sent`, and the dialog reports the truth: on `sent:false` it warns
+"⚠ Link created but NOT emailed … set a password directly instead and tell them out of band."
+The token is still minted and valid, so the flow is ready the moment a provider is turned on.
+
+**2. `LastLoginAtUtc` lives on the `Employees` table, not `People`.** Employee is TPT with `Person`
+as the root, and the property is declared on `Employee` — so the raw-SQL stamp in `AuthController`
+had to target `Employees`. Caught by reading the generated migration, verified live (a real password
+login stamped `2026-07-30T19:08`).
+
+**3. Admin-set password kills outstanding links** (and vice versa) — one live credential path at a
+time. Verified live: after `POST /password`, the pending reset row was already marked used.
+
+**Deferred:** the per-user audit-slice link (FE9.5's last bullet). `/api/v1/audit` filtering exists,
+but the useful version of this is a small dialog, and it belongs with FE9.3's read-only role
+editing question rather than bolted onto this slice. Not started, not claimed.
+
+**Live DoD run:** 17 described permissions · 11 roles (Owner = 17 grants, 2 members) · create user →
+set password (204) → short password (400) → send reset (200) → **remove self blocked (400)** →
+remove test user (login revoked, roles dropped) → hidden from the list (2 visible / 3 with
+`includeRemoved`) → restore (204) → anonymous reset request for an unknown email (204, no
+enumeration) → bogus token (410). Test rows removed afterwards.
 
 **DoD:** admin sets a temp password → user logs in with it; "send reset" → simulated email
 logged in MessageEvents with a working link → completing it changes the password and kills
@@ -811,7 +839,7 @@ Platform tab alone) and `web/current.pre-fe4`.
    tiny, same file as the shipped word search).
 2. **FE1 + FE2** (the loyalty slice — tiers then member cards).
 3. ~~**FE4** (table rollout)~~ — ✅ **COMPLETE 2026-07-30** (FE4.1–4.5, 29 tables).
-4. **FE9** (users & roles — self-contained, and password reset is an operational need). ← **next**
+4. ~~**FE9** (users & roles)~~ — ✅ **COMPLETE 2026-07-30** (FE9.1–9.6; audit-slice link deferred).
 5. **FE5** remainder (stock column → bulk edit → bin → untracked stock).
 6. **FE6** (till identity + Locations IA).
 7. **FE7** (gift cards — biggest new surface, benefits from FE2's scan-prefix pattern).

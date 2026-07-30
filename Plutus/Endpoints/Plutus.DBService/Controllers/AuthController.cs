@@ -176,6 +176,20 @@ namespace Plutus.DBService.Controllers
                 }
             }
 
+            // FE9.5: stamp the sign-in so the portal's user list can show "last login" and surface
+            // dormant accounts. Best-effort — a failed stamp must never block a valid login.
+            try
+            {
+                // NB: Employee is TPT — People is the hierarchy root, but LastLoginAtUtc is declared
+                // on Employee, so the column lives on the EMPLOYEES table (see the migration).
+                await using var stampCmd = conn.CreateCommand();
+                stampCmd.CommandText = "UPDATE Employees SET LastLoginAtUtc = @now WHERE Id = @empId";
+                stampCmd.Parameters.AddWithValue("@now", DateTime.UtcNow);
+                stampCmd.Parameters.AddWithValue("@empId", employeeId.ToString());
+                await stampCmd.ExecuteNonQueryAsync();
+            }
+            catch { /* non-fatal */ }
+
             // WP3.1 (2026-07-24): token scopes come from the user's RBAC effective permissions
             // (time windows evaluated NOW — an out-of-window assignment grants nothing at token
             // issue, per architecture §7.2), with the WP2.2 pre-seed fallback for users without
