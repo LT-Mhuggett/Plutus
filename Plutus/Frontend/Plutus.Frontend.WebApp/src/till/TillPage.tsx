@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  effectivePriceFor, findItemById, getCustomer, parkTransaction, searchCustomers, searchItemsOfflineAware,
-  createCustomer, updateCustomer,
-  type CustomerDetail, type CustomerSummary, type Item,
+  effectivePriceFor, findItemById, getCustomer, lookupGiftCard, parkTransaction, searchCustomers,
+  searchItemsOfflineAware, createCustomer, updateCustomer,
+  type CustomerDetail, type CustomerSummary, type GiftCardLookup, type Item,
 } from "../api.ts";
 import { canManageCustomers } from "../pipeline.ts";
 import { gbp, parsePence } from "../money.ts";
@@ -25,6 +25,11 @@ const MAX_SHOWN = 500;
  *  (see MemberNumbers on the server, which validates the check character for real). A shape test is
  *  enough here: it only decides whether to TRY a customer lookup before the item lookup. */
 const MEMBER_CARD = /^C[0-9A-Z]{7}$/i;
+
+/** FE7: the shape of a gift-card barcode payload — "G" + 12 code characters + check character.
+ *  Like MEMBER_CARD this is only a routing hint; the server validates the check character and owns
+ *  the balance. A product barcode that happens to match falls through to the item lookup. */
+const GIFT_CARD = /^G[0-9A-Z]{13}$/i;
 
 export default function TillPage() {
   const [basket, dispatch] = useBasket();
@@ -136,6 +141,87 @@ export default function TillPage() {
     scanRef.current?.focus();
   }
 
+  /**
+   * FE7: a scanned/typed gift card. Returns true when the scan was handled as a card.
+   *
+   * Selling one adds a basket line priced at the amount being loaded (zero VAT — the activation item
+   * sits on a zero-rate band), and the card is only actually LOADED when the sale completes, inside
+   * checkout(). So an abandoned basket leaves the card worthless, which is the safe way round.
+   *
+   * ⚠ Online only: the server owns the balance and there is no offline queue for cards. Ordinary
+   * sales keep working offline.
+   */
+  async function handleGiftCardScan(term: string): Promise<boolean> {
+    if (!navigator.onLine) {
+      setNotice("Gift cards need a connection — this till is offline.");
+      return true;   // it WAS a card; don't fall through and hunt for a product with that barcode
+    }
+
+    let found: GiftCardLookup;
+    try {
+      found = await lookupGiftCard(term);
+    } catch {
+      return false;  // not a card for this shop → let the item lookup have it
+    }
+
+    if (found.status === "active") {
+      setNotice(`Gift card ${found.pretty} holds ${gbp(found.balancePence)} — take it as payment at checkout.`);
+      return true;
+    }
+    if (found.status !== "unsold") {
+      setNotice(
+        found.status === "spent" ? `Gift card ${found.pretty} has been fully spent.`
+        : found.status === "expired" ? `Gift card ${found.pretty} has expired.`
+        : `Gift card ${found.pretty} has been cancelled.`);
+      return true;
+    }
+
+    // unsold → sell it. The amount is free-form because a card is worth what the customer pays.
+    const typed = await ask.prompt({
+      title: `Sell gift card ${found.pretty}`,
+      body: (
+        <>
+          <p className="small">How much is being loaded onto this card?</p>
+          <p className="muted small">
+            No VAT is charged on a gift card — VAT applies to the goods it's spent on later. The card
+            becomes spendable once this sale is completed.
+          </p>
+        </>
+      ),
+      label: "Amount (£)",
+      placeholder: "e.g. 20.00",
+      confirmLabel: "Add to sale",
+    });
+    if (typed === null) return true;
+
+    const pence = parsePence(typed);
+    if (pence === null || pence <= 0) {
+      setNotice("That isn't a valid amount — the card was not added.");
+      return true;
+    }
+
+    // A synthetic catalogue item: itemIdOne comes from the SERVER (the provisioned zero-VAT row), so
+    // the sale line resolves to a real Item and the legacy projection's FK holds.
+    dispatch({
+      type: "addGiftCard",
+      code: found.code,
+      amountPence: pence,
+      item: {
+        idOne: found.itemIdOne,
+        name: `Gift card ${found.pretty}`,
+        brand: "-",
+        desc: "",
+        cost: 0,
+        exPrice: pence / 100,
+        price: pence / 100,
+        taxId: 0,
+        catId: "",
+      },
+    });
+    setNotice(`Gift card ${found.pretty} added at ${gbp(pence)} — it activates when the sale completes.`);
+    return true;
+  }
+
   async function submitScan() {
     const term = scan.trim();
     if (!term || busy) return;
@@ -154,6 +240,13 @@ export default function TillPage() {
           setNotice(`Member ${matches[0].name} attached.`);
           return;
         }
+      }
+
+      // FE7: a scanned GIFT CARD either gets SOLD (an unsold code → ask what to load it with) or
+      // reports its balance (an active one → the cashier takes it at checkout, not here). Same
+      // fall-through rule as the member card: no match, and it's treated as a product barcode.
+      if (GIFT_CARD.test(term.replace(/[\s-]/g, ""))) {
+        if (await handleGiftCardScan(term)) { setScan(""); return; }
       }
 
       const exact = await findItemById(term);
@@ -349,13 +442,24 @@ export default function TillPage() {
             {displayLines.map((l) => (
               <tr key={l.key} className={l.isReturn ? "return-line" : l.adjusted ? "adjusted" : undefined}>
                 <td className="qty-cell">
-                  <button className="step" onClick={() => dispatch({ type: "quantity", key: l.key, delta: -1 })}>−</button>
-                  <span>{l.quantity}</span>
-                  <button className="step" onClick={() => dispatch({ type: "quantity", key: l.key, delta: 1 })}>+</button>
+                  {/* FE7: a gift-card line is one specific CODE, so quantity is fixed at 1 — "2 ×" would
+                      charge twice and load once. Sell a second card by scanning a second card. */}
+                  {l.giftCardCode ? <span>1</span> : (
+                    <>
+                      <button className="step" onClick={() => dispatch({ type: "quantity", key: l.key, delta: -1 })}>−</button>
+                      <span>{l.quantity}</span>
+                      <button className="step" onClick={() => dispatch({ type: "quantity", key: l.key, delta: 1 })}>+</button>
+                    </>
+                  )}
                 </td>
                 <td>
                   {l.isReturn && <span className="return-tag">RETURN</span>} {l.item.name}
                   <span className="mono muted small barcode"> {l.item.idOne}</span>
+                  {/* FE7: say plainly that this line takes money for a card rather than selling goods,
+                      and that the card isn't live until the sale completes. */}
+                  {l.giftCardCode && (
+                    <div className="small discount-note">🎁 activates on completion · no VAT</div>
+                  )}
                   {l.discount && (
                     <div className="small discount-note">
                       {l.discount.name} −{gbp(lineDiscountPence(l))}{" "}

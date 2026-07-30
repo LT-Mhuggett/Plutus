@@ -12,7 +12,10 @@ namespace Plutus.Entities.Models
     // of this evolve-in-place DB rather than the spec's BINARY(16)).
 
     public enum SaleChannel : byte { Till = 0, WebPos = 1, WebStore = 2 }
-    public enum TenderType : byte { Cash = 0, Card = 1, Online = 2, Credit = 3 }
+    // FE7 adds GiftCard = 4. A new enum VALUE on a byte column needs no migration; it is kept
+    // distinct from Credit so the payment-split report doesn't lump gift cards in with store credit —
+    // they are different liabilities with different reconciliations.
+    public enum TenderType : byte { Cash = 0, Card = 1, Online = 2, Credit = 3, GiftCard = 4 }
     public enum AdjustmentType : byte { Refund = 0, Void = 1 }
 
     /// <summary>Thrown when a sale's totals do not reconcile (T1.3 invariants).</summary>

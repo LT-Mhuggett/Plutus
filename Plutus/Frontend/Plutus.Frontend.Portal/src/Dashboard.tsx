@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  csvUrl, fetchSales, fetchSummary, fetchDashboard, gbp,
-  type SaleRow, type Summary, type SummaryBucket, type DashboardKpis,
+  csvUrl, fetchSales, fetchSummary, fetchDashboard, fetchGiftCardLiability, gbp,
+  type SaleRow, type Summary, type SummaryBucket, type DashboardKpis, type GiftCardLiability,
 } from "./api.ts";
 import DataTable from "./DataTable.tsx";
 import { useNav } from "./nav.tsx";
@@ -93,7 +93,14 @@ function BarChart({ buckets }: { buckets: { period: string; grossPence: number }
 function Pills() {
   const { go } = useNav();
   const [k, setK] = useState<DashboardKpis | null>(null);
-  useEffect(() => { fetchDashboard().then(setK).catch(() => undefined); }, []);
+  // FE7.5: gift-card liability sits next to the trading numbers because it is the one figure on this
+  // page that is money OWED rather than money earned. Fetched separately (it needs
+  // portal.financials.view) and simply absent for a user who can't see financials.
+  const [cards, setCards] = useState<GiftCardLiability | null>(null);
+  useEffect(() => {
+    fetchDashboard().then(setK).catch(() => undefined);
+    fetchGiftCardLiability().then(setCards).catch(() => undefined);
+  }, []);
   if (!k) return null;
   const wc = k.weekStart ? new Date(k.weekStart + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "";
   const pill = (label: string, value: string, onClick: () => void) => (
@@ -110,6 +117,8 @@ function Pills() {
       {pill("Active stores", String(k.activeStores), () => go("Locations", "stores"))}
       {pill("Active warehouses", String(k.activeWarehouses), () => go("Locations", "warehouses"))}
       {pill("Active webstores", String(k.activeWebstores), () => go("Webstore"))}
+      {cards && cards.outstandingPence > 0 &&
+        pill("Gift cards outstanding", gbp(cards.outstandingPence), () => go("Gift cards"))}
     </div>
   );
 }

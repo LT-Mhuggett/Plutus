@@ -111,6 +111,9 @@ namespace Plutus.Entities
         public DbSet<LoyaltyTier> LoyaltyTiers { get; set; }
         // FE2: per-tenant membership-number sequence (printed on loyalty cards).
         public DbSet<MemberNoCounter> MemberNoCounters { get; set; }
+        // FE7: gift cards + their append-only balance ledger (a liability, like store credit).
+        public DbSet<GiftCard> GiftCards { get; set; }
+        public DbSet<GiftCardEntry> GiftCardEntries { get; set; }
         // FE9: hashed, single-use password-reset / invite tokens.
         public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
         // WP5.3 cross-channel identity (webstore ⇄ loyalty link by email).
@@ -194,6 +197,8 @@ namespace Plutus.Entities
             // Customers, credit, loyalty (Phase 8) + cross-channel identity (WP5.3).
             typeof(Customer), typeof(CreditAccount), typeof(CreditEntry), typeof(Membership),
             typeof(CustomerExternalRef),
+            // FE7 gift cards (tenant-scoped: a code is only ever valid in the tenant that sold it).
+            typeof(GiftCard), typeof(GiftCardEntry),
             // WooCommerce connector config + SKU review queue + product cache + notifications (Phase 6).
             typeof(WebStoreDetails), typeof(WebstoreSkuMap), typeof(WebstoreProduct), typeof(WebstoreNotification),
             typeof(WebstoreOutboundLog),
@@ -770,6 +775,26 @@ namespace Plutus.Entities
                 // NULLs in a unique index, so pre-backfill rows coexist happily.
                 e.Property(x => x.MemberNo).HasMaxLength(16);
                 e.HasIndex(x => new { x.TenantId, x.MemberNo }).IsUnique();
+            });
+            modelBuilder.Entity<GiftCard>(e =>
+            {
+                e.ToTable("GiftCards");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Code).HasMaxLength(24).IsRequired();
+                e.Property(x => x.Batch).HasMaxLength(60);
+                // FE7: a code is unique WITHIN a tenant — two shops may legitimately print the same
+                // string, and a card is only ever spendable where it was sold.
+                e.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+                e.HasIndex(x => new { x.TenantId, x.CustomerId });
+            });
+            modelBuilder.Entity<GiftCardEntry>(e =>
+            {
+                e.ToTable("GiftCardEntries");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Reason).HasMaxLength(500);
+                e.HasIndex(x => new { x.TenantId, x.GiftCardId });
             });
             modelBuilder.Entity<PasswordResetToken>(e =>
             {

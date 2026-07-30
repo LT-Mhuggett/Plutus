@@ -343,6 +343,56 @@ export async function redeemCredit(customerId: string, amountPence: number, sale
   });
 }
 
+// ── FE7 gift cards ──────────────────────────────────────────────────────────
+// A card is worthless until a till SELLS it (activate), then spendable as a TENDER (redeem).
+// ⚠ Both need connectivity: the server is the balance authority and there is no offline queue for
+// them — a card redeemed twice offline would be money given away. Ordinary sales stay offline-capable.
+
+export interface GiftCardLookup {
+  code: string;
+  /** grouped for reading aloud: "K7QP-2M9W-XT4R-8" */
+  pretty: string;
+  balancePence: number;
+  /** unsold | active | spent | expired | void */
+  status: string;
+  expiresAtUtc: string | null;
+  customerId: string | null;
+  /** the catalogue row an activation is rung through (zero-VAT, stock-untracked) */
+  itemIdOne: string;
+}
+
+/** "What is this thing I just scanned?" — 404s on an unknown or mis-keyed code. */
+export const lookupGiftCard = (code: string) =>
+  get<GiftCardLookup>(`/api/v1/giftcards/${encodeURIComponent(code)}/lookup`);
+
+/**
+ * Gift-card write. Unlike `send`, this surfaces the server's own `detail` message: a refusal here is
+ * something the CASHIER has to read and act on ("That card only has 12.50 left"), not a status code
+ * to swallow.
+ */
+async function giftCardPost(code: string, action: string, body: unknown): Promise<{ entryId: string; code: string; balancePence: number }> {
+  const res = await fetch(`/api/v1/giftcards/${encodeURIComponent(code)}/${action}`, {
+    method: "POST",
+    headers: { ...headers(), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  handle401(res);
+  if (!res.ok) {
+    let detail = `Gift card ${action} failed (${res.status}).`;
+    try { detail = (await res.json())?.detail ?? detail; } catch { /* keep the fallback */ }
+    throw new Error(detail);
+  }
+  return await res.json();
+}
+
+/** Sell a card: load it with amountPence. Idempotent by entryId. 409 if it is already active. */
+export const activateGiftCard = (code: string, amountPence: number, saleId: string, entryId: string, customerId?: string) =>
+  giftCardPost(code, "activate", { amountPence, saleId, entryId, customerId });
+
+/** Spend a card against a sale. Idempotent by entryId; 409 on over-redeem/expired/void/unsold. */
+export const redeemGiftCard = (code: string, amountPence: number, saleId: string, entryId: string) =>
+  giftCardPost(code, "redeem", { amountPence, saleId, entryId });
+
 /** Background: pull the whole catalogue (no images) into IndexedDB for offline scanning. */
 export async function syncCatalogue(onProgress?: (n: number) => void): Promise<number> {
   let page = 1;
@@ -786,6 +836,9 @@ const tenderTypeFor = (methodName: string): number => {
   const n = methodName.toLowerCase();
   if (n.includes("cash")) return 0; // TenderType.Cash
   if (n.includes("online")) return 2;
+  // FE7: gift card BEFORE credit — "Gift card" must not fall into the store-credit bucket, and the
+  // payment-split report groups by this value.
+  if (n.includes("gift")) return 4; // TenderType.GiftCard
   if (n.includes("credit")) return 3;
   return 1; // Card
 };
@@ -794,7 +847,7 @@ export async function checkout(
   lines: BasketLine[],
   payments: CheckoutPayment[],
   totals: { totalPence: number; totalExTaxPence: number },
-  opts?: { customerId?: string; creditRedeemPence?: number },
+  opts?: { customerId?: string; creditRedeemPence?: number; giftCardRedeem?: { code: string; amountPence: number } },
 ): Promise<CompletedSale> {
   const session = getSession();
   if (!session) throw new Error("Not signed in.");
@@ -808,6 +861,19 @@ export async function checkout(
   // credit tender below carries the same money. Online-only (the redeem needs a live balance).
   if (opts?.customerId && opts.creditRedeemPence && opts.creditRedeemPence > 0) {
     await redeemCredit(opts.customerId, opts.creditRedeemPence, saleId, uuidv7());
+  }
+
+  // FE7 gift cards, same order and for the same reason: the server owns the balance, so anything it
+  // will refuse must be refused BEFORE the sale is recorded.
+  //  • REDEEM first — an expired/over-redeemed card must abort the sale, not leave it short-tendered.
+  //  • ACTIVATE the cards being sold — a card that cannot be loaded (already active) must abort
+  //    before the customer is charged for it.
+  // Both are idempotent by entryId, so a queued-then-drained sale stays consistent.
+  if (opts?.giftCardRedeem && opts.giftCardRedeem.amountPence > 0) {
+    await redeemGiftCard(opts.giftCardRedeem.code, opts.giftCardRedeem.amountPence, saleId, uuidv7());
+  }
+  for (const line of lines.filter((l) => l.giftCardCode)) {
+    await activateGiftCard(line.giftCardCode!, line.pricePence, saleId, uuidv7(), opts?.customerId);
   }
   const ingestLines: IngestLine[] = await Promise.all(
     lines.map(async (l) => {

@@ -21,6 +21,10 @@ export interface BasketLine {
   discount?: LineDiscount;
   isReturn?: boolean;
   originSaleId?: string;
+  /** FE7: this line SELLS a gift card, and carries the code being loaded. Its price is the amount
+   *  loaded, its VAT is zero (the activation item sits on a zero-rate band), and it is excluded from
+   *  every discount — knocking 10% off a £20 card would hand out £20 of goods for £18. */
+  giftCardCode?: string;
 }
 
 export interface BasketState {
@@ -31,6 +35,7 @@ export interface BasketState {
 type Action =
   | { type: "add"; item: Item; quantity?: number }
   | { type: "addReturn"; item: Item; quantity: number; unitPricePence: number; unitExPricePence: number; originSaleId: string }
+  | { type: "addGiftCard"; item: Item; code: string; amountPence: number }
   | { type: "quantity"; key: number; delta: number }
   | { type: "adjust"; key: number; pricePence: number }
   | { type: "applyDiscount"; discount: Discount; keys: number[] }
@@ -76,6 +81,21 @@ function reduce(state: BasketState, action: Action): BasketState {
       };
       return { lines: [...state.lines, line], nextKey: state.nextKey + 1 };
     }
+    // FE7: selling a gift card. exPrice === price so the line's VAT works out to zero — activation is
+    // not a VAT-able supply (the VAT lands on the goods the card is later spent on). Quantity is
+    // always 1: each card is its own code, so two cards are two lines.
+    case "addGiftCard": {
+      const line: BasketLine = {
+        key: state.nextKey,
+        item: action.item,
+        quantity: 1,
+        pricePence: action.amountPence,
+        exPricePence: action.amountPence,
+        adjusted: false,
+        giftCardCode: action.code,
+      };
+      return { lines: [...state.lines, line], nextKey: state.nextKey + 1 };
+    }
     case "quantity":
       return {
         ...state,
@@ -97,7 +117,8 @@ function reduce(state: BasketState, action: Action): BasketState {
       return {
         ...state,
         lines: state.lines.map((l) =>
-          action.keys.includes(l.key) && !l.isReturn
+          // FE7: never a gift-card line — a discounted card is sold for less than it can buy
+          action.keys.includes(l.key) && !l.isReturn && !l.giftCardCode
             ? {
                 ...l,
                 discount: {
@@ -119,7 +140,7 @@ function reduce(state: BasketState, action: Action): BasketState {
       return {
         ...state,
         lines: state.lines.map((l) =>
-          !l.isReturn && !l.discount
+          !l.isReturn && !l.discount && !l.giftCardCode
             ? { ...l, discount: { discountId: 0, name: action.name, type: 1, amount: action.rate } }
             : l,
         ),

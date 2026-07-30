@@ -241,6 +241,11 @@ namespace Plutus.Reporting
                 TenderType.Cash => "cash",
                 TenderType.Online => "online",
                 TenderType.Credit => "credit",
+                // FE7: the legacy PayMethod table has no gift-card row (and adding one would put a
+                // free-typed "Gift card" tender on every checkout screen), so a gift card projects
+                // onto the same legacy method as store credit — both are non-cash liabilities. The v1
+                // SaleTenders row keeps the true TenderType, which is what reporting reads.
+                TenderType.GiftCard => "credit",
                 _ => "card",
             };
             var match = methods.FirstOrDefault(m => m.Name != null && m.Name.ToLowerInvariant().Contains(wanted))

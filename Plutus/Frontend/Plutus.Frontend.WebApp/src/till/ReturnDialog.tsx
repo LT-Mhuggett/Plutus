@@ -17,6 +17,10 @@ interface Props {
 
 const dateInput = (d: Date) => d.toISOString().slice(0, 10);
 
+/** FE7: the catalogue barcode of the gift-card activation item (server: GiftCardSaleItem.ItemIdOne).
+ *  Lines selling a card cannot be returned — see pick(). */
+const GIFT_CARD_ITEM = "GIFT-CARD";
+
 export default function ReturnDialog({ onPick, onClose }: Props) {
   const [saleId, setSaleId] = useState("");
   const [date, setDate] = useState(() => dateInput(new Date()));
@@ -58,6 +62,14 @@ export default function ReturnDialog({ onPick, onClose }: Props) {
 
   async function pick(line: SaleDetail["lines"][number]) {
     if (!detail) return;
+    // FE7: a gift-card ACTIVATION line must not be refunded here. Refunding it would hand the money
+    // back while the card kept its balance — the shop would pay twice. Voiding the card (portal →
+    // Gift cards) is the correct remedy, and it's audited.
+    if (line.itemId === GIFT_CARD_ITEM) {
+      setError("That line sold a gift card. Refunding it here would give the money back and leave the "
+             + "card loaded — cancel the card instead (portal → Gift cards → Void).");
+      return;
+    }
     setBusy(true);
     try {
       const item =

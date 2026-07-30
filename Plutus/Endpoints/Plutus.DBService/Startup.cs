@@ -202,6 +202,12 @@ namespace Plutus.DBService
                     var numbered = Plutus.Customers.MemberNoBackfill.ApplyAsync(db).GetAwaiter().GetResult();
                     if (numbered > 0)
                         Console.WriteLine($"[loyalty] member-number backfill: {numbered} customer(s) numbered.");
+
+                    // FE7: the zero-VAT catalogue row a gift-card activation is rung through must
+                    // exist before the first card is sold (the legacy sale projection FKs to Items).
+                    var cardItems = Plutus.Customers.GiftCardSaleItem.EnsureAsync(db).GetAwaiter().GetResult();
+                    if (cardItems > 0)
+                        Console.WriteLine($"[giftcards] provisioned the activation item for {cardItems} business(es).");
                 }
             }
             catch (Exception ex)

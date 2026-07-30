@@ -4,6 +4,7 @@ import ReportingPage from "./ReportingPage.tsx";
 import BankingPage from "./BankingPage.tsx";
 import CustomersPage from "./CustomersPage.tsx";
 import LoyaltyPage from "./LoyaltyPage.tsx";
+import GiftCardsPage from "./GiftCardsPage.tsx";
 import InventoryPage from "./InventoryPage.tsx";
 import PricesPage from "./PricesPage.tsx";
 import UsersPage from "./UsersPage.tsx";
@@ -27,7 +28,7 @@ declare const __BUILD_TIME__: string;
 
 // WP11.5 (Matt): "Dashboard" always takes you home; "Company" holds company details + the
 // absorbed Financial periods; "Locations" is the WP11.6 grouped stores/warehouses/webstores page.
-const TABS = ["Dashboard", "Reporting", "Banking", "Inventory", "Prices", "Customers", "Loyalty", "Webstore", "Users & Roles", "Locations", "Company", "Help"] as const;
+const TABS = ["Dashboard", "Reporting", "Banking", "Inventory", "Prices", "Customers", "Loyalty", "Gift cards", "Webstore", "Users & Roles", "Locations", "Company", "Help"] as const;
 // WP13.4: the operator-only Platform section, shown only when the token carries platform-admin.
 const PLATFORM_TAB = "Platform" as const;
 type Tab = (typeof TABS)[number] | typeof PLATFORM_TAB;
@@ -40,6 +41,7 @@ const PAGES: Record<Tab, () => React.JSX.Element> = {
   Prices: PricesPage,
   Customers: CustomersPage,
   Loyalty: LoyaltyPage,
+  "Gift cards": GiftCardsPage,
   Webstore: WebstorePage,
   "Users & Roles": UsersPage,
   Locations: StoresPage,

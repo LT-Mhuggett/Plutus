@@ -34,6 +34,11 @@ public static class PermissionCatalogue
     /// <summary>WP6.3: raise / read / reply to support tickets. Surface-neutral and seeded to EVERY
     /// built-in role — a lone cashier with a dead till must be able to shout for help.</summary>
     public const string SupportTickets = "support.tickets";
+    /// <summary>FE7: gift-card administration — generate codes, void/un-void, adjust a balance, link a
+    /// card to a customer, and read the card list. NOT needed to sell or take a card at the till
+    /// (that's pos.sell): a cashier sells cards all day, but minting codes and moving balances by hand
+    /// is a manager's job. Seeded to Owner / Company Admin / Store Manager.</summary>
+    public const string GiftCardsManage = "giftcards.manage";
 
     // ── POS ──
     public const string PosSell = "pos.sell";
@@ -51,7 +56,7 @@ public static class PermissionCatalogue
     {
         PortalFinancialsView, PortalUsersManage, PortalStockAdjust, PortalPricesManage,
         PortalTillsEnrol, PortalReportsView, PortalCompanyManage, CustomersManage, SupportTickets,
-        InventoryBulk,
+        InventoryBulk, GiftCardsManage,
         PosSell, PosRefund, PosVoid, PosDiscount, PosPriceOverride, PosNoSale, PosReportsView, PosSettingsManage,
     };
 
@@ -68,6 +73,9 @@ public static class PermissionCatalogue
     public static readonly IReadOnlySet<string> ImpersonationDenied = new HashSet<string>(StringComparer.Ordinal)
     {
         PosRefund, PosVoid, PortalUsersManage, PortalCompanyManage, CustomersManage,
+        // FE7: an impersonated session must not be able to mint gift cards or move balances — that is
+        // money creation, which is exactly what this list exists to keep out of support sessions.
+        GiftCardsManage,
     };
 
     public static bool IsKnown(string code) => code != null && All.Contains(code);
@@ -77,6 +85,7 @@ public static class PermissionCatalogue
     public static string GroupOf(string code) => code switch
     {
         CustomersManage => "Customers",
+        GiftCardsManage => "Customers",
         SupportTickets => "Support",
         InventoryBulk => "Portal",
         _ when code != null && code.StartsWith("portal.", StringComparison.Ordinal) => "Portal",
@@ -101,6 +110,7 @@ public static class PermissionCatalogue
         [PortalCompanyManage] = "Edit company and store details — names, addresses, opening hours, receipt template.",
         [CustomersManage] = "Add and edit customers, grant store credit, and set loyalty tiers. Works in the portal AND at the till.",
         [SupportTickets] = "Raise support tickets with the Plutus team and read the replies.",
+        [GiftCardsManage] = "Generate gift-card codes, see every card and its balance, void or reinstate a card, correct a balance by hand, and link a card to a customer. Selling and taking gift cards at the till only needs 'Ring up sales'.",
         [PosSell] = "Ring up sales at the till.",
         [PosRefund] = "Give refunds. Can carry a per-refund money ceiling.",
         [PosVoid] = "Void a line or a whole transaction at the till.",

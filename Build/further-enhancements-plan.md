@@ -668,18 +668,75 @@ Owner / Company Admin / Store Manager; redeem/sell at till gated `pos.sell`)
 
 | WP | Scope | Status |
 |---|---|---|
-| FE7.1 | Entities + migration; generate/activate/redeem/void endpoints + ledger; `giftcards.manage` perm; tests (over-redeem, expiry, double-activate, idempotent redeem per sale, **activation posts zero VAT**). | ☐ |
-| FE7.2 | Till: activate at basket + redeem tender in checkout + auto-scan prefix; offline block. | ☐ |
-| FE7.3 | Portal: gift-cards table + detail/void/link + generate dialog. | ☐ |
-| FE7.4 | Print templates (voucher + A4). | ☐ |
-| FE7.5 | Outstanding-liability report (portal Reporting + dashboard pill next to store-credit). | ☐ |
-| FE7.6 | Gate + deploy (migration + `SeedMigrator rbac`). | ☐ |
+| FE7.1 | Entities + migration; generate/activate/redeem/void endpoints + ledger; `giftcards.manage` perm; tests (over-redeem, expiry, double-activate, idempotent redeem per sale, **activation posts zero VAT**). | ✅ 2026-07-30 (7 E2E + 9 code-format + 4 VAT tests) |
+| FE7.2 | Till: activate at basket + redeem tender in checkout + auto-scan prefix; offline block. | ✅ 2026-07-30 |
+| FE7.3 | Portal: gift-cards table + detail/void/link + generate dialog. | ✅ 2026-07-30 (own tab) |
+| FE7.4 | Print templates (voucher + A4). | ✅ 2026-07-30 (+ a batch sheet) |
+| FE7.5 | Outstanding-liability report (portal Reporting + dashboard pill next to store-credit). | ✅ 2026-07-30 (page stats + dashboard pill) |
+| FE7.6 | Gate + deploy (migration + `SeedMigrator rbac`). | ✅ 2026-07-31 deployed |
 
 **DoD:** sell + activate a card at the till (offline attempt blocked) → VAT report for the
 day shows ZERO VAT from the activation; redeem partially against a mixed-band basket → goods
 VAT normal, card balance reduced, tender split correct; redeem the remainder; over-redeem
 409s; liability report reconciles to Σ unredeemed balances; A4 + voucher print render with a
 scannable code; scan a printed voucher's barcode into the till and it resolves.
+
+### FE7 as built — five things worth knowing
+
+**1. ⚠ An activation needs a REAL catalogue item, so one is provisioned automatically.** The sales
+pipeline requires every line to reference an item, and the legacy projection writes a `Transaction`
+row whose `(ItemIdOne, ItemIdTwo)` is a FOREIGN KEY to `Items` — a synthetic id would break the
+bridge on the first card sold. `GiftCardSaleItem.EnsureAsync` (startup, idempotent, per business)
+creates `GIFT-CARD` "Gift card": **zero-VAT band** (picks the band with `Rate <= 1.0`; live = "Exempt"),
+`StockUntracked` (a card is not inventory), price 0 (the till sets the line price to the amount
+loaded), in its own **"Gift cards" category** so cards never inflate a product category's sales.
+Live: provisioned for 1 business on the FE7 boot, `TaxId=3` (Exempt, Rate 1.0). ⚠ It sets
+`db.CurrentUser` before any early return — the FE1 lesson.
+
+**2. Money is taken, but it is NOT turnover — and the reports say so.** An activation appears in the
+day's takings (the till really did take the cash) and on the **zero VAT band**, which is the correct
+treatment: a multi-purpose voucher's VAT falls due on the goods it is later spent on. What the build
+does NOT do is strip activations out of gross turnover — that would mean reworking every report. The
+Gift cards page states this in plain English and gives the accountant the two numbers they need
+(`outstandingPence` = deferred income, `activatedPence` = what to back out). Pinned by
+`GiftCardVatTests`: a £12 goods + £25 card sale rolls up as £37 takings / **£2.00 VAT**, with the
+card's £25 on the zero band.
+
+**3. `TenderType.GiftCard = 4` — a new enum value, no migration** (same as `DeviceStatus.PendingRemoval`).
+Deliberately NOT reusing `Credit`, so the payment-split report doesn't lump gift cards in with store
+credit. The legacy bridge maps it onto the legacy *credit* PayMethod (there is no gift-card row, and
+adding one would put a free-typed "Gift card" tender on every checkout screen); the v1 `SaleTenders`
+row keeps the true type, which is what reporting reads.
+
+**4. Codes are RANDOM, not sequential** (unlike FE2 member numbers): 12 Crockford32 characters + a
+weighted (7,3,1) check character = 60 bits. A gift card is a bearer instrument — a guessable code is
+a licence to print money. ⚠ The prefix trap: `G` is itself in the alphabet, so a bare code can start
+with `G`; the payload prefix is only stripped at full length, or one valid card would canonicalise
+into another. Pinned by `GiftCardCodeTests`.
+
+**5. Four ways to lose money, all closed.** Gift-card lines take no discount (member or manual) —
+a 10% discount on a £20 card hands over £20 of goods for £18. Quantity is locked at 1 (one line =
+one code; "2 ×" would charge twice and load once). A card cannot pay for a card (that would launder
+an expiring balance into a fresh one). And a past activation **cannot be refunded at the till** — that
+would return the money while the card kept its balance; voiding the card is the audited remedy.
+
+**Live DoD run (2026-07-31):** generate 3 → unsold holds £0 and redeem 409s → activate £25 →
+double-activate **409** → redeem £10 (bal £15) → **replay the same entryId: still £15** → over-redeem
+£15.01 **409** ("That card only has 15.00 left") → void (redeem 409) → unvoid (balance back) → bogus
+code 404 → **one character flipped 404** (the check character earning its keep) → liability
+£25 outstanding / 2 live / 1 unsold / £35 activated / £10 redeemed → history `Issue:2500 Redeem:-1000`
+→ generate as a no-role user **403**, activate as a `pos.sell`-only cashier **200**. The three DoD
+cards were then hard-deleted (their entries carried no SaleId, so nothing referenced them) —
+`GiftCards`/`GiftCardEntries` back to 0 rows.
+
+**Rollbacks:** backend `~/PLUTUS/backend.pre-fe7`, portal + till `current.pre-fe7`, DB dump
+`~/PLUTUS/backups/plutus-pre-fe7-20260730.sql.gz`. Migration `AddGiftCards` (two new tables only,
+nothing altered).
+
+⚠ **Pre-existing, unrelated:** `plutus-backend`'s log carries `commercial-sweep tenant=(null): Last
+run of 'commercial-sweep' failed: CurrentUser not defined!` — present since at least 29-Jul (13
+occurrences that day, before FE7 existed). Same class of bug as the FE1 backfill: a background job
+saving without setting `db.CurrentUser`. Not caused by FE7; worth its own fix.
 
 ## FE8 — Search refinements
 
@@ -791,7 +848,7 @@ answer to "why can Dave refund?"). Plus chips for caps (refund limit).
 | FE9.2 | Remove/restore endpoints + self/last-Owner guards; typed-name confirm dialog; pickers exclude removed. Tests: guards, credential revoked, history intact. | ✅ 2026-07-30 (6 tests) |
 | FE9.3 | Permission descriptions + enriched roles endpoint; portal Roles section + matrix. Test: role grants in the API match RbacSeeder exactly. | ✅ 2026-07-30 (2 tests) |
 | FE9.4 | Per-user collapsed access matrix with role attribution. | ✅ 2026-07-30 |
-| FE9.5 | Last-login stamp + column; invite variant; audit slice link. | ✅ 2026-07-30 — stamp + column + invite done; **audit-slice link deferred** (see below) |
+| FE9.5 | Last-login stamp + column; invite variant; audit slice link. | ✅ **COMPLETE** — stamp + column + invite 2026-07-30; audit-slice link 2026-07-31 (see below) |
 | FE9.6 | Gate + deploy (no migration except LastLoginAtUtc + reset-token table; `SeedMigrator rbac` not needed — no new permissions). | ✅ 2026-07-30 deployed — rollbacks `backend.pre-fe9` + `portal/current.pre-fe9`, DB dump `plutus-pre-fe9-20260730.sql.gz`; DoD verified live |
 
 ### FE9 as built — three things that differ from the sketch
@@ -812,9 +869,16 @@ login stamped `2026-07-30T19:08`).
 **3. Admin-set password kills outstanding links** (and vice versa) — one live credential path at a
 time. Verified live: after `POST /password`, the pending reset row was already marked used.
 
-**Deferred:** the per-user audit-slice link (FE9.5's last bullet). `/api/v1/audit` filtering exists,
-but the useful version of this is a small dialog, and it belongs with FE9.3's read-only role
-editing question rather than bolted onto this slice. Not started, not claimed.
+**4. Per-user audit slice — DONE 2026-07-31 (was deferred).** Each user row gets an **Activity**
+button opening the last 200 admin actions they took, on the standard DataTable (searchable across
+action / entity / raw detail JSON). The **Remove** dialog links straight to it — "is this dormant
+account safe to remove?" is really "what did they touch?", so the answer sits one click from the
+decision. Reachable for REMOVED users too: their trail is exactly what you want to read afterwards.
+
+⚠ The plan claimed `/api/v1/audit` "already supports filtering" — it did **not**; it only filtered
+`entityType`. An `actorUserId` query parameter was added. Also worth knowing, and said in the dialog's
+own copy: only ADMIN actions are audited (roles, prices, bulk edits, tills, settings) — everyday
+selling is in the sales reports. So an empty list means "changed no settings", not "did no work".
 
 **Live DoD run:** 17 described permissions · 11 roles (Owner = 17 grants, 2 members) · create user →
 set password (204) → short password (400) → send reset (200) → **remove self blocked (400)** →
@@ -921,7 +985,7 @@ Platform tab alone) and `web/current.pre-fe4`.
 4. ~~**FE9** (users & roles)~~ — ✅ **COMPLETE 2026-07-30** (FE9.1–9.6; audit-slice link deferred).
 5. ~~**FE5** remainder~~ — ✅ **COMPLETE 2026-07-30** (FE5.0–5.6).
 6. ~~**FE6** (till identity + Locations IA)~~ — ✅ **COMPLETE 2026-07-30**; `sortable.tsx` deleted.
-7. **FE7** (gift cards — biggest new surface, benefits from FE2's scan-prefix pattern) ← **next**.
+7. ~~**FE7** (gift cards)~~ — ✅ **COMPLETE 2026-07-31**; own portal tab, till sell + redeem, print formats, liability.
 8. **FE3** (hardware agent — independent; schedule around physical access to a till PC).
 
 ## Decisions — DEFAULTS ARE BINDING for an autonomous build
@@ -936,6 +1000,12 @@ before (or after — they're all cheap to change) the relevant WP starts:
 6. **FE7 QR**: deferred; Code 39 only in v1.
 7. **FE7 placement**: a **"Gift cards" section on the portal Loyalty tab** (not a new tab —
    the tab bar is already 12 wide; promote later if it earns it).
+   ⚠ **BUILT AS ITS OWN TAB instead (2026-07-31) — a deliberate deviation from this default, for
+   Matt to veto.** The surface outgrew a section: four liability stats, a status filter, the card
+   table, a generate dialog, a per-card dialog (history + void + adjust + link) and three print
+   formats. Nesting that under Loyalty (which is about members and store credit) would have buried
+   it and made the Loyalty tab two unrelated pages. The tab bar is now 13 wide. Moving it back is a
+   ~15-minute change: render `<GiftCardsPage/>` inside `LoyaltyPage` and drop the TABS entry.
 8. **FE5.3 "remove from category"**: moves items to an auto-created per-tenant
    "Uncategorised" category.
 9. **FE7 gift-card expiry default**: none (no expiry) unless set at generation.

@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import DataTable from "./DataTable.tsx";
 import {
   assignRole, createUser, fetchAssignments, fetchCompanies, fetchEffectivePermissions,
-  fetchPermissions, fetchRoles, fetchUsers, removeUser, restoreUser, sendPasswordReset,
-  setUserPassword, unassignRole,
-  type Assignment, type PermissionInfo, type PortalUser, type Role,
+  fetchPermissions, fetchRoles, fetchUserAudit, fetchUsers, removeUser, restoreUser,
+  sendPasswordReset, setUserPassword, unassignRole,
+  type Assignment, type AuditRow, type PermissionInfo, type PortalUser, type Role,
 } from "./api.ts";
 
 /** Users & roles (WP3.1/3.2 + FE9): who holds which role at which scope, what each role actually
@@ -19,6 +19,7 @@ export default function UsersPage() {
   const [open, setOpen] = useState<PortalUser | null>(null);
   const [pwFor, setPwFor] = useState<PortalUser | null>(null);
   const [removeFor, setRemoveFor] = useState<PortalUser | null>(null);
+  const [activityFor, setActivityFor] = useState<PortalUser | null>(null);
   const [includeRemoved, setIncludeRemoved] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -97,10 +98,15 @@ export default function UsersPage() {
           <>
             <button className="ghost small" onClick={() => setOpen(u)}>Access</button>{" "}
             <button className="ghost small" onClick={() => setPwFor(u)}>Password</button>{" "}
+            <button className="ghost small" onClick={() => setActivityFor(u)}>Activity</button>{" "}
             <button className="ghost small" onClick={() => setRemoveFor(u)}>Remove</button>
           </>
         ) : (
-          <button className="ghost small" onClick={() => void act(restoreUser(u.id), `${u.fName} restored — re-grant their roles and a login.`)}>Restore</button>
+          <>
+            {/* a removed user's trail is exactly what you want to read afterwards — keep it reachable */}
+            <button className="ghost small" onClick={() => setActivityFor(u)}>Activity</button>{" "}
+            <button className="ghost small" onClick={() => void act(restoreUser(u.id), `${u.fName} restored — re-grant their roles and a login.`)}>Restore</button>
+          </>
         )}
         emptyText="No users."
       />
@@ -125,7 +131,15 @@ export default function UsersPage() {
       )}
 
       {pwFor && <PasswordDialog user={pwFor} onClose={() => setPwFor(null)} onDone={(m) => { setPwFor(null); setNotice(m); void refresh(); }} />}
-      {removeFor && <RemoveDialog user={removeFor} onClose={() => setRemoveFor(null)} onDone={(m) => { setRemoveFor(null); setNotice(m); void refresh(); }} />}
+      {removeFor && (
+        <RemoveDialog
+          user={removeFor}
+          onClose={() => setRemoveFor(null)}
+          onDone={(m) => { setRemoveFor(null); setNotice(m); void refresh(); }}
+          onShowActivity={() => { const u = removeFor; setRemoveFor(null); setActivityFor(u); }}
+        />
+      )}
+      {activityFor && <ActivityDialog user={activityFor} onClose={() => setActivityFor(null)} />}
       {open && <AccessDialog user={open} roles={roles} perms={perms} companyId={companyId} onClose={() => { setOpen(null); void refresh(); }} />}
     </section>
   );
@@ -202,8 +216,8 @@ function PasswordDialog({ user, onClose, onDone }:
 
 /** FE9.2: the guardrail — typing the person's name arms the button, and the dialog spells out
  *  exactly what removal does (and what it deliberately does NOT do). */
-function RemoveDialog({ user, onClose, onDone }:
-  { user: PortalUser; onClose: () => void; onDone: (msg: string) => void }) {
+function RemoveDialog({ user, onClose, onDone, onShowActivity }:
+  { user: PortalUser; onClose: () => void; onDone: (msg: string) => void; onShowActivity: () => void }) {
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -224,6 +238,10 @@ function RemoveDialog({ user, onClose, onDone }:
           Their record is <strong>kept</strong>, so past sales, reports and the audit trail still show who did what —
           nothing is deleted. You can restore them later (roles and login are re-granted deliberately, not automatically).
         </p>
+        <p className="small">
+          Not sure? <button type="button" className="ghost small" onClick={onShowActivity}>Review their activity</button>{" "}
+          first — it lists every setting, price and role they have changed.
+        </p>
         <label>Type <strong>{fullName}</strong> to confirm
           <input value={typed} onChange={(e) => setTyped(e.target.value)} disabled={busy} autoFocus />
         </label>
@@ -242,6 +260,64 @@ function RemoveDialog({ user, onClose, onDone }:
             Remove user
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** FE9.5: this person's audit slice — the last 200 things they changed. Deliberately reached from
+ *  the Remove dialog too: "is this dormant account safe to remove?" is really "what did they touch?".
+ *  Only ADMIN actions are audited (role grants, price overrides, bulk edits…), not ordinary sales —
+ *  so an empty list means "changed no settings", not "did no work". The copy says so. */
+function ActivityDialog({ user, onClose }: { user: PortalUser; onClose: () => void }) {
+  const [rows, setRows] = useState<AuditRow[] | null>(null);
+  const [error, setError] = useState("");
+  const fullName = `${user.fName} ${user.lName}`.trim();
+
+  useEffect(() => {
+    fetchUserAudit(user.id, 200)
+      .then(setRows)
+      .catch((e) => { setError(String(e instanceof Error ? e.message : e)); setRows([]); });
+  }, [user.id]);
+
+  return (
+    <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="dialog wide">
+        <h3>Activity — {fullName}</h3>
+        <p className="muted small">
+          Administrative changes only (roles, prices, inventory edits, tills, settings). Everyday
+          selling is in the sales reports, not here — an empty list means they changed no settings.
+        </p>
+        {error && <p className="error small">{error}</p>}
+        {rows === null ? <p className="muted">Loading…</p> : (
+          <DataTable<AuditRow>
+            columns={[
+              {
+                key: "atUtc", label: "When",
+                render: (a) => <span className="small" title={a.atUtc}>{new Date(a.atUtc + "Z").toLocaleString("en-GB")}</span>,
+              },
+              { key: "action", label: "Action", render: (a) => <span className="mono small">{a.action}</span> },
+              { key: "entityType", label: "On", render: (a) => a.entityType ?? "—" },
+              {
+                key: "entityId", label: "Which", sortable: false,
+                render: (a) => <span className="mono small">{a.entityId ?? "—"}</span>,
+              },
+              {
+                key: "detailJson", label: "Detail", sortable: false,
+                // the JSON is the prior/new values the writer chose to record — shown raw on purpose,
+                // because a per-action pretty-printer would hide the fields that matter in a dispute
+                render: (a) => a.detailJson
+                  ? <span className="mono small" style={{ wordBreak: "break-all" }}>{a.detailJson}</span>
+                  : <span className="muted">—</span>,
+              },
+            ]}
+            rows={rows} getKey={(a) => String(a.id)} initialSortKey="atUtc" initialSortDir="desc"
+            search={(a) => `${a.action} ${a.entityType ?? ""} ${a.entityId ?? ""} ${a.detailJson ?? ""}`}
+            searchPlaceholder="Search action / entity / detail…"
+            emptyText="No administrative changes recorded for this user."
+          />
+        )}
+        <div className="dialog-actions"><button className="ghost" onClick={onClose}>Close</button></div>
       </div>
     </div>
   );

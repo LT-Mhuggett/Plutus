@@ -374,6 +374,90 @@ export async function completePasswordReset(token: string, newPassword: string):
   }
 }
 
+// ── FE7 gift cards ──────────────────────────────────────────────────────────
+// Codes are minted here (worthless until a till sells one), then activated and redeemed at the till.
+// The balance is Σ of an append-only ledger, so status and balance can never disagree.
+
+export interface GiftCardRow {
+  code: string;
+  /** grouped for reading aloud: "K7QP-2M9W-XT4R-8" */
+  pretty: string;
+  balancePence: number;
+  /** unsold | active | spent | expired | void */
+  status: string;
+  issuedAtUtc: string | null;
+  expiresAtUtc: string | null;
+  voidedAtUtc: string | null;
+  batch: string | null;
+  createdAtUtc: string;
+  customerId: string | null;
+  customerName: string | null;
+}
+export interface GiftCardEntryRow {
+  id: string;
+  /** Issue | Redeem | Adjust | Expire */
+  type: string;
+  amountPence: number;
+  reason: string | null;
+  saleId: string | null;
+  actorUserId: string | null;
+  atUtc: string;
+}
+export interface GiftCardDetail extends GiftCardRow {
+  /** the Code 39 payload printed on a voucher ("G" + code) */
+  barcode: string;
+  soldSaleId: string | null;
+  customerMemberNo: string | null;
+  entries: GiftCardEntryRow[];
+}
+export interface GeneratedCard { code: string; pretty: string; barcode: string; expiresAtUtc: string | null }
+
+export const fetchGiftCards = (search = "", status = "all") =>
+  get<GiftCardRow[]>(`/api/v1/giftcards?take=1000&status=${encodeURIComponent(status)}` +
+    (search ? `&search=${encodeURIComponent(search)}` : ""));
+export const fetchGiftCard = (code: string) =>
+  get<GiftCardDetail>(`/api/v1/giftcards/${encodeURIComponent(code)}`);
+export const generateGiftCards = (count: number, expiresMonths: number | null, batch: string) =>
+  post<GeneratedCard[]>(`/api/v1/giftcards/generate`, { count, expiresMonths, batch });
+export const voidGiftCard = (code: string, reason: string) =>
+  post<{ code: string; status: string; balancePence: number }>(`/api/v1/giftcards/${encodeURIComponent(code)}/void`, { reason });
+export const unvoidGiftCard = (code: string) =>
+  post<{ code: string; status: string; balancePence: number }>(`/api/v1/giftcards/${encodeURIComponent(code)}/unvoid`);
+export const adjustGiftCard = (code: string, amountPence: number, reason: string) =>
+  post<{ code: string; balancePence: number }>(`/api/v1/giftcards/${encodeURIComponent(code)}/adjust`, { amountPence, reason });
+export const linkGiftCardCustomer = (code: string, customerId: string | null) =>
+  post<void>(`/api/v1/giftcards/${encodeURIComponent(code)}/customer`, { customerId });
+
+export interface GiftCardLiability {
+  /** money customers have paid that the shop still owes in goods */
+  outstandingPence: number;
+  outstandingCards: number;
+  unsoldCards: number;
+  activatedPence: number;
+  redeemedPence: number;
+  adjustedPence: number;
+  expiredPence: number;
+  /** balances on voided/expired cards — no longer a liability, but still worth showing */
+  lockedPence: number;
+}
+export const fetchGiftCardLiability = (fromUtc?: string, toUtc?: string) =>
+  get<GiftCardLiability>(`/api/v1/giftcards/liability` +
+    (fromUtc ? `?fromUtc=${encodeURIComponent(fromUtc)}&toUtc=${encodeURIComponent(toUtc ?? "")}` : ""));
+
+// FE9.5 per-user audit slice: "what has this person actually done?" — asked when deciding whether a
+// dormant account is safe to remove. Same endpoint the entity-level trails use, filtered by actor.
+export interface AuditRow {
+  id: number;
+  actorUserId: string | null;
+  action: string;
+  entityType: string | null;
+  entityId: string | null;
+  detailJson: string | null;
+  atUtc: string;
+}
+export const fetchUserAudit = (userId: string, take = 100) =>
+  get<AuditRow[]>(`/api/v1/audit?actorUserId=${encodeURIComponent(userId)}&take=${take}`);
+
 export interface Assignment {
   id: string;
   roleId: string;

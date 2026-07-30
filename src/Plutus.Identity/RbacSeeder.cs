@@ -113,15 +113,19 @@ namespace Plutus.Identity
                 // FE5.3: inventory.bulk → Owner / Company Admin / Store Manager only (a single
                 // bulk action can move thousands of items, so it stays off Supervisor downwards).
                 ("Owner", G(allPortal.Concat(allPos).Append(PermissionCatalogue.CustomersManage)
-                    .Append(PermissionCatalogue.PosSettingsManage).Append(PermissionCatalogue.InventoryBulk).ToArray())),
+                    .Append(PermissionCatalogue.PosSettingsManage).Append(PermissionCatalogue.InventoryBulk)
+                    .Append(PermissionCatalogue.GiftCardsManage).ToArray())),
                 ("Company Admin", G(allPortal.Concat(allPos).Append(PermissionCatalogue.CustomersManage)
-                    .Append(PermissionCatalogue.PosSettingsManage).Append(PermissionCatalogue.InventoryBulk).ToArray())),
+                    .Append(PermissionCatalogue.PosSettingsManage).Append(PermissionCatalogue.InventoryBulk)
+                    .Append(PermissionCatalogue.GiftCardsManage).ToArray())),
                 ("Store Manager", G(new[]
                 {
                     PermissionCatalogue.PortalFinancialsView, PermissionCatalogue.PortalReportsView,
                     PermissionCatalogue.PortalStockAdjust, PermissionCatalogue.PortalTillsEnrol,
                     PermissionCatalogue.CustomersManage, PermissionCatalogue.PosSettingsManage,
                     PermissionCatalogue.InventoryBulk,
+                    // FE7: minting gift cards and correcting balances is money creation — manager and up.
+                    PermissionCatalogue.GiftCardsManage,
                 }.Concat(allPos).ToArray())),
                 ("Supervisor", new List<EffectivePermission>
                 {

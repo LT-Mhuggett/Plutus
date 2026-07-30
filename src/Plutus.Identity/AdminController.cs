@@ -380,11 +380,16 @@ namespace Plutus.Identity
 
         [HttpGet("api/v1/audit")]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<IActionResult> AuditTrail([FromQuery] string entityType, [FromQuery] int take = 100)
+        public async Task<IActionResult> AuditTrail(
+            [FromQuery] string entityType, [FromQuery] Guid? actorUserId, [FromQuery] int take = 100)
         {
             take = Math.Clamp(take, 1, 500);
+            // FE9.5: actorUserId narrows the trail to one person — "what has this user done?", which is
+            // the question asked when deciding whether to remove a dormant account. The plan assumed
+            // this filter already existed; it didn't (only entityType did).
             return Ok(await _db.AuditLogs.AsNoTracking()
                 .Where(a => entityType == null || a.EntityType == entityType)
+                .Where(a => actorUserId == null || a.ActorUserId == actorUserId)
                 .OrderByDescending(a => a.Id).Take(take)
                 .Select(a => new
                 {

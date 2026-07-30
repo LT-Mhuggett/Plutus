@@ -23,6 +23,14 @@ namespace Plutus.Customers
                         "Customers require the MySqlDbContext (server build).");
                 return new CreditLedgerService(ctx);
             });
+            // FE7: gift cards ride the same module — same liability-ledger shape, same customer link.
+            services.AddScoped(sp =>
+            {
+                var ctx = sp.GetRequiredService<RepositoryContext>() as MySqlDbContext
+                    ?? throw new InvalidOperationException(
+                        "Gift cards require the MySqlDbContext (server build).");
+                return new GiftCardLedgerService(ctx);
+            });
             return services;
         }
     }

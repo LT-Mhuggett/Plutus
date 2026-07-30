@@ -67,6 +67,8 @@ th.sortable:hover { color: var(--ink); }
 
 .overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 10; }
 .dialog { background: var(--panel); border-radius: 10px; padding: 20px; width: min(680px, 100%); max-height: 90vh; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
+/* FE9.5: audit rows carry raw detail JSON — 680px turns every row into a wrapped mess. */
+.dialog.wide { width: min(1040px, 100%); }
 .dialog h3 { margin: 0 0 4px; }
 .dialog label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
@@ -146,7 +148,47 @@ th.sortable:hover { color: var(--ink); }
 @media print {
   body * { visibility: hidden; }
   .member-card, .member-card *,
-  .receipt-view, .receipt-view * { visibility: visible; }
-  .member-card, .receipt-view { position: absolute; inset: 0 auto auto 0; margin: 0; border: none; }
+  .receipt-view, .receipt-view *,
+  /* FE7 gift-card formats: a receipt-width voucher, an A4 certificate, and a batch sheet of tiles */
+  .gc-voucher, .gc-voucher *,
+  .gc-a4, .gc-a4 *,
+  .gc-print, .gc-print * { visibility: visible; }
+  .member-card, .receipt-view,
+  .gc-voucher, .gc-a4, .gc-print { position: absolute; inset: 0 auto auto 0; margin: 0; border: none; }
   .no-print { display: none !important; }
 }
+
+/* ── FE7 gift-card print formats ──────────────────────────────────────────────
+   Every format carries the code TWICE: as text (readable down the phone, still usable when the
+   barcode smudges) and as a Code 39 barcode (scannable at the till). */
+.gc-voucher, .gc-a4 {
+  background: #fff; color: #000; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 14px; border: 1px dashed #999; border-radius: 6px;
+}
+/* 80mm till roll */
+.gc-voucher { width: 76mm; }
+.gc-a4 { width: 190mm; min-height: 130mm; justify-content: center; gap: 14px; padding: 24px; }
+.gc-shop { font-size: 13px; text-transform: uppercase; letter-spacing: 2px; }
+.gc-a4 .gc-shop { font-size: 18px; }
+.gc-title { font-size: 15px; font-weight: 700; letter-spacing: 3px; }
+.gc-a4 .gc-title { font-size: 34px; letter-spacing: 6px; }
+.gc-amount { font-size: 26px; font-weight: 700; }
+.gc-a4 .gc-amount { font-size: 52px; }
+.gc-code { font-size: 14px; letter-spacing: 3px; }
+.gc-a4 .gc-code { font-size: 20px; }
+.gc-blurb { font-size: 13px; max-width: 130mm; margin: 0; }
+.gc-terms { font-size: 9px; color: #333; max-width: 70mm; }
+.gc-a4 .gc-terms { font-size: 11px; max-width: 140mm; }
+
+/* batch sheet: one tile per generated card, so a print run comes out on as few pages as possible */
+.gc-print { display: flex; flex-wrap: wrap; gap: 8px; background: #fff; }
+.gc-tile {
+  background: #fff; color: #000; text-align: center; width: 62mm;
+  border: 1px dashed #999; border-radius: 4px; padding: 8px;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  page-break-inside: avoid;
+}
+.gc-tile-head { font-size: 10px; letter-spacing: 2px; }
+.gc-tile-code { font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 12px; letter-spacing: 2px; }
+.gc-tile-foot { font-size: 8px; color: #444; }
