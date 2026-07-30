@@ -114,6 +114,8 @@ namespace Plutus.Entities
         // FE7: gift cards + their append-only balance ledger (a liability, like store credit).
         public DbSet<GiftCard> GiftCards { get; set; }
         public DbSet<GiftCardEntry> GiftCardEntries { get; set; }
+        // FE7: the per-tenant VAT-treatment decision — its absence disables gift cards entirely.
+        public DbSet<GiftCardSettings> GiftCardSettings { get; set; }
         // FE9: hashed, single-use password-reset / invite tokens.
         public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
         // WP5.3 cross-channel identity (webstore ⇄ loyalty link by email).
@@ -198,7 +200,7 @@ namespace Plutus.Entities
             typeof(Customer), typeof(CreditAccount), typeof(CreditEntry), typeof(Membership),
             typeof(CustomerExternalRef),
             // FE7 gift cards (tenant-scoped: a code is only ever valid in the tenant that sold it).
-            typeof(GiftCard), typeof(GiftCardEntry),
+            typeof(GiftCard), typeof(GiftCardEntry), typeof(GiftCardSettings),
             // WooCommerce connector config + SKU review queue + product cache + notifications (Phase 6).
             typeof(WebStoreDetails), typeof(WebstoreSkuMap), typeof(WebstoreProduct), typeof(WebstoreNotification),
             typeof(WebstoreOutboundLog),
@@ -795,6 +797,14 @@ namespace Plutus.Entities
                 e.Property(x => x.Id).ValueGeneratedNever();
                 e.Property(x => x.Reason).HasMaxLength(500);
                 e.HasIndex(x => new { x.TenantId, x.GiftCardId });
+            });
+            modelBuilder.Entity<GiftCardSettings>(e =>
+            {
+                // one decision per tenant (same shape as PaymentGatewaySettings)
+                e.ToTable("GiftCardSettings");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.HasIndex(x => x.TenantId).IsUnique();
             });
             modelBuilder.Entity<PasswordResetToken>(e =>
             {

@@ -15,6 +15,7 @@ using Plutus.SharedKernel;
 
 namespace Plutus.Customers
 {
+    public sealed record GiftCardSettingsBody(string Treatment);
     public sealed record GenerateCardsBody(int Count, int? ExpiresMonths, string Batch);
     public sealed record ActivateCardBody(long AmountPence, Guid? SaleId, Guid? CustomerId, Guid? EntryId);
     public sealed record RedeemCardBody(long AmountPence, Guid? SaleId, Guid? EntryId);
@@ -33,8 +34,11 @@ namespace Plutus.Customers
     /// because both are tender operations a till performs); everything administrative (generate, void,
     /// adjust, link a customer) needs <c>giftcards.manage</c>. All writes are audited.
     ///
-    /// ⚠ Money treatment (the trap): activation is a LIABILITY, not revenue, and carries NO VAT — see
-    /// <see cref="GiftCardSaleItem"/> for why, and the liability report for where it surfaces.
+    /// ⚠ Money treatment (the trap): a card is a LIABILITY, and WHEN its VAT falls due depends on the
+    /// tenant's declared voucher treatment (<see cref="GiftCardVatTreatment"/>). Nothing here works
+    /// until the store owner has made that decision — generate/activate/redeem all 409 — because the
+    /// wrong default files someone's VAT return for them. See <see cref="GiftCardSaleItem"/> for the
+    /// catalogue mechanics and the liability endpoint for where the money surfaces.
     /// </summary>
     [ApiController]
     public sealed class GiftCardsController : ControllerBase
@@ -54,6 +58,101 @@ namespace Plutus.Customers
         }
 
         private Guid Actor => Guid.TryParse(User?.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var g) ? g : Guid.Empty;
+
+        // ── the VAT-treatment decision (the gate) ──
+        // HMRC's 2019 voucher rules make the treatment a function of what a card can buy: one VAT
+        // rate across the catalogue → single-purpose (VAT when the card is SOLD); mixed rates →
+        // multi-purpose (VAT when the card is SPENT). The store owner must declare which describes
+        // their shop BEFORE any card can be minted or sold — silently defaulting would file someone's
+        // VAT return for them.
+
+        private const string TreatMulti = "multi";
+        private const string TreatSingle = "single";
+
+        private static string Wire(GiftCardVatTreatment t) =>
+            t == GiftCardVatTreatment.SinglePurpose ? TreatSingle : TreatMulti;
+
+        private Task<GiftCardSettings> SettingsAsync() => _db.GiftCardSettings.FirstOrDefaultAsync();
+
+        private ObjectResult NotConfigured() => Conflict(new
+        {
+            detail = "Gift cards aren't enabled yet — the store owner must first choose the VAT " +
+                     "treatment (management portal → Gift cards).",
+        });
+
+        /// <summary>The current decision. Open to any authenticated principal — the till needs it to
+        /// price an activation line, and it reveals nothing sensitive.</summary>
+        [HttpGet("api/v1/giftcards/settings")]
+        [Authorize]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetSettings()
+        {
+            var s = await SettingsAsync();
+            return Ok(new
+            {
+                treatment = s == null ? null : Wire(s.Treatment),
+                decidedAtUtc = s?.DecidedAtUtc,
+                // the choice locks once VAT has actually been posted under it
+                locked = s != null && await _db.GiftCardEntries.AnyAsync(),
+            });
+        }
+
+        /// <summary>
+        /// Make (or change) the decision. Changing is allowed only while NO ledger entry exists —
+        /// the moment a card has been sold, VAT has been declared under the old treatment and
+        /// flipping it would misstate a return. Re-affirming the same value is always a no-op.
+        /// </summary>
+        [HttpPut("api/v1/giftcards/settings")]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.GiftCardsManage)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        public async Task<IActionResult> PutSettings([FromBody] GiftCardSettingsBody body)
+        {
+            var wanted = body?.Treatment?.Trim().ToLowerInvariant() switch
+            {
+                TreatMulti => GiftCardVatTreatment.MultiPurpose,
+                TreatSingle => GiftCardVatTreatment.SinglePurpose,
+                _ => (GiftCardVatTreatment?)null,
+            };
+            if (wanted == null)
+                return BadRequest(new { detail = $"treatment must be '{TreatMulti}' (VAT when spent) or '{TreatSingle}' (VAT when sold)." });
+
+            _db.CurrentUser = Actor.ToString();
+            var s = await SettingsAsync();
+            if (s == null)
+            {
+                s = new GiftCardSettings
+                {
+                    Id = Uuid7.New(), TenantId = _tenant.TenantId,
+                    Treatment = wanted.Value, DecidedByUserId = Actor, DecidedAtUtc = DateTime.UtcNow,
+                };
+                _db.GiftCardSettings.Add(s);
+            }
+            else if (s.Treatment != wanted.Value)
+            {
+                if (await _db.GiftCardEntries.AnyAsync())
+                    return Conflict(new
+                    {
+                        detail = "The VAT treatment is locked: cards have already been sold under the " +
+                                 "current choice, so changing it would misstate a VAT return. Speak to " +
+                                 "your accountant — a change needs a fresh card programme.",
+                    });
+                s.Treatment = wanted.Value;
+                s.DecidedByUserId = Actor;
+                s.DecidedAtUtc = DateTime.UtcNow;
+            }
+            else
+            {
+                // same value re-affirmed — nothing to write, and never a conflict
+                return Ok(new { treatment = Wire(s.Treatment), decidedAtUtc = s.DecidedAtUtc, locked = await _db.GiftCardEntries.AnyAsync() });
+            }
+
+            _db.Audit(_tenant.TenantId, Actor, "giftcard.settings", nameof(GiftCardSettings), s.Id.ToString(),
+                new { treatment = Wire(s.Treatment) });
+            await _db.SaveChangesAsync();
+            return Ok(new { treatment = Wire(s.Treatment), decidedAtUtc = s.DecidedAtUtc, locked = false });
+        }
 
         /// <summary>Status as the UI shows it — derived, never stored, so it can never disagree with
         /// the ledger.</summary>
@@ -158,6 +257,8 @@ namespace Plutus.Customers
         {
             var card = await _cards.FindAsync(code);
             if (card == null) return NotFound(new { detail = "That code isn't a gift card for this shop." });
+            var settings = await SettingsAsync();
+            if (settings == null) return NotConfigured();   // a card can't exist without a decision, but be explicit
             var balance = await _cards.BalanceAsync(card.Id);
             return Ok(new
             {
@@ -169,6 +270,9 @@ namespace Plutus.Customers
                 customerId = card.CustomerId,
                 // the till builds its activation line against this catalogue row
                 itemIdOne = GiftCardSaleItem.ItemIdOne,
+                // ...and prices it by the tenant's declared treatment: "single" = VAT charged at the
+                // sale of the card (line carries 20%), "multi" = zero now, VAT when spent.
+                vatTreatment = Wire(settings.Treatment),
             });
         }
 
@@ -182,6 +286,7 @@ namespace Plutus.Customers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Generate([FromBody] GenerateCardsBody body)
         {
+            if (await SettingsAsync() == null) return NotConfigured();
             var count = body?.Count ?? 0;
             if (count < 1 || count > MaxBatch)
                 return BadRequest(new { detail = $"Generate between 1 and {MaxBatch} cards at a time." });
@@ -238,6 +343,7 @@ namespace Plutus.Customers
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> Activate([FromRoute] string code, [FromBody] ActivateCardBody body)
         {
+            if (await SettingsAsync() == null) return NotConfigured();
             var card = await _cards.FindAsync(code);
             if (card == null) return NotFound(new { detail = "That code isn't a gift card for this shop." });
 
@@ -273,6 +379,7 @@ namespace Plutus.Customers
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> Redeem([FromRoute] string code, [FromBody] RedeemCardBody body)
         {
+            if (await SettingsAsync() == null) return NotConfigured();
             var card = await _cards.FindAsync(code);
             if (card == null) return NotFound(new { detail = "That code isn't a gift card for this shop." });
 

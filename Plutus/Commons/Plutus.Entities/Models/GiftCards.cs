@@ -10,6 +10,32 @@ namespace Plutus.Entities.Models
     // That is why the activation sale line carries a zero-rate band (see GiftCardActivation) and
     // why redemption is a TENDER rather than a discount.
 
+    /// <summary>
+    /// The HMRC voucher treatment (VATA 1994 Sch 10B, vouchers issued from 1 Jan 2019). This is NOT
+    /// a stylistic choice — the law decides it from what the card can buy, and the store owner must
+    /// declare which describes their shop before any card can be sold:
+    ///   • SinglePurpose — everything a card can buy carries ONE VAT rate (e.g. all standard 20%).
+    ///     VAT is due when the card is SOLD; redemption is then disregarded for VAT.
+    ///   • MultiPurpose — the card can buy goods at DIFFERENT rates (e.g. zero-rated books + 20%
+    ///     merchandise). VAT is due when the card is SPENT, on the goods actually bought.
+    /// Getting this wrong either declares VAT twice (SPV goods + MPV activation) or too late.
+    /// </summary>
+    public enum GiftCardVatTreatment : byte { MultiPurpose = 1, SinglePurpose = 2 }
+
+    /// <summary>
+    /// FE7: the per-tenant gift-card decision (one row per tenant). Its ABSENCE is the gate — until
+    /// the owner has chosen a treatment, generate/activate/redeem all refuse. Once the first card is
+    /// sold the choice is locked (entries exist whose VAT was posted under it).
+    /// </summary>
+    public class GiftCardSettings
+    {
+        public Guid Id { get; set; }
+        public Guid TenantId { get; set; }
+        public GiftCardVatTreatment Treatment { get; set; }
+        public Guid? DecidedByUserId { get; set; }
+        public DateTime DecidedAtUtc { get; set; }
+    }
+
     /// <summary>A physical or printed card. Exists (worthless) from the moment it is generated;
     /// becomes spendable when it is sold at a till, which writes the Issue entry.</summary>
     public class GiftCard

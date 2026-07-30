@@ -681,6 +681,46 @@ VAT normal, card balance reduced, tender split correct; redeem the remainder; ov
 409s; liability report reconciles to Σ unredeemed balances; A4 + voucher print render with a
 scannable code; scan a printed voucher's barcode into the till and it resolves.
 
+### FE7.7 — the VAT-treatment decision (Matt, 2026-07-31) — ✅ DONE, deployed 2026-07-31
+
+**Requirement:** per the [gov.uk voucher rules (1 Jan 2019)](https://www.gov.uk/government/publications/changes-to-the-vat-treatment-of-vouchers/vat-treatment-of-vouchers-from-1-january-2019),
+whether VAT is charged when a card is **sold** (all goods one rate — single-purpose voucher) or when
+it is **spent** (mixed rates — multi-purpose) must be spelled out and selected by the store owner
+before gift cards are enabled.
+
+**As built:** a per-tenant `GiftCardSettings` row (migration `AddGiftCardSettings`) whose **absence is
+the gate** — generate/activate/redeem all 409 with "choose the VAT treatment first" until the owner
+decides. The portal Gift cards tab shows ONLY the decision screen until then: both options in plain
+English, the gov.uk link, "ask your accountant" copy, and an in-app confirm restating the legal
+meaning of the choice. `PUT /api/v1/giftcards/settings` is `giftcards.manage`-gated and audited.
+
+- **Multi-purpose** (what FE7 originally hard-coded): zero-VAT activation, card is a tender at
+  redemption, VAT from the goods. Unchanged.
+- **Single-purpose** (new mechanics): the till prices the activation line WITH VAT in
+  (ex = amount/1.2, band **pinned at 2000bp** — deriving it from rounded pence wobbles to
+  1998–2002bp and scatters the VAT report into phantom bands), and redemption becomes a **negative
+  standard-rated line instead of a tender** — reducing the sale's VAT-able consideration by exactly
+  the VAT embedded in the card. A plain tender would have declared the goods' VAT a second time.
+  Pinned to the VatRollups by `GiftCardVatTests`: sell a £30 card → £5 VAT that day; spend it on £24
+  of 20% goods → **zero further VAT**.
+- **The choice LOCKS at the first card sale** (any ledger entry): its VAT is by then declared under
+  the chosen treatment, so flipping it would misstate a return. Re-affirming the same value is
+  always a no-op (test seeding relies on that). Until then, changeable in the portal.
+- The till's lookup response now carries `vatTreatment`, and every customer-facing line of copy
+  (sell prompt, basket note, page banner, liability blurb) states the treatment in force — it is a
+  legal statement, so it must match what the sale posts.
+
+**⚠ LIVE STATE: the Kapow tenant is deliberately UNDECIDED** — `GiftCardSettings` is empty, the
+endpoints 409, and the portal shows the decision screen. **Matt makes the call in the portal**
+(Kapow sells 20% + 5% + Exempt, so multi-purpose looks right — but the declaration is his).
+Verified live: settings `{treatment:null}`, generate → 409. Rollbacks `backend.pre-fe7vat`,
+portal+till `current.pre-fe7vat` (schema change is one new empty table — no dump needed beyond
+the nightly).
+
+Tests: +1 E2E lifecycle (fresh fixture: gate 409s → bad value 400 → cashier 403 → decide → change
+while unsold → generate/lookup carries treatment → first sale locks → change 409, re-affirm 200) and
++2 unit (SPV through the rollups, SPV line arithmetic); suites 317 unit / 59 integration green.
+
 ### FE7 as built — five things worth knowing
 
 **1. ⚠ An activation needs a REAL catalogue item, so one is provisioned automatically.** The sales

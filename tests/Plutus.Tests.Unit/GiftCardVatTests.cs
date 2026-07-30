@@ -148,27 +148,136 @@ public class GiftCardVatTests
     }
 
     /// <summary>
-    /// The till builds an activation line with exPrice == price. This is the arithmetic that makes it
-    /// zero-VAT, mirroring api.ts's checkout(): vatRateBp = round((price/exPrice − 1) × 10000).
-    /// If a future change ever prices a card ex-VAT, this fails first.
+    /// The till builds a MULTI-purpose activation line with exPrice == price. This is the arithmetic
+    /// that makes it zero-VAT, mirroring api.ts's checkout(). If a future change ever prices a card
+    /// ex-VAT under MPV, this fails first.
     /// </summary>
     [Theory]
     [InlineData(500)]
     [InlineData(2000)]
     [InlineData(2499)]
-    public void The_tills_activation_line_arithmetic_yields_zero_vat(long amountPence)
+    public void The_tills_multi_purpose_activation_line_yields_zero_vat(long amountPence)
     {
-        // what basket.ts's "addGiftCard" produces
+        // what basket.ts's "addGiftCard" produces for treatment "multi"
         var pricePence = amountPence;
         var exPricePence = amountPence;
 
-        var vatRateBp = exPricePence > 0 ? (long)Math.Round((pricePence / (double)exPricePence - 1) * 10000) : 0;
         var lineGross = pricePence * 1;
         var lineEx = exPricePence * 1;
         var vatAmount = lineGross - lineEx;
 
-        Assert.Equal(0, vatRateBp);
         Assert.Equal(0, vatAmount);
         Assert.Equal(amountPence, lineGross);   // the customer is charged exactly what goes on the card
+    }
+
+    /// <summary>
+    /// SINGLE-purpose (Matt, 2026-07-31 — the HMRC decision): every item one rate → VAT is due when
+    /// the card is SOLD. The till prices the activation line with VAT in (ex = amount/1.2, band
+    /// pinned at 2000bp), and redemption becomes a NEGATIVE standard-rated line rather than a tender
+    /// — otherwise the goods lines would declare the same VAT a second time. This pins both sales
+    /// through to the VAT rollups.
+    /// </summary>
+    [Fact]
+    public async Task Single_purpose_declares_vat_at_the_card_sale_and_never_again_at_redemption()
+    {
+        using var conn = OpenSeeded();
+
+        // ── sale 1: the card is SOLD for £30 → VAT declared NOW (£5.00 at 20%) ──
+        const long cardGross = 3000;
+        long cardEx = (long)Math.Round(cardGross / 1.2m);       // what the till computes
+        long cardVat = cardGross - cardEx;                       // 500
+        var sell = Uuid7.New();
+        var sale1 = SaleV2.Create(
+            sell, Tenant, TillId, Guid.NewGuid(), 1, SaleChannel.WebPos, Day,
+            DateTime.UtcNow, DateTime.UtcNow, cardGross, cardVat,
+            new[]
+            {
+                new SaleLine
+                {
+                    Id = Uuid7.New(), TenantId = Tenant, SaleId = sell, LineNo = 1,
+                    ItemId = Guid.NewGuid(), ItemIdOne = "GIFT-CARD", Qty = 1,
+                    UnitPricePence = cardGross, LineGrossPence = cardGross, DiscountPence = 0,
+                    VatRateBp = 2000, VatAmountPence = cardVat,
+                },
+            },
+            new[] { new SaleTender { Id = Uuid7.New(), TenantId = Tenant, SaleId = sell,
+                TenderType = TenderType.Cash, AmountPence = cardGross, ChangePence = 0 } });
+
+        // ── sale 2: £24 of 20% goods, £30 card spent... capped at the total: £24 off ──
+        // The voucher is a negative 20% line; cash covers nothing (card covers it all).
+        const long goodsGross = 2400;
+        const long goodsVat = 400;
+        const long redeemed = 2400;
+        long redeemVat = redeemed - (long)Math.Round(redeemed / 1.2m);   // 400
+        var spend = Uuid7.New();
+        var sale2 = SaleV2.Create(
+            spend, Tenant, TillId, Guid.NewGuid(), 2, SaleChannel.WebPos, Day,
+            DateTime.UtcNow, DateTime.UtcNow, goodsGross - redeemed, goodsVat - redeemVat,
+            new[]
+            {
+                new SaleLine
+                {
+                    Id = Uuid7.New(), TenantId = Tenant, SaleId = spend, LineNo = 1,
+                    ItemId = Guid.NewGuid(), ItemIdOne = "BOOK-2", Qty = 1,
+                    UnitPricePence = goodsGross, LineGrossPence = goodsGross, DiscountPence = 0,
+                    VatRateBp = 2000, VatAmountPence = goodsVat,
+                },
+                new SaleLine
+                {
+                    Id = Uuid7.New(), TenantId = Tenant, SaleId = spend, LineNo = 2,
+                    ItemId = Guid.NewGuid(), ItemIdOne = "GIFT-CARD", Qty = 1,
+                    UnitPricePence = -redeemed, LineGrossPence = -redeemed, DiscountPence = 0,
+                    VatRateBp = 2000, VatAmountPence = -redeemVat,
+                },
+            },
+            // fully covered by the card → no tender rows... a zero-tender sale needs none, but the
+            // invariant is net tender == gross (0), so an empty set satisfies it.
+            Array.Empty<SaleTender>());
+
+        Assert.Equal(0, sale2.GrossPence);
+        Assert.Equal(0, sale2.VatPence);   // ⚠ redemption declares NOTHING — it was declared at the sale
+
+        using (var ctx = Ctx(conn))
+        {
+            foreach (var s in new[] { sale1, sale2 })
+            {
+                ctx.SalesV2.Add(s);
+                var evt = new SaleRecorded(Uuid7.New(), Tenant, s.OccurredAtUtc, s.Id, s.DeviceId, s.DeviceSeq, s.BusinessDay);
+                ctx.OutboxEvents.Add(new OutboxEvent
+                {
+                    EventId = evt.EventId, TenantId = Tenant, EventType = nameof(SaleRecorded),
+                    PayloadJson = JsonSerializer.Serialize(evt), CreatedAtUtc = DateTime.UtcNow,
+                });
+            }
+            ctx.SaveChanges();
+        }
+        await DrainAsync(conn);
+
+        using var check = Ctx(conn);
+
+        // the day's VAT: exactly the £5 declared when the card was sold — the redemption added zero
+        var vat = await check.VatRollups.Where(r => r.BusinessDay == Day).ToListAsync();
+        var standard = Assert.Single(vat, r => r.VatRateBp == 2000);
+        Assert.Equal(cardVat, standard.VatPence);                          // 500, not 900
+        Assert.Equal(cardGross + goodsGross - redeemed, standard.GrossPence); // 3000 + 2400 − 2400
+
+        // takings: £30 on card-sale day; £0 cash on redemption (the money came in with the card)
+        var takings = await check.SalesRollups.SingleAsync(r => r.BusinessDay == Day && r.TillId == TillId);
+        Assert.Equal(cardGross, takings.GrossPence);
+        Assert.Equal(cardVat, takings.VatPence);
+    }
+
+    /// <summary>The single-purpose activation arithmetic the till uses: amount includes VAT.</summary>
+    [Theory]
+    [InlineData(2000, 1667, 333)]
+    [InlineData(3000, 2500, 500)]
+    [InlineData(999, 833, 166)]
+    public void The_tills_single_purpose_activation_line_carries_the_vat(long amount, long expectedEx, long expectedVat)
+    {
+        var ex = (long)Math.Round(amount / 1.2m, MidpointRounding.AwayFromZero);
+        Assert.Equal(expectedEx, ex);
+        Assert.Equal(expectedVat, amount - ex);
+        // the band is PINNED at 2000 by checkout() for gift-card lines — deriving it from rounded
+        // pence would wobble to 1998–2002bp and scatter the VAT report into phantom bands
     }
 }

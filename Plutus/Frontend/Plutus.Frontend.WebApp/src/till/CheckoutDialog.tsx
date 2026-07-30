@@ -159,12 +159,22 @@ export default function CheckoutDialog({ lines, totals, customer, onClose, onCom
         changePence: changeByPayId.get(payId) ?? 0,
       }));
 
-      const sale = await checkout(lines, payments, totals, {
+      // FE7 single-purpose treatment: the card's VAT was declared when it was sold, so here it is a
+      // negative sale line (built inside checkout()), NOT a tender — the wire tenders carry only the
+      // real money. The receipt still lists the card with the payments, which is what the customer
+      // expects to read. Multi-purpose keeps the card as a true tender.
+      const wireTenders = giftRedeem > 0 && card?.vatTreatment === "single"
+        ? payments.filter((p) => p.payId !== GIFTCARD_PAYID)
+        : payments;
+
+      const sale = await checkout(lines, wireTenders, totals, {
         customerId: customer?.id,
         creditRedeemPence: creditRedeem > 0 && customer ? creditRedeem : undefined,
         // FE7: the ledger write happens inside checkout(), BEFORE the sale is recorded, so a card the
         // server refuses aborts here instead of leaving a short-tendered sale on the books.
-        giftCardRedeem: giftRedeem > 0 && card ? { code: card.code, amountPence: giftRedeem } : undefined,
+        giftCardRedeem: giftRedeem > 0 && card
+          ? { code: card.code, amountPence: giftRedeem, treatment: card.vatTreatment }
+          : undefined,
       });
       onComplete({
         saleId: sale.saleId,

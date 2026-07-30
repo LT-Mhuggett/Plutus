@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  adjustGiftCard, fetchCompanies, fetchGiftCard, fetchGiftCardLiability, fetchGiftCards, fetchLoyalty,
-  gbp, generateGiftCards, linkGiftCardCustomer, unvoidGiftCard, voidGiftCard,
-  type GeneratedCard, type GiftCardDetail, type GiftCardLiability, type GiftCardRow, type LoyaltyRow,
+  adjustGiftCard, fetchCompanies, fetchGiftCard, fetchGiftCardLiability, fetchGiftCards,
+  fetchGiftCardSettings, fetchLoyalty, gbp, generateGiftCards, linkGiftCardCustomer,
+  saveGiftCardSettings, unvoidGiftCard, voidGiftCard,
+  type GeneratedCard, type GiftCardDetail, type GiftCardLiability, type GiftCardRow,
+  type GiftCardSettings, type LoyaltyRow,
 } from "./api.ts";
 import Barcode39 from "./Barcode39.tsx";
 import DataTable from "./DataTable.tsx";
@@ -29,6 +31,8 @@ const day = (iso: string | null) => (iso ? new Date(iso + "Z").toLocaleDateStrin
 export default function GiftCardsPage() {
   const [rows, setRows] = useState<GiftCardRow[]>([]);
   const [liability, setLiability] = useState<GiftCardLiability | null>(null);
+  const [settings, setSettings] = useState<GiftCardSettings | null>(null);
+  const [choosing, setChoosing] = useState(false);   // re-opened by "Change" while unlocked
   const [status, setStatus] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -39,12 +43,24 @@ export default function GiftCardsPage() {
 
   const refresh = () => {
     setLoading(true); setError("");
-    Promise.all([fetchGiftCards("", status), fetchGiftCardLiability()])
-      .then(([r, l]) => { setRows(r); setLiability(l); })
+    Promise.all([fetchGiftCards("", status), fetchGiftCardLiability(), fetchGiftCardSettings()])
+      .then(([r, l, s]) => { setRows(r); setLiability(l); setSettings(s); })
       .catch((e) => setError(String(e instanceof Error ? e.message : e)))
       .finally(() => setLoading(false));
   };
   useEffect(refresh, [status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ⚠ THE GATE: until the store owner has declared the VAT treatment, gift cards do not exist as a
+  // feature — the server refuses generate/activate/redeem, and this page shows only the decision.
+  if ((settings && settings.treatment === null) || choosing) {
+    return (
+      <TreatmentDecision
+        current={settings?.treatment ?? null}
+        onClose={settings?.treatment ? () => setChoosing(false) : undefined}
+        onChosen={(s) => { setSettings(s); setChoosing(false); setNotice("VAT treatment saved — gift cards are now enabled."); refresh(); }}
+      />
+    );
+  }
 
   return (
     <section className="panel">
@@ -52,6 +68,18 @@ export default function GiftCardsPage() {
         <h2>Gift cards</h2>
         <button className="primary" onClick={() => setGenerating(true)}>Generate cards</button>
       </div>
+
+      {settings?.treatment && (
+        <p className="callout small">
+          <strong>VAT treatment:</strong>{" "}
+          {settings.treatment === "single"
+            ? "Single-purpose — VAT is declared when a card is SOLD; spending it adds no VAT."
+            : "Multi-purpose — no VAT when a card is sold; VAT is declared on the goods when it is SPENT."}{" "}
+          {settings.locked
+            ? <span className="muted">Locked — cards have been sold under this treatment.</span>
+            : <button className="ghost small" onClick={() => setChoosing(true)}>Change (until the first card is sold)</button>}
+        </p>
+      )}
 
       <div className="stat-row">
         <div className="stat">
@@ -76,9 +104,11 @@ export default function GiftCardsPage() {
         </div>
       </div>
       <p className="muted small">
-        A gift card is a <strong>liability, not turnover</strong>: no VAT is charged when a card is sold — it
-        falls due on the goods the card is later spent on. The sale still appears in that day's takings
-        (the till took the money), so the accounts should treat “sold” as deferred income.
+        A gift card is a <strong>liability, not turnover</strong> — the card sale appears in that day's
+        takings (the till took the money), so the accounts should treat “sold” as deferred income.{" "}
+        {settings?.treatment === "single"
+          ? "Its VAT was declared when each card was sold, so the outstanding balance is deferred goods, not deferred VAT."
+          : "VAT falls due on the goods a card is spent on, so the outstanding balance carries its VAT with it."}
       </p>
 
       <div className="toolbar">
@@ -136,6 +166,98 @@ export default function GiftCardsPage() {
           onNotice={setNotice}
         />
       )}
+    </section>
+  );
+}
+
+/**
+ * ⚠ The decision that unlocks gift cards. Under HMRC's voucher rules (1 Jan 2019) the treatment is
+ * determined by what a card can buy, and it changes WHEN VAT is declared — so the store owner must
+ * state which describes their shop before a single card can be sold. Silently defaulting would be
+ * filing their VAT return for them.
+ */
+function TreatmentDecision({ current, onClose, onChosen }:
+  { current: "multi" | "single" | null; onClose?: () => void; onChosen: (s: GiftCardSettings) => void }) {
+  const [picked, setPicked] = useState<"multi" | "single" | null>(current);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function confirm() {
+    if (!picked) return;
+    const ok = await ask.confirm({
+      title: picked === "single" ? "Charge VAT when a card is SOLD?" : "Charge VAT when a card is SPENT?",
+      body: (
+        <>
+          <p className="small">
+            {picked === "single"
+              ? <>You're declaring that <strong>everything a gift card can buy carries the same VAT rate</strong> (a
+                single-purpose voucher). VAT goes on the return when the card is <strong>sold</strong>; spending it
+                later adds no VAT.</>
+              : <>You're declaring that gift cards can buy <strong>items at different VAT rates</strong> (a
+                multi-purpose voucher). No VAT when a card is sold; VAT goes on the return when the card is{" "}
+                <strong>spent</strong>, from the goods actually bought.</>}
+          </p>
+          <p className="muted small">
+            This follows HMRC's voucher rules and affects your VAT return — if unsure, check with your
+            accountant first. You can change it until the first card is sold; after that it locks.
+          </p>
+        </>
+      ),
+      confirmLabel: "Save VAT treatment",
+    });
+    if (!ok) return;
+    setBusy(true); setError("");
+    try {
+      onChosen(await saveGiftCardSettings(picked));
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+      setBusy(false);
+    }
+  }
+
+  const option = (value: "multi" | "single", title: string, body: React.ReactNode) => (
+    <label className="setting-row" style={{ alignItems: "flex-start", cursor: "pointer" }}>
+      <input type="radio" name="gc-vat" checked={picked === value} onChange={() => setPicked(value)} disabled={busy} />
+      <span className="grow">
+        <strong>{title}</strong>
+        <span className="muted small block">{body}</span>
+      </span>
+    </label>
+  );
+
+  return (
+    <section className="panel">
+      <div className="toolbar" style={{ justifyContent: "space-between" }}>
+        <h2>Gift cards — one decision first</h2>
+        {onClose && <button className="ghost" onClick={onClose} disabled={busy}>Cancel</button>}
+      </div>
+      <p>
+        Before any gift card can be printed or sold, HMRC's voucher rules need you to declare{" "}
+        <strong>when VAT is charged</strong>. It isn't a preference — it depends on what your cards can buy:
+      </p>
+
+      {option("single", "Everything my cards can buy has the SAME VAT rate — charge VAT when the card is sold",
+        <>A “single-purpose voucher”. Example: every item in the store is standard-rated 20%. The card
+          sale itself carries the VAT; when the card is spent, no VAT is added again.</>)}
+
+      {option("multi", "My cards can buy items at DIFFERENT VAT rates — charge VAT when the card is spent",
+        <>A “multi-purpose voucher”. Example: zero-rated books alongside 20% merchandise. No VAT on the
+          card sale; VAT comes from the goods at their own rates when the card is redeemed.</>)}
+
+      <p className="muted small">
+        The rules:{" "}
+        <a href="https://www.gov.uk/government/publications/changes-to-the-vat-treatment-of-vouchers/vat-treatment-of-vouchers-from-1-january-2019"
+           target="_blank" rel="noreferrer">
+          VAT treatment of vouchers from 1 January 2019 (gov.uk)
+        </a>. If you sell — or might sell — anything at a different rate (books, food, children's items),
+        the multi-purpose treatment is the safe answer. Ask your accountant if in doubt.
+      </p>
+      {error && <p className="error small">{error}</p>}
+      <div className="toolbar">
+        <button className="primary" disabled={!picked || busy} onClick={() => void confirm()}>
+          {busy ? "Saving…" : "Save and enable gift cards"}
+        </button>
+      </div>
     </section>
   );
 }

@@ -91,9 +91,16 @@ public class GiftCardsE2eTests : IClassFixture<PlutusAppFactory>
         Assert.True(expected == resp.StatusCode, $"{method} {url} → {(int)resp.StatusCode}, expected {(int)expected}. Body: {text}");
     }
 
-    /// <summary>Generates one card and returns its code.</summary>
+    /// <summary>The tenant-wide VAT-treatment decision every money operation is gated on. Tests share
+    /// the Kapow tenant, so this is an idempotent re-affirm (PUT of the SAME value never conflicts,
+    /// even once the choice is locked by a sold card).</summary>
+    private static Task DeclareTreatmentAsync(HttpClient client, string token, string treatment = "multi") =>
+        ExpectStatusAsync(client, HttpStatusCode.OK, HttpMethod.Put, "/api/v1/giftcards/settings", token, new { treatment });
+
+    /// <summary>Generates one card and returns its code (declares the MPV treatment first — the gate).</summary>
     private static async Task<string> GenerateOneAsync(HttpClient client, string token, int? expiresMonths = null)
     {
+        await DeclareTreatmentAsync(client, token);
         var body = await ExpectAsync(client, HttpStatusCode.Created, HttpMethod.Post,
             "/api/v1/giftcards/generate", token, new { count = 1, expiresMonths, batch = "e2e" });
         return body[0].GetProperty("code").GetString();
@@ -119,6 +126,7 @@ public class GiftCardsE2eTests : IClassFixture<PlutusAppFactory>
             "/api/v1/giftcards/generate", cashier, new { count = 1 });
 
         var manager = PlutusAppFactory.OperatorTokenFor(await SeedManagerAsync(), "pos.sell");
+        await DeclareTreatmentAsync(client, manager);
         var created = await ExpectAsync(client, HttpStatusCode.Created, HttpMethod.Post,
             "/api/v1/giftcards/generate", manager, new { count = 5, batch = "Christmas 2026" });
 

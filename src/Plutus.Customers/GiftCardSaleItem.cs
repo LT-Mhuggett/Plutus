@@ -18,10 +18,13 @@ namespace Plutus.Customers
     /// <c>Transaction</c> row whose (ItemIdOne, ItemIdTwo) is a FOREIGN KEY to Items, so a synthetic
     /// item id would break the bridge on the first card sold.
     ///
-    /// ⚠ WHY its tax band is the zero/exempt one. Activation is not a VAT-able supply — it takes a
-    /// deposit against goods chosen later, and the VAT falls out of those goods at their own bands
-    /// when the card is redeemed (UK multi-purpose voucher treatment). Ringing a card through a 20%
-    /// band would charge VAT twice for the same money: once on the card, again on the goods.
+    /// ⚠ WHY its tax band is the zero/exempt one. For a MULTI-purpose voucher tenant, activation is
+    /// not a VAT-able supply — VAT falls out of the goods at their own bands when the card is
+    /// redeemed — so zero is the correct band. For a SINGLE-purpose tenant (VAT due at the card
+    /// sale), the till prices the LINE at the standard rate (per the tenant's declared
+    /// GiftCardVatTreatment, carried on the lookup response); v1 reporting reads the line's
+    /// VatRateBp, not this catalogue band, so the item itself stays on zero either way and the
+    /// declared treatment is what decides the money.
     ///
     /// The item is stock-untracked (a card is not inventory) and lives in its own category so gift
     /// cards never inflate a product category's sales. Provisioning is idempotent and runs at startup.

@@ -35,7 +35,7 @@ export interface BasketState {
 type Action =
   | { type: "add"; item: Item; quantity?: number }
   | { type: "addReturn"; item: Item; quantity: number; unitPricePence: number; unitExPricePence: number; originSaleId: string }
-  | { type: "addGiftCard"; item: Item; code: string; amountPence: number }
+  | { type: "addGiftCard"; item: Item; code: string; amountPence: number; exAmountPence: number }
   | { type: "quantity"; key: number; delta: number }
   | { type: "adjust"; key: number; pricePence: number }
   | { type: "applyDiscount"; discount: Discount; keys: number[] }
@@ -81,16 +81,17 @@ function reduce(state: BasketState, action: Action): BasketState {
       };
       return { lines: [...state.lines, line], nextKey: state.nextKey + 1 };
     }
-    // FE7: selling a gift card. exPrice === price so the line's VAT works out to zero — activation is
-    // not a VAT-able supply (the VAT lands on the goods the card is later spent on). Quantity is
-    // always 1: each card is its own code, so two cards are two lines.
+    // FE7: selling a gift card. The ex price is DECIDED BY THE TENANT'S VAT TREATMENT, so the caller
+    // supplies it: multi-purpose → exAmount == amount (zero VAT now, VAT when the card is spent);
+    // single-purpose → exAmount = amount/1.2 (VAT due at this sale, HMRC single-purpose voucher).
+    // Quantity is always 1: each card is its own code, so two cards are two lines.
     case "addGiftCard": {
       const line: BasketLine = {
         key: state.nextKey,
         item: action.item,
         quantity: 1,
         pricePence: action.amountPence,
-        exPricePence: action.amountPence,
+        exPricePence: action.exAmountPence,
         adjusted: false,
         giftCardCode: action.code,
       };

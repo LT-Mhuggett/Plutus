@@ -177,14 +177,19 @@ export default function TillPage() {
     }
 
     // unsold → sell it. The amount is free-form because a card is worth what the customer pays.
+    // The VAT copy follows the tenant's declared treatment — this is a legal statement to the
+    // customer, so it must match what the sale actually posts.
+    const single = found.vatTreatment === "single";
     const typed = await ask.prompt({
       title: `Sell gift card ${found.pretty}`,
       body: (
         <>
           <p className="small">How much is being loaded onto this card?</p>
           <p className="muted small">
-            No VAT is charged on a gift card — VAT applies to the goods it's spent on later. The card
-            becomes spendable once this sale is completed.
+            {single
+              ? "VAT is charged on this sale (single-rate store) — spending the card later doesn't add VAT again."
+              : "No VAT is charged on the card — VAT applies to the goods it's spent on later."}{" "}
+            The card becomes spendable once this sale is completed.
           </p>
         </>
       ),
@@ -200,19 +205,24 @@ export default function TillPage() {
       return true;
     }
 
-    // A synthetic catalogue item: itemIdOne comes from the SERVER (the provisioned zero-VAT row), so
-    // the sale line resolves to a real Item and the legacy projection's FK holds.
+    // Single-purpose: the amount INCLUDES VAT declared now, so ex = amount/1.2.
+    // Multi-purpose: ex == amount → the line's VAT is zero.
+    const exPence = single ? Math.round(pence / 1.2) : pence;
+
+    // A synthetic catalogue item: itemIdOne comes from the SERVER (the provisioned row), so the
+    // sale line resolves to a real Item and the legacy projection's FK holds.
     dispatch({
       type: "addGiftCard",
       code: found.code,
       amountPence: pence,
+      exAmountPence: exPence,
       item: {
         idOne: found.itemIdOne,
         name: `Gift card ${found.pretty}`,
         brand: "-",
         desc: "",
         cost: 0,
-        exPrice: pence / 100,
+        exPrice: exPence / 100,
         price: pence / 100,
         taxId: 0,
         catId: "",
@@ -458,7 +468,9 @@ export default function TillPage() {
                   {/* FE7: say plainly that this line takes money for a card rather than selling goods,
                       and that the card isn't live until the sale completes. */}
                   {l.giftCardCode && (
-                    <div className="small discount-note">🎁 activates on completion · no VAT</div>
+                    <div className="small discount-note">
+                      🎁 activates on completion · {l.exPricePence === l.pricePence ? "no VAT (due when spent)" : "VAT charged now"}
+                    </div>
                   )}
                   {l.discount && (
                     <div className="small discount-note">

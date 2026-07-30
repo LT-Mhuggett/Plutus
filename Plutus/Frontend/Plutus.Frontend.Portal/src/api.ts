@@ -378,6 +378,18 @@ export async function completePasswordReset(token: string, newPassword: string):
 // Codes are minted here (worthless until a till sells one), then activated and redeemed at the till.
 // The balance is Σ of an append-only ledger, so status and balance can never disagree.
 
+// ⚠ The tenant's HMRC voucher treatment — the decision that must exist BEFORE any card can be
+// minted or sold. null = not decided yet (gift cards disabled); locked = a card has been sold under
+// the choice, so it can no longer change (its VAT is already declared).
+export interface GiftCardSettings {
+  treatment: "multi" | "single" | null;
+  decidedAtUtc: string | null;
+  locked: boolean;
+}
+export const fetchGiftCardSettings = () => get<GiftCardSettings>(`/api/v1/giftcards/settings`);
+export const saveGiftCardSettings = (treatment: "multi" | "single") =>
+  put<GiftCardSettings>(`/api/v1/giftcards/settings`, { treatment });
+
 export interface GiftCardRow {
   code: string;
   /** grouped for reading aloud: "K7QP-2M9W-XT4R-8" */

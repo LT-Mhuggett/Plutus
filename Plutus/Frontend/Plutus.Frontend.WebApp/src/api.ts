@@ -357,8 +357,13 @@ export interface GiftCardLookup {
   status: string;
   expiresAtUtc: string | null;
   customerId: string | null;
-  /** the catalogue row an activation is rung through (zero-VAT, stock-untracked) */
+  /** the catalogue row an activation is rung through (stock-untracked) */
   itemIdOne: string;
+  /** The tenant's declared HMRC voucher treatment — decides WHEN the card's VAT falls due.
+   *  "single" (every item one rate): VAT charged when the card is SOLD, and a redemption reduces
+   *  the sale's VAT-able total instead of acting as a plain tender. "multi" (mixed rates): no VAT
+   *  at the card sale; VAT comes off the goods when the card is SPENT. */
+  vatTreatment: "multi" | "single";
 }
 
 /** "What is this thing I just scanned?" — 404s on an unknown or mis-keyed code. */
@@ -847,7 +852,11 @@ export async function checkout(
   lines: BasketLine[],
   payments: CheckoutPayment[],
   totals: { totalPence: number; totalExTaxPence: number },
-  opts?: { customerId?: string; creditRedeemPence?: number; giftCardRedeem?: { code: string; amountPence: number } },
+  opts?: {
+    customerId?: string;
+    creditRedeemPence?: number;
+    giftCardRedeem?: { code: string; amountPence: number; treatment: "multi" | "single" };
+  },
 ): Promise<CompletedSale> {
   const session = getSession();
   if (!session) throw new Error("Not signed in.");
@@ -869,8 +878,9 @@ export async function checkout(
   //  • ACTIVATE the cards being sold — a card that cannot be loaded (already active) must abort
   //    before the customer is charged for it.
   // Both are idempotent by entryId, so a queued-then-drained sale stays consistent.
-  if (opts?.giftCardRedeem && opts.giftCardRedeem.amountPence > 0) {
-    await redeemGiftCard(opts.giftCardRedeem.code, opts.giftCardRedeem.amountPence, saleId, uuidv7());
+  const gift = opts?.giftCardRedeem;
+  if (gift && gift.amountPence > 0) {
+    await redeemGiftCard(gift.code, gift.amountPence, saleId, uuidv7());
   }
   for (const line of lines.filter((l) => l.giftCardCode)) {
     await activateGiftCard(line.giftCardCode!, line.pricePence, saleId, uuidv7(), opts?.customerId);
@@ -889,7 +899,13 @@ export async function checkout(
         unitPricePence: l.pricePence,
         discountPence: l.isReturn ? 0 : disc,
         lineGrossPence: lineGross,
-        vatRateBp: l.exPricePence > 0 ? Math.round((l.pricePence / l.exPricePence - 1) * 10000) : 0,
+        // FE7: a gift-card ACTIVATION line's band is pinned by the tenant's voucher treatment —
+        // "multi" priced ex==price (0 VAT, VAT falls due at redemption), "single" priced with VAT in
+        // (round-tripping pence through the generic ratio would wobble the band to 1998–2002bp and
+        // scatter the VAT report; the treatment says it IS the standard rate, so state it).
+        vatRateBp: l.giftCardCode
+          ? (l.exPricePence === l.pricePence ? 0 : 2000)
+          : l.exPricePence > 0 ? Math.round((l.pricePence / l.exPricePence - 1) * 10000) : 0,
         vatAmountPence: lineGross - lineEx,
         overriddenFromPence: l.adjusted ? Math.round(l.item.price * 100) : null,
         // Projection metadata for the server's legacy bridge (shape documented there).
@@ -908,6 +924,30 @@ export async function checkout(
     }),
   );
 
+  // FE7 single-purpose redemption: the card's VAT was declared when it was SOLD, so spending it must
+  // not declare VAT again. A plain tender would (the goods lines keep their VAT), so under "single"
+  // the card is a NEGATIVE standard-rated line instead — it reduces the sale's VAT-able consideration
+  // by exactly the VAT embedded in the card, and the remaining tenders cover the reduced gross.
+  // ("multi" keeps the tender mechanics: goods VAT is genuinely due at redemption.)
+  let grossPence = totals.totalPence;
+  let vatPence = totals.totalPence - totals.totalExTaxPence;
+  if (gift && gift.amountPence > 0 && gift.treatment === "single") {
+    const giftVat = gift.amountPence - Math.round(gift.amountPence / 1.2);
+    ingestLines.push({
+      itemId: await itemGuid(BUSINESS_ID, "GIFT-CARD"),
+      qty: 1,
+      unitPricePence: -gift.amountPence,
+      discountPence: 0,
+      lineGrossPence: -gift.amountPence,
+      vatRateBp: 2000,
+      vatAmountPence: -giftVat,
+      overriddenFromPence: null,
+      discountsJson: JSON.stringify({ itemIdOne: "GIFT-CARD", exUnitPence: -(gift.amountPence - giftVat) }),
+    });
+    grossPence -= gift.amountPence;
+    vatPence -= giftVat;
+  }
+
   const request: IngestSaleRequest = {
     saleId,
     deviceId: cred.deviceId,
@@ -915,8 +955,8 @@ export async function checkout(
     channel: 1, // SaleChannel.WebPos
     businessDay: businessDay(),
     occurredAtUtc: new Date().toISOString(),
-    grossPence: totals.totalPence,
-    vatPence: totals.totalPence - totals.totalExTaxPence,
+    grossPence,
+    vatPence,
     operatorUserId: session.employeeId,
     lines: ingestLines,
     tenders: payments.map((p) => ({
