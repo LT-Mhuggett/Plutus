@@ -20,6 +20,9 @@ Suggested build order at the bottom.
 7. **FE7 — Gift cards**: unique tracked codes, sold/redeemed lifecycle, printable.
 8. **FE8 — Search refinements**: quoted "exact phrase" support (word-search itself shipped
    2026-07-30).
+9. **FE9 — Users & Roles upgrade** (added 2026-07-30): password reset (admin-set + emailed
+   link), guarded user removal, a roles→permissions reference table, and a collapsed
+   per-user access matrix.
 
 FE1+FE2 are one coherent loyalty slice and should ship together. FE3 is independent and
 larger. FE4/FE5/FE6 are portal/till UX slices; FE7 is a full feature (schema + till + portal).
@@ -564,16 +567,106 @@ phrase only, regardless of the word-matching toggle; mixed input composes, e.g.
 `"year one" batman` finds Batman Year One but not other "year one" titles; behaviour
 identical offline; `ItemSearchTests` cover phrase, mixed, unclosed-quote, quotes-only.
 
+## FE9 — Users & Roles upgrade
+
+**Requirements (Matt, 2026-07-30):** reset users' passwords; delete users (with "are you
+sure" guardrails); send password resets; a table listing the roles and what they give access
+to; a visual per-user access table, collapsed by default; anything else useful.
+
+### Current state (verified 2026-07-30)
+The portal's Users & Roles tab already: lists users, creates them (optional password →
+`WebCredentials` login), deactivates, assigns/unassigns roles, and fetches a user's
+**effective permissions** on expand (`GET /api/v1/users/{id}/effective-permissions` exists
+and works — it's just rendered as a flat blob, not a readable matrix). What's missing:
+password set/reset (no endpoint at all), delete, any roles→permissions reference (the
+`GET /api/v1/roles` list is names only; the grants live in `RbacSeeder`/role-grant rows),
+and permission descriptions (the catalogue is bare constant keys).
+
+Email exists as a seam: `IMessageSender` (used by the MFA heads-up) — **SIMULATED and
+logged to MessageEvents until an Email provider is configured + enabled in
+Platform → Notifications**. Reset emails ride the same seam and the same switch.
+
+### FE9.1 — Password management
+- `POST /api/v1/users/{id}/password` `{ password }` (min 8): admin sets a temporary
+  password. Upserts the `WebCredentials` row, so this also *grants* login to a staff user
+  who never had one. Gated `portal.users.manage`, audited (never logs the password).
+- `POST /api/v1/users/{id}/password-reset`: mints a single-use, 48h reset token (random,
+  **hashed at rest** like enrolment codes) and sends a reset link via `IMessageSender`.
+  409 when the user has no email. Audited.
+- Anonymous completion: `POST /api/auth/password-reset/complete` `{ token, newPassword }`
+  — rate-limited like `enrol`; consuming a token invalidates the user's other outstanding
+  tokens. Portal login page gains **"Forgot password?"** (self-service uses the identical
+  flow) and a reset-completion form at `#reset=<token>`.
+- Honest limitation, documented in the UI: existing sessions are 12h bearer tokens and
+  cannot be revoked individually — a reset stops the *next* login, it does not kick a
+  live session mid-flight.
+
+### FE9.2 — Remove a user (guarded — "delete" without destroying history)
+Users are referenced by sales, audit rows and role assignments — a hard DELETE would
+destroy attribution, so **remove = deactivate + revoke login credential + unassign all
+roles**, keeping the row for history (same philosophy as FE5's Bin). Server:
+`POST /api/v1/users/{id}/remove`, gated `portal.users.manage`, audited; 400 when removing
+YOURSELF (the classic lock-out); 409 when removing the tenant's last Owner-holder.
+Portal guardrails: an are-you-sure dialog that requires **typing the user's name** to arm
+the button, spelling out what happens ("removes login + all roles; history is kept").
+Removed users vanish from the default list and all pickers; an "include removed" toggle
+shows them greyed with a **Restore** action (re-activates; roles must be re-granted
+deliberately, credential via FE9.1).
+
+### FE9.3 — Roles reference table ("what does each role give?")
+- `PermissionCatalogue` entries gain human descriptions (code-defined map, e.g.
+  `customers.manage` → "Add/edit customers, grant credit, set membership tiers"), exposed
+  as `GET /api/v1/permissions`.
+- `GET /api/v1/roles` enriched with each role's grants (permission keys + caps like the
+  refund limit) and live member counts.
+- Portal: a **Roles** section on the tab — one row per role (built-in badge, member count),
+  expanding to its permissions with descriptions; plus a compact role × permission-group
+  matrix (✓s) for the "what do I hand out?" overview. Read-only in this WP (role editing
+  is a separate decision — built-ins are seeder-managed).
+
+### FE9.4 — Per-user access matrix (collapsed by default)
+The expand-a-user flow already fetches effective permissions — render it properly: a
+`<details>` per user (closed by default, per the requirement), containing a grouped
+visual table (Portal / POS / Customers / Platform groups) with a ✓ per permission and
+**which role granted it** (attribution from the user's assignments × role grants — an
+answer to "why can Dave refund?"). Plus chips for caps (refund limit).
+
+### FE9.5 — Extras (the "anything else useful")
+- **Last login** column + login method (password vs SSO): stamp `LastLoginAtUtc` at token
+  issue; surfaces dormant accounts — pairs with FE9.2 clean-ups.
+- **Invite** variant of the reset flow for brand-new users ("set your password" copy
+  instead of "reset") — same token machinery, different email template.
+- **Per-user audit slice**: the user detail links to the existing `/api/v1/audit`
+  filtered to that user as actor (endpoint already supports filtering).
+- MFA status chip once client Keycloak provisioning ships (forward-looking; display-only).
+
+| WP | Scope | Status |
+|---|---|---|
+| FE9.1 | Set-password + reset-token endpoints, IMessageSender email, login-page forgot/complete flow, rate limiting. Tests: token single-use/expiry/hashing, no-email 409, min-length. | ☐ |
+| FE9.2 | Remove/restore endpoints + self/last-Owner guards; typed-name confirm dialog; pickers exclude removed. Tests: guards, credential revoked, history intact. | ☐ |
+| FE9.3 | Permission descriptions + enriched roles endpoint; portal Roles section + matrix. Test: role grants in the API match RbacSeeder exactly. | ☐ |
+| FE9.4 | Per-user collapsed access matrix with role attribution. | ☐ |
+| FE9.5 | Last-login stamp + column; invite variant; audit slice link. | ☐ |
+| FE9.6 | Gate + deploy (no migration except LastLoginAtUtc + reset-token table; `SeedMigrator rbac` not needed — no new permissions). | ☐ |
+
+**DoD:** admin sets a temp password → user logs in with it; "send reset" → simulated email
+logged in MessageEvents with a working link → completing it changes the password and kills
+the token (second use 410s); removing a user requires typing their name, kills their login,
+keeps their sales/audit history, blocks removing yourself or the last Owner; restore works;
+the Roles table lists every built-in role with grants matching `RbacSeeder`; each user's
+collapsed matrix matches the effective-permissions endpoint and names the granting role.
+
 ## Suggested build order
 
 1. **FE5.0** (category-filter bug — small, it's broken today) + **FE8.1** (quoted search —
    tiny, same file as the shipped word search).
 2. **FE1 + FE2** (the loyalty slice — tiers then member cards).
 3. **FE4** (table rollout — mechanical, big consistency win).
-4. **FE5** remainder (stock column → bulk edit → bin → untracked stock).
-5. **FE6** (till identity + Locations IA).
-6. **FE7** (gift cards — biggest new surface, benefits from FE2's scan-prefix pattern).
-7. **FE3** (hardware agent — independent; schedule around physical access to a till PC).
+4. **FE9** (users & roles — self-contained, and password reset is an operational need).
+5. **FE5** remainder (stock column → bulk edit → bin → untracked stock).
+6. **FE6** (till identity + Locations IA).
+7. **FE7** (gift cards — biggest new surface, benefits from FE2's scan-prefix pattern).
+8. **FE3** (hardware agent — independent; schedule around physical access to a till PC).
 
 ## Decisions — DEFAULTS ARE BINDING for an autonomous build
 An agent building from this doc follows these WITHOUT asking; Matt can veto any of them
@@ -590,6 +683,12 @@ before (or after — they're all cheap to change) the relevant WP starts:
 8. **FE5.3 "remove from category"**: moves items to an auto-created per-tenant
    "Uncategorised" category.
 9. **FE7 gift-card expiry default**: none (no expiry) unless set at generation.
+10. **FE9.2 "delete" semantics**: remove = deactivate + revoke credential + unassign roles,
+    row kept for history (no hard delete anywhere). Restore does NOT restore roles.
+11. **FE9.1 reset tokens**: 48h, single-use, hashed at rest; email via the existing
+    `IMessageSender` seam (simulated until the platform Email provider is enabled).
+12. **FE9.3 role editing**: out of scope — the roles table is read-only reference;
+    built-in roles stay seeder-managed.
 
 ## Build notes for an autonomous agent (Sonnet)
 
