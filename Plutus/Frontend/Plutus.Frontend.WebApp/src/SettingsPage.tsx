@@ -151,7 +151,10 @@ function TillDeviceSection() {
           <div className="setting-row">
             <span className="grow">
               Enrolment code
-              <span className="muted small block">Single-use code from the till admin (valid 48h).</span>
+              <span className="muted small block">
+                Single-use code, valid 48h. For an EXISTING till, get it from the management portal
+                (Locations → Tills → New code) so this browser takes over that till and its history.
+              </span>
             </span>
             <input
               className="pref-input"
@@ -163,16 +166,25 @@ function TillDeviceSection() {
               Enrol this device
             </button>
           </div>
+          {/* FE6.1: this button creates a BRAND-NEW till, which is how duplicate throwaway tills
+              got made — someone whose browser lost its credential clicked it expecting to re-enrol.
+              The wording now says so, and points at the correct operation. */}
           {canEnrolTills() && (
             <div className="setting-row">
               <span className="grow">
-                Till admin
+                Create a NEW till
                 <span className="muted small block">
-                  Your login can create tills: generate a code for this browser or type it into another one.
+                  Adds another till (another counter) and gives you its enrolment code. Use this only
+                  for a genuinely new position.
+                </span>
+                <span className="muted small block">
+                  <strong>Re-enrolling an existing till instead?</strong> Don't use this — in the
+                  management portal open Locations → Tills → <em>New code</em> for that till. That
+                  keeps the till's identity and all of its sales history.
                 </span>
               </span>
               <button className="ghost" disabled={busy} onClick={generateCode}>
-                Generate a code
+                Create new till + code
               </button>
             </div>
           )}

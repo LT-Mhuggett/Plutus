@@ -33,6 +33,24 @@ public class EnrolmentServiceTests
         return conn;
     }
 
+    /// <summary>FE6: the tests that go through CreateTillAsync need real Store rows — FKs are
+    /// enforced in this harness (unlike the SeedCode tests, which never touch Till/Store).</summary>
+    private static SqliteConnection OpenDbWithStores(Guid tenant, params int[] storeIds)
+    {
+        var conn = OpenDb(tenant);
+        using var ctx = Ctx(conn, tenant);
+        var b = new Business { Id = Uuid7.New(), Name = "Co", NameAbbr = "CO", VatIN = "-" };
+        ctx.Business.Add(b);
+        foreach (var id in storeIds.Length == 0 ? new[] { 1 } : storeIds)
+            ctx.Stores.Add(new Store
+            {
+                Id = id, BusinessId = b.Id, AdLine1 = "-", AdLine2 = "",
+                City = "-", PostCode = "-", Country = "-", ContactNumber = "-",
+            });
+        ctx.SaveChanges();
+        return conn;
+    }
+
     private static EnrolmentCode SeedCode(SqliteConnection conn, Guid tenant, Guid tillId,
         string code, DateTime? expires = null, DateTime? used = null)
     {
@@ -248,6 +266,172 @@ public class EnrolmentServiceTests
 
             using (var ctx = Ctx(conn, tenant))
                 Assert.Equal("Renamed", (await ctx.TillDetails.FirstAsync(t => t.TillId == tillId)).Name);
+        }
+    }
+
+    // ── FE6.1: re-issuing a code for an EXISTING till ──
+
+    /// <summary>
+    /// The gap that made stray tills inevitable: a till whose browser lost its credential could
+    /// only be replaced by creating a NEW till (splitting its sales under a throwaway identity).
+    /// Re-issuing keeps the till id — and therefore its history — and retires the old device.
+    /// </summary>
+    [Fact]
+    public async Task Reissuing_a_code_keeps_the_till_and_revokes_the_previous_device()
+    {
+        var tenant = Guid.NewGuid();
+        using var conn = OpenDbWithStores(tenant);
+
+        // a till with an enrolled, active device
+        Guid tillId, firstDeviceId;
+        using (var ctx = Ctx(conn, tenant))
+        {
+            var created = await new EnrolmentService(ctx, Opts).CreateTillAsync(tenant, 1, "Front Desk", "portal");
+            tillId = created.TillId;
+            var first = await new EnrolmentService(ctx, Opts).EnrolAsync(created.EnrolmentCode, "enrol");
+            firstDeviceId = first.DeviceId;
+        }
+
+        // ...that browser is lost; an admin re-issues a code for the SAME till
+        string secondCode;
+        using (var ctx = Ctx(conn, tenant))
+        {
+            var reissued = await new EnrolmentService(ctx, Opts).ReissueEnrolCodeAsync(tenant, tillId, "portal");
+            Assert.Equal(tillId, reissued.TillId);          // same till, not a new one
+            secondCode = reissued.EnrolmentCode;
+        }
+
+        Guid secondDeviceId;
+        using (var ctx = Ctx(conn, tenant))
+        {
+            var second = await new EnrolmentService(ctx, Opts).EnrolAsync(secondCode, "enrol");
+            Assert.Equal(tillId, second.TillId);
+            secondDeviceId = second.DeviceId;
+            Assert.NotEqual(firstDeviceId, secondDeviceId);
+        }
+
+        using (var check = Ctx(conn, tenant))
+        {
+            // one till only — no duplicate identity created
+            Assert.Equal(1, await check.Till.CountAsync());
+            // the replaced device is revoked; the new one is active
+            Assert.Equal(DeviceStatus.Revoked, (await check.Devices.FirstAsync(d => d.Id == firstDeviceId)).Status);
+            Assert.Equal(DeviceStatus.Active, (await check.Devices.FirstAsync(d => d.Id == secondDeviceId)).Status);
+        }
+
+        // and the retired device can no longer get a token
+        using (var ctx = Ctx(conn, tenant))
+        {
+            var cred = await ctx.Devices.FirstAsync(d => d.Id == firstDeviceId);
+            Assert.Equal(DeviceStatus.Revoked, cred.Status);
+        }
+    }
+
+    [Fact]
+    public async Task Reissuing_invalidates_the_previous_unused_code()
+    {
+        var tenant = Guid.NewGuid();
+        using var conn = OpenDbWithStores(tenant);
+
+        Guid tillId;
+        string firstCode;
+        using (var ctx = Ctx(conn, tenant))
+        {
+            var created = await new EnrolmentService(ctx, Opts).CreateTillAsync(tenant, 1, "Counter 2", "portal");
+            tillId = created.TillId;
+            firstCode = created.EnrolmentCode;
+        }
+        using (var ctx = Ctx(conn, tenant))
+            await new EnrolmentService(ctx, Opts).ReissueEnrolCodeAsync(tenant, tillId, "portal");
+
+        // the code from the original create is dead — only one live code per till
+        using (var ctx = Ctx(conn, tenant))
+        {
+            var ex = await Assert.ThrowsAsync<EnrolmentException>(
+                () => new EnrolmentService(ctx, Opts).EnrolAsync(firstCode, "enrol"));
+            Assert.Equal(410, ex.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task Reissuing_for_an_unknown_till_is_404()
+    {
+        var tenant = Guid.NewGuid();
+        using var conn = OpenDbWithStores(tenant);
+        using var ctx = Ctx(conn, tenant);
+        var ex = await Assert.ThrowsAsync<EnrolmentException>(
+            () => new EnrolmentService(ctx, Opts).ReissueEnrolCodeAsync(tenant, Guid.NewGuid(), "portal"));
+        Assert.Equal(404, ex.StatusCode);
+    }
+
+    // ── FE6.2: moving a till between stores ──
+
+    [Fact]
+    public async Task A_till_can_be_moved_to_another_store_keeping_its_identity()
+    {
+        var tenant = Guid.NewGuid();
+        using var conn = OpenDbWithStores(tenant, 1, 2);
+
+        Guid tillId;
+        using (var ctx = Ctx(conn, tenant))
+            tillId = (await new EnrolmentService(ctx, Opts).CreateTillAsync(tenant, 1, "Mobile till", "portal")).TillId;
+
+        using (var ctx = Ctx(conn, tenant))
+            await new EnrolmentService(ctx, Opts).MoveTillToStoreAsync(tenant, tillId, 2, "portal");
+
+        using (var check = Ctx(conn, tenant))
+        {
+            var till = await check.Till.FirstAsync(t => t.Id == tillId);
+            Assert.Equal(2, till.StoreId);
+            Assert.Equal(tillId, till.Id);   // identity (and its sales) preserved
+        }
+    }
+
+    /// <summary>
+    /// Regression: moving a till to the store it is ALREADY in is a no-op, but the caller still
+    /// writes an audit row and saves on the same context — and the context refuses to save without
+    /// an actor. Returning early before setting CurrentUser made this 500 in the live DoD run.
+    /// (Third instance of this trap: see also LoyaltyTierBackfill and MemberNoBackfill.)
+    /// </summary>
+    [Fact]
+    public async Task Moving_a_till_to_the_same_store_is_a_no_op_that_still_permits_an_audit_save()
+    {
+        var tenant = Guid.NewGuid();
+        using var conn = OpenDbWithStores(tenant);
+        Guid tillId;
+        using (var ctx = Ctx(conn, tenant))
+            tillId = (await new EnrolmentService(ctx, Opts).CreateTillAsync(tenant, 1, "Same store", "portal")).TillId;
+
+        using (var ctx = Ctx(conn, tenant))
+        {
+            // a context with NO CurrentUser, exactly as the controller hands it over
+            var fresh = new MySqlDbContext(
+                new DbContextOptionsBuilder<MySqlDbContext>().UseSqlite(conn).Options,
+                new FixedTenantContext(tenant));
+            await new EnrolmentService(fresh, Opts).MoveTillToStoreAsync(tenant, tillId, 1, "portal");
+            // the caller's pattern: audit + save on the same context must not throw
+            fresh.Audit(tenant, Guid.NewGuid(), "till.move", "Till", tillId.ToString(), new { storeId = 1 });
+            await fresh.SaveChangesAsync();
+        }
+
+        using (var check = Ctx(conn, tenant))
+            Assert.Equal(1, (await check.Till.FirstAsync(t => t.Id == tillId)).StoreId);
+    }
+
+    [Fact]
+    public async Task Moving_a_till_to_an_unknown_store_is_refused()
+    {
+        var tenant = Guid.NewGuid();
+        using var conn = OpenDbWithStores(tenant);
+        Guid tillId;
+        using (var ctx = Ctx(conn, tenant))
+            tillId = (await new EnrolmentService(ctx, Opts).CreateTillAsync(tenant, 1, "T", "portal")).TillId;
+
+        using (var ctx = Ctx(conn, tenant))
+        {
+            var ex = await Assert.ThrowsAsync<EnrolmentException>(
+                () => new EnrolmentService(ctx, Opts).MoveTillToStoreAsync(tenant, tillId, 999, "portal"));
+            Assert.Equal(400, ex.StatusCode);
         }
     }
 }

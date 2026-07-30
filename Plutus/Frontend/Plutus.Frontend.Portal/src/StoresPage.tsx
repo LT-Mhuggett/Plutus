@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import {
   createStockLocation, createStore, createTill, decideDeviceRemoval, deleteTill, fetchCompanies, fetchStockLocations,
-  fetchStores, fetchTills, fetchWebstores, gbp, putReceiptTemplate, renameTill, revokeTill, updateStore,
+  fetchStores, fetchTills, fetchWebstores, gbp, moveTillToStore, putReceiptTemplate, reissueTillCode, renameTill,
+  revokeTill, updateStore,
   type Company, type ReceiptTemplate, type StockLocationRow, type StoreRow, type TillRow, type WebstoreConn,
 } from "./api.ts";
 import Barcode39 from "./Barcode39.tsx";
-import { SortTh, useSort } from "./sortable.tsx";
+import DataTable from "./DataTable.tsx";
 import { useNav } from "./nav.tsx";
 
 const DAYS: { key: string; label: string }[] = [
@@ -29,7 +30,12 @@ export default function StoresPage() {
 
   // A Dashboard pill (or any go("Locations", "warehouses")) opens + scrolls to the matching group.
   const { focus } = useNav();
-  const groupRefs = { stores: useRef<HTMLDetailsElement>(null), warehouses: useRef<HTMLDetailsElement>(null), webstores: useRef<HTMLDetailsElement>(null) };
+  const groupRefs = {
+    stores: useRef<HTMLDetailsElement>(null),
+    tills: useRef<HTMLDetailsElement>(null),          // FE6.2 flat fleet view
+    warehouses: useRef<HTMLDetailsElement>(null),
+    webstores: useRef<HTMLDetailsElement>(null),
+  };
   useEffect(() => {
     const r = focus ? groupRefs[focus as keyof typeof groupRefs]?.current : null;
     if (r) { r.open = true; r.scrollIntoView({ behavior: "smooth", block: "start" }); }
@@ -60,6 +66,50 @@ export default function StoresPage() {
     }
   }
 
+  /** FE6.1: fresh code for an EXISTING till — the fix for tills whose browser lost its credential.
+   *  Spelled out in the confirmation because it retires the till's current device. */
+  async function reissue(t: TillRow) {
+    const active = t.devices.some((d) => d.status === "Active");
+    if (!window.confirm(
+      `Issue a new enrolment code for “${t.name}”?\n\n` +
+      (active
+        ? "When the code is used, this till's CURRENT device stops trading (a till is one counter). "
+        : "") +
+      "The till keeps its identity, so all its sales history stays with it."
+    )) return;
+    setBusy(true); setError("");
+    try {
+      const r = await reissueTillCode(t.id);
+      setIssued({ tillId: t.id, code: r.enrolmentCode, expires: r.expiresAtUtc });
+      await refresh();
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    } finally { setBusy(false); }
+  }
+
+  /** FE6.2: move a till between stores. */
+  async function move(t: TillRow) {
+    const options = stores.filter((s) => s.id !== t.storeId);
+    if (options.length === 0) return;
+    const target = window.prompt(
+      `Move “${t.name}” to which store?\n\n` +
+      options.map((s) => `${s.id} = ${s.name ?? `Store ${s.id}`}`).join("\n") +
+      "\n\nEnter the store number. Note: reports bucket by the till's CURRENT store, so its past " +
+      "figures move with it.",
+      String(options[0].id),
+    );
+    if (target === null) return;
+    const storeId = Number(target);
+    if (!options.some((s) => s.id === storeId)) { setError(`“${target}” isn't one of the listed stores.`); return; }
+    setBusy(true); setError("");
+    try {
+      await moveTillToStore(t.id, storeId);
+      await refresh();
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    } finally { setBusy(false); }
+  }
+
   async function rename(id: string, name: string) {
     setError("");
     try {
@@ -86,9 +136,10 @@ export default function StoresPage() {
     <section className="panel">
       {error && <p className="error">{error}</p>}
 
-      <h2>Physical locations</h2>
+      <h2>Locations</h2>
       <p className="muted small">
         {stores.length} store{stores.length === 1 ? "" : "s"} ·{" "}
+        {tills.length} till{tills.length === 1 ? "" : "s"} ·{" "}
         {locations.filter((l) => l.type === "Warehouse").length} warehouse
         {locations.filter((l) => l.type === "Warehouse").length === 1 ? "" : "s"} ·{" "}
         {webstores.length} webstore{webstores.length === 1 ? "" : "s"}
@@ -111,41 +162,113 @@ export default function StoresPage() {
             issued={issued} onDismissIssued={() => setIssued(null)}
             onRevoke={(id) => void revokeTill(id).then(refresh)}
             onDecide={(deviceId, approve) => void decideDeviceRemoval(deviceId, approve).then(refresh)}
+            onReissue={reissue}
           />
         ))}
       </details>
 
+      {/* FE6.2: the flat fleet view — every till, whichever store it belongs to, with the
+          re-issue-code and move-store actions. A webstore's virtual till appears here too,
+          badged, so the fleet listing is complete rather than quietly filtered. */}
+      <details className="card store-card" ref={groupRefs.tills}>
+        <summary><strong>Tills ({tills.length})</strong></summary>
+        <p className="muted small">
+          Every till across all stores. A till is one counter: enrolling a replacement browser
+          retires the previous device automatically.
+        </p>
+        <DataTable<TillRow>
+          columns={[
+            { key: "name", label: "Till", render: (t) => <>{t.name}{t.isWebstore && <span className="chip" title="Virtual till carrying webstore orders"> webstore</span>}</> },
+            {
+              key: "storeId", label: "Store",
+              sort: (t) => stores.find((s) => s.id === t.storeId)?.name ?? `Store ${t.storeId}`,
+              render: (t) => stores.find((s) => s.id === t.storeId)?.name ?? `Store ${t.storeId}`,
+            },
+            {
+              key: "devices", label: "Devices", sortable: false,
+              render: (t) => t.isWebstore
+                ? <span className="muted small">n/a</span>
+                : t.devices.length === 0
+                  ? <span className="muted">none — needs enrolling</span>
+                  : <>{t.devices.map((d) => (
+                      <span key={d.id} className={`chip ${d.status === "Active" ? "ok" : d.status === "PendingRemoval" ? "warn" : "bad"}`}>
+                        {d.status === "PendingRemoval" ? "Pending removal" : d.status}
+                      </span>
+                    ))}</>,
+            },
+            { key: "lastOnline", label: "Last online", render: (t) => <span className="small">{new Date(t.lastOnline + "Z").toLocaleString("en-GB")}</span> },
+          ]}
+          rows={tills} getKey={(t) => t.id} initialSortKey="name"
+          search={(t) => `${t.name} ${t.id} ${stores.find((s) => s.id === t.storeId)?.name ?? ""}`}
+          searchPlaceholder="Search till / store…"
+          rowActions={(t) => t.isWebstore
+            ? <span className="muted small" title="Disconnect it from the Webstore tab instead">managed by Webstore</span>
+            : (
+              <>
+                <button className="ghost small" disabled={busy} title="Fresh single-use code for THIS till — keeps its history"
+                  onClick={() => void reissue(t)}>New code</button>{" "}
+                <button className="ghost small" disabled={busy || stores.length < 2} title={stores.length < 2 ? "Only one store" : "Move to another store"}
+                  onClick={() => void move(t)}>Move</button>
+              </>
+            )}
+          emptyText="No tills yet — add one from a store card above."
+        />
+        {issued && (
+          <div className="enrol-code">
+            <div className="grow">
+              <span className="muted small">
+                Enrolment code for “{tills.find((t) => t.id === issued.tillId)?.name ?? "this till"}” — on the till device open
+                Settings → Till device and enter it (single-use, expires {new Date(issued.expires).toLocaleString("en-GB")}).
+                Enrolling with it retires that till's current device.
+              </span>
+              <div className="enrol-code-value mono">{issued.code}</div>
+            </div>
+            <button className="ghost small" onClick={() => void navigator.clipboard?.writeText(issued.code)}>Copy</button>
+            <button className="ghost small" onClick={() => setIssued(null)}>Dismiss</button>
+          </div>
+        )}
+      </details>
+
       <details className="card store-card" ref={groupRefs.warehouses}>
         <summary><strong>Warehouses ({locations.filter((l) => l.type === "Warehouse").length})</strong></summary>
-        <table>
-          <thead><tr><th>Name</th><th>Backing store</th></tr></thead>
-          <tbody>
-            {locations.filter((l) => l.type === "Warehouse").map((l) => (
-              <tr key={l.id}><td>{l.name}</td><td>{stores.find((s) => s.id === l.storeId)?.name ?? `Store ${l.storeId}`}</td></tr>
-            ))}
-            {locations.filter((l) => l.type === "Warehouse").length === 0 && (
-              <tr><td colSpan={2} className="muted">No warehouses yet — add one above.</td></tr>
-            )}
-          </tbody>
-        </table>
+        <DataTable<StockLocationRow>
+          columns={[
+            { key: "name", label: "Name" },
+            {
+              key: "storeId", label: "Backing store",
+              render: (l) => stores.find((s) => s.id === l.storeId)?.name ?? `Store ${l.storeId}`,
+            },
+          ]}
+          rows={locations.filter((l) => l.type === "Warehouse")} getKey={(l) => l.id} initialSortKey="name"
+          search={(l) => l.name}
+          searchPlaceholder="Search warehouse…"
+          emptyText="No warehouses yet — add one above."
+        />
       </details>
 
       <details className="card store-card" ref={groupRefs.webstores}>
         <summary><strong>Webstores ({webstores.length})</strong></summary>
-        <table>
-          <thead><tr><th>Name</th><th>Site</th><th>Status</th><th>Pending SKUs</th></tr></thead>
-          <tbody>
-            {webstores.map((w) => (
-              <tr key={w.id}>
-                <td>{w.name}</td>
-                <td className="small">{w.url}</td>
-                <td>{w.enabled ? <span className="chip ok">connected</span> : <span className="chip bad">disabled</span>}</td>
-                <td className="num">{w.pendingSkus}</td>
-              </tr>
-            ))}
-            {webstores.length === 0 && <tr><td colSpan={4} className="muted">No webstores connected — use the Webstore tab.</td></tr>}
-          </tbody>
-        </table>
+        <DataTable<WebstoreConn>
+          columns={[
+            { key: "name", label: "Name" },
+            { key: "url", label: "Site", render: (w) => <span className="small">{w.url}</span> },
+            { key: "enabled", label: "Status", render: (w) => (w.enabled ? <span className="chip ok">connected</span> : <span className="chip bad">disabled</span>) },
+            { key: "pendingSkus", label: "Pending SKUs", numeric: true },
+            {
+              // FE6.2: show which virtual till carries this webstore's orders — the answer to
+              // "what is the 'Kapow Web' till?" without having to ask.
+              key: "till", label: "Sells through", sortable: false,
+              render: (w) => {
+                const t = tills.find((x) => x.isWebstore && x.name.toLowerCase().startsWith(w.name.toLowerCase().slice(0, 6)));
+                return t ? <span className="small">{t.name}</span> : <span className="muted small">virtual till</span>;
+              },
+            },
+          ]}
+          rows={webstores} getKey={(w) => w.id} initialSortKey="name"
+          search={(w) => `${w.name} ${w.url}`}
+          searchPlaceholder="Search webstore…"
+          emptyText="No webstores connected — use the Webstore tab."
+        />
         <p className="muted small">Full webstore workspace (review queue, catalogue, alignment, outbound) lives in the <strong>Webstore</strong> tab.</p>
       </details>
     </section>
@@ -181,39 +304,44 @@ function AddWarehouse({ stores, onSaved }: { stores: StoreRow[]; onSaved: () => 
 }
 
 /** One store's tills — sortable, with rename/revoke/delete + create. */
-function TillsTable({ tills, busy, onRename, onRemove, onRevoke, storeId, onNewTill, onDecide, issued, onDismissIssued }: {
+function TillsTable({ tills, busy, onRename, onRemove, onRevoke, storeId, onNewTill, onDecide, onReissue, issued, onDismissIssued }: {
   tills: TillRow[]; busy: boolean; storeId: number;
   onRename: (id: string, name: string) => Promise<void>;
   onRemove: (t: TillRow) => void; onRevoke: (id: string) => void;
   onNewTill: (storeId: number, name: string) => Promise<void>;
   onDecide: (deviceId: string, approve: boolean) => void;
+  onReissue: (t: TillRow) => Promise<void>;
   issued: { tillId: string; code: string; expires: string } | null;
   onDismissIssued: () => void;
 }) {
-  const s = useSort(tills, "name", "asc");
   return (
     <>
-      <table>
-        <thead><tr>
-          <SortTh label="Name" k="name" {...s} />
-          <SortTh label="Last online" k="lastOnline" {...s} />
-          <th>Devices</th><th />
-        </tr></thead>
-        <tbody>
-          {s.sorted.map((t) => (
-            <tr key={t.id}>
-              <td>
+      {/* FE4.3 (deferred to FE6): this store's tills on the standard table. */}
+      <DataTable<TillRow>
+        columns={[
+          {
+            key: "name", label: "Name",
+            render: (t) => (
+              <>
                 <TillNameCell till={t} onRename={onRename} />
                 {t.isWebstore && <span className="chip" title="Virtual till — carries this store's webstore (e.g. WooCommerce) orders. Managed from the Webstore tab."> webstore</span>}
-              </td>
-              <td className="small">{new Date(t.lastOnline + "Z").toLocaleString("en-GB")}</td>
-              <td>
-                {t.devices.length === 0 && <span className="muted">none</span>}
-                {t.isWebstore ? <span className="muted small">webstore channel — no enrolment</span> : t.devices.map((d) => (
-                  <span key={d.id} className={`chip ${d.status === "Active" ? "ok" : d.status === "PendingRemoval" ? "warn" : "bad"}`}>
-                    {d.status === "PendingRemoval" ? "Pending removal" : d.status}
-                  </span>
-                ))}
+              </>
+            ),
+          },
+          { key: "lastOnline", label: "Last online", render: (t) => <span className="small">{new Date(t.lastOnline + "Z").toLocaleString("en-GB")}</span> },
+          {
+            key: "devices", label: "Devices", sortable: false,
+            render: (t) => (
+              <>
+                {t.isWebstore
+                  ? <span className="muted small">webstore channel — no enrolment</span>
+                  : t.devices.length === 0
+                    ? <span className="muted">none</span>
+                    : t.devices.map((d) => (
+                        <span key={d.id} className={`chip ${d.status === "Active" ? "ok" : d.status === "PendingRemoval" ? "warn" : "bad"}`}>
+                          {d.status === "PendingRemoval" ? "Pending removal" : d.status}
+                        </span>
+                      ))}
                 {/* WP6.2: a device that asked to be un-enrolled — approve (revoke) or reject (keep). */}
                 {t.devices.filter((d) => d.status === "PendingRemoval").map((d) => (
                   <span key={`act-${d.id}`} className="small" style={{ display: "inline-flex", gap: 4, marginLeft: 6 }}>
@@ -221,24 +349,28 @@ function TillsTable({ tills, busy, onRename, onRemove, onRevoke, storeId, onNewT
                     <button className="ghost small" disabled={busy} onClick={() => onDecide(d.id, false)} title="Reject — device stays enrolled">Reject</button>
                   </span>
                 ))}
-              </td>
-              <td>
-                {t.isWebstore ? (
-                  <span className="muted small" title="Disconnect it from the Webstore tab instead — deleting here would break order ingest.">managed by Webstore</span>
-                ) : (
-                  <>
-                    {t.devices.some((d) => d.status === "Active" || d.status === "PendingRemoval") && (
-                      <button className="ghost small" disabled={busy} onClick={() => onRevoke(t.id)}>Revoke</button>
-                    )}{" "}
-                    <button className="ghost small" disabled={busy} onClick={() => onRemove(t)} title="Delete (only if no sales)">Delete</button>
-                  </>
-                )}
-              </td>
-            </tr>
-          ))}
-          {tills.length === 0 && <tr><td colSpan={4} className="muted">No tills for this store yet.</td></tr>}
-        </tbody>
-      </table>
+              </>
+            ),
+          },
+        ]}
+        rows={tills} getKey={(t) => t.id} initialSortKey="name"
+        search={(t) => t.name}
+        searchPlaceholder="Search till…"
+        rowActions={(t) => t.isWebstore ? (
+          <span className="muted small" title="Disconnect it from the Webstore tab instead — deleting here would break order ingest.">managed by Webstore</span>
+        ) : (
+          <>
+            {/* FE6.1: the missing operation — a new code for THIS till, rather than a new till. */}
+            <button className="ghost small" disabled={busy} title="Fresh single-use code for this till (keeps its sales history)"
+              onClick={() => void onReissue(t)}>New code</button>{" "}
+            {t.devices.some((d) => d.status === "Active" || d.status === "PendingRemoval") && (
+              <><button className="ghost small" disabled={busy} onClick={() => onRevoke(t.id)}>Revoke</button>{" "}</>
+            )}
+            <button className="ghost small" disabled={busy} onClick={() => onRemove(t)} title="Delete (only if no sales)">Delete</button>
+          </>
+        )}
+        emptyText="No tills for this store yet."
+      />
       <NewTillRow storeId={storeId} busy={busy} onCreate={onNewTill} />
       {/* the code shows HERE, next to the button that made it (it used to sit at the top of the
           page, off-screen when the store list is long) */}
@@ -305,12 +437,13 @@ function NewTillRow({ storeId, busy, onCreate }: { storeId: number; busy: boolea
   );
 }
 
-function StoreCard({ store, defaultOpen, onSaved, tills, busy, buckets, onRename, onRemoveTill, onNewTill, onRevoke, onDecide, issued, onDismissIssued }: {
+function StoreCard({ store, defaultOpen, onSaved, tills, busy, buckets, onRename, onRemoveTill, onNewTill, onRevoke, onDecide, onReissue, issued, onDismissIssued }: {
   store: StoreRow; defaultOpen: boolean; onSaved: () => Promise<void> | void;
   tills: TillRow[]; busy: boolean; buckets: StockLocationRow[];
   onRename: (id: string, name: string) => Promise<void>;
   onRemoveTill: (t: TillRow) => void; onNewTill: (storeId: number, name: string) => Promise<void>;
   onRevoke: (id: string) => void; onDecide: (deviceId: string, approve: boolean) => void;
+  onReissue: (t: TillRow) => Promise<void>;
   issued: { tillId: string; code: string; expires: string } | null;
   onDismissIssued: () => void;
 }) {
@@ -358,7 +491,7 @@ function StoreCard({ store, defaultOpen, onSaved, tills, busy, buckets, onRename
       <details className="sub">
         <summary className="muted small">Tills ({tills.length})</summary>
         <TillsTable tills={tills} busy={busy} storeId={store.id}
-          onRename={onRename} onRemove={onRemoveTill} onRevoke={onRevoke} onNewTill={onNewTill} onDecide={onDecide}
+          onRename={onRename} onRemove={onRemoveTill} onRevoke={onRevoke} onNewTill={onNewTill} onDecide={onDecide} onReissue={onReissue}
           issued={issued} onDismissIssued={onDismissIssued} />
       </details>
 

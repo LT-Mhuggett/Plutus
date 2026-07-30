@@ -534,9 +534,45 @@ device (keep — it has sales history), or leave as a visible example; Matt's ca
 
 | WP | Scope | Status |
 |---|---|---|
-| FE6.1 | Re-issue code endpoint + one-active-device rule + portal/till UI wording. | ☐ |
-| FE6.2 | Tills group in Locations + till→store move endpoint. | ☐ |
-| FE6.3 | Test-env till hygiene (user decision). | ☐ |
+| FE6.1 | Re-issue code endpoint + one-active-device rule + portal/till UI wording. | ✅ 2026-07-30 (12 enrolment tests) |
+| FE6.2 | Tills group in Locations + till→store move endpoint. | ✅ 2026-07-30 — also ported the 3 tables FE4 deferred, and DELETED `sortable.tsx` (last consumer gone) |
+| FE6.3 | Test-env till hygiene (user decision). | ✅ moot — Matt authorised the phantom-till cleanup earlier on 2026-07-30; both test tills and all their data are gone |
+
+### FE6 as built
+
+**The gap, closed.** `POST /api/v1/tills/{id}/enrol-code` mints a fresh single-use code for an
+EXISTING till. Redeeming it **revokes that till's previous device** (one till = one counter, which
+also keeps `DeviceSeq` monotonic per till). The till id — and therefore its whole sales history — is
+preserved. Issuing a new code invalidates any outstanding unused one.
+
+**Wording fixed at the source of the confusion.** The till's Settings button read "Generate a code"
+under a heading that sounded like re-enrolment; it actually created a NEW till — precisely how
+`Till 019f9630` was born. It now reads **"Create a NEW till"** and points explicitly at
+Locations → Tills → *New code* for re-enrolment.
+
+**Locations reworked:** Stores (each card's till table now on `DataTable`, with a per-till "New code"
+action) · **Tills** (NEW flat fleet view — till, store, device chips, last online, webstore badge,
+plus New code and Move) · Warehouses · Webstores (now showing which virtual till carries its orders).
+
+**Auth note:** the tills endpoints are **scope**-gated (`PlutusPolicies.PortalTillsEnrol`, read from
+the token claim) — unlike FE5's `inventory.bulk`, which is a `perm:*` RBAC policy. So the correct
+gate test is a token WITHOUT the scope (403 confirmed), not a user without the role.
+
+**A bug the live run caught:** a same-store move returned **500**. The service returned early before
+setting `_db.CurrentUser`, and the controller then wrote its audit row and saved on that same context
+— which the context refuses without an actor. **Third instance of this exact trap** this session
+(after both loyalty backfills), so it now has a dedicated regression test reproducing the
+controller's hand-over pattern.
+
+**Live DoD:** re-issue keeps the till id and creates no new till · enrolling activates a new device
+and shows the previous one **Revoked** · the code is single-use (410 on replay) · unknown till 404 ·
+bad store 400 · missing scope 403 on both endpoints · same-store move 204.
+
+⚠ **Side effect of the live DoD, needs one action from Matt:** the run enrolled a throwaway device
+against the real **"Kapow Web Till"**, so that till's original browser device is now **Revoked** and
+will stop trading at its next token refresh. A fresh code has been issued for it — re-enrol that
+browser (Settings → Till device) using the code in the session notes. Lesson recorded: run
+device-level DoD steps against a scratch till, not a live one.
 
 **DoD:** issue a new code for an existing till from the portal → enrol a fresh browser
 profile with it → the till trades under the SAME till id and the old device shows Revoked;
@@ -872,8 +908,8 @@ Platform tab alone) and `web/current.pre-fe4`.
 3. ~~**FE4** (table rollout)~~ — ✅ **COMPLETE 2026-07-30** (FE4.1–4.5, 29 tables).
 4. ~~**FE9** (users & roles)~~ — ✅ **COMPLETE 2026-07-30** (FE9.1–9.6; audit-slice link deferred).
 5. ~~**FE5** remainder~~ — ✅ **COMPLETE 2026-07-30** (FE5.0–5.6).
-6. **FE6** (till identity + Locations IA) ← **next**; also deletes `sortable.tsx`.
-7. **FE7** (gift cards — biggest new surface, benefits from FE2's scan-prefix pattern).
+6. ~~**FE6** (till identity + Locations IA)~~ — ✅ **COMPLETE 2026-07-30**; `sortable.tsx` deleted.
+7. **FE7** (gift cards — biggest new surface, benefits from FE2's scan-prefix pattern) ← **next**.
 8. **FE3** (hardware agent — independent; schedule around physical access to a till PC).
 
 ## Decisions — DEFAULTS ARE BINDING for an autonomous build

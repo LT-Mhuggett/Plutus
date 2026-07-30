@@ -15,6 +15,7 @@ namespace Plutus.Tenancy.Controllers
     public sealed record CreateTillRequest(int StoreId, string Name);
     public sealed record EnrolRequest(string EnrolmentCode);
     public sealed record RenameTillRequest(string Name);
+    public sealed record MoveTillRequest(int StoreId);
     public sealed record UnenrolRequestBody(Guid DeviceId);
     public sealed record RemovalDecisionBody(bool Approve);
 
@@ -81,6 +82,54 @@ namespace Plutus.Tenancy.Controllers
             _db.Audit(_tenant.TenantId, Actor, "till.create", "Till", result.TillId.ToString(), new { body.StoreId, body.Name });
             await _db.SaveChangesAsync();
             return Created($"/api/v1/tills/{result.TillId}", result);
+        }
+
+        /// <summary>
+        /// FE6.1: a fresh single-use code for an EXISTING till — use this when a till's browser has
+        /// lost its credential (cleared site data, replacement PC). The till keeps its identity and
+        /// its sales history; redeeming the code retires the previous device.
+        /// This is the operation whose absence produced throwaway duplicate tills.
+        /// </summary>
+        [HttpPost("{id:guid}/enrol-code")]
+        [Authorize(Policy = PlutusPolicies.PortalTillsEnrol)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> ReissueEnrolCode([FromRoute] Guid id)
+        {
+            try
+            {
+                var result = await _enrolment.ReissueEnrolCodeAsync(_tenant.TenantId, id, ActingUser);
+                _db.Audit(_tenant.TenantId, Actor, "till.enrol-code.reissue", "Till", id.ToString(),
+                    new { result.ExpiresAtUtc });
+                await _db.SaveChangesAsync();
+                return Ok(result);
+            }
+            catch (EnrolmentException ex)
+            {
+                return StatusCode(ex.StatusCode, new { detail = ex.Message });
+            }
+        }
+
+        /// <summary>FE6.2: move a till to a different store.</summary>
+        [HttpPut("{id:guid}/store")]
+        [Authorize(Policy = PlutusPolicies.PortalTillsEnrol)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> MoveTill([FromRoute] Guid id, [FromBody] MoveTillRequest body)
+        {
+            if (body == null) return BadRequest(new { detail = "storeId is required." });
+            try
+            {
+                await _enrolment.MoveTillToStoreAsync(_tenant.TenantId, id, body.StoreId, ActingUser);
+                _db.Audit(_tenant.TenantId, Actor, "till.move", "Till", id.ToString(), new { body.StoreId });
+                await _db.SaveChangesAsync();
+                return NoContent();
+            }
+            catch (EnrolmentException ex)
+            {
+                return StatusCode(ex.StatusCode, new { detail = ex.Message });
+            }
         }
 
         [HttpPost("enrol")]

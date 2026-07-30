@@ -91,6 +91,65 @@ namespace Plutus.Tenancy
             return new CreateTillResult(till.Id, code, enrolment.ExpiresAtUtc);
         }
 
+        /// <summary>
+        /// FE6.1: mint a FRESH enrolment code for an EXISTING till — the missing operation that
+        /// made stray tills inevitable. Before this, a till whose browser lost its credential
+        /// (cleared site data, new PC) could only be replaced by creating a whole new till, which
+        /// is exactly how the 24-Jul "Till 019f9630" appeared and why its sales sat under a
+        /// throwaway identity.
+        ///
+        /// Any outstanding unused code for the till is invalidated first, so only one live code
+        /// exists at a time. The till's identity — and therefore all of its sales history — is
+        /// preserved; only the DEVICE changes when the code is redeemed (see <see cref="EnrolAsync"/>,
+        /// which revokes the previous active device: one counter, one device).
+        /// </summary>
+        public async Task<CreateTillResult> ReissueEnrolCodeAsync(Guid tenantId, Guid tillId, string actingUser)
+        {
+            var till = await _db.Till.FirstOrDefaultAsync(t => t.Id == tillId);
+            if (till == null) throw new EnrolmentException(404, "Till not found.");
+
+            _db.CurrentUser = actingUser;
+
+            // one live code per till — an older link in someone's notes stops working
+            var outstanding = await _db.EnrolmentCodes
+                .Where(e => e.TillId == tillId && e.UsedAtUtc == null).ToListAsync();
+            foreach (var e in outstanding) e.UsedAtUtc = DateTime.UtcNow;
+
+            var code = Crockford32.NewCode(8);
+            var enrolment = new EnrolmentCode
+            {
+                Id = Uuid7.New(),
+                TenantId = tenantId,
+                TillId = tillId,
+                CodeHash = CompactToken.Sha256(Crockford32.Normalise(code)),
+                ExpiresAtUtc = DateTime.UtcNow.AddHours(_opts.CodeTtlHours),
+                CreatedAtUtc = DateTime.UtcNow,
+            };
+            _db.EnrolmentCodes.Add(enrolment);
+            await _db.SaveChangesAsync();
+            return new CreateTillResult(tillId, code, enrolment.ExpiresAtUtc);
+        }
+
+        /// <summary>FE6.2: move a till to another store. The till keeps its id, so its sales stay
+        /// attributed to it — but rollups bucket by the till's CURRENT store, so historic figures
+        /// follow the move. Called out in the UI because that surprises people.</summary>
+        public async Task MoveTillToStoreAsync(Guid tenantId, Guid tillId, int storeId, string actingUser)
+        {
+            var till = await _db.Till.FirstOrDefaultAsync(t => t.Id == tillId);
+            if (till == null) throw new EnrolmentException(404, "Till not found.");
+            if (!await _db.Stores.AnyAsync(s => s.Id == storeId))
+                throw new EnrolmentException(400, "Unknown store.");
+
+            // Set the actor BEFORE any early return: the caller writes its audit row and saves on
+            // the same context, and the context refuses to save without an actor. Returning early
+            // without it made a same-store move 500 instead of a no-op.
+            _db.CurrentUser = actingUser;
+            if (till.StoreId == storeId) return;   // no-op, but the caller's audit save still works
+
+            till.StoreId = storeId;
+            await _db.SaveChangesAsync();
+        }
+
         /// <summary>WP11.1: rename a till (portal or the till itself). Tenant-unique, case-insensitive;
         /// a clash → 409. Upserts the TillDetails side row (older tills predate it).</summary>
         public async Task RenameTillAsync(Guid tenantId, Guid tillId, string name, string actingUser)
@@ -139,6 +198,15 @@ namespace Plutus.Tenancy
                 Status = DeviceStatus.Active,
                 CreatedAtUtc = DateTime.UtcNow,
             };
+            // FE6.1 one-active-device-per-till: a till IS one counter, so enrolling a replacement
+            // browser retires the old one rather than leaving two devices able to sell under the
+            // same till (which would also break the monotonic DeviceSeq assumption per till). The
+            // old device stops trading at its next token refresh — it is not killed mid-sale.
+            var previous = await _db.Devices
+                .Where(d => d.TillId == enrolment.TillId && d.Id != device.Id && d.Status != DeviceStatus.Revoked)
+                .ToListAsync();
+            foreach (var p in previous) p.Status = DeviceStatus.Revoked;
+
             _db.Devices.Add(device);
             enrolment.UsedAtUtc = DateTime.UtcNow;
 

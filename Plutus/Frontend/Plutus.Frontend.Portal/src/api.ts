@@ -696,6 +696,14 @@ export const createTill = (storeId: number, name: string) =>
 export const renameTill = (id: string, name: string) => put<void>(`/api/v1/tills/${id}/name`, { name });
 export const revokeTill = (id: string) => post<void>(`/api/v1/tills/${id}/revoke`);
 export const deleteTill = (id: string) => del<void>(`/api/v1/tills/${id}`);
+/** FE6.1: a fresh single-use code for an EXISTING till — the till (and its sales history) is kept
+ *  and the previous device is retired when the code is redeemed. This is what to use when a till's
+ *  browser has lost its credential; creating a NEW till instead is what produced stray tills. */
+export const reissueTillCode = (id: string) =>
+  post<{ tillId: string; enrolmentCode: string; expiresAtUtc: string }>(`/api/v1/tills/${id}/enrol-code`);
+/** FE6.2: move a till to another store (identity preserved). */
+export const moveTillToStore = (id: string, storeId: number) =>
+  put<void>(`/api/v1/tills/${id}/store`, { storeId });
 // WP6.2: approve (→ revoke) or reject (→ active) a device's pending un-enrol request.
 export const decideDeviceRemoval = (deviceId: string, approve: boolean) =>
   post<{ status: string }>(`/api/v1/tills/devices/${deviceId}/removal`, { approve });
