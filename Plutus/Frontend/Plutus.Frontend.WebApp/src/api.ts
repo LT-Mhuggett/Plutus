@@ -252,6 +252,11 @@ export async function updateCustomer(id: string, body: { name: string; email?: s
   await send("PUT", `/api/v1/customers/${encodeURIComponent(id)}`, body);
 }
 
+/** Set/replace a customer's membership tier (customers.manage). autoDiscountRate is a fraction (0.1 = 10%). */
+export async function setMembership(id: string, tier: string, autoDiscountRate: number): Promise<void> {
+  await send("POST", `/api/v1/customers/${encodeURIComponent(id)}/membership`, { tier, autoDiscountRate });
+}
+
 /** Redeem store credit against a sale. Idempotent by entryId; throws on overdraw (400). */
 export async function redeemCredit(customerId: string, amountPence: number, saleId: string, entryId: string): Promise<void> {
   await send("POST", `/api/v1/customers/${encodeURIComponent(customerId)}/credit/redeem`, {

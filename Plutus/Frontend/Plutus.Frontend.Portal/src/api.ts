@@ -478,6 +478,10 @@ export interface LoyaltyRow {
 }
 export const fetchLoyalty = (search?: string) =>
   get<{ count: number; rows: LoyaltyRow[] }>(`/api/v1/loyalty${search ? `?search=${encodeURIComponent(search)}` : ""}`);
+// WP5.1: create a customer (customers.manage) — used by the Loyalty tab's "Add member" flow, which
+// then opens the shared CustomerDialog to set the membership tier.
+export const createCustomer = (body: { name: string; email?: string; phone?: string }) =>
+  post<{ id: string }>(`/api/v1/customers`, body);
 
 // WP11.2 receipt template (per store) + NatApp receipt fields. Stored/echoed opaquely by the API.
 export interface ReceiptTemplate {
