@@ -251,6 +251,27 @@ export const fetchVat = (from: string, to: string, granularity: string) =>
   get<{ totals: { grossPence: number; netPence: number; vatPence: number }; buckets: VatBucket[] }>(
     `/api/v1/reports/vat?from=${from}&to=${to}&granularity=${granularity}`);
 
+// WP3.1 rich summary (the till's Summary shape, from summary-rich — SalesV2, tenant-wide; amounts
+// in POUNDS, not pence). Powers the portal Reporting→Summary port (deltas, ex-VAT toggle, top items,
+// payment split). Separate from fetchSummary (rollup pence buckets) which the Dashboard tab keeps.
+export interface SalesSummary {
+  totalSales: number; totalSalesExTax: number; totalOrders: number;
+  byDay: { date: string; total: number; totalExTax: number; orders: number }[];
+  topItems: { itemId: string; name: string; quantity: number; gross: number; grossExTax: number }[];
+  byPayMethod: { method: string; total: number }[];
+  byTaxRate: { tax: string; gross: number; net: number; vat: number }[];
+}
+const isoDay = (d: Date) => d.toISOString().slice(0, 10);
+export const fetchSalesSummary = (from: Date, to: Date) =>
+  get<SalesSummary>(`/api/v1/reports/summary-rich?from=${isoDay(from)}&to=${isoDay(to)}`);
+
+// WP3.5 VAT off-band catalogue integrity check (items whose inc-VAT price disagrees with their band).
+export interface VatIntegrity {
+  offBandCount: number;
+  offBandItems: { id: string; name: string; band: string; price: number; exPrice: number; expectedPrice: number }[];
+}
+export const fetchVatIntegrity = () => get<VatIntegrity>(`/api/v1/reports/vat-integrity`);
+
 export interface SaleRow {
   id: string;
   businessDay: string;

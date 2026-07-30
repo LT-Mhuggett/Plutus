@@ -14,11 +14,11 @@ Legend: ✅ done & deployed · 🟡 committed, not yet deployed · ⬜ not start
 | **P1** WP1.3 Migrate remaining legacy tables (sweep) | ⬜ | Opportunistic follow-up; not run. |
 | **P2** WP2.1 Dashboard KPI endpoint | ✅ | `GET /api/v1/reports/dashboard` + integration test. |
 | **P2** WP2.2 Pills + remove table + day labels | ✅ | 7 clickable pills; `variant="dashboard"` hides tables; label thinning fixed. |
-| **P3** WP3.1 Portal Summary = till Summary | ⬜ | Rich port pending (portal Summary still the simpler rollup). |
-| **P3** WP3.2 Portal Custom report + category | ⬜ | Net-new screen, not started. |
+| **P3** WP3.1 Portal Summary = till Summary | 🟡 | Committed, not deployed. New `SummaryReport.tsx` (summary-rich): period select, inc/ex-VAT toggle, previous-period deltas, daily chart, top items, payment split — portal-native styling (not the till's classes). Reporting→Summary now this; Dashboard tab keeps rollup chart + pills. |
+| **P3** WP3.2 Portal Custom report | 🟡 | Committed, not deployed. New `CustomReport.tsx`: date-range sales list + per-sale drill-in (shared `SaleDialog.tsx`, extracted from Dashboard) + client-side CSV. Category column deferred (the v1 sales list has no line-level category; lives in Items sold). |
 | **P3** WP3.3 Backend category on sold-lines | ✅ | `category` on items-sold JSON+CSV, category-sales, best-sellers. |
 | **P3** WP3.4 Items sold: Category column | ✅ | Both platforms; category column added. |
-| **P3** WP3.5 Portal VAT = till VAT (+integrity) | ⬜ | Rich port pending. |
+| **P3** WP3.5 Portal VAT = till VAT (+integrity) | 🟡 | Committed, not deployed. `VatPage.tsx` rewritten to the till UX (month/quarter + year, stat tiles, by-band table, off-band integrity banner) but numbers stay on VatRollups (period-lock-respecting) per the audit — Σ band VAT == headline VAT, no unallocated row. |
 | **P3** WP3.6 Prices browsable landing | ✅ | `GET /api/v1/prices/list`; DataTable landing + "deviate only" toggle. |
 | **P3** WP3.7 Category sales report | ✅ | Both platforms. |
 | **P3** WP3.8 Best sellers report | ✅ | Both platforms. |
@@ -30,8 +30,9 @@ Legend: ✅ done & deployed · 🟡 committed, not yet deployed · ⬜ not start
 | **P5** WP5.1–5.3 Loyalty edit + webstore link | ⬜ | 5.3 carries a migration + Woo webhook change. |
 | **P6** WP6.1–6.3 Store info / un-enrol approval / Help | ⬜ | 6.2 carries a `DeviceStatus.PendingRemoval` migration. |
 
-**Live deploy tag:** P1+P2+P3(substance)+**P4 (all)** deployed. P4 rollbacks: `backend.pre-p4`, portal `current.pre-p4`, till `web/current.pre-p4` (earlier: `.pre-p3`). Pushed as `4a97c1d`. Verified live 2026-07-30: portal 200, till 200, backend `/api/v1/categories` 401 (route up), ETRIE 200. Suites Unit 214 · Arch 6 · Integration 45.
-**Resume point:** P3 rich-report ports (portal Summary 3.1 / VAT 3.5 / standalone Custom 3.2), then P5 loyalty, then P6.
+**Live deploy tag:** P1+P2+P3(substance)+**P4 (all)** deployed 2026-07-30 (portal 200, till 200, `/api/v1/categories` 401, ETRIE 200). P4 rollbacks: `backend.pre-p4`, portal/till `current.pre-p4` (earlier `.pre-p3`).
+**Committed but NOT yet deployed:** the VAT band-coverage backend fix (`f27b4fd`) + the P3 rich-report ports (Summary 3.1 / Custom 3.2 / VAT 3.5, portal-only). Deploying needs a backend swap (the VAT fix) + a portal build. Suites Unit 214 · Arch 6 · Integration 46; portal typechecks clean.
+**Resume point:** deploy the above, then **P3 is done** → P5 loyalty, then P6. (P1.3 legacy-table sweep still optional.)
 
 ---
 

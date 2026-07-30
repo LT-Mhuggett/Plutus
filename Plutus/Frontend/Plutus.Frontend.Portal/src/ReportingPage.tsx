@@ -1,13 +1,14 @@
 import { useState } from "react";
-import Dashboard from "./Dashboard.tsx";
+import SummaryReport from "./SummaryReport.tsx";
+import CustomReport from "./CustomReport.tsx";
 import VatPage from "./VatPage.tsx";
 import ItemsSoldPage from "./ItemsSoldPage.tsx";
 import { CategorySalesReport, BestSellersReport, NegativeStockReport } from "./ReportsExtra.tsx";
 
-// All the portal's analytics reports under one "Reporting" tab (Summary = the dashboard).
-// Banking, Stock, Prices etc. stay as their own top-level tabs (they carry actions, not just
-// reporting). Each sub-view keeps its own look — the till has its own Reporting tab too.
-const SUBTABS = ["Summary", "VAT", "Items sold", "Category sales", "Best sellers", "Negative stock"] as const;
+// All the portal's analytics reports under one "Reporting" tab. Summary is the rich company
+// overview (WP3.1, ported from the till); Custom is the sales-line drill-down (WP3.2); VAT is the
+// till-style band view (WP3.5). The Dashboard TAB keeps the simpler rollup chart + KPI pills.
+const SUBTABS = ["Summary", "Custom", "VAT", "Items sold", "Category sales", "Best sellers", "Negative stock"] as const;
 type SubTab = (typeof SUBTABS)[number];
 
 export default function ReportingPage() {
@@ -19,7 +20,8 @@ export default function ReportingPage() {
           <button key={s} className={s === sub ? "subtab active" : "subtab"} onClick={() => setSub(s)}>{s}</button>
         ))}
       </nav>
-      {sub === "Summary" && <Dashboard />}
+      {sub === "Summary" && <SummaryReport />}
+      {sub === "Custom" && <CustomReport />}
       {sub === "VAT" && <VatPage />}
       {sub === "Items sold" && <ItemsSoldPage />}
       {sub === "Category sales" && <CategorySalesReport />}
