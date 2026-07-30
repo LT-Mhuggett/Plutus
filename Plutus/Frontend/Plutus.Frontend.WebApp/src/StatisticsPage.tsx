@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { downloadSalesReport, fetchSales, type Sale } from "./api.ts";
 import { gbp } from "./money.ts";
 import SaleDetailDialog from "./reporting/SaleDetailDialog.tsx";
+import DataTable from "./DataTable.tsx";
 
 const dateInput = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -48,7 +49,6 @@ export default function StatisticsPage() {
 
   const totalPence = sales?.reduce((t, s) => t + Math.round(s.total * 100), 0) ?? 0;
   const exTaxPence = sales?.reduce((t, s) => t + Math.round(s.totalExTax * 100), 0) ?? 0;
-  const shown = sales ? [...sales].sort((a, b) => b.dateOfSale.localeCompare(a.dateOfSale)).slice(0, 100) : [];
 
   // Content-only: rendered inside ReportingPage's panel as the "Custom" sub-tab.
   return (
@@ -93,30 +93,23 @@ export default function StatisticsPage() {
             </div>
           </div>
 
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Sale id</th>
-                <th className="num">Net (ex VAT)</th>
-                <th className="num">VAT</th>
-                <th className="num">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((s) => (
-                <tr key={s.id} className="clickable" title="Open sale detail" onClick={() => setOpenSale(s.id)}>
-                  <td>{new Date(s.dateOfSale).toLocaleString("en-GB")}</td>
-                  <td className="mono small">{s.id}</td>
-                  <td className="num">{gbp(Math.round(s.totalExTax * 100))}</td>
-                  <td className="num">{gbp(Math.round((s.total - s.totalExTax) * 100))}</td>
-                  <td className="num">{gbp(Math.round(s.total * 100))}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {sales.length > 100 && <p className="muted small">Showing latest 100 of {sales.length} — the Excel report contains everything.</p>}
-          <p className="muted small">Click a sale to see its items, payments and notes — and reprint a copy receipt.</p>
+          {/* FE4.3: standard DataTable — paging replaces the old "latest 100" client cap, so the
+              whole range is browsable without exporting. */}
+          <DataTable<Sale>
+            columns={[
+              { key: "dateOfSale", label: "Date", render: (s) => new Date(s.dateOfSale).toLocaleString("en-GB") },
+              { key: "id", label: "Sale id", render: (s) => <span className="mono small">{s.id}</span> },
+              { key: "totalExTax", label: "Net (ex VAT)", numeric: true, render: (s) => gbp(Math.round(s.totalExTax * 100)) },
+              { key: "vat", label: "VAT", numeric: true, sort: (s) => s.total - s.totalExTax, render: (s) => gbp(Math.round((s.total - s.totalExTax) * 100)) },
+              { key: "total", label: "Total", numeric: true, render: (s) => gbp(Math.round(s.total * 100)) },
+            ]}
+            rows={sales} getKey={(s) => s.id} initialSortKey="dateOfSale" initialSortDir="desc"
+            search={(s) => s.id}
+            searchPlaceholder="Search sale id…"
+            rowActions={(s) => <button className="ghost small" onClick={() => setOpenSale(s.id)}>Open</button>}
+            emptyText="No sales in this range."
+          />
+          <p className="muted small">Open a sale to see its items, payments and notes — and reprint a copy receipt.</p>
         </>
       )}
       {openSale && <SaleDetailDialog saleId={openSale} onClose={() => setOpenSale(null)} />}

@@ -3,7 +3,7 @@ import {
   createItem,
   createStock,
   fetchCategories,
-  fetchItems,
+  fetchItemsPaged,
   fetchTaxes,
   updateItem,
   type Category,
@@ -12,15 +12,18 @@ import {
   type Tax,
 } from "./api.ts";
 import { gbp } from "./money.ts";
-
-const PAGE_SIZE = 25;
+import DataTable from "./DataTable.tsx";
 
 export default function InventoryPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [cats, setCats] = useState<Category[]>([]);
-  const [page, setPage] = useState(1);
+  // FE4.3: the standard DataTable in SERVER mode — the catalogue is 20k+ items, so the window
+  // stays server-side; `total` comes from X-Pagination (FE4.2), giving a true "X–Y of N" where
+  // the old hand-rolled pager could only say "page N" and guess whether Next was live.
+  const [skip, setSkip] = useState(0);
+  const [take, setTake] = useState(25);
+  const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
-  const [applied, setApplied] = useState("");
   const [catFilter, setCatFilter] = useState(""); // FE5.0: server-side category filter
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState("");
@@ -33,9 +36,11 @@ export default function InventoryPage() {
 
   function load() {
     setState("loading");
-    fetchItems(page, PAGE_SIZE, applied, catFilter)
-      .then((data) => {
-        setItems(data);
+    // the legacy endpoint pages by 1-based page number, DataTable thinks in skip/take
+    fetchItemsPaged(Math.floor(skip / take) + 1, take, search, catFilter)
+      .then(({ rows, total: n }) => {
+        setItems(rows);
+        setTotal(n ?? skip + rows.length + (rows.length === take ? take : 0)); // pre-FE4.2 fallback
         setState("ready");
       })
       .catch((e) => {
@@ -44,7 +49,11 @@ export default function InventoryPage() {
       });
   }
 
-  useEffect(load, [page, applied, catFilter]);
+  // debounced so typing in the DataTable search box doesn't fire a request per keystroke
+  useEffect(() => {
+    const t = setTimeout(load, search ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [skip, take, search, catFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <section className="panel">
@@ -53,69 +62,35 @@ export default function InventoryPage() {
         <button className="ghost" onClick={() => setEditing("new")}>
           Add item
         </button>
-        <input
-          className="search"
-          placeholder="Search name, barcode, brand…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              setPage(1);
-              setApplied(search.trim());
-            }
-          }}
-        />
         <label className="small">Category{" "}
-          <select value={catFilter} onChange={(e) => { setPage(1); setCatFilter(e.target.value); }}>
+          <select value={catFilter} onChange={(e) => { setSkip(0); setCatFilter(e.target.value); }}>
             <option value="">All</option>
             {cats.map((c) => <option key={c.idOne} value={c.idOne}>{c.name}</option>)}
           </select>
         </label>
-        <nav className="pager">
-          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1 || state === "loading"}>
-            ‹ Prev
-          </button>
-          <span>page {page}</span>
-          <button onClick={() => setPage((p) => p + 1)} disabled={state === "loading" || items.length < PAGE_SIZE}>
-            Next ›
-          </button>
-        </nav>
       </div>
 
       {notice && <p className="small discount-note">{notice}</p>}
       {state === "error" && <p className="error">Could not load inventory: {error}</p>}
-      {state === "loading" && <p className="muted">Loading…</p>}
-      {state === "ready" && items.length === 0 && <p className="muted">No items{applied ? ` matching “${applied}”` : ""}.</p>}
-      {state === "ready" && items.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>Barcode / Id</th>
-              <th>Name</th>
-              <th>Brand</th>
-              <th>Category</th>
-              <th className="num">Price</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((i) => (
-              <tr key={i.idOne}>
-                <td className="mono">{i.idOne}</td>
-                <td>{i.name}</td>
-                <td>{i.brand === "NOT EXIST" || i.brand === "-" ? "" : i.brand}</td>
-                <td>{catName.get(i.catId) ?? "—"}</td>
-                <td className="num">{gbp(Math.round(i.price * 100))}</td>
-                <td>
-                  <button className="ghost small" onClick={() => setEditing(i)}>
-                    Edit
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <DataTable<Item>
+        columns={[
+          { key: "idOne", label: "Barcode / Id", render: (i) => <span className="mono small">{i.idOne}</span> },
+          { key: "name", label: "Name" },
+          { key: "brand", label: "Brand", render: (i) => (i.brand === "NOT EXIST" || i.brand === "-" ? "" : i.brand) },
+          { key: "catId", label: "Category", render: (i) => catName.get(i.catId) ?? "—" },
+          { key: "price", label: "Price", numeric: true, render: (i) => gbp(Math.round(i.price * 100)) },
+        ]}
+        rows={items}
+        getKey={(i) => i.idOne}
+        server={{
+          total, skip, take, search,
+          onSearch: (s) => { setSkip(0); setSearch(s); },
+          onPage: (s, t) => { setSkip(s); setTake(t); },
+        }}
+        searchPlaceholder="Search name, barcode, brand…"
+        rowActions={(i) => <button className="ghost small" onClick={() => setEditing(i)}>Edit</button>}
+        emptyText={state === "loading" ? "Loading…" : `No items${search ? ` matching “${search}”` : ""}.`}
+      />
 
       {editing && (
         <ItemDialog

@@ -3,9 +3,15 @@ import {
   bindSku, createItemFromSku, createWebstoreConnection, disconnectWebstore, downloadCsv,
   fetchAlignment, fetchConnectorHealth, fetchOutboundLog, fetchSkuMap, fetchWebstoreProducts, fetchWebstores, gbp,
   ignoreSku, refreshWebstoreProducts, retryParkedOrders, setOutboundMode,
-  type AlignmentResp, type ConnectorRow, type OutboundLogResp, type SkuMapRow, type WebstoreConn, type WebstoreProductsResp,
+  type AlignmentResp, type AlignmentRow, type ConnectorRow, type OutboundLogResp, type OutboundLogRow,
+  type SkuMapRow, type WebstoreConn, type WebstoreProductRow, type WebstoreProductsResp,
 } from "./api.ts";
-import { SortTh, useSort } from "./sortable.tsx";
+import DataTable from "./DataTable.tsx";
+
+// FE4.3 row aliases for the alignment tables (the API groups them under AlignmentResp).
+type PriceDiffRow = AlignmentRow;
+type NameDriftRow = AlignmentRow;
+type WebOnlyRow = AlignmentResp["webOnly"][number];
 
 /** Phase 6 webstore connector: connection status, the WP6.2 SKU review queue (bind / ignore /
  *  create-as-item + retry parked orders), the WP6.4 catalogue view (cached — never hits the live
@@ -123,7 +129,6 @@ function ReviewQueue({ id }: { id: string }) {
     p.then(() => { setMsg(done); setBindFor(null); return refresh(); }).catch((e) => setError(String(e)));
   };
 
-  const s = useSort(rows, "updatedAtUtc", "desc");
   return (
     <div>
       <div className="toolbar">
@@ -140,36 +145,29 @@ function ReviewQueue({ id }: { id: string }) {
       </div>
       {error && <p className="error small">{error}</p>}
       {msg && <p className="callout small">{msg}</p>}
-      <table>
-        <thead><tr>
-          <SortTh label="SKU" k="sku" {...s} />
-          <th>Webstore says</th>
-          <SortTh label="Seen" k="seenCount" {...s} />
-          <SortTh label="Status" k="status" {...s} />
-          <th />
-        </tr></thead>
-        <tbody>
-          {s.sorted.map((r) => (
-            <tr key={r.id}>
-              <td className="mono small">{r.sku}</td>
-              <td className="small">{r.web ? <>{r.web.name} · {gbp(r.web.pricePence)} · {r.web.status}</> : <span className="muted">not in cache yet</span>}</td>
-              <td className="num">{r.seenCount}</td>
-              <td>{r.status}{r.boundItemIdOne ? <span className="muted small"> → {r.boundItemIdOne}</span> : null}</td>
-              <td>
-                {r.status === "Pending" && (
-                  <>
-                    <button className="ghost small" onClick={() => { setBindFor(r); setBarcode(""); }}>Bind…</button>{" "}
-                    <button className="ghost small" title="Create a till item from the webstore's name/price"
-                      onClick={() => act(createItemFromSku(id, r.id), `Created item ${r.sku}.`)}>Create item</button>{" "}
-                    <button className="ghost small" onClick={() => act(ignoreSku(id, r.id), `Ignored ${r.sku}.`)}>Ignore</button>
-                  </>
-                )}
-              </td>
-            </tr>
-          ))}
-          {rows.length === 0 && <tr><td colSpan={5} className="muted">Nothing here.</td></tr>}
-        </tbody>
-      </table>
+      <DataTable<SkuMapRow>
+        columns={[
+          { key: "sku", label: "SKU", render: (r) => <span className="mono small">{r.sku}</span> },
+          {
+            key: "web", label: "Webstore says", sortable: false,
+            render: (r) => <span className="small">{r.web ? <>{r.web.name} · {gbp(r.web.pricePence)} · {r.web.status}</> : <span className="muted">not in cache yet</span>}</span>,
+          },
+          { key: "seenCount", label: "Seen", numeric: true },
+          { key: "status", label: "Status", render: (r) => <>{r.status}{r.boundItemIdOne ? <span className="muted small"> → {r.boundItemIdOne}</span> : null}</> },
+        ]}
+        rows={rows} getKey={(r) => r.id} initialSortKey="seenCount" initialSortDir="desc"
+        search={(r) => `${r.sku} ${r.web?.name ?? ""} ${r.status} ${r.boundItemIdOne ?? ""}`}
+        searchPlaceholder="Search SKU / name / status…"
+        rowActions={(r) => r.status === "Pending" ? (
+          <>
+            <button className="ghost small" onClick={() => { setBindFor(r); setBarcode(""); }}>Bind…</button>{" "}
+            <button className="ghost small" title="Create a till item from the webstore's name/price"
+              onClick={() => act(createItemFromSku(id, r.id), `Created item ${r.sku}.`)}>Create item</button>{" "}
+            <button className="ghost small" onClick={() => act(ignoreSku(id, r.id), `Ignored ${r.sku}.`)}>Ignore</button>
+          </>
+        ) : null}
+        emptyText="Nothing here."
+      />
 
       {bindFor && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && setBindFor(null)}>
@@ -193,15 +191,20 @@ function Catalogue({ id }: { id: string }) {
   const [resp, setResp] = useState<WebstoreProductsResp | null>(null);
   const [status, setStatus] = useState("");
   const [linked, setLinked] = useState("");
-  const [take, setTake] = useState(50);
+  const [take, setTake] = useState(25);
   const [skip, setSkip] = useState(0);
+  const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const refresh = () =>
-    fetchWebstoreProducts(id, { status: status || undefined, linked: linked || undefined, skip, take })
+    fetchWebstoreProducts(id, { status: status || undefined, linked: linked || undefined, search: search || undefined, skip, take })
       .then(setResp).catch((e) => setError(String(e)));
-  useEffect(() => { void refresh(); }, [status, linked, skip, take]); // eslint-disable-line react-hooks/exhaustive-deps
+  // debounced — the DataTable search box fires per keystroke
+  useEffect(() => {
+    const t = setTimeout(() => void refresh(), search ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [status, linked, search, skip, take]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div>
@@ -217,11 +220,6 @@ function Catalogue({ id }: { id: string }) {
             <option value="">All</option><option value="yes">Linked</option><option value="no">Unlinked</option>
           </select>
         </label>
-        <label>Show
-          <select value={take} onChange={(e) => { setSkip(0); setTake(Number(e.target.value)); }}>
-            <option value={25}>25</option><option value={50}>50</option><option value={100}>100</option>
-          </select>
-        </label>
         <span className="grow" />
         <span className="muted small">
           {resp?.lastRefreshed ? `Last refreshed ${new Date(resp.lastRefreshed + "Z").toLocaleString("en-GB")}` : "not swept yet"}
@@ -232,31 +230,29 @@ function Catalogue({ id }: { id: string }) {
         }}>{busy ? "Refreshing…" : "Refresh now"}</button>
       </div>
       {error && <p className="error small">{error}</p>}
-      <table>
-        <thead><tr><th>Name</th><th>SKU</th><th className="num">Web price</th><th className="num">Stock</th><th>Status</th><th>Till item</th><th /></tr></thead>
-        <tbody>
-          {resp?.rows.map((p) => (
-            <tr key={p.wooProductId} className={p.status === "deleted" ? "muted" : ""}>
-              <td>{p.name}</td>
-              <td className="mono small">{p.sku ?? <span className="muted">none</span>}</td>
-              <td className="num">{gbp(p.pricePence)}{p.regularPricePence != null && p.regularPricePence !== p.pricePence && (
-                <span className="muted small"> (was {gbp(p.regularPricePence)})</span>)}</td>
-              <td className="num">{p.stockQuantity ?? "—"} <span className="muted small">{p.stockStatus ?? ""}</span></td>
-              <td>{p.status}</td>
-              <td>{p.linkedItem ? <span className="chip ok">linked</span> : <span className="chip bad">unlinked</span>}</td>
-              <td>{p.permalink && <a className="small" href={p.permalink} target="_blank" rel="noreferrer">view on site</a>}</td>
-            </tr>
-          ))}
-          {resp && resp.rows.length === 0 && <tr><td colSpan={7} className="muted">No products match.</td></tr>}
-        </tbody>
-      </table>
-      {resp && resp.total > take && (
-        <div className="toolbar">
-          <button className="ghost small" disabled={skip === 0} onClick={() => setSkip(Math.max(0, skip - take))}>‹ Prev</button>
-          <span className="muted small">{skip + 1}–{Math.min(skip + take, resp.total)} of {resp.total}</span>
-          <button className="ghost small" disabled={skip + take >= resp.total} onClick={() => setSkip(skip + take)}>Next ›</button>
-        </div>
-      )}
+      <DataTable<WebstoreProductRow>
+        columns={[
+          { key: "name", label: "Name", render: (p) => <span className={p.status === "deleted" ? "muted" : undefined}>{p.name}</span> },
+          { key: "sku", label: "SKU", render: (p) => <span className="mono small">{p.sku ?? <span className="muted">none</span>}</span> },
+          {
+            key: "pricePence", label: "Web price", numeric: true,
+            render: (p) => <>{gbp(p.pricePence)}{p.regularPricePence != null && p.regularPricePence !== p.pricePence && (
+              <span className="muted small"> (was {gbp(p.regularPricePence)})</span>)}</>,
+          },
+          { key: "stockQuantity", label: "Stock", numeric: true, render: (p) => <>{p.stockQuantity ?? "—"} <span className="muted small">{p.stockStatus ?? ""}</span></> },
+          { key: "status", label: "Status" },
+          { key: "linkedItem", label: "Till item", render: (p) => (p.linkedItem ? <span className="chip ok">linked</span> : <span className="chip bad">unlinked</span>) },
+        ]}
+        rows={resp?.rows ?? []} getKey={(p) => String(p.wooProductId)}
+        server={{
+          total: resp?.total ?? 0, skip, take, search,
+          onSearch: (s) => { setSkip(0); setSearch(s); },
+          onPage: (s, t) => { setSkip(s); setTake(t); },
+        }}
+        searchPlaceholder="Search name / SKU…"
+        rowActions={(p) => p.permalink ? <a className="small" href={p.permalink} target="_blank" rel="noreferrer">view on site</a> : null}
+        emptyText="No products match."
+      />
     </div>
   );
 }
@@ -296,23 +292,22 @@ function Outbound({ id }: { id: string }) {
       </div>
       {error && <p className="error small">{error}</p>}
       {msg && <p className="callout small">{msg}</p>}
-      <table>
-        <thead><tr><th>When</th><th>Kind</th><th>Lane</th><th>Item</th><th>From</th><th>To</th><th>Mode</th><th>Result</th></tr></thead>
-        <tbody>
-          {data.rows.map((r) => (
-            <tr key={r.id}>
-              <td className="small">{new Date(r.createdAtUtc + "Z").toLocaleString("en-GB")}</td>
-              <td>{r.kind}</td><td>{r.lane}</td>
-              <td className="mono small">{r.itemIdOne}</td>
-              <td className="num">{r.fromValue ?? "—"}</td><td>{r.toValue ?? "—"}</td>
-              <td>{r.mode}</td>
-              <td className={r.result.startsWith("failed") ? "error small" : "small"}>{r.result}</td>
-            </tr>
-          ))}
-          {data.rows.length === 0 && <tr><td colSpan={8} className="muted">
-            Nothing journaled yet — set mode to dry-run and the next sale / poll cycle starts writing entries.</td></tr>}
-        </tbody>
-      </table>
+      <DataTable<OutboundLogRow>
+        columns={[
+          { key: "createdAtUtc", label: "When", render: (r) => <span className="small">{new Date(r.createdAtUtc + "Z").toLocaleString("en-GB")}</span> },
+          { key: "kind", label: "Kind" },
+          { key: "lane", label: "Lane" },
+          { key: "itemIdOne", label: "Item", render: (r) => <span className="mono small">{r.itemIdOne}</span> },
+          { key: "fromValue", label: "From", numeric: true, render: (r) => r.fromValue ?? "—" },
+          { key: "toValue", label: "To", render: (r) => r.toValue ?? "—" },
+          { key: "mode", label: "Mode" },
+          { key: "result", label: "Result", render: (r) => <span className={r.result.startsWith("failed") ? "error small" : "small"}>{r.result}</span> },
+        ]}
+        rows={data.rows} getKey={(r) => String(r.id)} initialSortKey="createdAtUtc" initialSortDir="desc"
+        search={(r) => `${r.kind} ${r.lane} ${r.itemIdOne} ${r.mode} ${r.result}`}
+        searchPlaceholder="Search item / kind / result…"
+        emptyText="Nothing journaled yet — set mode to dry-run and the next sale / poll cycle starts writing entries."
+      />
     </div>
   );
 }
@@ -339,42 +334,48 @@ function Alignment({ id }: { id: string }) {
           Export CSV
         </button>
       </div>
-      <h3>Prices on both platforms (largest differences first)</h3>
-      <table>
-        <thead><tr><th>SKU</th><th>Name (web)</th><th className="num">Web price</th><th className="num">Till price</th><th className="num">Difference</th></tr></thead>
-        <tbody>
-          {data.priceDiffers.map((r) => (
-            <tr key={r.sku}>
-              <td className="mono small">{r.sku}</td><td>{r.webName}</td>
-              <td className="num">{gbp(r.webPricePence)}</td><td className="num">{gbp(r.tillPricePence)}</td>
-              <td className="num">{r.priceDiffPence > 0 ? "+" : ""}{gbp(r.priceDiffPence)}</td>
-            </tr>
-          ))}
-          {data.priceDiffers.length === 0 && <tr><td colSpan={5} className="muted">All matched prices agree.</td></tr>}
-        </tbody>
-      </table>
+      <h3>Prices on both platforms</h3>
+      <DataTable<PriceDiffRow>
+        columns={[
+          { key: "sku", label: "SKU", render: (r) => <span className="mono small">{r.sku}</span> },
+          { key: "webName", label: "Name (web)" },
+          { key: "webPricePence", label: "Web price", numeric: true, render: (r) => gbp(r.webPricePence) },
+          { key: "tillPricePence", label: "Till price", numeric: true, render: (r) => gbp(r.tillPricePence) },
+          { key: "priceDiffPence", label: "Difference", numeric: true, render: (r) => `${r.priceDiffPence > 0 ? "+" : ""}${gbp(r.priceDiffPence)}` },
+        ]}
+        rows={data.priceDiffers} getKey={(r) => r.sku} initialSortKey="priceDiffPence" initialSortDir="desc"
+        search={(r) => `${r.sku} ${r.webName}`}
+        searchPlaceholder="Search SKU / name…"
+        emptyText="All matched prices agree."
+      />
 
       <h3>Name drift</h3>
-      <table>
-        <thead><tr><th>SKU</th><th>Webstore name</th><th>Till name</th></tr></thead>
-        <tbody>
-          {data.nameDrift.map((r) => (
-            <tr key={r.sku}><td className="mono small">{r.sku}</td><td>{r.webName}</td><td>{r.tillName}</td></tr>
-          ))}
-          {data.nameDrift.length === 0 && <tr><td colSpan={3} className="muted">No drift.</td></tr>}
-        </tbody>
-      </table>
+      <DataTable<NameDriftRow>
+        columns={[
+          { key: "sku", label: "SKU", render: (r) => <span className="mono small">{r.sku}</span> },
+          { key: "webName", label: "Webstore name" },
+          { key: "tillName", label: "Till name" },
+        ]}
+        rows={data.nameDrift} getKey={(r) => r.sku} initialSortKey="sku"
+        search={(r) => `${r.sku} ${r.webName} ${r.tillName}`}
+        searchPlaceholder="Search SKU / name…"
+        emptyText="No drift."
+      />
 
+      {/* FE4.3: paging replaces the old hard slice(0, 200) — the full list is now reachable. */}
       <h3>On the webstore but not in the till catalogue ({data.webOnly.length})</h3>
-      <table>
-        <thead><tr><th>SKU</th><th>Name</th><th className="num">Web price</th><th>Status</th></tr></thead>
-        <tbody>
-          {data.webOnly.slice(0, 200).map((r, i) => (
-            <tr key={i}><td className="mono small">{r.sku ?? "—"}</td><td>{r.name}</td><td className="num">{gbp(r.pricePence)}</td><td>{r.status}</td></tr>
-          ))}
-          {data.webOnly.length === 0 && <tr><td colSpan={4} className="muted">None.</td></tr>}
-        </tbody>
-      </table>
+      <DataTable<WebOnlyRow>
+        columns={[
+          { key: "sku", label: "SKU", render: (r) => <span className="mono small">{r.sku ?? "—"}</span> },
+          { key: "name", label: "Name" },
+          { key: "pricePence", label: "Web price", numeric: true, render: (r) => gbp(r.pricePence) },
+          { key: "status", label: "Status" },
+        ]}
+        rows={data.webOnly} getKey={(r) => `${r.sku ?? "nosku"}-${r.name}`} initialSortKey="name"
+        search={(r) => `${r.sku ?? ""} ${r.name} ${r.status}`}
+        searchPlaceholder="Search SKU / name / status…"
+        emptyText="None."
+      />
       <p className="muted small">{data.tillOnlyCount.toLocaleString("en-GB")} till items are not on the webstore (normal — the web range is curated).</p>
     </div>
   );

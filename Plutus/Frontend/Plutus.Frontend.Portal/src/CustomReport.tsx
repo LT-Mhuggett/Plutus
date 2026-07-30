@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchSales, gbp, type SaleRow } from "./api.ts";
 import SaleDialog from "./SaleDialog.tsx";
+import DataTable from "./DataTable.tsx";
 
 // WP3.2 Custom report (portal, net-new): a date-range sales listing with per-sale drill-in (the
 // shared SaleDialog) and a client-side CSV export — the portal equivalent of the till's Statistics
@@ -27,7 +28,6 @@ export default function CustomReport() {
   const totalPence = sales?.reduce((t, s) => t + s.grossPence, 0) ?? 0;
   const vatPence = sales?.reduce((t, s) => t + s.vatPence, 0) ?? 0;
   const exTaxPence = totalPence - vatPence;
-  const shown = sales ? [...sales].sort((a, b) => b.occurredAtUtc.localeCompare(a.occurredAtUtc)).slice(0, 100) : [];
 
   const downloadCsv = () => {
     if (!sales) return;
@@ -64,24 +64,24 @@ export default function CustomReport() {
             <div className="stat"><span className="stat-label">Average sale</span><span className="stat-value">{sales.length ? gbp(Math.round(totalPence / sales.length)) : "—"}</span></div>
           </div>
 
-          <table>
-            <thead><tr><th>Date</th><th>Sale id</th><th>Channel</th><th className="num">Net (ex VAT)</th><th className="num">VAT</th><th className="num">Total</th></tr></thead>
-            <tbody>
-              {shown.map((s) => (
-                <tr key={s.id} className="clickable" title="Open sale detail" onClick={() => setOpenSale(s.id)} style={{ cursor: "pointer" }}>
-                  <td>{new Date(s.occurredAtUtc + "Z").toLocaleString("en-GB")}</td>
-                  <td className="mono small">{s.id.slice(0, 8)}…</td>
-                  <td>{s.channel}{s.legacyRef ? " (migrated)" : ""}</td>
-                  <td className="num">{gbp(s.grossPence - s.vatPence)}</td>
-                  <td className="num">{gbp(s.vatPence)}</td>
-                  <td className="num">{gbp(s.grossPence)}</td>
-                </tr>
-              ))}
-              {sales.length === 0 && <tr><td colSpan={6} className="muted">No sales in this range.</td></tr>}
-            </tbody>
-          </table>
-          {sales.length > 100 && <p className="muted small">Showing the latest 100 of {sales.length} — the CSV export contains everything loaded.</p>}
-          <p className="muted small">Click a sale to see its items, payments and notes — and reprint a copy receipt.</p>
+          {/* FE4.3: the standard DataTable — and because it pages, the old "latest 100 only"
+              client-side cap is gone: every loaded sale is now reachable. */}
+          <DataTable<SaleRow>
+            columns={[
+              { key: "occurredAtUtc", label: "Date", render: (s) => new Date(s.occurredAtUtc + "Z").toLocaleString("en-GB") },
+              { key: "id", label: "Sale id", render: (s) => <span className="mono small">{s.id.slice(0, 8)}…</span> },
+              { key: "channel", label: "Channel", render: (s) => `${s.channel}${s.legacyRef ? " (migrated)" : ""}` },
+              { key: "netPence", label: "Net (ex VAT)", numeric: true, sort: (s) => s.grossPence - s.vatPence, render: (s) => gbp(s.grossPence - s.vatPence) },
+              { key: "vatPence", label: "VAT", numeric: true, render: (s) => gbp(s.vatPence) },
+              { key: "grossPence", label: "Total", numeric: true, render: (s) => gbp(s.grossPence) },
+            ]}
+            rows={sales} getKey={(s) => s.id} initialSortKey="occurredAtUtc" initialSortDir="desc"
+            search={(s) => `${s.id} ${s.channel} ${s.legacyRef ?? ""}`}
+            searchPlaceholder="Search sale id / channel…"
+            rowActions={(s) => <button className="ghost small" onClick={() => setOpenSale(s.id)}>Open</button>}
+            emptyText="No sales in this range."
+          />
+          <p className="muted small">Open a sale to see its items, payments and notes — and reprint a copy receipt.</p>
         </>
       )}
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { closePeriod, createPeriod, fetchPeriods, gbp, type Period } from "./api.ts";
-import { SortTh, useSort } from "./sortable.tsx";
+import DataTable from "./DataTable.tsx";
 
 /** Financial periods (WP3.4): create, close (snapshot + lock). Late sales into a closed
  *  period post to the next open day and are flagged in the audit trail. */
@@ -38,46 +38,35 @@ export default function PeriodsPage() {
     }
   }
 
-  const pSort = useSort(periods, "startDay", "asc");
-
   return (
     <section className="panel">
       <h2>Financial periods</h2>
       {error && <p className="error">{error}</p>}
 
-      <table>
-        <thead><tr>
-          <SortTh label="Name" k="name" {...pSort} />
-          <SortTh label="Range" k="startDay" {...pSort} />
-          <SortTh label="Status" k="status" {...pSort} />
-          <th>Snapshot at close</th><th />
-        </tr></thead>
-        <tbody>
-          {pSort.sorted.map((p) => (
-            <tr key={p.id}>
-              <td>{p.name}</td>
-              <td>{p.startDay} → {p.endDay}</td>
-              <td>{p.status}{p.closedAtUtc ? ` (${new Date(p.closedAtUtc + "Z").toLocaleDateString("en-GB")})` : ""}</td>
-              <td className="small">{snapshotSummary(p.snapshotJson)}</td>
-              <td>
-                {p.status === "Open" && (
-                  <button
-                    className="ghost small"
-                    disabled={busy}
-                    onClick={() => {
-                      if (window.confirm(`Close ${p.name}? This snapshots and LOCKS ${p.startDay} → ${p.endDay}; late sales will post to the next open day.`))
-                        void closePeriod(p.id).then(refresh).catch((e) => setError(String(e)));
-                    }}
-                  >
-                    Close period
-                  </button>
-                )}
-              </td>
-            </tr>
-          ))}
-          {periods.length === 0 && <tr><td colSpan={5} className="muted">No periods defined yet.</td></tr>}
-        </tbody>
-      </table>
+      <DataTable<Period>
+        columns={[
+          { key: "name", label: "Name" },
+          { key: "startDay", label: "Range", render: (p) => `${p.startDay} → ${p.endDay}` },
+          { key: "status", label: "Status", render: (p) => `${p.status}${p.closedAtUtc ? ` (${new Date(p.closedAtUtc + "Z").toLocaleDateString("en-GB")})` : ""}` },
+          { key: "snapshotJson", label: "Snapshot at close", sortable: false, render: (p) => <span className="small">{snapshotSummary(p.snapshotJson)}</span> },
+        ]}
+        rows={periods} getKey={(p) => p.id} initialSortKey="startDay"
+        search={(p) => `${p.name} ${p.startDay} ${p.endDay} ${p.status}`}
+        searchPlaceholder="Search name / status…"
+        rowActions={(p) => p.status === "Open" ? (
+          <button
+            className="ghost small"
+            disabled={busy}
+            onClick={() => {
+              if (window.confirm(`Close ${p.name}? This snapshots and LOCKS ${p.startDay} → ${p.endDay}; late sales will post to the next open day.`))
+                void closePeriod(p.id).then(refresh).catch((e) => setError(String(e)));
+            }}
+          >
+            Close period
+          </button>
+        ) : null}
+        emptyText="No periods defined yet."
+      />
 
       <form className="toolbar" onSubmit={submit}>
         <label>Name <input required placeholder="FY 2026/27" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>

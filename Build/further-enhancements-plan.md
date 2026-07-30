@@ -279,12 +279,74 @@ instead of the current page-by-page drift.
 4. Conventions stay as documented: `num` cells right-aligned, ids `mono small`, money via
    `gbp()`.
 
+### FE4.1 audit — done 2026-07-30
+
+**Classification rule** (the judgement this audit turned on): `DataTable` is for **browsable
+collections** — things you sort, search and page through. It is NOT for:
+- **documents** (a receipt's lines, a sale's line items, the till basket) — a pager on a
+  receipt is nonsense;
+- **fixed breakdowns** (VAT by band, payment-method split, a price's effective-date history)
+  — 3–6 rows that ARE the answer, with no browsing to do;
+- **in-dialog detail sub-lists** (credit history, a user's role assignments, tier rows) —
+  they live inside a modal that is already scoped to one record.
+
+Applying that, here is every table:
+
+| Page / file | Tables | Verdict |
+|---|---|---|
+| **portal** BankingPage | pending payments, daily banking | ✅ port (client) |
+| **portal** CustomReport | sales list | ✅ port (client) |
+| **portal** Dashboard (report variant) | period breakdown, day's sales | ✅ port (client) |
+| **portal** ItemsSoldPage | items sold | ✅ port (client) |
+| **portal** PeriodsPage | financial periods | ✅ port (client) |
+| **portal** StockPage | transfers, **levels**, movements | ✅ port — levels in **server** mode (endpoint has skip/take/search) |
+| **portal** InventoryItems | items | ✅ port — **server** mode (legacy Index + FE4.2 totals) |
+| **portal** WebstorePage | review queue, catalogue, outbound log, price diffs, name diffs, unmatched SKUs | ✅ port (client) ×6 |
+| **portal** UsersPage | users | ✅ port (client) — role-assignment sub-table left to **FE9.4** |
+| **portal** VatPage | off-band integrity list | ✅ port (client) — by-band totals left (fixed breakdown) |
+| **portal** HelpPage | support tickets | ✅ port (client) |
+| **portal** PricesPage | variance | ✅ port (client) — already has 2 DataTables; effective-date + store-override history left (breakdowns) |
+| **portal** PlatformPage | 17 operator tables | ✅ port (client) — operator-only, so **last**; deferred to FE4.5 if it bloats the slice |
+| **portal** StoresPage | tills-per-store, warehouses, webstores | ⏭ **defer to FE6** — that WP restructures this page (adds the flat Tills view); porting now = double work |
+| **portal** SummaryReport | top items, payment split | ⏭ leave (report breakdowns) |
+| **portal** SaleDialog / CustomerDialog / TierManagerDialog | receipt, credit history, tiers | ⏭ leave (document / in-dialog) |
+| **till** InventoryPage | items | ✅ port — **server** mode |
+| **till** EmployeesPage | staff | ✅ port (client) |
+| **till** StatisticsPage | sales list | ✅ port (client) |
+| **till** reporting/ReportingPage | items-sold, stock levels | ✅ port (client) — already uses DataTable elsewhere |
+| **till** SummaryReport / VatReport | band + method breakdowns | ⏭ leave (breakdowns) |
+| **till** SaleDetailDialog / TillPage | sale document, basket | ⏭ leave |
+
+**Totals: 22 tables to port** (18 portal incl. PlatformPage's 17 counted as one workstream,
+4 till), 3 pages deferred to other WPs, 9 deliberately left as documents/breakdowns.
+
 | WP | Scope | Status |
 |---|---|---|
-| FE4.1 | Audit checklist (portal + till), agree client/server mode per page. | ☐ |
-| FE4.2 | X-Pagination surfaced through api helpers; skip/take on v1 lists that lack it. | ☐ |
-| FE4.3 | Port all stragglers to DataTable (portal, then till). | ☐ |
-| FE4.4 | Gate: click-through every tab; deploy. | ☐ |
+| FE4.1 | Audit checklist (portal + till), agree client/server mode per page. | ✅ 2026-07-30 (above) |
+| FE4.2 | X-Pagination surfaced through api helpers; skip/take on v1 lists that lack it. | ✅ 2026-07-30 |
+| FE4.3 | Port all stragglers to DataTable (portal, then till). | ✅ 2026-07-30 — **13 tables** (9 portal + 4 till); PlatformPage split to FE4.5 |
+| FE4.4 | Gate: click-through every tab; deploy. | ✅ 2026-07-30 deployed (`*.pre-fe4`); totals + new search verified live. ⏳ Matt to click-through |
+| FE4.5 | PlatformPage's 17 operator tables (split out if FE4.3 runs long). | ☐ **next** |
+
+**FE4.2 as built.** `legacyPaged()`/`getPaged()` in each app's `api.ts` read the `X-Pagination`
+header (`TotalCount`) that the legacy `Index` endpoints have always sent and every frontend threw
+away — pagers could only say "page N" and guess whether Next was live. Verified live: items
+**20,341** total (**790** when searched), stock levels **3,198**. `total: null` when a
+non-paginating endpoint is called, so callers keep the old estimate as a fallback.
+Additive backend change: `GET /api/v1/webstores/{id}/products` gained `search` (name/SKU) — it had
+skip/take but no search, and the shared table always offers a search box (verified: 745 → 10).
+
+**Ported (FE4.3).** Portal: Banking ×2, CustomReport, Dashboard ×2, ItemsSold, Periods, Stock ×3
+(levels in server mode), InventoryItems (server), Webstore ×6, Users, VAT off-band, Help, Prices
+variance. Till: Inventory (server), Employees, Statistics, Reporting items-sold + stock (server).
+
+**Three incidental wins:** CustomReport, Statistics and Webstore's "web-only SKUs" all had hard
+client-side caps (`slice(0, 100)` / `slice(0, 200)`) that hid rows behind an "export to see
+everything" note — paging replaced them, so the full set is now reachable in the UI.
+
+⚠ **Typecheck loop matters here.** There is no Node on the Windows dev box, so these mechanical
+edits were verified with `npm run typecheck` on the Mac after each batch — it caught a real
+`getKey` type error (numeric `id` vs `string`) that would have shipped. Do the same for FE4.5.
 
 **DoD:** the FE4.1 checklist shows every data table on portal + till rendered by
 `DataTable`; each has sortable headers, a 25/50/100 page-size select, a pager showing

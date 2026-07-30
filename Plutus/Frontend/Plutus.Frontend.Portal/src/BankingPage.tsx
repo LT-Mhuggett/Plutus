@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError, gbp } from "./api.ts";
 import { accessToken } from "./auth.ts";
+import DataTable from "./DataTable.tsx";
 
 // WP7.2 banking view + WP7.1 unresolved-payments queue.
 
@@ -70,53 +71,49 @@ export default function BankingPage() {
         <div className="callout">
           <strong>{orphans.length} unresolved payment{orphans.length > 1 ? "s" : ""}</strong> — captured at a terminal but
           no matching sale is recorded yet.
-          <table>
-            <thead><tr><th>Provider</th><th>Ref</th><th className="num">Amount</th><th className="num">Age (min)</th></tr></thead>
-            <tbody>
-              {orphans.map((o) => (
-                <tr key={o.eventId}>
-                  <td>{o.provider}</td>
-                  <td className="mono small">{o.providerRef}</td>
-                  <td className="num">{gbp(o.amountPence)}</td>
-                  <td className="num">{o.ageMinutes}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable<OrphanRow>
+            columns={[
+              { key: "provider", label: "Provider" },
+              { key: "providerRef", label: "Ref", render: (o) => <span className="mono small">{o.providerRef}</span> },
+              { key: "amountPence", label: "Amount", numeric: true, render: (o) => gbp(o.amountPence) },
+              { key: "ageMinutes", label: "Age (min)", numeric: true },
+            ]}
+            rows={orphans} getKey={(o) => o.eventId} initialSortKey="ageMinutes" initialSortDir="desc"
+            search={(o) => `${o.provider} ${o.providerRef}`}
+            searchPlaceholder="Search provider / ref…"
+            emptyText="No unresolved payments."
+          />
           <button className="ghost small" disabled={busy} onClick={() => void reconcile()}>Re-run matching</button>
         </div>
       )}
 
       <h3>Banking — per till per day</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Day</th><th>Till</th>
-            <th className="num">Float</th><th className="num">Cash</th><th className="num">Card</th>
-            <th className="num">In/Out</th><th className="num">Expected</th><th className="num">Counted</th>
-            <th className="num">Variance</th><th>Z</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={`${r.tillId}-${r.businessDay}`}>
-              <td>{r.businessDay}</td>
-              <td className="mono small">{r.tillId.slice(0, 8)}…</td>
-              <td className="num">{gbp(r.floatPence)}</td>
-              <td className="num">{gbp(r.cashTakingsPence)}</td>
-              <td className="num">{gbp(r.cardTakingsPence)}</td>
-              <td className="num">{r.paidInPence || r.paidOutPence ? `${gbp(r.paidInPence)} / ${gbp(r.paidOutPence)}` : "—"}</td>
-              <td className="num">{gbp(r.expectedCashPence)}</td>
-              <td className="num">{r.countedPence == null ? "—" : gbp(r.countedPence)}</td>
-              <td className={`num ${r.variancePence ? "error" : ""}`}>
+      <DataTable<BankingRow>
+        columns={[
+          { key: "businessDay", label: "Day" },
+          { key: "tillId", label: "Till", render: (r) => <span className="mono small">{r.tillId.slice(0, 8)}…</span> },
+          { key: "floatPence", label: "Float", numeric: true, render: (r) => gbp(r.floatPence) },
+          { key: "cashTakingsPence", label: "Cash", numeric: true, render: (r) => gbp(r.cashTakingsPence) },
+          { key: "cardTakingsPence", label: "Card", numeric: true, render: (r) => gbp(r.cardTakingsPence) },
+          { key: "paidInPence", label: "In/Out", numeric: true, render: (r) => (r.paidInPence || r.paidOutPence ? `${gbp(r.paidInPence)} / ${gbp(r.paidOutPence)}` : "—") },
+          { key: "expectedCashPence", label: "Expected", numeric: true, render: (r) => gbp(r.expectedCashPence) },
+          { key: "countedPence", label: "Counted", numeric: true, render: (r) => (r.countedPence == null ? "—" : gbp(r.countedPence)) },
+          {
+            key: "variancePence", label: "Variance", numeric: true,
+            render: (r) => (
+              <span className={r.variancePence ? "error" : undefined}>
                 {r.variancePence == null ? "—" : `${r.variancePence >= 0 ? "+" : ""}${gbp(r.variancePence)}`}
-              </td>
-              <td>{r.zClosed ? "✅" : <span className="muted">open</span>}</td>
-            </tr>
-          ))}
-          {rows.length === 0 && <tr><td colSpan={10} className="muted">No cash activity in this range.</td></tr>}
-        </tbody>
-      </table>
+              </span>
+            ),
+          },
+          { key: "zClosed", label: "Z", render: (r) => (r.zClosed ? "✅" : <span className="muted">open</span>) },
+        ]}
+        rows={rows} getKey={(r) => `${r.tillId}-${r.businessDay}`}
+        initialSortKey="businessDay" initialSortDir="desc"
+        search={(r) => `${r.businessDay} ${r.tillId}`}
+        searchPlaceholder="Search day / till…"
+        emptyText="No cash activity in this range."
+      />
       <p className="muted small">
         Expected cash = float + cash takings + paid-ins − paid-outs. Card takings shown for the settlement
         reconciliation (provider adapter arrives with WP7.1's commercial provider choice).

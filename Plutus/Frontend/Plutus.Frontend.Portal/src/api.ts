@@ -384,6 +384,15 @@ export async function businessId(): Promise<string> {
 }
 
 async function legacy<T>(method: string, url: string, body?: unknown): Promise<T> {
+  return (await legacyPaged<T>(method, url, body)).rows;
+}
+
+/** FE4.2: the row count the legacy `Index` endpoints have always returned in the `X-Pagination`
+ *  header — and which every frontend threw away, leaving pagers to guess ("Next" enabled while a
+ *  full page came back). Surfacing it is what lets DataTable show a true "X–Y of N" in server mode. */
+export interface Paged<T> { rows: T; total: number | null }
+
+export async function legacyPaged<T>(method: string, url: string, body?: unknown): Promise<Paged<T>> {
   const bid = await businessId();
   const res = await fetch(url, {
     method,
@@ -396,7 +405,22 @@ async function legacy<T>(method: string, url: string, body?: unknown): Promise<T
     try { const parsed = await res.json(); detail = parsed?.detail ?? JSON.stringify(parsed); } catch { /* keep */ }
     throw new ApiError(res.status, detail);
   }
-  return res.status === 204 ? (undefined as T) : res.json();
+  const rows = res.status === 204 ? (undefined as T) : await res.json();
+  return { rows, total: paginationTotal(res) };
+}
+
+/** Reads `X-Pagination` (`{TotalCount, PageSize, CurrentPage, TotalPages, …}`); null when the
+ *  endpoint doesn't send it, so callers can fall back to the old guess. */
+export function paginationTotal(res: Response): number | null {
+  const raw = res.headers.get("X-Pagination");
+  if (!raw) return null;
+  try {
+    const meta = JSON.parse(raw) as { TotalCount?: number; totalCount?: number };
+    const total = meta.TotalCount ?? meta.totalCount;
+    return typeof total === "number" ? total : null;
+  } catch {
+    return null;
+  }
 }
 
 export interface Tax { idOne: number; name: string; rate: number } // rate = multiplier, 1.2 = 20%
@@ -412,12 +436,17 @@ export interface ItemInput {
 export const fetchTaxes = () => legacy<Tax[]>("GET", `/api/Tax/Index?PageNumber=1&PageSize=50`);
 // The legacy Item/Index rows already carry every field the edit dialog needs (brand, cost, tax,
 // catId), so the list row IS the edit payload — no separate detail fetch.
-export const fetchCatalogueItems = (pageNumber: number, pageSize: number, search = "", catId = "") =>
-  legacy<CatalogueItem[]>("GET",
+/** FE4.2: returns rows AND the true total from X-Pagination, so the items list can show
+ *  "X–Y of N" instead of a blind Next button. */
+export const fetchCatalogueItemsPaged = (pageNumber: number, pageSize: number, search = "", catId = "") =>
+  legacyPaged<CatalogueItem[]>("GET",
     `/api/Item/Index?PageNumber=${pageNumber}&PageSize=${pageSize}` +
       (search ? `&Search=${encodeURIComponent(search)}` : "") +
       // FE5.0: category filtering is server-side (client-side over one page showed nothing)
       (catId ? `&CatId=${encodeURIComponent(catId)}` : ""));
+
+export const fetchCatalogueItems = (pageNumber: number, pageSize: number, search = "", catId = "") =>
+  fetchCatalogueItemsPaged(pageNumber, pageSize, search, catId).then((p) => p.rows);
 
 // PUT/POST bind the full legacy entity — the composite key + businessId must be present, and the
 // server overrides exPrice from the tax band (the VAT guardrail), so we send our derived value
@@ -649,10 +678,11 @@ export const createItemFromSku = (id: string, mapId: string, name?: string, pric
   post<unknown>(`/api/v1/webstores/${id}/skumap/${mapId}/create-item`, { name, pricePence });
 export const retryParkedOrders = (id: string) =>
   post<{ recorded: number; still: number; notOurs: number }>(`/api/v1/webstores/${id}/retry`);
-export const fetchWebstoreProducts = (id: string, opts: { status?: string; linked?: string; skip?: number; take?: number }) => {
+export const fetchWebstoreProducts = (id: string, opts: { status?: string; linked?: string; search?: string; skip?: number; take?: number }) => {
   const p = new URLSearchParams();
   if (opts.status) p.set("status", opts.status);
   if (opts.linked) p.set("linked", opts.linked);
+  if (opts.search) p.set("search", opts.search); // FE4.2: server-side name/SKU search
   p.set("skip", String(opts.skip ?? 0));
   p.set("take", String(opts.take ?? 50));
   return get<WebstoreProductsResp>(`/api/v1/webstores/${id}/products?${p}`);

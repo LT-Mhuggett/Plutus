@@ -3,7 +3,7 @@ import {
   downloadCsv, fetchItemsSold, fetchReportStaff, fetchStores, gbp,
   type ItemsSold, type StaffRow, type StoreRow,
 } from "./api.ts";
-import { SortTh, useSort } from "./sortable.tsx";
+import DataTable from "./DataTable.tsx";
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const today = () => iso(new Date());
@@ -106,37 +106,30 @@ export default function ItemsSoldPage() {
   );
 }
 
+type ItemsSoldRow = ItemsSold["rows"][number];
+
 function ItemsSoldTable({ rows }: { rows: ItemsSold["rows"] }) {
-  const s = useSort(rows, "dateSold", "desc");
+  // FE4.3: the standard DataTable — this list runs to 2,000 lines, so paging and search matter
+  // more here than anywhere (it used to be sort-only, one enormous scroll).
   return (
-          <table>
-            <thead><tr>
-              <SortTh label="Date sold" k="dateSold" {...s} />
-              <SortTh label="Item" k="itemName" {...s} />
-              <SortTh label="Category" k="category" {...s} />
-              <SortTh label="Location" k="tillName" {...s} />
-              <SortTh label="Staff" k="staffName" {...s} />
-              <SortTh label="Qty" k="qty" num {...s} />
-              <SortTh label="Unit" k="unitPricePence" num {...s} />
-              <SortTh label="Discount" k="discountPence" num {...s} />
-              <SortTh label="Line gross" k="lineGrossPence" num {...s} />
-            </tr></thead>
-            <tbody>
-              {s.sorted.map((r, i) => (
-                <tr key={i}>
-                  <td className="small">{new Date(r.dateSold + "Z").toLocaleString("en-GB")}</td>
-                  <td><span className="mono small">{r.itemIdOne}</span> {r.itemName}</td>
-                  <td className="small">{r.category ?? "—"}</td>
-                  <td className="small">Store {r.storeId} · {r.tillName}</td>
-                  <td className="small">{r.staffName}</td>
-                  <td className="num">{r.qty}</td>
-                  <td className="num">{gbp(r.unitPricePence)}</td>
-                  <td className="num">{r.discountPence ? gbp(r.discountPence) : "—"}</td>
-                  <td className="num">{gbp(r.lineGrossPence)}</td>
-                </tr>
-              ))}
-              {rows.length === 0 && <tr><td colSpan={9} className="muted">No items sold for these filters.</td></tr>}
-            </tbody>
-          </table>
+    <DataTable<ItemsSoldRow>
+      columns={[
+        { key: "dateSold", label: "Date sold", render: (r) => <span className="small">{new Date(r.dateSold + "Z").toLocaleString("en-GB")}</span> },
+        { key: "itemName", label: "Item", render: (r) => <><span className="mono small">{r.itemIdOne}</span> {r.itemName}</> },
+        { key: "category", label: "Category", render: (r) => <span className="small">{r.category ?? "—"}</span> },
+        { key: "tillName", label: "Location", render: (r) => <span className="small">Store {r.storeId} · {r.tillName}</span> },
+        { key: "staffName", label: "Staff", render: (r) => <span className="small">{r.staffName}</span> },
+        { key: "qty", label: "Qty", numeric: true },
+        { key: "unitPricePence", label: "Unit", numeric: true, render: (r) => gbp(r.unitPricePence) },
+        { key: "discountPence", label: "Discount", numeric: true, render: (r) => (r.discountPence ? gbp(r.discountPence) : "—") },
+        { key: "lineGrossPence", label: "Line gross", numeric: true, render: (r) => gbp(r.lineGrossPence) },
+      ]}
+      rows={rows}
+      getKey={(r) => `${r.dateSold}-${r.itemIdOne}-${r.qty}-${r.lineGrossPence}`}
+      initialSortKey="dateSold" initialSortDir="desc"
+      search={(r) => `${r.itemIdOne} ${r.itemName} ${r.category ?? ""} ${r.tillName} ${r.staffName}`}
+      searchPlaceholder="Search item / category / staff / location…"
+      emptyText="No items sold for these filters."
+    />
   );
 }

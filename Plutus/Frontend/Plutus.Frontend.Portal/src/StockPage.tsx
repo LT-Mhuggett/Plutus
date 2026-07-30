@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "./api.ts";
 import { accessToken } from "./auth.ts";
-import { SortTh, useSort } from "./sortable.tsx";
+import DataTable from "./DataTable.tsx";
 
 // WP5.2 stock screens: central view (all locations) / per-store view (location filter),
 // per-item movements drill, manual adjustment, stock-take count, transfers + in-transit.
@@ -48,10 +48,12 @@ export default function StockPage() {
       .then(([lv, lo, tr]) => { setStock(lv); setLocations(lo); setTransfers(tr); setError(""); })
       .catch((e) => setError(String(e instanceof Error ? e.message : e)));
 
-  useEffect(() => { setSkip(0); }, [locationId, search, take]);
-  useEffect(() => { void refresh(); }, [locationId, search, take, skip]); // eslint-disable-line react-hooks/exhaustive-deps
-  const st = useSort(stock?.rows ?? [], "itemIdOne", "asc");
-  const levels = st.sorted;
+  useEffect(() => { setSkip(0); }, [locationId]);
+  // debounced: the DataTable search box fires per keystroke
+  useEffect(() => {
+    const t = setTimeout(() => void refresh(), search ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [locationId, search, take, skip]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <section className="panel">
@@ -63,12 +65,7 @@ export default function StockPage() {
             {locations.map((l) => <option key={l.id} value={l.id}>{l.name} ({l.type})</option>)}
           </select>
         </label>
-        <label>Search <input placeholder="barcode / id" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
-        <label>Show{" "}
-          <select value={take} onChange={(e) => setTake(Number(e.target.value))}>
-            <option value={25}>25</option><option value={50}>50</option><option value={100}>100</option>
-          </select>
-        </label>
+        {/* FE4.3: search + page size now live in the DataTable below (server mode) */}
         <NewLocation defaultStoreId={locations[0]?.storeId ?? 1} onCreated={refresh} />
       </div>
       {stock && (
@@ -81,55 +78,50 @@ export default function StockPage() {
       {transfers.length > 0 && (
         <>
           <h3>In transit</h3>
-          <table>
-            <thead><tr><th>Item</th><th className="num">Qty</th><th>From → To</th><th>Since</th><th /></tr></thead>
-            <tbody>
-              {transfers.map((t) => (
-                <tr key={t.id}>
-                  <td>{t.itemIdOne}</td>
-                  <td className="num">{t.qty}</td>
-                  <td className="small">{locations.find((l) => l.id === t.fromLocationId)?.name} → {locations.find((l) => l.id === t.toLocationId)?.name}</td>
-                  <td>{new Date(t.createdAtUtc + "Z").toLocaleString("en-GB")}</td>
-                  <td>
-                    <button className="ghost small" onClick={() => void j("POST", `/api/v1/stock/transfers/${t.id}/receive`).then(refresh).catch((e) => setError(String(e)))}>Receive</button>{" "}
-                    <button className="ghost small" onClick={() => void j("POST", `/api/v1/stock/transfers/${t.id}/cancel`).then(refresh).catch((e) => setError(String(e)))}>Cancel</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable<TransferRow>
+            columns={[
+              { key: "itemIdOne", label: "Item", render: (t) => <span className="mono small">{t.itemIdOne}</span> },
+              { key: "qty", label: "Qty", numeric: true },
+              {
+                key: "fromLocationId", label: "From → To",
+                render: (t) => <span className="small">{locations.find((l) => l.id === t.fromLocationId)?.name} → {locations.find((l) => l.id === t.toLocationId)?.name}</span>,
+              },
+              { key: "createdAtUtc", label: "Since", render: (t) => new Date(t.createdAtUtc + "Z").toLocaleString("en-GB") },
+            ]}
+            rows={transfers} getKey={(t) => t.id} initialSortKey="createdAtUtc" initialSortDir="desc"
+            search={(t) => t.itemIdOne}
+            searchPlaceholder="Search item…"
+            rowActions={(t) => (
+              <>
+                <button className="ghost small" onClick={() => void j("POST", `/api/v1/stock/transfers/${t.id}/receive`).then(refresh).catch((e) => setError(String(e)))}>Receive</button>{" "}
+                <button className="ghost small" onClick={() => void j("POST", `/api/v1/stock/transfers/${t.id}/cancel`).then(refresh).catch((e) => setError(String(e)))}>Cancel</button>
+              </>
+            )}
+            emptyText="Nothing in transit."
+          />
         </>
       )}
 
-      <table>
-        <thead><tr>
-          <SortTh label="Item" k="itemIdOne" {...st} />
-          <SortTh label="Name" k="name" {...st} />
-          <SortTh label="Location" k="location" {...st} />
-          <SortTh label="On hand" k="quantity" num {...st} />
-          <th />
-        </tr></thead>
-        <tbody>
-          {levels.map((l) => (
-            <tr key={`${l.stockLocationId}-${l.itemIdOne}`}>
-              <td className="mono small">{l.itemIdOne}</td>
-              <td>{l.name ?? <span className="muted">?</span>}</td>
-              <td>{l.location}</td>
-              <td className="num">{l.quantity}</td>
-              <td><button className="ghost small" onClick={() => setDrill(l)}>Detail</button></td>
-            </tr>
-          ))}
-          {levels.length === 0 && <tr><td colSpan={5} className="muted">No stock rows.</td></tr>}
-        </tbody>
-      </table>
-
-      {stock && stock.matched > take && (
-        <div className="toolbar">
-          <button className="ghost small" disabled={skip === 0} onClick={() => setSkip(Math.max(0, skip - take))}>← Prev</button>
-          <span className="muted small">{skip + 1}–{Math.min(skip + take, stock.matched)} of {stock.matched.toLocaleString()}</span>
-          <button className="ghost small" disabled={skip + take >= stock.matched} onClick={() => setSkip(skip + take)}>Next →</button>
-        </div>
-      )}
+      {/* FE4.3: the exemplar server-paged list becomes the standard DataTable — same endpoint
+          (skip/take/search), now with the shared toolbar, page-size select and "X–Y of N". */}
+      <DataTable<LevelRow>
+        columns={[
+          { key: "itemIdOne", label: "Item", render: (l) => <span className="mono small">{l.itemIdOne}</span> },
+          { key: "name", label: "Name", render: (l) => l.name ?? <span className="muted">?</span> },
+          { key: "location", label: "Location" },
+          { key: "quantity", label: "On hand", numeric: true },
+        ]}
+        rows={stock?.rows ?? []}
+        getKey={(l) => `${l.stockLocationId}-${l.itemIdOne}`}
+        server={{
+          total: stock?.matched ?? 0, skip, take, search,
+          onSearch: (s) => { setSkip(0); setSearch(s); },
+          onPage: (s, t) => { setSkip(s); setTake(t); },
+        }}
+        searchPlaceholder="Search barcode / id…"
+        rowActions={(l) => <button className="ghost small" onClick={() => setDrill(l)}>Detail</button>}
+        emptyText="No stock rows."
+      />
 
       {drill && <ItemDialog level={drill} locations={locations} onClose={() => { setDrill(null); void refresh(); }} />}
     </section>
@@ -213,19 +205,20 @@ function ItemDialog({ level, locations, onClose }: { level: LevelRow; locations:
           </button>
         </div>
 
-        <table>
-          <thead><tr><th>When</th><th>Type</th><th className="num">Δ</th><th>Reason / ref</th></tr></thead>
-          <tbody>
-            {movements.map((m) => (
-              <tr key={m.id}>
-                <td>{new Date(m.atUtc + "Z").toLocaleString("en-GB")}</td>
-                <td>{m.type}</td>
-                <td className="num">{m.qtyDelta > 0 ? `+${m.qtyDelta}` : m.qtyDelta}</td>
-                <td className="small">{m.reason ?? (m.refId ? `sale/transfer ${m.refId.slice(0, 8)}…` : "")}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {/* the movement ledger for one item — a genuine browsable history, so it gets the
+            standard table even though it lives in a dialog */}
+        <DataTable<MovementRow>
+          columns={[
+            { key: "atUtc", label: "When", render: (m) => new Date(m.atUtc + "Z").toLocaleString("en-GB") },
+            { key: "type", label: "Type" },
+            { key: "qtyDelta", label: "Δ", numeric: true, render: (m) => (m.qtyDelta > 0 ? `+${m.qtyDelta}` : String(m.qtyDelta)) },
+            { key: "reason", label: "Reason / ref", render: (m) => <span className="small">{m.reason ?? (m.refId ? `sale/transfer ${m.refId.slice(0, 8)}…` : "")}</span> },
+          ]}
+          rows={movements} getKey={(m) => m.id} initialSortKey="atUtc" initialSortDir="desc"
+          search={(m) => `${m.type} ${m.reason ?? ""}`}
+          searchPlaceholder="Search type / reason…"
+          emptyText="No movements recorded."
+        />
 
         <div className="dialog-actions"><button className="ghost" onClick={onClose}>Close</button></div>
       </div>

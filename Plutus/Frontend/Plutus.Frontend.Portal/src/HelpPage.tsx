@@ -3,6 +3,7 @@ import {
   fetchMyTickets, createTicket, fetchMyThread, clientReply,
   SUPPORT_STATUS, SUPPORT_SEVERITY, type TicketRow, type TicketMessage,
 } from "./api.ts";
+import DataTable from "./DataTable.tsx";
 
 /** OP4: the client's "Ask for help" — raise a support ticket to the Plutus operator and follow the
  *  reply thread. Tenant-isolated server-side (you only ever see your own tickets). */
@@ -22,21 +23,19 @@ export default function HelpPage() {
       {error && <p className="error">{error}</p>}
       <NewTicket onCreated={refresh} onError={setError} />
       <h4>Your tickets</h4>
-      <table>
-        <thead><tr><th>Subject</th><th>Severity</th><th>Status</th><th>Updated</th><th /></tr></thead>
-        <tbody>
-          {tickets.map((t) => (
-            <tr key={t.id}>
-              <td>{t.subject}</td>
-              <td>{SUPPORT_SEVERITY[t.severity] ?? t.severity}</td>
-              <td>{SUPPORT_STATUS[t.status] ?? t.status}</td>
-              <td className="small">{new Date(t.updatedAtUtc + "Z").toLocaleString("en-GB")}</td>
-              <td><button className="ghost small" onClick={() => setOpenId(t.id)}>Open</button></td>
-            </tr>
-          ))}
-          {tickets.length === 0 && !error && <tr><td colSpan={5} className="muted">No tickets yet.</td></tr>}
-        </tbody>
-      </table>
+      <DataTable<TicketRow>
+        columns={[
+          { key: "subject", label: "Subject" },
+          { key: "severity", label: "Severity", render: (t) => SUPPORT_SEVERITY[t.severity] ?? String(t.severity) },
+          { key: "status", label: "Status", render: (t) => SUPPORT_STATUS[t.status] ?? String(t.status) },
+          { key: "updatedAtUtc", label: "Updated", render: (t) => <span className="small">{new Date(t.updatedAtUtc + "Z").toLocaleString("en-GB")}</span> },
+        ]}
+        rows={tickets} getKey={(t) => t.id} initialSortKey="updatedAtUtc" initialSortDir="desc"
+        search={(t) => `${t.subject} ${SUPPORT_SEVERITY[t.severity] ?? ""} ${SUPPORT_STATUS[t.status] ?? ""}`}
+        searchPlaceholder="Search subject / status…"
+        rowActions={(t) => <button className="ghost small" onClick={() => setOpenId(t.id)}>Open</button>}
+        emptyText="No tickets yet."
+      />
     </section>
   );
 }

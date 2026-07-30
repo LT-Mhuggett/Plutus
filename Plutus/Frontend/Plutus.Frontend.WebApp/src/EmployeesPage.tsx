@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { createEmployee, fetchEmployees, setEmployeePassword, type Employee } from "./api.ts";
+import DataTable from "./DataTable.tsx";
 
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[] | null>(null);
@@ -31,34 +32,19 @@ export default function EmployeesPage() {
       {!employees && !error && <p className="muted">Loading…</p>}
 
       {employees && (
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Mobile</th>
-              <th>Active</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {employees.map((e) => (
-              <tr key={e.id}>
-                <td>
-                  {e.fName} {e.lName}
-                </td>
-                <td>{e.email}</td>
-                <td>{e.mobile === "-" ? "" : e.mobile}</td>
-                <td>{e.active ? "✓" : "—"}</td>
-                <td>
-                  <button className="ghost small" onClick={() => setPwFor(e)}>
-                    Set password
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <DataTable<Employee>
+          columns={[
+            { key: "fName", label: "Name", render: (e) => `${e.fName} ${e.lName}` },
+            { key: "email", label: "Email" },
+            { key: "mobile", label: "Mobile", render: (e) => (e.mobile === "-" ? "" : e.mobile) },
+            { key: "active", label: "Active", render: (e) => (e.active ? "✓" : "—") },
+          ]}
+          rows={employees} getKey={(e) => e.id} initialSortKey="fName"
+          search={(e) => `${e.fName} ${e.lName} ${e.email} ${e.mobile}`}
+          searchPlaceholder="Search name / email…"
+          rowActions={(e) => <button className="ghost small" onClick={() => setPwFor(e)}>Set password</button>}
+          emptyText="No staff."
+        />
       )}
 
       {showAdd && (

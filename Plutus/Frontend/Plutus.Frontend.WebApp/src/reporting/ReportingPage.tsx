@@ -5,7 +5,7 @@ import VatReport from "./VatReport.tsx";
 import DataTable from "../DataTable.tsx";
 import {
   fetchV1ItemsSold, fetchV1Staff, fetchV1StockLevels, fetchV1CategorySales, fetchV1BestSellers,
-  type V1ItemsSold, type V1Staff, type V1StockResp,
+  type V1ItemsSold, type V1ItemSoldRow, type V1Staff, type V1StockLevel, type V1StockResp,
   type V1CategorySales, type V1CategorySalesRow, type V1BestSellerRow,
 } from "../api.ts";
 import { gbp } from "../money.ts";
@@ -100,23 +100,24 @@ function ItemsSoldView() {
             <div className="stat-tile"><span className="stat-label">Units</span><span className="stat-value">{data.totals.qty}</span></div>
             <div className="stat-tile"><span className="stat-label">Gross</span><span className="stat-value">{gbp(data.totals.grossPence)}</span></div>
           </div>
-          <table>
-            <thead><tr><th>Date</th><th>Item</th><th>Category</th><th>Staff</th><th className="num">Qty</th><th className="num">Unit</th><th className="num">Disc</th><th className="num">Gross</th></tr></thead>
-            <tbody>
-              {data.rows.map((r, i) => (
-                <tr key={i}>
-                  <td className="small">{new Date(r.dateSold + "Z").toLocaleString("en-GB")}</td>
-                  <td><span className="mono small">{r.itemIdOne}</span> {r.itemName}</td>
-                  <td className="small">{r.category ?? "—"}</td>
-                  <td className="small">{r.staffName}</td>
-                  <td className="num">{r.qty}</td><td className="num">{gbp(r.unitPricePence)}</td>
-                  <td className="num">{r.discountPence ? gbp(r.discountPence) : "—"}</td>
-                  <td className="num">{gbp(r.lineGrossPence)}</td>
-                </tr>
-              ))}
-              {data.rows.length === 0 && <tr><td colSpan={8} className="muted">No items sold for these filters.</td></tr>}
-            </tbody>
-          </table>
+          <DataTable<V1ItemSoldRow>
+            columns={[
+              { key: "dateSold", label: "Date", render: (r) => <span className="small">{new Date(r.dateSold + "Z").toLocaleString("en-GB")}</span> },
+              { key: "itemName", label: "Item", render: (r) => <><span className="mono small">{r.itemIdOne}</span> {r.itemName}</> },
+              { key: "category", label: "Category", render: (r) => <span className="small">{r.category ?? "—"}</span> },
+              { key: "staffName", label: "Staff", render: (r) => <span className="small">{r.staffName}</span> },
+              { key: "qty", label: "Qty", numeric: true },
+              { key: "unitPricePence", label: "Unit", numeric: true, render: (r) => gbp(r.unitPricePence) },
+              { key: "discountPence", label: "Disc", numeric: true, render: (r) => (r.discountPence ? gbp(r.discountPence) : "—") },
+              { key: "lineGrossPence", label: "Gross", numeric: true, render: (r) => gbp(r.lineGrossPence) },
+            ]}
+            rows={data.rows}
+            getKey={(r) => `${r.dateSold}-${r.itemIdOne}-${r.qty}-${r.lineGrossPence}`}
+            initialSortKey="dateSold" initialSortDir="desc"
+            search={(r) => `${r.itemIdOne} ${r.itemName} ${r.category ?? ""} ${r.staffName}`}
+            searchPlaceholder="Search item / category / staff…"
+            emptyText="No items sold for these filters."
+          />
         </>
       )}
     </>
@@ -134,34 +135,28 @@ function StockView({ negativeOnly = false }: { negativeOnly?: boolean }) {
   return (
     <>
       {negativeOnly && <p className="muted small">Items showing below zero on hand — usually a missed goods-in or a mis-scan. Fix the count in Inventory management.</p>}
-      <div className="toolbar">
-        <label>Search <input placeholder="barcode / name" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
-        <label>Show
-          <select value={take} onChange={(e) => setTake(Number(e.target.value))}>
-            <option value={25}>25</option><option value={50}>50</option><option value={100}>100</option>
-          </select>
-        </label>
-      </div>
       {data && !negativeOnly && <p className="muted small">{data.inStock.toLocaleString()} in stock · {data.matched.toLocaleString()} with a stock record · {data.totalCatalogueItems.toLocaleString()} products in the catalogue</p>}
-      {denied ? <Denied /> : loading ? <p className="muted">Loading…</p> : error ? <p className="error">{error}</p> : data && (
-        <>
-          <table>
-            <thead><tr><th>Item</th><th>Name</th><th>Category</th><th>Location</th><th className="num">On hand</th></tr></thead>
-            <tbody>
-              {data.rows.map((l, i) => (
-                <tr key={i}><td className="mono small">{l.itemIdOne}</td><td>{l.name ?? <span className="muted">?</span>}</td><td className="small">{l.category ?? "—"}</td><td>{l.location}</td><td className="num">{l.quantity}</td></tr>
-              ))}
-              {data.rows.length === 0 && <tr><td colSpan={5} className="muted">{negativeOnly ? "No negative stock — everything's at or above zero." : "No stock rows."}</td></tr>}
-            </tbody>
-          </table>
-          {data.matched > take && (
-            <div className="toolbar">
-              <button className="ghost small" disabled={skip === 0} onClick={() => setSkip(Math.max(0, skip - take))}>&larr; Prev</button>
-              <span className="muted small">{skip + 1}&ndash;{Math.min(skip + take, data.matched)} of {data.matched.toLocaleString()}</span>
-              <button className="ghost small" disabled={skip + take >= data.matched} onClick={() => setSkip(skip + take)}>Next &rarr;</button>
-            </div>
-          )}
-        </>
+      {denied ? <Denied /> : error ? <p className="error">{error}</p> : (
+        // FE4.3: server-mode DataTable (the endpoint already had search/skip/take), so search and
+        // page size move into the shared toolbar and the pager gains a true "X–Y of N".
+        <DataTable<V1StockLevel>
+          columns={[
+            { key: "itemIdOne", label: "Item", render: (l) => <span className="mono small">{l.itemIdOne}</span> },
+            { key: "name", label: "Name", render: (l) => l.name ?? <span className="muted">?</span> },
+            { key: "category", label: "Category", render: (l) => <span className="small">{l.category ?? "—"}</span> },
+            { key: "location", label: "Location" },
+            { key: "quantity", label: "On hand", numeric: true },
+          ]}
+          rows={data?.rows ?? []}
+          getKey={(l) => `${l.location}-${l.itemIdOne}`}
+          server={{
+            total: data?.matched ?? 0, skip, take, search,
+            onSearch: (s) => { setSkip(0); setSearch(s); },
+            onPage: (s, t) => { setSkip(s); setTake(t); },
+          }}
+          searchPlaceholder="Search barcode / name…"
+          emptyText={loading ? "Loading…" : negativeOnly ? "No negative stock — everything's at or above zero." : "No stock rows."}
+        />
       )}
     </>
   );

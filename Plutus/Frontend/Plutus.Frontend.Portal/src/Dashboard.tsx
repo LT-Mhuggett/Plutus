@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   csvUrl, fetchSales, fetchSummary, fetchDashboard, gbp,
-  type SaleRow, type Summary, type DashboardKpis,
+  type SaleRow, type Summary, type SummaryBucket, type DashboardKpis,
 } from "./api.ts";
-import { SortTh, useSort } from "./sortable.tsx";
+import DataTable from "./DataTable.tsx";
 import { useNav } from "./nav.tsx";
 import SaleDialog from "./SaleDialog.tsx";
 
@@ -149,8 +149,6 @@ export default function Dashboard({ variant = "report" }: { variant?: "report" |
 
   const t = summary?.totals;
   const buckets = useMemo(() => summary?.buckets ?? [], [summary]);
-  const bk = useSort(buckets, "period", "asc");
-  const sl = useSort(sales ?? [], "occurredAtUtc", "asc");
 
   return (
     <section className="panel">
@@ -187,53 +185,37 @@ export default function Dashboard({ variant = "report" }: { variant?: "report" |
       <BarChart buckets={buckets} />
 
       {variant === "report" && (<>
-      <table>
-        <thead><tr>
-          <SortTh label="Period" k="period" {...bk} />
-          <SortTh label="Gross" k="grossPence" num {...bk} />
-          <SortTh label="VAT" k="vatPence" num {...bk} />
-          <SortTh label="Txns" k="txnCount" num {...bk} />
-          <SortTh label="Avg basket" k="avgBasketPence" num {...bk} />
-          <th />
-        </tr></thead>
-        <tbody>
-          {bk.sorted.map((b) => (
-            <tr key={b.period}>
-              <td>{periodLabel(b.period)}</td>
-              <td className="num">{gbp(b.grossPence)}</td>
-              <td className="num">{gbp(b.vatPence)}</td>
-              <td className="num">{b.txnCount}</td>
-              <td className="num">{gbp(b.avgBasketPence)}</td>
-              <td><button className="ghost small" onClick={() => drill(b.period)}>{granularity === "day" || granularity === "week" ? "Sales" : "Drill"}</button></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <DataTable<SummaryBucket>
+        columns={[
+          { key: "period", label: "Period", render: (b) => periodLabel(b.period) },
+          { key: "grossPence", label: "Gross", numeric: true, render: (b) => gbp(b.grossPence) },
+          { key: "vatPence", label: "VAT", numeric: true, render: (b) => gbp(b.vatPence) },
+          { key: "txnCount", label: "Txns", numeric: true },
+          { key: "avgBasketPence", label: "Avg basket", numeric: true, render: (b) => gbp(b.avgBasketPence) },
+        ]}
+        rows={buckets} getKey={(b) => b.period} initialSortKey="period"
+        search={(b) => periodLabel(b.period)}
+        searchPlaceholder="Search period…"
+        rowActions={(b) => <button className="ghost small" onClick={() => drill(b.period)}>{granularity === "day" || granularity === "week" ? "Sales" : "Drill"}</button>}
+        emptyText="No trade in this range."
+      />
 
       {sales && (
         <>
           <h3>Sales</h3>
-          {sales.length === 0 && <p className="muted">No sales that day.</p>}
-          <table>
-            <thead><tr>
-              <SortTh label="Time" k="occurredAtUtc" {...sl} />
-              <SortTh label="Channel" k="channel" {...sl} />
-              <SortTh label="Gross" k="grossPence" num {...sl} />
-              <SortTh label="VAT" k="vatPence" num {...sl} />
-              <th />
-            </tr></thead>
-            <tbody>
-              {sl.sorted.map((s) => (
-                <tr key={s.id}>
-                  <td>{new Date(s.occurredAtUtc + "Z").toLocaleTimeString("en-GB")}</td>
-                  <td>{s.channel}{s.legacyRef ? " (migrated)" : ""}</td>
-                  <td className="num">{gbp(s.grossPence)}</td>
-                  <td className="num">{gbp(s.vatPence)}</td>
-                  <td><button className="ghost small" onClick={() => setOpenSale(s.id)}>Detail</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable<SaleRow>
+            columns={[
+              { key: "occurredAtUtc", label: "Time", render: (s) => new Date(s.occurredAtUtc + "Z").toLocaleTimeString("en-GB") },
+              { key: "channel", label: "Channel", render: (s) => `${s.channel}${s.legacyRef ? " (migrated)" : ""}` },
+              { key: "grossPence", label: "Gross", numeric: true, render: (s) => gbp(s.grossPence) },
+              { key: "vatPence", label: "VAT", numeric: true, render: (s) => gbp(s.vatPence) },
+            ]}
+            rows={sales} getKey={(s) => s.id} initialSortKey="occurredAtUtc"
+            search={(s) => `${s.id} ${s.channel}`}
+            searchPlaceholder="Search sale id / channel…"
+            rowActions={(s) => <button className="ghost small" onClick={() => setOpenSale(s.id)}>Detail</button>}
+            emptyText="No sales that day."
+          />
         </>
       )}
       </>)}

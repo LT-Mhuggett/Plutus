@@ -299,11 +299,19 @@ namespace Plutus.Webstore.Controllers
         [Authorize(Policy = "perm:portal.reports.view")]
         public async Task<IActionResult> Products(
             Guid id, [FromQuery] string? status, [FromQuery] string? linked,
+            [FromQuery] string? search,
             [FromQuery] int skip = 0, [FromQuery] int take = 50, CancellationToken ct = default)
         {
             take = Math.Clamp(take, 1, 200);
             var q = _db.WebstoreProducts.AsNoTracking().Where(p => p.WebStoreId == id);
             if (!string.IsNullOrEmpty(status)) q = q.Where(p => p.Status == status);
+            // FE4.2: name/SKU search so the catalogue can use the standard server-mode table
+            // (it had skip/take but no search — the shared table always offers a search box).
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim();
+                q = q.Where(p => p.Name.Contains(term) || (p.Sku != null && p.Sku.Contains(term)));
+            }
 
             var plutusSkus = _db.Items.AsNoTracking().Select(i => i.IdOne);
             if (linked == "yes") q = q.Where(p => p.Sku != null && plutusSkus.Contains(p.Sku));

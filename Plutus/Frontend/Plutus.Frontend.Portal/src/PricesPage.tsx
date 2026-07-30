@@ -89,24 +89,23 @@ export default function PricesPage() {
 
       {deviationsOnly && (<>
       <h3>Store price variance vs HQ</h3>
-      <table>
-        <thead><tr><th>Store</th><th>Item</th><th>Name</th><th>Policy</th><th className="num">HQ</th><th className="num">Store</th><th className="num">Δ</th><th /></tr></thead>
-        <tbody>
-          {variance.map((v) => (
-            <tr key={`${v.storeId}-${v.itemIdOne}`}>
-              <td>{v.storeId}</td>
-              <td className="mono small">{v.itemIdOne}</td>
-              <td>{v.name}</td>
-              <td>{v.policy}</td>
-              <td className="num">{gbp(v.hqPence)}</td>
-              <td className="num">{gbp(v.storePence)}</td>
-              <td className="num">{v.deltaPence > 0 ? "+" : ""}{gbp(v.deltaPence)}</td>
-              <td><button className="ghost small" onClick={() => void open(v.itemIdOne)}>Edit</button></td>
-            </tr>
-          ))}
-          {variance.length === 0 && <tr><td colSpan={8} className="muted">No store deviates from the HQ price.</td></tr>}
-        </tbody>
-      </table>
+      <DataTable<VarianceRow>
+        columns={[
+          { key: "storeId", label: "Store", numeric: true },
+          { key: "itemIdOne", label: "Item", render: (v) => <span className="mono small">{v.itemIdOne}</span> },
+          { key: "name", label: "Name" },
+          { key: "policy", label: "Policy" },
+          { key: "hqPence", label: "HQ", numeric: true, render: (v) => gbp(v.hqPence) },
+          { key: "storePence", label: "Store", numeric: true, render: (v) => gbp(v.storePence) },
+          { key: "deltaPence", label: "Δ", numeric: true, render: (v) => `${v.deltaPence > 0 ? "+" : ""}${gbp(v.deltaPence)}` },
+        ]}
+        rows={variance} getKey={(v) => `${v.storeId}-${v.itemIdOne}`}
+        initialSortKey="deltaPence" initialSortDir="desc"
+        search={(v) => `${v.storeId} ${v.itemIdOne} ${v.name} ${v.policy}`}
+        searchPlaceholder="Search item / name / policy…"
+        rowActions={(v) => <button className="ghost small" onClick={() => void open(v.itemIdOne)}>Edit</button>}
+        emptyText="No store deviates from the HQ price."
+      />
       </>)}
 
       {detail && (

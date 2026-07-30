@@ -131,10 +131,30 @@ export interface ParkedTransaction {
 }
 
 async function get<T>(url: string): Promise<T> {
+  return (await getPaged<T>(url)).rows;
+}
+
+/** FE4.2: the legacy `Index` endpoints have always returned the row count in `X-Pagination`, and
+ *  every frontend threw it away — so pagers guessed ("Next" enabled whenever a full page came
+ *  back). Surfacing it gives DataTable a true "X–Y of N" in server mode. total is null when the
+ *  endpoint doesn't send the header. */
+export interface Paged<T> { rows: T; total: number | null }
+
+export async function getPaged<T>(url: string): Promise<Paged<T>> {
   const res = await fetch(url, { headers: headers() });
   handle401(res);
   if (!res.ok) throw new Error(`API ${res.status} ${res.statusText}`);
-  return res.json();
+  const rows = (await res.json()) as T;
+  let total: number | null = null;
+  const raw = res.headers.get("X-Pagination");
+  if (raw) {
+    try {
+      const meta = JSON.parse(raw) as { TotalCount?: number; totalCount?: number };
+      const t = meta.TotalCount ?? meta.totalCount;
+      if (typeof t === "number") total = t;
+    } catch { /* header malformed — fall back to null */ }
+  }
+  return { rows, total };
 }
 
 async function send(method: string, url: string, body?: unknown, extraHeaders?: Record<string, string>): Promise<Response> {
@@ -148,15 +168,20 @@ async function send(method: string, url: string, body?: unknown, extraHeaders?: 
   return res;
 }
 
+const itemsUrl = (pageNumber: number, pageSize: number, search: string, catId: string) =>
+  `/api/Item/Index?PageNumber=${pageNumber}&PageSize=${pageSize}` +
+    (search ? `&Search=${encodeURIComponent(search)}` : "") +
+    // device pref: match each word ("batman one" → "Batman Year One"); server default is whole-phrase
+    (search && getPrefs().matchAllWords ? "&MatchAllWords=true" : "") +
+    // FE5.0: server-side category filter (was client-side over one page — showed nothing)
+    (catId ? `&CatId=${encodeURIComponent(catId)}` : "");
+
 export const fetchItems = (pageNumber: number, pageSize: number, search = "", catId = "") =>
-  get<Item[]>(
-    `/api/Item/Index?PageNumber=${pageNumber}&PageSize=${pageSize}` +
-      (search ? `&Search=${encodeURIComponent(search)}` : "") +
-      // device pref: match each word ("batman one" → "Batman Year One"); server default is whole-phrase
-      (search && getPrefs().matchAllWords ? "&MatchAllWords=true" : "") +
-      // FE5.0: server-side category filter (was client-side over one page — showed nothing)
-      (catId ? `&CatId=${encodeURIComponent(catId)}` : ""),
-  );
+  get<Item[]>(itemsUrl(pageNumber, pageSize, search, catId));
+
+/** FE4.2: rows + true total, for the inventory list's server-mode DataTable. */
+export const fetchItemsPaged = (pageNumber: number, pageSize: number, search = "", catId = "") =>
+  getPaged<Item[]>(itemsUrl(pageNumber, pageSize, search, catId));
 
 /** Till scan-bar search — ALL matches (server-filtered, no paging: the generic Index caps
  *  PageSize at 50, so "all" needs IgnorePagination); IndexedDB cache when offline. */

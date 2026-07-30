@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { downloadCsv, csvUrl, fetchVat, fetchVatIntegrity, gbp, type VatBucket, type VatIntegrity } from "./api.ts";
+import DataTable from "./DataTable.tsx";
+
+type OffBandItem = VatIntegrity["offBandItems"][number];
 
 // WP3.5 VAT: the till's VatReport UX (month/quarter/year, stat tiles, by-band table, off-band
 // integrity banner) — but the NUMBERS stay on /api/v1/reports/vat (VatRollups), which honours
@@ -84,19 +87,22 @@ export default function VatPage() {
           involving them are unreliable. New items are validated at entry; these are legacy records awaiting repair.{" "}
           <button className="linklike small" onClick={() => setShowOffenders((v) => !v)}>{showOffenders ? "hide list" : "show list"}</button>
           {showOffenders && (
-            <table className="small">
-              <thead><tr><th>Barcode / id</th><th>Name</th><th>Band</th><th className="num">Price</th><th className="num">Ex VAT (stored)</th><th className="num">Price implied by band</th></tr></thead>
-              <tbody>
-                {integrity.offBandItems.map((i) => (
-                  <tr key={i.id}>
-                    <td className="mono small">{i.id}</td><td>{i.name}</td><td>{i.band}</td>
-                    <td className="num">{gbp(Math.round(i.price * 100))}</td>
-                    <td className="num">{gbp(Math.round(i.exPrice * 100))}</td>
-                    <td className="num">{gbp(Math.round(i.expectedPrice * 100))}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            // FE4.3: standard table — this is a repair worklist that can run to dozens of items,
+            // so it needs sort/search/paging (the by-band totals below stay a fixed breakdown).
+            <DataTable<OffBandItem>
+              columns={[
+                { key: "id", label: "Barcode / id", render: (i) => <span className="mono small">{i.id}</span> },
+                { key: "name", label: "Name" },
+                { key: "band", label: "Band" },
+                { key: "price", label: "Price", numeric: true, render: (i) => gbp(Math.round(i.price * 100)) },
+                { key: "exPrice", label: "Ex VAT (stored)", numeric: true, render: (i) => gbp(Math.round(i.exPrice * 100)) },
+                { key: "expectedPrice", label: "Price implied by band", numeric: true, render: (i) => gbp(Math.round(i.expectedPrice * 100)) },
+              ]}
+              rows={integrity.offBandItems} getKey={(i) => i.id} initialSortKey="name"
+              search={(i) => `${i.id} ${i.name} ${i.band}`}
+              searchPlaceholder="Search barcode / name / band…"
+              emptyText="No off-band items."
+            />
           )}
         </div>
       )}
