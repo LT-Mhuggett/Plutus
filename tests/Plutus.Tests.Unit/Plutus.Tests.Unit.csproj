@@ -48,6 +48,9 @@
     <ProjectReference Include="..\..\src\Plutus.Customers\Plutus.Customers.csproj" />
     <!-- Phase 6: WooCommerce order→sale mapper tests. -->
     <ProjectReference Include="..\..\src\Plutus.Webstore\Plutus.Webstore.csproj" />
+    <!-- FE3: ESC/POS rendering for the till hardware agent. The Core project is deliberately
+         Windows-free so these run on any OS. -->
+    <ProjectReference Include="..\..\tools\Plutus.TillAgent.Core\Plutus.TillAgent.Core.csproj" />
   </ItemGroup>
 
   <!-- Phase 6: real, PII-scrubbed Woo fixtures loaded by WebstoreMapperTests at runtime. -->

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- FE3: the agent's hardware-independent core — the print-op wire contract and the ESC/POS
+       renderer. Deliberately a SEPARATE project from the (Windows-only) agent so the byte
+       generation can be unit-tested on any OS, including CI and the Mac. No Windows deps here. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Plutus.TillAgent.Core</RootNamespace>
+  </PropertyGroup>
+
+</Project>

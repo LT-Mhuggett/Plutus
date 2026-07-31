@@ -251,11 +251,58 @@ Client side is plain `fetch` — zero new npm dependencies (per §3.5's contract
 | WP | Scope | Status |
 |---|---|---|
 | FE3.0 | **Agent telemetry → portal (Matt, 2026-07-31: "see what agents are running on the tills in Locations").** Built AHEAD of the agent so the fleet view lights up the moment one is installed: 4 nullable columns on `Devices` (migration `AddAgentTelemetry`), `POST /api/v1/tills/agent-status` (SalesIngest-gated, tenant-checked, telemetry-not-audit — a poller must never grow an audit table), agent fields on the tills list, till `hardware.ts` (polls `http://127.0.0.1:9123/status` with a 1.5s timeout, reports on change or 6-hourly, NEVER affects till behaviour), and an agent chip on Locations' device chips. Semantics: never-reported = native till / pre-FE3 web till (no chip); reported with null version = **"no agent"** chip; reported with a version = **"agent v1.2.3 · printer ✓/offline"**. ⚠ NRT gotcha: the body record needed `string?` — [ApiController] + non-nullable string turns a null into an automatic 400 before the action runs. E2E: `Agent_telemetry_round_trips_from_device_report_to_the_tills_list`. Deployed 2026-07-31 (rollbacks `backend.pre-agenttel`, portal+till `current.pre-agenttel`); the live web till reports "no agent" on its next page load. | ✅ 2026-07-31 |
-| FE3.1 | Spike: skeleton tray app + `/status`; confirm HTTPS-page→localhost fetch on the till browser; test print through `CommonPOSLibrary` on a real deployed printer model. | ☐ |
-| FE3.2 | Agent v1: endpoints, token pairing, settings window, tray health, ESC/POS receipt formatting from the till's receipt payload. | ☐ |
-| FE3.3 | Till: `hardware.ts` facade; Settings "Hardware" card (agent URL default + token, test buttons); checkout wiring (silent print + drawer kick, PDF fallback); health indicator. | ☐ |
-| FE3.4 | Packaging: MSI/winget, auto-start; install doc in HANDOVER.md. | ☐ |
-| FE3.5 | Gate: end-to-end on a physical till PC — sale → silent receipt + drawer kick; unplug printer → PDF fallback + red indicator. | ☐ |
+| FE3.1 | Spike: skeleton tray app + `/status`; confirm HTTPS-page→localhost fetch on the till browser; test print through `CommonPOSLibrary` on a real deployed printer model. | ◑ **agent built + endpoints verified on the dev box 2026-07-31**; the two on-site checks remain (see below) |
+| FE3.2 | Agent v1: endpoints, token pairing, settings window, tray health, ESC/POS receipt formatting from the till's receipt payload. | ✅ 2026-07-31 |
+| FE3.3 | Till: `hardware.ts` facade; Settings "Hardware" card (agent URL default + token, test buttons); checkout wiring (silent print + drawer kick, PDF fallback); health indicator. | ✅ 2026-07-31 |
+| FE3.4 | Packaging: MSI/winget, auto-start; install doc in HANDOVER.md. | ✅ 2026-07-31 — self-contained single-file exe (61MB compressed) + self-registered auto-start + `tools/Plutus.TillAgent/README.md`. **MSI deliberately deferred** (see below). |
+| FE3.5 | Gate: end-to-end on a physical till PC — sale → silent receipt + drawer kick; unplug printer → PDF fallback + red indicator. | ☐ **needs Matt at a till PC** |
+
+### FE3 as built (2026-07-31) — five things worth knowing
+
+**1. The till sends a RENDERED DOCUMENT, not the sale.** `receiptDoc.ts` turns `ReceiptData` into a
+list of print ops (text+align/bold/large, rule, barcode, cut, drawer) and the agent only turns ops
+into bytes. Receipt layout — the per-store template, header/footer, VAT number, barcode toggle —
+already lives in the till and is cached per store; re-implementing it in the agent would mean two
+copies to keep in step, and the first template change would print the old receipt on paper and the
+new one on PDF. The op vocabulary is deliberately `CommonPOSLibrary.PrinterBaseOperations`, which the
+Xamarin/MAUI tills already speak.
+
+**2. ⚠ RAW spooler, not OPOS — and this is the one real on-site risk.** The agent writes ESC/POS
+straight to the Windows print queue (`RAW` datatype), which works with the ordinary vendor driver a
+shop printer is normally installed with. The MAUI/Xamarin tills instead use WinRT
+`Windows.Devices.PointOfService` (OPOS), which needs a vendor UPOS service object. If Kapow's printer
+only exposes itself that way the RAW path fails — so the transport sits behind `IReceiptTransport`
+and `ClientUI/.../PosPrinter.cs` is the port source. **FE3.1 on-site settles which.**
+
+**3. Security: loopback is NOT enough, so there's a pairing token.** Any web page the cashier opens
+can also fetch `localhost`, so `/print` and `/drawer/open` require `X-Agent-Token` (20 Crockford
+chars, generated on first run, typed into Settings → Hardware once). `/status` stays open — the till
+must be able to ask "is an agent here?" before pairing, and that is what feeds FE3.0's fleet view.
+
+**4. Graceful degradation is enforced, not hoped for.** Every `hardware.ts` call returns a boolean
+and swallows its own failure; the agent returns **503** (not 500) for "hardware unavailable" so the
+till reads it as a cue, not a bug. No agent / wrong token / printer off / agent wedged → the sale
+completes exactly as today and the browser receipt opens. A shop must keep trading with a dead
+printer.
+
+**5. What is actually verified, and what isn't.** Verified on the dev box by running the agent:
+`/status` unauthenticated; `/print` + `/drawer/open` **401** without the token; **503** with the token
+and an absent printer, surfacing the real Windows error (1801 = invalid printer name) — so the
+P/Invoke path is genuinely reached. ESC/POS byte generation is unit-tested (15 tests): mode resets
+(a missed one bleeds double-height down the receipt), **CP437 `£` = 0x9C** (UTF-8 here prints garbage
+on paper while looking perfect on screen), Code 39, cut-feeds, drawer pulse. NOT verified: paper out
+of Kapow's printer, the drawer physically opening, and whether the HTTPS till page may fetch
+`http://127.0.0.1` in the till's browser (expected to work — browsers treat loopback as potentially
+trustworthy — but a five-second check worth doing first).
+
+**MSI deferred, deliberately.** v1 is a copy-and-run exe that registers its own per-user auto-start
+(no admin rights). WiX authoring earns its keep when an install is repeated across many machines or
+pushed by Group Policy; for a handful of tills it is ceremony. The exe is the same artefact an MSI
+would carry, so packaging later changes nothing about the agent.
+
+**Till deploy:** rollback `/srv/apps/PLUTUS/web/current.pre-fe3`. The agent is not deployed anywhere —
+it is built on demand (`dotnet publish tools/Plutus.TillAgent`) and copied to a till PC; its build
+output is git-ignored.
 
 ## FE4 — Table standard everywhere
 

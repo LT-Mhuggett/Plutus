@@ -19,10 +19,21 @@ import { headers } from "./api.ts";
 
 export const AGENT_URL = "http://127.0.0.1:9123";
 
+/** The agent's pairing token, typed into Settings → Hardware once per till PC. Per device, like the
+ *  device credential — localStorage, never sent to the Plutus server. */
+const TOKEN_KEY = "plutus.agentToken";
+export const getAgentToken = (): string => localStorage.getItem(TOKEN_KEY) ?? "";
+export const setAgentToken = (t: string): void => {
+  if (t.trim()) localStorage.setItem(TOKEN_KEY, t.trim().toUpperCase());
+  else localStorage.removeItem(TOKEN_KEY);
+};
+
 export interface AgentStatus {
   agentVersion: string;
   printer?: { name?: string; online?: boolean };
   drawerSupported?: boolean;
+  paired?: boolean;
+  columns?: number;
 }
 
 /** What the agent said, or null when there is no (healthy) agent. Fast: a till
@@ -40,6 +51,69 @@ export async function fetchAgentStatus(): Promise<AgentStatus | null> {
   } catch {
     return null; // absent, refused, timed out, mixed-content blocked — all mean "no agent"
   }
+}
+
+// ── the print/drawer facade (FE3.3) ──────────────────────────────────────────
+// ⚠ GRACEFUL DEGRADATION IS THE RULE. Every function here returns a boolean and swallows its own
+// failures: no agent, wrong token, printer off, agent wedged — the till falls back to exactly
+// today's behaviour (the on-screen/PDF receipt) and NEVER blocks a sale. A shop must be able to
+// keep trading with a broken printer.
+
+/** Cached health so the checkout path doesn't wait on a poll. Refreshed by the reporter. */
+let cachedStatus: { at: number; status: AgentStatus | null } = { at: 0, status: null };
+const CACHE_MS = 10_000;
+
+/** Is there a usable agent right now? Cached ~10s; never throws. */
+export async function agentAvailable(): Promise<AgentStatus | null> {
+  if (Date.now() - cachedStatus.at < CACHE_MS) return cachedStatus.status;
+  const status = await fetchAgentStatus();
+  cachedStatus = { at: Date.now(), status };
+  return status;
+}
+
+/** The last known status without going near the network — for rendering an indicator. */
+export const lastKnownAgent = (): AgentStatus | null => cachedStatus.status;
+
+async function agentPost(path: string, body?: unknown): Promise<{ ok: boolean; detail?: string }> {
+  try {
+    const token = getAgentToken();
+    const res = await fetch(`${AGENT_URL}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { "X-Agent-Token": token } : {}) },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    if (res.ok) return { ok: true };
+    let detail = `Agent returned ${res.status}.`;
+    try { detail = (await res.json())?.detail ?? detail; } catch { /* keep */ }
+    return { ok: false, detail };
+  } catch (e) {
+    return { ok: false, detail: String(e instanceof Error ? e.message : e) };
+  }
+}
+
+/** Print a rendered document. Returns false when the till should fall back to the PDF receipt. */
+export async function printDocument(doc: unknown): Promise<boolean> {
+  if (!(await agentAvailable())) return false;
+  const r = await agentPost("/print", doc);
+  if (!r.ok) {
+    cachedStatus = { at: 0, status: null };   // force a re-probe; something changed
+    console.warn("[hardware] print failed:", r.detail);
+  }
+  return r.ok;
+}
+
+/** Kick the cash drawer. Silent no-op without an agent — the drawer is opened by hand today. */
+export async function openDrawer(): Promise<boolean> {
+  if (!(await agentAvailable())) return false;
+  const r = await agentPost("/drawer/open");
+  if (!r.ok) console.warn("[hardware] drawer failed:", r.detail);
+  return r.ok;
+}
+
+/** Settings-window test print, surfaced in the till so a manager can check the printer without
+ *  walking to the PC's tray icon. Returns the agent's own message on failure. */
+export async function testPrint(): Promise<{ ok: boolean; detail?: string }> {
+  return agentPost("/print/test");
 }
 
 /** The last snapshot we told the server about, so a stable situation (usually

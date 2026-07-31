@@ -11,6 +11,9 @@ import {
   type DeviceCredential,
 } from "./pipeline.ts";
 import { getPrefs, setPrefs, type Prefs } from "./prefs.ts";
+import {
+  fetchAgentStatus, getAgentToken, openDrawer, setAgentToken, testPrint, type AgentStatus,
+} from "./hardware.ts";
 import { ask } from "./Ask.tsx";
 import { getSession } from "./session.ts";
 import Receipt, { type ReceiptData } from "./till/Receipt.tsx";
@@ -43,6 +46,95 @@ const TEST_RECEIPT: ReceiptData = {
   totalExTaxPence: 700,
   payments: [{ name: "Cash", amountPence: 1000, changePence: 260 }],
 };
+
+/**
+ * FE3.3 the Hardware card: pair this browser with the Plutus Till Agent running on this PC, so
+ * receipts print silently on the receipt printer and the cash drawer kicks on a cash sale.
+ *
+ * Everything here is optional. With no agent the till behaves exactly as it does today (browser/PDF
+ * receipt, drawer opened by hand) — the card says so rather than looking broken.
+ */
+function HardwareSection({ canSettings }: { canSettings: boolean }) {
+  const [status, setStatus] = useState<AgentStatus | null>(null);
+  const [probed, setProbed] = useState(false);
+  const [token, setToken] = useState(getAgentToken());
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState("");
+
+  const probe = () => {
+    setProbed(false);
+    void fetchAgentStatus().then((s) => { setStatus(s); setProbed(true); });
+  };
+  useEffect(probe, []);
+
+  return (
+    <>
+      <h3 className="settings-h">Hardware (receipt printer &amp; cash drawer)</h3>
+      {!probed ? (
+        <p className="muted small">Looking for the Plutus Till Agent on this PC…</p>
+      ) : !status ? (
+        <p className="muted small">
+          No hardware agent found on this PC. Receipts print through the browser (PDF) and the cash drawer
+          is opened by hand — everything works, just not automatically. Install the{" "}
+          <strong>Plutus Till Agent</strong> to print silently and kick the drawer.{" "}
+          <button className="linklike small" onClick={probe}>Check again</button>
+        </p>
+      ) : (
+        <>
+          <dl className="env-info">
+            <dt>Agent</dt>
+            <dd>v{status.agentVersion}</dd>
+            <dt>Printer</dt>
+            <dd>
+              {status.printer?.name
+                ? <>{status.printer.name} {status.printer.online
+                    ? <span className="chip ok">ready</span>
+                    : <span className="chip">not responding</span>}</>
+                : <span className="error">none selected — open the agent's tray icon on this PC</span>}
+            </dd>
+            <dt>Paper</dt>
+            <dd>{status.columns === 32 ? "58mm" : "80mm"}</dd>
+          </dl>
+          <div className="setting-row">
+            <span className="grow">
+              Pairing token
+              <span className="muted small block">
+                From the agent's tray icon → Settings. Without it the agent refuses to print — which is what
+                stops any other web page on this PC driving your printer or drawer.
+              </span>
+            </span>
+            <input
+              className="pref-input"
+              placeholder="e.g. K7QP2M9WXT4RH3NB8DZ2"
+              value={token}
+              disabled={!canSettings}
+              onChange={(e) => setToken(e.target.value)}
+            />
+            <button className="ghost" disabled={!canSettings} onClick={() => { setAgentToken(token); setResult("Token saved."); }}>
+              Save token
+            </button>
+          </div>
+          <div className="setting-row">
+            <span className="grow muted small">Send a test receipt and a drawer kick to the hardware.</span>
+            <button className="ghost" disabled={!canSettings || busy} onClick={async () => {
+              setBusy(true); setResult("");
+              const r = await testPrint();
+              setResult(r.ok ? "Test receipt sent — check the printer." : `⚠ ${r.detail}`);
+              setBusy(false);
+            }}>Test print</button>{" "}
+            <button className="ghost" disabled={!canSettings || busy} onClick={async () => {
+              setBusy(true); setResult("");
+              const ok = await openDrawer();
+              setResult(ok ? "Drawer kick sent." : "⚠ The drawer kick failed — check the token and the printer.");
+              setBusy(false);
+            }}>Open drawer</button>
+          </div>
+          {result && <p className="small">{result}</p>}
+        </>
+      )}
+    </>
+  );
+}
 
 /** WP2.2 device enrolment (2026-07-24): this browser becomes an enrolled till device —
  *  the credential lives in localStorage (per browser, like the native till's identity)
@@ -328,16 +420,18 @@ export default function SettingsPage() {
       <h3 className="settings-h">Printer</h3>
       <div className="setting-row">
         <span className="grow">
-          Print a test receipt
+          Print a test receipt (browser)
           <span className="muted small block">
-            Printer choice and cash-drawer kick are configured at OS/driver level (see the hosting notes: kiosk-printing +
-            "open drawer on print").
+            The browser/PDF receipt — always available, and what the till falls back to when there is no
+            hardware agent.
           </span>
         </span>
         <button className="ghost" disabled={!canSettings} onClick={() => setTestPrint(true)}>
           Print test receipt
         </button>
       </div>
+
+      <HardwareSection canSettings={canSettings} />
 
       <h3 className="settings-h">Database</h3>
       <p className="muted small">

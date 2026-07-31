@@ -8,6 +8,8 @@ import { canManageCustomers } from "../pipeline.ts";
 import { gbp, parsePence } from "../money.ts";
 import { useBasket, basketTotals, lineDiscountPence, lineTotalPence, type BasketState } from "./basket.ts";
 import { getPrefs } from "../prefs.ts";
+import { agentAvailable, openDrawer, printDocument } from "../hardware.ts";
+import { receiptToDocument } from "./receiptDoc.ts";
 import { ask } from "../Ask.tsx";
 import CheckoutDialog from "./CheckoutDialog.tsx";
 import DiscountDialog from "./DiscountDialog.tsx";
@@ -582,21 +584,34 @@ export default function TillPage() {
             setReceipt(data);
             dispatch({ type: "clear" });
             setCustomer(null); // fresh sale starts with no customer attached
+
+            // FE3.3: kick the drawer on a cash sale. Fire-and-forget and silent when there is no
+            // agent — the drawer is opened by hand today and must keep working that way.
+            const tookCash = data.payments.some((p) => p.name.toLowerCase().includes("cash"));
+            if (tookCash) void openDrawer();
+
             // NatApp AskForReceipt: the ask wins over auto-print when enabled.
             // The sale is ALREADY committed at this point, so awaiting the operator's answer can't
             // affect it — the basket is cleared first and the receipt dialog opens either way.
             const p = getPrefs();
-            if (p.askReceipt) {
-              setDialog("receipt");
-              setPrintOnShow(await ask.confirm({
-                title: "Print receipt?",
-                confirmLabel: "Print",
-                cancelLabel: "No receipt",
-              }));
-            } else {
-              setPrintOnShow(p.autoPrintReceipt);
-              setDialog("receipt");
+            const wantsReceipt = p.askReceipt
+              ? await ask.confirm({ title: "Print receipt?", confirmLabel: "Print", cancelLabel: "No receipt" })
+              : p.autoPrintReceipt;
+
+            // FE3.3: with a healthy agent the receipt prints SILENTLY on the till printer — no
+            // browser print dialog. Any failure (no agent, printer off, wrong token) falls straight
+            // through to the existing browser/PDF receipt, so a sale is never held up by hardware.
+            let printedOnPaper = false;
+            if (wantsReceipt) {
+              const agent = await agentAvailable();
+              if (agent) {
+                printedOnPaper = await printDocument(
+                  receiptToDocument(data, agent.columns ?? 42, false));
+              }
             }
+            setPrintOnShow(wantsReceipt && !printedOnPaper);
+            setDialog("receipt");
+            if (printedOnPaper) setNotice("Receipt printed.");
           }}
         />
       )}

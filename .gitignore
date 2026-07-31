@@ -321,3 +321,7 @@ publish-osx/
 # delete. Ignored, so moving a tracked file in = it leaves the repo (git sees a delete) while
 # staying on disk locally. Empty it / delete for good once you're sure.
 /Archive/
+
+# FE3: the Till Agent's self-contained publish output (a 61MB exe — built on demand, never committed)
+tools/Plutus.TillAgent/bin/
+tools/Plutus.TillAgent/obj/

@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    FE3 "Plutus Till Agent" — the bridge between the browser till and the receipt printer / cash
+    drawer, which a web page cannot reach.
+
+    WinExe, not Exe: this is a tray app, and a console window on a till PC is something a cashier
+    will eventually close. It is deliberately NOT a Windows service — printer drivers (OPOS and
+    vendor alike) generally want an interactive user session, and till PCs auto-log-in anyway.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Plutus.TillAgent</RootNamespace>
+    <AssemblyName>PlutusTillAgent</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- The version the agent reports to the till, which forwards it to the portal's Locations
+         page (FE3.0). Bump this on every released build — it is how a stale agent is spotted. -->
+    <Version>1.0.0</Version>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <!-- One .exe to copy onto a till PC; no .NET install required on the machine. Self-contained
+         costs size (the runtime ships inside), so compress it — a till PC is installed once by
+         hand, and no runtime prerequisite is worth far more than the megabytes. Trimming is NOT
+         enabled: WinForms and the JSON model binding are reflection-heavy and trim badly. -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Plutus.TillAgent.Core\Plutus.TillAgent.Core.csproj" />
+  </ItemGroup>
+
+</Project>
