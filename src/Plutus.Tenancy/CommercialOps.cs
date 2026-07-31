@@ -59,6 +59,12 @@ namespace Plutus.Tenancy
 
         public static async Task EvaluateAsync(MySqlDbContext db, IOperatorAlerter alerter, DateTime nowUtc, CancellationToken ct = default)
         {
+            // A background pass has no signed-in user, and the context refuses to save without one
+            // ("CurrentUser not defined!"). Set it HERE, not in the caller — the sweep owns its own
+            // save, exactly like UsageSweep does. This lay dormant until the first tenant actually
+            // crossed a signal threshold (no signal → no tracked change → nothing to save → no
+            // throw), then failed every hourly run from 2026-07-29.
+            db.CurrentUser = "commercial-sweep";
             var today = DateOnly.FromDateTime(nowUtc);
             var windowStart = today.AddDays(-2 * ChurnThresholds.LookbackDays); // 56 days back
             var mid = today.AddDays(-ChurnThresholds.LookbackDays);
@@ -138,6 +144,7 @@ namespace Plutus.Tenancy
     {
         public static async Task EvaluateAsync(MySqlDbContext db, IOperatorAlerter alerter, DateTime nowUtc, CancellationToken ct = default)
         {
+            db.CurrentUser = "commercial-sweep";   // background save — see ChurnSweep for the why
             var tenants = await db.Tenants.AsNoTracking()
                 .Where(t => !t.IsSandbox && t.Status != 4)
                 .Select(t => new { t.Id, t.DpaSignedAtUtc }).ToListAsync(ct);
@@ -168,6 +175,7 @@ namespace Plutus.Tenancy
     {
         public static async Task EvaluateAsync(MySqlDbContext db, IOperatorAlerter alerter, DateTime nowUtc, CancellationToken ct = default)
         {
+            db.CurrentUser = "commercial-sweep";   // background save — see ChurnSweep for the why
             var contracts = await db.TenantContracts.AsNoTracking().ToListAsync(ct);
             var sandbox = new HashSet<Guid>(await db.Tenants.AsNoTracking().Where(t => t.IsSandbox).Select(t => t.Id).ToListAsync(ct));
 

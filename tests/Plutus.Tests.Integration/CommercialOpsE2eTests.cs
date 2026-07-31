@@ -67,6 +67,48 @@ public class CommercialOpsE2eTests : IClassFixture<PlutusAppFactory>
         Assert.DoesNotContain(ChurnSweep.AlertKey(tenant, TenantSignals.UsageDeclining), alerter.Open);
     }
 
+    /// <summary>
+    /// Regression (live, 2026-07-29 onward): the RetentionSweeper hands the commercial sweeps a
+    /// FRESH unscoped context with NO CurrentUser — and the context refuses to save without one.
+    /// The earlier test above masked this by setting CurrentUser itself, so the bug only surfaced in
+    /// production, and only once a real tenant first crossed a signal threshold (no signal → nothing
+    /// to save → no throw). This mirrors the sweeper's exact construction: no CurrentUser, a
+    /// signal-raising condition, and all three sweeps must save without help from the caller.
+    /// </summary>
+    [Fact]
+    public async Task The_sweeps_save_without_a_CurrentUser_set_like_the_background_sweeper_runs_them()
+    {
+        var tenant = Guid.NewGuid();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var alerter = new FakeAlerter();
+
+        using (var seedScope = _f.Services.CreateScope())
+        {
+            await using var seed = Unscoped(seedScope);
+            seed.CurrentUser = "sweeper-regression-seed";
+            // no DPA + a renewal 5 days out + declining usage → every sweep has something to WRITE
+            seed.Tenants.Add(new Tenant { Id = tenant, Name = "Sweeper Regression Co", Status = 1, Plan = "std", Entitlements = "[]", ConnectionRef = "", IsSandbox = false, CreatedAtUtc = DateTime.UtcNow.AddMonths(-6) });
+            seed.TenantContracts.Add(new TenantContract { TenantId = tenant, RenewalAtUtc = DateTime.UtcNow.AddDays(5), TermMonths = 12, PricePenceMonthly = 9900, Notes = "", UpdatedAtUtc = DateTime.UtcNow, UpdatedBy = "seed" });
+            seed.TenantUsageRollups.Add(new TenantUsageRollup { TenantId = tenant, BusinessDay = today.AddDays(-40), Metric = UsageMetrics.SalesCount, Value = 100 });
+            seed.TenantUsageRollups.Add(new TenantUsageRollup { TenantId = tenant, BusinessDay = today.AddDays(-5), Metric = UsageMetrics.SalesCount, Value = 10 });
+            await seed.SaveChangesAsync();
+        }
+
+        // the production shape: a brand-new context, CurrentUser NEVER set
+        using var scope = _f.Services.CreateScope();
+        await using var db = Unscoped(scope);
+        await ChurnSweep.EvaluateAsync(db, alerter, DateTime.UtcNow);
+        await RenewalSweep.EvaluateAsync(db, alerter, DateTime.UtcNow);
+        await ComplianceSweep.EvaluateAsync(db, alerter, DateTime.UtcNow);
+
+        // and the writes really landed — signals raised for all three sweeps
+        var open = await db.TenantSignals.Where(s => s.TenantId == tenant && s.ClearedAtUtc == null)
+            .Select(s => s.Signal).ToListAsync();
+        Assert.Contains(TenantSignals.UsageDeclining, open);
+        Assert.Contains(TenantSignals.RenewalDue, open);
+        Assert.Contains(TenantSignals.DpaMissing, open);
+    }
+
     [Fact]
     public async Task Contract_crud_is_platform_admin_and_audited()
     {

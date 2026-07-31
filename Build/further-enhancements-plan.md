@@ -773,10 +773,23 @@ cards were then hard-deleted (their entries carried no SaleId, so nothing refere
 `~/PLUTUS/backups/plutus-pre-fe7-20260730.sql.gz`. Migration `AddGiftCards` (two new tables only,
 nothing altered).
 
-⚠ **Pre-existing, unrelated:** `plutus-backend`'s log carries `commercial-sweep tenant=(null): Last
-run of 'commercial-sweep' failed: CurrentUser not defined!` — present since at least 29-Jul (13
-occurrences that day, before FE7 existed). Same class of bug as the FE1 backfill: a background job
-saving without setting `db.CurrentUser`. Not caused by FE7; worth its own fix.
+⚠ ~~**Pre-existing, unrelated:** `commercial-sweep … CurrentUser not defined!`~~ — **FIXED
+2026-07-31.** All three commercial sweeps (Churn/Renewal/Compliance) saved on a fresh unscoped
+context without setting `db.CurrentUser` — the fourth instance of this bug class (after the FE1/FE2
+backfills and FE6's till move). It lay dormant until 2026-07-29, when the first tenant actually
+crossed a signal threshold (no signal → nothing to save → no throw), then failed every hourly run.
+The existing test had masked it by setting CurrentUser itself; the new regression
+(`The_sweeps_save_without_a_CurrentUser_set…`) mirrors the sweeper's exact construction and was
+verified red-without/green-with the fix. Each sweep now sets its own CurrentUser, like `UsageSweep`
+always did. Live: the first-ever successful run (08:48, JobRuns status 1) immediately raised the one
+signal it had been trying to write — **`dpa-missing` for Kapow Comics Ltd** (no signed DPA on
+record), now visible on the Platform dashboard. Rollback `backend.pre-sweepfix`.
+
+**FE7.7 decision MADE (2026-07-31, Matt's instruction):** the live Kapow tenant is declared
+**multi-purpose** (catalogue is 20%/5%/Exempt — mixed rates, which is the MPV case under the rules).
+Gift cards are now enabled live; the choice stays changeable in the portal until the first card is
+sold. The declaration smoke-test card was deleted (unsold, worthless); GiftCards/GiftCardEntries
+back to 0 rows.
 
 ## FE8 — Search refinements
 
