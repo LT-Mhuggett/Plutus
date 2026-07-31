@@ -116,17 +116,33 @@ namespace Plutus.Identity
         /// fallback (pos.sell, plus portal.tills.enrol for legacy Admin/Management) so login
         /// never breaks before `SeedMigrator rbac` has run. Time windows evaluated at
         /// <paramref name="nowLocal"/>.
+        ///
+        /// The RBAC branch returns the user's FULL effective permission set, not a hand-picked
+        /// pair. It used to emit only pos.sell + portal.tills.enrol, which made the token LIE to
+        /// the frontends: the till's UI can only read the token's Scope claim, so an Owner saw
+        /// "you don't have permission to change device settings" while the server (whose perm:*
+        /// gates resolve from RBAC directly) would happily have allowed it. Carrying extra codes
+        /// grants nothing by itself — a scope only opens what some policy names, and the only
+        /// scope-based policies are pos.sell / portal.tills.enrol / device / sales.ingest /
+        /// tills.name. platform-admin can never appear here: it is not a permission code, and
+        /// RbacRoleGrants only stores catalogue codes.
         /// </summary>
         public async Task<IReadOnlyList<string>> ResolveLoginScopesAsync(Guid userId, DateTime nowLocal)
         {
             var scopes = new List<string>();
             if (await HasAnyAssignmentsAsync(userId))
             {
-                if (await HasAnywhereAsync(userId, PermissionCatalogue.PosSell, nowLocal))
-                    scopes.Add(PlutusPolicies.PosSell);
-                if (await HasAnywhereAsync(userId, PermissionCatalogue.PortalTillsEnrol, nowLocal))
-                    scopes.Add(PlutusPolicies.PortalTillsEnrol);
-                return scopes;
+                var assignments = await _db.RbacRoleAssignments.AsNoTracking()
+                    .Include(a => a.Role).ThenInclude(r => r.Grants)
+                    .Where(a => a.UserId == userId)
+                    .ToListAsync();
+                return assignments.Where(a => InWindow(a, nowLocal))
+                    .SelectMany(a => a.Role.Grants)
+                    .Select(g => g.PermissionCode)
+                    .Where(PermissionCatalogue.IsKnown)   // unknown codes stay out of tokens
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(s => s, StringComparer.Ordinal)
+                    .ToList();
             }
 
             scopes.Add(PlutusPolicies.PosSell);

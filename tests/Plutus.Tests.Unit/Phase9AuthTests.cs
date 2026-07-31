@@ -187,6 +187,46 @@ public class Phase9AuthTests
     public void Router_sends_device_tokens_to_hmac_and_jwts_to_the_idp(string header, string expectedScheme)
         => Assert.Equal(expectedScheme, AuthSchemeRouter.Select(header));
 
+    /// <summary>
+    /// Regression (Matt, 2026-07-31): an OWNER opened the till's Settings and was told they lacked
+    /// permission to change device settings. The resolver used to emit only pos.sell +
+    /// portal.tills.enrol, so the token LIED to the till's UI (which can only read the Scope claim)
+    /// — the server's perm:* gates would have allowed it all along. The token must carry the user's
+    /// full effective permission set.
+    /// </summary>
+    [Fact]
+    public async Task Login_scopes_carry_the_full_effective_permission_set()
+    {
+        var conn = new SqliteConnection("DataSource=:memory:;Foreign Keys=False");
+        conn.Open();
+        using var ctx = Ctx(conn);
+        ctx.Database.EnsureCreated();
+
+        var owner = Guid.NewGuid();
+        await RbacSeeder.EnsureBuiltInRolesAsync(ctx, Tenant);
+        var role = await ctx.RbacRoles.FirstAsync(r => r.Name == "Owner");
+        ctx.RbacRoleAssignments.Add(new RbacRoleAssignment
+        {
+            Id = Uuid7.New(), TenantId = Tenant, UserId = owner, RoleId = role.Id,
+            ScopeType = RbacScopeType.Tenant, ScopeId = "", CreatedAtUtc = DateTime.UtcNow,
+        });
+        await ctx.SaveChangesAsync();
+
+        var scopes = await new EffectivePermissionsService(ctx).ResolveLoginScopesAsync(owner, DateTime.Now);
+
+        // the ones the till's UI actually checks (canManageSettings / canManageCustomers /
+        // canEnrolTills), and the baseline
+        Assert.Contains(PermissionCatalogue.PosSettingsManage, scopes);
+        Assert.Contains(PermissionCatalogue.CustomersManage, scopes);
+        Assert.Contains(PermissionCatalogue.PortalTillsEnrol, scopes);
+        Assert.Contains(PermissionCatalogue.PosSell, scopes);
+        // every emitted scope is a known catalogue code — and NEVER platform-admin, which is not a
+        // permission and must only ever arrive via a real IdP token
+        Assert.All(scopes, s => Assert.True(PermissionCatalogue.IsKnown(s), s));
+        Assert.DoesNotContain(PlutusPolicies.PlatformAdmin, scopes);
+        conn.Dispose();
+    }
+
     [Fact]
     public async Task Login_scope_resolver_falls_back_to_pos_sell_without_assignments()
     {
