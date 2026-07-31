@@ -1,7 +1,101 @@
 # Handover — Plutus platform build
 
-**Date:** 2026-07-28 — Platform now on **.NET 10** (merged Development: net10 + MAUI + Mapster).
-**All 18 phases + the Operator Portal (OP1–OP4) built & LIVE.** Head `00d4074`.
+**Date:** 2026-07-31 — Platform on **.NET 10**. All 18 phases + Operator Portal (OP1–OP4), the
+**portal/till refresh (P1–P6)** and **`Build/further-enhancements-plan.md` FE1–FE9** built & LIVE.
+Head `5de9811`.
+
+### ⏰⏰⏰ RESUME HERE (2026-07-31)
+
+Suite: **Unit 333 · Architecture 6 · Integration 63 — green.** (The two legacy projects
+`Plutus.Entities.Tests` / `Plutus.Repository.Tests` fail without a live MySQL — pre-existing, not a
+regression.)
+
+**Everything in `Build/further-enhancements-plan.md` is done and live except the FE3 on-site
+spike.** That plan is the source of truth for the detail; this is the operator's summary.
+
+#### What shipped (2026-07-30 → 31)
+
+| | Feature | Notes |
+|---|---|---|
+| FE1 | Loyalty tier catalogue | Pre-defined tiers assigned from a dropdown; re-rating a tier moves every member (live-follow). Migration `AddLoyaltyTiers`. |
+| FE2 | Member numbers + printable cards | `NNNNNNC` (6-digit sequence + Crockford check char), `C…` barcode, scan-to-attach at the till. Migration `AddMemberNumbers`. |
+| FE3 | **Hardware helper agent** | **Built, NOT yet verified on real hardware — see below.** |
+| FE4 | Table standard everywhere | 29 tables on the shared `DataTable` (sort, 25/50/100, paging). `sortable.tsx` deleted. |
+| FE5 | Inventory upgrade | Category filter fix + click-through, current-stock column, permission-gated bulk edit, the **Bin** (soft delete), unlimited stock. Migration `AddItemBinAndUntrackedStock`. |
+| FE6 | Locations & till identity | Re-issue an enrolment code for an existing till, move a till between stores, one-active-device rule, device-chip cleanup. |
+| FE7 | **Gift cards** | Ledger-backed codes, sell/redeem at the till, portal tab, voucher + A4 + batch print, liability report. Migrations `AddGiftCards`, `AddGiftCardSettings`. |
+| FE8 | Search refinements | Word matching (`batman one` → *Batman Year One*); `"quoted"` = exact phrase. |
+| FE9 | Users & Roles | Set/reset passwords, guarded removal, roles reference, per-user access matrix, per-user **Activity** (audit slice). Migration `AddPasswordResetAndLastLogin`. |
+| — | In-app dialogs | All 14 `window.confirm/prompt/alert` replaced by `Ask.tsx` (twin file, portal + till). Move-till now picks a **store from a list**, not a number. |
+| — | FE3.0 agent telemetry | Migration `AddAgentTelemetry`. |
+
+#### ⚠ Things a new session must know
+
+1. **Gift-card VAT treatment is a per-tenant DECISION that gates the feature.** Under the
+   [2019 voucher rules](https://www.gov.uk/government/publications/changes-to-the-vat-treatment-of-vouchers/vat-treatment-of-vouchers-from-1-january-2019),
+   single-purpose (one VAT rate across the catalogue) = VAT when the card is **sold**;
+   multi-purpose (mixed rates) = VAT when it is **spent**. `GiftCardSettings`' ABSENCE 409s
+   generate/activate/redeem, and the portal shows only the decision screen. **Kapow is declared
+   multi-purpose** (2026-07-31, Matt's instruction — catalogue is 20%/5%/Exempt). The choice
+   **locks at the first card sale**; re-affirming the same value is always a no-op.
+2. **A gift-card activation must post ZERO VAT** under multi-purpose. `GiftCardSaleItem.EnsureAsync`
+   provisions a `GIFT-CARD` catalogue row per business at startup: zero-rate band, stock-untracked,
+   own "Gift cards" category. It has to be a REAL item — the legacy sale projection writes a
+   `Transaction` whose `(ItemIdOne, ItemIdTwo)` is a **FK to Items**. Pinned by `GiftCardVatTests`
+   through to `VatRollups`.
+3. **`db.CurrentUser` must be set before ANY background save.** Four separate outages from this now
+   (FE1 backfill, FE2 backfill, FE6 till move, and the commercial sweeps, which failed every hourly
+   run from 29-Jul until fixed on 31-Jul). If you write a job, set it.
+4. **Login tokens carry the user's FULL effective permission set** (fixed 31-Jul). They previously
+   emitted only `pos.sell` + `portal.tills.enrol`, so the till UI hid features an Owner was entitled
+   to while the server would have allowed them. **Existing sessions keep the old token for 12h — sign
+   out and back in after deploying anything permission-related.**
+5. **RBAC seeding is NOT run on startup.** A deploy that adds a permission MUST run
+   `Plutus.SeedMigrator rbac --mysql "…"` afterwards, from a FRESHLY PUBLISHED SeedMigrator
+   (`RbacSeeder` compiles into it — a stale binary re-seeds the old set).
+6. **Migrations auto-apply on backend start** (`Database.Migrate()`). Dump before any deploy
+   carrying one.
+7. **Legacy CRUD controllers bind EF entities directly.** `LegacyEntityValidationMetadataProvider`
+   (in `Plutus.Web.Infrastructure`, wired in `ConfigureControllers`) drops MVC's *inferred*
+   `[Required]` on their navigation properties, collections and server-owned audit stamps —
+   without it, every item edit 400s demanding `Cat`, `Tax`, `CreatedBy`… Explicit `[Required]`
+   still applies. Don't "simplify" this to the global suppression switch.
+
+#### FE3 — the only unfinished feature
+
+Built and committed (`5de9811`): `tools/Plutus.TillAgent` (WinForms tray app, Kestrel on
+`127.0.0.1:9123`, token-guarded `/print` `/drawer/open`, RAW-spooler ESC/POS) and
+`tools/Plutus.TillAgent.Core` (wire contract + renderer, 15 unit tests). The till has the Hardware
+card in Settings, prints silently when an agent is healthy, kicks the drawer on cash, and falls back
+to the browser receipt otherwise. Runbook: `tools/Plutus.TillAgent/README.md`.
+
+**Verified on the dev box:** `/status` unauthenticated, 401 without the token, 503 + the real
+Windows error with an absent printer. **NOT verified — needs Matt at a till PC (FE3.1/FE3.5):**
+paper out of Kapow's printer, the drawer opening, and that the HTTPS till page may fetch
+`http://127.0.0.1` in that browser. ⚠ **The agent uses the RAW print spooler; the MAUI/Xamarin tills
+use WinRT PointOfService (OPOS).** If Kapow's printer only exposes OPOS the RAW path fails — the
+transport is behind `IReceiptTransport` and `ClientUI/.../PosPrinter.cs` is the port source. That is
+a port, not a rewrite, but it is the one real unknown.
+
+#### Rollbacks for this session's deploys
+
+Backend: `~/PLUTUS/backend.pre-fe1|.pre-fe2|.pre-fe4|.pre-fe5|.pre-fe6|.pre-fe9|.pre-fe7|.pre-fe7vat|.pre-sweepfix|.pre-agenttel|.pre-scopefix`.
+Portal/till: `/srv/apps/PLUTUS/{portal,web}/current.pre-*` (matching tags; till also `.pre-fe3`).
+DB dumps: `~/PLUTUS/backups/plutus-pre-{fe1,fe2,fe5,fe7,fe9}-2026073*.sql.gz`.
+
+#### Still open
+
+- **FE3.1/FE3.5** — the shop visit above.
+- **Email provider** not enabled (Platform → Notifications). Password-reset/invite links are
+  created but **not delivered**; the UI says so. Matt's call, deliberately paused.
+- **`dpa-missing` signal** now raised for Kapow (the compliance sweep works again) — record a DPA
+  date or ignore.
+- **Keycloak realm JSON drift** — live fixes (client-roles mapper, account-console scopes) are NOT
+  in `ops/keycloak/plutus-realm.json`; a re-import would regress operator login.
+- **Boot persistence** — `plutus-backend` is not in `pm2 save` and Colima does not auto-start, so a
+  Mac reboot takes the backend (and operator login) down until started by hand.
+- **Gift cards is its own portal tab**, deviating from the plan's "section on Loyalty" default —
+  recorded in the plan for Matt to veto (~15 min to move).
 
 ### ⏰⏰ RESUME HERE (2026-07-29)
 Suite: **Unit 214 · Architecture 6 · Integration 39 — green.**

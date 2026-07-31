@@ -1,4 +1,4 @@
-import { useReducer } from "react";
+import { useEffect, useReducer } from "react";
 import type { Discount, Item } from "../api.ts";
 import { toPence } from "../money.ts";
 
@@ -168,7 +168,49 @@ function reduce(state: BasketState, action: Action): BasketState {
   }
 }
 
-export const useBasket = () => useReducer(reduce, { lines: [], nextKey: 1 });
+// ── the in-progress basket survives navigation (and a refresh) ───────────────
+// The basket used to live only in TillPage's state, so switching to Cash/Inventory/Reporting
+// unmounted the page and silently threw the sale away — a cashier who nipped to Inventory to check
+// a price came back to an empty till. It now persists until the sale completes or the lines are
+// removed, which is what a till is expected to do. A refresh or a browser crash mid-sale is
+// recovered for the same reason.
+//
+// The stored basket is DROPPED after a trading day: a half-scanned basket reappearing on Monday
+// morning would be worse than losing it, because the cashier would not necessarily notice it was
+// there before adding today's items.
+const STORAGE_KEY = "plutus.basket";
+const MAX_AGE_MS = 12 * 60 * 60 * 1000;
+const EMPTY: BasketState = { lines: [], nextKey: 1 };
+
+function loadPersisted(): BasketState {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return EMPTY;
+    const saved = JSON.parse(raw) as { at: number; state: BasketState };
+    if (!saved?.state || !Array.isArray(saved.state.lines) || saved.state.lines.length === 0) return EMPTY;
+    if (!(saved.at > 0) || Date.now() - saved.at > MAX_AGE_MS) { localStorage.removeItem(STORAGE_KEY); return EMPTY; }
+    return saved.state;
+  } catch {
+    // corrupt or unreadable — start clean rather than wedge the till on a bad string
+    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+    return EMPTY;
+  }
+}
+
+export const useBasket = () => {
+  const [state, dispatch] = useReducer(reduce, undefined, loadPersisted);
+  useEffect(() => {
+    try {
+      // An empty basket clears the key outright, so "sale completed" and "lines removed" both
+      // leave nothing behind to restore.
+      if (state.lines.length === 0) localStorage.removeItem(STORAGE_KEY);
+      else localStorage.setItem(STORAGE_KEY, JSON.stringify({ at: Date.now(), state }));
+    } catch {
+      // private mode / quota — the till keeps working, it just won't survive navigation
+    }
+  }, [state]);
+  return [state, dispatch] as const;
+};
 
 /** Pence knocked off a line by its discount (0 when none). Matches the MAUI
  *  engine: type 0 = fixed amount per unit, else fraction of the line value. */

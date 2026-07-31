@@ -264,7 +264,12 @@ namespace Plutus.DBService.Extensions
 
         public static void ConfigureControllers(this IServiceCollection services)
         {
-            services.AddControllers()
+            services.AddControllers(options =>
+                    // The legacy CRUD controllers bind EF entities directly; without this, MVC's
+                    // inferred [Required] on their navigation properties and server-owned audit
+                    // stamps 400s every edit. Narrowly scoped — see the provider.
+                    options.ModelMetadataDetailsProviders.Add(
+                        new Plutus.Infrastructure.Validation.LegacyEntityValidationMetadataProvider()))
                 // Register controllers that live in module assemblies (T0.2b). MVC's default
                 // part discovery usually finds these via the dependency graph, but wiring them
                 // explicitly is deterministic and self-documents which modules ship controllers.

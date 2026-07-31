@@ -33,6 +33,10 @@ const MEMBER_CARD = /^C[0-9A-Z]{7}$/i;
  *  the balance. A product barcode that happens to match falls through to the item lookup. */
 const GIFT_CARD = /^G[0-9A-Z]{13}$/i;
 
+/** The customer attached to the persisted basket (see useBasket) — stored beside it so navigating
+ *  away and back restores the whole sale, member discount included. */
+const CUSTOMER_KEY = "plutus.basketCustomer";
+
 export default function TillPage() {
   const [basket, dispatch] = useBasket();
   const [scan, setScan] = useState("");
@@ -65,6 +69,13 @@ export default function TillPage() {
 
   // Customer attach (Phase 8 retrofit): drives the members' auto-discount + store-credit tender.
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);
+  // The attached customer rides along with the persisted basket. Restoring the LINES without the
+  // member would leave member-discounted lines on screen with nobody attached — the discount would
+  // look unexplained, and the next scanned item wouldn't get it.
+  const [savedCustomerId] = useState<string | null>(() => {
+    try { return localStorage.getItem(CUSTOMER_KEY); } catch { return null; }
+  });
+  const [customerRestored, setCustomerRestored] = useState(false);
   const [showCust, setShowCust] = useState(false);
   const [custSearch, setCustSearch] = useState("");
   const [custResults, setCustResults] = useState<CustomerSummary[] | null>(null);
@@ -72,6 +83,28 @@ export default function TillPage() {
   const [custForm, setCustForm] = useState<{ id: string | null; name: string; email: string; phone: string } | null>(null);
 
   const totals = basketTotals(basket.lines);
+
+  // Re-attach the customer the persisted basket was rung up against. Runs once, and only when a
+  // basket actually came back with us — a leftover id with an empty basket is just stale.
+  useEffect(() => {
+    if (!savedCustomerId || basket.lines.length === 0) { setCustomerRestored(true); return; }
+    let cancelled = false;
+    void getCustomer(savedCustomerId)
+      .then((c) => { if (!cancelled) setCustomer(c); })
+      .catch(() => undefined)   // deleted/unreachable → carry on without them
+      .finally(() => { if (!cancelled) setCustomerRestored(true); });
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ...and keep that pointer in step. Gated on the restore having settled, so the initial
+  // customer=null doesn't wipe the id before it has been read.
+  useEffect(() => {
+    if (!customerRestored) return;
+    try {
+      if (customer) localStorage.setItem(CUSTOMER_KEY, customer.id);
+      else localStorage.removeItem(CUSTOMER_KEY);
+    } catch { /* private mode — the basket still works */ }
+  }, [customer, customerRestored]);
 
   // Auto-apply the members' discount to eligible lines whenever a member is attached or a new
   // line is added (applyMemberDiscount only touches lines without a discount — no stacking).
