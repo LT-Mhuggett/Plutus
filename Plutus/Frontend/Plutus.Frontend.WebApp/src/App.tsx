@@ -11,6 +11,7 @@ import HelpPanel from "./HelpPanel.tsx";
 import LoginPage from "./LoginPage.tsx";
 import { ackPickNotification, drainOutbox, fetchActiveAnnouncements, fetchPickNotifications, fetchTillName, loadReceiptTemplate, onOutboxChanged, syncCatalogue, type ActiveAnnouncement, type PickNotification } from "./api.ts";
 import { getDeviceCredential } from "./pipeline.ts";
+import { startAgentReporter } from "./hardware.ts";
 import { queuedCount } from "./offline.ts";
 import { getSession, type Session } from "./session.ts";
 import { oidcMode, signOut } from "./auth.ts";
@@ -77,6 +78,13 @@ export default function App() {
       }
     })();
   }, []);
+
+  // FE3.0: poll the local hardware agent (if any) and report its version + printer health so the
+  // portal's Locations page can see the fleet. Enrolled tills only; never affects till behaviour.
+  useEffect(() => {
+    if (!session || !getDeviceCredential()) return;
+    return startAgentReporter();
+  }, [session]);
 
   // Offline plumbing: connectivity indicator, outbox badge, replay on reconnect,
   // and a background pull of the item catalogue for offline scanning.

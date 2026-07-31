@@ -111,6 +111,59 @@ public class E2eTests : IClassFixture<PlutusAppFactory>
         Assert.Equal(HttpStatusCode.NoContent, rs);
     }
 
+    /// <summary>
+    /// FE3.0 (Matt): agents must report their version + health back through the till so the portal's
+    /// Locations page can see what runs on each till PC. The web till POSTs what it found on
+    /// localhost (a device-token call); the tills list carries it per device. A report with a NULL
+    /// version is meaningful — "this web till looked and found no agent" — and must round-trip too.
+    /// </summary>
+    [Fact]
+    public async Task Agent_telemetry_round_trips_from_device_report_to_the_tills_list()
+    {
+        var c = _f.CreateClient();
+        var (deviceToken, tenantId, tillId) = await ProvisionAndEnrol(c, "agent-telemetry@acme.test");
+        var portal = PlutusAppFactory.OperatorToken(PlutusPolicies.PortalTillsEnrol, tenantId);
+
+        async Task<JsonElement> MyDeviceAsync()
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, "/api/v1/tills");
+            req.Headers.Authorization = new("Bearer", portal);
+            var body = JsonDocument.Parse(await (await c.SendAsync(req)).Content.ReadAsStringAsync()).RootElement;
+            var till = body.EnumerateArray().Single(t => Prop(t, "id").GetGuid() == tillId);
+            return Prop(till, "devices").EnumerateArray().Single().Clone();
+        }
+
+        // never reported yet
+        var before = await MyDeviceAsync();
+        Assert.Equal(JsonValueKind.Null, Prop(before, "agentReportedAtUtc").ValueKind);
+        var deviceId = Prop(before, "id").GetGuid();
+
+        // the till reports a healthy agent → the list shows version + printer state
+        var (s1, b1) = await Post(c, "/api/v1/tills/agent-status",
+            new { deviceId, agentVersion = "1.2.3", printerName = "Epson TM-T88V", printerOnline = true }, deviceToken);
+        Assert.True(s1 == HttpStatusCode.NoContent, $"agent-status → {(int)s1}: {b1}");
+
+        var healthy = await MyDeviceAsync();
+        Assert.Equal("1.2.3", Prop(healthy, "agentVersion").GetString());
+        Assert.Equal("Epson TM-T88V", Prop(healthy, "agentPrinterName").GetString());
+        Assert.True(Prop(healthy, "agentPrinterOnline").GetBoolean());
+        Assert.NotEqual(JsonValueKind.Null, Prop(healthy, "agentReportedAtUtc").ValueKind);
+
+        // the agent is uninstalled → the till reports "none found"; the fact it CHECKED is kept
+        var (s2, _) = await Post(c, "/api/v1/tills/agent-status",
+            new { deviceId, agentVersion = (string)null, printerName = (string)null, printerOnline = (bool?)null }, deviceToken);
+        Assert.Equal(HttpStatusCode.NoContent, s2);
+
+        var gone = await MyDeviceAsync();
+        Assert.Equal(JsonValueKind.Null, Prop(gone, "agentVersion").ValueKind);
+        Assert.NotEqual(JsonValueKind.Null, Prop(gone, "agentReportedAtUtc").ValueKind);
+
+        // a device id from nowhere → 404 (and the tenant check makes a foreign device look the same)
+        var (s3, _) = await Post(c, "/api/v1/tills/agent-status",
+            new { deviceId = Guid.NewGuid(), agentVersion = "6.6.6" }, deviceToken);
+        Assert.Equal(HttpStatusCode.NotFound, s3);
+    }
+
     [Fact]
     public async Task Unauthenticated_ingest_is_rejected()
     {

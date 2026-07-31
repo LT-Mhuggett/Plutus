@@ -19,6 +19,26 @@ import { ask } from "./Ask.tsx";
  * Note there can be at most one live device per till (FE6.1's one-active-device rule), so the
  * common case is exactly one chip.
  */
+/** FE3.0: what we know about a device's hardware agent, as a chip. Never reported → nothing (a
+ *  native till, or a web till from before this feature). Reported without a version → the web till
+ *  looked at its PC and found no agent installed. */
+function AgentChip({ d }: { d: TillRow["devices"][number] }) {
+  if (!d.agentReportedAtUtc) return null;
+  const reported = new Date(d.agentReportedAtUtc + "Z").toLocaleString("en-GB");
+  if (!d.agentVersion) {
+    return <span className="chip" title={`The till checked its PC and found no hardware agent (last checked ${reported}). Receipts print as PDF.`}>no agent</span>;
+  }
+  const printerBad = d.agentPrinterOnline === false;
+  return (
+    <span
+      className={`chip ${printerBad ? "warn" : "ok"}`}
+      title={`Plutus Till Agent v${d.agentVersion}${d.agentPrinterName ? ` · printer: ${d.agentPrinterName}` : ""} — reported ${reported}`}
+    >
+      agent v{d.agentVersion}{printerBad ? " · printer offline" : d.agentPrinterOnline ? " · printer ✓" : ""}
+    </span>
+  );
+}
+
 function DeviceChips({ devices }: { devices: TillRow["devices"] }) {
   const live = devices.filter((d) => d.status !== "Revoked");
   const retired = devices.length - live.length;
@@ -26,8 +46,11 @@ function DeviceChips({ devices }: { devices: TillRow["devices"] }) {
   return (
     <>
       {live.map((d) => (
-        <span key={d.id} className={`chip ${d.status === "Active" ? "ok" : "warn"}`}>
-          {d.status === "PendingRemoval" ? "Pending removal" : d.status}
+        <span key={d.id}>
+          <span className={`chip ${d.status === "Active" ? "ok" : "warn"}`}>
+            {d.status === "PendingRemoval" ? "Pending removal" : d.status}
+          </span>{" "}
+          <AgentChip d={d} />
         </span>
       ))}
       {live.length === 0 && <span className="chip bad" title="Every device for this till has been revoked — issue a New code to enrol one">not enrolled</span>}

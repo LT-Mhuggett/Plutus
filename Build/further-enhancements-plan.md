@@ -233,6 +233,9 @@ Client side is plain `fetch` — zero new npm dependencies (per §3.5's contract
 - Self-contained single-file publish → MSI (WiX) or `winget` manifest; per-machine install.
 - Auto-update **deferred** (v1: version surfaces in `/status` and on the portal's till list
   via the existing device-heartbeat path, so stale agents are visible; update = reinstall).
+- **FE3.0 (done) is that visibility path**: the agent only has to serve `/status` with
+  `{ agentVersion, printer: { name, online } }` — the till already forwards it and Locations
+  already displays it. The FE3.2 agent needs no server-side work to be fleet-visible.
 
 ### Risks / notes
 - Mixed-content: the till is served over HTTPS calling `http://127.0.0.1` — browsers treat
@@ -247,6 +250,7 @@ Client side is plain `fetch` — zero new npm dependencies (per §3.5's contract
 ### Work packages
 | WP | Scope | Status |
 |---|---|---|
+| FE3.0 | **Agent telemetry → portal (Matt, 2026-07-31: "see what agents are running on the tills in Locations").** Built AHEAD of the agent so the fleet view lights up the moment one is installed: 4 nullable columns on `Devices` (migration `AddAgentTelemetry`), `POST /api/v1/tills/agent-status` (SalesIngest-gated, tenant-checked, telemetry-not-audit — a poller must never grow an audit table), agent fields on the tills list, till `hardware.ts` (polls `http://127.0.0.1:9123/status` with a 1.5s timeout, reports on change or 6-hourly, NEVER affects till behaviour), and an agent chip on Locations' device chips. Semantics: never-reported = native till / pre-FE3 web till (no chip); reported with null version = **"no agent"** chip; reported with a version = **"agent v1.2.3 · printer ✓/offline"**. ⚠ NRT gotcha: the body record needed `string?` — [ApiController] + non-nullable string turns a null into an automatic 400 before the action runs. E2E: `Agent_telemetry_round_trips_from_device_report_to_the_tills_list`. Deployed 2026-07-31 (rollbacks `backend.pre-agenttel`, portal+till `current.pre-agenttel`); the live web till reports "no agent" on its next page load. | ✅ 2026-07-31 |
 | FE3.1 | Spike: skeleton tray app + `/status`; confirm HTTPS-page→localhost fetch on the till browser; test print through `CommonPOSLibrary` on a real deployed printer model. | ☐ |
 | FE3.2 | Agent v1: endpoints, token pairing, settings window, tray health, ESC/POS receipt formatting from the till's receipt payload. | ☐ |
 | FE3.3 | Till: `hardware.ts` facade; Settings "Hardware" card (agent URL default + token, test buttons); checkout wiring (silent print + drawer kick, PDF fallback); health indicator. | ☐ |

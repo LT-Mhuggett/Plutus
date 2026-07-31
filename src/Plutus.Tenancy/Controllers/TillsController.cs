@@ -18,6 +18,12 @@ namespace Plutus.Tenancy.Controllers
     public sealed record MoveTillRequest(int StoreId);
     public sealed record UnenrolRequestBody(Guid DeviceId);
     public sealed record RemovalDecisionBody(bool Approve);
+    /// <summary>FE3.0: what the till found when it polled its local hardware agent. Null
+    /// AgentVersion = it looked and found none (still worth recording — "no agent installed" is a
+    /// fleet fact the portal shows). Everything but the device id is nullable ON PURPOSE — this
+    /// project has NRT enabled, and [ApiController] turns a null in a non-nullable property into an
+    /// automatic 400 before the action runs.</summary>
+    public sealed record AgentStatusBody(Guid DeviceId, string? AgentVersion, string? PrinterName, bool? PrinterOnline);
 
     /// <summary>T1.2 till lifecycle: portal creates tills + enrolment codes; a device redeems a
     /// code anonymously. Business logic lives in <see cref="EnrolmentService"/>.</summary>
@@ -67,6 +73,12 @@ namespace Plutus.Tenancy.Controllers
                 devices = devices.Where(d => d.TillId == t.Id).Select(d => new
                 {
                     id = d.Id, status = d.Status.ToString(), lastSeenSeq = d.LastSeenSeq, createdAtUtc = d.CreatedAtUtc,
+                    // FE3.0 agent telemetry — reportedAt null = never reported (native till / old web
+                    // till); reported with a null version = "web till, no agent installed".
+                    agentVersion = d.AgentVersion,
+                    agentPrinterName = d.AgentPrinterName,
+                    agentPrinterOnline = d.AgentPrinterOnline,
+                    agentReportedAtUtc = d.AgentReportedAtUtc,
                 }),
             }));
         }
@@ -255,6 +267,34 @@ namespace Plutus.Tenancy.Controllers
                 "Device", device.Id.ToString(), new { device.TillId });
             await _db.SaveChangesAsync();
             return Ok(new { status = device.Status.ToString() });
+        }
+
+        /// <summary>
+        /// FE3.0: the till reports what its local hardware agent said (or that none was found).
+        /// Telemetry, not audit — it overwrites in place and writes no AuditLogs row (a poller must
+        /// never grow an audit table). Same gate as the device-status read: a device token or an
+        /// operator holding pos.sell, and the device must belong to this tenant.
+        /// </summary>
+        [HttpPost("agent-status")]
+        [Authorize(Policy = PlutusPolicies.SalesIngest)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> ReportAgentStatus([FromBody] AgentStatusBody body)
+        {
+            if (body == null || body.DeviceId == Guid.Empty) return NotFound(new { detail = "Unknown device." });
+            var device = await _db.Devices.FirstOrDefaultAsync(d => d.Id == body.DeviceId && d.TenantId == _tenant.TenantId);
+            if (device == null) return NotFound(new { detail = "Unknown device." });
+
+            _db.CurrentUser = ActingUser;
+            // clamp to the column widths — a malformed agent reply must not fault the report
+            static string Clamp(string s, int max) =>
+                string.IsNullOrWhiteSpace(s) ? null : (s.Trim().Length <= max ? s.Trim() : s.Trim()[..max]);
+            device.AgentVersion = Clamp(body.AgentVersion, 32);
+            device.AgentPrinterName = Clamp(body.PrinterName, 128);
+            device.AgentPrinterOnline = body.PrinterOnline;
+            device.AgentReportedAtUtc = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+            return NoContent();
         }
 
         /// <summary>The till polls its own device status to know when an approved removal has taken

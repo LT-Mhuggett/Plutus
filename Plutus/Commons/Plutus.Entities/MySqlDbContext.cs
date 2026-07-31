@@ -244,6 +244,9 @@ namespace Plutus.Entities
                 e.HasKey(x => x.Id);
                 e.Property(x => x.SecretHash).HasMaxLength(64).IsRequired();
                 e.Property(x => x.SecretSalt).HasMaxLength(32).IsRequired();
+                // FE3.0 agent telemetry
+                e.Property(x => x.AgentVersion).HasMaxLength(32);
+                e.Property(x => x.AgentPrinterName).HasMaxLength(128);
                 e.HasIndex(x => x.TillId);
                 e.HasIndex(x => x.TenantId);
             });

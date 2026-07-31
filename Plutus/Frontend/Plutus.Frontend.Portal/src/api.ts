@@ -784,7 +784,19 @@ export interface TillRow {
   lastOnline: string;
   /** true = the virtual till a webstore connection sells through (not an enrollable device) */
   isWebstore: boolean;
-  devices: { id: string; status: string; lastSeenSeq: number; createdAtUtc: string }[];
+  devices: {
+    id: string;
+    status: string;
+    lastSeenSeq: number;
+    createdAtUtc: string;
+    /** FE3.0 hardware-agent telemetry, reported by the web till. reportedAt null = this device has
+     *  never reported (native till / pre-FE3 web till); reported with a null version = the web till
+     *  looked at localhost and found NO agent installed. */
+    agentVersion: string | null;
+    agentPrinterName: string | null;
+    agentPrinterOnline: boolean | null;
+    agentReportedAtUtc: string | null;
+  }[];
 }
 export const fetchTills = () => get<TillRow[]>(`/api/v1/tills`);
 export const createTill = (storeId: number, name: string) =>

@@ -27,7 +27,8 @@ export const STORE_ID = 1;
 export const TILL_ID = "f6bf8420-3d06-6b0b-4fd7-32d265b89bb8";
 export const BUSINESS_NAME = "Kapow Comics ltd";
 
-function headers(): Record<string, string> {
+/** Exported for hardware.ts (FE3.0), which reports agent telemetry outside this module. */
+export function headers(): Record<string, string> {
   const t = accessToken();
   return { BusinessId: BUSINESS_ID, ...(t ? { Authorization: `Bearer ${t}` } : {}) };
 }

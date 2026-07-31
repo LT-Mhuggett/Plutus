@@ -30,5 +30,21 @@ namespace Plutus.Entities.Models
         public DeviceStatus Status { get; set; }
         public long LastSeenSeq { get; set; }
         public DateTime CreatedAtUtc { get; set; }
+
+        // FE3.0 hardware-agent telemetry (Matt, 2026-07-31): the browser till polls its local
+        // "Plutus Till Agent" (localhost) and forwards what it finds, so the portal's Locations
+        // page can see which till PCs run which agent version and whether the printer is up.
+        // Semantics: AgentReportedAtUtc null = this device has never reported (native till, or a
+        // web till older than this feature); reported with AgentVersion null = the web till looked
+        // and found NO agent installed.
+
+        /// <summary>Agent version from its /status, e.g. "1.0.2"; null = no agent found.</summary>
+        public string? AgentVersion { get; set; }
+        /// <summary>The printer the agent is driving, as the agent names it.</summary>
+        public string? AgentPrinterName { get; set; }
+        /// <summary>Whether the agent said its printer was online at the last report.</summary>
+        public bool? AgentPrinterOnline { get; set; }
+        /// <summary>When the till last reported (regardless of what it found).</summary>
+        public DateTime? AgentReportedAtUtc { get; set; }
     }
 }
