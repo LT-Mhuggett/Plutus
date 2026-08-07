@@ -416,7 +416,8 @@ button.primary:disabled {
   cursor: default;
 }
 
-button.ghost {
+button.ghost,
+a.ghost {
   font: inherit;
   padding: 0.25rem 0.6rem;
   border: 1px solid light-dark(#d8e3ea, #2c3a4d);
@@ -425,6 +426,20 @@ button.ghost {
   color: inherit;
   opacity: 0.75;
   cursor: pointer;
+}
+
+/* anchors styled as ghost buttons (driver downloads etc.) */
+a.ghost {
+  display: inline-block;
+  text-decoration: none;
+}
+
+/* Settings → Hardware: the vendor driver-download button row */
+.driver-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.4rem 0 0.75rem;
 }
 
 .qty-cell {

@@ -1,3 +1,6 @@
 node_modules/
 dist/
 *.local
+# the hosted Till Agent build (60MB exe) — lives in public/ on the build Mac, not in git;
+# rebuild from tools/Plutus.TillAgent with `dotnet publish -c Release` and copy it there
+public/agent/

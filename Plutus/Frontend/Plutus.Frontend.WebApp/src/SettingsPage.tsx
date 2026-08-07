@@ -49,6 +49,39 @@ const TEST_RECEIPT: ReceiptData = {
 };
 
 /**
+ * Official vendor driver-download pages for the common receipt printers — stable landing pages,
+ * not deep file links (those rot). All verified live 2026-08-07, vendor domains only.
+ * ⚠ Epson's old download.epson-biz.com portal closed June 2024 — don't link it.
+ */
+const DRIVER_LINKS: { label: string; url: string; covers: string }[] = [
+  {
+    label: "Star TSP100 futurePRNT",
+    url: "https://starmicronics.com/support/download/tsp100-futureprnt-software-lite/",
+    covers: "TSP100 / TSP113 / TSP143 up to the TSP100III — NOT the TSP100IV",
+  },
+  {
+    label: "Star TSP100IV",
+    url: "https://starmicronics.com/support/products/tsp100iv-support-page/",
+    covers: "TSP100IV (TSP143IV) — Star Windows Software, not futurePRNT",
+  },
+  {
+    label: "Epson TM series",
+    url: "https://epson.com/Support/Point-of-Sale/Thermal-Printers/sh/s530",
+    covers: "TM-T20, TM-T88, TM-m — pick your model for the Advanced Printer Driver",
+  },
+  {
+    label: "Citizen CT-S series",
+    url: "https://www.citizen-systems.com/us/support/drivers-and-tools",
+    covers: "CT-S310 / CT-S601 and the rest of the CT-S range",
+  },
+  {
+    label: "Bixolon SRP series",
+    url: "https://www.bixolon.com/support.php?kind=download",
+    covers: "SRP-350 family and other Bixolon POS printers",
+  },
+];
+
+/**
  * FE3.3 the Hardware card: pair this browser with the Plutus Till Agent running on this PC, so
  * receipts print silently on the receipt printer and the cash drawer kicks on a cash sale.
  *
@@ -84,7 +117,7 @@ function HardwareSection({ canSettings }: { canSettings: boolean }) {
           <p className="muted small">
             No hardware agent reachable on this PC. Receipts print through the browser (PDF) and the cash
             drawer is opened by hand — everything works, just not automatically. Install and run the{" "}
-            <strong>Plutus Till Agent</strong> to print silently and kick the drawer.
+            <strong>Plutus Till Agent</strong> (download button below) to print silently and kick the drawer.
           </p>
           {access === "denied" && (
             <p className="error small">
@@ -165,6 +198,34 @@ function HardwareSection({ canSettings }: { canSettings: boolean }) {
           {result && <p className="small">{result}</p>}
         </>
       )}
+
+      {/* Downloads — shown in every state: with no agent this is how you get one; with an
+          agent, the driver links are still the fix for "my printer isn't in the list". */}
+      <div className="setting-row">
+        <span className="grow">
+          Plutus Till Agent
+          <span className="muted small block">
+            The small tray app that connects this browser to the receipt printer and cash drawer.
+            Download it on this PC, run it (it appears by the clock), tick "start with Windows",
+            pick your printer in its Settings, then copy its pairing token into the box above.
+          </span>
+        </span>
+        <a className="ghost" href="/agent/PlutusTillAgent.exe" download>
+          Download the agent
+        </a>
+      </div>
+      <p className="muted small">
+        To make the webtill be able to connect to printers, you usually need the drivers installed.
+        Here are some of the most common, but you need to find the ones that match your printer
+        make and model:
+      </p>
+      <div className="driver-links">
+        {DRIVER_LINKS.map((d) => (
+          <a key={d.label} className="ghost" href={d.url} target="_blank" rel="noreferrer" title={d.covers}>
+            {d.label}
+          </a>
+        ))}
+      </div>
     </>
   );
 }
