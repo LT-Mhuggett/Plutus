@@ -100,11 +100,17 @@ provable **headlessly**, with no device, no MySQL and no deployment. Three new p
 2. **There is no `ItemIdOne` field on the wire.** The barcode rides inside
    `IngestLine.DiscountsJson` (`LineMeta`), and the stock projection **silently skips** lines
    without it. Accepted ≠ stock moved.
-3. **VAT bands are inferred by snapping, not arithmetic.** Real legacy prices (£14.99 ex £12.49)
-   derive 2002bp; unsnapped, WP2b would quarantine every sale of that item.
+3. **VAT: the webtill is the reference implementation, and it sends WOBBLED rates by design.**
+   Ordinary lines derive `vatRateBp` from the price pair (`api.ts:978` — £14.99/£12.49 ships as
+   2002bp); `vatAmountPence` is `lineGross − lineEx`, never rate arithmetic. MAUI must mirror
+   this at sale time; the cutover's snapped catalogue band is a display label only.
 4. **Enrolment refuses** while a legacy database is un-archived (§9.3). That is deliberate.
-5. **WP2b is live but inert**: `VatRatePoints` has 0 rows and empty history skips validation, so
-   nothing changes until a tenant's bands are configured.
+5. ⚠ **WP2b as shipped (`3ec4eff`) is WRONG and must not be armed** (Matt's catch, 2026-08-08):
+   it validates exact bp membership, which would quarantine ordinary webtill sales the moment a
+   tenant's `VatRatePoints` are seeded. It is INERT live (0 rate rows; empty history skips) — do
+   **not** seed bands until the corrected pair-based spec in the retrofit plan's WP2b section has
+   landed. The plan carries the full correction; `BasketMathTests`/`VatRateChangeE2eTests` get
+   corrected with it (they pin rate-arithmetic VAT, not the platform's derivation).
 
 **Security fix landed with this work:** EF Core 9.0.18's Sqlite provider resolves SQLitePCLRaw
 2.1.10, which carries a HIGH-severity advisory (GHSA-2m69-gcr7-jv3q). It reached every module, the

@@ -227,8 +227,8 @@ resume point for the next session.
 |---|---|---|
 | **0** Toolchain + baseline gate | ✅ | 2026-08-07 · `27e91c5`. maui workload present; AppClient `net10.0-windows` head builds 0 errors; AppClient.Tests **295 pass / 3 skip**; Unit 347 · Arch 6 · Integration 67. |
 | **1** Shared contracts + client core | ✅ | 2026-08-07 · `27e91c5`. `Plutus.Contracts.Client` + `Plutus.Client.Core` (outbox engine, pusher, API client, token provider). Backend: `stores/{id}/info` now returns `businessId`. Arch test keeps both MAUI-free and backend-module-free (mutation-checked). |
-| **2b** VAT effective-dating | ✅ | 2026-08-07 · `3ec4eff`. `VatRateHistory` + `VatRatePoints` table + ingest quarantine. Deployed; **0 rate rows live, so behaviour is unchanged until bands are configured.** |
-| **2** Local store v2 + cutover + money | ✅ | 2026-08-07 · `6e46734`. New `Plutus.Client.Storage` (schema v2, SQLite). Cutover archives-never-merges and implements the §10 STOP. ⚠ VAT-band inference now snaps to known bands — naive inference derived 2002bp from real prices, which WP2b would have quarantined. Money property test over 2,000 randomised baskets. |
+| **2b** VAT effective-dating | ⚠ **needs correction** | 2026-08-07 · `3ec4eff` built exact-bp validation — **wrong against the webtill's VAT decisions** (Matt's catch, 2026-08-08): ordinary lines carry wobbled rates (2002bp) by design, so seeding bands would quarantine real webtill sales. INERT live (0 rate rows; empty history skips) — safe, but the corrected pair-based spec in the WP2b section below **must land before any tenant's bands are seeded**. Tests to correct with it: `BasketMathTests`/`VatRateChangeE2eTests` pin rate-arithmetic VAT, not the platform's pair derivation. |
+| **2** Local store v2 + cutover + money | ✅ (one VAT note) | 2026-08-07 · `6e46734`. New `Plutus.Client.Storage` (schema v2, SQLite). Cutover archives-never-merges and implements the §10 STOP. ⚠ The snapped catalogue band is a **label only** — at sale time lines derive `vatRateBp` from the price pair like the webtill (2026-08-08 correction; see the WP2 note + WP3). Money property test over 2,000 randomised baskets — its VAT arithmetic gets corrected with WP2b. |
 | **3** Sale commit path + outbox | ✅ | 2026-08-07 · `6e46734`. `CommitSaleAsync` (one transaction, sequence allocated, **commit before print** — risk #2 decided in code). `TillStore` implements `IOutboxStore`, so the WP1 pusher drove it unchanged. Soak: 120 offline sales drain exactly once in order, no gaps; crash mid-drain records 20 of 20. |
 | **4** Enrolment + device identity | ✅ | 2026-08-07 · `f90dac5`. Server URL + code; **archive gate refuses enrolment** while a legacy DB is un-archived; placement (storeId + legacy businessId) refreshed each start; secret asserted absent from the DB file. |
 | **5** Heartbeat + catalogue sync · **5b** | ⬜ | **Next.** Needs the three missing backend endpoints (heartbeat, catalogue/changes, and `syncNow`/`lock` on Device). `TillStore.ApplyCatalogueChangesAsync` + `PriceSchedule` already exist and handle tombstones. |
@@ -362,6 +362,13 @@ the original.**
 `Plutus/Data/Database` project reference when the cutover lands — AppClient is its sole referencer,
 so nothing else breaks. The no-decimal-money sweep gates AppClient + CommonPOSLibrary + CustomViews.
 
+⚠ **The cutover's snapped VAT band is a LABEL, never a line rate** (corrected 2026-08-08 with
+WP2b). `CatalogueItem.VatRateBp` is snapped to a clean band (2000, not the 2002 the legacy pair
+derives) for display and pre-checks only. At SALE time, MAUI must derive the line's `vatRateBp`
+from the price pair exactly as the webtill does (`api.ts:978`) — sending the snapped-clean rate
+instead would make the two tills bucket the same item's VAT differently, which is precisely the
+behavioural drift the parity register's §6 exists to prevent. See WP3.
+
 *DoD:* no `decimal`/`double` money property survives in the MAUI assemblies (same regex rule the
 backend arch test uses); a basket property test holds (total == Σ lines − discounts, change ==
 tendered − total, all pence); cutover against a copy of the real Kapow file reproduces the
@@ -369,20 +376,53 @@ catalogue count and 10 spot-checked barcodes resolve to the **same UUIDs the cen
 produced**; park → kill → restore works and the serialised form contains no `$type`.
 
 **WP2b — VAT-rate-change ingest compliance (backend).**
-A till offline across a government VAT-rate change will push sales computed at a stale cached rate.
-**Verified 2026-08-07: no rate-validity check exists today** — `SaleV2.Validate()` is arithmetic
-only, and the legacy `Tax` entity is a flat per-Business rate with no effective dates. So this WP
-*builds*, not extends: a tenant-owned `VatRateHistory` entity (runbook pitfall #4 applies), seeded
-for Kapow with `{0, 500, 2000}` bp effective-from epoch. Validation in `SalesIngestService` is
-**per-line set-membership**: each line's `VatRateBp` must be in the rate-set in effect at the
-sale's `OccurredAtUtc` (0%/5%/20% coexist — this is not a single-rate check). A tenant with an
-EMPTY history skips validation with a log line — never blanket-quarantine. Gift-card lines
-(`itemIdOne = GIFT-CARD`) follow the tenant's declared voucher treatment and must not
-false-positive. On a genuine mismatch, quarantine (mirroring the Kapow migration's
-`VatReconstructed=1` pattern). Never silently accept, never silently rewrite a customer-facing total.
-*DoD:* a sale timestamped after a seeded rate-change boundary carrying the pre-change rate is
-quarantined; one carrying the post-change rate ingests normally; one timestamped *before* the
-boundary carrying the pre-change rate also ingests normally — no false positives.
+
+> ⚠ **CORRECTED 2026-08-08 (Matt's catch), after re-reading the webtill's VAT decisions.** The
+> first-shipped implementation (`3ec4eff`) validates each line's `VatRateBp` by **exact membership**
+> of the in-force rate set. That contradicts how the platform actually declares VAT, and had any
+> tenant's `VatRatePoints` been seeded it would have quarantined **ordinary webtill sales**. It is
+> currently INERT (0 rate rows live; empty history skips) — safe, but it must be corrected to the
+> spec below **before any tenant's bands are seeded**.
+
+**The four standing VAT decisions this must respect** (all verified in code):
+1. **Ordinary lines carry wobbled rates on the wire, by design.** The webtill derives per-line
+   `vatRateBp` from the price pair (`api.ts:978`: `round((price/exPrice − 1) × 10000)`), so a
+   £14.99/£12.49 item ships as **2002bp**. The FE7 comment says it plainly: *"round-tripping pence
+   through the generic ratio would wobble the band to 1998–2002bp"*. Rollups and reports group by
+   the RAW bp (`RollupProjection.cs:122`). Exact-bp checks are therefore wrong by construction.
+2. **The canonical validity rule is on the price PAIR, not the rate**:
+   `|price − round(exPrice × rate)| ≤ 2p` (`ItemController.BandInconsistency`, the WP1.4 guard).
+   Bands live per tenant in the legacy `Tax` table; `VatRatePoints` adds only the TIME dimension
+   the `Tax` table lacks — seed it FROM `Tax` (one band per row, effective-from epoch).
+3. **Owner decision (VAT-FixLater report): legacy off-band damage is SURFACED, never blocked.**
+   Off-band items still sell; the VatIntegrity report is where they are seen. Ingest must not
+   quarantine them.
+4. **Gift-card lines are pinned by the voucher treatment, not the catalogue** — activation 0/2000
+   (`api.ts:976`), and single-purpose REDEMPTION is a negative 2000bp line (`api.ts:997-1019`).
+   All `GIFT-CARD` lines stay exempt from this check.
+
+**Corrected validation** (per line, using `UnitPricePence` + the meta's `exUnitPence` — unit
+prices, so discounts don't disturb it; skip lines with no usable meta):
+- *Explained by an in-force band* — some rate in force at `OccurredAtUtc` satisfies the 2p pair
+  rule → **accept**.
+- *Explained ONLY by a retired/not-yet-effective rate of the tenant's bands* → **quarantine**:
+  this is the stale-band trading the WP exists for, stated in the reason ("priced at 20%, but the
+  standard rate at time of sale was 17.5%").
+- *Explained by neither* → **accept** — that is decision #3's off-band damage; the VatIntegrity
+  report owns it.
+- Empty history skips with a log line; `GIFT-CARD` lines exempt — both unchanged.
+
+Also corrected alongside: `BasketMathTests` and `VatRateChangeE2eTests` currently pin
+**rate-arithmetic VAT** (`gross × bp/(10000+bp)`), which is NOT the platform's derivation — the
+webtill computes `vatAmountPence = lineGross − lineEx` from the price pair, always. The tests must
+mirror the reference implementation, not a plausible alternative.
+
+*DoD (corrected):* a stale-pair sale after the change (`£14.99/£12.49` after standard moves to
+17.5%) is quarantined with a reason naming both rates; the same pair before the change ingests;
+a **real webtill-shaped line at 2002bp** ingests with bands seeded (the regression Matt caught);
+a deliberately off-band pair (`£11.00/£10.00`) ingests (decision #3) and appears in VatIntegrity;
+gift-card activation AND single-purpose redemption lines ingest after a rate change; empty
+history unchanged.
 
 **WP3 — Outbox + sale ingest.**
 ⚠ Building, not wiring — AppClient has no outbox today (§3).
@@ -397,6 +437,15 @@ rows past the rolling window; never prune Pending or Failed.
 The outbound payload **must** populate `itemIdOne` on each line the way the web till does —
 `StockProjectionConsumer` silently skips lines without it, so stock would quietly stop moving with
 no error anywhere.
+⚠ **VAT on the payload: `api.ts:958-1019` is the REFERENCE IMPLEMENTATION** (added 2026-08-08,
+Matt's catch — parity §6 in practice). Mirror it exactly, never "improve" it:
+- `vatRateBp` = `round((unitInc/unitEx − 1) × 10000)` from the PRICE PAIR — wobbled values like
+  2002bp are correct and expected; do NOT send the catalogue's snapped-clean band.
+- `vatAmountPence` = `lineGross − lineEx`, where `lineEx` scales the discount by the ex/inc ratio
+  (`api.ts:964-965`) — never rate arithmetic (`gross × bp/(10000+bp)` disagrees with the receipt).
+- Returns: negative qty, discount dropped, `lineEx` negated; meta carries `exUnitPence` always.
+- Gift cards: activation pinned 0/2000 by treatment; single-purpose redemption is a NEGATIVE
+  2000bp line (`api.ts:997-1019`), multi-purpose redemption is a tender.
 *Also in this WP (§3a rulings):* **receipt-print ordering is decided** — outbox commit FIRST, then
 print from the committed payload (risk #2 resolved: a receipt can never exist for a sale that was
 never queued; a print failure after commit is a reprint problem, not a money problem). The receipt
@@ -599,10 +648,19 @@ generate/activate/redeem per tenant. The till must catch that 409 and say *"Gift
 up for this company yet — an owner decides their VAT treatment in the portal first"*, never a raw
 error. Under multi-purpose (Kapow's declared treatment) an activation posts **zero VAT** — the
 provisioned `GIFT-CARD` item handles this; do not invent VAT lines.
-*DoD:* sell → activate → redeem round-trips against a local backend with `GiftCardSettings` set;
-the same flow on a tenant WITHOUT settings surfaces the friendly 409 message at the first step;
-redemption offline is hidden, like store credit; a redeemed card's remaining balance matches the
-portal's view of the same card.
+⚠ **The treatment forks REDEMPTION mechanics too** (corrected 2026-08-08 — "redeem = a tender"
+above is the multi-purpose shape only): under **single-purpose**, redemption is a **negative
+standard-rated `GIFT-CARD` line** (`api.ts:997-1019`), because the card's VAT was declared when it
+was sold and a plain tender would declare it twice. Mirror the webtill's shape per treatment.
+*Known hazard, both tills, out of this WP's scope:* that redemption line hardcodes `/1.2` — a
+standard-rate change breaks it on the webtill exactly as it would here. Noted for whenever WP2b's
+bands gain their first real rate change; gift-card lines are exempt from ingest validation, so it
+mis-states embedded VAT rather than quarantining.
+*DoD:* sell → activate → redeem round-trips against a local backend with `GiftCardSettings` set —
+**under both treatments, asserting the single-purpose negative-line shape**; the same flow on a
+tenant WITHOUT settings surfaces the friendly 409 message at the first step; redemption offline is
+hidden, like store credit; a redeemed card's remaining balance matches the portal's view of the
+same card.
 
 ---
 
