@@ -38,8 +38,12 @@ namespace Plutus.TillAgent
             using var probe = new Bitmap(1, 1);
             using var pg = Graphics.FromImage(probe);
             using var baseFont = FitFont(pg, (float)widthDots / columns);
-            using var boldFont = new Font(baseFont, FontStyle.Bold);
-            using var largeFont = new Font(baseFont.FontFamily, baseFont.Size * 2, FontStyle.Bold);
+            // ⚠ GraphicsUnit.Pixel on EVERY derived font. new Font(family, size, style) defaults to
+            // POINTS, so a 24.5px fitted size silently became 24.5pt ≈ 32.7px — 33% oversized, which
+            // pushed the right-hand money column clean off the 576px bitmap. Rules looked fine
+            // because they alone reuse baseFont. (Field report 2026-08-07: receipt printed with every
+            // total blank.)
+            using var largeFont = new Font(baseFont.FontFamily, baseFont.Size * 2, FontStyle.Bold, baseFont.Unit);
             var lineH = (int)Math.Ceiling(baseFont.GetHeight(pg)) + 2;
             var largeH = (int)Math.Ceiling(largeFont.GetHeight(pg)) + 2;
 
@@ -73,7 +77,11 @@ namespace Plutus.TillAgent
                             var style = FontStyle.Regular;
                             if (op.Bold || op.Large) style |= FontStyle.Bold;
                             if (op.Underline) style |= FontStyle.Underline;
-                            using var font = new Font(baseFont.FontFamily, op.Large ? baseFont.Size * 2 : baseFont.Size, style);
+                            // new Font(Font, style) copies size AND unit — the only derivation that
+                            // cannot drift. The double-size variant must state baseFont.Unit itself.
+                            using var font = op.Large
+                                ? new Font(baseFont.FontFamily, baseFont.Size * 2, style, baseFont.Unit)
+                                : new Font(baseFont, style);
                             var text = op.Text ?? string.Empty;
                             var w = text.Length == 0 ? 0 : g.MeasureString(text, font, int.MaxValue, format).Width;
                             var x = op.Align switch
