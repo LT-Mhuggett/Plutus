@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchDeviceStatus, fetchPayMethods, fetchTillName, onOutboxChanged, renameTill, requestUnenrol, BUSINESS_ID, STORE_ID } from "./api.ts";
+import { effectiveStoreId, fetchDeviceStatus, fetchPayMethods, fetchTillName, loadReceiptTemplate, onOutboxChanged, renameTill, requestUnenrol, BUSINESS_ID, STORE_ID } from "./api.ts";
 import { parkedCount, queuedCount, resetDeviceSeq } from "./offline.ts";
 import {
   canEnrolTills,
@@ -16,7 +16,7 @@ import {
 } from "./hardware.ts";
 import { ask } from "./Ask.tsx";
 import { getSession } from "./session.ts";
-import Receipt, { type ReceiptData } from "./till/Receipt.tsx";
+import Receipt, { ReceiptBody, type ReceiptData } from "./till/Receipt.tsx";
 
 declare const __BUILD_TIME__: string;
 
@@ -350,7 +350,17 @@ export default function SettingsPage() {
   const [prefs, setPrefsState] = useState<Prefs>(() => getPrefs());
   const [apiStatus, setApiStatus] = useState<"checking" | "ok" | "down">("checking");
   const [testPrint, setTestPrint] = useState(false);
+  // bumping the tick remounts the receipt preview so it re-reads the refreshed template cache
+  const [tplTick, setTplTick] = useState(0);
+  const [tplBusy, setTplBusy] = useState(false);
   const session = getSession();
+
+  async function refreshTemplate() {
+    setTplBusy(true);
+    await loadReceiptTemplate();
+    setTplTick((t) => t + 1);
+    setTplBusy(false);
+  }
 
   useEffect(() => {
     fetchPayMethods()
@@ -418,6 +428,25 @@ export default function SettingsPage() {
       </label>
 
       <h3 className="settings-h">Printer</h3>
+      <div className="setting-row">
+        <span className="grow">
+          Receipt layout
+          <span className="muted small block">
+            What this till will print, using store {effectiveStoreId()}'s template with sample items.
+            The layout is controlled from the portal — Stores &amp; Tills → your store → Receipt
+            template — and each store prints its own details. The till picks up changes at sign-in,
+            or right now with Refresh.
+          </span>
+        </span>
+        <button className="ghost" onClick={() => void refreshTemplate()} disabled={tplBusy}>
+          {tplBusy ? "Refreshing…" : "Refresh"}
+        </button>
+      </div>
+      {/* no-print: if a test print fires while this is on screen, only the dialog's copy prints */}
+      <div className="receipt-preview no-print" key={tplTick}>
+        <ReceiptBody data={{ ...TEST_RECEIPT, date: new Date().toISOString() }} />
+      </div>
+
       <div className="setting-row">
         <span className="grow">
           Print a test receipt (browser)

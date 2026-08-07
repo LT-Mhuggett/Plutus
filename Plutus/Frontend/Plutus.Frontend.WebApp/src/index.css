@@ -682,6 +682,20 @@ tr.return-line td {
   margin-bottom: 0.3rem;
 }
 
+/* Settings → Printer: the live receipt preview. Paper is paper — always white,
+   even in dark mode, so the preview shows what actually comes off the printer. */
+.receipt-preview {
+  color-scheme: light; /* light-dark() inside resolves to paper values even in dark mode */
+  max-width: 22rem;
+  margin: 0.5rem 0 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid light-dark(#d8e3ea, #2c3a4d);
+  border-radius: 8px;
+  background: #fff;
+  color: #111;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 12%);
+}
+
 .centre {
   text-align: center;
 }

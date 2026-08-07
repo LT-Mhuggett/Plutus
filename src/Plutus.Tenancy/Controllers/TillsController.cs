@@ -165,7 +165,10 @@ namespace Plutus.Tenancy.Controllers
         }
 
         /// <summary>WP11.1: a till reads its OWN name (sales.ingest — any operator or the device),
-        /// so it can show it in the header without the portal.tills.enrol the fleet list needs.</summary>
+        /// so it can show it in the header without the portal.tills.enrol the fleet list needs.
+        /// Also returns the till's storeId (additive): the web till uses it to fetch ITS store's
+        /// receipt template + info rather than a hardcoded store — different stores print
+        /// different addresses. Null when the till row is unknown to this tenant.</summary>
         [HttpGet("{id}/name")]
         [Authorize(Policy = PlutusPolicies.SalesIngest)]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -173,7 +176,9 @@ namespace Plutus.Tenancy.Controllers
         {
             var name = await _db.TillDetails.AsNoTracking()
                 .Where(t => t.TillId == id).Select(t => t.Name).FirstOrDefaultAsync();
-            return Ok(new { id, name = name ?? $"Till {id.ToString()[..8]}" });
+            var storeId = await _db.Till.AsNoTracking()
+                .Where(t => t.Id == id).Select(t => (int?)t.StoreId).FirstOrDefaultAsync();
+            return Ok(new { id, name = name ?? $"Till {id.ToString()[..8]}", storeId });
         }
 
         /// <summary>WP11.1: rename a till. Gated so BOTH a portal admin and the till's own device

@@ -27,6 +27,17 @@ export const STORE_ID = 1;
 export const TILL_ID = "f6bf8420-3d06-6b0b-4fd7-32d265b89bb8";
 export const BUSINESS_NAME = "Kapow Comics ltd";
 
+/**
+ * The store this till belongs to. An enrolled till learns its real storeId from
+ * GET /tills/{id}/name (fetchTillName stores it); until then — and for un-enrolled
+ * password-mode sessions — the Phase-1 seeded store stands in. This is what makes
+ * receipts per-store: two tills in different stores print different addresses.
+ */
+export function effectiveStoreId(): number {
+  const s = Number(localStorage.getItem("plutus.storeId"));
+  return Number.isFinite(s) && s > 0 ? s : STORE_ID;
+}
+
 /** Exported for hardware.ts (FE3.0), which reports agent telemetry outside this module. */
 export function headers(): Record<string, string> {
   const t = accessToken();
@@ -40,11 +51,17 @@ function handle401(res: Response): void {
 }
 
 /** WP11.1: this till's current name. Uses the sales.ingest-gated endpoint so ANY signed-in
- *  operator (not just till admins) can read it. Null if unavailable. */
+ *  operator (not just till admins) can read it. Null if unavailable.
+ *  Also captures the till's storeId (additive server field) — the key that makes receipts
+ *  per-store. When it changes, the receipt template is refetched for the right store. */
 export async function fetchTillName(tillId: string): Promise<string | null> {
   const res = await fetch(`/api/v1/tills/${tillId}/name`, { headers: headers() });
   if (!res.ok) return null;
-  const data = (await res.json()) as { id: string; name: string };
+  const data = (await res.json()) as { id: string; name: string; storeId?: number | null };
+  if (typeof data.storeId === "number" && data.storeId > 0 && data.storeId !== effectiveStoreId()) {
+    localStorage.setItem("plutus.storeId", String(data.storeId));
+    void loadReceiptTemplate(); // the boot-time load raced this; refetch for the right store
+  }
   return data.name ?? null;
 }
 
@@ -671,12 +688,38 @@ let _receiptTemplate: ReceiptTemplate | null = (() => {
   try { const r = localStorage.getItem("plutus.receiptTemplate"); return r ? JSON.parse(r) : null; } catch { return null; }
 })();
 export const getReceiptTemplateCached = (): ReceiptTemplate | null => _receiptTemplate;
+
+/**
+ * The cache holds the EFFECTIVE template: the store's saved template with the store's real
+ * details (address, phone, VAT number, name — from /stores/{id}/info) filled into any field
+ * the template leaves blank. A store with an untouched template therefore still prints its
+ * own address — previously it printed none, while the portal's preview pretended otherwise.
+ * Both renderers (Receipt.tsx and receiptDoc.ts) read this cache, so they stay in lockstep.
+ * Toggles (showVatNumber/showOperator/showBarcode) come from the saved template only.
+ */
+function mergeTemplate(stored: ReceiptTemplate | null, info: StoreInfoView | null): ReceiptTemplate | null {
+  if (!info) return stored;
+  const address = [info.adLine1, info.adLine2, info.city, info.postCode].filter((l) => l && l.trim());
+  return {
+    ...(stored ?? {}),
+    storeName: stored?.storeName || info.name || undefined,
+    phone: stored?.phone || info.contactNumber || undefined,
+    vatNumber: stored?.vatNumber || info.vatNumber || undefined,
+    addressLines: stored?.addressLines?.length ? stored.addressLines : address,
+  };
+}
+
 export async function loadReceiptTemplate(): Promise<void> {
   try {
-    const res = await fetch(`/api/v1/stores/${STORE_ID}/receipt-template`, { headers: headers() });
+    const sid = effectiveStoreId();
+    const [res, info] = await Promise.all([
+      fetch(`/api/v1/stores/${sid}/receipt-template`, { headers: headers() }),
+      fetchStoreInfo().catch(() => null), // fallback source only — its absence never blocks
+    ]);
     if (!res.ok) return;
     const data = await res.json();
-    _receiptTemplate = data?.receiptTemplateJson ? (JSON.parse(data.receiptTemplateJson) as ReceiptTemplate) : null;
+    const stored = data?.receiptTemplateJson ? (JSON.parse(data.receiptTemplateJson) as ReceiptTemplate) : null;
+    _receiptTemplate = mergeTemplate(stored, info);
     // Persist so an offline reload still prints with the last-known template.
     if (_receiptTemplate) localStorage.setItem("plutus.receiptTemplate", JSON.stringify(_receiptTemplate));
     else localStorage.removeItem("plutus.receiptTemplate");
@@ -697,7 +740,7 @@ export interface StoreInfoView {
   adLine1: string; adLine2: string; city: string; postCode: string; country: string;
   contactNumber: string; openingHoursJson: string | null;
 }
-export const fetchStoreInfo = () => get<StoreInfoView>(`/api/v1/stores/${STORE_ID}/info`);
+export const fetchStoreInfo = () => get<StoreInfoView>(`/api/v1/stores/${effectiveStoreId()}/info`);
 
 // PUT binds the full entity — fetch, merge edits, echo back. MVC validation demands
 // the collection navigations be non-null (and Store its Business nav), so they're

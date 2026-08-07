@@ -22,17 +22,13 @@ interface Props {
   autoPrint?: boolean;
 }
 
-/** Browser-print receipt — the PDF/hardware-agent story (plan §3.5) comes later. */
-export default function Receipt({ data, onClose, autoPrint }: Props) {
-  useEffect(() => {
-    if (autoPrint) {
-      const t = setTimeout(() => window.print(), 250); // let the dialog paint first
-      return () => clearTimeout(t);
-    }
-  }, [autoPrint]);
-
-  // WP11.2 + NatApp receipt port: per-store template (store name, address, phone, VAT, header/
-  // footer + toggles), cached from the last catalogue sync. Defaults preserve today's receipt.
+/**
+ * The receipt itself, sans dialog — what actually prints. Also rendered inline by the
+ * Settings → Printer preview, so what the operator sees there IS this markup, not a copy.
+ */
+export function ReceiptBody({ data }: { data: ReceiptData }) {
+  // WP11.2 + NatApp receipt port: per-store EFFECTIVE template (store name, address, phone,
+  // VAT, header/footer + toggles — api.ts merges the store's real details into blank fields).
   const tpl = getReceiptTemplateCached();
   const headerLines = tpl?.headerLines?.length ? tpl.headerLines : ["Thank you for shopping with us"];
   const footerLines = tpl?.footerLines ?? [];
@@ -40,10 +36,9 @@ export default function Receipt({ data, onClose, autoPrint }: Props) {
   const showBarcode = tpl?.showBarcode !== false;
   const operator = tpl?.showOperator ? getSession()?.name : null;
 
+  // (the old id="receipt" was unreferenced; dropped so the inline preview can't duplicate it)
   return (
-    <div className="overlay receipt-overlay">
-      <div className="dialog receipt-dialog">
-        <div className="receipt" id="receipt">
+    <div className="receipt">
           {/* NatApp header order: thank-you, shop name, phone, address, VAT no, date */}
           {headerLines.map((l, i) => <p className="centre small" key={`h${i}`}>{l}</p>)}
           <h3>{tpl?.storeName || businessName()}</h3>
@@ -112,7 +107,23 @@ export default function Receipt({ data, onClose, autoPrint }: Props) {
             </div>
           )}
           <p className="centre mono tiny">{data.saleId}</p>
-        </div>
+    </div>
+  );
+}
+
+/** Browser-print receipt — the PDF/hardware-agent story (plan §3.5) comes later. */
+export default function Receipt({ data, onClose, autoPrint }: Props) {
+  useEffect(() => {
+    if (autoPrint) {
+      const t = setTimeout(() => window.print(), 250); // let the dialog paint first
+      return () => clearTimeout(t);
+    }
+  }, [autoPrint]);
+
+  return (
+    <div className="overlay receipt-overlay">
+      <div className="dialog receipt-dialog">
+        <ReceiptBody data={data} />
 
         <div className="dialog-actions no-print">
           <button className="ghost" onClick={onClose}>
