@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createItem,
   createStock,
@@ -158,6 +158,17 @@ function ItemDialog({
   const [error, setError] = useState("");
   // the item already holding the typed barcode — blocks the create until it's changed
   const [clash, setClash] = useState<Item | null>(null);
+  // latest field value, so a slow lookup can't flag a barcode the operator has since edited
+  const idRef = useRef(id);
+
+  /** Duplicate check on blur — the operator hears about a clash as soon as they leave the
+   *  barcode box, not after filling in the whole form. Submit re-checks authoritatively. */
+  async function checkBarcodeFree() {
+    const candidate = id.trim();
+    if (item || !candidate) return; // edits keep their barcode; nothing to check
+    const existing = await findItemByBarcode(candidate);
+    if (existing && idRef.current.trim() === candidate) setClash(existing);
+  }
 
   useEffect(() => {
     Promise.all([fetchTaxes(), fetchCategories()])
@@ -231,7 +242,8 @@ function ItemDialog({
             Barcode / id (max 20)
             <input
               value={id}
-              onChange={(e) => { setId(e.target.value); setClash(null); }}
+              onChange={(e) => { setId(e.target.value); idRef.current = e.target.value; setClash(null); }}
+              onBlur={() => void checkBarcodeFree()}
               maxLength={20}
               required
               disabled={busy || !!item}
