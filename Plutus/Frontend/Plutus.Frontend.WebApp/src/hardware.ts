@@ -100,20 +100,30 @@ export async function agentAvailable(): Promise<AgentStatus | null> {
 /** The last known status without going near the network — for rendering an indicator. */
 export const lastKnownAgent = (): AgentStatus | null => cachedStatus.status;
 
-async function agentPost(path: string, body?: unknown): Promise<{ ok: boolean; detail?: string }> {
+/** ⚠ Always time-boxed. A print goes through the printer driver, which can block for a long time
+ *  on an offline/jammed printer — and checkout awaits this. Without a deadline a wedged agent
+ *  wedges the till (reported 2026-08-07). Timing out just means "no paper today": the caller
+ *  falls back to the PDF receipt, which is the whole graceful-degradation rule. */
+async function agentPost(path: string, body?: unknown, timeoutMs = 15_000): Promise<{ ok: boolean; detail?: string }> {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), timeoutMs);
   try {
     const token = getAgentToken();
     const res = await fetch(`${AGENT_URL}${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(token ? { "X-Agent-Token": token } : {}) },
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal: ctl.signal,
     });
     if (res.ok) return { ok: true };
     let detail = `Agent returned ${res.status}.`;
     try { detail = (await res.json())?.detail ?? detail; } catch { /* keep */ }
     return { ok: false, detail };
   } catch (e) {
-    return { ok: false, detail: String(e instanceof Error ? e.message : e) };
+    const aborted = e instanceof DOMException && e.name === "AbortError";
+    return { ok: false, detail: aborted ? "The printer did not respond in time." : String(e instanceof Error ? e.message : e) };
+  } finally {
+    clearTimeout(timer);
   }
 }
 

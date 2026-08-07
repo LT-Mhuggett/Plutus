@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // In-app confirm / choose dialogs, replacing window.confirm and window.prompt.
@@ -127,9 +128,13 @@ export default function AskHost() {
     }
   };
 
-  return (
+  // ⚠ Portalled to <body> AND z-indexed above .overlay: an ask is always a QUESTION ABOUT the
+  // dialog that raised it, so it must never render beneath one. AskHost is mounted high in the
+  // app shell, so plain DOM order put it UNDER any dialog opened by the page below it — the
+  // checkout's "Print receipt?" was unreachable and the till looked frozen (2026-08-07).
+  return createPortal(
     <div
-      className="overlay"
+      className="overlay ask-overlay"
       // Escape cancels and a click on the backdrop cancels — the same affordances the browser
       // dialog gave us for free.
       onClick={(e) => e.target === e.currentTarget && close(null)}
@@ -198,6 +203,7 @@ export default function AskHost() {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

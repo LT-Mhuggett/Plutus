@@ -68,6 +68,8 @@ th.sortable:hover { color: var(--ink); }
 .chart .grid-line { stroke: var(--line); stroke-width: 1; }
 
 .overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 10; }
+/* An ask (Ask.tsx) is a question ABOUT whatever dialog raised it — always on top. */
+.ask-overlay { z-index: 1000; }
 .dialog { background: var(--panel); border-radius: 10px; padding: 20px; width: min(680px, 100%); max-height: 90vh; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
 /* FE9.5: audit rows carry raw detail JSON — 680px turns every row into a wrapped mess. */
 .dialog.wide { width: min(1040px, 100%); }

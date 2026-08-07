@@ -128,9 +128,14 @@ export default function CheckoutDialog({ lines, totals, customer, onClose, onCom
     && !creditOverBalance && !giftOverBalance && !busy;
 
   function quickFill(id: number) {
+    // "rest" = make THIS row cover everything the others don't, so it must ignore what this row
+    // already holds. Using the bare remainder made "rest" toggle 0.00 ↔ full whenever the row was
+    // already filled (reported 2026-08-07), and left an overpaid row untouched.
+    const own = parsed.valid ? parsed.perMethod.get(id) ?? 0 : 0;
+    const needed = Math.max(0, totals.totalPence - (paid - own));
     // FE7: "rest" on the gift-card row is capped at what the card holds — the common case is a card
     // that doesn't cover the whole basket, and filling the full remainder would just be refused.
-    const cap = id === GIFTCARD_PAYID ? Math.min(remaining, card?.balancePence ?? 0) : remaining;
+    const cap = id === GIFTCARD_PAYID ? Math.min(needed, card?.balancePence ?? 0) : needed;
     setAmounts((a) => ({ ...a, [id]: (cap / 100).toFixed(2) }));
   }
 

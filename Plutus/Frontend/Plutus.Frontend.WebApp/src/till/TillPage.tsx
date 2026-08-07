@@ -617,6 +617,12 @@ export default function TillPage() {
             setReceipt(data);
             dispatch({ type: "clear" });
             setCustomer(null); // fresh sale starts with no customer attached
+            // ⚠ The sale is RECORDED by this point. Close the checkout dialog before any of the
+            // slow work below (ask, agent probe, print) — leaving it mounted showed it recomputing
+            // against the now-empty basket ("Checkout — £0.00", change owed on the whole total),
+            // and it sat ON TOP of the "Print receipt?" question, so the till looked frozen and
+            // needed F5 (reported 2026-08-07).
+            setDialog("none");
 
             // FE3.3: kick the drawer on a cash sale. Fire-and-forget and silent when there is no
             // agent — the drawer is opened by hand today and must keep working that way.

@@ -544,6 +544,11 @@ tr.adjusted td:first-child {
   padding: 1rem;
 }
 
+/* An ask (Ask.tsx) is a question ABOUT whatever dialog raised it — always on top. */
+.ask-overlay {
+  z-index: 1000;
+}
+
 .dialog {
   width: 100%;
   max-width: 26rem;

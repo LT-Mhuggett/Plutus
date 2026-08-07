@@ -106,6 +106,20 @@ export default function StoresPage() {
 
   useEffect(() => { void refresh(); }, []);
 
+  // FE6.2: the agent/printer chips are the till's LAST REPORT, not a live probe — a till that
+  // has been updated (or switched off) shows stale until its browser next reports. Refresh
+  // re-reads the fleet so an update can be confirmed without reloading the whole portal.
+  const [tillsRefreshing, setTillsRefreshing] = useState(false);
+  const [tillsRefreshedAt, setTillsRefreshedAt] = useState<Date | null>(null);
+  async function refreshTills() {
+    setTillsRefreshing(true);
+    try {
+      setTills(await fetchTills());
+      setTillsRefreshedAt(new Date());
+    } catch (e) { setError(String(e)); }
+    finally { setTillsRefreshing(false); }
+  }
+
   async function newTill(storeId: number, name: string) {
     setBusy(true);
     setError("");
@@ -254,6 +268,17 @@ export default function StoresPage() {
           Every till across all stores. A till is one counter: enrolling a replacement browser
           retires the previous device automatically.
         </p>
+        <div className="toolbar">
+          <span className="grow muted small">
+            Agent and printer chips show what each till <em>last reported</em> (it reports on
+            change, and at least every few hours) — a till whose browser is closed keeps its last
+            known values.
+            {tillsRefreshedAt && ` Refreshed ${tillsRefreshedAt.toLocaleTimeString("en-GB")}.`}
+          </span>
+          <button className="ghost small" disabled={tillsRefreshing} onClick={() => void refreshTills()}>
+            {tillsRefreshing ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
         <DataTable<TillRow>
           columns={[
             { key: "name", label: "Till", render: (t) => <>{t.name}{t.isWebstore && <span className="chip" title="Virtual till carrying webstore orders"> webstore</span>}</> },
