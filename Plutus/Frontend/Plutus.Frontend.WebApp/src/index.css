@@ -806,6 +806,64 @@ tr.return-line td {
   color: var(--accent);
 }
 
+/* status chips (Hardware: printer ready / not responding) — the classes were used but
+   never defined here; pill styling ported from the portal's .chip */
+.chip {
+  display: inline-block;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  border: 1px solid light-dark(#d8e3ea, #2c3a4d);
+  background: light-dark(#f1f5f9, #2a2a46);
+}
+
+.chip.ok {
+  background: light-dark(#ecfdf5, #12341f);
+  border-color: light-dark(#a7f3d0, #1b7f4b);
+  color: light-dark(#15803d, #7be0a8);
+}
+
+/* Collapsible settings groups — closed by default; the summary row is
+   "Title — one-line description" with a ▸/▾ marker, portal store-card style. */
+.settings-section {
+  border: 1px solid light-dark(#d8e3ea, #2c3a4d);
+  border-radius: 10px;
+  margin: 0.6rem 0;
+  padding: 0 1rem;
+}
+
+.settings-section > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.7rem 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.settings-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-section > summary::before {
+  content: "▸";
+  color: var(--accent);
+  flex: none;
+}
+
+.settings-section[open] > summary::before {
+  content: "▾";
+}
+
+.settings-section > summary .settings-h {
+  margin: 0;
+}
+
+.settings-section-body {
+  padding: 0 0 0.9rem;
+  border-top: 1px dashed light-dark(#d8e3ea, #2c3a4d);
+}
+
 .setting-row {
   display: flex;
   align-items: center;

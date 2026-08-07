@@ -53,6 +53,29 @@ export async function fetchAgentStatus(): Promise<AgentStatus | null> {
   }
 }
 
+/**
+ * Chrome 142+/Edge 143+ gate HTTPS-page → loopback fetches behind a one-time permission
+ * prompt ("Apps on device" since Chrome 145; "Local network access" before that; Firefox 144+
+ * has an equivalent). If the operator clicked BLOCK, every agent probe fails exactly like "no
+ * agent installed" — and no web page can re-raise the prompt; the operator must re-allow it in
+ * the browser's site settings. This reads the decision so Settings → Hardware can say which
+ * problem it actually is instead of a generic "no agent found".
+ *
+ * Permission names vary by browser generation, so try newest-first; a browser that predates
+ * the prompt (or Safari, which has none) throws on unknown names → "unknown", meaning the
+ * browser isn't the blocker.
+ */
+export type AgentAccessState = "granted" | "denied" | "prompt" | "unknown";
+export async function agentAccessState(): Promise<AgentAccessState> {
+  for (const name of ["loopback-network-access", "local-network-access"]) {
+    try {
+      const q = await navigator.permissions.query({ name: name as PermissionName });
+      return q.state;
+    } catch { /* this browser doesn't know the name — try the older one */ }
+  }
+  return "unknown";
+}
+
 // ── the print/drawer facade (FE3.3) ──────────────────────────────────────────
 // ⚠ GRACEFUL DEGRADATION IS THE RULE. Every function here returns a boolean and swallows its own
 // failures: no agent, wrong token, printer off, agent wedged — the till falls back to exactly

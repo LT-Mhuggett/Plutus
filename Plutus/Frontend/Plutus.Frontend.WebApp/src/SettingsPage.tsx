@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { effectiveStoreId, fetchDeviceStatus, fetchPayMethods, fetchTillName, loadReceiptTemplate, onOutboxChanged, renameTill, requestUnenrol, BUSINESS_ID, STORE_ID } from "./api.ts";
 import { parkedCount, queuedCount, resetDeviceSeq } from "./offline.ts";
 import {
@@ -12,7 +12,8 @@ import {
 } from "./pipeline.ts";
 import { getPrefs, setPrefs, type Prefs } from "./prefs.ts";
 import {
-  fetchAgentStatus, getAgentToken, openDrawer, setAgentToken, testPrint, type AgentStatus,
+  agentAccessState, fetchAgentStatus, getAgentToken, openDrawer, setAgentToken, testPrint,
+  type AgentAccessState, type AgentStatus,
 } from "./hardware.ts";
 import { ask } from "./Ask.tsx";
 import { getSession } from "./session.ts";
@@ -57,28 +58,57 @@ const TEST_RECEIPT: ReceiptData = {
 function HardwareSection({ canSettings }: { canSettings: boolean }) {
   const [status, setStatus] = useState<AgentStatus | null>(null);
   const [probed, setProbed] = useState(false);
+  // when the probe finds nothing, WHY matters: agent not running vs the browser's
+  // "Apps on device" permission having been blocked (the popup answered "Block").
+  const [access, setAccess] = useState<AgentAccessState>("unknown");
   const [token, setToken] = useState(getAgentToken());
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState("");
 
+  // A probe with the permission at "prompt" re-raises the browser's popup — so this
+  // button doubles as the "re-request access" button. A "denied" decision is sticky:
+  // no page can re-prompt; only the site-settings toggle clears it.
   const probe = () => {
     setProbed(false);
-    void fetchAgentStatus().then((s) => { setStatus(s); setProbed(true); });
+    void Promise.all([fetchAgentStatus(), agentAccessState()])
+      .then(([s, a]) => { setStatus(s); setAccess(a); setProbed(true); });
   };
   useEffect(probe, []);
 
   return (
     <>
-      <h3 className="settings-h">Hardware (receipt printer &amp; cash drawer)</h3>
       {!probed ? (
         <p className="muted small">Looking for the Plutus Till Agent on this PC…</p>
       ) : !status ? (
-        <p className="muted small">
-          No hardware agent found on this PC. Receipts print through the browser (PDF) and the cash drawer
-          is opened by hand — everything works, just not automatically. Install the{" "}
-          <strong>Plutus Till Agent</strong> to print silently and kick the drawer.{" "}
-          <button className="linklike small" onClick={probe}>Check again</button>
-        </p>
+        <>
+          <p className="muted small">
+            No hardware agent reachable on this PC. Receipts print through the browser (PDF) and the cash
+            drawer is opened by hand — everything works, just not automatically. Install and run the{" "}
+            <strong>Plutus Till Agent</strong> to print silently and kick the drawer.
+          </p>
+          {access === "denied" && (
+            <p className="error small">
+              This browser has <strong>blocked</strong> the till's access to apps on this device — the
+              permission popup was answered "Block", and a web page cannot re-ask. To fix it: click the
+              icon left of the address bar → allow <strong>"Apps on device"</strong> (older Chrome/Edge
+              call it <strong>"Local network access"</strong>) → reload this page.
+            </p>
+          )}
+          {access === "prompt" && (
+            <p className="small discount-note">
+              The browser may show a permission popup when you check — choose <strong>Allow</strong> so
+              this page can reach the agent on this PC.
+            </p>
+          )}
+          <div className="setting-row">
+            <span className="grow muted small">
+              Look for the agent again{access !== "denied" ? " — this re-requests access if the browser asks" : ""}.
+            </span>
+            <button className="ghost" onClick={probe}>
+              {access === "prompt" ? "Re-request access" : "Check again"}
+            </button>
+          </div>
+        </>
       ) : (
         <>
           <dl className="env-info">
@@ -90,7 +120,10 @@ function HardwareSection({ canSettings }: { canSettings: boolean }) {
                 ? <>{status.printer.name} {status.printer.online
                     ? <span className="chip ok">ready</span>
                     : <span className="chip">not responding</span>}</>
-                : <span className="error">none selected — open the agent's tray icon on this PC</span>}
+                : <span className="error">
+                    none selected — on this PC: agent tray icon → Settings → pick the printer (it lists
+                    every printer Windows has installed; plug in + install the driver first)
+                  </span>}
             </dd>
             <dt>Paper</dt>
             <dd>{status.columns === 32 ? "58mm" : "80mm"}</dd>
@@ -217,7 +250,6 @@ function TillDeviceSection() {
 
   return (
     <>
-      <h3 className="settings-h">Till device</h3>
       {cred ? (
         <>
           <p className="muted small">
@@ -346,6 +378,20 @@ function TillNameSetting({ tillId }: { tillId: string }) {
   );
 }
 
+/** Collapsible settings group — closed by default, so the page reads as a table of contents:
+ *  title + one-line description on the summary row, controls revealed on click. */
+function SettingsSection({ title, desc, children }: { title: string; desc: string; children: ReactNode }) {
+  return (
+    <details className="settings-section">
+      <summary>
+        <h3 className="settings-h">{title}</h3>
+        <span className="muted small">{desc}</span>
+      </summary>
+      <div className="settings-section-body">{children}</div>
+    </details>
+  );
+}
+
 export default function SettingsPage() {
   const [prefs, setPrefsState] = useState<Prefs>(() => getPrefs());
   const [apiStatus, setApiStatus] = useState<"checking" | "ok" | "down">("checking");
@@ -380,7 +426,7 @@ export default function SettingsPage() {
         <p className="error small">You don't have permission to change device settings — ask a manager (you can still view them and get help).</p>
       )}
 
-      <h3 className="settings-h">Till</h3>
+      <SettingsSection title="Till" desc="How the till screen behaves — basket order, search, the bag button">
       <label className="setting-row">
         <span className="grow">
           Newest items at the top of the basket
@@ -408,8 +454,9 @@ export default function SettingsPage() {
           onChange={(e) => setPrefsState(setPrefs({ bagBarcode: e.target.value.trim() }))}
         />
       </label>
+      </SettingsSection>
 
-      <h3 className="settings-h">Checkout</h3>
+      <SettingsSection title="Checkout" desc="What happens after each sale — receipt prompt or auto-print">
       <label className="setting-row">
         <span className="grow">
           Ask "print receipt?" after each sale
@@ -426,8 +473,9 @@ export default function SettingsPage() {
         </span>
         <input type="checkbox" checked={prefs.autoPrintReceipt} disabled={!canSettings} onChange={() => toggle("autoPrintReceipt")} />
       </label>
+      </SettingsSection>
 
-      <h3 className="settings-h">Printer</h3>
+      <SettingsSection title="Printer" desc="The receipt this till prints — live preview and a browser test print">
       <div className="setting-row">
         <span className="grow">
           Receipt layout
@@ -459,18 +507,24 @@ export default function SettingsPage() {
           Print test receipt
         </button>
       </div>
+      </SettingsSection>
 
-      <HardwareSection canSettings={canSettings} />
+      <SettingsSection title="Hardware" desc="Receipt printer & cash drawer — pair the Plutus Till Agent on this PC">
+        <HardwareSection canSettings={canSettings} />
+      </SettingsSection>
 
-      <h3 className="settings-h">Database</h3>
+      <SettingsSection title="Database" desc="Where this till's data lives">
       <p className="muted small">
         Unlike the native till, the webapp has no device database — the server's MySQL is the single source of truth and
         is backed up on the server. Backup/restore buttons are therefore not needed here.
       </p>
+      </SettingsSection>
 
-      <TillDeviceSection />
+      <SettingsSection title="Till device" desc="This browser's enrolment as a till — identity, sync queue, un-enrol">
+        <TillDeviceSection />
+      </SettingsSection>
 
-      <h3 className="settings-h">Environment</h3>
+      <SettingsSection title="Environment" desc="Who's signed in, API status and app build">
       <dl className="env-info">
         <dt>Signed in as</dt>
         <dd>{session?.name ?? "—"}</dd>
@@ -481,6 +535,7 @@ export default function SettingsPage() {
         <dt>App build</dt>
         <dd>{__BUILD_TIME__}</dd>
       </dl>
+      </SettingsSection>
 
       {testPrint && <Receipt data={{ ...TEST_RECEIPT, date: new Date().toISOString() }} onClose={() => setTestPrint(false)} />}
     </section>
