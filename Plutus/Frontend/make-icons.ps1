@@ -3,9 +3,14 @@
 # (64-unit design grid) — change one, change all three, then re-run:
 #
 #   .\make-icons.ps1 -OutDirs .\Plutus.Frontend.WebApp\public, .\Plutus.Frontend.Portal\public
+#   .\make-icons.ps1 -AgentIco ..\..\tools\Plutus.TillAgent\plutus.ico
 #
 # ...and copy icon.svg across by hand. Windows PowerShell 5.1 (System.Drawing).
-param([Parameter(Mandatory=$true)][string[]]$OutDirs)
+param(
+  [string[]]$OutDirs = @(),
+  # Windows app icon for the Till Agent (classic DIB format — see Write-ClassicIco).
+  [string]$AgentIco
+)
 
 Add-Type -AssemblyName System.Drawing
 
@@ -98,6 +103,65 @@ function Write-Ico([string]$path, [int[]]$sizes) {
   }
   foreach ($p in $pngs) { $bw.Write([byte[]]$p, 0, $p.Length) }
   $bw.Flush(); $bw.Dispose(); $fs.Dispose()
+}
+
+# Classic BMP/DIB ICO — for WINDOWS APPS, not the web.
+# ⚠ Deliberately NOT the PNG-compressed form Write-Ico emits: System.Drawing.Icon (WinForms
+# NotifyIcon, Form.Icon) cannot decode PNG-in-ICO entries and throws "Requested range extends
+# past the end of the array" — verified the hard way. Each entry is a BITMAPINFOHEADER with
+# doubled height (XOR colour plane + AND mask plane), bottom-up BGRA rows.
+function Write-ClassicIco([string]$path, [int[]]$sizes) {
+  $images = @()
+  foreach ($s in $sizes) {
+    $bmp = New-IconBitmap $s $false
+    $rect = New-Object System.Drawing.Rectangle(0, 0, $s, $s)
+    $data = $bmp.LockBits($rect, [System.Drawing.Imaging.ImageLockMode]::ReadOnly,
+      [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+    $stride = [Math]::Abs($data.Stride)
+    $buf = New-Object byte[] ($stride * $s)
+    [System.Runtime.InteropServices.Marshal]::Copy($data.Scan0, $buf, 0, $buf.Length)
+    $bmp.UnlockBits($data); $bmp.Dispose()
+
+    $ms = New-Object System.IO.MemoryStream
+    $bw = New-Object System.IO.BinaryWriter($ms)
+    $bw.Write([uint32]40); $bw.Write([int32]$s); $bw.Write([int32]($s * 2))  # height = XOR + AND
+    $bw.Write([uint16]1); $bw.Write([uint16]32); $bw.Write([uint32]0)        # planes, bpp, BI_RGB
+    $bw.Write([uint32]0); $bw.Write([int32]0); $bw.Write([int32]0); $bw.Write([uint32]0); $bw.Write([uint32]0)
+    # XOR plane: bottom-up. GDI+ Format32bppArgb memory order is already BGRA.
+    for ($y = $s - 1; $y -ge 0; $y--) { $bw.Write($buf, $y * $stride, $s * 4) }
+    # AND plane: 1bpp bottom-up, rows padded to 4 bytes, bit SET = transparent.
+    $maskRow = [int]([Math]::Floor(($s + 31) / 32) * 4)
+    for ($y = $s - 1; $y -ge 0; $y--) {
+      $row = New-Object byte[] $maskRow
+      for ($x = 0; $x -lt $s; $x++) {
+        if ($buf[$y * $stride + $x * 4 + 3] -eq 0) {
+          $i = [int][Math]::Floor($x / 8)
+          $row[$i] = [byte]($row[$i] -bor (0x80 -shr ($x % 8)))
+        }
+      }
+      $bw.Write($row, 0, $maskRow)
+    }
+    $bw.Flush(); $images += , ($ms.ToArray()); $bw.Dispose(); $ms.Dispose()
+  }
+
+  $fs = [System.IO.File]::Create($path)
+  $bw = New-Object System.IO.BinaryWriter($fs)
+  $bw.Write([uint16]0); $bw.Write([uint16]1); $bw.Write([uint16]$sizes.Count)
+  $offset = 6 + 16 * $sizes.Count
+  for ($i = 0; $i -lt $sizes.Count; $i++) {
+    $w = $sizes[$i]; if ($w -ge 256) { $w = 0 }   # 0 means 256 in the directory entry
+    $bw.Write([byte]$w); $bw.Write([byte]$w); $bw.Write([byte]0); $bw.Write([byte]0)
+    $bw.Write([uint16]1); $bw.Write([uint16]32)
+    $bw.Write([uint32]$images[$i].Length); $bw.Write([uint32]$offset)
+    $offset += $images[$i].Length
+  }
+  foreach ($img in $images) { $bw.Write([byte[]]$img, 0, $img.Length) }
+  $bw.Flush(); $bw.Dispose(); $fs.Dispose()
+}
+
+if ($AgentIco) {
+  Write-ClassicIco $AgentIco @(16, 24, 32, 48, 64, 256)
+  "wrote agent icon -> $AgentIco"
 }
 
 foreach ($dir in $OutDirs) {

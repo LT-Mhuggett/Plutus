@@ -1,0 +1,4 @@
+# publish-agent.ps1 output: a 67MB self-contained exe per release. These are HOSTED
+# (copied to the till's public/agent/ on the build Mac), never tracked here — three of
+# them reached history before this file existed.
+publish-out/

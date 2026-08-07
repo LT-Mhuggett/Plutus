@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
+using System.Reflection;
 using System.Windows.Forms;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Win32;
@@ -57,7 +58,7 @@ namespace Plutus.TillAgent
 
             _icon = new NotifyIcon
             {
-                Icon = SystemIcons.Application,
+                Icon = LoadAppIcon(SystemInformation.SmallIconSize),
                 Visible = true,
                 ContextMenuStrip = menu,
             };
@@ -96,6 +97,21 @@ namespace Plutus.TillAgent
             _icon.Dispose();
         }
 
+        /// <summary>The Plutus mark, so the agent matches the till in the tray and the taskbar.
+        /// Embedded (plutus.ico) rather than pulled off the .exe so single-file publish and any
+        /// future packaging can't lose it; falls back to the stock icon rather than failing to
+        /// start over a picture.</summary>
+        public static Icon LoadAppIcon(Size size)
+        {
+            try
+            {
+                using var s = Assembly.GetExecutingAssembly().GetManifestResourceStream("Plutus.TillAgent.plutus.ico");
+                if (s != null) return new Icon(s, size);
+            }
+            catch (Exception) { /* fall through */ }
+            return SystemIcons.Application;
+        }
+
         /// <summary>Auto-start at login via the Run key (per user — no admin needed, and the till
         /// PC logs in automatically anyway).</summary>
         public static bool AutoStartEnabled()
@@ -129,6 +145,7 @@ namespace Plutus.TillAgent
         {
             _state = state;
             Text = $"Plutus Till Agent v{Program.AgentVersion}";
+            Icon = TrayApp.LoadAppIcon(SystemInformation.IconSize);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
