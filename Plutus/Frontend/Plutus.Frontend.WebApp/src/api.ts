@@ -221,6 +221,32 @@ export async function findItemById(id: string): Promise<Item | null> {
   }
 }
 
+/**
+ * Duplicate-barcode guard for the Add-item dialog — NatApp parity (`AddEditInventoryViewModel`
+ * calls FindById before Create and refuses with "Item already exists!").
+ *
+ * Deliberately NOT findItemById: that one hides binned items (the FE5.4 404 override) so a
+ * scanned binned barcode behaves like an unknown one. A binned item still OWNS its barcode
+ * row, so the composite PK (IdOne, IdTwo) rejects the insert — the generic POST has no
+ * duplicate check and surfaces it as a raw 500. `includeBinned=true` lets the till say which
+ * item is in the way and that it's in the bin.
+ *
+ * Returns null when the barcode is free. A network failure falls back to the offline
+ * catalogue cache, and a cache miss returns null rather than blocking: the POST stays the
+ * final authority, so a flaky connection can't veto a legitimate create.
+ */
+export async function findItemByBarcode(id: string): Promise<Item | null> {
+  try {
+    const res = await fetch(`/api/Item/${encodeURIComponent(id)}?includeBinned=true`, { headers: headers() });
+    handle401(res);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`API ${res.status} ${res.statusText}`);
+    return res.json();
+  } catch {
+    return (await cachedItemById(id)) ?? null;
+  }
+}
+
 export async function fetchPayMethods(): Promise<PayMethod[]> {
   try {
     const m = await get<PayMethod[]>(`/api/PaymentMethod/Index?PageNumber=1&PageSize=50`);

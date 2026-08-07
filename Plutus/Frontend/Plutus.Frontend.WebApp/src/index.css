@@ -562,6 +562,40 @@ tr.adjusted td:first-child {
   color: inherit;
 }
 
+/* duplicate-barcode info box in the Add-item dialog */
+.clash-note {
+  margin-top: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid light-dark(#f0c8c4, #6e3b39);
+  border-left: 4px solid light-dark(#b3261e, #ff9494);
+  border-radius: 8px;
+  background: light-dark(#fdf3f2, #2c2036);
+}
+
+.clash-note p {
+  margin: 0 0 0.3rem;
+}
+
+.clash-title {
+  font-weight: 600;
+  color: light-dark(#b3261e, #ff9494);
+}
+
+.link-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  text-decoration: none;
+}
+
 .dialog-actions {
   display: flex;
   justify-content: flex-end;

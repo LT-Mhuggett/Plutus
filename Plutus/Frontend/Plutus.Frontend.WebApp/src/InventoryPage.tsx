@@ -6,6 +6,7 @@ import {
   fetchItemsPaged,
   fetchStockLevelsFor,
   fetchTaxes,
+  findItemByBarcode,
   updateItem,
   type Category,
   type Item,
@@ -113,8 +114,12 @@ export default function InventoryPage() {
 
       {editing && (
         <ItemDialog
+          // keyed so "Open this item" (duplicate barcode) REMOUNTS the dialog — the field
+          // state is seeded from props at mount, so a prop swap alone would keep the old form.
+          key={editing === "new" ? "new" : editing.idOne}
           item={editing === "new" ? null : editing}
           onClose={() => setEditing(null)}
+          onOpenExisting={(i) => setEditing(i)}
           onDone={(msg) => {
             setEditing(null);
             setNotice(msg);
@@ -126,7 +131,17 @@ export default function InventoryPage() {
   );
 }
 
-function ItemDialog({ item, onClose, onDone }: { item: Item | null; onClose: () => void; onDone: (msg: string) => void }) {
+function ItemDialog({
+  item,
+  onClose,
+  onDone,
+  onOpenExisting,
+}: {
+  item: Item | null;
+  onClose: () => void;
+  onDone: (msg: string) => void;
+  onOpenExisting: (item: Item) => void;
+}) {
   const [taxes, setTaxes] = useState<Tax[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [id, setId] = useState(item?.idOne ?? "");
@@ -141,6 +156,8 @@ function ItemDialog({ item, onClose, onDone }: { item: Item | null; onClose: () 
   const [untracked, setUntracked] = useState(item?.stockUntracked ?? false); // FE5.5
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // the item already holding the typed barcode — blocks the create until it's changed
+  const [clash, setClash] = useState<Item | null>(null);
 
   useEffect(() => {
     Promise.all([fetchTaxes(), fetchCategories()])
@@ -162,6 +179,19 @@ function ItemDialog({ item, onClose, onDone }: { item: Item | null; onClose: () 
     e.preventDefault();
     setBusy(true);
     setError("");
+    setClash(null);
+
+    // NatApp parity: a new item's barcode must be free before we try to create it. Without
+    // this the composite PK rejects the insert and the till showed a raw "API 500".
+    if (!item) {
+      const existing = await findItemByBarcode(id.trim());
+      if (existing) {
+        setClash(existing);
+        setBusy(false);
+        return;
+      }
+    }
+
     const input: ItemInput = {
       id: id.trim(),
       name: name.trim(),
@@ -199,7 +229,14 @@ function ItemDialog({ item, onClose, onDone }: { item: Item | null; onClose: () 
         <div className="form-grid">
           <label>
             Barcode / id (max 20)
-            <input value={id} onChange={(e) => setId(e.target.value)} maxLength={20} required disabled={busy || !!item} />
+            <input
+              value={id}
+              onChange={(e) => { setId(e.target.value); setClash(null); }}
+              maxLength={20}
+              required
+              disabled={busy || !!item}
+              aria-invalid={!!clash}
+            />
           </label>
           <label>
             Name
@@ -259,12 +296,31 @@ function ItemDialog({ item, onClose, onDone }: { item: Item | null; onClose: () 
           <input type="checkbox" checked={untracked} onChange={(e) => setUntracked(e.target.checked)} disabled={busy} />
         </label>
         <p className="muted small">Ex-tax price: £{exPrice.toFixed(2)} (derived from the selected tax)</p>
+
+        {clash && (
+          <div className="clash-note" role="alert">
+            <p className="clash-title">There is already an item with this barcode</p>
+            <p className="small">
+              This item has this barcode — <strong>{clash.name}</strong>
+              {clash.binnedAtUtc && <span className="muted"> (in the bin)</span>}
+            </p>
+            <p className="small muted">
+              Open it below, or change the barcode and save again — closing this window keeps the
+              catalogue untouched.
+            </p>
+            <button type="button" className="link-btn" onClick={() => onOpenExisting(clash)}>
+              Open “{clash.name}”
+            </button>
+          </div>
+        )}
+
         {error && <p className="error small">{error}</p>}
         <div className="dialog-actions">
           <button type="button" className="ghost" onClick={onClose} disabled={busy}>
             Cancel
           </button>
-          <button type="submit" className="primary" disabled={busy || !id.trim() || !name.trim() || !price}>
+          {/* blocked while a clash is showing; editing the barcode clears it */}
+          <button type="submit" className="primary" disabled={busy || !!clash || !id.trim() || !name.trim() || !price}>
             {busy ? "Saving…" : "Save"}
           </button>
         </div>
