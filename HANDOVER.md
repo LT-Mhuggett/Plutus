@@ -14,6 +14,80 @@ theming**. Head: see `git log` — this line goes stale; the commits don't.
 > Older references below that say `Build/<plan>.md` now mean `Build/archive/<plan>.md` or
 > `Build/To do/<plan>.md`.
 
+### ⏰⏰⏰⏰ RESUME HERE (2026-08-07)
+
+Suite: **Unit 347 · Architecture 6 · Integration 67 — green.** (The two legacy projects
+`Plutus.Entities.Tests` / `Plutus.Repository.Tests` still fail without a live MySQL — pre-existing.)
+
+#### What shipped (2026-08-06 → 07)
+
+| | Feature | Notes |
+|---|---|---|
+| — | **FE3 verified on real hardware** | Star TSP143 silent printing + cash drawer from the browser till, via `Plutus.TillAgent` **v1.3.3**. The route that works is **GDI through the vendor driver** (the queue text-renders even RAW jobs). Two agent bugs fixed along the way: tray Exit deadlocked, and every money column printed blank (`new Font(family,size,style)` defaults to POINTS — use the copy constructor). |
+| — | Per-store receipt templates | `StoreDetails.ReceiptTemplateJson`, edited in portal → Locations, cached by the till, used by **both** renderers. This is the house exemplar for "portal decides, till obeys". |
+| — | Till UX batch | Duplicate-barcode guard (+ blur check), collapsible Settings, driver links + agent download, two test-print buttons, checkout wedge fix, portal Tills **Refresh**. |
+| — | App switcher · add-unknown-item · **refunds** | `899fc03`. Refund-only baskets were a **UI-only** block — the T1.3 invariants are sign-agnostic, pinned by two tests written *before* the block was lifted. |
+| **FE10** | **Till theming** | Colour schemes defined in the portal and pushed to company / store / till-group / till. Migration `AddTillThemes`. See below. |
+| — | Pick-notes **production bug** | Dead since Phase 6 — see below. |
+
+#### ⚠ Things a new session must know (in addition to the 2026-07-31 list, which all still holds)
+
+1. **`Build/` was reorganised** — standards at the top level, open plans in `Build/To do/`,
+   delivered/superseded in `Build/archive/`. Start at **[`Build/index.md`](Build/index.md)**.
+   **[`Build/repo-runbook.md`](Build/repo-runbook.md)** is now the build/test/deploy + pitfalls
+   doc (extracted from `operator-portal-plan` §0), and
+   **[`Build/till-parity.md`](Build/till-parity.md)** is the web-till ↔ MAUI feature register —
+   **its rule binds: a till feature isn't done until its row is updated in the same commit.**
+2. **FE10 theming**: `GET /api/v1/themes/effective` (sales.ingest — device *or* operator token)
+   resolves **till > group > store > tenant > default** server-side in `ThemeResolution`; writes
+   are `perm:portal.company.manage` + audited. The web till's `index.css` is now tokenised
+   (`--accent`, `--accent-ink`, `--surface`, `--surface-2`, `--ink`, `--ink-muted`, `--line`) —
+   **a theme is just `color-scheme` + those seven variables**, so clearing overrides always
+   restores the stock pastels. Themes are pushed, never set per-till: Settings shows the current
+   scheme read-only. ⚠ **Receipts are deliberately immune** — `.receipt` pins `#111` on `#fff` in
+   the print block (printing from dark mode used to put near-white ink on paper).
+3. **Two MAUI projects, and they are not two versions of one thing.** `Plutus.Frontend.AppClient`
+   (Sean's rework, the NatApp lineage, legacy schema, **zero** network code) is the go-forward
+   app; `Plutus.Frontend.ClientUI` is the abandoned port, kept only to harvest its colour palette
+   and repository interface shape, then retired. Both are already **net10**.
+4. **The MAUI retrofit plan is written for autonomous execution** — `Build/To do/MAUI-Retrofit-Plan-2026-08-07.md`,
+   WP0–WP13 with DoDs, §0 protocol and §9 **binding defaults** instead of open questions.
+   ⚠ Two of those defaults touch real shop data (**archive local till data at enrolment**;
+   **migrate before enrol**) — Matt can veto, but they're built in after WP2.
+5. **`DeterministicGuid.ForItem(businessId, itemIdOne)` is the catalogue ID mapping — keyed on the
+   legacy *BusinessId*, NOT TenantId.** `Migration.Kapow`'s `IdRemap` is random per run and is
+   only for historic sale rows. Getting this wrong corrupts item ids silently (stock still moves,
+   because lines key on `itemIdOne` inside `DiscountsJson`).
+
+#### The pick-notes bug — read this if you touch authorization
+
+`GET /api/v1/notifications` + `/ack` were gated `[Authorize(Policy = "perm:sales.ingest")]` — the
+**scope-policy name used as a permission code**. `sales.ingest` is not in `PermissionCatalogue`, so
+no RBAC role can hold it: every till poll 403'd from Phase 6 until 2026-08-07, silently, into the
+web till's `.catch`. A web order selling shop-floor stock never told anyone to pull it.
+**The lesson generalises:** `"perm:x"` and `PlutusPolicies.X` are different namespaces; a typo
+between them fails closed and silently. `PickNotesE2eTests` now pins the path with an ordinary
+`pos.sell` token. Fixing the gate also exposed a missing `db.CurrentUser` in the ack path
+(pitfall #1) that the broken gate had been hiding.
+
+#### Rollbacks for this session's deploys
+
+Backend: `~/PLUTUS/backend.pre-themes`, `~/PLUTUS/backend.pre-picknotes`.
+Till/portal: `/srv/apps/PLUTUS/{web,portal}/current.pre-themes`.
+DB dump: `~/PLUTUS/backups/plutus-pre-themes-20260807.sql.gz`.
+
+#### Still open
+
+- **FE10 unverified by Matt** — nothing changes on a till until a scheme is assigned
+  (portal → Locations → Till themes). Worth flipping one till to Plutus Dark to confirm it lands.
+- **MAUI retrofit not started.** WP0 is a re-confirmation gate; the AppClient Windows head builds
+  clean on the dev box (verified 2026-08-07, 0 errors, `maui` workload present).
+- Everything in the 2026-07-31 "Still open" list below **except FE3.1/FE3.5**, which is now done.
+- Local-only tidy: `.git-rewrite/` (sandbox blocked its removal) and the now-redundant 364 MB
+  `D:\tmp\plutus-backup-pre-exe-purge-20260807.bundle`.
+
+---
+
 ### ⏰⏰⏰ RESUME HERE (2026-07-31)
 
 Suite: **Unit 333 · Architecture 6 · Integration 63 — green.** (The two legacy projects
