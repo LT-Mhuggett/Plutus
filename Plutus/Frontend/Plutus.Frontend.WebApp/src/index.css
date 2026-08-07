@@ -78,6 +78,24 @@ body {
   white-space: nowrap;
 }
 
+/* "a newer build is deployed" — clickable, never automatic (appUpdate.ts) */
+.update-badge {
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border: none;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--accent);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.update-badge:hover {
+  background: #e3f6f5;
+}
+
 footer {
   padding: 0.4rem 1rem 0.6rem;
 }

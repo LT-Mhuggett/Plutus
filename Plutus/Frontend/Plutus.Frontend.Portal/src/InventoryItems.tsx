@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   bulkCount, bulkItems, createItem, fetchCatalogueItemsPaged, fetchCategories, fetchStockLevelsFor,
-  fetchTaxes, gbp, updateItem,
+  fetchTaxes, findItemByBarcode, gbp, updateItem,
   type BulkAction, type BulkCriteria, type CatalogueItem, type Category, type ItemInput, type Tax,
 } from "./api.ts";
 import { canBulkEditInventory } from "./auth.ts";
@@ -214,8 +214,12 @@ export default function InventoryItems({ binView = false }: { binView?: boolean 
 
       {editing && (
         <ItemDialog
+          // keyed so "Open this item" REMOUNTS the dialog — field state is seeded from props at
+          // mount, so a prop swap alone would keep the old form
+          key={editing === "new" ? "new" : editing.idOne}
           item={editing === "new" ? null : editing} cats={cats}
           onClose={() => setEditing(null)}
+          onOpenExisting={(i) => setEditing(i)}
           onDone={(msg) => { setEditing(null); setNotice(msg); load(); }}
         />
       )}
@@ -305,8 +309,9 @@ function BulkBar({ binView, cats, busy, tickedCount, filterActive, onRun }: {
   );
 }
 
-function ItemDialog({ item, cats, onClose, onDone }:
-  { item: CatalogueItem | null; cats: Category[]; onClose: () => void; onDone: (msg: string) => void }) {
+function ItemDialog({ item, cats, onClose, onDone, onOpenExisting }:
+  { item: CatalogueItem | null; cats: Category[]; onClose: () => void; onDone: (msg: string) => void;
+    onOpenExisting: (item: CatalogueItem) => void }) {
   const [taxes, setTaxes] = useState<Tax[]>([]);
   const [id, setId] = useState(item?.idOne ?? "");
   const [name, setName] = useState(item?.name ?? "");
@@ -319,6 +324,19 @@ function ItemDialog({ item, cats, onClose, onDone }:
   const [untracked, setUntracked] = useState(item?.stockUntracked ?? false); // FE5.5
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // the item already holding the typed barcode — blocks the create until it's changed
+  const [clash, setClash] = useState<CatalogueItem | null>(null);
+  // latest field value, so a slow lookup can't flag a barcode since edited
+  const idRef = useRef(id);
+
+  /** Checked on blur AND again on submit — the operator hears about a clash as soon as they
+   *  leave the barcode box, not after filling in the whole form. */
+  async function checkBarcodeFree() {
+    const candidate = id.trim();
+    if (item || !candidate) return; // edits keep their barcode
+    const existing = await findItemByBarcode(candidate);
+    if (existing && idRef.current.trim() === candidate) setClash(existing);
+  }
 
   useEffect(() => {
     fetchTaxes().then((t) => { setTaxes(t); if (!item && t.length) setTaxId(t[0].idOne); }).catch((e) => setError(String(e)));
@@ -333,6 +351,15 @@ function ItemDialog({ item, cats, onClose, onDone }:
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true); setError("");
+    setClash(null);
+
+    // NatApp/web-till parity: a new item's barcode must be free. Without this the composite PK
+    // rejects the insert and the portal showed a raw 500.
+    if (!item) {
+      const existing = await findItemByBarcode(id.trim());
+      if (existing) { setClash(existing); setBusy(false); return; }
+    }
+
     const input: ItemInput = {
       id: id.trim(), name: name.trim(), brand: brand.trim(), desc: desc.trim(),
       cost: parseFloat(cost) || 0, price: priceNum, exPrice: Math.round(exPrice * 100) / 100, taxId, catId,
@@ -351,7 +378,17 @@ function ItemDialog({ item, cats, onClose, onDone }:
       <form className="dialog" onSubmit={submit}>
         <h3>{item ? "Edit item" : "Add item"}</h3>
         <div className="form-grid">
-          <label>Barcode / id (max 20)<input value={id} onChange={(e) => setId(e.target.value)} maxLength={20} required disabled={busy || !!item} /></label>
+          <label>Barcode / id (max 20)
+            <input
+              value={id}
+              onChange={(e) => { setId(e.target.value); idRef.current = e.target.value; setClash(null); }}
+              onBlur={() => void checkBarcodeFree()}
+              maxLength={20}
+              required
+              disabled={busy || !!item}
+              aria-invalid={!!clash}
+            />
+          </label>
           <label>Name<input value={name} onChange={(e) => setName(e.target.value)} required disabled={busy} /></label>
           <label>Brand<input value={brand} onChange={(e) => setBrand(e.target.value)} disabled={busy} /></label>
           <label>Description<input value={desc} onChange={(e) => setDesc(e.target.value)} disabled={busy} /></label>
@@ -378,10 +415,29 @@ function ItemDialog({ item, cats, onClose, onDone }:
           number. Turning it back on resumes from the existing ledger level.
         </p>
         <p className="muted small">Ex-VAT price: £{exPrice.toFixed(2)} (derived from the selected tax band; the server rejects a band mismatch)</p>
+
+        {clash && (
+          <div className="clash-note" role="alert">
+            <p className="clash-title">There is already an item with this barcode</p>
+            <p className="small">
+              This item has this barcode — <strong>{clash.name}</strong>
+              {clash.binnedAtUtc && <span className="muted"> (in the bin)</span>}
+            </p>
+            <p className="small muted">
+              Open it below, or change the barcode and save again — closing this window keeps the
+              catalogue untouched.
+            </p>
+            <button type="button" className="link-btn" onClick={() => onOpenExisting(clash)}>
+              Open “{clash.name}”
+            </button>
+          </div>
+        )}
+
         {error && <p className="error small">{error}</p>}
         <div className="dialog-actions">
           <button type="button" className="ghost" onClick={onClose} disabled={busy}>Cancel</button>
-          <button type="submit" className="primary" disabled={busy || !id.trim() || !name.trim() || !price || !catId}>{busy ? "Saving…" : "Save"}</button>
+          {/* blocked while a clash is showing; editing the barcode clears it */}
+          <button type="submit" className="primary" disabled={busy || !!clash || !id.trim() || !name.trim() || !price || !catId}>{busy ? "Saving…" : "Save"}</button>
         </div>
       </form>
     </div>

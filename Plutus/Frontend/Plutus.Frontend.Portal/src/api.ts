@@ -635,6 +635,24 @@ async function itemBody(i: ItemInput) {
     binnedAtUtc: i.binnedAtUtc ?? null,
   };
 }
+/**
+ * Duplicate-barcode guard for the Add-item dialog — the same check the web till does, and the
+ * NatApp before it (AddEditInventoryViewModel refuses with "Item already exists!").
+ *
+ * POST /api/Item has NO duplicate check: a taken barcode hits the composite PK (IdOne, IdTwo)
+ * and surfaces as a raw 500. `includeBinned=true` because a BINNED item still owns its barcode
+ * row and would break the insert just the same, while the default lookup hides it (FE5.4).
+ * Returns null when the barcode is free; a lookup failure also returns null so a flaky
+ * connection can't veto a legitimate create — the POST stays the final authority.
+ */
+export async function findItemByBarcode(id: string): Promise<CatalogueItem | null> {
+  try {
+    return await legacy<CatalogueItem>("GET", `/api/Item/${encodeURIComponent(id)}?includeBinned=true`);
+  } catch {
+    return null;
+  }
+}
+
 export const createItem = async (i: ItemInput) => legacy<void>("POST", `/api/Item`, await itemBody(i));
 export const updateItem = async (i: ItemInput) => legacy<void>("PUT", `/api/Item/${encodeURIComponent(i.id)}`, await itemBody(i));
 // NB: initial stock is set through the v1 Stock ledger (per-location, multi-store correct), not the

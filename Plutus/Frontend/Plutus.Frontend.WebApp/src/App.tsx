@@ -13,6 +13,7 @@ import { PlutusMark } from "./PlutusMark.tsx";
 import { ackPickNotification, drainOutbox, fetchActiveAnnouncements, fetchPickNotifications, fetchTillName, loadReceiptTemplate, onOutboxChanged, syncCatalogue, type ActiveAnnouncement, type PickNotification } from "./api.ts";
 import { getDeviceCredential } from "./pipeline.ts";
 import { startAgentReporter } from "./hardware.ts";
+import { startUpdateWatcher } from "./appUpdate.ts";
 import { queuedCount } from "./offline.ts";
 import { getSession, type Session } from "./session.ts";
 import { oidcMode, signOut } from "./auth.ts";
@@ -55,6 +56,7 @@ export default function App() {
   const [online, setOnline] = useState(navigator.onLine);
   const [queued, setQueued] = useState(0);
   const [tillName, setTillName] = useState<string | null>(null);
+  const [updateReady, setUpdateReady] = useState(false);
   const [pickNotes, setPickNotes] = useState<PickNotification[]>([]);
   const [announcements, setAnnouncements] = useState<ActiveAnnouncement[]>([]);
 
@@ -85,6 +87,12 @@ export default function App() {
   useEffect(() => {
     if (!session || !getDeviceCredential()) return;
     return startAgentReporter();
+  }, [session]);
+
+  // Watch for a newer deployed build (see appUpdate.ts — banner only, never auto-reloads).
+  useEffect(() => {
+    if (!session) return;
+    return startUpdateWatcher(() => setUpdateReady(true));
   }, [session]);
 
   // Offline plumbing: connectivity indicator, outbox badge, replay on reconnect,
@@ -168,6 +176,17 @@ export default function App() {
           </span>
         )}
         {tillName && <span className="till-name-badge" title="This till">{tillName}</span>}
+        {/* A till tab stays open for days, so a deploy never reaches it on its own. Never
+            auto-reloads — that would drop a basket mid-sale; the operator picks the moment. */}
+        {updateReady && (
+          <button
+            className="update-badge"
+            title="A newer version of the till has been deployed. Reload when you're between sales — anything in the basket is lost."
+            onClick={() => window.location.reload()}
+          >
+            ⬆ Update — reload
+          </button>
+        )}
         <span className="env-badge">test</span>
         {/* WP6.3: Help, top-right next to the users button — raise/track support tickets. */}
         <button className="user-btn" title="Help &amp; support" onClick={() => setHelpOpen(true)}>❓</button>
