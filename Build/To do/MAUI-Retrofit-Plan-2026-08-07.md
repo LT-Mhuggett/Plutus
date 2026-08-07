@@ -23,6 +23,50 @@ one point, recorded in §10.
 
 ---
 
+## 0. Execution protocol — for an autonomous (Sonnet-grade) session, NO QUESTIONS
+
+This plan is written to be executed one work package at a time by an implementing model with no
+prior context. **Every decision it needs is already made**: §9's binding defaults and §3a's
+rulings ARE the answers — do not re-ask them; Matt can veto any before the WP that uses it starts.
+
+**Required reading before any code** (in this order):
+1. [`Build/repo-runbook.md`](../repo-runbook.md) — build/test/migrate commands, the ten codebase
+   pitfalls, hard rules. Everything there applies here.
+2. [`Build/till-parity.md`](../till-parity.md) — the feature register this plan exists to close.
+   Its rule binds you: **a capability isn't done until its row is updated in the same commit.**
+3. `Build/plutus-platform-architecture.md` wins on any design conflict — stop and flag, don't improvise.
+
+**Session shape** (how phases 0–18 were built): one WP per session, in §4 order. Announce the WP,
+build it, run its DoD, paste the test output, commit with the `Co-Authored-By: Claude` trailer,
+update HANDOVER's resume block. A WP is complete only when its DoD passes.
+
+**Verification split.** Automated DoD elements (builds, unit/integration tests, soak harnesses)
+gate the WP. DoD elements needing physical hardware or a human eye (enrolment on a real till,
+printer output, drawer, visual checks) are **USER-VERIFY**: collect them into a checklist at the
+end of each WP for Matt, and carry on — they block sign-off, not the next WP.
+
+**No Mac deploys in this plan.** Verify backend-touching WPs (2b, 5, 8, 13) against a locally-run
+`Plutus.DBService` + the integration factory. Matt deploys to the test env via the runbook when
+he chooses. (Corollary: ETRIE is untouchable and untouched.)
+
+**Package allow-list** (MAUI side): what AppClient already references — EF Core Sqlite,
+`CommunityToolkit.Mvvm`/`.Maui`, Mapster, the Syncfusion `34.1.32` pins. `Plutus.Client.Core` and
+`Plutus.Contracts.Client` are plain net10 class libraries: SharedKernel + BCL only. Anything else
+= stop and report, don't add it.
+
+**Stop-and-report conditions** (the ONLY reasons to halt): the WP0 gate fails; WP2's ID remap
+turns out non-deterministic; an architecture-doc conflict; a package not on the allow-list seems
+required. Everything else has an answer in this document.
+
+**Toolchain facts (verified 2026-08-07 on this box):** SDK 10.0.302 with the `maui` workload
+installed; `Plutus.Frontend.AppClient` builds for `net10.0-windows10.0.19041.0` (WP0 re-confirms).
+⚠ The "Appium UI suite (PR #8)" the superseded sync plan told you to run is **NOT in this
+branch** — `Plutus.Frontend.AppClient.Tests` is a small xunit/Moq unit project. Baseline is that
+project + the three platform suites; UI regression is USER-VERIFY until an in-branch UI suite
+exists.
+
+---
+
 ## 1. The decision that shapes everything: AppClient, not ClientUI
 
 There are two MAUI projects in this repo and they are **not** two versions of the same thing:
@@ -57,7 +101,8 @@ with a schema to migrate beats a schema-correct shell with no till in it.
 
 Everything else in ClientUI is superseded. Once WP7 lands, delete it from `Plutus.slnx`.
 
-> **Confirm or veto this before WP1 starts.** Every work package below assumes it.
+> **This is binding default §9.1** — an autonomous build proceeds on it without asking. Veto it
+> before WP1 starts if you disagree; every work package below assumes it.
 
 ---
 
@@ -152,7 +197,10 @@ Inventory, Reporting, Loyalty, Store Information, Settings — plus theming. An 
 against the *current* web till found it had missed the **Till screen itself** and everything
 platform-level. Full register: **[`Build/till-parity.md`](../till-parity.md)**.
 
-Six items are **not costed in any work package below**. Decide in or out before starting:
+**Rulings (binding, veto-able): everything below is IN**, homed as follows — gift cards become
+**WP13**; announcements + support tickets + pick-notes become **WP5b**; the receipt template folds
+into **WP3**; the users screen folds into **WP8**; refund-only baskets into **WP3**; add-unknown-item,
+the Bin and untracked stock into **WP10**; theming into **WP7**; cross-till refunds into **WP11**.
 
 | Found | Size | Note |
 |---|---|---|
@@ -176,19 +224,27 @@ Each work package has a Definition of Done. Do them in order; **WP1 and WP2 gate
 
 | WP | Title | Why here |
 |---|---|---|
+| 0 | Toolchain + baseline gate | Re-confirm the §0 toolchain facts before anything else |
 | 1 | Shared contracts + client core | Nothing can call the API until the DTOs exist |
 | 2 | Local store v2 + money/ID sweep | The wire format demands integer pence and UUIDs |
 | 2b | VAT effective-dating (backend) | Compliance; independent, can run in parallel |
-| 3 | Outbox + sale ingest | The core of the whole retrofit |
+| 3 | Outbox + sale ingest (+ portal receipt template, refund baskets) | The core of the whole retrofit |
 | 4 | Enrolment, device identity, Settings | Everything after this needs a device token |
-| 5 | Heartbeat + catalogue sync | Fleet citizenship |
+| 5 | Heartbeat + catalogue sync · **5b** announcements, tickets, pick-notes | Fleet citizenship |
 | 6 | Store Information (read-only) | Smallest lift; proves the "portal is the truth" pattern |
-| 7 | Theming | Cheap, visible, unblocks nothing — do it when you want a win |
-| 8 | Operator RBAC + offline login | Needs the new endpoint; replaces local-only auth |
+| 7 | Theming (portal-pushed) | Cheap, visible, unblocks nothing — do it when you want a win |
+| 8 | Operator RBAC + offline login + the Users screen | Needs the new endpoint; replaces local-only auth |
 | 9 | Cash | Self-contained, well-specified contract |
-| 10 | Inventory + stock ledger | Rework of screens that already exist |
-| 11 | Reporting | Rewrite local queries → backend calls |
-| 12 | Loyalty | Highest effort, hardest offline design; last so it reuses everything |
+| 10 | Inventory + stock ledger (+ Bin, untracked, add-unknown) | Rework of screens that already exist |
+| 11 | Reporting + **cross-till refund lookup** | Rewrite local queries → backend calls; the refund path is money-handling, not a report |
+| 12 | Loyalty | Highest effort, hardest offline design; reuses everything before it |
+| 13 | Gift cards | Sell + redeem at the till; last — reuses WP12's customer plumbing |
+
+**WP0 — Toolchain + baseline gate.** `dotnet workload list` shows `maui`; AppClient builds for
+`net10.0-windows10.0.19041.0`; `Plutus.Frontend.AppClient.Tests` + the three platform suites run
+green (baseline counts in HANDOVER). All four were verified passing on this box 2026-08-07 — this
+WP is a re-confirmation, not exploration. *DoD:* all builds/suites green; failures reported
+verbatim, not worked around.
 
 ---
 
@@ -204,6 +260,15 @@ Target `IngestSaleRequest` (`src/Plutus.Sales/SalesIngestService.cs`) exactly: `
 DeviceSeq, Channel(byte), BusinessDay(DateOnly), OccurredAtUtc, GrossPence, VatPence, Note,
 OperatorUserId, List<IngestLine>, List<IngestTender>`. `SalesV2Controller` derives tenant and
 device **from the token only** — a conflicting body `DeviceId` is a 403, not a merge.
+⚠ **There is no first-class `ItemIdOne` field on the wire.** The barcode rides *inside*
+`IngestLine.DiscountsJson`, a metadata envelope: `JSON.stringify({itemIdOne, exUnitPence,
+discounts?, return?})` — exactly as the web till builds it (`api.ts:985-992`) and as
+`SalesIngestService.ExtractItemIdOne` + `StockLedger` read it. Adding an `ItemIdOne` property to
+the DTO would serialise to nothing and stock would silently stop moving.
+**"A local backend" throughout this plan means `PlutusAppFactory`'s in-process `HttpClient`**
+(shared in-memory SQLite, token helpers per runbook pitfalls 5–6) — `Plutus.Client.Core` must
+accept an injected `HttpClient` precisely so the factory client satisfies every DoD. No local
+MySQL is required, ever.
 Extend the architecture test suite: MAUI may reference SharedKernel / Contracts.Client /
 Client.Core and **never** a backend module (`Plutus.Sales` etc.).
 *DoD:* solution builds with no duplicate-name collision; a smoke `IngestSaleRequest` posted from
@@ -217,11 +282,24 @@ window of recent sales (default 14 days) for reprint and X/Z. Seven years of his
 on every till.
 
 ```sql
-Meta            (Key TEXT PK, Value TEXT)              -- deviceId, tenantId, tillId, storeId,
-                                                       -- deviceSeq, catalogueVersion, schemaVersion
-CatalogueItems  (Id BLOB PK, Name TEXT, Kind INTEGER, PricePence INTEGER,
+Meta            (Key TEXT PK, Value TEXT)              -- serverUrl, deviceId, tenantId, businessId,
+                                                       -- tillId, storeId, deviceSeq,
+                                                       -- catalogueVersion, schemaVersion
+CatalogueItems  (Id BLOB PK,
+                 IdOne TEXT NOT NULL UNIQUE,           -- the canonical legacy id / default barcode:
+                                                       -- EVERY v1 stock/price/sale-line call keys on
+                                                       -- this string, and it CANNOT be recovered from
+                                                       -- Id (a one-way hash — see cutover note below)
+                 Name TEXT, Kind INTEGER, PricePence INTEGER,
                  VatRateBp INTEGER, CategoryId BLOB, BandData TEXT NULL, UpdatedAtUtc TEXT)
-Barcodes        (Code TEXT PK, ItemId BLOB)
+PriceSchedule   (ItemId BLOB, EffectiveFromUtc TEXT, PricePence INTEGER,
+                 PRIMARY KEY (ItemId, EffectiveFromUtc))  -- future-dated prices, applied by
+                                                          -- comparing at lookup time so a scheduled
+                                                          -- change activates offline (WP5 DoD needs
+                                                          -- this — build the table NOW, not as a v3)
+Barcodes        (Code TEXT PK, ItemId BLOB)            -- aliases only; IdOne is the default code
+                                                       -- (there is no server Barcode entity —
+                                                       -- Item.IdOne IS the barcode)
 Operators       (UserId BLOB PK, DisplayName TEXT, CredentialHash BLOB, CredentialSalt BLOB,
                  PermissionsJson TEXT, TimeWindowsJson TEXT NULL, UpdatedAtUtc TEXT)
 LocalSales      (SaleId BLOB PK, DeviceSeq INTEGER UNIQUE, BusinessDay TEXT, OccurredAtUtc TEXT,
@@ -241,10 +319,24 @@ reimplementing. Parked baskets serialise as **contract JSON** with no .NET `$typ
 NatApp's type names break on the namespace change.
 
 A **cutover tool** (dev tooling, not end-user UI) archives the old Kapow-schema file, creates the
-v2 store, and seeds `CatalogueItems`/`Barcodes` from it via `Plutus.Migration.Kapow`. ⚠ The ID
-remap **must** be deterministic, or exported and imported, so till item IDs equal central item IDs.
-Confirm that against the backend implementation and **stop if it isn't** — this is the seam where
-`NatApp-Translation-Agent-Plan` meets this plan.
+v2 store, and seeds `CatalogueItems` from it. **The catalogue ID mapping IS deterministic — but it
+is NOT `Plutus.Migration.Kapow`'s `IdRemap`** (that mints *random* Uuid7s per run, applies only to
+historic sale rows, and would wrongly trigger this plan's stop condition if you check against it).
+The real mapping is `Plutus.SharedKernel.DeterministicGuid.ForItem(businessId, itemIdOne)` — the
+twin of the web till's `pipeline.ts itemGuid`, unit-pinned in `LegacySaleBridgeTests`. The cutover
+tool mints ids with that, and the DoD spot-check compares against it.
+⚠ **`businessId` ≠ `tenantId`.** `ForItem` is keyed on the legacy *Business* id (Kapow:
+`d5a31aac-159e-9a30-706b-02f9eb935600`, hardcoded as `BUSINESS_ID` in the web till's `api.ts:25`) —
+NOT the `TenantId` that `EnrolResult` returns. Deriving item GUIDs from TenantId produces silently
+wrong ids that nothing catches quickly (stock still moves, because lines key on `itemIdOne`).
+Store the businessId in `Meta` at enrolment — small additive backend work: add `businessId` to the
+`GET /api/v1/stores/{id}/info` response, which already joins the Business row for its name/VAT.
+The Kapow source file for the cutover DoD is
+`Build/seed-data/Kapow Comics ltd - Database - 23_07_2026 15_57_23.db` — **copy it; never write to
+the original.**
+**Where v2 lives:** a NEW EF Core Sqlite context homed in AppClient (or Client.Core). Drop the
+`Plutus/Data/Database` project reference when the cutover lands — AppClient is its sole referencer,
+so nothing else breaks. The no-decimal-money sweep gates AppClient + CommonPOSLibrary + CustomViews.
 
 *DoD:* no `decimal`/`double` money property survives in the MAUI assemblies (same regex rule the
 backend arch test uses); a basket property test holds (total == Σ lines − discounts, change ==
@@ -254,12 +346,16 @@ produced**; park → kill → restore works and the serialised form contains no 
 
 **WP2b — VAT-rate-change ingest compliance (backend).**
 A till offline across a government VAT-rate change will push sales computed at a stale cached rate.
-First **verify** whether `Plutus.Entities`' tax model already stores rates with an effective-from
-date; add the history table only if it doesn't. Then extend the existing VAT-integrity guardrail so
-`SalesIngestService` validates against the rate **in effect at each sale's `OccurredAtUtc`** — not
-merely "is this a currently-valid rate". On mismatch, route into the existing
-quarantine/reconciliation path (mirroring the Kapow migration's `VatReconstructed=1` flag). Never
-silently accept, and never silently rewrite a customer-facing total.
+**Verified 2026-08-07: no rate-validity check exists today** — `SaleV2.Validate()` is arithmetic
+only, and the legacy `Tax` entity is a flat per-Business rate with no effective dates. So this WP
+*builds*, not extends: a tenant-owned `VatRateHistory` entity (runbook pitfall #4 applies), seeded
+for Kapow with `{0, 500, 2000}` bp effective-from epoch. Validation in `SalesIngestService` is
+**per-line set-membership**: each line's `VatRateBp` must be in the rate-set in effect at the
+sale's `OccurredAtUtc` (0%/5%/20% coexist — this is not a single-rate check). A tenant with an
+EMPTY history skips validation with a log line — never blanket-quarantine. Gift-card lines
+(`itemIdOne = GIFT-CARD`) follow the tenant's declared voucher treatment and must not
+false-positive. On a genuine mismatch, quarantine (mirroring the Kapow migration's
+`VatReconstructed=1` pattern). Never silently accept, never silently rewrite a customer-facing total.
 *DoD:* a sale timestamped after a seeded rate-change boundary carrying the pre-change rate is
 quarantined; one carrying the post-change rate ingests normally; one timestamped *before* the
 boundary carrying the pre-change rate also ingests normally — no false positives.
@@ -277,13 +373,26 @@ rows past the rolling window; never prune Pending or Failed.
 The outbound payload **must** populate `itemIdOne` on each line the way the web till does —
 `StockProjectionConsumer` silently skips lines without it, so stock would quietly stop moving with
 no error anywhere.
+*Also in this WP (§3a rulings):* **receipt-print ordering is decided** — outbox commit FIRST, then
+print from the committed payload (risk #2 resolved: a receipt can never exist for a sale that was
+never queued; a print failure after commit is a reprint problem, not a money problem). The receipt
+renders from the **portal template** (`GET /api/v1/stores/{id}/receipt-template`, cached with the
+catalogue sync like the web till) instead of the hardcoded `PosPrinterManager` header — header/footer
+lines and toggles obeyed, `** REFUND **` marked. And **refund-only baskets** are allowed: the T1.3
+invariants are sign-agnostic (pinned by `SalesV2Tests`); mirror the web till's checkout rules — no
+change on a refund, credit/gift-card tenders hidden as refund destinations.
 *DoD:* soak — 1,000 sales offline, reconnect, all land exactly once in order with no server-side
 `DeviceSeq` gaps; kill the app mid-drain, no loss or duplicates; one Failed sale does not halt
 those behind it; 48h offline then reconnect drains clean; **a MAUI-originated sale moves stock**,
-asserted explicitly, not just accepted.
+asserted explicitly, not just accepted; kill between commit and print → the sale is queued and
+reprintable, never lost; a refund-only sale round-trips 201 and prints marked; a template change
+reaches the next printed receipt after a sync. USER-VERIFY: paper output.
 
 **WP4 — Enrolment, device identity, Settings.**
-Replace the `DatabaseProvider.Cloud` throw with a real first-run flow: enrolment code →
+Replace the `DatabaseProvider.Cloud` throw with a real first-run flow: **Server URL + enrolment
+code** (the web till is same-origin so it never needed an address; MAUI does — default
+`https://plutus.huggett.dscloud.me` for the test env, the PlutusAppFactory client for automated
+DoDs; persist in `Meta.serverUrl`). Then: enrolment code →
 `POST /api/v1/tills/enrol {EnrolmentCode}` → `EnrolResult{DeviceId, ClientSecret, TillId, TenantId}`
 (or **410 Gone** on a reused/expired/unknown code — surface it as a retryable message, not a crash)
 → store `DeviceId/TillId/TenantId` in `Meta`, and `ClientSecret` in platform `SecureStorage`,
@@ -293,10 +402,20 @@ Settings gains the server-backed half it has never had: device enrolment/identit
 Active/PendingRemoval/Revoked lifecycle and manager-approved un-enrolment, server-validated till
 renaming, a diagnostics panel (signed-in user, API reachability, business id), and sync-queue depth.
 Keep the existing local preferences layer (printer config, checkout toggles) as-is.
+**TWO TOKENS, not one — the rule every later WP leans on.** The device token (this WP) covers
+`sales.ingest`-gated calls only: sale ingest, heartbeat, catalogue, store info, receipt template,
+themes. Every `perm:*`-gated endpoint (tickets WP5b, stock/categories WP10, reports and sale
+lookup WP11, customers WP12, gift cards WP13) resolves permissions **from RBAC by the token's
+userId** — a device token can never pass it. So: **online operator login = local Pbkdf2 verify
+AND a background `POST /api/Auth/Login`** minting that operator's server token (kept for the
+session, re-minted on 401 per the 12h cache, runbook pitfall #10). **Offline login = local verify
+only**, and every `perm:*`-gated screen shows its needs-connection state until a server token
+exists. Hide the WP5b ticket/notification UI behind the same rule.
 *DoD:* fresh install enrols and survives restart without re-prompting; app killed mid-refresh still
 has a valid token next launch; `ClientSecret` never appears in the `.db3` file (grep-verified);
 server-side revocation parks the pusher with a clear "device revoked" state while sales keep
-committing locally.
+committing locally; **per §9.3/§9.4, enrolment refuses to proceed while an un-archived legacy
+database file exists** — the refusal message names the archive step.
 
 **WP5 — Heartbeat + catalogue sync.**
 `POST /api/v1/heartbeat` every 60s with `{deviceId, appVersion, outboxDepth, oldestUnsyncedAge,
@@ -306,14 +425,41 @@ newer than `Meta` triggers a sync, `syncNow` kicks the pusher, `lock` locks the 
 your administrator" screen with local sales data untouched. Heartbeat failures are **silent** —
 they must never disturb selling.
 Catalogue sync is cursor-based: `GET /api/v1/catalogue/changes?since={version}` upserting
-`CatalogueItems`/`Barcodes`, with effective-dated prices compared at lookup time so a scheduled
-price change activates offline at the right moment. Runs on app start, on heartbeat signal, and on
-a 15-minute timer — **never during an open basket**. Handle `426 Upgrade Required` with a banner;
-selling continues, sync parks.
+`CatalogueItems`/`PriceSchedule`, with effective-dated prices compared at lookup time so a
+scheduled price change activates offline at the right moment. Runs on app start, on heartbeat
+signal, and on a 15-minute timer — **never during an open basket**.
+**Backend specifics (nothing exists yet — build exactly this, don't invent):** the cursor is a
+single bumped `BIGINT` CatalogueVersion row, incremented by item/price/category writes; the
+changes feed returns rows with `UpdatedAt > cursor` **including binned/deleted items marked
+`removed: true`** — without tombstones an offline till keeps selling a binned item. `syncNow` and
+`lock` are nullable columns on `Device`, set from a small additive endpoint surfaced on the
+portal's Locations screen. The "fast store" for lastSeen is an in-process
+`ConcurrentDictionary` in DBService (single pm2 instance — no Redis exists in this stack and none
+is being added).
+`426 Upgrade Required` handling is **client-only for now** — test with a stubbed handler; the
+server-side min-version gate is deliberately deferred with risk #6. Banner on 426; selling
+continues, sync parks.
 *DoD:* status transitions verified at the 2/5-minute boundaries with a fake clock; MySQL takes no
 per-heartbeat writes; a price scheduled for 02:00 activates at 02:00 with the till offline; a 20k-item
 full resync completes in <60s; a sale mid-sync sees a consistent snapshot — the price read at
 basket-add is what's charged and what's in the payload.
+
+**WP5b — Platform-citizenship screens (§3a rulings).** Three small consumers on the same 60-second
+cadence, copied from the web till's shapes: **announcements** (`GET /api/v1/announcements/active`,
+Maintenance/Incident banner only — any authenticated token), **pick-from-floor notifications**
+(`GET /api/v1/notifications?unackedOnly=true` banner + acknowledge), and **support tickets**
+(raise/read/reply via `/api/v1/support/tickets`, gated on `support.tickets` — which every built-in
+role holds, because a lone cashier with a dead till must be able to shout for help).
+⚠ Tickets and pick-note acks need the **operator server token** from WP4's two-token rule — a
+device token cannot pass `perm:*` gates; hide these UIs until one exists.
+⚠ **Sanctioned backend fix:** the two pick-note endpoints (`WebstoresController`) are gated
+`"perm:sales.ingest"` — a scope-policy *name* used as a permission *code*, which no RBAC role
+holds, so the gate fails for every caller. This is a pre-existing bug (the web till's polls fail
+silently through their `.catch`). Change both to `[Authorize(Policy = PlutusPolicies.SalesIngest)]`
+and re-verify the web till's pick-notes actually appear.
+*DoD:* a seeded Incident announcement shows within a cycle and Info does not; an unacked pick-note
+persists across restart until acknowledged; a ticket raised on the till appears in the portal
+inbox and the reply comes back.
 
 ---
 
@@ -350,10 +496,13 @@ server's hashing so offline verification matches. `IPermissionGate.Can(operator,
 amountPence)` handles plain permissions, `pos.*.max:{pence}` ceilings and time windows against the
 local clock; every gated action embeds `{operatorId, permission}` in the pushed payload for audit.
 Supervisor override = a second operator authenticating for one action.
+*Also in this WP (§3a ruling):* the **Users screen**, replacing the "not available in this version
+yet" stopgap — the web till's smaller surface only: employee list/create + set password (legacy
+`/api/Employee` + `/api/Auth/SetPassword`). Roles and effective permissions stay portal-side.
 *DoD:* union-merged grants correct for a multi-level (company+store+till) fixture; matrix test —
 cashier sells but cannot refund, supervisor refund ≤ ceiling passes and > ceiling demands override,
 a Saturday-only operator is rejected on Sunday (fake clock) — **all offline**; audit fields present
-in the pushed payload.
+in the pushed payload; an employee created on the till can sign in on the web till and vice versa.
 
 **WP9 — Cash.** MAUI has nothing but `POSCashDrawer.cs`, a solenoid driver. Build `CashPage`/
 `CashViewModel` with four actions — Open float, Paid in/out (reason mandatory), X snapshot, Z close
@@ -380,7 +529,7 @@ bare stock row; adjusting without a reason is rejected before the request is sen
 adjusting concurrently both land as separate movements and levels reflect the **sum**, never
 last-write-wins; deleting a populated category blocks and offers reassign.
 
-**WP11 — Reporting.** MAUI's three Statistics viewmodels query local SQLite directly — zero HTTP.
+**WP11 — Reporting + cross-till refunds.** MAUI's three Statistics viewmodels query local SQLite directly — zero HTTP.
 Even a pixel-perfect copy of the web till's screens would show **one till's data** if built that
 way, so this is a rewrite, not a feature add. Point Summary at
 `GET /api/v1/reports/summary-rich?from&to`, the bucket chart at `/reports/summary`, the VAT table at
@@ -388,9 +537,19 @@ way, so this is a rewrite, not a feature add. Point Summary at
 screens MAUI has never had (`/reports/category-sales`, `/reports/best-sellers`). Sale lookup goes
 through `GET /api/v1/sales` drilling into `GET /api/v1/sales/{saleId}` — the **only** path to
 another till's sale detail. Local SQLite is no longer read for any report.
+*Also in this WP (risk #3, now scheduled):* the **return/refund flow switches to the same server
+lookup**. `TillViewModel.ExecuteReturn` today validates against a locally-stored prior sale only —
+once sales sync centrally, a customer returning an item bought on another till (or on this till
+before a reinstall) has nothing local to find. Resolve the sale via `GET /api/v1/sales/{saleId}`,
+enforce refund-remaining against the server record, and keep the local path only as the offline
+fallback for sales still in this till's rolling window. This is a money path: it lands with
+Reporting because it reuses the identical lookup, but its DoD is a hard gate.
 *DoD:* two tills each push one sale; either till's Summary for that business day shows the
 **combined** figures, not just its own; from till A, drilling into a `saleId` rung up on till B
-renders identical lines/tenders/adjustments as seen from B.
+renders identical lines/tenders/adjustments as seen from B; **a refund on till A against a sale
+made on till B validates, caps at the refundable remainder, and posts**; offline, a sale inside
+the rolling window still refunds and one outside it is refused with a clear "needs connection"
+message — never a silent acceptance.
 
 **WP12 — Loyalty.** Confirmed **zero** in both MAUI projects. No backend work needed — pure
 consumption. Customer search/attach on the sale screen (`GET /api/v1/customers?search=`, then a
@@ -407,23 +566,34 @@ reconnect → tender reappears with the live balance; two devices racing to rede
 exactly one succeeds, the other gets `InsufficientCreditException`, confirming the append-only
 ledger (D15) prevents double-spend.
 
+**WP13 — Gift cards (§3a ruling).** Sell and redeem at the till, mirroring the web till
+(`till/basket.ts` + `CheckoutDialog.tsx` are the reference): sell = a `GIFT-CARD` catalogue line
+carrying the code, redeem = a tender, both **online-only** like store credit. Management (minting,
+voiding, balance moves) stays portal-side — that needs `giftcards.manage`; selling only needs
+`pos.sell`. ⚠ **The VAT-treatment gate is the sharp edge**: `GiftCardSettings`' absence 409s
+generate/activate/redeem per tenant. The till must catch that 409 and say *"Gift cards aren't set
+up for this company yet — an owner decides their VAT treatment in the portal first"*, never a raw
+error. Under multi-purpose (Kapow's declared treatment) an activation posts **zero VAT** — the
+provisioned `GIFT-CARD` item handles this; do not invent VAT lines.
+*DoD:* sell → activate → redeem round-trips against a local backend with `GiftCardSettings` set;
+the same flow on a tenant WITHOUT settings surfaces the friendly 409 message at the first step;
+redemption offline is hidden, like store credit; a redeemed card's remaining balance matches the
+portal's view of the same card.
+
 ---
 
 ## 7. Risks this plan does not yet solve
 
 Flagged now rather than discovered mid-build. Several need a decision before the WP that hits them.
 
-1. **Existing local till data is never migrated.** Each live till has real sales and held baskets in
-   its own SQLite file. Nothing says what happens to them at enrolment — orphaned, imported once,
-   or lost. **Blocks WP4.** Overlaps `NatApp-Translation-Agent-Plan`; settle it there.
-2. **Receipt-print vs outbox-commit ordering is undesigned.** If printing fires before the outbox
-   commit and one fails, a customer holds a receipt for a sale that was never queued. Printing is
-   physical and irreversible — this needs an explicit ordering decision in **WP3**, not silence.
-3. **Cross-till refund lookup.** `TillViewModel`'s return flow validates against a **locally
-   stored** prior sale. Once sales sync centrally, a customer returning an item bought on another
-   till (or the same till after a reinstall) has nothing to look up. Needs the WP11 cross-till path
-   applied to the **money-handling** refund route — materially higher risk than a report view, and
-   in no work package above. **Schedule it explicitly.**
+1. ~~Existing local till data at enrolment~~ — **RESOLVED by binding default §9.3**: archive,
+   never merge, never delete. The residual risk is an operator skipping the archive step; the WP4
+   first-run flow refuses to enrol while an un-archived legacy file exists.
+2. ~~Receipt-print vs outbox-commit ordering~~ — **RESOLVED, designed into WP3**: commit first,
+   print from the committed payload. A print failure after commit is a reprint problem, not a
+   money problem.
+3. ~~Cross-till refund lookup~~ — **RESOLVED, scheduled**: now an explicit, hard-gated part of
+   WP11 (server lookup for the money path, local fallback only within the rolling window).
 4. **Stolen hardware.** Local-only operator login (WP8) means a stolen till carries cached
    credentials with no server-side kill switch, giving an attacker offline access up to that till's
    refund ceiling.
@@ -445,8 +615,10 @@ Flagged now rather than discovered mid-build. Several need a decision before the
 
 ## 8. Testing
 
-- Run the existing Appium suite **unchanged** through WP1–WP4 as a regression gate — enrolment
-  should not alter basket or checkout flows.
+- ⚠ The "existing Appium suite (PR #8)" named by the superseded sync plan is **not in this
+  branch** (verified 2026-08-07 — `Plutus.Frontend.AppClient.Tests` is a small xunit/Moq unit
+  project). Keep THAT project green as the regression gate; UI regression is USER-VERIFY until an
+  in-branch UI suite exists. Do not go looking for the Appium suite.
 - Add an offline-mid-checkout fixture (mock connectivity gate): the sale still completes and lands
   in the outbox. Plus an online-transition test: queued sales drain correctly.
 - Unit-test the client outbox retry contract against `OutboxDrainer`'s semantics: stay Pending,
@@ -458,16 +630,21 @@ Flagged now rather than discovered mid-build. Several need a decision before the
 
 ---
 
-## 9. Decisions needed from Matt
+## 9. Decisions — BINDING DEFAULTS for an autonomous build
 
-| # | Question | Blocks |
+An agent building from this document follows these **without asking**. Matt can veto any of them
+before (or after — most are cheap to change) the relevant WP starts. This is the same contract
+`further-enhancements-plan.md` used, and it held.
+
+| # | Default (binding) | Used by |
 |---|---|---|
-| 1 | **AppClient as the go-forward app, harvest-then-retire ClientUI** (§1) — confirm or veto | Everything |
-| 2 | Operator credentials offline: local PIN now, or synced password hashes verified locally (`OfflineMode` §4.3, A vs B)? Evidence favours B — the legacy Kapow DB carries `HashedPassword`+`Salt`, so it's a restoration, not an invention | WP8 |
-| 3 | What happens to a till's existing local sales data at enrolment (risk #1)? | WP4 |
-| 4 | Does a till enrol before or after its store's legacy data is migrated? | WP2, and the seam with NatApp-Translation-Agent |
-| 5 | Legacy `TillController` in `Plutus.DBService` — deprecate, delete, or keep read-only? It bypasses tenant scoping, and two till-shaped endpoints once MAUI is live is a foot-gun | WP4 |
-| 6 | Card-capture provider (risk #8) — affects both tills, independent of this plan | WP-none |
+| 1 | **AppClient is the go-forward app.** Harvest from ClientUI exactly two things — `Colors.xaml` (WP7) and the repository *interface shape* (WP1), never its implementation — then remove ClientUI from `Plutus.slnx` in WP7. Do **not** delete its directory; it stays as harvest source and history, marked retired. | Everything |
+| 2 | **Offline credentials = synced password hashes verified locally** (`OfflineMode` §4.3 Option B) via `Plutus.SharedKernel.Pbkdf2`, byte-identical to the server. Not a new invention — the legacy Kapow DB carried `HashedPassword`+`Salt`; this restores the original design. No local-PIN interim step. | WP8 |
+| 3 | **Existing local till data at enrolment: archive, never merge, never delete.** First-run takes a timestamped copy of the legacy SQLite file into a designated upload folder (the NatApp-Translation-Agent's input), then builds the v2 store from the server catalogue. Parked baskets import best-effort (WP2); local sales history lives only in the archive — history queries go to the server (WP11). Enrolment **refuses to proceed** until the archive step has succeeded. | WP2, WP4 |
+| 4 | **Migrate first, enrol second.** A till enrols only after its store's legacy data has run through the translation agent — enforced technically by WP2's cutover check: spot-checked barcode→item IDs must equal the central migration's IDs, and the tool **stops** on mismatch (§10). | WP2, WP4 |
+| 5 | **Legacy `TillController` in `Plutus.DBService`: deprecate, don't delete.** Mark `[Obsolete]` + doc-comment pointing at `Plutus.Tenancy`'s `TillsController`, note it in HANDOVER. Removal is a separate cleanup once MAUI is live — deleting mid-retrofit risks the NatApp still trading in the shop. | WP4 |
+| 6 | **Card capture stays out of scope** (⏸ both tills, pending a provider decision — risk #8). MAUI copies the web till's gateway-*awareness* display only. | — |
+| 7 | **§3a rulings stand**: everything found by the parity audit is IN, homed per §3a/§4 (gift cards = WP13, platform citizenship = WP5b, receipt template + refund baskets = WP3, users = WP8, cross-till refunds = WP11, Bin/untracked/add-unknown = WP10, theming = WP7). | §4 order |
 
 ---
 

@@ -35,7 +35,7 @@ consolidated into one on 2026-08-07.
 
 | Document | What's left |
 |---|---|
-| [MAUI-Retrofit-Plan-2026-08-07.md](To%20do/MAUI-Retrofit-Plan-2026-08-07.md) | **The MAUI plan.** Take Sean's `Plutus.Frontend.AppClient` — today a working till with *zero* network code — and make it a platform client: contracts, local store v2, outbox, enrolment, heartbeat, then parity (Store Info, theming, RBAC, Cash, Inventory, Reporting, Loyalty). 12 work packages, 8 risks, 6 decisions needed from Matt. |
+| [MAUI-Retrofit-Plan-2026-08-07.md](To%20do/MAUI-Retrofit-Plan-2026-08-07.md) | **The MAUI plan — written for autonomous execution, no questions.** Take Sean's `Plutus.Frontend.AppClient` — today a working till with *zero* network code — and make it a platform client: contracts, local store v2, outbox, enrolment, heartbeat, then full parity through to gift cards. §0 execution protocol, WP0–WP13 with DoDs, **binding defaults** (§9, veto-able) instead of open decisions, USER-VERIFY gates where a human must click. Toolchain verified on the dev box 2026-08-07. |
 | [NatApp-Translation-Agent-Plan-2026-08-05.md](To%20do/NatApp-Translation-Agent-Plan-2026-08-05.md) | **The data plan** — moves the legacy NatApp backup into the new backend. Deliberately standalone: independent of the retrofit, and they touch at exactly one point (the item-ID remap must be deterministic). |
 
 Nothing on the web till, the portal or the backend is outstanding as a plan.
