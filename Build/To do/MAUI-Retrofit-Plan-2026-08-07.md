@@ -218,6 +218,23 @@ One behavioural trap the register also surfaces: the web till's word-matching se
 cached catalogue offline will return *different results for the same query* unless WP1's shared
 matcher is genuinely shared.
 
+## 3b. Progress board
+
+Legend: ✅ done (DoD passed) · 🔨 in progress · ⬜ not started. Keep this current — it is the
+resume point for the next session.
+
+| WP | Status | Landed |
+|---|---|---|
+| **0** Toolchain + baseline gate | ✅ | 2026-08-07 · `27e91c5`. maui workload present; AppClient `net10.0-windows` head builds 0 errors; AppClient.Tests **295 pass / 3 skip**; Unit 347 · Arch 6 · Integration 67. |
+| **1** Shared contracts + client core | ✅ | 2026-08-07 · `27e91c5`. `Plutus.Contracts.Client` + `Plutus.Client.Core` (outbox engine, pusher, API client, token provider). Backend: `stores/{id}/info` now returns `businessId`. Arch test keeps both MAUI-free and backend-module-free (mutation-checked). |
+| **2b** VAT effective-dating | ✅ | 2026-08-07 · `3ec4eff`. `VatRateHistory` + `VatRatePoints` table + ingest quarantine. Deployed; **0 rate rows live, so behaviour is unchanged until bands are configured.** |
+| **2** Local store v2 + money/ID sweep | ⬜ | **Next.** The largest remaining foundation piece and the first to touch AppClient itself. |
+| 3–13 | ⬜ | Blocked on WP2 (they all read the v2 store). |
+
+**Note for WP2:** `Plutus.Client.Core` already defines `IOutboxStore` — WP2's SQLite `LocalSales`
+table implements that interface, and WP3's pusher then needs no changes at all. The engine and its
+retry policy are already built and tested; WP3 is wiring, as intended.
+
 ## 4. Build order
 
 Each work package has a Definition of Done. Do them in order; **WP1 and WP2 gate everything else.**

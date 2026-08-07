@@ -76,12 +76,26 @@ Backend: `~/PLUTUS/backend.pre-themes`, `~/PLUTUS/backend.pre-picknotes`.
 Till/portal: `/srv/apps/PLUTUS/{web,portal}/current.pre-themes`.
 DB dump: `~/PLUTUS/backups/plutus-pre-themes-20260807.sql.gz`.
 
+#### MAUI retrofit — STARTED (WP0, WP1, WP2b done)
+
+Progress board lives in the plan (`Build/To do/MAUI-Retrofit-Plan-2026-08-07.md` §3b) — keep it
+current, it is the resume point. **Next up: WP2 (local store v2 + money/ID sweep)**, the first WP
+that touches AppClient itself.
+
+- **WP1 shipped two new projects**: `src/Plutus.Contracts.Client` (the wire contract, no refs, no
+  packages) and `src/Plutus.Client.Core` (outbox engine, pusher, API client, device-token
+  provider). Both are MAUI-free and backend-module-free, enforced by a mutation-checked
+  architecture test — that is what keeps the rules deciding whether a shop's takings reach the
+  server testable on a build agent instead of only on a physical till.
+- ⚠ **`IOutboxStore` already exists.** WP2's SQLite `LocalSales` table implements it and WP3's
+  pusher then needs no changes — the retry policy is already built and tested.
+- **WP2b is live but inert**: `VatRatePoints` has 0 rows, and an empty history skips validation by
+  design, so nothing changes until someone configures a tenant's bands.
+
 #### Still open
 
 - **FE10 unverified by Matt** — nothing changes on a till until a scheme is assigned
   (portal → Locations → Till themes). Worth flipping one till to Plutus Dark to confirm it lands.
-- **MAUI retrofit not started.** WP0 is a re-confirmation gate; the AppClient Windows head builds
-  clean on the dev box (verified 2026-08-07, 0 errors, `maui` workload present).
 - Everything in the 2026-07-31 "Still open" list below **except FE3.1/FE3.5**, which is now done.
 - Local-only tidy: `.git-rewrite/` (sandbox blocked its removal) and the now-redundant 364 MB
   `D:\tmp\plutus-backup-pre-exe-purge-20260807.bundle`.
