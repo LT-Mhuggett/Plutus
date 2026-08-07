@@ -1,3 +1,8 @@
+> **📦 ARCHIVED — implemented.** Phases 0–12 are COMPLETE & LIVE. The only open items are
+> **externally gated**, not unbuilt: the concrete payment-provider adapter (WP7.1) and the Woo
+> outbound go-live (Phase 6) both wait on a commercial decision, and Phase 4 (MAUI fleet/sync) is
+> superseded by `Build/MAUI-Backend-Sync-Plan-2026-08-01.md`. Kept as the per-WP build record.
+
 # Plutus Implementation Plan
 
 **For execution by Claude Sonnet, one work package (WP) at a time.**

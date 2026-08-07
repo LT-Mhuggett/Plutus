@@ -43,4 +43,5 @@ Products carry no customer PII and are kept verbatim (public catalogue data).
   unaffected, but don't query `wc_orders` directly.
 - `date_modified` is the incremental-sweep cursor field (products and orders).
 
-See `Build/woo-sku-audit-2026-07-26.md` for the catalogue/SKU match analysis.
+See `Build/archive/woo-sku-audit-2026-07-26.md` for the catalogue/SKU match analysis (a
+2026-07-26 snapshot — the counts will have drifted since).

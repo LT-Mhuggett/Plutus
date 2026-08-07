@@ -40,22 +40,25 @@ locations and environment map live in **HANDOVER.md**.
 - **[HANDOVER.md](HANDOVER.md)** — the living state of the project: what's built and live, the
   current RESUME point, deploy procedure, loose ends, phase records. *Always current.*
 
-**Architecture & requirements** (in `Build/`)
+**Design docs, plans and standards** (in `Build/`)
 
-- [plutus-platform-architecture.md](Build/plutus-platform-architecture.md) — the platform architecture (v3); wins on conflict.
+- **[Build/index.md](Build/index.md)** — the index for everything in `Build/`: which documents are
+  standards, which plans still have work in them, and which are archived as delivered. Audited
+  against the code 2026-08-07.
+
+The four you'll reach for most often:
+
+- [plutus-platform-architecture.md](Build/plutus-platform-architecture.md) — the platform architecture (v3); **wins on conflict** with any plan.
 - [plutus-operator-platform-requirements.md](Build/plutus-operator-platform-requirements.md) — the operator-platform requirements doc (with built-status appendix).
-
-**Implementation plans & progress boards** (in `Build/`)
-
-- [plutus-implementation-plan.md](Build/plutus-implementation-plan.md) — Phases 0–12 (core platform). Complete.
-- [plutus-operator-platform-plan.md](Build/plutus-operator-platform-plan.md) — Phases 13–18 (operator platform). Complete; progress board per WP.
-- [operator-portal-plan.md](Build/operator-portal-plan.md) — OP1–OP4 (operator/client separation, plans, subscribers, tickets). Complete; includes the repo runbook + pitfalls list for implementing sessions.
-- [portal-till-refresh-plan.md](Build/portal-till-refresh-plan.md) — P1–P6 (dashboard pills, report parity across portal/till, inventory rename + category manager, loyalty editing + webstore linking, till hardening: store info / un-enrol approval / Help). **Planned, not started.**
-- Historical/dated plans: [WebApp](Build/WebApp-2026-07-23-plan.md) · [OfflineMode](Build/OfflineMode-2026-07-23-plan.md) · [Migration](Build/Migration-2026-07-22-plan.md) · [BugFix](Build/BugFix-2026-07-22-plan.md) · [VAT investigation](Build/VAT-Investigation-2026-07-23-plan.md) / [VAT fix-later report](Build/VAT-FixLater-Report-2026-07-23.md) · [loyalty](Build/loyalty-usability-plan.md) · [till retrofit](Build/till-retrofit-2026-07-25.md) · [Woo SKU audit](Build/woo-sku-audit-2026-07-26.md) · [Kapow DB gap analysis](Build/kapow-db-gap-analysis.md) · [MAUI build spec](Build/plutus-maui-build-spec.md) · [Sonnet build spec](Build/plutus-sonnet-build-spec.md)
-
-**Conventions**
-
+- [repo-runbook.md](Build/repo-runbook.md) — build / test / migrate / deploy commands, hard rules, and the codebase pitfalls that have each cost a session. Read before writing code.
 - [table-standard.md](Build/table-standard.md) — the shared `DataTable` (sort / search / 25-50-100 / pagination) all tables must use, across till, portal, and operator console.
+
+Two plans are open, both about the **native till**:
+[MAUI-Retrofit-Plan](Build/To%20do/MAUI-Retrofit-Plan-2026-08-07.md) (make Sean's MAUI app a
+platform client) and [NatApp-Translation-Agent](Build/To%20do/NatApp-Translation-Agent-Plan-2026-08-05.md)
+(move the legacy shop data in). Everything else lives
+in [Build/archive/](Build/archive/), banner-stamped with what shipped, what was gated, or what
+later document superseded it.
 
 **Operations**
 
@@ -68,7 +71,8 @@ locations and environment map live in **HANDOVER.md**.
 **Data** (gitignored, in `Build/`)
 
 - `Build/seed-data/Kapow Comics ltd - Database - 23_07_2026 15_57_23.db` — the live-till backup used by the seed/ETL migrator (**real business data — never commit**).
-- `Build/secrets.local.md` — local secrets notes. `Build/archive/` — regenerable local dev artifacts.
+- `Build/secrets.local.md` — local secrets notes.
+- `Build/archive/Database.db*` — regenerable local dev artifacts. (The **documents** in `Build/archive/` are tracked and are the delivered plans — see [Build/index.md](Build/index.md).)
 - `Archive/` (repo root, **gitignored**) — local-only holding area for files we've pulled out of the tree but aren't ready to delete. See `Archive/README.md`.
 
 ## Test environment

@@ -1,3 +1,8 @@
+> **📦 ARCHIVED — fully implemented.** Phases 0–2 (foundations, sale contract T1.3, web-POS
+> cutover onto `/api/v1/sales`, device enrolment) are COMPLETE & LIVE — see `HANDOVER.md`
+> §5a/§5b for the phase records. Kept for the reasoning behind the money/sale invariants, which
+> are still enforced by `SaleV2.Validate()` and `tests/Plutus.Tests.Unit/SalesV2Tests.cs`.
+
 # Plutus Build Specification — Phases 0–2 (for Claude Sonnet)
 
 **You are implementing the Plutus platform foundations.** This document is your task list and your contract. It is subordinate to:

@@ -1,3 +1,7 @@
+> **📦 ARCHIVED — implemented.** P1–P6 all done & LIVE (2026-07-30); the plan says so itself at the
+> top. Only optional leftover: the P1.3 legacy-table `DataTable` sweep (CustomersPage / VatPage /
+> StoresPage sub-tables), which is cosmetic and would be a fresh plan.
+
 # Portal & Till Refresh Plan — dashboard pills, report parity, inventory, loyalty, till hardening
 
 **Date:** 2026-07-29 · **Requested by:** Matt · **Status:** ✅ COMPLETE — all phases P1–P6 done & LIVE (2026-07-30)

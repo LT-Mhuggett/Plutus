@@ -1,3 +1,9 @@
+> **📦 ARCHIVED — investigation closed.** The guardrails from §5.1/§5.4 are LIVE (the API rejects
+> any item whose price and ex-price disagree with its VAT band by more than 2p; the item editor
+> derives ex-VAT from the band). §5.2 (repairing the legacy rows) was **deliberately not done** —
+> an owner decision. That open list lives on in **[`VAT-FixLater-Report-2026-07-23.md`](../VAT-FixLater-Report-2026-07-23.md)**,
+> which is still current and is surfaced in the portal at Reporting → VAT.
+
 # VAT Investigation — findings & remediation plan
 
 **Date:** 2026-07-23

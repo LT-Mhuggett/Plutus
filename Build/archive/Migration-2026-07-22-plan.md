@@ -1,7 +1,31 @@
+> **📦 SUPERSEDED — nothing outstanding for the go-forward app.**
+> Workstreams A and B are done; F resolved itself (NatApp left the repo). C, D, E and G were all
+> about **ClientUI**, which [`Build/To do/MAUI-Retrofit-Plan-2026-08-07.md`](../To%20do/MAUI-Retrofit-Plan-2026-08-07.md)
+> recommends harvesting and retiring — so they die with it. Re-verified 2026-08-07: AppClient has
+> **zero** AppCenter references (workstream C.3 never applied to it), and AutoMapper was migrated
+> to **Mapster** in both apps at `9f65772`, resolving C.4 differently from the plan below.
+> ⚠ Its "retarget net7 → net10" instruction is spent — both MAUI projects are already on net10.
+
 # Plutus — Modernization & Xamarin → MAUI Migration Plan
 
 **Date:** 2026-07-22
-**Status:** Plan only — no code changed yet.
+**Status (re-verified 2026-08-07): PARTIALLY IMPLEMENTED — A/B done, C half-done, D–G open.**
+
+| Workstream | State |
+|---|---|
+| **A** Solution-wide foundation | ✅ done |
+| **B** Backend + shared libs → .NET 10 | ✅ done — the whole platform runs on net10 |
+| **C** ClientUI net7 → net10 | 🟡 **retarget done** (`net10.0-android/ios/maccatalyst/windows`), but **AppCenter → Sentry is not** — 30 AppCenter references remain and there are 0 Sentry references. AutoMapper is all but gone (1 reference left). |
+| **D** Syncfusion / control decisions | ⬜ open (the recommendation table below still stands) |
+| **E** ClientUI feature parity (FTSU, Settings, StoreOptions, add-user) | ⬜ open — none of those pages exist |
+| **F** NatApp freeze → retirement | ✅ effectively done — NatApp is no longer in the repo |
+| **G** Import tools (reinvestigation) | ⬜ open — the requirement was never confirmed |
+
+⚠ **The premise has shifted.** This plan's goal was "make ClientUI the go-forward frontend". Since
+then the **web till became the primary client** and a second MAUI app (`Plutus.Frontend.AppClient`,
+from upstream) arrived. Read
+[MAUI-Backend-Sync-Plan-2026-08-01.md](MAUI-Backend-Sync-Plan-2026-08-01.md) before acting on
+workstreams C–E — it may retire ClientUI rather than finish it.
 **Goal:** Bring the whole solution up to the latest .NET, and make the MAUI **ClientUI** the go-forward frontend (feature-parity with the Xamarin **NatApp**).
 
 ## Decisions locked in (from stakeholder)

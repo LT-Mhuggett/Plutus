@@ -1,3 +1,9 @@
+> **📦 SUPERSEDED — the MAUI column moved to [`Build/To do/MAUI-Retrofit-Plan-2026-08-07.md`](../To%20do/MAUI-Retrofit-Plan-2026-08-07.md).**
+> The web-POS column was closed on 2026-07-25 and stays closed. The four MAUI to-dos (effective
+> pricing, customer attach, store credit, CustomerId on the sale) are now WP10 and WP12 there.
+> Row 4 (card capture) is greenfield for both tills — there is no integration code anywhere in the
+> repo — and is tracked as a risk, not a work package.
+
 # Till retrofit — closing the frontend gap to the platform backend
 
 **Date:** 2026-07-25 · **Applies to:** the web POS (`Plutus.Frontend.WebApp`) and the MAUI
@@ -10,6 +16,12 @@ here as the to-do for when the upstream MAUI code is re-baselined.**
 
 Money is always integer pence. Every new call is same-origin `/api/v1/*` with the existing
 bearer (operator session token for reads/redeem; device token for the sale itself).
+
+> **Status (re-verified 2026-08-07): KEPT OPEN — the MAUI column is still the outstanding work.**
+> The web-POS column is closed. `MAUI-Backend-Sync-Plan-2026-08-01.md` §Feature-parity retrofit
+> adopts this gap list wholesale, so this table remains the authoritative to-do; don't duplicate it
+> there. Row 4 (card capture) is blocked on a payment-provider decision for **both** tills, and
+> row 5 needs a small backend contract addition that nobody has scheduled.
 
 ---
 

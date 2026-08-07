@@ -1,3 +1,8 @@
+> **📦 ARCHIVED — implemented.** LP1–LP3 done 2026-07-27; `customers.manage` is live in
+> `Plutus.SharedKernel/Permissions.cs` and enforced across `Plutus.Customers`. The flagged
+> follow-up (BankingPage / PricesPage / StockPage reading the bearer straight from
+> `localStorage`) is **also fixed** — only `auth.ts` and `session.ts` touch that key now.
+
 # Loyalty Usability — implementation plan
 
 **Detour from `plutus-operator-platform-plan.md` (Phase 13 paused).** Fixes the

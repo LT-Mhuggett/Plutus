@@ -1,3 +1,9 @@
+> **📦 ARCHIVED — implemented.** FE1–FE9 are all built & LIVE. FE3 (the hardware helper agent) was
+> the last one open and is now **verified on real hardware** (2026-08-07): silent receipt printing
+> and the cash drawer work from the browser till via `tools/Plutus.TillAgent`. Two known
+> follow-ups, both documented in `tools/Plutus.TillAgent/README.md`: the cash drawer on a Star
+> TSP143 needs a one-time Star OPOS registration on that PC, and the agent binary is unsigned.
+
 # Further enhancements — implementation plan
 
 Requested by Matt 2026-07-30 (first batch FE1–FE3; second batch FE4–FE8 same day).
@@ -46,7 +52,7 @@ larger. FE4/FE5/FE6 are portal/till UX slices; FE7 is a full feature (schema + t
 - **Search**: word-based matching (`ItemParameters.MatchAllWords`) SHIPPED 2026-07-30 with a
   till Settings toggle + offline parity; scan-bar search returns all matches in a scrollable
   list. Quoted-phrase handling (FE8) not yet built.
-- **Tables**: the shared `DataTable` standard exists ([table-standard.md](table-standard.md),
+- **Tables**: the shared `DataTable` standard exists ([table-standard.md](../table-standard.md),
   byte-identical twins in portal + till) with client and server modes — but only SOME pages
   use it (P1.3 landed Customers + Loyalty; earlier P-phases covered several report tables).
   The rest are hand-rolled and inconsistent (see FE4 audit).
@@ -309,7 +315,7 @@ output is git-ignored.
 **Requirement (Matt, 2026-07-30):** every table across the portal (and till) must be
 orderable, split into pages, and have a 25/50/100 page-size dropdown. "Looking at the tables
 across the portal, they are not all consistent." The standard already exists
-([table-standard.md](table-standard.md): shared `DataTable` twins, client + server modes,
+([table-standard.md](../table-standard.md): shared `DataTable` twins, client + server modes,
 search box, sortable headers, pager with page-size select) — this WP finishes the rollout
 instead of the current page-by-page drift.
 

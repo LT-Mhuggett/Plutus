@@ -1,3 +1,9 @@
+> **📦 ARCHIVED — implemented.** Phases 13–18 are built, tested and LIVE (WP18.1 operator SSO was
+> enforced 2026-07-29). Two WPs remain **externally gated, with their config layers already built
+> and deployed**: 16.4 dunning and 17.2 payment-gateway health each need only a concrete provider
+> adapter once an account exists — the operator screens and stored keys are live. Kept as the
+> per-WP build record.
+
 # Plutus Operator Platform — Implementation Plan
 
 **For execution by Claude Sonnet, one work package (WP) at a time.**

@@ -1,3 +1,9 @@
+> **📦 ARCHIVED — implemented.** OP1–OP4 (operator/client data boundary, subscription plans,
+> subscribers landing, support tickets) are all ✅ and LIVE.
+>
+> ⚠ **§0 “Repo runbook” has been extracted to [`Build/repo-runbook.md`](../repo-runbook.md)** and is
+> still current — read that, not the copy below.
+
 # Operator Portal plan — implementation spec
 
 **Date:** 2026-07-28 · **Trigger:** Matt's first real operator login (Keycloak SSO, WP18.1).

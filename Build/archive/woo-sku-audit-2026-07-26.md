@@ -1,3 +1,7 @@
+> **📦 ARCHIVED — point-in-time audit (2026-07-26).** Fed WP6.0; the Woo connector shipped and the
+> inbound path is LIVE. The figures below are a snapshot of the live Kapow store on that date and
+> will have drifted — re-run the method in §Method rather than trusting the counts.
+
 # Woo ↔ Plutus SKU match audit (WP6.0)
 
 **Date:** 2026-07-26 · **Store:** kapow-comics.co.uk (LIVE, WooCommerce 10.9.4) ·

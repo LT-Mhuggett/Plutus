@@ -1,8 +1,15 @@
+> **📦 ARCHIVED — implemented.** The web till exists and is LIVE at
+> `https://plutus.huggett.dscloud.me`, through Phase 5: React+TS+Vite (§3.1 Option B), back office,
+> the full till, the PWA/offline outbox, and the hardware agent (Phase 4 → shipped as FE3).
+> Phase 0’s Azure B2C blocker was **resolved differently** — HMAC bearer tokens for the till plus
+> Keycloak/OIDC for operators — so §3.4 and §6.1 describe a path not taken. Phase 6 (pilot and
+> native-client retirement) is a business decision, not build work.
+
 # Plutus as a full webapp — rebuild plan
 
 **Date:** 2026-07-23
 **Status:** Design for review. No code changed by this document.
-**Companion docs:** [HANDOVER.md](../HANDOVER.md), [Migration-2026-07-22-plan.md](Migration-2026-07-22-plan.md), [OfflineMode-2026-07-23-plan.md](OfflineMode-2026-07-23-plan.md).
+**Companion docs:** [HANDOVER.md](../../HANDOVER.md), [Migration-2026-07-22-plan.md](Migration-2026-07-22-plan.md), [OfflineMode-2026-07-23-plan.md](OfflineMode-2026-07-23-plan.md).
 
 ---
 
@@ -176,7 +183,7 @@ A webapp *raises* the offline bar vs. MAUI (no local SQLite). Mirror the design 
 
 ### 3.8 Test hosting environment (Mac mini, `10.1.1.40`)
 
-The test deployment target is the existing macOS host at `10.1.1.40`, which already runs **Caddy** as its TLS edge for the ETRIE installation (see [Environment_Setup_Runbook.md](Environment_Setup_Runbook.md)). **Hard constraint: the ETRIE installation must not be touched.**
+The test deployment target is the existing macOS host at `10.1.1.40`, which already runs **Caddy** as its TLS edge for the ETRIE installation (see [Environment_Setup_Runbook.md](../../Environment_Setup_Runbook.md)). **Hard constraint: the ETRIE installation must not be touched.**
 
 **DNS — already solved.** Synology DDNS serves a **wildcard**: `*.huggett.dscloud.me` (verified 2026-07-23: `plutus.huggett.dscloud.me` and a random-label probe both resolve to the same public IP, `94.6.166.54`). Router 80/443 → Caddy forwarding is already live (runbook, TLS section). So the entire job is one **additive sibling site block** in `/etc/caddy/Caddyfile` — no DNS work, no router work.
 

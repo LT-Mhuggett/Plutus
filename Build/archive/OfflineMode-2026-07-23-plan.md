@@ -1,9 +1,24 @@
+> **📦 SUPERSEDED — one live decision carried forward.**
+> The offline *goal* was met on the web till (PWA + IndexedDB outbox, 2026-07); the MAUI half is
+> now WP3 of [`Build/To do/MAUI-Retrofit-Plan-2026-08-07.md`](../To%20do/MAUI-Retrofit-Plan-2026-08-07.md).
+> **§4.3 (the credential fork — local PIN vs synced password hashes) is still open** and is
+> decision #2 in that plan; the evidence for Option B recorded here is why it is the recommendation.
+>
+> ⚠ **§7's seven replay bugs are ClientUI's, not AppClient's.** They matter only if ClientUI's
+> repository *implementation* is ported. The new plan says to port the interface shape and leave
+> the bugs behind.
+
 # Offline / Local-DB Mode — design & plan
 
 **Date:** 2026-07-23
 **Scope:** MAUI `Plutus.Frontend.ClientUI` (Windows head; applies to all heads once migrated).
-**Status:** Design for review. No code changed by this document.
-**Companion docs:** [HANDOVER.md](../HANDOVER.md), [Migration-2026-07-22-plan.md](Migration-2026-07-22-plan.md), [BugFix-2026-07-22-plan.md](BugFix-2026-07-22-plan.md).
+**Status (re-verified 2026-08-07): NOT IMPLEMENTED for MAUI — but the *goal* was met elsewhere.**
+The **web till** now has offline trading (PWA, IndexedDB catalogue, checkout outbox with replay),
+delivered under `WebApp-2026-07-23-plan.md` Phase 5. Nothing in §5's phased plan was built in
+`ClientUI`. This document is kept because it is **live input** to
+[MAUI-Backend-Sync-Plan-2026-08-01.md](MAUI-Backend-Sync-Plan-2026-08-01.md), which cites §4.3
+(the credentials fork) as an open decision and §7's bug list as known defects to fix.
+**Companion docs:** [HANDOVER.md](../../HANDOVER.md), [Migration-2026-07-22-plan.md](Migration-2026-07-22-plan.md), [BugFix-2026-07-22-plan.md](BugFix-2026-07-22-plan.md).
 
 ---
 

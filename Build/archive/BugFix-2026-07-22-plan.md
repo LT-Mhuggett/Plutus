@@ -1,8 +1,26 @@
+> **📦 SUPERSEDED — implemented where it matters.** All three bugs are **fixed in AppClient**, the
+> go-forward app: the add-user crash is a guarded dialog, `Basket` is a plain `ObservableCollection`
+> with no reversing copy, and `Models/BasketAlteration.cs` carries `[JsonConstructor]` plus setters.
+> They remain unfixed in **ClientUI**, which [`Build/To do/MAUI-Retrofit-Plan-2026-08-07.md`](../To%20do/MAUI-Retrofit-Plan-2026-08-07.md)
+> recommends retiring — so they will never need fixing there. The original NatApp is no longer in
+> this repo at all.
+
 # Plutus — Bug Fix Plan
 
 **Date:** 2026-07-22
 **Scope:** Three reported UI/interface bugs, to be fixed in **both** frontends.
-**Status:** Plan only — no code changed yet.
+**Status (re-verified 2026-08-07): PARTIALLY IMPLEMENTED — kept open for `ClientUI`.**
+
+| App | Bug 1 (add-user crash) | Bug 2 (item order) | Bug 3 (discount + save) |
+|---|---|---|---|
+| **AppClient** (the NatApp lineage, now MAUI) | ✅ stopgap dialog + try/catch, `LoginViewModel.cs` | ✅ `Basket` is a plain `ObservableCollection`, no reversing copy | ✅ `[JsonConstructor]` + setters on `Models/BasketAlteration.cs` |
+| **ClientUI** | ❌ no add-user screen | ❌ `TillViewModel.cs:51` still returns `_basket.Reverse()`, `Core/Settings.cs:142` still defaults `true`, setter guard at `:145` still inverted | ❌ `Domain/Models/BasketAlteration.cs` still has two ctors, get-only props, no `[JsonConstructor]` |
+
+⚠ The original **NatApp** (`Plutus/Frontend/OSs/NatApp.Plutus`) is **no longer in this repo** —
+nothing under it is tracked by git. The fixes landed in `Plutus.Frontend.AppClient`, its MAUI
+successor. Whether the ClientUI column is ever closed depends on
+[MAUI-Backend-Sync-Plan-2026-08-01.md](MAUI-Backend-Sync-Plan-2026-08-01.md) — if ClientUI is
+retired in favour of AppClient, this document can be archived as-is.
 
 ## Context: two frontends
 
