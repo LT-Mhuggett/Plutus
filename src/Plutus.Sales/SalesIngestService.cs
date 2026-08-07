@@ -115,6 +115,14 @@ namespace Plutus.Sales
                 return await QuarantineAsync(req, tenantId, ex.Message, receivedAt);
             }
 
+            // WP2b: was every line's VAT rate legal AT THE MOMENT OF SALE? A till offline across a
+            // rate change pushes sales computed at a stale cached rate; accepting them silently
+            // files a wrong return, and rewriting them silently changes what the customer was
+            // actually charged. So quarantine for review, same as any other unfixable disagreement.
+            var vatProblem = await ValidateVatRatesAsync(req, tenantId);
+            if (vatProblem != null)
+                return await QuarantineAsync(req, tenantId, vatProblem, receivedAt);
+
             try
             {
                 await using var tx = await _db.Database.BeginTransactionAsync();
@@ -147,6 +155,44 @@ namespace Plutus.Sales
             }
             catch (System.Text.Json.JsonException) { return null; }
         }
+
+        /// <summary>
+        /// WP2b VAT-rate-change compliance. Returns null when every line is fine, or the reason to
+        /// quarantine.
+        ///
+        /// ⚠ A tenant with NO configured history skips the check (and says so in the log) rather
+        /// than quarantining everything — switching a compliance guard on must not become an
+        /// outage for every tenant that hasn't been seeded yet.
+        ///
+        /// Gift-card activation lines are exempt: their rate is fixed by the tenant's declared
+        /// voucher treatment (zero under multi-purpose), which is a different rule from the
+        /// catalogue's VAT bands and would otherwise false-positive on every card sold.
+        /// </summary>
+        private async Task<string> ValidateVatRatesAsync(IngestSaleRequest req, Guid tenantId)
+        {
+            var history = await _db.VatRatePoints.AsNoTracking()
+                .Select(p => new Plutus.SharedKernel.VatRate(p.Band, p.RateBp, p.EffectiveFromUtc))
+                .ToListAsync();
+            if (history.Count == 0) return null; // unseeded tenant — skip, don't quarantine
+
+            foreach (var line in req.Lines)
+            {
+                if (string.Equals(ExtractItemIdOne(line.DiscountsJson), GiftCardItemIdOne, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (!Plutus.SharedKernel.VatRateHistory.IsValidAt(history, line.VatRateBp, req.OccurredAtUtc))
+                {
+                    var live = Plutus.SharedKernel.VatRateHistory.InForceAt(history, req.OccurredAtUtc);
+                    return $"VAT rate {line.VatRateBp}bp was not in force at {req.OccurredAtUtc:u} " +
+                           $"(in force: {string.Join(", ", live.OrderBy(r => r))}bp). " +
+                           "The till may have been offline across a rate change.";
+                }
+            }
+            return null;
+        }
+
+        /// <summary>The provisioned gift-card catalogue row (see GiftCardSaleItem) — its VAT is
+        /// governed by the voucher treatment, not the catalogue bands.</summary>
+        private const string GiftCardItemIdOne = "GIFT-CARD";
 
         private async Task<IngestOutcome> QuarantineAsync(
             IngestSaleRequest req, Guid tenantId, string reason, DateTime receivedAt)

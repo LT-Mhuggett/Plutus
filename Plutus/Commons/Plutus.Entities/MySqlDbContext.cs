@@ -49,6 +49,7 @@ namespace Plutus.Entities
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<StoreDetails> StoreDetails { get; set; }
         public DbSet<TillDetails> TillDetails { get; set; }
+        public DbSet<VatRatePoint> VatRatePoints { get; set; }
         public DbSet<TillTheme> TillThemes { get; set; }
         public DbSet<TillGroup> TillGroups { get; set; }
         public DbSet<TillGroupMember> TillGroupMembers { get; set; }
@@ -187,6 +188,7 @@ namespace Plutus.Entities
             // Admin surface (WP3.2, WP11.1).
             typeof(AuditLog), typeof(StoreDetails), typeof(TillDetails),
             typeof(TillTheme), typeof(TillGroup), typeof(TillGroupMember), typeof(TillThemeAssignment),
+            typeof(VatRatePoint),
             // Reporting projections (WP3.3).
             typeof(SalesRollup), typeof(VatRollup),
             // Operator usage metering (WP13.1) + request health (WP13.2) — per-tenant rows,
@@ -393,6 +395,16 @@ namespace Plutus.Entities
                 // Tenant-unique names. The MySQL default collation is case-insensitive, so this
                 // index rejects "Front" vs "front" too (the app also guards explicitly for a clean 409).
                 e.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            });
+            // MAUI retrofit WP2b: effective-dated VAT bands.
+            modelBuilder.Entity<VatRatePoint>(e =>
+            {
+                e.ToTable("VatRatePoints");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Band).HasMaxLength(40).IsRequired();
+                // One rate per band per instant; re-stating the same change is a no-op, not a dupe.
+                e.HasIndex(x => new { x.TenantId, x.Band, x.EffectiveFromUtc }).IsUnique();
             });
             // FE10 till theming.
             modelBuilder.Entity<TillTheme>(e =>
