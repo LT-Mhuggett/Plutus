@@ -198,6 +198,18 @@ namespace Plutus.TillAgent
                 {
                     await PosPrint.PrintAsync(Config.PosDeviceId, doc);
                 }
+                else if (Emulation == EmulationResolver.Gdi)
+                {
+                    // FE3.3: through the vendor driver as a normal job — the TSP100-family default.
+                    using var bitmap = ReceiptRasterizer.RasterizeToBitmap(doc, out _, out var drawer);
+                    GdiPrint.Print(Config.PrinterName, bitmap);
+                    if (drawer)
+                    {
+                        // drawer via PointOfService (present where Star's OPOS is registered, e.g.
+                        // the shop PCs that ran the NatApp); best-effort — never fails the print
+                        try { await PosPrint.OpenDrawerAsync(); } catch (Exception) { /* see /drawer/open */ }
+                    }
+                }
                 else if (Emulation == EmulationResolver.StarRasterMode)
                 {
                     var rows = ReceiptRasterizer.Rasterize(doc, out var narrow, out var drawer);
@@ -224,8 +236,10 @@ namespace Plutus.TillAgent
         {
             try
             {
-                if (UsePos)
+                if (UsePos || Emulation == EmulationResolver.Gdi)
                 {
+                    // GDI mode has no byte path to the DK port — the PointOfService cash drawer
+                    // (registered by Star's OPOS, standard on the NatApp-era shop PCs) is the kick.
                     await PosPrint.OpenDrawerAsync();
                 }
                 else

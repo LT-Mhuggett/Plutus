@@ -159,12 +159,14 @@ namespace Plutus.TillAgent
             {
                 "Auto (recommended)",
                 "ESC/POS — Epson and most receipt printers",
-                "Star raster — TSP100 / TSP113 / TSP143",
+                "Windows driver — TSP100 family and anything GDI",
+                "Star raster — raw bytes (advanced)",
             });
             _emulation.SelectedIndex = state.Config.Emulation switch
             {
                 Plutus.TillAgent.Core.EmulationResolver.EscPos => 1,
-                Plutus.TillAgent.Core.EmulationResolver.StarRasterMode => 2,
+                Plutus.TillAgent.Core.EmulationResolver.Gdi => 2,
+                Plutus.TillAgent.Core.EmulationResolver.StarRasterMode => 3,
                 _ => 0,
             };
             Add(_emulation);
@@ -261,7 +263,8 @@ namespace Plutus.TillAgent
             _state.Config.Emulation = _emulation.SelectedIndex switch
             {
                 1 => Plutus.TillAgent.Core.EmulationResolver.EscPos,
-                2 => Plutus.TillAgent.Core.EmulationResolver.StarRasterMode,
+                2 => Plutus.TillAgent.Core.EmulationResolver.Gdi,
+                3 => Plutus.TillAgent.Core.EmulationResolver.StarRasterMode,
                 _ => Plutus.TillAgent.Core.EmulationResolver.Auto,
             };
             _state.Config.AllowedOrigin = _origin.Text.Trim();

@@ -149,10 +149,12 @@ public class StarRasterTests
     }
 
     [Fact]
-    public void Emulation_resolver_recognises_the_futureprnt_family_only()
+    public void Emulation_resolver_sends_the_futureprnt_family_through_the_driver()
     {
-        Assert.Equal(EmulationResolver.StarRasterMode, EmulationResolver.Resolve("auto", "Star TSP100 Cutter (TSP143)"));
-        Assert.Equal(EmulationResolver.StarRasterMode, EmulationResolver.Resolve("auto", "Star TSP113 (TSP100)"));
+        // FE3.3: the futurePRNT queue text-renders raw bytes, so the TSP100 family defaults to
+        // GDI (through the driver), never to raw ESC/POS or raw raster.
+        Assert.Equal(EmulationResolver.Gdi, EmulationResolver.Resolve("auto", "Star TSP100 Cutter (TSP143)"));
+        Assert.Equal(EmulationResolver.Gdi, EmulationResolver.Resolve("auto", "Star TSP113 (TSP100)"));
         // the TSP100IV is StarPRNT/ESC-POS — NOT raster-only futurePRNT
         Assert.Equal(EmulationResolver.EscPos, EmulationResolver.Resolve("auto", "Star TSP100IV (STR-001)"));
         Assert.Equal(EmulationResolver.EscPos, EmulationResolver.Resolve("auto", "EPSON TM-T20III Receipt"));
@@ -160,5 +162,6 @@ public class StarRasterTests
         // explicit settings win over the name
         Assert.Equal(EmulationResolver.EscPos, EmulationResolver.Resolve("escpos", "Star TSP100 Cutter (TSP143)"));
         Assert.Equal(EmulationResolver.StarRasterMode, EmulationResolver.Resolve("star-raster", "Some Renamed Queue"));
+        Assert.Equal(EmulationResolver.Gdi, EmulationResolver.Resolve("gdi", "Some Renamed Queue"));
     }
 }

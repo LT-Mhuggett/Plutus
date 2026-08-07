@@ -21,6 +21,14 @@ namespace Plutus.TillAgent
     {
         public static List<byte[]> Rasterize(PrintDocument doc, out bool narrow58mm, out bool wantsDrawer)
         {
+            using var bmp = RasterizeToBitmap(doc, out narrow58mm, out wantsDrawer);
+            return ToRows(bmp);
+        }
+
+        /// <summary>FE3.3: the rendered receipt as a bitmap — shared by the Star-raster packer and
+        /// the GDI print path (which hands this to the vendor driver as a normal print job).</summary>
+        public static Bitmap RasterizeToBitmap(PrintDocument doc, out bool narrow58mm, out bool wantsDrawer)
+        {
             if (doc == null) throw new ArgumentNullException(nameof(doc));
             narrow58mm = doc.Columns == 32;
             wantsDrawer = doc.OpenDrawer;
@@ -47,7 +55,8 @@ namespace Plutus.TillAgent
                     _ => lineH,
                 };
 
-            using var bmp = new Bitmap(widthDots, Math.Max(estimate, 64), PixelFormat.Format32bppRgb);
+            var bmp = new Bitmap(widthDots, Math.Max(estimate, 64), PixelFormat.Format32bppRgb);
+            var contentY = 0;
             using (var g = Graphics.FromImage(bmp))
             {
                 g.Clear(Color.White);
@@ -102,9 +111,19 @@ namespace Plutus.TillAgent
                             break;
                     }
                 }
+                contentY = y;
             }
 
-            return ToRows(bmp);
+            // Crop to the printed height (+ a small margin): trailing white in the bitmap becomes
+            // fed blank paper on both the raster and GDI paths.
+            var printedHeight = Math.Clamp(contentY + 4, 8, bmp.Height);
+            if (printedHeight < bmp.Height)
+            {
+                var cropped = bmp.Clone(new Rectangle(0, 0, widthDots, printedHeight), bmp.PixelFormat);
+                bmp.Dispose();
+                return cropped;
+            }
+            return bmp;
         }
 
         /// <summary>Largest monospace size whose character cell fits the per-column width, so a

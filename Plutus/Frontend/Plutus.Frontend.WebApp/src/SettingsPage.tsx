@@ -177,10 +177,12 @@ function HardwareSection({ canSettings }: { canSettings: boolean }) {
                 <dt>Language</dt>
                 <dd>
                   {status.emulation === "pointofservice"
-                    ? "Windows POS (direct — recommended)"
-                    : status.emulation === "star-raster"
-                      ? "Star raster (TSP100 family)"
-                      : "ESC/POS"}
+                    ? "Windows POS (direct)"
+                    : status.emulation === "gdi"
+                      ? "Windows driver (TSP100 family — recommended)"
+                      : status.emulation === "star-raster"
+                        ? "Star raster (raw — advanced)"
+                        : "ESC/POS"}
                   <span className="muted small"> — chosen automatically for the selected printer</span>
                 </dd>
               </>
