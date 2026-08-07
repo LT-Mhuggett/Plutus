@@ -105,7 +105,27 @@ provable **headlessly**, with no device, no MySQL and no deployment. Three new p
    2002bp); `vatAmountPence` is `lineGross − lineEx`, never rate arithmetic. MAUI must mirror
    this at sale time; the cutover's snapped catalogue band is a display label only.
 4. **Enrolment refuses** while a legacy database is un-archived (§9.3). That is deliberate.
-5. **VAT: the portal is the source of truth, and it isn't yet.** Matt's directive (2026-08-08):
+5. **VAT was legally wrong in four ways and is now FIXED (2026-08-08).** Full detail + HMRC
+   citations in the retrofit plan **§2a**. What changed, all live:
+   - **The VAT return is now computed per HMRC Notice 727 §3.4.1** — VAT fraction × takings at
+     each rate — instead of summing penny-rounded per-line VAT. **Kapow's return was £10.77
+     light.** `/api/v1/reports/vat` now also returns `vatChargedPence` and
+     `roundingDifferencePence` so the gap is always visible.
+   - **Takings group by BAND, not by the line's derived rate.** One 20% band used to fragment
+     across six buckets (1993–2004bp) because tills derive the rate from the price pair.
+   - **Off-band takings (Kapow has a real 2500bp line) report as `unclassified`** — never folded
+     into a real band, never given an invented rate.
+   - **Comics were classified Exempt; UK law zero-rates them** (Notice 701/10). Exempt blocks
+     input-tax recovery, zero-rated doesn't — wrong in the expensive direction. `VatClass` now
+     distinguishes Zero from Exempt at the same 0%, and Kapow's 14,740-item band is reclassified
+     and relabelled. **No money moved** (both are 0% output tax); the recovery position improves.
+   - Kapow's bands are seeded into portal-owned `VatRatePoints` with correct classes, which arms
+     WP2b's stale-band check. Verified live: an ordinary £14.99/£12.49 line (declaring 2002bp)
+     still ingests 201. Rollback `~/PLUTUS/backend.pre-vatreturn` + dump `plutus-pre-vatreturn-20260808.sql.gz`.
+   - ⚠ Still Matt's/his accountant's: whether any genuinely *exempt* supply is ever sold, and
+     whether the historical £10.77 needs correcting on past returns or only going forward.
+
+6. **VAT guidance must come FROM THE PORTAL, down to the tills.** Matt's directive (2026-08-08):
    *all VAT guidance comes from the portal down to the tills* — a till never decides a VAT rule.
    Today there is **no portal VAT surface at all** (`fetchTaxes` is read-only in both frontends;
    `Taxes` is seeded legacy data with no effective dates). Retrofit **WP2c** builds it, and it

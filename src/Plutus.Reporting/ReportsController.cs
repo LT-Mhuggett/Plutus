@@ -284,24 +284,108 @@ namespace Plutus.Reporting
             }
             var rows = await q.ToListAsync();
 
+            // ── HMRC Notice 727 §3.4.1 (Point of Sale retail scheme) ────────────────────────────
+            // "Once your system has produced the total value of sales at each rate, you calculate
+            //  your output tax by applying the appropriate VAT fraction to the relevant portion of
+            //  your DGT."
+            //
+            // TWO THINGS WERE WRONG HERE, and both understated the return:
+            //  1. Buckets were keyed on the line's DERIVED rate. A till computes a line's rate from
+            //     its price pair, so ONE 20% band arrives as 1993…2004bp — Kapow's return was
+            //     fragmented across six standard-rate buckets, which is not "the total value of
+            //     sales at each rate" in any sense HMRC would recognise.
+            //  2. Output tax was the SUM OF PER-LINE VAT. Each line's VAT is rounded to the penny;
+            //     thousands of roundings do not equal the rounding of the total. On Kapow's live
+            //     data that summed £10.78 LESS than the fraction on takings.
+            //
+            // So: group takings by BAND, then apply the VAT fraction to each band's gross. What the
+            // tills charged is still reported alongside, because the gap is worth seeing — but the
+            // figure for the return is the fraction.
+            var bands = await BandsForReturnAsync();
+
             var buckets = rows
-                .GroupBy(r => { TryPeriod(granularity, r.BusinessDay, out var p); return (Period: p, r.VatRateBp); })
-                .OrderBy(g => g.Key.Period, StringComparer.Ordinal).ThenBy(g => g.Key.VatRateBp)
-                .Select(g => new
+                .GroupBy(r =>
                 {
-                    period = g.Key.Period,
-                    vatRateBp = g.Key.VatRateBp,
-                    grossPence = g.Sum(r => r.GrossPence),
-                    netPence = g.Sum(r => r.NetPence),
-                    vatPence = g.Sum(r => r.VatPence),
+                    TryPeriod(granularity, r.BusinessDay, out var p);
+                    var band = VatAccounting.BandFor(bands, r.VatRateBp);
+                    return (Period: p, BandKey: band?.Key ?? "unclassified", Band: band);
+                })
+                .OrderBy(g => g.Key.Period, StringComparer.Ordinal).ThenBy(g => g.Key.Band?.RateBp ?? int.MaxValue)
+                .Select(g =>
+                {
+                    var gross = g.Sum(r => r.GrossPence);
+                    var charged = g.Sum(r => r.VatPence);
+                    // No band => off-band damage. Do NOT fold it into a real band and do NOT invent
+                    // a rate for it: report what was charged and flag it for a human.
+                    var due = g.Key.Band is VatBand b ? VatAccounting.OutputTaxOn(gross, b.RateBp) : charged;
+                    return new
+                    {
+                        period = g.Key.Period,
+                        bandKey = g.Key.BandKey,
+                        displayName = g.Key.Band?.DisplayName ?? "Unclassified — off-band",
+                        vatClass = g.Key.Band is VatBand vb ? vb.Class.ToString() : "Unknown",
+                        vatRateBp = g.Key.Band?.RateBp ?? g.Min(r => r.VatRateBp),
+                        grossPence = gross,
+                        netPence = gross - due,
+                        // the VAT-return figure (fraction on takings)
+                        vatPence = due,
+                        // reconciliation: what the tills actually charged, and the gap
+                        vatChargedPence = charged,
+                        roundingDifferencePence = due - charged,
+                        unclassified = g.Key.Band == null,
+                    };
                 })
                 .ToList();
 
             return Ok(new
             {
-                totals = new { grossPence = rows.Sum(r => r.GrossPence), netPence = rows.Sum(r => r.NetPence), vatPence = rows.Sum(r => r.VatPence) },
+                totals = new
+                {
+                    grossPence = buckets.Sum(b => b.grossPence),
+                    netPence = buckets.Sum(b => b.netPence),
+                    vatPence = buckets.Sum(b => b.vatPence),
+                    vatChargedPence = buckets.Sum(b => b.vatChargedPence),
+                    roundingDifferencePence = buckets.Sum(b => b.roundingDifferencePence),
+                    unclassifiedGrossPence = buckets.Where(b => b.unclassified).Sum(b => b.grossPence),
+                },
+                basis = "HMRC Notice 727 §3.4.1 — VAT fraction applied to takings at each rate (Point of Sale scheme).",
                 buckets,
             });
+        }
+
+        /// <summary>
+        /// The tenant's VAT bands for return purposes: the effective-dated <c>VatRatePoints</c> the
+        /// portal owns, falling back to the legacy <c>Taxes</c> rows for a tenant not yet migrated
+        /// (WP2c). Falling back matters — without it a tenant with no configured bands would have
+        /// every penny of takings reported as "unclassified".
+        /// </summary>
+        private async Task<IReadOnlyCollection<VatBand>> BandsForReturnAsync()
+        {
+            var configured = await _db.VatRatePoints.AsNoTracking()
+                .Select(p => new { p.Band, p.DisplayName, p.Class, p.RateBp, p.EffectiveFromUtc })
+                .ToListAsync();
+            if (configured.Count > 0)
+                return configured
+                    .GroupBy(p => p.Band, StringComparer.OrdinalIgnoreCase)
+                    .Select(g => g.OrderByDescending(p => p.EffectiveFromUtc).First())
+                    .Select(p => new VatBand(p.Band, p.DisplayName ?? p.Band, (VatClass)p.Class, p.RateBp, p.EffectiveFromUtc))
+                    .ToList();
+
+            // Legacy fallback: Taxes holds a multiplier (1.2 = 20%) and a display name only — no
+            // class, so zero-rated and exempt are indistinguishable here. That is precisely the gap
+            // WP2c closes; until then infer conservatively and let the name carry the meaning.
+            var legacy = await _db.Taxes.AsNoTracking().Select(t => new { t.Name, t.Rate }).ToListAsync();
+            return legacy
+                .Select(t =>
+                {
+                    var bp = (int)Math.Round((t.Rate - 1d) * 10000d);
+                    var cls = bp > 0 ? (bp >= 1000 ? VatClass.Standard : VatClass.Reduced)
+                        : t.Name != null && t.Name.Contains("exempt", StringComparison.OrdinalIgnoreCase)
+                            ? VatClass.Exempt : VatClass.Zero;
+                    return new VatBand(t.Name ?? bp.ToString(), t.Name ?? bp.ToString(), cls, bp, DateTime.UnixEpoch);
+                })
+                .GroupBy(b => b.RateBp).Select(g => g.First())
+                .ToList();
         }
 
         /// <summary>VAT off-band CATALOGUE check (moved off legacy /api/Sale/VatIntegrity, 2026-07-27):

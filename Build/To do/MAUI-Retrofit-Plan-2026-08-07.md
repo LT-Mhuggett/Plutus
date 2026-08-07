@@ -227,7 +227,28 @@ round to the penny), so the tax-inclusive price is the one the customer sees and
 retail that is the time of supply — the sale itself — which is why WP2b judges a line against
 `OccurredAtUtc` and not against "now". That part is right.
 
-### Three findings in the LIVE Kapow data — all for Matt/his accountant, none for me to decide
+### ✅ FIXED 2026-08-08 — the law decides, so these were corrected rather than asked about
+
+Matt's instruction: *"I have not made rules. Whatever the UK government VAT rules are need to be
+[followed]. Please look to fix what is broken."* All four defects below are now fixed and live.
+
+| Was broken | Fixed |
+|---|---|
+| **VAT return summed per-line VAT.** HMRC Notice 727 §3.4.1 requires output tax = VAT fraction × takings at each rate. Summing thousands of penny-rounded lines understates it. | `/api/v1/reports/vat` now applies the VAT fraction to takings, and reports `vatChargedPence` + `roundingDifferencePence` alongside for reconciliation. **On live Kapow data the return was £10.77 light.** |
+| **Takings were bucketed by DERIVED rate.** A till computes each line's rate from its price pair, so one 20% band arrived as 1993–2004bp — Kapow's return was split across **six** standard-rate buckets, which is not "the total value of sales at each rate". | Takings group by **band**; derived rates snap to the published band within 25bp. |
+| **Off-band takings would have been folded into a real band.** Kapow has a genuine 2500bp line. | Reported as `unclassified` with its own bucket — never merged, never given an invented rate. |
+| **Comics were classified Exempt.** HMRC Notice 701/10 zero-rates books, comics, magazines. Exempt **blocks input-tax recovery**; zero-rated does not — the wrong way round, and the expensive way. | `VatClass` added to the band model (Zero ≠ Exempt at the same 0%). Kapow's 14,740-item band reclassified **zero-rated** and relabelled "Zero rated (books)". **No money moved** — both are 0% output tax; only the recovery position changes, in Kapow's favour. |
+
+**Also seeded:** Kapow's three bands into the portal-owned `VatRatePoints` with law-correct classes,
+effective-from epoch. That arms WP2b's stale-band check — verified live that an ordinary
+£14.99/£12.49 line (declaring 2002bp) still ingests **201**.
+
+⚠ **Still for Matt/his accountant, NOT decided here:** whether any genuinely *exempt* supply is
+ever sold (if so, `exempt` becomes a real fourth band, and the partial-exemption split starts to
+matter); and whether the historical £10.77 shortfall needs correcting on past returns or only
+going forward. The system now reports the gap on every return rather than hiding it.
+
+### The original findings, for the record
 
 **1. The third band is named "Exempt", but comics and books are ZERO-RATED.**
 `Taxes` holds `20%` (1.2), `5%` (1.05), `Exempt` (1.0). HMRC Notice 701/10 zero-rates books,

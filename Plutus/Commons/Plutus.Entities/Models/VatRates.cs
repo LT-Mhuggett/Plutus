@@ -22,8 +22,20 @@ namespace Plutus.Entities.Models
     {
         public Guid Id { get; set; }
         public Guid TenantId { get; set; }
-        /// <summary>"standard" | "reduced" | "zero" — or a tenant's own; nothing is closed.</summary>
+        /// <summary>Stable key for the band — "standard" | "reduced" | "zero" | "exempt", or a
+        /// tenant's own. This is the IDENTITY that survives a rate change.</summary>
         public string Band { get; set; }
+        /// <summary>What the customer sees, e.g. "20%" or "Zero rated (books)".</summary>
+        public string? DisplayName { get; set; }
+        /// <summary>
+        /// UK VAT classification (<see cref="Plutus.SharedKernel.VatClass"/> as an int).
+        ///
+        /// ⚠ THIS IS NOT DERIVABLE FROM THE RATE. Zero-rated and exempt are both 0% to the
+        /// customer but are different in law: zero-rated is a taxable supply with input-tax
+        /// recovery; exempt is not taxable and BLOCKS recovery of attributable input tax. A
+        /// system that stores only "0%" can never produce a partial-exemption figure.
+        /// </summary>
+        public int Class { get; set; }
         /// <summary>Basis points: 2000 = 20%. Integer, like all money-adjacent values here.</summary>
         public int RateBp { get; set; }
         public DateTime EffectiveFromUtc { get; set; }
