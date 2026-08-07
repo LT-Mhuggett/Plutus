@@ -1,7 +1,21 @@
 :root {
   color-scheme: light dark;
-  --accent: #2c698d; /* Plutus "Quinary" from the MAUI palette */
-  --ink: #272643; /* Plutus "Primary" */
+  /* ── FE10 theme slots ─────────────────────────────────────────────────────
+     The ONLY colours a portal theme may override (theme.ts sets inline vars on <html> and
+     forces color-scheme for light/dark themes). Everything below keys off these + the
+     light-dark() pairs, so clearing the overrides always restores this stock Plutus palette —
+     the "can always switch back" guarantee. */
+  --accent: #2c698d; /* the blue band + primary buttons — Plutus "Quinary" (MAUI palette) */
+  --accent-ink: #ffffff; /* text on the band and primary buttons */
+  --ink: light-dark(#272643, #e3f6f5); /* main text — Plutus "Primary" / pastel mint on dark */
+  --ink-muted: light-dark(#475466, #93a5b5); /* secondary text — ONE muted colour, not five opacities */
+  --surface: light-dark(#f7fafc, #1a1a2e); /* page background */
+  --surface-2: light-dark(#ffffff, #20203a); /* cards, dialogs, menus, inputs */
+  --line: light-dark(#d8e3ea, #2c3a4d); /* borders and rules */
+  /* ── derived / internal (not portal slots) ── */
+  --accent-hover: color-mix(in srgb, var(--accent) 82%, black);
+  --line-strong: color-mix(in srgb, var(--line) 85%, var(--ink)); /* input borders */
+  --hover: light-dark(#eef5f9, #263349); /* row/list hover wash */
   /* chart series colour — validated per mode (dataviz six checks) */
   --chart: light-dark(#1a6fae, #3b95dc);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -14,8 +28,8 @@
 
 body {
   min-height: 100vh;
-  background: light-dark(#f7fafc, #1a1a2e);
-  color: light-dark(var(--ink), #e3f6f5);
+  background: var(--surface);
+  color: var(--ink);
 }
 
 .shell {
@@ -31,11 +45,11 @@ body {
   gap: 0.75rem;
   padding: 0.55rem 1rem;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-ink);
 }
 
 .appbar h1 {
-  color: #fff;
+  color: var(--accent-ink);
   font-size: 1.25rem;
   letter-spacing: 0.02em;
   display: flex;
@@ -62,9 +76,9 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   padding: 0.2rem 0.5rem;
-  border: 1px solid #fff;
+  border: 1px solid currentColor;
   border-radius: 999px;
-  color: #fff;
+  color: var(--accent-ink);
 }
 
 /* WP11.1: this till's name, beside the env badge in the header */
@@ -74,7 +88,7 @@ body {
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.18);
-  color: #fff;
+  color: var(--accent-ink);
   white-space: nowrap;
 }
 
@@ -86,7 +100,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 999px;
   background: none;
-  color: #fff;
+  color: var(--accent-ink);
   white-space: nowrap;
   cursor: pointer;
 }
@@ -103,7 +117,7 @@ body {
   padding: 0.2rem 0.6rem;
   border: none;
   border-radius: 999px;
-  background: #fff;
+  background: var(--accent-ink);
   color: var(--accent);
   white-space: nowrap;
   cursor: pointer;
@@ -118,10 +132,10 @@ footer {
 }
 
 .panel {
-  border: 1px solid light-dark(#d8e3ea, #2c3a4d);
+  border: 1px solid var(--line);
   border-radius: 12px;
   padding: 1rem 1.25rem;
-  background: light-dark(#ffffff, #20203a);
+  background: var(--surface-2);
 }
 
 .panel-head {
@@ -165,14 +179,15 @@ th,
 td {
   text-align: left;
   padding: 0.45rem 0.6rem;
-  border-bottom: 1px solid light-dark(#edf2f6, #2c3a4d);
+  border-bottom: 1px solid var(--line);
 }
 
 th {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  opacity: 0.65;
+  /* FE10: a real colour, not opacity — one of the "different shades" the operator flagged */
+  color: var(--ink-muted);
 }
 
 .num {
@@ -186,7 +201,7 @@ th {
 }
 
 .muted {
-  opacity: 0.6;
+  color: var(--ink-muted);
   font-size: 0.85rem;
 }
 
@@ -216,14 +231,14 @@ footer {
   border: none;
   border-bottom: 2px solid transparent;
   background: none;
-  color: #fff;
+  color: var(--accent-ink);
   opacity: 0.65;
   cursor: pointer;
 }
 
 .tab.active {
   opacity: 1;
-  border-bottom-color: #fff;
+  border-bottom-color: var(--accent-ink);
   font-weight: 600;
 }
 
@@ -304,7 +319,7 @@ footer {
   gap: 0.75rem;
   align-items: baseline;
   padding: 0.5rem 0.25rem;
-  border-top: 1px solid light-dark(#d8e3ea, #2c3a4d);
+  border-top: 1px solid var(--line);
   font-size: 0.95rem;
 }
 
@@ -368,11 +383,11 @@ footer {
   grid-column: 4;
   font-weight: 700;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-ink);
 }
 
 .action.checkout:hover:not(:disabled) {
-  background: light-dark(#245a7a, #3a7ba3);
+  background: var(--accent-hover);
 }
 
 .scan {
@@ -389,7 +404,7 @@ footer {
   list-style: none;
   padding: 0;
   margin-top: 0.5rem;
-  border: 1px solid light-dark(#d8e3ea, #2c3a4d);
+  border: 1px solid var(--line);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -402,14 +417,14 @@ footer {
   text-align: left;
   padding: 0.45rem 0.6rem;
   border: none;
-  border-bottom: 1px solid light-dark(#edf2f6, #2c3a4d);
+  border-bottom: 1px solid var(--line);
   background: none;
   color: inherit;
   cursor: pointer;
 }
 
 .results button:hover {
-  background: light-dark(#eef5f9, #263349);
+  background: var(--hover);
 }
 
 .grow {
@@ -418,7 +433,7 @@ footer {
 
 .totals {
   margin-top: 1.25rem;
-  border-top: 1px solid light-dark(#d8e3ea, #2c3a4d);
+  border-top: 1px solid var(--line);
   padding-top: 0.75rem;
 }
 
@@ -442,7 +457,7 @@ button.primary {
   border: none;
   border-radius: 8px;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-ink);
   cursor: pointer;
 }
 
@@ -455,7 +470,7 @@ button.ghost,
 a.ghost {
   font: inherit;
   padding: 0.25rem 0.6rem;
-  border: 1px solid light-dark(#d8e3ea, #2c3a4d);
+  border: 1px solid var(--line);
   border-radius: 6px;
   background: none;
   color: inherit;
@@ -490,7 +505,7 @@ a.ghost {
 button.step {
   font: inherit;
   width: 1.6rem;
-  border: 1px solid light-dark(#d8e3ea, #2c3a4d);
+  border: 1px solid var(--line);
   border-radius: 6px;
   background: none;
   color: inherit;
@@ -563,7 +578,7 @@ tr.adjusted td:first-child {
   min-width: 12rem;
   font: inherit;
   padding: 0.4rem 0.6rem;
-  border: 1px solid light-dark(#d8e3ea, #2c3a4d);
+  border: 1px solid var(--line);
   border-radius: 8px;
   background: transparent;
   color: inherit;
@@ -587,8 +602,8 @@ tr.adjusted td:first-child {
 .dialog {
   width: 100%;
   max-width: 26rem;
-  background: light-dark(#ffffff, #20203a);
-  border: 1px solid light-dark(#d8e3ea, #2c3a4d);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
   border-radius: 12px;
   padding: 1.25rem;
 }
@@ -611,7 +626,7 @@ tr.adjusted td:first-child {
   font: inherit;
   text-align: right;
   padding: 0.35rem 0.5rem;
-  border: 1px solid light-dark(#d8e3ea, #2c3a4d);
+  border: 1px solid var(--line);
   border-radius: 6px;
   background: transparent;
   color: inherit;
@@ -744,7 +759,7 @@ tr.return-line td {
   max-width: 22rem;
   margin: 0.5rem 0 1rem;
   padding: 1rem 1.25rem;
-  border: 1px solid light-dark(#d8e3ea, #2c3a4d);
+  border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
   color: #111;
@@ -786,7 +801,7 @@ tr.return-line td {
 .range-row input[type="date"] {
   font: inherit;
   padding: 0.3rem 0.5rem;
-  border: 1px solid light-dark(#c3d2dc, #47617a);
+  border: 1px solid var(--line-strong);
   border-radius: 6px;
   background: transparent;
   color: inherit;
@@ -806,7 +821,7 @@ tr.return-line td {
   flex-direction: column;
   gap: 0.15rem;
   padding: 0.8rem 1rem;
-  border: 1px solid light-dark(#d8e3ea, #2c3a4d);
+  border: 1px solid var(--line);
   border-radius: 10px;
 }
 
@@ -820,7 +835,7 @@ tr.return-line td {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  opacity: 0.6;
+  color: var(--ink-muted);
 }
 
 .info-cards {
@@ -834,7 +849,7 @@ tr.return-line td {
   flex: 1;
   min-width: 16rem;
   padding: 1rem 1.2rem;
-  border: 1px solid light-dark(#d8e3ea, #2c3a4d);
+  border: 1px solid var(--line);
   border-radius: 10px;
 }
 
@@ -853,7 +868,7 @@ tr.return-line td {
 .info-card dt,
 .env-info dt {
   font-weight: 600;
-  opacity: 0.6;
+  color: var(--ink-muted);
 }
 
 .settings-h {
@@ -868,20 +883,20 @@ tr.return-line td {
   padding: 0.05rem 0.5rem;
   border-radius: 999px;
   font-size: 0.75rem;
-  border: 1px solid light-dark(#d8e3ea, #2c3a4d);
+  border: 1px solid var(--line);
   background: light-dark(#f1f5f9, #2a2a46);
 }
 
 .chip.ok {
   background: light-dark(#ecfdf5, #12341f);
   border-color: light-dark(#a7f3d0, #1b7f4b);
-  color: light-dark(#15803d, #7be0a8);
+  color: light-dark(#1b7f4b, #7be0a8);
 }
 
 /* Collapsible settings groups — closed by default; the summary row is
    "Title — one-line description" with a ▸/▾ marker, portal store-card style. */
 .settings-section {
-  border: 1px solid light-dark(#d8e3ea, #2c3a4d);
+  border: 1px solid var(--line);
   border-radius: 10px;
   margin: 0.6rem 0;
   padding: 0 1rem;
@@ -916,7 +931,7 @@ tr.return-line td {
 
 .settings-section-body {
   padding: 0 0 0.9rem;
-  border-top: 1px dashed light-dark(#d8e3ea, #2c3a4d);
+  border-top: 1px dashed var(--line);
 }
 
 .setting-row {
@@ -952,7 +967,7 @@ tr.return-line td {
 .subtab {
   font: inherit;
   padding: 0.3rem 0.9rem;
-  border: 1px solid light-dark(#d8e3ea, #2c3a4d);
+  border: 1px solid var(--line);
   border-radius: 999px;
   background: none;
   color: inherit;
@@ -972,7 +987,7 @@ tr.clickable {
 }
 
 tr.clickable:hover td {
-  background: light-dark(#eef5f9, #263349);
+  background: var(--hover);
 }
 
 .dialog.wide {
@@ -989,7 +1004,7 @@ tr.clickable:hover td {
   font: inherit;
   width: 12rem;
   padding: 0.4rem 0.6rem;
-  border: 1px solid light-dark(#c3d2dc, #47617a);
+  border: 1px solid var(--line-strong);
   border-radius: 7px;
   background: transparent;
   color: inherit;
@@ -1016,7 +1031,7 @@ button.primary.slim {
 
 .vat-toggle {
   display: flex;
-  border: 1px solid light-dark(#c3d2dc, #47617a);
+  border: 1px solid var(--line-strong);
   border-radius: 999px;
   overflow: hidden;
 }
@@ -1035,7 +1050,7 @@ button.primary.slim {
 .vat-toggle button.active {
   opacity: 1;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-ink);
   font-weight: 600;
 }
 
@@ -1080,9 +1095,9 @@ button.primary.slim {
 .range-row select {
   font: inherit;
   padding: 0.35rem 0.6rem;
-  border: 1px solid light-dark(#c3d2dc, #47617a);
+  border: 1px solid var(--line-strong);
   border-radius: 7px;
-  background: light-dark(#ffffff, #20203a);
+  background: var(--surface-2);
   color: inherit;
 }
 
@@ -1116,7 +1131,7 @@ button.primary.slim {
 
 .axis-label {
   font-size: 10px;
-  fill: light-dark(#5b6b78, #93a5b5);
+  fill: var(--ink-muted);
 }
 
 .crosshair {
@@ -1127,7 +1142,7 @@ button.primary.slim {
 
 .chart-dot {
   fill: var(--chart);
-  stroke: light-dark(#ffffff, #20203a);
+  stroke: var(--surface-2);
   stroke-width: 2;
 }
 
@@ -1139,7 +1154,7 @@ button.primary.slim {
   flex-direction: column;
   align-items: center;
   padding: 0.3rem 0.6rem;
-  border: 1px solid light-dark(#d8e3ea, #2c3a4d);
+  border: 1px solid var(--line);
   border-radius: 8px;
   background: light-dark(#ffffff, #2a2a48);
   font-size: 0.78rem;
@@ -1162,7 +1177,7 @@ button.primary.slim {
 .breakdown-bar {
   height: 6px;
   border-radius: 3px;
-  background: light-dark(#eef3f7, #2c3a4d);
+  background: var(--hover);
   overflow: hidden;
 }
 
@@ -1195,9 +1210,9 @@ button.primary.slim {
   font: inherit;
   font-weight: 400;
   padding: 0.45rem 0.6rem;
-  border: 1px solid light-dark(#c3d2dc, #47617a);
+  border: 1px solid var(--line-strong);
   border-radius: 7px;
-  background: light-dark(#ffffff, #20203a);
+  background: var(--surface-2);
   color: inherit;
 }
 
@@ -1235,9 +1250,9 @@ button.primary.slim {
   flex-direction: column;
   gap: 0.9rem;
   padding: 2rem;
-  border: 1px solid light-dark(#d8e3ea, #2c3a4d);
+  border: 1px solid var(--line);
   border-radius: 12px;
-  background: light-dark(#ffffff, #20203a);
+  background: var(--surface-2);
 }
 
 .login-card h1 {
@@ -1251,7 +1266,7 @@ button.primary.slim {
 
 .login-card .tagline {
   text-align: center;
-  opacity: 0.7;
+  color: var(--ink-muted);
   margin-bottom: 0.5rem;
 }
 
@@ -1267,7 +1282,7 @@ button.primary.slim {
   font: inherit;
   font-weight: 400;
   padding: 0.55rem 0.7rem;
-  border: 1px solid light-dark(#c3d2dc, #47617a);
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
   background: transparent;
   color: inherit;
@@ -1298,10 +1313,10 @@ button.primary.slim {
   z-index: 10;
   min-width: 14rem;
   padding: 0.8rem;
-  border: 1px solid light-dark(#d8e3ea, #2c3a4d);
+  border: 1px solid var(--line);
   border-radius: 10px;
-  background: light-dark(#ffffff, #20203a);
-  color: light-dark(var(--ink), #e3f6f5);
+  background: var(--surface-2);
+  color: var(--ink);
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
@@ -1348,6 +1363,12 @@ button.primary.slim {
   }
   .receipt {
     color-scheme: light; /* paper is paper — never the dark palette */
+    /* ⚠ color-scheme only re-resolves light-dark() declared ON these elements — it cannot fix
+       the COMPUTED colour inherited from a dark body. Without the explicit ink below, printing
+       from dark mode put near-white text (#e3f6f5) on white paper. Fixed alongside FE10, and
+       deliberately immune to portal themes: receipts print black on paper, whatever the till wears. */
+    background: #fff;
+    color: #111;
     width: 72mm;
     margin: 0;
     padding: 2mm 1mm 4mm;
@@ -1360,22 +1381,26 @@ button.primary.slim {
 /* WP7.2 cash drawer */
 .cash-form { max-width: 420px; }
 .cash-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
-.cash-result { border: 1px solid var(--line, #d0d0d0); border-radius: 8px; padding: 12px 16px; margin-top: 8px; max-width: 420px; }
+.cash-result { border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; margin-top: 8px; max-width: 420px; }
 .cash-result h3 { margin: 0 0 8px; }
 
 /* customer bar (Phase 8 retrofit) */
 .customer-bar { margin: 6px 0; min-height: 32px; }
-.customer-chip { display: inline-flex; align-items: center; gap: 6px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 999px; padding: 3px 12px; }
+.customer-chip { display: inline-flex; align-items: center; gap: 6px; background: light-dark(#ecfdf5, #12341f); border: 1px solid light-dark(#a7f3d0, #1b7f4b); border-radius: 999px; padding: 3px 12px; }
 .customer-search { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; position: relative; }
 .cust-input { min-width: 240px; }
-.cust-results { position: absolute; top: 100%; left: 0; z-index: 5; background: #fff; border: 1px solid var(--line, #d0d0d0); border-radius: 8px; min-width: 280px; max-height: 240px; overflow: auto; margin: 2px 0; }
+.cust-results { position: absolute; top: 100%; left: 0; z-index: 5; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; min-width: 280px; max-height: 240px; overflow: auto; margin: 2px 0; }
 .cust-results .no-cust { padding: 8px 12px; }
 
 /* Phase 6 pick-from-floor notification — prominent, persists until acknowledged */
 .pick-note {
   display: flex; align-items: center; gap: 12px;
   margin: 8px 0; padding: 10px 16px;
-  background: #fff7ed; border: 2px solid #f59e0b; border-radius: 8px;
+  background: light-dark(#fff7ed, #3a3220); border: 2px solid #f59e0b; border-radius: 8px;
   font-weight: 600;
 }
 .pick-note .grow { flex: 1; }
+/* WP15.1 announcement severities (was inline styles in App.tsx — now themable-adjacent classes;
+   the colours themselves stay fixed: an incident banner must look like an incident everywhere) */
+.pick-note.incident { background: #dc2626; border-color: #b91c1c; color: #fff; }
+.pick-note.maintenance { background: #d97706; border-color: #b45309; color: #fff; }

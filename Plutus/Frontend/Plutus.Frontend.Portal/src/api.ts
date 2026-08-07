@@ -696,6 +696,29 @@ export const createStockLocation = (body: { storeId: number; type: string; name:
 export interface StockLocationRow { id: string; storeId: number; type: string; name: string }
 export const fetchStockLocations = () => get<StockLocationRow[]>(`/api/v1/stock/locations`);
 
+// ── FE10 till themes — colour schemes pushed to stores / tills / groups ──
+// ColorsJson slot shape is owned by the frontends (mirrors the till's CSS variables).
+export interface ThemeColors { accent?: string; accentInk?: string; surface?: string; surface2?: string; ink?: string; inkMuted?: string; line?: string }
+export interface ThemeRow { id: string; name: string; baseMode: "light" | "dark"; colorsJson: string | null; updatedAtUtc: string }
+export interface TillGroupRow { id: string; name: string; tillIds: string[] }
+/** scope: 0 tenant · 1 store · 2 group · 3 till (server precedence: till > group > store > tenant). */
+export interface ThemeAssignmentRow { scope: number; scopeKey: string; themeKey: string; updatedAtUtc: string }
+export interface ThemesBundle { themes: ThemeRow[]; groups: TillGroupRow[]; assignments: ThemeAssignmentRow[] }
+export const fetchThemes = () => get<ThemesBundle>(`/api/v1/themes`);
+export const createTheme = (body: { name: string; baseMode: string; colorsJson: string | null }) =>
+  post<{ id: string }>(`/api/v1/themes`, body);
+export const updateTheme = (id: string, body: { name: string; baseMode: string; colorsJson: string | null }) =>
+  put<void>(`/api/v1/themes/${id}`, body);
+export const deleteTheme = (id: string) => del<void>(`/api/v1/themes/${id}`);
+/** themeKey: builtin:system | builtin:light | builtin:dark | a theme id; null clears (inherit). */
+export const putThemeAssignment = (scope: number, scopeKey: string, themeKey: string | null) =>
+  put<void>(`/api/v1/themes/assignments`, { scope, scopeKey, themeKey });
+export const createTillGroup = (body: { name: string; tillIds: string[] }) =>
+  post<{ id: string }>(`/api/v1/till-groups`, body);
+export const updateTillGroup = (id: string, body: { name: string; tillIds: string[] }) =>
+  put<void>(`/api/v1/till-groups/${id}`, body);
+export const deleteTillGroup = (id: string) => del<void>(`/api/v1/till-groups/${id}`);
+
 // ── loyalty ──
 export interface LoyaltyRow {
   id: string; name: string; email: string | null; phone: string | null;

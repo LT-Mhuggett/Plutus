@@ -17,6 +17,7 @@ import { startUpdateWatcher } from "./appUpdate.ts";
 import { hasPortalAccess, portalUrl } from "./sibling.ts";
 import { onNewItemRequested } from "./newItemHandoff.ts";
 import { basketLineCount } from "./till/basket.ts";
+import { refreshTheme } from "./theme.ts";
 import { queuedCount } from "./offline.ts";
 import { getSession, type Session } from "./session.ts";
 import { oidcMode, signOut } from "./auth.ts";
@@ -133,10 +134,15 @@ export default function App() {
       .catch(() => undefined);
     pollAnn();
     const annTimer = window.setInterval(pollAnn, 60_000);
+    // FE10: the portal-assigned theme, same cadence — assigning a scheme in the portal reaches
+    // every till within a minute, no reload needed (refreshTheme applies it live).
+    void refreshTheme();
+    const themeTimer = window.setInterval(() => void refreshTheme(), 60_000);
     return () => {
       offOutbox();
       window.clearInterval(notesTimer);
       window.clearInterval(annTimer);
+      window.clearInterval(themeTimer);
       window.removeEventListener("online", goOnline);
       window.removeEventListener("offline", goOffline);
     };
@@ -254,9 +260,10 @@ export default function App() {
         </div>
       </header>
 
-      {/* WP15.1 platform announcements (Maintenance/Incident) — same banner style as pick-notes. */}
+      {/* WP15.1 platform announcements (Maintenance/Incident) — same banner style as pick-notes.
+          Severity colours live in index.css (.incident/.maintenance), not inline — FE10 audit. */}
       {announcements.map((a) => (
-        <div key={a.id} className="pick-note" style={{ background: a.severity === "Incident" ? "#dc2626" : "#d97706", color: "white" }}>
+        <div key={a.id} className={a.severity === "Incident" ? "pick-note incident" : "pick-note maintenance"}>
           <span className="grow">{a.severity === "Incident" ? "⛔" : "🛠"} {a.title}{a.body ? ` — ${a.body}` : ""}</span>
         </div>
       ))}

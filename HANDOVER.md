@@ -1,8 +1,18 @@
 # Handover — Plutus platform build
 
-**Date:** 2026-07-31 — Platform on **.NET 10**. All 18 phases + Operator Portal (OP1–OP4), the
+**Date:** 2026-08-07 — Platform on **.NET 10**. All 18 phases + Operator Portal (OP1–OP4), the
 **portal/till refresh (P1–P6)** and **`Build/further-enhancements-plan.md` FE1–FE9** built & LIVE.
-Head `5de9811`.
+Since 5de9811: FE3 verified on real hardware (TSP143 silent print + drawer), receipt templates
+per store, checkout hardening, app switcher, add-unknown-item, **refunds**, and **FE10 till
+theming**. Head: see `git log` — this line goes stale; the commits don't.
+
+> 📁 **Docs reorganised 2026-08-07.** `Build/` is now three places: **standards** at the top level,
+> **`Build/To do/`** for plans with work still in them (all native-till work), and
+> **`Build/archive/`** for delivered plans, each stamped with what shipped and what was left.
+> **[`Build/index.md`](Build/index.md)** says which is which; **[`Build/repo-runbook.md`](Build/repo-runbook.md)**
+> holds the build/test/deploy commands and pitfalls that used to be buried in `operator-portal-plan.md` §0.
+> Older references below that say `Build/<plan>.md` now mean `Build/archive/<plan>.md` or
+> `Build/To do/<plan>.md`.
 
 ### ⏰⏰⏰ RESUME HERE (2026-07-31)
 

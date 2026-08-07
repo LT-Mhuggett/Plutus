@@ -49,6 +49,10 @@ namespace Plutus.Entities
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<StoreDetails> StoreDetails { get; set; }
         public DbSet<TillDetails> TillDetails { get; set; }
+        public DbSet<TillTheme> TillThemes { get; set; }
+        public DbSet<TillGroup> TillGroups { get; set; }
+        public DbSet<TillGroupMember> TillGroupMembers { get; set; }
+        public DbSet<TillThemeAssignment> TillThemeAssignments { get; set; }
         public DbSet<DeletionSchedule> DeletionSchedules { get; set; }
 
         // Phase 6 WooCommerce connector (config + SKU review queue + product cache + notifications).
@@ -182,6 +186,7 @@ namespace Plutus.Entities
             typeof(RbacRole), typeof(RbacRoleGrant), typeof(RbacRoleAssignment),
             // Admin surface (WP3.2, WP11.1).
             typeof(AuditLog), typeof(StoreDetails), typeof(TillDetails),
+            typeof(TillTheme), typeof(TillGroup), typeof(TillGroupMember), typeof(TillThemeAssignment),
             // Reporting projections (WP3.3).
             typeof(SalesRollup), typeof(VatRollup),
             // Operator usage metering (WP13.1) + request health (WP13.2) — per-tenant rows,
@@ -388,6 +393,40 @@ namespace Plutus.Entities
                 // Tenant-unique names. The MySQL default collation is case-insensitive, so this
                 // index rejects "Front" vs "front" too (the app also guards explicitly for a clean 409).
                 e.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            });
+            // FE10 till theming.
+            modelBuilder.Entity<TillTheme>(e =>
+            {
+                e.ToTable("TillThemes");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Name).HasMaxLength(60).IsRequired();
+                e.Property(x => x.BaseMode).HasMaxLength(10).IsRequired();
+                e.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            });
+            modelBuilder.Entity<TillGroup>(e =>
+            {
+                e.ToTable("TillGroups");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Name).HasMaxLength(60).IsRequired();
+                e.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            });
+            modelBuilder.Entity<TillGroupMember>(e =>
+            {
+                e.ToTable("TillGroupMembers");
+                e.HasKey(x => new { x.GroupId, x.TillId });
+                e.HasIndex(x => new { x.TenantId, x.TillId }); // resolve-time lookup by till
+            });
+            modelBuilder.Entity<TillThemeAssignment>(e =>
+            {
+                e.ToTable("TillThemeAssignments");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.ScopeKey).HasMaxLength(40).IsRequired();
+                e.Property(x => x.ThemeKey).HasMaxLength(50).IsRequired();
+                // One assignment per target — assigning again replaces, never stacks.
+                e.HasIndex(x => new { x.TenantId, x.Scope, x.ScopeKey }).IsUnique();
             });
             // WP10.4 tenant deletion schedule — GLOBAL (platform-admin), carries TenantId as data.
             modelBuilder.Entity<DeletionSchedule>(e =>

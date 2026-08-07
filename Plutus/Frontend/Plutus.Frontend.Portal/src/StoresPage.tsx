@@ -7,6 +7,7 @@ import {
 } from "./api.ts";
 import Barcode39 from "./Barcode39.tsx";
 import DataTable from "./DataTable.tsx";
+import TillThemesSection from "./TillThemesSection.tsx";
 import { useNav } from "./nav.tsx";
 import { ask } from "./Ask.tsx";
 
@@ -367,6 +368,14 @@ export default function StoresPage() {
           emptyText="No webstores connected — use the Webstore tab."
         />
         <p className="muted small">Full webstore workspace (review queue, catalogue, alignment, outbound) lives in the <strong>Webstore</strong> tab.</p>
+      </details>
+
+      {/* FE10: till colour schemes — defined here, resolved server-side, applied by tills
+          within a minute. Deliberately in Locations: the assignment targets ARE this page's
+          stores, tills, and groups of tills. */}
+      <details className="card store-card">
+        <summary><strong>Till themes</strong></summary>
+        <TillThemesSection stores={stores} tills={tills} />
       </details>
     </section>
   );

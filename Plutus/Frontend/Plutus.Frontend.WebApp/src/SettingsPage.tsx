@@ -11,6 +11,7 @@ import {
   type DeviceCredential,
 } from "./pipeline.ts";
 import { getPrefs, setPrefs, type Prefs } from "./prefs.ts";
+import { currentThemeLabel } from "./theme.ts";
 import {
   agentAccessState, agentAvailable, fetchAgentStatus, getAgentToken, openDrawer, printDocument,
   setAgentToken, testPrint,
@@ -579,6 +580,20 @@ export default function SettingsPage() {
           onChange={(e) => setPrefsState(setPrefs({ bagBarcode: e.target.value.trim() }))}
         />
       </label>
+      {/* FE10: read-only on purpose — colours are pushed from the portal (store info pattern),
+          so two tills in one store can't drift apart because someone fiddled locally. */}
+      <div className="setting-row">
+        <span className="grow">
+          Appearance
+          <span className="muted small block">
+            Colour scheme: <strong>{currentThemeLabel().name}</strong>
+            {currentThemeLabel().source !== "default" && ` — set ${
+              currentThemeLabel().source === "tenant" ? "company-wide" : `for this ${currentThemeLabel().source}`
+            } in the portal`}. Change it under Locations → Till themes in the management portal;
+            tills pick it up within a minute.
+          </span>
+        </span>
+      </div>
       </SettingsSection>
 
       <SettingsSection title="Checkout" desc="What happens after each sale — receipt prompt or auto-print">
