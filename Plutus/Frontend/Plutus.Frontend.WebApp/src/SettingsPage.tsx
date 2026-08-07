@@ -160,6 +160,15 @@ function HardwareSection({ canSettings }: { canSettings: boolean }) {
             </dd>
             <dt>Paper</dt>
             <dd>{status.columns === 32 ? "58mm" : "80mm"}</dd>
+            {status.emulation && (
+              <>
+                <dt>Language</dt>
+                <dd>
+                  {status.emulation === "star-raster" ? "Star raster (TSP100 family)" : "ESC/POS"}
+                  <span className="muted small"> — chosen automatically for the selected printer</span>
+                </dd>
+              </>
+            )}
           </dl>
           <div className="setting-row">
             <span className="grow">

@@ -23,6 +23,10 @@ namespace Plutus.TillAgent
         /// <summary>Characters per line: 42 for 80mm paper, 32 for 58mm.</summary>
         public int Columns { get; set; } = 42;
 
+        /// <summary>Printer language: "auto" (recommended — recognises TSP100-family printers,
+        /// which are raster-only, from the queue name), "escpos", or "star-raster".</summary>
+        public string Emulation { get; set; } = "auto";
+
         /// <summary>The till origin allowed to call in (CORS). The agent is loopback-bound, so this
         /// stops OTHER pages in the same browser, not other machines.</summary>
         public string AllowedOrigin { get; set; } = "https://plutus.huggett.dscloud.me";

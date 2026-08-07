@@ -87,6 +87,9 @@ namespace Plutus.TillAgent
                 drawerSupported = !string.IsNullOrWhiteSpace(state.Config.PrinterName),
                 paired = !string.IsNullOrWhiteSpace(state.Config.Token),
                 columns = state.Config.Columns,
+                // FE3.1: which language this agent will speak to the selected printer — the till's
+                // Settings → Hardware shows it, so "why doesn't it print" is answerable at a glance.
+                emulation = EmulationResolver.Resolve(state.Config.Emulation, state.Config.PrinterName),
             }));
 
             // ── everything that touches hardware needs the pairing token ──
@@ -166,6 +169,11 @@ namespace Plutus.TillAgent
             Transport = transport;
         }
 
+        /// <summary>FE3.1: TSP100-family printers are raster-only — ESC/POS bytes are at best
+        /// discarded and at worst mis-parsed into runaway paper feeds. Auto mode picks the right
+        /// language per printer, so the same agent drives an Epson and a TSP143 out of the box.</summary>
+        private string Emulation => EmulationResolver.Resolve(Config.Emulation, Config.PrinterName);
+
         public Task<IResult> PrintAsync(PrintDocument doc)
         {
             try
@@ -173,7 +181,19 @@ namespace Plutus.TillAgent
                 if (string.IsNullOrWhiteSpace(Config.PrinterName))
                     return Task.FromResult(Fail("No printer is selected in the agent's settings."));
                 doc.Columns = doc.Columns > 0 ? doc.Columns : Config.Columns;
-                Transport.Send(Config.PrinterName, EscPos.Render(doc));
+
+                byte[] bytes;
+                if (Emulation == EmulationResolver.StarRasterMode)
+                {
+                    var rows = ReceiptRasterizer.Rasterize(doc, out var narrow, out var drawer);
+                    bytes = StarRaster.RenderJob(rows, new StarRaster.Options { OpenDrawer = drawer, Narrow58mm = narrow });
+                }
+                else
+                {
+                    bytes = EscPos.Render(doc);
+                }
+
+                Transport.Send(Config.PrinterName, bytes);
                 LastError = null;
                 LastPrintUtc = DateTime.UtcNow;
                 Changed?.Invoke();
@@ -191,7 +211,8 @@ namespace Plutus.TillAgent
             {
                 if (string.IsNullOrWhiteSpace(Config.PrinterName))
                     return Task.FromResult(Fail("No printer is selected in the agent's settings."));
-                Transport.Send(Config.PrinterName, EscPos.DrawerKick());
+                Transport.Send(Config.PrinterName,
+                    Emulation == EmulationResolver.StarRasterMode ? StarRaster.DrawerOnlyJob() : EscPos.DrawerKick());
                 LastError = null;
                 Changed?.Invoke();
                 return Task.FromResult(Results.Ok(new { opened = true }));

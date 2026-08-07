@@ -101,6 +101,7 @@ namespace Plutus.TillAgent
         private readonly AgentState _state;
         private readonly ComboBox _printers = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 330 };
         private readonly ComboBox _columns = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 330 };
+        private readonly ComboBox _emulation = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 330 };
         private readonly TextBox _token = new() { Width = 330, ReadOnly = true };
         private readonly TextBox _origin = new() { Width = 330 };
         private readonly CheckBox _autoStart = new() { Text = "Start automatically when this PC logs in", AutoSize = true };
@@ -114,7 +115,7 @@ namespace Plutus.TillAgent
             MaximizeBox = false;
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(400, 430);
+            ClientSize = new Size(400, 485); // grew for the FE3.1 printer-language row
 
             var y = 12;
             void Add(Control c, int height = 0) { c.Left = 20; c.Top = y; Controls.Add(c); y += (height > 0 ? height : c.Height) + 8; }
@@ -128,6 +129,23 @@ namespace Plutus.TillAgent
             _columns.Items.AddRange(new object[] { "80mm (42 characters)", "58mm (32 characters)" });
             _columns.SelectedIndex = state.Config.Columns == 32 ? 1 : 0;
             Add(_columns);
+
+            // FE3.1: TSP100-family printers are raster-only; Auto recognises them from the queue
+            // name so nobody has to know what an emulation is. Explicit choices for renamed queues.
+            Add(new Label { Text = "Printer language", AutoSize = true });
+            _emulation.Items.AddRange(new object[]
+            {
+                "Auto (recommended)",
+                "ESC/POS — Epson and most receipt printers",
+                "Star raster — TSP100 / TSP113 / TSP143",
+            });
+            _emulation.SelectedIndex = state.Config.Emulation switch
+            {
+                Plutus.TillAgent.Core.EmulationResolver.EscPos => 1,
+                Plutus.TillAgent.Core.EmulationResolver.StarRasterMode => 2,
+                _ => 0,
+            };
+            Add(_emulation);
 
             Add(new Label { Text = "Pairing token — type this into the till's Settings → Hardware", AutoSize = true });
             _token.Text = state.Config.Token;
@@ -178,6 +196,12 @@ namespace Plutus.TillAgent
         {
             _state.Config.PrinterName = _printers.SelectedItem?.ToString() ?? string.Empty;
             _state.Config.Columns = _columns.SelectedIndex == 1 ? 32 : 42;
+            _state.Config.Emulation = _emulation.SelectedIndex switch
+            {
+                1 => Plutus.TillAgent.Core.EmulationResolver.EscPos,
+                2 => Plutus.TillAgent.Core.EmulationResolver.StarRasterMode,
+                _ => Plutus.TillAgent.Core.EmulationResolver.Auto,
+            };
             _state.Config.AllowedOrigin = _origin.Text.Trim();
             _state.Config.Save();
             TrayApp.SetAutoStart(_autoStart.Checked);

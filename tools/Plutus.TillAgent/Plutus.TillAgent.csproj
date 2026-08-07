@@ -19,7 +19,7 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <!-- The version the agent reports to the till, which forwards it to the portal's Locations
          page (FE3.0). Bump this on every released build — it is how a stale agent is spotted. -->
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>

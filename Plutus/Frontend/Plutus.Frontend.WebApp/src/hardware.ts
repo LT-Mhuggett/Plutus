@@ -34,6 +34,9 @@ export interface AgentStatus {
   drawerSupported?: boolean;
   paired?: boolean;
   columns?: number;
+  /** FE3.1 (agent ≥1.1): the language the agent will speak to the selected printer —
+   *  "star-raster" for the raster-only TSP100 family, "escpos" otherwise. */
+  emulation?: string;
 }
 
 /** What the agent said, or null when there is no (healthy) agent. Fast: a till
