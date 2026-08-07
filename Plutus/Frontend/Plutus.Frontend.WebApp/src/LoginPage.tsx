@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { login, BUSINESS_NAME } from "./api.ts";
 import type { Session } from "./session.ts";
+import { PlutusMark } from "./PlutusMark.tsx";
 
 interface Props {
   onLogin: (session: Session) => void;
@@ -28,7 +29,7 @@ export default function LoginPage({ onLogin }: Props) {
   return (
     <div className="login-screen">
       <form className="login-card" onSubmit={submit}>
-        <h1>Plutus</h1>
+        <h1><PlutusMark size={34} />Plutus</h1>
         <p className="tagline">{BUSINESS_NAME} — Point of Sale</p>
 
         <label>

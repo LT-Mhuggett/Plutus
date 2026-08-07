@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Dashboard from "./Dashboard.tsx";
+import { PlutusMark } from "./PlutusMark.tsx";
 import ReportingPage from "./ReportingPage.tsx";
 import BankingPage from "./BankingPage.tsx";
 import CustomersPage from "./CustomersPage.tsx";
@@ -138,7 +139,7 @@ export default function App() {
     return (
       <main className="login-shell">
         <div className="login-card">
-          <h1>Plutus Portal</h1>
+          <h1><PlutusMark size={30} />Plutus Portal</h1>
           <p className="muted small">{error ? "Sign-in problem" : "Loading…"}</p>
           {error && <p className="error small">{error}</p>}
           {error && <button className="primary" onClick={() => window.location.assign("/")}>Back to sign in</button>}
@@ -158,7 +159,7 @@ export default function App() {
     return (
       <main className="shell">
         <header className="appbar">
-          <h1>Plutus Operator</h1>
+          <h1><PlutusMark size={24} />Plutus Operator</h1>
           <span className="grow" />
           <span className="muted small">{name}</span>
           {isOidcSession() && <a className="ghost small" href={ACCOUNT_CONSOLE} target="_blank" rel="noreferrer">Account &amp; MFA</a>}
@@ -183,7 +184,7 @@ export default function App() {
         </div>
       )}
       <header className="appbar">
-        <h1>Plutus Portal</h1>
+        <h1><PlutusMark size={24} />Plutus Portal</h1>
         <nav className="tabs">
           {tabs.map((t) => (
             <button key={t} className={t === tab ? "tab active" : "tab"} onClick={() => go(t)}>

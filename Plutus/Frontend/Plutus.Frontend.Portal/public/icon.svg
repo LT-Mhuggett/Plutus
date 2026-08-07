@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Plutus">
+  <!-- Plutus mark: the brand "P" drawn as a currency symbol (barred stem).
+       Colours are the MAUI palette (Resources/Styles/Colors.xaml):
+       Quinary #2c698d = the till appbar band; the tile is a light-to-dark ramp of it. -->
+  <defs>
+    <linearGradient id="plutusTile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3d86b0" />
+      <stop offset="1" stop-color="#2c698d" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="13" fill="url(#plutusTile)" />
+  <g fill="#ffffff">
+    <!-- bowl: half-annulus (outer r14 / inner r7) centred on the stem's RIGHT edge, x=32.5 -->
+    <path d="M32.5 9.5a14 14 0 0 1 0 28v-7a7 7 0 0 0 0-14z" />
+    <!-- stem -->
+    <rect x="24.5" y="9.5" width="8" height="45" />
+    <!-- currency bar -->
+    <rect x="17.5" y="43" width="22" height="6" />
+  </g>
+</svg>

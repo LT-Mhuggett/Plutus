@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { completePasswordReset, login, fetchAuthMethod, requestPasswordReset } from "./api.ts";
 import type { Session } from "./session.ts";
 import { beginLogin, oidcConfigured } from "./oidc.ts";
+import { PlutusMark } from "./PlutusMark.tsx";
 
 /** FE9.1: the emailed reset link lands on `#reset=<token>` — pull it out (and scrub it from the
  *  address bar so the token isn't left in history or copied out of a shared screen). */
@@ -145,7 +146,7 @@ export default function LoginPage({ onLogin }: { onLogin: (s: Session) => void }
     return (
       <main className="login-shell">
         <form className="login-card" onSubmit={submitPassword}>
-          <h1>Plutus Portal</h1>
+          <h1><PlutusMark size={30} />Plutus Portal</h1>
           <p className="muted small">Signing in as <strong>{email}</strong>.</p>
           <label>
             Password
@@ -171,7 +172,7 @@ export default function LoginPage({ onLogin }: { onLogin: (s: Session) => void }
   return (
     <main className="login-shell">
       <form className="login-card" onSubmit={submitEmail}>
-        <h1>Plutus Portal</h1>
+        <h1><PlutusMark size={30} />Plutus Portal</h1>
         <p className="muted small">Management back office — enter your email to continue.</p>
         <label>
           Email

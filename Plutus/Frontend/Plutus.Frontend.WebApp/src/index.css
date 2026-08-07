@@ -38,6 +38,15 @@ body {
   color: #fff;
   font-size: 1.25rem;
   letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+/* the Plutus mark (src/PlutusMark.tsx) — inherits the surrounding colour */
+.plutus-mark {
+  flex: none;
+  display: block;
 }
 
 .page {
@@ -1073,7 +1082,10 @@ button.primary.slim {
 .login-card h1 {
   color: var(--accent);
   font-size: 2.2rem;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .login-card .tagline {

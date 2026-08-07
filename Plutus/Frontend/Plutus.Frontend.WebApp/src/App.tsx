@@ -9,6 +9,7 @@ import SettingsPage from "./SettingsPage.tsx";
 import EmployeesPage from "./EmployeesPage.tsx";
 import HelpPanel from "./HelpPanel.tsx";
 import LoginPage from "./LoginPage.tsx";
+import { PlutusMark } from "./PlutusMark.tsx";
 import { ackPickNotification, drainOutbox, fetchActiveAnnouncements, fetchPickNotifications, fetchTillName, loadReceiptTemplate, onOutboxChanged, syncCatalogue, type ActiveAnnouncement, type PickNotification } from "./api.ts";
 import { getDeviceCredential } from "./pipeline.ts";
 import { startAgentReporter } from "./hardware.ts";
@@ -130,7 +131,7 @@ export default function App() {
     return (
       <div className="login-screen">
         <div className="login-card">
-          <h1>Plutus</h1>
+          <h1><PlutusMark size={34} />Plutus</h1>
           <p className="muted small">Signing in…</p>
           {authError && <p className="error small">{authError}</p>}
           {authError && <button className="primary" onClick={() => void beginLogin()}>Try again</button>}
@@ -152,7 +153,7 @@ export default function App() {
   return (
     <main className="shell">
       <header className="appbar">
-        <h1>Plutus</h1>
+        <h1><PlutusMark />Plutus</h1>
         <nav className="tabs">
           {TABS.map((t) => (
             <button key={t} className={t === tab ? "tab active" : "tab"} onClick={() => setTab(t)}>

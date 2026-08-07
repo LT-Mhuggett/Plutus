@@ -2,7 +2,8 @@
 // Data caching + the checkout outbox live in IndexedDB (src/offline.ts);
 // /api/* requests are deliberately never touched here.
 
-const SHELL_CACHE = "plutus-shell-v1";
+// v2: shell HTML gained the icon/manifest <link>s — bump so stale shells are evicted.
+const SHELL_CACHE = "plutus-shell-v2";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
