@@ -14,7 +14,13 @@ $csproj = Join-Path $PSScriptRoot "Plutus.TillAgent.csproj"
 $version = ([xml](Get-Content $csproj)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
 if (-not $version) { throw "No <Version> found in $csproj" }
 
-& dotnet publish $csproj -c Release --nologo
+# Prefer the Program Files SDK install — a PATH hit can be a runtime-only dotnet that
+# fails publish with "SDK not found" (seen on this repo's dev box).
+$dotnet = if (Test-Path "$env:ProgramFiles\dotnet\dotnet.exe") { "$env:ProgramFiles\dotnet\dotnet.exe" }
+          else { (Get-Command dotnet -ErrorAction SilentlyContinue).Source }
+if (-not $dotnet) { throw "dotnet SDK not found" }
+
+& $dotnet publish $csproj -c Release --nologo
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed" }
 
 $src = Get-ChildItem (Join-Path $PSScriptRoot "bin\Release") -Recurse -Filter PlutusTillAgent.exe |

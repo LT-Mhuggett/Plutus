@@ -38,7 +38,22 @@ namespace Plutus.TillAgent
             });
             menu.Items.Add("Open cash drawer", null, async (_, _) => { await _state.KickDrawerAsync(); Refresh(); });
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add("Exit", null, (_, _) => { _web.StopAsync().GetAwaiter().GetResult(); Application.Exit(); });
+            // v1.2.1: the old handler blocked the UI thread on Kestrel's graceful stop
+            // (StopAsync().GetAwaiter().GetResult()), which deadlocks against the WinForms
+            // synchronisation context — Exit did nothing and the agent had to be killed from
+            // Task Manager. Stop with a short timeout OFF the UI thread, then exit
+            // unconditionally: the process must die even if the web host misbehaves.
+            menu.Items.Add("Exit", null, async (_, _) =>
+            {
+                _icon.Visible = false;
+                try
+                {
+                    using var timeout = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(2));
+                    await System.Threading.Tasks.Task.Run(() => _web.StopAsync(timeout.Token));
+                }
+                catch (Exception) { /* exiting anyway */ }
+                Environment.Exit(0);
+            });
 
             _icon = new NotifyIcon
             {
