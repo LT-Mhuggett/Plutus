@@ -122,8 +122,13 @@ provable **headlessly**, with no device, no MySQL and no deployment. Three new p
    - Kapow's bands are seeded into portal-owned `VatRatePoints` with correct classes, which arms
      WP2b's stale-band check. Verified live: an ordinary £14.99/£12.49 line (declaring 2002bp)
      still ingests 201. Rollback `~/PLUTUS/backend.pre-vatreturn` + dump `plutus-pre-vatreturn-20260808.sql.gz`.
-   - ⚠ Still Matt's/his accountant's: whether any genuinely *exempt* supply is ever sold, and
-     whether the historical £10.77 needs correcting on past returns or only going forward.
+   - ✅ **Matt confirmed 2026-08-08: Kapow sells nothing exempt.** All 20,343 items are
+     standard-rated (5,603) or zero-rated (14,740); the reduced band is unused. So **partial
+     exemption does not apply** and input tax is recoverable in full — which is what made the old
+     "Exempt" label the expensive mistake. `VatClass.Exempt` stays in the model for other tenants
+     but must never be assigned to a Kapow band.
+   - ⚠ Still an accountant's call: whether the historical £10.77 needs correcting on past returns
+     or only going forward.
 
 6. **VAT guidance must come FROM THE PORTAL, down to the tills.** Matt's directive (2026-08-08):
    *all VAT guidance comes from the portal down to the tills* — a till never decides a VAT rule.

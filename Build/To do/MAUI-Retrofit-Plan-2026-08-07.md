@@ -243,10 +243,20 @@ Matt's instruction: *"I have not made rules. Whatever the UK government VAT rule
 effective-from epoch. That arms WP2b's stale-band check — verified live that an ordinary
 £14.99/£12.49 line (declaring 2002bp) still ingests **201**.
 
-⚠ **Still for Matt/his accountant, NOT decided here:** whether any genuinely *exempt* supply is
-ever sold (if so, `exempt` becomes a real fourth band, and the partial-exemption split starts to
-matter); and whether the historical £10.77 shortfall needs correcting on past returns or only
-going forward. The system now reports the gap on every return rather than hiding it.
+✅ **ANSWERED by Matt, 2026-08-08: Kapow sells NOTHING exempt.** Every item is standard-rated
+(5,603) or zero-rated (14,740); the reduced band exists but is unused. Consequences, so this is
+never re-litigated:
+- **Partial exemption does not apply to Kapow.** All supplies are taxable, so input tax is
+  recoverable in full — which is exactly why the old "Exempt" label was the expensive mistake.
+- `VatClass.Exempt` stays in the model (other tenants may need it; it is a real UK class) but must
+  **never** be assigned to a Kapow band. Anything that reintroduces it is a bug.
+- The zero-vs-exempt reporting split, which would have needed line-level band identity, is
+  **not required for Kapow**. It stays a WP2c capability rather than urgent work.
+
+⚠ **Still open, and genuinely an accountant's call:** whether the historical £10.77 shortfall
+(summed-lines vs VAT fraction, pre-`cb9dc05`) needs correcting on past returns or only going
+forward. The system now reports the gap every period rather than hiding it, so it cannot
+re-accumulate unseen.
 
 ### The original findings, for the record
 
