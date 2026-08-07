@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { businessName, getReceiptTemplateCached } from "../api.ts";
 import { getSession } from "../session.ts";
 import { gbp } from "../money.ts";
@@ -120,7 +121,11 @@ export default function Receipt({ data, onClose, autoPrint }: Props) {
     }
   }, [autoPrint]);
 
-  return (
+  // Portalled to <body>, NOT rendered inside #root: print CSS removes the whole app
+  // (#root) while a receipt is open, so the printed document is only as tall as the
+  // receipt. Rendered inline, the page inherited the app's full height and a roll
+  // printer fed a long blank tail after the receipt.
+  return createPortal(
     <div className="overlay receipt-overlay">
       <div className="dialog receipt-dialog">
         <ReceiptBody data={data} />
@@ -134,6 +139,7 @@ export default function Receipt({ data, onClose, autoPrint }: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

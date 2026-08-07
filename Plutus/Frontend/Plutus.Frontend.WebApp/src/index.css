@@ -1273,6 +1273,32 @@ button.primary.slim {
 }
 
 @media print {
+  /* Print = the receipt ALONE, at its own height. The receipt dialog is portalled to
+     <body> (Receipt.tsx), so while one is open the whole app (#root) can be removed —
+     the printed document is then only as tall as the receipt itself. Without this the
+     page inherited the app's full height, and a roll printer (Star TSP100 et al) fed
+     a long blank tail after the receipt before cutting. */
+  @page {
+    margin: 0;
+  }
+  body:has(.receipt-overlay) #root {
+    display: none !important;
+  }
+  .receipt-overlay {
+    position: static !important;
+    display: block !important;
+    padding: 0 !important;
+    background: none !important;
+  }
+  .receipt-dialog {
+    max-width: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    background: none !important;
+  }
+  /* fallback for engines without :has(): the app is only hidden, not removed —
+     old behaviour (tall page), but never a broken print */
   body * {
     visibility: hidden;
   }
@@ -1281,12 +1307,13 @@ button.primary.slim {
     visibility: visible;
   }
   .receipt {
-    position: absolute;
-    inset: 0 auto auto 0;
+    color-scheme: light; /* paper is paper — never the dark palette */
     width: 72mm;
+    margin: 0;
+    padding: 2mm 1mm 4mm;
   }
   .no-print {
-    display: none;
+    display: none !important;
   }
 }
 
