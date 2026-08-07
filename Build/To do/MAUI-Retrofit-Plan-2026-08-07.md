@@ -228,12 +228,19 @@ resume point for the next session.
 | **0** Toolchain + baseline gate | ✅ | 2026-08-07 · `27e91c5`. maui workload present; AppClient `net10.0-windows` head builds 0 errors; AppClient.Tests **295 pass / 3 skip**; Unit 347 · Arch 6 · Integration 67. |
 | **1** Shared contracts + client core | ✅ | 2026-08-07 · `27e91c5`. `Plutus.Contracts.Client` + `Plutus.Client.Core` (outbox engine, pusher, API client, token provider). Backend: `stores/{id}/info` now returns `businessId`. Arch test keeps both MAUI-free and backend-module-free (mutation-checked). |
 | **2b** VAT effective-dating | ✅ | 2026-08-07 · `3ec4eff`. `VatRateHistory` + `VatRatePoints` table + ingest quarantine. Deployed; **0 rate rows live, so behaviour is unchanged until bands are configured.** |
-| **2** Local store v2 + money/ID sweep | ⬜ | **Next.** The largest remaining foundation piece and the first to touch AppClient itself. |
-| 3–13 | ⬜ | Blocked on WP2 (they all read the v2 store). |
+| **2** Local store v2 + cutover + money | ✅ | 2026-08-07 · `6e46734`. New `Plutus.Client.Storage` (schema v2, SQLite). Cutover archives-never-merges and implements the §10 STOP. ⚠ VAT-band inference now snaps to known bands — naive inference derived 2002bp from real prices, which WP2b would have quarantined. Money property test over 2,000 randomised baskets. |
+| **3** Sale commit path + outbox | ✅ | 2026-08-07 · `6e46734`. `CommitSaleAsync` (one transaction, sequence allocated, **commit before print** — risk #2 decided in code). `TillStore` implements `IOutboxStore`, so the WP1 pusher drove it unchanged. Soak: 120 offline sales drain exactly once in order, no gaps; crash mid-drain records 20 of 20. |
+| **4** Enrolment + device identity | ✅ | 2026-08-07 · `f90dac5`. Server URL + code; **archive gate refuses enrolment** while a legacy DB is un-archived; placement (storeId + legacy businessId) refreshed each start; secret asserted absent from the DB file. |
+| **5** Heartbeat + catalogue sync · **5b** | ⬜ | **Next.** Needs the three missing backend endpoints (heartbeat, catalogue/changes, and `syncNow`/`lock` on Device). `TillStore.ApplyCatalogueChangesAsync` + `PriceSchedule` already exist and handle tombstones. |
+| 6–13 | ⬜ | The parity WPs — these are where MAUI **UI** work begins (XAML + viewmodels), so they need a device to verify. |
 
-**Note for WP2:** `Plutus.Client.Core` already defines `IOutboxStore` — WP2's SQLite `LocalSales`
-table implements that interface, and WP3's pusher then needs no changes at all. The engine and its
-retry policy are already built and tested; WP3 is wiring, as intended.
+**Two notes for whoever picks this up:**
+1. **The transport spine is done.** WP1–WP4 mean a till can enrol, commit sales offline, and drain
+   them exactly once — all provable headlessly. WP5 onward is the last backend gap, then the
+   remaining WPs are screen work against endpoints that already exist.
+2. **`IOutboxStore` did its job**: WP2's SQLite table implemented it and WP3's pusher needed no
+   change at all. Keep new capability behind interfaces in `Client.Core` for the same reason —
+   the rules stay testable without a till.
 
 ## 4. Build order
 

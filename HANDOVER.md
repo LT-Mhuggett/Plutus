@@ -76,21 +76,41 @@ Backend: `~/PLUTUS/backend.pre-themes`, `~/PLUTUS/backend.pre-picknotes`.
 Till/portal: `/srv/apps/PLUTUS/{web,portal}/current.pre-themes`.
 DB dump: `~/PLUTUS/backups/plutus-pre-themes-20260807.sql.gz`.
 
-#### MAUI retrofit — STARTED (WP0, WP1, WP2b done)
+#### MAUI retrofit — the TRANSPORT SPINE IS DONE (WP0–WP4 + WP2b)
 
-Progress board lives in the plan (`Build/To do/MAUI-Retrofit-Plan-2026-08-07.md` §3b) — keep it
-current, it is the resume point. **Next up: WP2 (local store v2 + money/ID sweep)**, the first WP
-that touches AppClient itself.
+Progress board is in the plan (`Build/To do/MAUI-Retrofit-Plan-2026-08-07.md` §3b) — keep it
+current, it is the resume point. **Next: WP5** (heartbeat + catalogue sync), the last backend gap.
+WP6–13 are the parity WPs, where MAUI **UI** work starts and a device is needed to verify.
 
-- **WP1 shipped two new projects**: `src/Plutus.Contracts.Client` (the wire contract, no refs, no
-  packages) and `src/Plutus.Client.Core` (outbox engine, pusher, API client, device-token
-  provider). Both are MAUI-free and backend-module-free, enforced by a mutation-checked
-  architecture test — that is what keeps the rules deciding whether a shop's takings reach the
-  server testable on a build agent instead of only on a physical till.
-- ⚠ **`IOutboxStore` already exists.** WP2's SQLite `LocalSales` table implements it and WP3's
-  pusher then needs no changes — the retry policy is already built and tested.
-- **WP2b is live but inert**: `VatRatePoints` has 0 rows, and an empty history skips validation by
-  design, so nothing changes until someone configures a tenant's bands.
+A till can now enrol, trade offline, and drain its takings exactly once — and all of that is
+provable **headlessly**, with no device, no MySQL and no deployment. Three new projects:
+
+| Project | What it is |
+|---|---|
+| `src/Plutus.Contracts.Client` | The wire contract. No refs, no packages — it ships onto tills. |
+| `src/Plutus.Client.Core` | Outbox engine, pusher, API client, token provider. MAUI-free. |
+| `src/Plutus.Client.Storage` | Local store v2 (SQLite) + cutover. The only place that knows SQLite. |
+
+⚠ **Things that will bite if you don't know them:**
+
+1. **`businessId` ≠ `tenantId`.** Item ids are `DeterministicGuid.ForItem(businessId, itemIdOne)`
+   keyed on the **legacy Business id** (Kapow: `d5a31aac-159e-9a30-706b-02f9eb935600`, now served
+   by `GET /api/v1/stores/{id}/info`). Deriving from the tenant id yields ids that look fine and
+   are wrong everywhere — stock still moves, because lines key on the barcode.
+2. **There is no `ItemIdOne` field on the wire.** The barcode rides inside
+   `IngestLine.DiscountsJson` (`LineMeta`), and the stock projection **silently skips** lines
+   without it. Accepted ≠ stock moved.
+3. **VAT bands are inferred by snapping, not arithmetic.** Real legacy prices (£14.99 ex £12.49)
+   derive 2002bp; unsnapped, WP2b would quarantine every sale of that item.
+4. **Enrolment refuses** while a legacy database is un-archived (§9.3). That is deliberate.
+5. **WP2b is live but inert**: `VatRatePoints` has 0 rows and empty history skips validation, so
+   nothing changes until a tenant's bands are configured.
+
+**Security fix landed with this work:** EF Core 9.0.18's Sqlite provider resolves SQLitePCLRaw
+2.1.10, which carries a HIGH-severity advisory (GHSA-2m69-gcr7-jv3q). It reached every module, the
+host and the tests transitively and nothing surfaced it as an error. Pinned forward to 2.1.12 at
+`Plutus.Entities` (root of the EF chain). `dotnet list package --vulnerable` is clean — **worth
+re-running periodically; nothing in CI watches this.**
 
 #### Still open
 
