@@ -48,6 +48,7 @@ export function ReceiptBody({ data }: { data: ReceiptData }) {
           {tpl?.showVatNumber && tpl?.vatNumber && <p className="centre small">VAT No: {tpl.vatNumber}</p>}
           <p className="centre small">{new Date(data.date).toLocaleString("en-GB")}</p>
           {operator && <p className="centre small">Served by {operator}</p>}
+          {data.totalPence < 0 && <p className="centre"><strong>** REFUND **</strong></p>}
           <hr />
           {data.lines.map((l) => (
             <div key={l.key}>

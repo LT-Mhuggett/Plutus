@@ -16,7 +16,7 @@ import PlatformPage from "./PlatformPage.tsx";
 import HelpPage from "./HelpPage.tsx";
 import LoginPage from "./LoginPage.tsx";
 import { clearSession, getSession, type Session } from "./session.ts";
-import { impersonatingAs, isOidcSession, isOperatorOnly, isPlatformAdmin, signOut, stopImpersonation } from "./auth.ts";
+import { canUseTill, impersonatingAs, isOidcSession, isOperatorOnly, isPlatformAdmin, signOut, stopImpersonation, tillUrl } from "./auth.ts";
 import { NavContext, tabSlug } from "./nav.tsx";
 
 // Keycloak self-service (password + MFA). Only meaningful for an OIDC session.
@@ -173,6 +173,7 @@ export default function App() {
 
   const tabs: Tab[] = isPlatformAdmin() ? [...TABS, PLATFORM_TAB] : [...TABS];
   const impersonating = impersonatingAs();
+  const tillHref = tillUrl();
 
   return (
     <NavContext.Provider value={{ tab, focus, go }}>
@@ -193,6 +194,11 @@ export default function App() {
           ))}
         </nav>
         <span className="muted small">{name}</span>
+        {/* Counterpart of the till's "Switch to Portal" — shown only to operators who can sell.
+            No basket to lose on this side, so it just goes. */}
+        {tillHref && canUseTill() && (
+          <a className="ghost small" href={tillHref} title="Open the till">Switch to Till</a>
+        )}
         <button className="ghost small" onClick={() => signOut()}>
           Sign out
         </button>

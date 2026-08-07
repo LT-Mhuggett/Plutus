@@ -112,3 +112,22 @@ export function signOut(): void {
 export function canBulkEditInventory(): boolean {
   return currentScopes().includes("inventory.bulk");
 }
+
+/** Can this operator actually sell? Drives the "Switch to Till" button — a pure back-office
+ *  or platform user has no till to switch to. */
+export function canUseTill(): boolean {
+  return currentScopes().includes("pos.sell");
+}
+
+/**
+ * The till URL for this deployment. Convention: the portal is the same host with an `admin.`
+ * prefix (plutus.example / admin.plutus.example), so it's derived rather than configured —
+ * VITE_TILL_URL overrides where that doesn't hold. Null on localhost / bare IPs (dev).
+ */
+export function tillUrl(): string | null {
+  const configured = import.meta.env?.VITE_TILL_URL as string | undefined;
+  if (configured) return configured.replace(/\/$/, "");
+  const { protocol, host } = window.location;
+  if (!host || host.startsWith("localhost") || /^\d+\.\d+\.\d+\.\d+/.test(host)) return null;
+  return host.startsWith("admin.") ? `${protocol}//${host.slice("admin.".length)}` : null;
+}

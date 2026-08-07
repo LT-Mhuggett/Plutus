@@ -78,6 +78,9 @@ export function receiptToDocument(data: ReceiptData, columns = 42, openDrawer = 
   ops.push(centre(new Date(data.date).toLocaleString("en-GB")));
   const operator = tpl?.showOperator ? getSession()?.name : null;
   if (operator) ops.push(centre(`Served by ${operator}`));
+  // A refund must be obvious on the customer's copy and on the shop's — the totals are negative
+  // but a glance at a receipt shouldn't depend on spotting a minus sign.
+  if (data.totalPence < 0) ops.push(centre("** REFUND **", { bold: true }));
   ops.push({ kind: OP_RULE });
 
   // lines

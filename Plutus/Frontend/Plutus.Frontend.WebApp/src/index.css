@@ -78,6 +78,23 @@ body {
   white-space: nowrap;
 }
 
+/* jump to the management portal (sibling.ts) */
+.switch-app {
+  font: inherit;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 999px;
+  background: none;
+  color: #fff;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.switch-app:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
 /* "a newer build is deployed" — clickable, never automatic (appUpdate.ts) */
 .update-badge {
   font: inherit;

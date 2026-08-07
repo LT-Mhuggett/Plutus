@@ -20,6 +20,67 @@ public class SalesV2Tests
         => new MySqlDbContext(new DbContextOptionsBuilder<MySqlDbContext>().UseSqlite(conn).Options,
                               new FixedTenantContext(Tenant)) { CurrentUser = "sales-test" };
 
+    /// <summary>
+    /// A REFUND-ONLY sale (everything returned, nothing bought) must satisfy the same four
+    /// invariants with every figure negative: negative qty → negative line gross → negative
+    /// gross → a negative net tender, i.e. money paid OUT. Pinning this because the till used to
+    /// refuse such a basket ("Refund-only baskets aren't supported yet"), and the reason to
+    /// believe that block is safe to lift is precisely that nothing here forbids the signs.
+    /// </summary>
+    [Fact]
+    public void A_refund_only_sale_satisfies_the_invariants()
+    {
+        var saleId = Guid.NewGuid();
+        // returning 2 × £14.58 (inc 20% VAT) = −£29.16
+        const long unit = 1458;
+        const int qty = -2;
+        const long lineGross = unit * qty;                 // −2916
+        const long vat = lineGross * 2000 / 10_000;        // −583
+        var lines = new List<SaleLine>
+        {
+            new() { Id = Guid.NewGuid(), TenantId = Tenant, SaleId = saleId, LineNo = 1,
+                    ItemId = Guid.NewGuid(), Qty = qty, UnitPricePence = unit, DiscountPence = 0,
+                    LineGrossPence = lineGross, VatRateBp = 2000, VatAmountPence = vat },
+        };
+        var tenders = new List<SaleTender>
+        {
+            // cash OUT of the drawer: a negative amount, no change
+            new() { Id = Guid.NewGuid(), TenantId = Tenant, SaleId = saleId,
+                    TenderType = TenderType.Cash, AmountPence = lineGross, ChangePence = 0 },
+        };
+
+        var sale = SaleV2.Create(saleId, Tenant, Guid.NewGuid(), Guid.NewGuid(), 1,
+            SaleChannel.Till, new DateOnly(2026, 8, 7), DateTime.UtcNow, DateTime.UtcNow,
+            lineGross, vat, lines, tenders);
+
+        sale.Validate();                       // throws if any invariant breaks
+        Assert.Equal(-2916, sale.GrossPence);
+        Assert.Equal(-583, sale.VatPence);
+    }
+
+    /// <summary>A refund still has to reconcile: paying out the wrong amount must be refused,
+    /// so lifting the UI block cannot let an unbalanced refund through.</summary>
+    [Fact]
+    public void A_refund_whose_tender_does_not_match_is_rejected()
+    {
+        var saleId = Guid.NewGuid();
+        var lines = new List<SaleLine>
+        {
+            new() { Id = Guid.NewGuid(), TenantId = Tenant, SaleId = saleId, LineNo = 1,
+                    ItemId = Guid.NewGuid(), Qty = -1, UnitPricePence = 1000, DiscountPence = 0,
+                    LineGrossPence = -1000, VatRateBp = 2000, VatAmountPence = -200 },
+        };
+        var tenders = new List<SaleTender>
+        {
+            new() { Id = Guid.NewGuid(), TenantId = Tenant, SaleId = saleId,
+                    TenderType = TenderType.Cash, AmountPence = -900, ChangePence = 0 }, // short by £1
+        };
+
+        Assert.Throws<InvalidSaleException>(() => SaleV2.Create(
+            saleId, Tenant, Guid.NewGuid(), Guid.NewGuid(), 1, SaleChannel.Till,
+            new DateOnly(2026, 8, 7), DateTime.UtcNow, DateTime.UtcNow, -1000, -200, lines, tenders));
+    }
+
     // Build a valid sale from a seeded RNG: lines reconcile to gross, VAT = Σ line VAT,
     // one tender nets to gross (optionally with change).
     private static SaleV2 RandomValidSale(Random rng)

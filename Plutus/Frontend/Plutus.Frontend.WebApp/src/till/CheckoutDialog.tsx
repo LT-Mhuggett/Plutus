@@ -112,9 +112,20 @@ export default function CheckoutDialog({ lines, totals, customer, onClose, onCom
     ? [...methods, { id: GIFTCARD_PAYID, name: `Gift card ${card.pretty}`, charge: 0, minimumCharge: 0, isChangeable: false, isCashBackable: false }]
     : methods;
 
+  // A basket of returns worth more than anything bought is a REFUND: the same sale, with every
+  // figure negative (the T1.3 invariants are sign-agnostic — see SalesV2Tests). The operator
+  // types the amount to hand back as a positive number; it goes on the wire negative.
+  const refunding = totals.totalPence < 0;
+  const owed = Math.abs(totals.totalPence);
+
   const paid = parsed.valid ? parsed.paid : 0;
-  const remaining = Math.max(0, totals.totalPence - paid);
-  const overpay = Math.max(0, paid - totals.totalPence);
+  const remaining = Math.max(0, owed - paid);
+  // No change on a refund — you hand back exactly what's owed, so an excess is an error, not change.
+  const overpay = refunding ? 0 : Math.max(0, paid - owed);
+  const overRefund = refunding && paid > owed;
+  // Refunding ONTO store credit or a gift card would be a ledger write, not a tender — out of
+  // scope, so a refund offers only the real money methods.
+  const rows = refunding ? tenders.filter((m) => m.id !== CREDIT_PAYID && m.id !== GIFTCARD_PAYID) : tenders;
   // change can only be given from a changeable method (cash)
   const changeablePaid = parsed.valid
     ? [...parsed.perMethod.entries()].filter(([id]) => tenders.find((m) => m.id === id)?.isChangeable).reduce((a, [, v]) => a + v, 0)
@@ -124,7 +135,7 @@ export default function CheckoutDialog({ lines, totals, customer, onClose, onCom
   const creditOverBalance = creditRedeem > (customer?.creditBalancePence ?? 0);
   const giftRedeem = parsed.valid ? parsed.perMethod.get(GIFTCARD_PAYID) ?? 0 : 0;
   const giftOverBalance = giftRedeem > (card?.balancePence ?? 0);
-  const canComplete = parsed.valid && remaining === 0 && changeOk
+  const canComplete = parsed.valid && remaining === 0 && changeOk && !overRefund
     && !creditOverBalance && !giftOverBalance && !busy;
 
   function quickFill(id: number) {
@@ -132,7 +143,7 @@ export default function CheckoutDialog({ lines, totals, customer, onClose, onCom
     // already holds. Using the bare remainder made "rest" toggle 0.00 ↔ full whenever the row was
     // already filled (reported 2026-08-07), and left an overpaid row untouched.
     const own = parsed.valid ? parsed.perMethod.get(id) ?? 0 : 0;
-    const needed = Math.max(0, totals.totalPence - (paid - own));
+    const needed = Math.max(0, owed - (paid - own));
     // FE7: "rest" on the gift-card row is capped at what the card holds — the common case is a card
     // that doesn't cover the whole basket, and filling the full remainder would just be refused.
     const cap = id === GIFTCARD_PAYID ? Math.min(needed, card?.balancePence ?? 0) : needed;
@@ -160,7 +171,9 @@ export default function CheckoutDialog({ lines, totals, customer, onClose, onCom
       const payments = entries.map(([payId, pence]) => ({
         payId,
         name: tenders.find((x) => x.id === payId)!.name,
-        amountPence: pence,
+        // money OUT on a refund — the wire carries the sign, so net tender == the (negative)
+        // gross and the T1.3 invariant reconciles
+        amountPence: refunding ? -pence : pence,
         changePence: changeByPayId.get(payId) ?? 0,
       }));
 
@@ -199,12 +212,23 @@ export default function CheckoutDialog({ lines, totals, customer, onClose, onCom
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <div className="dialog">
-        <h2>Checkout — {gbp(totals.totalPence)}</h2>
+        <h2>{refunding ? `Refund — ${gbp(owed)}` : `Checkout — ${gbp(totals.totalPence)}`}</h2>
+
+        {refunding && (
+          <p className="small discount-note">
+            ↩ This basket returns more than it sells, so it is a <strong>refund</strong>: enter how
+            much goes back on each method. The sale is recorded with negative totals.
+          </p>
+        )}
 
         {/* 17.2 card-payment setup hint: standalone (default) = external chip & pin, cashier
             confirms; an integrated provider shows its name until its integration is wired. */}
         {(!gateway || gateway.provider === "standalone") ? (
-          <p className="muted small">💳 Card: take payment on the chip &amp; pin terminal, confirm it's approved, then complete.</p>
+          <p className="muted small">
+            💳 Card: {refunding
+              ? "refund on the chip & pin terminal, confirm it went through, then complete."
+              : "take payment on the chip & pin terminal, confirm it's approved, then complete."}
+          </p>
         ) : (
           <p className="muted small">💳 Card via <strong>{gateway.label}</strong>{!gateway.integrated && " (integration pending — use the terminal and confirm approval as usual)"}.</p>
         )}
@@ -244,7 +268,7 @@ export default function CheckoutDialog({ lines, totals, customer, onClose, onCom
         {cardError && <p className="error small">{cardError}</p>}
 
         <div className="pay-methods">
-          {tenders.map((m) => (
+          {rows.map((m) => (
             <label key={m.id} className="pay-row">
               <span className="grow">
                 {m.name}
@@ -266,13 +290,19 @@ export default function CheckoutDialog({ lines, totals, customer, onClose, onCom
 
         <div className="totals">
           <div className="row muted">
-            <span>Paid</span>
+            <span>{refunding ? "Refunding" : "Paid"}</span>
             <span>{parsed.valid ? gbp(paid) : "—"}</span>
           </div>
           {remaining > 0 && (
             <div className="row">
-              <span>Remaining</span>
+              <span>{refunding ? "Still to refund" : "Remaining"}</span>
               <span>{gbp(remaining)}</span>
+            </div>
+          )}
+          {overRefund && (
+            <div className="row error">
+              <span>Too much — refund exactly {gbp(owed)}</span>
+              <span>{gbp(paid - owed)} over</span>
             </div>
           )}
           {overpay > 0 && (
@@ -296,7 +326,7 @@ export default function CheckoutDialog({ lines, totals, customer, onClose, onCom
             Cancel
           </button>
           <button className="primary" disabled={!canComplete} onClick={complete}>
-            {busy ? "Completing…" : "Complete sale"}
+            {busy ? "Completing…" : refunding ? "Complete refund" : "Complete sale"}
           </button>
         </div>
       </div>

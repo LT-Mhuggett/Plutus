@@ -11,14 +11,17 @@ import HelpPanel from "./HelpPanel.tsx";
 import LoginPage from "./LoginPage.tsx";
 import { PlutusMark } from "./PlutusMark.tsx";
 import { ackPickNotification, drainOutbox, fetchActiveAnnouncements, fetchPickNotifications, fetchTillName, loadReceiptTemplate, onOutboxChanged, syncCatalogue, type ActiveAnnouncement, type PickNotification } from "./api.ts";
-import { getDeviceCredential } from "./pipeline.ts";
+import { getDeviceCredential, sessionScopes } from "./pipeline.ts";
 import { startAgentReporter } from "./hardware.ts";
 import { startUpdateWatcher } from "./appUpdate.ts";
+import { hasPortalAccess, portalUrl } from "./sibling.ts";
+import { onNewItemRequested } from "./newItemHandoff.ts";
+import { basketLineCount } from "./till/basket.ts";
 import { queuedCount } from "./offline.ts";
 import { getSession, type Session } from "./session.ts";
 import { oidcMode, signOut } from "./auth.ts";
 import { beginLogin, completeLoginIfCallback } from "./oidc.ts";
-import AskHost from "./Ask.tsx";
+import AskHost, { ask } from "./Ask.tsx";
 
 declare const __BUILD_TIME__: string;
 
@@ -57,6 +60,7 @@ export default function App() {
   const [queued, setQueued] = useState(0);
   const [tillName, setTillName] = useState<string | null>(null);
   const [updateReady, setUpdateReady] = useState(false);
+  const portalHref = portalUrl();
   const [pickNotes, setPickNotes] = useState<PickNotification[]>([]);
   const [announcements, setAnnouncements] = useState<ActiveAnnouncement[]>([]);
 
@@ -94,6 +98,9 @@ export default function App() {
     if (!session) return;
     return startUpdateWatcher(() => setUpdateReady(true));
   }, [session]);
+
+  // "Add this item" on an unknown scan — jump to Inventory, which picks up the barcode.
+  useEffect(() => onNewItemRequested(() => setTab("Inventory Management")), []);
 
   // Offline plumbing: connectivity indicator, outbox badge, replay on reconnect,
   // and a background pull of the item catalogue for offline scanning.
@@ -158,6 +165,30 @@ export default function App() {
     signOut(); // clears + reloads (password) or redirects to the IdP end-session (oidc)
   }
 
+  /** Leaving the till abandons an unsaved basket — the persisted basket survives a reload, but
+   *  not a walk away to another app and back later, so say so before going. */
+  async function switchToPortal() {
+    if (!portalHref) return;
+    const lines = basketLineCount();
+    if (lines > 0) {
+      const go = await ask.confirm({
+        title: "Leave the till?",
+        body: (
+          <p className="small">
+            Till items will be lost if the basket is not saved — there {lines === 1 ? "is" : "are"}{" "}
+            <strong>{lines}</strong> {lines === 1 ? "line" : "lines"} in the basket. Use{" "}
+            <strong>Save Transaction</strong> on the till first if you want it back later.
+          </p>
+        ),
+        confirmLabel: "Leave anyway",
+        cancelLabel: "Stay on the till",
+        danger: true,
+      });
+      if (!go) return;
+    }
+    window.location.assign(portalHref);
+  }
+
   return (
     <main className="shell">
       <header className="appbar">
@@ -176,6 +207,13 @@ export default function App() {
           </span>
         )}
         {tillName && <span className="till-name-badge" title="This till">{tillName}</span>}
+        {/* Switch to the management portal. Only for operators who can actually use it, and it
+            warns first when a basket would be abandoned by leaving. */}
+        {portalHref && hasPortalAccess(sessionScopes()) && (
+          <button className="switch-app" title="Open the management portal" onClick={() => void switchToPortal()}>
+            Switch to Portal
+          </button>
+        )}
         {/* A till tab stays open for days, so a deploy never reaches it on its own. Never
             auto-reloads — that would drop a basket mid-sale; the operator picks the moment. */}
         {updateReady && (

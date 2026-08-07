@@ -5,6 +5,7 @@ import {
   type CustomerDetail, type CustomerSummary, type GiftCardLookup, type Item,
 } from "../api.ts";
 import { canManageCustomers } from "../pipeline.ts";
+import { requestNewItem } from "../newItemHandoff.ts";
 import { gbp, parsePence } from "../money.ts";
 import { useBasket, basketTotals, lineDiscountPence, lineTotalPence, type BasketState } from "./basket.ts";
 import { getPrefs } from "../prefs.ts";
@@ -44,6 +45,8 @@ export default function TillPage() {
   const [results, setResults] = useState<Item[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  /** A scan that matched nothing — offers "Add this item" with the barcode carried over. */
+  const [unknownScan, setUnknownScan] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Dialog>("none");
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [printOnShow, setPrintOnShow] = useState(false);
@@ -272,6 +275,7 @@ export default function TillPage() {
     if (!term || busy) return;
     setBusy(true);
     setNotice("");
+    setUnknownScan(null);
     try {
       // FE2: a scanned LOYALTY CARD attaches its customer instead of adding an item. Only the
       // "C"-prefixed payload is treated this way, so product barcodes are never hijacked — and if
@@ -300,7 +304,12 @@ export default function TillPage() {
         return;
       }
       const found = await searchItemsOfflineAware(term); // all matches — the list scrolls
-      if (found.length === 0) setNotice(`Nothing found for “${term}”`);
+      if (found.length === 0) {
+        setNotice(`Nothing found for “${term}”`);
+        // A scanned barcode that matches nothing is usually new stock, so offer to create it
+        // rather than making the cashier retype the code in Inventory (see newItemHandoff.ts).
+        setUnknownScan(term);
+      }
       setResults(found.length ? found : null);
     } catch (e) {
       setNotice(String(e));
@@ -451,6 +460,19 @@ export default function TillPage() {
       </div>
 
       {notice && <p className="error small">{notice}</p>}
+      {unknownScan && (
+        <p className="small">
+          <button
+            className="ghost small"
+            onClick={() => { requestNewItem(unknownScan); setUnknownScan(null); setScan(""); setNotice(""); }}
+          >
+            ＋ Add this item
+          </button>{" "}
+          <span className="muted">
+            Creates a new catalogue item with barcode <span className="mono">{unknownScan}</span>.
+          </span>
+        </p>
+      )}
       {results && (
         <>
           <p className="muted small scan-count">
@@ -599,13 +621,17 @@ export default function TillPage() {
         </button>
         <button
           className="action checkout primary"
-          disabled={basket.lines.length === 0 || totals.totalPence < 0}
+          disabled={basket.lines.length === 0}
           onClick={() => setDialog("checkout")}
         >
-          Checkout
+          {totals.totalPence < 0 ? "Refund" : "Checkout"}
         </button>
       </div>
-      {totals.totalPence < 0 && <p className="error small">Refund-only baskets aren't supported yet — total must be ≥ £0.</p>}
+      {totals.totalPence < 0 && (
+        <p className="small discount-note">
+          Refund — {gbp(-totals.totalPence)} goes back to the customer. Choose how on the next screen.
+        </p>
+      )}
 
       {dialog === "checkout" && (
         <CheckoutDialog

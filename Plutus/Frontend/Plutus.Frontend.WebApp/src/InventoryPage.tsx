@@ -15,6 +15,7 @@ import {
 } from "./api.ts";
 import { gbp } from "./money.ts";
 import DataTable from "./DataTable.tsx";
+import { takeNewItemBarcode } from "./newItemHandoff.ts";
 
 export default function InventoryPage() {
   const [items, setItems] = useState<Item[]>([]);
@@ -37,6 +38,14 @@ export default function InventoryPage() {
   // WP4.3: show each item's category in the list (the dialog already assigns it; the list didn't).
   const catName = useMemo(() => new Map(cats.map((c) => [c.idOne, c.name])), [cats]);
   useEffect(() => { void fetchCategories().then(setCats).catch(() => undefined); }, []);
+
+  // Handoff from the till: an unknown scan opened this tab to create the item, so open the
+  // Add dialog straight away with the scanned barcode already in it.
+  const [newBarcode, setNewBarcode] = useState("");
+  useEffect(() => {
+    const handed = takeNewItemBarcode();
+    if (handed) { setNewBarcode(handed); setEditing("new"); }
+  }, []);
 
   function load() {
     setState("loading");
@@ -116,12 +125,14 @@ export default function InventoryPage() {
         <ItemDialog
           // keyed so "Open this item" (duplicate barcode) REMOUNTS the dialog — the field
           // state is seeded from props at mount, so a prop swap alone would keep the old form.
-          key={editing === "new" ? "new" : editing.idOne}
+          key={editing === "new" ? `new:${newBarcode}` : editing.idOne}
           item={editing === "new" ? null : editing}
-          onClose={() => setEditing(null)}
+          initialId={newBarcode}
+          onClose={() => { setEditing(null); setNewBarcode(""); }}
           onOpenExisting={(i) => setEditing(i)}
           onDone={(msg) => {
             setEditing(null);
+            setNewBarcode("");
             setNotice(msg);
             load();
           }}
@@ -133,18 +144,21 @@ export default function InventoryPage() {
 
 function ItemDialog({
   item,
+  initialId = "",
   onClose,
   onDone,
   onOpenExisting,
 }: {
   item: Item | null;
+  /** Barcode carried over from an unknown till scan (new items only). */
+  initialId?: string;
   onClose: () => void;
   onDone: (msg: string) => void;
   onOpenExisting: (item: Item) => void;
 }) {
   const [taxes, setTaxes] = useState<Tax[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [id, setId] = useState(item?.idOne ?? "");
+  const [id, setId] = useState(item?.idOne ?? initialId);
   const [name, setName] = useState(item?.name ?? "");
   const [brand, setBrand] = useState(item?.brand === "-" ? "" : (item?.brand ?? ""));
   const [desc, setDesc] = useState(item?.desc ?? "");
@@ -160,6 +174,9 @@ function ItemDialog({
   const [clash, setClash] = useState<Item | null>(null);
   // latest field value, so a slow lookup can't flag a barcode the operator has since edited
   const idRef = useRef(id);
+  // a barcode handed over from the till is already known to be unknown — but check it anyway,
+  // since the operator may edit it before saving
+  useEffect(() => { if (!item && initialId) void checkBarcodeFree(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Duplicate check on blur — the operator hears about a clash as soon as they leave the
    *  barcode box, not after filling in the whole form. Submit re-checks authoritatively. */

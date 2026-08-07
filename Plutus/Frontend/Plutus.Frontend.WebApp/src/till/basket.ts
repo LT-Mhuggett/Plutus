@@ -179,6 +179,7 @@ function reduce(state: BasketState, action: Action): BasketState {
 // morning would be worse than losing it, because the cashier would not necessarily notice it was
 // there before adding today's items.
 const STORAGE_KEY = "plutus.basket";
+
 const MAX_AGE_MS = 12 * 60 * 60 * 1000;
 const EMPTY: BasketState = { lines: [], nextKey: 1 };
 
@@ -194,6 +195,22 @@ function loadPersisted(): BasketState {
     // corrupt or unreadable — start clean rather than wedge the till on a bad string
     try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
     return EMPTY;
+  }
+}
+
+/** Lines in the persisted basket, WITHOUT mounting the till page — the app shell needs this to
+ *  warn before navigating away (leaving abandons an unsaved basket). Applies the same expiry as
+ *  loadPersisted, so a basket that would be discarded anyway doesn't raise a warning. */
+export function basketLineCount(): number {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return 0;
+    const saved = JSON.parse(raw) as { at: number; state: BasketState };
+    if (!Array.isArray(saved?.state?.lines)) return 0;
+    if (!(saved.at > 0) || Date.now() - saved.at > MAX_AGE_MS) return 0;
+    return saved.state.lines.length;
+  } catch {
+    return 0;
   }
 }
 
