@@ -506,8 +506,13 @@ namespace Plutus.Webstore.Controllers
 
         // ---- WP6.2 pick-from-floor notifications (till-facing) ----
 
+        // ⚠ These two were gated "perm:sales.ingest" from WP6.2 until 2026-08-07 — that's the
+        // SCOPE-policy name used as a PERMISSION code, which no RBAC role holds (the catalogue
+        // rejects unknown codes), so every till poll 403'd silently into its .catch and no
+        // pick-note ever reached a shop floor. The scope policy below is what was always meant:
+        // a device token OR an operator holding pos.sell.
         [HttpGet("/api/v1/notifications")]
-        [Authorize(Policy = "perm:sales.ingest")]
+        [Authorize(Policy = PlutusPolicies.SalesIngest)]
         public async Task<IActionResult> Notifications([FromQuery] bool unackedOnly = true, CancellationToken ct = default)
         {
             var q = _db.WebstoreNotifications.AsNoTracking().OrderByDescending(n => n.CreatedAtUtc).AsQueryable();
@@ -516,13 +521,16 @@ namespace Plutus.Webstore.Controllers
         }
 
         [HttpPost("/api/v1/notifications/{noteId:guid}/ack")]
-        [Authorize(Policy = "perm:sales.ingest")]
+        [Authorize(Policy = PlutusPolicies.SalesIngest)]
         public async Task<IActionResult> Ack(Guid noteId, CancellationToken ct)
         {
             var n = await _db.WebstoreNotifications.FirstOrDefaultAsync(x => x.Id == noteId, ct);
             if (n is null) return NotFound();
             if (n.AckedAtUtc is null)
             {
+                // The broken gate above hid a second fault: nothing set CurrentUser here, so the
+                // first ever successful ack would have thrown ObjectIdMissingException on save.
+                _db.CurrentUser = ActorName;
                 n.AckedAtUtc = DateTime.UtcNow;
                 n.AckedBy = ActorName;
                 _db.Audit(_tenant.TenantId, Actor, "webstore.notification.ack", nameof(WebstoreNotification), n.Id.ToString(),
