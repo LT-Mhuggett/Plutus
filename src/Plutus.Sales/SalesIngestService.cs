@@ -156,17 +156,45 @@ namespace Plutus.Sales
             catch (System.Text.Json.JsonException) { return null; }
         }
 
+        /// <summary>The web till puts the line's ex-VAT UNIT price in the same metadata blob
+        /// (`{"exUnitPence":…}`). Unit prices are what the band rule is defined on, so discounts
+        /// and quantities cannot disturb it.</summary>
+        private static long? ExtractExUnitPence(string discountsJson)
+        {
+            if (string.IsNullOrWhiteSpace(discountsJson)) return null;
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(discountsJson);
+                return doc.RootElement.TryGetProperty("exUnitPence", out var v) && v.TryGetInt64(out var ex)
+                    ? ex : (long?)null;
+            }
+            catch (System.Text.Json.JsonException) { return null; }
+        }
+
         /// <summary>
         /// WP2b VAT-rate-change compliance. Returns null when every line is fine, or the reason to
         /// quarantine.
         ///
-        /// ⚠ A tenant with NO configured history skips the check (and says so in the log) rather
-        /// than quarantining everything — switching a compliance guard on must not become an
-        /// outage for every tenant that hasn't been seeded yet.
+        /// ⚠ CORRECTED 2026-08-08. The first version compared each line's DECLARED `VatRateBp`
+        /// against a set of clean band values. That is wrong against how this platform declares
+        /// VAT: the web till derives the rate from the price pair, so ordinary lines legitimately
+        /// arrive at 1998–2002bp, and exact matching would have quarantined normal trade the
+        /// moment any tenant's bands were seeded. The rule is the price-pair tolerance the
+        /// catalogue guard already uses — see <c>VatRateHistory</c>.
         ///
-        /// Gift-card activation lines are exempt: their rate is fixed by the tenant's declared
-        /// voucher treatment (zero under multi-purpose), which is a different rule from the
-        /// catalogue's VAT bands and would otherwise false-positive on every card sold.
+        /// Three outcomes, and only ONE of them blocks:
+        ///  • a rate in force explains the pair → fine, the overwhelmingly common case;
+        ///  • only a RETIRED (or not-yet-effective) rate of this tenant's own bands explains it →
+        ///    quarantine: that is a till pricing on a stale band, which is the whole point;
+        ///  • nothing explains it → ACCEPT. That is legacy off-band damage, which the owner
+        ///    decided is surfaced by the VatIntegrity report and never blocks trading.
+        ///
+        /// A tenant with NO configured history skips entirely — switching a compliance guard on
+        /// must not become an outage for every unseeded tenant.
+        ///
+        /// Gift-card lines are exempt throughout: their VAT is pinned by the tenant's voucher
+        /// treatment (activation 0 or 2000bp; a single-purpose REDEMPTION is a negative
+        /// standard-rated line), which is a different rule from the catalogue's bands.
         /// </summary>
         private async Task<string> ValidateVatRatesAsync(IngestSaleRequest req, Guid tenantId)
         {
@@ -179,13 +207,17 @@ namespace Plutus.Sales
             {
                 if (string.Equals(ExtractItemIdOne(line.DiscountsJson), GiftCardItemIdOne, StringComparison.OrdinalIgnoreCase))
                     continue;
-                if (!Plutus.SharedKernel.VatRateHistory.IsValidAt(history, line.VatRateBp, req.OccurredAtUtc))
-                {
-                    var live = Plutus.SharedKernel.VatRateHistory.InForceAt(history, req.OccurredAtUtc);
-                    return $"VAT rate {line.VatRateBp}bp was not in force at {req.OccurredAtUtc:u} " +
-                           $"(in force: {string.Join(", ", live.OrderBy(r => r))}bp). " +
-                           "The till may have been offline across a rate change.";
-                }
+
+                var ex = ExtractExUnitPence(line.DiscountsJson);
+                if (ex == null) continue; // no pair to reason about (older client) — never guess
+
+                var verdict = Plutus.SharedKernel.VatRateHistory.Assess(
+                    history, line.UnitPricePence, ex.Value, req.OccurredAtUtc);
+
+                if (verdict.Verdict == Plutus.SharedKernel.VatLineVerdict.StaleBand)
+                    return $"Line priced at {verdict.ExplainedByBp}bp, which was not in force at " +
+                           $"{req.OccurredAtUtc:u} (in force: {string.Join(", ", verdict.InForceBp.OrderBy(r => r))}bp). " +
+                           "The till may have been offline across a VAT-rate change.";
             }
             return null;
         }

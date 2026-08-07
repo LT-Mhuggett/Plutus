@@ -83,12 +83,21 @@ public class VatRateChangeE2eTests : IClassFixture<PlutusAppFactory>
         return (kBody.GetProperty("accessToken").GetString()!, tenantId);
     }
 
-    /// <summary>A £6.00 sale at the given rate and moment. Gross/VAT are consistent so the T1.3
-    /// arithmetic invariants pass and the ONLY thing under test is the rate's legality.</summary>
-    private static object Sale(long seq, int rateBp, DateTime occurredAtUtc, string itemIdOne = "5010000000001")
+    /// <summary>
+    /// A one-line sale built EXACTLY as the web till builds one (api.ts:958-1019): the caller
+    /// gives a real price pair, and the declared rate and VAT are DERIVED from it.
+    ///
+    /// ⚠ This helper used to take a clean rate and compute VAT arithmetically. That modelled a
+    /// till this platform does not have, and hid the very regression these tests now cover: a
+    /// genuine £14.99/£12.49 line declares 2002bp, not 2000.
+    /// </summary>
+    private static object Sale(long seq, long unitIncPence, long unitExPence, DateTime occurredAtUtc,
+                               string itemIdOne = "5010000000001")
     {
-        var gross = 600L;
-        var vat = (long)Math.Round(gross * rateBp / (10000.0 + rateBp), MidpointRounding.AwayFromZero);
+        var declaredBp = unitExPence > 0
+            ? (int)Math.Round((double)unitIncPence / unitExPence * 10000 - 10000)
+            : 0;
+        var vat = unitIncPence - unitExPence;              // api.ts:979 — lineGross − lineEx
         return new
         {
             saleId = Uuid7.New(),
@@ -96,18 +105,18 @@ public class VatRateChangeE2eTests : IClassFixture<PlutusAppFactory>
             channel = 0,
             businessDay = DateOnly.FromDateTime(occurredAtUtc).ToString("yyyy-MM-dd"),
             occurredAtUtc,
-            grossPence = gross,
+            grossPence = unitIncPence,
             vatPence = vat,
             lines = new[]
             {
                 new
                 {
-                    itemId = Guid.NewGuid(), qty = 1, unitPricePence = gross, discountPence = 0L,
-                    lineGrossPence = gross, vatRateBp = rateBp, vatAmountPence = vat,
-                    discountsJson = "{\"itemIdOne\":\"" + itemIdOne + "\"}",
+                    itemId = Guid.NewGuid(), qty = 1, unitPricePence = unitIncPence, discountPence = 0L,
+                    lineGrossPence = unitIncPence, vatRateBp = declaredBp, vatAmountPence = vat,
+                    discountsJson = "{\"itemIdOne\":\"" + itemIdOne + "\",\"exUnitPence\":" + unitExPence + "}",
                 },
             },
-            tenders = new[] { new { tenderType = 0, amountPence = gross, changePence = 0L } },
+            tenders = new[] { new { tenderType = 0, amountPence = unitIncPence, changePence = 0L } },
         };
     }
 
@@ -120,35 +129,67 @@ public class VatRateChangeE2eTests : IClassFixture<PlutusAppFactory>
     }
 
     [Fact]
-    public async Task A_stale_rate_after_the_change_is_quarantined_but_correct_sales_both_sides_are_not()
+    public async Task A_REAL_webtill_line_ingests_even_though_its_declared_rate_is_2002bp()
+    {
+        // ⚠ THE REGRESSION MATT CAUGHT. £14.99 ex £12.49 is 20% priced to the penny, and the web
+        // till ships it declaring 2002bp. The first implementation compared that number against
+        // the clean band set and would have QUARANTINED ORDINARY KAPOW SALES the moment any
+        // tenant's bands were seeded. Judged on the price pair, it is plainly fine.
+        var c = _f.CreateClient();
+        var (token, _) = await ProvisionEnrolAndSeedRatesAsync(c, "vat0@acme.test");
+
+        // what the till actually declares for this pair — the number that used to be rejected
+        Assert.Equal(2002, (int)Math.Round(1499d / 1249d * 10000 - 10000));
+
+        var (status, _) = await PostSale(c, Sale(1, 1499, 1249, Change.AddDays(-1)), token);
+        Assert.Equal(HttpStatusCode.Created, status);
+    }
+
+    [Fact]
+    public async Task A_stale_BAND_after_the_change_is_quarantined_but_correct_sales_both_sides_are_not()
     {
         var c = _f.CreateClient();
         var (token, tenantId) = await ProvisionEnrolAndSeedRatesAsync(c, "vat1@acme.test");
 
-        // 1. THE CASE THIS EXISTS FOR: offline across the change, pushed at the old 20% → quarantined
-        var (staleStatus, staleBody) = await PostSale(c, Sale(1, 2000, Change.AddDays(2)), token);
+        // 1. THE CASE THIS EXISTS FOR: a till still pricing at 20% after the standard rate moved
+        //    to 17.5% — the pair is explained only by a RETIRED band → quarantined.
+        var (staleStatus, staleBody) = await PostSale(c, Sale(1, 1499, 1249, Change.AddDays(2)), token);
         Assert.Equal(HttpStatusCode.Accepted, staleStatus);
         Assert.Contains("quarantined", staleBody);
 
-        // 2. the same moment at the CORRECT new rate → recorded normally
-        var (goodStatus, _) = await PostSale(c, Sale(2, 1750, Change.AddDays(2)), token);
+        // 2. the same moment, correctly repriced at 17.5% (£11.75 ex £10.00) → recorded
+        var (goodStatus, _) = await PostSale(c, Sale(2, 1175, 1000, Change.AddDays(2)), token);
         Assert.Equal(HttpStatusCode.Created, goodStatus);
 
-        // 3. NO FALSE POSITIVES: a sale from BEFORE the change, at the then-correct 20% → recorded.
-        //    A till draining a backlog must not have its legitimate history quarantined.
-        var (pastStatus, _) = await PostSale(c, Sale(3, 2000, Change.AddDays(-3)), token);
+        // 3. NO FALSE POSITIVES: the SAME 20% pair, sold BEFORE the change → recorded. A till
+        //    draining a week-old backlog must not have its legitimate history quarantined.
+        var (pastStatus, _) = await PostSale(c, Sale(3, 1499, 1249, Change.AddDays(-3)), token);
         Assert.Equal(HttpStatusCode.Created, pastStatus);
 
-        // 4. coexisting bands are untouched — a zero-rated book sells fine after the change
-        var (zeroStatus, _) = await PostSale(c, Sale(4, 0, Change.AddDays(2)), token);
+        // 4. coexisting bands untouched — a zero-rated book still sells after the change
+        var (zeroStatus, _) = await PostSale(c, Sale(4, 800, 800, Change.AddDays(2)), token);
         Assert.Equal(HttpStatusCode.Created, zeroStatus);
 
-        // the quarantine row explains itself rather than saying "invalid"
+        // the quarantine row names BOTH rates, so the reason is actionable rather than "invalid"
         using var scope = _f.Services.CreateScope();
         var db = (MySqlDbContext)scope.ServiceProvider.GetRequiredService<RepositoryContext>();
         var q = await db.SaleQuarantine.IgnoreQueryFilters().Where(x => x.TenantId == tenantId).FirstAsync();
-        Assert.Contains("not in force", q.Reason);
+        Assert.Contains("2000bp", q.Reason);          // what it was priced at
+        Assert.Contains("1750", q.Reason);            // what was actually in force
         Assert.Contains("offline", q.Reason);
+    }
+
+    [Fact]
+    public async Task Legacy_OFF_BAND_damage_still_sells_it_is_reported_not_blocked()
+    {
+        // Owner decision (VAT-FixLater, 2026-07-23): off-band legacy items keep trading and are
+        // SURFACED by the VatIntegrity report. £11.00 ex £10.00 is 10% — no band this tenant has
+        // ever had. Blocking it would stop a shop selling stock it has always sold.
+        var c = _f.CreateClient();
+        var (token, _) = await ProvisionEnrolAndSeedRatesAsync(c, "vat4@acme.test");
+
+        var (status, _) = await PostSale(c, Sale(1, 1100, 1000, Change.AddDays(2)), token);
+        Assert.Equal(HttpStatusCode.Created, status);
     }
 
     [Fact]
@@ -178,21 +219,38 @@ public class VatRateChangeE2eTests : IClassFixture<PlutusAppFactory>
         { Content = JsonContent.Create(new { deviceId = eBody.GetProperty("deviceId").GetGuid(), clientSecret = eBody.GetProperty("clientSecret").GetString() }) };
         var token = JsonDocument.Parse(await (await c.SendAsync(kReq)).Content.ReadAsStringAsync()).RootElement.GetProperty("accessToken").GetString()!;
 
-        // a rate that exists in NO history at all — still recorded, because this tenant has none
-        var (status, _) = await PostSale(c, Sale(1, 1234, DateTime.UtcNow), token);
+        // a pair matching no band anywhere — still recorded, because this tenant has no history
+        var (status, _) = await PostSale(c, Sale(1, 1100, 1000, DateTime.UtcNow), token);
         Assert.Equal(HttpStatusCode.Created, status);
     }
 
     [Fact]
-    public async Task A_gift_card_line_is_exempt_from_the_band_check()
+    public async Task Gift_card_lines_are_exempt_under_BOTH_voucher_treatments()
     {
-        // A gift card's VAT is fixed by the tenant's voucher treatment (zero under multi-purpose),
-        // which is a different rule from the catalogue bands — without the exemption every card
-        // sold after a rate change would false-positive into quarantine.
+        // A gift card's VAT is pinned by the tenant's voucher treatment, not the catalogue bands:
+        // activation is 0bp (multi-purpose) or 2000bp (single), and a single-purpose REDEMPTION is
+        // a NEGATIVE standard-rated line (api.ts:997-1019). None of those price pairs need match a
+        // band, so without the exemption every card sold after a rate change would quarantine.
         var c = _f.CreateClient();
         var (token, _) = await ProvisionEnrolAndSeedRatesAsync(c, "vat3@acme.test");
 
-        var (status, _) = await PostSale(c, Sale(1, 0, Change.AddDays(2), itemIdOne: "GIFT-CARD"), token);
-        Assert.Equal(HttpStatusCode.Created, status);
+        // multi-purpose activation: priced ex == inc, so no VAT declared at sale
+        var (activation, _) = await PostSale(c, Sale(1, 2000, 2000, Change.AddDays(2), itemIdOne: "GIFT-CARD"), token);
+        Assert.Equal(HttpStatusCode.Created, activation);
+
+        // ⚠ THE CASE THAT ACTUALLY NEEDS THE EXEMPTION: a SINGLE-purpose activation is priced with
+        // VAT in at the standard rate — pinned to 2000bp by the treatment (api.ts:976), NOT by the
+        // catalogue. Sold after the standard band moved to 17.5%, its pair (£20.00/£16.67) is
+        // explained only by the retired 20% band, so a plain band check quarantines it. Only the
+        // exemption keeps gift cards sellable across a rate change.
+        var (singlePurpose, _) = await PostSale(c, Sale(2, 2000, 1667, Change.AddDays(2), itemIdOne: "GIFT-CARD"), token);
+        Assert.Equal(HttpStatusCode.Created, singlePurpose);
+        // (proof it would otherwise fire: the identical pair on an ordinary item is quarantined)
+        var (ordinary, _) = await PostSale(c, Sale(3, 2000, 1667, Change.AddDays(2)), token);
+        Assert.Equal(HttpStatusCode.Accepted, ordinary);
+
+        // single-purpose redemption: the negative standard-rated line (api.ts:997-1019)
+        var (redemption, _) = await PostSale(c, Sale(4, -1200, -1000, Change.AddDays(2), itemIdOne: "GIFT-CARD"), token);
+        Assert.Equal(HttpStatusCode.Created, redemption);
     }
 }

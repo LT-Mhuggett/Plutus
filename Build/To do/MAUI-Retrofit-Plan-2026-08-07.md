@@ -227,7 +227,7 @@ resume point for the next session.
 |---|---|---|
 | **0** Toolchain + baseline gate | ✅ | 2026-08-07 · `27e91c5`. maui workload present; AppClient `net10.0-windows` head builds 0 errors; AppClient.Tests **295 pass / 3 skip**; Unit 347 · Arch 6 · Integration 67. |
 | **1** Shared contracts + client core | ✅ | 2026-08-07 · `27e91c5`. `Plutus.Contracts.Client` + `Plutus.Client.Core` (outbox engine, pusher, API client, token provider). Backend: `stores/{id}/info` now returns `businessId`. Arch test keeps both MAUI-free and backend-module-free (mutation-checked). |
-| **2b** VAT effective-dating | ⚠ **needs correction** | 2026-08-07 · `3ec4eff` built exact-bp validation — **wrong against the webtill's VAT decisions** (Matt's catch, 2026-08-08): ordinary lines carry wobbled rates (2002bp) by design, so seeding bands would quarantine real webtill sales. INERT live (0 rate rows; empty history skips) — safe, but the corrected pair-based spec in the WP2b section below **must land before any tenant's bands are seeded**. Tests to correct with it: `BasketMathTests`/`VatRateChangeE2eTests` pin rate-arithmetic VAT, not the platform's pair derivation. |
+| **2b** VAT effective-dating | ✅ **corrected** | `3ec4eff` shipped exact-bp validation — wrong against the webtill's VAT decisions (Matt's catch). Corrected 2026-08-08 · `88e5c26`: pair-based (`VatRateHistory.Assess`), three verdicts, only StaleBand blocks. Tests rebuilt on real price pairs; gift-card exemption mutation-checked. Still inert live (0 rate rows) — **safe to seed bands now.** |
 | **2** Local store v2 + cutover + money | ✅ (one VAT note) | 2026-08-07 · `6e46734`. New `Plutus.Client.Storage` (schema v2, SQLite). Cutover archives-never-merges and implements the §10 STOP. ⚠ The snapped catalogue band is a **label only** — at sale time lines derive `vatRateBp` from the price pair like the webtill (2026-08-08 correction; see the WP2 note + WP3). Money property test over 2,000 randomised baskets — its VAT arithmetic gets corrected with WP2b. |
 | **3** Sale commit path + outbox | ✅ | 2026-08-07 · `6e46734`. `CommitSaleAsync` (one transaction, sequence allocated, **commit before print** — risk #2 decided in code). `TillStore` implements `IOutboxStore`, so the WP1 pusher drove it unchanged. Soak: 120 offline sales drain exactly once in order, no gaps; crash mid-drain records 20 of 20. |
 | **4** Enrolment + device identity | ✅ | 2026-08-07 · `f90dac5`. Server URL + code; **archive gate refuses enrolment** while a legacy DB is un-archived; placement (storeId + legacy businessId) refreshed each start; secret asserted absent from the DB file. |
@@ -377,12 +377,11 @@ produced**; park → kill → restore works and the serialised form contains no 
 
 **WP2b — VAT-rate-change ingest compliance (backend).**
 
-> ⚠ **CORRECTED 2026-08-08 (Matt's catch), after re-reading the webtill's VAT decisions.** The
-> first-shipped implementation (`3ec4eff`) validates each line's `VatRateBp` by **exact membership**
-> of the in-force rate set. That contradicts how the platform actually declares VAT, and had any
-> tenant's `VatRatePoints` been seeded it would have quarantined **ordinary webtill sales**. It is
-> currently INERT (0 rate rows live; empty history skips) — safe, but it must be corrected to the
-> spec below **before any tenant's bands are seeded**.
+> ✅ **CORRECTED AND SHIPPED 2026-08-08 (Matt's catch).** The first implementation (`3ec4eff`)
+> validated each line's `VatRateBp` by **exact membership** of the in-force set — which contradicts
+> how the platform declares VAT and would have quarantined **ordinary webtill sales** the moment
+> any tenant's bands were seeded. Replaced by the pair-based rule below (`VatRateHistory.Assess`,
+> shipped in `88e5c26`). Still inert live (0 rate rows), and **now safe to seed bands.**
 
 **The four standing VAT decisions this must respect** (all verified in code):
 1. **Ordinary lines carry wobbled rates on the wire, by design.** The webtill derives per-line

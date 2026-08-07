@@ -105,12 +105,13 @@ provable **headlessly**, with no device, no MySQL and no deployment. Three new p
    2002bp); `vatAmountPence` is `lineGross − lineEx`, never rate arithmetic. MAUI must mirror
    this at sale time; the cutover's snapped catalogue band is a display label only.
 4. **Enrolment refuses** while a legacy database is un-archived (§9.3). That is deliberate.
-5. ⚠ **WP2b as shipped (`3ec4eff`) is WRONG and must not be armed** (Matt's catch, 2026-08-08):
-   it validates exact bp membership, which would quarantine ordinary webtill sales the moment a
-   tenant's `VatRatePoints` are seeded. It is INERT live (0 rate rows; empty history skips) — do
-   **not** seed bands until the corrected pair-based spec in the retrofit plan's WP2b section has
-   landed. The plan carries the full correction; `BasketMathTests`/`VatRateChangeE2eTests` get
-   corrected with it (they pin rate-arithmetic VAT, not the platform's derivation).
+5. **WP2b validates the PRICE PAIR, never the declared rate** (corrected 2026-08-08 after Matt
+   caught the first version). `VatRateHistory.Assess` returns three verdicts and **only one
+   blocks**: a rate in force explains the pair → fine; only a *retired* band of that tenant's
+   explains it → quarantine (the stale-till case); nothing explains it → **accept**, because
+   off-band legacy damage is surfaced by the VatIntegrity report and never blocks trading (owner
+   decision). Gift-card lines are exempt under both voucher treatments. Still inert live (0 rows
+   in `VatRatePoints`) — **seeding a tenant's bands is now safe**, and is what arms it.
 
 **Security fix landed with this work:** EF Core 9.0.18's Sqlite provider resolves SQLitePCLRaw
 2.1.10, which carries a HIGH-severity advisory (GHSA-2m69-gcr7-jv3q). It reached every module, the
