@@ -12,9 +12,11 @@ import {
 } from "./pipeline.ts";
 import { getPrefs, setPrefs, type Prefs } from "./prefs.ts";
 import {
-  agentAccessState, fetchAgentStatus, getAgentToken, openDrawer, setAgentToken, testPrint,
+  agentAccessState, agentAvailable, fetchAgentStatus, getAgentToken, openDrawer, printDocument,
+  setAgentToken, testPrint,
   type AgentAccessState, type AgentStatus,
 } from "./hardware.ts";
+import { receiptToDocument } from "./till/receiptDoc.ts";
 import { ask } from "./Ask.tsx";
 import { getSession } from "./session.ts";
 import Receipt, { ReceiptBody, type ReceiptData } from "./till/Receipt.tsx";
@@ -494,11 +496,35 @@ function SettingsSection({ title, desc, children }: { title: string; desc: strin
 export default function SettingsPage() {
   const [prefs, setPrefsState] = useState<Prefs>(() => getPrefs());
   const [apiStatus, setApiStatus] = useState<"checking" | "ok" | "down">("checking");
-  const [testPrint, setTestPrint] = useState(false);
+  // renamed from `testPrint`, which shadowed the imported hardware.ts function of that name
+  const [browserTest, setBrowserTest] = useState(false);
   // bumping the tick remounts the receipt preview so it re-reads the refreshed template cache
   const [tplTick, setTplTick] = useState(0);
   const [tplBusy, setTplBusy] = useState(false);
+  const [paperBusy, setPaperBusy] = useState(false);
+  const [paperResult, setPaperResult] = useState("");
   const session = getSession();
+
+  /** Test print on the REAL receipt printer, via the agent — and deliberately the same document
+   *  the preview shows, so it proves this store's template on paper, not the agent's own canned
+   *  strip (which is what the Hardware section's "Test print" sends). */
+  async function testOnPaper() {
+    setPaperBusy(true);
+    setPaperResult("");
+    const agent = await agentAvailable();
+    if (!agent) {
+      setPaperResult("⚠ No hardware agent reachable on this PC — see Hardware below. Receipts still print through Windows.");
+      setPaperBusy(false);
+      return;
+    }
+    const ok = await printDocument(
+      receiptToDocument({ ...TEST_RECEIPT, date: new Date().toISOString() }, agent.columns ?? 42, false),
+    );
+    setPaperResult(ok
+      ? "Sent to the receipt printer — check the paper."
+      : "⚠ The receipt printer didn't accept it. Check Hardware below: pairing token, printer selected, printer switched on.");
+    setPaperBusy(false);
+  }
 
   async function refreshTemplate() {
     setTplBusy(true);
@@ -574,7 +600,7 @@ export default function SettingsPage() {
       </label>
       </SettingsSection>
 
-      <SettingsSection title="Printer" desc="The receipt this till prints — live preview and a browser test print">
+      <SettingsSection title="Printer" desc="The receipt this till prints — live preview, and a test print on paper or through Windows">
       <div className="setting-row">
         <span className="grow">
           Receipt layout
@@ -596,14 +622,28 @@ export default function SettingsPage() {
 
       <div className="setting-row">
         <span className="grow">
-          Print a test receipt (browser)
+          Test print on the receipt printer
           <span className="muted small block">
-            The browser/PDF receipt — always available, and what the till falls back to when there is no
-            hardware agent.
+            Prints the receipt above on the real printer via the Plutus Till Agent — silent, no
+            dialog, cut at the end. This is the one that proves the hardware.
           </span>
         </span>
-        <button className="ghost" disabled={!canSettings} onClick={() => setTestPrint(true)}>
-          Print test receipt
+        <button className="ghost" disabled={!canSettings || paperBusy} onClick={() => void testOnPaper()}>
+          {paperBusy ? "Sending…" : "Print on receipt printer"}
+        </button>
+      </div>
+      {paperResult && <p className="small">{paperResult}</p>}
+
+      <div className="setting-row">
+        <span className="grow">
+          Test print through Windows (browser)
+          <span className="muted small block">
+            The browser/PDF route with the usual print dialog — always available, and what the till
+            falls back to when there is no hardware agent.
+          </span>
+        </span>
+        <button className="ghost" disabled={!canSettings} onClick={() => setBrowserTest(true)}>
+          Print via Windows
         </button>
       </div>
       </SettingsSection>
@@ -636,7 +676,7 @@ export default function SettingsPage() {
       </dl>
       </SettingsSection>
 
-      {testPrint && <Receipt data={{ ...TEST_RECEIPT, date: new Date().toISOString() }} onClose={() => setTestPrint(false)} />}
+      {browserTest && <Receipt data={{ ...TEST_RECEIPT, date: new Date().toISOString() }} onClose={() => setBrowserTest(false)} />}
     </section>
   );
 }
