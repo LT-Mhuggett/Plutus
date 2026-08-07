@@ -51,6 +51,10 @@
     <!-- FE3: ESC/POS rendering for the till hardware agent. The Core project is deliberately
          Windows-free so these run on any OS. -->
     <ProjectReference Include="..\..\tools\Plutus.TillAgent.Core\Plutus.TillAgent.Core.csproj" />
+    <!-- MAUI retrofit WP1: the till's outbox/pusher/token policy. Deliberately MAUI-free so the
+         rules that decide whether a shop's takings reach the server are testable on any box. -->
+    <ProjectReference Include="..\..\src\Plutus.Client.Core\Plutus.Client.Core.csproj" />
+    <ProjectReference Include="..\..\src\Plutus.Contracts.Client\Plutus.Contracts.Client.csproj" />
   </ItemGroup>
 
   <!-- Phase 6: real, PII-scrubbed Woo fixtures loaded by WebstoreMapperTests at runtime. -->

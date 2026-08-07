@@ -27,6 +27,9 @@
     <ProjectReference Include="..\..\Plutus\Commons\Plutus.Entities\Plutus.Entities.csproj" />
     <!-- WP5.3: exercises WebstoreCustomerLink (order email → loyalty customer) directly. -->
     <ProjectReference Include="..\..\src\Plutus.Webstore\Plutus.Webstore.csproj" />
+    <!-- MAUI retrofit WP1: drives the till's own client library against the real controllers. -->
+    <ProjectReference Include="..\..\src\Plutus.Client.Core\Plutus.Client.Core.csproj" />
+    <ProjectReference Include="..\..\src\Plutus.Contracts.Client\Plutus.Contracts.Client.csproj" />
   </ItemGroup>
 
 </Project>

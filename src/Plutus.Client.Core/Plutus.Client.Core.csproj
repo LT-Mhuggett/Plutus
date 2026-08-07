@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- WP1: the till's platform half — outbox engine, pusher, token client, sync cursors.
+       NO MAUI references and no third-party packages: everything here must be unit-testable on a
+       build agent with no device, and integration-testable against PlutusAppFactory's in-process
+       HttpClient (which is why every entry point takes an injected HttpClient). -->
+  <ItemGroup>
+    <ProjectReference Include="..\Plutus.SharedKernel\Plutus.SharedKernel.csproj" />
+    <ProjectReference Include="..\Plutus.Contracts.Client\Plutus.Contracts.Client.csproj" />
+  </ItemGroup>
+
+</Project>

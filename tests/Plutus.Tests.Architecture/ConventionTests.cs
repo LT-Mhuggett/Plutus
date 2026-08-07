@@ -73,6 +73,46 @@ public class ConventionTests
     }
 
     [Fact]
+    public void Till_client_libraries_stay_free_of_MAUI_and_backend_modules()
+    {
+        // MAUI retrofit WP1 (M0.1 rule). Plutus.Client.Core + Plutus.Contracts.Client are the
+        // till's half of the platform. Two directions must both hold:
+        //   • no MAUI/UI dependency — otherwise the outbox and token policy stop being testable
+        //     on a build agent, and the rules that decide whether a shop's takings reach the
+        //     server become verifiable only on a physical till;
+        //   • no BACKEND module reference — a till must speak the wire contract, never link the
+        //     server's internals (that is how a client ends up needing a MySQL context).
+        var allowed = new[] { "Plutus.SharedKernel", "Plutus.Contracts.Client" };
+        var offenders = new List<string>();
+
+        foreach (var name in new[] { "Plutus.Client.Core", "Plutus.Contracts.Client" })
+        {
+            var csproj = Path.Combine(Repo.Root(), "src", name, name + ".csproj");
+            if (!File.Exists(csproj)) continue;
+            // Scan the REFERENCES, not the file text — these csprojs explain in prose why they
+            // must stay MAUI-free, and a naive text match flags its own documentation.
+            var text = File.ReadAllText(csproj);
+
+            foreach (Match m in Regex.Matches(text, @"PackageReference\s+Include=""([^""]+)"""))
+            {
+                if (Regex.IsMatch(m.Groups[1].Value, @"(Maui|Xamarin|Syncfusion|CommunityToolkit)", RegexOptions.IgnoreCase))
+                    offenders.Add($"{name}: references UI/MAUI package {m.Groups[1].Value}");
+            }
+
+            foreach (Match m in Regex.Matches(text, @"ProjectReference\s+Include=""([^""]+)"""))
+            {
+                var referenced = Path.GetFileNameWithoutExtension(m.Groups[1].Value);
+                if (!allowed.Contains(referenced))
+                    offenders.Add($"{name}: references {referenced} (only SharedKernel + Contracts.Client are allowed)");
+            }
+        }
+
+        Assert.True(offenders.Count == 0,
+            "The till client libraries must stay MAUI-free and backend-module-free. Offenders:\n  "
+            + string.Join("\n  ", offenders));
+    }
+
+    [Fact]
     public void Messaging_seam_has_no_concrete_provider_wired_in_core()
     {
         // WP17.3: like the billing seam, core wires ZERO concrete mail/SMS provider — only the

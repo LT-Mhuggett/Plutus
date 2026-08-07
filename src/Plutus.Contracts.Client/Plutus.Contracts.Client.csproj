@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- WP1 rule: the wire contract has NO project references and no third-party packages, exactly
+       like SharedKernel. It is shared by the backend's callers and by MAUI, so anything it drags
+       in would be dragged onto a till.
+       ⚠ NOT named Plutus.Contracts — that name is taken by the legacy repository-interface layer
+       (Plutus/Commons/Plutus.Contracts), which is a different thing entirely. -->
+
+</Project>

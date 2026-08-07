@@ -87,6 +87,12 @@ namespace Plutus.Tenancy.Controllers
                 storeId = s.Id,
                 name = d != null ? d.Name : null,
                 businessName = biz?.Name,
+                // WP1 (MAUI retrofit): the LEGACY Business id. A till needs it to derive catalogue
+                // item GUIDs via DeterministicGuid.ForItem(businessId, itemIdOne) — and it is NOT
+                // the TenantId that enrolment returns. Deriving from the tenant id instead produces
+                // silently wrong item ids (stock still moves, because lines key on itemIdOne), so
+                // this is served rather than left for a till to guess.
+                businessId = s.BusinessId,
                 vatNumber = biz?.VatIN,
                 adLine1 = s.AdLine1, adLine2 = s.AdLine2, city = s.City,
                 postCode = s.PostCode, country = s.Country, contactNumber = s.ContactNumber,
