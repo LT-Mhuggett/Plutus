@@ -14,6 +14,13 @@
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.18" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.18" />
+    <!-- SECURITY: EF Core 9.0.18's Sqlite provider still resolves SQLitePCLRaw 2.1.10, which has a
+         known HIGH-severity advisory (GHSA-2m69-gcr7-jv3q). Pinned forward to the patched 2.1.12.
+         Pinned HERE because Plutus.Entities is the root of the EF chain — every module, the host
+         and the test projects inherit it transitively, so one pin fixes the whole repo. Remove
+         once the EF provider itself ships a patched dependency. -->
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.12" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.18" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.1" />
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="9.0.0" />

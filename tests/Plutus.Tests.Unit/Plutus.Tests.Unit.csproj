@@ -55,6 +55,8 @@
          rules that decide whether a shop's takings reach the server are testable on any box. -->
     <ProjectReference Include="..\..\src\Plutus.Client.Core\Plutus.Client.Core.csproj" />
     <ProjectReference Include="..\..\src\Plutus.Contracts.Client\Plutus.Contracts.Client.csproj" />
+    <!-- WP2: the till's local store v2 — exercised against a real SQLite database, no device. -->
+    <ProjectReference Include="..\..\src\Plutus.Client.Storage\Plutus.Client.Storage.csproj" />
   </ItemGroup>
 
   <!-- Phase 6: real, PII-scrubbed Woo fixtures loaded by WebstoreMapperTests at runtime. -->

@@ -30,6 +30,8 @@
     <!-- MAUI retrofit WP1: drives the till's own client library against the real controllers. -->
     <ProjectReference Include="..\..\src\Plutus.Client.Core\Plutus.Client.Core.csproj" />
     <ProjectReference Include="..\..\src\Plutus.Contracts.Client\Plutus.Contracts.Client.csproj" />
+    <!-- WP3 soak: a real SQLite till store draining to the real ingest endpoint. -->
+    <ProjectReference Include="..\..\src\Plutus.Client.Storage\Plutus.Client.Storage.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- MAUI retrofit WP2: the till's LOCAL store (schema v2), as a separate project from
+       Plutus.Client.Core so the engine stays package-free and this is the only place that knows
+       about SQLite. Still MAUI-free: the whole store is exercised in tests against a temp file,
+       so cutover, pricing and the outbox are verifiable without a device.
+       EF Core 9.0.18 — matching the platform, NOT the legacy Database project's 3.1.17. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.18" />
+    <!-- SECURITY: pinned forward past GHSA-2m69-gcr7-jv3q (SQLitePCLRaw 2.1.10). Same pin as
+         Plutus.Entities; kept here too because this project does not reference it. -->
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.12" />
+  </ItemGroup>
+
+  <!-- The cutover's VAT-band inference is internal (nothing outside should call it) but its
+       boundary behaviour is exactly what needs pinning — so the tests see internals rather than
+       the API being widened just to be testable. -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>Plutus.Tests.Unit</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Plutus.SharedKernel\Plutus.SharedKernel.csproj" />
+    <ProjectReference Include="..\Plutus.Contracts.Client\Plutus.Contracts.Client.csproj" />
+    <ProjectReference Include="..\Plutus.Client.Core\Plutus.Client.Core.csproj" />
+  </ItemGroup>
+
+</Project>
