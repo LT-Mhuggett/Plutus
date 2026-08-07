@@ -88,9 +88,21 @@ const DRIVER_LINKS: { label: string; url: string; covers: string }[] = [
  * Everything here is optional. With no agent the till behaves exactly as it does today (browser/PDF
  * receipt, drawer opened by hand) — the card says so rather than looking broken.
  */
+/** The hosted agent build, from /agent/latest.json (written by tools/Plutus.TillAgent/
+ *  publish-agent.ps1). The filename carries the version so a downloaded exe is identifiable,
+ *  and the manifest lets this page compare it against the installed agent. */
+interface AgentDownload { version: string; file: string }
+
 function HardwareSection({ canSettings }: { canSettings: boolean }) {
   const [status, setStatus] = useState<AgentStatus | null>(null);
   const [probed, setProbed] = useState(false);
+  const [latest, setLatest] = useState<AgentDownload | "error" | null>(null);
+  useEffect(() => {
+    fetch("/agent/latest.json")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then(setLatest)
+      .catch(() => setLatest("error"));
+  }, []);
   // when the probe finds nothing, WHY matters: agent not running vs the browser's
   // "Apps on device" permission having been blocked (the popup answered "Block").
   const [access, setAccess] = useState<AgentAccessState>("unknown");
@@ -214,6 +226,13 @@ function HardwareSection({ canSettings }: { canSettings: boolean }) {
 
       {/* Downloads — shown in every state: with no agent this is how you get one; with an
           agent, the driver links are still the fix for "my printer isn't in the list". */}
+      {status && latest && latest !== "error" && status.agentVersion !== latest.version && (
+        <p className="small discount-note">
+          ⬆ Agent v{latest.version} is available — this PC runs v{status.agentVersion}. Download it
+          below, exit the tray agent (right-click its icon → Exit), replace the old file, run the
+          new one. Settings and the pairing token carry over.
+        </p>
+      )}
       <div className="setting-row">
         <span className="grow">
           Plutus Till Agent
@@ -223,9 +242,13 @@ function HardwareSection({ canSettings }: { canSettings: boolean }) {
             pick your printer in its Settings, then copy its pairing token into the box above.
           </span>
         </span>
-        <a className="ghost" href="/agent/PlutusTillAgent.exe" download>
-          Download the agent
-        </a>
+        {latest && latest !== "error" ? (
+          <a className="ghost" href={`/agent/${latest.file}`} download>
+            Download the agent (v{latest.version})
+          </a>
+        ) : (
+          <span className="muted small">{latest === "error" ? "download unavailable — reload this page" : "checking version…"}</span>
+        )}
       </div>
       <p className="muted small">
         To make the webtill be able to connect to printers, you usually need the drivers installed.

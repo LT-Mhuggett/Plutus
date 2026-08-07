@@ -1,6 +1,8 @@
 node_modules/
 dist/
 *.local
-# the hosted Till Agent build (60MB exe) — lives in public/ on the build Mac, not in git;
-# rebuild from tools/Plutus.TillAgent with `dotnet publish -c Release` and copy it there
+# the hosted Till Agent build (60MB+ exe, version-stamped name) + latest.json manifest —
+# lives in public/agent/ on the build Mac, not in git. To release: bump <Version> in
+# tools/Plutus.TillAgent/Plutus.TillAgent.csproj, run tools/Plutus.TillAgent/publish-agent.ps1,
+# copy BOTH output files here (removing the previous versioned exe), rebuild + deploy.
 public/agent/
