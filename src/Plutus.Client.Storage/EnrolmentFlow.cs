@@ -1,0 +1,113 @@
+using System;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using Plutus.Client.Core;
+
+namespace Plutus.Client.Storage;
+
+/// <summary>Why a till cannot enrol yet, in the operator's words.</summary>
+public sealed class EnrolmentBlockedException : Exception
+{
+    public EnrolmentBlockedException(string message) : base(message) { }
+}
+
+/// <summary>
+/// MAUI retrofit WP4: the first-run flow that turns a standalone till into an enrolled device.
+///
+/// ⚠ MAUI is NOT same-origin. The web till never needed a server address; a native till does, so
+/// first run collects a Server URL alongside the enrolment code.
+///
+/// ⚠ THE ARCHIVE GATE (binding default §9.3/§9.4). Enrolment REFUSES while an un-archived legacy
+/// database is present. Every live till holds real sales and held baskets in its old file; if a
+/// till enrols and starts a fresh v2 store without that file being archived first, the shop's
+/// history is stranded on a machine that now looks empty — and the translation agent has nothing
+/// to ingest. Refusing loudly is the only safe default, because the failure is silent otherwise.
+/// </summary>
+public sealed class EnrolmentFlow
+{
+    private readonly TillStore _store;
+    private readonly PlutusApiClient _api;
+    private readonly IDeviceCredentialStore _credentials;
+
+    public EnrolmentFlow(TillStore store, PlutusApiClient api, IDeviceCredentialStore credentials)
+    {
+        _store = store;
+        _api = api;
+        _credentials = credentials;
+    }
+
+    /// <summary>Has this till already enrolled? Used to skip first-run on every later launch.</summary>
+    public async Task<bool> IsEnrolledAsync(CancellationToken ct = default) =>
+        _credentials.DeviceId != null && await _store.GetGuidMetaAsync(MetaKeys.TillId, ct) != null;
+
+    /// <summary>
+    /// The §9.3 gate. Returns the reason enrolment is blocked, or null when it may proceed.
+    /// <paramref name="legacyDatabasePath"/> is null when this is a clean install with no legacy
+    /// file to worry about.
+    /// </summary>
+    public async Task<string?> BlockedReasonAsync(string? legacyDatabasePath, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(legacyDatabasePath) || !File.Exists(legacyDatabasePath)) return null;
+        if (await _store.GetMetaAsync(MetaKeys.LegacyArchivedAtUtc, ct) != null) return null;
+
+        return "This till still has its previous database, and it hasn't been archived yet. " +
+               "Archive it first — it holds this till's sales history and is what the migration " +
+               "reads. Enrolling now would leave that history stranded on this machine.";
+    }
+
+    /// <summary>
+    /// Redeem an enrolment code and record the till's identity.
+    ///
+    /// The ClientSecret goes to <see cref="IDeviceCredentialStore"/> (platform secure storage) and
+    /// NEVER into the local database — support copies that file off machines routinely.
+    /// </summary>
+    public async Task<Guid> EnrolAsync(
+        string serverUrl, string enrolmentCode, string? legacyDatabasePath = null, CancellationToken ct = default)
+    {
+        var blocked = await BlockedReasonAsync(legacyDatabasePath, ct);
+        if (blocked != null) throw new EnrolmentBlockedException(blocked);
+
+        if (string.IsNullOrWhiteSpace(serverUrl))
+            throw new EnrolmentBlockedException("A server address is needed before this till can enrol.");
+
+        var result = await _api.EnrolAsync(enrolmentCode.Trim(), ct);
+
+        _credentials.Save(result.DeviceId, result.ClientSecret);
+        await _store.SetMetaAsync(MetaKeys.ServerUrl, serverUrl.Trim(), ct);
+        await _store.SetMetaAsync(MetaKeys.DeviceId, result.DeviceId.ToString("D"), ct);
+        await _store.SetMetaAsync(MetaKeys.TillId, result.TillId.ToString("D"), ct);
+        await _store.SetMetaAsync(MetaKeys.TenantId, result.TenantId.ToString("D"), ct);
+        return result.DeviceId;
+    }
+
+    /// <summary>
+    /// Learn (and cache) which store this till belongs to, and the legacy BusinessId that seeds
+    /// item-id derivation. Called after enrolment and on each start — a till can be MOVED between
+    /// stores in the portal, and its receipts, themes and store info must follow it.
+    ///
+    /// ⚠ businessId comes from the server, never from the tenant id.
+    /// </summary>
+    public async Task RefreshPlacementAsync(CancellationToken ct = default)
+    {
+        var tillId = await _store.GetGuidMetaAsync(MetaKeys.TillId, ct);
+        if (tillId is not Guid id) return;
+
+        var name = await _api.GetTillNameAsync(id, ct);
+        if (name?.StoreId is not int storeId) return;
+        await _store.SetMetaAsync(MetaKeys.StoreId, storeId.ToString(), ct);
+
+        var info = await _api.GetStoreInfoAsync(storeId, ct);
+        if (info?.BusinessId is Guid businessId && businessId != Guid.Empty)
+            await _store.SetMetaAsync(MetaKeys.BusinessId, businessId.ToString("D"), ct);
+    }
+
+    /// <summary>Forget this device's credential — after the portal revokes it, or on un-enrol.
+    /// Local SALES ARE KEPT: they are money that may not have synced yet, and dropping them
+    /// because a credential went away would be the worst possible response.</summary>
+    public async Task ForgetDeviceAsync(CancellationToken ct = default)
+    {
+        _credentials.Clear();
+        await _store.SetMetaAsync(MetaKeys.DeviceId, null, ct);
+    }
+}
