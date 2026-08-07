@@ -51,13 +51,16 @@ namespace Plutus.TillAgent
             Refresh();
 
             // First run has no printer chosen and nothing paired — say so rather than sit silently.
-            if (string.IsNullOrWhiteSpace(_state.Config.PrinterName)) ShowSettings();
+            if (string.IsNullOrWhiteSpace(_state.Config.PrinterName) && string.IsNullOrWhiteSpace(_state.Config.PosDeviceId))
+                ShowSettings();
         }
 
         private void Refresh()
         {
             if (_icon.Container?.Components == null && _icon.Icon == null) return;
-            var printer = string.IsNullOrWhiteSpace(_state.Config.PrinterName) ? "no printer selected" : _state.Config.PrinterName;
+            var printer = !string.IsNullOrWhiteSpace(_state.Config.PosDeviceName) ? _state.Config.PosDeviceName
+                : !string.IsNullOrWhiteSpace(_state.Config.PrinterName) ? _state.Config.PrinterName
+                : "no printer selected";
             var health = _state.LastError != null ? $"ERROR: {_state.LastError}" : "ready";
             // NotifyIcon truncates past 63 chars and throws on longer in some Windows versions.
             var text = $"Plutus Till Agent v{Program.AgentVersion}\n{printer}\n{health}";
@@ -121,9 +124,13 @@ namespace Plutus.TillAgent
             void Add(Control c, int height = 0) { c.Left = 20; c.Top = y; Controls.Add(c); y += (height > 0 ? height : c.Height) + 8; }
 
             Add(new Label { Text = "Receipt printer", AutoSize = true });
-            foreach (var p in state.Transport.ListPrinters()) _printers.Items.Add(p);
-            if (!string.IsNullOrWhiteSpace(state.Config.PrinterName)) _printers.SelectedItem = state.Config.PrinterName;
+            foreach (var p in state.Transport.ListPrinters()) _printers.Items.Add(new PrinterChoice(p, null));
+            if (!string.IsNullOrWhiteSpace(state.Config.PrinterName) && string.IsNullOrWhiteSpace(state.Config.PosDeviceId))
+                SelectChoice(c => c.PosId == null && c.Display == state.Config.PrinterName);
             Add(_printers);
+            // FE3.2: POS-mode devices enumerate async; they land at the top marked "Direct" —
+            // the queue-less route the NatApp proved against the shop's TSP143.
+            _ = LoadPosDevicesAsync();
 
             Add(new Label { Text = "Paper width", AutoSize = true });
             _columns.Items.AddRange(new object[] { "80mm (42 characters)", "58mm (32 characters)" });
@@ -192,9 +199,49 @@ namespace Plutus.TillAgent
             _status.Text = $"Listening on http://127.0.0.1:{Program.Port} (this PC only).";
         }
 
+        /// <summary>One entry in the printer dropdown: a PointOfService device (PosId set) or a
+        /// Windows spooler queue (PosId null).</summary>
+        private sealed record PrinterChoice(string Display, string? PosId)
+        {
+            public override string ToString() => PosId == null ? Display : $"Direct: {Display} (recommended)";
+        }
+
+        private void SelectChoice(Func<PrinterChoice, bool> match)
+        {
+            foreach (var item in _printers.Items)
+                if (item is PrinterChoice c && match(c)) { _printers.SelectedItem = item; return; }
+        }
+
+        private async System.Threading.Tasks.Task LoadPosDevicesAsync()
+        {
+            var devices = await PosPrint.ListPrintersAsync();
+            if (IsDisposed || devices.Count == 0) return;
+            BeginInvoke(() =>
+            {
+                if (IsDisposed) return;
+                for (var i = devices.Count - 1; i >= 0; i--)
+                    _printers.Items.Insert(0, new PrinterChoice(devices[i].Name, devices[i].Id));
+                if (!string.IsNullOrWhiteSpace(_state.Config.PosDeviceId))
+                    SelectChoice(c => c.PosId == _state.Config.PosDeviceId);
+                // nothing configured at all → preselect the first Direct device so Save just works
+                else if (_printers.SelectedItem == null && string.IsNullOrWhiteSpace(_state.Config.PrinterName))
+                    _printers.SelectedIndex = 0;
+            });
+        }
+
         private void Save()
         {
-            _state.Config.PrinterName = _printers.SelectedItem?.ToString() ?? string.Empty;
+            if (_printers.SelectedItem is PrinterChoice { PosId: not null } pos)
+            {
+                _state.Config.PosDeviceId = pos.PosId;
+                _state.Config.PosDeviceName = pos.Display;
+            }
+            else
+            {
+                _state.Config.PosDeviceId = string.Empty;
+                _state.Config.PosDeviceName = string.Empty;
+                _state.Config.PrinterName = (_printers.SelectedItem as PrinterChoice)?.Display ?? string.Empty;
+            }
             _state.Config.Columns = _columns.SelectedIndex == 1 ? 32 : 42;
             _state.Config.Emulation = _emulation.SelectedIndex switch
             {

@@ -9,7 +9,12 @@
     vendor alike) generally want an interactive user session, and till PCs auto-log-in anyway.
   -->
   <PropertyGroup>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- Windows-SDK-versioned TFM: FE3.2 prints via Windows.Devices.PointOfService (WinRT) —
+         the route the original NatApp used, and the only one PROVEN against Kapow's TSP143.
+         The in-box POS support translates jobs to the printer's native protocol itself, so no
+         vendor driver, no spooler queue, no paper-size settings are involved at all. -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
     <OutputType>WinExe</OutputType>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -19,7 +24,7 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <!-- The version the agent reports to the till, which forwards it to the portal's Locations
          page (FE3.0). Bump this on every released build — it is how a stale agent is spotted. -->
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>

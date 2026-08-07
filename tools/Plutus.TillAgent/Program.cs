@@ -76,21 +76,28 @@ namespace Plutus.TillAgent
             app.UseCors();
 
             // ── unauthenticated: "is an agent here, and is it well?" ──
-            app.MapGet("/status", () => Results.Ok(new
+            app.MapGet("/status", () =>
             {
-                agentVersion = AgentVersion,
-                printer = new
+                var pos = !string.IsNullOrWhiteSpace(state.Config.PosDeviceId);
+                return Results.Ok(new
                 {
-                    name = state.Config.PrinterName,
-                    online = state.Transport.IsOnline(state.Config.PrinterName),
-                },
-                drawerSupported = !string.IsNullOrWhiteSpace(state.Config.PrinterName),
-                paired = !string.IsNullOrWhiteSpace(state.Config.Token),
-                columns = state.Config.Columns,
-                // FE3.1: which language this agent will speak to the selected printer — the till's
-                // Settings → Hardware shows it, so "why doesn't it print" is answerable at a glance.
-                emulation = EmulationResolver.Resolve(state.Config.Emulation, state.Config.PrinterName),
-            }));
+                    agentVersion = AgentVersion,
+                    printer = new
+                    {
+                        name = pos ? state.Config.PosDeviceName : state.Config.PrinterName,
+                        // POS device health needs an async claim — the test print is the real
+                        // check; report presence rather than lie about a probe we didn't do.
+                        online = pos || state.Transport.IsOnline(state.Config.PrinterName),
+                    },
+                    drawerSupported = pos || !string.IsNullOrWhiteSpace(state.Config.PrinterName),
+                    paired = !string.IsNullOrWhiteSpace(state.Config.Token),
+                    columns = state.Config.Columns,
+                    // FE3.1/3.2: which route this agent will use — the till's Settings → Hardware
+                    // shows it, so "why doesn't it print" is answerable at a glance.
+                    emulation = pos ? "pointofservice"
+                        : EmulationResolver.Resolve(state.Config.Emulation, state.Config.PrinterName),
+                });
+            });
 
             // ── everything that touches hardware needs the pairing token ──
             IResult Guard(HttpContext ctx)
@@ -174,52 +181,67 @@ namespace Plutus.TillAgent
         /// language per printer, so the same agent drives an Epson and a TSP143 out of the box.</summary>
         private string Emulation => EmulationResolver.Resolve(Config.Emulation, Config.PrinterName);
 
-        public Task<IResult> PrintAsync(PrintDocument doc)
+        /// <summary>FE3.2: a configured PointOfService device always wins — it bypasses the print
+        /// queue (whose futurePRNT incarnation text-renders even RAW jobs) and is the route the
+        /// NatApp proved against Kapow's TSP143.</summary>
+        private bool UsePos => !string.IsNullOrWhiteSpace(Config.PosDeviceId);
+
+        public async Task<IResult> PrintAsync(PrintDocument doc)
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(Config.PrinterName))
-                    return Task.FromResult(Fail("No printer is selected in the agent's settings."));
+                if (!UsePos && string.IsNullOrWhiteSpace(Config.PrinterName))
+                    return Fail("No printer is selected in the agent's settings.");
                 doc.Columns = doc.Columns > 0 ? doc.Columns : Config.Columns;
 
-                byte[] bytes;
-                if (Emulation == EmulationResolver.StarRasterMode)
+                if (UsePos)
+                {
+                    await PosPrint.PrintAsync(Config.PosDeviceId, doc);
+                }
+                else if (Emulation == EmulationResolver.StarRasterMode)
                 {
                     var rows = ReceiptRasterizer.Rasterize(doc, out var narrow, out var drawer);
-                    bytes = StarRaster.RenderJob(rows, new StarRaster.Options { OpenDrawer = drawer, Narrow58mm = narrow });
+                    Transport.Send(Config.PrinterName,
+                        StarRaster.RenderJob(rows, new StarRaster.Options { OpenDrawer = drawer, Narrow58mm = narrow }));
                 }
                 else
                 {
-                    bytes = EscPos.Render(doc);
+                    Transport.Send(Config.PrinterName, EscPos.Render(doc));
                 }
 
-                Transport.Send(Config.PrinterName, bytes);
                 LastError = null;
                 LastPrintUtc = DateTime.UtcNow;
                 Changed?.Invoke();
-                return Task.FromResult(Results.Ok(new { printed = true }));
+                return Results.Ok(new { printed = true });
             }
             catch (Exception ex)
             {
-                return Task.FromResult(Fail(ex.Message));
+                return Fail(ex.Message);
             }
         }
 
-        public Task<IResult> KickDrawerAsync()
+        public async Task<IResult> KickDrawerAsync()
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(Config.PrinterName))
-                    return Task.FromResult(Fail("No printer is selected in the agent's settings."));
-                Transport.Send(Config.PrinterName,
-                    Emulation == EmulationResolver.StarRasterMode ? StarRaster.DrawerOnlyJob() : EscPos.DrawerKick());
+                if (UsePos)
+                {
+                    await PosPrint.OpenDrawerAsync();
+                }
+                else
+                {
+                    if (string.IsNullOrWhiteSpace(Config.PrinterName))
+                        return Fail("No printer is selected in the agent's settings.");
+                    Transport.Send(Config.PrinterName,
+                        Emulation == EmulationResolver.StarRasterMode ? StarRaster.DrawerOnlyJob() : EscPos.DrawerKick());
+                }
                 LastError = null;
                 Changed?.Invoke();
-                return Task.FromResult(Results.Ok(new { opened = true }));
+                return Results.Ok(new { opened = true });
             }
             catch (Exception ex)
             {
-                return Task.FromResult(Fail(ex.Message));
+                return Fail(ex.Message);
             }
         }
 

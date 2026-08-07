@@ -20,6 +20,14 @@ namespace Plutus.TillAgent
         /// <summary>Windows printer name to send RAW ESC/POS to. Empty = not configured yet.</summary>
         public string PrinterName { get; set; } = string.Empty;
 
+        /// <summary>FE3.2: a Windows.Devices.PointOfService printer id. When set it WINS over
+        /// PrinterName — the POS route bypasses the spooler queue entirely (the futurePRNT queue
+        /// was seen text-rendering even RAW jobs) and is the NatApp-proven path for the TSP143.</summary>
+        public string PosDeviceId { get; set; } = string.Empty;
+
+        /// <summary>Friendly name for the POS device, for display only.</summary>
+        public string PosDeviceName { get; set; } = string.Empty;
+
         /// <summary>Characters per line: 42 for 80mm paper, 32 for 58mm.</summary>
         public int Columns { get; set; } = 42;
 
