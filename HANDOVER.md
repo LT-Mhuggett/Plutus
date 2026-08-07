@@ -105,13 +105,23 @@ provable **headlessly**, with no device, no MySQL and no deployment. Three new p
    2002bp); `vatAmountPence` is `lineGross − lineEx`, never rate arithmetic. MAUI must mirror
    this at sale time; the cutover's snapped catalogue band is a display label only.
 4. **Enrolment refuses** while a legacy database is un-archived (§9.3). That is deliberate.
-5. **WP2b validates the PRICE PAIR, never the declared rate** (corrected 2026-08-08 after Matt
-   caught the first version). `VatRateHistory.Assess` returns three verdicts and **only one
-   blocks**: a rate in force explains the pair → fine; only a *retired* band of that tenant's
-   explains it → quarantine (the stale-till case); nothing explains it → **accept**, because
-   off-band legacy damage is surfaced by the VatIntegrity report and never blocks trading (owner
-   decision). Gift-card lines are exempt under both voucher treatments. Still inert live (0 rows
-   in `VatRatePoints`) — **seeding a tenant's bands is now safe**, and is what arms it.
+5. **VAT: the portal is the source of truth, and it isn't yet.** Matt's directive (2026-08-08):
+   *all VAT guidance comes from the portal down to the tills* — a till never decides a VAT rule.
+   Today there is **no portal VAT surface at all** (`fetchTaxes` is read-only in both frontends;
+   `Taxes` is seeded legacy data with no effective dates). Retrofit **WP2c** builds it, and it
+   gates any MAUI VAT work. Full analysis, with HMRC citations, in the retrofit plan **§2a**.
+   - WP2b validates the **price pair**, never the declared rate (corrected after Matt caught the
+     first version). Three verdicts, only one blocks: in-force band explains it → fine; only a
+     *retired* band explains it → quarantine; nothing explains it → **accept** (off-band legacy
+     damage is reported, never blocks trading — owner decision). Still inert live (0 rows).
+   - ⚠ **Do NOT seed `VatRatePoints` by hand.** Bands must first gain `exempt` as distinct from
+     `zero` (both are 0bp and currently indistinguishable once a sale is recorded), and seeding
+     belongs to WP2c.
+   - **Three findings in live Kapow data are Matt's/his accountant's calls, not engineering's**
+     (§2a): the third band is named "Exempt" though comics are **zero-rated** in UK law (different
+     input-tax recovery); zero-rated vs exempt cannot be separated in any report; and VAT rounding
+     differs from the VAT-fraction method on **2,006 of 6,152** standard-rated lines, one-directional,
+     **£20.06 less VAT declared**. Whatever is decided must change **both tills together**.
 
 **Security fix landed with this work:** EF Core 9.0.18's Sqlite provider resolves SQLitePCLRaw
 2.1.10, which carries a HIGH-severity advisory (GHSA-2m69-gcr7-jv3q). It reached every module, the

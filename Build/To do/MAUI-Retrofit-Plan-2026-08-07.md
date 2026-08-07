@@ -190,6 +190,79 @@ and retire NatApp's hardcoded C# receipt layout — a debt that has outlived two
 
 ---
 
+## 2a. VAT — the standing rules, and where they must come from
+
+> **Added 2026-08-08 at Matt's instruction**, after checking HMRC guidance and the live Kapow data.
+> **The governing principle: ALL VAT GUIDANCE COMES FROM THE PORTAL, DOWN TO THE TILLS.** A till —
+> web or MAUI — never decides a VAT rule. It receives bands, applies them, and reports what it
+> charged. Same shape as receipt templates (WP3) and themes (WP7).
+>
+> ⚠ **This is not yet true of the platform.** There is no portal VAT surface at all: `fetchTaxes`
+> is READ-ONLY in both frontends, and the `Taxes` table is seeded legacy data with no effective
+> dates and no editor. WP2b added `VatRatePoints` with no UI either. Closing that is **WP2c** below,
+> and it should land before MAUI consumes any of it — otherwise the retrofit hard-codes a second
+> copy of guidance that has no owner.
+
+### The law (HMRC, checked 2026-08-08)
+
+| Class | Rate | Taxable supply? | Input tax recoverable? |
+|---|---|---|---|
+| Standard | 20% | yes | yes |
+| Reduced | 5% | yes | yes |
+| **Zero-rated** | 0% | **yes** | **yes** |
+| **Exempt** | none | **no** | **NO** |
+| Outside scope | none | no | n/a |
+
+**Zero-rated and exempt are not the same thing**, even though both charge the customer nothing.
+Zero-rated is a taxable supply at 0% with full input-tax recovery; exempt is not a taxable supply
+and *blocks* recovery of input tax attributable to it (partial exemption). They are different boxes
+in the accounting and different money.
+
+**Rounding.** HMRC's rounding-*down* concession is **explicitly not appropriate for retailers**
+(VATREC12020). Permitted for retail: round up and down to the nearest 1p, or a published/bespoke
+retail scheme. Plutus prices **VAT-inclusive** (both item editors do `exPrice = price / rate`, then
+round to the penny), so the tax-inclusive price is the one the customer sees and the net is derived.
+
+**Tax point.** VAT is accounted at the rate in force when the tax point occurs (Notice 700). For
+retail that is the time of supply — the sale itself — which is why WP2b judges a line against
+`OccurredAtUtc` and not against "now". That part is right.
+
+### Three findings in the LIVE Kapow data — all for Matt/his accountant, none for me to decide
+
+**1. The third band is named "Exempt", but comics and books are ZERO-RATED.**
+`Taxes` holds `20%` (1.2), `5%` (1.05), `Exempt` (1.0). HMRC Notice 701/10 zero-rates books,
+comics, magazines and newspapers. If Kapow's comic sales are being classified as *exempt* rather
+than *zero-rated*, that is the wrong class in the more expensive direction: exempt supplies restrict
+input-tax recovery on stock and overheads, zero-rated do not. Most likely this is a **misnomer in a
+2019 seed row** rather than how the returns are actually filed — but it needs confirming, and the
+band should be renamed to match whatever is true.
+
+**2. Zero-rated and exempt are INDISTINGUISHABLE once a sale is recorded.** Both arrive as
+`VatRateBp = 0` on `SaleLine`, so no report can separate them. 76,810 of Kapow's lines are 0bp.
+If any genuinely exempt supply is ever sold alongside zero-rated stock, the partial-exemption
+figure cannot be derived from Plutus data at all. Fixing this means carrying the **band identity**
+(not just its rate) onto the line — a schema change affecting both tills and the rollups.
+
+**3. VAT rounding differs from the VAT-fraction method on ~⅓ of standard-rated lines.**
+Measured on live data: of **6,152** standard-rated lines, **2,006 differ by exactly 1p**, and the
+difference is **systematically one-directional — £20.06 less VAT declared** than the VAT-fraction
+method (`gross × 1/6`) would give.
+The cause: the till derives VAT as `lineGross − lineEx` where `lineEx` is the *penny-rounded* net,
+rather than applying the VAT fraction to the gross. Both appear on HMRC's list of acceptable retail
+methods, so this is likely defensible — but it is a real, quantified, one-way divergence, it is the
+same on both tills, and **it is an accountant's call, not an engineering one.** Whatever is decided
+must change *both* tills together, or they will disagree penny-for-penny on the same basket.
+
+### What this fixes in the plan
+
+- **WP2b** (shipped, correct as far as it goes) validates the *price pair* against effective-dated
+  bands. Its band vocabulary must gain **`exempt` as distinct from `zero`**, even though both are
+  0bp, so the two can never be silently merged.
+- **WP2c** (new, below) builds the portal surface that owns all of this.
+- **WP3** must send the band's *identity* alongside the derived rate once WP2c exists, so finding 2
+  becomes fixable rather than permanently lost.
+- MAUI must **never** compute a VAT rule locally. It caches what the portal published and applies it.
+
 ## 3a. Scope found after this plan's sources were written
 
 The parity analysis inherited from `MAUI-Backend-Sync` (2026-08-01) covered six areas — Cash,
@@ -227,7 +300,8 @@ resume point for the next session.
 |---|---|---|
 | **0** Toolchain + baseline gate | ✅ | 2026-08-07 · `27e91c5`. maui workload present; AppClient `net10.0-windows` head builds 0 errors; AppClient.Tests **295 pass / 3 skip**; Unit 347 · Arch 6 · Integration 67. |
 | **1** Shared contracts + client core | ✅ | 2026-08-07 · `27e91c5`. `Plutus.Contracts.Client` + `Plutus.Client.Core` (outbox engine, pusher, API client, token provider). Backend: `stores/{id}/info` now returns `businessId`. Arch test keeps both MAUI-free and backend-module-free (mutation-checked). |
-| **2b** VAT effective-dating | ✅ **corrected** | `3ec4eff` shipped exact-bp validation — wrong against the webtill's VAT decisions (Matt's catch). Corrected 2026-08-08 · `88e5c26`: pair-based (`VatRateHistory.Assess`), three verdicts, only StaleBand blocks. Tests rebuilt on real price pairs; gift-card exemption mutation-checked. Still inert live (0 rate rows) — **safe to seed bands now.** |
+| **2b** VAT effective-dating | ✅ corrected · ⚠ **do not seed yet** | `3ec4eff` shipped exact-bp validation — wrong (Matt's catch). Corrected 2026-08-08 · `88e5c26`: pair-based `Assess`, three verdicts, only StaleBand blocks. **But §2a now supersedes the seeding advice**: bands must gain `exempt` as distinct from `zero`, and seeding belongs to WP2c (the portal surface), not a hand-run SQL insert. Still inert live (0 rows). |
+| **2c** Portal VAT surface | ⬜ **new — do before MAUI touches VAT** | Matt's directive 2026-08-08: all VAT guidance comes from the portal down to the tills. No portal VAT surface exists today. Carries three findings in §2a that are **Matt's/his accountant's calls**, not an autonomous session's. |
 | **2** Local store v2 + cutover + money | ✅ (one VAT note) | 2026-08-07 · `6e46734`. New `Plutus.Client.Storage` (schema v2, SQLite). Cutover archives-never-merges and implements the §10 STOP. ⚠ The snapped catalogue band is a **label only** — at sale time lines derive `vatRateBp` from the price pair like the webtill (2026-08-08 correction; see the WP2 note + WP3). Money property test over 2,000 randomised baskets — its VAT arithmetic gets corrected with WP2b. |
 | **3** Sale commit path + outbox | ✅ | 2026-08-07 · `6e46734`. `CommitSaleAsync` (one transaction, sequence allocated, **commit before print** — risk #2 decided in code). `TillStore` implements `IOutboxStore`, so the WP1 pusher drove it unchanged. Soak: 120 offline sales drain exactly once in order, no gaps; crash mid-drain records 20 of 20. |
 | **4** Enrolment + device identity | ✅ | 2026-08-07 · `f90dac5`. Server URL + code; **archive gate refuses enrolment** while a legacy DB is un-archived; placement (storeId + legacy businessId) refreshed each start; secret asserted absent from the DB file. |
@@ -252,6 +326,7 @@ Each work package has a Definition of Done. Do them in order; **WP1 and WP2 gate
 | 1 | Shared contracts + client core | Nothing can call the API until the DTOs exist |
 | 2 | Local store v2 + money/ID sweep | The wire format demands integer pence and UUIDs |
 | 2b | VAT effective-dating (backend) | Compliance; independent, can run in parallel |
+| 2c | **Portal VAT surface** | Makes the portal the source of VAT truth — §2a. Gates any MAUI VAT work |
 | 3 | Outbox + sale ingest (+ portal receipt template, refund baskets) | The core of the whole retrofit |
 | 4 | Enrolment, device identity, Settings | Everything after this needs a device token |
 | 5 | Heartbeat + catalogue sync · **5b** announcements, tickets, pick-notes | Fleet citizenship |
@@ -423,6 +498,34 @@ a deliberately off-band pair (`£11.00/£10.00`) ingests (decision #3) and appea
 gift-card activation AND single-purpose redemption lines ingest after a rate change; empty
 history unchanged.
 
+**WP2c — Portal VAT surface (backend + portal). NEW, added 2026-08-08 at Matt's instruction.**
+The principle is *all VAT guidance comes from the portal down to the tills*, and today no portal
+VAT surface exists at all — bands are seeded legacy rows, read-only in both frontends, with no
+effective dates and no owner. This WP makes the portal the source of truth:
+- **Band identity, not just a rate.** A band is `{key, displayName, class, rateBp, effectiveFrom}`
+  where `class` ∈ `standard | reduced | zero | exempt | outside-scope`. ⚠ `zero` and `exempt` are
+  BOTH 0bp and must stay distinguishable — that is finding 2 in §2a, and merging them loses the
+  partial-exemption figure permanently.
+- **Effective dating on the band, not a parallel table.** Seed `VatRatePoints` from `Taxes` (one
+  row per band, effective-from epoch), then the portal edits the history: adding a rate change is
+  adding a row with a future `effectiveFrom`, never mutating the current one.
+- **Portal editor** on the Company tab, gated `perm:portal.company.manage` and audited, with a
+  plain-English warning that changing a band affects every item priced against it, and that a
+  future-dated change will apply itself on the day — including on tills that are offline.
+- **One published contract for tills**: `GET /api/v1/vat/bands` (sales.ingest, so device OR
+  operator token), returning the bands with their effective dates. Both tills cache it on the
+  catalogue-sync cadence and apply it; **neither till may hold a hard-coded rate.**
+  ⚠ That includes the webtill's current `/1.2` in the single-purpose gift-card redemption line —
+  it must read the standard band from this contract instead (see WP13's hazard note).
+*DoD:* seeding from `Taxes` reproduces Kapow's three bands with no change in behaviour; a
+future-dated standard-rate change is invisible before its date and live from it, on a till that
+never reconnects in between; `zero` and `exempt` survive a full round trip (portal → contract →
+till → sale → report) as **distinct** bands; the editor refuses a rate change dated in the past
+(that would retrospectively invalidate recorded sales); every write is audited.
+*USER-VERIFY / NOT FOR AN AUTONOMOUS SESSION:* the three §2a findings are **Matt's and his
+accountant's decisions** — whether Kapow's "Exempt" band is really zero-rated, whether the
+partial-exemption split matters for them, and which rounding method is correct. Do not pick one.
+
 **WP3 — Outbox + sale ingest.**
 ⚠ Building, not wiring — AppClient has no outbox today (§3).
 *Commit path:* checkout completes → validators run (a failure blocks completion at the till, where
@@ -437,7 +540,9 @@ The outbound payload **must** populate `itemIdOne` on each line the way the web 
 `StockProjectionConsumer` silently skips lines without it, so stock would quietly stop moving with
 no error anywhere.
 ⚠ **VAT on the payload: `api.ts:958-1019` is the REFERENCE IMPLEMENTATION** (added 2026-08-08,
-Matt's catch — parity §6 in practice). Mirror it exactly, never "improve" it:
+Matt's catch — parity §6 in practice). Mirror it exactly, never "improve" it. Once **WP2c** lands,
+also send the band's **identity** alongside the derived rate (in the `LineMeta` envelope), so
+zero-rated and exempt stop being indistinguishable at 0bp — §2a finding 2. Until then, mirror:
 - `vatRateBp` = `round((unitInc/unitEx − 1) × 10000)` from the PRICE PAIR — wobbled values like
   2002bp are correct and expected; do NOT send the catalogue's snapped-clean band.
 - `vatAmountPence` = `lineGross − lineEx`, where `lineEx` scales the discount by the ex/inc ratio
@@ -651,10 +756,11 @@ provisioned `GIFT-CARD` item handles this; do not invent VAT lines.
 above is the multi-purpose shape only): under **single-purpose**, redemption is a **negative
 standard-rated `GIFT-CARD` line** (`api.ts:997-1019`), because the card's VAT was declared when it
 was sold and a plain tender would declare it twice. Mirror the webtill's shape per treatment.
-*Known hazard, both tills, out of this WP's scope:* that redemption line hardcodes `/1.2` — a
-standard-rate change breaks it on the webtill exactly as it would here. Noted for whenever WP2b's
-bands gain their first real rate change; gift-card lines are exempt from ingest validation, so it
-mis-states embedded VAT rather than quarantining.
+*Known hazard, both tills:* that redemption line hardcodes `/1.2` — a standard-rate change breaks
+it on the webtill exactly as it would here, and gift-card lines are exempt from ingest validation
+so it would **mis-state embedded VAT silently** rather than quarantining. **WP2c fixes this
+properly**: read the standard band from `GET /api/v1/vat/bands` instead of hard-coding it. That is
+the "no till holds a VAT rule" principle applied to the one place the webtill currently breaks it.
 *DoD:* sell → activate → redeem round-trips against a local backend with `GiftCardSettings` set —
 **under both treatments, asserting the single-purpose negative-line shape**; the same flow on a
 tenant WITHOUT settings surfaces the friendly 409 message at the first step; redemption offline is
