@@ -16,7 +16,12 @@ namespace Plutus.Frontend.AppClient.Tests.ViewModels
         {
             var vm = new TransferThirdPartyViewModel();
 
-            Assert.Equal("TPT".Translate(), vm.Title);
+            // ⚠ MARKED LEGACY 2026-08-08 (Matt: "this needs to move to the portal"). Importing a
+            // third party's data is a central concern — it belongs to the NatApp translation agent,
+            // which already moves legacy shop data into the backend, not to one device's local
+            // database. Asserted so the marker cannot quietly disappear before the screen does.
+            Assert.StartsWith("(Legacy)", vm.Title);
+            Assert.Contains("TPT".Translate(), vm.Title);
             Assert.Equal("", vm.Icon);
         }
 

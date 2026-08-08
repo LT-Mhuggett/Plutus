@@ -19,9 +19,19 @@ namespace Plutus.Frontend.AppClient.Tests.ViewModels
         {
             var vm = new SetupViewModel();
 
-            Assert.Equal("SetUpTitle".Translate(), vm.Title);
+            // ⚠ MARKED LEGACY 2026-08-08 (Matt: the till starts at the PORTAL, not the local app).
+            // The prefix is asserted rather than tolerated: this screen builds a STANDALONE till —
+            // a locally-invented store and admin with no tenant, no till record and no device
+            // credential — and it completes successfully, which is exactly what makes it dangerous.
+            // Nobody should reach it by accident, so if the marker is ever dropped, this fails.
+            Assert.StartsWith("(Legacy)", vm.Title);
+            Assert.Contains("SetUpTitle".Translate(), vm.Title);
+
             Assert.Equal(2, vm.ServerOptions.Count);
             Assert.Contains(vm.ServerOptions, o => o.Key == "Local Application" && o.Value == DatabaseProvider.Sqlite);
+            // ⚠ "Cloud" is offered and was NEVER implemented — DatabaseProvider.Cloud throws. The
+            // option's presence is the reason the whole screen is retired rather than repaired:
+            // enrolment (WP4 / the Connect to Plutus tab) is what replaces it.
             Assert.Contains(vm.ServerOptions, o => o.Key == "Cloud" && o.Value == DatabaseProvider.Cloud);
         }
 
