@@ -120,6 +120,34 @@ public sealed class PlutusApiClient
         return (res.StatusCode, body);
     }
 
+    /// <summary>WP5 heartbeat. Returns null when the server did not answer usefully — the caller
+    /// treats that as "no signals", never as an error worth showing a customer-facing till.</summary>
+    public async Task<HeartbeatResult?> HeartbeatAsync(HeartbeatRequest body, CancellationToken ct = default)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Post, "/api/v1/heartbeat")
+        {
+            Content = JsonContent.Create(body, options: Json),
+        };
+        await AuthoriseAsync(req, ct);
+        using var res = await _http.SendAsync(req, ct);
+        if (!res.IsSuccessStatusCode) return null;
+        return await res.Content.ReadFromJsonAsync<HeartbeatResult>(Json, ct);
+    }
+
+    /// <summary>
+    /// WP5 catalogue feed. <paramref name="since"/> is the OPAQUE cursor from the previous page —
+    /// store it, hand it back, never parse it. Null means "from the beginning", i.e. a full resync.
+    /// </summary>
+    public Task<CatalogueChangesResult?> GetCatalogueChangesAsync(
+        string? since = null, int? limit = null, CancellationToken ct = default)
+    {
+        var q = new List<string>();
+        if (!string.IsNullOrEmpty(since)) q.Add($"since={Uri.EscapeDataString(since)}");
+        if (limit is int l) q.Add($"limit={l}");
+        var url = "/api/v1/catalogue/changes" + (q.Count > 0 ? "?" + string.Join("&", q) : "");
+        return GetAsync<CatalogueChangesResult>(url, ct);
+    }
+
     public Task<TillNameResult?> GetTillNameAsync(Guid tillId, CancellationToken ct = default) =>
         GetAsync<TillNameResult>($"/api/v1/tills/{tillId}/name", ct);
 

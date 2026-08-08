@@ -46,5 +46,23 @@ namespace Plutus.Entities.Models
         public bool? AgentPrinterOnline { get; set; }
         /// <summary>When the till last reported (regardless of what it found).</summary>
         public DateTime? AgentReportedAtUtc { get; set; }
+
+        // WP5 pull signals. A till on a shop LAN behind NAT cannot be reached, so anything the
+        // platform wants it to do has to be something it ASKS about on its own cadence. These two
+        // columns are that mailbox: set from the portal, collected on the next heartbeat.
+
+        /// <summary>An operator pressed "sync now". ⚠ ONE-SHOT — cleared as it is delivered, or a
+        /// till would re-sync on every beat forever.</summary>
+        public bool SyncNow { get; set; }
+
+        /// <summary>Lock the till's UI to a "contact your administrator" screen.
+        /// ⚠ Locks SELLING, not the outbox: queued takings keep draining and local data is
+        /// untouched. A lock that stranded a day's sales would be a worse remedy than the problem
+        /// it is reaching for.</summary>
+        public bool Locked { get; set; }
+
+        /// <summary>Shown on the lock screen so an operator knows who to ring. Null = a generic
+        /// message; the point is that a locked till is never a mystery.</summary>
+        public string? LockReason { get; set; }
     }
 }

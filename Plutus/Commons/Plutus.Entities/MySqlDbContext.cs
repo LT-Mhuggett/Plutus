@@ -256,6 +256,8 @@ namespace Plutus.Entities
                 // FE3.0 agent telemetry
                 e.Property(x => x.AgentVersion).HasMaxLength(32);
                 e.Property(x => x.AgentPrinterName).HasMaxLength(128);
+                // WP5 pull signals, collected on the heartbeat.
+                e.Property(x => x.LockReason).HasMaxLength(256);
                 e.HasIndex(x => x.TillId);
                 e.HasIndex(x => x.TenantId);
             });
@@ -967,6 +969,16 @@ namespace Plutus.Entities
                 modelBuilder.Entity(clr).Property<Guid>("TenantId");
                 modelBuilder.Entity(clr).HasIndex("TenantId");
             }
+
+            // WP5: the catalogue changes feed seeks by (tenant, ModifiedAt, IdOne) — that is exactly
+            // its keyset order, so this index serves both the WHERE and the ORDER BY.
+            // ⚠ Not optional. Items has ~20k rows for one tenant today and the feed runs on every
+            // till's sync cadence; without this it is a full scan per till per 15 minutes, and it
+            // would degrade quietly as the catalogue grows rather than failing anywhere visible.
+            modelBuilder.Entity<Item>()
+                .HasIndex("TenantId", nameof(Item.ModifiedAt), nameof(Item.IdOne))
+                .HasDatabaseName("IX_Items_Tenant_Modified_IdOne");
+
             ApplyTenantQueryFilters(modelBuilder);
         }
 

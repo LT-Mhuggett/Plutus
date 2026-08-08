@@ -13,10 +13,45 @@ Head: see `git log` — this line goes stale; the commits don't.
 > Older references below that say `Build/<plan>.md` now mean `Build/archive/<plan>.md` or
 > `Build/To do/<plan>.md`.
 
-### ⏰⏰⏰⏰⏰ RESUME HERE (2026-08-08, latest — parity sweep + WP16)
+### ⏰⏰⏰⏰⏰ RESUME HERE (2026-08-08, latest — parity sweep, WP16, versions, WP5 backend)
 
-Suite: **Unit 495 · Architecture 13 · Integration 105 · AppClient 295 (+3 skipped) — all green.**
-Working tree has **uncommitted** WP16 work; nothing deployed.
+Suite: **Unit 526 · Architecture 13 · Integration 114 · AppClient 295 (+3 skipped) — all green.**
+Committed on `Matt's-Horror`, **not pushed, not deployed.**
+
+> ### ▶ WP5 — the last backend gap is CLOSED
+>
+> Both missing endpoints are built and provable headlessly, with the client half alongside:
+>
+> | | |
+> |---|---|
+> | `POST /api/v1/heartbeat` | `sales.ingest` (device token). Presence lives in **`TillPresence`, in process** — ONLINE <2min · STALE 2–5 · OFFLINE >5. ⚠ Not MySQL: a fleet beating every 60s would be the busiest write path in the system storing data that expires in five minutes. |
+> | `GET /api/v1/catalogue/changes` | Keyset cursor, tombstones, tenant-scoped by the existing query filter. |
+> | `Device.SyncNow` / `Locked` / `LockReason` | Migration **`AddDeviceSyncSignals`**. `SyncNow` is one-shot — cleared as delivered, or one operator click becomes a permanent load. |
+> | `Client.Core/SyncClient.cs` + `TillStore : ISyncStore` | Beat, compare cursors, page the feed. 22 new tests. |
+>
+> **⚠ Two decisions that differ from what the plan said — both deliberate:**
+> 1. **The cursor is `(ModifiedAt, IdOne)`, not the bumped `BIGINT` the plan specified.** A counter
+>    needs every catalogue write path to remember to bump it, and the audit found **nine** for Items
+>    alone plus categories plus a raw-SQL purge. The tenth, added next year, leaves every till
+>    silently stale. `ModifiedAt` is stamped for every `IAuditable` in
+>    `RepositoryContext.SaveMethods()` — one choke point every write already passes. Same reasoning
+>    as `VatBandStamp`: put it where it cannot be forgotten. The barcode breaks timestamp ties,
+>    which a bulk edit produces by the hundred.
+> 2. **The migration carries `IX_Items_Tenant_Modified_IdOne`.** Without it the feed full-scans
+>    `Items` per till per sync (~20k rows for Kapow) and would degrade quietly rather than fail.
+>
+> **⚠ NOT built, and the WP5 DoD it belongs to is NOT met: the PRICE-SCHEDULE half of the feed.**
+> Effective prices live in `PriceListEntries` / `PriceOverrides`, and writing one does **not** touch
+> `Item.ModifiedAt` — so a central price change or store override does not reach a till through this
+> feed today. Only the baseline `Item.Price` does. It needs a second stream with its own cursor in
+> the same envelope. Said plainly because a half-built sync that looks finished is how a till ends
+> up confidently charging last month's price.
+>
+> **Also still open in WP5:** MAUI's VAT-bands consumption, the shared search matcher, and a timer
+> in MAUI to call any of this (needs a device).
+>
+> ⚠ **This deploy carries a MIGRATION — dump the database first.** No new permission, so no RBAC
+> re-seed.
 
 #### Matt made parity BINDING (2026-08-08)
 

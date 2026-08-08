@@ -19,7 +19,7 @@ namespace Plutus.Client.Storage;
 /// pusher and its retry policy against that interface, so wiring a real SQLite queue underneath
 /// required no change to the engine at all.
 /// </summary>
-public sealed class TillStore : IOutboxStore
+public sealed class TillStore : IOutboxStore, ISyncStore
 {
     private readonly TillDbContext _db;
     private readonly Func<DateTime> _utcNow;
@@ -110,6 +110,90 @@ public sealed class TillStore : IOutboxStore
         }
         await _db.SaveChangesAsync(ct);
         await SetMetaAsync(MetaKeys.CatalogueVersion, newVersion.ToString(CultureInfo.InvariantCulture), ct);
+    }
+
+    // ── WP5: the sync loop's half of the store (ISyncStore) ──
+
+    public Task<string?> GetCatalogueCursorAsync(CancellationToken ct = default) =>
+        GetMetaAsync(MetaKeys.CatalogueVersion, ct);
+
+    /// <summary>
+    /// Apply one page of the changes feed and advance the cursor.
+    ///
+    /// ⚠ ONE TRANSACTION, and the ordering matters in only one direction. If the rows commit and
+    /// the cursor does not, the next sync re-applies the same page — harmless, because every row is
+    /// an upsert. If the cursor commits and the rows do not, those changes are skipped FOR EVER and
+    /// nothing anywhere reports it: the till simply keeps selling at yesterday's prices.
+    /// </summary>
+    public async Task ApplyCatalogueAsync(
+        IReadOnlyList<CatalogueItemDto> items, string? cursor, CancellationToken ct = default)
+    {
+        await using var tx = await _db.Database.BeginTransactionAsync(ct);
+
+        foreach (var dto in items)
+        {
+            var existing = await _db.CatalogueItems.FirstOrDefaultAsync(i => i.Id == dto.Id, ct);
+            if (existing == null)
+            {
+                _db.CatalogueItems.Add(Map(dto));
+                continue;
+            }
+
+            var mapped = Map(dto);
+            existing.IdOne = mapped.IdOne;
+            existing.Name = mapped.Name;
+            existing.Kind = mapped.Kind;
+            existing.PricePence = mapped.PricePence;
+            existing.VatRateBp = mapped.VatRateBp;
+            existing.CategoryId = mapped.CategoryId;
+            existing.BandData = mapped.BandData;
+            existing.Removed = mapped.Removed;
+            existing.UpdatedAtUtc = mapped.UpdatedAtUtc;
+        }
+
+        if (cursor != null) await SetMetaAsync(MetaKeys.CatalogueVersion, cursor, ct);
+        await _db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+    }
+
+    /// <summary>
+    /// Feed row → local row.
+    ///
+    /// ⚠ <see cref="CatalogueItem.VatRateBp"/> is derived here from the PRICE PAIR, and it is a
+    /// DISPLAY LABEL ONLY. At sale time the line's rate is derived from the pair again, exactly as
+    /// the web till does — sending a stored rate instead would make the two tills bucket the same
+    /// item's VAT differently, which is the drift till-design Part C exists to prevent.
+    ///
+    /// <c>BandData</c> carries the legacy tax row so the till can resolve a published VAT band
+    /// without a second lookup.
+    /// </summary>
+    private static CatalogueItem Map(CatalogueItemDto dto) => new()
+    {
+        Id = dto.Id,
+        IdOne = dto.IdOne,
+        Name = dto.Name,
+        Kind = 0,
+        PricePence = dto.PricePence,
+        VatRateBp = RateBpFromPair(dto.PricePence, dto.ExPricePence),
+        CategoryId = dto.CategoryId,
+        BandData = dto.TaxId.ToString(CultureInfo.InvariantCulture),
+        Removed = dto.Removed,
+        UpdatedAtUtc = dto.UpdatedAtUtc,
+    };
+
+    /// <summary>The web till's derivation (<c>api.ts:978</c>): <c>round((inc/ex − 1) × 10000)</c>.
+    /// Wobbled values like 2002bp are CORRECT and expected — the platform groups takings by band,
+    /// not by this number.</summary>
+    private static int RateBpFromPair(long incPence, long exPence) =>
+        exPence <= 0 ? 0 : (int)Math.Round(((double)incPence / exPence - 1d) * 10000d, MidpointRounding.AwayFromZero);
+
+    public Task<int> OutboxDepthAsync(CancellationToken ct = default) =>
+        CountAsync(OutboxStatus.Pending, ct);
+
+    public async Task<TimeSpan?> OldestPendingAgeAsync(CancellationToken ct = default)
+    {
+        var oldest = await OldestPendingAtUtcAsync(ct);
+        return oldest is DateTime t ? _utcNow() - t : null;
     }
 
     // ── the sale commit path (WP3) ──

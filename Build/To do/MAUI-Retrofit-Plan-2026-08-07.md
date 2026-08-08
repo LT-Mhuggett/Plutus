@@ -378,7 +378,7 @@ resume point for the next session.
 | **2** Local store v2 + cutover + money | ✅ (one VAT note) | 2026-08-07 · `6e46734`. New `Plutus.Client.Storage` (schema v2, SQLite). Cutover archives-never-merges and implements the §10 STOP. ⚠ The snapped catalogue band is a **label only** — at sale time lines derive `vatRateBp` from the price pair like the webtill (2026-08-08 correction; see the WP2 note + WP3). Money property test over 2,000 randomised baskets — its VAT arithmetic gets corrected with WP2b. |
 | **3** Sale commit path + outbox | ✅ | 2026-08-07 · `6e46734`. `CommitSaleAsync` (one transaction, sequence allocated, **commit before print** — risk #2 decided in code). `TillStore` implements `IOutboxStore`, so the WP1 pusher drove it unchanged. Soak: 120 offline sales drain exactly once in order, no gaps; crash mid-drain records 20 of 20. |
 | **4** Enrolment + device identity | ✅ | 2026-08-07 · `f90dac5`. Server URL + code; **archive gate refuses enrolment** while a legacy DB is un-archived; placement (storeId + legacy businessId) refreshed each start; secret asserted absent from the DB file. |
-| **5** Heartbeat + catalogue sync · **5b** | ⬜ | **Next.** Needs the three missing backend endpoints (heartbeat, catalogue/changes, and `syncNow`/`lock` on Device). `TillStore.ApplyCatalogueChangesAsync` + `PriceSchedule` already exist and handle tombstones. **Scope grew 2026-08-08:** also owns MAUI's **VAT-bands consumption** (the whole timeline, not today's rate) and the **shared search matcher** — both had no WP home at all. |
+| **5** Heartbeat + catalogue sync · **5b** | 🔨 | **The backend gap is CLOSED (2026-08-08).** Built + tested headlessly: `POST /api/v1/heartbeat` (in-process `TillPresence`, 2/5-min boundaries), `GET /api/v1/catalogue/changes` (keyset cursor, tombstones), `SyncNow`/`Locked`/`LockReason` on `Device` (migration `AddDeviceSyncSignals`, **carries an index** — see below), and the client half in `Client.Core/SyncClient.cs` + `TillStore : ISyncStore`. 22 new tests. **Remaining:** the PRICE-SCHEDULE half of the feed (see the ⚠ below), MAUI's VAT-bands consumption, the shared search matcher, and a timer in MAUI to call any of it. |
 | 6–13 | ⬜ | The parity WPs — these are where MAUI **UI** work begins (XAML + viewmodels), so they need a device to verify. WP7, WP10 and WP12 each gained real scope on 2026-08-08 (pushed theming · add-unknown + Bin/untracked · member-number scan). |
 | **14** Payment-gateway awareness | ⬜ | Added 2026-08-08. Was cited in Part B as "WP17.2", which is not a work package in this plan. |
 | **15** Web-till test runner + C2 pins | ⬜ | Added 2026-08-08. **Web till, not MAUI** — parity runs both ways. Timing is Matt's call. |
@@ -781,6 +781,31 @@ package ever said to wire it up. This is the sync WP, so the bands sync here:
 - **No till may hold a hard-coded VAT rate** — pinned platform-wide by
   `Till_libraries_stay_platform_neutral_and_hold_no_VAT_rates_of_their_own`. The cutover's
   `FallbackBandsBp` is the *only* sanctioned exception, and only until the first sync.
+
+> ### ⚠ Built 2026-08-08, and one half deliberately NOT built — read before claiming WP5 done
+>
+> **Done and tested headlessly:** both endpoints, the `Device` signal columns, and the client loop
+> (`SyncClient` + `TillStore : ISyncStore`).
+>
+> **Two design decisions worth knowing:**
+> 1. **The cursor is `(ModifiedAt, IdOne)`, not the bumped `BIGINT` this plan originally specified.**
+>    A counter needs every catalogue write path to remember to increment it — the audit found
+>    **nine** such paths for Items alone, plus categories, plus a raw-SQL purge — and the tenth,
+>    added next year, would leave every till silently stale. `ModifiedAt` is stamped for every
+>    `IAuditable` in `RepositoryContext.SaveMethods()`: one choke point every write already passes.
+>    Same reasoning as `VatBandStamp`. The barcode breaks timestamp ties, which a bulk edit produces
+>    by the hundred.
+> 2. **The migration carries an index** (`IX_Items_Tenant_Modified_IdOne`). Without it the feed is a
+>    full scan of `Items` per till per sync — ~20k rows for Kapow today, and it would degrade
+>    quietly as the catalogue grows rather than failing anywhere visible.
+>
+> ⚠ **NOT built: the price-schedule half of the feed, so this WP's "price scheduled for 02:00"
+> DoD is NOT yet met.** Effective prices live in their own effective-dated tables
+> (`PriceListEntries`, `PriceOverrides` — `PricesController`), and writing one does **not** touch
+> `Item.ModifiedAt`. So a central price change or store override does not currently reach a till
+> through this feed; only the baseline `Item.Price` does. The feed needs a second stream with its
+> own cursor in the same envelope. **Stated rather than glossed, because a half-built sync that
+> looks complete is how a till ends up confidently charging last month's price.**
 
 **And the shared item-search matcher (till-design C2, attributed to WP1 — which closed without
 it).** The web till's word-matching (`batman one` → *Batman Year One*) and `"quoted"` exact-phrase

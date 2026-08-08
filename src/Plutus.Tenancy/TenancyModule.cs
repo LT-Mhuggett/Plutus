@@ -25,6 +25,11 @@ namespace Plutus.Tenancy
             // Device tokens are signed with the SAME secret the auth handler validates against.
             services.AddSingleton(new EnrolmentOptions { DeviceTokenSecret = configuration["TEST_TOKEN_SECRET"] ?? "" });
 
+            // WP5 till presence. SINGLETON and in-memory on purpose: a fleet beating every 60s is a
+            // write per till per minute of data that expires in five, which would be the busiest
+            // write path in the system and the least useful row in the database. See TillPresence.
+            services.AddSingleton<TillPresence>();
+
             // The tenancy tables live only on MySqlDbContext (server). Resolve it from the
             // registered RepositoryContext; in a DEBUG/SQLite host these endpoints are inert.
             // WP3.2: MySqlDbContext itself is registered so admin controllers can take it
