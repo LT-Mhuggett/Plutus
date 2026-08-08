@@ -211,6 +211,33 @@ public sealed class PlutusApiClient
     public Task<VatBandsResult?> GetVatBandsAsync(CancellationToken ct = default) =>
         GetAsync<VatBandsResult>("/api/v1/vat/bands", ct);
 
+    // ── WP5b noticeboard: things a till has to put in front of a human ──
+
+    /// <summary>Pick-from-floor notes. ⚠ Returns a BARE ARRAY, not an envelope — unlike most of this
+    /// API, so there is no <c>HasMore</c> and the server caps it at 50.</summary>
+    public Task<PickNoteDto[]?> GetPickNotesAsync(bool unackedOnly = true, CancellationToken ct = default) =>
+        GetAsync<PickNoteDto[]>($"/api/v1/notifications?unackedOnly={(unackedOnly ? "true" : "false")}", ct);
+
+    /// <summary>
+    /// Acknowledge one pick note. Returns the raw status because the CALLER decides what a failure
+    /// means, and the two cases differ: 404 is terminal (someone else acked it, or it was never
+    /// this till's) while a 5xx or a dead socket is worth retrying.
+    /// ⚠ Idempotent server-side — a second ack is 200, not an error.
+    /// </summary>
+    public async Task<HttpStatusCode> AckPickNoteAsync(Guid noteId, CancellationToken ct = default)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/notifications/{noteId}/ack");
+        await AuthoriseAsync(req, ct);
+        using var res = await _http.SendAsync(req, ct);
+        return res.StatusCode;
+    }
+
+    /// <summary>Active platform announcements. ⚠ Bare array, and the server has already applied
+    /// both the time window and the tenant targeting — everything returned is meant for this till
+    /// right now.</summary>
+    public Task<AnnouncementDto[]?> GetAnnouncementsAsync(CancellationToken ct = default) =>
+        GetAsync<AnnouncementDto[]>("/api/v1/announcements/active", ct);
+
     // ── sale ingest ──
 
     /// <summary>

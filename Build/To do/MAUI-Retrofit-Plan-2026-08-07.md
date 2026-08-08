@@ -385,7 +385,7 @@ resume point for the next session.
 | **15** Web-till test runner + C2 pins | ⬜ | Added 2026-08-08. **Web till, not MAUI** — parity runs both ways. Timing is Matt's call. |
 | **16** Connectivity + offline credentials | 🔨 | Added 2026-08-08 on Matt's instruction. **Shared half DONE:** `/api/v1/ping`, `ConnectivityProbe`, `OfflineCredentials` horizons + 42 tests. **Remaining:** MAUI login-screen UI, the web till's move off `navigator.onLine`, and 16b's enforcement (pairs with WP8). |
 
-| **17** Web till catches up | 🔨 | Added 2026-08-08 — **parity runs both ways**, and these are three rows where the *web till* is behind MAUI. **Row 2 done 2026-08-09**: the ambiguous-VAT-band tie, which was the only one of the three that puts a wrong number on a VAT return. **Remaining:** offline sign-in (needs WP15's runner first — its horizons would be a C2 twin) and the move off `navigator.onLine`. |
+| **17** Web till catches up | 🔨 | Added 2026-08-08 — **parity runs both ways**, and these are rows where the *web till* is behind MAUI — now **four**, 17.4 having been found on 2026-08-09 while building `NoticesClient`. **17.2 done**: the ambiguous-VAT-band tie, the only one that puts a wrong number on a VAT return. **Remaining:** 17.1 offline sign-in (needs WP15's runner first — its horizons would be a C2 twin), 17.3 the move off `navigator.onLine`, and 17.4 pick notes not filtered by store. |
 | **Build guards** (not a WP) | ✅ | 2026-08-09. Two things that made green mean less than it looked. **CI ran none of the modern suites** — Unit, Architecture and Integration (709 tests, every VAT and till-client rule) were in no pipeline, and the push trigger listed only `master` while `Matt's-Horror` is the active branch, so most pushes ran nothing. Both fixed. **Debug never validated XAML** — MAUI inflates at runtime in Debug, so a bad property only failed when a human opened the tab (this caused the 2026-08-08 hand-test crash). Debug now validates; mutation-checked both ways. See §7 risk 9 for the 703 advisories that made visible. |
 
 **Two notes for whoever picks this up:**
@@ -1163,6 +1163,18 @@ so in Part B.
 3. **Its connectivity check is `navigator.onLine`** — the network interface, not the server. It says
    "online" in a shop whose broadband is down and cannot tell a revoked till from a dead one. WP16a
    built the shared probe; this is porting the web till onto it.
+4. ⚠ **It shows every store's pick notes** (added 2026-08-09, found while building `NoticesClient`).
+   `GET /api/v1/notifications` does **not** filter by store — it returns the tenant's 50 most recent
+   — so the addressing is the client's job, and `App.tsx:130` does
+   `fetchPickNotifications().then(setPickNotes)` with no filter at all. `WebstoreNotification.StoreId`
+   is documented in the model as *"fulfilment store (null = all stores' tills)"*, so a non-null value
+   is meant to target one shop.
+   **Latent for Kapow** (single store) and wrong the moment a second store exists: staff go looking
+   for stock that was never on their shelves, and — worse — the shop that *does* hold it sees the
+   same note and may assume the other branch has taken care of it, so the web order ships short.
+   MAUI is the strict one via `NoticesClient.IsForStore`. Small: one `.filter()`, same rule.
+   ⚠ Doing it in the client is a **C2 twin**, so it wants WP15's runner — or move the filter to the
+   server, which would delete the twin instead of pinning it and is probably the better answer.
 
 *DoD:* a web till with the network off signs in from its cached roster and sells, and refuses
 refunds past the money-out horizon exactly as MAUI does; an ambiguous tax row reports as
