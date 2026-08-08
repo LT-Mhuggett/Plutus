@@ -34,6 +34,31 @@
     <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
 
+  <!-- ⚠ WHY THIS EXISTS: Debug used to accept XAML that cannot possibly work.
+       MAUI defaults the inflator to Runtime in Debug and XamlC in Release
+       (Microsoft.Maui.Controls.targets), so in Debug nothing checked XAML until the page was
+       actually opened - a bad property or a Syncfusion type that doesn't exist built clean and
+       threw XamlParseException in front of whoever tapped the tab. That is exactly how three
+       faults reached a hand-test on 2026-08-08.
+
+       Proven by mutation, not assumed: with `ThisPropertyDoesNotExist="42"` on a Label, Debug
+       reported 0 errors and Release reported XC0009. With this property set, Debug reports it too.
+
+       This does NOT change what the app does at runtime. Debug still forces ValidateOnly=true
+       (see the XamlC target), so XamlCTask only inspects the assembly - it does not rewrite IL -
+       and _MauiXaml_AsEmbeddedResource still embeds the XAML, so pages are still inflated at
+       runtime exactly as before. It buys the error message, and nothing else.
+
+       Revert by deleting this PropertyGroup if XAML Hot Reload ever misbehaves. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <MauiXamlInflator>XamlC</MauiXamlInflator>
+    <!-- MAUI1001 is the SDK warning that setting an inflator explicitly costs XAML Hot Reload. It
+         is aimed at people who set XamlC without meaning to; here it is the whole point, and the
+         warning would otherwise print on every single Debug build until it became invisible - at
+         which point it would be hiding whatever real warning appeared next to it. -->
+    <NoWarn>$(NoWarn);MAUI1001</NoWarn>
+  </PropertyGroup>
+
   <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows' and '$(Configuration)' == 'Debug'">
     <WindowsPackageType>None</WindowsPackageType>
   </PropertyGroup>
