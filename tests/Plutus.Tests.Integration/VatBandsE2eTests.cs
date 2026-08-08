@@ -367,6 +367,156 @@ public class VatBandsE2eTests : IClassFixture<PlutusAppFactory>
         Assert.Equal(100m, pe.GetProperty("recoverablePercent").GetDecimal());
     }
 
+    /// <summary>Seeds a Business + Tax row + one item on it, so the SERVER can resolve a band from
+    /// the catalogue for a line that arrived without one.</summary>
+    private async Task<string> SeedItemOnTaxAsync(Guid tenantId, int taxId, double rate, string barcode)
+    {
+        using var scope = _f.Services.CreateScope();
+        var db = new MySqlDbContext(
+            scope.ServiceProvider.GetRequiredService<DbContextOptions<MySqlDbContext>>(),
+            new Plutus.Entities.Tenancy.FixedTenantContext(tenantId));
+        db.CurrentUser = "vat-bands-e2e";
+        var bizId = Guid.NewGuid();
+        db.Business.Add(new Business { Id = bizId, Name = "Band E2E", NameAbbr = "BE2E", VatIN = "GB0" });
+        // Item.TaxId → Tax is a composite FK (TaxId, IdTwo) → (Tax.IdOne, Tax.IdTwo).
+        db.Taxes.Add(new Tax { IdOne = taxId, IdTwo = bizId, Name = "Seeded", Rate = rate });
+        var catId = Guid.NewGuid();
+        db.Category.Add(new Category { IdOne = catId, IdTwo = bizId, Name = "Band E2E", Description = "seed" });
+        db.Items.Add(new Item
+        {
+            IdOne = barcode, IdTwo = bizId, Name = "Banded item", Brand = "-", Desc = "",
+            Cost = 1m, ExPrice = 8m, Price = 8m, TaxId = taxId, CatId = catId,
+        });
+        await db.SaveChangesAsync();
+        return barcode;
+    }
+
+    /// <summary>A 0% sale whose till states NO band — an older till, MAUI today, or a future
+    /// platform that hasn't implemented band awareness.</summary>
+    private static async Task<HttpResponseMessage> PostBandlessSaleAsync(
+        HttpClient c, string deviceToken, long seq, long grossPence, string barcode, DateOnly day)
+    {
+        var sale = new
+        {
+            saleId = Uuid7.New(), deviceSeq = seq, channel = 0,
+            businessDay = day.ToString("yyyy-MM-dd"),
+            occurredAtUtc = day.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
+            grossPence, vatPence = 0L,
+            lines = new[]
+            {
+                new
+                {
+                    itemId = Guid.NewGuid(), qty = 1, unitPricePence = grossPence, discountPence = 0L,
+                    lineGrossPence = grossPence, vatRateBp = 0, vatAmountPence = 0L,
+                    // No "vatBand" — exactly what an unaware till sends.
+                    discountsJson = "{\"itemIdOne\":\"" + barcode + "\",\"exUnitPence\":" + grossPence + "}",
+                },
+            },
+            tenders = new[] { new { tenderType = 0, amountPence = grossPence, changePence = 0L } },
+        };
+        return await c.SendAsync(Req(HttpMethod.Post, "/api/v1/sales", deviceToken, sale));
+    }
+
+    [Fact]
+    public async Task A_till_that_sends_NO_band_still_gets_one_the_SERVER_resolves_it_from_the_catalogue()
+    {
+        // ⚠ THIS IS WHAT MAKES EVERY CHANNEL CONSISTENT — including the webstore connector (which
+        // posts through this same endpoint) and a till on a platform that doesn't exist yet. A band
+        // that only arrives when a client remembers to send it is a band that goes missing, and the
+        // failure is silent: zero-rated and exempt both record 0%, so a bandless line can never be
+        // classified afterwards.
+        var c = _f.CreateClient();
+        var (tenantId, owner, device) = await ProvisionAsync(c, "bands12@acme.test");
+        await SeedBandsAsync(tenantId,
+            ("standard", "20%", VatClass.Standard, 2000),
+            ("zero", "Zero rated (books)", VatClass.Zero, 0));
+        var barcode = await SeedItemOnTaxAsync(tenantId, taxId: 77, rate: 1.0, barcode: "BAND-STAMP-1");
+
+        var day = DateOnly.FromDateTime(DateTime.UtcNow);
+        Assert.Equal(HttpStatusCode.Created, (await PostBandlessSaleAsync(c, device, 1, 800, barcode, day)).StatusCode);
+
+        // The server resolved "zero" from the item's tax row — unambiguous at 0% for this tenant.
+        using var scope = _f.Services.CreateScope();
+        var db = (MySqlDbContext)scope.ServiceProvider.GetRequiredService<RepositoryContext>();
+        var line = await db.SaleLines.IgnoreQueryFilters()
+            .Where(l => l.TenantId == tenantId && l.ItemIdOne == barcode).FirstAsync();
+        Assert.Equal("zero", line.VatBand);
+    }
+
+    [Fact]
+    public async Task An_AMBIGUOUS_unmapped_tax_row_leaves_the_band_null_rather_than_guessing()
+    {
+        // With BOTH a zero-rated and an exempt band at 0%, the catalogue cannot say which a tax row
+        // is until someone maps it. Guessing would put a number on a VAT return nobody chose, so the
+        // band stays null, the takings report as unclassified, and the portal flags the tax row.
+        var c = _f.CreateClient();
+        var (tenantId, owner, device) = await ProvisionAsync(c, "bands13@acme.test");
+        await SeedBandsAsync(tenantId,
+            ("standard", "20%", VatClass.Standard, 2000),
+            ("zero", "Zero rated (books)", VatClass.Zero, 0),
+            ("exempt", "Exempt", VatClass.Exempt, 0));
+        var barcode = await SeedItemOnTaxAsync(tenantId, taxId: 78, rate: 1.0, barcode: "BAND-STAMP-2");
+
+        var day = DateOnly.FromDateTime(DateTime.UtcNow);
+        Assert.Equal(HttpStatusCode.Created, (await PostBandlessSaleAsync(c, device, 1, 800, barcode, day)).StatusCode);
+
+        using (var scope = _f.Services.CreateScope())
+        {
+            var db = (MySqlDbContext)scope.ServiceProvider.GetRequiredService<RepositoryContext>();
+            var line = await db.SaleLines.IgnoreQueryFilters()
+                .Where(l => l.TenantId == tenantId && l.ItemIdOne == barcode).FirstAsync();
+            Assert.Null(line.VatBand);
+        }
+
+        // …and the editor asks for the decision rather than hiding it.
+        var admin = await ReadJson(await c.SendAsync(Req(HttpMethod.Get, "/api/v1/vat/bands/admin", owner)));
+        Assert.True(admin.GetProperty("mappingRequired").GetBoolean());
+        Assert.Contains(admin.GetProperty("taxRows").EnumerateArray(),
+            t => t.GetProperty("legacyTaxId").GetInt32() == 78 && t.GetProperty("band").ValueKind == JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task A_band_the_TILL_stated_is_never_overwritten_by_the_catalogue()
+    {
+        // The till knows things the catalogue doesn't: a single-purpose gift-card line is
+        // standard-rated by the voucher treatment even though its catalogue row sits on a zero band.
+        // If the server "corrected" that, the treatment would be silently overridden.
+        var c = _f.CreateClient();
+        var (tenantId, _, device) = await ProvisionAsync(c, "bands14@acme.test");
+        await SeedBandsAsync(tenantId,
+            ("standard", "20%", VatClass.Standard, 2000),
+            ("zero", "Zero rated (books)", VatClass.Zero, 0));
+        var barcode = await SeedItemOnTaxAsync(tenantId, taxId: 79, rate: 1.0, barcode: "BAND-STAMP-3");
+
+        // The item's tax row says 0% → "zero", but the line declares "standard".
+        var day = DateOnly.FromDateTime(DateTime.UtcNow);
+        var sale = new
+        {
+            saleId = Uuid7.New(), deviceSeq = 1L, channel = 0,
+            businessDay = day.ToString("yyyy-MM-dd"),
+            occurredAtUtc = day.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
+            grossPence = 800L, vatPence = 0L,
+            lines = new[]
+            {
+                new
+                {
+                    itemId = Guid.NewGuid(), qty = 1, unitPricePence = 800L, discountPence = 0L,
+                    lineGrossPence = 800L, vatRateBp = 0, vatAmountPence = 0L,
+                    discountsJson = "{\"itemIdOne\":\"" + barcode + "\",\"exUnitPence\":800,\"vatBand\":\"standard\"}",
+                },
+            },
+            tenders = new[] { new { tenderType = 0, amountPence = 800L, changePence = 0L } },
+        };
+        Assert.Equal(HttpStatusCode.Created,
+            (await c.SendAsync(Req(HttpMethod.Post, "/api/v1/sales", device, sale))).StatusCode);
+
+        using var scope = _f.Services.CreateScope();
+        var db = (MySqlDbContext)scope.ServiceProvider.GetRequiredService<RepositoryContext>();
+        var line = await db.SaleLines.IgnoreQueryFilters()
+            .Where(l => l.TenantId == tenantId && l.ItemIdOne == barcode).FirstAsync();
+        Assert.Equal("standard", line.VatBand);
+    }
+
     [Fact]
     public async Task Mapping_a_tax_row_to_a_band_at_a_DIFFERENT_rate_is_refused()
     {

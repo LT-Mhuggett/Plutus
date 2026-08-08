@@ -144,14 +144,18 @@ public static class Cutover
         return new CutoverResult(archivePath, distinct.Count, checkedCount);
     }
 
-    /// <summary>The VAT bands a legacy price pair can legitimately have been priced at. Ordered
-    /// low → high; extend if a tenant trades under another jurisdiction's rates.</summary>
-    internal static readonly int[] KnownBandsBp = { 0, 500, 1750, 2000 };
-
-    /// <summary>How far a derived rate may sit from a known band and still be snapped to it.
-    /// 25bp (0.25%) comfortably covers penny-rounding on ordinary shop prices without reaching
-    /// the 250bp gap between the closest real bands (17.5% and 20%).</summary>
-    internal const int SnapToleranceBp = 25;
+    /// <summary>
+    /// A LAST-RESORT band list for a till that is cutting over before it has ever reached the server.
+    ///
+    /// ⚠ THIS IS THE ONLY UK VAT KNOWLEDGE LEFT ON A CLIENT, and it is deliberately not the source of
+    /// truth: WP2c made the portal the owner of every band, and a till applies what it is published
+    /// (<c>GET /api/v1/vat/bands</c>). This list exists solely because cutover can run before the
+    /// first successful sync, and the alternative — refusing to seed a catalogue — would block a shop
+    /// from opening. Pass the published bands to <see cref="VatRateBpFrom"/> whenever they are known,
+    /// and note the values here are DISPLAY LABELS on the local catalogue: at sale time every line's
+    /// rate is derived from its price pair, exactly as the web till does it.
+    /// </summary>
+    internal static readonly int[] FallbackBandsBp = { 0, 500, 1750, 2000 };
 
     /// <summary>
     /// Recover the VAT band from the legacy decimal pair — the old schema stores inc- and ex-VAT
@@ -164,12 +168,19 @@ public static class Cutover
     /// KNOWN band when within tolerance, and only fall back to the raw figure when nothing is
     /// close (which is a genuine oddity worth preserving rather than silently flattening to 20%).
     /// </summary>
-    internal static int VatRateBpFrom(decimal price, decimal exPrice)
+    /// <param name="bandsBp">The rates the PORTAL has published, when the till knows them. Null or
+    /// empty falls back to <see cref="FallbackBandsBp"/> — see the note there.</param>
+    internal static int VatRateBpFrom(decimal price, decimal exPrice, IReadOnlyCollection<int>? bandsBp = null)
     {
         if (exPrice <= 0m || price <= 0m) return 0;
-        var derived = (int)Math.Round((price / exPrice - 1m) * 10000m, MidpointRounding.AwayFromZero);
+        // The pair → rate step is the SHARED implementation every till uses, so a snapped label can
+        // never be derived differently from the rate the same line will declare at sale time.
+        var derived = VatLineMath.RateBpFromPair(Pence.FromDecimal(price), Pence.FromDecimal(exPrice));
 
-        var nearest = KnownBandsBp.OrderBy(b => Math.Abs(b - derived)).First();
-        return Math.Abs(nearest - derived) <= SnapToleranceBp ? nearest : derived;
+        var bands = bandsBp is { Count: > 0 } ? bandsBp : FallbackBandsBp;
+        var nearest = bands.OrderBy(b => Math.Abs(b - derived)).First();
+        // One tolerance for the whole platform (VatAccounting.BandSnapToleranceBp) — a client with
+        // its own number would disagree with the server about which band takings belong to.
+        return Math.Abs(nearest - derived) <= VatAccounting.BandSnapToleranceBp ? nearest : derived;
     }
 }

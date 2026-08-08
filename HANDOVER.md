@@ -15,7 +15,7 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 ### ⏰⏰⏰⏰ RESUME HERE (2026-08-08, later)
 
-Suite: **Unit 431 · Architecture 7 · Integration 97 · AppClient 295 (+3 skipped) — all green.**
+Suite: **Unit 441 · Architecture 8 · Integration 100 · AppClient 295 (+3 skipped) — all green.**
 Both frontends `tsc --noEmit && vite build` clean on the Mac.
 (The two legacy projects `Plutus.Entities.Tests` / `Plutus.Repository.Tests` still fail without a
 live MySQL — pre-existing, not a regression.)
@@ -90,9 +90,45 @@ of attributable input tax (partial exemption, Notice 706). Same rate, different 
 | **`partialExemption` on `/api/v1/reports/vat`** | Taxable vs exempt turnover and the standard turnover-based recoverable %. For Kapow it states plainly that **partial exemption does not apply and input tax is recoverable in full** — the opposite of the old "Exempt" label's implication. |
 | **Portal: "Which band your items use"** on the Bands tab | Only demands a decision when the rate is genuinely ambiguous; otherwise it explains that nothing needs deciding. Refuses to map a tax row to a band at a different rate (that would make every item on it off-band). |
 
-⚠ **MAUI must send `LineMeta.VatBand`** or exempt turnover is silently unrecoverable for any tenant
-using it. Registered in `Build/till-parity.md`; `LineMeta.VatBand` already exists in
-`Plutus.Contracts.Client` with the resolution rule documented on it.
+#### Are the bands consistent across tills? — and what about a Mac/Linux till? (Matt asked, 2026-08-08)
+
+Answering it honestly found two real gaps, both now closed.
+
+**1. Consistency was per-client, which is not a guarantee.** The web till sent the band; the
+**webstore (Woo) connector did not** (`WooOrderMapper` writes `{itemIdOne}` and nothing else), and
+MAUI has no VAT-band awareness at all. Fixed structurally rather than per-client: **`VatBandStamp`
+resolves the band server-side from the item's tax row for any line that arrives without one**, and it
+runs in `SalesIngestService` — which every channel goes through, *including the webstore* (its sink
+builds an `IngestSaleRequest` and calls the same service). So:
+- ✅ web till — states the band
+- ✅ webstore — server backfills it
+- ✅ MAUI, and any till on any platform — correct by default the day it posts a sale, before it
+  implements band awareness at all
+- ⚠ **A band the client STATED is never overwritten.** The till knows things the catalogue doesn't —
+  a single-purpose gift-card line is standard-rated by the voucher treatment, not by its catalogue
+  row. Client statement wins; the server only fills gaps. Pinned by three tests.
+- A line that stays null is **correct, not a failure**: it means the tenant has two bands at one rate
+  and nobody has said which this tax row is. Reported as unclassified, flagged in the portal.
+
+**2. The VAT arithmetic existed once per platform, in prose-linked copies.** The plan called the web
+till's `api.ts` "the reference implementation", and there were already three partial copies —
+including a **hardcoded UK band list `{0, 500, 1750, 2000}` and a private `SnapToleranceBp = 25`
+inside `Cutover.cs`**, i.e. a till holding VAT knowledge, which is exactly what WP2c set out to
+remove. Now:
+- **`VatLineMath` in `Plutus.SharedKernel`** is the single implementation (rate from the price pair,
+  VAT = gross − ex, discount scaled by ex/inc, returns negated with the discount dropped). It
+  documents the **JS-vs-.NET midpoint-rounding trap** — `Math.round` goes away from zero, .NET's
+  default is banker's — which is precisely how two tills would come to disagree by a penny forever.
+- `Cutover`'s list is now `FallbackBandsBp`, explicitly a last resort for a till cutting over before
+  its first sync, and it uses the platform-wide `VatAccounting.BandSnapToleranceBp`.
+- **New architecture test `Till_libraries_stay_platform_neutral_and_hold_no_VAT_rates_of_their_own`**:
+  fails on an OS-specific target framework in a till library, and on a literal VAT rate in one. It
+  genuinely bites — verified it flags the old `KnownBandsBp` line.
+
+**So a future macOS or Linux till is a build target, not a port.** `Plutus.Contracts.Client`,
+`Plutus.Client.Core` and `Plutus.Client.Storage` are plain `net10.0` with no MAUI and no third-party
+packages (two architecture tests hold that), and the VAT rules now live in code they already
+reference. What remains platform-specific is the UI and the hardware (printer, drawer) — not money.
 
 ⚠ **This deploy carries a MIGRATION** (`AddVatBandIdentity`) — dump first. It also **rebuilds the
 VatRollups unique index** to include the band. Historic rows keep `VatBand = NULL` and reports fall

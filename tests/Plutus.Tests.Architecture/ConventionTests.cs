@@ -112,6 +112,71 @@ public class ConventionTests
             + string.Join("\n  ", offenders));
     }
 
+    /// <summary>
+    /// WP2c-exempt: NO TILL MAY HOLD A VAT RATE OF ITS OWN.
+    ///
+    /// Matt's directive is that all VAT guidance comes from the portal down to the tills, and the
+    /// reason this needs a test rather than a comment is that Plutus expects tills on Windows, macOS
+    /// and Linux. A hard-coded rate on a client is invisible until a government changes a rate, and
+    /// then it mis-states VAT on every sale that till takes, silently. Two rules:
+    ///   • the till libraries stay platform-neutral (`net10.0`, no OS-specific target), so a macOS or
+    ///     Linux till is a build target rather than a rewrite; and
+    ///   • the VAT arithmetic lives in SharedKernel, so every .NET till gets ONE implementation.
+    /// The one exception is documented in `Cutover.FallbackBandsBp` — a till cutting over before it
+    /// has ever reached the server, where the alternative is refusing to let a shop open.
+    /// </summary>
+    [Fact]
+    public void Till_libraries_stay_platform_neutral_and_hold_no_VAT_rates_of_their_own()
+    {
+        var offenders = new List<string>();
+        var clientLibs = new[] { "Plutus.Client.Core", "Plutus.Contracts.Client", "Plutus.Client.Storage" };
+
+        foreach (var name in clientLibs)
+        {
+            var dir = Path.Combine(Repo.Root(), "src", name);
+            if (!Directory.Exists(dir)) continue;
+
+            // 1. Platform-neutral target — an OS-specific TFM here would make a Mac/Linux till a
+            //    port instead of a build.
+            var csproj = Path.Combine(dir, name + ".csproj");
+            if (File.Exists(csproj))
+            {
+                var tfms = Regex.Matches(File.ReadAllText(csproj), @"<TargetFrameworks?>([^<]+)<")
+                    .SelectMany(m => m.Groups[1].Value.Split(';'))
+                    .Select(t => t.Trim()).Where(t => t.Length > 0);
+                foreach (var tfm in tfms)
+                    if (Regex.IsMatch(tfm, @"-(windows|android|ios|maccatalyst|tizen)", RegexOptions.IgnoreCase))
+                        offenders.Add($"{name}: platform-specific target framework '{tfm}' — a till library "
+                                    + "must build for macOS and Linux unchanged.");
+            }
+
+            // 2. No literal VAT rates. Basis points for the real UK bands are the tell.
+            foreach (var file in Directory.GetFiles(dir, "*.cs", SearchOption.AllDirectories))
+            {
+                if (file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}") ||
+                    file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")) continue;
+
+                foreach (var (line, i) in File.ReadAllLines(file).Select((l, i) => (l, i)))
+                {
+                    // Comments explain WHY these libraries must not hold rates — don't flag the prose.
+                    var code = Regex.Replace(line, @"//.*$", "").Trim();
+                    if (code.Length == 0 || code.StartsWith("///") || code.StartsWith("*")) continue;
+                    // The documented cutover fallback is the single sanctioned exception.
+                    if (code.Contains("FallbackBandsBp")) continue;
+
+                    if (Regex.IsMatch(code, @"\b(1750|2000|500)\b") &&
+                        Regex.IsMatch(code, @"(?i)(vat|rate|band|tax)"))
+                        offenders.Add($"{name}/{Path.GetFileName(file)}:{i + 1}: looks like a hard-coded "
+                                    + $"VAT rate — bands come from GET /api/v1/vat/bands. → {code}");
+                }
+            }
+        }
+
+        Assert.True(offenders.Count == 0,
+            "A till must never decide a VAT rule, and must build for any OS. Offenders:\n  "
+            + string.Join("\n  ", offenders));
+    }
+
     [Fact]
     public void Messaging_seam_has_no_concrete_provider_wired_in_core()
     {

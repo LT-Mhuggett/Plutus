@@ -97,6 +97,14 @@ namespace Plutus.Sales
                 OverriddenFromPence = l.OverriddenFromPence, DiscountsJson = l.DiscountsJson,
             }).ToList();
 
+            // WP2c-exempt: fill in the band for any line whose till didn't state one, from the
+            // item's tax row. ⚠ This is what makes the zero-vs-exempt split hold across EVERY
+            // channel — including a till on a platform that doesn't exist yet — instead of resting
+            // on each client remembering. A stated band is never overwritten: the till knows things
+            // the catalogue doesn't (a single-purpose gift-card line is standard-rated by the
+            // voucher treatment, not by its catalogue row).
+            await VatBandStamp.StampAsync(_db, lines);
+
             var tenders = (req.Tenders ?? new List<IngestTender>()).Select(t => new SaleTender
             {
                 Id = Uuid7.New(), TenantId = tenantId, SaleId = req.SaleId,

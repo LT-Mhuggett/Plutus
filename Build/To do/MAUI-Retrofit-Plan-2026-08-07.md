@@ -578,8 +578,22 @@ genuinely sells exempt supplies the option wasn't really there. Now:
 - **`GET /api/v1/reports/vat` gained a `partialExemption` block** (Notice 706): taxable vs exempt
   turnover, the standard turnover-based recoverable percentage, and — for a shop like Kapow — an
   explicit *"partial exemption does not apply, input tax is recoverable in full"*.
-- ⚠ **MAUI must send `LineMeta.VatBand`** or exempt turnover is silently unrecoverable for any
-  tenant using it. Registered in `Build/till-parity.md`.
+- **Consistency is now STRUCTURAL, not per-client** (Matt asked "are these bands consistent across
+  the tills now? Also future tills based on Mac and Linux"). Two gaps were real and are closed:
+  - **`VatBandStamp` backfills the band server-side** for any line that arrives without one, in
+    `SalesIngestService` — the single choke point every channel passes through, *including the
+    webstore connector*, whose Woo mapper sent no band at all. A till on any platform is therefore
+    correct by default before it implements band awareness. ⚠ A band the client STATED is never
+    overwritten (the voucher treatment overrides the catalogue for gift cards).
+  - **`VatLineMath` in `Plutus.SharedKernel`** is now the one implementation of the line arithmetic.
+    `Cutover.cs` had a hardcoded UK band list and its own snap tolerance — a till holding VAT
+    knowledge, the very thing this WP removes; it is now an explicitly-documented cutover fallback
+    using the platform-wide tolerance. New architecture test
+    `Till_libraries_stay_platform_neutral_and_hold_no_VAT_rates_of_their_own` fails on an
+    OS-specific TFM in a till library or a literal VAT rate in one.
+  - **A macOS/Linux till is a build target, not a port**: the three client libraries are plain
+    `net10.0`, MAUI-free and package-free, and now carry the VAT rules. Only UI and hardware are
+    platform-specific.
 
 The principle is *all VAT guidance comes from the portal down to the tills*, and today no portal
 VAT surface exists at all — bands are seeded legacy rows, read-only in both frontends, with no
