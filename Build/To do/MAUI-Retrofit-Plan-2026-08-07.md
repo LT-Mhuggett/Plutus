@@ -1221,9 +1221,28 @@ Flagged now rather than discovered mid-build. Several need a decision before the
    money problem.
 3. ~~Cross-till refund lookup~~ — **RESOLVED, scheduled**: now an explicit, hard-gated part of
    WP11 (server lookup for the money path, local fallback only within the rolling window).
-4. **Stolen hardware.** Local-only operator login (WP8) means a stolen till carries cached
-   credentials with no server-side kill switch, giving an attacker offline access up to that till's
-   refund ceiling.
+4. **Stolen hardware — and the kill switch is half-built, which is worse than absent.** Local-only
+   operator login (WP8) means a stolen till carries cached credentials, so an attacker has offline
+   access up to that till's refund ceiling.
+   ⚠ **Traced properly 2026-08-09, because the pieces look like a solution and are not one.**
+   `Device.Locked` / `LockReason` exist (WP5's `AddDeviceSyncSignals` migration), `HeartbeatResult`
+   carries them, and `SyncClient` surfaces them as `HeartbeatOutcome.Locked`. Two things are
+   missing, and together they mean the feature cannot be used at all:
+   - **Nothing sets the flag.** There is no endpoint and no portal control — grep for `Locked =`
+     returns nothing outside the migration. A stolen till cannot be locked today by any supported
+     means, only by hand-editing the database.
+   - **Nothing enforces it.** `EnrolmentService.IssueDeviceTokenAsync` refuses a device only when
+     `Status == Revoked`; it never looks at `Locked`. So even once set, the lock is **advice to the
+     till**, and a thief running modified or older software ignores it and keeps getting tokens.
+     A kill switch honoured only by the client is not a kill switch.
+   ⚠ **`Revoked` is the only thing that actually stops a device today** — so that, not `Locked`, is
+   what to reach for in a real incident until this is built.
+   *Deliberately not built here:* who may lock a till (tenant? company? store manager?), whether a
+   lock is reversible and by whom, and what a locked till does with unsynced offline sales are
+   product decisions, not gaps to be filled in by whoever noticed. **Small once decided:** a check
+   in `IssueDeviceTokenAsync`, an RBAC-gated endpoint, and the portal control next to the existing
+   device-removal one. Do the enforcement half *first* — an endpoint that sets a flag nothing
+   honours would repeat the mistake.
 5. **GDPR, compounding #4.** WP12's `LoyaltyCache` holds customer PII. `RetentionSweeper` +
    `DeletionSchedule` handle erasure centrally — nothing propagates that to purge a till-side
    cache. A deletion request could be honoured centrally while a copy persists on till hardware.
