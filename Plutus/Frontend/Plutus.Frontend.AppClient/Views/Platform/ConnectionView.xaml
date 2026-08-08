@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Plutus.Frontend.AppClient.Views.Platform.ConnectionView"
+             Title="{Binding Title}"
+             IconImageSource="{Binding Icon, Converter={StaticResource MaterialIconConverter}}">
+    <!--
+        The Plutus tab: connect this till to the platform, and prove each layer answers.
+
+        Diagnostics, not a sales screen. Every action is a BUTTON and nothing runs on a timer — a
+        screen that fires background work while someone is reading it cannot be reasoned about when
+        it misbehaves, which is exactly when this screen is being looked at.
+    -->
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="14" MaximumWidthRequest="720">
+
+            <!-- ── connection ── -->
+            <Label Text="Connection" FontSize="Title"/>
+            <Grid ColumnSpacing="10" RowSpacing="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <!-- Colour is a hint, never the message: red/amber/green alone is unreadable to the
+                     ~8% of men with a colour-vision deficiency, and the TEXT is what says which of
+                     three different people to ring. -->
+                <Ellipse Grid.Row="0" Grid.Column="0" WidthRequest="12" HeightRequest="12"
+                         VerticalOptions="Center" Fill="{Binding ConnectionColour}"/>
+                <Label Grid.Row="0" Grid.Column="1" FontSize="Body" VerticalOptions="Center"
+                       Text="{Binding ConnectionSummary}"/>
+                <Label Grid.Row="1" Grid.Column="1" FontSize="Caption" Opacity="0.7"
+                       Text="{Binding ConnectionDetail}"/>
+            </Grid>
+
+            <Label Text="Server address" FontSize="Caption" Opacity="0.7"/>
+            <Entry Text="{Binding ServerUrl}" Placeholder="https://plutus.example.com" Keyboard="Url"/>
+
+            <Button Text="Check connection" Command="{Binding CheckCommand}" IsEnabled="{Binding NotBusy}"/>
+
+            <BoxView HeightRequest="1" Color="#22000000"/>
+
+            <!-- ── this till's identity ── -->
+            <Label Text="This till" FontSize="Title"/>
+            <Label FontSize="Caption" Text="{Binding DeviceSummary}"/>
+
+            <Label Text="Enrolment code (from the portal — Locations → Tills)" FontSize="Caption" Opacity="0.7"/>
+            <Entry Text="{Binding EnrolmentCode}" Placeholder="e.g. 4KQ7WX2M" MaxLength="16"/>
+            <Button Text="Enrol this till" Command="{Binding EnrolCommand}" IsEnabled="{Binding NotBusy}"/>
+
+            <BoxView HeightRequest="1" Color="#22000000"/>
+
+            <!-- ── prove the layers ── -->
+            <Label Text="Check the platform answers" FontSize="Title"/>
+            <Label FontSize="Caption" Opacity="0.7"
+                   Text="Each button exercises one layer built by the retrofit, so a failure points at a specific thing rather than at 'the network'."/>
+            <Button Text="Send a heartbeat" Command="{Binding BeatCommand}" IsEnabled="{Binding NotBusy}"/>
+            <Button Text="Read the catalogue feed" Command="{Binding CatalogueCommand}" IsEnabled="{Binding NotBusy}"/>
+
+            <ActivityIndicator IsVisible="{Binding Busy}" IsRunning="{Binding Busy}" HorizontalOptions="Start"/>
+            <Label FontSize="Caption" Text="{Binding LastAction}" LineBreakMode="WordWrap"/>
+
+            <BoxView HeightRequest="1" Color="#22000000"/>
+
+            <Button Text="Forget this till" Command="{Binding ForgetCommand}" BackgroundColor="#C1272D" TextColor="White"
+                    IsEnabled="{Binding NotBusy}"/>
+            <Label FontSize="Micro" Opacity="0.6" LineBreakMode="WordWrap"
+                   Text="Clears this device's identity only. Sales already queued on this machine are not deleted."/>
+
+            <Label Margin="0,12,0,0" FontSize="Micro" Opacity="0.6" Text="{Binding TillVersionText}"/>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -23,6 +23,10 @@ namespace Plutus.Frontend.AppClient
                 tabBar.Items.Add(new ShellContent { Content = new Views.MainTill.StoreOptions.StoreOptionsView() });
             }
             tabBar.Items.Add(new ShellContent { Content = new Views.MainTill.Settings.SettingsView() });
+            // MAUI retrofit: enrolment + platform diagnostics. Its own tab rather than a section of
+            // Settings because it is the screen someone opens when the till is NOT working, and it
+            // has to be findable without knowing where to look.
+            tabBar.Items.Add(new ShellContent { Content = new Views.Platform.ConnectionView() });
             Items.Add(tabBar);
 
             App.SetLoading(false);

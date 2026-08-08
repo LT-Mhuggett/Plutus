@@ -49,6 +49,7 @@ public class ConnectivityProbeTests
         public HttpStatusCode DeviceStatusCode = HttpStatusCode.OK;
         public string DeviceState = "Active";
         public Exception? PingThrows;
+        public bool PingReturnsHtml;
         public TimeSpan PingDelay = TimeSpan.Zero;
         public DateTime ServerUtcNow = DateTime.UtcNow;
         public readonly List<string> Paths = new();
@@ -63,6 +64,11 @@ public class ConnectivityProbeTests
                 if (PingThrows != null) throw PingThrows;
                 if (PingDelay > TimeSpan.Zero) await Task.Delay(PingDelay, ct);
                 if (PingStatus != HttpStatusCode.OK) return new HttpResponseMessage(PingStatus);
+                if (PingReturnsHtml)
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent("<html>Sign in to WiFi</html>", System.Text.Encoding.UTF8, "text/html"),
+                    };
                 return Json(HttpStatusCode.OK,
                     $"{{\"ok\":true,\"utcNow\":\"{ServerUtcNow:yyyy-MM-ddTHH:mm:ss.fffffff}Z\",\"apiVersion\":\"1.2.3\"}}");
             }
@@ -118,13 +124,40 @@ public class ConnectivityProbeTests
     }
 
     [Fact]
-    public async Task A_non_success_ping_is_NoServer_not_a_crash()
+    public async Task An_OLDER_backend_with_no_ping_endpoint_still_reads_as_REACHABLE()
     {
+        // ⚠ THE ROLLOUT BUG THIS PREVENTS. /api/v1/ping is new. A till pointed at a backend that
+        // predates it gets a 404 — and a 404 is proof the server IS there. Reading it as "offline"
+        // would report every shop in the estate as down for the whole rollout window (retrofit
+        // risk #7, mixed versions) and send people to check cables that were never the problem.
+        var handler = new RoutingHandler { PingStatus = HttpStatusCode.NotFound };
+        var status = await Probe(handler, FakeCredentials.Enrolled()).CheckAsync();
+
+        Assert.True(status.ServerReachable);
+        Assert.Equal(TillConnection.Online, status.State);
+    }
+
+    [Fact]
+    public async Task A_sick_server_is_reachable_not_absent()
+    {
+        // A 502 is a server having a bad day, not a missing one. "Check your cable" is the wrong
+        // advice and wastes the one person who could have rung support instead.
         var handler = new RoutingHandler { PingStatus = HttpStatusCode.BadGateway };
+        var status = await Probe(handler, FakeCredentials.Enrolled()).CheckAsync();
+
+        Assert.True(status.ServerReachable);
+    }
+
+    [Fact]
+    public async Task A_captive_portal_answering_with_HTML_is_NOT_reachable()
+    {
+        // Shop wifi with a "click here to accept" page in the way. Something answered, but it was
+        // not Plutus — and saying "connected" here would be the most misleading answer of all.
+        var handler = new RoutingHandler { PingReturnsHtml = true };
         var status = await Probe(handler).CheckAsync();
 
         Assert.Equal(TillConnection.NoServer, status.State);
-        Assert.Contains("502", status.Detail);
+        Assert.Contains("not Plutus", status.Detail);
     }
 
     [Fact]

@@ -151,7 +151,7 @@ surprise six months later.
 | Reporting — cross-till, server-aggregated | ✅ | ⬜ | WP11. MAUI queries its **own** SQLite, so it can only ever show one till. |
 | Store Information | read-only ✅ | local editor ⬜ | WP6 — the two are *inverted*; this is a deletion, not a build. |
 | Settings — local prefs | ✅ | ✅ | — |
-| Settings — device enrolment & identity | ✅ | ⬜ | WP4. The largest missing sub-area; no local equivalent to extend. |
+| Settings — device enrolment & identity | ✅ | 🟡 | **WP4 + WP16a.** MAUI gained a **Plutus tab** 2026-08-08: server address, enrolment code → `POST /api/v1/tills/enrol`, connection state, device status, and buttons that exercise the heartbeat and catalogue feed. Secret goes to platform `SecureStorage`, device id to `Preferences` — ⚠ never the SQLite file, which gets copied off machines during support. 🟡 until the un-enrol *request* flow and the local store are wired. |
 | First-time startup / setup | ➖ | ✅ | MAUI-only, and correct — a browser has no first run. |
 
 ## B5. Platform citizenship

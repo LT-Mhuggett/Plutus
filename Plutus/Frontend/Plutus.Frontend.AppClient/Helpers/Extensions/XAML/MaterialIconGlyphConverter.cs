@@ -26,6 +26,8 @@ namespace Plutus.Frontend.AppClient.Helpers.Extensions.XAML
             ["md-all-inbox"] = 0xE97F,
             ["md-people"] = 0xE7FB,
             ["md-table-chart"] = 0xE265,
+            // MAUI retrofit: the Plutus (platform connection) tab.
+            ["md-cloud"] = 0xE2BD,
         };
 
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)

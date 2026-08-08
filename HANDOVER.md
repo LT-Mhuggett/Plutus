@@ -15,9 +15,40 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 ### ⏰⏰⏰⏰⏰ RESUME HERE (2026-08-08, latest — parity sweep, WP16, versions, WP5 backend)
 
-Suite: **Unit 526 · Architecture 13 · Integration 114 · AppClient 295 (+3 skipped) — all green.**
+Suite: **Unit 528 · Architecture 13 · Integration 114 · AppClient 295 (+3 skipped) — all green.**
 Committed on `Matt's-Horror`, **not pushed, not deployed.**
 
+> ### ▶▶ THERE IS A BUILD TO SCREEN-TEST (Matt asked, 2026-08-08)
+>
+> **Run:** `Plutus\Frontend\Plutus.Frontend.AppClient\bin\Debug\net10.0-windows10.0.19041.0\win-x64\Plutus.Frontend.AppClient.exe`
+> — **MAUI till v1.1.0** (`versions/till-maui.txt`, bumped for this build).
+>
+> **What is new to look at:**
+> 1. **Login screen** — a connection indicator below the Submit button (dot + sentence, tap to
+>    re-check) and the till version at the bottom. ⚠ It never blocks sign-in: an offline shop must
+>    still be able to trade.
+> 2. **A new "Plutus" tab** (cloud icon, last tab) — server address, enrolment code, connection
+>    state, device status, and buttons that exercise the heartbeat and the catalogue feed one layer
+>    at a time, so a failure names a specific thing instead of "the network".
+>
+> ⚠ **THE BACKEND MUST BE DEPLOYED FIRST or most of it will read as failure.** `/api/v1/ping`,
+> `/api/v1/heartbeat` and `/api/v1/catalogue/changes` are all in this branch and **not on the Mac**.
+> Against today's live backend you will correctly see *"Connected to Plutus"* (the probe treats a
+> 404 on ping as reachable-but-older — deliberate, see below), but **Send a heartbeat** and **Read
+> the catalogue feed** will both fail until the backend ships. Enrolment works today.
+>
+> ⚠ **Release configuration does NOT build**, and it is **pre-existing** — three Syncfusion XamlC
+> errors in `SalesReportsView.xaml`, `StockOuttakeView.xaml` and `TillView.xaml` (`RangeSelection`
+> enum missing; `PickerColumnCollection` unresolved). Those files have not been touched since the
+> original MAUI migration commit; Release has apparently never compiled. **Debug is the verified
+> configuration** and is what WP0 signed off. Worth fixing separately before anyone needs an
+> installer.
+>
+> ⚠ **The probe now treats a 404 on `/api/v1/ping` as REACHABLE.** A 404 proves a server answered —
+> it means an older backend, not a dead network. Reading it as offline would have reported every
+> shop in the estate as down for the whole rollout window (risk #7). A captive portal returning HTML
+> is still correctly "not Plutus".
+>
 > ### ▶ WP5 — the last backend gap is CLOSED
 >
 > Both missing endpoints are built and provable headlessly, with the client half alongside:

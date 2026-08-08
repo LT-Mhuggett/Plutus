@@ -164,32 +164,39 @@ public sealed class ConnectivityProbe
         timeout.CancelAfter(Timeout);
 
         // Step 1 — is a Plutus backend there at all? Anonymous, no database, no token.
+        bool reached;
         PingResult? ping;
         string? detail;
         try
         {
-            (ping, detail) = await _api.PingAsync(timeout.Token);
+            (reached, ping, detail) = await _api.PingAsync(timeout.Token);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
+            reached = false;
             ping = null;
             detail = $"No reply within {Timeout.TotalSeconds:0}s.";
         }
 
-        if (ping is null)
+        if (!reached)
             return new ConnectionStatus(
                 TillConnection.NoServer,
                 "Can't reach Plutus — the network is up but the server didn't answer.",
                 detail, startedAt, clock.Elapsed, null);
 
+        // ⚠ ping may be NULL here and that is fine — an older backend with no /ping still answered,
+        // which is what "reachable" means. We lose the version and the clock check, not the verdict.
+        // The alternative would report every shop as offline for the whole rollout window.
+
         // The server's clock, against ours. Measured from the START of the call so a slow link
         // reads as latency rather than drift.
-        TimeSpan? skew = ping.UtcNow - startedAt;
+        TimeSpan? skew = ping is null ? null : ping.UtcNow - startedAt;
+        var versionDetail = ping?.ApiVersion is null ? detail : $"Server v{ping.ApiVersion}";
 
         if (!verifyIdentity)
             return new ConnectionStatus(
                 TillConnection.Online, "Server reachable.",
-                ping.ApiVersion is null ? null : $"Server v{ping.ApiVersion}",
+                versionDetail,
                 startedAt, clock.Elapsed, skew);
 
         // Step 2 — does the platform still accept THIS till?
@@ -230,7 +237,7 @@ public sealed class ConnectivityProbe
                 device.IsPendingRemoval
                     ? "Connected to Plutus — removal requested, still trading."
                     : "Connected to Plutus.",
-                ping.ApiVersion is null ? null : $"Server v{ping.ApiVersion}",
+                versionDetail,
                 startedAt, clock.Elapsed, skew, device.Status);
         }
         catch (EnrolmentFailedException e)
