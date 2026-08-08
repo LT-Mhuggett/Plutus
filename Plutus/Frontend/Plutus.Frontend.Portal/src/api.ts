@@ -240,16 +240,85 @@ export interface Summary {
 export const fetchSummary = (from: string, to: string, granularity: string, level = "company", id = "") =>
   get<Summary>(`/api/v1/reports/summary?from=${from}&to=${to}&granularity=${granularity}&level=${level}${id ? `&id=${id}` : ""}`);
 
+// WP2c: the VAT return is band-shaped, not rate-shaped — a till derives each line's rate from its
+// price pair, so one 20% band arrives as 1993–2004bp and totalling by that number would split a
+// single rate across a dozen buckets. `vatPence` is the LEGAL figure (VAT fraction on takings,
+// Notice 727 §3.4.1); `vatChargedPence` is what the tills actually charged, kept for reconciliation.
 export interface VatBucket {
   period: string;
+  bandKey: string;
+  displayName: string;
+  vatClass: string;
   vatRateBp: number;
   grossPence: number;
   netPence: number;
   vatPence: number;
+  vatChargedPence: number;
+  roundingDifferencePence: number;
+  unclassified: boolean;
+}
+export interface VatReturnTotals {
+  grossPence: number; netPence: number; vatPence: number;
+  vatChargedPence: number; roundingDifferencePence: number; unclassifiedGrossPence: number;
 }
 export const fetchVat = (from: string, to: string, granularity: string) =>
-  get<{ totals: { grossPence: number; netPence: number; vatPence: number }; buckets: VatBucket[] }>(
+  get<{ totals: VatReturnTotals; basis: string; buckets: VatBucket[] }>(
     `/api/v1/reports/vat?from=${from}&to=${to}&granularity=${granularity}`);
+
+// ── WP2c: the portal owns the VAT bands, and the tills read them ────────────────────────────────
+// The band is the IDENTITY, not the rate: a rate change adds a dated point, it never edits one.
+// `vatClass` is NOT derivable from `rateBp` — Zero and Exempt are both 0% and different in law.
+
+export interface VatRatePoint {
+  id: string; rateBp: number; effectiveFromUtc: string; note: string | null;
+  inForce: boolean; pending: boolean;
+}
+export interface VatBandAdmin {
+  key: string; displayName: string; vatClass: string;
+  currentRateBp: number | null; points: VatRatePoint[];
+}
+export interface VatRule {
+  id: string; title: string; whatPlutusDoes: string; where: string; source: string; url: string;
+}
+export const fetchVatBands = () =>
+  get<{ asOfUtc: string; classes: string[]; bands: VatBandAdmin[]; guidance: VatRule[] }>(
+    `/api/v1/vat/bands/admin`);
+export const createVatBand = (key: string, displayName: string, vatClass: string, rateBp: number) =>
+  post<{ key: string }>(`/api/v1/vat/bands?rateBp=${rateBp}`, { key, displayName, class: vatClass });
+export const updateVatBand = (key: string, displayName: string, vatClass: string) =>
+  put<void>(`/api/v1/vat/bands/${encodeURIComponent(key)}`, { key, displayName, class: vatClass });
+export const addVatRateChange = (key: string, rateBp: number, effectiveFromUtc: string, note: string) =>
+  post<{ id: string }>(`/api/v1/vat/bands/${encodeURIComponent(key)}/rate-changes`,
+    { rateBp, effectiveFromUtc, note });
+export const cancelVatRateChange = (key: string, id: string) =>
+  del<void>(`/api/v1/vat/bands/${encodeURIComponent(key)}/rate-changes/${id}`);
+
+// ── WP2c: restating past VAT periods (Matt, 2026-08-08 — "correct past return") ─────────────────
+// The sales data was never wrong; the arithmetic on top of it was. This re-runs both methods over
+// the same rollups so the difference per period is a number, not an estimate.
+export interface VatCorrectionPeriod {
+  key: string; startDay: string; endDay: string;
+  complete: boolean; affected: boolean;
+  grossPence: number; boxSixPence: number;
+  asFiledVatPence: number; restatedVatPence: number; netErrorPence: number;
+  unclassifiedGrossPence: number;
+}
+export interface VatCorrections {
+  basis: string; staggerEndMonth: number; filedCorrectlyFrom: string; returnBasis: string;
+  periods: VatCorrectionPeriod[];
+  summary: {
+    periodsAffected: number; asFiledVatPence: number; restatedVatPence: number;
+    netErrorPence: number; underdeclared: boolean;
+    // Takings no band explains contribute ZERO to the net error — there is no rate to take a
+    // fraction of. Surfaced so "nothing to correct" can never quietly mean "nothing classified".
+    unclassifiedGrossPence: number;
+    thresholdPence: number; thresholdBoxSixPence: number; thresholdBasis: string;
+    route: "adjust-next-return" | "vat652";
+  } | null;
+  guidance: { whatHappened: string; whatToDo: string; caveat: string; source: string; url: string };
+}
+export const fetchVatCorrections = (basis: string, staggerEndMonth: number) =>
+  get<VatCorrections>(`/api/v1/reports/vat-corrections?basis=${basis}&staggerEndMonth=${staggerEndMonth}`);
 
 // WP3.1 rich summary (the till's Summary shape, from summary-rich — SalesV2, tenant-wide; amounts
 // in POUNDS, not pence). Powers the portal Reporting→Summary port (deltas, ex-VAT toggle, top items,

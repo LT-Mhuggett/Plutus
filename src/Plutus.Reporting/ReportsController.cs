@@ -348,9 +348,205 @@ namespace Plutus.Reporting
                     roundingDifferencePence = buckets.Sum(b => b.roundingDifferencePence),
                     unclassifiedGrossPence = buckets.Where(b => b.unclassified).Sum(b => b.grossPence),
                 },
-                basis = "HMRC Notice 727 §3.4.1 — VAT fraction applied to takings at each rate (Point of Sale scheme).",
+                basis = VatGuidance.ReturnBasis,
                 buckets,
             });
+        }
+
+        /// <summary>
+        /// WP2c — RESTATE PAST VAT PERIODS, so a return filed on the old (wrong) basis can be
+        /// corrected. Matt's instruction, 2026-08-08: "correct past return".
+        ///
+        /// WHAT WENT WRONG, and why this report is the fix rather than a data repair: until
+        /// <c>cb9dc05</c> the VAT return added up each line's penny-rounded VAT. HMRC Notice 727
+        /// §3.4.1 requires the VAT fraction applied to takings at each rate. THE SALES DATA WAS
+        /// NEVER WRONG — only the arithmetic on top of it — so nothing needs rewriting: the same
+        /// rollups, run through the correct method, give the figure that should have been filed.
+        /// This endpoint runs both methods over each past period and reports the difference.
+        ///
+        /// ⚠ IT DOES NOT FILE ANYTHING. It produces the numbers and says which HMRC correction
+        /// route the arithmetic points at; submitting the adjustment (or a VAT652) is the
+        /// business's action, and whether the original error was "careless" — which forces
+        /// disclosure however small it is — is a judgement no software can make.
+        ///
+        /// Period basis: quarterly by default with an HMRC stagger group, because that is how most
+        /// retailers file. <paramref name="staggerEndMonth"/> is the month a quarter ENDS
+        /// (3 = Mar/Jun/Sep/Dec = stagger 1, 1 = Jan/Apr/Jul/Oct = stagger 2, 2 = stagger 3).
+        /// </summary>
+        [HttpGet("api/v1/reports/vat-corrections")]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalFinancialsView)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> VatCorrections(
+            [FromQuery] string basis = "quarter", [FromQuery] int staggerEndMonth = 3,
+            [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? filedCorrectlyFrom = null)
+        {
+            basis = (basis ?? "quarter").ToLowerInvariant();
+            if (basis is not ("quarter" or "month"))
+                return BadRequest(new { detail = "basis must be quarter or month." });
+            if (staggerEndMonth is < 1 or > 12)
+                return BadRequest(new { detail = "staggerEndMonth must be 1-12 (the month a VAT quarter ends)." });
+
+            // Everything the tills have ever recorded — the restatement has to cover whatever was
+            // actually filed, and the caller narrows it with `from` if the early history is out of
+            // scope (e.g. before the business registered for VAT).
+            // DateOnly.MinValue rather than a lifted null comparison — one concrete predicate the
+            // provider always translates, instead of relying on it folding `from == null` away.
+            var since = from ?? DateOnly.MinValue;
+            var rows = await _db.VatRollups.AsNoTracking()
+                .Where(r => r.BusinessDay >= since)
+                .Select(r => new { r.BusinessDay, r.VatRateBp, r.GrossPence, r.VatPence })
+                .ToListAsync();
+            if (rows.Count == 0)
+                return Ok(new { basis, staggerEndMonth, periods = Array.Empty<object>(), summary = (object)null, guidance = CorrectionGuidance() });
+
+            // The date from which returns were produced on the CORRECT basis. Periods ending on or
+            // after it were never mis-filed, so they are shown for completeness but excluded from
+            // the correction total.
+            var fixedFrom = filedCorrectlyFrom ?? VatReturnMethodFixedOn;
+            var bands = await BandsForReturnAsync();
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            var periods = rows
+                .GroupBy(r => VatPeriodOf(r.BusinessDay, basis, staggerEndMonth))
+                .OrderBy(g => g.Key.End)
+                .Select(g =>
+                {
+                    // Both methods, over the same takings. asFiled = Σ per-line VAT (what the old
+                    // report returned); restated = VAT fraction on each band's takings.
+                    var byBand = g
+                        .GroupBy(r => VatAccounting.BandFor(bands, r.VatRateBp))
+                        .Select(b => new
+                        {
+                            Band = b.Key,
+                            Gross = b.Sum(r => r.GrossPence),
+                            Charged = b.Sum(r => r.VatPence),
+                        })
+                        .ToList();
+
+                    var asFiled = byBand.Sum(b => b.Charged);
+                    // An unclassified bucket has no band to take a fraction of, so its restated
+                    // figure IS what was charged — never invent tax for takings nothing explains.
+                    var restated = byBand.Sum(b => b.Band is VatBand vb ? VatAccounting.OutputTaxOn(b.Gross, vb.RateBp) : b.Charged);
+                    var gross = byBand.Sum(b => b.Gross);
+                    var complete = g.Key.End < today;
+                    var affected = g.Key.End < fixedFrom;
+
+                    return new
+                    {
+                        key = g.Key.Key,
+                        startDay = g.Key.Start,
+                        endDay = g.Key.End,
+                        // A period still in progress can't be corrected — it hasn't been filed.
+                        complete,
+                        // Filed on the old basis? Only these carry an error to correct.
+                        affected = affected && complete,
+                        grossPence = gross,
+                        // Box 6 on the corrected basis: VAT-exclusive outputs.
+                        boxSixPence = gross - restated,
+                        // Box 1 as it was filed, and as it should have been.
+                        asFiledVatPence = asFiled,
+                        restatedVatPence = restated,
+                        // Positive = underdeclared = owed to HMRC.
+                        netErrorPence = restated - asFiled,
+                        unclassifiedGrossPence = byBand.Where(b => b.Band == null).Sum(b => b.Gross),
+                    };
+                })
+                .ToList();
+
+            var correctable = periods.Where(p => p.affected).ToList();
+            // HMRC Notice 700/45 §4: the test is on the NET value of the errors being corrected —
+            // over-declarations and under-declarations offset — not on the largest single one.
+            var netError = correctable.Sum(p => p.netErrorPence);
+            // The threshold keys off Box 6 of the CURRENT return, so use the most recent complete
+            // period as the best available proxy and say so in the payload.
+            var latestComplete = periods.LastOrDefault(p => p.complete);
+            var boxSix = latestComplete?.boxSixPence ?? 0;
+            var threshold = VatGuidance.ErrorCorrectionThresholdPence(boxSix);
+
+            return Ok(new
+            {
+                basis,
+                staggerEndMonth,
+                filedCorrectlyFrom = fixedFrom,
+                returnBasis = VatGuidance.ReturnBasis,
+                periods,
+                summary = new
+                {
+                    periodsAffected = correctable.Count,
+                    asFiledVatPence = correctable.Sum(p => p.asFiledVatPence),
+                    restatedVatPence = correctable.Sum(p => p.restatedVatPence),
+                    // The number that goes on the correction.
+                    netErrorPence = netError,
+                    underdeclared = netError > 0,
+                    // ⚠ Takings no band explains cannot be restated — there is no rate to take a
+                    // fraction of — so they contribute ZERO to the net error. Without this figure
+                    // a tenant whose bands are unconfigured sees a confident "nothing to correct"
+                    // that actually means "I could not classify any of it".
+                    unclassifiedGrossPence = correctable.Sum(p => p.unclassifiedGrossPence),
+                    // The threshold arithmetic, shown rather than asserted, so it can be checked.
+                    thresholdPence = threshold,
+                    thresholdBoxSixPence = boxSix,
+                    thresholdBasis = "Greater of £10,000 and 1% of Box 6, capped at £50,000 "
+                                   + "(HMRC Notice 700/45 §4). Box 6 taken from the most recent complete period.",
+                    route = VatGuidance.ErrorCorrectionRoute(netError, boxSix),
+                },
+                guidance = CorrectionGuidance(),
+            });
+        }
+
+        /// <summary>The date the VAT return started being computed on the HMRC-correct basis
+        /// (commit <c>cb9dc05</c>). Returns for periods ending before this were produced by the
+        /// old summed-lines method and are the ones this report restates.</summary>
+        private static readonly DateOnly VatReturnMethodFixedOn = new(2026, 8, 8);
+
+        private static object CorrectionGuidance() => new
+        {
+            whatHappened =
+                "Until 8 August 2026 this system calculated the VAT return by adding up each sale "
+                + "line's VAT, each of which is rounded to the penny. HMRC requires output tax to be "
+                + "the VAT fraction applied to the total takings at each rate, and the two differ: "
+                + "thousands of small roundings do not add up to the rounding of the total. The sales "
+                + "records themselves were always correct — only the calculation on top of them was "
+                + "wrong, so the corrected figures below come from re-running the same data.",
+            whatToDo =
+                "If the net error is within the reporting threshold and was not careless or "
+                + "deliberate, HMRC allows it to be adjusted on the next return (add an "
+                + "under-declaration to Box 1). Above the threshold — or if it was careless or "
+                + "deliberate, whatever the size — it must be disclosed separately on form VAT652. "
+                + "Keep a record of the error, the periods it covers and how it was corrected.",
+            caveat =
+                "Plutus applies the arithmetic half of the threshold test only. Whether the original "
+                + "error was careless is a judgement for the business and its accountant, and a "
+                + "careless error must be disclosed on VAT652 however small it is.",
+            source = "HMRC Notice 700/45 — How to correct VAT errors and make adjustments or claims",
+            url = "https://www.gov.uk/guidance/how-to-correct-vat-errors-and-make-adjustments-or-claims-vat-notice-70045",
+        };
+
+        /// <summary>
+        /// The VAT period a business day falls in. Quarters follow the HMRC stagger group — the
+        /// month a quarter ENDS — rather than calendar quarters, because a business filing on
+        /// stagger 2 (Jan/Apr/Jul/Oct) would otherwise have every correction attributed to the
+        /// wrong return.
+        /// </summary>
+        /// <remarks>Public and static so the period arithmetic is unit-testable without a database
+        /// — getting a stagger wrong silently files every correction against the wrong return, and
+        /// that is not a thing to discover in production. MVC does not route static members.</remarks>
+        public static (string Key, DateOnly Start, DateOnly End) VatPeriodOf(DateOnly day, string basis, int staggerEndMonth)
+        {
+            if (basis == "month")
+            {
+                var start = new DateOnly(day.Year, day.Month, 1);
+                return ($"{day.Year:0000}-{day.Month:00}", start, start.AddMonths(1).AddDays(-1));
+            }
+
+            // A quarter ending in month E starts at E-2. How many months is this day into its own
+            // quarter? Modulo 3 off that start, normalised for negatives (stagger 2 ends in
+            // January, so its start month is "-1" = November of the previous year).
+            var monthsIn = ((day.Month - (staggerEndMonth - 2)) % 3 + 3) % 3;
+            var qStart = new DateOnly(day.Year, day.Month, 1).AddMonths(-monthsIn);
+            var qEnd = qStart.AddMonths(3).AddDays(-1);
+            return ($"{qStart.Year:0000}-{qStart.Month:00}..{qEnd.Year:0000}-{qEnd.Month:00}", qStart, qEnd);
         }
 
         /// <summary>

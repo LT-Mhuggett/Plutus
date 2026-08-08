@@ -253,10 +253,23 @@ never re-litigated:
 - The zero-vs-exempt reporting split, which would have needed line-level band identity, is
   **not required for Kapow**. It stays a WP2c capability rather than urgent work.
 
-⚠ **Still open, and genuinely an accountant's call:** whether the historical £10.77 shortfall
-(summed-lines vs VAT fraction, pre-`cb9dc05`) needs correcting on past returns or only going
-forward. The system now reports the gap every period rather than hiding it, so it cannot
-re-accumulate unseen.
+✅ **ANSWERED by Matt, 2026-08-08: correct the past returns.** WP2c built the restatement rather
+than an estimate — `GET /api/v1/reports/vat-corrections` re-runs both methods over the same rollups,
+per VAT period, and reports Box 1 as filed, Box 1 restated, and the net error. Portal → VAT →
+**Corrections**.
+- **Nothing is repaired, because nothing was broken in the data.** The sales records were always
+  right; only the arithmetic on top of them was. So the corrected figures come from re-running the
+  same rollups, not from rewriting history.
+- **Periods follow the business's HMRC stagger group**, not calendar quarters — pinned by
+  `VatCorrectionTests`. Attributing a correction to the wrong return is the easy way to get this
+  wrong, and it looks fine on screen.
+- **The route is worked out, not asserted:** net error vs the Notice 700/45 threshold (greater of
+  £10,000 and 1% of Box 6, capped at £50,000). At £10.77 this is an adjustment on the next return
+  (add to Box 1), not a VAT652.
+- ⚠ **Plutus does the arithmetic half of the test only, and says so on the screen.** Whether the
+  original error was *careless* — which forces a VAT652 however small it is — is Matt's and his
+  accountant's judgement, and the software must never appear to have made it. It also does not file
+  anything.
 
 ### The original findings, for the record
 
@@ -333,7 +346,8 @@ resume point for the next session.
 | **1** Shared contracts + client core | ✅ | 2026-08-07 · `27e91c5`. `Plutus.Contracts.Client` + `Plutus.Client.Core` (outbox engine, pusher, API client, token provider). Backend: `stores/{id}/info` now returns `businessId`. Arch test keeps both MAUI-free and backend-module-free (mutation-checked). |
 | **2b** VAT effective-dating | ✅ **corrected + ARMED** | `3ec4eff` shipped exact-bp validation — wrong (Matt's catch). Corrected `88e5c26`: pair-based `Assess`, three verdicts, only StaleBand blocks. **Kapow's bands are now seeded** (`cb9dc05`) with law-correct classes, so the check is live. Verified: an ordinary £14.99/£12.49 line declaring 2002bp ingests 201. |
 | **VAT law fixes** | ✅ | `cb9dc05`. Four defects fixed against HMRC guidance: return now uses the **VAT fraction on takings** (Notice 727 §3.4.1 — Kapow's was £10.77 light); takings group by **band** not derived rate (was fragmented across 6 buckets); off-band takings report **unclassified**; comics reclassified **zero-rated** not exempt (Notice 701/10 — exempt was blocking input-tax recovery). |
-| **2c** Portal VAT **editor** | ⬜ **next backend/portal WP** | The band model + published classes now exist and are correct; what's missing is the **portal UI to own them** (add a rate change, rename a band, add a class) and the `GET /api/v1/vat/bands` contract tills read. Until it lands, band changes are SQL. |
+| **2c** Portal VAT surface | ✅ | 2026-08-08. **The portal is now the source of VAT truth.** `VatBandsController`: `GET /api/v1/vat/bands` (sales.ingest — ships the whole effective-dated timeline, future points included, so an offline till applies a rate change on the day) + the editor endpoints (`portal.company.manage`, every write audited). A rate change **adds a dated point and is refused in the past**; a *scheduled* one can be cancelled, an *in-force* one cannot. Zero ≠ Exempt survives the round trip. Portal gained a **top-level VAT tab** — Return · Bands · Corrections · **Rules** (every rule the code applies, with its HMRC citation, served from `VatGuidance` so text and behaviour ship together). The web till's last hard-coded rate (the gift-card `/1.2`) is gone. **Past returns restated** — see the row below. |
+| **VAT past-return correction** | ✅ | 2026-08-08, Matt's instruction ("correct past return"). `GET /api/v1/reports/vat-corrections` re-runs both methods over the same rollups per VAT period (quarterly with a real HMRC **stagger group**, or monthly), giving Box 1 as-filed vs restated, the net error, and which HMRC Notice 700/45 route the arithmetic points at. ⚠ **It does not file anything** — and whether the original error was *careless* (which forces a VAT652 however small) is explicitly left to Matt and his accountant. |
 | **2** Local store v2 + cutover + money | ✅ (one VAT note) | 2026-08-07 · `6e46734`. New `Plutus.Client.Storage` (schema v2, SQLite). Cutover archives-never-merges and implements the §10 STOP. ⚠ The snapped catalogue band is a **label only** — at sale time lines derive `vatRateBp` from the price pair like the webtill (2026-08-08 correction; see the WP2 note + WP3). Money property test over 2,000 randomised baskets — its VAT arithmetic gets corrected with WP2b. |
 | **3** Sale commit path + outbox | ✅ | 2026-08-07 · `6e46734`. `CommitSaleAsync` (one transaction, sequence allocated, **commit before print** — risk #2 decided in code). `TillStore` implements `IOutboxStore`, so the WP1 pusher drove it unchanged. Soak: 120 offline sales drain exactly once in order, no gaps; crash mid-drain records 20 of 20. |
 | **4** Enrolment + device identity | ✅ | 2026-08-07 · `f90dac5`. Server URL + code; **archive gate refuses enrolment** while a legacy DB is un-archived; placement (storeId + legacy businessId) refreshed each start; secret asserted absent from the DB file. |
@@ -341,9 +355,10 @@ resume point for the next session.
 | 6–13 | ⬜ | The parity WPs — these are where MAUI **UI** work begins (XAML + viewmodels), so they need a device to verify. |
 
 **Two notes for whoever picks this up:**
-1. **The transport spine is done.** WP1–WP4 mean a till can enrol, commit sales offline, and drain
-   them exactly once — all provable headlessly. WP5 onward is the last backend gap, then the
-   remaining WPs are screen work against endpoints that already exist.
+1. **The transport spine is done, and so is the VAT surface.** WP1–WP4 mean a till can enrol,
+   commit sales offline, and drain them exactly once — all provable headlessly. WP2c means no till
+   holds a VAT rule of its own. **WP5 is the last backend gap**, then the remaining WPs are screen
+   work against endpoints that already exist.
 2. **`IOutboxStore` did its job**: WP2's SQLite table implemented it and WP3's pusher needed no
    change at all. Keep new capability behind interfaces in `Client.Core` for the same reason —
    the rules stay testable without a till.
@@ -539,7 +554,15 @@ a deliberately off-band pair (`£11.00/£10.00`) ingests (decision #3) and appea
 gift-card activation AND single-purpose redemption lines ingest after a rate change; empty
 history unchanged.
 
-**WP2c — Portal VAT surface (backend + portal). NEW, added 2026-08-08 at Matt's instruction.**
+**WP2c — Portal VAT surface (backend + portal). ✅ SHIPPED 2026-08-08 — spec kept for the record.**
+*Delivered:* `src/Plutus.Tenancy/Controllers/VatBandsController.cs`, `src/Plutus.SharedKernel/VatGuidance.cs`,
+the portal's VAT tab (`VatPage` → `VatReturn` · `VatBands` · `VatCorrections` · `VatRules`), the
+web till's band cache, and `ReportsController.VatCorrections`. Pinned by `VatBandsE2eTests` (8) and
+`VatCorrectionsE2eTests` (5) and `VatCorrectionTests` (10). The one DoD item deliberately **not** built: sending the band's identity
+on the sale line (§2a finding 2) — Matt confirmed Kapow sells nothing exempt, so the zero-vs-exempt
+split has nothing to separate, and adding a wire field with no consumer is cost without benefit.
+It belongs to **WP3** for the first tenant that genuinely sells exempt supplies.
+
 The principle is *all VAT guidance comes from the portal down to the tills*, and today no portal
 VAT surface exists at all — bands are seeded legacy rows, read-only in both frontends, with no
 effective dates and no owner. This WP makes the portal the source of truth:

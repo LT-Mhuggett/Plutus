@@ -1,7 +1,7 @@
 import { useState } from "react";
 import SummaryReport from "./SummaryReport.tsx";
 import CustomReport from "./CustomReport.tsx";
-import VatPage from "./VatPage.tsx";
+import VatReturn from "./VatReturn.tsx";
 import ItemsSoldPage from "./ItemsSoldPage.tsx";
 import { CategorySalesReport, BestSellersReport, NegativeStockReport } from "./ReportsExtra.tsx";
 
@@ -22,7 +22,9 @@ export default function ReportingPage() {
       </nav>
       {sub === "Summary" && <SummaryReport />}
       {sub === "Custom" && <CustomReport />}
-      {sub === "VAT" && <VatPage />}
+      {/* WP2c: the VAT return only. Bands, corrections and the rules explainer live on the
+          dedicated VAT tab — this stays so nothing moved out from under anyone. */}
+      {sub === "VAT" && <VatReturn />}
       {sub === "Items sold" && <ItemsSoldPage />}
       {sub === "Category sales" && <CategorySalesReport />}
       {sub === "Best sellers" && <BestSellersReport />}

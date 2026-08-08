@@ -81,6 +81,11 @@ public sealed class PlutusApiClient
         return GetAsync<EffectiveThemeResult>($"/api/v1/themes/effective{(q.Length > 0 ? "?" + q : "")}", ct);
     }
 
+    /// <summary>WP2c: the portal's published VAT bands, with their whole effective-dated timeline.
+    /// Cache the result — a till applies it offline, including future-dated changes.</summary>
+    public Task<VatBandsResult?> GetVatBandsAsync(CancellationToken ct = default) =>
+        GetAsync<VatBandsResult>("/api/v1/vat/bands", ct);
+
     // ── sale ingest ──
 
     /// <summary>

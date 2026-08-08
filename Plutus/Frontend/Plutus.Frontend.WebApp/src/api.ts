@@ -726,6 +726,78 @@ export async function loadReceiptTemplate(): Promise<void> {
   } catch { /* keep last-known */ }
 }
 
+// ── WP2c: the portal's published VAT bands ──────────────────────────────────
+// THE PORTAL IS THE SOURCE OF VAT TRUTH. A till receives bands, applies them, and reports what it
+// charged — it never holds a VAT rule of its own. Before this, the single-purpose gift-card
+// redemption line divided by a literal 1.2, so a standard-rate change would have silently
+// mis-stated the VAT embedded in every card spent, on every till, with nothing to catch it.
+//
+// ⚠ The whole effective-dated TIMELINE is cached, not just today's rate. That is what lets a till
+// which is offline across a rate change start charging the new rate on the day it lands; caching
+// only "the rate right now" is exactly the failure WP2b quarantines.
+
+export interface VatBand {
+  key: string;
+  displayName: string;
+  vatClass: string;         // Standard | Reduced | Zero | Exempt | OutsideScope
+  rateBp: number;           // in force when the server answered
+  effectiveFromUtc: string;
+  rates: { rateBp: number; effectiveFromUtc: string }[];
+}
+
+let _vatBands: VatBand[] = (() => {
+  try { const r = localStorage.getItem("plutus.vatBands"); return r ? (JSON.parse(r) as VatBand[]) : []; } catch { return []; }
+})();
+
+export const getVatBandsCached = (): VatBand[] => _vatBands;
+
+/** The rate in force for a band right now, from the cached timeline. Null if the band is unknown
+ *  — callers must decide what to do rather than be handed a plausible default. */
+export function vatRateBpFor(key: string, at: Date = new Date()): number | null {
+  const band = _vatBands.find((b) => b.key.toLowerCase() === key.toLowerCase());
+  if (!band) return null;
+  const applicable = (band.rates ?? [])
+    .filter((p) => new Date(p.effectiveFromUtc) <= at)
+    .sort((a, b) => +new Date(a.effectiveFromUtc) - +new Date(b.effectiveFromUtc));
+  return applicable.length ? applicable[applicable.length - 1].rateBp : null;
+}
+
+/** The standard rate, for the one place a till still needs a specific band: a single-purpose
+ *  gift card, whose VAT is pinned by the voucher treatment rather than by the catalogue. */
+export const standardRateBp = (at?: Date) => vatRateBpFor("standard", at);
+
+/**
+ * The standard rate, or a hard stop.
+ *
+ * ⚠ DELIBERATELY THROWS rather than falling back to 20%. This is reached only on a single-purpose
+ * gift-card line, where the number IS the VAT declared on the sale — a plausible-looking default
+ * would put a wrong figure on a VAT return silently, which is the failure mode this whole work
+ * package exists to remove. Blocking is recoverable in one reconnect; a wrong return is not.
+ *
+ * In practice it cannot fire in normal trade: the bands are cached at boot and on the 60s sync,
+ * the server seeds them for any tenant that has none, and a till that has never connected has no
+ * device token and so cannot sell at all.
+ */
+function requireStandardRateBp(): number {
+  const bp = standardRateBp();
+  if (bp == null)
+    throw new Error(
+      "This till hasn't received the VAT bands from the portal yet, so it can't work out the VAT " +
+      "on a gift card. Reconnect once and try again.");
+  return bp;
+}
+
+export async function loadVatBands(): Promise<void> {
+  try {
+    const res = await fetch(`/api/v1/vat/bands`, { headers: headers() });
+    if (!res.ok) return; // keep the last-known set — an offline till must still be able to sell
+    const data = (await res.json()) as { bands?: VatBand[] };
+    if (!data?.bands?.length) return;
+    _vatBands = data.bands;
+    localStorage.setItem("plutus.vatBands", JSON.stringify(_vatBands));
+  } catch { /* keep last-known */ }
+}
+
 export const fetchBusiness = () =>
   get<BusinessInfo>(`/api/Business/${BUSINESS_ID}`).then((b) => {
     localStorage.setItem("plutus.businessName", b.name);
@@ -973,8 +1045,9 @@ export async function checkout(
         // "multi" priced ex==price (0 VAT, VAT falls due at redemption), "single" priced with VAT in
         // (round-tripping pence through the generic ratio would wobble the band to 1998–2002bp and
         // scatter the VAT report; the treatment says it IS the standard rate, so state it).
+        // WP2c: "the standard rate" is now whatever the PORTAL publishes, not a literal 2000.
         vatRateBp: l.giftCardCode
-          ? (l.exPricePence === l.pricePence ? 0 : 2000)
+          ? (l.exPricePence === l.pricePence ? 0 : requireStandardRateBp())
           : l.exPricePence > 0 ? Math.round((l.pricePence / l.exPricePence - 1) * 10000) : 0,
         vatAmountPence: lineGross - lineEx,
         overriddenFromPence: l.adjusted ? Math.round(l.item.price * 100) : null,
@@ -1002,14 +1075,18 @@ export async function checkout(
   let grossPence = totals.totalPence;
   let vatPence = totals.totalPence - totals.totalExTaxPence;
   if (gift && gift.amountPence > 0 && gift.treatment === "single") {
-    const giftVat = gift.amountPence - Math.round(gift.amountPence / 1.2);
+    // WP2c: the rate comes from the portal's published standard band. This line used to divide by
+    // a literal 1.2 — the last hard-coded VAT rule on any till. A standard-rate change would have
+    // silently mis-stated the VAT embedded in every card spent, with nothing to catch it.
+    const bp = requireStandardRateBp();
+    const giftVat = gift.amountPence - Math.round(gift.amountPence / (1 + bp / 10000));
     ingestLines.push({
       itemId: await itemGuid(BUSINESS_ID, "GIFT-CARD"),
       qty: 1,
       unitPricePence: -gift.amountPence,
       discountPence: 0,
       lineGrossPence: -gift.amountPence,
-      vatRateBp: 2000,
+      vatRateBp: bp,
       vatAmountPence: -giftVat,
       overriddenFromPence: null,
       discountsJson: JSON.stringify({ itemIdOne: "GIFT-CARD", exUnitPence: -(gift.amountPence - giftVat) }),

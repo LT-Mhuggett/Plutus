@@ -12,6 +12,7 @@ import UsersPage from "./UsersPage.tsx";
 import StoresPage from "./StoresPage.tsx";
 import WebstorePage from "./WebstorePage.tsx";
 import CompanyPage from "./CompanyPage.tsx";
+import VatPage from "./VatPage.tsx";
 import PlatformPage from "./PlatformPage.tsx";
 import HelpPage from "./HelpPage.tsx";
 import LoginPage from "./LoginPage.tsx";
@@ -29,7 +30,9 @@ declare const __BUILD_TIME__: string;
 
 // WP11.5 (Matt): "Dashboard" always takes you home; "Company" holds company details + the
 // absorbed Financial periods; "Locations" is the WP11.6 grouped stores/warehouses/webstores page.
-const TABS = ["Dashboard", "Reporting", "Banking", "Inventory", "Prices", "Customers", "Loyalty", "Gift cards", "Webstore", "Users & Roles", "Locations", "Company", "Help"] as const;
+// WP2c: VAT is its own tab, next to Banking — the portal is the source of VAT truth (the bands the
+// tills apply are edited there), so it is no longer just one report under Reporting.
+const TABS = ["Dashboard", "Reporting", "Banking", "VAT", "Inventory", "Prices", "Customers", "Loyalty", "Gift cards", "Webstore", "Users & Roles", "Locations", "Company", "Help"] as const;
 // WP13.4: the operator-only Platform section, shown only when the token carries platform-admin.
 const PLATFORM_TAB = "Platform" as const;
 type Tab = (typeof TABS)[number] | typeof PLATFORM_TAB;
@@ -38,6 +41,7 @@ const PAGES: Record<Tab, () => React.JSX.Element> = {
   Dashboard: DashboardTab,
   Reporting: ReportingPage,
   Banking: BankingPage,
+  VAT: VatPage,
   Inventory: InventoryPage,
   Prices: PricesPage,
   Customers: CustomersPage,

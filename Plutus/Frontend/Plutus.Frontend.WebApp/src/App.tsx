@@ -10,7 +10,7 @@ import EmployeesPage from "./EmployeesPage.tsx";
 import HelpPanel from "./HelpPanel.tsx";
 import LoginPage from "./LoginPage.tsx";
 import { PlutusMark } from "./PlutusMark.tsx";
-import { ackPickNotification, drainOutbox, fetchActiveAnnouncements, fetchPickNotifications, fetchTillName, loadReceiptTemplate, onOutboxChanged, syncCatalogue, type ActiveAnnouncement, type PickNotification } from "./api.ts";
+import { ackPickNotification, drainOutbox, fetchActiveAnnouncements, fetchPickNotifications, fetchTillName, loadReceiptTemplate, loadVatBands, onOutboxChanged, syncCatalogue, type ActiveAnnouncement, type PickNotification } from "./api.ts";
 import { getDeviceCredential, sessionScopes } from "./pipeline.ts";
 import { startAgentReporter } from "./hardware.ts";
 import { startUpdateWatcher } from "./appUpdate.ts";
@@ -120,6 +120,7 @@ export default function App() {
     void drainOutbox().then(refreshQueued); // catch anything queued before a reload
     void syncCatalogue().catch(() => undefined); // offline scanning working set
     void loadReceiptTemplate(); // WP11.2: cache the per-store receipt template for printing
+    void loadVatBands(); // WP2c: the portal's VAT bands — no till holds a VAT rate of its own
     // WP11.1: show this till's name in the header (from its enrolled device identity).
     const cred = getDeviceCredential();
     if (cred?.tillId) void fetchTillName(cred.tillId).then(setTillName).catch(() => undefined);
@@ -138,11 +139,16 @@ export default function App() {
     // every till within a minute, no reload needed (refreshTheme applies it live).
     void refreshTheme();
     const themeTimer = window.setInterval(() => void refreshTheme(), 60_000);
+    // WP2c: VAT bands on the same cadence. A rate change published in the portal — including one
+    // dated for a future day — reaches every till within a minute, and the cached timeline means
+    // a till that then goes offline still switches over on the day itself.
+    const vatTimer = window.setInterval(() => void loadVatBands(), 60_000);
     return () => {
       offOutbox();
       window.clearInterval(notesTimer);
       window.clearInterval(annTimer);
       window.clearInterval(themeTimer);
+      window.clearInterval(vatTimer);
       window.removeEventListener("online", goOnline);
       window.removeEventListener("offline", goOffline);
     };

@@ -50,3 +50,64 @@ public sealed record EffectiveThemeResult(
 /// <summary>GET /api/v1/stores/{id}/receipt-template — the per-store receipt layout the till
 /// prints with, so a receipt is controlled from the portal rather than hardcoded per client.</summary>
 public sealed record ReceiptTemplateResult(int StoreId, string? ReceiptTemplateJson);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WP2c — the published VAT band contract. THE PORTAL IS THE SOURCE OF VAT TRUTH:
+// a till receives bands, applies them, and reports what it charged. No till may
+// hold a hard-coded VAT rate.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// <summary>One dated rate on a band. The band is the identity; this is one value it held.</summary>
+public sealed record VatRatePointDto(int RateBp, DateTime EffectiveFromUtc);
+
+/// <summary>
+/// A VAT band as the portal publishes it.
+///
+/// ⚠ <see cref="VatClass"/> is NOT derivable from <see cref="RateBp"/>. "Zero" and "Exempt" are
+/// both 0% to the customer and different in law — zero-rated is a taxable supply with input-tax
+/// recovery, exempt is not taxable and blocks it. Never infer one from the rate.
+///
+/// ⚠ <see cref="Rates"/> carries FUTURE points as well as past ones. That is what lets a till that
+/// goes offline today start charging a rate change that lands next week — see
+/// <see cref="VatBandsResult"/>.
+/// </summary>
+public sealed record VatBandDto(
+    string Key,
+    string DisplayName,
+    string VatClass,
+    /// <summary>The rate in force at the moment the server answered. A till that has been offline
+    /// since must re-derive from <see cref="Rates"/> rather than trusting this.</summary>
+    int RateBp,
+    DateTime EffectiveFromUtc,
+    VatRatePointDto[] Rates);
+
+/// <summary>
+/// GET /api/v1/vat/bands — sales.ingest, so a device OR an operator token can read it. Cached on
+/// the catalogue-sync cadence.
+///
+/// ⚠ THE WHOLE TIMELINE IS SHIPPED ON PURPOSE. Caching only "the rate right now" would put a till
+/// back in the position WP2b exists to catch: offline across a rate change, still charging the old
+/// rate, its backlog quarantined on reconnect. With the timeline it moves itself on the day.
+/// </summary>
+public sealed record VatBandsResult(DateTime AsOfUtc, string Basis, VatBandDto[] Bands)
+{
+    /// <summary>The rate in force for one band at <paramref name="atUtc"/> — the most recent point
+    /// at or before that instant. Null if the band is unknown or had not started yet.</summary>
+    public int? RateBpAt(string key, DateTime atUtc)
+    {
+        foreach (var b in Bands)
+        {
+            if (!string.Equals(b.Key, key, StringComparison.OrdinalIgnoreCase)) continue;
+            int? found = null;
+            DateTime best = DateTime.MinValue;
+            foreach (var p in b.Rates)
+                if (p.EffectiveFromUtc <= atUtc && p.EffectiveFromUtc >= best)
+                {
+                    best = p.EffectiveFromUtc;
+                    found = p.RateBp;
+                }
+            return found;
+        }
+        return null;
+    }
+}

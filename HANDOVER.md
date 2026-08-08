@@ -13,25 +13,65 @@ Head: see `git log` — this line goes stale; the commits don't.
 > Older references below that say `Build/<plan>.md` now mean `Build/archive/<plan>.md` or
 > `Build/To do/<plan>.md`.
 
-### ⏰⏰⏰⏰ RESUME HERE (2026-08-08)
+### ⏰⏰⏰⏰ RESUME HERE (2026-08-08, later)
 
-Suite: **Unit 402 · Architecture 7 · Integration 81 · AppClient 295 (+3 skipped) — all green.**
+Suite: **Unit 420 · Architecture 7 · Integration 94 · AppClient 295 (+3 skipped) — all green.**
+Both frontends `tsc --noEmit && vite build` clean on the Mac.
 (The two legacy projects `Plutus.Entities.Tests` / `Plutus.Repository.Tests` still fail without a
 live MySQL — pre-existing, not a regression.)
 
-> ### ▶ START HERE TOMORROW
+> ### ▶ START HERE
 >
-> **Recommended next: WP2c — the portal VAT editor + `GET /api/v1/vat/bands`.** Backend + portal,
-> fully verifiable without a device, and it closes Matt's "all VAT guidance comes from the portal"
-> directive properly. After that: **WP5** (heartbeat + catalogue sync — the last backend gap),
-> then WP6–13, which are MAUI **UI** work and need a device to verify.
+> **Next: WP5 — heartbeat + catalogue sync. It is the LAST backend gap.** Needs three endpoints
+> (heartbeat, catalogue/changes, and `syncNow`/`lock` on Device); `TillStore.ApplyCatalogueChangesAsync`
+> and `PriceSchedule` already exist and handle tombstones. After that WP6–13 are MAUI **UI** work
+> and need a device to verify.
+>
+> **⚠ WP2c is built but NOT DEPLOYED.** Backend, portal and web till all have changes waiting.
+> Matt is testing; deploy when he asks. Deploy order and the RBAC caveat are in the WP2c section below.
 >
 > **Read first:** [`Build/repo-runbook.md`](Build/repo-runbook.md), then the retrofit plan's §3b
 > progress board (the true resume point), §2a (VAT — the standing rules) and §10 (the item-ID seam).
 >
-> **Nothing is half-finished.** Working tree clean, everything pushed, all suites green. The three
-> deploys of 2026-08-08 are live and verified; the till and portal builds are unchanged since the
-> FE10 deploy on 08-07.
+> **Nothing is half-finished.** Working tree clean, everything pushed, all suites green.
+
+#### WP2c — the portal is now the source of VAT truth (2026-08-08)
+
+Matt's two instructions this session: **give me a VAT page that explains and references the rules
+being used**, and **correct the past returns**. Both done.
+
+| | What landed |
+|---|---|
+| **`GET /api/v1/vat/bands`** | The published contract, `sales.ingest` so a device OR operator token reads it. ⚠ **It ships the whole effective-dated timeline, future points included** — caching only "today's rate" is the exact failure WP2b quarantines, because a till offline across a rate change would never move on. |
+| **Portal band editor** | `perm:portal.company.manage`, every write audited. A rate change **adds a dated point** and is **refused in the past** (back-dating turns settled sales into stale-band quarantine without changing what the customer paid). A *scheduled* change can be cancelled; an *in-force* one cannot. |
+| **Portal VAT tab** | New top-level tab: **Return · Bands · Corrections · Rules**. Reporting → VAT still shows the Return, so nothing moved out from under anyone. |
+| **Rules tab** | Every rule the code applies, with its HMRC citation and *where in Plutus it happens*, served from `VatGuidance.Rules` — **not hand-written prose**. Text and behaviour ship in the same commit, because a rules page that drifts from the code is a document that will be believed. |
+| **Past returns restated** | `GET /api/v1/reports/vat-corrections`. Detail below. |
+| **The webtill's last hard-coded rate is gone** | The single-purpose gift-card redemption line divided by a literal `1.2`. It now reads the standard band from the contract. |
+
+**Correcting the past returns — what was actually built.** The £10.77 was a *reporting* defect, not
+a data one: the sales records were always right, only the arithmetic on top of them was wrong. So
+nothing is repaired. `vat-corrections` re-runs **both** methods over the same rollups, per VAT
+period, and reports Box 1 as filed, Box 1 restated, the net error, and which HMRC Notice 700/45
+route the arithmetic points at (threshold = greater of £10,000 and 1% of Box 6, capped at £50,000).
+- **Periods follow the business's HMRC stagger group**, not calendar quarters. Getting this wrong
+  files every correction against the wrong return and looks perfectly fine on screen — pinned by a
+  theory + a no-gaps property test in `VatCorrectionTests`.
+- ⚠ **Plutus does the arithmetic half of the test only, and the screen says so.** Whether the error
+  was *careless* — which forces a VAT652 however small it is — is Matt's and his accountant's
+  judgement. **The software files nothing.**
+
+**Deploying it** (when Matt asks): backend → portal → web till, per the runbook. **No migration**
+(WP2b's `VatRatePoints` table already exists) and **no new permission**, so no RBAC re-seed. First
+read of `/api/v1/vat/bands` for a tenant with no `VatRatePoints` **seeds them from the legacy
+`Taxes` rows** and audits it — Kapow's are already seeded correctly by `cb9dc05`, so this is a
+no-op there; it exists so no tenant gets a blank contract (a till with no bands has nothing to
+apply, and WP2b treats an empty history as "skip" — losing both the contract and the check).
+
+**Deliberately NOT built:** sending the band's *identity* on the sale line (§2a finding 2). Matt
+confirmed Kapow sells nothing exempt, so the zero-vs-exempt split has nothing to separate, and a
+wire field with no consumer is cost without benefit. It belongs to WP3 for the first tenant that
+genuinely sells exempt supplies.
 
 #### What shipped (2026-08-08)
 
@@ -157,13 +197,13 @@ provable **headlessly**, with no device, no MySQL and no deployment. Three new p
    - ⚠ Still an accountant's call: whether the historical £10.77 needs correcting on past returns
      or only going forward.
 
-6. **VAT guidance comes FROM THE PORTAL, down to the tills** — Matt's directive, 2026-08-08. A
-   till never decides a VAT rule; it receives bands, applies them, reports what it charged. Same
-   shape as receipt templates and themes. The **model** now honours that (bands are tenant-owned,
-   effective-dated, classed, and seeded); what is still missing is the **portal editor + the
-   published `GET /api/v1/vat/bands` contract**, which is **WP2c** — until it lands, changing a
-   band means SQL. WP2c also removes the webtill's hardcoded `/1.2` in the single-purpose
-   gift-card redemption line, the one place a till still holds a VAT rule.
+6. **VAT guidance comes FROM THE PORTAL, down to the tills** — Matt's directive, 2026-08-08, and
+   **as of WP2c this is true rather than aspirational.** A till never decides a VAT rule; it
+   receives bands, applies them, reports what it charged. Same shape as receipt templates and
+   themes. The model, the editor (`portal.company.manage`, audited) and the published
+   `GET /api/v1/vat/bands` contract all exist, and the webtill's hardcoded `/1.2` is gone.
+   ⚠ **A till caches the whole rate TIMELINE, not today's rate** — that is what lets one that is
+   offline across a rate change apply it on the day instead of being quarantined on reconnect.
    - WP2b's ingest check validates the **price pair**, never the declared rate (corrected after
      Matt caught the first version). Three verdicts, only one blocks: an in-force band explains
      the pair → fine; only a *retired* band explains it → quarantine; nothing explains it →
@@ -193,13 +233,16 @@ re-running periodically; nothing in CI watches this.**
 #### Still open
 
 **Waiting on Matt (nothing blocked on them — the build can continue):**
+- **WP2c is built, tested and NOT deployed** — Matt is testing it. Deploy when he asks.
 - **FE10 theming unverified.** Nothing changes on any till until a scheme is assigned
   (portal → Locations → Till themes). Matt's call, deliberately left until he flips one.
-- **The historical £10.77 VAT shortfall** (summed-lines vs VAT fraction, before `cb9dc05`) —
-  correct past returns, or only go forward? An accountant's decision. The gap is now reported
-  every period, so it cannot re-accumulate unseen.
+- **Filing the £10.77 correction** is Matt's action, not the platform's — Plutus produces the
+  figures and the route, and deliberately files nothing. The remaining judgement is whether the
+  original error counts as *careless* (which would force a VAT652 regardless of size).
 
 **Answered, do not re-ask:**
+- ✅ **Correct the past returns** (Matt, 2026-08-08). Built as a restatement, not a repair — the
+  data was never wrong. Portal → VAT → **Corrections**.
 - ✅ Kapow sells **nothing exempt** (Matt, 2026-08-08) — all items standard- or zero-rated, so
   partial exemption doesn't apply and input tax is recoverable in full.
 - ✅ The **archived legacy till database feeds the translation agent**
@@ -207,7 +250,7 @@ re-running periodically; nothing in CI watches this.**
   §9.3 archives rather than merges, and why §9.4 migrates before enrolling.
 
 **Engineering, unblocked:**
-- **WP2c → WP5 → WP6–13** (see START HERE above).
+- **WP5 → WP6–13** (see START HERE above). WP2c is done.
 - Everything in the 2026-07-31 "Still open" list below **except FE3.1/FE3.5**, which is done.
 - `dotnet list package --vulnerable` is clean, but **nothing in CI watches it** — worth adding.
 - Local-only tidy: the now-redundant 364 MB `D:\tmp\plutus-backup-pre-exe-purge-20260807.bundle`.

@@ -71,6 +71,7 @@ a missing row is a surprise six months later.
 | Inventory CRUD | ✅ | ✅ | — |
 | Stock as a movement ledger | ✅ | ⬜ | WP10. MAUI writes a flat quantity column; concurrent edits are last-write-wins. |
 | VAT-band consistency guard | ✅ | ⬜ | WP10 |
+| **Portal-published VAT bands** (`GET /api/v1/vat/bands`) | ✅ | ⬜ | **WP2c shipped 2026-08-08 (backend + web till).** The web till caches the bands and their whole effective-dated timeline at boot + every 60 s, and its last hard-coded VAT rate (the single-purpose gift-card `/1.2`) is gone. MAUI must consume the same contract before it prices anything — `PlutusApiClient.GetVatBandsAsync` + `VatBandsResult.RateBpAt` already exist for it. ⚠ **Caching only "today's rate" is a bug**: the timeline is what lets an offline till apply a future-dated change on the day. |
 | Category create / rename / reassign / delete | ✅ | 🟡 | WP10. MAUI creates locally; no reassign UI, so the server's 409 has nowhere to land. |
 | The Bin (soft delete) + untracked stock | ✅ | ⬜ | FE5 concepts MAUI has no model for. Fold into WP10. |
 | Reporting — cross-till, server-aggregated | ✅ | ⬜ | WP11. MAUI queries its **own** SQLite, so it can only ever show one till. |
