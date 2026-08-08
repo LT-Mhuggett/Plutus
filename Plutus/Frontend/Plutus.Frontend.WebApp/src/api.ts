@@ -783,8 +783,19 @@ export const standardRateBp = (at?: Date) => vatRateBpFor("standard", at);
  * VAT return that nobody chose.
  */
 export function vatBandForTaxId(taxId: number): string | null {
-  for (const b of _vatBands) if ((b.legacyTaxIds ?? []).includes(taxId)) return b.key;
-  return null;
+  // ⚠ EXACTLY ONE, not the first one. This used to `return b.key` on the first band that claimed
+  // the tax row, which meant that when two bands claimed it the answer was decided by the order the
+  // server happened to serialise them in — and the comment above was already describing the
+  // behaviour below rather than the behaviour that was here.
+  //
+  // Two bands claiming one tax row is not a tie to be broken, it is a mapping that is wrong, and
+  // the ambiguous case is precisely the dangerous one: zero and exempt are BOTH 0%, so first-match
+  // silently attributes exempt takings to zero-rated (or the reverse) and the totals still add up.
+  // Nothing downstream can detect it. Null routes it to the server's *unclassified* path, where a
+  // human is asked — see till-design.md C2, and Plutus.Client.Core VatBandCache, which is the
+  // other half of this same rule and has always required a single match.
+  const matches = _vatBands.filter((b) => (b.legacyTaxIds ?? []).includes(taxId));
+  return matches.length === 1 ? matches[0].key : null;
 }
 
 /**

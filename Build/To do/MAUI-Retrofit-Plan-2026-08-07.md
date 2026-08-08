@@ -385,6 +385,7 @@ resume point for the next session.
 | **15** Web-till test runner + C2 pins | ⬜ | Added 2026-08-08. **Web till, not MAUI** — parity runs both ways. Timing is Matt's call. |
 | **16** Connectivity + offline credentials | 🔨 | Added 2026-08-08 on Matt's instruction. **Shared half DONE:** `/api/v1/ping`, `ConnectivityProbe`, `OfflineCredentials` horizons + 42 tests. **Remaining:** MAUI login-screen UI, the web till's move off `navigator.onLine`, and 16b's enforcement (pairs with WP8). |
 
+| **17** Web till catches up | 🔨 | Added 2026-08-08 — **parity runs both ways**, and these are three rows where the *web till* is behind MAUI. **Row 2 done 2026-08-09**: the ambiguous-VAT-band tie, which was the only one of the three that puts a wrong number on a VAT return. **Remaining:** offline sign-in (needs WP15's runner first — its horizons would be a C2 twin) and the move off `navigator.onLine`. |
 | **Build guards** (not a WP) | ✅ | 2026-08-09. Two things that made green mean less than it looked. **CI ran none of the modern suites** — Unit, Architecture and Integration (709 tests, every VAT and till-client rule) were in no pipeline, and the push trigger listed only `master` while `Matt's-Horror` is the active branch, so most pushes ran nothing. Both fixed. **Debug never validated XAML** — MAUI inflates at runtime in Debug, so a bad property only failed when a human opened the tab (this caused the 2026-08-08 hand-test crash). Debug now validates; mutation-checked both ways. See §7 risk 9 for the 703 advisories that made visible. |
 
 **Two notes for whoever picks this up:**
@@ -1150,10 +1151,15 @@ so in Part B.
    Same shape: `GET /api/v1/tills/{id}/operators`, IndexedDB, and `OfflineCredentials`' horizons —
    ⚠ the horizons must be the SAME numbers, which means a TypeScript port of a rule that currently
    exists once in C#. That is a C2 twin, so it needs WP15's test runner first or it will drift.
-2. ⚠ **It takes the FIRST match when two VAT bands claim one tax row.** Zero-rated and exempt are
-   both 0%, so `api.ts:786` silently attributes takings to whichever sorted first — the exact bug
-   `VatAccounting.BandFor` was changed to stop committing. MAUI returns null → *unclassified*, which
-   is visible. **Small, and it is a wrong number on a VAT return.**
+2. ✅ **DONE 2026-08-09 — the ambiguous VAT band.** `api.ts vatBandForTaxId` took the FIRST match
+   when two bands claimed one tax row; since zero-rated and exempt are both 0%, that silently
+   attributed takings to whichever the server happened to serialise first, with every total still
+   balancing and nothing able to detect it — the exact bug `VatAccounting.BandFor` was changed to
+   stop committing. It now requires **exactly one** match and returns null → *unclassified*,
+   matching `VatBandCache`. ⚠ Worth noting how it hid: the function's doc comment already
+   *described* the strict rule, so reading the comment would have told you the code was fine. A
+   comment is not a pin. ⚠ Still held by review rather than by a test — the TS half is unexecuted
+   until WP15.
 3. **Its connectivity check is `navigator.onLine`** — the network interface, not the server. It says
    "online" in a shop whose broadband is down and cannot tell a revoked till from a dead one. WP16a
    built the shared probe; this is porting the web till onto it.
