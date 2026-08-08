@@ -60,36 +60,16 @@ namespace Plutus.Repository.QueryParameters
             return expr;
         }
 
-        /// <summary>Lower-cased match tokens. Word mode: quoted segments are literal-phrase
-        /// tokens (an unclosed quote runs to end-of-input), the rest splits on whitespace.
-        /// Phrase mode: the whole input (quotes stripped) is one token. Mirrored client-side
-        /// in the till's offline search (offline.ts searchTokens) — keep in sync.</summary>
-        private static IEnumerable<string> Tokenise(string search, bool matchAllWords)
-        {
-            if (string.IsNullOrWhiteSpace(search)) yield break;
-            var lower = search.ToLower();
-
-            if (!matchAllWords)
-            {
-                var phrase = lower.Replace("\"", "").Trim();
-                if (phrase.Length > 0) yield return phrase;
-                yield break;
-            }
-
-            var parts = lower.Split('"'); // odd indexes = inside quotes
-            for (var i = 0; i < parts.Length; i++)
-            {
-                if (i % 2 == 1)
-                {
-                    var phrase = parts[i].Trim();
-                    if (phrase.Length > 0) yield return phrase;
-                }
-                else
-                {
-                    foreach (var word in parts[i].Split((char[])null, StringSplitOptions.RemoveEmptyEntries))
-                        yield return word;
-                }
-            }
-        }
+        /// <summary>
+        /// ⚠ MOVED to <see cref="Plutus.SharedKernel.ItemSearch.Tokenise"/> (2026-08-08).
+        ///
+        /// It used to live here with a "mirrored client-side in offline.ts searchTokens — keep in
+        /// sync" comment, which is a note admitting the problem rather than fixing it. Once MAUI
+        /// searched a cached catalogue there would have been a third copy, and the failure they
+        /// produce is quiet: two tills in one shop returning different results for the same query,
+        /// which everybody reads as the stock being wrong.
+        /// </summary>
+        private static IEnumerable<string> Tokenise(string search, bool matchAllWords) =>
+            Plutus.SharedKernel.ItemSearch.Tokenise(search, matchAllWords);
     }
 }

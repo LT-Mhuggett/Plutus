@@ -111,7 +111,16 @@ public sealed record VatBandDto(
     /// since must re-derive from <see cref="Rates"/> rather than trusting this.</summary>
     int RateBp,
     DateTime EffectiveFromUtc,
-    VatRatePointDto[] Rates);
+    VatRatePointDto[] Rates,
+    /// <summary>
+    /// WHICH legacy tax rows mean this band. An item carries a <c>TaxId</c>, so this is how a till
+    /// knows an item is EXEMPT rather than merely 0% — a distinction the RATE can never carry,
+    /// because zero-rated and exempt are both 0% to the customer and different in law.
+    ///
+    /// ⚠ Empty is normal and is NOT an error: the mapping is dormant until a tenant actually has
+    /// two bands at one rate, so a shop like Kapow is never asked to fill it in.
+    /// </summary>
+    int[]? LegacyTaxIds = null);
 
 /// <summary>
 /// GET /api/v1/vat/bands — sales.ingest, so a device OR an operator token can read it. Cached on

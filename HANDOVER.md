@@ -15,7 +15,7 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 ### ⏰⏰⏰⏰⏰ RESUME HERE (2026-08-08, latest — parity sweep, WP16, versions, WP5 backend)
 
-Suite: **Unit 544 · Architecture 13 · Integration 119 · AppClient 305 (+3 skipped) — all green.**
+Suite: **Unit 558 · Architecture 13 · Integration 119 · AppClient 305 (+3 skipped) — all green.**
 Committed on `Matt's-Horror`, **not pushed, not deployed.**
 
 > ### ✅ WP8 DONE — an enrolled till can sign someone in (2026-08-08)

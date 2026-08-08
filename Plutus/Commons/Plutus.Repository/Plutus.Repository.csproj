@@ -12,6 +12,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Plutus.Contracts\Plutus.Contracts.csproj" />
+    <!-- Item search tokenising lives in SharedKernel so the server, the web till and MAUI cannot
+         drift — two tills returning different results for the same query is a stock problem as far
+         as anyone in the shop is concerned. SharedKernel has no references and no packages. -->
+    <ProjectReference Include="..\..\..\src\Plutus.SharedKernel\Plutus.SharedKernel.csproj" />
   </ItemGroup>
 
 </Project>
