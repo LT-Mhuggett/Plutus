@@ -557,11 +557,29 @@ history unchanged.
 **WP2c — Portal VAT surface (backend + portal). ✅ SHIPPED 2026-08-08 — spec kept for the record.**
 *Delivered:* `src/Plutus.Tenancy/Controllers/VatBandsController.cs`, `src/Plutus.SharedKernel/VatGuidance.cs`,
 the portal's VAT tab (`VatPage` → `VatReturn` · `VatBands` · `VatCorrections` · `VatRules`), the
-web till's band cache, and `ReportsController.VatCorrections`. Pinned by `VatBandsE2eTests` (8) and
-`VatCorrectionsE2eTests` (5) and `VatCorrectionTests` (10). The one DoD item deliberately **not** built: sending the band's identity
-on the sale line (§2a finding 2) — Matt confirmed Kapow sells nothing exempt, so the zero-vs-exempt
-split has nothing to separate, and adding a wire field with no consumer is cost without benefit.
-It belongs to **WP3** for the first tenant that genuinely sells exempt supplies.
+web till's band cache, and `ReportsController.VatCorrections`. Pinned by `VatBandsE2eTests` (11),
+`VatCorrectionsE2eTests` (5), `VatCorrectionTests` (10) and `VatExemptBandTests` (11).
+
+**§2a finding 2 is CLOSED — Matt's instruction, 2026-08-08: "I do need to include the option for
+exempt… other stores might. The option NEEDS to be there."** The first pass shipped Exempt as a
+*class* (in the dropdown, in the contract, applied at 0% by the till) but the **report still could
+not separate it from zero-rated**, because a recorded sale carried only the rate — so for a shop that
+genuinely sells exempt supplies the option wasn't really there. Now:
+- **`SaleLine.VatBand` + `VatRollup.VatBand`** — the band travels on the line and is part of the
+  rollup grain. ⚠ Keyed on the rate alone, a zero-rated row and an exempt row for the same store and
+  day **collide**, and merging them loses the partial-exemption figure irrecoverably.
+- **`VatBandTaxMap`** — items are priced against legacy `Taxes` rows carrying a name and a
+  multiplier, so the band could only ever be *inferred from the rate*, which cannot tell two 0% bands
+  apart. This makes the mapping explicit and portal-owned. It stays dormant until a tenant actually
+  has two bands at one rate (`VatBandResolution.NeedsExplicitMapping`), so Kapow is never nagged.
+- **`VatAccounting.BandFor` now returns null on a TIE** instead of "nearest, first wins" — that
+  silent arbitrary pick would have attributed 0% takings to whichever band happened to sort first,
+  corrupting the exact number this work exists to produce.
+- **`GET /api/v1/reports/vat` gained a `partialExemption` block** (Notice 706): taxable vs exempt
+  turnover, the standard turnover-based recoverable percentage, and — for a shop like Kapow — an
+  explicit *"partial exemption does not apply, input tax is recoverable in full"*.
+- ⚠ **MAUI must send `LineMeta.VatBand`** or exempt turnover is silently unrecoverable for any
+  tenant using it. Registered in `Build/till-parity.md`.
 
 The principle is *all VAT guidance comes from the portal down to the tills*, and today no portal
 VAT surface exists at all — bands are seeded legacy rows, read-only in both frontends, with no

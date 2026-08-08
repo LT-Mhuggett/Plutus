@@ -109,6 +109,20 @@ namespace Plutus.Entities.Models
         public long LineGrossPence { get; set; }
         public long DiscountPence { get; set; }   // total line discount (breakdown in DiscountsJson)
         public int VatRateBp { get; set; }         // basis points: 2000 = 20%
+        /// <summary>
+        /// WP2c-exempt: WHICH VAT BAND this line was rung up under — the band's key, not its rate.
+        ///
+        /// ⚠ THE RATE IS NOT ENOUGH. Zero-rated and exempt supplies both record `VatRateBp = 0`,
+        /// and they are different in law: zero-rated is a taxable supply with input-tax recovery,
+        /// exempt is not taxable and blocks it. Without the band recorded here, a business that
+        /// sells both can never derive a partial-exemption figure from its own sales — the
+        /// information is gone the moment the sale is written.
+        ///
+        /// Null for every line recorded before this shipped, and for a till that doesn't send it.
+        /// Reports fall back to snapping the derived rate to a band, which is right for everything
+        /// except telling two 0% bands apart.
+        /// </summary>
+        public string? VatBand { get; set; }
         public long VatAmountPence { get; set; }
         public long? OverriddenFromPence { get; set; }
         public string? DiscountsJson { get; set; }

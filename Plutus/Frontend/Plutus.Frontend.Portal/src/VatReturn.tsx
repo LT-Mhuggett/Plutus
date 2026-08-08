@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { downloadCsv, csvUrl, fetchVat, fetchVatIntegrity, gbp, type VatBucket, type VatIntegrity, type VatReturnTotals } from "./api.ts";
+import { downloadCsv, csvUrl, fetchVat, fetchVatIntegrity, gbp, type VatBucket, type VatIntegrity, type VatPartialExemption, type VatReturnTotals } from "./api.ts";
 import DataTable from "./DataTable.tsx";
 
 type OffBandItem = VatIntegrity["offBandItems"][number];
@@ -40,6 +40,7 @@ export default function VatReturn() {
   const [quarter, setQuarter] = useState(Math.floor(now.getMonth() / 3) + 1);
   const [buckets, setBuckets] = useState<VatBucket[]>([]);
   const [totals, setTotals] = useState<VatReturnTotals | null>(null);
+  const [pe, setPe] = useState<VatPartialExemption | null>(null);
   const [basis, setBasis] = useState("");
   const [integrity, setIntegrity] = useState<VatIntegrity | null>(null);
   const [showOffenders, setShowOffenders] = useState(false);
@@ -53,7 +54,7 @@ export default function VatReturn() {
     setError("");
     // granularity "year" collapses period grouping; we re-aggregate by band below regardless.
     fetchVat(from, to, "year")
-      .then((r) => { setBuckets(r.buckets); setTotals(r.totals); setBasis(r.basis); })
+      .then((r) => { setBuckets(r.buckets); setTotals(r.totals); setBasis(r.basis); setPe(r.partialExemption); })
       .catch((e) => setError(String(e instanceof Error ? e.message : e)));
   }, [view, year, month, quarter]);
 
@@ -174,6 +175,51 @@ export default function VatReturn() {
           Plutus will not invent a rate for takings nothing supports. Fix the underlying items (see the
           off-band list) so this reaches zero.
         </p>
+      )}
+
+      {/* WP2c-exempt: partial exemption (Notice 706). This block is only possible because the BAND
+          is recorded on each sale line — zero-rated and exempt are both 0%, so the rate could never
+          carry the difference, and the difference decides what input tax you can reclaim. */}
+      {pe && (
+        <>
+          <h3>Partial exemption</h3>
+          {pe.applies ? (
+            <>
+              <div className="stat-row">
+                <div className="stat"><span className="stat-label">Taxable supplies</span><span className="stat-value">{gbp(pe.taxableGrossPence)}</span></div>
+                <div className="stat"><span className="stat-label">Exempt supplies</span><span className="stat-value">{gbp(pe.exemptGrossPence)}</span></div>
+                <div className="stat">
+                  <span className="stat-label">Input tax recoverable</span>
+                  <span className="stat-value">{pe.recoverablePercent == null ? "—" : `${pe.recoverablePercent}%`}</span>
+                </div>
+              </div>
+              <p className="muted small">
+                You made exempt supplies in this period, so <strong>partial exemption applies</strong> and you
+                cannot reclaim all your input tax. The percentage above is the standard turnover-based
+                proportion — taxable supplies as a share of all supplies. A special method has to be agreed
+                with HMRC. {pe.outsideScopeGrossPence !== 0 && <>Takings outside the scope of VAT
+                ({gbp(pe.outsideScopeGrossPence)}) are excluded from both figures.</>}
+              </p>
+            </>
+          ) : (
+            <p className="muted small">
+              <strong>Partial exemption does not apply.</strong> Every supply in this period was taxable
+              (standard, reduced or zero-rated), so your input tax is recoverable in full. Zero-rated is a
+              taxable supply — it charges the customer nothing but does <em>not</em> restrict recovery. Only
+              genuinely <em>exempt</em> supplies would.
+            </p>
+          )}
+          {pe.unbandedGrossPence !== 0 && (
+            <p className="muted small">
+              ⚠ {gbp(pe.unbandedGrossPence)} of these takings were recorded before the VAT band travelled with
+              each sale line, so for those the band was worked out from the rate. That is exact for every band
+              except telling zero-rated from exempt apart — so treat this split as indicative for that portion.
+            </p>
+          )}
+          <p className="muted small">
+            {pe.basis} <a href={pe.url} target="_blank" rel="noreferrer">Notice 706</a>
+          </p>
+        </>
       )}
 
       {totals && diff !== 0 && (

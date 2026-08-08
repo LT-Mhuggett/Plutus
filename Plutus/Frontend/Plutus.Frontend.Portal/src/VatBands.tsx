@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
-  addVatRateChange, cancelVatRateChange, createVatBand, fetchVatBands, updateVatBand,
-  type VatBandAdmin, type VatRule,
+  addVatRateChange, cancelVatRateChange, createVatBand, fetchVatBands, setVatTaxMapping, updateVatBand,
+  type VatBandAdmin, type VatRule, type VatTaxRow,
 } from "./api.ts";
 import { ask } from "./Ask.tsx";
 
@@ -33,13 +33,18 @@ export default function VatBands() {
   const [bands, setBands] = useState<VatBandAdmin[]>([]);
   const [classes, setClasses] = useState<string[]>([]);
   const [guidance, setGuidance] = useState<VatRule[]>([]);
+  const [taxRows, setTaxRows] = useState<VatTaxRow[]>([]);
+  const [mappingRequired, setMappingRequired] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
 
   const load = () =>
     fetchVatBands()
-      .then((r) => { setBands(r.bands); setClasses(r.classes); setGuidance(r.guidance); setError(""); })
+      .then((r) => {
+        setBands(r.bands); setClasses(r.classes); setGuidance(r.guidance);
+        setTaxRows(r.taxRows); setMappingRequired(r.mappingRequired); setError("");
+      })
       .catch((e) => setError(String(e instanceof Error ? e.message : e)));
   useEffect(() => { void load(); }, []);
 
@@ -74,6 +79,9 @@ export default function VatBands() {
       ))}
       {bands.length === 0 && !error && <p className="muted">No VAT bands yet.</p>}
 
+      <TaxMapping rows={taxRows} bands={bands} mappingRequired={mappingRequired} busy={busy}
+        onSet={(taxId, band) => run(() => setVatTaxMapping(taxId, band))} />
+
       {rateChangeRule && (
         <p className="muted small">
           {rateChangeRule.whatPlutusDoes}{" "}
@@ -86,6 +94,99 @@ export default function VatBands() {
           onSave={async (key, name, cls, bp) => { await run(() => createVatBand(key, name, cls, bp)); setAdding(false); }} />
       )}
     </section>
+  );
+}
+
+/**
+ * WP2c-exempt — WHICH BAND DO MY ITEMS BELONG TO?
+ *
+ * Items are priced against legacy tax rows carrying a name and a rate, so the band could only ever
+ * be inferred from that rate. That inference is complete and correct until a business has TWO bands
+ * at the same rate — which in practice means "sells zero-rated AND exempt goods". Then the rate
+ * cannot tell them apart, and the difference is real money: exempt supplies block recovery of input
+ * tax attributable to them, zero-rated supplies don't (HMRC Notice 706).
+ *
+ * So this section stays quiet until it matters, and becomes a required decision when it does.
+ */
+function TaxMapping({ rows, bands, mappingRequired, busy, onSet }: {
+  rows: VatTaxRow[]; bands: VatBandAdmin[]; mappingRequired: boolean; busy: boolean;
+  onSet: (legacyTaxId: number, band: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  if (rows.length === 0) return null;
+
+  const undecided = rows.filter((r) => r.band == null);
+  const bandName = (key: string | null) => bands.find((b) => b.key === key)?.displayName ?? key;
+  // Only bands at the same rate are offerable: mapping a tax row to a band at a different rate would
+  // make every item on it off-band. The server enforces this too.
+  const optionsFor = (r: VatTaxRow) => bands.filter((b) => b.currentRateBp != null && Math.abs(b.currentRateBp - r.rateBp) <= 25);
+
+  return (
+    <div className="panel" style={{ padding: "10px 12px", marginBottom: 12 }}>
+      <div className="toolbar" style={{ marginBottom: 4 }}>
+        <strong>Which band your items use</strong>
+        <span className="grow" />
+        <button className="linklike small" onClick={() => setOpen((v) => !v)}>{open ? "hide" : "show"}</button>
+      </div>
+
+      {undecided.length > 0 ? (
+        <p className="error" style={{ padding: "8px 12px" }}>
+          <strong>⚠ {undecided.length} price group{undecided.length === 1 ? "" : "s"} need a decision.</strong>{" "}
+          You have more than one band at the same rate — <strong>zero-rated and exempt both charge 0%</strong> —
+          so Plutus cannot tell from the price which one your items are. Until you say, their takings are reported
+          as <em>unclassified</em> and your partial-exemption figure will be incomplete. Nothing is guessed.
+        </p>
+      ) : mappingRequired ? (
+        <p className="muted small">
+          You have two bands at the same rate, so each price group has been assigned to one explicitly.
+          Zero-rated and exempt both charge nothing, so this is the only thing that distinguishes them.
+        </p>
+      ) : (
+        <p className="muted small">
+          Each price group is identified by its rate, which is unambiguous for your bands — nothing to decide.
+          You would only need to choose here if you had two bands at the same rate (a zero-rated band and an
+          exempt band, for instance).
+        </p>
+      )}
+
+      {(open || undecided.length > 0) && (
+        <table>
+          <thead><tr><th>Price group</th><th>Rate</th><th className="num">Items</th><th>VAT band</th></tr></thead>
+          <tbody>
+            {rows.map((r) => {
+              const opts = optionsFor(r);
+              return (
+                <tr key={r.legacyTaxId} style={r.band == null ? { background: "rgba(220,38,38,0.08)" } : undefined}>
+                  <td>{r.name} <span className="mono small muted">#{r.legacyTaxId}</span></td>
+                  <td>{rateLabel(r.rateBp)}</td>
+                  <td className="num">{r.itemCount.toLocaleString("en-GB")}</td>
+                  <td>
+                    {/* One option means the rate already decides it — show it, don't ask. */}
+                    {opts.length <= 1 ? (
+                      <>
+                        {bandName(r.band) ?? <span className="error">no matching band</span>}
+                        {r.band != null && !r.mappedExplicitly && <span className="muted small"> (from the rate)</span>}
+                      </>
+                    ) : (
+                      <select value={r.band ?? ""} disabled={busy}
+                        onChange={(e) => { if (e.target.value) void onSet(r.legacyTaxId, e.target.value); }}>
+                        <option value="">— choose —</option>
+                        {opts.map((b) => <option key={b.key} value={b.key}>{b.displayName} ({b.vatClass})</option>)}
+                      </select>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+
+      <p className="muted small">
+        Changing a band here affects sales rung up <strong>from now on</strong>. Sales already recorded keep the
+        band they were sold under — rewriting them would restate VAT returns you have already filed.
+      </p>
+    </div>
   );
 }
 

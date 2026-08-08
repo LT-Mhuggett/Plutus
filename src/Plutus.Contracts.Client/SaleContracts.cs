@@ -68,6 +68,22 @@ public sealed class LineMeta
 {
     [JsonPropertyName("itemIdOne")] public string ItemIdOne { get; set; } = "";
     [JsonPropertyName("exUnitPence")] public long ExUnitPence { get; set; }
+    /// <summary>
+    /// WP2c-exempt: WHICH VAT BAND this line was rung up under — the band's key, from
+    /// <c>GET /api/v1/vat/bands</c>.
+    ///
+    /// ⚠ NOT REDUNDANT WITH <see cref="IngestLine.VatRateBp"/>. Zero-rated and exempt supplies both
+    /// declare 0bp and are different in law: exempt blocks recovery of attributable input tax, zero
+    /// rated doesn't (HMRC Notice 706). Without this, a shop selling both can never derive its
+    /// partial-exemption position from its own takings — the information is gone the moment the sale
+    /// is written.
+    ///
+    /// Resolve it from the item's legacy <c>TaxId</c> against the published bands' <c>legacyTaxIds</c>.
+    /// Leave it NULL when the portal hasn't decided which band a tax row means: the server then falls
+    /// back to snapping the rate, and the portal shows the tax row as needing a decision. Do not
+    /// guess — a guess here puts a number on a VAT return that nobody chose.
+    /// </summary>
+    [JsonPropertyName("vatBand")] public string? VatBand { get; set; }
     /// <summary>Real catalogue discounts only. The members' auto-discount uses sentinel id 0 and
     /// is deliberately OMITTED — the legacy bridge maps these by real DiscountId and a synthetic
     /// one would FK-fail. Its money still flows through <see cref="IngestLine.DiscountPence"/>.</summary>

@@ -42,4 +42,31 @@ namespace Plutus.Entities.Models
         /// <summary>Free text for the audit trail — e.g. "Budget 2026, standard rate cut".</summary>
         public string? Note { get; set; }
     }
+
+    /// <summary>
+    /// WP2c-exempt: which VAT BAND a legacy tax row belongs to.
+    ///
+    /// THE PROBLEM THIS SOLVES. Items are priced against the legacy <c>Taxes</c> table, whose rows
+    /// carry a name and a multiplier and nothing else. A band could therefore only ever be inferred
+    /// from the rate — and that inference cannot distinguish ZERO-RATED from EXEMPT, because both
+    /// are 0%. So a shop that sells both had no way to say which was which, and the difference is
+    /// real money: exempt supplies block recovery of input tax attributable to them (partial
+    /// exemption, HMRC Notice 706), zero-rated supplies do not.
+    ///
+    /// This makes the mapping EXPLICIT and portal-owned, instead of guessed from a row's name.
+    /// Absent a row here, resolution falls back to the rate — which stays correct for every
+    /// unambiguous band, so nothing needs mapping until a tenant actually sells exempt supplies.
+    ///
+    /// Tenant-owned. Keyed on the legacy <c>Taxes.IdOne</c> (an int) because that is what an item
+    /// carries and what a till already knows.
+    /// </summary>
+    public class VatBandTaxMap
+    {
+        public Guid Id { get; set; }
+        public Guid TenantId { get; set; }
+        /// <summary>The legacy <c>Taxes.IdOne</c> an item's <c>TaxId</c> points at.</summary>
+        public int LegacyTaxId { get; set; }
+        /// <summary>The <see cref="VatRatePoint.Band"/> key this tax row means.</summary>
+        public string Band { get; set; }
+    }
 }

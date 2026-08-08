@@ -302,12 +302,20 @@ namespace Plutus.Reporting
             // tills charged is still reported alongside, because the gap is worth seeing — but the
             // figure for the return is the fraction.
             var bands = await BandsForReturnAsync();
+            var byKey = bands.ToDictionary(b => b.Key, StringComparer.OrdinalIgnoreCase);
 
             var buckets = rows
                 .GroupBy(r =>
                 {
                     TryPeriod(granularity, r.BusinessDay, out var p);
-                    var band = VatAccounting.BandFor(bands, r.VatRateBp);
+                    // WP2c-exempt: PREFER THE BAND THE TILL RECORDED. Snapping the rate cannot tell
+                    // zero-rated from exempt — both are 0% — so for a business that sells both, the
+                    // rate-snap silently merges two legally different kinds of supply. Fall back to
+                    // it only for rows with no band: everything recorded before this shipped, and
+                    // any till that doesn't send one yet.
+                    var band = r.VatBand != null && byKey.TryGetValue(r.VatBand, out var recorded)
+                        ? recorded
+                        : VatAccounting.BandFor(bands, r.VatRateBp);
                     return (Period: p, BandKey: band?.Key ?? "unclassified", Band: band);
                 })
                 .OrderBy(g => g.Key.Period, StringComparer.Ordinal).ThenBy(g => g.Key.Band?.RateBp ?? int.MaxValue)
@@ -337,6 +345,22 @@ namespace Plutus.Reporting
                 })
                 .ToList();
 
+            // ── Partial exemption (HMRC Notice 706) ─────────────────────────────────────────────
+            // ⚠ THIS IS WHY THE BAND IS RECORDED ON THE LINE. Exempt supplies are not taxable, so
+            // input tax attributable to them is NOT recoverable; zero-rated supplies are taxable at
+            // 0% and recovery is unaffected. Both charge the customer nothing, so the rate cannot
+            // tell them apart — only the band can. A business with any exempt turnover needs this
+            // split to work out its recoverable proportion; one with none needs to be told so
+            // plainly, rather than left wondering.
+            var taxableGross = buckets.Where(b => b.vatClass is "Standard" or "Reduced" or "Zero").Sum(b => b.grossPence);
+            var exemptGross = buckets.Where(b => b.vatClass == "Exempt").Sum(b => b.grossPence);
+            var outsideScopeGross = buckets.Where(b => b.vatClass == "OutsideScope").Sum(b => b.grossPence);
+            var supplies = taxableGross + exemptGross;
+            // Lines with no recorded band fell back to the rate-snap, which cannot distinguish
+            // zero-rated from exempt — so say how much of the period is on that older footing
+            // instead of implying the split is exact when it may not be.
+            var unbandedGross = rows.Where(r => r.VatBand == null).Sum(r => r.GrossPence);
+
             return Ok(new
             {
                 totals = new
@@ -349,6 +373,24 @@ namespace Plutus.Reporting
                     unclassifiedGrossPence = buckets.Where(b => b.unclassified).Sum(b => b.grossPence),
                 },
                 basis = VatGuidance.ReturnBasis,
+                partialExemption = new
+                {
+                    taxableGrossPence = taxableGross,
+                    exemptGrossPence = exemptGross,
+                    outsideScopeGrossPence = outsideScopeGross,
+                    // The standard turnover-based recovery proportion. Null when there are no
+                    // supplies at all — a percentage of nothing is not 100%, it is undefined.
+                    recoverablePercent = supplies == 0 ? (decimal?)null
+                        : Math.Round(taxableGross * 100m / supplies, 2, MidpointRounding.AwayFromZero),
+                    // The whole point: no exempt turnover ⇒ partial exemption does not apply and
+                    // input tax is recoverable in full.
+                    applies = exemptGross != 0,
+                    unbandedGrossPence = unbandedGross,
+                    basis = "HMRC Notice 706 — partial exemption. Exempt supplies block recovery of "
+                          + "attributable input tax; zero-rated supplies do not. This is the standard "
+                          + "turnover-based method; a special method must be agreed with HMRC.",
+                    url = "https://www.gov.uk/guidance/partial-exemption-vat-notice-706",
+                },
                 buckets,
             });
         }

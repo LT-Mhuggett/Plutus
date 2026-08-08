@@ -50,14 +50,17 @@ namespace Plutus.Reporting
             var salesRollup = await _db.SalesRollups.IgnoreQueryFilters().FirstOrDefaultAsync(
                 r => r.TenantId == sale.TenantId && r.TillId == sale.TillId && r.BusinessDay == day, ct);
 
-            var vatByRate = VatByRate(sale.Lines);
-            var vatRollups = new Dictionary<int, VatRollup>();
-            foreach (var rate in vatByRate.Keys)
+            // WP2c-exempt: the grain is (rate, BAND), not rate alone. Two bands can share a rate —
+            // zero-rated and exempt are both 0% — and merging them destroys the partial-exemption
+            // figure permanently.
+            var vatByBand = VatByRateAndBand(sale.Lines);
+            var vatRollups = new Dictionary<(int, string), VatRollup>();
+            foreach (var (rate, band) in vatByBand.Keys)
             {
                 var row = await _db.VatRollups.IgnoreQueryFilters().FirstOrDefaultAsync(
                     r => r.TenantId == sale.TenantId && r.StoreId == storeId &&
-                         r.BusinessDay == day && r.VatRateBp == rate, ct);
-                if (row != null) vatRollups[rate] = row;
+                         r.BusinessDay == day && r.VatRateBp == rate && r.VatBand == band, ct);
+                if (row != null) vatRollups[(rate, band)] = row;
             }
 
             // ---- mutations (nothing below throws) ----
@@ -80,13 +83,13 @@ namespace Plutus.Reporting
             salesRollup.VatPence += sale.VatPence;
             salesRollup.TxnCount += 1;
 
-            foreach (var (rate, sums) in vatByRate)
+            foreach (var (key, sums) in vatByBand)
             {
-                if (!vatRollups.TryGetValue(rate, out var row))
+                if (!vatRollups.TryGetValue(key, out var row))
                     _db.VatRollups.Add(row = new VatRollup
                     {
                         TenantId = sale.TenantId, CompanyId = companyId, StoreId = storeId,
-                        BusinessDay = day, VatRateBp = rate,
+                        BusinessDay = day, VatRateBp = key.Rate, VatBand = key.Band,
                     });
                 row.GrossPence += sums.Gross;
                 row.NetPence += sums.Gross - sums.Vat;
@@ -118,8 +121,20 @@ namespace Plutus.Reporting
             return day;
         }
 
-        internal static Dictionary<int, (long Gross, long Vat)> VatByRate(IEnumerable<SaleLine> lines) =>
-            lines.GroupBy(l => l.VatRateBp)
+        /// <summary>
+        /// Takings per (rate, band). ⚠ The BAND is part of the key on purpose: zero-rated and exempt
+        /// lines both carry `VatRateBp = 0`, so grouping on the rate alone merges two legally
+        /// different kinds of supply into one bucket — and once merged, the partial-exemption figure
+        /// cannot be recovered without replaying every sale line.
+        ///
+        /// A null band (a till that doesn't send one, or any line recorded before WP2c-exempt) stays
+        /// null and groups with its own kind; reports fall back to snapping the rate for those.
+        /// </summary>
+        /// <remarks>Public so the grain is unit-testable: merging two 0% bands is a silent,
+        /// unrecoverable data loss, which is exactly the kind of thing a test has to hold.</remarks>
+        public static Dictionary<(int Rate, string Band), (long Gross, long Vat)> VatByRateAndBand(
+            IEnumerable<SaleLine> lines) =>
+            lines.GroupBy(l => (Rate: l.VatRateBp, Band: l.VatBand))
                 .ToDictionary(g => g.Key, g => (g.Sum(l => l.LineGrossPence), g.Sum(l => l.VatAmountPence)));
 
         /// <summary>Till → store → company via the legacy hierarchy; unknown tills bucket
@@ -197,7 +212,8 @@ namespace Plutus.Reporting
 
             var vatRollups = sales
                 .SelectMany(s => s.Lines.Select(l => (Sale: s, Line: l)))
-                .GroupBy(x => (spine[x.Sale.TillId].StoreId, Day: effectiveDay(x.Sale), x.Line.VatRateBp))
+                // WP2c-exempt: band is part of the grain — see VatByRateAndBand.
+                .GroupBy(x => (spine[x.Sale.TillId].StoreId, Day: effectiveDay(x.Sale), x.Line.VatRateBp, x.Line.VatBand))
                 .Select(g => new VatRollup
                 {
                     TenantId = tenantId,
@@ -205,6 +221,7 @@ namespace Plutus.Reporting
                     StoreId = g.Key.StoreId,
                     BusinessDay = g.Key.Day,
                     VatRateBp = g.Key.VatRateBp,
+                    VatBand = g.Key.VatBand,
                     GrossPence = g.Sum(x => x.Line.LineGrossPence),
                     NetPence = g.Sum(x => x.Line.LineGrossPence - x.Line.VatAmountPence),
                     VatPence = g.Sum(x => x.Line.VatAmountPence),

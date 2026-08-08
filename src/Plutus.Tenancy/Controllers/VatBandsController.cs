@@ -23,6 +23,10 @@ namespace Plutus.Tenancy.Controllers
     /// <summary>A rate change: the same band, a new value, from a date. Never a mutation.</summary>
     public sealed record VatRateChangeBody(int RateBp, DateTime EffectiveFromUtc, string Note);
 
+    /// <summary>WP2c-exempt: which band a legacy tax row means. Empty/null clears it back to
+    /// rate-derivation.</summary>
+    public sealed record VatTaxMappingBody(string Band);
+
     /// <summary>
     /// MAUI retrofit WP2c — THE PORTAL IS THE SOURCE OF VAT TRUTH.
     ///
@@ -82,6 +86,7 @@ namespace Plutus.Tenancy.Controllers
         {
             var points = await PointsAsync();
             var now = DateTime.UtcNow;
+            var taxBands = await ResolveTaxBandsAsync(points);
 
             // Group to bands so a till gets identity + class once, with its rate timeline attached.
             var bands = points
@@ -102,6 +107,12 @@ namespace Plutus.Tenancy.Controllers
                         rateBp = current.RateBp,
                         effectiveFromUtc = current.EffectiveFromUtc,
                         rates = ordered.Select(p => new { rateBp = p.RateBp, effectiveFromUtc = p.EffectiveFromUtc }).ToArray(),
+                        // WP2c-exempt: WHICH legacy tax rows mean this band. An item carries a
+                        // TaxId, so this is how a till knows an item is EXEMPT rather than merely
+                        // 0% — a distinction the rate can never carry.
+                        legacyTaxIds = taxBands
+                            .Where(kv => string.Equals(kv.Value, g.Key, StringComparison.OrdinalIgnoreCase))
+                            .Select(kv => kv.Key).OrderBy(id => id).ToArray(),
                     };
                 })
                 .ToList();
@@ -153,11 +164,45 @@ namespace Plutus.Tenancy.Controllers
                 .OrderBy(b => b.currentRateBp ?? int.MaxValue)
                 .ToList();
 
+            // WP2c-exempt: the tax rows items are priced against, and which band each one means.
+            // A tenant with a zero-rated AND an exempt band cannot have this derived from the rate,
+            // so unmapped rows are surfaced for a human to decide rather than quietly guessed.
+            var taxBands = await ResolveTaxBandsAsync(points);
+            var itemCounts = await _db.Items.AsNoTracking()
+                .GroupBy(i => i.TaxId).Select(g => new { TaxId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.TaxId, x => x.Count);
+            var explicitMaps = await _db.VatBandTaxMaps.AsNoTracking()
+                .ToDictionaryAsync(m => m.LegacyTaxId, m => m.Band);
+            var taxRows = (await _db.Taxes.AsNoTracking().Select(t => new { t.IdOne, t.Name, t.Rate }).ToListAsync())
+                .Select(t => new
+                {
+                    legacyTaxId = t.IdOne,
+                    name = t.Name,
+                    rateBp = (int)Math.Round((t.Rate - 1d) * 10000d),
+                    band = taxBands.GetValueOrDefault(t.IdOne),
+                    // Explicit = someone said so. Otherwise it was derived from the rate, and the
+                    // editor shows that difference so an owner knows what they have and haven't
+                    // actually decided.
+                    mappedExplicitly = explicitMaps.ContainsKey(t.IdOne),
+                    itemCount = itemCounts.GetValueOrDefault(t.IdOne),
+                })
+                .OrderBy(t => t.legacyTaxId)
+                .ToList();
+
+            var bandValues = bands
+                .Select(b => new VatBand(b.key, b.displayName, Enum.Parse<VatClass>(b.vatClass),
+                    b.currentRateBp ?? 0, now))
+                .ToList();
+
             return Ok(new
             {
                 asOfUtc = now,
                 classes = Enum.GetNames<VatClass>(),
                 bands,
+                taxRows,
+                // True once two bands share a rate — i.e. the tenant has both zero-rated and exempt
+                // supplies. Until then the rate answers everything and the portal stays quiet.
+                mappingRequired = VatBandResolution.NeedsExplicitMapping(bandValues),
                 // The editor renders these verbatim — the rule and its citation ship together, so a
                 // shopkeeper can see WHY the system does what it does without reading the source.
                 guidance = VatGuidance.Rules,
@@ -334,6 +379,110 @@ namespace Plutus.Tenancy.Controllers
             _db.VatRatePoints.Remove(point);
             _db.Audit(_tenant.TenantId, Actor, "vat.rate-change.cancel", nameof(VatRatePoint), id.ToString(),
                 new { band = key, rateBp = point.RateBp, effectiveFromUtc = point.EffectiveFromUtc });
+            await _db.SaveChangesAsync();
+            return NoContent();
+        }
+
+        /// <summary>
+        /// WP2c-exempt: legacy tax id → band, for every tax row this tenant has.
+        ///
+        /// The portal's explicit mapping wins; otherwise the row's RATE picks the band, which is a
+        /// complete answer for every band that is unambiguous at its rate. A tax row that is
+        /// genuinely ambiguous — the zero-vs-exempt case — resolves to nothing and is reported as
+        /// unmapped rather than guessed, because guessing here is the mistake that costs money.
+        /// </summary>
+        private async Task<Dictionary<int, string>> ResolveTaxBandsAsync(List<VatRatePoint> points)
+        {
+            var now = DateTime.UtcNow;
+            var bands = points
+                .GroupBy(p => p.Band, StringComparer.OrdinalIgnoreCase)
+                .Select(g =>
+                {
+                    var ordered = g.OrderBy(p => p.EffectiveFromUtc).ToList();
+                    var current = ordered.LastOrDefault(p => p.EffectiveFromUtc <= now) ?? ordered[0];
+                    return new VatBand(g.Key, ordered[^1].DisplayName ?? g.Key,
+                        (VatClass)ordered[^1].Class, current.RateBp, current.EffectiveFromUtc);
+                })
+                .ToList();
+
+            var maps = await _db.VatBandTaxMaps.AsNoTracking()
+                .ToDictionaryAsync(m => m.LegacyTaxId, m => m.Band);
+            var taxes = await _db.Taxes.AsNoTracking().Select(t => new { t.IdOne, t.Rate }).ToListAsync();
+
+            var resolved = new Dictionary<int, string>();
+            foreach (var t in taxes)
+            {
+                var bp = (int)Math.Round((t.Rate - 1d) * 10000d);
+                var band = VatBandResolution.Resolve(bands, maps.GetValueOrDefault(t.IdOne), bp);
+                if (band != null) resolved[t.IdOne] = band;
+            }
+            return resolved;
+        }
+
+        /// <summary>
+        /// Say which band a legacy tax row means — the edit that makes EXEMPT usable.
+        ///
+        /// ⚠ WHY THIS IS NEEDED AT ALL: items are priced against legacy <c>Taxes</c> rows carrying a
+        /// name and a multiplier, so a band could only be inferred from the rate — and the rate
+        /// cannot tell zero-rated from exempt, since both are 0%. A shop that sells exempt supplies
+        /// has to be able to SAY so; the difference decides whether input tax on the related costs
+        /// is recoverable (HMRC Notice 706).
+        ///
+        /// ⚠ Changes only affect sales rung up AFTERWARDS. Lines already recorded carry the band they
+        /// were sold under, and rewriting them would restate filed returns behind the owner's back.
+        /// </summary>
+        [HttpPut("tax-mapping/{legacyTaxId:int}")]
+        [Authorize(Policy = "perm:portal.company.manage")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> MapTax([FromRoute] int legacyTaxId, [FromBody] VatTaxMappingBody body)
+        {
+            if (!await _db.Taxes.AnyAsync(t => t.IdOne == legacyTaxId))
+                return NotFound(new { detail = $"No tax row {legacyTaxId} in this business." });
+
+            var existing = await _db.VatBandTaxMaps.FirstOrDefaultAsync(m => m.LegacyTaxId == legacyTaxId);
+            _db.CurrentUser = Actor.ToString();
+
+            // An empty band clears the mapping and falls back to rate-derivation.
+            if (string.IsNullOrWhiteSpace(body?.Band))
+            {
+                if (existing != null) _db.VatBandTaxMaps.Remove(existing);
+                _db.Audit(_tenant.TenantId, Actor, "vat.tax-mapping.clear", nameof(VatBandTaxMap),
+                    legacyTaxId.ToString(), new { was = existing?.Band });
+                await _db.SaveChangesAsync();
+                return NoContent();
+            }
+
+            var band = body.Band.Trim().ToLowerInvariant();
+            if (!await _db.VatRatePoints.AnyAsync(p => p.Band == band))
+                return BadRequest(new { detail = $"No VAT band '{band}'. Create it first." });
+
+            // The rate has to agree, or the mapping would declare a rate the items are not priced
+            // at — an item editor accepts a price pair against its Tax row's multiplier, and a
+            // band claiming a different rate would make every one of those items off-band.
+            var taxRate = await _db.Taxes.Where(t => t.IdOne == legacyTaxId).Select(t => t.Rate).FirstAsync();
+            var taxBp = (int)Math.Round((taxRate - 1d) * 10000d);
+            var bandBp = await _db.VatRatePoints.Where(p => p.Band == band && p.EffectiveFromUtc <= DateTime.UtcNow)
+                .OrderByDescending(p => p.EffectiveFromUtc).Select(p => p.RateBp).FirstOrDefaultAsync();
+            if (Math.Abs(taxBp - bandBp) > VatAccounting.BandSnapToleranceBp)
+                return BadRequest(new
+                {
+                    detail = $"Tax row {legacyTaxId} is {taxBp}bp but band '{band}' is {bandBp}bp. "
+                           + "Mapping them would make every item on that tax row off-band. Map it to a "
+                           + "band at the same rate, or change the items' prices first.",
+                });
+
+            if (existing == null)
+                _db.VatBandTaxMaps.Add(new VatBandTaxMap
+                {
+                    Id = Uuid7.New(), TenantId = _tenant.TenantId, LegacyTaxId = legacyTaxId, Band = band,
+                });
+            else
+                existing.Band = band;
+
+            _db.Audit(_tenant.TenantId, Actor, "vat.tax-mapping.set", nameof(VatBandTaxMap),
+                legacyTaxId.ToString(), new { was = existing?.Band, now = band });
             await _db.SaveChangesAsync();
             return NoContent();
         }

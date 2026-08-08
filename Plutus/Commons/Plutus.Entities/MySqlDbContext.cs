@@ -50,6 +50,8 @@ namespace Plutus.Entities
         public DbSet<StoreDetails> StoreDetails { get; set; }
         public DbSet<TillDetails> TillDetails { get; set; }
         public DbSet<VatRatePoint> VatRatePoints { get; set; }
+        // WP2c-exempt: legacy tax row → VAT band, so zero-rated and exempt (both 0%) stay apart.
+        public DbSet<VatBandTaxMap> VatBandTaxMaps { get; set; }
         public DbSet<TillTheme> TillThemes { get; set; }
         public DbSet<TillGroup> TillGroups { get; set; }
         public DbSet<TillGroupMember> TillGroupMembers { get; set; }
@@ -188,7 +190,7 @@ namespace Plutus.Entities
             // Admin surface (WP3.2, WP11.1).
             typeof(AuditLog), typeof(StoreDetails), typeof(TillDetails),
             typeof(TillTheme), typeof(TillGroup), typeof(TillGroupMember), typeof(TillThemeAssignment),
-            typeof(VatRatePoint),
+            typeof(VatRatePoint), typeof(VatBandTaxMap),
             // Reporting projections (WP3.3).
             typeof(SalesRollup), typeof(VatRollup),
             // Operator usage metering (WP13.1) + request health (WP13.2) — per-tenant rows,
@@ -285,6 +287,9 @@ namespace Plutus.Entities
                 e.Property(x => x.Id).ValueGeneratedNever();
                 e.HasIndex(x => new { x.TenantId, x.SaleId });
                 e.HasIndex(x => new { x.TenantId, x.ItemId });
+                // WP2c-exempt: the band the line was rung up under — the rate alone cannot tell
+                // zero-rated from exempt.
+                e.Property(x => x.VatBand).HasMaxLength(40);
             });
             modelBuilder.Entity<SaleTender>(e =>
             {
@@ -406,6 +411,16 @@ namespace Plutus.Entities
                 // One rate per band per instant; re-stating the same change is a no-op, not a dupe.
                 e.HasIndex(x => new { x.TenantId, x.Band, x.EffectiveFromUtc }).IsUnique();
             });
+            // WP2c-exempt: legacy tax row → band. One band per tax row, so the mapping can never
+            // be ambiguous at the point a till resolves it.
+            modelBuilder.Entity<VatBandTaxMap>(e =>
+            {
+                e.ToTable("VatBandTaxMaps");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Band).HasMaxLength(40).IsRequired();
+                e.HasIndex(x => new { x.TenantId, x.LegacyTaxId }).IsUnique();
+            });
             // FE10 till theming.
             modelBuilder.Entity<TillTheme>(e =>
             {
@@ -526,7 +541,13 @@ namespace Plutus.Entities
                 e.ToTable("VatRollups");
                 e.HasKey(x => x.Id);
                 e.Property(x => x.Id).ValueGeneratedOnAdd();
-                e.HasIndex(x => new { x.TenantId, x.StoreId, x.BusinessDay, x.VatRateBp }).IsUnique();
+                e.Property(x => x.VatBand).HasMaxLength(40);
+                // ⚠ The BAND is part of the unique grain. Without it, a zero-rated row and an
+                // exempt row for the same store and day collide on (…, VatRateBp = 0) — the
+                // projection would either throw or silently merge the two, and merging destroys
+                // the partial-exemption figure. MySQL treats NULLs as distinct in a unique index,
+                // which is what pre-band rows need.
+                e.HasIndex(x => new { x.TenantId, x.StoreId, x.BusinessDay, x.VatRateBp, x.VatBand }).IsUnique();
             });
             // WP13.1 operator usage metering — composite key on the natural grain.
             modelBuilder.Entity<TenantUsageRollup>(e =>

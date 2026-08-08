@@ -15,7 +15,7 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 ### ⏰⏰⏰⏰ RESUME HERE (2026-08-08, later)
 
-Suite: **Unit 420 · Architecture 7 · Integration 94 · AppClient 295 (+3 skipped) — all green.**
+Suite: **Unit 431 · Architecture 7 · Integration 97 · AppClient 295 (+3 skipped) — all green.**
 Both frontends `tsc --noEmit && vite build` clean on the Mac.
 (The two legacy projects `Plutus.Entities.Tests` / `Plutus.Repository.Tests` still fail without a
 live MySQL — pre-existing, not a regression.)
@@ -61,17 +61,44 @@ route the arithmetic points at (threshold = greater of £10,000 and 1% of Box 6,
   was *careless* — which forces a VAT652 however small it is — is Matt's and his accountant's
   judgement. **The software files nothing.**
 
-**Deploying it** (when Matt asks): backend → portal → web till, per the runbook. **No migration**
-(WP2b's `VatRatePoints` table already exists) and **no new permission**, so no RBAC re-seed. First
+**Deploying it** (when Matt asks): backend → portal → web till, per the runbook. ⚠ **Carries the
+`AddVatBandIdentity` migration — dump the database first** (see the exempt section below). **No new
+permission**, so no RBAC re-seed. First
 read of `/api/v1/vat/bands` for a tenant with no `VatRatePoints` **seeds them from the legacy
 `Taxes` rows** and audits it — Kapow's are already seeded correctly by `cb9dc05`, so this is a
 no-op there; it exists so no tenant gets a blank contract (a till with no bands has nothing to
 apply, and WP2b treats an empty history as "skip" — losing both the contract and the check).
 
-**Deliberately NOT built:** sending the band's *identity* on the sale line (§2a finding 2). Matt
-confirmed Kapow sells nothing exempt, so the zero-vs-exempt split has nothing to separate, and a
-wire field with no consumer is cost without benefit. It belongs to WP3 for the first tenant that
-genuinely sells exempt supplies.
+#### EXEMPT is now a real option, not just a dropdown entry (2026-08-08)
+
+Matt: *"I do need to include the option for exempt, just because Kapow doesn't sell Exempt. other
+stores might. The option NEEDS to be there."* He was right, and the first pass fell short: Exempt was
+in the class list, in the published contract, and applied at 0% by the till — but the **report could
+not separate it from zero-rated**, because a recorded sale carried only its rate. For a shop that
+genuinely sells exempt supplies, that made the option cosmetic.
+
+**Why the rate can never carry it:** zero-rated and exempt are both 0% to the customer. Zero-rated is
+a *taxable* supply with full input-tax recovery; exempt is *not* a taxable supply and blocks recovery
+of attributable input tax (partial exemption, Notice 706). Same rate, different money.
+
+| What landed | Why |
+|---|---|
+| **`SaleLine.VatBand`** + `LineMeta.vatBand` on the wire | The band travels with the line. Without it the distinction is gone the instant the sale is written — no later report can recover it. |
+| **`VatRollup.VatBand`, part of the unique grain** | ⚠ Keyed on the rate alone, a zero-rated row and an exempt row for the same store and day **collide**. The projection would throw or silently merge, and merging destroys the figure permanently. |
+| **`VatBandTaxMap`** — legacy tax row → band | Items are priced against `Taxes` rows holding a name and a multiplier, so the band could only be *inferred from the rate*. This is how a shop **says** "these are exempt". Dormant until a tenant has two bands at one rate, so Kapow is never nagged. |
+| **`BandFor` returns null on a TIE** | It used to take "the nearest, first wins" — with two 0% bands that silently attributed takings to whichever sorted first. Ambiguity now reports as *unclassified*, which is visible. |
+| **`partialExemption` on `/api/v1/reports/vat`** | Taxable vs exempt turnover and the standard turnover-based recoverable %. For Kapow it states plainly that **partial exemption does not apply and input tax is recoverable in full** — the opposite of the old "Exempt" label's implication. |
+| **Portal: "Which band your items use"** on the Bands tab | Only demands a decision when the rate is genuinely ambiguous; otherwise it explains that nothing needs deciding. Refuses to map a tax row to a band at a different rate (that would make every item on it off-band). |
+
+⚠ **MAUI must send `LineMeta.VatBand`** or exempt turnover is silently unrecoverable for any tenant
+using it. Registered in `Build/till-parity.md`; `LineMeta.VatBand` already exists in
+`Plutus.Contracts.Client` with the resolution rule documented on it.
+
+⚠ **This deploy carries a MIGRATION** (`AddVatBandIdentity`) — dump first. It also **rebuilds the
+VatRollups unique index** to include the band. Historic rows keep `VatBand = NULL` and reports fall
+back to snapping the rate, which stays exact for every band except telling two 0% bands apart; the
+return reports how much of a period is on that older footing (`partialExemption.unbandedGrossPence`).
+Run `POST /api/v1/reports/rebuild` (platform-admin) if you want history re-projected.
 
 #### What shipped (2026-08-08)
 
@@ -244,7 +271,10 @@ re-running periodically; nothing in CI watches this.**
 - ✅ **Correct the past returns** (Matt, 2026-08-08). Built as a restatement, not a repair — the
   data was never wrong. Portal → VAT → **Corrections**.
 - ✅ Kapow sells **nothing exempt** (Matt, 2026-08-08) — all items standard- or zero-rated, so
-  partial exemption doesn't apply and input tax is recoverable in full.
+  partial exemption doesn't apply and input tax is recoverable in full. ⚠ **This is about KAPOW's
+  data, NOT about whether the platform supports exempt.** Matt was explicit on 2026-08-08 that other
+  stores will need it, so Exempt is a fully working band end to end — see the exempt section above.
+  Never treat "Kapow doesn't sell exempt" as licence to simplify the zero-vs-exempt split away.
 - ✅ The **archived legacy till database feeds the translation agent**
   (`Build/To do/NatApp-Translation-Agent-Plan-2026-08-05.md`) — confirmed by Matt, and it is why
   §9.3 archives rather than merges, and why §9.4 migrates before enrolling.

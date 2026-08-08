@@ -261,8 +261,19 @@ export interface VatReturnTotals {
   grossPence: number; netPence: number; vatPence: number;
   vatChargedPence: number; roundingDifferencePence: number; unclassifiedGrossPence: number;
 }
+// WP2c-exempt: partial exemption (HMRC Notice 706). Exempt supplies block recovery of attributable
+// input tax; zero-rated ones don't. Both charge the customer nothing, so this split is only possible
+// because the BAND is recorded on each sale line — the rate alone could never carry it.
+export interface VatPartialExemption {
+  taxableGrossPence: number; exemptGrossPence: number; outsideScopeGrossPence: number;
+  recoverablePercent: number | null;
+  applies: boolean;
+  /** Takings recorded before the band travelled with the line — the split can't be exact for these. */
+  unbandedGrossPence: number;
+  basis: string; url: string;
+}
 export const fetchVat = (from: string, to: string, granularity: string) =>
-  get<{ totals: VatReturnTotals; basis: string; buckets: VatBucket[] }>(
+  get<{ totals: VatReturnTotals; basis: string; partialExemption: VatPartialExemption; buckets: VatBucket[] }>(
     `/api/v1/reports/vat?from=${from}&to=${to}&granularity=${granularity}`);
 
 // ── WP2c: the portal owns the VAT bands, and the tills read them ────────────────────────────────
@@ -280,9 +291,22 @@ export interface VatBandAdmin {
 export interface VatRule {
   id: string; title: string; whatPlutusDoes: string; where: string; source: string; url: string;
 }
+// WP2c-exempt: the legacy tax rows items are priced against, and which band each one means. This is
+// the ONLY way to say "these items are exempt, not merely zero-rated" — both are 0%, so the rate
+// cannot carry it, and the difference decides whether input tax is recoverable (Notice 706).
+export interface VatTaxRow {
+  legacyTaxId: number; name: string; rateBp: number;
+  band: string | null;            // null = ambiguous and undecided (the zero-vs-exempt case)
+  mappedExplicitly: boolean;      // false = derived from the rate, nobody has actually decided
+  itemCount: number;
+}
 export const fetchVatBands = () =>
-  get<{ asOfUtc: string; classes: string[]; bands: VatBandAdmin[]; guidance: VatRule[] }>(
-    `/api/v1/vat/bands/admin`);
+  get<{
+    asOfUtc: string; classes: string[]; bands: VatBandAdmin[];
+    taxRows: VatTaxRow[]; mappingRequired: boolean; guidance: VatRule[];
+  }>(`/api/v1/vat/bands/admin`);
+export const setVatTaxMapping = (legacyTaxId: number, band: string) =>
+  put<void>(`/api/v1/vat/tax-mapping/${legacyTaxId}`, { band });
 export const createVatBand = (key: string, displayName: string, vatClass: string, rateBp: number) =>
   post<{ key: string }>(`/api/v1/vat/bands?rateBp=${rateBp}`, { key, displayName, class: vatClass });
 export const updateVatBand = (key: string, displayName: string, vatClass: string) =>

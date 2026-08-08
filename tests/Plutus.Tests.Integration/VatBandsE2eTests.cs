@@ -96,6 +96,53 @@ public class VatBandsE2eTests : IClassFixture<PlutusAppFactory>
         await db.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// A one-line 0% sale carrying its BAND in the line metadata, exactly as the web till builds it
+    /// (`{"itemIdOne":…,"exUnitPence":…,"vatBand":"exempt"}`).
+    ///
+    /// ⚠ Note what is identical between a zero-rated and an exempt sale here: rate 0bp, VAT £0,
+    /// price == ex price. The band string is the ONLY difference, which is precisely why it has to
+    /// be on the wire.
+    /// </summary>
+    private static async Task<HttpResponseMessage> PostZeroRatedSaleAsync(
+        HttpClient c, string deviceToken, long seq, long grossPence, string band, DateOnly day)
+    {
+        var sale = new
+        {
+            saleId = Uuid7.New(), deviceSeq = seq, channel = 0,
+            businessDay = day.ToString("yyyy-MM-dd"),
+            occurredAtUtc = day.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
+            grossPence, vatPence = 0L,
+            lines = new[]
+            {
+                new
+                {
+                    itemId = Guid.NewGuid(), qty = 1, unitPricePence = grossPence, discountPence = 0L,
+                    lineGrossPence = grossPence, vatRateBp = 0, vatAmountPence = 0L,
+                    discountsJson = "{\"itemIdOne\":\"5010000000009\",\"exUnitPence\":" + grossPence
+                                  + ",\"vatBand\":\"" + band + "\"}",
+                },
+            },
+            tenders = new[] { new { tenderType = 0, amountPence = grossPence, changePence = 0L } },
+        };
+        return await c.SendAsync(Req(HttpMethod.Post, "/api/v1/sales", deviceToken, sale));
+    }
+
+    /// <summary>Project the rollups the VAT return reads. The integration host removes hosted
+    /// services, so nothing folds sales automatically — the rebuild does it, and exercises the
+    /// band-aware grain on the rebuild path at the same time.</summary>
+    private async Task ProjectRollupsAsync(Guid tenantId)
+    {
+        using var scope = _f.Services.CreateScope();
+        // Scoped to THIS tenant: StampAndGuardTenant refuses writes for anyone else, and these
+        // tests provision fresh tenants rather than trading as Kapow (runbook pitfall #3).
+        var db = new MySqlDbContext(
+            scope.ServiceProvider.GetRequiredService<DbContextOptions<MySqlDbContext>>(),
+            new Plutus.Entities.Tenancy.FixedTenantContext(tenantId));
+        db.CurrentUser = "vat-bands-e2e";
+        await Plutus.Reporting.RollupRebuilder.RebuildAsync(db, tenantId);
+    }
+
     [Fact]
     public async Task A_DEVICE_token_can_read_the_published_bands_and_gets_the_whole_timeline()
     {
@@ -248,6 +295,101 @@ public class VatBandsE2eTests : IClassFixture<PlutusAppFactory>
         // Whatever the tenant template seeds into Taxes, the contract is never blank when Taxes
         // has rows, and every band carries an explicit class rather than a bare rate.
         Assert.All(bands, b => Assert.False(string.IsNullOrWhiteSpace(b.GetProperty("vatClass").GetString())));
+    }
+
+    [Fact]
+    public async Task An_EXEMPT_sale_survives_till_to_return_and_produces_a_partial_exemption_figure()
+    {
+        // ⚠ THE POINT OF THE WHOLE EXEMPT SEAM, end to end. Two 0% sales — one zero-rated, one
+        // exempt — must reach the VAT return as SEPARATE bands, because that split is the only way
+        // to work out how much input tax is recoverable (HMRC Notice 706). Before the band travelled
+        // on the line, both arrived as `VatRateBp = 0` and were indistinguishable forever.
+        var c = _f.CreateClient();
+        var (tenantId, owner, device) = await ProvisionAsync(c, "bands9@acme.test");
+        await SeedBandsAsync(tenantId,
+            ("standard", "20%", VatClass.Standard, 2000),
+            ("zero", "Zero rated (books)", VatClass.Zero, 0),
+            ("exempt", "Exempt", VatClass.Exempt, 0));
+
+        var day = DateOnly.FromDateTime(DateTime.UtcNow);
+        // Both lines are 0bp and £0 VAT — the ONLY thing telling them apart is the band in the meta.
+        Assert.Equal(HttpStatusCode.Created, (await PostZeroRatedSaleAsync(c, device, 1, 800, "zero", day)).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await PostZeroRatedSaleAsync(c, device, 2, 500, "exempt", day)).StatusCode);
+
+        await ProjectRollupsAsync(tenantId);
+
+        var from = day.AddDays(-1).ToString("yyyy-MM-dd");
+        var to = day.AddDays(1).ToString("yyyy-MM-dd");
+        var report = await ReadJson(await c.SendAsync(Req(HttpMethod.Get,
+            $"/api/v1/reports/vat?from={from}&to={to}&granularity=year", owner)));
+
+        var buckets = report.GetProperty("buckets").EnumerateArray().ToArray();
+        var zero = buckets.Single(b => b.GetProperty("bandKey").GetString() == "zero");
+        var exempt = buckets.Single(b => b.GetProperty("bandKey").GetString() == "exempt");
+        Assert.Equal(800, zero.GetProperty("grossPence").GetInt64());
+        Assert.Equal(500, exempt.GetProperty("grossPence").GetInt64());
+        // Same rate, different CLASS — that is the distinction, and it survived.
+        Assert.Equal("Zero", zero.GetProperty("vatClass").GetString());
+        Assert.Equal("Exempt", exempt.GetProperty("vatClass").GetString());
+        // Neither produces output tax: reclassifying moves no money on Box 1, only recovery.
+        Assert.Equal(0, zero.GetProperty("vatPence").GetInt64());
+        Assert.Equal(0, exempt.GetProperty("vatPence").GetInt64());
+
+        // …and the figure this all exists for: taxable 800 of 1300 supplies = 61.54% recoverable.
+        var pe = report.GetProperty("partialExemption");
+        Assert.True(pe.GetProperty("applies").GetBoolean());
+        Assert.Equal(800, pe.GetProperty("taxableGrossPence").GetInt64());
+        Assert.Equal(500, pe.GetProperty("exemptGrossPence").GetInt64());
+        Assert.Equal(61.54m, pe.GetProperty("recoverablePercent").GetDecimal());
+    }
+
+    [Fact]
+    public async Task With_no_exempt_sales_partial_exemption_says_it_does_NOT_apply()
+    {
+        // Kapow's case, and it must be stated rather than left blank: zero-rated is a TAXABLE supply,
+        // so a shop selling only standard and zero-rated goods recovers input tax in full. Reading
+        // "0%" and assuming restriction is the expensive mistake this reverses.
+        var c = _f.CreateClient();
+        var (tenantId, owner, device) = await ProvisionAsync(c, "bands10@acme.test");
+        await SeedBandsAsync(tenantId,
+            ("standard", "20%", VatClass.Standard, 2000),
+            ("zero", "Zero rated (books)", VatClass.Zero, 0));
+
+        var day = DateOnly.FromDateTime(DateTime.UtcNow);
+        Assert.Equal(HttpStatusCode.Created, (await PostZeroRatedSaleAsync(c, device, 1, 800, "zero", day)).StatusCode);
+        await ProjectRollupsAsync(tenantId);
+
+        var report = await ReadJson(await c.SendAsync(Req(HttpMethod.Get,
+            $"/api/v1/reports/vat?from={day.AddDays(-1):yyyy-MM-dd}&to={day.AddDays(1):yyyy-MM-dd}&granularity=year", owner)));
+        var pe = report.GetProperty("partialExemption");
+        Assert.False(pe.GetProperty("applies").GetBoolean());
+        Assert.Equal(0, pe.GetProperty("exemptGrossPence").GetInt64());
+        Assert.Equal(100m, pe.GetProperty("recoverablePercent").GetDecimal());
+    }
+
+    [Fact]
+    public async Task Mapping_a_tax_row_to_a_band_at_a_DIFFERENT_rate_is_refused()
+    {
+        // It would make every item on that tax row off-band: the item editor validated their prices
+        // against the tax row's multiplier, so a band at another rate contradicts the catalogue.
+        var c = _f.CreateClient();
+        var (tenantId, owner, _) = await ProvisionAsync(c, "bands11@acme.test");
+        await SeedBandsAsync(tenantId,
+            ("standard", "20%", VatClass.Standard, 2000),
+            ("exempt", "Exempt", VatClass.Exempt, 0));
+
+        // Find a real tax row and its rate from the editor's own view.
+        var admin = await ReadJson(await c.SendAsync(Req(HttpMethod.Get, "/api/v1/vat/bands/admin", owner)));
+        var taxRows = admin.GetProperty("taxRows").EnumerateArray().ToArray();
+        if (taxRows.Length == 0) return;   // tenant template seeds no Taxes — nothing to assert on
+        var standardRate = taxRows.FirstOrDefault(t => t.GetProperty("rateBp").GetInt32() >= 1000);
+        if (standardRate.ValueKind == JsonValueKind.Undefined) return;
+
+        var res = await c.SendAsync(Req(HttpMethod.Put,
+            $"/api/v1/vat/tax-mapping/{standardRate.GetProperty("legacyTaxId").GetInt32()}", owner,
+            new { band = "exempt" }));
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+        Assert.Contains("off-band", (await ReadJson(res)).GetProperty("detail").GetString());
     }
 
     [Fact]

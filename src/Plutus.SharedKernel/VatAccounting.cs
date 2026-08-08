@@ -44,6 +44,15 @@ public readonly record struct VatBand(string Key, string DisplayName, VatClass C
 public static class VatAccounting
 {
     /// <summary>
+    /// How far a line's DERIVED rate may sit from a published band and still belong to it, in basis
+    /// points. Tills compute each line's rate from its price pair, so a genuine 20% band arrives at
+    /// 1993–2004bp; 25bp (0.25 percentage points) absorbs that without ever reaching a neighbouring
+    /// UK rate. Named because the band-snap, the tax-row mapping guard and the reports must all use
+    /// the SAME number — two tolerances would disagree about which takings belong where.
+    /// </summary>
+    public const int BandSnapToleranceBp = 25;
+
+    /// <summary>
     /// Output tax due on VAT-inclusive takings at one rate — the VAT fraction, to the nearest penny.
     /// This is the figure that belongs on a VAT return; it is NOT the sum of the lines' VAT.
     /// </summary>
@@ -54,17 +63,91 @@ public static class VatAccounting
     }
 
     /// <summary>
-    /// Which band do these takings belong to? Sale lines carry a rate DERIVED from the price pair,
-    /// so a single 20% band arrives as 1993…2004bp and would otherwise fragment a VAT return into
-    /// a dozen buckets. Snap to the nearest published band; anything further away than
-    /// <paramref name="toleranceBp"/> belongs to NO band and must be reported separately rather
-    /// than quietly folded into a real one — that is off-band damage a human has to look at.
+    /// Which band do these takings belong to, judged only on the RATE? Sale lines carry a rate
+    /// DERIVED from the price pair, so a single 20% band arrives as 1993…2004bp and would otherwise
+    /// fragment a VAT return into a dozen buckets. Snap to the nearest published band; anything
+    /// further away than <paramref name="toleranceBp"/> belongs to NO band and must be reported
+    /// separately rather than quietly folded into a real one — that is off-band damage a human has
+    /// to look at.
+    ///
+    /// ⚠ RETURNS NULL WHEN TWO BANDS TIE. A tenant with both a zero-rated and an exempt band has two
+    /// candidates at 0bp, and picking "the first" would silently attribute takings to one of them —
+    /// corrupting the partial-exemption figure this distinction exists to produce. Ambiguity is
+    /// reported as unclassified so it is visible; the line's RECORDED band
+    /// (<c>SaleLine.VatBand</c>) is what resolves it, and this is only the fallback for lines that
+    /// carry none.
     /// </summary>
-    public static VatBand? BandFor(IReadOnlyCollection<VatBand> bands, int derivedRateBp, int toleranceBp = 25)
+    public static VatBand? BandFor(IReadOnlyCollection<VatBand> bands, int derivedRateBp, int toleranceBp = BandSnapToleranceBp)
     {
         if (bands == null || bands.Count == 0) return null;
-        var nearest = bands.OrderBy(b => Math.Abs(b.RateBp - derivedRateBp)).First();
-        return Math.Abs(nearest.RateBp - derivedRateBp) <= toleranceBp ? nearest : null;
+        var within = bands.Where(b => Math.Abs(b.RateBp - derivedRateBp) <= toleranceBp).ToList();
+        if (within.Count == 0) return null;
+        if (within.Count == 1) return within[0];
+
+        // Several in range: only a single CLOSEST one is an answer. A genuine tie (two bands at the
+        // same rate) is unresolvable from the rate alone, so say so rather than choose.
+        var best = within.Min(b => Math.Abs(b.RateBp - derivedRateBp));
+        var closest = within.Where(b => Math.Abs(b.RateBp - derivedRateBp) == best).ToList();
+        return closest.Count == 1 ? closest[0] : null;
+    }
+}
+
+/// <summary>
+/// WP2c-exempt: which VAT band a legacy tax row means.
+///
+/// THE WHOLE REASON THIS TYPE EXISTS: items are priced against legacy <c>Taxes</c> rows that carry
+/// only a name and a multiplier, so a band could only ever be inferred from the rate — and the rate
+/// CANNOT distinguish zero-rated from exempt, because both are 0%. That distinction is real money
+/// (exempt supplies block input-tax recovery; zero-rated don't), so it has to be stated, not
+/// guessed.
+///
+/// Resolution is deliberately two-tier:
+///   1. An EXPLICIT mapping the portal owns. Always wins.
+///   2. Otherwise the rate, matched against the tenant's bands. Correct for every band that is
+///      unambiguous at its rate — which is all of them until a tenant has two bands at 0%.
+///
+/// So nothing needs mapping until a shop actually sells exempt supplies, and once it does, the
+/// mapping is a statement by its owner rather than a string-match on a 2019 seed row's name.
+/// </summary>
+public static class VatBandResolution
+{
+    /// <summary>
+    /// The band for one legacy tax row. <paramref name="explicitBand"/> is the portal's mapping
+    /// (null if none). <paramref name="rateBp"/> is the tax row's rate.
+    ///
+    /// ⚠ Returns null when the rate matches SEVERAL bands and nothing has been mapped — that is
+    /// exactly the zero-vs-exempt case, and guessing would silently pick one. A null here means
+    /// "a human has to say", and the portal surfaces it as an unmapped tax row.
+    /// </summary>
+    public static string? Resolve(
+        IReadOnlyCollection<VatBand> bands, string? explicitBand, int rateBp, int toleranceBp = VatAccounting.BandSnapToleranceBp)
+    {
+        if (!string.IsNullOrWhiteSpace(explicitBand)) return explicitBand;
+        if (bands == null || bands.Count == 0) return null;
+
+        var candidates = bands.Where(b => Math.Abs(b.RateBp - rateBp) <= toleranceBp).ToList();
+        return candidates.Count == 1 ? candidates[0].Key : null;
+    }
+
+    /// <summary>
+    /// Does this tenant have an AMBIGUITY that mapping must resolve — two distinct bands close
+    /// enough in rate that the rate cannot tell them apart? In practice this means "has a zero-rated
+    /// AND an exempt band". Until they do, the rate is a complete answer and the portal need not
+    /// nag anyone about mapping.
+    /// </summary>
+    public static bool NeedsExplicitMapping(IReadOnlyCollection<VatBand> bands, int toleranceBp = VatAccounting.BandSnapToleranceBp)
+    {
+        if (bands == null || bands.Count < 2) return false;
+        var list = bands.ToList();
+        // Pairwise, because "within tolerance of each other" is not a bucketing — 1990 and 2010 are
+        // 20bp apart but land in different buckets under any fixed-width scheme. Band counts are
+        // single digits, so the honest O(n²) is free.
+        for (var i = 0; i < list.Count; i++)
+            for (var j = i + 1; j < list.Count; j++)
+                if (!string.Equals(list[i].Key, list[j].Key, StringComparison.OrdinalIgnoreCase) &&
+                    Math.Abs(list[i].RateBp - list[j].RateBp) <= toleranceBp)
+                    return true;
+        return false;
     }
 }
 

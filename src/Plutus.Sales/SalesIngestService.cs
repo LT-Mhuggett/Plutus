@@ -92,7 +92,8 @@ namespace Plutus.Sales
                 Id = Uuid7.New(), TenantId = tenantId, SaleId = req.SaleId, LineNo = i + 1,
                 ItemId = l.ItemId, ItemIdOne = ExtractItemIdOne(l.DiscountsJson),
                 Qty = l.Qty, UnitPricePence = l.UnitPricePence, DiscountPence = l.DiscountPence,
-                LineGrossPence = l.LineGrossPence, VatRateBp = l.VatRateBp, VatAmountPence = l.VatAmountPence,
+                LineGrossPence = l.LineGrossPence, VatRateBp = l.VatRateBp,
+                VatBand = ExtractVatBand(l.DiscountsJson), VatAmountPence = l.VatAmountPence,
                 OverriddenFromPence = l.OverriddenFromPence, DiscountsJson = l.DiscountsJson,
             }).ToList();
 
@@ -152,6 +153,34 @@ namespace Plutus.Sales
             {
                 using var doc = System.Text.Json.JsonDocument.Parse(discountsJson);
                 return doc.RootElement.TryGetProperty("itemIdOne", out var v) ? v.GetString() : null;
+            }
+            catch (System.Text.Json.JsonException) { return null; }
+        }
+
+        /// <summary>
+        /// WP2c-exempt: the VAT BAND the line was rung up under, from the same metadata blob
+        /// (`{"vatBand":"exempt"}`).
+        ///
+        /// ⚠ THIS IS NOT REDUNDANT WITH `VatRateBp`. Zero-rated and exempt supplies both declare
+        /// 0bp and are different in law — exempt blocks recovery of attributable input tax, zero
+        /// rated doesn't. Without the band recorded here the two are indistinguishable the instant
+        /// the sale is written, and no report can ever separate them again.
+        ///
+        /// Null from a till that doesn't send it (every till before this shipped, and MAUI until it
+        /// does). Reports fall back to snapping the rate, which is right for everything except
+        /// telling two 0% bands apart.
+        /// </summary>
+        private static string ExtractVatBand(string discountsJson)
+        {
+            if (string.IsNullOrWhiteSpace(discountsJson)) return null;
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(discountsJson);
+                if (!doc.RootElement.TryGetProperty("vatBand", out var v)) return null;
+                var band = v.GetString();
+                // Cap to the column width rather than letting a long value blow up the insert for
+                // the whole sale — a truncated band would be worse than none.
+                return string.IsNullOrWhiteSpace(band) || band.Length > 40 ? null : band;
             }
             catch (System.Text.Json.JsonException) { return null; }
         }

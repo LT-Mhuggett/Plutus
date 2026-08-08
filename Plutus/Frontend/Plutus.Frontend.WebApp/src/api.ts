@@ -743,6 +743,9 @@ export interface VatBand {
   rateBp: number;           // in force when the server answered
   effectiveFromUtc: string;
   rates: { rateBp: number; effectiveFromUtc: string }[];
+  /** Which legacy tax rows mean this band. An item carries a taxId, so this is how the till knows
+   *  an item is EXEMPT rather than merely 0% — a distinction no rate can carry. */
+  legacyTaxIds?: number[];
 }
 
 let _vatBands: VatBand[] = (() => {
@@ -765,6 +768,24 @@ export function vatRateBpFor(key: string, at: Date = new Date()): number | null 
 /** The standard rate, for the one place a till still needs a specific band: a single-purpose
  *  gift card, whose VAT is pinned by the voucher treatment rather than by the catalogue. */
 export const standardRateBp = (at?: Date) => vatRateBpFor("standard", at);
+
+/**
+ * Which VAT BAND an item belongs to, from its legacy tax row.
+ *
+ * ⚠ THIS IS NOT DERIVABLE FROM THE PRICE. Zero-rated and exempt items both price at 0% VAT and are
+ * different in law — exempt supplies block recovery of input tax attributable to them, zero-rated
+ * ones don't (HMRC Notice 706). The band therefore has to travel with the sale line, or a shop that
+ * sells both can never work out its recoverable proportion from its own takings.
+ *
+ * Null when the portal hasn't said which band a tax row means AND the rate is ambiguous — exactly
+ * the zero-vs-exempt case. Sending nothing is correct there: the server falls back to snapping the
+ * rate, and the portal shows the tax row as needing a decision. Guessing would put a number on a
+ * VAT return that nobody chose.
+ */
+export function vatBandForTaxId(taxId: number): string | null {
+  for (const b of _vatBands) if ((b.legacyTaxIds ?? []).includes(taxId)) return b.key;
+  return null;
+}
 
 /**
  * The standard rate, or a hard stop.
@@ -1058,6 +1079,18 @@ export async function checkout(
         discountsJson: JSON.stringify({
           itemIdOne: l.item.idOne,
           exUnitPence: l.exPricePence,
+          // WP2c-exempt: WHICH BAND this line was rung up under. The rate cannot tell zero-rated
+          // from exempt (both 0%), so without this a business selling both can never derive its
+          // partial-exemption position. Omitted when the portal hasn't resolved the tax row — the
+          // server then falls back to snapping the rate, which is right for every unambiguous band.
+          //
+          // ⚠ A SINGLE-purpose gift-card activation is standard-rated BY THE VOUCHER TREATMENT, not
+          // by its catalogue row (which sits on a zero band) — so its band is the standard one, the
+          // same source as its rate above. A MULTI-purpose activation declares no VAT and takes its
+          // catalogue band like any other line.
+          vatBand: l.giftCardCode && l.exPricePence !== l.pricePence
+            ? "standard"
+            : (vatBandForTaxId(l.item.taxId) ?? undefined),
           discounts: l.discount && l.discount.discountId !== 0
             ? [{ id: l.discount.discountId, rate: l.discount.amount }]
             : undefined,
@@ -1089,7 +1122,11 @@ export async function checkout(
       vatRateBp: bp,
       vatAmountPence: -giftVat,
       overriddenFromPence: null,
-      discountsJson: JSON.stringify({ itemIdOne: "GIFT-CARD", exUnitPence: -(gift.amountPence - giftVat) }),
+      // Standard-rated by the voucher treatment (the card's VAT was declared when it was sold), so
+      // the band is stated rather than inferred — the same source as the rate above.
+      discountsJson: JSON.stringify({
+        itemIdOne: "GIFT-CARD", exUnitPence: -(gift.amountPence - giftVat), vatBand: "standard",
+      }),
     });
     grossPence -= gift.amountPence;
     vatPence -= giftVat;
