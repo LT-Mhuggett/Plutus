@@ -14,6 +14,9 @@ namespace Plutus.Tenancy.Controllers
     // ⚠ Twins of Plutus.Contracts.Client.SyncContracts — see the note in HeartbeatController and
     // till-design C2. Change one shape, change both.
 
+    public sealed record PricePointDto(
+        long PricePence, long ExPricePence, DateTime EffectiveFromUtc, DateTime CreatedAtUtc);
+
     public sealed record CatalogueItemDto(
         Guid Id,
         string IdOne,
@@ -24,7 +27,10 @@ namespace Plutus.Tenancy.Controllers
         Guid? CategoryId,
         bool StockUntracked,
         bool Removed,
-        DateTime UpdatedAtUtc);
+        DateTime UpdatedAtUtc,
+        byte PricePolicy = 0,
+        PricePointDto[]? CentralPrices = null,
+        PricePointDto[]? StorePrices = null);
 
     public sealed record CatalogueChangesResult(
         string? Cursor,
@@ -106,6 +112,42 @@ namespace Plutus.Tenancy.Controllers
             var hasMore = rows.Count > take;
             if (hasMore) rows.RemoveAt(rows.Count - 1);
 
+            // ⚠ PRICES DO NOT LIVE ON THE ITEM. They are effective-dated rows in their own tables,
+            // so a till that only received Item.Price would charge the baseline for ever and never
+            // see a scheduled reprice. Fetched for exactly this page's items — the whole timeline,
+            // future points included, because that is what lets a Sunday-night change activate on
+            // an offline till at the boundary.
+            var pageIds = rows.Select(r => r.IdOne).ToList();
+            var storeId = await StoreIdForCallerAsync();
+
+            var central = (await _db.PriceListEntries.AsNoTracking()
+                    .Where(p => pageIds.Contains(p.ItemIdOne))
+                    .Select(p => new { p.ItemIdOne, p.PricePence, p.ExPricePence, p.EffectiveFromUtc, p.CreatedAtUtc })
+                    .ToListAsync())
+                .GroupBy(p => p.ItemIdOne)
+                .ToDictionary(g => g.Key, g => g
+                    .OrderBy(p => p.EffectiveFromUtc)
+                    .Select(p => new PricePointDto(p.PricePence, p.ExPricePence, p.EffectiveFromUtc, p.CreatedAtUtc))
+                    .ToArray());
+
+            // ⚠ This till's store only, and live overrides only. Another store's price is not this
+            // till's business, and a revoked override is not a price.
+            var overrides = storeId is int sid
+                ? (await _db.PriceOverrides.AsNoTracking()
+                        .Where(o => pageIds.Contains(o.ItemIdOne) && o.StoreId == sid && o.RevokedAtUtc == null)
+                        .Select(o => new { o.ItemIdOne, o.PricePence, o.ExPricePence, o.EffectiveFromUtc, o.CreatedAtUtc })
+                        .ToListAsync())
+                    .GroupBy(o => o.ItemIdOne)
+                    .ToDictionary(g => g.Key, g => g
+                        .OrderBy(o => o.EffectiveFromUtc)
+                        .Select(o => new PricePointDto(o.PricePence, o.ExPricePence, o.EffectiveFromUtc, o.CreatedAtUtc))
+                        .ToArray())
+                : new Dictionary<string, PricePointDto[]>();
+
+            var policies = await _db.ItemPricePolicies.AsNoTracking()
+                .Where(p => pageIds.Contains(p.ItemIdOne))
+                .ToDictionaryAsync(p => p.ItemIdOne, p => (byte)p.Policy);
+
             var items = rows.Select(r => new CatalogueItemDto(
                 // DERIVED, never assigned — the same derivation the web till uses, keyed on the
                 // legacy BUSINESS id. Both tills therefore agree on an item's id with no mapping
@@ -123,7 +165,10 @@ namespace Plutus.Tenancy.Controllers
                 // client that only ever receives upserts, so without this a binned item stays
                 // sellable on every offline till indefinitely.
                 Removed: r.BinnedAtUtc != null,
-                UpdatedAtUtc: r.ModifiedAt))
+                UpdatedAtUtc: r.ModifiedAt,
+                PricePolicy: policies.TryGetValue(r.IdOne, out var pol) ? pol : (byte)0,
+                CentralPrices: central.TryGetValue(r.IdOne, out var cp) ? cp : null,
+                StorePrices: overrides.TryGetValue(r.IdOne, out var op) ? op : null))
                 .ToArray();
 
             var cursor = rows.Count == 0
@@ -131,6 +176,23 @@ namespace Plutus.Tenancy.Controllers
                 : CatalogueCursor.Encode(rows[^1].ModifiedAt, rows[^1].IdOne);
 
             return Ok(new CatalogueChangesResult(cursor, hasMore, items));
+        }
+
+        /// <summary>
+        /// Which store's overrides this caller should receive, from the DEVICE in the token.
+        ///
+        /// ⚠ Derived from the token, never from a query parameter. A till asking for another
+        /// store's prices would be a till charging another shop's prices, and the operator would
+        /// have no way to tell.
+        /// </summary>
+        private async Task<int?> StoreIdForCallerAsync()
+        {
+            if (_tenant.DeviceId is not Guid deviceId) return null;
+
+            return await (from d in _db.Devices.AsNoTracking()
+                          join t in _db.Till.AsNoTracking() on d.TillId equals t.Id
+                          where d.Id == deviceId
+                          select (int?)t.StoreId).FirstOrDefaultAsync();
         }
     }
 }

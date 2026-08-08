@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Plutus.Client.Core;
 using Plutus.Contracts.Client;
+using Plutus.SharedKernel;
 
 namespace Plutus.Client.Storage;
 
@@ -77,15 +78,70 @@ public sealed class TillStore : IOutboxStore, ISyncStore
     public async Task<long> EffectivePricePenceAsync(Guid itemId, DateTime? atUtc = null, CancellationToken ct = default)
     {
         var at = atUtc ?? _utcNow();
-        var scheduled = await _db.PriceSchedule.AsNoTracking()
-            .Where(p => p.ItemId == itemId && p.EffectiveFromUtc <= at)
-            .OrderByDescending(p => p.EffectiveFromUtc)
-            .FirstOrDefaultAsync(ct);
-        if (scheduled != null) return scheduled.PricePence;
-
         var item = await _db.CatalogueItems.AsNoTracking().FirstOrDefaultAsync(i => i.Id == itemId, ct);
-        return item?.PricePence ?? 0;
+        if (item == null) return 0;
+
+        // ⚠ RESOLVED WITH THE SHARED RULE (SharedKernel.PriceResolution), not a local
+        // reimplementation: store override → central list → the catalogue baseline. A till that
+        // resolved this its own way would quote a different price from the server and from the
+        // next counter along, and a customer would find it before anyone else did.
+        var pricing = DeserialisePricing(item.BandData);
+
+        // ⚠ The local PriceSchedule table is folded in as CENTRAL points rather than replaced. It
+        // is WP2's original mechanism and the cutover tool writes it; the feed's timeline arrived
+        // later. Two sources of scheduled prices that ignored each other would be a till where the
+        // answer depended on which one happened to be populated.
+        var scheduled = await _db.PriceSchedule.AsNoTracking()
+            .Where(p => p.ItemId == itemId)
+            .Select(p => new { p.PricePence, p.EffectiveFromUtc })
+            .ToListAsync(ct);
+
+        var central = pricing.Central.Select(ToPoint)
+            .Concat(scheduled.Select(s => new PricePoint(
+                s.PricePence,
+                ExFromInc(s.PricePence, item.VatRateBp),
+                s.EffectiveFromUtc,
+                s.EffectiveFromUtc)))
+            .ToList();
+
+        var resolved = PriceResolution.Resolve(
+            (PriceOwner)pricing.PricePolicy,
+            central,
+            pricing.Store.Select(ToPoint),
+            item.PricePence,
+            // The baseline ex-price is not stored separately; derive it from the snapped rate so
+            // the pair stays coherent. Only used when NO price point exists at all.
+            ExFromInc(item.PricePence, item.VatRateBp),
+            at);
+
+        return resolved?.PricePence ?? item.PricePence;
+
+        static PricePoint ToPoint(PricePointDto p) =>
+            new(p.PricePence, p.ExPricePence, p.EffectiveFromUtc, p.CreatedAtUtc);
+
+        static long ExFromInc(long inc, int rateBp) =>
+            rateBp <= 0 ? inc : (long)Math.Round(inc * 10000d / (10000d + rateBp), MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>Price timeline + tax row for one item, or empty when this row predates the feed
+    /// carrying them. ⚠ Never throws: a legacy or half-written value must fall back to the
+    /// baseline price rather than stopping a sale.</summary>
+    private static LocalPricing DeserialisePricing(string? bandData)
+    {
+        if (string.IsNullOrWhiteSpace(bandData)) return Empty;
+        try
+        {
+            return JsonSerializer.Deserialize<LocalPricing>(bandData) ?? Empty;
+        }
+        catch (JsonException)
+        {
+            // Older rows held the bare TaxId as text. Not an error — just nothing to resolve with.
+            return Empty;
+        }
+    }
+
+    private static readonly LocalPricing Empty =
+        new(0, 0, Array.Empty<PricePointDto>(), Array.Empty<PricePointDto>());
 
     /// <summary>Apply a page of the changes feed. Tombstones (removed) are honoured, not skipped —
     /// otherwise a binned item stays sellable on every offline till indefinitely.</summary>
@@ -176,10 +232,24 @@ public sealed class TillStore : IOutboxStore, ISyncStore
         PricePence = dto.PricePence,
         VatRateBp = RateBpFromPair(dto.PricePence, dto.ExPricePence),
         CategoryId = dto.CategoryId,
-        BandData = dto.TaxId.ToString(CultureInfo.InvariantCulture),
+        // ⚠ BandData carries the legacy tax row AND the effective-dated price timeline, because the
+        // local schema has one spare text column and WP2's cutover is what gives prices a table of
+        // their own. Ugly, and deliberately so: the alternative was a schema migration on a store
+        // that is about to be replaced wholesale.
+        BandData = SerialiseBandData(dto),
         Removed = dto.Removed,
         UpdatedAtUtc = dto.UpdatedAtUtc,
     };
+
+    /// <summary>Tax row + price timeline, so an offline till can resolve the price at the SALE's
+    /// instant rather than charging whatever it last downloaded.</summary>
+    private static string SerialiseBandData(CatalogueItemDto dto) =>
+        JsonSerializer.Serialize(new LocalPricing(
+            dto.TaxId, dto.PricePolicy, dto.CentralPrices ?? Array.Empty<PricePointDto>(),
+            dto.StorePrices ?? Array.Empty<PricePointDto>()));
+
+    private sealed record LocalPricing(
+        int TaxId, byte PricePolicy, PricePointDto[] Central, PricePointDto[] Store);
 
     /// <summary>The web till's derivation (<c>api.ts:978</c>): <c>round((inc/ex − 1) × 10000)</c>.
     /// Wobbled values like 2002bp are CORRECT and expected — the platform groups takings by band,

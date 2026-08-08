@@ -12,6 +12,7 @@ using Plutus.Client.Core;
 using Plutus.Entities;
 using Plutus.Entities.Models;
 using Plutus.SharedKernel;
+using Plutus.Identity;
 using Xunit;
 
 namespace Plutus.Tests.Integration;
@@ -246,6 +247,86 @@ public class CatalogueSyncE2eTests : IClassFixture<PlutusAppFactory>
 
         Assert.Contains("7000000000002", seenByB);
         Assert.DoesNotContain("7000000000001", seenByB);
+    }
+
+    /// <summary>
+    /// A token that passes the <c>perm:portal.prices.manage</c> gate.
+    ///
+    /// ⚠ Runbook pitfall #5: <c>perm:*</c> policies resolve from RBAC BY USER ID, not from token
+    /// scopes — so a scope-only token 403s however it is spelled. Seed a role, assign it, then mint
+    /// for that user.
+    /// </summary>
+    private async Task<string> PriceManagerTokenAsync(Till till)
+    {
+        using var scope = _f.Services.CreateScope();
+        var db = Db(scope, till.TenantId);
+        await RbacSeeder.EnsureBuiltInRolesAsync(db, till.TenantId);
+
+        var owner = await db.RbacRoles.FirstAsync(r => r.Name == "Owner" && r.TenantId == till.TenantId);
+        var userId = Uuid7.New();
+        db.RbacRoleAssignments.Add(new RbacRoleAssignment
+        {
+            Id = Uuid7.New(), TenantId = till.TenantId, UserId = userId, RoleId = owner.Id,
+            ScopeType = RbacScopeType.Tenant, ScopeId = "", CreatedAtUtc = DateTime.UtcNow,
+        });
+        await db.SaveChangesAsync();
+        // ⚠ The tenant MUST be on the token. Without it the principal falls back to the ambient
+        // tenant and the assignment just made in THIS tenant is invisible — a 403 that looks like a
+        // missing permission rather than a missing tenant.
+        return PlutusAppFactory.OperatorTokenFor(userId, "pos.sell", till.TenantId);
+    }
+
+    // ── prices (WP5's outstanding DoD) ──
+
+    [Fact]
+    public async Task A_PRICE_change_reaches_the_till_even_though_prices_do_not_live_on_the_item()
+    {
+        // ⚠ THE DoD THAT WAS UNMET, and the reason it was: the feed pages by Item.ModifiedAt, and
+        // prices are effective-dated rows in their OWN tables. Writing one changed nothing the feed
+        // could see, so a till went on charging the baseline for ever with nothing reporting it.
+        // PricingService.TouchItemForSyncAsync is what closes that, and this is what proves it.
+        var till = await ProvisionAsync("cat-price@acme.test");
+        await AddItemAsync(till.TenantId, till.BusinessId, "5012345679000", "Repriced", 10m);
+
+        var cursor = (await ChangesAsync(till)).GetProperty("cursor").GetString();
+
+        var portal = await PriceManagerTokenAsync(till);
+        using var req = new HttpRequestMessage(HttpMethod.Post, "/api/v1/prices/5012345679000/central")
+        { Content = JsonContent.Create(new { pricePence = 1699L, exPricePence = 1416L, effectiveFromUtc = (DateTime?)null }) };
+        req.Headers.Authorization = new("Bearer", portal);
+        Assert.Equal(HttpStatusCode.Created, (await till.Http.SendAsync(req)).StatusCode);
+
+        var after = (await ChangesAsync(till, cursor)).GetProperty("items").EnumerateArray().ToList();
+
+        var item = Assert.Single(after, i => i.GetProperty("idOne").GetString() == "5012345679000");
+        var central = item.GetProperty("centralPrices").EnumerateArray().ToList();
+        Assert.Single(central);
+        Assert.Equal(1699, central[0].GetProperty("pricePence").GetInt64());
+    }
+
+    [Fact]
+    public async Task A_FUTURE_dated_price_is_shipped_NOW_so_an_offline_till_can_apply_it_on_the_day()
+    {
+        // ⚠ The point of shipping the timeline rather than the current number. HQ schedules Sunday's
+        // reprice on Thursday; the till syncs Thursday and may never be online again before it.
+        var till = await ProvisionAsync("cat-future@acme.test");
+        await AddItemAsync(till.TenantId, till.BusinessId, "5012345679001", "Future priced", 10m);
+
+        var future = DateTime.UtcNow.AddDays(3);
+        var portal = await PriceManagerTokenAsync(till);
+        using var req = new HttpRequestMessage(HttpMethod.Post, "/api/v1/prices/5012345679001/central")
+        { Content = JsonContent.Create(new { pricePence = 2500L, exPricePence = 2083L, effectiveFromUtc = future }) };
+        req.Headers.Authorization = new("Bearer", portal);
+        Assert.Equal(HttpStatusCode.Created, (await till.Http.SendAsync(req)).StatusCode);
+
+        var item = Assert.Single(
+            (await ChangesAsync(till)).GetProperty("items").EnumerateArray().ToList(),
+            i => i.GetProperty("idOne").GetString() == "5012345679001");
+
+        var point = Assert.Single(item.GetProperty("centralPrices").EnumerateArray().ToList());
+        Assert.Equal(2500, point.GetProperty("pricePence").GetInt64());
+        // Shipped, but dated ahead — the till holds it and applies it at the boundary.
+        Assert.True(point.GetProperty("effectiveFromUtc").GetDateTime() > DateTime.UtcNow);
     }
 
     // ── the heartbeat ──

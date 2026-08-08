@@ -15,9 +15,35 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 ### ⏰⏰⏰⏰⏰ RESUME HERE (2026-08-08, latest — parity sweep, WP16, versions, WP5 backend)
 
-Suite: **Unit 558 · Architecture 13 · Integration 119 · AppClient 305 (+3 skipped) — all green.**
+Suite: **Unit 575 · Architecture 13 · Integration 121 · AppClient 305 (+3 skipped) — all green.**
 Committed on `Matt's-Horror`, **not pushed, not deployed.**
 
+> ### ✅ WP5 IS NOW COMPLETE — the price DoD is met (2026-08-08)
+>
+> The one thing I had left explicitly unmet. Effective prices live in their own effective-dated
+> tables, so writing one touched nothing the catalogue feed could see: a till received only the
+> baseline `Item.Price` and would have charged it for ever, silently.
+>
+> **Solved without a second cursor.** A price write now calls
+> `PricingService.TouchItemForSyncAsync`, so the existing `(ModifiedAt, IdOne)` feed carries it, and
+> the item's page ships the **whole price timeline** (future points included), its policy, and this
+> till's store overrides. ⚠ Overrides are chosen from the **DEVICE in the token**, never a query
+> parameter — a till asking for another store's prices would be a till charging another shop's
+> prices with no way for the operator to tell.
+>
+> `SharedKernel/PriceResolution.cs` is the ONE resolver — store override → central list → legacy
+> baseline — and the server's `PricingService` delegates to it, so this **removed** a copy rather
+> than adding one. Same for item search: `SharedKernel/ItemSearch.cs` replaced three copies (server,
+> web till, and the one about to be written for MAUI), and `ItemParameters.Tokenise` now delegates.
+>
+> ⚠ **Three price write paths must call the touch** (central, override, force-reset), all in
+> `PricesController`. A test asserts it, so a fourth added later fails a build rather than a shop.
+>
+> ⚠ **A regression I caused and caught:** replacing `EffectivePricePenceAsync`'s body orphaned the
+> local `PriceSchedule` table that WP2's cutover writes. Its rows are now folded in as central
+> points rather than ignored — two sources of scheduled prices that did not know about each other
+> would be a till whose answer depended on which one happened to be populated.
+>
 > ### ✅ WP8 DONE — an enrolled till can sign someone in (2026-08-08)
 >
 > This was the thing standing between "enrolled" and "usable". `GET /api/v1/tills/{id}/operators`

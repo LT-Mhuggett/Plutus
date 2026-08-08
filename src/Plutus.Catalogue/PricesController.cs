@@ -137,6 +137,9 @@ namespace Plutus.Catalogue
                 CreatedBy = Actor, CreatedAtUtc = DateTime.UtcNow,
             };
             _db.PriceListEntries.Add(entry);
+            // ⚠ Prices live in their own table, so the catalogue feed (which pages by
+            // Item.ModifiedAt) would never see this. See TouchItemForSyncAsync.
+            await new PricingService(_db).TouchItemForSyncAsync(itemIdOne);
             _db.Audit(_tenant.TenantId, Actor, "price.central", nameof(PriceListEntry), itemIdOne,
                 new { oldPence = old?.PricePence, newPence = body.PricePence, effectiveFromUtc = entry.EffectiveFromUtc });
             await _db.SaveChangesAsync();
@@ -173,6 +176,7 @@ namespace Plutus.Catalogue
                 CreatedBy = Actor, CreatedAtUtc = DateTime.UtcNow,
             };
             _db.PriceOverrides.Add(entry);
+            await new PricingService(_db).TouchItemForSyncAsync(itemIdOne);
             _db.Audit(_tenant.TenantId, Actor, "price.override", nameof(PriceOverride), itemIdOne,
                 new { body.StoreId, oldPence = old?.PricePence, newPence = body.PricePence, effectiveFromUtc = entry.EffectiveFromUtc });
             await _db.SaveChangesAsync();
@@ -201,6 +205,7 @@ namespace Plutus.Catalogue
                 o.RevokedAtUtc = DateTime.UtcNow;
                 o.RevokedBy = Actor;
             }
+            await new PricingService(_db).TouchItemForSyncAsync(itemIdOne);
             _db.Audit(_tenant.TenantId, Actor, "price.force-reset", nameof(PriceOverride), itemIdOne,
                 new { storeId = body?.StoreId, revoked = live.Count });
             await _db.SaveChangesAsync();

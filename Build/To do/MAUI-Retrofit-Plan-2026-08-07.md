@@ -419,6 +419,7 @@ Each work package has a Definition of Done. Do them in order; **WP1 and WP2 gate
 | 14 | Payment-gateway awareness at checkout | Tiny, self-contained display; do it any time after WP5 |
 | 15 | **Web till** test runner + pinning the C2 twins | Not MAUI work at all — parity runs both ways. Matt's call on timing |
 | 16 | Connectivity indicator + offline-credential horizons | 16a stands alone; **16b pairs with WP8**, which is what puts credentials on the till |
+| 17 | **The web till catches up** — offline sign-in, ambiguous VAT band, the shared connectivity probe | ⚠ Three rows where the WEB TILL is now behind MAUI. Needs WP15 first, because the offline horizons become a C2 twin |
 
 **WP0 — Toolchain + baseline gate.** `dotnet workload list` shows `maui`; AppClient builds for
 `net10.0-windows10.0.19041.0`; `Plutus.Frontend.AppClient.Tests` + the three platform suites run
@@ -800,13 +801,27 @@ package ever said to wire it up. This is the sync WP, so the bands sync here:
 >    full scan of `Items` per till per sync — ~20k rows for Kapow today, and it would degrade
 >    quietly as the catalogue grows rather than failing anywhere visible.
 >
-> ⚠ **NOT built: the price-schedule half of the feed, so this WP's "price scheduled for 02:00"
-> DoD is NOT yet met.** Effective prices live in their own effective-dated tables
-> (`PriceListEntries`, `PriceOverrides` — `PricesController`), and writing one does **not** touch
-> `Item.ModifiedAt`. So a central price change or store override does not currently reach a till
-> through this feed; only the baseline `Item.Price` does. The feed needs a second stream with its
-> own cursor in the same envelope. **Stated rather than glossed, because a half-built sync that
-> looks complete is how a till ends up confidently charging last month's price.**
+> ### ✅ The price-schedule half is now built too (2026-08-08) — this DoD is MET
+>
+> It was the one thing left unmet, and the reason was structural: effective prices live in their own
+> tables (`PriceListEntries`, `PriceOverrides`), so writing one touched nothing the feed could see.
+> A till received only the baseline `Item.Price` and would have gone on charging it for ever.
+>
+> **Solved without a second cursor.** A price write now calls
+> `PricingService.TouchItemForSyncAsync`, which marks the item modified so the existing
+> `(ModifiedAt, IdOne)` feed carries it — and the item's page ships the **whole price timeline**,
+> future points included, plus the item's price policy and this till's store overrides.
+> `SharedKernel/PriceResolution.cs` is the one resolver (**store override → central list → legacy
+> baseline**) and the server's `PricingService` delegates to it, so a copy was removed rather than
+> added.
+>
+> ⚠ **Three write paths must call the touch** (central, override, force-reset) and all three are in
+> `PricesController`. `A_PRICE_change_reaches_the_till_even_though_prices_do_not_live_on_the_item`
+> asserts it, so a fourth added later fails a test rather than a shop.
+>
+> ⚠ The store's overrides are chosen from the **DEVICE in the token**, never a query parameter — a
+> till asking for another store's prices would be a till charging another shop's prices, with no
+> way for the operator to tell.
 
 **And the shared item-search matcher (till-design C2, attributed to WP1 — which closed without
 it).** The web till's word-matching (`batman one` → *Batman Year One*) and `"quoted"` exact-phrase
@@ -1118,6 +1133,30 @@ a penny on the same basket — forever, on every VAT return, with nothing flaggi
 *DoD:* `npm test` runs in CI-able form; `VatLineMathTests`' vectors pass against `api.ts`;
 `LegacySaleBridgeTests`' golden GUID is produced by `pipeline.ts itemGuid`; `basketTotals` and the
 checkout payload are asserted equal across a randomised basket set including discounts and returns.
+
+**WP17 — The web till catches up (added 2026-08-08).** ⚠ **Three rows where the WEB TILL is now
+behind MAUI**, found by applying the parity rule in the direction nobody expected. Recorded as a WP
+because "MAUI is ahead" is exactly as much of a parity failure as the reverse, and the register says
+so in Part B.
+
+1. **It cannot sign in offline at all.** MAUI now syncs a roster and verifies with `Pbkdf2` against
+   the cached hash (WP8). A browser till with no connection cannot admit anybody — so the shop that
+   loses broadband loses the till, which is the thing the whole offline design exists to prevent.
+   Same shape: `GET /api/v1/tills/{id}/operators`, IndexedDB, and `OfflineCredentials`' horizons —
+   ⚠ the horizons must be the SAME numbers, which means a TypeScript port of a rule that currently
+   exists once in C#. That is a C2 twin, so it needs WP15's test runner first or it will drift.
+2. ⚠ **It takes the FIRST match when two VAT bands claim one tax row.** Zero-rated and exempt are
+   both 0%, so `api.ts:786` silently attributes takings to whichever sorted first — the exact bug
+   `VatAccounting.BandFor` was changed to stop committing. MAUI returns null → *unclassified*, which
+   is visible. **Small, and it is a wrong number on a VAT return.**
+3. **Its connectivity check is `navigator.onLine`** — the network interface, not the server. It says
+   "online" in a shop whose broadband is down and cannot tell a revoked till from a dead one. WP16a
+   built the shared probe; this is porting the web till onto it.
+
+*DoD:* a web till with the network off signs in from its cached roster and sells, and refuses
+refunds past the money-out horizon exactly as MAUI does; an ambiguous tax row reports as
+unclassified on both tills for the same basket; the web till distinguishes no-network from
+no-server from revoked.
 
 **WP16 — "Am I connected?", and how long a cached login lasts.** *(Matt, 2026-08-08: "when 1st
 logging into MAUI, it needs to show if it's connected to the internet and can see the back end.

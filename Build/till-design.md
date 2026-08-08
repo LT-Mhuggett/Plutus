@@ -115,7 +115,7 @@ surprise six months later.
 | Member-number scan-to-attach | ✅ | ⬜ | `/api/v1/customers` | FE2 `NNNNNNC` barcode. **WP12** — body + DoD added 2026-08-08; the check-digit rule is `SharedKernel.MemberNumbers`, never re-derived. |
 | Store credit as tender | ✅ | ⬜ | `.../credit/redeem` | Online-only by design. WP12 |
 | **Add unknown scan as a new item** | ✅ | ⬜ | — | Shipped 2026-08-07. **WP10** — body + DoD added 2026-08-08 (it was ruled into WP10 but never specified). |
-| Effective pricing at basket-add | ✅ | ⬜ | `GET /api/v1/prices/effective` | Was till-retrofit row 1. MAUI still reads the legacy `Item.price`. WP5 (offline cache) + WP10. |
+| Effective pricing at basket-add | ✅ | ✅ | `GET /api/v1/prices/effective` + the timeline on `catalogue/changes` | **WP5, built 2026-08-08.** The feed carries the item's **whole price timeline** (future points included), its policy, and this till's store overrides; `TillStore.EffectivePricePenceAsync` resolves with the shared `PriceResolution` at the SALE's instant. ⚠ A price write must call `PricingService.TouchItemForSyncAsync` or it never reaches a till — the feed pages by `Item.ModifiedAt` and prices live in their own tables. Pinned by `A_PRICE_change_reaches_the_till_even_though_prices_do_not_live_on_the_item`. |
 | Card capture events | ⏸ | ⏸ | `POST /api/v1/payments/events` | Blocked on a provider for **both**. Terminal integration is greenfield — but note the till already *displays* the configured gateway (next row). |
 | Payment-gateway awareness at checkout | ✅ | ⬜ | `GET /api/v1/payments/gateway/active` | **WP14** — checkout shows the standalone hint or the selected provider with "integration pending" (`CheckoutDialog.tsx:226-233`). |
 
@@ -250,7 +250,7 @@ it. **A till that computes one of these locally is a bug.**
 | Colour scheme | `GET /api/v1/themes/effective` | Resolves till > group > store > tenant > default server-side. |
 | VAT bands | `GET /api/v1/vat/bands` | See above. |
 | Store details | `GET /api/v1/stores/{id}/info` | ⚠ Carries the **legacy `businessId`**, which is not the tenant id. |
-| Prices | `GET /api/v1/prices/effective` | Web till only so far. |
+| Prices | `GET /api/v1/prices/effective`, and the **timeline** on `GET /api/v1/catalogue/changes` | Resolution is `SharedKernel/PriceResolution.cs` — **store override → central list → legacy baseline** — and the server's `PricingService` delegates to it. ⚠ A price write must call `PricingService.TouchItemForSyncAsync`, or it never reaches a till: the feed pages by `Item.ModifiedAt` and prices live in their own tables. |
 | Permissions | Token carries the user's full effective set; `perm:*` resolves from RBAC by userId | ⚠ `"perm:x"` and `PlutusPolicies.X` are different namespaces — a typo between them fails closed and silently. |
 | Gift-card VAT treatment | `GiftCardSettings` — single- vs multi-purpose | Locks at the first card sale. Absence 409s. |
 | **A till's very existence** | Portal → Locations → Tills → enrolment code → `POST /api/v1/tills/enrol` | ⚠ **The portal is where a till is BORN, not just what it obeys** (Matt, 2026-08-08). Company, store, till and code are created centrally; the app claims that identity and holds no opinion about who it is. |

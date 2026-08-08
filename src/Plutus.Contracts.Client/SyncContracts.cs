@@ -60,6 +60,14 @@ public sealed record HeartbeatResult(
 /// <param name="Removed">A TOMBSTONE — the item was binned. ⚠ Without these an offline till keeps
 /// selling something the shop has withdrawn, indefinitely, because "not in the feed" and "deleted"
 /// look identical to a client that only ever sees upserts.</param>
+/// <summary>One dated price on the wire. ⚠ The PAIR travels together — a line's <c>vatRateBp</c> is
+/// derived from inc/ex, so a mismatched pair is a wrong VAT figure on a printed receipt.</summary>
+public sealed record PricePointDto(
+    long PricePence,
+    long ExPricePence,
+    DateTime EffectiveFromUtc,
+    DateTime CreatedAtUtc);
+
 public sealed record CatalogueItemDto(
     Guid Id,
     string IdOne,
@@ -70,7 +78,22 @@ public sealed record CatalogueItemDto(
     Guid? CategoryId,
     bool StockUntracked,
     bool Removed,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    /// <summary>0 Central · 1 CentralWithOverride · 2 Local — who owns this item's price.</summary>
+    byte PricePolicy = 0,
+    /// <summary>
+    /// The company price list for this item, **including FUTURE points**.
+    ///
+    /// ⚠ Shipping the timeline rather than today's number is what lets a Sunday-night reprice
+    /// scheduled on Thursday activate at the boundary on a till that has been offline all week.
+    /// Sending only the current price would leave that till charging last week's prices with
+    /// nothing to notice it.
+    /// </summary>
+    PricePointDto[]? CentralPrices = null,
+    /// <summary>This TILL's store's non-revoked overrides, effective-dated. ⚠ Already filtered to
+    /// the till's own store and to live overrides — another store's price is not this till's
+    /// business, and a revoked override is not a price at all.</summary>
+    PricePointDto[]? StorePrices = null);
 
 /// <summary>
 /// GET /api/v1/catalogue/changes?since={cursor}&amp;limit={n}
