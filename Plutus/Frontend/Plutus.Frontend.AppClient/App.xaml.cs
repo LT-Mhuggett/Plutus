@@ -19,6 +19,12 @@ namespace Plutus.Frontend.AppClient
 
         public App()
         {
+            // ⚠ FIRST LINE, on purpose. The crashes worth catching are the ones during start-up, and
+            // a handler installed after them records nothing. Everything else in this app logs to an
+            // OTLP endpoint and a console — neither of which exists when someone double-clicks the
+            // exe in a shop and it disappears.
+            Services.Analytics.CrashLog.Install();
+
             //Register the syncfusion license
             Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense(
                 "NDg3MzQ2QDMxMzkyZTMyMmUzMGxFd1VHR3l1ekdldEJSbjQyQ2NRTHhyakorOVZ6cmF6NSszNkNPTmtJNEk9");

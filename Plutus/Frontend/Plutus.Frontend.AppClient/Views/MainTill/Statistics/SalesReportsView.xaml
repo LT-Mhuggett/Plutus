@@ -20,9 +20,18 @@
     </ContentPage.Resources>
     <ContentPage.Content>
         <StackLayout Orientation="Horizontal">
-            <calendar:SfCalendar SelectionMode="RangeSelection" ShowNavigationButtons="True"
+            <!-- ⚠ Two Syncfusion 34.1.32 corrections (2026-08-08): SelectionMode is "Range", not
+                 "RangeSelection", and the navigation arrows moved off SfCalendar onto its
+                 HeaderView as ShowNavigationArrows. Both threw a XamlParseException at RUNTIME in
+                 Debug — this project has no [XamlCompilation(Compile)] attribute, so broken XAML
+                 is not a build error here, it is a crash when the screen opens. -->
+            <calendar:SfCalendar SelectionMode="Range"
                                  MinimumDate="{Binding CalMinDate}" MaximumDate="{Binding CalMaxDate}"
-                                 SelectedDateRange="{Binding CalendarDateRange, Mode=TwoWay}"/>
+                                 SelectedDateRange="{Binding CalendarDateRange, Mode=TwoWay}">
+                <calendar:SfCalendar.HeaderView>
+                    <calendar:CalendarHeaderView ShowNavigationArrows="True"/>
+                </calendar:SfCalendar.HeaderView>
+            </calendar:SfCalendar>
             <StackLayout HorizontalOptions="FillAndExpand" IsVisible="{Binding TableView, Converter={StaticResource InvertBool}}">
                 <chart:SfCartesianChart Series="{Binding Series}" HorizontalOptions="FillAndExpand" VerticalOptions="FillAndExpand">
                     <chart:SfCartesianChart.XAxes>

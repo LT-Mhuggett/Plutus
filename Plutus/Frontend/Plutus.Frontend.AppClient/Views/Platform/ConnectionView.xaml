@@ -63,6 +63,10 @@
             <ActivityIndicator IsVisible="{Binding Busy}" IsRunning="{Binding Busy}" HorizontalOptions="Start"/>
             <Label FontSize="Caption" Text="{Binding LastAction}" LineBreakMode="WordWrap"/>
 
+            <!-- First run only: the route on to sign-in. ⚠ Deliberately NOT gated on being
+                 enrolled — a till whose broadband is down must still reach its own login screen. -->
+            <Button Text="Continue to sign in" Command="{Binding ContinueCommand}" IsVisible="{Binding ShowContinue}"/>
+
             <BoxView HeightRequest="1" Color="#22000000"/>
 
             <Button Text="Forget this till" Command="{Binding ForgetCommand}" BackgroundColor="#C1272D" TextColor="White"
@@ -71,6 +75,8 @@
                    Text="Clears this device's identity only. Sales already queued on this machine are not deleted."/>
 
             <Label Margin="0,12,0,0" FontSize="Micro" Opacity="0.6" Text="{Binding TillVersionText}"/>
+            <Label FontSize="Micro" Opacity="0.6" LineBreakMode="CharacterWrap"
+                   Text="{Binding LogPath, StringFormat='Crash log: {0}'}"/>
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

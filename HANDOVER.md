@@ -18,6 +18,47 @@ Head: see `git log` — this line goes stale; the commits don't.
 Suite: **Unit 528 · Architecture 13 · Integration 114 · AppClient 295 (+3 skipped) — all green.**
 Committed on `Matt's-Horror`, **not pushed, not deployed.**
 
+> ### ⚠⚠ PORTAL-FIRST: the till no longer sets itself up (Matt, 2026-08-08)
+>
+> > *"It opened up on setup, when I think it needs to open up on Login… The till is moving to the
+> > portal being the 1st place you start, not the local app. Would the 'Set up' even work anymore?
+> > Same with 'Third Party Transfer' this needs to move to the portal."*
+>
+> **He is right, and the answer to "would Setup even work" is worse than no.**
+> `SetupViewModel` offers two options — *Local Application* and *Cloud*. **Cloud was never
+> implemented** (`DatabaseProvider.Cloud` throws; WP4's brief was to replace it). So the only path
+> that completes builds a **standalone** till: a locally-invented store and admin employee in a local
+> SQLite file, with **no tenant, no till record and no device credential**.
+>
+> ⚠ **It completes successfully, and that is the danger.** It yields a till that looks fully
+> configured, lets someone sign in, and can never post a sale to the platform — there is nothing to
+> post it *as* — and nothing on screen says so. A silent dead end is worse than an error.
+>
+> **What changed now:** first run opens **Connect to Plutus** (server address + enrolment code).
+> `Setup` and `Third-party transfer` are retitled `(Legacy)` and demoted below it. **Deletion is the
+> intent** once WP8 lets a portal-synced operator sign in; they are kept only so an existing
+> standalone install is still reachable. `Recovery` stays as the support tool it is.
+>
+> ⚠ **Honest gap:** a *fresh* till still cannot sign anyone in after enrolling — login reads
+> employees from the local legacy DB, and operator sync (`GET /api/v1/tills/{id}/operators`) is
+> **WP8, unbuilt**. Until then the legacy Setup path is the only way to reach the Till/Inventory
+> screens for testing, which is exactly why it has not been deleted yet.
+>
+> ### ⚠ There was no local crash log. Now there is.
+>
+> Every fault went to OpenTelemetry (OTLP → New Relic) plus a console exporter. Both are useless in
+> the case that matters: someone double-clicks the exe, it disappears, and **there is nothing on the
+> machine to send anyone**. A till in a shop has no console and may have no route to a telemetry
+> endpoint at all.
+>
+> `Services/Analytics/CrashLog.cs` now writes plain text to
+> **`%LOCALAPPDATA%\Packages\…\LocalState\logs\plutus-till-YYYY-MM-DD.log`** — the exact path is
+> shown at the bottom of the Plutus tab so nobody has to guess. Installed as the **first line** of
+> `App()`, because the crashes worth catching are the start-up ones. It hooks
+> `AppDomain.UnhandledException` **and `TaskScheduler.UnobservedTaskException`** — the latter matters
+> because this app is full of `async void` commands, so a faulted un-awaited task is a realistic way
+> for it to die, and those exceptions were vanishing completely.
+>
 > ### ▶▶ THERE IS A BUILD TO SCREEN-TEST (Matt asked, 2026-08-08)
 >
 > **Run:** `Plutus\Frontend\Plutus.Frontend.AppClient\bin\Debug\net10.0-windows10.0.19041.0\win-x64\Plutus.Frontend.AppClient.exe`
@@ -37,12 +78,32 @@ Committed on `Matt's-Horror`, **not pushed, not deployed.**
 > 404 on ping as reachable-but-older — deliberate, see below), but **Send a heartbeat** and **Read
 > the catalogue feed** will both fail until the backend ships. Enrolment works today.
 >
-> ⚠ **Release configuration does NOT build**, and it is **pre-existing** — three Syncfusion XamlC
-> errors in `SalesReportsView.xaml`, `StockOuttakeView.xaml` and `TillView.xaml` (`RangeSelection`
-> enum missing; `PickerColumnCollection` unresolved). Those files have not been touched since the
-> original MAUI migration commit; Release has apparently never compiled. **Debug is the verified
-> configuration** and is what WP0 signed off. Worth fixing separately before anyone needs an
-> installer.
+> ### ⚠⚠ THREE BROKEN SCREENS — FIXED, and they were almost certainly the crash
+>
+> Matt: *"It also crashed when I clicked around too much."*
+>
+> Release configuration had never compiled: three Syncfusion XamlC errors in `TillView.xaml`,
+> `SalesReportsView.xaml` and `StockOuttakeView.xaml`. That looked like a packaging nuisance. **It
+> was not.**
+>
+> ⚠ **This project has no `[XamlCompilation(Compile)]` attribute**, so Debug parses XAML at
+> **runtime**. The same three faults Release rejects at build time became a `XamlParseException`
+> **the moment those pages were constructed** — the Till tab, Sales Reports and Stock Outtake.
+> Release caught them; Debug turned them into a crash on the shop floor. That is why "it built fine"
+> and "it crashed when I clicked around" were both true.
+>
+> Syncfusion 34.1.32 renamed all three:
+>
+> | Was | Now | Where |
+> |---|---|---|
+> | `<PickerColumnCollection>` wrapper | items go straight into `SfPicker.Columns` | `TillView.xaml` |
+> | `SelectionMode="RangeSelection"` | `SelectionMode="Range"` | both Statistics views |
+> | `ShowNavigationButtons` on `SfCalendar` | `ShowNavigationArrows` on `SfCalendar.HeaderView` | both Statistics views |
+>
+> **Release now builds for the first time**, which is the real proof the XAML is correct — it is the
+> only configuration that checks. ⚠ **Worth considering: turn XAML compilation ON for Debug too**
+> (`<MauiEnableXamlCBindingWithSourceCompiled>` / an assembly-level `[XamlCompilation]`), so this
+> class of fault fails a build instead of a shop.
 >
 > ⚠ **The probe now treats a 404 on `/api/v1/ping` as REACHABLE.** A 404 proves a server answered —
 > it means an older backend, not a dead network. Reading it as offline would have reported every

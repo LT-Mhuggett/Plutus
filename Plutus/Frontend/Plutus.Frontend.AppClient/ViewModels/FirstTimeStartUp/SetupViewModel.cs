@@ -176,7 +176,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.FirstTimeStartUp
             _serverOptions.Add(new KeyValuePair<string, DatabaseProvider>("Local Application", DatabaseProvider.Sqlite));
             _serverOptions.Add(new KeyValuePair<string, DatabaseProvider>("Cloud", DatabaseProvider.Cloud));
 
-            Title = "SetUpTitle".Translate();
+            // ⚠ LEGACY (2026-08-08). This screen builds a STANDALONE till: a locally-invented store
+            // and admin, with no tenant, no till record and no device credential. It still completes,
+            // and that is the danger — it produces a till that looks configured and can never post a
+            // sale to the platform. The portal-first path is the "Connect to Plutus" tab.
+            Title = "(Legacy) " + "SetUpTitle".Translate();
             Icon = "";
         }
 

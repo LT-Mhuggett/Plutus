@@ -29,9 +29,15 @@
                 <ColumnDefinition Width=".7*"/>
             </Grid.ColumnDefinitions>
             <!-- End of Grid Definitions -->
-            <calendar:SfCalendar Grid.Column="0" Grid.Row="0" Grid.RowSpan="2" SelectionMode="RangeSelection"
-                                 ShowNavigationButtons="True" MinimumDate="{Binding CalMinDate}" MaximumDate="{Binding CalMaxDate}"
-                                 SelectedDateRange="{Binding CalendarDateRange, Mode=TwoWay}"/>
+            <!-- ⚠ See the note in SalesReportsView: Syncfusion 34.1.32 renamed both of these, and
+                 without XAML compilation the mistake surfaced as a runtime crash, not a build error. -->
+            <calendar:SfCalendar Grid.Column="0" Grid.Row="0" Grid.RowSpan="2" SelectionMode="Range"
+                                 MinimumDate="{Binding CalMinDate}" MaximumDate="{Binding CalMaxDate}"
+                                 SelectedDateRange="{Binding CalendarDateRange, Mode=TwoWay}">
+                <calendar:SfCalendar.HeaderView>
+                    <calendar:CalendarHeaderView ShowNavigationArrows="True"/>
+                </calendar:SfCalendar.HeaderView>
+            </calendar:SfCalendar>
             <Label Grid.Column="1" Grid.Row="0" Text="{Binding Source={i18n:Translate NoItemsFound}, StringFormat={i18n:Translate EmptyArg}}" 
                    IsVisible="{Binding ListEmpty}"/>
             <!--<sunburst:SfSunburstChart Grid.Column="1" Grid.Row="0" x:Name="sunChart" EnableAnimation="True"

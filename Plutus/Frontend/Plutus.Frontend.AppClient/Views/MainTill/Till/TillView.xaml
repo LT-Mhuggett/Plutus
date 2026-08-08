@@ -185,10 +185,14 @@
                 <sfPicker:SfPicker.HeaderView>
                     <sfPicker:PickerHeaderView Text="{i18n:Translate Alterations}" />
                 </sfPicker:SfPicker.HeaderView>
+                <!-- ⚠ Columns is a plain collection property, so the items go straight in. This
+                     used to wrap them in <sfPicker:PickerColumnCollection>, a type that does NOT
+                     exist in Syncfusion 34.1.32 — and because this project has no
+                     [XamlCompilation(Compile)] attribute, Debug parsed the XAML at RUNTIME and threw
+                     a XamlParseException the moment the Till tab was constructed. Release caught it
+                     at build time; Debug turned it into a crash on the shop floor. -->
                 <sfPicker:SfPicker.Columns>
-                    <sfPicker:PickerColumnCollection>
-                        <sfPicker:PickerColumn ItemsSource="{Binding AlterationNames}" />
-                    </sfPicker:PickerColumnCollection>
+                    <sfPicker:PickerColumn ItemsSource="{Binding AlterationNames}" />
                 </sfPicker:SfPicker.Columns>
             </sfPicker:SfPicker>
             <!--Alterations selection Picker End-->

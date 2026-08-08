@@ -22,7 +22,10 @@ namespace Plutus.Frontend.AppClient.ViewModels.FirstTimeStartUp
     {
         public TransferThirdPartyViewModel()
         {
-            Title = "TPT".Translate();
+            // ⚠ LEGACY (2026-08-08, Matt: "this needs to move to the portal"). Importing a third
+            // party's data is a central concern — it belongs with the NatApp translation agent, which
+            // already moves legacy shop data into the backend, not on one device's local database.
+            Title = "(Legacy) " + "TPT".Translate();
             Icon = "";
         }
 

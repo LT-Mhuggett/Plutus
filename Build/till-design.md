@@ -152,7 +152,7 @@ surprise six months later.
 | Store Information | read-only ✅ | local editor ⬜ | WP6 — the two are *inverted*; this is a deletion, not a build. |
 | Settings — local prefs | ✅ | ✅ | — |
 | Settings — device enrolment & identity | ✅ | 🟡 | **WP4 + WP16a.** MAUI gained a **Plutus tab** 2026-08-08: server address, enrolment code → `POST /api/v1/tills/enrol`, connection state, device status, and buttons that exercise the heartbeat and catalogue feed. Secret goes to platform `SecureStorage`, device id to `Preferences` — ⚠ never the SQLite file, which gets copied off machines during support. 🟡 until the un-enrol *request* flow and the local store are wired. |
-| First-time startup / setup | ➖ | ✅ | MAUI-only, and correct — a browser has no first run. |
+| First-time startup | ➖ | 🟡 | **Portal-first since 2026-08-08** (Matt: *"The till is moving to the portal being the 1st place you start, not the local app"*). First run now opens **Connect to Plutus** — server address + enrolment code — because a till is *born in the portal*: company, store, till and code are created there, and the app's only job is to claim that identity. ⚠ **Legacy "Setup" and "Third-party transfer" are retitled `(Legacy)` and pending removal** — see the warning below. 🟡 until they go and WP8 lets a synced operator sign in. |
 
 ## B5. Platform citizenship
 
@@ -246,6 +246,23 @@ it. **A till that computes one of these locally is a bug.**
 | Prices | `GET /api/v1/prices/effective` | Web till only so far. |
 | Permissions | Token carries the user's full effective set; `perm:*` resolves from RBAC by userId | ⚠ `"perm:x"` and `PlutusPolicies.X` are different namespaces — a typo between them fails closed and silently. |
 | Gift-card VAT treatment | `GiftCardSettings` — single- vs multi-purpose | Locks at the first card sale. Absence 409s. |
+| **A till's very existence** | Portal → Locations → Tills → enrolment code → `POST /api/v1/tills/enrol` | ⚠ **The portal is where a till is BORN, not just what it obeys** (Matt, 2026-08-08). Company, store, till and code are created centrally; the app claims that identity and holds no opinion about who it is. |
+
+> ### ⚠ A till may not invent itself — and the legacy MAUI "Setup" screen does exactly that
+>
+> `Views/FirstTimeStartUp/SetupView` builds a **standalone** till: a locally-invented store and
+> admin employee in a local SQLite file, with **no tenant, no till record and no device credential**.
+> Its "Cloud" option was never implemented (`DatabaseProvider.Cloud` throws), so the only path that
+> completes is the local one.
+>
+> **It still works, and that is precisely the danger.** It produces a till that looks fully
+> configured, lets someone sign in, and can never post a sale to the platform — there is nothing to
+> post it *as*. Nothing on that screen tells the operator so.
+>
+> Retitled `(Legacy)` and demoted below Connect-to-Plutus on 2026-08-08; **deletion is the intent**,
+> once WP8 lets a portal-synced operator sign in. Third-party transfer goes the same way for the
+> same reason — importing someone else's data is a central concern that already belongs to the
+> NatApp translation agent, not to one device's local database.
 
 ## C2. The drift register — where the same rule exists twice
 

@@ -36,14 +36,23 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
         private string _lastAction;
         private bool _busy;
 
-        public ConnectionViewModel()
+        public ConnectionViewModel(bool firstRun = false)
         {
-            Title = "Plutus";
+            Title = firstRun ? "Connect to Plutus" : "Plutus";
             Icon = "md-cloud";
+            ShowContinue = firstRun;
             _serverUrl = ServerUrlSetting;
             TillVersionText = $"MAUI till v{PlutusVersion.Of(typeof(App).Assembly)}";
+            LogPath = Services.Analytics.CrashLog.TodaysFile;
             _ = InitialiseAsync();
         }
+
+        /// <summary>Only on first run: the route on to sign-in. Inside the shell the operator is
+        /// already signed in and the button would be nonsense.</summary>
+        public bool ShowContinue { get; }
+
+        /// <summary>Where the local crash log is, so nobody has to guess when reporting a fault.</summary>
+        public string LogPath { get; }
 
         #region Bound state
 
@@ -133,7 +142,30 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
         private Command _forgetCommand;
         public Command ForgetCommand => _forgetCommand ??= new Command(async () => await ForgetAsync());
 
+        private Command _continueCommand;
+        public Command ContinueCommand => _continueCommand ??= new Command(Continue);
+
         #endregion
+
+        /// <summary>
+        /// On to sign-in.
+        ///
+        /// ⚠ Deliberately does NOT require enrolment. A till with no connection still has to be
+        /// usable — that is the whole offline principle — and blocking here would strand anyone
+        /// whose broadband is down on the one screen that cannot help them.
+        /// </summary>
+        private void Continue()
+        {
+            try
+            {
+                App.Current.MainPage = new Views.LoginView();
+            }
+            catch (Exception ex)
+            {
+                Services.Analytics.CrashLog.Write("ConnectionViewModel.Continue", ex);
+                LastAction = $"Couldn't open the sign-in screen: {ex.Message}";
+            }
+        }
 
         private async Task InitialiseAsync()
         {
