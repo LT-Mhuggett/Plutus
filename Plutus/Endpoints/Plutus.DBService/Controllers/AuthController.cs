@@ -133,10 +133,18 @@ namespace Plutus.DBService.Controllers
             await conn.OpenAsync();
 
             await using var cmd = conn.CreateCommand();
+            // ⚠ Employee is TPT: People is the hierarchy root, but Active is declared on Employee, so
+            // it lives on the EMPLOYEES table. Hence the second join — `p.Active` does not exist.
+            //
+            // ⚠ And it is a LEFT join on purpose. A WebCredentials row whose person has no Employees
+            // record is not a deactivated employee, it is not an employee at all; an inner join would
+            // lock those logins out the moment this deployed, which is a worse bug than the one being
+            // fixed. NULL therefore means "no employee record" and is allowed through.
             cmd.CommandText = @"
-                SELECT w.EmployeeId, w.HashedPassword, w.Salt, p.FName, p.LName
+                SELECT w.EmployeeId, w.HashedPassword, w.Salt, p.FName, p.LName, e.Active
                 FROM WebCredentials w
                 JOIN People p ON p.Id = w.EmployeeId
+                LEFT JOIN Employees e ON e.Id = w.EmployeeId
                 WHERE LOWER(w.Email) = LOWER(@email)
                 LIMIT 1";
             cmd.Parameters.AddWithValue("@email", request.Email.Trim());
@@ -149,12 +157,30 @@ namespace Plutus.DBService.Controllers
             var hash = Convert.FromBase64String(reader.GetString(1));
             var salt = Convert.FromBase64String(reader.GetString(2));
             var name = $"{reader.GetString(3)} {reader.GetString(4)}".Trim();
+            // ⚠ Convert rather than GetBoolean: `Active` is tinyint(1) in MySQL, and whether the
+            // driver hands that back as bool or sbyte depends on TreatTinyAsBoolean in the
+            // connection string. A cast exception here would 500 EVERY login — the blast radius is
+            // "nobody can sign in", so this reads whatever it is given.
+            var isDeactivatedEmployee = !reader.IsDBNull(5) && !Convert.ToBoolean(reader.GetValue(5));
 
             if (!TestTokenAuth.VerifyPassword(request.Password, salt, hash))
                 return Unauthorized("Unknown email or wrong password.");
 
             // The credentials reader must be closed before the connection runs another command.
             await reader.CloseAsync();
+
+            // FE9.2 fix (2026-08-08): a DEACTIVATED user could still sign in and receive a full 12h
+            // token. `deactivate` sets Active=false and — unlike `remove` — deliberately keeps the
+            // WebCredentials row so the account can be restored, and nothing here ever looked at the
+            // flag. The portal's Deactivate button removed the user from a list and revoked nothing.
+            //
+            // ⚠ Checked AFTER the password verify, deliberately. Saying "deactivated" to someone who
+            // has already proven they know the password leaks nothing — they hold the credential
+            // either way — while saying it before would turn this endpoint into an account-existence
+            // oracle. It also saves the support call where a locked-out user insists, correctly,
+            // that their password is right.
+            if (isDeactivatedEmployee)
+                return StatusCode(403, "This account has been deactivated. Ask an administrator to restore it.");
 
             // WP10.2 (D16): a Suspended/Closed tenant's PORTAL login is refused — but its tills keep
             // syncing, because the device-token path (TokensController) never consults this. The
