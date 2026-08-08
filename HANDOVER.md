@@ -158,19 +158,25 @@ Run `POST /api/v1/reports/rebuild` (platform-admin) if you want history re-proje
 
 #### ⚠ Things a new session must know (in addition to the 2026-07-31 list, which all still holds)
 
-0. **[`Build/till-anatomy.md`](Build/till-anatomy.md) is new (2026-08-08)** — how each till is built
-   and **where every shared rule lives**, written after the VAT arithmetic turned out to exist only
-   in the web till's TypeScript. **Its §4 is the register of rules implemented twice**, with an
-   honest pinned/unpinned status for each. Read it before writing anything that computes money on a
-   client. Two findings worth knowing now: **the web till has no test suite at all** (so every
-   cross-language "pinning" test holds only the .NET half), and `till/basket.ts basketTotals` is an
-   unpinned third copy of the discount apportionment.
+0. **[`Build/till-design.md`](Build/till-design.md) IS THE SINGLE SOURCE OF TRUTH FOR EVERY TILL
+   BUILD** (Matt's instruction, 2026-08-08 — consolidated from the old `till-parity.md` +
+   `till-anatomy.md`, both now gone). **Any till work reads it first and updates it in the same
+   commit.** Part A = the surfaces · **Part B = what each till can do** (the old parity register) ·
+   **Part C = where every rule lives** · Part D = how to add a till, a feature or a rule.
+   **[`CLAUDE.md`](CLAUDE.md) now exists at the repo root purely to make that reflex automatic** —
+   it loads every session, so till work reaches for this document without being told.
+   ⚠ **C2 is the drift register — read it before writing anything that computes money on a client.**
+   Three findings from compiling it: **the web till has no test suite at all** (so every
+   cross-language "pinning" test holds only the .NET half of its twin), the item-id twin is pinned
+   by a **frozen golden vector** that would not catch TypeScript drift, and `till/basket.ts
+   basketTotals` is an **unpinned third copy** of the discount apportionment.
 1. **`Build/` was reorganised** — standards at the top level, open plans in `Build/To do/`,
    delivered/superseded in `Build/archive/`. Start at **[`Build/index.md`](Build/index.md)**.
    **[`Build/repo-runbook.md`](Build/repo-runbook.md)** is now the build/test/deploy + pitfalls
    doc (extracted from `operator-portal-plan` §0), and
-   **[`Build/till-parity.md`](Build/till-parity.md)** is the web-till ↔ MAUI feature register —
-   **its rule binds: a till feature isn't done until its row is updated in the same commit.**
+   **[`Build/till-design.md`](Build/till-design.md)** is the **single source of truth for every till
+   build** — **its rule binds: a till feature isn't done until its row is updated in the same
+   commit.** See item 0 above.
 2. **FE10 theming**: `GET /api/v1/themes/effective` (sales.ingest — device *or* operator token)
    resolves **till > group > store > tenant > default** server-side in `ThemeResolution`; writes
    are `perm:portal.company.manage` + audited. The web till's `index.css` is now tokenised

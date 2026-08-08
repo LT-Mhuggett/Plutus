@@ -32,8 +32,10 @@ rulings ARE the answers — do not re-ask them; Matt can veto any before the WP 
 **Required reading before any code** (in this order):
 1. [`Build/repo-runbook.md`](../repo-runbook.md) — build/test/migrate commands, the ten codebase
    pitfalls, hard rules. Everything there applies here.
-2. [`Build/till-parity.md`](../till-parity.md) — the feature register this plan exists to close.
-   Its rule binds you: **a capability isn't done until its row is updated in the same commit.**
+2. [`Build/till-design.md`](../till-design.md) — **the single source of truth for every till build**,
+   and the register this plan exists to close. Its rule binds you: **a capability isn't done until
+   its row is updated in the same commit**, and a *rule* isn't done until C1 says where it lives.
+   ⚠ Read **C2, the drift register**, before writing anything that computes money on a client.
 3. `Build/plutus-platform-architecture.md` wins on any design conflict — stop and flag, don't improvise.
 
 **Session shape** (how phases 0–18 were built): one WP per session, in §4 order. Announce the WP,
@@ -312,7 +314,7 @@ must change *both* tills together, or they will disagree penny-for-penny on the 
 The parity analysis inherited from `MAUI-Backend-Sync` (2026-08-01) covered six areas — Cash,
 Inventory, Reporting, Loyalty, Store Information, Settings — plus theming. An audit on 2026-08-07
 against the *current* web till found it had missed the **Till screen itself** and everything
-platform-level. Full register: **[`Build/till-parity.md`](../till-parity.md)**.
+platform-level. Full register: **[`Build/till-design.md`](../till-design.md)**.
 
 **Rulings (binding, veto-able): everything below is IN**, homed as follows — gift cards become
 **WP13**; announcements + support tickets + pick-notes become **WP5b**; the receipt template folds
