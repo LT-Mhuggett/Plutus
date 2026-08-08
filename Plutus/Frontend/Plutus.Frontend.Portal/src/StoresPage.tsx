@@ -280,6 +280,11 @@ export default function StoresPage() {
             {tillsRefreshing ? "Refreshing…" : "Refresh"}
           </button>
         </div>
+        {/* Creating a till from the fleet view, where the store is not implied by where you are
+            standing — so it asks. */}
+        <div className="toolbar">
+          <NewTillAnywhere stores={stores} busy={busy} onCreate={newTill} />
+        </div>
         <DataTable<TillRow>
           columns={[
             { key: "name", label: "Till", render: (t) => <>{t.name}{t.isWebstore && <span className="chip" title="Virtual till carrying webstore orders"> webstore</span>}</> },
@@ -309,7 +314,7 @@ export default function StoresPage() {
                   onClick={() => void move(t)}>Move</button>
               </>
             )}
-          emptyText="No tills yet — add one from a store card above."
+          emptyText="No tills yet — use “+ New till” above."
         />
         {issued && (
           <div className="enrol-code">
@@ -515,6 +520,68 @@ function TillNameCell({ till, onRename }: { till: TillRow; onRename: (id: string
       onBlur={() => void commit()}
       onKeyDown={(e) => { if (e.key === "Enter") void commit(); if (e.key === "Escape") setEditing(false); }}
     />
+  );
+}
+
+/**
+ * "+ New till" from the FLEET view, where the store is not implied by where you are standing.
+ *
+ * The store card's version knows its own store; this one has to ask. That question is the whole
+ * reason it exists — a till belongs to exactly one store, and the choice decides which address
+ * prints on its receipts, which VAT bands and theme it inherits, and which store's takings its
+ * sales land in. Getting it wrong is a move operation later, and moves drag historic figures with
+ * them.
+ *
+ * ⚠ With more than one store, NO store is preselected. A silent default here is a till quietly
+ * created against whichever store happened to sort first.
+ */
+function NewTillAnywhere({ stores, busy, onCreate }: {
+  stores: StoreRow[];
+  busy: boolean;
+  onCreate: (storeId: number, name: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  // One store means there is nothing to ask; more than one means the operator must choose.
+  const [storeId, setStoreId] = useState<number | "">(stores.length === 1 ? stores[0].id : "");
+  useEffect(() => { if (stores.length === 1) setStoreId(stores[0].id); }, [stores]);
+
+  if (stores.length === 0) {
+    return <span className="muted small">Add a store before creating a till — a till has to live somewhere.</span>;
+  }
+
+  if (!open) return <button className="ghost small" onClick={() => setOpen(true)}>+ New till</button>;
+
+  return (
+    <span className="new-location">
+      <label className="muted small">
+        Location
+        <select value={storeId} onChange={(e) => setStoreId(e.target.value === "" ? "" : Number(e.target.value))}>
+          {stores.length > 1 && <option value="">Which location?</option>}
+          {stores.map((s) => <option key={s.id} value={s.id}>{s.name ?? `Store ${s.id}`}</option>)}
+        </select>
+      </label>
+      <input
+        value={name}
+        maxLength={80}
+        placeholder="Till name, e.g. Front Desk"
+        onChange={(e) => setName(e.target.value)}
+      />
+      <button
+        className="primary small"
+        disabled={busy || !name.trim() || storeId === ""}
+        title={storeId === "" ? "Choose which location this till belongs to" : "Create the till and issue its enrolment code"}
+        onClick={async () => {
+          if (storeId === "") return;
+          await onCreate(storeId, name);
+          setName("");
+          setOpen(false);
+        }}
+      >
+        Create till + code
+      </button>
+      <button className="ghost small" onClick={() => { setOpen(false); setName(""); }}>Cancel</button>
+    </span>
   );
 }
 
