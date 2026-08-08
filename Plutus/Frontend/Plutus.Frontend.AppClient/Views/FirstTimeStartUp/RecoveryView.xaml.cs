@@ -29,7 +29,10 @@ namespace Plutus.Frontend.AppClient.Views.FirstTimeStartUp
                     Grid.SetColumnSpan(CenterColumn, 3);
 
                     // Move RightDataColumn
-                    Grid.SetRow(RightDataColumn, 4);
+                    // ⚠ Was row 4 on a grid that defines four rows (0-3). MAUI clamps rather than
+                    // throwing, so in portrait this column silently landed on top of the separator
+                    // row instead of below it.
+                    Grid.SetRow(RightDataColumn, 3);
                     Grid.SetRowSpan(RightDataColumn, 1);
                     Grid.SetColumn(RightDataColumn, 0);
                     Grid.SetColumnSpan(RightDataColumn, 3);

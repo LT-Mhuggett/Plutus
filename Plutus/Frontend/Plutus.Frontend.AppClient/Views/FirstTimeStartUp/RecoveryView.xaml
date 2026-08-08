@@ -44,16 +44,18 @@
                     <!--End of Center column-->
 
                     <!--Right data column-->
-                    <StackLayout x:Name="RightDataColumn" Grid.Column="2" Grid.Row="1" Grid.RowSpan="3" VerticalOptions="Center" HorizontalOptions="FillAndExpand" >
-                        <StackLayout>
-                            <Label Text="{i18N:Translate EMail}"/>
-                            <Entry/>
-                        </StackLayout>
-                        <StackLayout>
-                            <Label Text="{i18N:Translate Password}"/>
-                            <Entry/>
-                        </StackLayout>
-                        <Button Text="{i18N:Translate Submit}"/>
+                    <!-- ⚠ WAS A DEAD FORM. An email box, a password box and a Submit button with NO
+                         Command, no handler and no bindings on either entry — pressing it did
+                         literally nothing, for ever, with no way for anyone to tell. A control that
+                         cannot work is worse than an absent one: it costs somebody the time to try
+                         it, twice, before they believe it.
+
+                         Account recovery belongs in the PORTAL now (portal-first, 2026-08-08), so
+                         this says where to go instead of pretending. -->
+                    <StackLayout x:Name="RightDataColumn" Grid.Column="2" Grid.Row="1" Grid.RowSpan="3" VerticalOptions="Center" HorizontalOptions="FillAndExpand" Spacing="8">
+                        <Label Text="Forgotten your password?" FontAttributes="Bold"/>
+                        <Label FontSize="Caption" LineBreakMode="WordWrap"
+                               Text="Passwords are reset in the Plutus portal, by someone with staff-admin access — not on the till. Ask a manager to set you a new one, then sign in as usual."/>
                     </StackLayout>
                     <!--End of Right data column-->
                 </Grid>

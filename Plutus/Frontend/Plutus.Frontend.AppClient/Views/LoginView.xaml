@@ -26,11 +26,15 @@
                 <StackLayout Grid.Column="1" Grid.Row="0">
                     <Entry Placeholder="{Binding Path=Email_UserId_Placeholder, StringFormat={i18N:Translate EnterHere}}" Text="{Binding Email_Userid}">
                         <Entry.Behaviors>
+                            <!-- ⚠ EmailValidator REMOVED. The field is labelled "EMail/User Id" and
+                                 the login query matches on either — but the validator demanded a
+                                 valid email address, so the Submit button stayed GREYED OUT for
+                                 anyone signing in with a staff id. The employee-id branch of the
+                                 query could never be reached from this screen. -->
                             <Behaviors:ValidationBehavior Group="{x:Reference form}"
                                                           PropertyName="Text">
                                 <Behaviors:ValidationBehavior.Validators>
                                     <Validators:RequiredValidator/>
-                                    <Validators:EmailValidator/>
                                 </Behaviors:ValidationBehavior.Validators>
                             </Behaviors:ValidationBehavior>
                         </Entry.Behaviors>
@@ -41,11 +45,16 @@
                     <Entry IsPassword="True"
                            Placeholder="{Binding Source={i18N:Translate Password}, StringFormat={i18N:Translate EnterHere}}" Text="{Binding Password}">
                         <Entry.Behaviors>
+                            <!-- ⚠ PasswordValidator REMOVED, and this one was the worst of the two.
+                                 It checks password STRENGTH (upper + lower + digit + symbol, 8+),
+                                 which belongs where a password is CHOSEN — not where an existing one
+                                 is typed. Any account whose password predates that rule could never
+                                 sign in: the button simply stayed greyed out, with nothing on screen
+                                 saying why. Strength is the portal's business at password-set time. -->
                             <Behaviors:ValidationBehavior Group="{x:Reference form}"
                                                       PropertyName="Text">
                                 <Behaviors:ValidationBehavior.Validators>
                                     <Validators:RequiredValidator/>
-                                    <Validators:PasswordValidator/>
                                 </Behaviors:ValidationBehavior.Validators>
                             </Behaviors:ValidationBehavior>
                         </Entry.Behaviors>

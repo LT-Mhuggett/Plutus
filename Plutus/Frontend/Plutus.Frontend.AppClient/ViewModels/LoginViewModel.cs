@@ -254,17 +254,28 @@ namespace Plutus.Frontend.AppClient.ViewModels
                 // ⚠ DatabaseProvider.Sqlite is 0, so a NULL setting parses to "local SQLite" rather
                 // than failing — which is exactly how "no accounts at all" came out as "details not
                 // correct", sending someone hunting for a typo that did not exist.
-                if (!Helpers.Database.Database.LocalDbExist())
+                Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
+
+                // ⚠ COUNT THE STAFF, don't test for the file. `LocalDbExist()` asks "does a file
+                // exist" when the question is "is there anybody to sign in as" — and the Database
+                // constructor CREATES and migrates an empty one on first touch. So a single earlier
+                // attempt made the file exist, this guard stopped firing, and the honest message
+                // reverted to "details not correct" on the very next try. The guard was defeating
+                // itself after one use.
+                int localStaff;
+                using (var probe = new Helpers.Database.Database(databaseProvider))
+                    localStaff = probe.Get<EmployeeModel>().Count();
+
+                if (localStaff == 0)
                 {
                     await App.Current.MainPage.DisplayAlert(
                         "No staff on this till yet",
                         "This till has no staff accounts on it.\n\n" +
-                        "Open the Plutus tab and use “Sync staff” to fetch them from the portal.",
+                        "Open the Plutus tab and use “Sync staff from the portal” to fetch them.",
                         "OK");
                     return;
                 }
 
-                Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
                 using (var dbHelper = new Helpers.Database.Database(databaseProvider))
                 {
                     var tempUser = await dbHelper.Get<EmployeeModel>()
