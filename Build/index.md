@@ -35,8 +35,8 @@ consolidated into one on 2026-08-07.
 
 | Document | What's left |
 |---|---|
-| [MAUI-Retrofit-Plan-2026-08-07.md](To%20do/MAUI-Retrofit-Plan-2026-08-07.md) | **The MAUI plan — written for autonomous execution, no questions.** Take Sean's `Plutus.Frontend.AppClient` — today a working till with *zero* network code — and make it a platform client: contracts, local store v2, outbox, enrolment, heartbeat, then full parity through to gift cards. §0 execution protocol, WP0–WP13 with DoDs, **binding defaults** (§9, veto-able) instead of open decisions, USER-VERIFY gates where a human must click. Toolchain verified on the dev box 2026-08-07. |
-| [NatApp-Translation-Agent-Plan-2026-08-05.md](To%20do/NatApp-Translation-Agent-Plan-2026-08-05.md) | **The data plan** — moves the legacy NatApp backup into the new backend. Deliberately standalone: independent of the retrofit, and they touch at exactly one point (the item-ID remap must be deterministic). |
+| [MAUI-Retrofit-Plan-2026-08-07.md](To%20do/MAUI-Retrofit-Plan-2026-08-07.md) | **The MAUI plan — written for autonomous execution, no questions.** Make Sean's `Plutus.Frontend.AppClient` a platform client. **In progress: WP0–WP4 + WP2b done** (the transport spine — enrol, trade offline, drain exactly once); **WP2c next**. §3b is the progress board and the resume point; §2a carries the VAT rules; §10 the item-ID seam. WP0–WP13 with DoDs, **binding defaults** (§9, veto-able), USER-VERIFY gates where a human must click. |
+| [NatApp-Translation-Agent-Plan-2026-08-05.md](To%20do/NatApp-Translation-Agent-Plan-2026-08-05.md) | **The data plan** — translates the legacy NatApp database into the current schema (confirmed by Matt 2026-08-08 as the migration mechanism). Runs in parallel with the retrofit; they meet at **item identity**, corrected in the retrofit's §10 — the barcode is the invariant, not the GUID, and the central catalogue has no item UUIDs to compare against. |
 
 Nothing on the web till, the portal or the backend is outstanding as a plan.
 

@@ -495,7 +495,9 @@ perfectly good cutover. See §10.
 > validated each line's `VatRateBp` by **exact membership** of the in-force set — which contradicts
 > how the platform declares VAT and would have quarantined **ordinary webtill sales** the moment
 > any tenant's bands were seeded. Replaced by the pair-based rule below (`VatRateHistory.Assess`,
-> shipped in `88e5c26`). Still inert live (0 rate rows), and **now safe to seed bands.**
+> shipped in `88e5c26`). **Kapow's bands were seeded 2026-08-08 (`cb9dc05`) with law-correct
+> classes, so this check is now ARMED** — verified live that an ordinary £14.99/£12.49 line
+> declaring 2002bp still ingests 201.
 
 **The four standing VAT decisions this must respect** (all verified in code):
 1. **Ordinary lines carry wobbled rates on the wire, by design.** The webtill derives per-line

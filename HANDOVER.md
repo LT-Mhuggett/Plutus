@@ -1,10 +1,9 @@
 # Handover — Plutus platform build
 
-**Date:** 2026-08-07 — Platform on **.NET 10**. All 18 phases + Operator Portal (OP1–OP4), the
-**portal/till refresh (P1–P6)** and **`Build/further-enhancements-plan.md` FE1–FE9** built & LIVE.
-Since 5de9811: FE3 verified on real hardware (TSP143 silent print + drawer), receipt templates
-per store, checkout hardening, app switcher, add-unknown-item, **refunds**, and **FE10 till
-theming**. Head: see `git log` — this line goes stale; the commits don't.
+**Date:** 2026-08-08 — Platform on **.NET 10**. All 18 phases + Operator Portal (OP1–OP4), the
+**portal/till refresh (P1–P6)** and **FE1–FE10** built & LIVE. The **MAUI retrofit is underway**:
+WP0–WP4 done (the transport spine), WP2c next. VAT now follows UK law (HMRC Notice 727/701/10).
+Head: see `git log` — this line goes stale; the commits don't.
 
 > 📁 **Docs reorganised 2026-08-07.** `Build/` is now three places: **standards** at the top level,
 > **`Build/To do/`** for plans with work still in them (all native-till work), and
@@ -14,10 +13,34 @@ theming**. Head: see `git log` — this line goes stale; the commits don't.
 > Older references below that say `Build/<plan>.md` now mean `Build/archive/<plan>.md` or
 > `Build/To do/<plan>.md`.
 
-### ⏰⏰⏰⏰ RESUME HERE (2026-08-07)
+### ⏰⏰⏰⏰ RESUME HERE (2026-08-08)
 
-Suite: **Unit 347 · Architecture 6 · Integration 67 — green.** (The two legacy projects
-`Plutus.Entities.Tests` / `Plutus.Repository.Tests` still fail without a live MySQL — pre-existing.)
+Suite: **Unit 402 · Architecture 7 · Integration 81 · AppClient 295 (+3 skipped) — all green.**
+(The two legacy projects `Plutus.Entities.Tests` / `Plutus.Repository.Tests` still fail without a
+live MySQL — pre-existing, not a regression.)
+
+> ### ▶ START HERE TOMORROW
+>
+> **Recommended next: WP2c — the portal VAT editor + `GET /api/v1/vat/bands`.** Backend + portal,
+> fully verifiable without a device, and it closes Matt's "all VAT guidance comes from the portal"
+> directive properly. After that: **WP5** (heartbeat + catalogue sync — the last backend gap),
+> then WP6–13, which are MAUI **UI** work and need a device to verify.
+>
+> **Read first:** [`Build/repo-runbook.md`](Build/repo-runbook.md), then the retrofit plan's §3b
+> progress board (the true resume point), §2a (VAT — the standing rules) and §10 (the item-ID seam).
+>
+> **Nothing is half-finished.** Working tree clean, everything pushed, all suites green. The three
+> deploys of 2026-08-08 are live and verified; the till and portal builds are unchanged since the
+> FE10 deploy on 08-07.
+
+#### What shipped (2026-08-08)
+
+| Feature | Notes |
+|---|---|
+| **MAUI retrofit WP0–WP4 + WP2b** | The **transport spine**: a till can enrol, trade offline, and drain its takings exactly once — all provable headlessly. Three new projects (contracts / client core / local store v2). Detail below. |
+| **VAT corrected to UK law** | Four defects fixed against HMRC guidance — the return was £10.77 light, takings fragmented across six buckets, off-band takings would have been folded in, and comics were classified Exempt when the law zero-rates them. Detail in item 5 below and the retrofit plan §2a. |
+| **Pick-notes production bug** | Dead since Phase 6 — see below. |
+| **SQLitePCLRaw security pin** | Repo-wide high-severity advisory nothing had surfaced. See below. |
 
 #### What shipped (2026-08-06 → 07)
 
@@ -70,11 +93,15 @@ between them fails closed and silently. `PickNotesE2eTests` now pins the path wi
 `pos.sell` token. Fixing the gate also exposed a missing `db.CurrentUser` in the ack path
 (pitfall #1) that the broken gate had been hiding.
 
-#### Rollbacks for this session's deploys
+#### Rollbacks for these two days' deploys (newest last — restore the one you want)
 
-Backend: `~/PLUTUS/backend.pre-themes`, `~/PLUTUS/backend.pre-picknotes`.
+Backend: `~/PLUTUS/backend.pre-themes` → `.pre-picknotes` → `.pre-vatrates` → `.pre-wp4`
+→ `.pre-vatfix` → `.pre-vatreturn` (the current live build sits on top of `.pre-vatreturn`).
 Till/portal: `/srv/apps/PLUTUS/{web,portal}/current.pre-themes`.
-DB dump: `~/PLUTUS/backups/plutus-pre-themes-20260807.sql.gz`.
+DB dumps: `~/PLUTUS/backups/plutus-pre-themes-20260807.sql.gz`,
+`plutus-pre-vatrates-20260807.sql.gz`, `plutus-pre-vatreturn-20260808.sql.gz`.
+⚠ The VAT band reclassification (Exempt → zero-rated) is a **data** change, so undoing it needs the
+`pre-vatreturn` dump, not just a backend rollback.
 
 #### MAUI retrofit — the TRANSPORT SPINE IS DONE (WP0–WP4 + WP2b)
 
@@ -130,23 +157,32 @@ provable **headlessly**, with no device, no MySQL and no deployment. Three new p
    - ⚠ Still an accountant's call: whether the historical £10.77 needs correcting on past returns
      or only going forward.
 
-6. **VAT guidance must come FROM THE PORTAL, down to the tills.** Matt's directive (2026-08-08):
-   *all VAT guidance comes from the portal down to the tills* — a till never decides a VAT rule.
-   Today there is **no portal VAT surface at all** (`fetchTaxes` is read-only in both frontends;
-   `Taxes` is seeded legacy data with no effective dates). Retrofit **WP2c** builds it, and it
-   gates any MAUI VAT work. Full analysis, with HMRC citations, in the retrofit plan **§2a**.
-   - WP2b validates the **price pair**, never the declared rate (corrected after Matt caught the
-     first version). Three verdicts, only one blocks: in-force band explains it → fine; only a
-     *retired* band explains it → quarantine; nothing explains it → **accept** (off-band legacy
-     damage is reported, never blocks trading — owner decision). Still inert live (0 rows).
-   - ⚠ **Do NOT seed `VatRatePoints` by hand.** Bands must first gain `exempt` as distinct from
-     `zero` (both are 0bp and currently indistinguishable once a sale is recorded), and seeding
-     belongs to WP2c.
-   - **Three findings in live Kapow data are Matt's/his accountant's calls, not engineering's**
-     (§2a): the third band is named "Exempt" though comics are **zero-rated** in UK law (different
-     input-tax recovery); zero-rated vs exempt cannot be separated in any report; and VAT rounding
-     differs from the VAT-fraction method on **2,006 of 6,152** standard-rated lines, one-directional,
-     **£20.06 less VAT declared**. Whatever is decided must change **both tills together**.
+6. **VAT guidance comes FROM THE PORTAL, down to the tills** — Matt's directive, 2026-08-08. A
+   till never decides a VAT rule; it receives bands, applies them, reports what it charged. Same
+   shape as receipt templates and themes. The **model** now honours that (bands are tenant-owned,
+   effective-dated, classed, and seeded); what is still missing is the **portal editor + the
+   published `GET /api/v1/vat/bands` contract**, which is **WP2c** — until it lands, changing a
+   band means SQL. WP2c also removes the webtill's hardcoded `/1.2` in the single-purpose
+   gift-card redemption line, the one place a till still holds a VAT rule.
+   - WP2b's ingest check validates the **price pair**, never the declared rate (corrected after
+     Matt caught the first version). Three verdicts, only one blocks: an in-force band explains
+     the pair → fine; only a *retired* band explains it → quarantine; nothing explains it →
+     **accept** (off-band legacy damage is reported, never blocks trading — owner decision).
+     **It is ARMED**: Kapow's bands are seeded, and an ordinary £14.99/£12.49 line still ingests 201.
+
+7. **The item-ID seam with the translation agent — corrected 2026-08-08, and NOT what it looks
+   like.** The retrofit plan used to require that a cutover till's item ids equal "the ids the
+   central migration produced". They cannot: **the server's catalogue has no item UUIDs at all**
+   (`Items` is barcode-keyed — gap-analysis F4, deferred as option (b) in the translation-agent
+   plan §3.3), and the only central item GUIDs that exist are the **random** ones
+   `Migration.Kapow`'s `IdRemap` minted for historic *sale lines*. Two populations already coexist
+   in live data by design — barcode `761941391632` carries two distinct `ItemId`s across 161 lines.
+   **The real invariant is the BARCODE**; `ItemId` rides along. So MAUI must derive ids exactly as
+   the **web till** does, and never be checked against migrated history —
+   `Cutover.SeedCatalogueAsync`'s `centralIdLookup` gets **null** against today's server.
+   ⚠ If the catalogue ever gains real UUID PKs, they **must** be `DeterministicGuid.ForItem`, not
+   minted. Also worth knowing before trusting any all-time item report: **8,120 of 82,965 sale
+   lines carry no barcode at all** and can never be item-attributed.
 
 **Security fix landed with this work:** EF Core 9.0.18's Sqlite provider resolves SQLitePCLRaw
 2.1.10, which carries a HIGH-severity advisory (GHSA-2m69-gcr7-jv3q). It reached every module, the
@@ -156,11 +192,26 @@ re-running periodically; nothing in CI watches this.**
 
 #### Still open
 
-- **FE10 unverified by Matt** — nothing changes on a till until a scheme is assigned
-  (portal → Locations → Till themes). Worth flipping one till to Plutus Dark to confirm it lands.
-- Everything in the 2026-07-31 "Still open" list below **except FE3.1/FE3.5**, which is now done.
-- Local-only tidy: `.git-rewrite/` (sandbox blocked its removal) and the now-redundant 364 MB
-  `D:\tmp\plutus-backup-pre-exe-purge-20260807.bundle`.
+**Waiting on Matt (nothing blocked on them — the build can continue):**
+- **FE10 theming unverified.** Nothing changes on any till until a scheme is assigned
+  (portal → Locations → Till themes). Matt's call, deliberately left until he flips one.
+- **The historical £10.77 VAT shortfall** (summed-lines vs VAT fraction, before `cb9dc05`) —
+  correct past returns, or only go forward? An accountant's decision. The gap is now reported
+  every period, so it cannot re-accumulate unseen.
+
+**Answered, do not re-ask:**
+- ✅ Kapow sells **nothing exempt** (Matt, 2026-08-08) — all items standard- or zero-rated, so
+  partial exemption doesn't apply and input tax is recoverable in full.
+- ✅ The **archived legacy till database feeds the translation agent**
+  (`Build/To do/NatApp-Translation-Agent-Plan-2026-08-05.md`) — confirmed by Matt, and it is why
+  §9.3 archives rather than merges, and why §9.4 migrates before enrolling.
+
+**Engineering, unblocked:**
+- **WP2c → WP5 → WP6–13** (see START HERE above).
+- Everything in the 2026-07-31 "Still open" list below **except FE3.1/FE3.5**, which is done.
+- `dotnet list package --vulnerable` is clean, but **nothing in CI watches it** — worth adding.
+- Local-only tidy: the now-redundant 364 MB `D:\tmp\plutus-backup-pre-exe-purge-20260807.bundle`.
+  (`.git-rewrite/` is gone.)
 
 ---
 
