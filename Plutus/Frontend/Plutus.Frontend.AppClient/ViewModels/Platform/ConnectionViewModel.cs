@@ -23,8 +23,6 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
     /// </summary>
     internal class ConnectionViewModel : BaseViewModel
     {
-        private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(15) };
-
         private SecureDeviceCredentialStore? _credentials;
 
         private string _serverUrl;
@@ -182,6 +180,30 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
             }
         }
 
+        /// <summary>
+        /// Turn an exception into something worth showing on a shop floor, and put the real one in
+        /// the crash log where it is useful.
+        ///
+        /// ⚠ This exists because a raw <c>ex.Message</c> reached an operator as *"This instance has
+        /// already started one or more requests. Properties can only be modified before sending the
+        /// first request."* — true, and completely unactionable. .NET plumbing messages describe the
+        /// framework's problem, never the person's.
+        /// </summary>
+        private string Friendly(string what, Exception ex)
+        {
+            Logger.LogError(ex);
+            Services.Analytics.CrashLog.Write($"ConnectionViewModel: {what}", ex);
+
+            var because = ex switch
+            {
+                HttpRequestException => "the server couldn't be reached. Check the address above, and that this machine is online.",
+                TaskCanceledException => "the server didn't answer in time.",
+                UriFormatException => "that server address isn't valid.",
+                _ => "something unexpected went wrong. The details are in the log file shown at the bottom of this screen.",
+            };
+            return $"{what} — {because}";
+        }
+
         private void DescribeDevice() =>
             DeviceSummary = _credentials?.DeviceId is Guid id
                 ? $"Device {id}"
@@ -192,18 +214,20 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
         private PlutusApiClient? Api(out string error)
         {
             error = null;
-            if (!Uri.TryCreate(ServerUrl?.Trim(), UriKind.Absolute, out var baseUri))
+
+            // ⚠ Never mutate BaseAddress — see PlutusHttp. Doing so is what made every call after
+            // the first connection check fail with "This instance has already started one or more
+            // requests", which is a sentence no operator should ever be shown.
+            var http = PlutusHttp.TryFor(ServerUrl);
+            if (http is null)
             {
-                error = "That server address isn't a valid URL.";
+                error = "That server address doesn't look right. It should be like https://plutus.yourcompany.com";
                 return null;
             }
 
-            // ⚠ One HttpClient for the app; only the base address moves. A client per call leaks
-            // sockets, and on a till running all day that is a real exhaustion bug.
-            Http.BaseAddress = baseUri;
-            var bootstrap = new PlutusApiClient(Http);
+            var bootstrap = new PlutusApiClient(http);
             var tokens = _credentials is null ? null : new DeviceTokenProvider(bootstrap, _credentials);
-            return new PlutusApiClient(Http, tokens);
+            return new PlutusApiClient(http, tokens);
         }
 
         private async Task CheckAsync()
@@ -236,9 +260,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
             }
             catch (Exception ex)
             {
-                Logger.LogError(ex);
-                ConnectionSummary = "Couldn't check the connection.";
-                ConnectionDetail = ex.Message;
+                ConnectionSummary = Friendly("Couldn't check the connection", ex);
                 ConnectionColour = Colors.Gray;
             }
             finally { Busy = false; }
@@ -271,13 +293,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
             }
             catch (EnrolmentFailedException ex)
             {
-                // 410 Gone = reused/expired/unknown. Surfaced as the message it is, not a crash.
+                // 410 Gone = reused/expired/unknown. Already written for a person to read.
                 LastAction = ex.Message;
             }
             catch (Exception ex)
             {
-                Logger.LogError(ex);
-                LastAction = $"Enrolment failed: {ex.Message}";
+                LastAction = Friendly("Couldn't enrol this till", ex);
             }
             finally { Busy = false; }
         }
@@ -310,8 +331,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
             }
             catch (Exception ex)
             {
-                Logger.LogError(ex);
-                LastAction = $"Heartbeat failed: {ex.Message}";
+                LastAction = Friendly("Heartbeat failed", ex);
             }
             finally { Busy = false; }
         }
@@ -337,8 +357,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
             }
             catch (Exception ex)
             {
-                Logger.LogError(ex);
-                LastAction = $"Catalogue read failed: {ex.Message}";
+                LastAction = Friendly("Couldn't read the catalogue", ex);
             }
             finally { Busy = false; }
         }

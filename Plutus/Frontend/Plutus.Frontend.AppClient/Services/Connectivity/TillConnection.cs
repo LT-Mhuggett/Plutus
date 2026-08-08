@@ -21,15 +21,6 @@ namespace Plutus.Frontend.AppClient.Services.Connectivity
     {
         internal const string DefaultServerUrl = "https://plutus.huggett.dscloud.me";
 
-        // One HttpClient for the life of the app: a new one per check leaks sockets, and on a till
-        // that polls this every minute for twelve hours that is a real exhaustion bug.
-        private static readonly Lazy<HttpClient> Http = new(() => new HttpClient
-        {
-            // Above the probe's own 5s budget so the probe's timeout is what fires, not this one —
-            // but far below HttpClient's 100-second default, which would look like a frozen app.
-            Timeout = TimeSpan.FromSeconds(10),
-        });
-
         /// <summary>Check now. ⚠ Never throws and never blocks longer than the probe's timeout —
         /// a login screen that hangs on a dead network is a till that cannot be signed into during
         /// an outage, which is exactly when the shop most needs to keep selling.</summary>
@@ -38,15 +29,17 @@ namespace Plutus.Frontend.AppClient.Services.Connectivity
             try
             {
                 var url = Preferences.Get(nameof(ViewModels.Settings.ServerUrlSetting), DefaultServerUrl);
-                if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url, UriKind.Absolute, out var baseUri))
+
+                // ⚠ Never mutate BaseAddress — see PlutusHttp. This used to, and it is what broke
+                // enrolment: the first check sent a request, and every call after it threw.
+                var http = PlutusHttp.TryFor(url);
+                if (http is null)
                     return Failed("No Plutus server address is set for this till.",
-                        "Set the server URL in Settings.");
+                        "Set the server address on the Plutus tab.");
 
-                var http = Http.Value;
-                if (http.BaseAddress != baseUri) http.BaseAddress = baseUri;
-
-                // verifyIdentity:false until WP4 puts a device credential on this app — there is
-                // nothing to check yet, and asking would report every till as "not set up".
+                // verifyIdentity:false because the login screen only needs to know whether the
+                // PLATFORM is reachable. Whether this device is enrolled belongs on the Plutus tab,
+                // where there is something the operator can do about it.
                 return await new ConnectivityProbe(new PlutusApiClient(http), network: new MauiNetworkAvailability())
                     .CheckAsync(verifyIdentity: false, ct);
             }
@@ -65,14 +58,23 @@ namespace Plutus.Frontend.AppClient.Services.Connectivity
                 new(TillConnection.NoServer, summary, detail, DateTime.UtcNow, TimeSpan.Zero, null);
         }
 
-        /// <summary>Green online · amber reachable but not usable · red nothing there. Kept here
-        /// rather than in the shared probe because a colour is a UI decision, and XAML brushes are
-        /// not a concept <c>Plutus.Client.Core</c> is allowed to know about.</summary>
+        /// <summary>
+        /// The colour of the CONNECTION, and only the connection.
+        ///
+        /// ⚠ <see cref="TillConnection.NotEnrolled"/> is GREEN. It used to be amber, which put an
+        /// amber dot next to the words "Connected to Plutus" — a panel headed *Connection*
+        /// contradicting itself. The connection genuinely is fine; not being enrolled is a
+        /// different fact, with its own section and its own next step. Colouring one indicator by
+        /// two unrelated states is how a screen stops being trusted.
+        ///
+        /// Amber is reserved for the case that IS a connection fault with a non-network fix:
+        /// reachable, and this till refused.
+        /// </summary>
         public static Color ColourFor(ConnectionStatus status) => status.State switch
         {
-            TillConnection.Online => Color.FromArgb("#1B873F"),
+            TillConnection.Online or TillConnection.NotEnrolled => Color.FromArgb("#1B873F"),
             // Amber, not red: the server is right there. The fix is in the portal, not the router.
-            TillConnection.NotEnrolled or TillConnection.Rejected => Color.FromArgb("#B26A00"),
+            TillConnection.Rejected => Color.FromArgb("#B26A00"),
             _ => Color.FromArgb("#C1272D"),
         };
     }
