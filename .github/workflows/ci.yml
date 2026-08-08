@@ -2,13 +2,16 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    # ⚠ "Matt's-Horror" is the ACTIVE development branch (see Build/repo-runbook.md) — with only
+    # master listed, a plain push to it ran no CI at all, which is most pushes.
+    branches: [ master, "Matt's-Horror" ]
   pull_request:
   workflow_dispatch:
 
 env:
   BACKEND_RESULTS_DIR: TestResults/backend
   APPCLIENT_RESULTS_DIR: TestResults/appclient
+  PLATFORM_RESULTS_DIR: TestResults/platform
 
 jobs:
   backend-tests:
@@ -105,6 +108,70 @@ jobs:
         if: steps.migrate.outcome == 'failure' || steps.entities_tests.outcome == 'failure' || steps.repository_tests.outcome == 'failure'
         run: exit 1
 
+  # ⚠ THE SUITES THAT GUARD THE PLATFORM, and until 2026-08-08 they were in no pipeline at all:
+  # Unit, Architecture and Integration — every VAT rule, every till-client rule, the whole modern
+  # backend — were protected by nothing but whoever remembered to run them locally.
+  #
+  # All three are plain net10.0 with NO MySQL and NO MAUI: Integration hosts the real controllers
+  # through PlutusAppFactory on shared in-memory SQLite and sets its own secrets, so this needs no
+  # service container and no workload. That is why it is a separate job from backend-tests, which
+  # exists only for the two LEGACY projects that genuinely require a live MySQL.
+  platform-tests:
+    name: Platform tests (Unit / Architecture / Integration)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10.0
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # ⚠ Architecture tests scan the working tree on disk (Repo.Root() looks for Plutus.slnx), and
+      # ComponentVersionTests reads versions/*.txt and the frontends' vite.config.ts. They need the
+      # full checkout above, not just build output.
+      - name: Test - Unit
+        id: unit_tests
+        continue-on-error: true
+        run: >
+          dotnet test tests/Plutus.Tests.Unit/Plutus.Tests.Unit.csproj
+          --logger "trx;LogFileName=Plutus.Tests.Unit.trx"
+          --results-directory ${{ env.PLATFORM_RESULTS_DIR }}
+          --collect:"XPlat Code Coverage"
+
+      - name: Test - Architecture
+        id: architecture_tests
+        continue-on-error: true
+        run: >
+          dotnet test tests/Plutus.Tests.Architecture/Plutus.Tests.Architecture.csproj
+          --logger "trx;LogFileName=Plutus.Tests.Architecture.trx"
+          --results-directory ${{ env.PLATFORM_RESULTS_DIR }}
+          --collect:"XPlat Code Coverage"
+
+      - name: Test - Integration
+        id: integration_tests
+        continue-on-error: true
+        run: >
+          dotnet test tests/Plutus.Tests.Integration/Plutus.Tests.Integration.csproj
+          --logger "trx;LogFileName=Plutus.Tests.Integration.trx"
+          --results-directory ${{ env.PLATFORM_RESULTS_DIR }}
+          --collect:"XPlat Code Coverage"
+
+      - name: Upload platform test results & coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-test-results
+          path: ${{ env.PLATFORM_RESULTS_DIR }}/**
+
+      # continue-on-error above lets all three always run and always upload; this is what fails the
+      # job. Reporting only the first failure would hide two suites behind one red X.
+      - name: Fail job if any platform suite failed
+        if: steps.unit_tests.outcome == 'failure' || steps.architecture_tests.outcome == 'failure' || steps.integration_tests.outcome == 'failure'
+        run: exit 1
+
   appclient-tests:
     name: AppClient tests (Windows, MAUI)
     runs-on: windows-latest
@@ -190,7 +257,7 @@ jobs:
 
   publish-results:
     name: Publish test results & coverage summary
-    needs: [ backend-tests, appclient-tests ]
+    needs: [ backend-tests, platform-tests, appclient-tests ]
     if: always()
     runs-on: ubuntu-latest
 
