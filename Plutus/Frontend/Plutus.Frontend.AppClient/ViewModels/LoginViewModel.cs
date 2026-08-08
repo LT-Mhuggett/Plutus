@@ -72,15 +72,21 @@ namespace Plutus.Frontend.AppClient.ViewModels
         }
 
         /// <summary>
-        /// Which build this is — the number from <c>till-version.txt</c>, shared with the web till,
-        /// the portal and the backend.
+        /// Which build of THIS till this is — <c>versions/till-maui.txt</c>.
+        ///
+        /// ⚠ Its own number, not shared with the web till: they deploy separately and will diverge
+        /// the first time a Windows printer or drawer problem is fixed here and nowhere else.
         ///
         /// ⚠ On the LOGIN screen deliberately, not buried in Settings. It is the first thing anyone
-        /// sees, which is what makes it usable in the sentence "I'm testing 1.1.0 and it does X" —
+        /// sees, which is what makes it usable in the sentence "I'm testing 1.0.0 and it does X" —
         /// the thing a build timestamp could never do, because two builds ten minutes apart are
         /// indistinguishable in a bug report and nobody reads an ISO timestamp down a phone.
+        ///
+        /// The server's own version arrives on the connection probe and is shown beneath it, so a
+        /// version mismatch is visible at the moment it starts mattering.
         /// </summary>
-        public string TillVersionText { get; } = $"Till v{Plutus.SharedKernel.TillVersion.Current}";
+        public string TillVersionText { get; } =
+            $"MAUI till v{Plutus.SharedKernel.PlutusVersion.Of(typeof(App).Assembly)}";
         public string Email_Userid
         {
             get { return _email_UserId; }

@@ -35,10 +35,13 @@ namespace Plutus.Tenancy.Controllers
     [Route("api/v1/ping")]
     public sealed class PingController : ControllerBase
     {
-        // The SHARED till version (till-version.txt), not this assembly's own number — so a till
-        // showing "1.1.0" and a server answering "1.1.0" are making the same claim, and a mismatch
-        // is a real finding rather than two unrelated numbering schemes.
-        private static readonly string Version = TillVersion.Current;
+        // The BACKEND's version (versions/backend.txt), read from the entry assembly rather than
+        // this module's — a module is not a deployable and has no release of its own.
+        //
+        // ⚠ A till reports a DIFFERENT number, on purpose: components version independently, so
+        // "web till 1.2.0 against backend 1.0.4" is a fact worth being able to state. This is the
+        // cheapest place to learn the server half of that pair, since every till pings anyway.
+        private static readonly string Version = PlutusVersion.Current;
 
         /// <summary>200 with the server's clock. <see cref="PingResult.UtcNow"/> is not decoration:
         /// device-token HMAC validation and VAT effective-dating both turn on time, so a till that

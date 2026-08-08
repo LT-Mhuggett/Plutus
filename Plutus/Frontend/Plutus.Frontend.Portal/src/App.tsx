@@ -27,6 +27,7 @@ import { completeLoginIfCallback } from "./oidc.ts";
 import AskHost from "./Ask.tsx";
 
 declare const __BUILD_TIME__: string;
+declare const __APP_VERSION__: string;
 
 // WP11.5 (Matt): "Dashboard" always takes you home; "Company" holds company details + the
 // absorbed Financial periods; "Locations" is the WP11.6 grouped stores/warehouses/webstores page.
@@ -170,7 +171,7 @@ export default function App() {
           <button className="ghost small" onClick={() => signOut()}>Sign out</button>
         </header>
         <PlatformPage />
-        <footer className="muted small">Plutus operator console · built {__BUILD_TIME__}</footer>
+        <footer className="muted small">Plutus operator console · portal v{__APP_VERSION__} · built {__BUILD_TIME__}</footer>
       </main>
     );
   }
@@ -215,7 +216,7 @@ export default function App() {
         <Page tab={tab} />
       </div>
 
-      <footer className="muted small">Plutus management portal · built {__BUILD_TIME__}</footer>
+      <footer className="muted small">Plutus management portal · portal v{__APP_VERSION__} · built {__BUILD_TIME__}</footer>
     </main>
     </NavContext.Provider>
   );

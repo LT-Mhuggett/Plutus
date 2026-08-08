@@ -23,7 +23,7 @@ import { getSession } from "./session.ts";
 import Receipt, { ReceiptBody, type ReceiptData } from "./till/Receipt.tsx";
 
 declare const __BUILD_TIME__: string;
-declare const __TILL_VERSION__: string;
+declare const __APP_VERSION__: string;
 
 /** Sample receipt for the printer test (NatApp "Print Test Page" equivalent). */
 const TEST_RECEIPT: ReceiptData = {
@@ -688,7 +688,7 @@ export default function SettingsPage() {
         <dt>Business id</dt>
         <dd className="mono small">{BUSINESS_ID}</dd>
         <dt>Till version</dt>
-        <dd className="mono">{__TILL_VERSION__}</dd>
+        <dd className="mono">{__APP_VERSION__}</dd>
         <dt>App build</dt>
         <dd>{__BUILD_TIME__}</dd>
       </dl>

@@ -17,7 +17,10 @@
 
     <ApplicationTitle>Plutus</ApplicationTitle>
     <ApplicationId>com.MBH.NatApp.Plutus</ApplicationId>
-    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <!-- THIS TILL's version, separate from the web till's on purpose: they will diverge the first
+         time a Windows-only printer or drawer problem needs fixing here and nowhere else.
+         ApplicationDisplayVersion is set from it by Directory.Build.targets. -->
+    <PlutusVersionFile>versions/till-maui.txt</PlutusVersionFile>
     <ApplicationVersion>1</ApplicationVersion>
 
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">8.0</SupportedOSPlatformVersion>

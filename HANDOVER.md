@@ -15,7 +15,7 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 ### ⏰⏰⏰⏰⏰ RESUME HERE (2026-08-08, latest — parity sweep + WP16)
 
-Suite: **Unit 483 · Architecture 13 · Integration 105 · AppClient 295 (+3 skipped) — all green.**
+Suite: **Unit 495 · Architecture 13 · Integration 105 · AppClient 295 (+3 skipped) — all green.**
 Working tree has **uncommitted** WP16 work; nothing deployed.
 
 #### Matt made parity BINDING (2026-08-08)
@@ -126,24 +126,53 @@ withdrawn when stale until someone says otherwise.
    They were all deactivated deliberately, so a non-empty result is the bug confirmed, not a reason
    to hold the fix — but know the names before Monday morning rather than after.
 
-#### Till version — one number, every surface (Matt asked, 2026-08-08)
+#### Versions — one PER COMPONENT (Matt asked, 2026-08-08)
 
-> *"Can we add a 'Till version' please which we can increment with each build, so I can see what
-> version we are testing and it's not just a time stamp in environment e.g. App build 2026-08-07T17:28:39.929Z"*
+> *"I want you to ADD a till version. I need a backend version (the portal). And each till needs a
+> specific version as they will end up diverging when you have specific Windows or Linux challenges
+> for example! I want it to be X.Y.Z where X is the major version, Y is a feature and Z is a bug fix."*
 
-**`till-version.txt` at the repo root is the only place it lives** — currently `1.1.0`. Bump it,
-rebuild, everything agrees. `Directory.Build.props` (new, repo root) feeds it to every .NET project
-as `InformationalVersion`; `vite.config.ts` reads **the same file** into `__TILL_VERSION__`.
-Read back at runtime via `SharedKernel/TillVersion.cs`.
+⚠ **The first attempt was one shared number and it was WRONG** — recorded because the reasoning
+matters: a Windows-only printer fix in the MAUI till would have forced the web till to claim a
+release it had no changes in, and left "it's broken on 1.4.2" unanswerable, because the reporter and
+the fixer would mean different artefacts. Components deploy on separate schedules; they version on
+separate schedules.
 
-Shown on: the web till footer and Settings (**alongside** the build timestamp, which stays — it
-still answers "is this the artefact I just deployed"), the MAUI login screen, and
-`GET /api/v1/ping`, so a till and the server can be compared.
+**One file per deployable, in [`versions/`](versions/README.md), all at `1.0.0` except the agent:**
 
-⚠ **The rule that makes it worth having: no surface may carry its own version.** A hardcoded string
-nobody bumps names the wrong build in every report filed against it. `TillVersionTests` (5) pins the
-whole chain — file → props → assembly attribute → runtime — and fails if the web till grows a
-literal of its own.
+| File | Component | Now |
+|---|---|---|
+| `backend.txt` | The API (`Plutus.DBService`) | 1.0.0 |
+| `portal.txt` | Operator + client portal | 1.0.0 |
+| `till-web.txt` | **Till:** browser | 1.0.0 |
+| `till-maui.txt` | **Till:** Windows/Android/iOS | 1.0.0 |
+| `agent.txt` | Hardware helper | **1.3.3** (its real existing version, moved here) |
+| `platform.txt` | Shared libraries — ships *inside* the others | 1.0.0 |
+
+**`MAJOR.FEATURE.FIX`.** X = breaking/headline · Y = new capability, resets Z · Z = fix. Bump in the
+same commit as the change, so `git log versions/till-maui.txt` is that till's release history.
+
+**How it wires.** A project sets `<PlutusVersionFile>versions/backend.txt</PlutusVersionFile>`;
+`Directory.Build.targets` turns it into `InformationalVersion`; `SharedKernel/PlutusVersion.cs` reads
+it back (`.Current` = entry assembly, `.Of(asm)`, `.Platform`). Each `vite.config.ts` reads **its
+own** file into `__APP_VERSION__`. Anything that does not opt in is a shared library and takes
+`platform.txt`.
+
+⚠ **It must stay `Directory.Build.targets`, NOT `.props`.** Props is imported *before* the project
+body, so a per-project `<PlutusVersionFile>` would not be visible and every component would silently
+report the platform version. `ComponentVersionTests` fails if it ever moves.
+
+Verified per-project by temporarily setting backend=2.3.4 and till-maui=5.6.7: DBService→2.3.4,
+AppClient→5.6.7, SharedKernel→1.0.0, TillAgent→1.3.3. Restored after.
+
+Shown on: web till footer + Settings, both portal footers, the MAUI login screen, and
+`GET /api/v1/ping` (the **backend's**, so a till can be compared against the server it is talking
+to). The build timestamp stays alongside — it still answers "is this the artefact I just deployed",
+which a version someone forgot to bump does not.
+
+⚠ **Not done, deliberately:** the web till's Settings shows its own version but not the server's,
+though `ping` now returns it. Left out because no Node on the Windows box means every TypeScript
+line is unverified — worth adding on the Mac in one go.
 
 Also worth scheduling, not yet: **there is no server-side session revocation for any principal.**
 Tokens are checked for signature and `exp` only — revoking a device or resetting a password stops

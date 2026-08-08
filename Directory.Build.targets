@@ -1,0 +1,40 @@
+<Project>
+
+  <!--
+    PER-COMPONENT VERSIONS. See versions/README.md for the scheme and what X.Y.Z means.
+
+    ⚠ THIS IS A .targets FILE, NOT .props, AND THAT IS LOAD-BEARING. Directory.Build.props is
+    imported at the TOP of a project, before its own PropertyGroups are evaluated — so a
+    <PlutusVersionFile> set in the .csproj would not be visible yet, and every project would
+    silently take the default. Directory.Build.targets is imported at the END, after the project
+    body, which is the only place this can read a per-project choice.
+
+    A project opts in by setting, in its .csproj:
+        <PlutusVersionFile>versions/backend.txt</PlutusVersionFile>
+
+    Anything that does not opt in is a shared library that ships INSIDE something else, and takes
+    the platform version.
+  -->
+  <PropertyGroup>
+    <PlutusVersionFile Condition="'$(PlutusVersionFile)' == ''">versions/platform.txt</PlutusVersionFile>
+    <_PlutusVersionPath>$(MSBuildThisFileDirectory)$(PlutusVersionFile)</_PlutusVersionPath>
+
+    <PlutusVersion Condition="Exists('$(_PlutusVersionPath)')">$([System.IO.File]::ReadAllText('$(_PlutusVersionPath)').Trim())</PlutusVersion>
+    <!-- 0.0.0 is deliberately an obviously-wrong number rather than a blank: blank reads as "the
+         label is broken", 0.0.0 reads as "this build did not come from the release process". -->
+    <PlutusVersion Condition="'$(PlutusVersion)' == ''">0.0.0</PlutusVersion>
+
+    <!-- InformationalVersion takes any string and is what PlutusVersion.Current reads back.
+         Version/AssemblyVersion are left alone: they must parse as numeric quads, and changing
+         them affects assembly binding for no benefit here. -->
+    <InformationalVersion>$(PlutusVersion)</InformationalVersion>
+  </PropertyGroup>
+
+  <!-- MAUI heads additionally surface the version in the installed app's own properties. Only
+       ApplicationDisplayVersion, which is a free-form string; ApplicationVersion must stay an
+       integer build code for the Android and iOS stores. -->
+  <PropertyGroup Condition="'$(UseMaui)' == 'true' And '$(PlutusVersionFile)' != 'versions/platform.txt'">
+    <ApplicationDisplayVersion>$(PlutusVersion)</ApplicationDisplayVersion>
+  </PropertyGroup>
+
+</Project>

@@ -189,7 +189,7 @@ public sealed class ConnectivityProbe
         if (!verifyIdentity)
             return new ConnectionStatus(
                 TillConnection.Online, "Server reachable.",
-                ping.ApiVersion is null ? null : $"API {ping.ApiVersion}",
+                ping.ApiVersion is null ? null : $"Server v{ping.ApiVersion}",
                 startedAt, clock.Elapsed, skew);
 
         // Step 2 — does the platform still accept THIS till?
@@ -230,7 +230,7 @@ public sealed class ConnectivityProbe
                 device.IsPendingRemoval
                     ? "Connected to Plutus — removal requested, still trading."
                     : "Connected to Plutus.",
-                ping.ApiVersion is null ? null : $"API {ping.ApiVersion}",
+                ping.ApiVersion is null ? null : $"Server v{ping.ApiVersion}",
                 startedAt, clock.Elapsed, skew, device.Status);
         }
         catch (EnrolmentFailedException e)

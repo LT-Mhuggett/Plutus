@@ -172,7 +172,7 @@ places the *web till* is behind. Parity is not a synonym for "catch MAUI up".
 | **Pick-from-floor notifications** (web sale sold shop-floor stock) | ✅ | ⬜ | `GET /api/v1/notifications?unackedOnly=true` + `POST /api/v1/notifications/{id}/ack` | Phase 6. Banner + acknowledge on the till (`App.tsx:264-272`), polled on the 60s cadence. **WP5b** — including the sanctioned fix to the two mis-gated endpoints. |
 | **Announcements banner** (maintenance/incident) | ✅ | ⬜ | `GET /api/v1/announcements/active` | **WP5b.** Cheap — one poll, one banner. |
 | **Help / support tickets** | ✅ | ⬜ | `/api/v1/support/tickets` | **WP5b.** Closes the `support-heavy` churn signal. |
-| **Till version — one number, every surface** | ✅ | ✅ | `GET /api/v1/ping` returns it | Matt, 2026-08-08: *"so I can see what version we are testing and it's not just a time stamp."* Source is **`till-version.txt` at the repo root**, read by `Directory.Build.props` (all .NET) and `vite.config.ts` (web till) — bump the file, rebuild, everything agrees. Surfaced on the web till footer + Settings, the MAUI login screen, and the ping response. ⚠ **Never let a surface carry its own version**: a hardcoded one nobody bumps names the wrong build in every report against it. Pinned by `TillVersionTests`. |
+| **Component version — each till its own** | ✅ | ✅ | `GET /api/v1/ping` returns the **backend's** | Matt, 2026-08-08: *"each till needs a specific version as they will end up diverging when you have specific Windows or Linux challenges."* One file per deployable in **`versions/`**: `till-web.txt` · `till-maui.txt` · `backend.txt` · `portal.txt` · `agent.txt` · `platform.txt` (the shared libraries). **`MAJOR.FEATURE.FIX`** — see [`versions/README.md`](../versions/README.md). ⚠ **A shared number was the first attempt and was wrong**: a Windows-only printer fix would have forced the web till to claim a release it had no changes in, and left "broken on 1.4.2" unanswerable. ⚠ **No surface may hardcode its own** — one nobody bumps names the wrong build in every report against it. Pinned by `ComponentVersionTests` (17). |
 | App-update prompt | ✅ | ⬜ | — | Web polls a build stamp; MAUI needs the `426 Upgrade Required` path in WP5. |
 | **Portal-controlled theming** (colour schemes pushed to stores / tills / groups) | ✅ | ⬜ | `GET /api/v1/themes/effective` + `/api/v1/themes` CRUD | Shipped 2026-08-07. Built-in light/dark + custom schemes, assigned per tenant/store/group/till from Locations. MAUI: consume the same effective endpoint and map the slots onto XAML resources — **WP7b**, added 2026-08-08. ⚠ WP7 previously said "port the palette" only and would have closed with a hardcoded scheme. |
 | Operator RBAC + offline login | ✅ | 🟡 | *`tills/{id}/operators` missing* | MAUI logs in locally with no server-derived permissions. WP8. |
@@ -222,7 +222,7 @@ and what stops them drifting.
 | **Revocation reaches a till by POLLING, never by token expiry** | `GET /api/v1/tills/devices/{id}/status`. ⚠ Tokens are bearer tokens with **no server-side denylist** — a revoked till otherwise trades for up to 12h | — | `ConnectivityE2eTests` |
 | ⚠ **Never probe by minting a device token** | `POST /api/v1/tokens/device` is rate-limited 5/min/IP; polling it makes a healthy till report itself revoked, and tills sharing one public IP do it to each other | — | `ConnectivityProbeTests` |
 | **How long a cached login is trusted** — tiered: money-out 7d, selling 30d, warn from 3d, idle 15min, session ≤ min(12h, business-day rollover) | `SharedKernel/OfflineCredentials.cs` | — | `OfflineCredentialsTests` (23) |
-| **Which build this is** | `till-version.txt` at the repo root → `Directory.Build.props` → `SharedKernel/TillVersion.cs` | `vite.config.ts` reads the **same file** into `__TILL_VERSION__` | `TillVersionTests` — asserts the runtime value equals the file, and that the web till has not grown a literal of its own |
+| **Which build this is** | `versions/<component>.txt` → `Directory.Build.targets` → `SharedKernel/PlutusVersion.cs`. ⚠ **`.targets`, not `.props`** — props is imported before the project body, so a per-project `<PlutusVersionFile>` would be ignored and every component would silently report the platform version | Each `vite.config.ts` reads **its own** file into `__APP_VERSION__` | `ComponentVersionTests` — each file exists and parses X.Y.Z, each project points at its own, no surface holds a literal, and the wiring has not moved back to `.props` |
 | **Every HTTP endpoint is gated unless deliberately listed** | `[Authorize]` per action or per controller; ⚠ there is **no global fallback policy**, so a missing attribute is an open door | — | `AnonymousEndpointTests` — a reviewed allow-list of anonymous entry points, mutation-checked |
 | **Which permissions survive staleness** | `OfflineCredentials.SellFloor` — an **allow-list**, so a permission added later is withdrawn until someone says otherwise | — | `OfflineCredentialsTests` |
 | **Offline password verification is byte-identical to the server's** | `SharedKernel/Crypto.cs` `Pbkdf2` — PBKDF2-HMAC-**SHA1**, 101,010 iterations, 64-byte output | MAUI's legacy `Helpers/Security/Password.cs` — **retired at WP8** | ⚠ Nothing pins the two against each other yet — see C2 |
@@ -356,7 +356,11 @@ un-enrol request/approval round trip (WP4). All four are gated now.
    stop — that disagrees with the receipt the customer is holding.
 4. Populate `LineMeta.itemIdOne` on every line. `StockProjectionConsumer` **silently skips** lines
    without it: accepted ≠ stock moved.
-5. Add its column to Part B and its rows here.
+5. **Give it its own version file** — `versions/till-<platform>.txt`, and point the project at it
+   with `<PlutusVersionFile>`. A new till gets its own release history from day one, because the
+   reason it exists is that it will diverge; sharing another till's number guarantees that the
+   first platform-specific fix mislabels both. Add it to `ComponentVersionTests.Components`.
+6. Add its column to Part B and its rows here.
 
 ## D3. Adding a feature, or a rule
 
