@@ -479,8 +479,15 @@ behavioural drift the parity register's §6 exists to prevent. See WP3.
 *DoD:* no `decimal`/`double` money property survives in the MAUI assemblies (same regex rule the
 backend arch test uses); a basket property test holds (total == Σ lines − discounts, change ==
 tendered − total, all pence); cutover against a copy of the real Kapow file reproduces the
-catalogue count and 10 spot-checked barcodes resolve to the **same UUIDs the central migration
-produced**; park → kill → restore works and the serialised form contains no `$type`.
+catalogue count and 10 spot-checked barcodes derive **the same GUIDs the WEB TILL derives** (see
+the corrected seam in §10); park → kill → restore works and the serialised form contains no `$type`.
+
+⚠ **The earlier DoD wording — "the same UUIDs the central migration produced" — was wrong and has
+been corrected** (2026-08-08, after reading `NatApp-Translation-Agent-Plan`). It is unsatisfiable:
+the server's catalogue has **no item UUIDs at all** (`Items` is still barcode-PK'd, F4 unfixed —
+translation-agent plan §1.3/§3.3), and the only central UUIDs that exist are the **random** ones
+`Migration.Kapow`'s `IdRemap` minted for historic sale lines. Comparing against those would fail a
+perfectly good cutover. See §10.
 
 **WP2b — VAT-rate-change ingest compliance (backend).**
 
@@ -869,13 +876,42 @@ before (or after — most are cheap to change) the relevant WP starts. This is t
 
 ## 10. Relationship to `NatApp-Translation-Agent-Plan-2026-08-05.md`
 
-That document moves **legacy shop data** (the old NatApp SQLite backup) into the new backend. This
-one makes **a till talk to** that backend. They are independent and can run in parallel, meeting at
-exactly one point:
+That document moves **legacy shop data** (the old NatApp SQLite backup) into the new backend — and
+Matt confirmed 2026-08-08 that it is the mechanism for exactly that. This plan makes **a till talk
+to** that backend. They run in parallel and meet at item identity.
 
-> **The item-ID remap must be deterministic** (or exported and imported), so that item IDs on a
-> cutover till equal the item IDs the central migration produced. If it isn't, a till's local
-> catalogue and the server's disagree about what a barcode means — and every sale that till pushes
-> attributes stock and revenue to the wrong item.
+> ### ⚠ CORRECTED 2026-08-08 — the original seam statement was wrong
+>
+> It said: *"item IDs on a cutover till must equal the item IDs the central migration produced."*
+> **They cannot, and they must not be compared.** Verified against the code and the live database:
+>
+> 1. **The server's catalogue has no item UUIDs at all.** `Items` is still keyed
+>    `(IdOne barcode, IdTwo tenant)` — gap-analysis finding F4, explicitly deferred as option (b)
+>    in the translation-agent plan §3.3. There is nothing to compare a till's GUID against.
+> 2. **The only central item UUIDs that exist are random.** `Migration.Kapow`'s
+>    `IdRemap.GetOrMint` mints a fresh `Uuid7` per run, in memory, with no export
+>    (`KapowSaleMapper.cs:102`) — and only for **historic sale lines**, never the catalogue.
+> 3. **So two populations already coexist in live data, by design.** `DeterministicGuid`'s own doc
+>    comment says so. Confirmed in production: barcode `761941391632` carries **two distinct
+>    `ItemId` GUIDs across 161 sale lines** — random ones on migrated history, derived ones on
+>    web-till sales. Several hundred barcodes are like this.
+>
+> **The real invariant is the BARCODE, not the GUID.** `StockProjectionConsumer` attributes stock
+> by `itemIdOne`; `ItemId` rides along. So the correct requirement for a cutover till is:
+>
+> > **MAUI must derive `ItemId` exactly as the web till does** —
+> > `DeterministicGuid.ForItem(businessId, itemIdOne)` on the **legacy Business id** — so the two
+> > TILLS agree with each other. It must **not** be checked against migrated history.
+>
+> WP2's DoD is corrected accordingly. `Cutover.SeedCatalogueAsync`'s `centralIdLookup` hard stop is
+> still the right shape — but its lookup must be fed the web till's derivation, which is what the
+> existing test `Agrees_with_a_server_that_derives_ids_the_same_way` already asserts. **Pass it
+> `null` against today's server**, because today's server has no catalogue UUIDs to ask about.
 
-That constraint appears as a hard stop in WP2's DoD. Nothing else couples the two plans.
+**Two consequences worth carrying into the translation-agent work:**
+- If §3.3 option **(a)** is ever taken (real UUID PKs on `Items`), those UUIDs **must** be
+  `DeterministicGuid.ForItem`, not freshly minted — otherwise the catalogue disagrees with both
+  tills on day one.
+- The two-population split is tracked debt, not damage: reports key on `ItemIdOne`. But **8,120 of
+  82,965 sale lines carry no barcode at all** (~10%, mostly migrated history), and those can never
+  be item-attributed by any report. Worth knowing before anyone trusts an all-time item ranking.

@@ -66,8 +66,18 @@ public static class Cutover
     ///
     /// <paramref name="centralIdLookup"/> is the hard stop: when supplied, a sample of the seeded
     /// ids is compared against what the server holds for the same barcodes, and a mismatch throws
-    /// rather than leaving the till subtly wrong. Pass null only when there is no server to ask
-    /// (unit tests, dry runs).
+    /// rather than leaving the till subtly wrong.
+    ///
+    /// ⚠ **Pass null against today's server** (checked 2026-08-08). The central catalogue has no
+    /// item UUIDs to ask about — `Items` is still keyed by barcode (gap-analysis F4, deferred as
+    /// option (b) in `NatApp-Translation-Agent-Plan` §3.3). The only central item GUIDs that exist
+    /// are the RANDOM ones `Migration.Kapow`'s `IdRemap` minted for historic SALE LINES, and
+    /// comparing against those would fail a perfectly good cutover.
+    ///
+    /// What actually has to hold is that this till derives ids the same way the WEB TILL does —
+    /// which it does by construction, since both call <see cref="DeterministicGuid.ForItem"/> on
+    /// the legacy business id. Wire this parameter up only if the catalogue ever gains real UUID
+    /// PKs, and then only if those PKs are themselves derived rather than minted.
     /// </summary>
     public static async Task<CutoverResult> SeedCatalogueAsync(
         TillDbContext db,

@@ -81,6 +81,29 @@ Both require the tool to stop being "run once, from empty, with random IDs" and 
 - **(b) Explicitly defer**, same as `Migration-2026-07-22-plan.md` Workstream G already defers `CoppperToCSV` reinvestigation — keep upserting into the current old-shape `Items`/`Stocks` for now, note it as tracked debt.
 Recommend **(b)** for the bridge-runs use case (nothing forces this now, and `StockLevels`/`StockMovements` already give the ledger a UUID-keyed path independent of `Items.IdOne`), but **(a)** must happen before this tool is reused for a *second* onboarding customer — a new tenant's barcodes may collide with Kapow's under the shared `(IdOne, IdTwo)` PK if `IdTwo` (tenant) handling isn't airtight, and a fresh customer is exactly when doing it right costs least.
 
+> ### ⚠ Added 2026-08-08 — how §3.3 binds the MAUI retrofit
+>
+> Matt confirmed this document is the mechanism that translates a legacy till database into the
+> current schema, which makes it the input to the MAUI retrofit's cutover
+> ([`MAUI-Retrofit-Plan-2026-08-07.md`](MAUI-Retrofit-Plan-2026-08-07.md) §10, WP2).
+>
+> **If option (a) is ever taken and `Items` gains real UUID PKs, those UUIDs MUST be
+> `Plutus.SharedKernel.DeterministicGuid.ForItem(businessId, itemIdOne)`** — the same function the
+> web till (`pipeline.ts itemGuid`) and the MAUI till both use — and **never** freshly minted.
+> Mint them and the catalogue disagrees with both tills from day one, silently, because stock is
+> attributed by barcode while the GUID rides along unnoticed.
+>
+> Option (b) — deferring — stays safe for the retrofit: with no catalogue UUIDs, both tills simply
+> derive their own and agree with each other. The retrofit's cutover hard stop is therefore passed
+> `null` today rather than comparing against a central id that does not exist.
+>
+> **Related live condition, relevant to §3.4 verification:** `Migration.Kapow`'s `IdRemap` minted
+> random `ItemId`s for historic sale lines, so the same barcode already carries two distinct GUIDs
+> in production (e.g. `761941391632`, 161 lines). Reports key on `ItemIdOne`, so this is tracked
+> debt rather than damage — but **8,120 of 82,965 sale lines carry no barcode at all**, and those
+> can never be item-attributed. A verification step that reconciles item-level figures needs to
+> exclude them explicitly rather than silently under-count.
+
 ### 3.4 Verification, not just insertion
 
 Extend the existing `KapowReconciliation` (already reports sales-read/recorded/quarantined + gross/VAT pence) with a **before/after snapshot** in the same style `Plutus.TenantRestore` uses: per-table row counts and `SalesV2` penny totals, source vs target, plus a fingerprint check that **no other tenant's rows moved** (the bridge tool touches a shared multi-tenant MySQL schema — the same blast-radius risk `TenantRestore` was built to contain). Default to `--verify` (read-only, prints the delta the next apply would make); require an explicit `--apply`.
