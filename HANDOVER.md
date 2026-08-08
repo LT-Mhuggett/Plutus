@@ -17,7 +17,7 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 ### ⏰⏰⏰⏰⏰⏰ RESUME HERE (2026-08-09, latest — build guards, versions, and the one blocker)
 
-Suite: **Unit 575 · Architecture 13 · Integration 121 · AppClient 305 (+3 skipped) — all green.**
+Suite: **Unit 598 · Architecture 13 · Integration 122 · AppClient 305 (+3 skipped) — all green.**
 Debug and Release both build. Committed on `Matt's-Horror`, **not pushed, not deployed.**
 
 **There is exactly one blocker, and it is not code.**
@@ -52,14 +52,30 @@ Debug and Release both build. Committed on `Matt's-Horror`, **not pushed, not de
    the web till genuinely has not moved, which is what WP17 is about. The Windows head now stamps
    **`1.2.0+5a99b97`**, so a screen test names a version and a version names a commit.
 
+4. **WP5b's shared half** (`3b531e3`) — `Client.Core.NoticesClient`: pick-from-floor notes and
+   announcements, 23 tests, so MAUI needs only its banner XAML. Two rules now have one home:
+   **`Info` announcements are portal-only** (and an *unrecognised* severity SHOWS, so a future
+   backend's new severity can't silently blank itself estate-wide), and **pick notes are addressed
+   by store** — the server doesn't filter, so the client must. ⚠ A **failed poll is not an empty
+   board**, or the first flaky minute clears a live incident banner; and an **ack deliberately does
+   not work offline**, because it claims a human took stock off a shelf.
+5. **Tenant isolation pinned on the two pick-note endpoints** (`68af702`). I went looking for a
+   cross-tenant leak and **there isn't one** — `WebstoreNotification` is in
+   `MySqlDbContext.TenantOwned`, so the global query filter scopes both queries even though neither
+   controller action has a predicate of its own. Now mutation-checked against `IgnoreQueryFilters()`
+   so it stays that way.
+
 **Known and deferred, in writing rather than forgotten:** the MAUI till has **703 uncompiled
 bindings** (no `x:DataType`). Not new — Release has printed the identical 703 all along; Debug had
 simply never looked. Nothing is broken today; it bites whoever first tries to trim or AOT the
 Windows head, as pages blank in Release only. Not suppressed, because silencing 700 warnings the
 moment they become visible defeats the point. Fix per-view during WP6–13. Plan §7 risk 9.
 
-**Still open** (unchanged): **WP17** — the web till is behind MAUI on three rows (no offline
-sign-in, first-match on an ambiguous VAT band, still on `navigator.onLine`). **WP8's Users screen**
+**Still open:** **WP17** — the web till is behind MAUI on **four** rows now. 17.2 (the ambiguous VAT
+band) is fixed; 17.1 offline sign-in, 17.3 `navigator.onLine`, and **17.4 pick notes not filtered by
+store** remain. ⚠ 17.4 is latent only because Kapow has one store — with two, staff hunt stock that
+was never on their shelves while the shop that has it assumes the other branch dealt with it.
+Moving that filter server-side would delete the C2 twin rather than pin it. **WP8's Users screen**
 and **WP6–13**, all needing a device. **`TokenEpoch`** — there is still no server-side session
 revocation for any principal. **Four TypeScript edits remain untypechecked** (two vite configs, the
 StoresPage portal text, `NewTillAnywhere`) — no Node locally; they can be checked on the Mac with a
