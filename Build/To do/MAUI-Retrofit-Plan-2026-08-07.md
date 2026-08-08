@@ -378,18 +378,23 @@ resume point for the next session.
 | **2** Local store v2 + cutover + money | ✅ (one VAT note) | 2026-08-07 · `6e46734`. New `Plutus.Client.Storage` (schema v2, SQLite). Cutover archives-never-merges and implements the §10 STOP. ⚠ The snapped catalogue band is a **label only** — at sale time lines derive `vatRateBp` from the price pair like the webtill (2026-08-08 correction; see the WP2 note + WP3). Money property test over 2,000 randomised baskets — its VAT arithmetic gets corrected with WP2b. |
 | **3** Sale commit path + outbox | ✅ | 2026-08-07 · `6e46734`. `CommitSaleAsync` (one transaction, sequence allocated, **commit before print** — risk #2 decided in code). `TillStore` implements `IOutboxStore`, so the WP1 pusher drove it unchanged. Soak: 120 offline sales drain exactly once in order, no gaps; crash mid-drain records 20 of 20. |
 | **4** Enrolment + device identity | ✅ | 2026-08-07 · `f90dac5`. Server URL + code; **archive gate refuses enrolment** while a legacy DB is un-archived; placement (storeId + legacy businessId) refreshed each start; secret asserted absent from the DB file. |
-| **5** Heartbeat + catalogue sync · **5b** | 🔨 | **The backend gap is CLOSED (2026-08-08).** Built + tested headlessly: `POST /api/v1/heartbeat` (in-process `TillPresence`, 2/5-min boundaries), `GET /api/v1/catalogue/changes` (keyset cursor, tombstones), `SyncNow`/`Locked`/`LockReason` on `Device` (migration `AddDeviceSyncSignals`, **carries an index** — see below), and the client half in `Client.Core/SyncClient.cs` + `TillStore : ISyncStore`. 22 new tests. **Remaining:** the PRICE-SCHEDULE half of the feed (see the ⚠ below), MAUI's VAT-bands consumption, the shared search matcher, and a timer in MAUI to call any of it. |
-| **8** Operator RBAC + offline login | ✅ | 2026-08-08. `GET /api/v1/tills/{id}/operators` (device-token gated), the roster cached on the till, offline sign-in verified with `SharedKernel.Pbkdf2`, ceilings + time windows + the `OfflineCredentials` staleness tier at the gate. **An enrolled till can sign someone in.** 21 new tests. ⚠ Two pieces of WP8 remain: the **Users screen** and **supervisor override**. ⚠ The roster is cached as a JSON file, not in `Plutus.Client.Storage` — see the note in WP8's body. |
+| **5** Heartbeat + catalogue sync · **5b** | ✅ | **The backend gap is CLOSED (2026-08-08).** Built + tested headlessly: `POST /api/v1/heartbeat` (in-process `TillPresence`, 2/5-min boundaries), `GET /api/v1/catalogue/changes` (keyset cursor, tombstones), `SyncNow`/`Locked`/`LockReason` on `Device` (migration `AddDeviceSyncSignals`, **carries an index** — see below), and the client half in `Client.Core/SyncClient.cs` + `TillStore : ISyncStore`. 22 new tests. **Closed 2026-08-08:** the price-schedule half of the feed (server now delegates to `SharedKernel.PriceResolution` rather than holding a second copy), MAUI's VAT-band consumption via `VatBandCache`, and the search matcher — which went from **three** implementations to one shared `SharedKernel.ItemSearch`. ⚠ The only piece left is a **timer in MAUI** to call the feed, which is screen work and lands with WP6–13. |
+| **8** Operator RBAC + offline login | ✅ | 2026-08-08. `GET /api/v1/tills/{id}/operators` (device-token gated), the roster cached on the till, offline sign-in verified with `SharedKernel.Pbkdf2`, ceilings + time windows + the `OfflineCredentials` staleness tier at the gate. **An enrolled till can sign someone in.** 21 new tests. ⚠ **Supervisor override landed 2026-08-08** (`OperatorLogin.AuthoriseOverrideAsync` — a second operator authorises past a ceiling, offline, against the same cached roster and the same window/ceiling rules). One piece of WP8 remains: the **Users screen**, which needs a device. ⚠ The roster is cached as a JSON file, not in `Plutus.Client.Storage` — see the note in WP8's body. |
 | 6–7, 9–13 | ⬜ | The remaining parity WPs — MAUI **UI** work (XAML + viewmodels), so they need a device to verify. WP7, WP10 and WP12 each gained real scope on 2026-08-08 (pushed theming · add-unknown + Bin/untracked · member-number scan). |
 | **14** Payment-gateway awareness | ⬜ | Added 2026-08-08. Was cited in Part B as "WP17.2", which is not a work package in this plan. |
 | **15** Web-till test runner + C2 pins | ⬜ | Added 2026-08-08. **Web till, not MAUI** — parity runs both ways. Timing is Matt's call. |
 | **16** Connectivity + offline credentials | 🔨 | Added 2026-08-08 on Matt's instruction. **Shared half DONE:** `/api/v1/ping`, `ConnectivityProbe`, `OfflineCredentials` horizons + 42 tests. **Remaining:** MAUI login-screen UI, the web till's move off `navigator.onLine`, and 16b's enforcement (pairs with WP8). |
 
+| **Build guards** (not a WP) | ✅ | 2026-08-09. Two things that made green mean less than it looked. **CI ran none of the modern suites** — Unit, Architecture and Integration (709 tests, every VAT and till-client rule) were in no pipeline, and the push trigger listed only `master` while `Matt's-Horror` is the active branch, so most pushes ran nothing. Both fixed. **Debug never validated XAML** — MAUI inflates at runtime in Debug, so a bad property only failed when a human opened the tab (this caused the 2026-08-08 hand-test crash). Debug now validates; mutation-checked both ways. See §7 risk 9 for the 703 advisories that made visible. |
+
 **Two notes for whoever picks this up:**
 1. **The transport spine is done, and so is the VAT surface.** WP1–WP4 mean a till can enrol,
    commit sales offline, and drain them exactly once — all provable headlessly. WP2c means no till
-   holds a VAT rule of its own. **WP5 is the last backend gap**, then the remaining WPs are screen
-   work against endpoints that already exist.
+   holds a VAT rule of its own. **The backend gap is now closed entirely** — WP5 and WP8 both
+   landed, so every remaining WP is screen work against endpoints that already exist and are
+   already tested headlessly. ⚠ Those endpoints exist **in this branch**, not on the live server:
+   until the backend is deployed, a MAUI till pointed at production will 404 on heartbeat,
+   catalogue changes, ping and the operator roster. That deploy gates every remaining screen test.
 2. **`IOutboxStore` did its job**: WP2's SQLite table implemented it and WP3's pusher needed no
    change at all. Keep new capability behind interfaces in `Client.Core` for the same reason —
    the rules stay testable without a till.
@@ -1226,6 +1231,19 @@ Flagged now rather than discovered mid-build. Several need a decision before the
    already exists (WP17.2 config + the web till's `GET /api/v1/payments/gateway/active` display at
    checkout), so MAUI should copy that display cheaply; only the actual terminal drive is
    greenfield. Affects both tills; independent of this plan.
+9. **703 uncompiled bindings in the MAUI till** — deferred, deliberately, and written down here so
+   it stays deferred rather than becoming forgotten. Debug now validates XAML (`MauiXamlInflator`
+   set to `XamlC` in the AppClient csproj, 2026-08-09), which closed the crash class where a bad
+   property only failed when a human opened the tab. Making that visible also surfaced 703
+   XC0022/XC0025/XC0103 advisories — **not new**: Release has printed the identical 703 all along,
+   Debug had simply never looked. They are all one finding: bindings without `x:DataType`, so they
+   resolve reflectively at runtime. Nothing is broken by it today. It matters when someone tries to
+   trim or AOT the Windows head, because reflective bindings are exactly what trimming removes, and
+   it will present as pages that are blank in Release only. Not suppressed with `NoWarn`: silencing
+   700 warnings the moment they become visible would undo the point of looking. The fix is
+   mechanical (add `x:DataType` per view, enable
+   `MauiEnableXamlCBindingWithSourceCompilation`) and belongs with WP6–13, which are touching these
+   views anyway — do it per view as each is worked, not as one 703-line sweep.
 
 ---
 
