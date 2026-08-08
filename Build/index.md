@@ -24,6 +24,7 @@ Last audited **2026-08-07** against the code, not against the documents' own hea
 | [repo-runbook.md](repo-runbook.md) | Build, test, migrate, deploy — plus the ten codebase pitfalls that have each cost a session. Read before writing code. |
 | [table-standard.md](table-standard.md) | The shared `DataTable` contract (sort / search / 25-50-100 / paging) every table in all three surfaces must use. |
 | [till-parity.md](till-parity.md) | What the web till and the MAUI till can each do. **The definition of done for any till feature** — add the row in the same commit. |
+| [till-anatomy.md](till-anatomy.md) | **How the tills are built, and where every shared rule lives.** The companion to till-parity: that one says *can it do X*, this one says *where the rule for X is written, in how many languages, and what stops them drifting*. Written after the VAT arithmetic turned out to exist only in the web till's TypeScript. §4 is the honest register of rules implemented twice. |
 | [kapow-db-gap-analysis.md](kapow-db-gap-analysis.md) | The source NatApp SQLite database, table by table. Still the reference for any migration tooling. |
 | [VAT-FixLater-Report-2026-07-23.md](VAT-FixLater-Report-2026-07-23.md) | The legacy VAT rows deliberately **not** auto-repaired (owner's decision). Live: the portal shows this list at Reporting → VAT. Shrinks as items are corrected. |
 | `secrets.local.md` | Local credentials. **Gitignored — never commit.** |

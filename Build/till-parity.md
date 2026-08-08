@@ -7,6 +7,10 @@ till marked either ✅ or a deliberate ⬜.
 **Web till** = `Plutus.Frontend.WebApp` (React, live). **MAUI** = `Plutus.Frontend.AppClient`
 (Sean's rework — the go-forward native app; `ClientUI` is being retired).
 
+📎 **Companion: [`till-anatomy.md`](till-anatomy.md)** — this document says *can a till do X*; that one
+says *how each till is built and where the rule for X actually lives*. Reach for it when the question
+is "would both tills get this right?" rather than "does both tills have it?".
+
 Legend: ✅ built · 🟡 partial · ⬜ absent · ➖ not applicable · ⏸ blocked externally.
 Last verified against code **2026-08-07**. Retrofit WPs refer to
 [`To do/MAUI-Retrofit-Plan-2026-08-07.md`](To%20do/MAUI-Retrofit-Plan-2026-08-07.md).

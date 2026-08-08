@@ -158,6 +158,13 @@ Run `POST /api/v1/reports/rebuild` (platform-admin) if you want history re-proje
 
 #### ⚠ Things a new session must know (in addition to the 2026-07-31 list, which all still holds)
 
+0. **[`Build/till-anatomy.md`](Build/till-anatomy.md) is new (2026-08-08)** — how each till is built
+   and **where every shared rule lives**, written after the VAT arithmetic turned out to exist only
+   in the web till's TypeScript. **Its §4 is the register of rules implemented twice**, with an
+   honest pinned/unpinned status for each. Read it before writing anything that computes money on a
+   client. Two findings worth knowing now: **the web till has no test suite at all** (so every
+   cross-language "pinning" test holds only the .NET half), and `till/basket.ts basketTotals` is an
+   unpinned third copy of the discount apportionment.
 1. **`Build/` was reorganised** — standards at the top level, open plans in `Build/To do/`,
    delivered/superseded in `Build/archive/`. Start at **[`Build/index.md`](Build/index.md)**.
    **[`Build/repo-runbook.md`](Build/repo-runbook.md)** is now the build/test/deploy + pitfalls

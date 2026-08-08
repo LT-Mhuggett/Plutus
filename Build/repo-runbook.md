@@ -7,6 +7,8 @@ codebase pitfalls that have each cost a session at least once. Extracted from
 **Companions:** [`HANDOVER.md`](../HANDOVER.md) is the living state of the project (what's live,
 what's open, rollback tags). [`plutus-platform-architecture.md`](plutus-platform-architecture.md)
 wins on any design conflict. [`table-standard.md`](table-standard.md) governs every data table.
+[`till-anatomy.md`](till-anatomy.md) says where every shared till rule lives — **read its §4 before
+writing anything that computes money on a client.**
 
 ---
 
