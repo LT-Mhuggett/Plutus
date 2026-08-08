@@ -434,6 +434,9 @@ namespace Plutus.Entities.Migrations.Sqlite
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("BinnedAtUtc")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Brand")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -474,6 +477,9 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.Property<decimal>("Price")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("StockUntracked")
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("TaxId")
                         .HasColumnType("INTEGER");
@@ -1132,6 +1138,9 @@ namespace Plutus.Entities.Migrations.Sqlite
 
                     b.Property<int>("ContractedHours")
                         .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("LastLoginAtUtc")
+                        .HasColumnType("TEXT");
 
                     b.Property<Guid?>("ManagedById")
                         .HasColumnType("TEXT");

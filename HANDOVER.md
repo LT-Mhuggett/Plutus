@@ -18,6 +18,24 @@ Head: see `git log` — this line goes stale; the commits don't.
 Suite: **Unit 575 · Architecture 13 · Integration 121 · AppClient 305 (+3 skipped) — all green.**
 Committed on `Matt's-Horror`, **not pushed, not deployed.**
 
+> ### ⚠ CI: what it does and does NOT guard — read before trusting a green tick
+>
+> `.github/workflows/ci.yml` runs on **`master` and PRs** — the working branch is `Matt's-Horror`
+> pushed to `upstream`, so **a plain push may run nothing at all**.
+>
+> ⚠ **It does not run the modern suites.** It runs `Plutus.Entities.Tests` and
+> `Plutus.Repository.Tests` (the two legacy MySQL projects) plus `AppClient.Tests`. **Unit 575 ·
+> Architecture 13 · Integration 121 — the entire modern suite — is guarded only by someone running
+> it locally.** Worth adding; it is three lines per project.
+>
+> ⚠ **The `openapi-drift` job WAS going to fail**, and it caught a real problem. Two fixes:
+> - `openapi.json` was stale — it predates every endpoint added this week. **Regenerated** the same
+>   way CI does (boot the host, dump swagger) and committed. 500KB → 709KB.
+> - Booting the host in Development **crashed** on `PendingModelChangesWarning`: `SqliteDbContext`
+>   had un-migrated model drift (`BinnedAtUtc`, `StockUntracked`, `LastLoginAtUtc`). ⚠ **Not mine** —
+>   pre-existing since those features shipped; my columns are MySQL-only. But it meant the dev host
+>   would not start and the drift gate could never pass. Sqlite migration added.
+>
 > ### ✅ WP5 IS NOW COMPLETE — the price DoD is met (2026-08-08)
 >
 > The one thing I had left explicitly unmet. Effective prices live in their own effective-dated

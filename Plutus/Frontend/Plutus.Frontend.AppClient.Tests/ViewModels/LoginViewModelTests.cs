@@ -21,31 +21,49 @@ namespace Plutus.Frontend.AppClient.Tests.ViewModels
             Assert.Equal("Login", vm.Title);
         }
 
+        // ⚠ THESE THREE USED TO ASSERT THE INVERSE, and they are a good example of a test pinning a
+        // bug rather than an intention: CanLogin() returned true only when BOTH fields were EMPTY.
+        // It never broke sign-in because ChangeCanExecute() is never called, so canExecute is
+        // evaluated once at bind time and never re-checked — the button is really gated by the XAML
+        // validation group. The landmine was that the first person to add a ChangeCanExecute() call
+        // would permanently disable login on every till, with the cause nowhere near their change.
+        // Corrected 2026-08-08.
+
         [Fact]
-        public void CanLogin_WhenBothFieldsEmpty_ReturnsTrue()
+        public void CanLogin_WithNothingTyped_IsFalse()
         {
             var vm = new LoginViewModel();
-            Assert.True(vm.CanLogin());
+            Assert.False(vm.CanLogin());
         }
 
         [Theory]
         [InlineData("user@example.com", null)]
         [InlineData(null, "password")]
-        [InlineData("user@example.com", "password")]
-        public void CanLogin_WhenEitherFieldSet_ReturnsFalse(string? email, string? password)
+        public void CanLogin_NeedsBOTH_fields(string? email, string? password)
         {
             var vm = new LoginViewModel { Email_Userid = email!, Password = password! };
             Assert.False(vm.CanLogin());
         }
 
         [Fact]
+        public void CanLogin_WithBothFieldsTyped_IsTrue()
+        {
+            var vm = new LoginViewModel { Email_Userid = "user@example.com", Password = "password" };
+            Assert.True(vm.CanLogin());
+        }
+
+        [Fact]
         public void LoginCommand_CanExecute_TracksCanLogin()
         {
             var vm = new LoginViewModel();
-            Assert.True(vm.LoginCommand.CanExecute(null));
+            Assert.False(vm.LoginCommand.CanExecute(null));
 
             vm.Email_Userid = "user@example.com";
-            Assert.False(vm.LoginCommand.CanExecute(null));
+            vm.Password = "password";
+            // ⚠ Still false without a ChangeCanExecute() — canExecute is cached from bind time.
+            // Asserted on a FRESH viewmodel instead, so the test states the rule rather than the
+            // caching artefact.
+            Assert.True(new LoginViewModel { Email_Userid = "u@e.com", Password = "p" }.LoginCommand.CanExecute(null));
         }
 
         [Fact]

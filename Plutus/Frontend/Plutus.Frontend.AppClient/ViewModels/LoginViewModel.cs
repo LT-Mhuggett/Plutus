@@ -232,10 +232,20 @@ namespace Plutus.Frontend.AppClient.ViewModels
             }
         }
 
-        public bool CanLogin()
-        {
-            return string.IsNullOrEmpty(_password) && string.IsNullOrEmpty(_email_UserId);
-        }
+        /// <summary>
+        /// ⚠ WAS INVERTED — it returned true only when BOTH fields were EMPTY.
+        ///
+        /// It has never broken sign-in only by accident: this is <c>LoginCommand</c>'s
+        /// <c>canExecute</c>, and <c>ChangeCanExecute()</c> is never called anywhere in the class,
+        /// so it is evaluated once at bind time (both fields empty → true) and never re-checked.
+        /// The button is really gated by the XAML validation group.
+        ///
+        /// A landmine: the first person to add a <c>ChangeCanExecute()</c> call — the obvious thing
+        /// to do when wiring up a "disable while busy" — would permanently disable the login button
+        /// on every till, and the cause would be nowhere near the change.
+        /// </summary>
+        public bool CanLogin() =>
+            !string.IsNullOrEmpty(_password) && !string.IsNullOrEmpty(_email_UserId);
 
         #region Command Execution
         private async void ExecuteLoginCommand()
@@ -311,8 +321,19 @@ namespace Plutus.Frontend.AppClient.ViewModels
             }
             catch (Exception ex)
             {
+                // ⚠ THIS USED TO VANISH. Logger.LogError goes to OpenTelemetry and Debug.WriteLine
+                // goes nowhere on a real till — so ANY fault in here (a locked database, a null
+                // field, a migration failure) left the operator tapping Submit while the screen
+                // sat still, with no record on the machine to send anyone. The crash log is the
+                // file someone can actually attach to an email.
+                Services.Analytics.CrashLog.Write("LoginViewModel.ExecuteLoginCommand", ex);
                 Logger.LogError(ex);
                 Debug.WriteLine(ex.Message);
+
+                await App.Current.MainPage.DisplayAlert(
+                    "Couldn't sign in",
+                    "Something went wrong signing in. The details are in this till's log file — see the Plutus tab.",
+                    "OK");
             }
 
             finally
