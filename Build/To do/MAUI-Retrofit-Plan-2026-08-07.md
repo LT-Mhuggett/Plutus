@@ -321,6 +321,31 @@ platform-level. Full register: **[`Build/till-design.md`](../till-design.md)**.
 into **WP3**; the users screen folds into **WP8**; refund-only baskets into **WP3**; add-unknown-item,
 the Bin and untracked stock into **WP10**; theming into **WP7**; cross-till refunds into **WP11**.
 
+> ### ⚠ Re-audited 2026-08-08 — a ruling in a table is not a specification
+>
+> Matt made parity binding (*"The tills need to be in parity… when adding new functionality, it
+> needs to be added to all tills going forward"*), so every Part B row was cross-checked against the
+> actual **WP bodies** above rather than against this ruling table. **Seven items had been ruled IN
+> here and never specified anywhere** — no body, no DoD, nothing anyone could build from:
+>
+> | Item | Was | Now |
+> |---|---|---|
+> | MAUI consuming `GET /api/v1/vat/bands` | ⚠ **no home at all** — WP2c asserted "both tills cache it", only the web till does | **WP5** |
+> | Portal-**pushed** theming (`/themes/effective`) | WP7 said "port the palette" and would have closed | **WP7b** |
+> | Add unknown scan as a new item | ruled into WP10, absent from its body | **WP10** |
+> | The Bin + untracked stock | ruled into WP10, absent from its body | **WP10** |
+> | Member-number scan-to-attach | ruled into WP12, absent from its body | **WP12** |
+> | Payment-gateway awareness | cited "WP17.2" — not a work package in this plan | **WP14** |
+> | Web-till test runner + `basketTotals` pin | never ruled either way | **WP15** |
+>
+> **Four more were specified in a body but gated by no DoD** — the VAT-band consistency guard
+> (WP10), `426` handling (WP5), `LineMeta.vatBand` (WP3) and the un-enrol request/approval round
+> trip (WP4). All four now have DoD lines. A shared item-search matcher was attributed to WP1, which
+> **shipped without it**; it moves to WP5.
+>
+> The lesson is worth keeping: **§3a is a decision log, §5/§6 are the specification.** When they
+> disagree, the bodies win, because they are the only half anyone builds from.
+
 | Found | Size | Note |
 |---|---|---|
 | **Gift cards** (sell + redeem) | Large | Zero references in MAUI. ⚠ The per-tenant VAT-treatment gate means an unaware till gets **409s it can't explain**. |
@@ -353,8 +378,11 @@ resume point for the next session.
 | **2** Local store v2 + cutover + money | ✅ (one VAT note) | 2026-08-07 · `6e46734`. New `Plutus.Client.Storage` (schema v2, SQLite). Cutover archives-never-merges and implements the §10 STOP. ⚠ The snapped catalogue band is a **label only** — at sale time lines derive `vatRateBp` from the price pair like the webtill (2026-08-08 correction; see the WP2 note + WP3). Money property test over 2,000 randomised baskets — its VAT arithmetic gets corrected with WP2b. |
 | **3** Sale commit path + outbox | ✅ | 2026-08-07 · `6e46734`. `CommitSaleAsync` (one transaction, sequence allocated, **commit before print** — risk #2 decided in code). `TillStore` implements `IOutboxStore`, so the WP1 pusher drove it unchanged. Soak: 120 offline sales drain exactly once in order, no gaps; crash mid-drain records 20 of 20. |
 | **4** Enrolment + device identity | ✅ | 2026-08-07 · `f90dac5`. Server URL + code; **archive gate refuses enrolment** while a legacy DB is un-archived; placement (storeId + legacy businessId) refreshed each start; secret asserted absent from the DB file. |
-| **5** Heartbeat + catalogue sync · **5b** | ⬜ | **Next.** Needs the three missing backend endpoints (heartbeat, catalogue/changes, and `syncNow`/`lock` on Device). `TillStore.ApplyCatalogueChangesAsync` + `PriceSchedule` already exist and handle tombstones. |
-| 6–13 | ⬜ | The parity WPs — these are where MAUI **UI** work begins (XAML + viewmodels), so they need a device to verify. |
+| **5** Heartbeat + catalogue sync · **5b** | ⬜ | **Next.** Needs the three missing backend endpoints (heartbeat, catalogue/changes, and `syncNow`/`lock` on Device). `TillStore.ApplyCatalogueChangesAsync` + `PriceSchedule` already exist and handle tombstones. **Scope grew 2026-08-08:** also owns MAUI's **VAT-bands consumption** (the whole timeline, not today's rate) and the **shared search matcher** — both had no WP home at all. |
+| 6–13 | ⬜ | The parity WPs — these are where MAUI **UI** work begins (XAML + viewmodels), so they need a device to verify. WP7, WP10 and WP12 each gained real scope on 2026-08-08 (pushed theming · add-unknown + Bin/untracked · member-number scan). |
+| **14** Payment-gateway awareness | ⬜ | Added 2026-08-08. Was cited in Part B as "WP17.2", which is not a work package in this plan. |
+| **15** Web-till test runner + C2 pins | ⬜ | Added 2026-08-08. **Web till, not MAUI** — parity runs both ways. Timing is Matt's call. |
+| **16** Connectivity + offline credentials | 🔨 | Added 2026-08-08 on Matt's instruction. **Shared half DONE:** `/api/v1/ping`, `ConnectivityProbe`, `OfflineCredentials` horizons + 42 tests. **Remaining:** MAUI login-screen UI, the web till's move off `navigator.onLine`, and 16b's enforcement (pairs with WP8). |
 
 **Two notes for whoever picks this up:**
 1. **The transport spine is done, and so is the VAT surface.** WP1–WP4 mean a till can enrol,
@@ -385,8 +413,11 @@ Each work package has a Definition of Done. Do them in order; **WP1 and WP2 gate
 | 9 | Cash | Self-contained, well-specified contract |
 | 10 | Inventory + stock ledger (+ Bin, untracked, add-unknown) | Rework of screens that already exist |
 | 11 | Reporting + **cross-till refund lookup** | Rewrite local queries → backend calls; the refund path is money-handling, not a report |
-| 12 | Loyalty | Highest effort, hardest offline design; reuses everything before it |
+| 12 | Loyalty (+ member-number scan-to-attach) | Highest effort, hardest offline design; reuses everything before it |
 | 13 | Gift cards | Sell + redeem at the till; last — reuses WP12's customer plumbing |
+| 14 | Payment-gateway awareness at checkout | Tiny, self-contained display; do it any time after WP5 |
+| 15 | **Web till** test runner + pinning the C2 twins | Not MAUI work at all — parity runs both ways. Matt's call on timing |
+| 16 | Connectivity indicator + offline-credential horizons | 16a stands alone; **16b pairs with WP8**, which is what puts credentials on the till |
 
 **WP0 — Toolchain + baseline gate.** `dotnet workload list` shows `maui`; AppClient builds for
 `net10.0-windows10.0.19041.0`; `Plutus.Frontend.AppClient.Tests` + the three platform suites run
@@ -661,7 +692,18 @@ change on a refund, credit/gift-card tenders hidden as refund destinations.
 those behind it; 48h offline then reconnect drains clean; **a MAUI-originated sale moves stock**,
 asserted explicitly, not just accepted; kill between commit and print → the sale is queued and
 reprintable, never lost; a refund-only sale round-trips 201 and prints marked; a template change
-reaches the next printed receipt after a sync. USER-VERIFY: paper output.
+reaches the next printed receipt after a sync; **a line resolved from a mapped legacy tax row
+carries `LineMeta.vatBand`, and a line whose tax row the portal has NOT mapped carries `null` —
+never a guess** (added 2026-08-08; the body has required this since WP2c and nothing gated it).
+USER-VERIFY: paper output.
+
+⚠ **How the band is resolved, since the plan never said.** Take the item's legacy `TaxId` and match
+it against each published band's `legacyTaxIds` from `GET /api/v1/vat/bands` (WP5). **Leave it null
+rather than guessing**: the server's `VatBandStamp` backfills any line that arrives without a band,
+from the same catalogue data, at the single choke point every channel passes through — so null is
+*correct by default*, and a wrong guess is the one thing that can't be undone (a stated band is
+never overwritten). State it only where the till knows something the catalogue doesn't — a
+single-purpose gift-card line is `"standard"` by the voucher treatment, not by its catalogue row.
 
 **WP4 — Enrolment, device identity, Settings.**
 Replace the `DatabaseProvider.Cloud` throw with a real first-run flow: **Server URL + enrolment
@@ -690,7 +732,16 @@ exists. Hide the WP5b ticket/notification UI behind the same rule.
 has a valid token next launch; `ClientSecret` never appears in the `.db3` file (grep-verified);
 server-side revocation parks the pusher with a clear "device revoked" state while sales keep
 committing locally; **per §9.3/§9.4, enrolment refuses to proceed while an un-archived legacy
-database file exists** — the refusal message names the archive step.
+database file exists** — the refusal message names the archive step; **the un-enrol REQUEST →
+manager approval → Revoked round trip is exercised end to end, and a till in `PendingRemoval` keeps
+trading throughout** (added 2026-08-08 — the body has specified the lifecycle since the first draft
+and the DoD only ever tested revocation).
+
+⚠ **`PendingRemoval` is not a stop signal, and that is deliberate.** Halting a till the moment
+someone requests it back would make un-enrolment a way to take a shop's till down. Only `Revoked`
+stops. The till learns which it is from `GET /api/v1/tills/devices/{deviceId}/status` — and it must
+poll it, because device tokens are bearer tokens with **no server-side denylist**, so a revoked
+till otherwise keeps working until its 12h token expires.
 
 **WP5 — Heartbeat + catalogue sync.**
 `POST /api/v1/heartbeat` every 60s with `{deviceId, appVersion, outboxDepth, oldestUnsyncedAge,
@@ -714,10 +765,38 @@ is being added).
 `426 Upgrade Required` handling is **client-only for now** — test with a stubbed handler; the
 server-side min-version gate is deliberately deferred with risk #6. Banner on 426; selling
 continues, sync parks.
+
+**⚠ Also in this WP: the VAT BANDS contract (added 2026-08-08 — it had no WP home at all).**
+WP2c shipped `GET /api/v1/vat/bands` and asserted "both tills cache it on the catalogue-sync
+cadence". Only the **web till** does. `PlutusApiClient.GetVatBandsAsync` and
+`VatBandsResult.RateBpAt` already exist, unused by anything — the plumbing was built and no work
+package ever said to wire it up. This is the sync WP, so the bands sync here:
+- Fetch on app start and on the same cadence as the catalogue; persist so it survives restart
+  offline. **A till with no cached bands has nothing to apply.**
+- ⚠ **Cache the WHOLE effective-dated TIMELINE, not today's rate.** The contract ships future
+  points on purpose. A till that stores only the rate in force at fetch time is a till that goes
+  offline before a rate change and keeps charging the old rate — and WP2b then quarantines every
+  sale in its backlog on reconnect. `RateBpAt(key, atUtc)` is the accessor that makes this correct;
+  use it at sale time, never a stored scalar.
+- **No till may hold a hard-coded VAT rate** — pinned platform-wide by
+  `Till_libraries_stay_platform_neutral_and_hold_no_VAT_rates_of_their_own`. The cutover's
+  `FallbackBandsBp` is the *only* sanctioned exception, and only until the first sync.
+
+**And the shared item-search matcher (till-design C2, attributed to WP1 — which closed without
+it).** The web till's word-matching (`batman one` → *Batman Year One*) and `"quoted"` exact-phrase
+are a **client-side device preference**; the server default is whole-phrase. A MAUI till searching
+its cached catalogue offline therefore returns *different results for the same query* than the web
+till returns for the same shop. Put one matcher in `Plutus.Client.Core` and have MAUI use it.
+
 *DoD:* status transitions verified at the 2/5-minute boundaries with a fake clock; MySQL takes no
 per-heartbeat writes; a price scheduled for 02:00 activates at 02:00 with the till offline; a 20k-item
 full resync completes in <60s; a sale mid-sync sees a consistent snapshot — the price read at
-basket-add is what's charged and what's in the payload.
+basket-add is what's charged and what's in the payload; **a 426 response raises the banner, parks
+sync and leaves selling working** (specified since the first draft, never gated); **a standard-rate
+change dated next Tuesday is cached today, is NOT applied on Monday, and IS applied on Tuesday by a
+till that has been offline throughout** — the same DoD WP2c set for the web till, which is the
+point: two tills, one contract, one behaviour; **`batman one` returns *Batman Year One* on a MAUI
+till searching its offline cache, matching the web till exactly.**
 
 **WP5b — Platform-citizenship screens (§3a rulings).** Three small consumers on the same 60-second
 cadence, copied from the web till's shapes: **announcements** (`GET /api/v1/announcements/active`,
@@ -754,14 +833,40 @@ deletion, not a build** — among the smallest items here.
 zero remaining references to `StoreModel`-mutating commands in that file; network loss shows a
 clear "unavailable" state rather than stale local data.
 
-**WP7 — Theming.** AppClient's `App.xaml` registers only a value converter — **no theme resources at
+**WP7 — Theming: the palette AND the pushed theme.**
+
+*7a — the palette.* AppClient's `App.xaml` registers only a value converter — **no theme resources at
 all**. Port ClientUI's `Resources/Styles/Colors.xaml` verbatim (`Primary #272643`, `Secondary
 #ffffff`, `Tertiary #e3f6f5`, `Quaternary #bae8e8`, `Quinary #2c698d`, `Error #FF9494`, the
 Cyan/Blue accent scales and matching `*Brush` keys) under the **same `x:Key` names** so bindings
 resolve unchanged, author a `Styles.xaml`, and merge both into `App.xaml`. Theme the Syncfusion
 suite (pinned at `34.1.32`) via `SyncfusionThemeResourceDictionary`, remapping its palette slots to
 these brushes. Native OS chrome will never pixel-match a browser; content and branding will.
-*DoD:* no hard-coded hex left in XAML; an `SfListView` visibly reflects `Primary`/`Quinary`.
+
+*7b — the PUSHED theme (added 2026-08-08; this WP previously stopped at 7a and would have closed
+with a hardcoded palette).* FE10 shipped portal-controlled theming to the web till on 2026-08-07:
+schemes are defined in the portal and assigned per tenant / store / till-group / till, and
+`GET /api/v1/themes/effective` (`sales.ingest` — device **or** operator token) resolves
+till > group > store > tenant > default **server-side** in `ThemeResolution`. A till does not
+choose its colours; it is told them. So:
+- Call `PlutusApiClient.GetEffectiveThemeAsync` on app start and on the WP5 sync cadence, caching
+  `EffectiveThemeResult` so the assigned scheme survives a restart with the network down.
+- Map the payload onto the 7a resource keys: `baseMode` ∈ `system|light|dark` drives
+  `Application.UserAppTheme`, and `colorsJson` carries the web till's seven tokens — `--accent`,
+  `--accent-ink`, `--surface`, `--surface-2`, `--ink`, `--ink-muted`, `--line`. **Same slots, same
+  names, same resolution order as the web till**, or the two tills show different colours for one
+  assignment and the portal's preview is a lie.
+- Clearing an override must restore the stock palette exactly, which is what makes 7a the fallback
+  rather than dead code.
+- ⚠ **Receipts are deliberately immune to theming** (till-design C1). The web till pins `#111` on
+  `#fff` in its print block because printing from a dark scheme once put near-white ink on paper.
+  MAUI's `PosPrinterManager` must ignore the theme entirely.
+
+*DoD:* no hard-coded hex left in XAML; an `SfListView` visibly reflects `Primary`/`Quinary`; **a
+scheme assigned to this till in the portal is applied after one sync and survives a restart with
+the network off; a scheme assigned at STORE level reaches a till with no till-level override, and a
+till-level override beats it; clearing every override returns the stock palette; a printed receipt
+is byte-identical under a light and a dark scheme.**
 
 **WP8 — Operator RBAC + offline login.** Add the missing `GET /api/v1/tills/{id}/operators`
 (additive, under `PlutusPolicies.PortalTillsEnrol`) returning each operator's user id and effective
@@ -777,7 +882,23 @@ yet" stopgap — the web till's smaller surface only: employee list/create + set
 *DoD:* union-merged grants correct for a multi-level (company+store+till) fixture; matrix test —
 cashier sells but cannot refund, supervisor refund ≤ ceiling passes and > ceiling demands override,
 a Saturday-only operator is rejected on Sunday (fake clock) — **all offline**; audit fields present
-in the pushed payload; an employee created on the till can sign in on the web till and vice versa.
+in the pushed payload; an employee created on the till can sign in on the web till and vice versa;
+**the employee LIST renders from `/api/Employee` and a set-password on an EXISTING employee via
+`/api/Auth/SetPassword` takes effect on the next sign-in** (added 2026-08-08 — the body named both
+and the DoD only tested create).
+
+⚠ **Shipping password hashes to till hardware is a real change of threat model, and WP8 is where it
+happens.** The cached blob is the operator's *platform* password, verifiable offline at
+PBKDF2-HMAC-SHA1 / 101,010 iterations — roughly 13× below current OWASP guidance for that PRF — and
+it works on the web till too. Two consequences this WP owns:
+1. **The cache must expire.** Nothing can be pushed to an offline till (risk #5), so expiry is the
+   only mechanism that ever revokes a leaver on one. Use
+   `Plutus.SharedKernel.OfflineCredentials` — the horizons are tiered, shared and tested, not
+   invented here. See **WP16**.
+2. ⚠ **`POST /api/Auth/Login` does not check `Employee.Active`** (verified 2026-08-08). Deactivating
+   a user leaves their `WebCredentials` row intact, so they can still sign in and receive a full 12h
+   token. Fix it server-side in this WP — an offline expiry policy is pointless while the *online*
+   path lets a deactivated user straight back in.
 
 **WP9 — Cash.** MAUI has nothing but `POSCashDrawer.cs`, a solenoid driver. Build `CashPage`/
 `CashViewModel` with four actions — Open float, Paid in/out (reason mandatory), X snapshot, Z close
@@ -799,10 +920,38 @@ CRUD to `/api/v1/categories`, surfacing the 409 *"{n} item(s) are still in this 
 blocking reassign-first flow — MAUI has no reassign UI today. Mirror the VAT-band guard
 (`|Price − ExPrice×Rate| > 2p` → 400) client-side before submit, and surface the server's exact
 message when the client misses a case.
+*Also in this WP (§3a rulings — bodies added 2026-08-08; they were ruled IN but never specified, so
+WP10 would have closed without them):*
+
+- **Add an unknown scan as a new item.** Shipped to the web till 2026-08-07. A scan that matches
+  nothing currently dead-ends; instead offer *"Add {barcode} as a new item"*, gated on
+  `portal.stock.adjust`. The dialog takes the minimum a sellable line needs — name, price, VAT
+  band, category — and **the scanned code becomes `IdOne`**, never a generated id: `IdOne` *is* the
+  barcode, it is what every v1 stock/price/sale-line call keys on, and it cannot be recovered from
+  the item GUID (a one-way hash). The item id is `DeterministicGuid.ForItem(businessId, idOne)`
+  like everywhere else. An opening quantity, if given, posts a **Receipt movement**, not a bare
+  stock row. ⚠ Offline this must queue rather than block the sale — the customer is standing there.
+- **The Bin (soft delete) and untracked stock.** FE5 concepts with no MAUI model at all today.
+  *The Bin* is soft delete: binning an item hides it from sale and search but keeps its history, and
+  the Bin view + restore are gated on `inventory.bulk` (deliberately separate from
+  `portal.stock.adjust` — one mistake here moves thousands of items). ⚠ A binned item must stop
+  being sellable **on an offline till too**, which is precisely why WP5's changes feed carries
+  tombstones (`removed: true`) rather than plain upserts — `CatalogueItem.Removed` already exists in
+  the local schema and nothing reads it yet. *Untracked stock* is an item that sells without
+  decrementing anything (services, carrier bags): the till must not show a stock level for it, must
+  not warn about selling below zero, and must not post a movement.
+
 *DoD:* creating an item with an opening quantity produces exactly **one Receipt movement**, never a
 bare stock row; adjusting without a reason is rejected before the request is sent; two devices
 adjusting concurrently both land as separate movements and levels reflect the **sum**, never
-last-write-wins; deleting a populated category blocks and offers reassign.
+last-write-wins; deleting a populated category blocks and offers reassign; **a band-inconsistent
+price pair (`|Price − ExPrice×Rate| > 2p`) is refused client-side before the request is sent, and
+the server's exact message is shown when the client misses a case** (the guard was specified above
+but never gated — a guard nothing tests is a guard that regresses); **an unknown barcode scanned at
+the till becomes a sellable item whose `IdOne` is the scanned code and whose GUID matches the web
+till's derivation for the same barcode; a binned item disappears from sale and search on a till
+that has been OFFLINE since it was binned; an untracked item sells with no movement written and no
+stock warning.**
 
 **WP11 — Reporting + cross-till refunds.** MAUI's three Statistics viewmodels query local SQLite directly — zero HTTP.
 Even a pixel-perfect copy of the web till's screens would show **one till's data** if built that
@@ -824,7 +973,9 @@ Reporting because it reuses the identical lookup, but its DoD is a hard gate.
 renders identical lines/tenders/adjustments as seen from B; **a refund on till A against a sale
 made on till B validates, caps at the refundable remainder, and posts**; offline, a sale inside
 the rolling window still refunds and one outside it is refused with a clear "needs connection"
-message — never a silent acceptance.
+message — never a silent acceptance; **a sale rung up on till B REPRINTS from till A** (added
+2026-08-08: the DoD asserted the sale *renders* and never that it *prints*, which is the half a
+customer actually asks for at the counter).
 
 **WP12 — Loyalty.** Confirmed **zero** in both MAUI projects. No backend work needed — pure
 consumption. Customer search/attach on the sale screen (`GET /api/v1/customers?search=`, then a
@@ -836,10 +987,19 @@ The hard part is **offline design**, and the rule is strict: a bounded local `Lo
 name/tier/discount lookup and a discount hint **only** — it is *never* an input to redemption maths.
 The credit tender needs all three of: customer attached, live balance > 0 fetched **this session**,
 device online. No live fetch, no tender — exactly as the web till behaves.
+*Also in this WP (added 2026-08-08 — a Part B row with no body):* **member-number scan-to-attach.**
+FE2 gave every member a printable card carrying `NNNNNNC` — a 6-digit sequence plus a Crockford
+check character — as a `C…` barcode. At the till, a scan beginning `C` with a valid check digit
+routes to **customer attach**, not item lookup; a bad check digit says so rather than searching for
+an item that will never exist. Reuse `Plutus.SharedKernel`'s `MemberNumbers` validator — the check
+character is a rule, and re-deriving it in MAUI is exactly the drift Part C exists to stop.
+
 *DoD:* airplane mode — cached name/tier/discount still shows, credit tender is **absent**;
 reconnect → tender reappears with the live balance; two devices racing to redeem the last credit →
 exactly one succeeds, the other gets `InsufficientCreditException`, confirming the append-only
-ledger (D15) prevents double-spend.
+ledger (D15) prevents double-spend; **scanning a member card attaches that customer and applies
+their tier's auto-discount to the basket; a card with a corrupted check character is rejected as a
+bad member number, never treated as a barcode.**
 
 **WP13 — Gift cards (§3a ruling).** Sell and redeem at the till, mirroring the web till
 (`till/basket.ts` + `CheckoutDialog.tsx` are the reference): sell = a `GIFT-CARD` catalogue line
@@ -864,6 +1024,89 @@ the "no till holds a VAT rule" principle applied to the one place the webtill cu
 tenant WITHOUT settings surfaces the friendly 409 message at the first step; redemption offline is
 hidden, like store credit; a redeemed card's remaining balance matches the portal's view of the
 same card.
+
+---
+
+## 6a. Work packages added 2026-08-08 — the parity sweep
+
+Matt, 2026-08-08: *"The tills need to be in parity. This is the point of the MAUI retrofit. In
+addition when adding new functionality, it needs to be added to all tills going forward."*
+
+A cross-audit of [`till-design.md`](../till-design.md) Part B against every WP body above found
+**seven capabilities that had been ruled IN by §3a but never specified anywhere** — a ruling in a
+table is not a thing anyone can build. Four are now folded into the WPs that own them (theming →
+WP7, add-unknown + Bin/untracked → WP10, VAT bands + search matcher → WP5, member scan → WP12).
+The three below had no natural home and become work packages of their own.
+
+**WP14 — Payment-gateway awareness at checkout.** The Part B row cited "WP17.2", which is not a
+work package in this plan — it is a *shipped web-till feature*, referenced only inside risk #8.
+Binding default 6 says MAUI copies the display; nothing said how. Read
+`GET /api/v1/payments/gateway/active` and render the configured provider at checkout exactly as
+`CheckoutDialog.tsx:226-233` does: **standalone** (the default — external chip & pin, cashier
+confirms) shows the standalone hint; any other selection shows the provider name with *"integration
+pending"* and **keeps the standalone confirm flow**. ⚠ Selling must never block on this: an
+unreachable gateway endpoint falls back to the standalone hint. Actual terminal drive stays out of
+scope for both tills (risk #8 — greenfield, no provider).
+*DoD:* a tenant on `standalone` and a tenant on `stripe-terminal` each render the same text the web
+till renders for that setting; with the endpoint failing, checkout still completes.
+
+**WP15 — The web till's missing test suite, and the C2 twins.** ⚠ **This is WEB TILL work in the
+MAUI retrofit plan, and that is deliberate** — parity runs in both directions, and the drift
+register (till-design C2) is a MAUI risk precisely because nothing holds the TypeScript half.
+`package.json` has `dev`, `build`, `preview`, `typecheck` — **no test runner and no test files** —
+so every cross-language "pinning" test in C1 holds only its .NET side. Concretely: `VatLineMathTests`
+fixes .NET to the numbers `api.ts` produces and nothing executes `api.ts`; `LegacySaleBridgeTests`
+pins item-id derivation to a GUID the TypeScript produced in a 2026-07-24 smoke test and would not
+notice the TypeScript changing; and `till/basket.ts basketTotals` is a **third, entirely unpinned**
+copy of the discount apportionment that has to agree with the checkout payload or the screen and the
+receipt disagree.
+Add a runner (Vitest — same Vite toolchain, no new build concept) and port the .NET pinning vectors
+across so both halves of each twin execute the same numbers. Then add a C2 row saying what now pins
+them.
+⚠ **Matt's call whether this lands before or after the MAUI UI WPs.** It is recorded here rather
+than left in D1 as an unowned item, because a twin nobody tests is how two tills come to disagree by
+a penny on the same basket — forever, on every VAT return, with nothing flagging it.
+*DoD:* `npm test` runs in CI-able form; `VatLineMathTests`' vectors pass against `api.ts`;
+`LegacySaleBridgeTests`' golden GUID is produced by `pipeline.ts itemGuid`; `basketTotals` and the
+checkout payload are asserted equal across a randomised basket set including discounts and returns.
+
+**WP16 — "Am I connected?", and how long a cached login lasts.** *(Matt, 2026-08-08: "when 1st
+logging into MAUI, it needs to show if it's connected to the internet and can see the back end.
+[Then] store local credentials if it loses internet access.")*
+
+*16a — the connection indicator.* ⚠ **"Offline" is three different faults wearing one word**, and
+the operator standing at the till is the person who has to act on the difference: no network (their
+cable/wifi), no server (nothing they can do at the till), or **this till has been revoked** (a
+manager's job, and no amount of rebooting the router fixes it). A single red badge sends shops to
+reboot routers over a portal setting. So the till asks two questions in order and reports which one
+failed:
+1. `GET /api/v1/ping` — anonymous, **touches no database**, so it still answers during a MySQL blip
+   and answers for a till that has not enrolled yet or has been revoked.
+2. `GET /api/v1/tills/devices/{deviceId}/status` — the device's standing. ⚠ **Not** a token mint:
+   `POST /api/v1/tokens/device` is rate-limited 5/min per IP, so probing it would make a healthy
+   till report itself revoked, and in a shop where several tills share one public IP they would do
+   it to each other. Device status is also the **only** revocation signal that reaches a till, since
+   device tokens have no server-side denylist.
+The states, the wording and the two-step order live in `Plutus.Client.Core.ConnectivityProbe` — one
+implementation, so the web till and any future macOS/Linux till give the same answer.
+⚠ **The web till is behind here, not ahead.** It uses `navigator.onLine` only (`App.tsx:60`), which
+reports the network interface and never asks whether the server is there — so it shows "online" in a
+shop whose broadband is down. Bringing it onto the same probe is part of this WP, per the parity
+rule.
+
+*16b — offline credentials.* Today MAUI's login reads `EmployeeModel` straight out of the legacy
+SQLite file and verifies with `Helpers.Security.Password.Verify` — **entirely local, with no server
+involvement and no expiry at all**, which is risk #4 in unbounded form. WP8 replaces the source
+(server-synced `LocalOperator` rows); this WP bounds the trust. The horizons live in
+`Plutus.SharedKernel.OfflineCredentials` and are **tiered by what the permission can do**, because
+one number cannot satisfy all three constraints at once — see §9 default 8 for the numbers and the
+reasoning.
+*DoD:* the three connection states are distinguishable on the login screen against a real backend —
+including **revoked reading as revoked, not as offline**; the probe never calls the token endpoint;
+a hanging server is bounded by the timeout and never blocks sign-in; a till 8 days stale signs in
+and sells but cannot refund; a till 31 days stale is refused with a message naming the fix; a
+session ends at the business-day rollover; **the web till reports "server unreachable" when the
+backend is down but the network is up.**
 
 ---
 
@@ -930,6 +1173,49 @@ before (or after — most are cheap to change) the relevant WP starts. This is t
 | 5 | **Legacy `TillController` in `Plutus.DBService`: deprecate, don't delete.** Mark `[Obsolete]` + doc-comment pointing at `Plutus.Tenancy`'s `TillsController`, note it in HANDOVER. Removal is a separate cleanup once MAUI is live — deleting mid-retrofit risks the NatApp still trading in the shop. | WP4 |
 | 6 | **Card capture stays out of scope** (⏸ both tills, pending a provider decision — risk #8). MAUI copies the web till's gateway-*awareness* display only. | — |
 | 7 | **§3a rulings stand**: everything found by the parity audit is IN, homed per §3a/§4 (gift cards = WP13, platform citizenship = WP5b, receipt template + refund baskets = WP3, users = WP8, cross-till refunds = WP11, Bin/untracked/add-unknown = WP10, theming = WP7). | §4 order |
+| 8 | **Offline credential horizons are TIERED, and a till never hard-locks out of selling.** Numbers and reasoning below; implemented in `Plutus.SharedKernel.OfflineCredentials`. | WP8, WP16 |
+
+### 9.8 — How long a cached login lasts (the numbers, and why)
+
+Matt asked for a recommendation. **The recommendation is to stop asking for one number**, because
+three constraints pull in different directions and any single value loses two of them:
+
+| Constraint | What it wants |
+|---|---|
+| **Keep selling** | A shop whose till refuses logins during an outage falls back to a cash tin and paper — which is a *worse* compliance event than a stale staff roster, because it produces no HMRC-attributable records at all. |
+| **Shrink the theft** | A stolen till holds operators' **platform** passwords at PBKDF2-HMAC-SHA1 / 101,010 iterations — ~13× below current OWASP guidance for that PRF — and they work on the web till too. |
+| **Reach the leaver** | Nothing can be *pushed* to an offline till (risk #5). Expiry is the **only** mechanism that ever revokes a dismissed employee on one, so this horizon *is* the erasure SLA you can put in a DPA. |
+
+Tiering by what the permission can do satisfies all three. Ringing up sales is how a shop survives
+an outage and is worth almost nothing to a thief — the money lands in the ledger. Refunds, cash-out
+and price overrides are how a stolen till becomes cash, and are exactly what a shop can live
+without for a few days.
+
+| Lifetime | Value | Why that number |
+|---|---|---|
+| **Money-out permissions** (refund, void, discount, no-sale, price override, all admin) | **7 days** since the last operator sync | Covers the realistic UK worst case — a Friday-night line fault on an end-of-next-working-day care level, over a bank holiday, is ~5 days — and is short enough to state as an erasure SLA inside the UK GDPR Art 12(3) one-month window *even if the request lands on day one of an outage*. |
+| **Selling** (`pos.sell`, `support.tickets`) | **30 days** | The alternative to a stale roster is a shop that cannot trade. It also covers the two cases that actually meet this boundary: the spare till from the cupboard, powered on the morning the main one dies, and a convention/pop-up till offline for a planned week. |
+| **Warning** | from **3 days** | A warning that first appears an hour before the cliff is decoration. Its whole job is to get someone to plug the cable in while that is still enough. |
+| **Idle lock** | **15 min** | PCI-DSS 8.2.8's figure, and right on its merits for an unattended shop-floor device. ⚠ It **locks, it does not log out** — the basket survives, unlock is one password entry. That is what makes it cost seconds rather than sales. |
+| **Absolute session** | **min(12h, business-day rollover, Z-close)** | Matches the server's own token TTL. The rollover is the load-bearing half: a session spanning two days attributes the incoming shift's sales to the outgoing operator — silently, in exactly the records HMRC would ask about. |
+| **Server operator token** | **keep 12h** | The TTL is not the problem; **irrevocability** is. See below. |
+
+**At every boundary the till degrades, it never bricks.** Past 7 days: sells normally, refunds and
+manager functions withheld, screen says so in shop English. Past 30 days: offline sign-in refused,
+with a manager break-glass extension as the escape hatch. The floor set is an **allow-list**
+(`OfflineCredentials.SellFloor`), so a permission added to the catalogue next year is withdrawn when
+stale until someone deliberately says otherwise.
+
+⚠ **Two server-side findings that make these numbers enforceable — neither is optional.**
+1. **`POST /api/Auth/Login` does not check `Employee.Active`.** Deactivating a user leaves their
+   `WebCredentials` row intact, so they can still sign in and get a full 12h token. An offline
+   expiry policy is theatre while the online path lets a deactivated user straight back in. → WP8.
+2. **There is no server-side session revocation for any principal.** Tokens are HMAC bearer tokens
+   checked for signature and `exp` only — no denylist, no DB lookup. Revoking a device or resetting
+   a password stops the *next* sign-in and does not eject a live session. The cheap fix is a
+   per-user `TokenEpoch` integer emitted as a claim and compared on each request (one indexed,
+   cacheable lookup), which turns 12 hours of irrevocability into seconds. **Recommended, not yet
+   scheduled — Matt's call.**
 
 ---
 

@@ -102,6 +102,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- MAUI retrofit WP16: the till's shared half. These three are plain net10.0 with no packages
+         and no MAUI (held by two architecture tests), so referencing them adds nothing to the app
+         bundle but the rules themselves. ⚠ The direction matters: MAUI may reference these; they
+         may never reference MAUI, or a macOS/Linux till stops being a build target. -->
+    <ProjectReference Include="..\..\..\src\Plutus.SharedKernel\Plutus.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\..\src\Plutus.Contracts.Client\Plutus.Contracts.Client.csproj" />
+    <ProjectReference Include="..\..\..\src\Plutus.Client.Core\Plutus.Client.Core.csproj" />
     <ProjectReference Include="..\..\Shared\CommonPOSLibrary\CommonPOSLibrary.csproj" />
     <ProjectReference Include="..\..\Shared\CustomViews\CustomViews.csproj" />
     <ProjectReference Include="..\..\Data\Database\Database.csproj" />

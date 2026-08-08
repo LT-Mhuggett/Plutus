@@ -53,6 +53,49 @@
                 </StackLayout>
             </Grid>
             <Button Text="{i18N:Translate Submit}" Command="{Binding LoginCommand}" IsEnabled="{Binding Source={x:Reference form}, Path=IsValid}"/>
+
+            <!-- WP16a: the connection indicator.
+                 Below the sign-in button ON PURPOSE. It is information, not a gate — an operator
+                 whose shop is offline must still be able to sign in and sell, so nothing here
+                 blocks, disables or delays the button above it. Tap to re-check. -->
+            <Grid Margin="0,16,0,0" ColumnSpacing="8" RowSpacing="2">
+                <Grid.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding RefreshConnectionCommand}"/>
+                </Grid.GestureRecognizers>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Colour is a hint, never the message: red/amber/green alone is unreadable to
+                     the ~8% of men with a colour-vision deficiency, and this text is what tells
+                     someone which of three different people to ring. -->
+                <Ellipse Grid.Row="0" Grid.Column="0" WidthRequest="10" HeightRequest="10"
+                         VerticalOptions="Center" Fill="{Binding ConnectionColour}"/>
+                <ActivityIndicator Grid.Row="0" Grid.Column="0" WidthRequest="12" HeightRequest="12"
+                                   VerticalOptions="Center"
+                                   IsVisible="{Binding IsCheckingConnection}"
+                                   IsRunning="{Binding IsCheckingConnection}"/>
+                <Label Grid.Row="0" Grid.Column="1" FontSize="Small" VerticalOptions="Center"
+                       Text="{Binding ConnectionSummary}"/>
+                <Label Grid.Row="1" Grid.Column="1" FontSize="Micro" Opacity="0.7"
+                       Text="{Binding ConnectionDetail}">
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding ConnectionDetail}" Value="{x:Null}">
+                            <Setter Property="IsVisible" Value="False"/>
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
+            </Grid>
+
+            <!-- The build under test. Same number as the web till and the backend (till-version.txt),
+                 so "I'm on 1.1.0" means one thing across the whole platform. -->
+            <Label Margin="0,10,0,0" FontSize="Micro" Opacity="0.6" HorizontalOptions="Center"
+                   Text="{Binding TillVersionText}"/>
         </StackLayout>
     </ContentPage.Content>
 </ContentPage>

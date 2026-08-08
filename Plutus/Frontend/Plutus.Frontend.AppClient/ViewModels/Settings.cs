@@ -35,6 +35,22 @@ namespace Plutus.Frontend.AppClient.ViewModels
         }
 
         /// <summary>
+        /// Where this till's Plutus backend lives.
+        ///
+        /// ⚠ MAUI needs this and the web till never did — a browser till is served from the same
+        /// origin it talks to, so its address is implicit. An installed app has to be told.
+        ///
+        /// WP4 moves the authoritative copy into the local store's <c>Meta.serverUrl</c>, set during
+        /// enrolment. Until then this preference is what the connection check dials, defaulting to
+        /// the test environment so a fresh dev install shows something truthful rather than blank.
+        /// </summary>
+        public string ServerUrlSetting
+        {
+            get => Preferences.Get(nameof(ServerUrlSetting), "https://plutus.huggett.dscloud.me");
+            set => Preferences.Set(nameof(ServerUrlSetting), value);
+        }
+
+        /// <summary>
         /// Cashback enabeld for card transactions
         /// </summary>
         public bool CashbackEnabled

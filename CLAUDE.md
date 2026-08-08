@@ -22,11 +22,23 @@ it exists because both failure modes have already happened here:
 that disagree by a penny on the same basket disagree on every VAT return, forever, and nothing
 flags it.
 
+### ⚠ Parity is the default — new functionality ships to EVERY till
+
+**Matt, 2026-08-08: "The tills need to be in parity. This is the point of the MAUI retrofit. In
+addition when adding new functionality, it needs to be added to all tills going forward."**
+
+A feature is not finished when it works in the browser. It is finished when its Part B row is
+filled in for **every** till — ✅, or a ⬜ whose Notes name the work package that will close it and
+why it can wait. There is no third option, and "we'll do MAUI later" counts only when "later" is a
+WP number. Build shared logic in `Plutus.SharedKernel` / `Plutus.Client.Core` so parity is the
+cheap path, not the disciplined one.
+
 ### The reflex
 
 | When you… | Do this |
 |---|---|
-| Add or change a till capability | Add/update its row in Part B, same commit |
+| Add or change a till capability | Fill its Part B row for **every** till, same commit — see D3 |
+| Ship a feature to one till only | Give the others a ⬜ **with a WP number and a reason**; add the WP if none covers it |
 | Write a rule that could live in more than one place | Put it in `Plutus.SharedKernel`; add a row to C1 |
 | Find yourself copying logic between TypeScript and .NET | Add a row to C2 saying what pins the copies — or state honestly that nothing does |
 | Add a new till surface or platform | Follow D2, then add its column to Part B |

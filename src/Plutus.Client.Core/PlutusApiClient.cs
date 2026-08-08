@@ -37,6 +37,38 @@ public sealed class PlutusApiClient
         _tokens = tokens;
     }
 
+    // ── reachability (anonymous) ──
+
+    /// <summary>
+    /// GET /api/v1/ping — "is there a Plutus backend at this address?", and nothing more. Sends no
+    /// token, so it answers for a till that has not enrolled yet or has been revoked.
+    ///
+    /// ⚠ THIS NEVER THROWS. A probe that throws on a dead network makes every caller wrap it, and
+    /// the one caller that forgets crashes the login screen of a till in a shop with no internet —
+    /// precisely the moment the answer matters most. Failures come back as
+    /// <c>Detail</c>, which is diagnostic text for the Settings panel, never for the sales floor.
+    /// </summary>
+    public async Task<(PingResult? Body, string? Detail)> PingAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, "/api/v1/ping");
+            using var res = await _http.SendAsync(req, ct);
+            if (!res.IsSuccessStatusCode) return (null, $"HTTP {(int)res.StatusCode}");
+            return (await res.Content.ReadFromJsonAsync<PingResult>(Json, ct), null);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw; // the CALLER gave up — that is not a connectivity verdict
+        }
+        catch (Exception e)
+        {
+            // Timeouts, DNS failures, TLS failures, refused connections, HTML error pages from a
+            // misconfigured proxy — all of them mean the same thing to a till: no server.
+            return (null, $"{e.GetType().Name}: {e.Message}");
+        }
+    }
+
     // ── enrolment (anonymous) ──
 
     /// <summary>Redeem a one-time enrolment code. 410 Gone = reused/expired/unknown — surfaced as
@@ -65,6 +97,28 @@ public sealed class PlutusApiClient
     }
 
     // ── authenticated reads ──
+
+    /// <summary>
+    /// Is this device still accepted? Returns the STATUS CODE as well as the body, because the
+    /// codes carry the meaning: 200 answers the question, 401/403 answers it the other way, and a
+    /// throw means the server never got asked.
+    ///
+    /// ⚠ Use THIS, not <see cref="GetDeviceTokenAsync"/>, to check a till's standing on a repeating
+    /// cadence. The token endpoint is rate-limited to 5 requests/minute per IP, so polling it makes
+    /// a healthy till start reporting itself as revoked (429) — and in a shop where several tills
+    /// share one public IP, it makes them do it to each other.
+    /// </summary>
+    public async Task<(HttpStatusCode Status, DeviceStatusResult? Body)> GetDeviceStatusAsync(
+        Guid deviceId, CancellationToken ct = default)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/tills/devices/{deviceId}/status");
+        await AuthoriseAsync(req, ct);
+        using var res = await _http.SendAsync(req, ct);
+        DeviceStatusResult? body = null;
+        try { if (res.IsSuccessStatusCode) body = await res.Content.ReadFromJsonAsync<DeviceStatusResult>(Json, ct); }
+        catch (Exception e) when (e is JsonException or NotSupportedException) { /* non-JSON error page */ }
+        return (res.StatusCode, body);
+    }
 
     public Task<TillNameResult?> GetTillNameAsync(Guid tillId, CancellationToken ct = default) =>
         GetAsync<TillNameResult>($"/api/v1/tills/{tillId}/name", ct);

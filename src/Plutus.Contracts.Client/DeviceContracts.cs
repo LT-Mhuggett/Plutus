@@ -8,6 +8,20 @@ namespace Plutus.Contracts.Client;
 // and Controllers/StoresController.cs.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// <summary>
+/// GET /api/v1/ping — AllowAnonymous, touches no database.
+///
+/// ⚠ This answers "can I reach a Plutus backend", NOT "does the platform still accept this till".
+/// The two questions have different answers and different people to call, and collapsing them is
+/// how an operator ends up rebooting a router because their device credential was revoked. The
+/// second question is <see cref="DeviceTokenRequest"/>.
+///
+/// <c>UtcNow</c> is the server's clock. Device tokens are HMAC-signed with an expiry and VAT bands
+/// are effective-dated, so a till whose own clock has drifted produces sales the server judges
+/// against a different instant — worth warning about before it quarantines a day's takings.
+/// </summary>
+public sealed record PingResult(bool Ok, DateTime UtcNow, string? ApiVersion);
+
 /// <summary>POST /api/v1/tills/enrol — AllowAnonymous, rate-limited.</summary>
 public sealed record EnrolRequest(string EnrolmentCode);
 
@@ -19,6 +33,24 @@ public sealed record EnrolResult(Guid DeviceId, string ClientSecret, Guid TillId
 public sealed record DeviceTokenRequest(Guid DeviceId, string ClientSecret);
 
 public sealed record DeviceTokenResult(string AccessToken, int ExpiresInSeconds);
+
+/// <summary>
+/// GET /api/v1/tills/devices/{deviceId}/status — <c>"Active"</c> | <c>"PendingRemoval"</c> |
+/// <c>"Revoked"</c>. Gated <c>sales.ingest</c>, one indexed lookup.
+///
+/// ⚠ <c>PendingRemoval</c> KEEPS TRADING by design — a manager has asked for the till back but
+/// nobody has approved it, and stopping a shop's till on a request would make un-enrolment a denial
+/// of service. Only <c>Revoked</c> stops.
+///
+/// ⚠ This is the ONLY revocation signal that reaches a till. Device tokens are HMAC bearer tokens
+/// with no server-side denylist, so revoking a device does not invalidate its outstanding token —
+/// the till keeps working for up to its 12h TTL unless it polls this.
+/// </summary>
+public sealed record DeviceStatusResult(string Status)
+{
+    public bool IsRevoked => string.Equals(Status, "Revoked", StringComparison.OrdinalIgnoreCase);
+    public bool IsPendingRemoval => string.Equals(Status, "PendingRemoval", StringComparison.OrdinalIgnoreCase);
+}
 
 /// <summary>GET /api/v1/tills/{id}/name — how a till learns which STORE it belongs to (the key
 /// that makes receipts, store info and themes per-store).</summary>

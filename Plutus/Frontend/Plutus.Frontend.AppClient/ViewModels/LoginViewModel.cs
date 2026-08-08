@@ -28,9 +28,59 @@ namespace Plutus.Frontend.AppClient.ViewModels
         /// </summary>
         private string _password;
 
+        private string _connectionSummary;
+        private string _connectionDetail;
+        private Color _connectionColour = Colors.Gray;
+        private bool _isCheckingConnection;
+
         #endregion
 
         #region Public Properties
+
+        /// <summary>
+        /// What the operator reads: "Connected to Plutus", or which of the three faults it is.
+        ///
+        /// ⚠ WP16a. "Offline" is three problems wearing one word, and the person standing at the
+        /// till is the one who has to act on the difference — check the cable, ring support, or ask
+        /// a manager to re-enrol the device. A single red badge sends shops to reboot routers over
+        /// a portal setting.
+        /// </summary>
+        public string ConnectionSummary
+        {
+            get => _connectionSummary;
+            private set => SetProperty(ref _connectionSummary, value);
+        }
+
+        /// <summary>The diagnostic line — status code, exception, server version. For whoever the
+        /// operator rings, not for the sales floor.</summary>
+        public string ConnectionDetail
+        {
+            get => _connectionDetail;
+            private set => SetProperty(ref _connectionDetail, value);
+        }
+
+        public Color ConnectionColour
+        {
+            get => _connectionColour;
+            private set => SetProperty(ref _connectionColour, value);
+        }
+
+        public bool IsCheckingConnection
+        {
+            get => _isCheckingConnection;
+            private set => SetProperty(ref _isCheckingConnection, value);
+        }
+
+        /// <summary>
+        /// Which build this is — the number from <c>till-version.txt</c>, shared with the web till,
+        /// the portal and the backend.
+        ///
+        /// ⚠ On the LOGIN screen deliberately, not buried in Settings. It is the first thing anyone
+        /// sees, which is what makes it usable in the sentence "I'm testing 1.1.0 and it does X" —
+        /// the thing a build timestamp could never do, because two builds ten minutes apart are
+        /// indistinguishable in a bug report and nobody reads an ISO timestamp down a phone.
+        /// </summary>
+        public string TillVersionText { get; } = $"Till v{Plutus.SharedKernel.TillVersion.Current}";
         public string Email_Userid
         {
             get { return _email_UserId; }
@@ -84,11 +134,58 @@ namespace Plutus.Frontend.AppClient.ViewModels
         }
         #endregion
 
+        #region Refresh connection
+        Command _refreshConnectionCommand;
+
+        /// <summary>Tapping the indicator re-checks. Cheap, and it is the first thing anyone does
+        /// after plugging the cable back in.</summary>
+        public Command RefreshConnectionCommand =>
+            _refreshConnectionCommand ??= new Command(async () => await RefreshConnectionAsync());
+        #endregion
+
         public LoginViewModel()
         {
             Title = "Login";
             Email_UserId_Placeholder = string.Format("{0}/{1} {2}", "EMail".Translate(), "User".Translate(), "Id".Translate());
             App.SetLoading(false);
+
+            // ⚠ Fire and forget, deliberately. Sign-in must NEVER wait on this: the login screen is
+            // exactly where an offline till has to keep working, and a shop with a dead router still
+            // has to trade. The indicator fills itself in a moment later.
+            _ = RefreshConnectionAsync();
+        }
+
+        /// <summary>Runs the shared probe and paints the result. Swallows everything — a broken
+        /// connection check must never be the reason nobody can sign in.</summary>
+        private async Task RefreshConnectionAsync()
+        {
+            if (IsCheckingConnection) return;
+            IsCheckingConnection = true;
+            ConnectionSummary = "Checking connection…";
+            ConnectionDetail = null;
+            ConnectionColour = Colors.Gray;
+            try
+            {
+                var status = await Services.Connectivity.TillConnectionCheck.CheckAsync();
+                ConnectionSummary = status.Summary;
+                ConnectionColour = Services.Connectivity.TillConnectionCheck.ColourFor(status);
+                ConnectionDetail = status.ClockSuspect
+                    // Worth saying out loud: device tokens expire and VAT bands are effective-dated,
+                    // so a till an hour out can have a day's takings judged against a different
+                    // instant — and nothing else in the app would ever mention it.
+                    ? $"⚠ This till's clock is out by {status.ClockSkew:hh\\:mm\\:ss}. {status.Detail}".Trim()
+                    : status.Detail;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex);
+                ConnectionSummary = "Couldn't check the connection.";
+                ConnectionColour = Colors.Gray;
+            }
+            finally
+            {
+                IsCheckingConnection = false;
+            }
         }
 
         public bool CanLogin()
