@@ -316,7 +316,7 @@ export default function StoresPage() {
             <div className="grow">
               <span className="muted small">
                 Enrolment code for “{tills.find((t) => t.id === issued.tillId)?.name ?? "this till"}” — on the till device open
-                Settings → Till device and enter it (single-use, expires {new Date(issued.expires).toLocaleString("en-GB")}).
+                the Plutus tab (or “Connect to Plutus” on first run) and enter it (single-use, expires {new Date(issued.expires).toLocaleString("en-GB")}).
                 Enrolling with it retires that till's current device.
               </span>
               <div className="enrol-code-value mono">{issued.code}</div>
@@ -479,7 +479,7 @@ function TillsTable({ tills, busy, onRename, onRemove, onRevoke, storeId, onNewT
           <div className="grow">
             <span className="muted small">
               Enrolment code for “{tills.find((t) => t.id === issued.tillId)?.name}” — on the till device open
-              Settings → Till device and enter it (single-use, expires {new Date(issued.expires).toLocaleString("en-GB")}).
+              the Plutus tab (or “Connect to Plutus” on first run) and enter it (single-use, expires {new Date(issued.expires).toLocaleString("en-GB")}).
             </span>
             <div className="enrol-code-value mono">{issued.code}</div>
           </div>
