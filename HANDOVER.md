@@ -1,8 +1,10 @@
 # Handover — Plutus platform build
 
-**Date:** 2026-08-08 — Platform on **.NET 10**. All 18 phases + Operator Portal (OP1–OP4), the
+**Date:** 2026-08-09 — Platform on **.NET 10**. All 18 phases + Operator Portal (OP1–OP4), the
 **portal/till refresh (P1–P6)** and **FE1–FE10** built & LIVE. The **MAUI retrofit is underway**:
-WP0–WP4 done (the transport spine), WP2c next. VAT now follows UK law (HMRC Notice 727/701/10).
+WP0–WP5, WP8 and WP2c done — **the backend gap is closed**, and everything left is screen work
+against endpoints that exist and are tested. ⚠ Those endpoints are **not deployed**, which is the
+single thing blocking further screen tests. VAT follows UK law (HMRC Notice 727/701/10).
 Head: see `git log` — this line goes stale; the commits don't.
 
 > 📁 **Docs reorganised 2026-08-07.** `Build/` is now three places: **standards** at the top level,
@@ -13,20 +15,83 @@ Head: see `git log` — this line goes stale; the commits don't.
 > Older references below that say `Build/<plan>.md` now mean `Build/archive/<plan>.md` or
 > `Build/To do/<plan>.md`.
 
-### ⏰⏰⏰⏰⏰ RESUME HERE (2026-08-08, latest — parity sweep, WP16, versions, WP5 backend)
+### ⏰⏰⏰⏰⏰⏰ RESUME HERE (2026-08-09, latest — build guards, versions, and the one blocker)
+
+Suite: **Unit 575 · Architecture 13 · Integration 121 · AppClient 305 (+3 skipped) — all green.**
+Debug and Release both build. Committed on `Matt's-Horror`, **not pushed, not deployed.**
+
+**There is exactly one blocker, and it is not code.**
+
+> ## ⚠ THE BACKEND MUST BE DEPLOYED BEFORE ANY FURTHER SCREEN TEST
+>
+> Every endpoint the MAUI till now depends on — `/api/v1/ping`, `/api/v1/heartbeat`,
+> `/api/v1/catalogue/changes`, `/api/v1/tills/{id}/operators` — exists **in this branch only**. The
+> live server 404s all four. A till pointed at production will show "server too old", fail its
+> heartbeat, and be unable to fetch an operator roster, and none of that is a bug in the till.
+>
+> This is why WP6–13 cannot be verified yet. It is not waiting on more code.
+>
+> ⚠ It carries the **`AddDeviceSyncSignals`** migration. Before deploying: **dump the database**,
+> and run `SELECT w.Email FROM WebCredentials w JOIN Employees e ON e.Id = w.EmployeeId WHERE
+> e.Active = 0;` first. **Deploy only when Matt asks** — and **ETRIE shares that Mac mini: never
+> touch it, and check it is healthy afterwards.**
+
+**What landed today** — nothing user-facing, both about making failure visible earlier:
+
+1. **CI actually runs the tests now** (`87f85a8`). See the CI block below. The trigger ignored the
+   working branch, and the entire modern suite was in no pipeline.
+2. **Debug rejects XAML that cannot work** (`5a99b97`). MAUI inflates XAML at runtime in Debug, so a
+   bad property or a nonexistent Syncfusion type built clean and threw only when a human opened the
+   tab — **that is exactly the 2026-08-08 hand-test crash**. Proven by mutation rather than assumed:
+   with a bogus property on a Label, Debug reported 0 errors and Release reported XC0009; now both
+   report it. ⚠ **Runtime behaviour is deliberately unchanged** — Debug forces `ValidateOnly=true`,
+   so the assembly is not rewritten and pages still inflate at runtime exactly as before. Revert by
+   deleting one `PropertyGroup` in the AppClient csproj if XAML Hot Reload ever misbehaves.
+3. **Versions caught up** (`d39b100`). `till-maui` **1.2.0**, `backend`/`portal`/`platform` **1.1.0**,
+   `till-web` **1.0.0** and `agent` **1.3.3** deliberately unchanged — from `git log`, not memory;
+   the web till genuinely has not moved, which is what WP17 is about. The Windows head now stamps
+   **`1.2.0+5a99b97`**, so a screen test names a version and a version names a commit.
+
+**Known and deferred, in writing rather than forgotten:** the MAUI till has **703 uncompiled
+bindings** (no `x:DataType`). Not new — Release has printed the identical 703 all along; Debug had
+simply never looked. Nothing is broken today; it bites whoever first tries to trim or AOT the
+Windows head, as pages blank in Release only. Not suppressed, because silencing 700 warnings the
+moment they become visible defeats the point. Fix per-view during WP6–13. Plan §7 risk 9.
+
+**Still open** (unchanged): **WP17** — the web till is behind MAUI on three rows (no offline
+sign-in, first-match on an ambiguous VAT band, still on `navigator.onLine`). **WP8's Users screen**
+and **WP6–13**, all needing a device. **`TokenEpoch`** — there is still no server-side session
+revocation for any principal. **Four TypeScript edits remain untypechecked** (two vite configs, the
+StoresPage portal text, `NewTillAnywhere`) — no Node locally; they can be checked on the Mac with a
+restore afterwards, which is Matt's call.
+
+---
+
+### ⏰⏰⏰⏰⏰ RESUME HERE (2026-08-08 — parity sweep, WP16, versions, WP5 backend)
 
 Suite: **Unit 575 · Architecture 13 · Integration 121 · AppClient 305 (+3 skipped) — all green.**
 Committed on `Matt's-Horror`, **not pushed, not deployed.**
 
-> ### ⚠ CI: what it does and does NOT guard — read before trusting a green tick
+> ### ✅ CI now guards what it claimed to — both holes closed (2026-08-09, `87f85a8` + `5a99b97`)
 >
-> `.github/workflows/ci.yml` runs on **`master` and PRs** — the working branch is `Matt's-Horror`
-> pushed to `upstream`, so **a plain push may run nothing at all**.
+> This block used to be a warning. Both problems are fixed; keeping the history because the *shape*
+> of the mistake is worth remembering — CI was green, and green meant much less than it looked.
 >
-> ⚠ **It does not run the modern suites.** It runs `Plutus.Entities.Tests` and
-> `Plutus.Repository.Tests` (the two legacy MySQL projects) plus `AppClient.Tests`. **Unit 575 ·
-> Architecture 13 · Integration 121 — the entire modern suite — is guarded only by someone running
-> it locally.** Worth adding; it is three lines per project.
+> - **The trigger listed only `master`.** The working branch is `Matt's-Horror`, so a plain push —
+>   which is most pushes — **ran nothing at all**. Now `branches: [ master, "Matt's-Horror" ]`.
+> - **The modern suites were in no pipeline.** Unit 575 · Architecture 13 · Integration 121 — every
+>   VAT rule, every till-client rule, the whole modern backend — were guarded solely by whoever
+>   remembered to run them locally. Now a `platform-tests` job. It needs **no MySQL service and no
+>   MAUI workload**: all three are plain `net10.0`, and Integration hosts the real controllers
+>   through `PlutusAppFactory` on in-memory SQLite with its own secrets. That is why it is separate
+>   from `backend-tests`, which exists *only* for the two legacy projects that do need live MySQL.
+> - **Debug never validated XAML**, so CI never did either. Fixed at the project level (see below),
+>   which means `appclient-tests` now validates XAML on every push with no new job.
+>
+> ⚠ Still true: **nothing has been pushed**, so none of this has actually executed on a runner yet.
+> One residual unknown — `openapi.json` was regenerated on Windows and the drift job regenerates on
+> Linux. It has LF endings and no CRLF, so it should match byte-for-byte, but if that job fails on
+> the first push, take the CI-generated artefact rather than assuming the spec is wrong.
 >
 > ⚠ **The `openapi-drift` job WAS going to fail**, and it caught a real problem. Two fixes:
 > - `openapi.json` was stale — it predates every endpoint added this week. **Regenerated** the same
@@ -1653,7 +1718,7 @@ Note: the transitional `Sale/Summary`/`VatIntegrity`/`SaleReport` on Plutus.Sale
 ## 7. Known debts / open decisions
 
 - **Newtonsoft in `TestTokenAuth`** — spec bans Newtonsoft; kept for now (token (de)serialisation). Migrate to System.Text.Json as a later cleanup (safe: validation works on the raw string; only issue-time JSON changes).
-- **No git remote** — decide (GitHub private repo?) so work is backed up off-machine and CI can run. Currently one disk = single point of failure.
+- ~~**No git remote**~~ — **stale, corrected 2026-08-09.** Two exist: `origin` (`LT-Mhuggett/Plutus`) and `upstream` (`seank842/Plutus`). ⚠ **The live debt is that nothing has been pushed:** `Matt's-Horror` is **22 commits ahead of `upstream/Matt's-Horror`**, so the original concern — one disk, single point of failure — is now concrete rather than theoretical, and it also means the CI fixes have never actually run on a runner. Pushing is Matt's call, not an autonomous one.
 - **B2C tenant** — the real auth blocker (architecture §11); `TestTokenAuth` is the stand-in seam. Deferred by Matt.
 - **VAT legacy data** — 47 off-band items + NatApp `DiscountRate=0` regression documented in `VAT-FixLater-Report-2026-07-23.md`; guardrails live, legacy data intentionally not repaired.
 - **NatApp bug fixes are code-only, NOT build-verified** (no Xamarin toolchain here) — build in Visual Studio before shipping to the shop.
