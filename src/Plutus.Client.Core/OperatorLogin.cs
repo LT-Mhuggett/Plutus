@@ -163,6 +163,103 @@ public sealed class OperatorLogin
                 assessment.Age, assessment.ShouldWarn, assessment.Message),
             LoginFailure.None, assessment.Message);
     }
+
+    /// <summary>
+    /// A second operator authorises ONE action the signed-in one cannot do.
+    ///
+    /// ⚠ This is a money path. Three things it must never become:
+    /// <list type="bullet">
+    /// <item>a way to <b>escalate yourself</b> — the same person authorising their own action is
+    /// refused outright, however senior they are;</item>
+    /// <item>a way to <b>bypass the ceiling</b> — the supervisor's own limit applies, so a £20
+    /// supervisor cannot wave through a £200 refund;</item>
+    /// <item>a way to <b>bypass staleness</b> — a roster too old to be trusted with refunds is too
+    /// old to authorise one. Otherwise every stale-till restriction has a trivial workaround, which
+    /// makes it decoration.</item>
+    /// </list>
+    ///
+    /// ⚠ It grants exactly ONE action. There is no override "mode": the returned <see cref="Override"/>
+    /// is a record of a single decision, which is what gets attached to that sale and nothing else.
+    /// </summary>
+    /// <param name="requestedBy">The operator who hit the wall — recorded so the audit names both.</param>
+    public async Task<OverrideResult> AuthoriseOverrideAsync(
+        SignedInOperator requestedBy,
+        string emailOrId,
+        string password,
+        string permission,
+        long? amountPence = null,
+        DateTime? nowLocal = null,
+        CancellationToken ct = default)
+    {
+        if (requestedBy is null) throw new ArgumentNullException(nameof(requestedBy));
+
+        var signIn = await SignInAsync(emailOrId, password, ct);
+        if (!signIn.Succeeded)
+            return new OverrideResult(null, OverrideFailure.NotAuthenticated, signIn.Message);
+
+        var authoriser = signIn.Operator!;
+
+        // ⚠ Self-authorisation is not an override. Checked BEFORE the permission test so the
+        // message says the real reason rather than "you don't have permission" to someone who does.
+        if (authoriser.UserId == requestedBy.UserId)
+            return new OverrideResult(null, OverrideFailure.SamePerson,
+                "An override has to be authorised by someone else.");
+
+        // The supervisor's OWN Can() — which applies their ceiling, their time window and the
+        // staleness tier. Nothing about being an override relaxes any of it.
+        if (!authoriser.Can(permission, amountPence, nowLocal))
+        {
+            // Distinguish "not allowed at all" from "not for this much": one is the wrong person,
+            // the other is the wrong person for THIS, and they lead to different next steps.
+            var atAll = authoriser.Can(permission, null, nowLocal);
+            return atAll
+                ? new OverrideResult(null, OverrideFailure.OverTheirCeiling,
+                    $"{authoriser.DisplayName} can't authorise an amount this large.")
+                : new OverrideResult(null, OverrideFailure.NotPermitted,
+                    $"{authoriser.DisplayName} doesn't have permission to authorise that.");
+        }
+
+        return new OverrideResult(
+            new Override(requestedBy.UserId, authoriser.UserId, authoriser.DisplayName,
+                permission, amountPence, _utcNow()),
+            OverrideFailure.None,
+            $"Authorised by {authoriser.DisplayName}.");
+    }
+}
+
+/// <summary>
+/// Who authorised an action the signed-in operator could not do themselves.
+///
+/// ⚠ This is what goes in the audit trail, and it must name BOTH people. "A refund was authorised"
+/// is worthless; "Sam rang it, Priya authorised it" is the record that makes a ceiling mean
+/// anything. Recording only the supervisor would also quietly re-attribute the sale.
+/// </summary>
+public sealed record Override(
+    Guid RequestedByUserId,
+    Guid AuthorisedByUserId,
+    string AuthorisedByName,
+    string Permission,
+    long? AmountPence,
+    DateTime AtUtc);
+
+/// <summary>Why an override was refused. Each says something different to the person holding the
+/// screen, and collapsing them into "no" is how a shop stops trusting the till.</summary>
+public enum OverrideFailure
+{
+    None = 0,
+    /// <summary>The second operator's credentials did not check out.</summary>
+    NotAuthenticated,
+    /// <summary>They signed in fine — they simply do not hold the permission either.</summary>
+    NotPermitted,
+    /// <summary>They hold it, but not for this much.</summary>
+    OverTheirCeiling,
+    /// <summary>They authorised themselves. ⚠ Not an override at all.</summary>
+    SamePerson,
+}
+
+public sealed record OverrideResult(Override? Granted, OverrideFailure Failure, string Message)
+{
+    public bool Succeeded => Granted != null;
 }
 
 /// <summary>Pulls the roster down and caches it.</summary>

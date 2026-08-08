@@ -237,6 +237,133 @@ public class OperatorLoginTests
         Assert.True(op.Can(PermissionCatalogue.PosRefund, 1_000_000));
     }
 
+    // ── supervisor override ──
+
+    private async Task<SignedInOperator> SignedIn(OperatorLogin login, string email, string password) =>
+        (await login.SignInAsync(email, password)).Operator!;
+
+    [Fact]
+    public async Task A_supervisor_can_authorise_what_a_cashier_cannot()
+    {
+        var cashier = Operator("sam@kapow.test", "S3cret!", Grant(PermissionCatalogue.PosSell));
+        var supervisor = Operator("priya@kapow.test", "Sup3r!", Grant(PermissionCatalogue.PosRefund, max: 5000));
+        var (login, _) = Build(Now, cashier, supervisor);
+
+        var sam = await SignedIn(login, "sam@kapow.test", "S3cret!");
+        Assert.False(sam.Can(PermissionCatalogue.PosRefund, 2000));
+
+        var result = await login.AuthoriseOverrideAsync(
+            sam, "priya@kapow.test", "Sup3r!", PermissionCatalogue.PosRefund, 2000);
+
+        Assert.True(result.Succeeded);
+        // ⚠ BOTH names. "A refund was authorised" is worthless; naming only the supervisor would
+        // quietly re-attribute the sale.
+        Assert.Equal(sam.UserId, result.Granted!.RequestedByUserId);
+        Assert.Equal(supervisor.UserId, result.Granted.AuthorisedByUserId);
+        Assert.Equal(2000, result.Granted.AmountPence);
+    }
+
+    [Fact]
+    public async Task You_cannot_authorise_your_OWN_action()
+    {
+        // ⚠ Otherwise "override" is just a second password prompt on the way to doing whatever you
+        // liked — an escalation path, not a control.
+        var op = Operator("mgr@kapow.test", "S3cret!", Grant(PermissionCatalogue.PosRefund));
+        var (login, _) = Build(Now, op);
+        var mgr = await SignedIn(login, "mgr@kapow.test", "S3cret!");
+
+        var result = await login.AuthoriseOverrideAsync(
+            mgr, "mgr@kapow.test", "S3cret!", PermissionCatalogue.PosRefund, 1000);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(OverrideFailure.SamePerson, result.Failure);
+    }
+
+    [Fact]
+    public async Task An_override_does_NOT_bypass_the_supervisors_own_ceiling()
+    {
+        // A £20 supervisor cannot wave through a £200 refund. If they could, every ceiling in the
+        // system would be advisory.
+        var cashier = Operator("sam@kapow.test", "S3cret!", Grant(PermissionCatalogue.PosSell));
+        var supervisor = Operator("priya@kapow.test", "Sup3r!", Grant(PermissionCatalogue.PosRefund, max: 2000));
+        var (login, _) = Build(Now, cashier, supervisor);
+        var sam = await SignedIn(login, "sam@kapow.test", "S3cret!");
+
+        var result = await login.AuthoriseOverrideAsync(
+            sam, "priya@kapow.test", "Sup3r!", PermissionCatalogue.PosRefund, 20_000);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(OverrideFailure.OverTheirCeiling, result.Failure);
+    }
+
+    [Fact]
+    public async Task Someone_without_the_permission_at_all_is_told_THAT_not_the_ceiling()
+    {
+        // Two different next steps: "get someone else" vs "get someone more senior".
+        var cashier = Operator("sam@kapow.test", "S3cret!", Grant(PermissionCatalogue.PosSell));
+        var other = Operator("alex@kapow.test", "Oth3r!", Grant(PermissionCatalogue.PosSell));
+        var (login, _) = Build(Now, cashier, other);
+        var sam = await SignedIn(login, "sam@kapow.test", "S3cret!");
+
+        var result = await login.AuthoriseOverrideAsync(
+            sam, "alex@kapow.test", "Oth3r!", PermissionCatalogue.PosRefund, 500);
+
+        Assert.Equal(OverrideFailure.NotPermitted, result.Failure);
+    }
+
+    [Fact]
+    public async Task A_wrong_supervisor_password_is_NotAuthenticated()
+    {
+        var cashier = Operator("sam@kapow.test", "S3cret!", Grant(PermissionCatalogue.PosSell));
+        var supervisor = Operator("priya@kapow.test", "Sup3r!", Grant(PermissionCatalogue.PosRefund));
+        var (login, _) = Build(Now, cashier, supervisor);
+        var sam = await SignedIn(login, "sam@kapow.test", "S3cret!");
+
+        var result = await login.AuthoriseOverrideAsync(
+            sam, "priya@kapow.test", "WRONG", PermissionCatalogue.PosRefund, 500);
+
+        Assert.Equal(OverrideFailure.NotAuthenticated, result.Failure);
+    }
+
+    [Fact]
+    public async Task An_override_does_NOT_bypass_STALENESS()
+    {
+        // ⚠ THE ONE THAT MATTERS MOST. A roster too old to be trusted with refunds is too old to
+        // AUTHORISE one — otherwise every staleness restriction has a trivial workaround and the
+        // whole tiering is decoration.
+        var cashier = Operator("sam@kapow.test", "S3cret!", Grant(PermissionCatalogue.PosSell));
+        var supervisor = Operator("priya@kapow.test", "Sup3r!", Grant(PermissionCatalogue.PosRefund));
+        var (login, _) = Build(Now.AddDays(-10), cashier, supervisor);   // past the money-out horizon
+
+        var sam = await SignedIn(login, "sam@kapow.test", "S3cret!");
+        Assert.Equal(OfflineTrust.SellOnly, sam.Trust);
+
+        var result = await login.AuthoriseOverrideAsync(
+            sam, "priya@kapow.test", "Sup3r!", PermissionCatalogue.PosRefund, 500);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(OverrideFailure.NotPermitted, result.Failure);
+    }
+
+    [Fact]
+    public async Task An_override_is_ONE_action_not_a_mode()
+    {
+        // The result is a record of a single decision, carrying the exact permission and amount it
+        // authorised. Nothing about it can be reused for the next line.
+        var cashier = Operator("sam@kapow.test", "S3cret!", Grant(PermissionCatalogue.PosSell));
+        var supervisor = Operator("priya@kapow.test", "Sup3r!", Grant(PermissionCatalogue.PosRefund));
+        var (login, _) = Build(Now, cashier, supervisor);
+        var sam = await SignedIn(login, "sam@kapow.test", "S3cret!");
+
+        var result = await login.AuthoriseOverrideAsync(
+            sam, "priya@kapow.test", "Sup3r!", PermissionCatalogue.PosRefund, 750);
+
+        Assert.Equal(PermissionCatalogue.PosRefund, result.Granted!.Permission);
+        Assert.Equal(750, result.Granted.AmountPence);
+        // The cashier is unchanged — no lingering elevation.
+        Assert.False(sam.Can(PermissionCatalogue.PosRefund, 750));
+    }
+
     [Fact]
     public async Task A_permission_nobody_granted_is_refused_and_so_is_an_unknown_code()
     {
