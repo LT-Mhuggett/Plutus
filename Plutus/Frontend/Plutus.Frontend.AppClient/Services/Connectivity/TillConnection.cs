@@ -73,6 +73,8 @@ namespace Plutus.Frontend.AppClient.Services.Connectivity
         public static Color ColourFor(ConnectionStatus status) => status.State switch
         {
             TillConnection.Online or TillConnection.NotEnrolled => Color.FromArgb("#1B873F"),
+            // Amber: reachable, and cannot serve this till. A deploy fixes it — not a cable.
+            TillConnection.ServerTooOld => Color.FromArgb("#B26A00"),
             // Amber, not red: the server is right there. The fix is in the portal, not the router.
             TillConnection.Rejected => Color.FromArgb("#B26A00"),
             _ => Color.FromArgb("#C1272D"),

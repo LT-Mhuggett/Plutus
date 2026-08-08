@@ -48,14 +48,26 @@ public sealed class PlutusApiClient
     /// precisely the moment the answer matters most. Failures come back as
     /// <c>Detail</c>, which is diagnostic text for the Settings panel, never for the sales floor.
     /// </summary>
-    /// <returns>
-    /// <c>Reached</c> — did anything HTTP-shaped answer at all. ⚠ THIS IS THE ANSWER THAT MATTERS,
-    /// and it is deliberately separate from <c>Body</c>. A **404 still proves the server is there**:
-    /// it means we are talking to a Plutus that predates this endpoint, not to a dead network. A
-    /// till that read 404 as "offline" would report every shop as down for the whole rollout window
-    /// — the mixed-version problem (retrofit risk #7) turned into a self-inflicted outage.
-    /// </returns>
-    public async Task<(bool Reached, PingResult? Body, string? Detail)> PingAsync(CancellationToken ct = default)
+    /// <summary>
+    /// The outcome of a ping, as three separate facts because they have three different fixes.
+    /// </summary>
+    /// <param name="Reached">Did anything HTTP-shaped answer. ⚠ A **404 still means yes** — it says
+    /// we are talking to a Plutus that predates this endpoint, not to a dead network. A till that
+    /// read 404 as "offline" would report every shop as down for the whole rollout window (retrofit
+    /// risk #7) and send people to check cables that were never the problem.</param>
+    /// <param name="Supported">Does this backend actually serve a till of this generation. ⚠ FALSE
+    /// on a reachable but OLDER server, and that distinction is not academic: a till reporting a
+    /// confident "Connected" while its heartbeat and catalogue quietly 404 is worse than one that
+    /// says the server is out of date, because the operator has no way to tell which.</param>
+    public sealed record PingOutcome(bool Reached, bool Supported, PingResult? Body, string? Detail);
+
+    /// <summary>
+    /// GET /api/v1/ping — "is there a Plutus backend at this address, and is it new enough?". Sends
+    /// no token, so it answers for a till that has not enrolled yet or has been revoked.
+    ///
+    /// ⚠ THIS NEVER THROWS. See the class note on <see cref="PingAsync"/>'s callers.
+    /// </summary>
+    public async Task<PingOutcome> PingAsync(CancellationToken ct = default)
     {
         try
         {
@@ -63,22 +75,24 @@ public sealed class PlutusApiClient
             using var res = await _http.SendAsync(req, ct);
 
             if (res.StatusCode == HttpStatusCode.NotFound)
-                return (true, null, "Server reached, but it predates /api/v1/ping (older backend).");
+                return new PingOutcome(true, false, null,
+                    "This server predates /api/v1/ping, so it also has no heartbeat or catalogue feed for this till.");
 
             if (!res.IsSuccessStatusCode)
                 // Still an answer, so still reachable — a 500 or a 502 is a sick server, not an
-                // absent one, and telling an operator to check their cable would waste their time.
-                return (true, null, $"Server reached but answered HTTP {(int)res.StatusCode}.");
+                // absent one, and "check your cable" would waste the one person who could ring
+                // support. Assume supported: a sick server is not an old one.
+                return new PingOutcome(true, true, null, $"Server reached but answered HTTP {(int)res.StatusCode}.");
 
             try
             {
-                return (true, await res.Content.ReadFromJsonAsync<PingResult>(Json, ct), null);
+                return new PingOutcome(true, true, await res.Content.ReadFromJsonAsync<PingResult>(Json, ct), null);
             }
             catch (Exception e) when (e is JsonException or NotSupportedException)
             {
                 // A captive portal or a proxy returning an HTML login page. Something answered, but
                 // it was not Plutus.
-                return (false, null, "Something answered that address, but it was not Plutus.");
+                return new PingOutcome(false, false, null, "Something answered that address, but it was not Plutus.");
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -89,7 +103,7 @@ public sealed class PlutusApiClient
         {
             // Timeouts, DNS failures, TLS failures, refused connections — all of them mean the same
             // thing to a till: nothing is there.
-            return (false, null, $"{e.GetType().Name}: {e.Message}");
+            return new PingOutcome(false, false, null, $"{e.GetType().Name}: {e.Message}");
         }
     }
 

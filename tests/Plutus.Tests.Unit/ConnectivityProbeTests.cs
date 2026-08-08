@@ -124,17 +124,26 @@ public class ConnectivityProbeTests
     }
 
     [Fact]
-    public async Task An_OLDER_backend_with_no_ping_endpoint_still_reads_as_REACHABLE()
+    public async Task An_OLDER_backend_with_no_ping_endpoint_is_REACHABLE_but_TOO_OLD()
     {
-        // ⚠ THE ROLLOUT BUG THIS PREVENTS. /api/v1/ping is new. A till pointed at a backend that
-        // predates it gets a 404 — and a 404 is proof the server IS there. Reading it as "offline"
-        // would report every shop in the estate as down for the whole rollout window (retrofit
-        // risk #7, mixed versions) and send people to check cables that were never the problem.
+        // ⚠ THE REAL CASE, met on 2026-08-08 and it cost a testing session. The live backend had no
+        // /api/v1/ping, so it also had no heartbeat and no catalogue feed. Two wrong answers were
+        // available and both were tried:
+        //   "offline"   — sends people to check cables that were never the problem, and would
+        //                 report every shop in the estate as down for the whole rollout window.
+        //   "connected" — a confident green tick while every feature quietly 404s, with nothing on
+        //                 screen able to say which half was broken.
+        // The honest answer is its own state: reachable, and too old to serve this till. The fix is
+        // a deploy.
         var handler = new RoutingHandler { PingStatus = HttpStatusCode.NotFound };
         var status = await Probe(handler, FakeCredentials.Enrolled()).CheckAsync();
 
+        Assert.Equal(TillConnection.ServerTooOld, status.State);
         Assert.True(status.ServerReachable);
-        Assert.Equal(TillConnection.Online, status.State);
+        Assert.False(status.IsOnline);
+        Assert.Contains("too old", status.Summary, StringComparison.OrdinalIgnoreCase);
+        // It must NOT go on to blame the device — the device was never asked about.
+        Assert.DoesNotContain(handler.Paths, p => p.Contains("/status"));
     }
 
     [Fact]

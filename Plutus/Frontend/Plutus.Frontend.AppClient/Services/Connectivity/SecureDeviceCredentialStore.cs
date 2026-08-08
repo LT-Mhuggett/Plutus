@@ -30,6 +30,20 @@ namespace Plutus.Frontend.AppClient.Services.Connectivity
 
         private SecureDeviceCredentialStore() { }
 
+        /// <summary>
+        /// Has this machine been enrolled? Synchronous and cheap, because start-up routing needs the
+        /// answer before anything is awaited.
+        ///
+        /// ⚠ Checks only the device ID in <see cref="Preferences"/>, not the secret in
+        /// <see cref="SecureStorage"/> — deliberately. The secret needs an async read, and reading
+        /// it here would either block the UI thread at launch or force the whole start-up path to
+        /// become async. A device id with an unreadable secret is a broken enrolment, and the right
+        /// place to discover that is the Plutus tab, which says so and offers to re-enrol — not a
+        /// silent bounce back to first-run setup.
+        /// </summary>
+        public static bool IsEnrolled() =>
+            Guid.TryParse(Preferences.Get(DeviceIdKey, null), out var id) && id != Guid.Empty;
+
         /// <summary>Load what is already on this machine. A first run finds nothing, which is a
         /// state — "not enrolled" — and not a failure.</summary>
         public static async System.Threading.Tasks.Task<SecureDeviceCredentialStore> LoadAsync()

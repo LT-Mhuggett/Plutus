@@ -44,6 +44,17 @@ public enum TillConnection
     /// fixes it.</summary>
     Rejected = 2,
 
+    /// <summary>
+    /// The backend answered but is an OLDER version that cannot serve this till — no ping, and
+    /// therefore no heartbeat and no catalogue feed either.
+    ///
+    /// ⚠ Its own state because "connected" and "working" came apart here and cost a real testing
+    /// session: the till said *Connected to Plutus* in green while every feature quietly 404'd, and
+    /// nothing on screen could tell the operator which half was wrong. The fix is a deploy, not a
+    /// cable and not the portal.
+    /// </summary>
+    ServerTooOld = 5,
+
     /// <summary>The backend answered, but this till holds no device credential yet. A first run,
     /// not a fault.</summary>
     NotEnrolled = 3,
@@ -70,7 +81,8 @@ public sealed record ConnectionStatus(
 
     /// <summary>Something Plutus-shaped answered. True even when this till was rejected — that is
     /// the point of separating the two questions.</summary>
-    public bool ServerReachable => State is TillConnection.Rejected or TillConnection.NotEnrolled or TillConnection.Online;
+    public bool ServerReachable => State is TillConnection.Rejected or TillConnection.NotEnrolled
+        or TillConnection.Online or TillConnection.ServerTooOld;
 
     /// <summary>Fully online: reachable AND this till is accepted. The only state in which
     /// server-backed features (credit tender, cross-till refunds, reports) may be offered.</summary>
@@ -163,39 +175,41 @@ public sealed class ConnectivityProbe
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(Timeout);
 
-        // Step 1 — is a Plutus backend there at all? Anonymous, no database, no token.
-        bool reached;
-        PingResult? ping;
-        string? detail;
+        // Step 1 — is a Plutus backend there at all, and is it new enough? Anonymous, no database,
+        // no token.
+        PlutusApiClient.PingOutcome ping;
         try
         {
-            (reached, ping, detail) = await _api.PingAsync(timeout.Token);
+            ping = await _api.PingAsync(timeout.Token);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            reached = false;
-            ping = null;
-            detail = $"No reply within {Timeout.TotalSeconds:0}s.";
+            ping = new PlutusApiClient.PingOutcome(false, false, null, $"No reply within {Timeout.TotalSeconds:0}s.");
         }
 
-        if (!reached)
+        if (!ping.Reached)
             return new ConnectionStatus(
                 TillConnection.NoServer,
                 "Can't reach Plutus — the network is up but the server didn't answer.",
-                detail, startedAt, clock.Elapsed, null);
-
-        // ⚠ ping may be NULL here and that is fine — an older backend with no /ping still answered,
-        // which is what "reachable" means. We lose the version and the clock check, not the verdict.
-        // The alternative would report every shop as offline for the whole rollout window.
+                ping.Detail, startedAt, clock.Elapsed, null);
 
         // The server's clock, against ours. Measured from the START of the call so a slow link
-        // reads as latency rather than drift.
-        TimeSpan? skew = ping is null ? null : ping.UtcNow - startedAt;
-        var versionDetail = ping?.ApiVersion is null ? detail : $"Server v{ping.ApiVersion}";
+        // reads as latency rather than drift. Null on an older server, which has no ping to ask.
+        TimeSpan? skew = ping.Body is null ? null : ping.Body.UtcNow - startedAt;
+        var versionDetail = ping.Body?.ApiVersion is null ? ping.Detail : $"Server v{ping.Body.ApiVersion}";
+
+        // ⚠ Reachable but TOO OLD. Stopping here is the honest answer: without /ping this server
+        // also has no heartbeat and no catalogue feed, so reporting a confident "Connected" would
+        // leave an operator watching every feature 404 with no idea why. The fix is a deploy.
+        if (!ping.Supported)
+            return new ConnectionStatus(
+                TillConnection.ServerTooOld,
+                "Connected, but this Plutus server is too old for this till.",
+                ping.Detail, startedAt, clock.Elapsed, null);
 
         if (!verifyIdentity)
             return new ConnectionStatus(
-                TillConnection.Online, "Server reachable.",
+                TillConnection.Online, "Connected to Plutus.",
                 versionDetail,
                 startedAt, clock.Elapsed, skew);
 

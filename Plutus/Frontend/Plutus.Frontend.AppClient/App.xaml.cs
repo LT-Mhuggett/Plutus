@@ -38,13 +38,22 @@ namespace Plutus.Frontend.AppClient
 
             BindingContext = new AppViewModel();
 
-            if (((AppViewModel)BindingContext).DatabaseProviderSetting == null
-                || !Helpers.Database.Database.LocalDbExist())
-            {
-                MainPage = new Views.FirstTimeStartUp.FTSUMainView();
-            }
-            else
-                MainPage = new LoginView();
+            // Where a till starts (2026-08-08, Matt: "When you have enrolled a till, what is the
+            // point of seeing the Connect to Plutus tab? You should just get a log in screen").
+            //
+            // ⚠ ENROLMENT is the question now, not whether a local database exists. A
+            // portal-provisioned till has a device credential and NO local database — under the old
+            // test it was sent to first-run setup for ever, however many times it enrolled.
+            //
+            // Connect-to-Plutus stays reachable as a tab inside the shell, which is where it belongs
+            // once the till is working: diagnostics, not a doorway.
+            var enrolled = Services.Connectivity.SecureDeviceCredentialStore.IsEnrolled();
+            var hasLegacyDb = ((AppViewModel)BindingContext).DatabaseProviderSetting != null
+                              && Helpers.Database.Database.LocalDbExist();
+
+            MainPage = enrolled || hasLegacyDb
+                ? new LoginView()
+                : new Views.FirstTimeStartUp.FTSUMainView();
 
             _app = this;
         }

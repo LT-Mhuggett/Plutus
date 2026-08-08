@@ -205,6 +205,25 @@ namespace Plutus.Frontend.AppClient.ViewModels
             App.SetLoading(true);
             try
             {
+                // ⚠ An ENROLLED till with no staff on it is not a wrong password, and saying so
+                // sends someone hunting for a typo that isn't there. This till has no accounts at
+                // all: WP8 (operator sync) is what will put them here, and until it lands the only
+                // source is the legacy local setup.
+                //
+                // ⚠ Note DatabaseProvider.Sqlite is 0, so a NULL setting parses to "local SQLite"
+                // rather than failing — which is exactly how this came out as "details not correct"
+                // instead of "there is nobody to sign in as".
+                if (!Helpers.Database.Database.LocalDbExist())
+                {
+                    await App.Current.MainPage.DisplayAlert(
+                        "No staff on this till yet",
+                        "This till is connected to Plutus but has no staff accounts on it.\n\n" +
+                        "Syncing staff from the portal isn't built yet. Until then, use the Plutus " +
+                        "tab to check the connection, or set the till up locally from first-run setup.",
+                        "OK");
+                    return;
+                }
+
                 Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
                 using (var dbHelper = new Helpers.Database.Database(databaseProvider))
                 {
