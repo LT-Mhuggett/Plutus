@@ -13,7 +13,146 @@ Head: see `git log` — this line goes stale; the commits don't.
 > Older references below that say `Build/<plan>.md` now mean `Build/archive/<plan>.md` or
 > `Build/To do/<plan>.md`.
 
-### ⏰⏰⏰⏰ RESUME HERE (2026-08-08, later)
+### ⏰⏰⏰⏰⏰ RESUME HERE (2026-08-08, latest — parity sweep + WP16)
+
+Suite: **Unit 483 · Architecture 13 · Integration 105 · AppClient 295 (+3 skipped) — all green.**
+Working tree has **uncommitted** WP16 work; nothing deployed.
+
+#### Matt made parity BINDING (2026-08-08)
+
+> *"The tills need to be in parity. This is the point of the MAUI retrofit. In addition when adding
+> new functionality, it needs to be added to all tills going forward."*
+
+That is now rule 1 of `Build/till-design.md`'s binding rule, with the procedure in **D3** and the
+reflex table in **`CLAUDE.md`**. A feature is finished when its Part B row is filled for **every**
+till — ✅, or a ⬜ whose Notes name the WP that closes it. No WP, not finished.
+
+**The audit that followed found the register and the plan had drifted apart, in both directions.**
+`till-design.md` D1 listed nine items as "not in any work package" while the retrofit plan's §3a had
+*ruled six of them in* months ago — and three of those rulings had **never been written into a WP
+body**, so they looked done and were not buildable. Cross-checking every Part B row against the
+actual bodies found **seven capabilities with no specification at all** and **four more specified
+but gated by no DoD**. All are homed now:
+
+| Was | Now |
+|---|---|
+| ⚠ MAUI consuming `GET /api/v1/vat/bands` — **no home at all**; WP2c claimed "both tills cache it", only the web till did, and `GetVatBandsAsync`/`RateBpAt` sat built and uncalled | **WP5** + DoD |
+| Portal-**pushed** theming — WP7 said "port the palette" and would have closed | **WP7b** + DoD |
+| Add-unknown-item · the Bin + untracked stock — ruled into WP10, absent from its body | **WP10** + DoD |
+| Member-number scan-to-attach — ruled into WP12, absent from its body | **WP12** + DoD |
+| Payment-gateway awareness — cited "WP17.2", not a work package in this plan | **WP14** (new) |
+| Web-till test runner + `basketTotals` pin | **WP15** (new) |
+| Shared item-search matcher — attributed to WP1, which **shipped without it** | **WP5** |
+| No DoD: band-consistency guard (WP10) · `426` (WP5) · `LineMeta.vatBand` (WP3) · un-enrol round trip (WP4) · users list/set-password (WP8) · cross-till **reprint** (WP11) | all gated now |
+
+⚠ **The lesson, because it will recur: a ruling in a table is not a specification.** §3a is a
+decision log; §5/§6 are the only half anyone builds from. Cite the **body**.
+
+#### WP16 — "am I connected?" + how long a cached login lasts (NEW, Matt's request)
+
+**Shared half is BUILT and green; the MAUI login screen shows it. Not deployed.**
+
+⚠ **"Offline" was three faults wearing one word** — no network (their cable), no server (nothing
+they can do at the till), or **this till was revoked** (a manager's job). A single red badge sends
+shops to reboot routers over a portal setting. The till now asks two questions in order:
+1. **`GET /api/v1/ping`** — NEW, anonymous, **touches no database**, so it still answers during a
+   MySQL blip and answers for a till that is un-enrolled or revoked.
+2. **`GET /api/v1/tills/devices/{id}/status`** — already existed. ⚠ **Not a token mint:**
+   `POST /api/v1/tokens/device` is rate-limited **5/min per IP**, so probing it would make a healthy
+   till report itself revoked — and tills sharing one public IP would do it to each other. This
+   route is also the **only** revocation signal that reaches a till, because device tokens are
+   bearer tokens with **no server-side denylist**.
+
+Landed: `src/Plutus.Tenancy/Controllers/PingController.cs` · `src/Plutus.Client.Core/Connectivity.cs`
+(`ConnectivityProbe`, states NoNetwork/NoServer/Rejected/NotEnrolled/Online, clock-skew detection) ·
+`PlutusApiClient.PingAsync` + `GetDeviceStatusAsync` · MAUI `Services/Connectivity/*` + a login-screen
+indicator · **MAUI now references SharedKernel / Contracts.Client / Client.Core for the first time**.
+
+**How long cached credentials last — the recommendation, now `SharedKernel/OfflineCredentials.cs`.**
+Matt asked for a number; the answer is that **one number cannot win**, because three constraints
+pull apart: *keep selling* (a till that refuses logins in an outage means a cash tin and **zero
+HMRC-attributable records** — worse than a stale roster), *shrink the theft* (a stolen till holds
+operators' **platform** passwords at PBKDF2-**SHA1**/101,010, ~13× below current OWASP guidance, and
+they work on the web till too), and *reach the leaver* (nothing can be **pushed** to an offline till,
+so expiry is the only revocation that ever arrives — the horizon **is** an erasure SLA). So it is
+tiered by what the permission can do:
+
+| | Value | Why |
+|---|---|---|
+| Money-out (refund, void, discount, no-sale, override, all admin) | **7 days** | Covers a Friday-night line fault over a bank holiday (~5 days); short enough to state inside the UK GDPR Art 12(3) month even if the request lands on day one of an outage |
+| Selling (`pos.sell`, `support.tickets`) | **30 days** | The spare till from the cupboard, and the convention/pop-up till. The shop must trade |
+| Warning | from **3 days** | A warning an hour before the cliff is decoration |
+| Idle | **15 min** — ⚠ **locks, never logs out**; the basket survives | PCI-DSS 8.2.8, and it costs seconds not sales |
+| Session | **min(12h, business-day rollover)** | A session across two days attributes the incoming shift's sales to the outgoing operator — silently, in the records HMRC would ask about |
+
+**It never hard-locks selling.** The floor is an **allow-list**, so a permission added next year is
+withdrawn when stale until someone says otherwise.
+
+#### ⚠⚠ TWO LIVE BUGS FOUND WHILE AUDITING — both now FIXED (2026-08-08), not yet deployed
+
+1. **`ATestController` DELETED.** `GET /api/ATest/testTransaction` took no authentication and
+   **wrote a `Business` row** on every call — un-rate-limited, on a public hostname — and returned
+   profanity in both its success and failure strings, including a slur naming Sean, plus a
+   `SetCurrentUser("CUNT")` that stamped it into the audit columns of every row it made. Nothing
+   referenced it.
+   **The durable fix is `tests/Plutus.Tests.Architecture/AnonymousEndpointTests.cs`**: every HTTP
+   action must be gated or appear in a reviewed allow-list, with a second test that a listed
+   controller still has an anonymous action (so a stale exemption can't silently cover the next
+   thing added to it). ⚠ **There is no global fallback authorization policy** in this app —
+   `ConfigureAuthorization()` is commented out in Startup — so a missing attribute is an open door,
+   not a closed one. Mutation-checked: re-adding an un-gated controller fails the suite by name.
+2. **`POST /api/Auth/Login` now checks `Employee.Active`.** The portal's Deactivate button removed
+   a user from a list and revoked nothing: `deactivate` sets `Active=false` and — unlike `remove` —
+   deliberately keeps the `WebCredentials` row, and login never looked at the flag.
+   ⚠ **Two traps in the fix, both real:** `Active` is on **`Employees`**, not `People` (TPT), so the
+   login query needed a second join — `p.Active` does not exist; and it is a **LEFT** join, because
+   a credential whose person has no `Employees` row is not a deactivated employee and an inner join
+   would have locked those logins out on deploy. The check runs **after** the password verify, so
+   the specific message leaks nothing (they already proved the credential) and a locked-out user is
+   told the truth instead of "wrong password". `Active` is read via `Convert.ToBoolean` because
+   tinyint(1) comes back as bool or sbyte depending on `TreatTinyAsBoolean` — a cast exception here
+   would 500 **every** login.
+
+   ⚠ **NOT covered by a test, and it can't be:** `AuthController.Login` opens its own
+   `MySqlConnection` from `_configuration["ConnectionString"]` instead of going through EF, so it is
+   unreachable from `PlutusAppFactory`'s in-process SQLite host. There are no existing tests for
+   `/api/Auth/Login` either. **USER-VERIFY after deploy**: sign in normally, then deactivate a test
+   user in the portal and confirm they get the 403.
+
+   **Run this BEFORE deploying** — anyone it returns is signing in today and will stop:
+   ```sql
+   SELECT w.Email FROM WebCredentials w JOIN Employees e ON e.Id = w.EmployeeId WHERE e.Active = 0;
+   ```
+   They were all deactivated deliberately, so a non-empty result is the bug confirmed, not a reason
+   to hold the fix — but know the names before Monday morning rather than after.
+
+#### Till version — one number, every surface (Matt asked, 2026-08-08)
+
+> *"Can we add a 'Till version' please which we can increment with each build, so I can see what
+> version we are testing and it's not just a time stamp in environment e.g. App build 2026-08-07T17:28:39.929Z"*
+
+**`till-version.txt` at the repo root is the only place it lives** — currently `1.1.0`. Bump it,
+rebuild, everything agrees. `Directory.Build.props` (new, repo root) feeds it to every .NET project
+as `InformationalVersion`; `vite.config.ts` reads **the same file** into `__TILL_VERSION__`.
+Read back at runtime via `SharedKernel/TillVersion.cs`.
+
+Shown on: the web till footer and Settings (**alongside** the build timestamp, which stays — it
+still answers "is this the artefact I just deployed"), the MAUI login screen, and
+`GET /api/v1/ping`, so a till and the server can be compared.
+
+⚠ **The rule that makes it worth having: no surface may carry its own version.** A hardcoded string
+nobody bumps names the wrong build in every report filed against it. `TillVersionTests` (5) pins the
+whole chain — file → props → assembly attribute → runtime — and fails if the web till grows a
+literal of its own.
+
+Also worth scheduling, not yet: **there is no server-side session revocation for any principal.**
+Tokens are checked for signature and `exp` only — revoking a device or resetting a password stops
+the *next* sign-in and never ejects a live session. A per-user `TokenEpoch` claim (a column, a claim
+and a comparison) turns 12h of irrevocability into seconds. Retrofit §9.8.
+
+---
+
+### ⏰⏰⏰⏰ RESUME HERE (2026-08-08, earlier)
 
 Suite: **Unit 441 · Architecture 8 · Integration 100 · AppClient 295 (+3 skipped) — all green.**
 Both frontends `tsc --noEmit && vite build` clean on the Mac.

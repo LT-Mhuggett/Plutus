@@ -25,6 +25,7 @@ import { beginLogin, completeLoginIfCallback } from "./oidc.ts";
 import AskHost, { ask } from "./Ask.tsx";
 
 declare const __BUILD_TIME__: string;
+declare const __TILL_VERSION__: string;
 
 // Menu mirrors the original NatApp till — all sections live. "Users" is reached
 // via the people button, like the original intended.
@@ -299,7 +300,7 @@ export default function App() {
       {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
 
       <footer className="muted">
-        {session.name} · Kapow Comics ltd — seeded test data · built {__BUILD_TIME__}
+        {session.name} · Kapow Comics ltd — seeded test data · till v{__TILL_VERSION__} · built {__BUILD_TIME__}
       </footer>
     </main>
   );
