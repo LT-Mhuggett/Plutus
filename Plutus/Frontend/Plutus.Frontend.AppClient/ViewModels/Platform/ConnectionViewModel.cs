@@ -137,6 +137,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
         private Command _catalogueCommand;
         public Command CatalogueCommand => _catalogueCommand ??= new Command(async () => await CatalogueAsync());
 
+        private Command _syncStaffCommand;
+        public Command SyncStaffCommand => _syncStaffCommand ??= new Command(async () => await SyncStaffAsync());
+
         private Command _forgetCommand;
         public Command ForgetCommand => _forgetCommand ??= new Command(async () => await ForgetAsync());
 
@@ -283,7 +286,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
 
                 var result = await api.EnrolAsync(EnrolmentCode.Trim());
                 _credentials ??= await SecureDeviceCredentialStore.LoadAsync();
-                _credentials.Save(result.DeviceId, result.ClientSecret);
+                _credentials.Save(result.DeviceId, result.ClientSecret, result.TillId);
 
                 EnrolmentCode = string.Empty; // one-time code — leaving it on screen invites a retry
                                               // that can only ever fail with 410 Gone.
@@ -358,6 +361,43 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
             catch (Exception ex)
             {
                 LastAction = Friendly("Couldn't read the catalogue", ex);
+            }
+            finally { Busy = false; }
+        }
+
+        /// <summary>
+        /// WP8 — pull this till's staff down so they can sign in offline.
+        ///
+        /// ⚠ Needs the TILL id, which enrolment returns and which is not the device id. Held in
+        /// Preferences by <see cref="SecureDeviceCredentialStore"/> at enrolment.
+        /// </summary>
+        private async Task SyncStaffAsync()
+        {
+            if (Busy) return;
+            if (_credentials?.TillId is not Guid tillId)
+            {
+                LastAction = "Enrol this till first — staff are synced per till.";
+                return;
+            }
+
+            Busy = true;
+            try
+            {
+                var api = Api(out var error);
+                if (api is null) { LastAction = error; return; }
+
+                var count = await new OperatorSync(api, new FileOperatorStore()).RefreshAsync(tillId);
+                LastAction = count is int n
+                    ? n == 0
+                        ? "Synced, but no staff are assigned to this till yet. Check their roles in the portal."
+                        : $"Synced {n} staff account(s). They can now sign in on this till, online or off."
+                    // ⚠ The existing roster is deliberately kept on failure: replacing a good one
+                    // with nothing because the wifi dropped would lock a shop out of its own till.
+                    : "Couldn't reach the staff list. Anything already synced is still usable.";
+            }
+            catch (Exception ex)
+            {
+                LastAction = Friendly("Couldn't sync staff", ex);
             }
             finally { Busy = false; }
         }

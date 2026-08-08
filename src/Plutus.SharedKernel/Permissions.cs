@@ -126,6 +126,93 @@ public static class PermissionCatalogue
         code != null && Descriptions.TryGetValue(code, out var d) ? d : code ?? string.Empty;
 }
 
+/// <summary>
+/// One grant as it is STORED — a permission, its ceiling, and the window it applies in.
+///
+/// ⚠ WHY THE WINDOW TRAVELS WITH IT. A till downloads its roster and then runs offline for days.
+/// If the server resolved "is this operator allowed right now" at download time and shipped the
+/// answer, a Saturday-only supervisor synced on a Wednesday would have NO permissions until the
+/// next sync — permanently, and silently. The window has to be evaluated against the TILL's clock,
+/// at the moment of the action, which means the raw fields have to reach the till.
+/// </summary>
+/// <param name="DaysOfWeekMask">Bit 0 = Sunday … bit 6 = Saturday; null = any day.</param>
+/// <param name="WindowStartLocal">⚠ LOCAL wall-clock, while ValidFrom/To are UTC INSTANTS. Mixing
+/// them is the bug this type exists to make hard.</param>
+public sealed record PermissionGrant(
+    string Code,
+    long? MaxPence,
+    DateTime? ValidFromUtc = null,
+    DateTime? ValidToUtc = null,
+    byte? DaysOfWeekMask = null,
+    TimeOnly? WindowStartLocal = null,
+    TimeOnly? WindowEndLocal = null)
+{
+    /// <summary>
+    /// Is this grant live at the given moment?
+    ///
+    /// ⚠ THE ONE IMPLEMENTATION, used by the server's RBAC resolver AND by every till. A second
+    /// copy would be a permission that means one thing centrally and another on a counter — the
+    /// exact class of drift till-design Part C exists to prevent.
+    ///
+    /// ⚠ A window that wraps midnight (22:00–02:00) is NOT supported: it would reject everything.
+    /// Deliberately unhandled rather than half-handled — a night-shift window that silently denied
+    /// every action would be worse than one nobody can save in the first place.
+    /// </summary>
+    public bool IsActiveAt(DateTime nowLocal)
+    {
+        var nowUtc = nowLocal.Kind == DateTimeKind.Utc ? nowLocal : nowLocal.ToUniversalTime();
+        if (ValidFromUtc.HasValue && nowUtc < ValidFromUtc.Value) return false;
+        if (ValidToUtc.HasValue && nowUtc > ValidToUtc.Value) return false;
+
+        if (DaysOfWeekMask.HasValue &&
+            (DaysOfWeekMask.Value & (1 << (int)nowLocal.DayOfWeek)) == 0) return false;
+
+        if (WindowStartLocal.HasValue || WindowEndLocal.HasValue)
+        {
+            var t = TimeOnly.FromDateTime(nowLocal);
+            if (WindowStartLocal.HasValue && t < WindowStartLocal.Value) return false;
+            if (WindowEndLocal.HasValue && t > WindowEndLocal.Value) return false;
+        }
+        return true;
+    }
+}
+
+/// <summary>Turning stored grants into what an operator may do right now.</summary>
+public static class PermissionResolution
+{
+    /// <summary>Filter to the grants live at <paramref name="nowLocal"/>, then union-merge them.
+    /// This is what a till runs at the moment of an action, against its own clock.</summary>
+    public static IReadOnlyList<EffectivePermission> EffectiveAt(
+        IEnumerable<PermissionGrant> grants, DateTime nowLocal) =>
+        EffectivePermission.Merge(
+            grants.Where(g => g.IsActiveAt(nowLocal)).Select(g => new EffectivePermission(g.Code, g.MaxPence)));
+
+    /// <summary>
+    /// May this operator do <paramref name="code"/>, for <paramref name="amountPence"/>?
+    ///
+    /// ⚠ FAILS CLOSED, including on an unknown permission code. <c>"perm:x"</c> and
+    /// <c>PlutusPolicies.X</c> are different namespaces and a typo between them has already caused
+    /// one silent outage here (the pick-notes gate) — so an unrecognised code is denied, never
+    /// waved through.
+    ///
+    /// ⚠ A ceiling applies to the AMOUNT, so a null amount against a ceiling-bearing grant is
+    /// allowed: "may refund at all" and "may refund £40" are different questions.
+    /// </summary>
+    public static bool Can(
+        IEnumerable<PermissionGrant> grants, string code, DateTime nowLocal, long? amountPence = null)
+    {
+        if (string.IsNullOrEmpty(code)) return false;
+
+        foreach (var p in EffectiveAt(grants, nowLocal))
+        {
+            if (!string.Equals(p.Code, code, StringComparison.Ordinal)) continue;
+            if (amountPence is null || p.MaxPence is null) return true;   // unlimited, or not amount-based
+            if (amountPence.Value <= p.MaxPence.Value) return true;
+        }
+        return false;
+    }
+}
+
 /// <summary>One resolved permission: a code plus its effective ceiling (null = unlimited /
 /// not amount-based). Union semantics: the HIGHEST ceiling wins; any unlimited grant wins
 /// outright. Renders as "pos.refund.max:2000" per architecture §7.2.</summary>

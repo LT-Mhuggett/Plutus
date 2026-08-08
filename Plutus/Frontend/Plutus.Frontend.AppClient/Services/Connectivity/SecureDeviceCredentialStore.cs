@@ -20,13 +20,22 @@ namespace Plutus.Frontend.AppClient.Services.Connectivity
     internal sealed class SecureDeviceCredentialStore : IDeviceCredentialStore
     {
         private const string DeviceIdKey = "PlutusDeviceId";
+        private const string TillIdKey = "PlutusTillId";
         private const string SecretKey = "PlutusClientSecret";
 
         private Guid? _deviceId;
+        private Guid? _tillId;
         private string? _secret;
 
         public Guid? DeviceId => _deviceId;
         public string? ClientSecret => _secret;
+
+        /// <summary>
+        /// The TILL this device is. ⚠ Not the device id — a till is the counter and outlives the
+        /// hardware standing on it, so re-enrolling swaps the device and keeps the till (and its
+        /// sales history). WP8's roster is per TILL, so this is what that call needs.
+        /// </summary>
+        public Guid? TillId => _tillId;
 
         private SecureDeviceCredentialStore() { }
 
@@ -49,8 +58,8 @@ namespace Plutus.Frontend.AppClient.Services.Connectivity
         public static async System.Threading.Tasks.Task<SecureDeviceCredentialStore> LoadAsync()
         {
             var store = new SecureDeviceCredentialStore();
-            var id = Preferences.Get(DeviceIdKey, null);
-            if (Guid.TryParse(id, out var deviceId)) store._deviceId = deviceId;
+            if (Guid.TryParse(Preferences.Get(DeviceIdKey, null), out var deviceId)) store._deviceId = deviceId;
+            if (Guid.TryParse(Preferences.Get(TillIdKey, null), out var tillId)) store._tillId = tillId;
 
             try
             {
@@ -66,11 +75,16 @@ namespace Plutus.Frontend.AppClient.Services.Connectivity
             return store;
         }
 
-        public void Save(Guid deviceId, string clientSecret)
+        public void Save(Guid deviceId, string clientSecret) => Save(deviceId, clientSecret, _tillId);
+
+        /// <summary>Save the whole identity, including which TILL this device is.</summary>
+        public void Save(Guid deviceId, string clientSecret, Guid? tillId)
         {
             _deviceId = deviceId;
             _secret = clientSecret;
+            _tillId = tillId;
             Preferences.Set(DeviceIdKey, deviceId.ToString());
+            if (tillId is Guid t) Preferences.Set(TillIdKey, t.ToString());
             // Fire-and-forget is wrong for a credential — if this loses the race with an app close,
             // the till silently un-enrols itself. Block until it is written.
             SecureStorage.Default.SetAsync(SecretKey, clientSecret).GetAwaiter().GetResult();
@@ -80,7 +94,9 @@ namespace Plutus.Frontend.AppClient.Services.Connectivity
         {
             _deviceId = null;
             _secret = null;
+            _tillId = null;
             Preferences.Remove(DeviceIdKey);
+            Preferences.Remove(TillIdKey);
             SecureStorage.Default.Remove(SecretKey);
         }
     }

@@ -379,7 +379,8 @@ resume point for the next session.
 | **3** Sale commit path + outbox | ✅ | 2026-08-07 · `6e46734`. `CommitSaleAsync` (one transaction, sequence allocated, **commit before print** — risk #2 decided in code). `TillStore` implements `IOutboxStore`, so the WP1 pusher drove it unchanged. Soak: 120 offline sales drain exactly once in order, no gaps; crash mid-drain records 20 of 20. |
 | **4** Enrolment + device identity | ✅ | 2026-08-07 · `f90dac5`. Server URL + code; **archive gate refuses enrolment** while a legacy DB is un-archived; placement (storeId + legacy businessId) refreshed each start; secret asserted absent from the DB file. |
 | **5** Heartbeat + catalogue sync · **5b** | 🔨 | **The backend gap is CLOSED (2026-08-08).** Built + tested headlessly: `POST /api/v1/heartbeat` (in-process `TillPresence`, 2/5-min boundaries), `GET /api/v1/catalogue/changes` (keyset cursor, tombstones), `SyncNow`/`Locked`/`LockReason` on `Device` (migration `AddDeviceSyncSignals`, **carries an index** — see below), and the client half in `Client.Core/SyncClient.cs` + `TillStore : ISyncStore`. 22 new tests. **Remaining:** the PRICE-SCHEDULE half of the feed (see the ⚠ below), MAUI's VAT-bands consumption, the shared search matcher, and a timer in MAUI to call any of it. |
-| 6–13 | ⬜ | The parity WPs — these are where MAUI **UI** work begins (XAML + viewmodels), so they need a device to verify. WP7, WP10 and WP12 each gained real scope on 2026-08-08 (pushed theming · add-unknown + Bin/untracked · member-number scan). |
+| **8** Operator RBAC + offline login | ✅ | 2026-08-08. `GET /api/v1/tills/{id}/operators` (device-token gated), the roster cached on the till, offline sign-in verified with `SharedKernel.Pbkdf2`, ceilings + time windows + the `OfflineCredentials` staleness tier at the gate. **An enrolled till can sign someone in.** 21 new tests. ⚠ Two pieces of WP8 remain: the **Users screen** and **supervisor override**. ⚠ The roster is cached as a JSON file, not in `Plutus.Client.Storage` — see the note in WP8's body. |
+| 6–7, 9–13 | ⬜ | The remaining parity WPs — MAUI **UI** work (XAML + viewmodels), so they need a device to verify. WP7, WP10 and WP12 each gained real scope on 2026-08-08 (pushed theming · add-unknown + Bin/untracked · member-number scan). |
 | **14** Payment-gateway awareness | ⬜ | Added 2026-08-08. Was cited in Part B as "WP17.2", which is not a work package in this plan. |
 | **15** Web-till test runner + C2 pins | ⬜ | Added 2026-08-08. **Web till, not MAUI** — parity runs both ways. Timing is Matt's call. |
 | **16** Connectivity + offline credentials | 🔨 | Added 2026-08-08 on Matt's instruction. **Shared half DONE:** `/api/v1/ping`, `ConnectivityProbe`, `OfflineCredentials` horizons + 42 tests. **Remaining:** MAUI login-screen UI, the web till's move off `navigator.onLine`, and 16b's enforcement (pairs with WP8). |
@@ -911,6 +912,29 @@ in the pushed payload; an employee created on the till can sign in on the web ti
 **the employee LIST renders from `/api/Employee` and a set-password on an EXISTING employee via
 `/api/Auth/SetPassword` takes effect on the next sign-in** (added 2026-08-08 — the body named both
 and the DoD only tested create).
+
+> ### ✅ Built 2026-08-08 — and three decisions worth knowing
+>
+> 1. **Windows ship RAW.** `ResolveAsync` pre-evaluates `InWindow` and then discards the windows, so
+>    building the payload with it would give a Saturday-only supervisor synced on a Wednesday **no
+>    permissions at all** until the next sync — silently. The endpoint ships the raw dates/mask/window
+>    and the till judges them against its own clock at the moment of the action. The rule itself moved
+>    to `SharedKernel.PermissionGrant.IsActiveAt`; the server's `InWindow` now delegates to it, so
+>    there is one implementation rather than a C2 drift row.
+> 2. **The roster is narrowed to people who work here.** Company- and tenant-scope assignments sit on
+>    *every* till's ancestor chain, so "everyone RBAC-reachable" would mirror the whole company roster
+>    — and its password hashes — onto every counter. Narrowed to `Employee.StoreId == Till.StoreId`
+>    **or** an assignment made at this till/store specifically. ⚠ That is a product decision as much
+>    as a technical one, and the first thing to revisit if a manager covering another shop cannot
+>    sign in.
+> 3. ⚠ **The cache is a JSON file, not `Plutus.Client.Storage`.** Referencing that project from
+>    AppClient fails `restore` outright (NU1605: EF Core 3.1.17 vs 9.0.18, verified with a probe
+>    project), and the obvious fix — dropping AppClient's direct 3.1.17 pin — silently swaps the LIVE
+>    till database onto EF 9 with a stranded EF 3.1 Proxies package: a runtime `TypeLoadException` in
+>    the code a shop is trading on. That unwiring is **WP2's cutover**, and it must also unwire
+>    `AppClient.Tests`, which references `Database.csproj` too — the plan's "sole referencer" note is
+>    stale. None of the RULES live in the file store, so moving it later changes where bytes sit and
+>    nothing else.
 
 ⚠ **Shipping password hashes to till hardware is a real change of threat model, and WP8 is where it
 happens.** The cached blob is the operator's *platform* password, verifiable offline at

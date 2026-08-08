@@ -186,6 +186,11 @@ public sealed class PlutusApiClient
         return GetAsync<CatalogueChangesResult>(url, ct);
     }
 
+    /// <summary>WP8: the roster of operators who may sign in at this till, with their credential
+    /// hashes and raw permission windows. Cached locally so sign-in works with the network off.</summary>
+    public Task<TillOperatorsResult?> GetTillOperatorsAsync(Guid tillId, CancellationToken ct = default) =>
+        GetAsync<TillOperatorsResult>($"/api/v1/tills/{tillId}/operators", ct);
+
     public Task<TillNameResult?> GetTillNameAsync(Guid tillId, CancellationToken ct = default) =>
         GetAsync<TillNameResult>($"/api/v1/tills/{tillId}/name", ct);
 

@@ -15,9 +15,40 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 ### ⏰⏰⏰⏰⏰ RESUME HERE (2026-08-08, latest — parity sweep, WP16, versions, WP5 backend)
 
-Suite: **Unit 528 · Architecture 13 · Integration 114 · AppClient 295 (+3 skipped) — all green.**
+Suite: **Unit 544 · Architecture 13 · Integration 119 · AppClient 305 (+3 skipped) — all green.**
 Committed on `Matt's-Horror`, **not pushed, not deployed.**
 
+> ### ✅ WP8 DONE — an enrolled till can sign someone in (2026-08-08)
+>
+> This was the thing standing between "enrolled" and "usable". `GET /api/v1/tills/{id}/operators`
+> (device-token gated, so a till refreshes its roster *before* anyone signs in), the roster cached on
+> the till, and sign-in verified **offline** with `SharedKernel.Pbkdf2` — byte-identical to the
+> server, which is what lets one password work here and on the web till. **21 new tests.**
+>
+> **Three decisions worth carrying forward:**
+> 1. ⚠ **Permission windows ship RAW, never pre-evaluated.** `ResolveAsync` evaluates `InWindow` and
+>    then throws the windows away, so building the payload with it would leave a Saturday-only
+>    supervisor synced on a Wednesday with **no permissions until the next sync**, silently. The rule
+>    moved to `SharedKernel.PermissionGrant.IsActiveAt` and the server's `InWindow` now delegates to
+>    it — one implementation, no C2 drift row.
+> 2. ⚠ **The roster is narrowed to people who work at that till.** Company/tenant-scope assignments
+>    are on *every* till's ancestor chain, so "everyone RBAC-reachable" would put the whole company
+>    roster's password hashes on every counter. Narrowed to same-store **or** an assignment made at
+>    this till/store. **A product decision** — first thing to revisit if a manager covering another
+>    shop cannot sign in.
+> 3. ⚠ **The cache is a JSON file, not `Plutus.Client.Storage`.** Referencing that project from
+>    AppClient **fails restore outright** (NU1605: EF Core 3.1.17 vs 9.0.18 — verified with a probe
+>    project, not reasoned about), and the obvious fix silently swaps the LIVE till database onto
+>    EF 9 with a stranded 3.1 Proxies package: a runtime `TypeLoadException` in code a shop is
+>    trading on. That is **WP2's cutover**, and it must unwire `AppClient.Tests` too — the plan's
+>    "sole referencer" note is stale. No RULES live in the file store, so moving it later is a
+>    storage change and nothing more.
+>
+> **Still open in WP8:** the Users screen and supervisor override.
+>
+> ⚠ **None of it works on the live backend until it is deployed** — `/api/v1/tills/{id}/operators`
+> is new, like ping/heartbeat/catalogue.
+>
 > ### ⚠⚠ PORTAL-FIRST: the till no longer sets itself up (Matt, 2026-08-08)
 >
 > > *"It opened up on setup, when I think it needs to open up on Login… The till is moving to the

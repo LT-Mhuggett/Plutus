@@ -59,6 +59,7 @@
                    Text="Each button exercises one layer built by the retrofit, so a failure points at a specific thing rather than at 'the network'."/>
             <Button Text="Send a heartbeat" Command="{Binding BeatCommand}" IsEnabled="{Binding NotBusy}"/>
             <Button Text="Read the catalogue feed" Command="{Binding CatalogueCommand}" IsEnabled="{Binding NotBusy}"/>
+            <Button Text="Sync staff from the portal" Command="{Binding SyncStaffCommand}" IsEnabled="{Binding NotBusy}"/>
 
             <ActivityIndicator IsVisible="{Binding Busy}" IsRunning="{Binding Busy}" HorizontalOptions="Start"/>
             <Label FontSize="Caption" Text="{Binding LastAction}" LineBreakMode="WordWrap"/>

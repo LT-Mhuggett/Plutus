@@ -42,6 +42,17 @@ namespace Plutus.Frontend.AppClient.ViewModels
             get => _store;
             set { SetProperty(ref _store, value); }
         }
+
+        /// <summary>
+        /// WP8: the operator signed in from the PORTAL roster, and what they may do.
+        ///
+        /// ⚠ Null on a till still running the legacy local login — the two paths coexist until
+        /// WP2's cutover, so anything gating on permissions must handle null rather than assume.
+        /// Ask it with <c>SignedInOperator.Can(code, amountPence)</c>: it applies the time window
+        /// against this till's clock AND the staleness tier, so a genuinely-held permission is
+        /// still refused when the roster is too old to be trusted with it.
+        /// </summary>
+        internal Plutus.Client.Core.SignedInOperator SignedInOperator { get; set; }
         internal bool ToolbarItemsChanged
         {
             get => _toolbarItemsChanged;

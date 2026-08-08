@@ -161,6 +161,44 @@ namespace Plutus.Frontend.AppClient.ViewModels
             _ = RefreshConnectionAsync();
         }
 
+        /// <summary>
+        /// WP8 — sign in against the roster synced from the portal, offline.
+        /// </summary>
+        /// <returns>True when this path handled the attempt (signed in, or told the operator why
+        /// not). False means "no roster on this till", so the legacy local path should try.</returns>
+        private async Task<bool> TrySignInFromRosterAsync()
+        {
+            var login = new Plutus.Client.Core.OperatorLogin(new Services.Connectivity.FileOperatorStore());
+            var result = await login.SignInAsync(_email_UserId ?? string.Empty, _password ?? string.Empty);
+
+            // No roster at all → let the legacy local database have a go. Every other failure is a
+            // real answer about a real account and must NOT fall through to a second, differently
+            // worded rejection.
+            if (result.Failure == Plutus.Client.Core.LoginFailure.NoOperators) return false;
+
+            if (!result.Succeeded)
+            {
+                Logger.LogEvent(AppLogLevel.Info, $"{GetType().Name}: Login",
+                    new Dictionary<string, string> { { "Authorised", "False" }, { "Reason", result.Failure.ToString() } });
+                await App.Current.MainPage.DisplayAlert("Can't sign in", result.Message, "OK");
+                return true;
+            }
+
+            var op = result.Operator!;
+            Logger.LogEvent(AppLogLevel.Info, $"{GetType().Name}: Login",
+                new Dictionary<string, string> { { "Authorised", "True" }, { "Trust", op.Trust.ToString() } });
+
+            // ⚠ Warn, never block. Past the money-out horizon this till still sells — a shop that
+            // cannot trade is worse than a stale roster, because it falls back to a cash tin and
+            // produces no attributable records at all.
+            if (op.Warn && !string.IsNullOrEmpty(op.Message))
+                await App.Current.MainPage.DisplayAlert("Signed in", op.Message, "OK");
+
+            App.GetViewModel().SignedInOperator = op;
+            App.Current.MainPage = new AppShell();
+            return true;
+        }
+
         /// <summary>Runs the shared probe and paints the result. Swallows everything — a broken
         /// connection check must never be the reason nobody can sign in.</summary>
         private async Task RefreshConnectionAsync()
@@ -205,21 +243,23 @@ namespace Plutus.Frontend.AppClient.ViewModels
             App.SetLoading(true);
             try
             {
-                // ⚠ An ENROLLED till with no staff on it is not a wrong password, and saying so
-                // sends someone hunting for a typo that isn't there. This till has no accounts at
-                // all: WP8 (operator sync) is what will put them here, and until it lands the only
-                // source is the legacy local setup.
+                // WP8: the PORTAL roster first. A portal-provisioned till has no local database at
+                // all — its staff arrive from GET /api/v1/tills/{id}/operators and are verified here
+                // against the synced PBKDF2 hash, with no network needed.
                 //
-                // ⚠ Note DatabaseProvider.Sqlite is 0, so a NULL setting parses to "local SQLite"
-                // rather than failing — which is exactly how this came out as "details not correct"
-                // instead of "there is nobody to sign in as".
+                // ⚠ The legacy local path below is the fallback, not the primary, and it only still
+                // exists because a till set up the old way must keep working until WP2's cutover.
+                if (await TrySignInFromRosterAsync()) return;
+
+                // ⚠ DatabaseProvider.Sqlite is 0, so a NULL setting parses to "local SQLite" rather
+                // than failing — which is exactly how "no accounts at all" came out as "details not
+                // correct", sending someone hunting for a typo that did not exist.
                 if (!Helpers.Database.Database.LocalDbExist())
                 {
                     await App.Current.MainPage.DisplayAlert(
                         "No staff on this till yet",
-                        "This till is connected to Plutus but has no staff accounts on it.\n\n" +
-                        "Syncing staff from the portal isn't built yet. Until then, use the Plutus " +
-                        "tab to check the connection, or set the till up locally from first-run setup.",
+                        "This till has no staff accounts on it.\n\n" +
+                        "Open the Plutus tab and use “Sync staff” to fetch them from the portal.",
                         "OK");
                     return;
                 }

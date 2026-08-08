@@ -168,22 +168,21 @@ namespace Plutus.Identity
                 .Any(g => g.PermissionCode == permissionCode);
         }
 
-        public static bool InWindow(RbacRoleAssignment a, DateTime nowLocal)
-        {
-            var nowUtc = nowLocal.Kind == DateTimeKind.Utc ? nowLocal : nowLocal.ToUniversalTime();
-            if (a.ValidFromUtc.HasValue && nowUtc < a.ValidFromUtc.Value) return false;
-            if (a.ValidToUtc.HasValue && nowUtc > a.ValidToUtc.Value) return false;
+        /// <summary>
+        /// ⚠ DELEGATES to <see cref="PermissionGrant.IsActiveAt"/> in SharedKernel — it is not
+        /// implemented here any more.
+        ///
+        /// WP8 put the same question on every till: a till downloads raw grants and decides
+        /// "is this live right now" against its OWN clock while offline. Two implementations of
+        /// that rule would be a permission that means one thing centrally and another on a counter.
+        /// So the rule moved to where both can reach it; this stays as the server's spelling of it.
+        /// </summary>
+        public static bool InWindow(RbacRoleAssignment a, DateTime nowLocal) =>
+            ToGrant(a, string.Empty, null).IsActiveAt(nowLocal);
 
-            if (a.DaysOfWeekMask.HasValue &&
-                (a.DaysOfWeekMask.Value & (1 << (int)nowLocal.DayOfWeek)) == 0) return false;
-
-            if (a.WindowStartLocal.HasValue || a.WindowEndLocal.HasValue)
-            {
-                var t = TimeOnly.FromDateTime(nowLocal);
-                if (a.WindowStartLocal.HasValue && t < a.WindowStartLocal.Value) return false;
-                if (a.WindowEndLocal.HasValue && t > a.WindowEndLocal.Value) return false;
-            }
-            return true;
-        }
+        /// <summary>An assignment's window, attached to one permission code, in the shared shape a
+        /// till understands.</summary>
+        public static PermissionGrant ToGrant(RbacRoleAssignment a, string code, long? maxPence) =>
+            new(code, maxPence, a.ValidFromUtc, a.ValidToUtc, a.DaysOfWeekMask, a.WindowStartLocal, a.WindowEndLocal);
     }
 }
