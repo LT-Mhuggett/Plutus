@@ -23,6 +23,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Plutus.Frontend.AppClient.Services.Analytics;
+using Plutus.SharedKernel;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
 
@@ -403,9 +404,80 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         }
         #endregion
         #region Adjust
+        /// <summary>
+        /// Ask a SECOND person to authorise something this operator cannot.
+        ///
+        /// ⚠ REPLACES `Authorisation.RequestAuthorisedUserInput`, which is not ported and must not
+        /// be: it declares `string authEmpId = default`, loops `while (string.IsNullOrEmpty(authEmpId))`
+        /// and **never assigns it** — so correct credentials re-prompt indefinitely and the only
+        /// exit is Cancel. Its caller then re-checked the ORIGINAL operator anyway, so the
+        /// authoriser was collected and thrown away.
+        ///
+        /// ⚠ The real rule lives in `OperatorLogin.AuthoriseOverrideAsync`: it refuses
+        /// self-authorisation, applies the SUPERVISOR's own ceiling, window and staleness tier —
+        /// nothing about being an override relaxes any of it — and names both people.
+        /// </summary>
+        private async Task<bool> RequestSupervisorOverrideAsync(string permission, long? amountPence)
+        {
+            try
+            {
+                var requestedBy = App.GetViewModel().SignedInOperator;
+                if (requestedBy is null) return false;   // nobody to attribute the request to
+
+                var credentials = await Helpers.Security.SupervisorPrompt.AskAsync();
+                if (credentials is null) return false;   // cancelled — the basket is untouched
+
+                var login = new Plutus.Client.Core.OperatorLogin(
+                    new Services.Connectivity.FileOperatorStore());
+
+                var result = await login.AuthoriseOverrideAsync(
+                    requestedBy, credentials.Value.EmailOrId, credentials.Value.Password,
+                    permission, amountPence);
+
+                if (!result.Succeeded)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), result.Message, "OK".Translate());
+                    return false;
+                }
+
+                Logger.LogEvent(AppLogLevel.Info, $"{GetType().Name}: Supervisor override",
+                    new Dictionary<string, string>
+                    {
+                        { "Permission", permission },
+                        { "RequestedBy", requestedBy.UserId.ToString() },
+                        { "AuthorisedBy", result.Granted!.AuthorisedByUserId.ToString() },
+                        { "AuthorisedByName", result.Granted.AuthorisedByName },
+                        { "AmountPence", amountPence?.ToString() ?? "n/a" },
+                    });
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                // ⚠ An override that errors is an override that did NOT happen.
+                CrashLog.Write("TillViewModel.RequestSupervisorOverrideAsync", ex);
+                return false;
+            }
+        }
+
         private async void ExecuteAdjustItem(BasketItem basketItem)
         {
             if (IsBusy) return;
+
+            // ⚠ THIS HAD NO PERMISSION CHECK AT ALL. Anyone who could reach the till could retype
+            // any line's price to anything, with nothing recorded about who did it.
+            var priceGate = Services.Security.TillGate.Check(
+                App.GetViewModel().SignedInOperator, PermissionCatalogue.PosPriceOverride);
+
+            if (!priceGate.Allowed)
+            {
+                if (!priceGate.NeedsOverride ||
+                    !await RequestSupervisorOverrideAsync(PermissionCatalogue.PosPriceOverride, null))
+                {
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), priceGate.Message, "OK".Translate());
+                    return;
+                }
+            }
 
             IsBusy = true;
             try
@@ -985,49 +1057,42 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     }
                 }
 
-                bool escape = false;
+                // ⚠ ONE GATE, AGAINST THE OPERATOR'S OWN CEILING (cutover step 12). What was here
+                // could not work on a portal-provisioned till and had a hole in it besides:
+                //
+                //   · it looked up string action names ("Till", "Refund20", "Refund100") in a local
+                //     AuthActions table that such a till does not have;
+                //   · the hardcoded £20/£100/unlimited bands ignored each operator's actual ceiling;
+                //   · ⚠ the refund total summed each return line's UNIT price and IGNORED QUANTITY,
+                //     so five £30 returns tested as £30 and went straight through the £100 band;
+                //   · and the do/while "escalation" re-tested the SAME operator every pass while
+                //     RequestAuthorisedUserInput never assigned the id it returned — so entering
+                //     correct supervisor credentials re-prompted for ever and only Cancel escaped.
+                //     Supervisor override on this till has never once succeeded.
+                //
+                // ⚠ A NULL operator BLOCKS. "We don't know who this is" must never mean "let them".
+                var gate = Services.Security.TillGate.CheckCheckout(
+                    App.GetViewModel().SignedInOperator, Basket);
 
-                do
+                if (!gate.Allowed)
                 {
-                    if (empId.IsAuthorised("Till", Database.Enums.Permissions.Execute, databaseProvider))
+                    if (!gate.NeedsOverride)
                     {
-                        if (!sale.Refunds.Any())
-                        {
-                            FinaliseTransation(sale, change);
-                            return;
-                        }
-                        var refundAmount = Basket.Where(bR => bR is BasketReturnItem).Sum(bRI => bRI.Price);
-                        if (refundAmount <= 20m)
-                        {
-                            if (empId.IsAuthorised("Refund20", Database.Enums.Permissions.Execute, databaseProvider))
-                            {
-                                FinaliseTransation(sale, change);
-                                return;
-                            }
-                        }
-                        else if (refundAmount <= 100)
-                        {
-                            if (empId.IsAuthorised("Refund100", Database.Enums.Permissions.Execute, databaseProvider))
-                            {
-                                FinaliseTransation(sale, change);
-                                return;
-                            }
-                        }
-                        else
-                        {
-                            if (empId.IsAuthorised("Refund Unlimited", Database.Enums.Permissions.Execute, databaseProvider))
-                            {
-                                FinaliseTransation(sale, change);
-                                return;
-                            }
-                        }
+                        await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), gate.Message, "OK".Translate());
+                        return;
                     }
 
-                    var empAuthoriser = await Authorisation.RequestAuthorisedUserInput(databaseProvider);
-                    if (empAuthoriser == default)
-                        escape = true;
+                    // ⚠ A real override: a SECOND person authenticates, and OperatorLogin refuses
+                    // self-authorisation, applies the SUPERVISOR's own ceiling and window, and names
+                    // both people for the audit trail. Declining leaves the basket untouched.
+                    if (!await RequestSupervisorOverrideAsync(
+                            PermissionCatalogue.PosRefund,
+                            Services.Security.TillGate.RefundAmountPence(Basket)))
+                        return;
+                }
 
-                } while (!escape);
+                FinaliseTransation(sale, change);
+                return;
             }
             finally
             {
