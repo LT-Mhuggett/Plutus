@@ -134,6 +134,41 @@ same grep against the deployed bundle before declaring victory.
 flattened copy has no such path, so it falls back to `"0.0.0"` — the footer version is cosmetic
 there and is not evidence of a bad build.
 
+## MAUI till build (Windows)
+
+⚠ **The Release MSIX is UNSIGNED and will not install.** `Configuration != Debug` sets
+`WindowsPackageType=MSIX`, but nothing in the project configures a signing certificate — so
+`publish` produces `AppPackages\…\*.msix` with no `.cer` beside it, and Windows refuses it with
+*"The package or bundle is not digitally signed or its signature is corrupted"*. `Install.ps1`
+cannot help: it trusts a certificate that was never generated.
+
+**To test a build, go unpackaged** — no certificate, no admin, no install:
+
+```bash
+dotnet publish Plutus/Frontend/Plutus.Frontend.AppClient/Plutus.Frontend.AppClient.csproj \
+  -c Release -f net10.0-windows10.0.19041.0 -p:WindowsPackageType=None -o <folder>
+# then run <folder>\Plutus.Frontend.AppClient.exe
+```
+
+⚠ **Unpackaged and packaged do NOT share data.** `FileSystem.AppDataDirectory` resolves to a
+per-package virtualised path when packaged and an ordinary AppData path when not — so an unpackaged
+build sees no enrolment, no catalogue and no outbox from a previously installed MSIX. That is
+usually what you want when testing (it exercises the fresh-till path), but it means "it says the
+till isn't enrolled" is expected rather than a bug.
+
+⚠ **Version stamping.** `versions/till-maui.txt` → `ApplicationDisplayVersion` (via
+`Directory.Build.targets`) → the assembly's informational version, which is what the heartbeat
+sends. It is NOT `AppInfo.VersionString`: that reads the package manifest when packaged, and the
+manifest is deliberately `0.0.0.0` so the build can substitute `<display>.<ApplicationVersion>`.
+A real version hardcoded there wins over the build property — which is how every MSIX shipped as
+1.0.0.0, meaning Windows saw no version change and a reinstall was not an upgrade.
+
+⚠ **MSBuild caches the evaluated version.** Bumping `versions/till-maui.txt` and re-publishing can
+still emit the previous package name; delete `bin/Release` + `obj/Release` for a version bump.
+
+Signing the MSIX properly (a cert in the store + `PackageCertificateThumbprint`) is open work — it
+is needed before anyone installs this on a shop PC, and is not needed to test.
+
 ## Hard rules
 
 - **NEVER touch ETRIE.** It shares the Mac mini but is a separate product. After any Mac change,
