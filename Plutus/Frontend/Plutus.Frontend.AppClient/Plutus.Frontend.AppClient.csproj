@@ -152,9 +152,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Update="Views\FirstTimeStartUp\SetupView.xaml.cs">
-      <DependentUpon>SetupView.xaml</DependentUpon>
-    </Compile>
     <Compile Update="Views\MainTill\Inventory\Items\ViewAllView.xaml.cs">
       <DependentUpon>ViewAllView.xaml</DependentUpon>
     </Compile>

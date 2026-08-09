@@ -32,13 +32,18 @@ namespace Plutus.Frontend.AppClient.Views.FirstTimeStartUp
 
             // Portal-first: this is the path everyone should take.
             Children.Add(new Plutus.Frontend.AppClient.Views.Platform.ConnectionView(firstRun: true));
+
+            // ⚠ RecoveryView is KEPT and reframed as the cutover on-ramp — it is how a till with a
+            // legacy database gets that database archived, which is now what unlocks enrolment.
             Children.Add(new RecoveryView());
 
-            if (DeviceInfo.Idiom == DeviceIdiom.Desktop)
-            {
-                Children.Add(new SetupView());
-                Children.Add(new TransferThirdPartyView());
-            }
+            // ⚠ `SetupView` and `TransferThirdPartyView` ARE DELETED (cutover step 21). Setup built
+            // a till that LOOKS configured and can never talk to the platform: a locally-invented
+            // store and admin, with no tenant, no till record and no device credential — and it sat
+            // as a peer tab beside the real one, so picking the wrong tab produced a till that
+            // seemed to work until the first sale went nowhere. TransferThirdParty was
+            // self-labelled LEGACY and threw from `async void`. Neither has a place now that
+            // enrolment is the only way a till comes into existence.
         }
     }
 }

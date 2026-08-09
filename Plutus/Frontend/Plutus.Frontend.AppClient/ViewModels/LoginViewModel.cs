@@ -328,6 +328,22 @@ namespace Plutus.Frontend.AppClient.ViewModels
         /// row and saves it — an in-memory-only store would look right and fail on the first edit.
         /// Never throws: a till that cannot reach the server still signs in, and the null-guards on
         /// the screens themselves keep the shell standing.
+        ///
+        /// ⚠ CUTOVER STEP 21 SAYS DELETE THIS, AND IT CANNOT GO YET — recorded here rather than
+        /// left as a silent deviation. The reasoning in the plan is right: writing API data into
+        /// the legacy `Stores` table is exactly the bridge binding default 9 forbids, and step 20's
+        /// `StoreInfoCache` has already replaced it for DISPLAY (Store Options is read-only now and
+        /// no longer edits this row, so the sentence above is already out of date).
+        ///
+        /// What still holds it up is `Store.Id`, not the store's details:
+        ///   • `Helpers/Database/Database.cs:42` passes it to the legacy `AppDBContext` — null-safe,
+        ///     so this one degrades rather than breaks.
+        ///   • `Inventory/Items/AddEditViewModel.cs:330` dereferences `Store.Id` outright and would
+        ///     NullReference the moment anyone edited an item.
+        ///
+        /// Deleting it today would trade a design smell for a crash on a screen operators use.
+        /// It goes when **step 25** moves inventory off the legacy store — at which point nothing
+        /// needs a legacy store id and this method has no remaining callers.
         /// </summary>
         private static async Task EnsureStoreAsync()
         {
