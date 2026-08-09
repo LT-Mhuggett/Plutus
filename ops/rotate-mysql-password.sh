@@ -70,6 +70,46 @@ NEW=$(openssl rand -hex 24)   # 48 chars, 192 bits
 [ -n "$OLD" ]        || { echo "FAIL: could not read the current password"; exit 1; }
 [ ${#NEW} -eq 48 ]   || { echo "FAIL: generated password is the wrong length"; exit 1; }
 
+# ── PRE-FLIGHT: can the backend still authenticate AFTER the password changes? ────────────────
+#
+# ⚠ THIS CHECK EXISTS BECAUSE ROTATING TOOK THE BACKEND DOWN ON 2026-08-09, and no amount of
+# care AFTER the ALTER could have saved it. The `plutus` account uses `caching_sha2_password`,
+# which keeps a server-side cache of the password digest; only the cheap "fast auth" path works
+# from that cache, and CHANGING THE PASSWORD EMPTIES IT. With a cold cache the client must do
+# FULL authentication, which MySQL permits only over a channel it considers secure — a unix
+# socket, TLS, or an RSA key exchange.
+#
+# A connection string of plain `Server=127.0.0.1;Port=3306` has none of those. It works
+# indefinitely while the cache is warm and fails permanently the moment it is not, so the damage
+# is done by the ALTER itself. Rolling the password back does NOT undo it — the cache stays cold
+# for the old value too. The only safe moment to catch this is now, BEFORE anything changes.
+CONNSTR=$(grep -oE 'ConnectionString: "[^"]*"' plutus-ecosystem.config.js | sed 's/ConnectionString: "//; s/"$//')
+
+case "$CONNSTR" in
+  *ConnectionProtocol=unix*|*Protocol=unix*)
+      echo "pre-flight: backend connects over the unix socket — safe to rotate" ;;
+  *AllowPublicKeyRetrieval=true*|*SslMode=Required*|*SslMode=VerifyCA*|*SslMode=VerifyFull*)
+      echo "pre-flight: backend can complete full auth over TCP — safe to rotate" ;;
+  *)
+      rm -f "secrets/mysql.env.pre-rotate-$STAMP" "plutus-ecosystem.config.js.pre-rotate-$STAMP"
+      echo
+      echo "✗ REFUSING TO ROTATE — nothing has been changed."
+      echo
+      echo "  The backend connects over plain TCP with no TLS and no AllowPublicKeyRetrieval:"
+      echo "      $(printf '%s' "$CONNSTR" | sed -E 's/(Password=)[^;]*/\1<redacted>/')"
+      echo
+      echo "  The account is caching_sha2_password. Changing the password empties the server's"
+      echo "  auth cache, and this connection string cannot complete the full authentication that"
+      echo "  then becomes necessary — so the backend would crash-loop with 'Access denied' and"
+      echo "  rolling the password back would NOT fix it."
+      echo
+      echo "  Fix the connection string FIRST (either is fine, the socket is safer for a same-host"
+      echo "  backend), restart, confirm the service is healthy, then re-run this script:"
+      echo "      Server=/tmp/mysql.sock;ConnectionProtocol=unix;User=plutus;Password=…;Database=plutus"
+      echo "      …or append  ;AllowPublicKeyRetrieval=true  to the existing TCP string"
+      exit 1 ;;
+esac
+
 # ── 1. the canonical store FIRST, so the new value is recoverable before anything depends on it
 CHANGED=yes
 sed -i '' "s|^MYSQL_PLUTUS_PASSWORD=.*|MYSQL_PLUTUS_PASSWORD=$NEW|" secrets/mysql.env
