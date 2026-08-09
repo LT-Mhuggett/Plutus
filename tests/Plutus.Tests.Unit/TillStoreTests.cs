@@ -53,10 +53,14 @@ public class TillStoreTests : IAsyncLifetime
         Tenders = { new IngestTender { TenderType = 0, AmountPence = 600 } },
     };
 
+    /// <summary>⚠ Against the CONSTANT, not a literal. The stamp is what
+    /// <c>TillDbContext.EnsureReadyAsync</c> compares to decide whether an existing store needs
+    /// upgrading, so what matters is that a fresh store is stamped CURRENT — pinning a literal just
+    /// means editing this test on every bump, which teaches people to edit it without thinking.</summary>
     [Fact]
-    public async Task Schema_v2_is_created_and_stamped()
+    public async Task A_fresh_store_is_stamped_with_the_current_schema_version()
     {
-        Assert.Equal("2", await _store.GetMetaAsync(MetaKeys.SchemaVersion));
+        Assert.Equal(TillDbContext.SchemaVersion.ToString(), await _store.GetMetaAsync(MetaKeys.SchemaVersion));
     }
 
     [Fact]

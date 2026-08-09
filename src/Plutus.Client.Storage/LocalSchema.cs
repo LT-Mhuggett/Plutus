@@ -115,6 +115,34 @@ public class LocalSale
     public int Attempts { get; set; }
 }
 
+/// <summary>
+/// How much of an EARLIER sale a later sale gave back. One row per (refund sale, origin sale).
+///
+/// ⚠ WHY A TABLE AND NOT A COLUMN ON <see cref="LocalSale"/>. One basket can refund lines from two
+/// different original sales, and a single `OriginSaleId` column cannot say so — it would have to
+/// pick one and drop the other, or go null. Either way `AlreadyRefundedPenceAsync` UNDERCOUNTS,
+/// and undercounting what has already been given back is precisely how a till refunds more than
+/// the customer ever paid. Matt's binding default 12: *"You should not be able to refund MORE than
+/// the price paid for it."* A cap computed from an incomplete history is not a cap.
+///
+/// ⚠ WHY IT EXISTS AT ALL: the origin id is buried inside `PayloadJson` (in each line's
+/// `LineMeta.Return`), which SQLite cannot index or sum over. Written in the SAME transaction as
+/// the sale it belongs to, from that sale's own payload, so the two can never disagree.
+/// </summary>
+public class LocalRefund
+{
+    /// <summary>The REFUND sale — the one being rung now.</summary>
+    public Guid SaleId { get; set; }
+
+    /// <summary>The ORIGINAL sale whose goods are coming back.</summary>
+    public Guid OriginSaleId { get; set; }
+
+    /// <summary>What this sale gave back against that origin, as a POSITIVE number of pence.
+    /// ⚠ Positive: refund line gross is negative, and a cap compared against a negative number
+    /// passes everything.</summary>
+    public long RefundedPence { get; set; }
+}
+
 /// <summary>A parked basket. Serialised as CONTRACT JSON with no .NET `$type` metadata — the
 /// legacy blobs carried `NatApp.Plutus.*` type names that break the moment a namespace changes,
 /// which is what made discounted parked baskets crash on recall.</summary>

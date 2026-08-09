@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -103,6 +104,65 @@ public sealed class LineMeta
         try { return JsonSerializer.Deserialize<LineMeta>(json, Options); }
         catch (JsonException) { return null; }
     }
+}
+
+/// <summary>
+/// One line of a sale as the platform holds it — `GET /api/v1/sales/{saleId}` (cutover step 15).
+/// ⚠ A projection of the SERVER's record, not of what this till sent: for a sale rung on another
+/// till, or migrated from the legacy system, they are not the same thing.
+/// </summary>
+public sealed class SaleLineDto
+{
+    [JsonPropertyName("lineNo")] public int LineNo { get; set; }
+    [JsonPropertyName("itemIdOne")] public string? ItemIdOne { get; set; }
+    [JsonPropertyName("itemName")] public string? ItemName { get; set; }
+    [JsonPropertyName("qty")] public int Qty { get; set; }
+    [JsonPropertyName("unitPricePence")] public long UnitPricePence { get; set; }
+    [JsonPropertyName("discountPence")] public long DiscountPence { get; set; }
+    [JsonPropertyName("lineGrossPence")] public long LineGrossPence { get; set; }
+    [JsonPropertyName("vatRateBp")] public int VatRateBp { get; set; }
+    [JsonPropertyName("vatAmountPence")] public long VatAmountPence { get; set; }
+}
+
+/// <summary>
+/// A refund or void already recorded against a sale.
+///
+/// ⚠ THIS IS THE SERVER'S HALF OF THE REFUND CAP. `AmountPence` here plus what the local store
+/// knows is how much of a sale has been given back; a refund decided without it is a refund
+/// decided from one till's memory, and the customer only has to walk to a different counter.
+/// </summary>
+public sealed class SaleAdjustmentDto
+{
+    [JsonPropertyName("type")] public string? Type { get; set; }
+    [JsonPropertyName("itemId")] public Guid? ItemId { get; set; }
+    [JsonPropertyName("qty")] public int Qty { get; set; }
+    [JsonPropertyName("amountPence")] public long AmountPence { get; set; }
+    [JsonPropertyName("reason")] public string? Reason { get; set; }
+}
+
+/// <summary>
+/// A sale as the platform holds it — the authority a receipt-led refund is decided against when
+/// this till never sold the goods (`GET /api/v1/sales/{saleId}`).
+/// </summary>
+public sealed class SaleDto
+{
+    [JsonPropertyName("id")] public Guid Id { get; set; }
+    [JsonPropertyName("businessDay")] public string? BusinessDay { get; set; }
+    [JsonPropertyName("occurredAtUtc")] public DateTime OccurredAtUtc { get; set; }
+    [JsonPropertyName("grossPence")] public long GrossPence { get; set; }
+    [JsonPropertyName("vatPence")] public long VatPence { get; set; }
+    [JsonPropertyName("operatorName")] public string? OperatorName { get; set; }
+    [JsonPropertyName("lines")] public List<SaleLineDto> Lines { get; set; } = new();
+    [JsonPropertyName("adjustments")] public List<SaleAdjustmentDto> Adjustments { get; set; } = new();
+
+    /// <summary>
+    /// What has already been refunded against this sale, in pence, as a positive number.
+    ///
+    /// ⚠ Voids are counted too. A voided line's money left the drawer just as surely as a refunded
+    /// one's, and treating a void as "not a refund" leaves exactly that much refundable twice.
+    /// </summary>
+    public long AlreadyRefundedPence =>
+        Adjustments?.Sum(a => Math.Abs(a.AmountPence)) ?? 0;
 }
 
 public sealed class LineDiscount

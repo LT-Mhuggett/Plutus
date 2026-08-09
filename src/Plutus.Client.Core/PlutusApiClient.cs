@@ -247,6 +247,19 @@ public sealed class PlutusApiClient
     // ── sale ingest ──
 
     /// <summary>
+    /// Fetch a sale the platform holds (cutover step 15) — the authority for a receipt-led refund
+    /// when this till never saw the original.
+    ///
+    /// ⚠ THE LOCAL STORE IS NOT ENOUGH, and the gap is the common case rather than the edge one:
+    /// a customer returns to a DIFFERENT till from the one that sold them the goods, or comes back
+    /// after the rolling window pruned the sale. Both are ordinary retail. Null means "this till
+    /// cannot answer" — offline, or genuinely unknown — and a refund decided on a null is a refund
+    /// decided on no evidence.
+    /// </summary>
+    public Task<SaleDto?> GetSaleAsync(Guid saleId, CancellationToken ct = default) =>
+        GetAsync<SaleDto>($"/api/v1/sales/{saleId:D}", ct);
+
+    /// <summary>
     /// POST a sale. Returns the raw status alongside the parsed body because the STATUS is the
     /// policy: 201/200 done · 202 quarantined (never retry) · 400 failed (skip, don't block the
     /// queue) · anything else stays pending for the backoff.

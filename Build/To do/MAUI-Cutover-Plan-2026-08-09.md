@@ -80,7 +80,7 @@ Phase 2  MONEY PATH            [x]9 basket+assembler ✅  [x]10 v2 lookup ✅  [
                                [x]13b checkout tenders off the FIXED set ✅ (a new till could not sell AT ALL)
                                [x]14 receipt re-signature ✅ (barcode was EMPTY since step 11)
                                [x]14b portal-till crash sweep ✅ (Checkout closed the APP)
-Phase 3  RETURNS/PARK/REPRINT  [ ]15 sale read path  [ ]16 RefundRules wiring  [ ]17 server refund cap  [ ]18 parked baskets
+Phase 3  RETURNS/PARK/REPRINT  [x]15 sale read path ✅  [ ]16 RefundRules wiring  [ ]17 server refund cap  [ ]18 parked baskets
 Phase 4  OPERATOR AUTH         [ ]19 /api/Auth/Login wiring + the four backend fixes
 Phase 5  SCREENS               [ ]20 WP6  [ ]21 first-run deletions  [ ]22 WP7  [ ]23 WP9  [ ]24 WP8 users
                                [ ]25 WP10  [ ]26 WP11  [ ]27 WP12+WP13

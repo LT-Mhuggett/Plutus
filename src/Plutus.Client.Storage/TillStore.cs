@@ -412,6 +412,12 @@ public sealed class TillStore : IOutboxStore, ISyncStore
         };
         _db.LocalSales.Add(row);
 
+        // ⚠ IN THE SAME TRANSACTION, from the SAME payload. A refund recorded separately could be
+        // lost while the sale survived, and the next refund against that original would be allowed
+        // to give the money back twice.
+        foreach (var refund in RefundsIn(sale))
+            _db.LocalRefunds.Add(refund);
+
         var meta = await _db.Meta.FirstOrDefaultAsync(m => m.Key == MetaKeys.DeviceSeq, ct);
         if (meta == null) _db.Meta.Add(new MetaEntry { Key = MetaKeys.DeviceSeq, Value = seq.ToString(CultureInfo.InvariantCulture) });
         else meta.Value = seq.ToString(CultureInfo.InvariantCulture);
@@ -421,8 +427,98 @@ public sealed class TillStore : IOutboxStore, ISyncStore
         return row;
     }
 
-    /// <summary>Prune delivered sales past the rolling window. NEVER touches Pending, Failed or
-    /// Quarantined: those are money still owed, or money a human has to look at.</summary>
+    /// <summary>
+    /// What this sale gives back, per original sale, derived from its own payload.
+    ///
+    /// ⚠ Read from `LineMeta.Return.OriginSaleId` — where `SaleAssembler` puts it — rather than
+    /// from anything the caller passes, so the recorded refund and the sale that was actually sent
+    /// describe the same event.
+    /// </summary>
+    private static IEnumerable<LocalRefund> RefundsIn(IngestSaleRequest sale)
+    {
+        var byOrigin = new Dictionary<Guid, long>();
+
+        foreach (var line in sale.Lines ?? Enumerable.Empty<IngestLine>())
+        {
+            var origin = LineMeta.FromJson(line.DiscountsJson)?.Return?.OriginSaleId;
+            if (!Guid.TryParse(origin, out var originId) || originId == Guid.Empty) continue;
+
+            // ⚠ Magnitude. A return's LineGrossPence is NEGATIVE, and a cap compared against a
+            // negative running total would let every refund through.
+            byOrigin.TryGetValue(originId, out var running);
+            byOrigin[originId] = running + Math.Abs(line.LineGrossPence);
+        }
+
+        return byOrigin.Select(kv => new LocalRefund
+        {
+            SaleId = sale.SaleId,
+            OriginSaleId = kv.Key,
+            RefundedPence = kv.Value,
+        });
+    }
+
+    /// <summary>
+    /// Read a sale back — the payload exactly as it was committed (cutover step 15).
+    ///
+    /// ⚠ NOTHING COULD DO THIS BEFORE. `GetPendingAsync` filters to Pending, so the moment a sale
+    /// was delivered it became unreadable by this till: no reprint, no receipt-led refund, no
+    /// offline X/Z. The sale was sitting in the table the whole time.
+    ///
+    /// Returns null when the till has never seen the sale, or when the window has pruned it.
+    /// </summary>
+    public async Task<IngestSaleRequest?> FindLocalSaleAsync(Guid saleId, CancellationToken ct = default)
+    {
+        var row = await _db.LocalSales.AsNoTracking().FirstOrDefaultAsync(s => s.SaleId == saleId, ct);
+        if (row == null) return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<IngestSaleRequest>(row.PayloadJson, PlutusApiClient.Json);
+        }
+        catch (JsonException)
+        {
+            // ⚠ Null, never a half-built sale. A payload this till cannot parse is a payload it
+            // must not reason about — refunding against a guess is worse than saying "not found".
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// How much of <paramref name="originSaleId"/> has ALREADY been given back, in pence, as a
+    /// positive number — summed across every part-refund this till knows about.
+    ///
+    /// ⚠ THIS IS WHAT STOPS A DOUBLE REFUND. Matt's binding default 12: you cannot refund more than
+    /// was paid. A £30 item refunded £20 today and £20 tomorrow is £10 of the shop's money gone,
+    /// and each refund looks perfectly reasonable on its own — only the running total says
+    /// otherwise.
+    ///
+    /// ⚠ COUNTS EVERY STATUS, deliberately. A refund still queued in the outbox has already had
+    /// cash handed over the counter; excluding it because the server has not confirmed it yet would
+    /// let the same sale be refunded again while the first one waits for a network.
+    ///
+    /// ⚠ It knows only what THIS till has seen. A refund taken on another till, or one pruned past
+    /// the window, is invisible here — which is why the server enforces the same cap (step 17) and
+    /// this is the offline half, not the authority.
+    /// </summary>
+    public async Task<long> AlreadyRefundedPenceAsync(Guid originSaleId, CancellationToken ct = default)
+    {
+        if (originSaleId == Guid.Empty) return 0;
+
+        return await _db.LocalRefunds.AsNoTracking()
+            .Where(r => r.OriginSaleId == originSaleId)
+            .SumAsync(r => r.RefundedPence, ct);
+    }
+
+    /// <summary>
+    /// Prune delivered sales past the rolling window. NEVER touches Pending, Failed or
+    /// Quarantined: those are money still owed, or money a human has to look at.
+    ///
+    /// ⚠ IT MUST NOT TOUCH `LocalRefunds` EITHER, and there is deliberately no cascade to make it.
+    /// Those rows say how much of an ORIGINAL sale has already been given back. Deleting them when
+    /// the refund sale ages out would drop the running total back to zero and let the same original
+    /// be refunded all over again — the exact double-refund the cap exists to stop. They are a few
+    /// bytes each and they outlive the sale that created them on purpose.
+    /// </summary>
     public async Task<int> PrunePushedAsync(TimeSpan window, CancellationToken ct = default)
     {
         var cutoff = _utcNow() - window;

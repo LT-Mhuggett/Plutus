@@ -15,7 +15,10 @@ namespace Plutus.Client.Storage;
 /// </summary>
 public sealed class TillDbContext : DbContext
 {
-    public const int SchemaVersion = 2;
+    /// <summary>⚠ Bump this AND add a matching step to <see cref="UpgradeAsync"/> in the same
+    /// commit. A bump with no step silently stamps a store as current without changing it; a step
+    /// with no bump never runs.</summary>
+    public const int SchemaVersion = 3;
 
     public TillDbContext(DbContextOptions<TillDbContext> options) : base(options) { }
 
@@ -24,6 +27,7 @@ public sealed class TillDbContext : DbContext
     public DbSet<PriceScheduleEntry> PriceSchedule => Set<PriceScheduleEntry>();
     public DbSet<LocalOperator> Operators => Set<LocalOperator>();
     public DbSet<LocalSale> LocalSales => Set<LocalSale>();
+    public DbSet<LocalRefund> LocalRefunds => Set<LocalRefund>();
     public DbSet<SavedBasket> SavedBaskets => Set<SavedBasket>();
 
     protected override void OnModelCreating(ModelBuilder b)
@@ -65,18 +69,76 @@ public sealed class TillDbContext : DbContext
             e.Property(x => x.PayloadJson).IsRequired();
         });
 
+        b.Entity<LocalRefund>(e =>
+        {
+            e.ToTable("LocalRefunds");
+            // One row per (refund sale, origin) — a basket refunding two different sales writes two.
+            e.HasKey(x => new { x.SaleId, x.OriginSaleId });
+            // ⚠ The refund cap sums by ORIGIN, on every return, with a customer waiting.
+            e.HasIndex(x => x.OriginSaleId);
+        });
+
         b.Entity<SavedBasket>(e => { e.ToTable("SavedBaskets"); e.HasKey(x => x.Id); });
     }
 
-    /// <summary>Create the store if absent and stamp its schema version.</summary>
+    /// <summary>
+    /// Create the store if absent, bring an older one up to date, and stamp its schema version.
+    ///
+    /// ⚠ `EnsureCreated` DOES NOTHING TO AN EXISTING DATABASE. It creates the schema only when the
+    /// file is absent, so every table and column added after a till first ran would simply never
+    /// exist there — and the failure is `SQLite Error 1: no such table`, at the counter, on the
+    /// first sale that touches it. The version stamp was already being written and nothing ever
+    /// read it; this is that missing half.
+    ///
+    /// ⚠ EF migrations are deliberately not used here. This store is created by `EnsureCreated` on
+    /// devices we cannot reach, and retro-fitting a migrations history to those files is a bigger
+    /// risk than a short ordered list of idempotent steps. Every step must therefore be safe to run
+    /// twice (`IF NOT EXISTS`), because a crash between the DDL and the stamp leaves it half-done.
+    /// </summary>
     public async Task EnsureReadyAsync(CancellationToken ct = default)
     {
-        await Database.EnsureCreatedAsync(ct);
+        var fresh = await Database.EnsureCreatedAsync(ct);
+
         var stamped = await Meta.FindAsync(new object[] { MetaKeys.SchemaVersion }, ct);
-        if (stamped == null)
+
+        // A store EnsureCreated just built already has every table; anything else may be older.
+        // ⚠ An unstamped existing store is treated as version 1, not as current — it predates the
+        // stamp, so assuming it is up to date is exactly the wrong guess.
+        var from = fresh ? SchemaVersion : int.TryParse(stamped?.Value, out var v) ? v : 1;
+
+        if (from < SchemaVersion)
+            await UpgradeAsync(from, ct);
+
+        if (stamped == null) Meta.Add(new MetaEntry { Key = MetaKeys.SchemaVersion, Value = SchemaVersion.ToString() });
+        else stamped.Value = SchemaVersion.ToString();
+
+        await SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Ordered, idempotent upgrade steps. ⚠ Raw SQL on purpose: the C# model describes the LATEST
+    /// schema, so anything derived from it would describe where we are going, not the step in
+    /// between.
+    /// </summary>
+    private async Task UpgradeAsync(int from, CancellationToken ct)
+    {
+        // v3 — LocalRefunds: what a sale gave back, per original sale. The origin id lives inside
+        // PayloadJson, which cannot be indexed or summed, and the refund cap has to sum it on every
+        // return. Without this a till cannot tell how much of a sale has already been refunded.
+        if (from < 3)
         {
-            Meta.Add(new MetaEntry { Key = MetaKeys.SchemaVersion, Value = SchemaVersion.ToString() });
-            await SaveChangesAsync(ct);
+            await Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS "LocalRefunds" (
+                    "SaleId" TEXT NOT NULL,
+                    "OriginSaleId" TEXT NOT NULL,
+                    "RefundedPence" INTEGER NOT NULL,
+                    CONSTRAINT "PK_LocalRefunds" PRIMARY KEY ("SaleId", "OriginSaleId")
+                );
+                """, ct);
+
+            await Database.ExecuteSqlRawAsync(
+                """CREATE INDEX IF NOT EXISTS "IX_LocalRefunds_OriginSaleId" ON "LocalRefunds" ("OriginSaleId");""", ct);
         }
     }
 }
