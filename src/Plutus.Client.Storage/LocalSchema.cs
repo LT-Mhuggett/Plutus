@@ -70,13 +70,15 @@ public class PriceScheduleEntry
     public long PricePence { get; set; }
 }
 
-/// <summary>Extra barcodes pointing at an item. The item's own <see cref="CatalogueItem.IdOne"/>
-/// is its default code — there is no server-side Barcode entity, so these are aliases only.</summary>
-public class BarcodeAlias
-{
-    public string Code { get; set; } = "";
-    public Guid ItemId { get; set; }
-}
+// ⚠ `BarcodeAlias` WAS HERE AND IS DELETED (2026-08-09). The table existed, was mapped, and was
+// read by FindByBarcodeAsync — and **nothing in the history of this repo ever wrote a row to it**,
+// because the platform has no barcode entity for a feed to carry. Matt confirmed the same day that
+// multi-barcode items are not needed.
+//
+// Deleted rather than left empty: a mapped table and a live read path advertise a feature that does
+// not exist, so the next person asked for multiple barcodes would reasonably believe the till
+// already half-supports them and go looking for the bug. `CatalogueItem.IdOne` IS the barcode.
+// Real support needs a server entity, a feed field and a portal UI first.
 
 /// <summary>An operator who may sign in at this till, with the credential hash and permission set
 /// synced down so login works with the network off (§9.2, WP8).</summary>

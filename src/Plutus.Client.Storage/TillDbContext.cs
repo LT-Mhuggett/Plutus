@@ -22,7 +22,6 @@ public sealed class TillDbContext : DbContext
     public DbSet<MetaEntry> Meta => Set<MetaEntry>();
     public DbSet<CatalogueItem> CatalogueItems => Set<CatalogueItem>();
     public DbSet<PriceScheduleEntry> PriceSchedule => Set<PriceScheduleEntry>();
-    public DbSet<BarcodeAlias> Barcodes => Set<BarcodeAlias>();
     public DbSet<LocalOperator> Operators => Set<LocalOperator>();
     public DbSet<LocalSale> LocalSales => Set<LocalSale>();
     public DbSet<SavedBasket> SavedBaskets => Set<SavedBasket>();
@@ -48,12 +47,10 @@ public sealed class TillDbContext : DbContext
             e.HasKey(x => new { x.ItemId, x.EffectiveFromUtc });
         });
 
-        b.Entity<BarcodeAlias>(e =>
-        {
-            e.ToTable("Barcodes");
-            e.HasKey(x => x.Code);
-            e.HasIndex(x => x.ItemId);
-        });
+        // ⚠ The `Barcodes` table is gone (2026-08-09) — see LocalSchema. It was mapped and read and
+        // never once written, because no server-side barcode entity exists to feed it. An existing
+        // till simply keeps an empty table it no longer opens; there is nothing to migrate, and
+        // EnsureReadyAsync creates the rest unchanged.
 
         b.Entity<LocalOperator>(e => { e.ToTable("Operators"); e.HasKey(x => x.UserId); });
 

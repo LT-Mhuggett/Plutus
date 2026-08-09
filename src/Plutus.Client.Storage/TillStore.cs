@@ -52,19 +52,27 @@ public sealed class TillStore : IOutboxStore, ISyncStore
 
     // ── catalogue ──
 
-    /// <summary>Resolve a scanned code: the item's own IdOne first, then an alias. Binned items
-    /// are excluded — an offline till must stop selling something the portal has withdrawn.</summary>
+    /// <summary>
+    /// Resolve a scanned code. Binned items are excluded — an offline till must stop selling
+    /// something the portal has withdrawn.
+    ///
+    /// ⚠ ONE CODE PER ITEM: <see cref="CatalogueItem.IdOne"/> IS the barcode. There is no alias
+    /// lookup, because there is nothing to look up — the platform has **no barcode entity at all**
+    /// (verified 2026-08-09: nothing in `Plutus.Entities` models one, and the catalogue feed
+    /// carries no alias list), and Matt confirmed the same day that multi-barcode items are not
+    /// needed.
+    ///
+    /// This method used to fall back to a local `Barcodes` table that **nothing has ever written**.
+    /// That is worse than not having the feature: it reads as support for multiple barcodes, so the
+    /// next person to be asked for them would reasonably assume the till half-supports it already.
+    /// Removed deliberately. Adding real multi-barcode support means a server entity, a feed field
+    /// and a portal UI first — a platform decision, not a till change.
+    /// </summary>
     public async Task<CatalogueItem?> FindByBarcodeAsync(string code, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(code)) return null;
-        var item = await _db.CatalogueItems.AsNoTracking()
-            .FirstOrDefaultAsync(i => i.IdOne == code && !i.Removed, ct);
-        if (item != null) return item;
-
-        var alias = await _db.Barcodes.AsNoTracking().FirstOrDefaultAsync(x => x.Code == code, ct);
-        if (alias == null) return null;
         return await _db.CatalogueItems.AsNoTracking()
-            .FirstOrDefaultAsync(i => i.Id == alias.ItemId && !i.Removed, ct);
+            .FirstOrDefaultAsync(i => i.IdOne == code && !i.Removed, ct);
     }
 
     /// <summary>

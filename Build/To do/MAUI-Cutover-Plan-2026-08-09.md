@@ -75,7 +75,7 @@ Continues the retrofit plan's §9 numbering (1–9 live there).
 ```
 Phase 0  FOUNDATION            [x]1 EF9  [x]2 reference  [x]3 TillStoreAccess  [x]4 EnrolmentFlow ✅ COMPLETE
 Phase 1  LINE PRIMITIVES       [x]5 price pair  [x]6 TaxId+StockUntracked  [x]7 VAT band store  [x]8 tender values→SharedKernel ✅ PHASE COMPLETE
-Phase 2  MONEY PATH            [x]9 basket+assembler ✅  [x]10 v2 lookup ✅  [ ]11 CommitSaleAsync  [ ]12 permission gates
+Phase 2  MONEY PATH            [x]9 basket+assembler ✅  [x]10 v2 lookup ✅  [x]11 CommitSaleAsync ✅  [ ]11b basket reshape  [ ]12 permission gates
                                [~]13 sync services (CatalogueSyncService ✅; OutboxPushService + 60s scheduler ⬜)
                                [ ]14 receipt re-signature
 Phase 3  RETURNS/PARK/REPRINT  [ ]15 sale read path  [ ]16 RefundRules wiring  [ ]17 server refund cap  [ ]18 parked baskets
@@ -220,7 +220,13 @@ ignores tombstones, so **a binned item is still sellable today**. Price from Ste
 `PriceSchedule`; wire whichever is dead.
 VERIFY: binned item does not resolve; scheduled reprice applies at its instant; alias scan resolves.
 
-**Step 11 — Checkout → `CommitSaleAsync`; delete the stock decrement.** `FinaliseTransation`
+**Step 11 — Checkout → `CommitSaleAsync`** ✅ **DONE 2026-08-09.** `Services/Storage/CheckoutCommit` builds the payload and commits it; the per-line stock decrement is DELETED. ⚠ **The BasketItem reshape was deliberately SPLIT OUT of this step** — see below.
+
+⚠ **SPLIT, AND WHY.** The step as written bundled (a) commit-through-the-store with (b) reshaping `BasketItem`/`BasketReturnItem` to long pence and an `IsReturn` flag. They are separable, and bundling them was wrong: (b) touches XAML bindings, **which fail SILENTLY in MAUI** — a binding to a property that no longer exists renders blank instead of crashing. Landing a silent-failure class of change in the same commit as the money path would make any regression impossible to bisect. (a) is done and independently verified; (b) becomes **step 11b**, before step 14 re-signatures the receipt.
+
+**Step 11b (NEW) — reshape the basket.** `BasketItem` to long pence, `BasketReturnItem` collapsed to `IsReturn`, the nine `is BasketReturnItem` type-tests, both Mapster configs, `BasketDataTemplateSelector`, and every XAML binding onto those members. ⚠ Enumerate the bindings FIRST and check each renders — they do not throw.
+
+*Original body:* `FinaliseTransation`
 (≈`:1046–1159`): both legacy writes → one `CommitSaleAsync(request)` (sale + outbox row are ONE row
 in ONE transaction; DeviceSeq allocated inside). **Delete the per-line stock decrement**
 (≈`:1055–1061`, one `Save()` per line, no transaction) — v2 has no local stock; the server

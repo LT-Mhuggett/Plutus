@@ -134,18 +134,18 @@ public class TillStoreTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Barcode_lookup_resolves_aliases_and_refuses_binned_items()
+    public async Task Barcode_lookup_refuses_binned_items()
     {
         var id = Uuid7.New();
         _db.CatalogueItems.Add(new CatalogueItem { Id = id, IdOne = "5010", Name = "Mug", PricePence = 500 });
-        _db.Barcodes.Add(new BarcodeAlias { Code = "ALIAS-1", ItemId = id });
 
         var binnedId = Uuid7.New();
         _db.CatalogueItems.Add(new CatalogueItem { Id = binnedId, IdOne = "9999", Name = "Withdrawn", PricePence = 100, Removed = true });
         await _db.SaveChangesAsync();
 
+        // ⚠ IdOne IS the barcode — one code per item. The alias table it used to fall back to was
+        // never written by anything and is deleted (2026-08-09, Matt: multi-barcode not needed).
         Assert.Equal(id, (await _store.FindByBarcodeAsync("5010"))!.Id);
-        Assert.Equal(id, (await _store.FindByBarcodeAsync("ALIAS-1"))!.Id);
         Assert.Null(await _store.FindByBarcodeAsync("nope"));
         // FE5.4: a binned item must stop selling on an OFFLINE till too, which is why the feed
         // carries tombstones rather than just upserts.

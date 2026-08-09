@@ -1045,31 +1045,31 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         #region Operations
         private async void FinaliseTransation(SaleModel sale, decimal change)
         {
-            _ = Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
-            using (var db = new Helpers.Database.Database(databaseProvider, App.GetViewModel().EmployeeId))
             {
                 var itemHasNoStock = false;
 
-                foreach (var tran in sale.Transactions)
+                // ⚠ THE PER-LINE STOCK DECREMENT IS GONE (cutover step 11). It read a legacy
+                // StockModel and called db.Save() ONCE PER LINE with no transaction, so a crash
+                // halfway through a basket left some lines decremented and some not, with nothing
+                // to reconcile against. v2 holds no local stock at all: the SERVER attributes
+                // movement from `LineMeta.itemIdOne` on the sale it receives, which is one
+                // authority instead of one per till.
+
+                // ⚠ COMMIT BEFORE PRINTING, and this ordering is the whole point of the block.
+                // The receipt is printed from what was COMMITTED — so a printer failure is a
+                // reprint problem, never a money problem. The reverse order loses a sale that a
+                // customer has already been handed a receipt for.
+                var tenders = Services.Storage.CheckoutCommit.TendersFrom(
+                    sale.PaySales.Select(p => ((string?)p.TempPayMethod?.Name, p.Amount, p.Change)));
+
+                var outcome = await Services.Storage.CheckoutCommit.CommitAsync(
+                    Basket, tenders, App.GetViewModel().SignedInOperator?.UserId);
+
+                if (!outcome.Committed)
                 {
-                    if (Basket.Where(bR => bR is BasketItem).Cast<BasketItem>().First(i => i.Item.Id.Equals(tran.ItemId)).Item.Stock != null)
-                    {
-                        var stock = db.Get<StockModel>().FirstOrDefault(s => s.ItemId.Equals(tran.ItemId) && s.StoreId.Equals(App.GetViewModel().Store.Id));
-                        if (stock == default) continue;
-                        stock.Quantity -= tran.Amount;
-                        db.Save();
-                    }
-                    else
-                        itemHasNoStock = true;
-                }
-
-                sale.PaySales.ForEach(p => p.PayId = p.TempPayMethod.Id);
-
-                db.Add(sale);
-
-                if (!db.Save())
-                {
-                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "DbIssue".Translate(), "OK".Translate());
+                    // ⚠ The basket is deliberately NOT cleared. Nothing was recorded, so the sale
+                    // is still there to retry — clearing it would lose the sale and the evidence.
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), outcome.Message, "OK".Translate());
                     return;
                 }
 
