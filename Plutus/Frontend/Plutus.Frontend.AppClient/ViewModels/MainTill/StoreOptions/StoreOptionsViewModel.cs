@@ -58,7 +58,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.StoreOptions
             Title = "StoreInformation".Translate();
             Icon = "md-store";
 
-            DisplayLogo = Store.Logo != null;
+            // ⚠ NULL-SAFE ON PURPOSE. This ran inside a CONSTRUCTOR that AppShell invokes while it
+            // is being built, so a null store did not degrade one tab — it threw
+            // NullReferenceException out of `new AppShell()` and the operator was told
+            // "Something went wrong signing in" after typing a correct password. A screen that
+            // cannot render its own data should show nothing; it must never be able to stop
+            // somebody signing in.
+            DisplayLogo = Store?.Logo != null;
 
             SetCurrencyDisplays();
 

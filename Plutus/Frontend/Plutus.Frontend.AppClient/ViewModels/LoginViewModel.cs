@@ -258,8 +258,100 @@ namespace Plutus.Frontend.AppClient.ViewModels
                 await App.Current.MainPage.DisplayAlert("Signed in", op.Message, "OK");
 
             App.GetViewModel().SignedInOperator = op;
+
+            // ⚠ THE SHELL NEEDS A STORE, and this path never gave it one. AppShell builds
+            // StoreOptionsView, whose viewmodel dereferences App.GetViewModel().Store in its
+            // CONSTRUCTOR — so a correct password threw NullReferenceException while the shell was
+            // being assembled, and the operator was shown "Something went wrong signing in".
+            //
+            // From a shop floor that is indistinguishable from "my password is wrong", which is the
+            // worst possible way for it to read: sign-in had actually SUCCEEDED. The legacy path
+            // below never hit it because it sets Store from the employee's own row.
+            await EnsureStoreAsync();
+
             App.Current.MainPage = new AppShell();
             return true;
+        }
+
+        /// <summary>
+        /// Make sure the app has a store to render, for a till whose staff came from the portal.
+        ///
+        /// ⚠ A PORTAL-PROVISIONED TILL HAS AN EMPTY LOCAL DATABASE. The `Database` constructor
+        /// creates and migrates one on first touch, so the tables exist and every one of them is
+        /// empty — including `Stores`. Nothing local can supply this, so it comes from the server:
+        /// the device knows its till, `tills/{id}/name` gives the store, `stores/{id}/info` gives
+        /// the detail.
+        ///
+        /// Persisted locally as well as held in memory, because the Store Options screen edits the
+        /// row and saves it — an in-memory-only store would look right and fail on the first edit.
+        /// Never throws: a till that cannot reach the server still signs in, and the null-guards on
+        /// the screens themselves keep the shell standing.
+        /// </summary>
+        private static async Task EnsureStoreAsync()
+        {
+            try
+            {
+                if (App.GetViewModel().Store != null) return;
+
+                Enum.TryParse(new Settings().DatabaseProviderSetting, out DatabaseProvider provider);
+
+                using (var db = new Helpers.Database.Database(provider))
+                {
+                    var existing = db.Get<StoreModel>().FirstOrDefault();
+                    if (existing != null) { App.GetViewModel().Store = existing; return; }
+                }
+
+                var credentials = await Services.Connectivity.SecureDeviceCredentialStore.LoadAsync();
+                if (credentials?.DeviceId is not Guid deviceId) return;
+
+                var http = Services.Connectivity.PlutusHttp.TryFor(new Settings().ServerUrlSetting);
+                if (http is null) return;
+
+                var bootstrap = new Plutus.Client.Core.PlutusApiClient(http);
+                var api = new Plutus.Client.Core.PlutusApiClient(
+                    http, new Plutus.Client.Core.DeviceTokenProvider(bootstrap, credentials));
+
+                var tillId = credentials.TillId;
+                if (tillId is null)
+                {
+                    var (_, status) = await api.GetDeviceStatusAsync(deviceId);
+                    if (status?.TillId is Guid recovered) { credentials.SaveTillId(recovered); tillId = recovered; }
+                }
+                if (tillId is not Guid till) return;
+
+                var name = await api.GetTillNameAsync(till);
+                if (name?.StoreId is not int storeId) return;
+
+                var info = await api.GetStoreInfoAsync(storeId);
+                if (info is null) return;
+
+                var store = new StoreModel
+                {
+                    StoreName = info.Name ?? info.BusinessName ?? "Store",
+                    // ⚠ The abbreviation prints on receipts, so it must never be empty.
+                    StoreAbbr = (info.Name ?? info.BusinessName ?? "ST").Trim(),
+                    VatIN = info.VatNumber ?? string.Empty,
+                    ContactNumber = string.Empty,
+                    AdLine1 = info.AdLine1 ?? string.Empty,
+                    AdLine2 = info.AdLine2 ?? string.Empty,
+                    City = info.City ?? string.Empty,
+                    PostCode = info.PostCode ?? string.Empty,
+                    Country = info.Country ?? string.Empty,
+                };
+
+                using (var db = new Helpers.Database.Database(provider))
+                {
+                    db.Add(store);
+                    db.Save();
+                    App.GetViewModel().Store = db.Get<StoreModel>().FirstOrDefault() ?? store;
+                }
+            }
+            catch (Exception ex)
+            {
+                // ⚠ Never block sign-in. A missing store degrades the Store Options screen; a
+                // thrown exception here would put the operator back where this whole bug started.
+                CrashLog.Write("LoginViewModel.EnsureStoreAsync", ex);
+            }
         }
 
         /// <summary>Runs the shared probe and paints the result. Swallows everything — a broken
