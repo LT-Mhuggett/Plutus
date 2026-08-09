@@ -238,6 +238,12 @@ public sealed class PlutusApiClient
     public Task<AnnouncementDto[]?> GetAnnouncementsAsync(CancellationToken ct = default) =>
         GetAsync<AnnouncementDto[]>("/api/v1/announcements/active", ct);
 
+    /// <summary>WP14: the tenant's selected card gateway, and whether a terminal integration is
+    /// wired. ⚠ Read it through <c>PaymentGateway.Resolve</c> rather than acting on the fields
+    /// directly — "which flow does the operator use" is a rule, not a property.</summary>
+    public Task<ActiveGatewayDto?> GetActiveGatewayAsync(CancellationToken ct = default) =>
+        GetAsync<ActiveGatewayDto>("/api/v1/payments/gateway/active", ct);
+
     // ── sale ingest ──
 
     /// <summary>
