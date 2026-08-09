@@ -75,7 +75,7 @@ Continues the retrofit plan's §9 numbering (1–9 live there).
 ```
 Phase 0  FOUNDATION            [x]1 EF9  [x]2 reference  [x]3 TillStoreAccess  [x]4 EnrolmentFlow ✅ COMPLETE
 Phase 1  LINE PRIMITIVES       [x]5 price pair  [x]6 TaxId+StockUntracked  [x]7 VAT band store  [x]8 tender values→SharedKernel ✅ PHASE COMPLETE
-Phase 2  MONEY PATH            [ ]9 basket+assembler  [ ]10 v2 lookup  [ ]11 CommitSaleAsync  [ ]12 permission gates
+Phase 2  MONEY PATH            [x]9 basket+assembler ✅  [ ]10 v2 lookup  [ ]11 CommitSaleAsync  [ ]12 permission gates
                                [~]13 sync services (CatalogueSyncService ✅; OutboxPushService + 60s scheduler ⬜)
                                [ ]14 receipt re-signature
 Phase 3  RETURNS/PARK/REPRINT  [ ]15 sale read path  [ ]16 RefundRules wiring  [ ]17 server refund cap  [ ]18 parked baskets
@@ -187,7 +187,9 @@ VERIFY: architecture tests green; a pinning test asserts each byte matches the w
 
 ### Phase 2 — THE MONEY PATH ⚠ highest risk; read till-design C2 first
 
-**Step 9 — Basket + basket→`IngestSaleRequest` assembler** ⚠ the biggest single missing piece.
+**Step 9 — Basket + assembler** ✅ **DONE 2026-08-09.** `Client.Core/Basket.cs`: `BasketLine` (long pence, `IsReturn` a flag not a subclass), `SaleAssembler.Assemble` and `.Total` — ONE calculation, so the screen total and the payload cannot disagree. `SharedKernel/LineDiscounts` holds the discount rule. ⚠ **The MAUI-side reshape of `Models/BasketItem.cs` and the nine `is BasketReturnItem` type-tests deliberately did NOT land here** — reshaping them without repointing `TillViewModel` would not compile, so they move with steps 10–11. Verified by 19 unit tests AND `SaleAssemblerE2eTests`, which posts an assembled mixed-rate basket to the REAL `/api/v1/sales` and asserts **201 Recorded, not 202 quarantined**. Mutation-checked: rate-arithmetic VAT and a removed IdOne guard each fail a named test.
+
+*Original body:* ⚠ the biggest single missing piece.
 Build in `src/Plutus.Client.Core/Basket.cs` (headlessly testable, reusable by any future till).
 - Reshape `Models/BasketItem.cs`: drop `Database.Models.ItemModel`; hold `ItemId (Guid)`, `IdOne`,
   `Name`, `UnitIncPence`/`UnitExPence` (**long**), `VatBandKey`, `OverriddenFromPence`,
