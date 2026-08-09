@@ -32,22 +32,46 @@ cd ~/PLUTUS
 
 STAMP=$(date +%Y%m%d-%H%M%S)
 
+# ⚠ FAILURE MUST BE LOUD. The first version of this script died at the password-generation line
+# and printed nothing beyond "backups written" — which reads exactly like success. The rotation
+# silently did not happen, the exposed password stayed live, and it took an independent check of
+# the files' modification times to notice. A script that changes credentials must never be
+# ambiguous about whether it did.
+CHANGED=no
+trap 'rc=$?; if [ "$CHANGED" = no ]; then
+        rm -f "secrets/mysql.env.pre-rotate-$STAMP" "plutus-ecosystem.config.js.pre-rotate-$STAMP"
+        echo; echo "✗ ABORTED at line $LINENO (exit $rc). NOTHING WAS CHANGED — the old password is still live.";
+        echo "  Backups from this run were removed (they were identical copies of the live secret).";
+      else
+        echo; echo "✗ FAILED PART-WAY at line $LINENO (exit $rc). See the rollback note above; backups kept as .pre-rotate-'"$STAMP"'.";
+      fi' ERR
+
 # ── backups first, per the repo's .pre-* convention ──────────────────────────
 cp secrets/mysql.env "secrets/mysql.env.pre-rotate-$STAMP"
 cp plutus-ecosystem.config.js "plutus-ecosystem.config.js.pre-rotate-$STAMP"
 echo "backups written: .pre-rotate-$STAMP"
 
 OLD=$(sed -n 's/^MYSQL_PLUTUS_PASSWORD=//p' secrets/mysql.env)
-NEW=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 40)
+
+# ⚠ NO PIPELINE HERE, and that is not a style choice — it is the bug that made the first version
+# of this script do nothing. `tr -dc … < /dev/urandom | head -c 40` looks obviously fine, but
+# `head` exits the moment it has its 40 bytes and closes the pipe, `tr` dies of SIGPIPE (141),
+# `pipefail` promotes that to the pipeline's status and `set -e` kills the script — right after
+# the backups and BEFORE anything was changed. It reported nothing useful and left the live
+# password in place while looking like it had run. `openssl rand` produces finite output and
+# needs no pipe.
+#
+# ⚠ Hex is alphanumeric by construction, which matters twice over: the value goes into a
+# SEMICOLON-DELIMITED ADO.NET connection string and through `sed`, so a `;`, `"` or `&` would
+# either truncate the connection string or be eaten as a replacement metacharacter — and the
+# failure would present as "database unreachable" long after the cause.
+NEW=$(openssl rand -hex 24)   # 48 chars, 192 bits
 
 [ -n "$OLD" ]        || { echo "FAIL: could not read the current password"; exit 1; }
-[ ${#NEW} -eq 40 ]   || { echo "FAIL: generated password is the wrong length"; exit 1; }
-
-# ⚠ Alphanumeric ONLY. The value goes into a semicolon-delimited ADO.NET connection string and
-# through sed; a `;`, `"` or `&` in it would either truncate the connection string or be eaten as
-# a sed replacement metacharacter — and the failure would look like "database unreachable".
+[ ${#NEW} -eq 48 ]   || { echo "FAIL: generated password is the wrong length"; exit 1; }
 
 # ── 1. the canonical store FIRST, so the new value is recoverable before anything depends on it
+CHANGED=yes
 sed -i '' "s|^MYSQL_PLUTUS_PASSWORD=.*|MYSQL_PLUTUS_PASSWORD=$NEW|" secrets/mysql.env
 grep -q "^MYSQL_PLUTUS_PASSWORD=$NEW\$" secrets/mysql.env || { echo "FAIL: mysql.env not updated"; exit 1; }
 echo "1/6  mysql.env written"
@@ -96,6 +120,17 @@ if [ "$PING" != "200" ] || [ "$ETRIE" != "200" ]; then
   echo "  (pm2 restart ~/PLUTUS/plutus-ecosystem.config.js --update-env afterwards)"
   exit 1
 fi
+
+# ⚠ PROVE IT ACTUALLY CHANGED, rather than trusting that the steps above ran. This is the check
+# that caught the first version doing nothing: the files' modification times, compared against
+# this run. "The script ran" and "the password rotated" are different claims.
+for f in secrets/mysql.env plutus-ecosystem.config.js; do
+  MOD=$(stat -f "%Sm" -t "%Y%m%d-%H%M%S" "$f")
+  case "$MOD" in
+    "${STAMP%%-*}"*) echo "verified: $f was modified today at ${MOD#*-}" ;;
+    *) echo "✗ $f was NOT modified (last change $MOD) — the rotation did not take"; exit 1 ;;
+  esac
+done
 
 echo
 echo "ROTATION COMPLETE. /api/v1/ping is a no-database endpoint, so also click through the portal"
