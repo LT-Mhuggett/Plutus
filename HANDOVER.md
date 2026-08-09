@@ -17,12 +17,13 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 ### ⏰⏰⏰⏰⏰⏰⏰ RESUME HERE (2026-08-09, LATE — cutover Phases 1–3 done, MySQL password rotated)
 
-Suite: **Unit 733 · Architecture 13 · Integration 137 · AppClient 404 (+3 skipped) — all green.**
+Suite: **Unit 733 · Architecture 13 · Integration 140 · AppClient 404 (+3 skipped) — all green.**
 Debug and Release both build. **Pushed** — `upstream/Matt's-Horror` at `4d29877`. Versions:
-backend **1.5.0**, platform **1.16.0**, till-maui **1.12.0**, portal **1.2.0**.
+backend **1.6.0**, platform **1.16.0**, till-maui **1.12.0**, portal **1.2.0**.
 
-**✅ DEPLOYED 2026-08-09 22:56** — backend **1.5.0** and portal **1.2.0** are LIVE on the test
-environment. Rollbacks: `~/PLUTUS/backend.pre-20260809-225420` and
+**✅ DEPLOYED 2026-08-09** — backend **1.6.0** (22:56 as 1.5.0, then 23:05 with WP17.4) and portal
+**1.2.0** are LIVE on the test
+environment. Rollbacks: `~/PLUTUS/backend.pre-20260809-230545` (and `.pre-20260809-225420` behind it) and
 `/srv/apps/PLUTUS/portal/current.pre-20260809-225630`. Pre-migration dump:
 `~/PLUTUS/backups/plutus-pre-surcharge-20260809-225249.sql.gz` (7.3M, 101 tables, integrity
 checked). The one migration in the batch — `AddCardSurchargeToGateway`, two additive columns —
@@ -30,6 +31,14 @@ applied and was verified by COLUMN presence, not by the history table. Verified 
 `POST /api/v1/tokens/device` → **401 "Device not enrolled or revoked."** (the DB-path probe; a 500
 there is what a schema/model disagreement looks like), ETRIE 200, backend restart count steady over
 20s. ⚠ The MAUI till is NOT deployed — that is a rebuild+reinstall on the till machine.
+
+✅ **The TypeScript queue is CLEAR.** Both frontends were typechecked ON THE MAC (which has Node):
+the portal by its deploy build (`tsc --noEmit && vite build`), the web till by `npm run typecheck`.
+The five edits queued as unverified since 2026-08-07 all pass. ⚠ The web till is typechecked but NOT
+rebuilt or redeployed — its source on the Mac is now current, so a deploy is a build + dist copy.
+
+✅ **WP17.4 is fixed** — pick notes are filtered by store SERVER-side, from the device token, which
+deletes the C2 twin instead of pinning it.
 
 **⚠ The MySQL password IS rotated, and the backend now talks to MySQL over the UNIX SOCKET.**
 That second half was not planned. The `plutus` account is `caching_sha2_password`: the server caches
