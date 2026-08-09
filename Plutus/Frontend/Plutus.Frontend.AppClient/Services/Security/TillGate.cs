@@ -11,7 +11,14 @@ namespace Plutus.Frontend.AppClient.Services.Security
     /// <summary>Whether an action may proceed, and what to tell the person if not.</summary>
     /// <param name="NeedsOverride">Refused, but a supervisor could authorise it. ⚠ False for
     /// "nobody is signed in" — that is not something another person's password fixes.</param>
-    public sealed record GateDecision(bool Allowed, bool NeedsOverride, string Message)
+    /// <param name="Permission">⚠ WHICH permission was refused, and <paramref name="AmountPence"/>
+    /// for how much. The caller MUST escalate with these rather than with the permission it happened
+    /// to be thinking about: <see cref="TillGate.CheckCheckout"/> refuses on
+    /// <see cref="PermissionCatalogue.PosSell"/> first, so a caller that hardcodes "refund" asks a
+    /// supervisor to authorise a £0 refund and then lets an ordinary sale through on the strength of
+    /// it — nobody having been asked whether this operator may sell at all.</param>
+    public sealed record GateDecision(
+        bool Allowed, bool NeedsOverride, string Message, string Permission = null, long? AmountPence = null)
     {
         public static readonly GateDecision Ok = new(true, false, "");
     }
@@ -45,7 +52,8 @@ namespace Plutus.Frontend.AppClient.Services.Security
         {
             if (operatorSignedIn is null)
                 return new GateDecision(false, NeedsOverride: false,
-                    "Nobody is signed in on this till, so this can't be authorised. Sign in and try again.");
+                    "Nobody is signed in on this till, so this can't be authorised. Sign in and try again.",
+                    permission, amountPence);
 
             if (operatorSignedIn.Can(permission, amountPence))
                 return GateDecision.Ok;
@@ -53,11 +61,17 @@ namespace Plutus.Frontend.AppClient.Services.Security
             // ⚠ "Not at all" and "not for this much" lead somewhere different: one needs a
             // different person, the other needs a more senior one. Saying which saves an argument
             // at the counter.
-            var atAll = amountPence is null || operatorSignedIn.Can(permission, null);
+            //
+            // ⚠ `hasItAtAll` requires an amount. Reaching here with a null amount means
+            // `Can(permission, null)` ALREADY returned false above — the operator provably lacks
+            // the permission outright — so testing it again would say "can't authorise this amount"
+            // about an action that has no amount. Every price-override refusal used to read that way.
+            var hasItAtAll = amountPence is not null && operatorSignedIn.Can(permission, null);
 
-            return new GateDecision(false, NeedsOverride: true, atAll
+            return new GateDecision(false, NeedsOverride: true, hasItAtAll
                 ? $"{operatorSignedIn.DisplayName} can't authorise this amount. A supervisor can."
-                : $"{operatorSignedIn.DisplayName} doesn't have permission for this. A supervisor can authorise it.");
+                : $"{operatorSignedIn.DisplayName} doesn't have permission for this. A supervisor can authorise it.",
+                permission, amountPence);
         }
 
         /// <summary>

@@ -167,6 +167,58 @@ namespace Plutus.Frontend.AppClient.Tests.Security
             Assert.Equal(10_00, TillGate.RefundAmountPence(basket));
         }
 
+        // ── what the caller escalates ──
+
+        /// <summary>
+        /// ⚠ THE DECISION MUST NAME WHAT IT REFUSED. `CheckCheckout` tests `pos.sell` FIRST, so a
+        /// caller that hardcodes "refund" when escalating asks a supervisor to authorise a £0.00
+        /// refund — a basket with no returns refunds nothing — and then lets an ordinary sale
+        /// through on the strength of it. Any supervisor holding `pos.refund`, including one
+        /// explicitly DENIED `pos.sell`, would wave it past, and nobody at any point is asked
+        /// whether this operator may sell.
+        /// </summary>
+        [Fact]
+        public void A_sell_refusal_escalates_as_sell_not_as_a_zero_pound_refund()
+        {
+            // Holds refund rights but may not sell at all.
+            var refundOnly = Operator(Grant(PermissionCatalogue.PosRefund));
+
+            var decision = TillGate.CheckCheckout(refundOnly, new IBasketRecord[] { Item("A", 5m) });
+
+            Assert.False(decision.Allowed);
+            Assert.Equal(PermissionCatalogue.PosSell, decision.Permission);
+            Assert.Null(decision.AmountPence);
+        }
+
+        /// <summary>A refund refusal escalates as a refund, for the amount actually being refunded
+        /// — so the supervisor's OWN ceiling is applied to the real figure.</summary>
+        [Fact]
+        public void A_refund_refusal_escalates_as_a_refund_for_the_real_amount()
+        {
+            var capped = Operator(Grant(PermissionCatalogue.PosSell), Grant(PermissionCatalogue.PosRefund, 10_00));
+
+            var decision = TillGate.CheckCheckout(capped, new IBasketRecord[] { Return("A", 30m, qty: 5) });
+
+            Assert.False(decision.Allowed);
+            Assert.Equal(PermissionCatalogue.PosRefund, decision.Permission);
+            Assert.Equal(150_00, decision.AmountPence);
+        }
+
+        /// <summary>⚠ An amount-less refusal must not be described as an amount problem. Reaching
+        /// the message at all with a null amount means the operator lacks the permission OUTRIGHT,
+        /// so "can't authorise this amount" sends them to a supervisor for the wrong reason — and
+        /// every price-override refusal used to read exactly that way.</summary>
+        [Fact]
+        public void Lacking_a_permission_outright_is_not_reported_as_an_amount_problem()
+        {
+            var cashier = Operator(Grant(PermissionCatalogue.PosSell));
+            var decision = TillGate.Check(cashier, PermissionCatalogue.PosPriceOverride);
+
+            Assert.False(decision.Allowed);
+            Assert.Contains("doesn't have permission", decision.Message);
+            Assert.DoesNotContain("this amount", decision.Message);
+        }
+
         /// <summary>A cashier who may sell but not refund is stopped by a basket containing a
         /// return, even though the same basket without it would go through.</summary>
         [Fact]

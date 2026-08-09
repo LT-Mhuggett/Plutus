@@ -45,16 +45,20 @@ namespace Plutus.Frontend.AppClient.Services.Storage
         /// </summary>
         public static IReadOnlyList<BasketLine> LinesFrom(IEnumerable<IBasketRecord> basket)
         {
+            var records = (basket ?? Enumerable.Empty<IBasketRecord>()).ToList();
             var lines = new List<BasketLine>();
 
-            foreach (var record in basket ?? Enumerable.Empty<IBasketRecord>())
+            // Kept alongside the lines so an alteration can be matched back to the items it was
+            // applied to — `BasketAlteration.ItemsAssocitated` holds the BasketItem instances.
+            var sources = new List<BasketItem>();
+
+            foreach (var record in records)
             {
-                // Notes and alterations are not sale lines: an alteration's money is folded into
-                // the line it discounts, and a note carries no value at all.
                 if (record is not BasketItem item) continue;
 
                 var isReturn = record is BasketReturnItem;
 
+                sources.Add(item);
                 lines.Add(new BasketLine(
                     // Left empty on purpose — SaleAssembler DERIVES it from businessId + IdOne and
                     // would refuse a mismatched one. One place knows that rule.
@@ -64,10 +68,7 @@ namespace Plutus.Frontend.AppClient.Services.Storage
                     UnitIncPence: Pence.FromDecimal(item.Price),
                     UnitExPence: Pence.FromDecimal(item.PriceExTax),
                     Quantity: item.Quantity,
-                    // ⚠ Discounts are not carried on the line in the legacy basket — they are
-                    // separate BasketAlteration records whose money is already reflected in the
-                    // adjusted Price above. Passing a DiscountPence here as well would take it off
-                    // twice. Real per-line discounts arrive with the basket reshape.
+                    // Filled in below from the basket's alterations.
                     DiscountPence: 0,
                     VatBandKey: null,
                     OverriddenFromPence: null,
@@ -75,8 +76,109 @@ namespace Plutus.Frontend.AppClient.Services.Storage
                     OriginSaleId: isReturn ? OriginOf(record) : null));
             }
 
+            ApplyAlterations(records, sources, lines);
+
             return lines;
         }
+
+        /// <summary>
+        /// Fold each <see cref="BasketAlteration"/>'s money into the lines it was applied to.
+        ///
+        /// ⚠ THIS IS THE STEP 11 DEFECT. The original code skipped alterations with a comment
+        /// claiming "an alteration's money is already reflected in the adjusted Price above". That
+        /// was FALSE: `ExecuteAlterTransaction` appends a separate `BasketAlteration` record — a
+        /// `BasketNote` carrying a NEGATIVE price — and never touches `BasketItem.Price`. So the
+        /// discount was dropped from the payload while the till's own `sale.Total`, which sums
+        /// EVERY basket record, still included it. The tenders settled against the discounted
+        /// total, `GrossPence` was assembled from the undiscounted lines, and the server's
+        /// `Σ tender − Σ change == GrossPence` invariant rejected the sale as `202 Quarantined` —
+        /// which `OutboxPusher` treats as terminal and never retries. Every discounted sale would
+        /// have been lost, silently, the moment the outbox started draining.
+        ///
+        /// ⚠ The platform model has nowhere else to put it: no basket-level discount field, and
+        /// `GrossPence` must equal Σ line gross. A basket-level "£5 off" therefore has to be
+        /// apportioned across the lines before it can be sent at all.
+        /// </summary>
+        private static void ApplyAlterations(
+            IReadOnlyList<IBasketRecord> records, IReadOnlyList<BasketItem> sources, List<BasketLine> lines)
+        {
+            foreach (var alteration in records.OfType<BasketAlteration>())
+            {
+                // The alteration's price is negative — it is money coming off. Apportionment works
+                // in magnitudes.
+                var discountPence = Pence.FromDecimal(Math.Abs(alteration.Price)) * Math.Max(1, alteration.Quantity);
+                if (discountPence == 0) continue;
+
+                var targets = TargetsOf(alteration, sources, lines);
+
+                // ⚠ Left alone rather than spread somewhere plausible. A discount with no line to
+                // land on — every associated item removed from the basket, or applied only to
+                // returns, which `VatLineMath.ForLine` drops by design — is money the payload
+                // cannot carry. `Reconciles` below refuses the sale rather than sending a total
+                // that disagrees with what the customer was charged.
+                if (targets.Count == 0) continue;
+
+                var grosses = targets
+                    .Select(i => lines[i].UnitIncPence * lines[i].Quantity - lines[i].DiscountPence)
+                    .ToList();
+
+                var shares = DiscountApportionment.Across(discountPence, grosses);
+
+                for (var t = 0; t < targets.Count; t++)
+                    lines[targets[t]] = lines[targets[t]] with
+                    {
+                        DiscountPence = lines[targets[t]].DiscountPence + shares[t],
+                    };
+            }
+        }
+
+        /// <summary>
+        /// Which line indices an alteration applies to. Sale lines only — a discount apportioned
+        /// onto a return would vanish inside <c>VatLineMath.ForLine</c>, which drops the discount on
+        /// a return by design, and the sale would stop reconciling.
+        /// </summary>
+        private static List<int> TargetsOf(
+            BasketAlteration alteration, IReadOnlyList<BasketItem> sources, IReadOnlyList<BasketLine> lines)
+        {
+            var targets = new List<int>();
+            var associated = alteration.ItemsAssocitated?.ToList();
+
+            for (var i = 0; i < lines.Count; i++)
+            {
+                if (lines[i].IsReturn) continue;
+
+                // No association at all is a whole-basket discount.
+                if (associated is null || associated.Count == 0)
+                {
+                    targets.Add(i);
+                    continue;
+                }
+
+                // ⚠ Reference first, IdOne second. The instances match while the basket is live;
+                // after a stored transaction is recalled they are fresh objects deserialised from
+                // JSON, so identity is gone and the barcode is all that is left. Two lines of the
+                // same item then both attract a share — the TOTAL stays exact, which is what the
+                // reconcile invariant tests, and the split between two identical items is not a
+                // difference anybody can observe on a receipt.
+                if (associated.Any(a => ReferenceEquals(a, sources[i])) ||
+                    associated.Any(a => !string.IsNullOrEmpty(a?.Item?.Id) && a.Item.Id == sources[i].Item?.Id))
+                    targets.Add(i);
+            }
+
+            return targets;
+        }
+
+        /// <summary>
+        /// What the basket is worth, by the SAME sum the till's own `sale.Total` uses — every
+        /// record, returns negated, quantity applied.
+        ///
+        /// ⚠ Converted per record, never as `Pence.FromDecimal(Σ prices)`. Summing decimals first
+        /// and rounding once gives a different answer from rounding each line, and this figure has
+        /// to match one that was built line by line.
+        /// </summary>
+        public static long BasketMoneyPence(IEnumerable<IBasketRecord> basket) =>
+            (basket ?? Enumerable.Empty<IBasketRecord>())
+                .Sum(r => Pence.FromDecimal(r.Price) * r.Quantity * (r is BasketReturnItem ? -1L : 1L));
 
         private static Guid? OriginOf(IBasketRecord record) =>
             record is BasketReturnItem r && Guid.TryParse(r.ReturnSaleId, out var id) ? id : null;
@@ -118,6 +220,20 @@ namespace Plutus.Frontend.AppClient.Services.Storage
                 var request = SaleAssembler.Assemble(
                     saleId, deviceId, deviceSeq: 0, businessId, lines, tenders,
                     businessDay, DateTime.UtcNow, operatorUserId);
+
+                // ⚠ THE LAST POINT AT WHICH A MIS-TOTALLED SALE IS STILL VISIBLE. The server
+                // enforces `Σ tender − Σ change == GrossPence` and answers `202 Quarantined` when
+                // it fails — and `OutboxPusher` treats 202 as TERMINAL and never retries. So a
+                // basket carrying money the lines cannot represent would queue here, look
+                // successful to the operator, and be destroyed hours later with the customer long
+                // gone. Refusing now costs one sale; not refusing loses it after it was paid for.
+                var basketMoney = BasketMoneyPence(basket);
+                if (request.GrossPence != basketMoney)
+                    return new CommitOutcome(false, Guid.Empty, 0,
+                        $"This basket totals {basketMoney / 100m:C2} but its lines add up to " +
+                        $"{request.GrossPence / 100m:C2}, so it can't be recorded correctly. " +
+                        "This is usually a card surcharge or a discount that isn't attached to any " +
+                        "item — remove it and ring the sale again. Nothing has been taken.");
 
                 // ⚠ DeviceSeq is allocated INSIDE the store's transaction and written into the
                 // payload there — the 0 above is a placeholder, never what gets sent.

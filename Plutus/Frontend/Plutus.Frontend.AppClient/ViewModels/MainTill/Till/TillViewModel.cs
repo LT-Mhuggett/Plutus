@@ -690,6 +690,22 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
             try
             {
+                // ⚠ THIS HAD NO PERMISSION CHECK AT ALL, and it is the one place on the till where
+                // an operator types a money amount straight off the goods — a cash discount or a
+                // percentage, unbounded. `pos.discount` is ceiling-capable precisely so it can be
+                // handed out with a limit; nothing was asking for it.
+                var discountGate = Services.Security.TillGate.Check(
+                    App.GetViewModel().SignedInOperator, PermissionCatalogue.PosDiscount);
+
+                if (!discountGate.Allowed &&
+                    (!discountGate.NeedsOverride ||
+                     !await RequestSupervisorOverrideAsync(discountGate.Permission, discountGate.AmountPence)))
+                {
+                    await Application.Current.MainPage.DisplayAlert(
+                        "Hmm".Translate(), discountGate.Message, "OK".Translate());
+                    return;
+                }
+
                 var alteration = Alterations.ElementAt(selectedAlteration);
                 var items = new List<BasketItem>();
 
@@ -1085,9 +1101,14 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     // ⚠ A real override: a SECOND person authenticates, and OperatorLogin refuses
                     // self-authorisation, applies the SUPERVISOR's own ceiling and window, and names
                     // both people for the audit trail. Declining leaves the basket untouched.
-                    if (!await RequestSupervisorOverrideAsync(
-                            PermissionCatalogue.PosRefund,
-                            Services.Security.TillGate.RefundAmountPence(Basket)))
+                    //
+                    // ⚠ ESCALATE WHAT THE GATE ACTUALLY REFUSED. `CheckCheckout` tests `pos.sell`
+                    // FIRST, so hardcoding "refund" here asked a supervisor to authorise a £0.00
+                    // refund — a basket with no returns refunds nothing — and then let an ordinary
+                    // sale through on the strength of it, nobody having been asked whether this
+                    // operator may sell. Any supervisor holding `pos.refund`, including one
+                    // explicitly denied `pos.sell`, would have waved it through.
+                    if (!await RequestSupervisorOverrideAsync(gate.Permission, gate.AmountPence))
                         return;
                 }
 

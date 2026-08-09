@@ -28,6 +28,18 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
                 Vat = new TaxModel { Name = "Standard" },
             }, qty);
 
+        /// <summary>
+        /// A discount as the till really builds it: a separate record holding a NEGATIVE price,
+        /// with the items it applies to hanging off it. ⚠ `ExecuteAlterTransaction` never writes
+        /// the discount back onto `BasketItem.Price` — that mistaken belief is what step 11 shipped.
+        /// </summary>
+        private static BasketAlteration Alteration(decimal price, BasketItem applsTo) =>
+            applsTo is null
+                ? new BasketAlteration(new NoteModel { Note = "Discount" }, new DiscountModel(),
+                    Array.Empty<BasketItem>(), price, price)
+                : new BasketAlteration(new NoteModel { Note = "Discount" }, new DiscountModel(),
+                    applsTo, price, price);
+
         [Fact]
         public void Every_basket_item_becomes_a_line_carrying_its_barcode()
         {
@@ -94,12 +106,15 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
         }
 
         /// <summary>
-        /// ⚠ Notes and alterations are NOT sale lines. An alteration's money is already reflected in
-        /// the adjusted price of the line it applies to; emitting it as a line as well would take
-        /// the discount off twice and under-charge the customer.
+        /// A note carrying no money is not a sale line.
+        ///
+        /// ⚠ THIS TEST'S COMMENT USED TO CLAIM that an alteration's money "is already reflected in
+        /// the adjusted price of the line it applies to". That was FALSE, and it vouched for a
+        /// defect: `ExecuteAlterTransaction` appends a SEPARATE `BasketAlteration` record and never
+        /// touches `BasketItem.Price`. See `A_discounted_basket_reconciles_with_what_the_customer_pays`.
         /// </summary>
         [Fact]
-        public void Notes_and_alterations_are_not_sale_lines()
+        public void A_note_with_no_money_on_it_is_not_a_sale_line()
         {
             var basket = new List<IBasketRecord>
             {
@@ -109,6 +124,92 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
 
             var line = Assert.Single(CheckoutCommit.LinesFrom(basket));
             Assert.Equal("A", line.IdOne);
+        }
+
+        // ── discounts: the step 11 defect ──
+
+        /// <summary>
+        /// ⚠ THE P0 THIS FIXES. A discount is a separate `BasketAlteration` record holding a
+        /// NEGATIVE price; `ExecuteAlterTransaction` never writes it back onto the item. The till's
+        /// own total (`sale.Total`) sums EVERY basket record, so the tenders settled against the
+        /// DISCOUNTED figure — while `LinesFrom` dropped the alteration entirely and assembled
+        /// `GrossPence` from the UNDISCOUNTED lines.
+        ///
+        /// The server's invariant is `Σ tender − Σ change == GrossPence`. It would have failed on
+        /// every discounted sale, answering `202 Quarantined` — which `OutboxPusher` treats as
+        /// TERMINAL and never retries. The sale would have looked successful at the counter and
+        /// been destroyed hours later.
+        /// </summary>
+        [Fact]
+        public void A_discounted_basket_reconciles_with_what_the_customer_pays()
+        {
+            var item = Item("A", 10m, 10m, qty: 2);      // £20 of goods
+            var basket = new List<IBasketRecord>
+            {
+                item,
+                Alteration(-5m, item),                    // £5 off
+            };
+
+            var lines = CheckoutCommit.LinesFrom(basket);
+            var line = Assert.Single(lines);
+
+            Assert.Equal(500, line.DiscountPence);
+
+            // The line's gross is what the customer actually pays, and it equals the till's own
+            // basket total — which is the figure the tenders settle against.
+            Assert.Equal(1500, line.UnitIncPence * line.Quantity - line.DiscountPence);
+            Assert.Equal(1500, CheckoutCommit.BasketMoneyPence(basket));
+        }
+
+        /// <summary>⚠ A whole-basket discount splits across the lines with NOTHING LOST. Three
+        /// lines sharing £10 by proportion is 333.33p each; the missing penny fails the server's
+        /// reconcile invariant and quarantines the sale.</summary>
+        [Fact]
+        public void A_basket_wide_discount_is_apportioned_without_losing_a_penny()
+        {
+            var basket = new List<IBasketRecord>
+            {
+                Item("A", 10m, 10m), Item("B", 10m, 10m), Item("C", 10m, 10m),
+                Alteration(-10m, null),                   // £10 off the basket, no association
+            };
+
+            var lines = CheckoutCommit.LinesFrom(basket);
+
+            Assert.Equal(1000, lines.Sum(l => l.DiscountPence));
+            Assert.Equal(2000, lines.Sum(l => l.UnitIncPence * l.Quantity - l.DiscountPence));
+            Assert.Equal(2000, CheckoutCommit.BasketMoneyPence(basket));
+        }
+
+        /// <summary>A discount attached to one item does not come off another.</summary>
+        [Fact]
+        public void A_discount_lands_only_on_the_item_it_was_applied_to()
+        {
+            var cheap = Item("A", 10m, 10m);
+            var dear = Item("B", 50m, 50m);
+            var basket = new List<IBasketRecord> { cheap, dear, Alteration(-2m, dear) };
+
+            var lines = CheckoutCommit.LinesFrom(basket);
+
+            Assert.Equal(0, lines.Single(l => l.IdOne == "A").DiscountPence);
+            Assert.Equal(200, lines.Single(l => l.IdOne == "B").DiscountPence);
+        }
+
+        /// <summary>
+        /// ⚠ `BasketMoneyPence` must agree with the till's `sale.Total`, which is
+        /// `Σ Price × Quantity`, returns negated — including the alteration's negative price.
+        /// If these two ever disagree the reconciliation guard fires on honest baskets and the
+        /// till refuses sales it should take.
+        /// </summary>
+        [Fact]
+        public void The_basket_total_matches_the_sum_the_till_settles_against()
+        {
+            var item = Item("A", 10m, 10m, qty: 2);
+            var basket = new List<IBasketRecord> { item, Alteration(-5m, item) };
+
+            var asTheTillSumsIt = basket.Sum(r => r.Price * (r is BasketReturnItem ? -1 : 1) * r.Quantity);
+
+            Assert.Equal(15m, asTheTillSumsIt);
+            Assert.Equal(1500, CheckoutCommit.BasketMoneyPence(basket));
         }
 
         [Fact]
