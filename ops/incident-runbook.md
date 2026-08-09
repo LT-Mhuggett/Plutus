@@ -36,7 +36,7 @@ this codebase already has — no new tooling.
 
 ### Suspected breach (SEV1)
 1. **Rotate secrets** (LAN-only test env, but treat seriously):
-   - MySQL `plutus` password → update `~/PLUTUS/secrets/mysql.env` + the pm2 ecosystem `ConnectionString`, restart. (This rotation is a long-standing Matt to-do — see HANDOVER §5.)
+   - MySQL `plutus` password → **run [`ops/rotate-mysql-password.sh`](rotate-mysql-password.sh) on the Mac.** It does all four places (MySQL, `~/PLUTUS/secrets/mysql.env`, the pm2 ecosystem `ConnectionString`, `~/.pm2/dump.pm2` via `pm2 save`), backs both files up `.pre-rotate-*` first, verifies the new password authenticates BEFORE restarting, and checks ETRIE afterwards. ⚠ It generates the password on the Mac and never prints it — this script exists because the old one was echoed into a session transcript twice (2026-07-26, 2026-08-09). ⚠ It restarts from the ecosystem FILE, not the process name: `pm2 restart plutus-backend --update-env` does not re-read new keys from the file. ⚠ `appsettings*.json` hold stale placeholders and are deliberately not touched.
    - `TEST_TOKEN_SECRET` / `JOBS_REPORT_SECRET` in the pm2 env — rotating invalidates all issued HMAC tokens (forces re-login), which is the point.
    - Webstore per-store secrets/rest-keys in the pm2 env.
 2. Revoke operator access: with WP18.1 SSO enforced, disabling the Keycloak operator account is the single lever; until then, rotating `TEST_TOKEN_SECRET` invalidates HMAC operator tokens.
