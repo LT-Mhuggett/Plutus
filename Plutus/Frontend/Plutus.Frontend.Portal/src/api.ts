@@ -178,10 +178,17 @@ export const fetchBillingConfig = () => get<BillingConfig>("/api/v1/platform/bil
 export const setBillingConfig = (body: { provider: string; enabled: boolean; config: Record<string, string> }) =>
   put<void>("/api/v1/platform/billing/config", body);
 // 17.2 per-tenant payment gateway (client-facing, portal.company.manage)
-export interface GatewayConfig { provider: string; config: Record<string, string>; updatedAtUtc: string | null }
+export interface GatewayConfig {
+  provider: string; config: Record<string, string>; updatedAtUtc: string | null;
+  // Card surcharge: percent in basis points (169 = 1.69%) + flat pence. Both zero = none.
+  surchargeBp: number; surchargeFlatPence: number;
+}
 export const fetchGatewayCatalogue = () => get<CommerceProviderInfo[]>("/api/v1/payments/gateway/catalogue");
 export const fetchGatewayConfig = () => get<GatewayConfig>("/api/v1/payments/gateway");
-export const setGatewayConfig = (body: { provider: string; config: Record<string, string> }) =>
+export const setGatewayConfig = (body: {
+  provider: string; config: Record<string, string>;
+  surchargeBp: number; surchargeFlatPence: number;
+}) =>
   put<void>("/api/v1/payments/gateway", body);
 // Company → Security: this tenant's MFA/SSO requirement (portal.company.manage).
 export const fetchMfaRequired = () => get<{ mfaRequired: boolean }>("/api/v1/company/security");

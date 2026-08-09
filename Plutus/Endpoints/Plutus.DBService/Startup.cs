@@ -208,6 +208,13 @@ namespace Plutus.DBService
                     var cardItems = Plutus.Customers.GiftCardSaleItem.EnsureAsync(db).GetAwaiter().GetResult();
                     if (cardItems > 0)
                         Console.WriteLine($"[giftcards] provisioned the activation item for {cardItems} business(es).");
+
+                    // The catalogue row a card surcharge is rung through — same rule as gift cards:
+                    // money at the till must be a real sale line, and the fee's VAT follows the
+                    // basket (CardSurchargeVat), never this item's zero band.
+                    var feeItems = Plutus.Payments.CardSurchargeSaleItem.EnsureAsync(db).GetAwaiter().GetResult();
+                    if (feeItems > 0)
+                        Console.WriteLine($"[payments] provisioned the card-surcharge item for {feeItems} business(es).");
                 }
             }
             catch (Exception ex)

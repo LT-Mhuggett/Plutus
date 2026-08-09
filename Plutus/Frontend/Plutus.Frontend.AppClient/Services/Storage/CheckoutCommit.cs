@@ -169,6 +169,47 @@ namespace Plutus.Frontend.AppClient.Services.Storage
         }
 
         /// <summary>
+        /// The card-surcharge line for this basket, priced by the SHARED rules — or null when no
+        /// fee applies (no surcharge configured, nothing being sold, or a refund-only basket).
+        ///
+        /// ⚠ A REAL BasketItem AGAINST THE PROVISIONED `CARD-SURCHARGE` ROW, replacing the legacy
+        /// `BasketNote` the reconciliation guard refuses. Its VAT FOLLOWS THE BASKET — the fee is
+        /// further consideration for the main supply (Bookit C-607/14 / NEC C-130/15), so a fee on
+        /// zero-rated goods carries no VAT, on standard-rated goods 20%, and on a mixed basket the
+        /// blend. `CardSurchargeVat` owns both halves; nothing here invents arithmetic.
+        ///
+        /// ⚠ Computed on the sale lines AFTER discounts, EXCLUDING returns — the goods actually
+        /// being paid for. A refund attracts no fee.
+        /// </summary>
+        public static BasketItem SurchargeItem(
+            IEnumerable<IBasketRecord> basket, int surchargeBp, long surchargeFlatPence)
+        {
+            var saleLines = LinesFrom(basket).Where(l => !l.IsReturn).ToList();
+            if (saleLines.Count == 0) return null;
+
+            var totals = SaleAssembler.Total(saleLines);
+            var fee = CardSurchargeVat.FeePence(surchargeBp, surchargeFlatPence, totals.GrossPence);
+            if (fee == 0) return null;
+
+            var (inc, ex) = CardSurchargeVat.PairFor(fee, totals.GrossPence, totals.ExPence);
+
+            // Pence ÷ 100 into the legacy decimal model is lossless; LinesFrom multiplies back.
+            return new BasketItem(new Database.Models.ItemModel
+            {
+                Id = CardSurchargeVat.ItemIdOne,
+                Name = "Card surcharge",
+                Price = inc / 100m,
+                ExPrice = ex / 100m,
+                Vat = new Database.Models.TaxModel { Name = "" },
+            }, quantity: 1);
+        }
+
+        /// <summary>Is the surcharge already in this basket? Applied ONCE per sale — a split
+        /// payment across two cards must not charge the flat fee twice.</summary>
+        public static bool HasSurcharge(IEnumerable<IBasketRecord> basket) =>
+            basket?.Any(r => r is BasketItem b && b.Item?.Id == CardSurchargeVat.ItemIdOne) == true;
+
+        /// <summary>
         /// What the basket is worth, by the SAME sum the till's own `sale.Total` uses — every
         /// record, returns negated, quantity applied.
         ///

@@ -95,6 +95,10 @@ function PaymentGatewaySection() {
   const [current, setCurrent] = useState<GatewayConfig | null>(null);
   const [provider, setProvider] = useState("standalone");
   const [config, setConfig] = useState<Record<string, string>>({});
+  // Held as the operator types them: percent as "1.69", flat as pounds "0.20". Converted to
+  // bp/pence at save so the wire stays integer money.
+  const [surchargePct, setSurchargePct] = useState("0");
+  const [surchargeFlat, setSurchargeFlat] = useState("0");
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
   const [denied, setDenied] = useState(false);
@@ -107,6 +111,8 @@ function PaymentGatewaySection() {
   useEffect(() => {
     if (!current) return;
     setProvider(current.provider); setConfig(current.config);
+    setSurchargePct(((current.surchargeBp ?? 0) / 100).toString());
+    setSurchargeFlat(((current.surchargeFlatPence ?? 0) / 100).toFixed(2));
   }, [current]);
 
   if (denied) return null;
@@ -137,9 +143,44 @@ function PaymentGatewaySection() {
           ))}
         </div>
       )}
+      <h3>Card surcharge</h3>
+      <p className="muted small">
+        A fee added when a customer pays by card, as a percentage of the basket plus a fixed
+        amount — the same shape as your provider's own fee (for example 1.69% + 20p). Leave both
+        at 0 for no surcharge.
+      </p>
+      <p className="muted small">
+        <strong>⚠ Know the law before turning this on.</strong> In the UK it has been <strong>illegal
+        to surcharge consumers</strong> paying with personal debit or credit cards (and services
+        like PayPal) since 13 January 2018. Surcharging is only lawful for <em>commercial/corporate</em> cards,
+        and then no more than your actual cost of taking the payment. Other countries have their
+        own rules. You are responsible for charging this lawfully.
+      </p>
+      <p className="muted small">
+        <strong>VAT is applicable — and it is worked out for you.</strong> A card surcharge is not
+        VAT-free: HMRC treats it as part of the payment for the goods themselves, so it carries
+        VAT <em>at the rate of what's in the basket</em> — 20% on standard-rated goods, none on
+        zero-rated goods, a blend on a mixed basket. Enter the fee you want to charge
+        <em> including</em> any VAT; the till calculates the right VAT on every sale and it flows
+        into your VAT figures automatically. Do not add VAT on top yourself.
+      </p>
+      <div className="toolbar" style={{ flexWrap: "wrap" }}>
+        <label>Percentage (%)
+          <input type="number" min="0" max="10" step="0.01" value={surchargePct}
+            onChange={(e) => setSurchargePct(e.target.value)} />
+        </label>
+        <label>Fixed amount (£)
+          <input type="number" min="0" max="5" step="0.01" value={surchargeFlat}
+            onChange={(e) => setSurchargeFlat(e.target.value)} />
+        </label>
+      </div>
       <div className="toolbar">
         <button className="primary small" onClick={() =>
-          void setGatewayConfig({ provider, config })
+          void setGatewayConfig({
+            provider, config,
+            surchargeBp: Math.round((parseFloat(surchargePct) || 0) * 100),
+            surchargeFlatPence: Math.round((parseFloat(surchargeFlat) || 0) * 100),
+          })
             .then(() => { setMsg("Saved."); setError(""); }).catch((e) => setError(String(e)))}>
           Save payment setup
         </button>

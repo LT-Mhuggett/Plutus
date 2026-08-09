@@ -225,6 +225,11 @@ VERIFY: binned item does not resolve; scheduled reprice applies at its instant; 
 ⚠ **SPLIT, AND WHY.** The step as written bundled (a) commit-through-the-store with (b) reshaping `BasketItem`/`BasketReturnItem` to long pence and an `IsReturn` flag. They are separable, and bundling them was wrong: (b) touches XAML bindings, **which fail SILENTLY in MAUI** — a binding to a property that no longer exists renders blank instead of crashing. Landing a silent-failure class of change in the same commit as the money path would make any regression impossible to bisect. (a) is done and independently verified; (b) becomes **step 11b**, before step 14 re-signatures the receipt.
 
 **Step 11b (NEW) — reshape the basket.** `BasketItem` to long pence, `BasketReturnItem` collapsed to `IsReturn`, the nine `is BasketReturnItem` type-tests, both Mapster configs, `BasketDataTemplateSelector`, and every XAML binding onto those members. ⚠ Enumerate the bindings FIRST and check each renders — they do not throw.
+✅ **The card-surcharge question this step was waiting on is RESOLVED (2026-08-09, Matt-directed):**
+the fee is a real line against the provisioned `CARD-SURCHARGE` item, priced by
+`SharedKernel.CardSurchargeVat` (the fee follows the basket — Bookit/NEC), configured per tenant on
+the gateway settings row, applied at checkout by `CheckoutCommit.SurchargeItem`. The reshape no
+longer needs a fee field and `BasketNote` no longer ever carries money.
 
 *Original body:* `FinaliseTransation`
 (≈`:1046–1159`): both legacy writes → one `CommitSaleAsync(request)` (sale + outbox row are ONE row

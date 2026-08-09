@@ -16,7 +16,9 @@ using Plutus.SharedKernel;
 
 namespace Plutus.Payments
 {
-    public sealed record SetGatewayBody(string Provider, Dictionary<string, string> Config);
+    public sealed record SetGatewayBody(
+        string Provider, Dictionary<string, string> Config,
+        int SurchargeBp = 0, long SurchargeFlatPence = 0);
 
     /// <summary>
     /// 17.2 per-tenant payment-gateway configuration — the CLIENT-facing surface (each tenant picks
@@ -67,6 +69,12 @@ namespace Plutus.Payments
                 // true once a concrete terminal integration is wired for this provider; the till
                 // uses the standalone confirm flow whenever this is false.
                 integrated = false,
+                // The tenant's card surcharge (percent bp + flat pence; both zero = none). The till
+                // applies it as a CARD-SURCHARGE line whose VAT FOLLOWS THE BASKET
+                // (SharedKernel.CardSurchargeVat — Bookit C-607/14 / NEC C-130/15), never a
+                // hardcoded rate.
+                surchargeBp = row?.SurchargeBp ?? 0,
+                surchargeFlatPence = row?.SurchargeFlatPence ?? 0,
             });
         }
 
@@ -83,7 +91,12 @@ namespace Plutus.Payments
             if (info != null)
                 foreach (var f in info.Fields.Where(f => f.Secret))
                     if (config.ContainsKey(f.Name) && !string.IsNullOrEmpty(config[f.Name])) config[f.Name] = SecretSet;
-            return Ok(new { provider, config, updatedAtUtc = row?.UpdatedAtUtc });
+            return Ok(new
+            {
+                provider, config, updatedAtUtc = row?.UpdatedAtUtc,
+                surchargeBp = row?.SurchargeBp ?? 0,
+                surchargeFlatPence = row?.SurchargeFlatPence ?? 0,
+            });
         }
 
         /// <summary>Select this tenant's gateway + set its config. Secrets left at the redaction
@@ -97,6 +110,15 @@ namespace Plutus.Payments
             var info = body == null ? null : PaymentProviderCatalogue.Find(body.Provider);
             if (info == null) return BadRequest(new { detail = "Unknown payment provider." });
 
+            // ⚠ Typo guards, not policy. The lawful ceiling (where surcharging is lawful at all) is
+            // the merchant's own cost of acceptance, which the platform cannot know — but no
+            // acquirer on earth charges 10% + £5, so anything past these is a slipped digit that
+            // would surcharge every customer until somebody noticed.
+            if (body.SurchargeBp is < 0 or > 1000)
+                return BadRequest(new { detail = "The surcharge percentage must be between 0 and 10% (0–1000 basis points)." });
+            if (body.SurchargeFlatPence is < 0 or > 500)
+                return BadRequest(new { detail = "The flat surcharge must be between 0 and £5.00." });
+
             var row = await _db.PaymentGatewaySettings.FirstOrDefaultAsync();
             var existing = Parse(row?.ConfigJson);
             var merged = new Dictionary<string, string>(body.Config ?? new());
@@ -109,10 +131,14 @@ namespace Plutus.Payments
                 _db.PaymentGatewaySettings.Add(row = new PaymentGatewaySettings { Id = Uuid7.New(), TenantId = _tenant.TenantId });
             row.Provider = info.Key;
             row.ConfigJson = JsonSerializer.Serialize(merged);
+            row.SurchargeBp = body.SurchargeBp;
+            row.SurchargeFlatPence = body.SurchargeFlatPence;
             row.UpdatedAtUtc = DateTime.UtcNow;
             row.UpdatedBy = Actor.ToString();
+            // ⚠ The surcharge is IN the audit record: it is money charged to every card customer,
+            // and "who turned this on, when" is the first question after a complaint.
             _db.Audit(_tenant.TenantId, Actor, "payments.gateway", nameof(PaymentGatewaySettings), row.Id.ToString(),
-                new { info.Key, fields = merged.Keys });
+                new { info.Key, fields = merged.Keys, body.SurchargeBp, body.SurchargeFlatPence });
             await _db.SaveChangesAsync();
             return NoContent();
         }

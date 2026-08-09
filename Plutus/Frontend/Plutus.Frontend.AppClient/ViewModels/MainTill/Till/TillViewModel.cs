@@ -962,18 +962,30 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                     var pay = new PaymentMethod_SaleModel() { TempPayMethod = payMeths[payMeth]() };
 
-                    if (pay.TempPayMethod.MinimumCharge > sale.Total || !refundOnly)
+                    // ⚠ THE SURCHARGE IS THE TENANT'S GATEWAY SETTING, NOT THE LEGACY
+                    // `PaymentMethod.Charge`. The legacy field lives on a GLOBAL table — one
+                    // tenant's fee would have been every tenant's fee — and its path here was
+                    // broken twice over: the resource key was misspelt (`CardChangeNote` for
+                    // `CardChargeNote`, an ArgumentException in debug and a literal key on the
+                    // receipt in release), and the `BasketNote` it added carries money the platform
+                    // sale cannot represent, so the commit guard refuses the basket.
+                    //
+                    // ⚠ A REAL LINE against the provisioned CARD-SURCHARGE item, priced by the
+                    // shared rules: the fee is further consideration for the main supply (Bookit
+                    // C-607/14 / NEC C-130/15), so its VAT FOLLOWS THE BASKET — zero on zero-rated
+                    // goods, blended on a mixed basket, never a hardcoded rate. Applied ONCE per
+                    // sale (a split payment must not charge the flat fee twice), only to card
+                    // tenders, and never to refunds.
+                    if (SharedKernel.Tenders.FromMethodName(pay.TempPayMethod.Name) == SharedKernel.Tenders.Card
+                        && !refundOnly
+                        && !Services.Storage.CheckoutCommit.HasSurcharge(Basket))
                     {
-                        if (pay.TempPayMethod.Charge != 0.0m)
+                        var (surchargeBp, surchargeFlat) = await Services.Storage.GatewaySurcharge.GetAsync();
+                        var feeLine = Services.Storage.CheckoutCommit.SurchargeItem(Basket, surchargeBp, surchargeFlat);
+                        if (feeLine != null)
                         {
-                            using (var db = new Helpers.Database.Database(databaseProvider))
-                            {
-                                var note = db.GetNote(string.Format("CardChangeNote".Translate(), pay.TempPayMethod.Charge)) ??
-                                           new NoteModel(string.Format("CardChangeNote".Translate(), pay.TempPayMethod.Charge));
-
-                                Basket.Add(new BasketNote(note, pay.TempPayMethod.Charge, pay.TempPayMethod.Charge));
-                                sale.Total = Basket.Sum(bR => bR.Price * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
-                            }
+                            Basket.Add(feeLine);
+                            sale.Total = Basket.Sum(bR => bR.Price * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
                         }
                     }
                     #region Setup and run payment amount input

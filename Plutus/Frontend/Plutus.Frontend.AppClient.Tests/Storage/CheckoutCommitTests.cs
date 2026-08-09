@@ -194,6 +194,78 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
             Assert.Equal(200, lines.Single(l => l.IdOne == "B").DiscountPence);
         }
 
+        // ── the card surcharge ──
+
+        /// <summary>
+        /// ⚠ THE LINE THE LEGACY BASKETNOTE COULD NEVER BE. A surcharged basket must RECONCILE —
+        /// the fee is a real line, so `GrossPence` carries it and the tenders settle against the
+        /// same figure. And the fee's VAT FOLLOWS THE BASKET (Bookit/NEC): on 20% goods the fee
+        /// carries 20%, never a hardcoded rate and never zero.
+        /// </summary>
+        [Fact]
+        public void A_surcharged_basket_reconciles_and_the_fee_follows_the_goods()
+        {
+            var basket = new List<IBasketRecord> { Item("A", 12m, 10m) };   // £12/£10 — 20% goods
+
+            // 1.69% + 20p on £12.00 = 20.28 → 20p percent half + 20p flat = 40p fee.
+            var fee = CheckoutCommit.SurchargeItem(basket, surchargeBp: 169, surchargeFlatPence: 20);
+
+            Assert.NotNull(fee);
+            Assert.Equal(0.40m, fee.Price);
+            Assert.Equal(0.33m, fee.PriceExTax);   // 40 × 1000/1200 = 33.3 → 33p: the basket's own mix
+
+            basket.Add(fee);
+            var lines = CheckoutCommit.LinesFrom(basket);
+
+            Assert.Equal(2, lines.Count);
+            Assert.Equal(1240, lines.Sum(l => l.UnitIncPence * l.Quantity - l.DiscountPence));
+            Assert.Equal(1240, CheckoutCommit.BasketMoneyPence(basket));   // guard passes
+        }
+
+        /// <summary>⚠ THE ONE A HARDCODED RATE GETS WRONG: a fee on zero-rated goods carries NO
+        /// VAT — the fee follows the goods, and 20% here is output tax HMRC says is not due.</summary>
+        [Fact]
+        public void A_fee_on_zero_rated_goods_carries_no_VAT()
+        {
+            var fee = CheckoutCommit.SurchargeItem(
+                new List<IBasketRecord> { Item("BOOK", 10m, 10m) }, 0, 50);
+
+            Assert.Equal(0.50m, fee.Price);
+            Assert.Equal(0.50m, fee.PriceExTax);   // ex == inc → VAT 0
+        }
+
+        /// <summary>⚠ A refund attracts no fee — surcharging money you are giving BACK is
+        /// indefensible at the counter and the shared rule refuses the arithmetic anyway.</summary>
+        [Fact]
+        public void A_refund_only_basket_attracts_no_fee()
+        {
+            var basket = new List<IBasketRecord> { new BasketReturnItem(new ItemModel
+            {
+                Id = "A", Name = "A", Price = 10m, ExPrice = 10m, Vat = new TaxModel { Name = "" },
+            }, 1) };
+
+            Assert.Null(CheckoutCommit.SurchargeItem(basket, 169, 20));
+        }
+
+        [Fact]
+        public void No_setting_no_fee()
+        {
+            Assert.Null(CheckoutCommit.SurchargeItem(
+                new List<IBasketRecord> { Item("A", 10m, 10m) }, 0, 0));
+        }
+
+        /// <summary>Applied ONCE — a split payment across two cards must not charge the flat fee
+        /// twice, and `HasSurcharge` is what the till checks before adding.</summary>
+        [Fact]
+        public void The_fee_is_detectable_so_it_is_only_added_once()
+        {
+            var basket = new List<IBasketRecord> { Item("A", 12m, 10m) };
+            Assert.False(CheckoutCommit.HasSurcharge(basket));
+
+            basket.Add(CheckoutCommit.SurchargeItem(basket, 169, 20));
+            Assert.True(CheckoutCommit.HasSurcharge(basket));
+        }
+
         /// <summary>
         /// ⚠ `BasketMoneyPence` must agree with the till's `sale.Total`, which is
         /// `Σ Price × Quantity`, returns negated — including the alteration's negative price.

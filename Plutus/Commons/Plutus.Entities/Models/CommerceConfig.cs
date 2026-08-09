@@ -31,5 +31,21 @@ namespace Plutus.Entities.Models
         public string ConfigJson { get; set; }
         public DateTime UpdatedAtUtc { get; set; }
         public string UpdatedBy { get; set; }
+
+        /// <summary>
+        /// Card surcharge, percentage half, in BASIS POINTS of the basket's sale value (169 = 1.69%).
+        /// Zero = no surcharge, and zero is the default because surcharging CONSUMER cards has been
+        /// banned in the UK since 13 January 2018 (Consumer Rights (Payment Surcharges) Regulations
+        /// 2012) — the setting exists for B2B tenants and other jurisdictions, and the portal's
+        /// helper text carries the warning.
+        ///
+        /// ⚠ Percent + flat TOGETHER, because that is the shape of every acquirer's own fee
+        /// (1.69% + 20p is how the merchant is charged), and lawful surcharging is capped at cost
+        /// recovery — a tenant passing through their real cost needs both halves.
+        /// </summary>
+        public int SurchargeBp { get; set; }
+
+        /// <summary>Card surcharge, flat half, in integer pence. See <see cref="SurchargeBp"/>.</summary>
+        public long SurchargeFlatPence { get; set; }
     }
 }
