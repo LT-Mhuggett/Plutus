@@ -38,6 +38,13 @@ namespace Plutus.Frontend.AppClient
 
             BindingContext = new AppViewModel();
 
+            // ⚠ BEFORE ANYONE SIGNS IN, on purpose. A till sitting on its login screen after close
+            // still holds the day's sales in its outbox, and they must drain whether or not anybody
+            // is at the counter. Starting this only at sign-in would strand a full day's takings
+            // overnight and until somebody happened to sign back in. It is idempotent, and it does
+            // nothing at all on a till that has not been enrolled.
+            Services.Sync.TillCadence.Start();
+
             // Where a till starts (2026-08-08, Matt: "When you have enrolled a till, what is the
             // point of seeing the Connect to Plutus tab? You should just get a log in screen").
             //

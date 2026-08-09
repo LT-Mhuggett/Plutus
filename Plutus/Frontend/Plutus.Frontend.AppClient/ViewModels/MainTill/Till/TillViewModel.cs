@@ -94,6 +94,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             Title = "Till".Translate();
             Icon = "md-store";
 
+            // ⚠ THE BASKET OWNS THE CATALOGUE SYNC. A sync mid-basket rewrites prices under the
+            // operator's hands: a line added before the tick and one added after would come from
+            // different price lists, in one sale, and the receipt would be the only evidence it
+            // happened. The heartbeat and the outbox drain are NOT held — neither touches the
+            // catalogue, and a queued sale should not wait for a customer to finish paying.
+            Services.Sync.TillCadence.BasketIsOpen = () => Basket.Count > 0;
+
             #region Events
             StoredTransactions.CollectionChanged += (sender, e) =>
             {

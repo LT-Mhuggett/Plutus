@@ -258,6 +258,12 @@ namespace Plutus.Frontend.AppClient.ViewModels
             // customer. The till sells what it already has while the rest arrives.
             Services.Storage.CatalogueSyncService.SyncInBackground();
 
+            // ⚠ The till's one background clock — heartbeat, outbox drain, catalogue, notices, every
+            // 60s. Until this call existed every sale this till committed sat in the outbox for
+            // ever: `OutboxPusher.DrainAsync` was referenced nowhere in the app, so the sale reached
+            // no report, no VAT return and no other till. Idempotent, so signing in again is safe.
+            Services.Sync.TillCadence.Start();
+
             App.Current.MainPage = new AppShell();
             return true;
         }

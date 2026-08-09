@@ -60,6 +60,10 @@
             <Button Text="Send a heartbeat" Command="{Binding BeatCommand}" IsEnabled="{Binding NotBusy}"/>
             <Button Text="Read the catalogue feed" Command="{Binding CatalogueCommand}" IsEnabled="{Binding NotBusy}"/>
             <Button Text="Sync staff from the portal" Command="{Binding SyncStaffCommand}" IsEnabled="{Binding NotBusy}"/>
+            <!-- ⚠ The only place a stuck sales queue is visible. The cadence drains silently every
+                 60s, so a till holding a day of un-sent sales — or sales Plutus REFUSED — looks
+                 identical to a healthy one from the sales screen. -->
+            <Button Text="Send queued sales now" Command="{Binding SendSalesCommand}" IsEnabled="{Binding NotBusy}"/>
 
             <ActivityIndicator IsVisible="{Binding Busy}" IsRunning="{Binding Busy}" HorizontalOptions="Start"/>
             <Label FontSize="Caption" Text="{Binding LastAction}" LineBreakMode="WordWrap"/>

@@ -142,6 +142,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
         private Command _syncStaffCommand;
         public Command SyncStaffCommand => _syncStaffCommand ??= new Command(async () => await SyncStaffAsync());
 
+        private Command _sendSalesCommand;
+        public Command SendSalesCommand => _sendSalesCommand ??= new Command(async () => await SendSalesAsync());
+
         private Command _forgetCommand;
         public Command ForgetCommand => _forgetCommand ??= new Command(async () => await ForgetAsync());
 
@@ -393,6 +396,30 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
             catch (Exception ex)
             {
                 LastAction = Friendly("Couldn't read the catalogue", ex);
+            }
+            finally { Busy = false; }
+        }
+
+        /// <summary>
+        /// Send whatever this till has queued, now.
+        ///
+        /// ⚠ THE ONLY PLACE A STUCK QUEUE IS VISIBLE. The cadence drains every 60s and says nothing
+        /// when it works, which is right — but a till that has been offline for a day, or that is
+        /// holding sales Plutus REFUSED, looks exactly like a healthy one from the sales screen.
+        /// This is what somebody presses when the portal's figures do not match the drawer.
+        /// </summary>
+        private async Task SendSalesAsync()
+        {
+            if (Busy) return;
+            Busy = true;
+            try
+            {
+                var result = await Services.Storage.OutboxPushService.PushAsync();
+                LastAction = result.Message;
+            }
+            catch (Exception ex)
+            {
+                LastAction = Friendly("Couldn't send this till's sales", ex);
             }
             finally { Busy = false; }
         }
