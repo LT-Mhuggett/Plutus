@@ -77,6 +77,7 @@ Phase 0  FOUNDATION            [x]1 EF9  [x]2 reference  [x]3 TillStoreAccess  [
 Phase 1  LINE PRIMITIVES       [x]5 price pair  [x]6 TaxId+StockUntracked  [x]7 VAT band store  [x]8 tender values→SharedKernel ✅ PHASE COMPLETE
 Phase 2  MONEY PATH            [x]9 basket+assembler ✅  [x]10 v2 lookup ✅  [x]11 CommitSaleAsync ✅  [ ]11b basket reshape  [x]12 permission gates ✅
                                [x]13 sync services ✅ (CatalogueSyncService + OutboxPushService + TillCadence 60s)
+                               [ ]13b checkout tenders off the FIXED set (binding default 13)
                                [ ]14 receipt re-signature
 Phase 3  RETURNS/PARK/REPRINT  [ ]15 sale read path  [ ]16 RefundRules wiring  [ ]17 server refund cap  [ ]18 parked baskets
 Phase 4  OPERATOR AUTH         [ ]19 /api/Auth/Login wiring + the four backend fixes
@@ -257,6 +258,18 @@ selling. ⚠ Never poll `POST /api/v1/tokens/device` (rate-limited 5/min/IP) —
 owner gates it.
 VERIFY: 202→Quarantined never retried; 400→Failed skipped without blocking the queue; 401→re-mint
 once; transport failure→Pending + drain stops; backoff 5s→5min cap.
+
+**Step 13b (NEW, found 2026-08-09) — checkout tenders off the FIXED tender set.**
+⚠ **A fresh portal-provisioned till cannot complete a checkout AT ALL.** `GenPaymentMethodActions`
+(`TillViewModel`) reads the legacy local `PaymentMethodModel` table, which only `Database.Init()` —
+the legacy first-run path — ever seeds. A portal till never runs it, so the payment action sheet
+renders ZERO buttons and the `paid != sale.Total` loop can never progress. Dev machines don't see
+it because they were migrated from legacy installs that had seeded Card/Cash. Binding default 13
+already decides the fix: the tender buttons come from the FIXED SharedKernel tender set (Cash,
+Card + Credit/GiftCard when those steps land), not from a table; `IsChangeable` semantics map from
+the tender byte (change = cash only). Kill `GenPaymentMethodActions` and the legacy seed with it.
+VERIFY: a till with an empty legacy DB completes a cash sale and a card sale; card still asks the
+surcharge question (step above); refund-only baskets keep their tender restrictions.
 
 **Step 14 — Receipt off legacy models.** `PosPrinterManager.SetUpSalePrint(SaleModel, …,
 StoreModel)` → contract sale + line records + a store header cached from `StoreInfoResult` into
