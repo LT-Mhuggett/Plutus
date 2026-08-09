@@ -6,6 +6,7 @@ using Plutus.Frontend.AppClient.Helpers.Extensions;
 using Plutus.Frontend.AppClient.Helpers.Security;
 using Plutus.Frontend.AppClient.Helpers.Validators;
 using Plutus.Frontend.AppClient.Services.IOHandeling;
+using Plutus.SharedKernel;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -272,51 +273,64 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.StoreOptions
 
         #region Execute Commands
         #region Store Details
+        /// <summary>
+        /// Which item the till's quick "Bag" button rings up. The web till has the same setting
+        /// (`prefs.ts bagBarcode`), and like it this is a per-DEVICE preference: which carrier bag a
+        /// shop sells is a shop-floor fact, not a platform one.
+        ///
+        /// ⚠ It was on the legacy gate and the legacy catalogue, so on a portal-provisioned till it
+        /// could not work in three separate ways: `IsAuthorised` crashed the app rather than
+        /// refusing, `RequestAuthorisedUserInput` re-prompted for ever if it hadn't, and the
+        /// existence check ran against the legacy `Items` table — empty on a portal till, so a
+        /// perfectly good barcode came back as "we can't find an item with that ID".
+        /// </summary>
         private async void ExecuteStoreDefaultBagChange()
         {
-            var empId = App.GetViewModel().EmployeeId;
-            bool escape = false;
-            do
+            try
             {
-                Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
-                if (empId.IsAuthorised("Admin", Database.Enums.Permissions.Write, databaseProvider))
+                var gate = Services.Security.TillGate.Check(
+                    App.GetViewModel().SignedInOperator, PermissionCatalogue.PosSettingsManage);
+
+                if (!gate.Allowed)
                 {
-                    var validators = new IValidator[]
-                    {
-                        new RequiredValidator()
-                    };
-
-                    var viewElements = new ViewElementData[]
-                    {
-                        new ViewElementData(1, string.Format("IdArg".Translate(), "Bag".Translate()), DefaultBagId, validators.AsEnumerable(), false, true),
-                    };
-
-                    var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(viewElements, "Confirm".Translate(), false, cancelText: "Cancel".Translate());
-
-                    if (data.Any(d => string.IsNullOrEmpty(d.Value)))
-                    {
-                        return;
-                    }
-
-                    using (var db = new Helpers.Database.Database(databaseProvider))
-                    {
-                        _ = data.TryGetValue(1, out var bagIdText);
-                        if (db.IsExists<ItemModel, string>(bagIdText))
-                        {
-                            DefaultBagId = bagIdText;
-                            return;
-                        }
-                        else
-                        {
-                            await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "ItemNotFoundMesg".Translate(), "OK".Translate());
-                            continue;
-                        }
-                    }
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(), gate.Message, "OK".Translate());
+                    return;
                 }
-                var empAuthoriser = await Authorisation.RequestAuthorisedUserInput(databaseProvider);
-                if (empAuthoriser == default)
-                    escape = true;
-            } while (!escape);
+
+                var validators = new IValidator[] { new RequiredValidator() };
+
+                var viewElements = new ViewElementData[]
+                {
+                    new ViewElementData(1, string.Format("IdArg".Translate(), "Bag".Translate()), DefaultBagId, validators.AsEnumerable(), false, true),
+                };
+
+                var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                    viewElements, "Confirm".Translate(), false, cancelText: "Cancel".Translate());
+
+                if (data == null || data.Any(d => string.IsNullOrEmpty(d.Value))) return;
+
+                _ = data.TryGetValue(1, out var bagIdText);
+                if (string.IsNullOrWhiteSpace(bagIdText)) return;
+
+                // ⚠ Checked against the V2 CATALOGUE — the same place the basket resolves a scan.
+                // Validating against a different list than the one that sells is how a setting is
+                // accepted here and fails at the counter.
+                var exists = await Services.Storage.TillStoreAccess.TryUseAsync(
+                    s => s.FindByBarcodeAsync(bagIdText.Trim()));
+
+                if (exists == null)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "ItemNotFoundMesg".Translate(), "OK".Translate());
+                    return;
+                }
+
+                DefaultBagId = bagIdText.Trim();
+            }
+            catch (Exception ex)
+            {
+                // ⚠ `async void` — see Authorisation's header.
+                Services.Analytics.CrashLog.Write("StoreOptionsViewModel.ExecuteStoreDefaultBagChange", ex);
+            }
         }
         #endregion
         #region Region

@@ -11,41 +11,66 @@ using System.Threading.Tasks;
 
 namespace Plutus.Frontend.AppClient.Helpers.Security
 {
+    /// <summary>
+    /// ⚠ THE LEGACY PERMISSION GATE. <see cref="Services.Security.TillGate"/> replaced it at cutover
+    /// step 12 and is what new code must use. This is kept only until the last caller is ported —
+    /// see `Build/legacy-removal.md` (L3).
+    ///
+    /// ⚠ IT CANNOT SUCCEED ON A PORTAL-PROVISIONED TILL, and until 2026-08-10 it did not merely fail
+    /// — it CRASHED THE APP. It reads employees and an `AuthActions` table out of the legacy local
+    /// database; a portal till has neither, so <c>GetEmployee</c> returned null and
+    /// <c>emp.EmpAuths</c> threw. Every caller is an <c>async void</c> command with no <c>catch</c>,
+    /// which makes that an unhandled exception and closes the till. "Change printer" did exactly
+    /// this, from the settings screen, mid-shift.
+    ///
+    /// ⚠ So it now REFUSES instead of throwing. A permission check that cannot answer must answer
+    /// "no" — never take the process with it, and never fall open.
+    /// </summary>
     internal static class Authorisation
     {
-        internal static bool IsAuthorised(this string eIdTemp, string action, Permissions rightNeeded, DatabaseProvider dbProvider)
-        {
-            using (var dbHelper = new Database.Database(dbProvider))
-            {
-                var emp = dbHelper.GetEmployee(eIdTemp);
-                var authRequired = dbHelper.Get<AuthActions>().Where(aA => aA.Name.Equals(action)).SingleOrDefault();
+        internal static bool IsAuthorised(this string eIdTemp, string action, Permissions rightNeeded, DatabaseProvider dbProvider) =>
+            LegacyCheck(eIdTemp, action, dbProvider, (empAuth, _) => empAuth.Permissions.HasFlag(rightNeeded));
 
-                foreach (var empAuth in emp.EmpAuths)
+        internal static bool IsAuthorised(this string eIdTemp, string action, decimal amount, Permissions rightNeeded, DatabaseProvider dbProvider) =>
+            LegacyCheck(eIdTemp, action, dbProvider,
+                (empAuth, _) => empAuth.Auth?.Amount >= amount && empAuth.Permissions.HasFlag(rightNeeded));
+
+        /// <summary>
+        /// ⚠ Every step is null-checked and the whole thing is wrapped, because each of the four
+        /// dereferences the original made — the employee, its grants, the action row, and the
+        /// grant's ceiling — is null on a portal till, and any one of them ended the process.
+        /// </summary>
+        private static bool LegacyCheck(
+            string eIdTemp, string action, DatabaseProvider dbProvider, Func<Emp_AuthActions, AuthActions, bool> verdict)
+        {
+            if (string.IsNullOrWhiteSpace(eIdTemp) || string.IsNullOrWhiteSpace(action)) return false;
+
+            try
+            {
+                using (var dbHelper = new Database.Database(dbProvider))
                 {
-                    if (!empAuth.AuthAId.Equals(authRequired.Id))
-                        continue;
-                    return empAuth.Permissions.HasFlag(rightNeeded);
+                    var emp = dbHelper.GetEmployee(eIdTemp);
+                    if (emp?.EmpAuths == null) return false;
+
+                    var authRequired = dbHelper.Get<AuthActions>()
+                        .Where(aA => aA.Name.Equals(action)).SingleOrDefault();
+                    if (authRequired == null) return false;
+
+                    foreach (var empAuth in emp.EmpAuths)
+                    {
+                        if (empAuth == null || !empAuth.AuthAId.Equals(authRequired.Id))
+                            continue;
+                        return verdict(empAuth, authRequired);
+                    }
                 }
             }
-            return false;
-        }
-
-        internal static bool IsAuthorised(this string eIdTemp, string action, decimal amount, Permissions rightNeeded, DatabaseProvider dbProvider)
-        {
-            using (var dbHelper = new Database.Database(dbProvider))
+            catch (Exception ex)
             {
-                var emp = dbHelper.GetEmployee(eIdTemp);
-                var authRequired = dbHelper.Get<AuthActions>().Where(aA => aA.Name.Equals(action)).SingleOrDefault();
-
-                foreach (var empAuth in emp.EmpAuths)
-                {
-                    if (!empAuth.AuthAId.Equals(authRequired.Id))
-                        continue;
-                    if (empAuth.Auth.Amount < amount)
-                        continue;
-                    return empAuth.Permissions.HasFlag(rightNeeded);
-                }
+                // ⚠ Refuse, and leave a trace. Silently returning false would hide the fact that a
+                // screen is still on the legacy gate at all.
+                Services.Analytics.CrashLog.Write("Authorisation.LegacyCheck", ex);
             }
+
             return false;
         }
 

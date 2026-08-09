@@ -42,11 +42,23 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
             Icon = "md-settings";
             Version = $"Ver. {AppInfo.VersionString}";
 
+            // ⚠ THE "DATABASE" SECTION IS GONE — Matt, 2026-08-10: *"all the archive legacy database
+            // and restore. Its no longer needed."*
+            //
+            // "Archive legacy database" was the cutover on-ramp: it stamped `MetaKeys
+            // .LegacyArchivedAtUtc`, which is what `EnrolmentFlow.BlockedReasonAsync` looks for
+            // before letting a till with an un-archived legacy file enrol. That gate is passed
+            // `null` today and does not run, so removing this button changes nothing that works
+            // — but it does mean the gate can never be switched ON, because nothing else can
+            // produce the stamp. ⚠ If a real shop is ever migrated off NatApp, its sales history
+            // has no on-ramp until something replaces this. Recorded in `Build/legacy-removal.md`.
+            //
+            // "Restore database" was worse than unused: it ran the legacy `IsAuthorised` gate, so on
+            // a portal-provisioned till it crashed the app rather than refusing (same fault as
+            // "Change printer", below), and what it restored was a legacy file no screen reads any
+            // more.
             var buttonsAndSubHeadings = new List<Tuple<string, string>>
             {
-                Tuple.Create("Database".Translate(),""),
-                Tuple.Create("Archive legacy database", "BackupDbCommand"),
-                Tuple.Create("RestoreDb".Translate(), "RestoreDbCommand"),
                 Tuple.Create("Printer", ""),
                 Tuple.Create("ChangePrinter".Translate(), "ChangePrinterCommand"),
                 Tuple.Create("PrintTestPage".Translate(), "PrintTestPageCommand"),
@@ -92,18 +104,16 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
 
         #region Commands
         #region Database
+        // ⚠ `BackupDbCommand` is kept, WITHOUT a button (2026-08-10). `ExecuteBackupDb` is the only
+        // thing that can stamp `MetaKeys.LegacyArchivedAtUtc`, which is the enrolment gate's input —
+        // deleting the implementation would remove a platform capability, not just a control, and
+        // the gate is a binding default. The button is gone because Matt does not need the on-ramp;
+        // the code goes when `Build/legacy-removal.md` item L1 is actioned.
         Command _backupDbCommand;
         public Command BackupDbCommand
         {
             get => _backupDbCommand ?? (_backupDbCommand = new Command(ExecuteBackupDb));
         }
-
-        Command _restoreDbCommand;
-        public Command RestoreDbCommand
-        {
-            get => _restoreDbCommand ?? (_restoreDbCommand = new Command(ExecuteRestoreDb));
-        }
-
         #endregion
 
         #region Printer
@@ -220,42 +230,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
             }
         }
 
-        private async void ExecuteRestoreDb()
-        {
-            if (IsBusy)
-                return;
-            IsBusy = true;
-            try
-            {
-                var empId = App.GetViewModel().EmployeeId;
-                bool escape = false;
-                do
-                {
-                    Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
-                    if (empId.IsAuthorised("Admin", Database.Enums.Permissions.Execute, databaseProvider))
-                    {
-                        var dbFile = await AppServices.Get<IFile>().GetFile(new List<string> { ".db" });
-                        if (dbFile == null)
-                            return;
-                        if (await AppServices.Get<IFile>().Copy(
-                            dbFile,
-                            FileSystem.AppDataDirectory,
-                            "Database.db"))
-                            await App.Current.MainPage.DisplayAlert("Success".Translate(), "Saved".Translate(), "OK".Translate());
-                        else
-                            await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "CriticalIssue".Translate(), "OK".Translate());
-                        return;
-                    }
-                    var empAuthoriser = await Authorisation.RequestAuthorisedUserInput(databaseProvider);
-                    if (empAuthoriser == default)
-                        escape = true;
-                } while (!escape);
-            }
-            finally
-            {
-                IsBusy = false;
-            }
-        }
+        // ⚠ "RESTORE DATABASE" IS GONE (2026-08-10, Matt: *"its no longer needed"*).
+        //
+        // It let someone pick a `.db` file and copy it over the legacy `Database.db`. Three reasons
+        // it went rather than being fixed: no screen reads that file any more (the v2 store is
+        // `till-v2.db`), it was gated on the legacy `IsAuthorised` and therefore CRASHED rather than
+        // refused on a portal till, and "overwrite this till's database from a file on a USB stick"
+        // is not a thing a shop assistant should be able to do from a settings menu.
 
         // ⚠ "DELETE DATABASE" IS GONE (cutover step 21), and not merely disabled.
         //
@@ -270,6 +251,24 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
         #endregion
 
         #region Printer
+        /// <summary>
+        /// Pick which printer this till prints receipts on.
+        ///
+        /// ⚠ THIS CRASHED THE APP ON EVERY PORTAL-PROVISIONED TILL — reported 2026-08-10. It gated
+        /// on `empId.IsAuthorised("Admin", …)`, which opens the LEGACY local database and does
+        /// `emp.EmpAuths` on the result of `GetEmployee(...)` without a null check. A portal till has
+        /// no legacy employee rows and `AppViewModel.EmployeeId` is null for every roster operator,
+        /// so that dereference threw a NullReferenceException — out of an `async void` with no
+        /// `catch`, which is an unhandled exception and takes the process down. Not a refusal: a
+        /// crash, from a settings button, mid-shift.
+        ///
+        /// ⚠ And the fallback could not have rescued it. `RequestAuthorisedUserInput` never assigns
+        /// the id it returns, so the `do/while` re-prompted for ever and only Cancel escaped — see
+        /// `TillGate`'s header, which replaced this whole model at cutover step 12.
+        ///
+        /// Now gated on `pos.settings.manage` through the platform's own permissions, with the
+        /// refusal shown rather than thrown.
+        /// </summary>
         private async void ExecuteChangePrinter()
         {
             if (IsBusy)
@@ -277,31 +276,35 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
             IsBusy = true;
             try
             {
-                var empId = App.GetViewModel().EmployeeId;
-                bool escape = false;
-                do
-                {
-                    Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
-                    if (empId.IsAuthorised("Admin", Database.Enums.Permissions.Execute, databaseProvider))
-                    {
-                        using (var printerMgr = new PosPrinterManager())
-                        {
-                            var printerId = await printerMgr.SelectPrinterAndGetPrinterId();
+                var gate = Services.Security.TillGate.Check(
+                    App.GetViewModel().SignedInOperator, PermissionCatalogue.PosSettingsManage);
 
-                            if (!string.IsNullOrEmpty(printerId))
-                                PrinterLogicalNameSetting = printerId;
-                            else
-                            {
-                                await Application.Current.MainPage.DisplayAlert("Warning".Translate(), "NoPrinter".Translate(), "Cancel".Translate());
-                                PrinterLogicalNameSetting = printerId;
-                            }
-                        }
-                        return;
-                    }
-                    var empAuthoriser = await Authorisation.RequestAuthorisedUserInput(databaseProvider);
-                    if (empAuthoriser == default)
-                        escape = true;
-                } while (!escape);
+                if (!gate.Allowed)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), gate.Message, "OK".Translate());
+                    return;
+                }
+
+                using (var printerMgr = new PosPrinterManager())
+                {
+                    var printerId = await printerMgr.SelectPrinterAndGetPrinterId();
+
+                    // ⚠ Only WRITE the setting when one was actually chosen. The old code assigned
+                    // the empty result in the else branch too, so cancelling the picker silently
+                    // UNSET the till's printer and the next receipt went nowhere.
+                    if (!string.IsNullOrEmpty(printerId))
+                        PrinterLogicalNameSetting = printerId;
+                    else
+                        await Application.Current.MainPage.DisplayAlert(
+                            "Warning".Translate(), "NoPrinter".Translate(), "OK".Translate());
+                }
+            }
+            catch (Exception ex)
+            {
+                // ⚠ `async void` — an escape here is an UNHANDLED exception, not a failed command.
+                CrashLog.Write("SettingsViewModel.ExecuteChangePrinter", ex);
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "Couldn't open the printer list. The till's printer hasn't been changed.", "OK".Translate());
             }
             finally
             {

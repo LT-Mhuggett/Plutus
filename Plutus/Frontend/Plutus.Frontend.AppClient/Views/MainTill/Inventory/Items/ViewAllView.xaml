@@ -26,10 +26,15 @@
                         <Behaviors:SfListViewContextMenuBehavior.Buttons>
                             <Button Text="{i18n:Translate AddToBasket}" HeightRequest="40"
                                     Command="{Binding Path=BindingContext.AddToBasketCommandArg, Source={x:Reference ItemsListView}}"/>
-                            <Button Text="{i18n:Translate Edit}" HeightRequest="40"
-                                    Command="{Binding Path=BindingContext.OpenEditItemCommandArg, Source={x:Reference ItemsListView}}"/>
-                            <Button Text="{i18n:Translate UpdateStock}" HeightRequest="40"
-                                    Command="{Binding Path=BindingContext.UpdateItemStockCommandArg, Source={x:Reference ItemsListView}}"/>
+                            <!-- ⚠ "Edit" and "Update stock" are HIDDEN (2026-08-10). Both write to
+                                 the LEGACY local database, which nothing reads: the till client has
+                                 no item-write endpoint, so an edit made here reaches no report, no
+                                 other till and no VAT return, and the list itself is now drawn from
+                                 the v2 catalogue — so the operator would not even see their own
+                                 change. Both also gated on the legacy `IsAuthorised`, which CRASHES
+                                 on a portal-provisioned till rather than refusing. Items belong to
+                                 the portal; MAUI's inventory parity is WP10. See
+                                 `Build/legacy-removal.md` (L2). -->
                         </Behaviors:SfListViewContextMenuBehavior.Buttons>
                         <Behaviors:SfListViewContextMenuBehavior.ItemBindings>
                             <x:String>.Id</x:String>

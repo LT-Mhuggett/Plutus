@@ -291,7 +291,14 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             IsBusy = true;
             try
             {
-                var item = await FindItem(ItemId);
+                var lookup = await FindItem(ItemId);
+
+                // ⚠ A cancelled picker leaves the box ALONE and says nothing. The operator is
+                // mid-decision; clearing what they typed or telling them the item does not exist
+                // both undo work they are still doing.
+                if (lookup.Cancelled) return;
+
+                var item = lookup.Item;
                 if (item == null)
                 {
                     await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "ItemNotFoundMesg".Translate(), "OK".Translate());
@@ -339,7 +346,10 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             IsBusy = true;
             try
             {
-                var item = await FindItem(id);
+                var lookup = await FindItem(id);
+                if (lookup.Cancelled) return;
+
+                var item = lookup.Item;
                 if (item == null)
                 {
                     await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "ItemNotFoundMesg".Translate(), "OK".Translate());
@@ -1409,15 +1419,59 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// nothing needs the navigations the legacy query used to Include.
         /// **Step 11 deletes this projection.**
         /// </summary>
-        private async Task<ItemModel> FindItem(string needle = "")
+        /// <summary>How many matches an operator is offered before being asked to narrow it down.</summary>
+        private const int SearchPickerLimit = 25;
+
+        /// <summary>
+        /// The outcome of asking for an item. ⚠ "Nothing matched" and "the operator changed their
+        /// mind" are DIFFERENT and must not share a return value: telling somebody who just pressed
+        /// Cancel that the item does not exist is how a working catalogue gets reported as broken.
+        /// </summary>
+        private sealed record ItemLookup(ItemModel Item, bool Cancelled)
+        {
+            public static readonly ItemLookup NotFound = new(null, false);
+            public static readonly ItemLookup Abandoned = new(null, true);
+        }
+
+        /// <summary>
+        /// Turn what is in the scan box into an item — by BARCODE first, then by NAME.
+        ///
+        /// ⚠ SEARCHING BY NAME DID NOT EXIST HERE, and its absence read as an empty catalogue.
+        /// This method called `FindByBarcodeAsync` and nothing else, so anything an operator TYPED
+        /// — "BAT" — was tried as an exact barcode, missed, and produced *"We can't find an item
+        /// with that ID"*. With 20,000 items synced and sellable. The message even said "that ID",
+        /// which was accurate and completely misleading: it was never searching.
+        ///
+        /// ⚠ `TillStore.SearchAsync` had been built, correct and tested since 2026-08-09 — and was
+        /// called from NOWHERE in the app. That is the third time a finished component has sat
+        /// unwired behind a screen that looked broken (the outbox drain, the catalogue browse, this)
+        /// and it is worth naming as a pattern: a test suite proves a component works, never that
+        /// anything uses it.
+        ///
+        /// ⚠ BARCODE FIRST, ALWAYS. A scan is the hot path and must stay exact and instant; a real
+        /// barcode that happens to appear inside another item's name must never open a picker in
+        /// front of a queue.
+        /// </summary>
+        private async Task<ItemLookup> FindItem(string needle = "")
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(needle)) return null;
+                if (string.IsNullOrWhiteSpace(needle)) return ItemLookup.NotFound;
+
+                var typed = needle.Trim();
 
                 var found = await Services.Storage.TillStoreAccess.TryUseAsync(
-                    s => s.FindByBarcodeAsync(needle.Trim()));
-                if (found == null) return null;
+                    s => s.FindByBarcodeAsync(typed));
+
+                // Not a code this till holds — so it was typed. Search names.
+                if (found == null)
+                {
+                    var chosen = await SearchForOneAsync(typed);
+                    if (chosen.Cancelled) return ItemLookup.Abandoned;
+                    found = chosen.Item;
+                }
+
+                if (found == null) return ItemLookup.NotFound;
 
                 var price = await Services.Storage.TillStoreAccess.TryUseAsync(
                     s => s.EffectivePricePairAsync(found.Id));
@@ -1427,7 +1481,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 // blank rather than being guessed at.
                 var bandName = await Services.Storage.VatBands.DisplayNameForItemAsync(found.Id);
 
-                return new ItemModel
+                return new ItemLookup(new ItemModel
                 {
                     // ⚠ IdOne, not the GUID: every legacy screen and the basket key on this string,
                     // and it IS the barcode.
@@ -1440,13 +1494,69 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     Price = price.IncPence / 100m,
                     ExPrice = price.ExPence / 100m,
                     Vat = new TaxModel { Name = bandName ?? string.Empty },
-                };
+                }, false);
             }
             catch (Exception ex)
             {
                 Services.Analytics.CrashLog.Write("TillViewModel.FindItem", ex);
-                return null;
+                return ItemLookup.NotFound;
             }
+        }
+
+        /// <summary>
+        /// Name search, and the choice that follows when more than one thing matches.
+        ///
+        /// ⚠ MATCHING IS NOT DECIDED HERE. `TillStore.SearchAsync` runs `SharedKernel.ItemSearch`,
+        /// the single home for what a typed query finds (till-design C1). A `LIKE` written in this
+        /// file would be a fourth copy of a rule that was deliberately reduced to one, and the
+        /// symptom of drift is two tills in the same shop disagreeing about the same query.
+        ///
+        /// ⚠ One match is added WITHOUT a prompt. Somebody typing a distinctive title wants the
+        /// item, not a confirmation step, and a picker containing one row is a keystroke tax paid on
+        /// every sale.
+        /// </summary>
+        private async Task<SearchChoice> SearchForOneAsync(string typed)
+        {
+            // ⚠ Ask for one MORE than we will show, so "there are others" is known rather than
+            // guessed. A silently truncated list reads as a complete one, and the operator concludes
+            // the item is not in stock.
+            var matches = await Services.Storage.TillStoreAccess.TryUseAsync(
+                s => s.SearchAsync(typed, new ViewModels.Settings().MatchAllWordsSetting, SearchPickerLimit + 1));
+
+            if (matches == null || matches.Count == 0) return SearchChoice.Nothing;
+            if (matches.Count == 1) return new SearchChoice(matches[0], false);
+
+            var shown = matches.Take(SearchPickerLimit).ToList();
+
+            // ⚠ The barcode is in the label because it is the only field guaranteed UNIQUE.
+            // `DisplayActionSheet` hands back the chosen STRING, so two items sharing a name and
+            // price would be indistinguishable and the first would always win — quietly ringing up
+            // the wrong variant.
+            var choices = shown
+                .Select(m => $"{m.Name} · {m.IdOne} · {(m.PricePence / 100m):C}")
+                .ToArray();
+
+            var title = matches.Count > SearchPickerLimit
+                ? $"Showing the first {SearchPickerLimit} matches — type more to narrow it down"
+                : $"{shown.Count} matches for \"{typed}\"";
+
+            var picked = await Application.Current.MainPage.DisplayActionSheet(
+                title, "Cancel".Translate(), null, choices);
+
+            // ⚠ Cancel — and dismissing by tapping away, which returns null — is ABANDONED, not
+            // NOT-FOUND. The two produce different messages and only one of them is a lie.
+            if (string.IsNullOrEmpty(picked) || picked == "Cancel".Translate())
+                return SearchChoice.Abandoned;
+
+            var index = Array.IndexOf(choices, picked);
+            return index < 0 ? SearchChoice.Abandoned : new SearchChoice(shown[index], false);
+        }
+
+        /// <summary>What the name search settled on: an item, nothing, or a change of mind.</summary>
+        private sealed record SearchChoice(Plutus.Client.Storage.CatalogueItem Item, bool Cancelled)
+        {
+            public static readonly SearchChoice Nothing = new(null, false);
+            public static readonly SearchChoice Abandoned = new(null, true);
         }
         #endregion
 

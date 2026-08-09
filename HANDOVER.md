@@ -15,6 +15,63 @@ Head: see `git log` — this line goes stale; the commits don't.
 > Older references below that say `Build/<plan>.md` now mean `Build/archive/<plan>.md` or
 > `Build/To do/<plan>.md`.
 
+### ⏰⏰⏰⏰⏰⏰⏰⏰⏰ RESUME HERE (2026-08-10, LATER — search, the button sweep, and the removal register)
+
+Suite: **Unit 733 · AppClient 409 (+3 skipped) — all green.** till-maui **1.16.0**.
+**Build for Matt: `D:\tmp\plutus-till-1.16.0\Plutus.Frontend.AppClient.exe`** (stamp
+`1.16.0+bb3c13a`). Nothing here needs a deploy.
+
+#### ⚠ "BAT finds nothing" — the till never searched at all
+
+`TillViewModel.FindItem` called `FindByBarcodeAsync` and **nothing else**, so anything an operator
+TYPED was tried as an exact barcode, missed, and produced *"We can't find an item with that ID"* —
+against 20,344 synced, sellable items. The message was accurate and completely misleading.
+
+⚠ **`TillStore.SearchAsync` had been built, correct and tested since 2026-08-09 and was called from
+NOWHERE.** That is the **third** finished component found sitting unwired behind a screen that
+looked broken, after `OutboxPusher.DrainAsync` and the catalogue browse. Worth treating as a
+standing check: a suite proves a component works, never that anything uses it.
+
+Now: barcode first (a scan stays exact and instant — it must never open a picker in front of a
+queue), then `SearchAsync`. One match is added silently; several open a picker labelled
+`Name · barcode · price` — the barcode is there because `DisplayActionSheet` returns the chosen
+STRING and two same-name items would otherwise be indistinguishable. Asks for 26 to show 25, so
+"there are more" is known rather than guessed. **Cancel ≠ not-found**: telling somebody who just
+pressed Cancel that the item does not exist is how a working catalogue gets reported as broken.
+
+#### ⚠ Why "Change printer" crashed — and it was a whole CLASS, not one button
+
+`Authorisation.IsAuthorised` opens the **legacy** local database and does `emp.EmpAuths` on the
+result of `GetEmployee(...)` with no null check. A portal till has no legacy employee rows and
+`AppViewModel.EmployeeId` is null for every roster operator, so that threw — out of an `async void`
+command with no `catch`, which is an unhandled exception and closes the till. Nine call sites had
+the same shape. It now **refuses instead of throwing** and logs that it was reached; "Change
+printer" and the default-bag setting are on `TillGate` / `pos.settings.manage`.
+
+⚠ Also fixed while there: cancelling the printer picker used to **unset the till's printer** (the
+old code assigned the empty result in the else branch too), so the next receipt went nowhere.
+
+#### The button sweep — what was hidden, and the register Matt asked for
+
+**[`Build/legacy-removal.md`](Build/legacy-removal.md)** is new and is the list Matt deletes from
+last of all: L1–L10, in dependency order, with status keys and the two things that must **not** be
+deleted (the legacy `Database.db` file itself, and the theming port before ClientUI goes).
+
+Hidden this round: the Settings **Database** section (archive + restore — Matt: *"its no longer
+needed"*), **Add item**, and **Edit / Update stock** on the item list. All wrote to the legacy DB,
+which nothing reads — and since the basket resolves from the v2 catalogue, a till-created item could
+not even be sold on the machine that made it.
+
+⚠ **Statistics was WARNED, not hidden.** Both reports read the legacy DB, so they show **zero** for
+everything sold since cutover step 11 — and "£0.00 takings" about a £2,000 day is worse than a
+screen that will not open. But a till migrated from NatApp still holds real history there and this
+is the only way to see it, so the tab now carries a red notice saying exactly that. WP11 / step 26
+replaces it.
+
+⚠ **till-design B4 "Inventory CRUD ✅ / ✅" was WRONG and is now ⬜ for MAUI.** That row is a good
+example of the failure the register exists to catch: it read as built for months and could never
+have worked.
+
 ### ⏰⏰⏰⏰⏰⏰⏰⏰ RESUME HERE (2026-08-10 — the "hung till" was the LOADING OVERLAY)
 
 Suite: **Unit 733 · Architecture 13 · AppClient 409 (+3 skipped) — all green.** Versions: till-maui

@@ -17,6 +17,23 @@ namespace Plutus.Frontend.AppClient.ViewModels
         }
 
         /// <summary>
+        /// Item search matches each word separately — "batman one" finds *Batman Year One*. Off,
+        /// the whole phrase must appear.
+        ///
+        /// ⚠ A per-DEVICE preference, not a platform decision, and the default must match the web
+        /// till's (`prefs.ts DEFAULTS.matchAllWords: true`). Two tills with the same setting must
+        /// agree about what a search finds; two tills that merely *default* differently would
+        /// disagree out of the box, and the symptom is somebody finding an item on one counter and
+        /// not the next and concluding the stock is wrong. The matching rule itself is shared —
+        /// `SharedKernel.ItemSearch` — see till-design C1.
+        /// </summary>
+        public bool MatchAllWordsSetting
+        {
+            get => Preferences.Get(nameof(MatchAllWordsSetting), true);
+            set => Preferences.Set(nameof(MatchAllWordsSetting), value);
+        }
+
+        /// <summary>
         /// User defined barcode symbology
         /// </summary>
         public string BarcodeSymbologySetting
