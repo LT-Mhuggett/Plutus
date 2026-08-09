@@ -17,9 +17,9 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 ### ⏰⏰⏰⏰⏰⏰⏰ RESUME HERE (2026-08-09, LATE — cutover Phases 1–3 done, MySQL password rotated)
 
-Suite: **Unit 733 · Architecture 13 · Integration 134 · AppClient 401 (+3 skipped) — all green.**
-Debug and Release both build. **Pushed** — `upstream/Matt's-Horror` at `ac2b90d`. Versions:
-backend **1.3.0**, platform **1.12.0**, till-maui **1.7.0** (the deployed backend is still 1.2.0 —
+Suite: **Unit 733 · Architecture 13 · Integration 137 · AppClient 401 (+3 skipped) — all green.**
+Debug and Release both build. **Pushed** — `upstream/Matt's-Horror` at `4f6f06e`. Versions:
+backend **1.4.0**, platform **1.14.0**, till-maui **1.9.0** (the deployed backend is still 1.2.0 —
 nothing in this batch has been deployed).
 
 **⚠ The MySQL password IS rotated, and the backend now talks to MySQL over the UNIX SOCKET.**
@@ -49,13 +49,28 @@ checkout could never terminate; the alter-transaction button crashed on tap; and
 was **inescapable** (Cancel fires the confirm handler). Every one of them was invisible on a
 dev machine migrated from a legacy install.
 
-**Next:** step 19 (`/api/Auth/Login` wiring + four backend fixes, binding default 11), then 20–28.
-Still owed from earlier steps: `TillStoreAccessTests` (step 3), step 11b basket reshape, step 21
-must switch the archive gate on. Known-broken and NOT yet fixed: the **browse-and-tap** route into
-the basket reads the empty legacy `Items` table so the list is silently blank
-(`ViewAllViewModel:71`); `RemoveOne`/`RemoveAll`/`CancelTransaction` have no `pos.void` gate; and
-the **ClientUI** surface's commit path is entirely ungated (its authorisation is a bare
-`//Authorisation checks` comment).
+**Phase 4 (step 19) is also done.** ⚠ One of its four fixes was **already in place** —
+`Employee.Active` IS checked at `/api/Auth/Login` (FE9.2, 2026-08-08, after the plan was written).
+The other three were real and are fixed: `unenrol-request` was gated on a scope a DEVICE token
+cannot carry, so the caller its own doc comment names could not call it (and a device may now only
+un-enrol **itself**); `GET /api/v1/sales` and `GET /api/v1/cash-events` gained `pos.reports.view`,
+the second being the X/Z drill an operator runs on their own shift. MAUI fetches an operator token
+in the background after sign-in — **memory only**, since a bearer token with no server-side denylist
+would outlive every revocation if written to disk.
+
+**Also fixed:** the **browse-and-tap** route into the basket showed a blank list on every
+portal-provisioned till (it read the empty legacy `Items` table) — now `TillStore.BrowseAsync` over
+the v2 catalogue; and Cancel now asks before discarding a basket.
+⚠ **`RemoveOne`/`RemoveAll`/`CancelTransaction` were deliberately NOT gated on `pos.void`.** Nothing
+in a basket is paid for or committed, so removing a line is a correction, not a void — a supervisor
+for every mis-scan is a gate operators route around, which is worse than none. `pos.void` belongs on
+voiding a RECORDED sale, which this till cannot do yet.
+
+**Next:** step 20 (WP6 Store Information — largely a deletion), then 21–28. Still owed from earlier
+steps: `TillStoreAccessTests` (step 3), step 11b basket reshape, and **step 21 MUST switch the
+archive gate on** (it is currently passed `null` deliberately). Known-broken and NOT fixed: the
+**ClientUI** surface's commit path is entirely ungated — grepping it for authorisation returns one
+hit, a bare `//Authorisation checks` comment.
 
 ---
 
