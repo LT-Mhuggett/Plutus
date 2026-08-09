@@ -60,15 +60,37 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory
         #endregion
 
         #region Execute Commands
+        /// <summary>
+        /// ⚠ NO LOADING OVERLAY AROUND A NAVIGATION, and this is what broke the Inventory screen's
+        /// LAYOUT — reported 2026-08-10: the item list drew over the tab bar, at the wrong size,
+        /// with no way back out.
+        ///
+        /// It read `App.SetLoading(IsBusy = true);` and then immediately awaited `PushAsync`. The
+        /// overlay is a MODAL page, so that is a modal push and a navigation push issued against the
+        /// same window in the same instant. MAUI does not serialise the two stacks, and the WinUI
+        /// handler resolves the overlapping transitions into one corrupted layout.
+        ///
+        /// ⚠ It was also a CROSS-SCREEN contract: nothing here ever lowered the overlay — the
+        /// FINALLY only clears `IsBusy`. The screen being opened was expected to call
+        /// `SetLoading(false)` on its way in, so if it failed to load, or threw first, the overlay
+        /// stayed over the whole app for the rest of the session. A screen must own its own spinner.
+        /// `ViewAllViewModel.InitItems` raises and lowers one around its own read, which is where it
+        /// belongs.
+        /// </summary>
         private async void ExecuteOpenViewAllItems()
         {
             if (IsBusy)
                 return;
-            App.SetLoading(IsBusy = true);
+            IsBusy = true;
 
             try
             {
                 await App.Current.MainPage.Navigation.PushAsync(new ViewAllView());
+            }
+            catch (Exception ex)
+            {
+                // ⚠ `async void` — an escape here is an unhandled exception, not a failed command.
+                Services.Analytics.CrashLog.Write("InventoryViewModel.OpenViewAllItems", ex);
             }
             finally
             {
@@ -76,15 +98,21 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory
             }
         }
 
+        /// <summary>⚠ Unreachable — "Add item" has no button (see the constructor). Kept only until
+        /// `Build/legacy-removal.md` L2 is actioned.</summary>
         private async void ExecuteOpenAddItem()
         {
             if (IsBusy)
                 return;
-            App.SetLoading(IsBusy = true);
+            IsBusy = true;
 
             try
             {
                 await App.Current.MainPage.Navigation.PushAsync(new AddEditView());
+            }
+            catch (Exception ex)
+            {
+                Services.Analytics.CrashLog.Write("InventoryViewModel.OpenAddItem", ex);
             }
             finally
             {

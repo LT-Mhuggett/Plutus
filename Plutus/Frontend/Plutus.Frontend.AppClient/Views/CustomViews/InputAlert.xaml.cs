@@ -405,12 +405,51 @@ namespace Plutus.Frontend.AppClient.Pages.CustomViews
                 ConfirmButtonEHandler?.Invoke(this, e);
         }
         #endregion
+        /// <summary>
+        /// ⚠ THIS COULD SIZE THE DIALOG TO NOTHING, and a dialog with no size over a 40%-black
+        /// scrim is an app that has gone dark with no way out. It read:
+        ///
+        ///     MainLayout.WidthRequest  = Application.Current.MainPage.Width  / 2;
+        ///     MainLayout.HeightRequest = Application.Current.MainPage.Height / 2;
+        ///
+        /// `VisualElement.Width` and `.Height` are **-1 until the element has been arranged**, so
+        /// during the first layout pass — which is the one that matters, because that is when the
+        /// popup appears — those assignments are `-0.5`. It also reaches for
+        /// `Application.Current.MainPage`, which is not this dialog's parent and may be null or a
+        /// different page entirely while a Mopups popup is up.
+        ///
+        /// Now sized from the values the layout actually PASSES IN, and only when they are real.
+        /// A dialog that cannot work out how big it should be must fall back to its natural size —
+        /// never to zero.
+        /// </summary>
         protected override void OnSizeAllocated(double width, double height)
         {
             base.OnSizeAllocated(width, height);
 
-            MainLayout.WidthRequest = Application.Current.MainPage.Width / 2;
-            MainLayout.HeightRequest = Application.Current.MainPage.Height / 2;
+            if (width > 0)
+                MainLayout.WidthRequest = Math.Max(320, width / 2);
+
+            // ⚠ Height is a MAXIMUM, not a request. Forcing half the window onto a stack holding a
+            // cash grid, entries and up to three buttons clipped the buttons off the bottom of the
+            // payment dialog on a short window — including Confirm.
+            if (height > 0)
+                MainLayout.MaximumHeightRequest = height * 0.9;
+        }
+
+        /// <summary>
+        /// ⚠ BELT AND BRACES ON VISIBILITY. Mopups animates the popup in and restores
+        /// <c>Content.Opacity</c> at the end of that animation (<see cref="CustomViews
+        /// .AlertDialogBase{T}.OnAppearingAnimationEndAsync"/>). If the animation does not complete
+        /// — and it is the platform's, not ours — the content stays transparent while the scrim
+        /// does not, which looks exactly like the app freezing. Nothing about this dialog is worth
+        /// leaving to an animation callback.
+        /// </summary>
+        protected override void OnParentSet()
+        {
+            base.OnParentSet();
+            Opacity = 1;
+            MainLayout.Opacity = 1;
+            IsVisible = true;
         }
     }
 }

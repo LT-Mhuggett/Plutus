@@ -266,6 +266,9 @@ and the two entries below are the two ways it has actually happened here. Both w
 | Rule | The implementation | Second implementation | Pinned by |
 |---|---|---|---|
 | ⚠ **The loading overlay is driven by the DIFFERENCE between wanted and actual, one awaited operation at a time** | `AppClient/Services/Loading/OverlayGate.cs`; `LoadingViewService` is now only the MAUI half (push, pop, marshal to the UI thread) | — (the web till has no modal overlay) | `OverlayGateTests` (5), mutation-checked by collapsing the reconcile loop to a single `if` — caught by `Hide_requested_while_the_show_is_still_in_flight_still_ends_hidden` and `The_overlay_still_works_on_the_next_screen_after_that_race` |
+| ⚠ **Every modal dialog has a way out — a Cancel button, the background, or Escape** | `CustomViews/AlertDialogBase.cs` — `OnBackButtonPressed` now CANCELS rather than swallowing; `OnBackgroundClicked` completes the task when interruptible. The cash-payment dialog passes a real `cancelText` | — | ⚠ **Nothing. Held by review** — a caller that omits `cancelText` on a non-interruptible dialog rebuilds the trap |
+| ⚠ **A cancelled prompt UNWINDS the operation — it never falls through** | `TillViewModel.ExecuteCheckoutTransaction` returns on an empty tender result, leaving the basket intact | — | ⚠ Not pinned — the checkout is one 200-line `async void` and cannot be exercised without a UI host. **Reshaping it so this IS testable is step 11b's job.** |
+| ⚠ **A popup is pushed once, awaited once, and popped in a `finally`** | `InputAlertHelper.ShowAsync`, `SliderAlertHelper`, `InputMultiSelectAlertHelper` | — | ⚠ Not pinned — needs `MopupService`, which needs a UI host |
 | ⚠ **A screen may not hold the shared store gate without a deadline** | `TillStoreAccess.UseAsync` serialises every caller behind ONE semaphore. Callers pass a `CancellationTokenSource` deadline — `TillCadence`'s beat uses 30s, `ViewAllViewModel`'s browse 20s | — | ⚠ **Nothing. This is a convention held by review, and the next caller written without a deadline restores the fault in full.** Pinning it means an architecture test over `UseAsync` call sites requiring a token that is not `default` — worth doing when a third caller appears |
 
 ⚠ **Why the overlay rule is worth a class of its own.** The straight-line version — flip a `bool`,
@@ -276,6 +279,23 @@ with the flag reading "hidden", so every later hide returns at its first line. T
 the app **for the rest of the process**, on every screen after it, and nothing is logged because
 nothing threw. Fail open, always: if the gate cannot tell what is on screen it assumes the overlay
 is DOWN, because a missing spinner is recoverable and a locked screen is not.
+
+⚠ **The cash-payment dialog had no exit at all, and that is the shape to watch for.** It was raised
+with no `cancelText` (so no Cancel button was built), `interuptable: false` (so clicking the scrim
+did nothing) and an `OnBackButtonPressed` that returned `true` (so Escape was swallowed). Three
+independent decisions, each defensible alone, combining into a screen an operator could only leave
+by killing the process — mid-sale, with a customer at the counter. Worse, the two helpers behind it
+looped `while (result.Count == 0) { push; await; pop; }` over a `TaskCompletionSource` created ONCE,
+so the moment cancelling became possible it would have span the UI thread for ever. **Check the
+combination, not the pieces.**
+
+⚠ **Never raise the global overlay across a navigation.** It is a MODAL page, so
+`App.SetLoading(true)` immediately before or during a `PushAsync` issues a modal push and a
+navigation push against one window at once. MAUI does not serialise the two stacks and the WinUI
+handler resolves the collision into a corrupted layout — the Inventory list drew over the tab bar,
+at the wrong size, with no way back. ⚠ It was also a CROSS-SCREEN contract: the opening screen
+raised the overlay and expected the opened screen to lower it, so a screen that failed to load left
+the overlay over the whole app. **A screen owns its own spinner, or has none.**
 
 ⚠ **Why the store-gate rule is here rather than in "Connection".** One semaphore for the whole store
 is the right call (EF contexts are not thread-safe, and two overlapping outbox writes is a lost or

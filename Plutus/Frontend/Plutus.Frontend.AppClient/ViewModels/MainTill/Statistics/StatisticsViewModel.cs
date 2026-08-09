@@ -77,15 +77,23 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Statistics
         #endregion
 
         #region Execute Commands
+        // ⚠ NO LOADING OVERLAY AROUND A NAVIGATION — same fault, same fix as
+        // `InventoryViewModel.ExecuteOpenViewAllItems`, whose header explains it: a modal push and a
+        // navigation push issued against one window in the same instant produce a corrupted layout,
+        // and nothing here ever lowered the overlay it raised.
         private async void ExecuteOpenSalesReports()
         {
             if (IsBusy)
                 return;
-            App.SetLoading(IsBusy = true);
+            IsBusy = true;
 
             try
             {
                 await App.Current.MainPage.Navigation.PushAsync(new SalesReportsView());
+            }
+            catch (Exception ex)
+            {
+                Services.Analytics.CrashLog.Write("StatisticsViewModel.OpenSalesReports", ex);
             }
             finally
             {
@@ -97,11 +105,15 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Statistics
         {
             if (IsBusy)
                 return;
-            App.SetLoading(IsBusy = true);
+            IsBusy = true;
 
             try
             {
                 await App.Current.MainPage.Navigation.PushAsync(new StockOuttakeView());
+            }
+            catch (Exception ex)
+            {
+                Services.Analytics.CrashLog.Write("StatisticsViewModel.OpenStockOuttakeReport", ex);
             }
             finally
             {

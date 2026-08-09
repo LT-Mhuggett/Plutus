@@ -15,6 +15,51 @@ Head: see `git log` — this line goes stale; the commits don't.
 > Older references below that say `Build/<plan>.md` now mean `Build/archive/<plan>.md` or
 > `Build/To do/<plan>.md`.
 
+### ⏰⏰⏰⏰⏰⏰⏰⏰⏰⏰ RESUME HERE (2026-08-10, LATEST — the payment dialog had NO WAY OUT)
+
+Suite: **Unit 733 · AppClient 409 (+3 skipped) — all green.** till-maui **1.17.0**.
+**Build for Matt: `D:\tmp\plutus-till-1.17.0\Plutus.Frontend.AppClient.exe`** (stamp
+`1.17.0+79b8d7a`). No deploy needed.
+
+#### ⚠ "Paid cash, the screen went dark, I can't get out" — three decisions, one trap
+
+The cash-payment dialog was raised with **no `cancelText`** (so `InputAlert` built no Cancel
+button), **`interuptable: false`** (so `OnBackgroundClicked` refused), and
+`AlertDialogBase.OnBackButtonPressed` returned **`true`** (so Escape was swallowed). Each is
+defensible alone. Together the operator could only leave by killing the process, mid-sale. What was
+visible was `AlertDialogBase`'s `Color(0,0,0,.4f)` scrim — hence "the screen goes dark".
+
+⚠ **And the checkout FELL THROUGH on cancel.** It ran `if (amountText != null) { … }` then added the
+payment to the sale regardless, so a cancelled prompt appended a **£0 payment**, left `paid`
+unchanged, and returned to a loop conditioned on `paid != sale.Total` — reopening the same
+inescapable dialog for ever, accumulating junk rows. Cancelling now returns to the basket, intact.
+
+⚠ **All three alert helpers looped `while (result.Count == 0) { push; await; pop; }` over a
+`TaskCompletionSource` created ONCE.** A second pass awaits an already-completed task, so any
+rejected result spins the UI thread at full speed. It had never fired only because cancelling was
+impossible — fixing the escape would have armed it. Now one push, one await, one pop in a `finally`;
+`TrySetResult` throughout. ⚠ `SliderAlertHelper` would have NRE'd (`default` is a null `List`) and
+`InputMultiSelectAlertHelper`'s loop condition **was** `result == default`.
+
+Also: `InputAlert.OnSizeAllocated` sized the dialog from `Application.Current.MainPage.Width / 2` —
+and `VisualElement.Width` is **-1 until arranged**, so on the first pass it requested `-0.5`. Now
+sized from the values layout passes in, height as a MAXIMUM (it was clipping Confirm off the bottom),
+with opacity forced on appearing rather than left to an animation callback.
+
+#### ⚠ The Inventory layout: never raise the global overlay across a navigation
+
+`App.SetLoading(true)` pushes a **modal page**. `ExecuteOpenViewAllItems` did that and then awaited
+`PushAsync` — a modal push and a navigation push against one window at once. MAUI does not serialise
+the two stacks; the WinUI handler resolved it into the corrupted layout Matt photographed (list over
+the tab bar, wrong size, no way back). ⚠ `ViewAllView.OnAppearing` raised it *again* mid-transition,
+so removing it from the opener alone was not enough — `InitItems` no longer raises one either.
+
+⚠ It was also a **cross-screen contract**: the opener raised the overlay and the opened screen was
+expected to lower it. A screen owns its own spinner, or has none.
+
+**Matt's sale was NOT recorded** — confirmed server-side, zero `Sales` rows in 24h, and the commit
+point is after the dialog he was trapped in. Nothing was taken.
+
 ### ⏰⏰⏰⏰⏰⏰⏰⏰⏰ RESUME HERE (2026-08-10, LATER — search, the button sweep, and the removal register)
 
 Suite: **Unit 733 · AppClient 409 (+3 skipped) — all green.** till-maui **1.16.0**.

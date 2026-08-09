@@ -4,6 +4,7 @@ using Plutus.Frontend.AppClient.Views.CustomViews;
 using Mopups.Services;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Plutus.Frontend.AppClient.Helpers.CustomViews
@@ -30,30 +31,37 @@ namespace Plutus.Frontend.AppClient.Helpers.CustomViews
                           data1.Add(confInputResult);
 
                   var data2 = page.SelectedItems();
-                  popUp.PageClosedTaskCompletionSource.SetResult(Tuple.Create<IEnumerable<T>, IEnumerable<T2>>(data1, data2));
+                  popUp.PageClosedTaskCompletionSource.TrySetResult(Tuple.Create<IEnumerable<T>, IEnumerable<T2>>(data1, data2));
               };
 
-            var result = default(Tuple<IEnumerable<T>, IEnumerable<T2>>);
-
-            while (result == default(Tuple<IEnumerable<T>, IEnumerable<T2>>))
+            // ⚠ ONE PUSH, ONE AWAIT, ONE POP IN A `finally` — see `InputAlertHelper.ShowAsync` for
+            // the full explanation. The `while (result == default)` this replaces was the worst of
+            // the three: cancelling now completes the task with `default`, which was precisely the
+            // loop's continue condition, so backing out span the UI thread for ever.
+            // ⚠ Returns NULL when the operator backed out. Callers must null-check.
+            try
             {
                 await MopupService.Instance.PushAsync(popUp);
 
-                bool isFistEntry = true;
-
-                foreach (var item in inputMSAlert.ViewElements)
+                try
                 {
-                    if (item.Entry != null)
-                        if (isFistEntry)
-                        {
-                            item.Entry.Focus();
-                            isFistEntry = false;
-                        }
+                    var firstEntry = inputMSAlert.ViewElements
+                        .Where(v => v.Entry != null).Select(v => v.Entry).FirstOrDefault();
+                    firstEntry?.Focus();
                 }
-                result = await popUp.PageClosedTask;
-                await MopupService.Instance.PopAsync();
+                catch (Exception ex)
+                {
+                    // ⚠ Focus is a convenience. It must never be the reason a dialog is unusable.
+                    System.Diagnostics.Debug.WriteLine(ex);
+                }
+
+                return await popUp.PageClosedTask;
             }
-            return result;
+            finally
+            {
+                try { await MopupService.Instance.PopAsync(); }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex); }
+            }
         }
     }
 }

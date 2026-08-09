@@ -1067,7 +1067,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         new ViewElementData(1, "Amount", "", validators.AsEnumerable(), false, true)
                     };
 
-                    _ = (await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                    // ⚠ A CANCEL BUTTON, which this dialog did not have. It was raised with no
+                    // `cancelText`, so no Cancel button was built, AND `interuptable: false`, so
+                    // clicking the scrim did nothing, AND `AlertDialogBase.OnBackButtonPressed`
+                    // swallowed Escape. The payment dialog had NO EXIT of any kind: once an
+                    // operator reached it the only way out of the app was Task Manager, mid-sale,
+                    // with a customer at the counter.
+                    var tendered = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
                         elements,
                         "Confirm".Translate(),
                         false,
@@ -1076,25 +1082,49 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         string.Format(
                             refundOnly ? "HowMuchRefund".Translate() : "HowMuchPM".Translate(),
                             payMeth,
-                            Math.Round(sale.Total - paid, 2, MidpointRounding.AwayFromZero)))).TryGetValue(1, out var amountText);
+                            Math.Round(sale.Total - paid, 2, MidpointRounding.AwayFromZero)),
+                        "Cancel".Translate());
 
-                    if (amountText != null)
+                    _ = tendered.TryGetValue(1, out var amountText);
+                    #endregion
+
+                    // ⚠ BACKING OUT ABANDONS THE CHECKOUT — it does NOT fall through.
+                    //
+                    // The old code ran `if (amountText != null) { … }` and then added `pay` to the
+                    // sale REGARDLESS. So a cancelled prompt appended a payment of £0, left `paid`
+                    // untouched, and returned to a loop whose condition is `paid != sale.Total` —
+                    // which re-opened the same inescapable dialog, for ever, accumulating junk £0
+                    // payment rows on the way. Cancelling a payment is an ordinary thing to do at a
+                    // counter and it must return the operator to their basket, intact.
+                    if (tendered.Count == 0 || string.IsNullOrWhiteSpace(amountText))
                     {
-                        var amount = decimal.Parse(amountText, testStyles, CultureInfo.CurrentCulture);
-                        #endregion
-                        pay.Amount = amount;
-                        paid += amount;
-                        if (paid > sale.Total)
+                        Logger.LogEvent(AppLogLevel.Info, "Sale Processing",
+                            new Dictionary<string, string> { { "Canceled", "True" }, { "At", "Amount" } });
+                        return;
+                    }
+
+                    // ⚠ TryParse, not Parse. The validators run in the dialog, but this string has
+                    // crossed a UI boundary and a `FormatException` here is thrown from an
+                    // `async void` — which closes the till rather than rejecting the input.
+                    if (!decimal.TryParse(amountText, testStyles, CultureInfo.CurrentCulture, out var amount))
+                    {
+                        await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                            "That amount didn't look like a number. Nothing has been taken.", "OK".Translate());
+                        return;
+                    }
+
+                    pay.Amount = amount;
+                    paid += amount;
+                    if (paid > sale.Total)
+                    {
+                        if (pay.TempPayMethod.IsChangeable)
                         {
-                            if (pay.TempPayMethod.IsChangeable)
-                            {
-                                change = pay.Change = paid - sale.Total;
-                            }
-                            else
-                            {
-                                paid -= amount;
-                                continue;
-                            }
+                            change = pay.Change = paid - sale.Total;
+                        }
+                        else
+                        {
+                            paid -= amount;
+                            continue;
                         }
                     }
 

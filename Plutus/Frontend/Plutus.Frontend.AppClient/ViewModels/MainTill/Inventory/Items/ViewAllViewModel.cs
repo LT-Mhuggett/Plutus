@@ -106,7 +106,16 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         /// </summary>
         public void InitItems()
         {
-            App.SetLoading(true);
+            // ⚠ NO GLOBAL OVERLAY HERE, and its absence is deliberate. This runs from
+            // `ViewAllView.OnAppearing`, which fires WHILE the page push is still transitioning —
+            // so raising the overlay issued a MODAL push into the middle of a navigation push on
+            // the same window. MAUI does not serialise the two stacks and the WinUI handler
+            // resolved the collision into a corrupted layout: the item list drew over the tab bar,
+            // at the wrong size, with no way back out. Reported 2026-08-10.
+            //
+            // The read below is a capped local SQLite query. A list that fills a moment after the
+            // screen arrives is a far better outcome than a screen the operator cannot leave, and
+            // an in-page busy indicator is the right long-term answer (WP10's screen work).
 
             _ = Task.Run(async () =>
             {
@@ -145,16 +154,15 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
 
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
-                    // ⚠ THE OVERLAY COMES DOWN FIRST, and this ordering is the fix for a HANG.
-                    // Setting the collection makes the list group and lay out synchronously — and
-                    // anything that throws in there (a null item name in the group selector was the
-                    // real one) killed this lambda before `SetLoading(false)` ran, leaving a
-                    // spinner over a dead screen with nothing in any log. Clearing it first means
-                    // the worst case is a visibly empty list, which is diagnosable.
+                    // ⚠ STILL LOWERS THE OVERLAY, even though this screen no longer raises one.
+                    // It is a no-op when nothing is up, and it is the last thing standing between an
+                    // operator and a stranded spinner if some OTHER screen left one over the app on
+                    // the way here. Cheap insurance; the overlay is the component with the worst
+                    // failure mode in this app.
                     //
-                    // ⚠ And in its OWN try, because `SetLoading` reaches through
-                    // `App.GetViewModel()`, which casts `_app.BindingContext` — it can throw, and if
-                    // it took the binding down with it the screen would be blank AND covered.
+                    // ⚠ In its OWN try, because `SetLoading` reaches through `App.GetViewModel()`,
+                    // which casts `_app.BindingContext` — it can throw, and if it took the binding
+                    // down with it the screen would be blank AND covered.
                     try { App.SetLoading(false); }
                     catch (Exception ex) { Services.Analytics.CrashLog.Write("ViewAllViewModel.Overlay", ex); }
 

@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Plutus.Frontend.AppClient.Helpers.CustomViews
@@ -28,31 +29,10 @@ namespace Plutus.Frontend.AppClient.Helpers.CustomViews
             inputAlert.ConfirmButtonEHandler += (sender, e) =>
             {
                 var page = (sender as InputAlert);
-                popUp.PageClosedTaskCompletionSource.SetResult(page.InputResults);
+                popUp.PageClosedTaskCompletionSource.TrySetResult(page.InputResults);
             };
 
-            var result = new Dictionary<uint, string>();
-
-            while (result.Count == 0/*Add check to ensure that all required fields are set*/)
-            {
-                await MopupService.Instance.PushAsync(popUp);
-
-                bool isFirstEntry = true;
-
-                foreach (var item in inputAlert.ViewElements)
-                    if (item.Entry != null)
-                        if (isFirstEntry)
-                        {
-                            item.Entry.Focus();
-                            isFirstEntry = false;
-                        }
-
-                result = await popUp.PageClosedTask;
-
-                await MopupService.Instance.PopAsync();
-            }
-
-            return result;
+            return await ShowAsync(popUp, inputAlert);
         }
 
         /// <summary>
@@ -72,35 +52,71 @@ namespace Plutus.Frontend.AppClient.Helpers.CustomViews
             inputAlert.ConfirmButtonEHandler += (sender, e) =>
             {
                 var page = (sender as InputAlert);
-                popUp.PageClosedTaskCompletionSource.SetResult(page.InputResults);
+                popUp.PageClosedTaskCompletionSource.TrySetResult(page.InputResults);
             };
 
-            var result = new Dictionary<uint, string>();
-
-            while (result.Count == 0/*Add check to ensure that all required fields are set*/)
-            {
-                await MopupService.Instance.PushAsync(popUp);
-
-                bool isFirstEntry = true;
-
-                foreach (var item in inputAlert.ViewElements)
-                    if (item.Entry != null)
-                        if (isFirstEntry)
-                        {
-                            item.Entry.Focus();
-                            isFirstEntry = false;
-                        }
-
-                result = await popUp.PageClosedTask;
-
-                await MopupService.Instance.PopAsync();
-            }
-
-            return result;
+            return await ShowAsync(popUp, inputAlert);
         }
 
         /// <summary>
-        /// 
+        /// Show the popup, wait for it, and — whatever happens — TAKE IT DOWN AGAIN.
+        ///
+        /// ⚠ THE POP WAS NOT GUARANTEED, and an un-popped popup is a 40%-black sheet over a till
+        /// nobody can dismiss. If anything between the push and the pop threw — and `Entry.Focus()`
+        /// on a not-yet-realised handler is exactly that sort of thing — the exception left the
+        /// popup on the stack for good. The whole app went dark, mid-sale, with no dialog on it.
+        ///
+        /// ⚠ AND THE LOOP COULD NEVER TERMINATE. This was wrapped in
+        /// `while (result.Count == 0) { push; await PageClosedTask; pop; }`, over a
+        /// `TaskCompletionSource` created ONCE in the popup's constructor. A second pass awaits an
+        /// already-completed task, so any result the loop rejected span the UI thread at full speed
+        /// — push, pop, push — for ever. There is no input that recovers from that.
+        ///
+        /// One push. One await. One pop, in a `finally`.
+        ///
+        /// ⚠ Returns an EMPTY dictionary when the operator backed out (Cancel, Escape, or clicking
+        /// away from an interruptible dialog). Callers must treat empty as "they changed their
+        /// mind" and unwind — never as "they entered nothing", which is how a cancelled payment
+        /// turns into a re-prompt the operator cannot escape.
+        /// </summary>
+        private static async Task<Dictionary<uint, string>> ShowAsync(
+            AlertDialogBase<Dictionary<uint, string>> popUp, InputAlert inputAlert)
+        {
+            try
+            {
+                await MopupService.Instance.PushAsync(popUp);
+
+                try
+                {
+                    // ⚠ `ViewElement` is a STRUCT, so `FirstOrDefault(...)?.Entry` does not compile
+                    // and `FirstOrDefault()` on no match hands back a zeroed struct rather than null.
+                    var firstEntry = inputAlert.ViewElements
+                        .Where(v => v.Entry != null).Select(v => v.Entry).FirstOrDefault();
+                    firstEntry?.Focus();
+                }
+                catch (Exception ex)
+                {
+                    // ⚠ Focus is a convenience. It must never be the reason a dialog is unusable.
+                    Debug.WriteLine(ex);
+                }
+
+                return await popUp.PageClosedTask ?? new Dictionary<uint, string>();
+            }
+            finally
+            {
+                try
+                {
+                    await MopupService.Instance.PopAsync();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine(ex);
+                }
+            }
+        }
+
+        /// <summary>
+        ///
         /// </summary>
         /// <param name="type"></param>
         /// <param name="value"></param>
