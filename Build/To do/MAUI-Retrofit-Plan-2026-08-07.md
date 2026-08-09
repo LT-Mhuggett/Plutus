@@ -1047,6 +1047,28 @@ message — never a silent acceptance; **a sale rung up on till B REPRINTS from 
 2026-08-08: the DoD asserted the sale *renders* and never that it *prints*, which is the half a
 customer actually asks for at the counter).
 
+✅ **The decision rule landed 2026-08-09** — `SharedKernel/RefundRules.cs`, 23 tests,
+mutation-checked. It answers *may this refund proceed, and for how much*: the remainder clamped at
+zero (corrupt data reads as "nothing left", never as a negative that some caller subtracts into a
+payout), a **cap** at the remainder with `WasCapped` set so the operator is told, the 14-day rolling
+window classified against the same retention the outbox prunes on, and — the point of the whole
+thing — **`LocalOutsideWindow` refuses with `NeedsConnection` rather than guessing**. ⚠ Note
+`UnknownSale` and `NeedsConnection` are separate verdicts on purpose: telling someone to check the
+network when the receipt simply is not ours sends them to reboot a router with a customer waiting.
+An unrecognised `SaleRecordSource` fails closed, so a member added by a later build cannot fall
+through into a payout on an older till.
+*Remaining:* wiring it to `GET /api/v1/sales/{saleId}` in the two tills, and the reporting screens.
+
+⚠ **FOUND WHILE BUILDING IT — the server does not enforce the remainder.** `SalesIngestService`
+validates VAT and quarantines what it cannot explain, but it never looks at `originSaleId` against
+the original sale's refund history; `LegacySaleBridgeConsumer` simply writes the legacy Refund row
+the till asked for. **So the refund cap is a CLIENT gate only**, on both tills, and a till that is
+buggy, modified, or replaying stale data can over-refund a sale and the platform will record it
+without complaint. `RefundRules` is deliberately in `SharedKernel` — which the backend already
+references — so closing this is calling the same `Authorise` at ingest and quarantining (202) a
+refund that exceeds the remainder. **That belongs in this WP**, and it is the half that survives a
+compromised till.
+
 **WP12 — Loyalty.** Confirmed **zero** in both MAUI projects. No backend work needed — pure
 consumption. Customer search/attach on the sale screen (`GET /api/v1/customers?search=`, then a
 live `GET /api/v1/customers/{id}` for balance and membership), a create/edit dialog gated on
