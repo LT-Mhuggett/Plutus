@@ -11,6 +11,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
 
@@ -64,18 +66,23 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.StoreOptions
             // "Something went wrong signing in" after typing a correct password. A screen that
             // cannot render its own data should show nothing; it must never be able to stop
             // somebody signing in.
-            DisplayLogo = Store?.Logo != null;
+            // ⚠ THE LOGO IS DROPPED (binding default 18, cutover step 20). There is no logo field
+            // on the store-info contract, so a logo on this screen could only ever have been THIS
+            // machine's local opinion — set by an edit command that no longer exists, differing
+            // from every other till, and printed on receipts as though it were the company's. The
+            // XAML `Image` is left in place and simply never shown: hiding it is a one-line change
+            // whose effect I can reason about, whereas deleting an element from a layout I cannot
+            // run is how a screen quietly loses its spacing.
+            DisplayLogo = false;
 
             SetCurrencyDisplays();
 
             var buttonsAndSubHeadings = new List<Tuple<string, string>>
             {
                 Tuple.Create("Store".Translate(), ""),
-                Tuple.Create("Name".Translate(), "StoreNameChangeCommand"),
-                //Tuple.Create("Address".Translate(), "StoreAddressChangeCommand"),
-                Tuple.Create("StoreLogo".Translate(), "StoreLogoChangeCommand"),
-                Tuple.Create("ContactNumber".Translate(), "StoreContactNumberChangeCommand"),
-                Tuple.Create("VatIN".Translate(), "VatINChangeCommand"),
+                // ⚠ Name / address / logo / phone / VAT number are no longer BUTTONS — the portal
+                // owns them (WP6.1) and they are rendered read-only below. Only the bag, which is a
+                // per-till preference rather than a company fact, is still editable here.
                 Tuple.Create("Bag".Translate(), "StoreDefaultBagChangeCommand"),
                 /*Tuple.Create("Region".Translate(), ""),
                 Tuple.Create("Currency", "CurrencySettingsChangeCommand"),
@@ -118,7 +125,72 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.StoreOptions
                     stack.Children.Add(button);
                 }
             }
+
+            // ⚠ The store's own details, READ-ONLY, from the portal (cutover step 20). Added in
+            // code rather than XAML because this whole screen is built in code — and because the
+            // labels are filled from an async fetch, which a XAML binding to a missing property
+            // would render as a silent blank.
+            leftColumn.Children.Add(_storeDetails);
+            LoadStoreDetails();
         }
+
+        /// <summary>Where the read-only store details are rendered.</summary>
+        private readonly StackLayout _storeDetails = new();
+
+        /// <summary>
+        /// Show what the PORTAL says this store is.
+        ///
+        /// ⚠ Last-good when offline, "unavailable" when this till has never been told — never the
+        /// legacy local record, which is the thing step 20 exists to stop being authoritative.
+        /// ⚠ Off the UI thread, and it cannot throw: this runs from a constructor `AppShell`
+        /// invokes, and a details screen that fails must not be able to stop somebody signing in.
+        /// </summary>
+        private void LoadStoreDetails()
+        {
+            _ = Task.Run(async () =>
+            {
+                Plutus.Contracts.Client.StoreInfoResult info = null;
+                try
+                {
+                    info = await Services.Storage.StoreInfoCache.RefreshAsync();
+                }
+                catch (Exception ex)
+                {
+                    Services.Analytics.CrashLog.Write("StoreInformationViewModel.LoadStoreDetails", ex);
+                }
+
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    _storeDetails.Children.Clear();
+
+                    if (info is null)
+                    {
+                        _storeDetails.Children.Add(Detail("Store".Translate(),
+                            "Unavailable — this till hasn't been told its store details yet."));
+                        return;
+                    }
+
+                    _storeDetails.Children.Add(Detail("Name".Translate(), info.Name));
+                    _storeDetails.Children.Add(Detail("Business", info.BusinessName));
+                    _storeDetails.Children.Add(Detail("Address".Translate(),
+                        Services.Storage.StoreInfoCache.AddressOf(info)));
+                    _storeDetails.Children.Add(Detail("ContactNumber".Translate(), info.ContactNumber));
+                    _storeDetails.Children.Add(Detail("VatIN".Translate(), info.VatNumber));
+                });
+            });
+        }
+
+        /// <summary>A label pair. ⚠ An empty value reads "Not set" rather than rendering blank —
+        /// a blank row is indistinguishable from a broken binding, which is exactly the failure
+        /// mode MAUI hands you for free.</summary>
+        private static View Detail(string label, string value) => new StackLayout
+        {
+            Children =
+            {
+                new Label { Text = label, FontSize = new Label().FontSize, TextColor = Colors.LightGray, FontAttributes = FontAttributes.Bold },
+                new Label { Text = string.IsNullOrWhiteSpace(value) ? "Not set" : value },
+            },
+        };
 
         private void SetCurrencyDisplays()
         {
@@ -138,35 +210,27 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.StoreOptions
 
         #region Commands
         #region Store Details
-        Command _storeNameChangeCommand;
-        public Command StoreNameChangeCommand
-        {
-            get => _storeNameChangeCommand ?? (_storeNameChangeCommand = new Command(ExecuteStoreNameChange));
-        }
 
-        Command _storeAddressChangeCommand;
-        public Command StoreAddressChangeCommand
-        {
-            get => _storeAddressChangeCommand ?? (_storeAddressChangeCommand = new Command(ExecuteStoreAddressChange));
-        }
-
-        Command _storeLogoChangeCommand;
-        public Command StoreLogoChangeCommand
-        {
-            get => _storeLogoChangeCommand ?? (_storeLogoChangeCommand = new Command(ExecuteStoreLogoChange));
-        }
-
-        Command _storeContactNumberChangeCommand;
-        public Command StoreContactNumberChangeCommand
-        {
-            get => _storeContactNumberChangeCommand ?? (_storeContactNumberChangeCommand = new Command(ExecuteStoreContactNumberChange));
-        }
-
-        Command _vatINChangeCommand;
-        public Command VatINChangeCommand
-        {
-            get => _vatINChangeCommand ?? (_vatINChangeCommand = new Command(ExecuteVatINChangeAsync));
-        }
+        // ⚠ THE FIVE STORE-DETAIL EDIT COMMANDS ARE GONE (cutover step 20, WP6.1).
+        //
+        // The till used to edit its shop's NAME, ADDRESS, LOGO, PHONE and VAT NUMBER straight into
+        // the legacy local database. Three things were wrong with that, in rising order:
+        //
+        //   1. The PORTAL is the source of truth for store details (binding default 9). A till
+        //      writing them locally means the shop's own VAT number can differ on every till in the
+        //      estate, and the one printed on a receipt is whichever machine happened to print it.
+        //      Nobody finds that until an inspection.
+        //   2. Each command gated on `empId.IsAuthorised(...)`, the legacy `AuthActions` lookup a
+        //      portal-provisioned till has no table for, via `App.GetViewModel().EmployeeId`, which
+        //      is null for every roster operator.
+        //   3. Each fell back to `Authorisation.RequestAuthorisedUserInput`, which never assigns the
+        //      id it returns and therefore re-prompts for ever (see `TillGate`'s header).
+        //
+        // So on a portal till they could not work, and where they could they wrote the wrong thing
+        // to the wrong place. The screen is READ-ONLY now, off `StoreInfoCache`.
+        //
+        // The LOGO went with them (binding default 18): there is no logo field on the store-info
+        // contract, so a locally-set one could only ever have been this machine's opinion.
 
         Command _storeDefaultBagChangeCommand;
         public Command StoreDefaultBagChangeCommand
@@ -208,190 +272,6 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.StoreOptions
 
         #region Execute Commands
         #region Store Details
-        private async void ExecuteStoreNameChange()
-        {
-            var empId = App.GetViewModel().EmployeeId;
-            bool escape = false;
-            do
-            {
-                Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
-                if (empId.IsAuthorised("Admin", Database.Enums.Permissions.Write, databaseProvider))
-                {
-                    var validators = new IValidator[]
-                    {
-                        new RequiredValidator()
-                    };
-
-                    var viewElements = new ViewElementData[]
-                    {
-                        new ViewElementData(1, "Name".Translate(), App.GetViewModel().Store.StoreName, validators.AsEnumerable(), false, true),
-                        new ViewElementData(2, "Abbreviation".Translate(), App.GetViewModel().Store.StoreAbbr, validators.AsEnumerable(), false, true)
-                    };
-
-                    var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(viewElements, "Confirm".Translate(), false, cancelText: "Cancel".Translate());
-
-                    if (data.Any(d => string.IsNullOrEmpty(d.Value)))
-                    {
-                        return;
-                    }
-
-                    using (var db = new Helpers.Database.Database(databaseProvider))
-                    {
-                        var tempStore = db.Get<StoreModel>().FirstOrDefault(s => s.Id.Equals(App.GetViewModel().Store.Id));
-
-                        _ = data.TryGetValue(1, out var storeName);
-                        _ = data.TryGetValue(2, out var storeAbbr);
-
-                        tempStore.StoreName = storeName;
-                        tempStore.StoreAbbr = storeAbbr;
-
-                        db.Update(tempStore);
-                        if (!db.Save())
-                        {
-                            Debug.Write("Save Failed!");
-                            return;
-                        }
-
-                        App.GetViewModel().Store = db.Get<StoreModel>().FirstOrDefault(s => s.Id.Equals(App.GetViewModel().Store.Id));
-                        OnPropertyChanged("Store");
-                        return;
-                    }
-                }
-                var empAuthoriser = await Authorisation.RequestAuthorisedUserInput(databaseProvider);
-                if (empAuthoriser == default)
-                    escape = true;
-            } while (!escape);
-        }
-
-        private void ExecuteStoreAddressChange()
-        {
-
-        }
-
-        private async void ExecuteStoreLogoChange()
-        {
-            var empId = App.GetViewModel().EmployeeId;
-            bool escape = false;
-            do
-            {
-                Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
-                if (empId.IsAuthorised("Admin", Database.Enums.Permissions.Write, databaseProvider))
-                {
-                    var image = await AppServices.Get<IFile>().GetFileAsByteArray(new List<string> { ".bmp", ".gif", ".exif", ".jpg", ".jpeg", ".png", ".tiff" });
-                    if (image.Length == 0)
-                        return;
-                    using (var db = new Helpers.Database.Database(databaseProvider))
-                    {
-                        var store = db.Get<StoreModel>().First(s => s.Id.Equals(Store.Id));
-                        store.Logo = image;
-                        if (!db.Save())
-                        {
-                            Debug.Write("Save Failed!");
-                            return;
-                        }
-                        App.GetViewModel().Store = db.Get<StoreModel>().FirstOrDefault(s => s.Id.Equals(App.GetViewModel().Store.Id));
-                        OnPropertyChanged(nameof(Store));
-                        return;
-                    }
-                }
-                var empAuthoriser = await Authorisation.RequestAuthorisedUserInput(databaseProvider);
-                if (empAuthoriser == default)
-                    escape = true;
-            } while (!escape);
-        }
-
-        private async void ExecuteStoreContactNumberChange()
-        {
-            var empId = App.GetViewModel().EmployeeId;
-            bool escape = false;
-            do
-            {
-                Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
-                if (empId.IsAuthorised("Admin", Database.Enums.Permissions.Write, databaseProvider))
-                {
-                    var validators = new IValidator[]
-                    {
-                        new RequiredValidator()
-                    };
-
-                    var viewElements = new ViewElementData[]
-                    {
-                        new ViewElementData(1, "ContactNumber".Translate(), Store.ContactNumber, validators.AsEnumerable(), false, true)
-                    };
-
-                    var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(viewElements, "Confirm".Translate(), false, cancelText: "Cancel".Translate());
-
-                    if (data.Any(d => string.IsNullOrEmpty(d.Value)))
-                        return;
-                    using (var db = new Helpers.Database.Database(databaseProvider))
-                    {
-                        var tempStore = db.Get<StoreModel>().Where(s => s.Id == Store.Id).First();
-                        _ = data.TryGetValue(1, out var contactNumberText);
-                        tempStore.ContactNumber = contactNumberText;
-                        db.Update(tempStore);
-                        if (!db.Save())
-                        {
-                            Debug.Write("Save Failed!");
-                            return;
-                        }
-                        App.GetViewModel().Store = db.Get<StoreModel>().FirstOrDefault(s => s.Id.Equals(App.GetViewModel().Store.Id));
-                        OnPropertyChanged(nameof(Store));
-                        return;
-                    }
-                }
-                var empAuthoriser = await Authorisation.RequestAuthorisedUserInput(databaseProvider);
-                if (empAuthoriser == default)
-                    escape = true;
-            } while (!escape);
-        }
-
-        private async void ExecuteVatINChangeAsync()
-        {
-            var empId = App.GetViewModel().EmployeeId;
-            bool escape = false;
-            do
-            {
-                Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
-                if (empId.IsAuthorised("Admin", Database.Enums.Permissions.Write, databaseProvider))
-                {
-                    var validators = new IValidator[]
-                    {
-                        new RequiredValidator()
-                    };
-
-                    var viewElements = new ViewElementData[]
-                    {
-                        new ViewElementData(1, "VatIN".Translate(), Store.VatIN, validators.AsEnumerable(), false, true)
-                    };
-
-                    var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(viewElements, "Confirm".Translate(), false, cancelText: "Cancel".Translate());
-
-                    if (data.Any(d => string.IsNullOrEmpty(d.Value)))
-                        return;
-                    using (var db = new Helpers.Database.Database(databaseProvider))
-                    {
-                        var tempStore = db.Get<StoreModel>().Where(s => s.Id == Store.Id).First();
-                        data.TryGetValue(1, out var vatINText);
-                        tempStore.VatIN = vatINText;
-                        db.Update(tempStore);
-                        if (!db.Save())
-                        {
-                            Debug.Write("Save Failed!");
-                            return;
-                        }
-                        App.GetViewModel().Store = db.Get<StoreModel>().FirstOrDefault(s => s.Id.Equals(App.GetViewModel().Store.Id));
-                        OnPropertyChanged(nameof(Store));
-                        return;
-                    }
-                }
-                var empAuthoriser = await Authorisation.RequestAuthorisedUserInput(databaseProvider);
-                if (empAuthoriser == default)
-                {
-                    escape = true;
-                }
-            } while (!escape);
-        }
-
         private async void ExecuteStoreDefaultBagChange()
         {
             var empId = App.GetViewModel().EmployeeId;
