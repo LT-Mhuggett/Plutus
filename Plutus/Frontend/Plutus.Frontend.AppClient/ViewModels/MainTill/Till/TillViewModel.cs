@@ -145,20 +145,31 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 OnPropertyChanged(nameof(AlterationNames));
             };
             #endregion
-            MainThread.BeginInvokeOnMainThread(() =>
+            // ⚠ OFF THE UI THREAD, and off the legacy database (cutover step 18). This opened a
+            // SQLite connection and read it SYNCHRONOUSLY inside `BeginInvokeOnMainThread` — i.e.
+            // the till screen was built while the main thread waited on disk I/O, and on a
+            // portal-provisioned till the read is against a legacy file that is created, migrated
+            // and then found empty. The parked baskets live in the v2 store now.
+            _ = Task.Run(async () =>
             {
-                //Load SavedTransactions
-                Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
-                using (var db = new Helpers.Database.Database(databaseProvider))
+                try
                 {
-                    if (db.Get<SavedTransactionModel>().Any())
+                    var parked = await Services.Storage.TillStoreAccess.UseAsync(s => s.ListBasketsAsync());
+
+                    MainThread.BeginInvokeOnMainThread(() =>
                     {
-                        var savedTransactions = db.Get<SavedTransactionModel>();
-                        foreach (var savedTransaction in savedTransactions)
-                        {
-                            StoredTransactions.Add(savedTransaction);
-                        }
-                    }
+                        foreach (var basket in parked)
+                            StoredTransactions.Add(new SavedTransactionModel
+                            {
+                                Id = basket.Id.ToString("D"),
+                                Name = basket.Name,
+                            });
+                    });
+                }
+                catch (Exception ex)
+                {
+                    // A till that cannot list its parked baskets must still sell.
+                    CrashLog.Write("TillViewModel.LoadParkedBaskets", ex);
                 }
             });
 
@@ -827,34 +838,40 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
 
                 var basketRecords = new IBasketRecord[Basket.Count];
-
                 Basket.CopyTo(basketRecords, 0);
 
-                StoredTransactions.Add(
-                    new SavedTransactionModel
-                    {
-                        Id = Guid.NewGuid().ToString(),
-                        Name = transName,
-                        Data = JsonConvert.SerializeObject(
-                            basketRecords,
-                            Formatting.Indented,
-                            new JsonSerializerSettings
-                            {
-                                ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
-                                TypeNameHandling = TypeNameHandling.Auto
-                            })
-                    });
-                Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
-                using (var db = new Helpers.Database.Database(databaseProvider))
+                // ⚠ THE V2 STORE, AND CONTRACT JSON (cutover step 18, binding default 15). This
+                // wrote to the LEGACY database — which on a portal-provisioned till is an empty
+                // file the app creates on first use — and serialised with Newtonsoft
+                // `TypeNameHandling.Auto`, embedding .NET type names in the blob. Those stop
+                // resolving the moment a namespace moves, and this codebase has renamed the
+                // namespace, the assembly AND the classes: that is what made a discounted parked
+                // basket crash the app on recall.
+                var parkId = Uuid7.New();
+                var saved = false;
+                try
                 {
-                    db.Add(StoredTransactions.Last());
-                    if (!db.Save())
+                    await Services.Storage.TillStoreAccess.UseAsync(async s =>
                     {
-                        await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "CriticalIssue".Translate(), "OK".Translate());
-                        StoredTransactions.RemoveAt(StoredTransactions.Count());
-                        return;
-                    }
+                        await s.SaveBasketAsync(parkId, transName, Services.Storage.ParkedBasket.ToJson(basketRecords));
+                        return true;
+                    });
+                    saved = true;
                 }
+                catch (Exception ex)
+                {
+                    CrashLog.Write("TillViewModel.ExecuteStoreTransaction", ex);
+                }
+
+                if (!saved)
+                {
+                    // ⚠ The basket is NOT cleared. Clearing after a failed park loses it entirely,
+                    // and the operator believes it is safely put aside.
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "CriticalIssue".Translate(), "OK".Translate());
+                    return;
+                }
+
+                StoredTransactions.Add(new SavedTransactionModel { Id = parkId.ToString("D"), Name = transName });
                 Basket.Clear();
 
                 Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Transaction Store (Saving)", new Dictionary<string, string> { { "Canceled", "False" } });
@@ -895,28 +912,47 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     if (!await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "BasketWillBeClearedMesg".Translate(), "OK".Translate(), "Cancel".Translate()))
                         return;
 
-                Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
-                using (var db = new Helpers.Database.Database(databaseProvider))
+                if (!Guid.TryParse(storedTransaction.Id, out var parkId))
                 {
-                    db.Delete(new SavedTransactionModel { Id = storedTransaction.Id });
-                    if (!db.Save())
-                    {
-                        await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "CriticalIssue".Translate(), "OK".Translate());
-                        return;
-                    }
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "That parked basket was saved by an older version of this till and can't be opened.",
+                        "OK".Translate());
+                    StoredTransactions.Remove(storedTransaction);
+                    return;
                 }
+
+                // ⚠ READ IT BEFORE DELETING IT. The old code deleted the row and then deserialised
+                // the copy it happened to be holding — so a blob that failed to parse (which the
+                // `$type` metadata made a real possibility) destroyed the basket AND lost it.
+                var contractJson = await Services.Storage.TillStoreAccess.UseAsync(async s =>
+                    (await s.ListBasketsAsync()).FirstOrDefault(b => b.Id == parkId)?.ContractJson);
+
+                var basket = Services.Storage.ParkedBasket.FromJson(contractJson);
+
+                if (basket.Count == 0)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "That parked basket is empty or couldn't be read, so it hasn't been opened.",
+                        "OK".Translate());
+                    return;
+                }
+
+                // ⚠ DELETE ONLY ONCE THE CONTENTS ARE IN HAND, and only if the row was really there:
+                // a silent no-op would let the same basket be recalled twice and sold twice.
+                var removed = await Services.Storage.TillStoreAccess.UseAsync(s => s.DeleteBasketAsync(parkId));
+                if (!removed)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "Someone else has already opened that basket on this till.", "OK".Translate());
+                    StoredTransactions.Remove(storedTransaction);
+                    return;
+                }
+
                 StoredTransactions.Remove(storedTransaction);
-                var storedTransactionData = storedTransaction.Data;
-                var basket = JsonConvert.DeserializeObject<IBasketRecord[]>(
-                    storedTransactionData, new JsonSerializerSettings
-                    {
-                        TypeNameHandling = TypeNameHandling.Auto
-                    });
 
                 Basket.Clear();
-                if (basket != null)
-                    foreach (var item in basket)
-                        Basket.Add(item);
+                foreach (var item in basket)
+                    Basket.Add(item);
 
                 Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Transaction Store (Saving)", new Dictionary<string, string> { { "Canceled", "False" } });
             }

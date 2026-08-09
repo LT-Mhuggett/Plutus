@@ -509,6 +509,61 @@ public sealed class TillStore : IOutboxStore, ISyncStore
             .SumAsync(r => r.RefundedPence, ct);
     }
 
+    // ── parked baskets (cutover step 18) ────────────────────────────────────────────────────
+    //
+    // ⚠ The `SavedBasket` table has existed, been mapped and been indexed since the store was
+    // built, and NOTHING EVER TOUCHED IT. Parking wrote to the LEGACY SQLite database instead —
+    // which on a portal-provisioned till is an empty file the app creates on first use, so parked
+    // baskets lived somewhere nothing else in the platform knows about.
+
+    /// <summary>
+    /// Park a basket. Overwrites a park with the same id, so re-parking is not a leak.
+    ///
+    /// ⚠ <paramref name="contractJson"/> must be CONTRACT JSON with no .NET type metadata. The
+    /// legacy blobs were Newtonsoft `TypeNameHandling.Auto`, carrying `NatApp.Plutus.*` type names
+    /// that stop resolving the moment a namespace moves — which is exactly what made a discounted
+    /// parked basket crash the app on recall.
+    /// </summary>
+    public async Task SaveBasketAsync(Guid id, string? name, string contractJson, CancellationToken ct = default)
+    {
+        var row = await _db.SavedBaskets.FirstOrDefaultAsync(b => b.Id == id, ct);
+        if (row == null)
+        {
+            _db.SavedBaskets.Add(new SavedBasket
+            {
+                Id = id, Name = name, ContractJson = contractJson, CreatedAtUtc = _utcNow(),
+            });
+        }
+        else
+        {
+            row.Name = name;
+            row.ContractJson = contractJson;
+            row.CreatedAtUtc = _utcNow();
+        }
+
+        await _db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Every parked basket, newest first.</summary>
+    public async Task<IReadOnlyList<SavedBasket>> ListBasketsAsync(CancellationToken ct = default) =>
+        await _db.SavedBaskets.AsNoTracking()
+            .OrderByDescending(b => b.CreatedAtUtc)
+            .ToListAsync(ct);
+
+    /// <summary>
+    /// Remove a parked basket. ⚠ Returns whether it was there: recall DELETES then restores, and a
+    /// silent no-op would let two operators recall the same basket and sell it twice.
+    /// </summary>
+    public async Task<bool> DeleteBasketAsync(Guid id, CancellationToken ct = default)
+    {
+        var row = await _db.SavedBaskets.FirstOrDefaultAsync(b => b.Id == id, ct);
+        if (row == null) return false;
+
+        _db.SavedBaskets.Remove(row);
+        await _db.SaveChangesAsync(ct);
+        return true;
+    }
+
     /// <summary>
     /// Prune delivered sales past the rolling window. NEVER touches Pending, Failed or
     /// Quarantined: those are money still owed, or money a human has to look at.
