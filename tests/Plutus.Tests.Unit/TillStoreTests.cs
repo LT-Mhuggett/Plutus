@@ -166,6 +166,76 @@ public class TillStoreTests : IAsyncLifetime
         Assert.Null(await _store.FindByBarcodeAsync("5010"));
         Assert.Equal("2", await _store.GetMetaAsync(MetaKeys.CatalogueVersion));
     }
+
+    private async Task SeedCatalogueAsync()
+    {
+        _db.CatalogueItems.AddRange(
+            new CatalogueItem { Id = Uuid7.New(), IdOne = "1001", Name = "Batman Year One", PricePence = 1499 },
+            new CatalogueItem { Id = Uuid7.New(), IdOne = "1002", Name = "Batman: The Killing Joke", PricePence = 1299 },
+            new CatalogueItem { Id = Uuid7.New(), IdOne = "1003", Name = "Superman Red Son", PricePence = 1099 },
+            new CatalogueItem { Id = Uuid7.New(), IdOne = "BAT-MUG", Name = "Mug", PricePence = 799 },
+            new CatalogueItem { Id = Uuid7.New(), IdOne = "1004", Name = "Batman Withdrawn", PricePence = 999, Removed = true });
+        await _db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Search_finds_items_by_part_of_a_name()
+    {
+        await SeedCatalogueAsync();
+        var hits = await _store.SearchAsync("bat");
+
+        // ⚠ Includes the MUG, whose CODE is BAT-MUG — an operator typing "bat" is searching, not
+        // scanning, and a code match is still a match.
+        Assert.Contains(hits, i => i.Name == "Batman Year One");
+        Assert.Contains(hits, i => i.IdOne == "BAT-MUG");
+        Assert.DoesNotContain(hits, i => i.Name == "Superman Red Son");
+    }
+
+    /// <summary>⚠ The vector that made item search ONE implementation: several words, any order,
+    /// across name and code. If this drifts from SharedKernel.ItemSearch the two tills disagree
+    /// about what a search finds, which is invisible until someone cannot ring up a book.</summary>
+    [Fact]
+    public async Task Search_matches_several_words_in_any_order()
+    {
+        await SeedCatalogueAsync();
+        Assert.Contains(await _store.SearchAsync("batman one"), i => i.Name == "Batman Year One");
+        Assert.Contains(await _store.SearchAsync("one batman"), i => i.Name == "Batman Year One");
+    }
+
+    [Fact]
+    public async Task Search_never_returns_a_binned_item()
+    {
+        await SeedCatalogueAsync();
+        // FE5.4 again: the portal withdrew it, so an OFFLINE till must not sell it either.
+        Assert.DoesNotContain(await _store.SearchAsync("batman"), i => i.Name == "Batman Withdrawn");
+    }
+
+    [Fact]
+    public async Task Search_with_nothing_typed_returns_nothing_rather_than_the_whole_catalogue()
+    {
+        await SeedCatalogueAsync();
+        Assert.Empty(await _store.SearchAsync(""));
+        Assert.Empty(await _store.SearchAsync("   "));
+        Assert.Empty(await _store.SearchAsync(null));
+    }
+
+    [Fact]
+    public async Task Search_honours_its_limit()
+    {
+        await SeedCatalogueAsync();
+        Assert.Single(await _store.SearchAsync("batman", limit: 1));
+    }
+
+    /// <summary>⚠ "Nothing matched" and "this till has never synced" are different problems and
+    /// must not reach an operator as the same message — one is a typo, the other is a till that
+    /// cannot sell anything at all.</summary>
+    [Fact]
+    public async Task Catalogue_count_distinguishes_an_empty_till_from_an_empty_search()
+    {
+        Assert.Equal(0, await _store.CatalogueCountAsync());
+        await SeedCatalogueAsync();
+        Assert.Equal(4, await _store.CatalogueCountAsync()); // the binned one does not count
+    }
 }
 
 /// <summary>
@@ -333,3 +403,4 @@ public class CutoverTests : IAsyncLifetime
                 Path.GetTempPath(), DateTime.UtcNow));
     }
 }
+

@@ -68,6 +68,59 @@ public sealed class TillStore : IOutboxStore, ISyncStore
     }
 
     /// <summary>
+    /// Search the catalogue the way an operator types — part of a name, a code, several words in
+    /// any order.
+    ///
+    /// ⚠ MATCHING IS <see cref="ItemSearch"/>, NOT a LIKE clause written here. That rule went from
+    /// three implementations to one on 2026-08-08 precisely so two tills cannot disagree about
+    /// what "batman one" finds; a fourth copy in this method would undo it. Kept in memory after a
+    /// cheap SQL prefilter because the matcher is word-based and SQLite cannot express it.
+    ///
+    /// ⚠ Binned items are excluded, like <see cref="FindByBarcodeAsync"/> — an offline till must
+    /// stop selling what the portal has withdrawn.
+    /// </summary>
+    /// <param name="matchAllWords">Per-device preference: every word must match, or any one.
+    /// ⚠ Two tills with the SAME setting must agree; the setting itself is allowed to differ.</param>
+    public async Task<IReadOnlyList<CatalogueItem>> SearchAsync(
+        string? search, bool matchAllWords = true, int limit = 50, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(search)) return Array.Empty<CatalogueItem>();
+        if (limit <= 0) limit = 50;
+
+        var tokens = ItemSearch.Tokenise(search, matchAllWords).ToList();
+        if (tokens.Count == 0) return Array.Empty<CatalogueItem>();
+
+        // Prefilter on the LONGEST token so a 20k catalogue does not come back in full to be
+        // filtered in memory. It is a superset of the real answer — ItemSearch still decides.
+        var widest = tokens.OrderByDescending(t => t.Length).First();
+
+        // ⚠ LIKE, NOT Contains. ItemSearch lowercases both sides, but EF translates
+        // string.Contains to SQLite's instr(), which is CASE-SENSITIVE — so the lowercased token
+        // "bat" never matched "Batman" and this returned nothing at all for ordinary searches.
+        // SQLite's LIKE is case-insensitive for ASCII, which is what the matcher expects.
+        // (`%`/`_` typed by an operator widen the prefilter harmlessly: it only has to be a
+        // superset, and ItemSearch makes the real decision below.)
+        var pattern = "%" + widest + "%";
+
+        var candidates = await _db.CatalogueItems.AsNoTracking()
+            .Where(i => !i.Removed && (EF.Functions.Like(i.Name, pattern) || EF.Functions.Like(i.IdOne, pattern)))
+            .Take(Math.Max(limit * 20, 200))
+            .ToListAsync(ct);
+
+        return candidates
+            .Where(i => ItemSearch.Matches(tokens, i.Name, i.IdOne, null))
+            .OrderBy(i => i.Name)
+            .Take(limit)
+            .ToList();
+    }
+
+    /// <summary>How many sellable items this till holds. ⚠ Zero means the catalogue has never
+    /// synced — which is a DIFFERENT problem from "nothing matched your search", and the two must
+    /// not be reported with the same message.</summary>
+    public Task<int> CatalogueCountAsync(CancellationToken ct = default) =>
+        _db.CatalogueItems.AsNoTracking().CountAsync(i => !i.Removed, ct);
+
+    /// <summary>
     /// The price to charge right now: the latest scheduled price whose effective moment has
     /// passed, else the item's standing price.
     ///
