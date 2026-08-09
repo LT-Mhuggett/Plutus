@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- The Plutus "P" — the brand mark drawn as a currency symbol (barred stem), path-identical to
+       the web till's and portal's public/icon.svg. Kept as a separate FOREGROUND layer so Android
+       adaptive icons can float it over the tile; the csproj's ForegroundScale keeps it inside the
+       masked safe zone. Change this glyph in all three places or in none. -->
+  <g fill="#ffffff">
+    <!-- bowl: half-annulus (outer r14 / inner r7) centred on the stem's RIGHT edge, x=32.5 -->
+    <path d="M32.5 9.5a14 14 0 0 1 0 28v-7a7 7 0 0 0 0-14z" />
+    <!-- stem -->
+    <rect x="24.5" y="9.5" width="8" height="45" />
+    <!-- currency bar -->
+    <rect x="17.5" y="43" width="22" height="6" />
+  </g>
+</svg>

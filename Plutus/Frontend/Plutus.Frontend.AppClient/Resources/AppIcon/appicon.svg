@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- The Plutus tile — the SAME mark as the web till and portal (their public/icon.svg), so all
+       three surfaces read as one product in a taskbar. ⚠ FULL-BLEED on purpose: the web favicon
+       rounds its own corners (rx=13), but an app-icon background must fill the canvas — Android
+       adaptive icons and Windows tiles apply their own masks, and baked-in rounded corners leave
+       transparent notches on platforms that don't. -->
+  <defs>
+    <linearGradient id="plutusTile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3d86b0" />
+      <stop offset="1" stop-color="#2c698d" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" fill="url(#plutusTile)" />
+</svg>

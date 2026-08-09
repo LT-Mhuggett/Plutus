@@ -78,11 +78,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- App Icon (carried over from the legacy Android mipmap/icon.png + launcher_foreground.png) -->
-    <MauiIcon Include="Resources\AppIcon\appicon.png" ForegroundFile="Resources\AppIcon\appiconfg.png" Color="#3F51B5" />
+    <!-- App icon: the Plutus mark, SHARED with the web till and portal (their public/icon.svg is
+         the same tile + glyph) — Matt, 2026-08-09: one product, one icon, on all three surfaces.
+         Replaced the legacy NatApp indigo (#3F51B5) mipmap PNGs. ForegroundScale keeps the P
+         inside Android's adaptive-icon safe zone; Color is the fallback behind the glyph. -->
+    <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" ForegroundScale="0.65" Color="#2c698d" />
 
-    <!-- Splash Screen -->
-    <MauiSplashScreen Include="Resources\AppIcon\appiconfg.png" Color="#3F51B5" />
+    <!-- Splash: same glyph on the same brand blue, so launch doesn't flash a different product. -->
+    <MauiSplashScreen Include="Resources\AppIcon\appiconfg.svg" Color="#2c698d" />
 
     <!-- Images -->
     <MauiImage Include="Resources\Images\*" />
