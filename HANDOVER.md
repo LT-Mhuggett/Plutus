@@ -15,10 +15,47 @@ Head: see `git log` — this line goes stale; the commits don't.
 > Older references below that say `Build/<plan>.md` now mean `Build/archive/<plan>.md` or
 > `Build/To do/<plan>.md`.
 
-### ⏰⏰⏰⏰⏰⏰ RESUME HERE (2026-08-09, latest — build guards, versions, and the one blocker)
+### ⏰⏰⏰⏰⏰⏰ RESUME HERE (2026-08-09 — backend deployed, screen tests unblocked)
 
 Suite: **Unit 634 · Architecture 13 · Integration 122 · AppClient 305 (+3 skipped) — all green.**
-Debug and Release both build. Committed on `Matt's-Horror`, **not pushed, not deployed.**
+Debug and Release both build. On `Matt's-Horror`, **committed but never pushed.**
+Backend **1.1.1 deployed** to the test environment; MAUI till stamps **`1.2.0+5a99b97`**.
+
+---
+
+## ▶ TOMORROW, IN ORDER
+
+**1. ⚠ Rotate the `plutus` MySQL password — do this first.** During the deploy I ran the dump
+script under `bash -x` to debug it, which printed the connection string, password included, into
+the session transcript. The script had been written to avoid exactly that; the `-x` defeated it.
+It is a LAN-only MySQL bound to 127.0.0.1 and the exposure is a transcript rather than a public
+one, but treat it as burned. It lives in the **pm2 env** (`ConnectionString` on `plutus-backend`),
+not in `appsettings.json`, so rotating means changing it in MySQL *and* in the pm2 env, then
+restarting from the ecosystem file — ⚠ `pm2 restart --update-env` does **not** pick up new keys
+from the file.
+
+**2. Screen-test the MAUI till.** This is what the deploy was for and it is the fastest way to find
+the next real problem. The till is `1.2.0+5a99b97`; point it at the test environment. Expect
+heartbeat, catalogue sync, VAT bands and the operator roster to answer — all four returned **401
+rather than 404** after the deploy, which is what "the endpoint exists" looks like from outside.
+⚠ **Nothing in WP6–13 has ever been run on a device.** If anything dies, take the crash log —
+`Services/Analytics/CrashLog.cs` now hooks `Microsoft.UI.Xaml.Application.UnhandledException` as
+well as `AppDomain`, which is where the 2026-08-08 crash hid from it.
+
+**3. Then pick one of these, all genuinely ready:**
+- **The MAUI XAML that is now the only thing missing** — WP5b's notice banner and WP14's checkout
+  line each have their shared half built and tested, so these are view work against a settled rule.
+  Same for WP8's Users screen.
+- **WP11's server half** — see the callout below. It is the money one, and it needs your decision
+  rather than my judgement.
+- **WP15 + WP17.1/17.3/17.4** — the web till's test runner and the three rows where it is behind
+  MAUI. ⚠ Needs Node, so it happens **on the Mac**, and it would also clear the five unverified
+  TypeScript edits (two vite configs, the StoresPage text, `NewTillAnywhere`, and the VAT-band fix).
+
+**Not urgent, but do it before it goes stale:** push the branch. Every commit from this session
+lives on one disk, the deployed binary exists only as a local commit plus a Mac tarball, and the CI
+fixes have **never actually executed on a runner** — `git log --oneline upstream/Matt's-Horror..HEAD`
+for the true count.
 
 > ## ✅ DEPLOYED 2026-08-09 — backend **1.1.1** is live on the test environment
 >
@@ -56,7 +93,11 @@ Debug and Release both build. Committed on `Matt's-Horror`, **not pushed, not de
 > 3. A migration whose name describes columns but whose body only builds an index is worth a second
 >    look at generation time — it means the snapshot already believed the work was done.
 
-**What landed today** — nothing user-facing, both about making failure visible earlier:
+**What landed on 2026-08-09.** Items 1–3 are about making failure visible earlier; 4–7 are parity
+work, each built as a *shared half* — the rule in `Client.Core`/`SharedKernel` where it is testable
+without a device, leaving only XAML. That is the pattern that got WP5 and WP8 finished, and all of
+it is mutation-checked: every rule below was verified by breaking it deliberately and watching a
+named test fail.
 
 1. **CI actually runs the tests now** (`87f85a8`). See the CI block below. The trigger ignored the
    working branch, and the entire modern suite was in no pipeline.
@@ -71,6 +112,9 @@ Debug and Release both build. Committed on `Matt's-Horror`, **not pushed, not de
    `till-web` **1.0.0** and `agent` **1.3.3** deliberately unchanged — from `git log`, not memory;
    the web till genuinely has not moved, which is what WP17 is about. The Windows head now stamps
    **`1.2.0+5a99b97`**, so a screen test names a version and a version names a commit.
+   ⚠ **End-of-day figures, after the rest of the day moved them:** `backend` **1.1.1** ·
+   `platform` **1.4.0** · `till-maui` **1.2.0** · `portal` **1.1.0** · `till-web` **1.0.0** ·
+   `agent` **1.3.3**. `versions/*.txt` is the truth; this line is a convenience.
 
 4. **WP5b's shared half** (`3b531e3`) — `Client.Core.NoticesClient`: pick-from-floor notes and
    announcements, 23 tests, so MAUI needs only its banner XAML. Two rules now have one home:
@@ -102,6 +146,11 @@ Debug and Release both build. Committed on `Matt's-Horror`, **not pushed, not de
    `MySqlDbContext.TenantOwned`, so the global query filter scopes both queries even though neither
    controller action has a predicate of its own. Now mutation-checked against `IgnoreQueryFilters()`
    so it stays that way.
+8. **The deploy, and the migration that should have existed** (`b17f39f`). See the callout at the
+   top. Short version: `AddDeviceSyncSignals` never added the columns its name promises, EF built
+   its `SELECT` from a model MySQL didn't match, and `POST /api/v1/tokens/device` 500'd — **no till
+   could get a token** for about ten minutes. Fixed by a hand-written catch-up migration. The
+   runbook now carries the three checks that would each have caught it.
 
 **Known and deferred, in writing rather than forgotten:** the MAUI till has **703 uncompiled
 bindings** (no `x:DataType`). Not new — Release has printed the identical 703 all along; Debug had
@@ -266,8 +315,13 @@ Committed on `Matt's-Horror`, **not pushed, not deployed.**
 >    state, device status, and buttons that exercise the heartbeat and the catalogue feed one layer
 >    at a time, so a failure names a specific thing instead of "the network".
 >
-> ⚠ **THE BACKEND MUST BE DEPLOYED FIRST or most of it will read as failure.** `/api/v1/ping`,
-> `/api/v1/heartbeat` and `/api/v1/catalogue/changes` are all in this branch and **not on the Mac**.
+> ✅ **SUPERSEDED 2026-08-09 — the backend IS now deployed (1.1.1), so ignore the warning below;**
+> all three endpoints answer. Kept because it records what the screens do when the server is older
+> than the till, which is a real state a shop can be in mid-rollout. Also note this section
+> describes **till v1.1.0**; the current build is **1.2.0**.
+>
+> ⚠ ~~**THE BACKEND MUST BE DEPLOYED FIRST or most of it will read as failure.**~~ `/api/v1/ping`,
+> `/api/v1/heartbeat` and `/api/v1/catalogue/changes` were in this branch and **not on the Mac**.
 > Against today's live backend you will correctly see *"Connected to Plutus"* (the probe treats a
 > 404 on ping as reachable-but-older — deliberate, see below), but **Send a heartbeat** and **Read
 > the catalogue feed** will both fail until the backend ships. Enrolment works today.
@@ -1771,6 +1825,7 @@ Note: the transitional `Sale/Summary`/`VatIntegrity`/`SaleReport` on Plutus.Sale
 
 ## 7. Known debts / open decisions
 
+- ⚠ **The `plutus` MySQL password was exposed on 2026-08-09 and needs rotating.** During the deploy the dump script was run under `bash -x` to debug it, which printed the whole connection string — password included — into the session transcript. The script had been written to keep it hidden; the `-x` defeated that. MySQL is bound to 127.0.0.1 on the Mac and the exposure is a transcript rather than anything public, so this is "rotate it, don't panic". ⚠ The value lives in the **pm2 env** (`ConnectionString` on `plutus-backend`), **not** in `appsettings.json` — so rotating means changing it in MySQL *and* in the pm2 env, then restarting **from the ecosystem file**: `pm2 restart --update-env` does not pick up new keys from the file.
 - **Newtonsoft in `TestTokenAuth`** — spec bans Newtonsoft; kept for now (token (de)serialisation). Migrate to System.Text.Json as a later cleanup (safe: validation works on the raw string; only issue-time JSON changes).
 - ~~**No git remote**~~ — **stale, corrected 2026-08-09.** Two exist: `origin` (`LT-Mhuggett/Plutus`) and `upstream` (`seank842/Plutus`). ⚠ **The live debt is that nothing has been pushed:** `Matt's-Horror` is **22 commits ahead of `upstream/Matt's-Horror`**, so the original concern — one disk, single point of failure — is now concrete rather than theoretical, and it also means the CI fixes have never actually run on a runner. Pushing is Matt's call, not an autonomous one.
 - **B2C tenant** — the real auth blocker (architecture §11); `TestTokenAuth` is the stand-in seam. Deferred by Matt.
