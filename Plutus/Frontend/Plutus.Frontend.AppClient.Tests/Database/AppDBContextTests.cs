@@ -18,6 +18,17 @@ namespace Plutus.Frontend.AppClient.Tests.Database
 
         public void Dispose()
         {
+            // ⚠ EF 3.1 -> 9 BEHAVIOUR CHANGE. Microsoft.Data.Sqlite POOLS connections from v6, so
+            // disposing the context no longer closes the underlying handle and File.Delete fails
+            // with "used by another process". These six tests began failing on exactly this the
+            // moment the legacy project was retargeted, and it is teardown, not the schema.
+            //
+            // ⚠ The same pooling matters in production: anything that COPIES OR MOVES the legacy
+            // database file — the cutover archive above all (binding default 3: archive, never
+            // delete) — must clear the pool first, or it will fail against a till that has merely
+            // opened the file once.
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
             if (File.Exists(_dbPath))
                 File.Delete(_dbPath);
         }

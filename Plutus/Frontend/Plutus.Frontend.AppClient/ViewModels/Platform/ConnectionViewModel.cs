@@ -345,18 +345,15 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
             Busy = true;
             try
             {
-                var api = Api(out var error);
-                if (api is null) { LastAction = error; return; }
-
-                var page = await api.GetCatalogueChangesAsync(limit: 5);
-                if (page is null)
-                {
-                    LastAction = "The catalogue feed didn't answer. Is this till enrolled, and is the backend up to date?";
-                    return;
-                }
-
-                var first = page.Items.Length > 0 ? $" First: {page.Items[0].Name} ({page.Items[0].IdOne})." : "";
-                LastAction = $"Catalogue reachable — {page.Items.Length} item(s) in this page, hasMore={page.HasMore}.{first}";
+                // ⚠ THIS USED TO BE A DIAGNOSTIC ONLY. It fetched five items, reported them, and
+                // stored NOTHING — so a till could truthfully say "catalogue reachable" while
+                // holding an empty catalogue, and anyone searching it found nothing. That is
+                // exactly what happened on the 2026-08-09 screen test, and the button's wording
+                // gave no hint that it had not saved a thing.
+                //
+                // It now runs the REAL sync (WP5), applies every page, and reports what landed.
+                var result = await Services.Storage.CatalogueSyncService.SyncAsync();
+                LastAction = result.Message;
             }
             catch (Exception ex)
             {

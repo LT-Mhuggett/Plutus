@@ -269,6 +269,11 @@ namespace Plutus.Frontend.AppClient.ViewModels
             // below never hit it because it sets Store from the employee's own row.
             await EnsureStoreAsync();
 
+            // WP5's missing half. ⚠ IN THE BACKGROUND, DELIBERATELY: a first sync pages a whole
+            // catalogue, and nobody should stand at a counter watching it before they can serve a
+            // customer. The till sells what it already has while the rest arrives.
+            Services.Storage.CatalogueSyncService.SyncInBackground();
+
             App.Current.MainPage = new AppShell();
             return true;
         }
