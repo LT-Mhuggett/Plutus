@@ -17,9 +17,9 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 ### ⏰⏰⏰⏰⏰⏰⏰ RESUME HERE (2026-08-09, LATE — cutover Phases 1–3 done, MySQL password rotated)
 
-Suite: **Unit 733 · Architecture 13 · Integration 137 · AppClient 401 (+3 skipped) — all green.**
-Debug and Release both build. **Pushed** — `upstream/Matt's-Horror` at `4f6f06e`. Versions:
-backend **1.4.0**, platform **1.14.0**, till-maui **1.9.0** (the deployed backend is still 1.2.0 —
+Suite: **Unit 733 · Architecture 13 · Integration 137 · AppClient 405 (+3 skipped) — all green.**
+Debug and Release both build. **Pushed** — `upstream/Matt's-Horror` at `2e4e0d8`. Versions:
+backend **1.4.0**, platform **1.16.0**, till-maui **1.11.0** (the deployed backend is still 1.2.0 —
 nothing in this batch has been deployed).
 
 **⚠ The MySQL password IS rotated, and the backend now talks to MySQL over the UNIX SOCKET.**
@@ -66,11 +66,28 @@ in a basket is paid for or committed, so removing a line is a correction, not a 
 for every mis-scan is a gate operators route around, which is worse than none. `pos.void` belongs on
 voiding a RECORDED sale, which this till cannot do yet.
 
-**Next:** step 20 (WP6 Store Information — largely a deletion), then 21–28. Still owed from earlier
-steps: `TillStoreAccessTests` (step 3), step 11b basket reshape, and **step 21 MUST switch the
-archive gate on** (it is currently passed `null` deliberately). Known-broken and NOT fixed: the
-**ClientUI** surface's commit path is entirely ungated — grepping it for authorisation returns one
-hit, a bare `//Authorisation checks` comment.
+**Step 20 done** — MAUI's five store-detail edit commands are DELETED. They wrote the shop's name,
+address, logo, phone and VAT number into the LEGACY local database, so the company's own VAT number
+could differ on every till and the one on a receipt was whichever machine printed it. Read-only from
+`GET /api/v1/stores/{id}/info` now, last-good cached, "unavailable" when never fetched — never the
+legacy record. Logo dropped (no contract field).
+
+**⚠ The §9.3 ARCHIVE GATE IS NOW ON** (step 21, part). It had been passed `null` since step 4. The
+ordering was the whole risk: the gate refuses to enrol a till holding an un-archived legacy
+database, and nothing could archive — so switching it on first would have refused enrolment with no
+way through, on every till that had ever opened its legacy file (all of them: the legacy `Database`
+constructor creates one on first touch). Settings' "Backup database" became **"Archive legacy
+database"** first — copy, never move, never overwrite, stamp `LegacyArchivedAtUtc` only after the
+copy succeeds. A till with no legacy file still enrols straight through.
+**"Delete database" is DELETED**, not disabled: it destroyed the shop's entire sales history — the
+migration's only input, no server copy, no undo — behind one "are you sure".
+
+**Next:** the rest of step 21 (delete `SetupViewModel`, `TransferThirdPartyViewModel`, their views
+and `<Compile Update>` items, and `LoginViewModel.EnsureStoreAsync`), then 22–28. Those remaining
+deletions are XAML-and-csproj work whose failure mode is a **blank screen, not a build error**, so
+they want a session that can run the app. Still owed: `TillStoreAccessTests` (step 3), step 11b
+basket reshape. Known-broken and NOT fixed: the **ClientUI** surface's commit path is entirely
+ungated — grepping it for authorisation returns one hit, a bare `//Authorisation checks` comment.
 
 ---
 
