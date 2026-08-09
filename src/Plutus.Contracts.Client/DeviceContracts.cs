@@ -46,7 +46,9 @@ public sealed record DeviceTokenResult(string AccessToken, int ExpiresInSeconds)
 /// with no server-side denylist, so revoking a device does not invalidate its outstanding token —
 /// the till keeps working for up to its 12h TTL unless it polls this.
 /// </summary>
-public sealed record DeviceStatusResult(string Status)
+/// <param name="TillId">Which till this device is. ⚠ Nullable only because an older backend does
+/// not send it — a till must treat null as "ask again later", never as "not enrolled".</param>
+public sealed record DeviceStatusResult(string Status, Guid? TillId = null)
 {
     public bool IsRevoked => string.Equals(Status, "Revoked", StringComparison.OrdinalIgnoreCase);
     public bool IsPendingRemoval => string.Equals(Status, "PendingRemoval", StringComparison.OrdinalIgnoreCase);

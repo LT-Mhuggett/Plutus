@@ -303,7 +303,19 @@ namespace Plutus.Tenancy.Controllers
         }
 
         /// <summary>The till polls its own device status to know when an approved removal has taken
-        /// effect (Revoked) so it can forget the local credential. Readable by operator OR device.</summary>
+        /// effect (Revoked) so it can forget the local credential. Readable by operator OR device.
+        ///
+        /// ⚠ ALSO ANSWERS "WHICH TILL AM I?" (added 2026-08-09). A device knows its own id because
+        /// it holds the secret, but everything else per-till — the operator roster above all — is
+        /// keyed by <c>tillId</c>, and until now nothing could tell a device what its till was. A
+        /// till whose local record predates that being stored had a working device identity and no
+        /// way to use it: enrolled, authenticated, and unable to fetch a single operator. Its only
+        /// escape was re-enrolment, which mints a second device row for a machine that was already
+        /// perfectly well enrolled.
+        ///
+        /// Answering here costs nothing — the row is already loaded — and it is not a disclosure:
+        /// the caller has just proved it IS this device, and the tenant filter below is unchanged.
+        /// </summary>
         [HttpGet("devices/{deviceId}/status")]
         [Authorize(Policy = PlutusPolicies.SalesIngest)]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -312,7 +324,7 @@ namespace Plutus.Tenancy.Controllers
         {
             var device = await _db.Devices.AsNoTracking().FirstOrDefaultAsync(d => d.Id == deviceId && d.TenantId == _tenant.TenantId);
             if (device == null) return NotFound(new { detail = "Unknown device." });
-            return Ok(new { status = device.Status.ToString() });
+            return Ok(new { status = device.Status.ToString(), tillId = device.TillId });
         }
     }
 }

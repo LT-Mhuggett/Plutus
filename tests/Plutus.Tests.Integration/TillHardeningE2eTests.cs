@@ -76,7 +76,16 @@ public class TillHardeningE2eTests : IClassFixture<PlutusAppFactory>
             req.Headers.Authorization = new("Bearer", cashier);
             var resp = await client.SendAsync(req);
             Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
-            Assert.Equal("PendingRemoval", JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement.GetProperty("status").GetString());
+            var body = JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement;
+            Assert.Equal("PendingRemoval", body.GetProperty("status").GetString());
+
+            // ⚠ AND WHICH TILL IT IS. A device knows its own id because it holds the secret, but
+            // everything per-till — the operator roster most of all — is keyed by tillId. A device
+            // enrolled before that was stored locally held a working identity and could not fetch
+            // a single operator; without this field its only escape was re-enrolling a machine
+            // that was already correctly enrolled. Added 2026-08-09.
+            Assert.True(body.TryGetProperty("tillId", out var till), "device status must say which till this is");
+            Assert.NotEqual(Guid.Empty, till.GetGuid());
         }
 
         // approve → Revoked

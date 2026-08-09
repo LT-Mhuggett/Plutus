@@ -90,6 +90,24 @@ namespace Plutus.Frontend.AppClient.Services.Connectivity
             SecureStorage.Default.SetAsync(SecretKey, clientSecret).GetAwaiter().GetResult();
         }
 
+        /// <summary>
+        /// Record which till this device is, without touching the secret.
+        ///
+        /// ⚠ EXISTS FOR AN UPGRADE PATH, not for enrolment. A device enrolled before TillId was
+        /// persisted (anything paired earlier than 2026-08-08 18:27) holds a working identity and
+        /// no till, which strands it: every per-till call, the operator roster included, is keyed
+        /// by tillId. It recovers the value from the device-status endpoint and stores it here.
+        ///
+        /// Separate from <see cref="Save(Guid, string, Guid?)"/> deliberately — rewriting a
+        /// perfectly good client secret to record an unrelated fact is how a till un-enrols itself
+        /// on a bad day.
+        /// </summary>
+        public void SaveTillId(Guid tillId)
+        {
+            _tillId = tillId;
+            Preferences.Set(TillIdKey, tillId.ToString());
+        }
+
         public void Clear()
         {
             _deviceId = null;

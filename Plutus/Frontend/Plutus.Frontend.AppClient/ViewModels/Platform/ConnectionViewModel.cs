@@ -374,7 +374,10 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
         private async Task SyncStaffAsync()
         {
             if (Busy) return;
-            if (_credentials?.TillId is not Guid tillId)
+            // ⚠ A DEVICE ID is what "enrolled" means. The till id is a separate fact that a device
+            // paired before 2026-08-08 18:27 never stored, and refusing those as un-enrolled sent
+            // someone to re-pair a machine that was already correctly paired.
+            if (_credentials?.DeviceId is not Guid deviceId)
             {
                 LastAction = "Enrol this till first — staff are synced per till.";
                 return;
@@ -386,7 +389,26 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
                 var api = Api(out var error);
                 if (api is null) { LastAction = error; return; }
 
-                var count = await new OperatorSync(api, new FileOperatorStore()).RefreshAsync(tillId);
+                var tillId = _credentials.TillId;
+                if (tillId is null)
+                {
+                    var (_, status) = await api.GetDeviceStatusAsync(deviceId);
+                    if (status?.TillId is Guid recovered)
+                    {
+                        _credentials.SaveTillId(recovered);
+                        tillId = recovered;
+                        DescribeDevice();
+                    }
+                }
+
+                if (tillId is not Guid till)
+                {
+                    LastAction = "This till is enrolled, but Plutus hasn't said which till it is yet. "
+                               + "Check the connection above and try again.";
+                    return;
+                }
+
+                var count = await new OperatorSync(api, new FileOperatorStore()).RefreshAsync(till);
                 LastAction = count is int n
                     ? n == 0
                         ? "Synced, but no staff are assigned to this till yet. Check their roles in the portal."
