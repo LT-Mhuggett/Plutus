@@ -1,3 +1,12 @@
 *.zip filter=lfs diff=lfs merge=lfs -text
 *.msix filter=lfs diff=lfs merge=lfs -text
 openapi.json text eol=lf
+
+# ⚠ Shell scripts MUST stay LF, and this repo will silently break them without this rule.
+# `core.autocrlf=true` is set on the Windows dev box, so any checkout that touches a .sh file
+# rewrites it with CRLF. The script still looks perfect in an editor and in `git diff` — but
+# copied to the Mac and run, bash reads the trailing \r as part of each command and fails with
+# `$'\r': command not found`, or worse, silently mis-parses a quoted string. Everything under
+# ops/ and tools/ exists to be run on the Mac.
+*.sh text eol=lf
+*.bash text eol=lf
