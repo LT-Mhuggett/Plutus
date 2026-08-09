@@ -555,10 +555,16 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         return;
                     }
 
+                    // ⚠ CANCEL MUST ESCAPE, and it did not. `InputAlert`'s Cancel button blanks the
+                    // entries and then fires the CONFIRM handler, so the dictionary comes back with
+                    // its keys present and their values null — `TryGetValue` returns true, the
+                    // error branch above is skipped, and this branch re-opened the dialog. The
+                    // operator was trapped in a modal with no way out but killing the app, losing
+                    // the basket with it. Blank input IS the cancel signal here; there is no other.
                     if (string.IsNullOrEmpty(saleIdText) || string.IsNullOrEmpty(reasonText))
                     {
-                        continueLoop = true;
-                        continue;
+                        Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Return", new Dictionary<string, string> { { "Canceled", "True" } });
+                        return;
                     }
 
                     Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
@@ -566,8 +572,24 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     {
                         if (!db.IsExists<SaleModel, string>(saleIdText))
                         {
+                            // ⚠ TELL THE TRUTH ABOUT WHICH FAILURE THIS IS. On a portal-provisioned
+                            // till the legacy Sales table is empty and STAYS empty — `CommitAsync`
+                            // writes to the new store's LocalSales — so a sale rung on this very
+                            // till a minute ago cannot be found here. Saying "that sale id is
+                            // wrong" sends the operator hunting for a typo that does not exist,
+                            // for ever. The real lookup arrives with the sale read path (step 15).
+                            var noLegacySalesAtAll = !db.Get<SaleModel>().Any();
+
+                            await Application.Current.MainPage.DisplayAlert(
+                                "Hmm".Translate(),
+                                noLegacySalesAtAll
+                                    ? "This till can't look up past sales yet, so a receipt-based return isn't possible on it. Refund the items directly instead."
+                                    : "SaleIDWrongMesg".Translate(),
+                                "OK".Translate());
+
+                            if (noLegacySalesAtAll) return;
+
                             continueLoop = true;
-                            await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "SaleIDWrongMesg".Translate(), "OK".Translate());
                             continue;
                         }
 
