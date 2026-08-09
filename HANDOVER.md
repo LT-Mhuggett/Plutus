@@ -17,7 +17,7 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 ### ⏰⏰⏰⏰⏰⏰ RESUME HERE (2026-08-09, latest — build guards, versions, and the one blocker)
 
-Suite: **Unit 598 · Architecture 13 · Integration 122 · AppClient 305 (+3 skipped) — all green.**
+Suite: **Unit 634 · Architecture 13 · Integration 122 · AppClient 305 (+3 skipped) — all green.**
 Debug and Release both build. Committed on `Matt's-Horror`, **not pushed, not deployed.**
 
 **There is exactly one blocker, and it is not code.**
@@ -59,7 +59,25 @@ Debug and Release both build. Committed on `Matt's-Horror`, **not pushed, not de
    by store** — the server doesn't filter, so the client must. ⚠ A **failed poll is not an empty
    board**, or the first flaky minute clears a live incident banner; and an **ack deliberately does
    not work offline**, because it claims a human took stock off a shelf.
-5. **Tenant isolation pinned on the two pick-note endpoints** (`68af702`). I went looking for a
+5. **WP14's shared half** (`d26ebd5`) — `PaymentGateway.Resolve`, 13 tests. ⚠ The rule is
+   **`integrated`, not `provider`**: every provider reports `integrated: false` today, so a till
+   reading the provider name would wait for a terminal that never answers with a customer in front
+   of it. A chosen-but-unwired provider is the manual flow *with the provider named*.
+6. **WP11's decision rule** (`f618f60`) — `SharedKernel/RefundRules.cs`, 23 tests. Remainder clamped
+   at zero, a cap that announces itself, the 14-day window, and `LocalOutsideWindow` → **refuse with
+   a reason, never guess**.
+   > ### ⚠ The server does NOT enforce the refund remainder
+   > Found while building the above. `SalesIngestService` validates VAT and quarantines what it
+   > can't explain, but it never checks `originSaleId` against the original sale's refund history —
+   > `LegacySaleBridgeConsumer` just writes the Refund row the till asked for. **So the cap is a
+   > CLIENT gate only, on both tills.** A till that is buggy, modified, or replaying stale data can
+   > over-refund and the platform records it without complaint.
+   > **Deliberately not fixed here.** It is a change to `/api/v1/sales` — the most load-bearing
+   > endpoint on the platform — and getting the "already refunded" arithmetic wrong server-side
+   > would start *rejecting legitimate refunds* in a live shop. `RefundRules` is in SharedKernel,
+   > which the backend already references, so the fix is calling the same `Authorise` at ingest;
+   > but it wants a deliberate decision and its own test pass, not a drive-by. WP11.
+7. **Tenant isolation pinned on the two pick-note endpoints** (`68af702`). I went looking for a
    cross-tenant leak and **there isn't one** — `WebstoreNotification` is in
    `MySqlDbContext.TenantOwned`, so the global query filter scopes both queries even though neither
    controller action has a predicate of its own. Now mutation-checked against `IgnoreQueryFilters()`
