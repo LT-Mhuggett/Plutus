@@ -1198,8 +1198,31 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             }
         }
 
-        private void ExecuteCancelTransaction()
+        /// <summary>
+        /// Throw the basket away.
+        ///
+        /// ⚠ ASKS FIRST. This cleared a full basket on a single tap with no confirmation and no
+        /// undo — a customer's whole order, mid-transaction, from a mis-tap on a busy counter.
+        ///
+        /// ⚠ NOT gated on `pos.void`, deliberately. Nothing here has been paid for or committed:
+        /// the sale does not exist until checkout, so this is a correction, not a void. Requiring a
+        /// supervisor to undo a mis-scan would put one at the counter for the most ordinary event
+        /// on a till, and the operators would find a way around it — which is worse than the gate
+        /// being absent. `pos.void` belongs on voiding a RECORDED sale, which this till cannot do.
+        /// </summary>
+        private async void ExecuteCancelTransaction()
         {
+            if (Basket.Count == 0) return;
+
+            if (!await Application.Current.MainPage.DisplayAlert(
+                    "Hmm".Translate(),
+                    $"Clear this basket? {Basket.Count} line(s) will be removed and this can't be undone.",
+                    "Yes".Translate(), "Cancel".Translate()))
+                return;
+
+            Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Transaction Cancelled",
+                new Dictionary<string, string> { { "Lines", Basket.Count.ToString() } });
+
             Basket.Clear();
         }
         #endregion

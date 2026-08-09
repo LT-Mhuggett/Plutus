@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using CustomViews.Structs;
 using Microsoft.Maui.ApplicationModel;
 using Plugin.Maui.MessagingCenter;
@@ -63,23 +65,58 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
             #endregion
         }
 
+        /// <summary>
+        /// Fill the browsable item list from the V2 CATALOGUE.
+        ///
+        /// ⚠ THIS READ THE LEGACY `Items` TABLE AND SILENTLY SHOWED NOTHING. On a
+        /// portal-provisioned till that table is empty and stays empty — the catalogue arrives
+        /// through `/api/v1/catalogue/changes` into the v2 store — so browse-and-tap, one of the two
+        /// ways an operator puts something in a basket, simply did not exist. No error, no empty
+        /// state, just a blank list, which reads as "this shop sells nothing".
+        ///
+        /// ⚠ Loads OFF the UI thread. The old version opened SQLite and ran a two-`Include` query
+        /// synchronously with the screen already up.
+        /// </summary>
         public void InitItems()
         {
             App.SetLoading(true);
-            Items.Clear();
-            Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
-            using (var db = new Helpers.Database.Database(databaseProvider))
+
+            _ = Task.Run(async () =>
             {
-                _limit = db.Get<ItemModel>().Count();
-                db.SetTrackingBehavior(QueryTrackingBehavior.NoTracking);
-                var data = db.Get<ItemModel>()
-                    .Include(i => i.Stock)
-                    .Include(i => i.Vat)
-                    .OrderBy(i => i.Name).Take(_limit).ToList();
-                Items = new ObservableCollection<ItemModel>(data);
-            }
-            OnPropertyChanged("Items");
-            App.SetLoading(false);
+                var loaded = new List<ItemModel>();
+                try
+                {
+                    var catalogue = await Services.Storage.TillStoreAccess.UseAsync(s => s.BrowseAsync(_limit));
+
+                    // ⚠ Mapped to the legacy `ItemModel` because that is what the list view binds
+                    // to, and MAUI bindings fail SILENTLY — swapping the bound type would blank the
+                    // rows rather than fail. The model goes when the inventory screen is reshaped.
+                    loaded = catalogue.Select(c => new ItemModel
+                    {
+                        Id = c.IdOne,
+                        Name = c.Name,
+                        Price = c.PricePence / 100m,
+                        // ⚠ Derived from the rate, NOT read off the item: the v2 catalogue stores
+                        // the inc price and a rate, and this list is a browse — the SALE price pair
+                        // is resolved at basket-add by `EffectivePricePairAsync`, which is the only
+                        // thing allowed to decide what a line costs.
+                        ExPrice = c.VatRateBp > 0
+                            ? Math.Round(c.PricePence / (1m + c.VatRateBp / 10000m)) / 100m
+                            : c.PricePence / 100m,
+                    }).ToList();
+                }
+                catch (Exception ex)
+                {
+                    Services.Analytics.CrashLog.Write("ViewAllViewModel.InitItems", ex);
+                }
+
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    Items = new ObservableCollection<ItemModel>(loaded);
+                    OnPropertyChanged(nameof(Items));
+                    App.SetLoading(false);
+                });
+            });
         }
 
         #region Commands

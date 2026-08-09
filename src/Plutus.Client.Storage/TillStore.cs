@@ -122,6 +122,29 @@ public sealed class TillStore : IOutboxStore, ISyncStore
             .ToList();
     }
 
+    /// <summary>
+    /// The catalogue, for BROWSING — a screen with no search box yet.
+    ///
+    /// ⚠ Separate from <see cref="SearchAsync"/> on purpose: that one returns nothing for a blank
+    /// query, which is right for a scan box (an empty scan is not a request for everything) and
+    /// exactly wrong for a list the operator is scrolling. Sharing one method would mean choosing
+    /// which of the two callers gets the surprising answer.
+    ///
+    /// ⚠ Tombstoned items are excluded, same as every other read: an item the portal has binned is
+    /// not sellable, and showing it in a list whose whole purpose is tapping to add would put it
+    /// straight back into a basket.
+    /// </summary>
+    public async Task<IReadOnlyList<CatalogueItem>> BrowseAsync(int limit = 500, CancellationToken ct = default)
+    {
+        if (limit <= 0) limit = 500;
+
+        return await _db.CatalogueItems.AsNoTracking()
+            .Where(i => !i.Removed)
+            .OrderBy(i => i.Name)
+            .Take(limit)
+            .ToListAsync(ct);
+    }
+
     /// <summary>How many sellable items this till holds. ⚠ Zero means the catalogue has never
     /// synced — which is a DIFFERENT problem from "nothing matched your search", and the two must
     /// not be reported with the same message.</summary>
