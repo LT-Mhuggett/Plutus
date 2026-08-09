@@ -1,10 +1,10 @@
 # Handover — Plutus platform build
 
-**Date:** 2026-08-09 — Platform on **.NET 10**. All 18 phases + Operator Portal (OP1–OP4), the
+**Date:** 2026-08-09 — Platform on **.NET 10**. Backend **1.1.1 DEPLOYED** to the test environment. All 18 phases + Operator Portal (OP1–OP4), the
 **portal/till refresh (P1–P6)** and **FE1–FE10** built & LIVE. The **MAUI retrofit is underway**:
 WP0–WP5, WP8 and WP2c done — **the backend gap is closed**, and everything left is screen work
-against endpoints that exist and are tested. ⚠ Those endpoints are **not deployed**, which is the
-single thing blocking further screen tests. VAT follows UK law (HMRC Notice 727/701/10).
+against endpoints that exist, are tested, and are now **deployed** (2026-08-09) — so screen tests
+are unblocked. VAT follows UK law (HMRC Notice 727/701/10).
 Head: see `git log` — this line goes stale; the commits don't.
 
 > 📁 **Docs reorganised 2026-08-07.** `Build/` is now three places: **standards** at the top level,
@@ -20,21 +20,41 @@ Head: see `git log` — this line goes stale; the commits don't.
 Suite: **Unit 634 · Architecture 13 · Integration 122 · AppClient 305 (+3 skipped) — all green.**
 Debug and Release both build. Committed on `Matt's-Horror`, **not pushed, not deployed.**
 
-**There is exactly one blocker, and it is not code.**
-
-> ## ⚠ THE BACKEND MUST BE DEPLOYED BEFORE ANY FURTHER SCREEN TEST
+> ## ✅ DEPLOYED 2026-08-09 — backend **1.1.1** is live on the test environment
 >
-> Every endpoint the MAUI till now depends on — `/api/v1/ping`, `/api/v1/heartbeat`,
-> `/api/v1/catalogue/changes`, `/api/v1/tills/{id}/operators` — exists **in this branch only**. The
-> live server 404s all four. A till pointed at production will show "server too old", fail its
-> heartbeat, and be unable to fetch an operator roster, and none of that is a bug in the till.
+> All four endpoints the MAUI till depends on now answer: `/api/v1/ping` **200** (anonymous by
+> design), `/api/v1/heartbeat`, `/api/v1/catalogue/changes` and `/api/v1/tills/{id}/operators` all
+> **401 rather than 404** — they exist and demand auth. **Screen tests are unblocked.**
 >
-> This is why WP6–13 cannot be verified yet. It is not waiting on more code.
+> - Pre-deploy dump: `~/PLUTUS/dumps/plutus-pre-devicesyncsignals-20260809T002104Z.sql.gz`
+>   (7.2M, gzip verified, 100 tables, ends cleanly). Inactive-employee web credentials: **none**.
+> - Rollback: `~/PLUTUS/backend.pre-devicesync`. ETRIE verified **200** before and after; its three
+>   pm2 processes never restarted.
+> - Row counts unchanged across the whole exercise: 6 devices · 3 employees · 20,343 items.
 >
-> ⚠ It carries the **`AddDeviceSyncSignals`** migration. Before deploying: **dump the database**,
-> and run `SELECT w.Email FROM WebCredentials w JOIN Employees e ON e.Id = w.EmployeeId WHERE
-> e.Active = 0;` first. **Deploy only when Matt asks** — and **ETRIE shares that Mac mini: never
-> touch it, and check it is healthy afterwards.**
+> ### ⚠ IT BROKE THE ESTATE FOR ~10 MINUTES ON THE WAY. READ THIS BEFORE THE NEXT DEPLOY.
+>
+> `20260808142202_AddDeviceSyncSignals` **does not add the columns its name promises.** It contains
+> only the `IX_Items_Tenant_Modified_IdOne` index. But `Device.SyncNow`, `Device.Locked` and
+> `Device.LockReason` had reached `MySqlDbContextModelSnapshot`, so EF built its SELECTs from a
+> model the database did not match:
+>
+> ```
+> MySqlException: Unknown column 'd.LockReason' in 'field list'
+> ```
+>
+> That 500s **`POST /api/v1/tokens/device`** — so **no till could obtain a token at all**, not just
+> the new sync endpoints. Fixed by `20260809003000_AddDeviceLockAndSyncColumns` (hand-written; the
+> snapshot already claimed the columns, so `migrations add` would have emitted an empty migration).
+>
+> **Three things to take from it:**
+> 1. **A green `__EFMigrationsHistory` proves a migration RAN, never that it did what its name
+>    says.** The head row said `AddDeviceSyncSignals` and looked perfect. Check the columns:
+>    `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_NAME='…'`.
+> 2. **`/swagger` returning 200 is not a deploy verification.** It answered 200 throughout, because
+>    it touches no database. Probe an endpoint that reads a table.
+> 3. A migration whose name describes columns but whose body only builds an index is worth a second
+>    look at generation time — it means the snapshot already believed the work was done.
 
 **What landed today** — nothing user-facing, both about making failure visible earlier:
 

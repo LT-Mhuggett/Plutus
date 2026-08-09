@@ -50,6 +50,19 @@ The 8.0.10-vs-9.x version warning is expected. `ef migrations remove` needs a li
 hand-edit the migration + snapshot if you must undo. **Migrations auto-apply on backend startup**,
 so dump the database before deploying anything that carries one.
 
+⚠ **OPEN THE GENERATED MIGRATION AND READ ITS `Up()`.** On 2026-08-09 a deploy took every till on
+the estate offline because `AddDeviceSyncSignals` — named for three `Device` columns — contained
+only a `CreateIndex`. The properties had already reached `MySqlDbContextModelSnapshot`, so EF
+correctly had nothing left to emit; the columns were simply never created by anything. EF then
+built its `SELECT` from the model and MySQL answered `Unknown column 'd.LockReason' in 'field
+list'`, which 500s `POST /api/v1/tokens/device` — **no till can get a token**. If a migration's
+body does not match what you just changed, the snapshot already believes the work is done, and you
+need a hand-written catch-up migration (see `20260809003000_AddDeviceLockAndSyncColumns`).
+
+⚠ **After deploying a migration, verify the COLUMNS, not the history table.** A green
+`__EFMigrationsHistory` proves a migration ran, never that it did what its name says:
+`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='plutus' AND TABLE_NAME='…';`
+
 ## Frontend build (on the Mac)
 
 `ssh -i ~/.ssh/plutus_mac_ed25519 admin@10.1.1.40`. The remote shell is **zsh**: no unquoted
@@ -75,6 +88,18 @@ Publish `-c Release -r osx-arm64 --self-contained true`, tar, `scp` to `~/PLUTUS
 the Mac: pm2 stop → `mv ~/PLUTUS/backend ~/PLUTUS/backend.pre-<tag>` → extract → `chmod +x
 backend/Plutus.DBService` → `pm2 restart plutus-backend --update-env` → poll
 `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5100/swagger/v1/swagger.json` = 200.
+
+⚠ **Extract to `backend.new` FIRST and only then swap** — a tarball that fails to unpack must not
+be able to leave you with no `backend` directory at all.
+
+⚠ **`/swagger` = 200 IS NOT A DEPLOY VERIFICATION.** It touches no database, so it answered 200
+throughout the 2026-08-09 outage in which every till was getting a 500. Always also probe an
+endpoint that reads a table — `POST /api/v1/tokens/device` with a junk id is ideal: **401 "Device
+not enrolled or revoked."** means the DB path is healthy; a **500** means the schema and the model
+disagree.
+
+⚠ The publish overwrites `appsettings*.json`. Compare hashes against the Mac's copies first — the
+connection string lives in the pm2 env, not in the file, but that is a convention, not a guarantee.
 
 ⚠ **RBAC seeding does NOT run on startup.** A deploy that adds a permission must be followed by
 `Plutus.SeedMigrator rbac --mysql "…"` from a **freshly published** SeedMigrator — `RbacSeeder`
