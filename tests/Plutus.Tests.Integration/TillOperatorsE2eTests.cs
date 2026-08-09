@@ -177,6 +177,87 @@ public class TillOperatorsE2eTests : IClassFixture<PlutusAppFactory>
         Assert.DoesNotContain("only-a@acme.test", seenByB);
     }
 
+    /// <summary>
+    /// ⚠ THE REGRESSION THAT REACHED A SCREEN TEST (2026-08-09). The roster used to require that a
+    /// person's HOME STORE matched the till's store, unless they held a Till/Store-scoped grant.
+    ///
+    /// `RbacSeeder` assigns every legacy employee's AuthActions at **COMPANY** scope, and a
+    /// company-scoped grant means "every till in this company" — so the filter discarded exactly
+    /// what the seeder creates. On a till in a store nobody is based at, the roster came back empty
+    /// and the till said *"No staff on this till yet"*, with no way to sign in. The tenant's OWNER
+    /// was locked out of his own till.
+    ///
+    /// None of the tests above caught it because every one of them seeds at STORE scope, in the
+    /// till's own store — the one arrangement that worked.
+    /// </summary>
+    [Fact]
+    public async Task A_COMPANY_scoped_operator_based_in_ANOTHER_store_still_reaches_this_till()
+    {
+        var t = await ProvisionAsync("ops-company-scope@acme.test");
+
+        Guid businessId;
+        int otherStoreId;
+        using (var scope = _f.Services.CreateScope())
+        {
+            var db = Db(scope, t.TenantId);
+            businessId = await db.Stores.AsNoTracking()
+                .Where(s => s.Id == t.StoreId).Select(s => s.BusinessId).FirstAsync();
+
+            // A second store in the SAME company — where our operator is actually based.
+            var other = new Store
+            {
+                BusinessId = businessId, ContactNumber = "-",
+                AdLine1 = "-", AdLine2 = "", City = "-", PostCode = "-", Country = "-",
+            };
+            db.Stores.Add(other);
+            await db.SaveChangesAsync();
+            otherStoreId = other.Id;
+        }
+
+        Assert.NotEqual(t.StoreId, otherStoreId);
+
+        await SeedOperatorAsync(t, "owner-elsewhere@acme.test", "S3cret!", otherStoreId,
+            PermissionCatalogue.PosSell, RbacScopeType.Company, businessId.ToString());
+
+        var roster = await RosterAsync(t);
+
+        Assert.Contains(roster.Operators, o => o.Email == "owner-elsewhere@acme.test");
+        // and they arrive with a usable credential, or "on the roster" would mean nothing
+        Assert.NotNull(roster.Operators.First(o => o.Email == "owner-elsewhere@acme.test").CredentialHashBase64);
+    }
+
+    /// <summary>
+    /// The replacement rule still narrows, and this is what stops it becoming "mirror the whole
+    /// company onto every counter". Someone whose only permission is portal-side cannot do anything
+    /// at a till, so shipping their name and password hash there is exposure buying no capability.
+    /// </summary>
+    [Fact]
+    public async Task A_PORTAL_only_role_is_not_shipped_to_a_till_even_at_company_scope()
+    {
+        var t = await ProvisionAsync("ops-portal-only@acme.test");
+
+        Guid businessId;
+        using (var scope = _f.Services.CreateScope())
+        {
+            var db = Db(scope, t.TenantId);
+            businessId = await db.Stores.AsNoTracking()
+                .Where(s => s.Id == t.StoreId).Select(s => s.BusinessId).FirstAsync();
+        }
+
+        // Staff Admin: portal.users.manage and nothing else — never stands at a counter.
+        await SeedOperatorAsync(t, "hr@acme.test", "S3cret!", t.StoreId,
+            PermissionCatalogue.PortalUsersManage, RbacScopeType.Company, businessId.ToString());
+        // …while a till user at the same scope does come through, so the test cannot pass by
+        // accident on an endpoint that returns nothing at all.
+        await SeedOperatorAsync(t, "till@acme.test", "S3cret!", t.StoreId,
+            PermissionCatalogue.PosSell, RbacScopeType.Company, businessId.ToString());
+
+        var emails = (await RosterAsync(t)).Operators.Select(o => o.Email).ToList();
+
+        Assert.DoesNotContain("hr@acme.test", emails);
+        Assert.Contains("till@acme.test", emails);
+    }
+
     [Fact]
     public async Task A_DEACTIVATED_employee_is_not_shipped_to_the_till()
     {

@@ -77,18 +77,27 @@ namespace Plutus.Identity
                 .Where(a => chainKeys.Contains((a.ScopeType, a.ScopeId)))
                 .ToList();
 
-            // ⚠ WHO COUNTS AS AN OPERATOR OF THIS TILL. Company- and tenant-scope assignments are on
-            // every till's chain, so "everyone RBAC-reachable" would mirror the WHOLE company roster
-            // — and its password hashes — onto every counter. Narrowed to people who actually work
-            // here: their home store is this till's store, OR they were granted something at this
-            // till or this store specifically.
+            // ⚠ WHO COUNTS AS AN OPERATOR OF THIS TILL — CORRECTED 2026-08-09, and the previous
+            // rule locked the tenant's OWNER out of his own till.
             //
-            // This is a product decision as much as a technical one, and it is the one to revisit
-            // first if a manager reports they cannot sign in at a shop they were covering.
-            var here = new HashSet<Guid>(
-                reachable.Where(a => a.ScopeType == RbacScopeType.Till || a.ScopeType == RbacScopeType.Store)
-                         .Select(a => a.UserId));
-
+            // It used to require that the person's home store matched this till's store (or that
+            // they held a Till/Store-scoped grant). The concern behind it was real: company- and
+            // tenant-scope assignments sit on every till's chain, so "everyone reachable" would
+            // mirror a whole company's roster — password hashes included — onto every counter.
+            //
+            // But it contradicted the two things it depended on. `RbacSeeder` maps every legacy
+            // employee's AuthActions to assignments at **COMPANY scope** (see its §2), and a
+            // company-scoped grant means "every till in this company" by definition — that is what
+            // the scope chain is for. So the filter discarded precisely what the seeder creates:
+            // on a till in a store nobody is *based* at, the roster came back EMPTY, the till said
+            // "no staff on this till yet", and there was no way to sign in. Found in a screen test
+            // where the enrolled till sat in store 4 and both staff were based in store 1.
+            //
+            // The replacement keeps the privacy goal and drops the wrong instrument: ship the
+            // people a grant reaching this till lets do something **at a till**, i.e. who hold any
+            // `pos.*` permission here. That is strictly TIGHTER than "everyone reachable" — a
+            // Staff Admin or a Stock & Items role is portal-only and never reaches a counter — and
+            // it no longer silently overrides what the grant says.
             var candidateIds = reachable.Select(a => a.UserId).Distinct().ToList();
 
             // Employees are tenant-filtered by the global query filter; WebCredentials are NOT
@@ -111,8 +120,6 @@ namespace Plutus.Identity
             var operators = new List<TillOperatorDto>();
             foreach (var e in employees)
             {
-                if (!here.Contains(e.Id) && e.StoreId != till.StoreId) continue;
-
                 var grants = reachable
                     .Where(a => a.UserId == e.Id)
                     .SelectMany(a => (a.Role?.Grants ?? new List<RbacRoleGrant>())
@@ -121,6 +128,14 @@ namespace Plutus.Identity
                             a.ValidFromUtc, a.ValidToUtc,
                             a.DaysOfWeekMask, a.WindowStartLocal, a.WindowEndLocal)))
                     .ToArray();
+
+                // ⚠ The gate. Someone with no `pos.*` permission cannot do anything at a counter,
+                // so putting their name — and their password hash — on one is pure exposure for no
+                // capability. Prefix test matches `PermissionCatalogue.GroupOf`, which already
+                // treats "pos." as the till family.
+                if (!grants.Any(g => g.Code != null
+                        && g.Code.StartsWith("pos.", StringComparison.Ordinal)))
+                    continue;
 
                 credByUser.TryGetValue(e.Id, out var cred);
 
