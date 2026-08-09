@@ -1263,15 +1263,38 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             }
         }
 
+        /// <summary>
+        /// The ways this till can take money (cutover step 13b).
+        ///
+        /// ⚠ THIS USED TO READ THE LEGACY `PaymentMethodModel` TABLE, AND THAT STOPPED A NEW TILL
+        /// SELLING AT ALL. The table is seeded only by `Database.Init()` — the legacy first-run
+        /// path — which a portal-provisioned till never runs, and it has no local database anyway.
+        /// So the payment sheet rendered ZERO buttons and the `paid != sale.Total` loop above could
+        /// never terminate: the operator was stuck in a checkout with nothing to press but Cancel,
+        /// with a customer in front of them. Every dev machine hid it, because they were migrated
+        /// from legacy installs that had already seeded Card and Cash.
+        ///
+        /// The tenders now come from the FIXED shared set (binding default 13). The legacy model is
+        /// still the carrier because the rest of this checkout reads `IsChangeable`/`IsCashBackable`
+        /// off it; step 11b retires the model itself. ⚠ `Charge`/`MinimumCharge` stay ZERO — the
+        /// card surcharge is the TENANT's gateway setting now, not a per-row legacy field on a
+        /// GLOBAL table where one client's fee would have been every client's.
+        /// </summary>
         private Dictionary<string, Func<PaymentMethodModel>> GenPaymentMethodActions()
         {
-            _ = Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
-            using (var db = new Helpers.Database.Database(databaseProvider))
-            {
-                return db.Get<PaymentMethodModel>()
-                    .OrderBy(p => p.Name)
-                    .ToDictionary<PaymentMethodModel, string, Func<PaymentMethodModel>>(payMeth => payMeth.Name, payMeth => () => payMeth);
-            }
+            var refundOnly = !Basket.Any(bR => bR is BasketItem && !(bR is BasketReturnItem));
+
+            return Services.Sales.TillTenders.Offered(refundOnly).ToDictionary<
+                Services.Sales.TillTender, string, Func<PaymentMethodModel>>(
+                t => t.Name,
+                t => () => new PaymentMethodModel
+                {
+                    Name = t.Name,
+                    IsChangeable = t.GivesChange,
+                    IsCashBackable = t.GivesCashback,
+                    Charge = 0m,
+                    MinimumCharge = 0m,
+                });
         }
 
         /// <summary>

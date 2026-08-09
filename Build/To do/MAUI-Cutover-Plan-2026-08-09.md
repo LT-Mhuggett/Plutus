@@ -77,7 +77,7 @@ Phase 0  FOUNDATION            [x]1 EF9  [x]2 reference  [x]3 TillStoreAccess  [
 Phase 1  LINE PRIMITIVES       [x]5 price pair  [x]6 TaxId+StockUntracked  [x]7 VAT band store  [x]8 tender values→SharedKernel ✅ PHASE COMPLETE
 Phase 2  MONEY PATH            [x]9 basket+assembler ✅  [x]10 v2 lookup ✅  [x]11 CommitSaleAsync ✅  [ ]11b basket reshape  [x]12 permission gates ✅
                                [x]13 sync services ✅ (CatalogueSyncService + OutboxPushService + TillCadence 60s)
-                               [ ]13b checkout tenders off the FIXED set (binding default 13)
+                               [x]13b checkout tenders off the FIXED set ✅ (a new till could not sell AT ALL)
                                [ ]14 receipt re-signature
 Phase 3  RETURNS/PARK/REPRINT  [ ]15 sale read path  [ ]16 RefundRules wiring  [ ]17 server refund cap  [ ]18 parked baskets
 Phase 4  OPERATOR AUTH         [ ]19 /api/Auth/Login wiring + the four backend fixes

@@ -218,6 +218,15 @@ namespace Plutus.Frontend.AppClient.Helpers.Database
             var authAction10 = new AuthActions() { Name = "Management" };
             Add(authAction10);
 
+            // ⚠ THE CHECKOUT NO LONGER READS THESE (cutover step 13b). Tender buttons come from the
+            // fixed shared set via `Services.Sales.TillTenders` — reading them from here is what
+            // stopped a portal-provisioned till selling at all, because nothing ever ran this seed
+            // on one. The rows stay because the legacy sales REPORTS still join to the table for
+            // historical sales; they are no longer configuration.
+            //
+            // ⚠ SETTING `Charge` HERE DOES NOTHING. The card surcharge is the tenant's gateway
+            // setting (portal → Company → Card payments), because this table is GLOBAL — a fee set
+            // here would have been every tenant's fee.
             var payM = new PaymentMethodModel()
             {
                 Name = "Card",
