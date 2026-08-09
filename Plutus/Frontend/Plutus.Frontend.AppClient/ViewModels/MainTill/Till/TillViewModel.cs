@@ -537,13 +537,18 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 var returnItem = basketItem.Adapt<BasketReturnItem>();
 
-                bool continueLoop;
-                do
                 {
-                    continueLoop = false;
                     var alertReturnValues = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(elements, "Confirm".Translate(), true, "Returns".Translate(), "Cancel".Translate());
-                    if (!alertReturnValues.TryGetValue(1, out string saleIdText) &
-                        !alertReturnValues.TryGetValue(2, out string reasonText))
+
+                    // ⚠ BOTH answers are required, and the old test said the opposite. It was
+                    // `!TryGetValue(1, …) & !TryGetValue(2, …)` — a non-short-circuit AND, so it
+                    // only complained when BOTH keys were missing. One missing key sailed through
+                    // and the code carried on with a null sale id. Read both (the `out` values are
+                    // needed either way), then refuse if EITHER is absent.
+                    var haveSaleId = alertReturnValues.TryGetValue(1, out string saleIdText);
+                    var haveReason = alertReturnValues.TryGetValue(2, out string reasonText);
+
+                    if (!haveSaleId || !haveReason)
                     {
                         Logger.LogError(new ArgumentException(
                                 $"{this.GetType().Name}: {nameof(alertReturnValues)} does not have the expected key required, to move forward!"),
@@ -567,87 +572,47 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         return;
                     }
 
-                    Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
-                    using (var db = new Helpers.Database.Database(databaseProvider))
+                    // ⚠ THE WHOLE LEGACY LOOKUP IS GONE (cutover step 16). It queried the local
+                    // legacy `Trans` table — empty on a portal-provisioned till, and permanently
+                    // so, because sales are committed to the new store — and then called
+                    // `trans.First()`, which throws from this `async void` with no catch the
+                    // moment the item is not on that sale. Scanning the wrong receipt, an ordinary
+                    // counter mistake, closed the application. Its "refunds left" test counted
+                    // QUANTITIES on this machine only, so goods bought on another till could be
+                    // refunded here in full, twice.
+                    //
+                    // `ReturnLookup` prefers the SERVER (only it knows what other tills have given
+                    // back) and falls back to this till's own record only INSIDE the rolling
+                    // window. `RefundRules.Authorise` — the shared rule — decides.
+                    var resolution = await Services.Sales.ReturnLookup.ResolveAsync(
+                        saleIdText, basketItem.Item?.Id, basketItem.Quantity);
+
+                    if (!resolution.IsAllowed)
                     {
-                        if (!db.IsExists<SaleModel, string>(saleIdText))
-                        {
-                            // ⚠ TELL THE TRUTH ABOUT WHICH FAILURE THIS IS. On a portal-provisioned
-                            // till the legacy Sales table is empty and STAYS empty — `CommitAsync`
-                            // writes to the new store's LocalSales — so a sale rung on this very
-                            // till a minute ago cannot be found here. Saying "that sale id is
-                            // wrong" sends the operator hunting for a typo that does not exist,
-                            // for ever. The real lookup arrives with the sale read path (step 15).
-                            var noLegacySalesAtAll = !db.Get<SaleModel>().Any();
-
-                            await Application.Current.MainPage.DisplayAlert(
-                                "Hmm".Translate(),
-                                noLegacySalesAtAll
-                                    ? "This till can't look up past sales yet, so a receipt-based return isn't possible on it. Refund the items directly instead."
-                                    : "SaleIDWrongMesg".Translate(),
-                                "OK".Translate());
-
-                            if (noLegacySalesAtAll) return;
-
-                            continueLoop = true;
-                            continue;
-                        }
-
-                        var trans = db.Get<TransactionModel>()
-                            .Include(t => t.Sale)
-                                .ThenInclude(s => s.Refunded)
-                            .Include(t => t.CheckoutItemChange)
-                            .Where(t => t.SaleId.Equals(saleIdText) && t.ItemId.Equals(basketItem.Item.Id));
-                        TransactionModel tran = null;
-
-                        if (trans.Count() > 1)
-                        {
-                            foreach (var tempTran in trans)
-                            {
-                                if ((tempTran.CheckoutItemChange == null ||
-                                     tempTran.CheckoutItemChange.Price != basketItem.Price) &&
-                                    (tempTran.ItemCostPrice != basketItem.Price ||
-                                     tempTran.ItemCostExPrice != basketItem.PriceExTax)) continue;
-                                tran = tempTran;
-                                break;
-                            }
-                        }
-                        else
-                            tran = trans.First();
-
-                        if (tran == null)
-                        {
-                            continueLoop = true;
-                            await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "ItemNotExistInSaleMesg".Translate(), "OK".Translate());
-                            continue;
-                        }
-
-                        if (tran.Amount < basketItem.Quantity)
-                        {
-                            await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), string.Format("ItemAmountExceedsMesg".Translate(), basketItem.Name, tran.Amount, basketItem.Quantity - tran.Amount), "OK".Translate());
-                            return;
-                        }
-                        else
-                        {
-                            var refundsLeft = tran.Amount;
-                            if (tran.Sale.Refunded != null)
-                            {
-                                refundsLeft -= tran.Sale.Refunded.Where(r => r.ItemId.Equals(basketItem.Item.Id)).Sum(r => r.Amount);
-                            }
-
-                            if (refundsLeft < basketItem.Quantity)
-                            {
-                                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), string.Format("NoRefundsLeftMesg".Translate(), refundsLeft, basketItem.Name), "OK".Translate());
-                                return;
-                            }
-
-                            returnItem.PriceExTax = tran.CheckoutItemChange?.ExPrice ?? tran.ItemCostExPrice;
-                            returnItem.Price = tran.CheckoutItemChange?.Price ?? tran.ItemCostPrice;
-                            returnItem.SetItemReturn(reasonText, saleIdText);
-                        }
+                        await Application.Current.MainPage.DisplayAlert(
+                            "Hmm".Translate(), resolution.Decision.Reason, "OK".Translate());
+                        return;
                     }
-                } while (continueLoop);
 
+                    // ⚠ SAY SO WHEN IT WAS CAPPED. `RefundDecision` is explicit that handing over
+                    // less than was asked for without saying so is how a refund becomes an argument
+                    // at the counter — the customer expects the figure they asked for.
+                    if (resolution.Decision.WasCapped &&
+                        !await Application.Current.MainPage.DisplayAlert(
+                            "Hmm".Translate(),
+                            $"Only {resolution.Decision.AllowedPence / 100m:C2} of this sale is left to refund "
+                            + $"({resolution.Decision.AlreadyRefundedPence / 100m:C2} has already been given back). "
+                            + "Refund that instead?",
+                            "Yes".Translate(), "Cancel".Translate()))
+                        return;
+
+                    // ⚠ THE PRICE THE CUSTOMER ACTUALLY PAID, from the original sale — not today's
+                    // catalogue price. A price that moved since would refund the wrong amount, and
+                    // the direction it goes wrong is whichever way the shop loses.
+                    returnItem.Price = resolution.UnitIncPence / 100m;
+                    returnItem.PriceExTax = resolution.UnitExPence / 100m;
+                    returnItem.SetItemReturn(reasonText, saleIdText);
+                }
                 //finalize change
                 Basket.Remove(basketItem);
                 Basket.Add(returnItem);

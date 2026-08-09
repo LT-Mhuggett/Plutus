@@ -122,6 +122,18 @@ public sealed class SaleLineDto
     [JsonPropertyName("lineGrossPence")] public long LineGrossPence { get; set; }
     [JsonPropertyName("vatRateBp")] public int VatRateBp { get; set; }
     [JsonPropertyName("vatAmountPence")] public long VatAmountPence { get; set; }
+
+    /// <summary>⚠ The line's <see cref="LineMeta"/>, which is where the EX-VAT unit price lives.
+    /// There is no ex-unit field on the wire, and deriving one from <see cref="VatRateBp"/> would
+    /// re-run VAT arithmetic the sale already settled — disagreeing by a penny on some lines, on a
+    /// refund, against a receipt the customer is holding.</summary>
+    [JsonPropertyName("discountsJson")] public string? DiscountsJson { get; set; }
+
+    /// <summary>What one unit cost before VAT, from the line meta; falls back to the inc price,
+    /// which is right for a zero-rated line and the least-wrong answer for any other.</summary>
+    public long UnitExPence => LineMeta.FromJson(DiscountsJson) is { ExUnitPence: > 0 } meta
+        ? meta.ExUnitPence
+        : UnitPricePence;
 }
 
 /// <summary>
