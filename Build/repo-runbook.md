@@ -108,6 +108,32 @@ compiles into it, so a stale binary re-seeds the old permission set.
 ⚠ `pm2 restart <name> --update-env` does **not** load new keys from the ecosystem *file*. To pick
 up new env keys, restart from the file path.
 
+## Frontend deploy (portal / web till)
+
+Both are built ON THE MAC (Node 26; the Windows box has none). Source is rsync/tar-synced, not a
+git checkout — so **sync the whole project, never just `src/`**.
+
+⚠ **`vite.config.ts` IS PART OF THE SOURCE.** On 2026-08-09 the portal was deployed with new `src`
+against a two-day-old config, so `__APP_VERSION__` — a Vite `define` substitution declared in that
+config — was never replaced. The result was `Uncaught ReferenceError: __APP_VERSION__ is not
+defined` and a blank portal for every user.
+
+⚠ **`tsc --noEmit` AND `vite build` BOTH PASSED.** A missing `define` is a *runtime* reference
+error: TypeScript sees `declare const __APP_VERSION__: string` and is satisfied; Vite emits the
+identifier untouched. Nothing but a browser finds it. So the deploy check is on the ARTEFACT:
+
+```bash
+# after building, BEFORE copying to current/
+grep -rq "__APP_VERSION__\|__BUILD_TIME__" dist/assets/*.js && { echo "unsubstituted define — do not deploy"; exit 1; }
+```
+
+Then: back up `current` → `current.pre-<tag>`, clear, `cp -r dist/. current/`, and re-check the
+same grep against the deployed bundle before declaring victory.
+
+⚠ `appVersion()` resolves `../../../versions/portal.txt` **relative to the repo layout**. The Mac's
+flattened copy has no such path, so it falls back to `"0.0.0"` — the footer version is cosmetic
+there and is not evidence of a bad build.
+
 ## Hard rules
 
 - **NEVER touch ETRIE.** It shares the Mac mini but is a separate product. After any Mac change,
