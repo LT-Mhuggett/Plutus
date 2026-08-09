@@ -15,7 +15,12 @@ namespace Plutus.Frontend.AppClient.Services.Storage
     /// <param name="Committed">⚠ False means NOTHING was written and the basket must NOT be
     /// cleared. A checkout that clears the screen after a failed save loses the sale AND the
     /// evidence, and the customer is standing there.</param>
-    public sealed record CommitOutcome(bool Committed, Guid SaleId, long DeviceSeq, string Message);
+    /// <param name="Request">⚠ The payload that was ACTUALLY committed, so the receipt prints from
+    /// it rather than re-summing the basket. Two independent totals for one sale means the paper in
+    /// the customer's hand and the platform's record can differ by a penny, with no way to tell
+    /// which they were charged. Null when nothing was committed.</param>
+    public sealed record CommitOutcome(
+        bool Committed, Guid SaleId, long DeviceSeq, string Message, IngestSaleRequest Request = null);
 
     /// <summary>
     /// Turns the till's basket into a platform sale and commits it (cutover step 11).
@@ -281,7 +286,7 @@ namespace Plutus.Frontend.AppClient.Services.Storage
                 var committed = await TillStoreAccess.UseAsync(
                     s => s.CommitSaleAsync(request, ct), ct).ConfigureAwait(false);
 
-                return new CommitOutcome(true, committed.SaleId, committed.DeviceSeq, "Sale recorded.");
+                return new CommitOutcome(true, committed.SaleId, committed.DeviceSeq, "Sale recorded.", request);
             }
             catch (Exception ex)
             {

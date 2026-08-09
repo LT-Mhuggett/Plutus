@@ -676,11 +676,37 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Transaction Alteration (Discounts)");
                 Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
-                using (var db = new Helpers.Database.Database(databaseProvider, App.GetViewModel().EmployeeId))
+
+                // ⚠ `App.GetViewModel().EmployeeId` used to be passed here and it CRASHED THE APP on
+                // a portal-provisioned till: the property threw on an empty legacy roster, out of a
+                // plain `void` command handler, straight through Button.Clicked to the UI thread.
+                // Tapping the leftmost button on the till screen closed the application. It now
+                // returns null, and the audit user is the SIGNED-IN OPERATOR, which is the person
+                // who actually applied the discount on either sign-in path.
+                var auditUser = App.GetViewModel().SignedInOperator?.UserId.ToString()
+                                ?? App.GetViewModel().EmployeeId;
+
+                using (var db = new Helpers.Database.Database(databaseProvider, auditUser))
                 {
                     foreach (var discount in db.Get<DiscountModel>())
                         Alterations.Add(discount);
                 }
+
+                // ⚠ THE PICKER MUST NOT OPEN EMPTY. `SfPicker.SelectedIndex` on a column with no
+                // rows is 0, not null, so the view's SelectionChanged fires
+                // `AlterTransactionCommand.Execute(0)` and `Alterations.ElementAt(0)` throws
+                // ArgumentOutOfRangeException in another `async void` — an empty dialog whose OK
+                // button closes the app. The legacy Discounts table is empty on a portal till and
+                // was never seeded even on legacy ones.
+                if (Alterations.Count == 0)
+                {
+                    Application.Current.MainPage.DisplayAlert(
+                        "Hmm".Translate(),
+                        "There are no discounts set up for this till yet.",
+                        "OK".Translate());
+                    return;
+                }
+
                 PickerOpen = true;
             }
             finally
@@ -924,13 +950,22 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             IsBusy = true;
             try
             {
-                string empId = App.GetViewModel().EmployeeId;
-
+                // ⚠ THIS LINE USED TO READ `App.GetViewModel().EmployeeId` AND IT CLOSED THE APP.
+                // That property is `Employees.Last().Id`, and `Employees` is populated ONLY by the
+                // legacy local login — the portal roster path sets `SignedInOperator` and never
+                // touches it. So on every portal-provisioned till the read threw
+                // `InvalidOperationException: Sequence contains no elements`, from an `async void`
+                // with no catch, BEFORE the first await — which reposts to the UI thread as an
+                // unhandled exception and terminates the process. Pressing Checkout killed the till
+                // mid-sale, with a full basket and a customer at the counter, and no dialog.
+                //
+                // ⚠ And it fed NOTHING. The value was set on a `SaleModel` that step 11 stopped
+                // persisting; the sale is attributed from `SignedInOperator.UserId` at commit. A
+                // read with no consumer was the single thing preventing any sale on any new till.
                 var sale = new SaleModel
                 {
                     DateOfSale = DateTime.Now,
                     Total = 0.0m,
-                    EmployeeId = empId,
                     PaySales = new List<PaymentMethod_SaleModel>(),
                     Notes = new List<Notes_SaleModel>()
                 };
@@ -1192,10 +1227,19 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     if (!AskForReceipt || await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "ReceiptRequired".Translate(), "Yes".Translate(), "No".Translate()))
                     {
                         trackEventArgs.Add("Receipt Requested", "True");
+                        // ⚠ Built from the COMMITTED payload, not from `sale` — the receipt states
+                        // what the platform accepted, and its barcode carries the platform saleId
+                        // (the legacy `sale.Id` has been empty since step 11 removed the save that
+                        // assigned it, so every receipt printed a blank barcode).
+                        var receipt = Services.Printing.ReceiptSale.From(
+                            outcome.Request,
+                            sale.PaySales.Select(p => p.TempPayMethod?.Name).ToList(),
+                            sale.Notes.Select(n => n.Note?.Note).Where(n => !string.IsNullOrWhiteSpace(n)).ToList());
+
                         tasks[0] = Task.Run(async () =>
                         {
                             _ = await printerMgr.InitPrinter();
-                            await printerMgr.SetUpSalePrint(sale, Basket, App.GetViewModel().Store);
+                            await printerMgr.SetUpSalePrint(receipt, Basket, App.GetViewModel().Store);
                             await printerMgr.ExecuteOposOrPdfAsync();
 
                             trackEventArgs.Add("Receipt Printed Successfully", "True");

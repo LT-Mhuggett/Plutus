@@ -87,15 +87,25 @@ namespace Plutus.Frontend.AppClient.Services.POSHandeling
         /// <param name="sale"></param>
         /// <param name="store"></param>
         /// <returns></returns>
-        public async Task SetUpSalePrint(SaleModel sale, IEnumerable<IBasketRecord> basketRecords, StoreModel store)
+        /// <summary>
+        /// Print the receipt for a COMMITTED sale (cutover step 14).
+        ///
+        /// ⚠ Takes <see cref="Services.Printing.ReceiptSale"/>, not the legacy `SaleModel`. The
+        /// money and the sale id come from the payload the platform actually accepted, so the paper
+        /// in the customer's hand cannot disagree with the record — and the barcode carries the
+        /// platform `saleId`, which is the only thing a reprint or a receipt-led refund can ever
+        /// look the sale up by.
+        /// </summary>
+        public async Task SetUpSalePrint(
+            Services.Printing.ReceiptSale sale, IEnumerable<IBasketRecord> basketRecords, StoreModel store)
         {
             if (!_deviceEnabled)
                 throw new POSPrinterException(POSPrinterExceptionType.PrinterNotEnabled, "Printer is not Enabled!");
-            var text = new List<KeyValuePair<string, object>>();
+
             PrintHeaderofReceipt(sale, store);
             await PrintTransactionAndRefundsAsync(basketRecords);
-            if (sale.Notes.Count() > 0)
-                PrintNotes(sale.Notes.Select(saleNote => saleNote.Note));
+            if (sale.Notes.Count > 0)
+                PrintNotes(sale.Notes);
 
             PrintFooterOfReceipt(sale);
             CutPaper();
@@ -135,8 +145,18 @@ namespace Plutus.Frontend.AppClient.Services.POSHandeling
         /// </summary>
         /// <param name="sale">The current Sale to print</param>
         /// <param name="store">The current Store transaction is occuring at</param>
-        private void PrintHeaderofReceipt(SaleModel sale, StoreModel store)
+        private void PrintHeaderofReceipt(Services.Printing.ReceiptSale sale, StoreModel store)
         {
+            // ⚠ A MISSING STORE MUST NOT LOSE THE SALE. `EnsureStoreAsync` has five paths that
+            // deliberately leave `Store` null rather than block sign-in (no API, no store id, no
+            // response, any exception) — and this method dereferenced it six times. The resulting
+            // NullReferenceException escaped `FinaliseTransation`, an `async void` whose only
+            // catches are for printer exceptions, AFTER the sale had been committed. So the sale
+            // was recorded and queued, but the basket was never cleared and no confirmation shown —
+            // and the operator, seeing no confirmation, rings it again. A missing shop address is
+            // a blank line on a receipt; a duplicate sale is real money.
+            store ??= new StoreModel();
+
             WriteText("ThankYouShopping".Translate(), "cntr", "true");
             if (store.Logo != null && store.Logo.Length != 0)
                 WriteImage(store.Logo, "cntr");
@@ -162,8 +182,8 @@ namespace Plutus.Frontend.AppClient.Services.POSHandeling
                 WriteText($"{"VatIN".Translate()}: {store.VatIN}", "cntr", "true");
             }
             BlankLine();
-            WriteText($"{sale.DateOfSale:D}", "cntr");
-            WriteText($"{sale.DateOfSale:T}", "cntr");
+            WriteText($"{sale.WhenLocal:D}", "cntr");
+            WriteText($"{sale.WhenLocal:T}", "cntr");
         }
 
         /// <summary>
@@ -236,11 +256,11 @@ namespace Plutus.Frontend.AppClient.Services.POSHandeling
         /// 
         /// </summary>
         /// <param name="sale"></param>
-        private void PrintNotes(IEnumerable<NoteModel> notes)
+        private void PrintNotes(IEnumerable<string> notes)
         {
             WriteText("Notes".Translate(), bold: "true");
             foreach (var note in notes)
-                WriteText(note.Note);
+                WriteText(note);
 
             ScoreReceipt();
         }
@@ -251,38 +271,47 @@ namespace Plutus.Frontend.AppClient.Services.POSHandeling
         /// <param name="text"></param>
         /// <param name="sale"></param>
         /// <returns></returns>
-        private void PrintFooterOfReceipt(SaleModel sale)
+        /// <summary>
+        /// ⚠ EVERY FIGURE HERE IS THE COMMITTED ONE. The totals are the payload's, not a re-sum of
+        /// the basket — the customer's paper and the platform's record must not be two opinions —
+        /// and pence are divided by 100 only at the moment of printing.
+        /// </summary>
+        private void PrintFooterOfReceipt(Services.Printing.ReceiptSale sale)
         {
             WriteText("\t50");
             WriteText($"{"SubTotal".Translate()}\t25");
-            WriteText($"{string.Format("{0:0.00}", sale.TotalExTax)}", "rght");
+            WriteText($"{sale.ExPence / 100m:0.00}", "rght");
             WriteText("\t50");
             WriteText($"{"Tax".Translate()}\t25");
-            WriteText($"{string.Format("{0:0.00}", sale.Total - sale.TotalExTax)}", "rght");
+            WriteText($"{sale.VatPence / 100m:0.00}", "rght");
             WriteText("\t50");
             WriteText($"{"Total".Translate()}\t25");
-            WriteText($"{string.Format("{0:0.00}", sale.Total)}", "rght");
+            WriteText($"{sale.GrossPence / 100m:0.00}", "rght");
             ScoreReceipt();
 
-            var change = 0.0m;
-            foreach (var payM in sale.PaySales)
+            foreach (var tender in sale.Tenders)
             {
-                WriteText($"{payM.TempPayMethod.Name}\t25");
-                WriteText($"{string.Format("{0:0.00}", payM.Amount)}\tR20");
+                WriteText($"{tender.Name}\t25");
+                WriteText($"{tender.AmountPence / 100m:0.00}\tR20");
                 WriteText($"\t55");
-                change += payM.Change;
             }
 
-            if (change > 0)
+            if (sale.ChangePence > 0)
             {
                 ScoreReceipt();
                 WriteText("\t50");
                 WriteText($"{"Change".Translate()}\t25");
-                WriteText($"{string.Format("{0:0.00}", change)}\tR25");
+                WriteText($"{sale.ChangePence / 100m:0.00}\tR25");
             }
 
             BlankLine();
-            WriteBarcode(sale.Id, App.GetViewModel().BarcodeSymbologySetting, 100, "cntr");
+
+            // ⚠ THE PLATFORM SALE ID. This printed `SaleModel.Id` — a legacy string that, since
+            // step 11 deleted the legacy save which assigned it, NOTHING SETS, so every receipt has
+            // been carrying an empty barcode. The barcode is how a customer's receipt finds its
+            // sale again for a reprint or a receipt-led refund (step 15's read path keys on exactly
+            // this), and an id the platform has never heard of can never be looked up.
+            WriteBarcode(sale.SaleId.ToString("N"), App.GetViewModel().BarcodeSymbologySetting, 100, "cntr");
         }
         #endregion
 

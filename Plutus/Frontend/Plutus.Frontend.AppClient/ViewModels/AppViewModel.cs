@@ -26,14 +26,31 @@ namespace Plutus.Frontend.AppClient.ViewModels
             set { SetProperty(ref _employees, value); }
         }
 
+        /// <summary>
+        /// The LEGACY local employee's id, or null when there isn't one.
+        ///
+        /// ⚠ NULL IS A NORMAL ANSWER NOW, AND IT USED TO BE A CRASH. This is `Employees.Last().Id`,
+        /// and `Employees` is filled ONLY by the legacy local login — a portal-provisioned till
+        /// signs in against the synced roster, sets <see cref="SignedInOperator"/>, and leaves this
+        /// collection empty for ever. `Last()` on it threw `InvalidOperationException`, and every
+        /// caller is an `async void` command handler with no catch, so tapping the button closed
+        /// the application. Returning null lets each caller decide, which is the honest shape: on a
+        /// portal till there IS no legacy employee.
+        ///
+        /// ⚠ NOT THE OPERATOR. Anything that needs to know WHO is doing something — permissions,
+        /// attribution on a sale, an audit trail — must use <see cref="SignedInOperator"/>, which
+        /// is populated on both paths and carries the platform user id.
+        /// </summary>
         internal string EmployeeId
         {
             get
             {
+                // Kept: more than one legacy employee signed in at once was never supported, and
+                // silently picking the last one would attribute work to the wrong person.
                 if (Employees.Count > 1)
                     throw new NotImplementedException();
-                else
-                    return Employees.Last().Id;
+
+                return Employees.Count == 1 ? Employees[0].Id : null;
             }
         }
 

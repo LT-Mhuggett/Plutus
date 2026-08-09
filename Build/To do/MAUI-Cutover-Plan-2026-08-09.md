@@ -78,7 +78,8 @@ Phase 1  LINE PRIMITIVES       [x]5 price pair  [x]6 TaxId+StockUntracked  [x]7 
 Phase 2  MONEY PATH            [x]9 basket+assembler ✅  [x]10 v2 lookup ✅  [x]11 CommitSaleAsync ✅  [ ]11b basket reshape  [x]12 permission gates ✅
                                [x]13 sync services ✅ (CatalogueSyncService + OutboxPushService + TillCadence 60s)
                                [x]13b checkout tenders off the FIXED set ✅ (a new till could not sell AT ALL)
-                               [ ]14 receipt re-signature
+                               [x]14 receipt re-signature ✅ (barcode was EMPTY since step 11)
+                               [x]14b portal-till crash sweep ✅ (Checkout closed the APP)
 Phase 3  RETURNS/PARK/REPRINT  [ ]15 sale read path  [ ]16 RefundRules wiring  [ ]17 server refund cap  [ ]18 parked baskets
 Phase 4  OPERATOR AUTH         [ ]19 /api/Auth/Login wiring + the four backend fixes
 Phase 5  SCREENS               [ ]20 WP6  [ ]21 first-run deletions  [ ]22 WP7  [ ]23 WP9  [ ]24 WP8 users

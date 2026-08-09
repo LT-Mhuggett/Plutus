@@ -58,6 +58,27 @@ namespace Plutus.Frontend.AppClient.Tests.ViewModels
             Assert.Throws<NotImplementedException>(() => vm.EmployeeId);
         }
 
+        /// <summary>
+        /// ⚠ THE READ THAT CLOSED THE APPLICATION. This was `Employees.Last().Id`, and `Employees`
+        /// is filled ONLY by the legacy local login — the portal roster path sets
+        /// `SignedInOperator` and never touches it. So on every portal-provisioned till the getter
+        /// threw `InvalidOperationException: Sequence contains no elements`, out of `async void`
+        /// command handlers with no catch, which reposts to the UI thread as unhandled and
+        /// TERMINATES THE PROCESS. Pressing Checkout — or the alter-transaction button — closed the
+        /// till mid-sale, with a full basket and a customer waiting, and showed nothing.
+        ///
+        /// "There is no legacy employee" is the NORMAL state of a portal till, so it must be an
+        /// answer. Anything needing to know who is acting uses `SignedInOperator`.
+        /// </summary>
+        [Fact]
+        public void EmployeeId_WithNoLegacyEmployee_IsNullRatherThanACrash()
+        {
+            var vm = new AppViewModel();
+
+            Assert.Empty(vm.Employees);
+            Assert.Null(vm.EmployeeId);
+        }
+
         [Fact]
         public void ToolbarItemsChanged_SetTrue_RaisesToolbarItemChangedEvent()
         {

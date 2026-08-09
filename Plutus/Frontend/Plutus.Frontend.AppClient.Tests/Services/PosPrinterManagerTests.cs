@@ -4,6 +4,7 @@ using Database.Models;
 using Moq;
 using Plutus.Frontend.AppClient.Models;
 using Plutus.Frontend.AppClient.Services.POSHandeling;
+using Plutus.Frontend.AppClient.Services.Printing;
 
 namespace Plutus.Frontend.AppClient.Tests.Services
 {
@@ -23,6 +24,12 @@ namespace Plutus.Frontend.AppClient.Tests.Services
             Price = price,
             Vat = new TaxModel { Name = "Standard", Rate = 0.2 }
         };
+
+        /// <summary>A committed sale as the receipt now receives it (cutover step 14) — money in
+        /// pence, straight off the payload the platform accepted.</summary>
+        private static ReceiptSale Receipt(long gross, long ex, params ReceiptTender[] tenders) =>
+            new(Guid.NewGuid(), new DateTime(2026, 8, 9, 14, 30, 0), gross, ex, gross - ex,
+                tenders, Array.Empty<string>());
 
         [Fact]
         public async Task SelectPrinterAndGetPrinterId_ReturnsCommunicationResult()
@@ -96,10 +103,9 @@ namespace Plutus.Frontend.AppClient.Tests.Services
         public async Task SetUpSalePrint_WhenDeviceNotEnabled_Throws()
         {
             using var manager = new PosPrinterManager();
-            var sale = new SaleModel { Total = 10m, TotalExTax = 8m, PaySales = new List<PaymentMethod_SaleModel>(), Notes = new List<Notes_SaleModel>() };
 
             await Assert.ThrowsAsync<POSPrinterException>(() =>
-                manager.SetUpSalePrint(sale, Array.Empty<IBasketRecord>(), new StoreModel()));
+                manager.SetUpSalePrint(Receipt(1000, 800), Array.Empty<IBasketRecord>(), new StoreModel()));
         }
 
         [Fact]
@@ -114,27 +120,16 @@ namespace Plutus.Frontend.AppClient.Tests.Services
             SetDeviceEnabled(manager, true);
 
             var store = new StoreModel { StoreName = "Test Store", FullAddress = "1 Test Street" };
-            var sale = new SaleModel
-            {
-                Total = 12m,
-                TotalExTax = 10m,
-                PaySales = new List<PaymentMethod_SaleModel>(),
-                Notes = new List<Notes_SaleModel>(),
-            };
+
             // Includes both a BasketItem and a BasketReturnItem so PrintTransactionAndRefundsAsync's two
             // near-identical formatting branches (sale items vs. returned items) both execute, plus a
-            // PaySales entry with a positive Change so PrintFooterOfReceipt's payment/change loop runs.
+            // tender with positive change so PrintFooterOfReceipt's payment/change loop runs.
             var basket = new IBasketRecord[]
             {
                 new BasketItem(MakeItem("I1", 12m)),
                 new BasketReturnItem(MakeItem("I2", 5m)),
             };
-            sale.PaySales.Add(new PaymentMethod_SaleModel
-            {
-                Amount = 12m,
-                Change = 2m,
-                TempPayMethod = new PaymentMethodModel { Name = "Cash" }
-            });
+            var sale = Receipt(1200, 1000, new ReceiptTender("Cash", 1200, 200));
 
             // PrintFooterOfReceipt (the last step of SetUpSalePrint) calls the static App.GetViewModel(),
             // which needs a real App instance - App extends Microsoft.Maui.Controls.Application, a
