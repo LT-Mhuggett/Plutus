@@ -42,6 +42,18 @@ public class CatalogueItem
     public int VatRateBp { get; set; }
     public Guid? CategoryId { get; set; }
     public string? BandData { get; set; }
+
+    /// <summary>
+    /// FE5: this item sells without decrementing anything — services, carrier bags, a delivery
+    /// charge.
+    ///
+    /// ⚠ The till must not show a stock level for it, must not warn about selling below zero, and
+    /// must NOT post a stock movement. `CatalogueItemDto` has carried this since FE5 and the
+    /// mapper silently dropped it, so WP10's untracked behaviour had nothing to read and every
+    /// carrier bag looked like an item going permanently more negative.
+    /// </summary>
+    public bool StockUntracked { get; set; }
+
     /// <summary>FE5.4: a binned item must stop being sellable even on an offline till, which is
     /// why the changes feed carries tombstones rather than just upserts.</summary>
     public bool Removed { get; set; }
@@ -111,3 +123,22 @@ public class SavedBasket
     public string ContractJson { get; set; } = "";
     public DateTime CreatedAtUtc { get; set; }
 }
+
+/// <summary>
+/// A price as the wire wants it: both halves, from the same point in the same timeline.
+///
+/// ⚠ NOT a price and a rate. `SharedKernel.VatLineMath` derives the line's declared rate FROM this
+/// pair, so the two numbers must have been a pair when they were published — pairing an inc price
+/// from the timeline with an ex price derived from a snapped rate produces a rate nobody set.
+/// </summary>
+public readonly record struct PricePair(long IncPence, long ExPence);
+
+/// <summary>
+/// What the till needs to know about an item's tax treatment, beyond its rate.
+/// </summary>
+/// <param name="TaxId">The LEGACY tax row. ⚠ This is what distinguishes zero-rated from exempt —
+/// both price at 0% and are different in law (HMRC Notice 706): exempt supplies block recovery of
+/// input tax attributable to them, zero-rated ones do not. No rate can carry that, which is why
+/// the band identity travels with the sale line.</param>
+/// <param name="StockUntracked">Sells without moving stock — services, carrier bags.</param>
+public readonly record struct ItemTaxInfo(int TaxId, int VatRateBp, bool StockUntracked);

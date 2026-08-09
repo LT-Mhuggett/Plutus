@@ -167,6 +167,96 @@ public class TillStoreTests : IAsyncLifetime
         Assert.Equal("2", await _store.GetMetaAsync(MetaKeys.CatalogueVersion));
     }
 
+    // ── the price PAIR, the tax row, and untracked stock (cutover steps 5 and 6) ──
+
+    /// <summary>
+    /// ⚠ THE PAIR MUST COME FROM ONE POINT. `VatLineMath` derives the line's declared rate from
+    /// inc/ex, so pairing an inc price from the timeline with an ex price derived from the snapped
+    /// baseline rate would produce a rate nobody ever set — and the web till, resolving the same
+    /// item, would declare a different one for the same basket.
+    /// </summary>
+    [Fact]
+    public async Task The_effective_price_pair_comes_from_the_same_point_as_the_price()
+    {
+        var id = Uuid7.New();
+        var at2am = new DateTime(2026, 9, 1, 2, 0, 0, DateTimeKind.Utc);
+        _db.CatalogueItems.Add(new CatalogueItem { Id = id, IdOne = "5010", Name = "Mug", PricePence = 500, VatRateBp = 2000 });
+        _db.PriceSchedule.Add(new PriceScheduleEntry { ItemId = id, EffectiveFromUtc = at2am, PricePence = 650 });
+        await _db.SaveChangesAsync();
+
+        var before = await _store.EffectivePricePairAsync(id, at2am.AddSeconds(-1));
+        var after = await _store.EffectivePricePairAsync(id, at2am);
+
+        Assert.Equal(500, before.IncPence);
+        Assert.Equal(650, after.IncPence);
+
+        // ⚠ THE DERIVED RATE IS "WOBBLED", AND THAT IS CORRECT — C1 rule 2. The line's rate comes
+        // FROM the pair, so £5.00/£4.17 declares 1990bp for a 20% item, not 2000. Asserting 2000
+        // here is what a first draft of this test did, and it was the TEST that was wrong.
+        //
+        // ⚠ And the wobble is PRICE-DEPENDENT: VatLineMath's remarks quote 1993–2004bp, which is
+        // the range for £10–£20 lines. A £5 item lands at 1990 and a penny item lands further out
+        // still, because the rounding error is a fixed half-penny against a smaller base. Anything
+        // that ever range-checks a declared rate has to scale with the line, not use a flat window.
+        var beforeBp = VatLineMath.RateBpFromPair(before.IncPence, before.ExPence);
+        var afterBp = VatLineMath.RateBpFromPair(after.IncPence, after.ExPence);
+        Assert.InRange(beforeBp, 1980, 2005);
+        Assert.InRange(afterBp, 1980, 2005);
+
+        // What must hold EXACTLY is that the two halves are a coherent pair: ex is the inc price
+        // less the VAT it carries, so gross − ex is the VAT figure the line will declare.
+        Assert.Equal(before.IncPence - before.ExPence, VatLineMath.ForLine(before.IncPence, before.ExPence, 1, 0, false).VatAmountPence);
+        Assert.Equal(after.IncPence - after.ExPence, VatLineMath.ForLine(after.IncPence, after.ExPence, 1, 0, false).VatAmountPence);
+
+        // and the inc-only method still answers the same number, so nothing that used it moved
+        Assert.Equal(after.IncPence, await _store.EffectivePricePenceAsync(id, at2am));
+    }
+
+    /// <summary>An unknown item is zero/zero — ⚠ which a caller must never read as "free".
+    /// FindByBarcodeAsync decides whether an item is sellable; this only prices one.</summary>
+    [Fact]
+    public async Task An_unknown_item_prices_at_zero_rather_than_throwing()
+    {
+        var pair = await _store.EffectivePricePairAsync(Uuid7.New());
+        Assert.Equal(0, pair.IncPence);
+        Assert.Equal(0, pair.ExPence);
+    }
+
+    /// <summary>
+    /// ⚠ The TAX ROW is what separates zero-rated from exempt — both price at 0% and are different
+    /// in law (HMRC Notice 706): exempt supplies block recovery of input tax, zero-rated ones do
+    /// not. It was serialised into BandData and never exposed, so `VatBandCache.BandKeyForTaxIdAsync`
+    /// had nothing to be given and `LineMeta.VatBand` could never be set.
+    /// </summary>
+    [Fact]
+    public async Task The_items_tax_row_and_untracked_flag_are_readable()
+    {
+        var tracked = Uuid7.New();
+        var untracked = Uuid7.New();
+
+        await _store.ApplyCatalogueAsync(new[]
+        {
+            new CatalogueItemDto(tracked, "1001", "Comic", 1499, 1249, TaxId: 7, CategoryId: null,
+                StockUntracked: false, Removed: false, UpdatedAtUtc: DateTime.UtcNow),
+            new CatalogueItemDto(untracked, "BAG", "Carrier bag", 20, 20, TaxId: 3, CategoryId: null,
+                StockUntracked: true, Removed: false, UpdatedAtUtc: DateTime.UtcNow),
+        }, cursor: null);
+
+        var comic = await _store.TaxInfoAsync(tracked);
+        Assert.NotNull(comic);
+        Assert.Equal(7, comic!.Value.TaxId);
+        Assert.False(comic.Value.StockUntracked);
+
+        // ⚠ FE5: a carrier bag sells without moving stock. The mapper dropped this flag entirely
+        // until 2026-08-09, so every untracked item looked stock-tracked and went permanently
+        // more negative.
+        var bag = await _store.TaxInfoAsync(untracked);
+        Assert.NotNull(bag);
+        Assert.True(bag!.Value.StockUntracked);
+
+        Assert.Null(await _store.TaxInfoAsync(Uuid7.New()));
+    }
+
     private async Task SeedCatalogueAsync()
     {
         _db.CatalogueItems.AddRange(

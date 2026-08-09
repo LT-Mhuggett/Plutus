@@ -74,7 +74,7 @@ Continues the retrofit plan's §9 numbering (1–9 live there).
 
 ```
 Phase 0  FOUNDATION            [x]1 EF9  [x]2 reference  [x]3 TillStoreAccess  [x]4 EnrolmentFlow ✅ COMPLETE
-Phase 1  LINE PRIMITIVES       [ ]5 price pair  [ ]6 TaxId+StockUntracked  [ ]7 VAT band store  [ ]8 TenderType→SharedKernel
+Phase 1  LINE PRIMITIVES       [x]5 price pair  [x]6 TaxId+StockUntracked  [x]7 VAT band store  [x]8 tender values→SharedKernel ✅ PHASE COMPLETE
 Phase 2  MONEY PATH            [ ]9 basket+assembler  [ ]10 v2 lookup  [ ]11 CommitSaleAsync  [ ]12 permission gates
                                [~]13 sync services (CatalogueSyncService ✅; OutboxPushService + 60s scheduler ⬜)
                                [ ]14 receipt re-signature
@@ -138,7 +138,27 @@ wrong value = every item id diverges from the web till's, silently.
 VERIFY: after enrolment all four Meta keys non-null; `RefreshPlacementAsync` idempotent; an
 already-enrolled device back-fills on start. USER-VERIFY: real enrolment round-trip.
 
-### Phase 1 — Line primitives (all four block the basket; do together)
+### Phase 1 — Line primitives ✅ **COMPLETE 2026-08-09**
+
+All four landed together as the plan intended. Two things worth carrying forward:
+
+⚠ **Step 8 changed shape, and the reason matters.** Declaring `TenderType`/`SaleChannel` enums in
+SharedKernel was tried and **reverted**: those names already exist in `Plutus.Entities.Models`, and
+**69 backend files import both namespaces**, so every use became `CS0104: ambiguous reference`.
+Renaming the backend's copy instead would change the CLR type of mapped EF properties and move the
+model snapshot — a `PendingModelChangesWarning` against a live database, which is the failure that
+took the test backend down earlier the same day. `IngestTender.TenderType` is a **byte** on the
+wire, so the values were all a client ever needed: SharedKernel got `Tenders`/`SaleChannels`/
+`Adjustments` **constants** plus `Tenders.FromMethodName`, and `TenderTypeParityTests` pins them to
+the backend enum AND to the web till's `tenderTypeFor` (read out of `api.ts`).
+
+⚠ **The declared VAT rate wobbles further at low prices than the docs say.** `VatLineMath` quotes
+1993–2004bp for a 20% line; that is the range for £10–£20. A £5.00 item resolves to **1990bp** and a
+penny item lands further out still, because the rounding error is a fixed half-penny against a
+smaller base. Correct per C1 rule 2 (the rate comes FROM the pair) — but **anything that ever
+range-checks a declared rate must scale with the line, not use a flat window.**
+
+*Original body:*
 
 **Step 5 — `TillStore.EffectivePricePairAsync` (inc AND ex).** `EffectivePricePenceAsync` returns
 inc only; `VatLineMath.ForLine` needs the pair, and C1 rule 2 **forbids deriving ex from a rate**.

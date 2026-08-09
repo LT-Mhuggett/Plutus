@@ -128,11 +128,31 @@ public sealed class TillStore : IOutboxStore, ISyncStore
     /// takes effect at 02:00 on a till that has been offline for a week — the till doesn't need to
     /// hear from anyone for a planned change to happen on time.
     /// </summary>
-    public async Task<long> EffectivePricePenceAsync(Guid itemId, DateTime? atUtc = null, CancellationToken ct = default)
+    public async Task<long> EffectivePricePenceAsync(Guid itemId, DateTime? atUtc = null, CancellationToken ct = default) =>
+        (await EffectivePricePairAsync(itemId, atUtc, ct)).IncPence;
+
+    /// <summary>
+    /// The price to charge right now, as the PAIR the wire needs: inc-VAT and ex-VAT.
+    ///
+    /// ⚠ WHY A PAIR AND NOT A RATE. `VatLineMath.ForLine` takes inc AND ex, and C1 rule 2 forbids
+    /// deriving one from the other at sale time: a line's declared rate comes FROM the pair
+    /// (`round((inc/ex − 1) × 10000)`), which is why an ordinary 20% line legitimately ships as
+    /// 1993–2004bp. Handing the basket a single number and a rate would force it to re-derive the
+    /// other half with its own rounding, and that is a penny-per-line disagreement with the web
+    /// till on every VAT return, for ever, with nothing to flag it.
+    ///
+    /// The ex figure comes from the SAME price point as the inc figure wherever the platform
+    /// supplied one — <see cref="PricePointDto.ExPricePence"/> is authoritative. It is only
+    /// derived from the snapped rate for the baseline case, where no price point exists at all.
+    /// </summary>
+    /// <returns>Both halves, and zero/zero for an unknown item — a caller must never treat that as
+    /// a free item; <see cref="FindByBarcodeAsync"/> is what decides whether an item is sellable.</returns>
+    public async Task<PricePair> EffectivePricePairAsync(
+        Guid itemId, DateTime? atUtc = null, CancellationToken ct = default)
     {
         var at = atUtc ?? _utcNow();
         var item = await _db.CatalogueItems.AsNoTracking().FirstOrDefaultAsync(i => i.Id == itemId, ct);
-        if (item == null) return 0;
+        if (item == null) return new PricePair(0, 0);
 
         // ⚠ RESOLVED WITH THE SHARED RULE (SharedKernel.PriceResolution), not a local
         // reimplementation: store override → central list → the catalogue baseline. A till that
@@ -167,13 +187,39 @@ public sealed class TillStore : IOutboxStore, ISyncStore
             ExFromInc(item.PricePence, item.VatRateBp),
             at);
 
-        return resolved?.PricePence ?? item.PricePence;
+        // ⚠ Both halves come from the SAME resolved point. Taking inc from the timeline and ex from
+        // the baseline would pair two prices that were never a pair, and the derived rate would be
+        // whatever fell out of that.
+        if (resolved is { } point && point.PricePence > 0)
+            return new PricePair(
+                point.PricePence,
+                point.ExPricePence > 0 ? point.ExPricePence : ExFromInc(point.PricePence, item.VatRateBp));
+
+        return new PricePair(item.PricePence, ExFromInc(item.PricePence, item.VatRateBp));
 
         static PricePoint ToPoint(PricePointDto p) =>
             new(p.PricePence, p.ExPricePence, p.EffectiveFromUtc, p.CreatedAtUtc);
 
         static long ExFromInc(long inc, int rateBp) =>
             rateBp <= 0 ? inc : (long)Math.Round(inc * 10000d / (10000d + rateBp), MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
+    /// Which published VAT band this item's legacy tax row maps to, and whether it is stock-tracked.
+    ///
+    /// ⚠ `TaxId` was serialised into <c>BandData</c> and never exposed, so
+    /// `VatBandCache.BandKeyForTaxIdAsync` had nothing to be given and `LineMeta.VatBand` could
+    /// never be set — which means zero-rated and exempt were indistinguishable on the wire at 0bp.
+    /// That is the one VAT distinction no rate can carry, and it decides whether a shop can recover
+    /// input tax.
+    /// </summary>
+    public async Task<ItemTaxInfo?> TaxInfoAsync(Guid itemId, CancellationToken ct = default)
+    {
+        var item = await _db.CatalogueItems.AsNoTracking().FirstOrDefaultAsync(i => i.Id == itemId, ct);
+        if (item == null) return null;
+
+        var pricing = DeserialisePricing(item.BandData);
+        return new ItemTaxInfo(pricing.TaxId, item.VatRateBp, item.StockUntracked);
     }
 
     /// <summary>Price timeline + tax row for one item, or empty when this row predates the feed
@@ -212,6 +258,7 @@ public sealed class TillStore : IOutboxStore, ISyncStore
                 existing.PricePence = incoming.PricePence;
                 existing.VatRateBp = incoming.VatRateBp;
                 existing.CategoryId = incoming.CategoryId;
+                existing.StockUntracked = incoming.StockUntracked;
                 existing.BandData = incoming.BandData;
                 existing.Removed = incoming.Removed;
                 existing.UpdatedAtUtc = incoming.UpdatedAtUtc;
@@ -285,6 +332,9 @@ public sealed class TillStore : IOutboxStore, ISyncStore
         PricePence = dto.PricePence,
         VatRateBp = RateBpFromPair(dto.PricePence, dto.ExPricePence),
         CategoryId = dto.CategoryId,
+        // ⚠ FE5: carried by the feed since it shipped and dropped here until 2026-08-09, so an
+        // untracked item (carrier bag, service) looked stock-tracked to every screen.
+        StockUntracked = dto.StockUntracked,
         // ⚠ BandData carries the legacy tax row AND the effective-dated price timeline, because the
         // local schema has one spare text column and WP2's cutover is what gives prices a table of
         // their own. Ugly, and deliberately so: the alternative was a schema migration on a store
