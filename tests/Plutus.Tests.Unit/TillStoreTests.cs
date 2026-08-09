@@ -257,6 +257,35 @@ public class TillStoreTests : IAsyncLifetime
         Assert.Null(await _store.TaxInfoAsync(Uuid7.New()));
     }
 
+    /// <summary>
+    /// ⚠ AN ITEM THAT BECOMES UNTRACKED MUST STOP BEING TRACKED ON A TILL THAT ALREADY HOLDS IT.
+    ///
+    /// `ApplyCatalogueAsync` updates existing rows field by field, and `StockUntracked` was missed
+    /// when the column was added — so only brand-new items ever got the flag and every till already
+    /// holding a carrier bag kept posting stock movements for it. A hand-written upsert is exactly
+    /// where that omission hides, and the only reason `Removed` never suffered it is that
+    /// tombstones have their own test.
+    /// </summary>
+    [Fact]
+    public async Task An_item_that_becomes_untracked_stops_being_tracked_on_a_till_that_already_has_it()
+    {
+        var id = Uuid7.New();
+
+        await _store.ApplyCatalogueAsync(new[]
+        {
+            new CatalogueItemDto(id, "BAG", "Carrier bag", 20, 20, TaxId: 3, CategoryId: null,
+                StockUntracked: false, Removed: false, UpdatedAtUtc: DateTime.UtcNow),
+        }, cursor: null);
+        Assert.False((await _store.TaxInfoAsync(id))!.Value.StockUntracked);
+
+        await _store.ApplyCatalogueAsync(new[]
+        {
+            new CatalogueItemDto(id, "BAG", "Carrier bag", 20, 20, TaxId: 3, CategoryId: null,
+                StockUntracked: true, Removed: false, UpdatedAtUtc: DateTime.UtcNow),
+        }, cursor: null);
+        Assert.True((await _store.TaxInfoAsync(id))!.Value.StockUntracked);
+    }
+
     private async Task SeedCatalogueAsync()
     {
         _db.CatalogueItems.AddRange(

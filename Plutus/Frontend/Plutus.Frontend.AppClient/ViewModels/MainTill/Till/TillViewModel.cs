@@ -272,7 +272,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             IsBusy = true;
             try
             {
-                var item = FindItem(ItemId);
+                var item = await FindItem(ItemId);
                 if (item == null)
                 {
                     await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "ItemNotFoundMesg".Translate(), "OK".Translate());
@@ -320,7 +320,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             IsBusy = true;
             try
             {
-                var item = FindItem(id);
+                var item = await FindItem(id);
                 if (item == null)
                 {
                     await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "ItemNotFoundMesg".Translate(), "OK".Translate());
@@ -1169,28 +1169,64 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             }
         }
 
-        private ItemModel FindItem(string needle = "")
+        /// <summary>
+        /// Resolve a scanned or typed code against the V2 CATALOGUE (cutover step 10).
+        ///
+        /// ⚠ THIS FIXES TWO LIVE DEFECTS, not just a data source.
+        ///   1. `Database.SearchId` matched on `Id` alone and **did not honour tombstones**, so an
+        ///      item the portal had BINNED was still sellable on this till — indefinitely, because
+        ///      nothing local ever learned it had gone. `FindByBarcodeAsync` excludes `Removed`,
+        ///      which is precisely why the changes feed carries tombstones rather than upserts.
+        ///   2. The price came from a stored column, so a price scheduled for 02:00 only applied if
+        ///      a sync happened to land after it. It now comes from `EffectivePricePairAsync`,
+        ///      evaluated at LOOKUP time against the effective-dated timeline — the change lands on
+        ///      the minute on a till that has been offline for a week.
+        ///
+        /// ⚠ IT STILL RETURNS AN `ItemModel`, AND THAT IS TEMPORARY SCAFFOLDING. The basket holds
+        /// `BasketItem.Item` as a legacy entity, and reshaping that means reshaping
+        /// `BasketReturnItem`, ~14 call sites, both Mapster configs and the template selector — all
+        /// of which have to land WITH `CommitSaleAsync` in step 11, or the till would build v2
+        /// baskets and still save legacy sales, which is a worse half-state than either end.
+        /// Only Id/Name/Price/ExPrice/Vat.Name are ever read off this object (verified by grep), so
+        /// nothing needs the navigations the legacy query used to Include.
+        /// **Step 11 deletes this projection.**
+        /// </summary>
+        private async Task<ItemModel> FindItem(string needle = "")
         {
             try
             {
-                Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
-                using (var db = new Helpers.Database.Database(databaseProvider))
+                if (string.IsNullOrWhiteSpace(needle)) return null;
+
+                var found = await Services.Storage.TillStoreAccess.TryUseAsync(
+                    s => s.FindByBarcodeAsync(needle.Trim()));
+                if (found == null) return null;
+
+                var price = await Services.Storage.TillStoreAccess.TryUseAsync(
+                    s => s.EffectivePricePairAsync(found.Id));
+
+                // The band's display name, for the Tax column. ⚠ Null is a legitimate answer — the
+                // portal may not have decided which band this tax row means — and it must render as
+                // blank rather than being guessed at.
+                var bandName = await Services.Storage.VatBands.DisplayNameForItemAsync(found.Id);
+
+                return new ItemModel
                 {
-                    return db.SearchId(needle)
-                        .Include(i => i.DisItems)
-                            .ThenInclude(di => di.Discount)
-                        .Include(i => i.Cat)
-                            .ThenInclude(c => c.DisCats)
-                                .ThenInclude(dc => dc.Discount)
-                        .Include(i => i.Stock)
-                        .Include(i => i.Vat)
-                        .AsNoTracking()
-                        .SingleOrDefault();
-                }
+                    // ⚠ IdOne, not the GUID: every legacy screen and the basket key on this string,
+                    // and it IS the barcode.
+                    Id = found.IdOne,
+                    Name = found.Name,
+                    // ⚠ Pence → decimal pounds ONLY because the legacy model is decimal. Deliberately
+                    // inline rather than a SharedKernel helper: money is integer pence end-to-end
+                    // (architecture §4.1) and a shared pence→decimal converter would legitimise the
+                    // conversion everywhere instead of confining it to this scaffolding.
+                    Price = price.IncPence / 100m,
+                    ExPrice = price.ExPence / 100m,
+                    Vat = new TaxModel { Name = bandName ?? string.Empty },
+                };
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex.Message);
+                Services.Analytics.CrashLog.Write("TillViewModel.FindItem", ex);
                 return null;
             }
         }

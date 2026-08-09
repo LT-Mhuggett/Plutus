@@ -75,7 +75,7 @@ Continues the retrofit plan's §9 numbering (1–9 live there).
 ```
 Phase 0  FOUNDATION            [x]1 EF9  [x]2 reference  [x]3 TillStoreAccess  [x]4 EnrolmentFlow ✅ COMPLETE
 Phase 1  LINE PRIMITIVES       [x]5 price pair  [x]6 TaxId+StockUntracked  [x]7 VAT band store  [x]8 tender values→SharedKernel ✅ PHASE COMPLETE
-Phase 2  MONEY PATH            [x]9 basket+assembler ✅  [ ]10 v2 lookup  [ ]11 CommitSaleAsync  [ ]12 permission gates
+Phase 2  MONEY PATH            [x]9 basket+assembler ✅  [x]10 v2 lookup ✅  [ ]11 CommitSaleAsync  [ ]12 permission gates
                                [~]13 sync services (CatalogueSyncService ✅; OutboxPushService + 60s scheduler ⬜)
                                [ ]14 receipt re-signature
 Phase 3  RETURNS/PARK/REPRINT  [ ]15 sale read path  [ ]16 RefundRules wiring  [ ]17 server refund cap  [ ]18 parked baskets
@@ -209,7 +209,11 @@ VERIFY: mixed-rate basket Σ==totals to the penny; a discounted line matches the
 arithmetic on the same input (fixture from `api.ts` numbers); return-line signs; a line missing
 `ItemIdOne` throws. **Mutation-check the lot (§A.5).**
 
-**Step 10 — Item lookup → v2 store.** `TillViewModel.FindItem` (≈`:1172`): `db.SearchId(needle)` →
+**Step 10 — Item lookup → v2 store** ✅ **DONE 2026-08-09.** `FindItem` resolves through `TillStore.FindByBarcodeAsync` (tombstone-aware) and `EffectivePricePairAsync` (timeline), and `Services/Storage/VatBands` finally gives the app a route to `VatBandCache`. ⚠ It still PROJECTS to `ItemModel` as explicit scaffolding — reshaping `BasketItem` means reshaping `BasketReturnItem`, ~14 call sites, both Mapster configs and the template selector, all of which must land WITH `CommitSaleAsync` or the till builds v2 baskets and still saves legacy sales. **Step 11 deletes the projection.**
+
+⚠ **DEFAULT 18 VERIFY-FIRST, ANSWERED: `Barcodes` CANNOT be wired — there is no server-side source.** Grep finds no barcode entity in `Plutus.Entities` at all; `IdOne` IS the barcode and multi-barcode items are not something the platform models yet. So `FindByBarcodeAsync`'s alias path is dead by design, not by omission, and default 18's `Barcodes[]` presumes a feature that does not exist. **Adding it is a platform decision, not a till task.** `PriceSchedule` is likewise unpopulated, but harmless: the effective-dated timeline rides in `BandData` from the feed, so scheduled prices DO work — that table is only the cutover tool's route in.
+
+*Original body:* `TillViewModel.FindItem` (≈`:1172`): `db.SearchId(needle)` →
 `TillStoreAccess.UseAsync(s => s.FindByBarcodeAsync/SearchAsync)`. Fixes a live defect: `SearchId`
 ignores tombstones, so **a binned item is still sellable today**. Price from Step 5's pair.
 ⚠ Default 18 VERIFY-FIRST applies: check whether `ApplyCatalogueAsync` populates `Barcodes` and

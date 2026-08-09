@@ -303,6 +303,12 @@ public sealed class TillStore : IOutboxStore, ISyncStore
             existing.VatRateBp = mapped.VatRateBp;
             existing.CategoryId = mapped.CategoryId;
             existing.BandData = mapped.BandData;
+            // ⚠ MISSED IN PHASE 1 and caught in step 10: the field-by-field update branch did not
+            // copy StockUntracked, so an item that BECAME untracked in the portal stayed tracked on
+            // every till that already held it — only brand-new items got the flag. A hand-written
+            // upsert is exactly where this kind of omission hides; the tombstone below is the only
+            // reason the same bug never happened to Removed.
+            existing.StockUntracked = mapped.StockUntracked;
             existing.Removed = mapped.Removed;
             existing.UpdatedAtUtc = mapped.UpdatedAtUtc;
         }
