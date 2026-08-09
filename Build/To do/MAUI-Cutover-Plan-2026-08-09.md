@@ -82,7 +82,7 @@ Phase 2  MONEY PATH            [x]9 basket+assembler ✅  [x]10 v2 lookup ✅  [
                                [x]14b portal-till crash sweep ✅ (Checkout closed the APP)
 Phase 3  RETURNS/PARK/REPRINT  [x]15 sale read path ✅  [x]16 RefundRules wiring ✅  [x]17 server refund cap ✅  [x]18 parked baskets ✅
 Phase 4  OPERATOR AUTH         [x]19 ✅ (Employee.Active was ALREADY fixed; the other three were real)
-Phase 5  SCREENS               [x]20 WP6 ✅  [ ]21 first-run deletions  [ ]22 WP7  [ ]23 WP9  [ ]24 WP8 users
+Phase 5  SCREENS               [x]20 WP6 ✅  [~]21 archive gate ON + destructive commands gone (screen deletions remain)  [ ]22 WP7  [ ]23 WP9  [ ]24 WP8 users
                                [ ]25 WP10  [ ]26 WP11  [ ]27 WP12+WP13
 Phase 6  HARDENING             [ ]28 online-first login (default 16)
 ```

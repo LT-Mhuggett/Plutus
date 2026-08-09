@@ -1,6 +1,8 @@
 using System;
+using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Microsoft.Maui.Storage;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
 using Plutus.Client.Core;
@@ -300,15 +302,32 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
                 // The flow also enforces the archive gate (binding default 9.3): a till holding an
                 // un-archived legacy database refuses to enrol, because that file is the shop's
                 // history and the translation agent's only input.
-                // ⚠ legacyDatabasePath is deliberately NULL until cutover step 21. Passing the real
-                // path switches on the archive gate, and nothing in this build can archive yet —
-                // step 21 turns Settings' "backup" into "Archive legacy database" and stamps
-                // MetaKeys.LegacyArchivedAtUtc. Enabling the gate first would refuse enrolment with
-                // no way through it, on every till that has ever opened its legacy file — which is
-                // all of them, because the Database constructor CREATES one on first touch.
+                // ⚠ THE ARCHIVE GATE IS NOW ON (cutover step 21, binding default 9.3). It was
+                // passed null deliberately while nothing in the build could archive: switching it
+                // on first would have refused enrolment with no way through, on every till that had
+                // ever opened its legacy file — which is all of them, because the legacy `Database`
+                // constructor CREATES one on first touch.
+                //
+                // Settings' "Archive legacy database" is that way through: it copies the file
+                // (never moves it, never overwrites an existing archive) and stamps
+                // MetaKeys.LegacyArchivedAtUtc, which is what this gate reads.
+                //
+                // ⚠ A till with no legacy file is unaffected — `BlockedReasonAsync` returns null
+                // when the path does not exist, so a clean install still enrols straight through.
+                var legacyDatabasePath = Path.Combine(FileSystem.AppDataDirectory, "Database.db");
+
+                var blocked = await TillStoreAccess.UseAsync(store =>
+                    new EnrolmentFlow(store, api, _credentials).BlockedReasonAsync(legacyDatabasePath));
+
+                if (blocked != null)
+                {
+                    LastAction = blocked;
+                    return;
+                }
+
                 var deviceId = await TillStoreAccess.UseAsync(store =>
                     new EnrolmentFlow(store, api, _credentials)
-                        .EnrolAsync(ServerUrl, EnrolmentCode.Trim(), legacyDatabasePath: null));
+                        .EnrolAsync(ServerUrl, EnrolmentCode.Trim(), legacyDatabasePath));
 
                 // Placement is a second call on purpose: enrolment says WHICH TILL, the platform
                 // says which store that till currently sits in — and a till can be moved later.

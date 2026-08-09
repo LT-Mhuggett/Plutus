@@ -2,8 +2,11 @@ using CommonPOSLibrary.Exceptions;
 using Plutus.Frontend.AppClient.Helpers.Compatibility;
 using Plutus.Frontend.AppClient.Helpers.Extensions;
 using Plutus.Frontend.AppClient.Helpers.Security;
+using Plutus.Frontend.AppClient.Services.Analytics;
 using Plutus.Frontend.AppClient.Services.IOHandeling;
 using Plutus.Frontend.AppClient.Services.POSHandeling;
+using Plutus.Client.Storage;
+using Plutus.SharedKernel;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -42,9 +45,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
             var buttonsAndSubHeadings = new List<Tuple<string, string>>
             {
                 Tuple.Create("Database".Translate(),""),
-                Tuple.Create("BackupDb".Translate(), "BackupDbCommand"),
+                Tuple.Create("Archive legacy database", "BackupDbCommand"),
                 Tuple.Create("RestoreDb".Translate(), "RestoreDbCommand"),
-                Tuple.Create("DeleteDb".Translate(), "DeleteDbCommand"),
                 Tuple.Create("Printer", ""),
                 Tuple.Create("ChangePrinter".Translate(), "ChangePrinterCommand"),
                 Tuple.Create("PrintTestPage".Translate(), "PrintTestPageCommand"),
@@ -102,11 +104,6 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
             get => _restoreDbCommand ?? (_restoreDbCommand = new Command(ExecuteRestoreDb));
         }
 
-        Command _deleteDbCommand;
-        public Command DeleteDbCommand
-        {
-            get => _deleteDbCommand ?? (_deleteDbCommand = new Command(ExecuteDeleteDb));
-        }
         #endregion
 
         #region Printer
@@ -144,39 +141,78 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
 
         #region Execute Commands
         #region Database
+        /// <summary>
+        /// Archive the legacy database — the cutover on-ramp (step 21, binding default 9.3).
+        ///
+        /// ⚠ THIS IS WHAT UNLOCKS ENROLMENT. `EnrolmentFlow.BlockedReasonAsync` refuses to enrol a
+        /// till that still holds an un-archived legacy file, because that file is the shop's sales
+        /// history and the migration's only input. Until now nothing could archive, so the gate was
+        /// passed `null` and did not run at all; this is the capability that lets it be switched on.
+        ///
+        /// ⚠ It was "Backup database": it copied the file through a save dialog, gated on
+        /// `IsAuthorised` (the legacy `AuthActions` table a portal till has no rows in) via
+        /// `EmployeeId` (null for every roster operator), falling back to
+        /// `RequestAuthorisedUserInput` (which never terminates). So on the tills that most need to
+        /// archive, it could not run — and even when it did, nothing recorded that it had happened.
+        ///
+        /// ⚠ COPY, NEVER MOVE, and never overwrite an existing archive: a second cutover must not
+        /// quietly replace the only copy of the first one's data.
+        /// </summary>
         private async void ExecuteBackupDb()
         {
-            if (IsBusy)
-                return;
+            if (IsBusy) return;
             IsBusy = true;
             try
             {
-                var empId = App.GetViewModel().EmployeeId;
-                bool escape = false;
-                do
+                var gate = Services.Security.TillGate.Check(
+                    App.GetViewModel().SignedInOperator, PermissionCatalogue.PosSettingsManage);
+
+                if (!gate.Allowed)
                 {
-                    Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
-                    if (empId.IsAuthorised("Admin", Database.Enums.Permissions.Execute, databaseProvider))
-                    {
-                        _ = await AppServices.Get<IFile>().Copy(
-                            Path.Combine(FileSystem.AppDataDirectory, "Database.db"),
-                            new Dictionary<string, IList<string>>
-                            {
-                                { "SQL Database", new List<string> {".db"} }
-                            },
-                            string.Format("{0} - Database - {1}", App.GetViewModel().Store.StoreName,
-                                DateTime.Now.ToString(CultureInfo.CurrentCulture))
-                            );
-                        return;
-                    }
-                    var empAuthoriser = await Authorisation.RequestAuthorisedUserInput(databaseProvider);
-                    if (empAuthoriser == default)
-                        escape = true;
-                } while (!escape);
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(), gate.Message, "OK".Translate());
+                    return;
+                }
+
+                var legacyPath = Path.Combine(FileSystem.AppDataDirectory, "Database.db");
+                if (!File.Exists(legacyPath))
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "There's no previous database on this till to archive.", "OK".Translate());
+                    return;
+                }
+
+                var archiveDir = Path.Combine(FileSystem.AppDataDirectory, "legacy-archive");
+                string archivedTo;
+                try
+                {
+                    archivedTo = Plutus.Client.Storage.Cutover.ArchiveLegacyDatabase(
+                        legacyPath, archiveDir, DateTime.UtcNow);
+                }
+                catch (Exception ex)
+                {
+                    CrashLog.Write("SettingsViewModel.ExecuteBackupDb", ex);
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "Couldn't archive the previous database. Nothing has been changed or deleted.",
+                        "OK".Translate());
+                    return;
+                }
+
+                // ⚠ STAMPED ONLY AFTER THE COPY SUCCEEDED. The stamp is what opens the enrolment
+                // gate, so writing it first would let a till enrol having archived nothing.
+                await Services.Storage.TillStoreAccess.UseAsync(async s =>
+                {
+                    await s.SetMetaAsync(MetaKeys.LegacyArchivedAtUtc,
+                        DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture));
+                    return true;
+                });
+
+                await App.Current.MainPage.DisplayAlert("Archived",
+                    $"The previous database has been archived to:\n\n{archivedTo}\n\n" +
+                    "The original is untouched. This till can now be enrolled.", "OK".Translate());
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex);
+                CrashLog.Write("SettingsViewModel.ExecuteBackupDb", ex);
             }
             finally
             {
@@ -221,39 +257,16 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
             }
         }
 
-        private async void ExecuteDeleteDb()
-        {
-            if (IsBusy)
-                return;
-            IsBusy = true;
-            try
-            {
-                if (await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "AreYouSureDeleteDb".Translate(), "Yes".Translate(), "Cancel".Translate()))
-                {
-                    var empId = App.GetViewModel().EmployeeId;
-                    bool escape = false;
-                    do
-                    {
-                        Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
-                        if (empId.IsAuthorised("Admin", Database.Enums.Permissions.Execute, databaseProvider))
-                        {
-                            if (await AppServices.Get<IFile>().DeleteFile(Path.Combine(FileSystem.AppDataDirectory, "Database.db")))
-                            {
-
-                            }
-                            return;
-                        }
-                        var empAuthoriser = await Authorisation.RequestAuthorisedUserInput(databaseProvider);
-                        if (empAuthoriser == default)
-                            escape = true;
-                    } while (!escape);
-                }
-            }
-            finally
-            {
-                IsBusy = false;
-            }
-        }
+        // ⚠ "DELETE DATABASE" IS GONE (cutover step 21), and not merely disabled.
+        //
+        // It deleted the legacy `Database.db` outright, behind a single "are you sure". That file
+        // is the shop's entire sales history and the ONLY input the migration has — there is no
+        // server copy of a pre-cutover till's data, and no undo. A button that can destroy a
+        // business's records permanently does not belong on a settings screen next to the printer
+        // picker, and it certainly does not belong there gated on an authorisation check that
+        // cannot succeed on the tills that still have something to lose.
+        //
+        // "Archive legacy database" above is the operation that was actually wanted.
         #endregion
 
         #region Printer
