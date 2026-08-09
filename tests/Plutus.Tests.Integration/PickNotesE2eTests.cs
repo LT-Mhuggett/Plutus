@@ -139,4 +139,93 @@ public class PickNotesE2eTests : IClassFixture<PlutusAppFactory>
             Assert.Null(note!.AckedAtUtc);
         }
     }
+
+    // ── WP17.4: a till sees ITS OWN store's notes, not the whole estate's ─────────────────────
+
+    /// <summary>Two stores in one company, a till in the first, and a device on that till.</summary>
+    private async Task<(Guid DeviceId, int MyStore, int OtherStore)> SeedTwoStoresAsync(string tag)
+    {
+        using var scope = _f.Services.CreateScope();
+        var db = (MySqlDbContext)scope.ServiceProvider.GetRequiredService<RepositoryContext>();
+        db.CurrentUser = tag;
+
+        var businessId = Guid.NewGuid();
+        db.Business.Add(new Business { Id = businessId, Name = tag, NameAbbr = "TST", VatIN = "GB0" });
+
+        // ⚠ Store ids are database-assigned, so they cannot be chosen — seed, save, then read back.
+        var mine = new Store { BusinessId = businessId, ContactNumber = "-", AdLine1 = "-", AdLine2 = "", City = "-", PostCode = "-", Country = "-" };
+        var theirs = new Store { BusinessId = businessId, ContactNumber = "-", AdLine1 = "-", AdLine2 = "", City = "-", PostCode = "-", Country = "-" };
+        db.Stores.Add(mine);
+        db.Stores.Add(theirs);
+        await db.SaveChangesAsync();
+
+        var tillId = Guid.NewGuid();
+        var deviceId = Guid.NewGuid();
+        db.Till.Add(new Till { Id = tillId, StoreId = mine.Id });   // TenantId is a SHADOW property
+        db.Devices.Add(new Device
+        {
+            Id = deviceId, TenantId = Kapow, TillId = tillId,
+            SecretHash = new byte[32], SecretSalt = new byte[16],
+            Status = DeviceStatus.Active, LastSeenSeq = 0, CreatedAtUtc = DateTime.UtcNow,
+        });
+        await db.SaveChangesAsync();
+
+        return (deviceId, mine.Id, theirs.Id);
+    }
+
+    private async Task SeedNoteAsync(int? storeId, int order, string tag)
+    {
+        using var scope = _f.Services.CreateScope();
+        var db = (MySqlDbContext)scope.ServiceProvider.GetRequiredService<RepositoryContext>();
+        db.CurrentUser = tag;
+        db.WebstoreNotifications.Add(new WebstoreNotification
+        {
+            Id = Uuid7.New(), TenantId = Kapow, WebStoreId = Uuid7.New(), StoreId = storeId,
+            WooOrderId = order, Message = $"order #{order}", CreatedAtUtc = DateTime.UtcNow,
+        });
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// ⚠ THE MULTI-STORE LEAK. This endpoint returned EVERY store's notes and left filtering to
+    /// the client — and the two clients disagreed: MAUI filtered with `NoticesClient.IsForStore`,
+    /// the web till set whatever arrived. So staff at one shop were sent hunting for stock that was
+    /// never on their shelves, while the shop that DID have it assumed the other branch had dealt
+    /// with it. Latent only because Kapow has one store.
+    /// </summary>
+    [Fact]
+    public async Task A_till_sees_only_its_own_stores_pick_notes()
+    {
+        var (deviceId, myStore, otherStore) = await SeedTwoStoresAsync("picknotes-store-seed");
+        await SeedNoteAsync(myStore, 91001, "picknotes-store-seed");
+        await SeedNoteAsync(otherStore, 91002, "picknotes-store-seed");
+        await SeedNoteAsync(null, 91003, "picknotes-store-seed");
+
+        var client = _f.CreateClient();
+        var body = await (await client.SendAsync(Req(HttpMethod.Get,
+            "/api/v1/notifications?unackedOnly=true", PlutusAppFactory.DeviceToken(deviceId, Kapow))))
+            .Content.ReadAsStringAsync();
+
+        Assert.Contains("91001", body);        // its own store
+        Assert.DoesNotContain("91002", body);  // ⚠ the other shop's floor
+        // ⚠ A note with NO store is tenant-wide by construction and must still arrive — hiding it
+        // would lose a message nobody else is going to see.
+        Assert.Contains("91003", body);
+    }
+
+    /// <summary>⚠ And the QUERY STRING cannot override the token. A till that could name a storeId
+    /// could read any shop in the estate simply by asking.</summary>
+    [Fact]
+    public async Task A_till_cannot_ask_for_another_stores_notes_by_query_string()
+    {
+        var (deviceId, _, otherStore) = await SeedTwoStoresAsync("picknotes-override-seed");
+        await SeedNoteAsync(otherStore, 97777, "picknotes-override-seed");
+
+        var client = _f.CreateClient();
+        var body = await (await client.SendAsync(Req(HttpMethod.Get,
+            $"/api/v1/notifications?unackedOnly=true&storeId={otherStore}", PlutusAppFactory.DeviceToken(deviceId, Kapow))))
+            .Content.ReadAsStringAsync();
+
+        Assert.DoesNotContain("97777", body);
+    }
 }

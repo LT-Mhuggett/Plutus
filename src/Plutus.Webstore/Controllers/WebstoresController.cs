@@ -511,12 +511,51 @@ namespace Plutus.Webstore.Controllers
         // rejects unknown codes), so every till poll 403'd silently into its .catch and no
         // pick-note ever reached a shop floor. The scope policy below is what was always meant:
         // a device token OR an operator holding pos.sell.
+        /// <summary>
+        /// Pick-from-floor notes for the caller (WP17.4, fixed 2026-08-09).
+        ///
+        /// ⚠ THIS RETURNED EVERY STORE'S NOTES AND LEFT FILTERING TO THE CLIENT — and the two
+        /// clients disagreed: MAUI filtered with `NoticesClient.IsForStore`, the web till set
+        /// whatever arrived. So in a multi-store tenant, staff at one shop were sent hunting for
+        /// stock that was never on their shelves, while the shop that actually had it assumed the
+        /// other branch had dealt with it. Latent only because Kapow has one store.
+        ///
+        /// ⚠ FILTERED HERE, WHICH DELETES THE DUPLICATED RULE RATHER THAN PINNING IT (till-design
+        /// C2). A per-client filter is a rule that has to be re-implemented correctly on every till
+        /// ever written, including ones that do not exist yet.
+        ///
+        /// ⚠ A DEVICE'S STORE COMES FROM ITS TOKEN, never from the query string: a till asking for
+        /// another store's notes is a till reading another shop's floor. An operator token (web POS,
+        /// no device) may pass `storeId` explicitly — it is a person with tenant-wide permission
+        /// choosing a view, not a machine claiming an identity.
+        /// </summary>
         [HttpGet("/api/v1/notifications")]
         [Authorize(Policy = PlutusPolicies.SalesIngest)]
-        public async Task<IActionResult> Notifications([FromQuery] bool unackedOnly = true, CancellationToken ct = default)
+        public async Task<IActionResult> Notifications(
+            [FromQuery] bool unackedOnly = true, [FromQuery] int? storeId = null, CancellationToken ct = default)
         {
+            int? effectiveStore = storeId;
+
+            if (_tenant.DeviceId is Guid did)
+            {
+                var deviceStore = await _db.Devices.AsNoTracking()
+                    .Where(d => d.Id == did)
+                    .Join(_db.Till.AsNoTracking(), d => d.TillId, t => t.Id, (d, t) => (int?)t.StoreId)
+                    .FirstOrDefaultAsync(ct);
+
+                // ⚠ The token WINS over the query string. Silently ignoring a mismatched storeId is
+                // deliberate: answering 400 would tell a caller which stores exist.
+                if (deviceStore is int s) effectiveStore = s;
+            }
+
             var q = _db.WebstoreNotifications.AsNoTracking().OrderByDescending(n => n.CreatedAtUtc).AsQueryable();
             if (unackedOnly) q = q.Where(n => n.AckedAtUtc == null);
+
+            // ⚠ Notes with NO store are shown to everyone — they are tenant-wide by construction,
+            // and hiding them would lose a message nobody else is going to see.
+            if (effectiveStore is int store)
+                q = q.Where(n => n.StoreId == null || n.StoreId == store);
+
             return Ok(await q.Take(50).Select(n => new { n.Id, n.Message, n.WooOrderId, n.StoreId, n.CreatedAtUtc, n.AckedAtUtc }).ToListAsync(ct));
         }
 
