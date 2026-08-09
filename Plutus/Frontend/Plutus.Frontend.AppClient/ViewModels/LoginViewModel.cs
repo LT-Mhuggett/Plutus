@@ -166,6 +166,46 @@ namespace Plutus.Frontend.AppClient.ViewModels
         /// </summary>
         /// <returns>True when this path handled the attempt (signed in, or told the operator why
         /// not). False means "no roster on this till", so the legacy local path should try.</returns>
+        /// <summary>What one automatic roster fetch achieved.</summary>
+        /// <param name="Enrolled">False = this till has never been paired, so there is nothing to
+        /// fetch from and no amount of retrying will help.</param>
+        /// <param name="Count">Operators the till now holds. ⚠ NULL means the server could not be
+        /// reached — which is a different problem from a confirmed zero, and the two need different
+        /// sentences in front of an operator.</param>
+        private readonly record struct RosterRefresh(bool Enrolled, int? Count);
+
+        /// <summary>
+        /// Pull this till's staff list, so an empty roster fixes itself instead of becoming an
+        /// instruction. Never throws — sign-in must not fail because a refresh did.
+        /// </summary>
+        private static async Task<RosterRefresh> TryFillRosterAsync()
+        {
+            try
+            {
+                var credentials = await Services.Connectivity.SecureDeviceCredentialStore.LoadAsync();
+                if (credentials?.TillId is not Guid tillId) return new RosterRefresh(false, null);
+
+                // ⚠ Never mutate BaseAddress — see PlutusHttp. One client per address, cached.
+                var http = Services.Connectivity.PlutusHttp.TryFor(new Settings().ServerUrlSetting);
+                if (http is null) return new RosterRefresh(true, null);
+
+                var bootstrap = new Plutus.Client.Core.PlutusApiClient(http);
+                var api = new Plutus.Client.Core.PlutusApiClient(
+                    http, new Plutus.Client.Core.DeviceTokenProvider(bootstrap, credentials));
+
+                var count = await new Plutus.Client.Core.OperatorSync(
+                    api, new Services.Connectivity.FileOperatorStore()).RefreshAsync(tillId);
+
+                return new RosterRefresh(true, count);
+            }
+            catch (Exception ex)
+            {
+                // A failed refresh is not a failed login — the legacy path below still gets its go.
+                CrashLog.Write("LoginViewModel.TryFillRosterAsync", ex);
+                return new RosterRefresh(true, null);
+            }
+        }
+
         private async Task<bool> TrySignInFromRosterAsync()
         {
             var login = new Plutus.Client.Core.OperatorLogin(new Services.Connectivity.FileOperatorStore());
@@ -261,6 +301,18 @@ namespace Plutus.Frontend.AppClient.ViewModels
                 // exists because a till set up the old way must keep working until WP2's cutover.
                 if (await TrySignInFromRosterAsync()) return;
 
+                // ⚠ THE ROSTER WAS EMPTY — so FETCH IT, rather than sending someone to a settings
+                // tab. A freshly enrolled till has nobody on it until something asks, and the first
+                // person to meet that was told to "open the Plutus tab and use Sync staff from the
+                // portal" and then dropped back on the login screen. That is a shop floor being
+                // asked to know how the software is wired.
+                //
+                // Only fires when there is no roster at all: a WRONG PASSWORD returns from
+                // TrySignInFromRosterAsync above and never reaches here, so this cannot become a
+                // network round trip on every mistyped login.
+                var refresh = await TryFillRosterAsync();
+                if (refresh.Count is > 0 && await TrySignInFromRosterAsync()) return;
+
                 // ⚠ DatabaseProvider.Sqlite is 0, so a NULL setting parses to "local SQLite" rather
                 // than failing — which is exactly how "no accounts at all" came out as "details not
                 // correct", sending someone hunting for a typo that did not exist.
@@ -278,11 +330,31 @@ namespace Plutus.Frontend.AppClient.ViewModels
 
                 if (localStaff == 0)
                 {
-                    await App.Current.MainPage.DisplayAlert(
-                        "No staff on this till yet",
-                        "This till has no staff accounts on it.\n\n" +
-                        "Open the Plutus tab and use “Sync staff from the portal” to fetch them.",
-                        "OK");
+                    // ⚠ SAY WHICH OF THE FOUR THINGS WENT WRONG. "No staff on this till" was true
+                    // in every case and useful in none — it sent someone to press a button that,
+                    // depending on the cause, either was not needed, could not work, or had already
+                    // been tried automatically a second earlier.
+                    var (title, message) = refresh switch
+                    {
+                        { Enrolled: false } => ("This till isn't connected yet",
+                            "It hasn't been paired with Plutus, so there are no staff accounts on it.\n\n" +
+                            "Open the Plutus tab and enter an enrolment code from the portal."),
+
+                        { Count: 0 } => ("Nobody is assigned to this till",
+                            "This till is connected, but the portal has no staff who can use it.\n\n" +
+                            "In the portal, give someone a role that includes till permissions — " +
+                            "then sign in here again."),
+
+                        { Count: null } => ("Can't reach Plutus",
+                            "This till has no staff accounts yet and the staff list couldn't be " +
+                            "downloaded.\n\n" +
+                            "Check the connection on the Plutus tab, then try again."),
+
+                        _ => ("Can't sign in",
+                            "That account isn't on this till's staff list. " +
+                            "Check the email address, or ask a manager to check the portal."),
+                    };
+                    await App.Current.MainPage.DisplayAlert(title, message, "OK");
                     return;
                 }
 
