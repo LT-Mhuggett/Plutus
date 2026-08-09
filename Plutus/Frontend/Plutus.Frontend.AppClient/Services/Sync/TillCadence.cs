@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Plutus.Client.Core;
@@ -177,10 +178,43 @@ namespace Plutus.Frontend.AppClient.Services.Sync
                 : $"Can't reach Plutus. {push.Message}";
         }
 
+        /// <summary>
+        /// Which BUILD this till is running, for the heartbeat and the portal's fleet list.
+        ///
+        /// ⚠ NOT `AppInfo.VersionString`. On Windows that reads the PACKAGE manifest whenever the
+        /// app is packaged — and `Package.appxmanifest` carries a hardcoded `1.0.0.0` that the MAUI
+        /// build does not override. So an MSIX install reported **1.0.0.0** while the very same
+        /// source, run unpackaged, reported 1.12.0: the number in the portal would have depended on
+        /// how the till was installed, which is worse than no number at all.
+        ///
+        /// The ASSEMBLY's informational version is stamped from `versions/till-maui.txt` by
+        /// `Directory.Build.targets` and is identical either way. It also carries the commit —
+        /// `1.12.0+e1c0ef2…` — and the short hash is kept, because "which build is this exactly" is
+        /// the question the fleet list exists to answer and a three-part version cannot answer it
+        /// between two builds of the same version.
+        /// </summary>
         private static string AppVersion()
         {
-            try { return Microsoft.Maui.ApplicationModel.AppInfo.VersionString; }
-            catch { return null; }
+            try
+            {
+                var informational = typeof(TillCadence).Assembly
+                    .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?
+                    .InformationalVersion;
+
+                if (string.IsNullOrWhiteSpace(informational))
+                    return typeof(TillCadence).Assembly.GetName().Version?.ToString();
+
+                // "1.12.0+e1c0ef2096de…" → "1.12.0+e1c0ef2". A full 40-char hash in a fleet-list
+                // chip is unreadable; seven is what every git UI shows and is enough to identify.
+                var plus = informational.IndexOf('+');
+                return plus < 0
+                    ? informational
+                    : informational[..Math.Min(informational.Length, plus + 8)];
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 }

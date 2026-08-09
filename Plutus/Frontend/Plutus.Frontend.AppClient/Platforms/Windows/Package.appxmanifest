@@ -6,7 +6,11 @@
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   IgnorableNamespaces="uap rescap">
 
-  <Identity Name="com.MBH.NatApp.Plutus" Publisher="CN=User Name" Version="1.0.0.0" />
+  <!-- ⚠ Version is REPLACED AT BUILD TIME from versions/till-maui.txt (ApplicationDisplayVersion
+         + ApplicationVersion), so leave it at 0.0.0.0. A hardcoded real version here wins over the
+         build property, which is how every MSIX shipped as 1.0.0.0 no matter what the source said:
+         Windows then sees no version change and a reinstall is not an upgrade. -->
+  <Identity Name="com.MBH.NatApp.Plutus" Publisher="CN=User Name" Version="0.0.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="E2EBA63D-1A97-4239-9A5E-35FE69A2B067" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
