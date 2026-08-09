@@ -416,6 +416,56 @@ public class CatalogueSyncE2eTests : IClassFixture<PlutusAppFactory>
         Assert.Equal(HttpStatusCode.NotFound, (await till.Http.SendAsync(req)).StatusCode);
     }
 
+    // ── the till version the portal shows (2026-08-09, Matt's request) ──────────────────────
+
+    /// <summary>
+    /// ⚠ THE VERSION HAS TO SURVIVE THE ROUND TRIP TO BE WORTH ANYTHING. Every till has sent its
+    /// own build on the 60s heartbeat since WP5 and nothing ever surfaced it, so "is that till on
+    /// the new build?" could only be answered by walking to it — the question asked after every
+    /// single deploy.
+    ///
+    /// ⚠ Presence is IN-MEMORY by design (a write per till per minute for data that expires in
+    /// five would be the busiest and least useful write path in the system), so this also pins
+    /// that a till which has NOT beaten reads as unknown rather than as an old version.
+    /// </summary>
+    [Fact]
+    public async Task The_tills_running_version_reaches_the_portal_after_a_heartbeat()
+    {
+        var till = await ProvisionAsync("tillversion@acme.test");
+
+        var portal = PlutusAppFactory.OperatorToken(PlutusPolicies.PortalTillsEnrol, till.TenantId);
+
+        // Before any heartbeat: known device, unknown version — never a stale one.
+        var before = await TillsAsync(till, portal);
+        Assert.True(before.TryGetProperty("appVersion", out var none));
+        Assert.Equal(JsonValueKind.Null, none.ValueKind);
+        Assert.Equal("Offline", before.GetProperty("presence").GetString());
+
+        await BeatAsync(till);
+
+        var after = await TillsAsync(till, portal);
+        Assert.Equal("1.0.0", after.GetProperty("appVersion").GetString());
+        Assert.Equal("Online", after.GetProperty("presence").GetString());
+        Assert.NotEqual(JsonValueKind.Null, after.GetProperty("lastSeenUtc").ValueKind);
+    }
+
+    /// <summary>The device row for this till, as the portal's fleet list renders it.</summary>
+    private async Task<JsonElement> TillsAsync(Till till, string portalToken)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Get, "/api/v1/tills");
+        req.Headers.Authorization = new("Bearer", portalToken);
+        var res = await till.Http.SendAsync(req);
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+
+        var tills = JsonDocument.Parse(await res.Content.ReadAsStringAsync()).RootElement;
+        foreach (var t in tills.EnumerateArray())
+            foreach (var d in t.GetProperty("devices").EnumerateArray())
+                if (d.GetProperty("id").GetGuid() == till.DeviceId)
+                    return d;
+
+        throw new Xunit.Sdk.XunitException("the enrolled device is not in the portal's till list");
+    }
+
     private async Task<JsonElement> BeatAsync(Till till)
     {
         var req = new HttpRequestMessage(HttpMethod.Post, "/api/v1/heartbeat")

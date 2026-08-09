@@ -40,6 +40,45 @@ function AgentChip({ d }: { d: TillRow["devices"][number] }) {
   );
 }
 
+/**
+ * Which BUILD this till is running, and whether it is speaking to us.
+ *
+ * ⚠ Every till has sent its own version on the 60s heartbeat since WP5 and nothing ever showed it,
+ * so "is that till on the new build?" could only be answered by walking to it. That is the question
+ * asked after every deploy, and the one that matters when a single till misbehaves.
+ *
+ * ⚠ A missing version means NOT HEARD FROM RECENTLY, never "old version" — presence is in-memory
+ * and rebuilds itself within a minute of a backend restart, so an empty chip right after a deploy
+ * of the BACKEND is expected and resolves itself.
+ */
+function VersionChip({ d }: { d: TillRow["devices"][number] }) {
+  const seen = d.lastSeenUtc ? new Date(d.lastSeenUtc + "Z").toLocaleString("en-GB") : null;
+
+  if (!d.appVersion) {
+    return (
+      <span className="chip" title={seen ? `Last heard from ${seen}` : "This till has not reported since the backend last started."}>
+        version unknown
+      </span>
+    );
+  }
+
+  // Offline with sales still queued is the one worth chasing — that is money sitting on a machine.
+  const stranded = d.presence === "Offline" && (d.outboxDepth ?? 0) > 0;
+  const tone = stranded ? "warn" : d.presence === "Online" ? "ok" : "";
+
+  return (
+    <span
+      className={`chip ${tone}`}
+      title={`Till software v${d.appVersion} · ${d.presence}${seen ? ` · last heard ${seen}` : ""}` +
+        ((d.outboxDepth ?? 0) > 0 ? ` · ${d.outboxDepth} sale(s) queued on the till` : "")}
+    >
+      v{d.appVersion}
+      {d.presence !== "Online" ? ` · ${d.presence.toLowerCase()}` : ""}
+      {stranded ? ` · ${d.outboxDepth} queued` : ""}
+    </span>
+  );
+}
+
 function DeviceChips({ devices }: { devices: TillRow["devices"] }) {
   const live = devices.filter((d) => d.status !== "Revoked");
   const retired = devices.length - live.length;
@@ -51,6 +90,7 @@ function DeviceChips({ devices }: { devices: TillRow["devices"] }) {
           <span className={`chip ${d.status === "Active" ? "ok" : "warn"}`}>
             {d.status === "PendingRemoval" ? "Pending removal" : d.status}
           </span>{" "}
+          <VersionChip d={d} />{" "}
           <AgentChip d={d} />
         </span>
       ))}

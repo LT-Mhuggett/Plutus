@@ -937,6 +937,16 @@ export interface TillRow {
     agentPrinterName: string | null;
     agentPrinterOnline: boolean | null;
     agentReportedAtUtc: string | null;
+    /** Which BUILD this till is running, off its 60s heartbeat — the question asked after every
+     *  deploy. From in-memory presence, so null means "not heard from recently", NEVER
+     *  "old version": presence rebuilds itself within a minute of a backend restart. */
+    appVersion: string | null;
+    /** Online · Stale · Offline. */
+    presence: string;
+    lastSeenUtc: string | null;
+    /** Sales queued on the till and not yet pushed. Non-zero on an Offline till is the one worth
+     *  chasing — that is money sitting on a machine. */
+    outboxDepth: number | null;
   }[];
 }
 export const fetchTills = () => get<TillRow[]>(`/api/v1/tills`);

@@ -34,12 +34,14 @@ namespace Plutus.Tenancy.Controllers
         private readonly EnrolmentService _enrolment;
         private readonly ITenantContext _tenant;
         private readonly MySqlDbContext _db;
+        private readonly TillPresence _presence;
 
-        public TillsController(EnrolmentService enrolment, ITenantContext tenant, MySqlDbContext db)
+        public TillsController(EnrolmentService enrolment, ITenantContext tenant, MySqlDbContext db, TillPresence presence)
         {
             _enrolment = enrolment;
             _tenant = tenant;
             _db = db;
+            _presence = presence;
         }
 
         private string ActingUser => User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "portal";
@@ -73,6 +75,21 @@ namespace Plutus.Tenancy.Controllers
                 devices = devices.Where(d => d.TillId == t.Id).Select(d => new
                 {
                     id = d.Id, status = d.Status.ToString(), lastSeenSeq = d.LastSeenSeq, createdAtUtc = d.CreatedAtUtc,
+
+                    // ⚠ WHICH BUILD IS ACTUALLY RUNNING, and whether it is speaking to us right
+                    // now. Every till has been sending its own version on the 60s heartbeat since
+                    // WP5 and nothing ever showed it — so "is that till on the new build?" could
+                    // only be answered by walking to it. That is the question asked after every
+                    // deploy, and the one that matters when a single till misbehaves.
+                    //
+                    // ⚠ From PRESENCE, which is in-memory and rebuilds itself within a minute of a
+                    // backend restart — deliberately not a MySQL write per till per minute for data
+                    // whose value expires in five. So a null here means "not heard from recently",
+                    // never "old version".
+                    appVersion = _presence.Get(d.Id)?.AppVersion,
+                    presence = (_presence.Get(d.Id)?.State ?? PresenceState.Offline).ToString(),
+                    lastSeenUtc = _presence.Get(d.Id)?.LastSeenUtc,
+                    outboxDepth = _presence.Get(d.Id)?.OutboxDepth,
                     // FE3.0 agent telemetry — reportedAt null = never reported (native till / old web
                     // till); reported with a null version = "web till, no agent installed".
                     agentVersion = d.AgentVersion,
