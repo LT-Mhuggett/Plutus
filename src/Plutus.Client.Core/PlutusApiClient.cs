@@ -244,6 +244,36 @@ public sealed class PlutusApiClient
     public Task<ActiveGatewayDto?> GetActiveGatewayAsync(CancellationToken ct = default) =>
         GetAsync<ActiveGatewayDto>("/api/v1/payments/gateway/active", ct);
 
+    /// <summary>
+    /// Sign an OPERATOR in online — the same `POST /api/Auth/Login` the web till uses
+    /// (binding default 11, cutover step 19).
+    ///
+    /// ⚠ NO DEVICE TOKEN ON THIS CALL. It is how somebody proves who they are before any session
+    /// exists, so attaching the till's credential would be answering a different question. It is
+    /// posted unauthenticated, exactly as the browser does it.
+    ///
+    /// Returns null for a wrong password, a deactivated account, a suspended tenant, or no network
+    /// — the CALLER must not treat those alike, so it also hands back the status.
+    /// </summary>
+    public async Task<(HttpStatusCode Status, OperatorSessionDto? Session)> LoginAsync(
+        string email, string password, CancellationToken ct = default)
+    {
+        try
+        {
+            using var res = await _http.PostAsJsonAsync("/api/Auth/Login", new { email, password }, Json, ct);
+            if (!res.IsSuccessStatusCode) return (res.StatusCode, null);
+
+            return (res.StatusCode, await res.Content.ReadFromJsonAsync<OperatorSessionDto>(Json, ct));
+        }
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
+            // ⚠ Unreachable is NOT "wrong password". The caller falls back to the offline roster on
+            // this, and telling an operator their password is wrong when the network is down sends
+            // them to reset a credential that was never the problem.
+            return (HttpStatusCode.ServiceUnavailable, null);
+        }
+    }
+
     // ── sale ingest ──
 
     /// <summary>

@@ -213,6 +213,41 @@ namespace Plutus.Frontend.AppClient.ViewModels
             }
         }
 
+        /// <summary>
+        /// Get this operator a platform token, in the background, without blocking sign-in
+        /// (cutover step 19).
+        ///
+        /// ⚠ Same endpoint as the web till — `POST /api/Auth/Login` — because it has been carrying
+        /// that till's sessions for months, which is the evidence it works. A parallel v2 endpoint
+        /// would be a second door onto the same lock, and the two would drift.
+        ///
+        /// ⚠ Every failure is swallowed. Offline, wrong tenant status, deactivated on the platform
+        /// but still on this till's roster — none of them may stop somebody serving a customer. The
+        /// roster already decided whether they may sign in; this only decides whether the reports
+        /// tab has anything to show.
+        /// </summary>
+        private static void TryFetchOperatorTokenInBackground(string email, string password)
+        {
+            if (string.IsNullOrWhiteSpace(email) || string.IsNullOrEmpty(password)) return;
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var http = Services.Connectivity.PlutusHttp.TryFor(new Settings().ServerUrlSetting);
+                    if (http is null) return;
+
+                    var (_, session) = await new Plutus.Client.Core.PlutusApiClient(http).LoginAsync(email, password);
+                    if (session is not null)
+                        Services.Connectivity.OperatorSession.Set(session);
+                }
+                catch (Exception ex)
+                {
+                    Services.Analytics.CrashLog.Write("LoginViewModel.TryFetchOperatorToken", ex);
+                }
+            });
+        }
+
         private async Task<bool> TrySignInFromRosterAsync()
         {
             var login = new Plutus.Client.Core.OperatorLogin(new Services.Connectivity.FileOperatorStore());
@@ -242,6 +277,18 @@ namespace Plutus.Frontend.AppClient.ViewModels
                 await App.Current.MainPage.DisplayAlert("Signed in", op.Message, "OK");
 
             App.GetViewModel().SignedInOperator = op;
+
+            // ⚠ AND, WHEN ONLINE, A PLATFORM TOKEN FOR THIS PERSON (step 19, binding default 11).
+            // The roster is what AUTHENTICATES — offline, against synced PBKDF2 hashes, and that
+            // does not change. This is a different need: the till's `perm:*` routes (its own sales
+            // list, cash events, reports) are gated on what the OPERATOR may see, and a device
+            // token cannot answer that — it identifies the machine, not the person. Without it the
+            // till 403s on its own takings.
+            //
+            // ⚠ Fire-and-forget, and failure is SILENT: a till with no network must still open. The
+            // consequence is that report screens are unavailable offline, which is honest — they
+            // are server-rendered anyway.
+            TryFetchOperatorTokenInBackground(_email_UserId, _password);
 
             // ⚠ THE SHELL NEEDS A STORE, and this path never gave it one. AppShell builds
             // StoreOptionsView, whose viewmodel dereferences App.GetViewModel().Store in its

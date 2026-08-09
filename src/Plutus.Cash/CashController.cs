@@ -54,9 +54,16 @@ namespace Plutus.Cash
             return StatusCode(outcome.Status, outcome.Body);
         }
 
-        /// <summary>Session events for a till/day (the X/Z drill).</summary>
+        /// <summary>
+        /// Session events for a till/day (the X/Z drill).
+        ///
+        /// ⚠ `pos.reports.view` as an alternative (step 19). This IS the X/Z drill — the thing an
+        /// operator runs at the end of their own shift — and it was reachable only with
+        /// `portal.financials.view`, which no till operator holds. The till could write cash events
+        /// and never read them back.
+        /// </summary>
         [HttpGet("api/v1/cash-events")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalFinancialsView)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalFinancialsView + "," + PermissionCatalogue.PosReportsView)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> List([FromQuery] Guid tillId, [FromQuery] DateOnly day) =>
             Ok(await _db.CashEvents.AsNoTracking()

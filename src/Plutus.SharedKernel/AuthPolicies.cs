@@ -18,4 +18,15 @@ public static class PlutusPolicies
     /// <summary>WP11.1 rename policy: satisfied by a portal admin ("portal.tills.enrol") OR the
     /// till's own device token ("device"), so a till can be named from the portal AND from itself.</summary>
     public const string TillsName = "tills.name";
+
+    /// <summary>
+    /// Un-enrolment REQUEST policy: a portal admin OR the till's own device token.
+    ///
+    /// ⚠ The endpoint's own doc comment says *"A till asks to be un-enrolled"*, and it was gated on
+    /// `portal.tills.enrol` — a scope a DEVICE token cannot carry. So the one caller it was written
+    /// for could not call it, and the till's "remove this till" button had nothing to talk to.
+    /// ⚠ A device token may only request removal of ITSELF; the controller enforces that, because
+    /// otherwise any enrolled till could start the removal of every other till in the estate.
+    /// </summary>
+    public const string TillsUnenrolRequest = "tills.unenrol-request";
 }

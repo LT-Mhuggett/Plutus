@@ -124,4 +124,100 @@ public class TillHardeningE2eTests : IClassFixture<PlutusAppFactory>
         Assert.Contains(PermissionCatalogue.PosSettingsManage, codesFor("Store Manager"));
         Assert.DoesNotContain(PermissionCatalogue.PosSettingsManage, codesFor("Cashier"));
     }
+
+    // ── cutover step 19: the caller each endpoint was written for can reach it ────────────────
+
+    /// <summary>
+    /// ⚠ THE ENDPOINT'S OWN DOC COMMENT SAYS "a till asks to be un-enrolled", and a till holds a
+    /// DEVICE token — which cannot carry `portal.tills.enrol`, the scope it was gated on. So the
+    /// one caller it was written for was the one caller who could not call it, and the till's
+    /// "remove this till" button had nothing to talk to.
+    /// </summary>
+    [Fact]
+    public async Task A_till_can_request_its_own_removal_with_its_device_token()
+    {
+        var deviceId = await SeedDeviceAsync();
+        var client = _f.CreateClient();
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, "/api/v1/tills/unenrol-request");
+        req.Headers.Authorization = new("Bearer", PlutusAppFactory.DeviceToken(deviceId, Kapow));
+        req.Content = JsonContent.Create(new { deviceId });
+
+        var resp = await client.SendAsync(req);
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        Assert.Equal("PendingRemoval",
+            JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement.GetProperty("status").GetString());
+    }
+
+    /// <summary>
+    /// ⚠ AND ONLY ITS OWN. Without this, one enrolled till could start the removal of every other
+    /// till in the estate — and un-enrolment is approved from a portal queue, so a flood of
+    /// plausible-looking requests is exactly what gets waved through.
+    /// </summary>
+    [Fact]
+    public async Task A_till_cannot_request_the_removal_of_a_different_till()
+    {
+        var mine = await SeedDeviceAsync();
+        var someoneElses = await SeedDeviceAsync();
+        var client = _f.CreateClient();
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, "/api/v1/tills/unenrol-request");
+        req.Headers.Authorization = new("Bearer", PlutusAppFactory.DeviceToken(mine, Kapow));
+        req.Content = JsonContent.Create(new { deviceId = someoneElses });
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.SendAsync(req)).StatusCode);
+
+        // and the other device is untouched
+        using var scope = _f.Services.CreateScope();
+        var db = (MySqlDbContext)scope.ServiceProvider.GetRequiredService<RepositoryContext>();
+        var still = await db.Devices.AsNoTracking().FirstAsync(d => d.Id == someoneElses);
+        Assert.Equal(DeviceStatus.Active, still.Status);
+    }
+
+    /// <summary>
+    /// ⚠ A TILL COULD NOT READ ITS OWN TAKINGS. `GET /api/v1/sales` and `GET /api/v1/cash-events`
+    /// — the second of which IS the X/Z drill an operator runs at the end of their own shift — were
+    /// gated on PORTAL permissions that no till operator holds. They now accept `pos.reports.view`
+    /// as well.
+    /// </summary>
+    [Fact]
+    public async Task An_operator_with_pos_reports_view_can_read_the_tills_own_sales_and_cash_events()
+    {
+        var client = _f.CreateClient();
+
+        var ownerId = Guid.NewGuid();
+        using (var scope = _f.Services.CreateScope())
+        {
+            var db = (MySqlDbContext)scope.ServiceProvider.GetRequiredService<RepositoryContext>();
+            db.CurrentUser = "step19-seed";
+            await RbacSeeder.EnsureBuiltInRolesAsync(db, Kapow);
+
+            // Store Manager holds pos.reports.view but no portal.* reporting permission.
+            var role = await db.RbacRoles.FirstAsync(r => r.TenantId == Kapow && r.Name == "Store Manager");
+            db.RbacRoleAssignments.Add(new RbacRoleAssignment
+            {
+                Id = Guid.NewGuid(), TenantId = Kapow, RoleId = role.Id, UserId = ownerId,
+                // ⚠ ScopeId is NOT NULL and "" means tenant-wide — the whole company, which is what
+                // a Store Manager reading their own till's figures needs.
+                ScopeType = RbacScopeType.Tenant, ScopeId = "",
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var operatorToken = PlutusAppFactory.OperatorTokenFor(ownerId, "pos.sell", Kapow);
+
+        foreach (var url in new[]
+                 {
+                     "/api/v1/sales?from=2026-08-01&to=2026-08-09",
+                     $"/api/v1/cash-events?tillId={Guid.NewGuid()}&day=2026-08-09",
+                 })
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, url);
+            req.Headers.Authorization = new("Bearer", operatorToken);
+            var resp = await client.SendAsync(req);
+
+            Assert.True(resp.StatusCode != HttpStatusCode.Forbidden,
+                $"{url} returned 403 — a till operator still cannot read the till's own figures.");
+        }
+    }
 }

@@ -659,8 +659,11 @@ namespace Plutus.Reporting
         // sensitivity tier as summary-rich, so gated at ReportsView (WP12.1: the till's Custom
         // report reads this, and must be reachable by whoever can see the Summary beside it).
         // The deeper per-line drill-down (`/{saleId}`) stays FinancialsView.
+        // ⚠ `pos.reports.view` as an alternative (step 19): a till operator running an X/Z or
+        // looking up today's sales holds POS permissions, never portal ones. Gating the till's own
+        // sales list behind a PORTAL permission meant the till 403'd on its own takings.
         [HttpGet("api/v1/sales")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView + "," + PermissionCatalogue.PosReportsView)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> SalesList(

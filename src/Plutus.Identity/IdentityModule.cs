@@ -48,6 +48,8 @@ namespace Plutus.Identity
                 .AddPolicy(PlutusPolicies.SalesIngest, p => p.RequireAuthenticatedUser().RequireAssertion(ctx =>
                     ctx.User.HasClaim("scope", PlutusPolicies.Device) || ctx.User.HasClaim("scope", PlutusPolicies.PosSell)))
                 .AddPolicy(PlutusPolicies.TillsName, p => p.RequireAuthenticatedUser().RequireAssertion(ctx =>
+                    ctx.User.HasClaim("scope", PlutusPolicies.PortalTillsEnrol) || ctx.User.HasClaim("scope", PlutusPolicies.Device)))
+                .AddPolicy(PlutusPolicies.TillsUnenrolRequest, p => p.RequireAuthenticatedUser().RequireAssertion(ctx =>
                     ctx.User.HasClaim("scope", PlutusPolicies.PortalTillsEnrol) || ctx.User.HasClaim("scope", PlutusPolicies.Device)));
 
             return services;

@@ -87,6 +87,27 @@ public class PlutusAppFactory : WebApplicationFactory<Program>
             Exp = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds(),
         }), Secret);
 
+    /// <summary>
+    /// A DEVICE token — what an enrolled till actually holds: scope "device" plus the `did` claim
+    /// naming which device it is.
+    ///
+    /// ⚠ The `did` is the point. Endpoints that a till may call on ITSELF (un-enrol request, its own
+    /// status) read it to check the token is talking about its own machine; a scope-only device
+    /// token would let any enrolled till act on any other.
+    /// </summary>
+    /// ⚠ LOWERCASE claim names, unlike the operator token above. `PlutusTokenAuthHandler` reads a
+    /// device token as `did` / `tid` / `scope` and `JsonElement.TryGetProperty` is case-SENSITIVE,
+    /// so `Did` parses as no device at all — the token authenticates but identifies nothing, and
+    /// every "is this your own device?" check silently passes.
+    public static string DeviceToken(Guid deviceId, Guid? tid = null) => CompactToken.Issue(
+        JsonSerializer.Serialize(new
+        {
+            did = deviceId.ToString(),
+            tid = tid?.ToString(),
+            scope = PlutusPolicies.Device,
+            exp = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds(),
+        }), Secret);
+
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);

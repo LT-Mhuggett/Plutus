@@ -241,13 +241,31 @@ namespace Plutus.Tenancy.Controllers
         // portal admin approves (→ Revoked, the till then forgets its credential) or rejects (→
         // Active). Devices are UNSCOPED by the tenant filter, so every action verifies TenantId.
 
-        /// <summary>A till asks to be un-enrolled — marks its device PendingRemoval (still trades).</summary>
+        /// <summary>
+        /// A till asks to be un-enrolled — marks its device PendingRemoval (still trades).
+        ///
+        /// ⚠ THE CALLER THIS WAS WRITTEN FOR COULD NOT CALL IT. The comment above has always said
+        /// "a till asks", and the gate was `portal.tills.enrol` — a scope a DEVICE token cannot
+        /// carry — so the till's own request button had nothing to talk to and only a portal admin
+        /// could ever raise the request. Now a portal admin OR the till's own device token.
+        /// </summary>
         [HttpPost("unenrol-request")]
-        [Authorize(Policy = PlutusPolicies.PortalTillsEnrol)]
+        [Authorize(Policy = PlutusPolicies.TillsUnenrolRequest)]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> RequestUnenrol([FromBody] UnenrolRequestBody body)
         {
+            if (body == null) return NotFound(new { detail = "Unknown device." });
+
+            // ⚠ A DEVICE MAY ONLY UN-ENROL ITSELF. Without this, one enrolled till could start the
+            // removal of every other till in the estate — and un-enrolment is approved from a portal
+            // screen that shows a queue, so a flood of plausible-looking requests is exactly the
+            // sort of thing that gets waved through.
+            var tokenDid = _tenant.DeviceId;
+            if (tokenDid.HasValue && body.DeviceId != tokenDid.Value)
+                return StatusCode(403, new { detail = "A till can only request its own removal." });
+
             var device = await _db.Devices.FirstOrDefaultAsync(d => d.Id == body.DeviceId && d.TenantId == _tenant.TenantId);
             if (device == null) return NotFound(new { detail = "Unknown device." });
             if (device.Status == DeviceStatus.Active) device.Status = DeviceStatus.PendingRemoval;

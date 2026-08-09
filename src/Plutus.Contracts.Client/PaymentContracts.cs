@@ -1,6 +1,19 @@
 namespace Plutus.Contracts.Client;
 
 /// <summary>
+/// `POST /api/Auth/Login` — an OPERATOR session, as the web till already trades on it.
+///
+/// ⚠ Deliberately the same endpoint rather than a v2 twin (binding default 11). The web till has
+/// been signing in through it for months, which is the evidence it works; a parallel endpoint would
+/// be a second door onto the same lock, and the two would drift.
+///
+/// ⚠ The token lives in MEMORY for the session and is never written to disk. It is a bearer token
+/// with no server-side denylist, so a copy on disk outlives every revocation the platform can
+/// perform — the offline story is the synced roster and its PBKDF2 hashes, not a cached token.
+/// </summary>
+public sealed record OperatorSessionDto(string Token, Guid EmployeeId, string Name, DateTime ExpiresAt);
+
+/// <summary>
 /// GET /api/v1/payments/gateway/active — which card gateway this tenant has selected, and whether
 /// a terminal integration is actually wired for it.
 ///
