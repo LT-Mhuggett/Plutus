@@ -19,8 +19,17 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 Suite: **Unit 733 · Architecture 13 · Integration 137 · AppClient 404 (+3 skipped) — all green.**
 Debug and Release both build. **Pushed** — `upstream/Matt's-Horror` at `4d29877`. Versions:
-backend **1.4.0**, platform **1.16.0**, till-maui **1.12.0** (the deployed backend is still 1.2.0 —
-nothing in this batch has been deployed).
+backend **1.5.0**, platform **1.16.0**, till-maui **1.12.0**, portal **1.2.0**.
+
+**✅ DEPLOYED 2026-08-09 22:56** — backend **1.5.0** and portal **1.2.0** are LIVE on the test
+environment. Rollbacks: `~/PLUTUS/backend.pre-20260809-225420` and
+`/srv/apps/PLUTUS/portal/current.pre-20260809-225630`. Pre-migration dump:
+`~/PLUTUS/backups/plutus-pre-surcharge-20260809-225249.sql.gz` (7.3M, 101 tables, integrity
+checked). The one migration in the batch — `AddCardSurchargeToGateway`, two additive columns —
+applied and was verified by COLUMN presence, not by the history table. Verified after: swagger 200,
+`POST /api/v1/tokens/device` → **401 "Device not enrolled or revoked."** (the DB-path probe; a 500
+there is what a schema/model disagreement looks like), ETRIE 200, backend restart count steady over
+20s. ⚠ The MAUI till is NOT deployed — that is a rebuild+reinstall on the till machine.
 
 **⚠ The MySQL password IS rotated, and the backend now talks to MySQL over the UNIX SOCKET.**
 That second half was not planned. The `plutus` account is `caching_sha2_password`: the server caches
