@@ -209,6 +209,31 @@ namespace Plutus.Frontend.AppClient.Services.Storage
             }, quantity: 1);
         }
 
+        /// <summary>
+        /// Why goods are coming back, for the sale's note.
+        ///
+        /// ⚠ THE OPERATOR TYPES THIS AND IT WAS BEING THROWN AWAY. `ExecuteReturn` demands a reason
+        /// before it will proceed, stores it on the `BasketReturnItem` — and nothing ever sent it.
+        /// The platform recorded refunds with no explanation at all, which is the one field anybody
+        /// asks about later: `SaleAdjustment.Reason` is the audit answer to "why did this money go
+        /// back out of the drawer".
+        ///
+        /// Distinct reasons are joined; identical ones (the usual case — one reason, several lines)
+        /// collapse to a single sentence rather than repeating.
+        /// </summary>
+        internal static string ReturnReasonOf(IEnumerable<IBasketRecord> basket)
+        {
+            var reasons = (basket ?? Enumerable.Empty<IBasketRecord>())
+                .OfType<BasketReturnItem>()
+                .Select(r => r.Reason)
+                .Where(r => !string.IsNullOrWhiteSpace(r))
+                .Select(r => r.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return reasons.Count == 0 ? null : string.Join("; ", reasons);
+        }
+
         /// <summary>Is the surcharge already in this basket? Applied ONCE per sale — a split
         /// payment across two cards must not charge the flat fee twice.</summary>
         public static bool HasSurcharge(IEnumerable<IBasketRecord> basket) =>
@@ -265,7 +290,7 @@ namespace Plutus.Frontend.AppClient.Services.Storage
 
                 var request = SaleAssembler.Assemble(
                     saleId, deviceId, deviceSeq: 0, businessId, lines, tenders,
-                    businessDay, DateTime.UtcNow, operatorUserId);
+                    businessDay, DateTime.UtcNow, operatorUserId, note: ReturnReasonOf(basket));
 
                 // ⚠ THE LAST POINT AT WHICH A MIS-TOTALLED SALE IS STILL VISIBLE. The server
                 // enforces `Σ tender − Σ change == GrossPence` and answers `202 Quarantined` when

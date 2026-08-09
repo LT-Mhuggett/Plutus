@@ -145,4 +145,175 @@ public class SaleAssemblerE2eTests : IClassFixture<PlutusAppFactory>
         Assert.Equal(HttpStatusCode.Created, status);
         Assert.Equal("recorded", body?.Status?.ToLowerInvariant());
     }
+
+    // ── cutover step 17: the server-side refund cap ──────────────────────────────────────────
+
+    /// <summary>Post a sale of one line and return its id.</summary>
+    private static async Task<Guid> SellAsync(
+        PlutusApiClient api, Guid deviceId, Guid businessId, long seq, string idOne, long incPence, long exPence, int qty)
+    {
+        var id = Uuid7.New();
+        var lines = new[] { new BasketLine(Guid.Empty, idOne, "Item " + idOne, incPence, exPence, qty) };
+        var sale = SaleAssembler.Assemble(
+            id, deviceId, seq, businessId, lines,
+            new[] { new IngestTender { TenderType = Tenders.Cash, AmountPence = incPence * qty } },
+            new DateOnly(2026, 8, 9), DateTime.UtcNow);
+
+        Assert.Equal(HttpStatusCode.Created,
+            (await api.PostSaleAsync(JsonSerializer.Serialize(sale, PlutusApiClient.Json))).Status);
+        return id;
+    }
+
+    private static async Task<(HttpStatusCode Status, string Body)> RefundAsync(
+        PlutusApiClient api, Guid deviceId, Guid businessId, long seq,
+        Guid originId, string idOne, long incPence, long exPence, int qty)
+    {
+        var lines = new[]
+        {
+            new BasketLine(Guid.Empty, idOne, "Item " + idOne, incPence, exPence, qty,
+                IsReturn: true, OriginSaleId: originId),
+        };
+        var totals = SaleAssembler.Total(lines);
+        var refund = SaleAssembler.Assemble(
+            Uuid7.New(), deviceId, seq, businessId, lines,
+            new[] { new IngestTender { TenderType = Tenders.Cash, AmountPence = totals.GrossPence } },
+            new DateOnly(2026, 8, 9), DateTime.UtcNow);
+
+        var (status, body) = await api.PostSaleAsync(JsonSerializer.Serialize(refund, PlutusApiClient.Json));
+        return (status, body?.Status?.ToLowerInvariant() ?? "");
+    }
+
+    /// <summary>
+    /// ⚠ THE ONE THAT MATTERS — Matt's binding default 12: *"You should not be able to refund MORE
+    /// than the price paid for it."* Two part-refunds inside the total are fine; the one that tips
+    /// past what was taken is QUARANTINED, not recorded. Each refund looks perfectly reasonable on
+    /// its own — only the running total says otherwise, and only the server can see it, because a
+    /// till knows what IT refunded and never what another till did.
+    /// </summary>
+    [Fact]
+    public async Task Part_refunds_are_recorded_until_they_exceed_what_was_paid_then_quarantined()
+    {
+        var http = _f.CreateClient();
+        var (api, deviceId, businessId) = await EnrolAsync(http, "refundcap1@acme.test");
+
+        // sold: 3 × £10 = £30
+        var originId = await SellAsync(api, deviceId, businessId, 1, "5030001", 1000, 833, qty: 3);
+
+        // £10 back, then another £10 — both legitimate, both inside the total
+        Assert.Equal(HttpStatusCode.Created,
+            (await RefundAsync(api, deviceId, businessId, 2, originId, "5030001", 1000, 833, 1)).Status);
+        Assert.Equal(HttpStatusCode.Created,
+            (await RefundAsync(api, deviceId, businessId, 3, originId, "5030001", 1000, 833, 1)).Status);
+
+        // £20 more would make £40 out of a £30 sale
+        var (status, body) = await RefundAsync(api, deviceId, businessId, 4, originId, "5030001", 1000, 833, 2);
+
+        Assert.Equal(HttpStatusCode.Accepted, status);   // 202
+        Assert.Equal("quarantined", body);
+    }
+
+    /// <summary>
+    /// ⚠ THE PER-LINE HALF, which is the gap the till's own cap cannot close. Its local history is
+    /// per ORIGIN SALE, so refunding one £10 line three times inside a £210 sale passes a
+    /// sale-level test comfortably — and that is the actual shape of refund fraud.
+    /// </summary>
+    [Fact]
+    public async Task One_line_cannot_be_refunded_repeatedly_inside_a_larger_sale_total()
+    {
+        var http = _f.CreateClient();
+        var (api, deviceId, businessId) = await EnrolAsync(http, "refundcap2@acme.test");
+
+        // ⚠ TWO ITEMS, and the cheap one is what gets refunded twice. A £10 comic alongside a £200
+        // console: giving the comic back twice is £20 against a £210 sale, which the SALE-level cap
+        // waves through without blinking. Only the per-ITEM cap can see it — and this test fails if
+        // that half is removed, which the single-item version of it did not.
+        var originId = Uuid7.New();
+        var sold = new[]
+        {
+            new BasketLine(Guid.Empty, "5030002", "Comic", 1000, 833, 1),
+            new BasketLine(Guid.Empty, "5030012", "Console", 20000, 16667, 1),
+        };
+        var totals = SaleAssembler.Total(sold);
+        var sale = SaleAssembler.Assemble(
+            originId, deviceId, 1, businessId, sold,
+            new[] { new IngestTender { TenderType = Tenders.Cash, AmountPence = totals.GrossPence } },
+            new DateOnly(2026, 8, 9), DateTime.UtcNow);
+        Assert.Equal(HttpStatusCode.Created,
+            (await api.PostSaleAsync(JsonSerializer.Serialize(sale, PlutusApiClient.Json))).Status);
+
+        // the comic comes back — entirely legitimate
+        Assert.Equal(HttpStatusCode.Created,
+            (await RefundAsync(api, deviceId, businessId, 2, originId, "5030002", 1000, 833, 1)).Status);
+
+        // and again. £20 of £210 is nothing at sale level; the comic itself is now double-refunded.
+        var (status, body) = await RefundAsync(api, deviceId, businessId, 3, originId, "5030002", 1000, 833, 1);
+
+        Assert.Equal(HttpStatusCode.Accepted, status);
+        Assert.Equal("quarantined", body);
+    }
+
+    /// <summary>An item that was never on the sale cannot be returned against it, however small
+    /// the amount — the sale-level total would happily absorb it.</summary>
+    [Fact]
+    public async Task An_item_that_was_not_on_the_sale_cannot_be_refunded_against_it()
+    {
+        var http = _f.CreateClient();
+        var (api, deviceId, businessId) = await EnrolAsync(http, "refundcap3@acme.test");
+
+        var originId = await SellAsync(api, deviceId, businessId, 1, "5030003", 5000, 4167, qty: 1);
+
+        var (status, body) = await RefundAsync(api, deviceId, businessId, 2, originId, "5030099", 100, 83, 1);
+
+        Assert.Equal(HttpStatusCode.Accepted, status);
+        Assert.Equal("quarantined", body);
+    }
+
+    /// <summary>
+    /// ⚠ A refund whose ORIGIN the platform has never seen is ACCEPTED, deliberately. Quarantine is
+    /// terminal — the outbox never retries a 202 — and a refund can legitimately arrive before the
+    /// sale it refunds, because another till's outbox drains on its own schedule. Destroying a real
+    /// refund to guard against an unverifiable one is the worse trade.
+    /// </summary>
+    [Fact]
+    public async Task A_refund_against_a_sale_the_platform_has_not_seen_yet_is_still_accepted()
+    {
+        var http = _f.CreateClient();
+        var (api, deviceId, businessId) = await EnrolAsync(http, "refundcap4@acme.test");
+
+        var neverIngested = Uuid7.New();
+        var (status, body) = await RefundAsync(api, deviceId, businessId, 1, neverIngested, "5030004", 1000, 833, 1);
+
+        Assert.Equal(HttpStatusCode.Created, status);
+        Assert.Equal("recorded", body);
+    }
+
+    /// <summary>⚠ Re-posting the SAME refund must not count itself as prior history and tip the
+    /// sale over its own cap — an idempotent retry is exactly what the outbox does after a
+    /// timeout.</summary>
+    [Fact]
+    public async Task Re_posting_the_same_refund_stays_idempotent_rather_than_becoming_an_over_refund()
+    {
+        var http = _f.CreateClient();
+        var (api, deviceId, businessId) = await EnrolAsync(http, "refundcap5@acme.test");
+
+        var originId = await SellAsync(api, deviceId, businessId, 1, "5030005", 1000, 833, qty: 1);
+
+        var lines = new[]
+        {
+            new BasketLine(Guid.Empty, "5030005", "Item", 1000, 833, 1, IsReturn: true, OriginSaleId: originId),
+        };
+        var totals = SaleAssembler.Total(lines);
+        var refund = SaleAssembler.Assemble(
+            Uuid7.New(), deviceId, 2, businessId, lines,
+            new[] { new IngestTender { TenderType = Tenders.Cash, AmountPence = totals.GrossPence } },
+            new DateOnly(2026, 8, 9), DateTime.UtcNow);
+        var payload = JsonSerializer.Serialize(refund, PlutusApiClient.Json);
+
+        Assert.Equal(HttpStatusCode.Created, (await api.PostSaleAsync(payload)).Status);
+
+        // the same payload again — a duplicate, never a second refund
+        var (status, body) = await api.PostSaleAsync(payload);
+        Assert.Equal(HttpStatusCode.OK, status);                     // 200 duplicate
+        Assert.NotEqual("quarantined", body?.Status?.ToLowerInvariant());
+    }
 }

@@ -132,11 +132,28 @@ namespace Plutus.Sales
             if (vatProblem != null)
                 return await QuarantineAsync(req, tenantId, vatProblem, receivedAt);
 
+            // Cutover step 17. ⚠ THE ONLY PLACE THIS CAN BE ENFORCED FOR THE WHOLE ESTATE: a till
+            // knows what IT has refunded, never what another till has. Matt's binding default 12 —
+            // *"You should not be able to refund MORE than the price paid for it."*
+            var refundProblem = await ValidateRefundCapAsync(req, tenantId);
+            if (refundProblem != null)
+                return await QuarantineAsync(req, tenantId, refundProblem, receivedAt);
+
             try
             {
                 await using var tx = await _db.Database.BeginTransactionAsync();
                 _db.SalesV2.Add(sale);
                 _db.OutboxEvents.Add(BuildOutbox(sale));
+
+                // ⚠ RECORDING THE REFUND IS HALF THE FEATURE, and it was missing entirely: only the
+                // WEBSTORE ever wrote `SaleAdjustments`, so a till refund left no trace against the
+                // sale it came from. Every "how much has been refunded" question — the cap above,
+                // `GET /api/v1/sales/{id}`'s `adjustments`, the portal's drill-down — read a table
+                // that till refunds never populated, and therefore always answered "none". A cap
+                // enforced against a history nobody writes is decorative.
+                foreach (var adjustment in RefundAdjustmentsOf(req, tenantId))
+                    _db.SaleAdjustments.Add(adjustment);
+
                 if (device != null) device.LastSeenSeq = Math.Max(device.LastSeenSeq, req.DeviceSeq);
                 await _db.SaveChangesAsync();
                 await tx.CommitAsync();
@@ -150,6 +167,142 @@ namespace Plutus.Sales
                 if (existing != null) return existing;
                 throw;
             }
+        }
+
+        /// <summary>`Reason` is capped at 500 in the schema; a longer note would 500 the ingest.</summary>
+        private static string Truncate(string s, int max) =>
+            string.IsNullOrEmpty(s) || s.Length <= max ? s : s.Substring(0, max);
+
+        /// <summary>The origin sale a line is giving goods back to, or null when it is an ordinary
+        /// sale line. Lives in the line's meta, where `SaleAssembler` puts it.</summary>
+        private static Guid? OriginOf(IngestLine line)
+        {
+            if (string.IsNullOrWhiteSpace(line?.DiscountsJson)) return null;
+            try
+            {
+                using var doc = JsonDocument.Parse(line.DiscountsJson);
+                if (doc.RootElement.TryGetProperty("return", out var r) &&
+                    r.ValueKind == JsonValueKind.Object &&
+                    r.TryGetProperty("originSaleId", out var o) &&
+                    Guid.TryParse(o.GetString(), out var id) && id != Guid.Empty)
+                    return id;
+            }
+            catch (JsonException) { }
+            return null;
+        }
+
+        /// <summary>
+        /// One <see cref="SaleAdjustment"/> per returned LINE, so the refund history is per item
+        /// rather than per sale — which is what makes the per-line half of the cap possible at all.
+        /// </summary>
+        private static IEnumerable<SaleAdjustment> RefundAdjustmentsOf(IngestSaleRequest req, Guid tenantId)
+        {
+            foreach (var line in req.Lines)
+            {
+                if (OriginOf(line) is not Guid origin) continue;
+
+                yield return new SaleAdjustment
+                {
+                    Id = Uuid7.New(),
+                    TenantId = tenantId,
+                    Type = AdjustmentType.Refund,
+                    OriginalSaleId = origin,
+                    AdjustmentSaleId = req.SaleId,
+                    ItemId = line.ItemId,
+                    // ⚠ POSITIVE magnitudes throughout. A return's line gross and qty are negative
+                    // on the wire; a refund history that stores them signed makes every SUM() cancel
+                    // out against the sales it is meant to be limiting.
+                    Qty = Math.Abs(line.Qty),
+                    AmountPence = Math.Abs(line.LineGrossPence),
+                    // ⚠ NOT NULL in the schema, and a null here 500s the whole ingest rather than
+                    // failing gracefully — which is how this was found. It is also the audit answer
+                    // to "why did this money go back", so an empty one is a real gap, not cosmetic:
+                    // the till now sends the operator's typed reason as the sale note.
+                    Reason = Truncate(string.IsNullOrWhiteSpace(req.Note) ? "Returned at till" : req.Note, 500),
+                    AuthoriserUserId = req.OperatorUserId,
+                    CreatedAtUtc = DateTime.UtcNow,
+                };
+            }
+        }
+
+        /// <summary>
+        /// Cutover step 17 — would this sale give back more than was ever paid? Null when it is
+        /// fine, otherwise the reason to quarantine.
+        ///
+        /// ⚠ ENFORCED IN TWO SCOPES, because the sale-level one alone is not a cap on anything a
+        /// customer would recognise. Per SALE stops the total exceeding what was taken; per ITEM
+        /// stops one £30 line being refunded three times inside a £200 sale, which passes the
+        /// sale-level test comfortably and is the actual shape of refund fraud. The till can only
+        /// do the first (its local history is per origin sale), which is exactly why this exists.
+        ///
+        /// ⚠ AN ORIGIN THIS PLATFORM HAS NEVER SEEN IS ACCEPTED, deliberately. Quarantine is
+        /// TERMINAL — `OutboxPusher` never retries a 202 — and a refund can legitimately reach the
+        /// server before the sale it refunds: a different till's outbox drains on its own schedule.
+        /// Destroying a real refund to guard against an unverifiable one is the worse trade, and
+        /// the adjustment is still recorded so the sale is capped correctly once it arrives.
+        /// </summary>
+        private async Task<string> ValidateRefundCapAsync(IngestSaleRequest req, Guid tenantId)
+        {
+            var returns = req.Lines
+                .Select(l => (Line: l, Origin: OriginOf(l)))
+                .Where(x => x.Origin.HasValue)
+                .ToList();
+
+            if (returns.Count == 0) return null;
+
+            foreach (var byOrigin in returns.GroupBy(x => x.Origin!.Value))
+            {
+                var origin = await _db.SalesV2.AsNoTracking()
+                    .Include(s => s.Lines)
+                    .FirstOrDefaultAsync(s => s.Id == byOrigin.Key);
+
+                if (origin == null) continue;   // see the remark above — never quarantine on this
+
+                // ⚠ Excludes THIS sale's own rows so a re-POST cannot count itself and turn an
+                // idempotent retry into an over-refund.
+                var priorRows = await _db.SaleAdjustments.AsNoTracking()
+                    .Where(a => a.OriginalSaleId == byOrigin.Key && a.AdjustmentSaleId != req.SaleId)
+                    .Select(a => new { a.ItemId, a.AmountPence })
+                    .ToListAsync();
+
+                // ── per sale ──
+                var alreadyAll = priorRows.Sum(a => Math.Abs(a.AmountPence));
+                var requestedAll = byOrigin.Sum(x => Math.Abs(x.Line.LineGrossPence));
+
+                var whole = RefundRules.Authorise(
+                    SaleRecordSource.Server, Math.Abs(origin.GrossPence), alreadyAll, requestedAll);
+
+                if (!whole.IsAllowed || whole.WasCapped)
+                    return $"Refund against sale {byOrigin.Key:D} would give back {requestedAll}p when only "
+                         + $"{whole.RemainingPence}p of that sale remains refundable ({alreadyAll}p already returned "
+                         + $"of {Math.Abs(origin.GrossPence)}p taken).";
+
+                // ── per item ──
+                foreach (var byItem in byOrigin.GroupBy(x => x.Line.ItemId))
+                {
+                    var soldPence = origin.Lines
+                        .Where(l => l.ItemId == byItem.Key)
+                        .Sum(l => Math.Abs(l.LineGrossPence));
+
+                    // An item that was never on the origin sale cannot be returned against it.
+                    if (soldPence == 0)
+                        return $"Refund against sale {byOrigin.Key:D} includes item {byItem.Key:D}, which was "
+                             + "not sold on that sale.";
+
+                    var alreadyItem = priorRows.Where(a => a.ItemId == byItem.Key).Sum(a => Math.Abs(a.AmountPence));
+                    var requestedItem = byItem.Sum(x => Math.Abs(x.Line.LineGrossPence));
+
+                    var perItem = RefundRules.Authorise(
+                        SaleRecordSource.Server, soldPence, alreadyItem, requestedItem);
+
+                    if (!perItem.IsAllowed || perItem.WasCapped)
+                        return $"Refund against sale {byOrigin.Key:D} would give back {requestedItem}p for item "
+                             + $"{byItem.Key:D}, but only {perItem.RemainingPence}p of that item remains refundable "
+                             + $"({alreadyItem}p already returned of {soldPence}p sold).";
+                }
+            }
+
+            return null;
         }
 
         /// <summary>The web till carries the barcode in the line's DiscountsJson metadata
