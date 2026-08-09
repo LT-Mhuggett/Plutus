@@ -17,9 +17,9 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 ### ⏰⏰⏰⏰⏰⏰⏰ RESUME HERE (2026-08-09, LATE — cutover Phases 1–3 done, MySQL password rotated)
 
-Suite: **Unit 733 · Architecture 13 · Integration 137 · AppClient 405 (+3 skipped) — all green.**
-Debug and Release both build. **Pushed** — `upstream/Matt's-Horror` at `2e4e0d8`. Versions:
-backend **1.4.0**, platform **1.16.0**, till-maui **1.11.0** (the deployed backend is still 1.2.0 —
+Suite: **Unit 733 · Architecture 13 · Integration 137 · AppClient 404 (+3 skipped) — all green.**
+Debug and Release both build. **Pushed** — `upstream/Matt's-Horror` at `4d29877`. Versions:
+backend **1.4.0**, platform **1.16.0**, till-maui **1.12.0** (the deployed backend is still 1.2.0 —
 nothing in this batch has been deployed).
 
 **⚠ The MySQL password IS rotated, and the backend now talks to MySQL over the UNIX SOCKET.**
@@ -85,9 +85,15 @@ migration's only input, no server copy, no undo — behind one "are you sure".
 **Next:** the rest of step 21 (delete `SetupViewModel`, `TransferThirdPartyViewModel`, their views
 and `<Compile Update>` items, and `LoginViewModel.EnsureStoreAsync`), then 22–28. Those remaining
 deletions are XAML-and-csproj work whose failure mode is a **blank screen, not a build error**, so
-they want a session that can run the app. Still owed: `TillStoreAccessTests` (step 3), step 11b
-basket reshape. Known-broken and NOT fixed: the **ClientUI** surface's commit path is entirely
-ungated — grepping it for authorisation returns one hit, a bare `//Authorisation checks` comment.
+they want a session that can run the app. ✅ **`TillStoreAccessTests` are now written** (step 3's
+debt); step 11b basket reshape remains.
+
+⚠ **The "ungated ClientUI commit path" is NOT a live gap — I listed it as one earlier and was
+wrong.** `till-design.md` records `Plutus.Frontend.ClientUI` as an **abandoned port, being retired,
+kept only to harvest its colour palette — "do not build on it"**. It is in no solution, referenced by
+no project, and was last touched 2026-07-27. Its checkout genuinely is ungated (one hit for
+`//Authorisation checks`), but gating dead code buys nothing: it should be DELETED, and step 22 is
+what harvests the palette that is the only reason it still exists.
 
 ---
 
