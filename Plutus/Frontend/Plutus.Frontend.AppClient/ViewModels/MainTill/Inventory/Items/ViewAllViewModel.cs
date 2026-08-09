@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using CustomViews.Structs;
 using Microsoft.Maui.ApplicationModel;
@@ -25,13 +26,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
     {
         #region Private Fields
         private string _searchText;
-        // ⚠ INITIALISED HERE, and its absence is why "View all items" crashed EVERY time it was
-        // opened. The constructor does `SfListViewDataSource.GroupDescriptors.Add(...)` on a field
-        // nothing ever assigned, so it threw NullReferenceException inside
-        // `MainThread.BeginInvokeOnMainThread` — which surfaced as
-        // `TargetInvocationException` out of the XAML loader, i.e. a stack trace pointing at
-        // InitializeComponent rather than at the null. The screen has never opened.
-        private DataSource _sfListViewDataSource = new();
+        // ⚠ Left NULL until the view assigns it — see the property. It is the list's own
+        // DataSource, pushed in by a OneWayToSource binding.
+        private DataSource _sfListViewDataSource;
         private int _limit;
         #endregion
 
@@ -42,10 +39,44 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
             get => _searchText;
             set => SetProperty(ref _searchText, value, onChanged: () => ExecuteItemFilter());
         }
+        /// <summary>
+        /// ⚠ THE VIEW PUSHES THIS IN — the XAML binds `Mode=OneWayToSource`, so the list view
+        /// assigns its OWN `DataSource` here. The viewmodel must never manufacture one: a
+        /// locally-created DataSource is an orphan the list never reads, so any grouping applied to
+        /// it silently does nothing.
+        ///
+        /// ⚠ Which is why the grouping is applied HERE, on assignment, rather than in the
+        /// constructor. The constructor ran before the binding had pushed anything and dereferenced
+        /// null — that is the NullReferenceException that made "View all items" crash every time it
+        /// was opened, wrapped in a TargetInvocationException from the XAML loader so the stack
+        /// pointed at InitializeComponent.
+        /// </summary>
         public DataSource SfListViewDataSource
         {
             get => _sfListViewDataSource;
-            set => SetProperty(ref _sfListViewDataSource, value);
+            set
+            {
+                SetProperty(ref _sfListViewDataSource, value);
+                ApplyGrouping();
+            }
+        }
+
+        /// <summary>Group by first letter. ⚠ Null-safe: the old selector did `item.Name[0]`, which
+        /// throws on an item with no name — inside the list's own layout pass, where it strands the
+        /// screen rather than surfacing.</summary>
+        private void ApplyGrouping()
+        {
+            var source = _sfListViewDataSource;
+            if (source is null || source.GroupDescriptors.Count > 0) return;
+
+            source.GroupDescriptors.Add(new GroupDescriptor
+            {
+                PropertyName = "Name",
+                KeySelector = obj =>
+                    obj is ItemModel item && !string.IsNullOrWhiteSpace(item.Name)
+                        ? item.Name.Trim()[0].ToString().ToUpperInvariant()
+                        : "#",
+            });
         }
         public ObservableCollection<ItemModel> Items { get; private set; } = new ObservableCollection<ItemModel>();
         #endregion
@@ -54,21 +85,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         public ViewAllViewModel()
         {
             Title = "View All Items";
-            #region Init
-            MainThread.BeginInvokeOnMainThread(() =>
-            {
-                SfListViewDataSource.GroupDescriptors.Add(new GroupDescriptor()
-                {
-                    PropertyName = "Name",
-                    KeySelector = (obj) =>
-                    {
-                        if (obj is ItemModel item)
-                            return item.Name[0].ToString();
-                        return "";
-                    }
-                });
-            });
-            #endregion
+
+            // ⚠ NO GROUPING SET UP HERE. It used to be done from the constructor inside
+            // `BeginInvokeOnMainThread`, against a DataSource the VIEW had not pushed in yet — a
+            // guaranteed NullReferenceException, and the reason this screen crashed on every open.
+            // Grouping is applied when the view assigns `SfListViewDataSource`.
         }
 
         /// <summary>
@@ -92,7 +113,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 var loaded = new List<ItemModel>();
                 try
                 {
-                    var catalogue = await Services.Storage.TillStoreAccess.UseAsync(s => s.BrowseAsync(_limit));
+                    // ⚠ TIMED OUT, because the store is SHARED. `TillStoreAccess` serialises every
+                    // caller behind one semaphore, so a read that never returns does not just hang
+                    // this screen — it blocks the heartbeat, the outbox drain and the catalogue
+                    // sync behind it, and the till goes quiet with no error anywhere.
+                    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+                    var catalogue = await Services.Storage.TillStoreAccess.UseAsync(
+                        s => s.BrowseAsync(500, timeout.Token), timeout.Token);
 
                     // ⚠ Mapped to the legacy `ItemModel` because that is what the list view binds
                     // to, and MAUI bindings fail SILENTLY — swapping the bound type would blank the
@@ -118,9 +145,28 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
 
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
-                    Items = new ObservableCollection<ItemModel>(loaded);
-                    OnPropertyChanged(nameof(Items));
-                    App.SetLoading(false);
+                    // ⚠ THE OVERLAY COMES DOWN FIRST, and this ordering is the fix for a HANG.
+                    // Setting the collection makes the list group and lay out synchronously — and
+                    // anything that throws in there (a null item name in the group selector was the
+                    // real one) killed this lambda before `SetLoading(false)` ran, leaving a
+                    // spinner over a dead screen with nothing in any log. Clearing it first means
+                    // the worst case is a visibly empty list, which is diagnosable.
+                    //
+                    // ⚠ And in its OWN try, because `SetLoading` reaches through
+                    // `App.GetViewModel()`, which casts `_app.BindingContext` — it can throw, and if
+                    // it took the binding down with it the screen would be blank AND covered.
+                    try { App.SetLoading(false); }
+                    catch (Exception ex) { Services.Analytics.CrashLog.Write("ViewAllViewModel.Overlay", ex); }
+
+                    try
+                    {
+                        Items = new ObservableCollection<ItemModel>(loaded);
+                        OnPropertyChanged(nameof(Items));
+                    }
+                    catch (Exception ex)
+                    {
+                        Services.Analytics.CrashLog.Write("ViewAllViewModel.Bind", ex);
+                    }
                 });
             });
         }

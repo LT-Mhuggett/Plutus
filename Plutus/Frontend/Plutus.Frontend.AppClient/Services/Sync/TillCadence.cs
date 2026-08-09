@@ -156,8 +156,19 @@ namespace Plutus.Frontend.AppClient.Services.Sync
             // 1. Beat. ⚠ Never by minting a device token — `POST /api/v1/tokens/device` is rate
             // limited to 5/min/IP, so polling it makes a healthy till report itself revoked, and
             // tills sharing one public IP do it to each other.
+            //
+            // ⚠ TIME-LIMITED, because the beat goes through the SHARED store gate. `TillStoreAccess`
+            // serialises every caller behind one semaphore, so a screen holding a slow or wedged
+            // read does not merely hang itself — it parks the heartbeat behind it, and the till
+            // vanishes from the fleet list while still selling perfectly well. That reads as "the
+            // till is off", which is the opposite of the truth. A beat that cannot get to the store
+            // within half a minute is one the platform is better off missing.
+            using var beatDeadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            beatDeadline.CancelAfter(TimeSpan.FromSeconds(30));
+
             var beat = await TillStoreAccess.UseAsync(
-                store => new SyncClient(api, store).BeatAsync(deviceId, AppVersion(), ct), ct).ConfigureAwait(false);
+                store => new SyncClient(api, store).BeatAsync(deviceId, AppVersion(), beatDeadline.Token),
+                beatDeadline.Token).ConfigureAwait(false);
 
             // 2. Drain. ⚠ BEFORE the catalogue pull: a sale already rung up is worth more than a
             // price that has not been asked for yet, and on a slow link the catalogue can take the

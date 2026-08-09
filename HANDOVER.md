@@ -15,6 +15,51 @@ Head: see `git log` — this line goes stale; the commits don't.
 > Older references below that say `Build/<plan>.md` now mean `Build/archive/<plan>.md` or
 > `Build/To do/<plan>.md`.
 
+### ⏰⏰⏰⏰⏰⏰⏰⏰ RESUME HERE (2026-08-10 — the "hung till" was the LOADING OVERLAY)
+
+Suite: **Unit 733 · Architecture 13 · AppClient 409 (+3 skipped) — all green.** Versions: till-maui
+**1.15.0**, platform **1.17.0**. Backend **1.7.0**, portal **1.3.0**, web till **1.5.0** are LIVE and
+**unchanged by this batch — nothing here needs a deploy.**
+
+**Build for Matt: `D:\tmp\plutus-till-1.15.0\Plutus.Frontend.AppClient.exe`** (unpackaged, no signing
+needed). Verified stamp: `1.15.0+8e45fa2`.
+
+#### ⚠ The real bug: `LoadingViewService` bricked the app, permanently, on the first fast screen
+
+Reported as *"View all items and Inventory management just hung"* — neither screen was at fault. The
+service flipped `_isShowing = true` **before** awaiting `PushModalAsync`. A screen that loads fast —
+a local SQLite read, i.e. most of them — asks to hide while that push is still in flight, so the
+hide sees the flag set, clears it, and pops a modal stack the overlay has not landed on yet. The
+push then completes with the flag reading "hidden", and **every later hide returns at its first
+line**. The translucent overlay sits over the app for the rest of the process, so every screen
+opened afterwards looks hung. Nothing threw; nothing was logged.
+
+Fixed by `AppClient/Services/Loading/OverlayGate.cs` — act on the **difference** between wanted and
+actual, one awaited operation at a time, re-reading the target after each await. Fails **open**: if
+it cannot tell what is on screen it assumes the overlay is down, because a missing spinner is
+recoverable and a locked screen is not. `LoadingViewService` is now just push/pop/marshal, and pops
+only when our own page is topmost (`PopModalAsync` takes no argument — popping blind closes somebody
+else's page *and* leaves the overlay behind). Pinned by `OverlayGateTests` (5), mutation-checked by
+collapsing the reconcile loop to a single `if`: caught by two named tests. Recorded in till-design
+C1 under **"Screens that must never trap the operator"**.
+
+#### The heartbeat questions, answered
+
+- **No redeploy needed.** The deployed web-till bundle was checked directly on the Mac: it contains
+  `api/v1/heartbeat` and has **zero** unsubstituted `__APP_VERSION__`. `POST /api/v1/heartbeat`
+  answers **401** (route exists, needs auth — a 404 would have meant missing). Backend and ETRIE
+  both 200.
+- **Why no versions show yet.** All six `Devices` rows still have `AppVersion NULL` — nothing has
+  beaten since the deploy. The web till beats only for an **enrolled** browser
+  (`getDeviceCredential()` returns null otherwise and it stays silent by design), and the MAUI till's
+  beat was parked behind the same wedged store gate as the hung screen.
+- ⚠ **The beat now has a 30s deadline** (`TillCadence`). It goes through `TillStoreAccess`, which
+  serialises every caller behind ONE semaphore — so a wedged screen silenced the heartbeat and the
+  till vanished from the fleet list *while still selling perfectly well*. That symptom shows up on
+  the platform, not the till, so it reads as a network or enrolment fault. `ViewAllViewModel`'s
+  browse takes a 20s deadline for the same reason. ⚠ **Nothing pins this convention** — see the C1
+  row; the next caller written without a deadline restores the fault in full.
+
 ### ⏰⏰⏰⏰⏰⏰⏰ RESUME HERE (2026-08-09, LATE — cutover Phases 1–3 done, MySQL password rotated)
 
 Suite: **Unit 733 · Architecture 13 · Integration 140 · AppClient 404 (+3 skipped) — all green.**
