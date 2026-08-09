@@ -10,7 +10,7 @@ import EmployeesPage from "./EmployeesPage.tsx";
 import HelpPanel from "./HelpPanel.tsx";
 import LoginPage from "./LoginPage.tsx";
 import { PlutusMark } from "./PlutusMark.tsx";
-import { ackPickNotification, drainOutbox, fetchActiveAnnouncements, fetchPickNotifications, fetchTillName, loadReceiptTemplate, loadVatBands, onOutboxChanged, syncCatalogue, type ActiveAnnouncement, type PickNotification } from "./api.ts";
+import { ackPickNotification, drainOutbox, fetchActiveAnnouncements, fetchPickNotifications, fetchTillName, loadReceiptTemplate, loadVatBands, onOutboxChanged, sendHeartbeat, syncCatalogue, type ActiveAnnouncement, type PickNotification } from "./api.ts";
 import { getDeviceCredential, sessionScopes } from "./pipeline.ts";
 import { startAgentReporter } from "./hardware.ts";
 import { startUpdateWatcher } from "./appUpdate.ts";
@@ -144,12 +144,19 @@ export default function App() {
     // dated for a future day — reaches every till within a minute, and the cached timeline means
     // a till that then goes offline still switches over on the day itself.
     const vatTimer = window.setInterval(() => void loadVatBands(), 60_000);
+    // The web till has never told the platform it exists. /api/v1/heartbeat has been there since
+    // WP5 and only the MAUI till called it, so the portal's fleet list showed "version unknown"
+    // against every browser till — and "is that one on the new build?" could only be answered by
+    // walking to it. Same 60s cadence as everything else here.
+    void sendHeartbeat();
+    const beatTimer = window.setInterval(() => void sendHeartbeat(), 60_000);
     return () => {
       offOutbox();
       window.clearInterval(notesTimer);
       window.clearInterval(annTimer);
       window.clearInterval(themeTimer);
       window.clearInterval(vatTimer);
+      window.clearInterval(beatTimer);
       window.removeEventListener("online", goOnline);
       window.removeEventListener("offline", goOffline);
     };

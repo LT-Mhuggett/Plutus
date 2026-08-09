@@ -25,14 +25,9 @@ namespace Plutus.Frontend.AppClient.Services.Storage
         {
             try
             {
-                var credentials = await SecureDeviceCredentialStore.LoadAsync().ConfigureAwait(false);
-                if (credentials?.DeviceId is not Guid) return (0, 0);
-
-                var http = PlutusHttp.TryFor(new ViewModels.Settings().ServerUrlSetting);
-                if (http is null) return await CachedAsync(ct).ConfigureAwait(false);
-
-                var bootstrap = new PlutusApiClient(http);
-                var api = new PlutusApiClient(http, new DeviceTokenProvider(bootstrap, credentials));
+                // ⚠ THE SHARED client — one token mint for the whole app, not one per service.
+                var api = await PlutusApi.GetAsync(ct).ConfigureAwait(false);
+                if (api is null) return await CachedAsync(ct).ConfigureAwait(false);
 
                 var gateway = await api.GetActiveGatewayAsync(ct).ConfigureAwait(false);
                 if (gateway is null) return await CachedAsync(ct).ConfigureAwait(false);

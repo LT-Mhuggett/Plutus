@@ -329,6 +329,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
                     new EnrolmentFlow(store, api, _credentials)
                         .EnrolAsync(ServerUrl, EnrolmentCode.Trim(), legacyDatabasePath));
 
+                // ⚠ THE SHARED CLIENT MUST FORGET THE OLD CREDENTIAL. Enrolment issues a NEW device
+                // id and secret; a cached client built before this point would keep presenting the
+                // retired one and 401 on every call, which looks exactly like a revoked till.
+                PlutusApi.Reset();
+
                 // Placement is a second call on purpose: enrolment says WHICH TILL, the platform
                 // says which store that till currently sits in — and a till can be moved later.
                 await TillPlacement.RefreshAsync(api);

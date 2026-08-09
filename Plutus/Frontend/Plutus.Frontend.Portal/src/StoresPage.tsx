@@ -66,13 +66,19 @@ function VersionChip({ d }: { d: TillRow["devices"][number] }) {
   const stranded = d.presence === "Offline" && (d.outboxDepth ?? 0) > 0;
   const tone = stranded ? "warn" : d.presence === "Online" ? "ok" : "";
 
+  // ⚠ The CHIP shows a plain version — "v1.13.0", the same shape as the agent chip beside it. The
+  // build hash goes in the TOOLTIP, not the label: it is the thing you want when two tills claim
+  // the same version and behave differently, and clutter the rest of the time.
+  const [plain, build] = d.appVersion.split("+");
+
   return (
     <span
       className={`chip ${tone}`}
-      title={`Till software v${d.appVersion} · ${d.presence}${seen ? ` · last heard ${seen}` : ""}` +
+      title={`Till software v${plain}${build ? ` (build ${build})` : ""} · ${d.presence}` +
+        (seen ? ` · last heard ${seen}` : "") +
         ((d.outboxDepth ?? 0) > 0 ? ` · ${d.outboxDepth} sale(s) queued on the till` : "")}
     >
-      v{d.appVersion}
+      v{plain}
       {d.presence !== "Online" ? ` · ${d.presence.toLowerCase()}` : ""}
       {stranded ? ` · ${d.outboxDepth} queued` : ""}
     </span>

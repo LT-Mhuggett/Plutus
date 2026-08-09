@@ -39,16 +39,11 @@ namespace Plutus.Frontend.AppClient.Services.Storage
         /// address precisely because assigning it after the first request throws, and that reached
         /// an operator once as "This instance has already started one or more requests".
         /// </summary>
-        public static async Task<PlutusApiClient?> TryCreateApiAsync()
+        public static async Task<PlutusApiClient?> TryCreateApiAsync(CancellationToken ct = default)
         {
-            var credentials = await SecureDeviceCredentialStore.LoadAsync().ConfigureAwait(false);
-            if (credentials?.DeviceId is not Guid) return null;
-
-            var http = PlutusHttp.TryFor(new ViewModels.Settings().ServerUrlSetting);
-            if (http is null) return null;
-
-            var bootstrap = new PlutusApiClient(http);
-            return new PlutusApiClient(http, new DeviceTokenProvider(bootstrap, credentials));
+            // ⚠ THE SHARED client — one token mint for the whole app, not one per service. See
+            // `PlutusApi`: `/api/v1/tokens/device` allows 5 a minute PER IP.
+            return await Connectivity.PlutusApi.GetAsync(ct).ConfigureAwait(false);
         }
 
         /// <summary>

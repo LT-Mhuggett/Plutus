@@ -86,7 +86,11 @@ namespace Plutus.Tenancy.Controllers
                     // backend restart — deliberately not a MySQL write per till per minute for data
                     // whose value expires in five. So a null here means "not heard from recently",
                     // never "old version".
-                    appVersion = _presence.Get(d.Id)?.AppVersion,
+                    // ⚠ LIVE presence first, the PERSISTED column second. Presence is authoritative
+                    // while a till is talking to us; the column is what survives a backend restart
+                    // and what answers the question for a till that is switched off — which is most
+                    // of them, most of the time.
+                    appVersion = _presence.Get(d.Id)?.AppVersion ?? d.AppVersion,
                     presence = (_presence.Get(d.Id)?.State ?? PresenceState.Offline).ToString(),
                     lastSeenUtc = _presence.Get(d.Id)?.LastSeenUtc,
                     outboxDepth = _presence.Get(d.Id)?.OutboxDepth,

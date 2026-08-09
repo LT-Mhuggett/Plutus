@@ -47,6 +47,24 @@ namespace Plutus.Entities.Models
         /// <summary>When the till last reported (regardless of what it found).</summary>
         public DateTime? AgentReportedAtUtc { get; set; }
 
+        /// <summary>
+        /// The till SOFTWARE's version, from its heartbeat — e.g. "1.13.0+6affd2e".
+        ///
+        /// ⚠ PERSISTED, deliberately, unlike the rest of presence. Live presence lives in memory
+        /// because a write per till per minute for data that expires in five is the busiest and
+        /// least useful write path in the system — but a VERSION is not that. It changes only on a
+        /// deploy, and the question it answers ("is that till on the new build?") is asked most
+        /// often about tills that are switched OFF right now. Keeping it in memory meant the fleet
+        /// list forgot every version whenever the backend restarted, which is exactly when someone
+        /// is looking. This is the same reason the agent's version is a column.
+        /// </summary>
+        public string? AppVersion { get; set; }
+
+        /// <summary>When that version was last reported. ⚠ Null with a non-null AppVersion is
+        /// impossible; null for both means this device has never sent a heartbeat — which today
+        /// includes every WEB till, because the web till does not heartbeat at all.</summary>
+        public DateTime? AppVersionReportedAtUtc { get; set; }
+
         // WP5 pull signals. A till on a shop LAN behind NAT cannot be reached, so anything the
         // platform wants it to do has to be something it ASKS about on its own cadence. These two
         // columns are that mailbox: set from the portal, collected on the next heartbeat.

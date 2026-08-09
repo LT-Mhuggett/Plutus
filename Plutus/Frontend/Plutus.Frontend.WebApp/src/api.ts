@@ -333,6 +333,42 @@ export const getCustomer = (id: string) => get<CustomerDetail>(`/api/v1/customer
 export interface ActiveAnnouncement { id: string; severity: string; title: string; body: string; startsAtUtc: string; endsAtUtc: string }
 export const fetchActiveAnnouncements = () => get<ActiveAnnouncement[]>("/api/v1/announcements/active");
 
+declare const __APP_VERSION__: string;
+
+/**
+ * Tell the platform this till is alive, and which BUILD it is running.
+ *
+ * ⚠ THE WEB TILL HAS NEVER DONE THIS. `/api/v1/heartbeat` has existed since WP5 and only the MAUI
+ * till called it, so the portal's fleet list showed "version unknown" against every browser till
+ * for ever — and there was no way to answer "is that till on the new build?" short of walking to
+ * it. The agent chip beside it worked only because the AGENT reports separately.
+ *
+ * ⚠ Never throws and never blocks selling: presence is a convenience for the portal, and a till
+ * whose heartbeat fails must carry on taking money. Same rule the MAUI cadence follows.
+ *
+ * ⚠ Silent when the till has no device credential — an un-enrolled browser has no identity to
+ * report, and posting one would be inventing a till.
+ */
+export async function sendHeartbeat(): Promise<void> {
+  const cred = getDeviceCredential();
+  if (!cred?.deviceId) return;
+
+  try {
+    await send("POST", "/api/v1/heartbeat", {
+      deviceId: cred.deviceId,
+      appVersion: __APP_VERSION__,
+      // ⚠ Zero, honestly, rather than omitted: the web till drains its outbox through its own
+      // pipeline and does not expose a depth here. Reporting a real number is follow-up work —
+      // reporting a made-up one would put "0 queued" beside a till that is holding sales.
+      outboxDepth: 0,
+      oldestUnsyncedAgeSeconds: null,
+      deviceClockUtc: new Date().toISOString(),
+    });
+  } catch {
+    // presence is not worth a single interrupted sale
+  }
+}
+
 // 17.2 the tenant's card-payment setup: provider label + whether an integration is wired.
 // "standalone" (the default) = external chip & pin, cashier confirms approval before completing.
 export interface ActiveGateway { provider: string; label: string; integrated: boolean }

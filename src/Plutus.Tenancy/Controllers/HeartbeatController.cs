@@ -78,6 +78,20 @@ namespace Plutus.Tenancy.Controllers
                 device.Id, device.TillId, body.AppVersion,
                 body.OutboxDepth, body.OldestUnsyncedAgeSeconds, body.DeviceClockUtc);
 
+            // ⚠ THE VERSION IS ALSO PERSISTED, and only when it CHANGES. Presence is in-memory on
+            // purpose (a write per till per minute for data that expires in five), but a version is
+            // not that kind of data: it changes on a deploy and is asked about most often for tills
+            // that are switched off. Held only in memory, the fleet list forgot every version
+            // whenever the backend restarted — which is precisely when somebody is looking.
+            //
+            // ⚠ Guarded on inequality so the common beat stays a pure read. Writing it every minute
+            // would recreate the write path this design exists to avoid.
+            if (!string.IsNullOrWhiteSpace(body.AppVersion) && device.AppVersion != body.AppVersion)
+            {
+                device.AppVersion = body.AppVersion;
+                device.AppVersionReportedAtUtc = DateTime.UtcNow;
+            }
+
             // ⚠ Read the signals, then CLEAR SyncNow in the same round trip. It is a one-shot
             // instruction: leaving it set would have the till re-sync on every beat for ever, which
             // turns one operator click into a permanent load.

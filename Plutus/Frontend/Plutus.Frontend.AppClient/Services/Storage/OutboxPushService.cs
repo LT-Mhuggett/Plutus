@@ -50,13 +50,12 @@ namespace Plutus.Frontend.AppClient.Services.Storage
                 if (credentials?.DeviceId is not Guid)
                     return new OutboxPushOutcome(false, 0, 0, 0, 0, "This till isn't connected to Plutus yet.");
 
-                var http = PlutusHttp.TryFor(new ViewModels.Settings().ServerUrlSetting);
-                if (http is null)
+                // ⚠ THE SHARED client and ITS OWN provider — the pusher invalidates the provider to
+                // re-mint once on a 401, and invalidating a DIFFERENT instance clears a cache
+                // nobody is reading, leaving the drain retrying with the same dead token.
+                var (api, tokens) = await PlutusApi.GetWithTokensAsync(ct).ConfigureAwait(false);
+                if (api is null)
                     return new OutboxPushOutcome(false, 0, 0, 0, 0, "The server address doesn't look right.");
-
-                var bootstrap = new PlutusApiClient(http);
-                var tokens = new DeviceTokenProvider(bootstrap, credentials);
-                var api = new PlutusApiClient(http, tokens);
 
                 var outcomes = await TillStoreAccess.UseAsync(
                     store => new OutboxPusher(store, api, tokens).DrainAsync(ct: ct), ct).ConfigureAwait(false);

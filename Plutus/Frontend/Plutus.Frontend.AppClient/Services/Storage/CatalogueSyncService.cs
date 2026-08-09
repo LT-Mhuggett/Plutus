@@ -49,12 +49,10 @@ namespace Plutus.Frontend.AppClient.Services.Storage
                 if (credentials?.DeviceId is not Guid)
                     return new CatalogueSyncOutcome(false, 0, 0, "This till isn't connected to Plutus yet.");
 
-                var http = PlutusHttp.TryFor(new ViewModels.Settings().ServerUrlSetting);
-                if (http is null)
+                // ⚠ THE SHARED client — one token mint for the whole app, not one per service.
+                var api = await PlutusApi.GetAsync(ct).ConfigureAwait(false);
+                if (api is null)
                     return new CatalogueSyncOutcome(false, 0, 0, "The server address doesn't look right.");
-
-                var bootstrap = new PlutusApiClient(http);
-                var api = new PlutusApiClient(http, new DeviceTokenProvider(bootstrap, credentials));
 
                 var outcome = await TillStoreAccess.UseAsync(
                     store => new SyncClient(api, store).SyncCatalogueAsync(ct), ct).ConfigureAwait(false);

@@ -25,7 +25,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
     {
         #region Private Fields
         private string _searchText;
-        private DataSource _sfListViewDataSource;
+        // ⚠ INITIALISED HERE, and its absence is why "View all items" crashed EVERY time it was
+        // opened. The constructor does `SfListViewDataSource.GroupDescriptors.Add(...)` on a field
+        // nothing ever assigned, so it threw NullReferenceException inside
+        // `MainThread.BeginInvokeOnMainThread` — which surfaced as
+        // `TargetInvocationException` out of the XAML loader, i.e. a stack trace pointing at
+        // InitializeComponent rather than at the null. The screen has never opened.
+        private DataSource _sfListViewDataSource = new();
         private int _limit;
         #endregion
 

@@ -144,11 +144,14 @@ namespace Plutus.Frontend.AppClient.Services.Sync
             if (credentials?.DeviceId is not Guid deviceId)
                 return LastResult = "Not connected to Plutus.";
 
-            var http = PlutusHttp.TryFor(new ViewModels.Settings().ServerUrlSetting);
-            if (http is null) return LastResult = "The server address doesn't look right.";
-
-            var bootstrap = new PlutusApiClient(http);
-            var api = new PlutusApiClient(http, new DeviceTokenProvider(bootstrap, credentials));
+            // ⚠ THE SHARED client. This tick alone used to build FOUR token providers — here, plus
+            // one each inside the outbox drain, the catalogue sync and the gateway-surcharge read —
+            // and each provider caches its own token, so each one MINTED. `/api/v1/tokens/device`
+            // allows 5 a minute per IP, so a healthy till exhausted its own allowance in the first
+            // minute and everything afterwards failed with 429, which reads exactly like being
+            // revoked. Seen in the wild 2026-08-09.
+            var api = await PlutusApi.GetAsync(ct).ConfigureAwait(false);
+            if (api is null) return LastResult = "The server address doesn't look right.";
 
             // 1. Beat. ⚠ Never by minting a device token — `POST /api/v1/tokens/device` is rate
             // limited to 5/min/IP, so polling it makes a healthy till report itself revoked, and

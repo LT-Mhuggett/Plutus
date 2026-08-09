@@ -97,14 +97,9 @@ namespace Plutus.Frontend.AppClient.Services.Sales
         {
             try
             {
-                var credentials = await SecureDeviceCredentialStore.LoadAsync().ConfigureAwait(false);
-                if (credentials?.DeviceId is not Guid) return null;
-
-                var http = PlutusHttp.TryFor(new ViewModels.Settings().ServerUrlSetting);
-                if (http is null) return null;
-
-                var bootstrap = new PlutusApiClient(http);
-                var api = new PlutusApiClient(http, new DeviceTokenProvider(bootstrap, credentials));
+                // ⚠ THE SHARED client — one token mint for the whole app, not one per service.
+                var api = await PlutusApi.GetAsync(ct).ConfigureAwait(false);
+                if (api is null) return null;
 
                 var dto = await api.GetSaleAsync(saleId, ct).ConfigureAwait(false);
                 if (dto is null) return null;   // offline, or the platform genuinely has no such sale

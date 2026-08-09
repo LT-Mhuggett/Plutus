@@ -56,14 +56,10 @@ namespace Plutus.Frontend.AppClient.Services.Storage
                 if (await TillPlacement.StoreIdAsync(ct).ConfigureAwait(false) is not int storeId)
                     return await CachedAsync(ct).ConfigureAwait(false);
 
-                var credentials = await SecureDeviceCredentialStore.LoadAsync().ConfigureAwait(false);
-                if (credentials?.DeviceId is not Guid) return await CachedAsync(ct).ConfigureAwait(false);
-
-                var http = PlutusHttp.TryFor(new ViewModels.Settings().ServerUrlSetting);
-                if (http is null) return await CachedAsync(ct).ConfigureAwait(false);
-
-                var bootstrap = new PlutusApiClient(http);
-                var api = new PlutusApiClient(http, new DeviceTokenProvider(bootstrap, credentials));
+                // ⚠ THE SHARED client. A `DeviceTokenProvider` per service means a token MINT per
+                // service, and `/api/v1/tokens/device` is capped at 5/min/IP — see `PlutusApi`.
+                var api = await PlutusApi.GetAsync(ct).ConfigureAwait(false);
+                if (api is null) return await CachedAsync(ct).ConfigureAwait(false);
 
                 var info = await api.GetStoreInfoAsync(storeId, ct).ConfigureAwait(false);
 
