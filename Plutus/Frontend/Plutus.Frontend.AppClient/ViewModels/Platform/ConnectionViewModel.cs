@@ -5,6 +5,8 @@ using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
 using Plutus.Client.Core;
 using Plutus.Frontend.AppClient.Services.Connectivity;
+using Plutus.Frontend.AppClient.Services.Storage;
+using Plutus.Client.Storage;
 using Plutus.SharedKernel;
 
 namespace Plutus.Frontend.AppClient.ViewModels.Platform
@@ -284,15 +286,48 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
                 var api = Api(out var error);
                 if (api is null) { LastAction = error; return; }
 
-                var result = await api.EnrolAsync(EnrolmentCode.Trim());
                 _credentials ??= await SecureDeviceCredentialStore.LoadAsync();
-                _credentials.Save(result.DeviceId, result.ClientSecret, result.TillId);
+
+                // ⚠ THROUGH EnrolmentFlow, not straight at the API. Calling api.EnrolAsync
+                // directly — which this did until 2026-08-09 — saved the credential and told the
+                // v2 store NOTHING: no TillId, no StoreId, no BusinessId, no ServerUrl. Every
+                // screen that needs to know which store it is had nothing to read, and the failure
+                // was silent because enrolment itself succeeded.
+                //
+                // The flow also enforces the archive gate (binding default 9.3): a till holding an
+                // un-archived legacy database refuses to enrol, because that file is the shop's
+                // history and the translation agent's only input.
+                // ⚠ legacyDatabasePath is deliberately NULL until cutover step 21. Passing the real
+                // path switches on the archive gate, and nothing in this build can archive yet —
+                // step 21 turns Settings' "backup" into "Archive legacy database" and stamps
+                // MetaKeys.LegacyArchivedAtUtc. Enabling the gate first would refuse enrolment with
+                // no way through it, on every till that has ever opened its legacy file — which is
+                // all of them, because the Database constructor CREATES one on first touch.
+                var deviceId = await TillStoreAccess.UseAsync(store =>
+                    new EnrolmentFlow(store, api, _credentials)
+                        .EnrolAsync(ServerUrl, EnrolmentCode.Trim(), legacyDatabasePath: null));
+
+                // Placement is a second call on purpose: enrolment says WHICH TILL, the platform
+                // says which store that till currently sits in — and a till can be moved later.
+                await TillPlacement.RefreshAsync(api);
+
+                var tillId = await TillPlacement.TillIdAsync(api);
+                // Mirrored into Preferences for the readers that still look there.
+                if (tillId is Guid t) _credentials.SaveTillId(t);
 
                 EnrolmentCode = string.Empty; // one-time code — leaving it on screen invites a retry
                                               // that can only ever fail with 410 Gone.
-                LastAction = $"Enrolled. Till {result.TillId}.";
+                var storeId = await TillPlacement.StoreIdAsync();
+                LastAction = storeId is int s
+                    ? $"Enrolled. Till {tillId}, store {s}."
+                    : $"Enrolled device {deviceId}. ⚠ Couldn't read this till's store yet — check the connection and press Check again.";
                 DescribeDevice();
                 await CheckAsync();
+            }
+            catch (EnrolmentBlockedException ex)
+            {
+                // The archive gate, or a missing server address. Already written for a person.
+                LastAction = ex.Message;
             }
             catch (EnrolmentFailedException ex)
             {
@@ -386,18 +421,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
                 var api = Api(out var error);
                 if (api is null) { LastAction = error; return; }
 
-                var tillId = _credentials.TillId;
-                if (tillId is null)
-                {
-                    var (_, status) = await api.GetDeviceStatusAsync(deviceId);
-                    if (status?.TillId is Guid recovered)
-                    {
-                        _credentials.SaveTillId(recovered);
-                        tillId = recovered;
-                        DescribeDevice();
-                    }
-                }
-
+                // One resolver, Meta-first, with the legacy fallbacks inside it (see TillPlacement).
+                var tillId = await TillPlacement.TillIdAsync(api);
                 if (tillId is not Guid till)
                 {
                     LastAction = "This till is enrolled, but Plutus hasn't said which till it is yet. "

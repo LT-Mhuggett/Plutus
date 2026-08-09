@@ -185,36 +185,20 @@ namespace Plutus.Frontend.AppClient.ViewModels
                 var credentials = await Services.Connectivity.SecureDeviceCredentialStore.LoadAsync();
 
                 // ⚠ NO DEVICE IDENTITY is the only state that genuinely means "not paired".
-                if (credentials?.DeviceId is not Guid deviceId) return new RosterRefresh(false, null);
+                if (credentials?.DeviceId is not Guid) return new RosterRefresh(false, null);
 
-                // ⚠ Never mutate BaseAddress — see PlutusHttp. One client per address, cached.
-                var http = Services.Connectivity.PlutusHttp.TryFor(new Settings().ServerUrlSetting);
-                if (http is null) return new RosterRefresh(true, null);
+                var api = await Services.Storage.TillPlacement.TryCreateApiAsync();
+                if (api is null) return new RosterRefresh(true, null);
 
-                var bootstrap = new Plutus.Client.Core.PlutusApiClient(http);
-                var api = new Plutus.Client.Core.PlutusApiClient(
-                    http, new Plutus.Client.Core.DeviceTokenProvider(bootstrap, credentials));
-
-                // ⚠ ENROLLED, BUT DOESN'T KNOW WHICH TILL IT IS. Real, and it stranded the first
-                // machine to meet it: this device was enrolled at 16:54 on 2026-08-08 and the code
-                // that persists TillId landed at 18:27, so it held a perfectly good identity and
-                // could not fetch a single operator — everything per-till is keyed by tillId.
-                // Ask the server rather than demanding a re-enrolment that would mint a second
-                // device row for a machine that is already enrolled.
-                var tillId = credentials.TillId;
-                if (tillId is null)
-                {
-                    var (_, status) = await api.GetDeviceStatusAsync(deviceId);
-                    if (status?.TillId is Guid recovered)
-                    {
-                        credentials.SaveTillId(recovered);
-                        tillId = recovered;
-                    }
-                }
-
+                // ⚠ ENROLLED, BUT DOESN'T KNOW WHICH TILL IT IS — real, and it stranded the first
+                // machine to meet it. TillPlacement owns that resolution now (Meta, then the
+                // legacy Preferences value, then the server), so this is no longer one of three
+                // copies of the same recovery block.
+                //
                 // Still unknown → the server could not be reached, or it is too old to answer.
-                // Either way this is "try again", not "you are not enrolled".
-                if (tillId is not Guid till) return new RosterRefresh(true, null);
+                // Either way that is "try again", not "you are not enrolled".
+                if (await Services.Storage.TillPlacement.TillIdAsync(api) is not Guid till)
+                    return new RosterRefresh(true, null);
 
                 var count = await new Plutus.Client.Core.OperatorSync(
                     api, new Services.Connectivity.FileOperatorStore()).RefreshAsync(till);
@@ -306,26 +290,13 @@ namespace Plutus.Frontend.AppClient.ViewModels
                     if (existing != null) { App.GetViewModel().Store = existing; return; }
                 }
 
-                var credentials = await Services.Connectivity.SecureDeviceCredentialStore.LoadAsync();
-                if (credentials?.DeviceId is not Guid deviceId) return;
+                var api = await Services.Storage.TillPlacement.TryCreateApiAsync();
+                if (api is null) return;
 
-                var http = Services.Connectivity.PlutusHttp.TryFor(new Settings().ServerUrlSetting);
-                if (http is null) return;
-
-                var bootstrap = new Plutus.Client.Core.PlutusApiClient(http);
-                var api = new Plutus.Client.Core.PlutusApiClient(
-                    http, new Plutus.Client.Core.DeviceTokenProvider(bootstrap, credentials));
-
-                var tillId = credentials.TillId;
-                if (tillId is null)
-                {
-                    var (_, status) = await api.GetDeviceStatusAsync(deviceId);
-                    if (status?.TillId is Guid recovered) { credentials.SaveTillId(recovered); tillId = recovered; }
-                }
-                if (tillId is not Guid till) return;
-
-                var name = await api.GetTillNameAsync(till);
-                if (name?.StoreId is not int storeId) return;
+                // Placement first, so a till that has never learned its store learns it now; the
+                // answer is then read from Meta rather than re-derived here.
+                await Services.Storage.TillPlacement.RefreshAsync(api);
+                if (await Services.Storage.TillPlacement.StoreIdAsync() is not int storeId) return;
 
                 var info = await api.GetStoreInfoAsync(storeId);
                 if (info is null) return;

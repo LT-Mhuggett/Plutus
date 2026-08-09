@@ -73,7 +73,7 @@ Continues the retrofit plan's §9 numbering (1–9 live there).
 ## C. Status board — tick here, same commit as the work
 
 ```
-Phase 0  FOUNDATION            [x]1 EF9  [x]2 reference  [x]3 TillStoreAccess  [ ]4 EnrolmentFlow
+Phase 0  FOUNDATION            [x]1 EF9  [x]2 reference  [x]3 TillStoreAccess  [x]4 EnrolmentFlow ✅ COMPLETE
 Phase 1  LINE PRIMITIVES       [ ]5 price pair  [ ]6 TaxId+StockUntracked  [ ]7 VAT band store  [ ]8 TenderType→SharedKernel
 Phase 2  MONEY PATH            [ ]9 basket+assembler  [ ]10 v2 lookup  [ ]11 CommitSaleAsync  [ ]12 permission gates
                                [~]13 sync services (CatalogueSyncService ✅; OutboxPushService + 60s scheduler ⬜)
@@ -114,7 +114,20 @@ retires them**. USER-VERIFY: one real till launch.
 throws. VERIFY (still owed): `AppClient.Tests/Storage/TillStoreAccessTests.cs` — concurrent calls
 serialise; a poisoned path returns default.
 
-**Step 4 — Route enrolment through `EnrolmentFlow`** ⚠ SILENT BLOCKER. Nothing writes
+**Step 4 — Route enrolment through `EnrolmentFlow`** ✅ **DONE 2026-08-09.** Enrolment now goes
+through the flow (Meta gets TillId/StoreId/BusinessId/TenantId/ServerUrl); `TillPlacement` is the
+single resolver — Meta first, then the legacy Preferences value, then the device-status endpoint,
+back-filling Meta each time — which **replaced three separately-written copies** of that recovery
+block in sign-in, roster sync and store lookup. Placement refreshes on every start in the
+background, so tills enrolled before this self-heal. ⚠ The archive gate is deliberately passed
+`null` until step 21 exists to archive; enabling it first would refuse enrolment with no way
+through, on every till that has ever opened its legacy file — which is all of them, because the
+`Database` constructor creates one on first touch. **Step 21 must switch it on.** Verified:
+`Placement_refresh_is_idempotent_and_never_blanks_what_it_already_knew` (mutation-checked — blanking
+before refresh fails it), Integration 125 · Unit 640 · Arch 13 · AppClient 309.
+⚠ Still owed from Step 3: `TillStoreAccessTests`.
+
+*Original body, kept for the reasoning:* ⚠ SILENT BLOCKER. Nothing writes
 `MetaKeys.StoreId/BusinessId/TillId/ServerUrl` — `ConnectionViewModel.EnrolAsync` (≈`:287`) calls
 `api.EnrolAsync` directly. Switch it to `src/Plutus.Client.Storage/EnrolmentFlow.cs` —
 `EnrolAsync` then `RefreshPlacementAsync` (learns StoreId from `/tills/{id}/name`, BusinessId from

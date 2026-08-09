@@ -60,21 +60,34 @@ public class EnrolmentFlowE2eTests : IClassFixture<PlutusAppFactory>, IAsyncLife
         public void Clear() { DeviceId = null; ClientSecret = null; }
     }
 
+    /// <summary>
+    /// ⚠ Reads the body ONLY after asserting the status. It used to parse straight into
+    /// <c>JsonDocument</c>, so any server-side failure arrived as
+    /// <c>JsonReaderException: 'M' is an invalid start of a value</c> — the first character of an
+    /// error page — which says nothing about what actually broke. A test helper that hides the
+    /// cause of its own failure costs more time than the test saves.
+    /// </summary>
+    private static async Task<JsonElement> PostAsync(HttpClient c, string url, string token, object body)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Post, url) { Content = JsonContent.Create(body) };
+        req.Headers.Authorization = new("Bearer", token);
+        var res = await c.SendAsync(req);
+        var text = await res.Content.ReadAsStringAsync();
+        Assert.True(res.IsSuccessStatusCode,
+            $"POST {url} returned {(int)res.StatusCode} {res.StatusCode}. Body: {text}");
+        return JsonDocument.Parse(text).RootElement;
+    }
+
     private async Task<(string Code, Guid TillId, int StoreId)> ProvisionAsync(HttpClient c, string email)
     {
         var admin = PlutusAppFactory.OperatorToken(PlutusPolicies.PlatformAdmin);
-        using var pReq = new HttpRequestMessage(HttpMethod.Post, "/api/v1/tenants")
-        { Content = JsonContent.Create(new { name = "WP4 " + email, plan = "standard", adminEmail = email, adminPassword = "S3cret!" }) };
-        pReq.Headers.Authorization = new("Bearer", admin);
-        var pBody = JsonDocument.Parse(await (await c.SendAsync(pReq)).Content.ReadAsStringAsync()).RootElement;
+        var pBody = await PostAsync(c, "/api/v1/tenants", admin,
+            new { name = "WP4 " + email, plan = "standard", adminEmail = email, adminPassword = "S3cret!" });
         var tenantId = pBody.GetProperty("tenantId").GetGuid();
         var storeId = pBody.GetProperty("storeId").GetInt32();
 
         var portal = PlutusAppFactory.OperatorToken(PlutusPolicies.PortalTillsEnrol, tenantId);
-        using var tReq = new HttpRequestMessage(HttpMethod.Post, "/api/v1/tills")
-        { Content = JsonContent.Create(new { storeId, name = "WP4 till" }) };
-        tReq.Headers.Authorization = new("Bearer", portal);
-        var tBody = JsonDocument.Parse(await (await c.SendAsync(tReq)).Content.ReadAsStringAsync()).RootElement;
+        var tBody = await PostAsync(c, "/api/v1/tills", portal, new { storeId, name = "WP4 till" });
         return (tBody.GetProperty("enrolmentCode").GetString()!, tBody.GetProperty("tillId").GetGuid(), storeId);
     }
 
@@ -144,6 +157,53 @@ public class EnrolmentFlowE2eTests : IClassFixture<PlutusAppFactory>, IAsyncLife
         // "restart": a fresh context over the same file is still enrolled, no re-prompt
         await using var reopened = new TillDbContext(new DbContextOptionsBuilder<TillDbContext>().UseSqlite(_conn).Options);
         Assert.Equal(tillId, await new TillStore(reopened).GetGuidMetaAsync(MetaKeys.TillId));
+    }
+
+    /// <summary>
+    /// ⚠ PLACEMENT IS REFRESHED ON EVERY START, so it must be idempotent and it must FOLLOW a move.
+    ///
+    /// Cutover step 4 calls this on each launch for two reasons: a till can be moved between stores
+    /// in the portal — and its prices, receipts and themes have to follow it — and every till
+    /// enrolled before 2026-08-09 was never told its store at all, because MAUI enrolled by calling
+    /// the API directly and bypassing this flow entirely. Those tills self-heal on the next start
+    /// rather than needing a re-enrolment, which would mint a second device row for a machine that
+    /// is already correctly paired.
+    ///
+    /// ⚠ A refresh that CANNOT reach the server must leave the last known placement alone. A till
+    /// whose broadband is down still knows which shop it is in; blanking that would take a working
+    /// offline till and make it unable to price anything.
+    /// </summary>
+    [Fact]
+    public async Task Placement_refresh_is_idempotent_and_never_blanks_what_it_already_knew()
+    {
+        var http = _f.CreateClient();
+        var (code, tillId, storeId) = await ProvisionAsync(http, "wp4d@acme.test");
+        var creds = new SecureStorageStub();
+        var api = new PlutusApiClient(http);
+
+        await new EnrolmentFlow(_store, api, creds).EnrolAsync("https://plutus.example", code);
+
+        var authed = new PlutusApiClient(http, new DeviceTokenProvider(api, creds));
+        var flow = new EnrolmentFlow(_store, authed, creds);
+
+        await flow.RefreshPlacementAsync();
+        var storeAfterFirst = await _store.GetIntMetaAsync(MetaKeys.StoreId);
+        var businessAfterFirst = await _store.GetGuidMetaAsync(MetaKeys.BusinessId);
+        Assert.Equal(storeId, storeAfterFirst);
+        Assert.NotNull(businessAfterFirst);
+
+        // Idempotent: running it again on every start must not churn the values.
+        await flow.RefreshPlacementAsync();
+        await flow.RefreshPlacementAsync();
+        Assert.Equal(storeAfterFirst, await _store.GetIntMetaAsync(MetaKeys.StoreId));
+        Assert.Equal(businessAfterFirst, await _store.GetGuidMetaAsync(MetaKeys.BusinessId));
+        Assert.Equal(tillId, await _store.GetGuidMetaAsync(MetaKeys.TillId));
+
+        // ⚠ And an UNREACHABLE server leaves the known placement standing. A client with no token
+        // provider gets 401s from every placement call — the shape of an offline till.
+        await new EnrolmentFlow(_store, new PlutusApiClient(http), creds).RefreshPlacementAsync();
+        Assert.Equal(storeAfterFirst, await _store.GetIntMetaAsync(MetaKeys.StoreId));
+        Assert.Equal(businessAfterFirst, await _store.GetGuidMetaAsync(MetaKeys.BusinessId));
     }
 
     [Fact]

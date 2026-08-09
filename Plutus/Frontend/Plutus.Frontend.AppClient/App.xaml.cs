@@ -64,6 +64,19 @@ namespace Plutus.Frontend.AppClient
 
             IAppState appState = AppServices.Get<IAppState>();
             appState.Init();
+
+            // ⚠ RE-LEARN WHERE THIS TILL IS, on every start, in the background.
+            //
+            // Two reasons, and the second is the one that bites. A till can be MOVED between stores
+            // in the portal, and its prices, receipts and themes must follow it — placement is not
+            // a fact you learn once at enrolment. And every till enrolled before 2026-08-09 was
+            // never told its store or business at all, because enrolment bypassed EnrolmentFlow;
+            // those tills SELF-HEAL here rather than needing a re-enrolment that would mint a
+            // second device row for a machine that is already correctly paired.
+            //
+            // Background and swallowing its own failures: nothing about a placement refresh should
+            // delay a sign-in screen or stop a shop trading.
+            Services.Storage.TillPlacement.RefreshInBackground();
 #if DEBUG
             appState.SetAppLogLevel(AppLogLevel.Verbose);
 #else
