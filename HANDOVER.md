@@ -15,6 +15,50 @@ Head: see `git log` — this line goes stale; the commits don't.
 > Older references below that say `Build/<plan>.md` now mean `Build/archive/<plan>.md` or
 > `Build/To do/<plan>.md`.
 
+### ⏰⏰⏰⏰⏰⏰⏰ RESUME HERE (2026-08-09, LATE — cutover Phases 1–3 done, MySQL password rotated)
+
+Suite: **Unit 733 · Architecture 13 · Integration 134 · AppClient 401 (+3 skipped) — all green.**
+Debug and Release both build. **Pushed** — `upstream/Matt's-Horror` at `ac2b90d`. Versions:
+backend **1.3.0**, platform **1.12.0**, till-maui **1.7.0** (the deployed backend is still 1.2.0 —
+nothing in this batch has been deployed).
+
+**⚠ The MySQL password IS rotated, and the backend now talks to MySQL over the UNIX SOCKET.**
+That second half was not planned. The `plutus` account is `caching_sha2_password`: the server caches
+the password digest, only the cheap "fast auth" path works from that cache, and changing the
+password EMPTIES it. Full authentication then becomes necessary and MySQL permits it only over a
+channel it deems secure — socket, TLS, or an RSA exchange. The connection string was plain
+`Server=127.0.0.1;Port=3306`, so it worked for months and died the instant the password changed:
+838 crash-loop restarts, `Access denied`, port 5100 dead. ETRIE was never affected.
+**Rolling the password back would NOT have fixed it** — the cache stays cold for the old value too.
+`ops/recover-mysql-auth.sh` restored it by switching to `/tmp/mysql.sock`, which is also the safer
+place for a same-host backend. `ops/rotate-mysql-password.sh` now REFUSES to run against a
+connection string that cannot survive a rotation. Full write-up in `ops/incident-runbook.md`.
+⚠ **A deploy that rewrites the ecosystem file must keep the socket connection string.**
+
+**What landed (cutover plan Phases 1–3 complete, steps 4–18):** the money path end to end —
+checkout commits a real `IngestSaleRequest`; the outbox DRAINS (`TillCadence`, one 60s clock);
+permission gates that can refuse; the receipt prints the COMMITTED sale; the sale read path;
+returns decided by the shared `RefundRules`; the refund cap enforced server-side per sale AND per
+item; parked baskets in the v2 store. Card surcharge shipped as a tenant setting whose VAT follows
+the basket (Bookit/NEC), with a provisioned `CARD-SURCHARGE` item.
+
+**⚠ Four defects found that made the till unusable on a fresh install, all fixed:** pressing
+Checkout **closed the application** (`EmployeeId` threw on the empty legacy roster, from an
+`async void` with no catch — and the value fed nothing); the payment sheet had **zero buttons** so
+checkout could never terminate; the alter-transaction button crashed on tap; and the returns modal
+was **inescapable** (Cancel fires the confirm handler). Every one of them was invisible on a
+dev machine migrated from a legacy install.
+
+**Next:** step 19 (`/api/Auth/Login` wiring + four backend fixes, binding default 11), then 20–28.
+Still owed from earlier steps: `TillStoreAccessTests` (step 3), step 11b basket reshape, step 21
+must switch the archive gate on. Known-broken and NOT yet fixed: the **browse-and-tap** route into
+the basket reads the empty legacy `Items` table so the list is silently blank
+(`ViewAllViewModel:71`); `RemoveOne`/`RemoveAll`/`CancelTransaction` have no `pos.void` gate; and
+the **ClientUI** surface's commit path is entirely ungated (its authorisation is a bare
+`//Authorisation checks` comment).
+
+---
+
 ### ⏰⏰⏰⏰⏰⏰ RESUME HERE (2026-08-09 — backend deployed, screen tests unblocked)
 
 Suite: **Unit 634 · Architecture 13 · Integration 122 · AppClient 305 (+3 skipped) — all green.**
@@ -25,7 +69,9 @@ Backend **1.1.1 deployed** to the test environment; MAUI till stamps **`1.2.0+5a
 
 ## ▶ TOMORROW, IN ORDER
 
-**1. ⚠ Rotate the `plutus` MySQL password — do this first.** During the deploy I ran the dump
+**1. ✅ DONE 2026-08-09 (late) — the `plutus` MySQL password is rotated.** See the newest RESUME HERE above: it also moved the backend onto the unix socket, because rotating a `caching_sha2_password` account breaks any plain-TCP client. Original note kept below for the record.
+
+**~~1. ⚠ Rotate the `plutus` MySQL password — do this first.~~** During the deploy I ran the dump
 script under `bash -x` to debug it, which printed the connection string, password included, into
 the session transcript. The script had been written to avoid exactly that; the `-x` defeated it.
 It is a LAN-only MySQL bound to 127.0.0.1 and the exposure is a transcript rather than a public
