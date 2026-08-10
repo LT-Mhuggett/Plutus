@@ -21,7 +21,7 @@ path. `CrashLog` hooks both `AppDomain` and `Microsoft.UI.Xaml.Application.Unhan
 |---|---|---|---|
 | 0.1 | Launch the till | Signs in; tabs are **Till · Inventory Managment · Cash · Statistics · Store Information · Settings · Plutus** | No **Cash** tab = you are on an older build |
 | 0.2 | **Plutus** tab | Version chip reads **v1.31.0**; connection green | — |
-| 0.3 | Wait ~60s, then check the portal's fleet list | The till reports **1.26.0+10fed46** | Versions were NULL on every row until backend 1.8.1 — this is the fix |
+| 0.3 | Wait ~60s, then check the portal's fleet list | The till reports **1.31.0** | Versions were NULL on every row until backend 1.8.1 — this is the fix |
 
 ## 1. Open the day
 
@@ -57,7 +57,7 @@ path. `CrashLog` hooks both `AppDomain` and `Microsoft.UI.Xaml.Application.Unhan
 | # | Do | Expect | ⚠ If not |
 |---|---|---|---|
 | 4.1 | Add the same item to a fresh basket | — | — |
-| 4.2 | **Right-click the basket line → Returns** | A **picker of this till's recent sales** (`date · amount · items`) | Being asked to type a sale UUID = the picker isn't in. ⚠ There is nothing on screen advertising this menu — that is a known gap (step 26) |
+| 4.2 | **Right-click the basket line → Returns** | A picker of this till's recent sales, plus **"Sold on another till — look it up in Plutus…"** | Being asked to type a sale UUID = the picker isn't in. ⚠ Refunds must NOT appear in either list — a refund is its own sale with a negative gross, and offering one is what let £13.99 out twice |
 | 4.3 | Pick the sale you just made, give a reason | Line becomes a return at **the price actually paid** | Today's catalogue price would be wrong |
 | 4.4 | Try to refund it **twice** | Second attempt is **capped or refused** | *"never refund more than was paid"* — binding default 12 |
 
@@ -71,7 +71,8 @@ path. `CrashLog` hooks both `AppDomain` and `Microsoft.UI.Xaml.Application.Unhan
 | 5.4 | **TAP an item** in the list | A sheet: **Add to basket · Edit item · Cancel** | ⚠ Tapping is now the way in. Editing used to live ONLY on a right-click menu with nothing advertising it — asked what happened, Matt's answer was *"I didn't know how to open it"*, which is the honest verdict on that design. Right-click still works too |
 | 5.4a | **Edit item** → change the price | Saves; list shows the **new** price | ⚠ Needs a connection and a signed-in operator — item writes go to the platform now, not to a local table. ⚠ Needs `portal.prices.manage`, which **Owner and Company Admin hold and Store Manager does NOT** |
 | 5.5 | Check that item in the **portal** | Same new price | If the portal disagrees, stop and tell me |
-| 5.6 | **Settings → Change printer** | Printer list, or a polite refusal | ⚠ **It must never close the app.** That was the crash |
+| 5.6 | **Settings → Change printer** | The Windows CONNECT panel, then "No printer selected" if nothing is attached | ⚠ **That is CORRECT, not a fault** — it is the device picker with no OPOS printer paired (Matt saw "Wireless is turned off"). What matters is that it **no longer closes the app**, which was the actual crash. |
+| 5.7 | **Statistics** | *"Today — £x taken over n sales · VAT £x · average basket £x"*, from the PLATFORM | ⚠ The two legacy report buttons are GONE: they read the pre-Plutus database (always zero since cutover) and the Syncfusion chart licence does not cover v34, so opening one raised a licence dialog on a page you could not leave. A new key must come from Matt's Syncfusion account. |
 
 ## 6. Trading with the line down
 
