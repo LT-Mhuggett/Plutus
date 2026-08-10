@@ -398,7 +398,28 @@ map `baseMode` → `UserAppTheme`, `colorsJson`'s seven tokens → the 7a keys. 
 theme entirely (C1). Removes ClientUI from `Plutus.slnx` (keep the directory). USER-VERIFY: visual
 + byte-identical receipt under light/dark.
 
-**Step 23 — WP9 cash (~4–5 days).** `CashEventRequest` DTO + client method (absent from
+**Step 23 — WP9 cash** ✅ **DONE 2026-08-10.** `Contracts.Client/CashContracts.cs` +
+`PlutusApiClient.PostCashEventAsync`/`GetCashEventsAsync` + `LocalCashEvents` (schema v4) +
+`CashPushService` on the 60s tick + a **Cash tab** built in code.
+
+⚠ **The SERVER was already finished** — the whole step was client-side, and the five type names
+appeared nowhere in the app or the shared libraries.
+⚠ **Queued, not posted.** A shop opens before its broadband does; a float that failed to post is a
+day whose banking cannot be reconciled at all.
+⚠ **One Z per day is enforced LOCALLY as well as server-side**, refusing every type afterwards
+rather than merely a second Z — the server's guard is unreachable offline, which is when it matters.
+⚠ **`SharedKernel.BusinessDay` extracted** so the drawer and the sales it reconciles against cannot
+disagree about "today"; `CheckoutCommit` now uses it too. New C2 twin with the web till's
+`pipeline.ts businessDay()`.
+⚠ On the drain **409 and 400 are TERMINAL** and kept with the server's words: a till that retries
+them for ever looks healthy while quietly never banking.
+
+10 tests, mutation-checked twice (the Z-close guard; the v4 upgrade step — every till in the field
+is on schema 3 and the first thing done after upgrading is declare the float).
+⚠ **USER-VERIFY still open: the drawer physically kicks.** `POSCashDrawer.InitPOSObject` was missing
+the `return` on its own success path until 2026-08-10, so this is the first build that can test it.
+
+*Original body:* `CashEventRequest` DTO + client method (absent from
 contracts); `CashPage`/`CashViewModel`: Open float · Paid in/out (reason mandatory) · X · Z.
 `POST /api/v1/cash-events` is `SalesIngest` → **device token suffices; ship write-first**.
 ⚠ Expected/counted/variance are SERVER-computed — render from the response. Guard the second Z
@@ -519,5 +540,19 @@ because nothing automated could reach it; each is fixed but pinned by review onl
 - [ ] **A cash sale, end to end** — and the sale appears in the portal within ~60s
 - [ ] **Cancel at the amount prompt** returns to the basket, intact, taking nothing
 - [ ] **Settings → Change printer** opens the printer list or refuses politely — never closes the app
-- [ ] **The fleet list shows a till version** once an enrolled till has beaten (`Devices.AppVersion`
-      has been NULL on all six rows since the column shipped)
+- [x] **The fleet list shows a till version** — ✅ confirmed live 2026-08-10 after backend 1.8.1:
+      `Devices.AppVersion` reads `1.19.0+c8931ef`, having been NULL on every row since the column
+      shipped. The write was assigned on every beat and saved on none.
+
+### Raised by step 23 (WP9 cash), 2026-08-10 — retest on **1.23.0**
+
+- [ ] **A whole shop day**: open a float → sell → X-read → Z-read → try to record anything else
+      (it must refuse, offline as well as online)
+- [ ] ⚠ **THE DRAWER PHYSICALLY KICKS.** `POSCashDrawer.InitPOSObject` fell out of its own success
+      path into `throw NotClaimable` (the `return` was missing, its sibling `POSPrinter` has it), so
+      a working drawer reported "in use by another process" on every cash sale. This is the first
+      build where it can be tested.
+- [ ] **The "Silence" button actually silences** the drawer warning — it set a preference nothing
+      read, so it returned on every cash sale for ever
+- [ ] **Cash recorded with the line DOWN** reaches the platform when it comes back (pull the
+      network, take a paid-out, reconnect, watch the Cash tab's "(waiting to send)" clear)

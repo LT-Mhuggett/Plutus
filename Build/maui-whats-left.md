@@ -17,13 +17,20 @@ the one page to open when the question is "how much is left and what order".
 
 ## The one-line answer
 
-**The plumbing is done. The screens are not.** A MAUI till can now take a sale, price it correctly,
-commit it, queue it, drain it, refund against it and print it. What it cannot yet do is most of what
-a shop does *around* selling: cash handling, reporting, inventory, loyalty, gift cards, users, and
-theming.
+**A MAUI till can now trade a whole day.** Take a sale, price it, commit it, queue it, drain it,
+refund against it, print it — and as of 2026-08-10 **open a float and close the day with a Z-read**,
+which was the one thing genuinely blocking an open-to-close test. What it still cannot do is
+inventory, reporting, loyalty, gift cards, users and theming.
 
-**Cutover steps 1–20: done.** **11b + 21–28: remaining.** Roughly **45–60 working days**, dominated
-by three: inventory (25), reporting (26) and loyalty/gift cards (27).
+**Cutover steps 1–20 and 23: done.** **11b + 21, 22, 24–28: remaining.** Roughly **40–55 working
+days**, dominated by three: inventory (25), reporting (26) and loyalty/gift cards (27).
+
+⚠ **The pattern that keeps holding.** Cash looked like a five-day build and the server turned out to
+be finished — the whole step was client-side wiring. Six components have now been found built,
+tested and called from nowhere (`OutboxPusher.DrainAsync`, the catalogue browse,
+`TillStore.SearchAsync`, `NoticesClient`, `VatBandCache.RefreshAsync`, `OperatorSession.Token`), plus
+a heartbeat write that was assigned on every beat and saved on none. **Check what already exists
+before estimating any of the rows below.**
 
 ---
 
@@ -71,13 +78,21 @@ an offline restart. ⚠ **Receipts ignore the theme entirely** (C1). Removes Cli
 `Plutus.slnx` — ⚠ **the port must land before the project is dropped** (legacy-removal L10).
 USER-VERIFY: visual, plus a byte-identical receipt under light and dark.
 
-### 2. Step 23 — WP9 cash (~4–5 days)
+### 2. ✅ Step 23 — WP9 cash — **DONE 2026-08-10**
 
-Float, paid in/out, X-read, Z-read, and the drawer. `CashEventRequest` DTO + client method (both
-absent from `Plutus.Contracts.Client` today). ⚠ **This is the one remaining capability a shop
-genuinely cannot open without** — everything else on this list has a workaround; a till that cannot
-declare a float or run a Z-read cannot be reconciled at close. USER-VERIFY: the drawer physically
-kicks on cash events.
+Float, paid in/out, X-read, Z-read, on their own tab beside the Till. The server was already
+finished; the whole step was client-side, and the five type names had appeared nowhere in the app.
+
+⚠ **Queued, not posted** (`LocalCashEvents`, schema v4, drained on the 60s tick) — a shop opens
+before its broadband does. ⚠ **One Z per day enforced locally too**, because the server's guard is
+unreachable offline. ⚠ **The expected figure stays the server's** — only the platform sees the sales
+half. ⚠ `SharedKernel.BusinessDay` extracted so the drawer and the sales it reconciles against
+cannot disagree about "today".
+
+⚠ **USER-VERIFY still open: does the drawer physically kick?** `POSCashDrawer.InitPOSObject` fell
+out of its own success path into `throw NotClaimable` until 2026-08-10, so a working drawer reported
+"in use by another process" on every cash sale — and the "Silence" button set a preference nothing
+read, so the modal came back for ever. Both fixed; neither has been exercised on hardware.
 
 ### 3. Step 24 — WP8 Users screen (~3 days)
 
