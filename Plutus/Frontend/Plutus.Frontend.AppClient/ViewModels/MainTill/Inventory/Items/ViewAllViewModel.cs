@@ -68,6 +68,25 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         public string EmptyNotice => string.IsNullOrWhiteSpace(SearchText)
             ? "No items yet. They arrive from Plutus with the catalogue."
             : $"Nothing matches “{SearchText}”.";
+
+        /// <summary>How many rows this screen is willing to read. ⚠ Named, not inline, because it
+        /// is the number <see cref="CapNotice"/> has to tell the truth about.</summary>
+        private const int BrowseLimit = 500;
+
+        private bool _capped;
+
+        /// <summary>
+        /// ⚠ SAY WHEN THE LIST IS TRUNCATED. `BrowseAsync(500)` silently returns the first 500 rows
+        /// of a catalogue that can hold twenty thousand — so an operator scrolling to the bottom of
+        /// a shop's inventory reached "R" and reasonably concluded the rest had been deleted.
+        ///
+        /// A cap with no marker reads as completeness, which is the one thing it is not. Searching
+        /// reaches the whole catalogue, so the notice says so rather than just apologising.
+        /// </summary>
+        public bool ShowCapNotice => _capped && !ShowEmptyNotice;
+
+        public string CapNotice =>
+            $"Showing the first {BrowseLimit} items. Search to reach the rest of the catalogue.";
         #endregion
         #endregion
 
@@ -112,6 +131,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
 
             OnPropertyChanged(nameof(ShowEmptyNotice));
             OnPropertyChanged(nameof(EmptyNotice));
+            OnPropertyChanged(nameof(ShowCapNotice));
+            OnPropertyChanged(nameof(CapNotice));
         }
 
         /// <summary>
@@ -150,7 +171,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                     // sync behind it, and the till goes quiet with no error anywhere.
                     using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
                     var catalogue = await Services.Storage.TillStoreAccess.UseAsync(
-                        s => s.BrowseAsync(500, timeout.Token), timeout.Token);
+                        s => s.BrowseAsync(BrowseLimit, timeout.Token), timeout.Token);
+
+                    // ⚠ A FULL PAGE MEANS THERE IS PROBABLY MORE. It cannot distinguish "exactly
+                    // 500 items" from "the first 500 of 20,000" — so the notice is worded as a
+                    // statement about what is SHOWN, which is true either way, rather than a claim
+                    // about what was left out.
+                    _capped = catalogue.Count >= BrowseLimit;
 
                     // ⚠ Mapped to the legacy `ItemModel` because that is what the list view binds
                     // to, and MAUI bindings fail SILENTLY — swapping the bound type would blank the
@@ -168,6 +195,21 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                             ? Math.Round(c.PricePence / (1m + c.VatRateBp / 10000m)) / 100m
                             : c.PricePence / 100m,
                     }).ToList();
+
+                    // ⚠ THE STOCK COLUMN WAS BLANK ON EVERY ROW, and blank reads as ZERO.
+                    //
+                    // The list bound `Stock.Quantity` — a legacy EF NAVIGATION PROPERTY that this
+                    // mapping has never populated, because the v2 catalogue feed does not carry a
+                    // quantity at all (`CatalogueItem` has no such field). MAUI bindings fail
+                    // SILENTLY, so a null `Stock` rendered as an empty cell rather than an error:
+                    // an operator reading that column would conclude the shop has none of anything.
+                    //
+                    // ⚠ Until the feed carries stock (cutover step 25, `GET /api/v1/stock/levels`),
+                    // the honest answer is "not known here", NOT a number. `StockUntracked` IS in
+                    // the feed, so an item that deliberately has no count says so with ∞ — that
+                    // one is a fact, and it is the answer for carrier bags and back-issues.
+                    for (var i = 0; i < loaded.Count; i++)
+                        loaded[i].StockDisplay = catalogue[i].StockUntracked ? "∞" : "—";
                 }
                 catch (Exception ex)
                 {
@@ -723,21 +765,33 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
 
         #region Operations
         /// <summary>
-        /// Does this item match what the operator typed? Barcode, name, brand or description.
+        /// Does this item match what the operator typed?
         ///
-        /// ⚠ NULL-SAFE ON `Id` AND `Name` TOO. It was not: a catalogue row with a null name threw
-        /// NullReferenceException out of the filter, which Syncfusion swallowed into its own layout
-        /// pass — the list simply stopped updating and nothing appeared anywhere.
+        /// ⚠ THE RULE IS `SharedKernel.ItemSearch`, NOT A SECOND OPINION — cutover step 25's
+        /// *"delete `ViewAllViewModel.FilterItems`"*, and it is a C1 rule with a C2 history: the
+        /// same matching logic once existed three times (the server's `ItemParameters.Tokenise`,
+        /// the web till's `offline.ts`, and this) and two of the copies carried "keep in sync"
+        /// comments, which is a comment admitting the problem rather than fixing it.
+        ///
+        /// ⚠ WHAT THE LOCAL COPY GOT WRONG, both ways round:
+        ///   • it matched on **Desc**, which the shared rule deliberately excludes — *"adding a
+        ///     fourth field here without adding it to the server changes what a till finds and
+        ///     nothing would say so"*. An item found by its description here and nowhere else is a
+        ///     till whose search cannot be reasoned about;
+        ///   • it did a whole-string `Contains`, so **"batman one" found nothing** in this list
+        ///     while finding *Batman Year One* in the scan box two tabs away. Two search boxes in
+        ///     one app, disagreeing, is worse than either being wrong on its own.
+        ///
+        /// ⚠ It also honours `MatchAllWordsSetting`, which the local copy ignored — so the browse
+        /// list and the scan box now answer to the same preference.
         /// </summary>
         private bool FilterItem(ItemModel item)
         {
-            if (string.IsNullOrEmpty(SearchText)) return true;
+            if (string.IsNullOrWhiteSpace(SearchText)) return true;
             if (item is null) return false;
 
-            return Contains(item.Id) || Contains(item.Name) || Contains(item.Brand) || Contains(item.Desc);
-
-            bool Contains(string field) =>
-                field?.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ?? false;
+            return ItemSearch.Matches(
+                SearchText, App.GetViewModel().MatchAllWordsSetting, item.Name, item.Id, item.Brand);
         }
         /*
         private void LoadItems()

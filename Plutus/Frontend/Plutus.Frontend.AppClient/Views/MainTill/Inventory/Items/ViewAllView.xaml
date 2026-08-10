@@ -43,6 +43,7 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <SearchBar Grid.Row="0"
@@ -101,7 +102,12 @@
                                 </Grid.ColumnDefinitions>
                                 <Label Grid.Column="0" Text="{Binding Name}" VerticalOptions="Center"/>
                                 <Label Grid.Column="1" Text="{Binding Price, StringFormat='{0:C}'}" VerticalOptions="Center"/>
-                                <Label Grid.Column="2" Text="{Binding Stock.Quantity}" VerticalOptions="Center"/>
+                                <!-- ⚠ `StockDisplay`, NOT `Stock.Quantity`. `Stock` is a legacy EF
+                                     navigation property that nothing populates on a
+                                     portal-provisioned till, and a MAUI binding to a null path
+                                     renders BLANK without complaint — so this column was empty on
+                                     every row, and an empty stock column reads as ZERO. -->
+                                <Label Grid.Column="2" Text="{Binding StockDisplay}" VerticalOptions="Center"/>
 
                                 <!-- ⚠ A VISIBLE EDIT BUTTON, on every row. Matt, 2026-08-10:
                                      "Having an 'Edit item' button would be better than assuming
@@ -124,6 +130,13 @@
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>
+
+            <!-- ⚠ A TRUNCATED LIST MUST SAY SO. The browse read is capped at 500 rows against a
+                 catalogue that can hold twenty thousand, and a cap with no marker reads as
+                 completeness — an operator scrolling to "R" concludes the rest was deleted. -->
+            <Label Grid.Row="3" Text="{Binding CapNotice}" IsVisible="{Binding ShowCapNotice}"
+                   FontSize="Micro" TextColor="Gray" Padding="6,4"
+                   HorizontalTextAlignment="Center"/>
         </Grid>
     </ContentPage.Content>
 </ContentPage>

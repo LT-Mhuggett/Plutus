@@ -23,6 +23,7 @@ namespace Database.Models
         private int _vatId;
         private int _catId;
         private StockModel _stock;
+        private string _stockDisplay = "—";
         private TaxModel _vat;
         private CategoryModel _cat;
         #region Auditable
@@ -130,6 +131,28 @@ namespace Database.Models
         {
             get => _stock;
             set => SetProperty(ref _stock, value);
+        }
+
+        /// <summary>
+        /// What the Stock column shows — a NUMBER when one is known, "∞" when the item is
+        /// deliberately untracked, "—" when this screen has no count.
+        ///
+        /// ⚠ IT EXISTS BECAUSE BINDING TO <see cref="Stock"/> RENDERED BLANK ON EVERY ROW. `Stock`
+        /// is a legacy EF navigation property; the v2 catalogue feed carries no quantity, so
+        /// nothing populates it on a portal-provisioned till — and MAUI bindings fail SILENTLY, so
+        /// `{Binding Stock.Quantity}` produced an empty cell rather than an error. An empty cell in
+        /// a stock column reads as ZERO, which is a confident wrong answer about every item in the
+        /// shop.
+        ///
+        /// ⚠ NOT MAPPED TO THE DATABASE — it is display state on a model that is otherwise an
+        /// entity, which is a compromise, made because this model goes when the inventory screen is
+        /// reshaped (cutover step 25). ⚠ It must NEVER be written back.
+        /// </summary>
+        [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+        public string StockDisplay
+        {
+            get => _stockDisplay;
+            set => SetProperty(ref _stockDisplay, value);
         }
         public virtual TaxModel Vat
         {
