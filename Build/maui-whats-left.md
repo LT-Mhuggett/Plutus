@@ -24,9 +24,13 @@ counter**. What it still cannot do is **loyalty, gift cards, users, theming, rep
 stock ledger**.
 
 **Done: cutover steps 1–20, 23, 26's reprint half, and the first two slices of 25.**
-**Remaining: 11b · 21 · 22 · 24 · the rest of 25 · the rest of 26 · 27 · 28 — about 45 working
-days.** Two thirds of that is three items: **loyalty + gift cards (27, ~15d)**, **reporting (26,
-~9d)** and **the stock ledger + categories + the Bin (rest of 25, ~5d)**.
+**Remaining: 11b · 21 · 22 · 24 · the tail of 25 · the rest of 26 · 27 · 28 — about 42 working days.**
+Two thirds of that is three items: **loyalty + gift cards (27, ~15d)**, **reporting (26, ~9d)** and
+**the basket reshape (11b, ~4d)**.
+
+⚠ **Step 25 is all but done** — down to ~2 days, and 1½ of those are **blocked on a permissions
+decision rather than on code** (§25b below). Inventory was the largest gap on this page when it was
+written; it is now the smallest.
 
 ### ⚠ Four rows are now closed that this page previously listed as open
 
@@ -124,7 +128,7 @@ Employee list/create + set password, via the legacy `/api/Employee` and `/api/Au
 the MAUI parity target is the smaller surface. MAUI's current add-user command is a stopgap dialog
 reading *"not available in this version yet"*.
 
-### 4. Step 25 — WP10 inventory + stock ledger — **~5 days left of ~10**
+### 4. Step 25 — WP10 inventory + stock ledger — **~2 days left of ~10, and 1½ of those are blocked on a decision**
 
 ✅ **Slices 1 and 2 landed 2026-08-10 (tills 1.33.0–1.36.0).** Item **create** and **edit** with the
 web till's full field set; **add-unknown-scan** from the counter; the catalogue feed grown to carry
@@ -137,10 +141,10 @@ brand and the till had no brand column, so "Marvel" found nothing here and every
 
 | # | Piece | ~ | ⚠ |
 |---|---|---|---|
-| 25a | **Stock quantity on the item list** — `GET /api/v1/stock/levels` | 1d | Read-only, gated `portal.reports.view`. The column currently shows **"—"** (not a number) precisely because nothing knows the count — a blank would read as zero |
+| ~~25a~~ | ✅ **Stock column — DONE 2026-08-10 (1.37.0)** | — | Number / **∞** untracked / **—** never counted. ⚠ The column was BLANK on every row and blank reads as ZERO. Gate widened to accept `pos.reports.view` — third time, same defect |
 | 25b | **Adjust stock** — `POST /api/v1/stock/movements` | 1–2d | ⚠ **BLOCKED ON A DECISION, NOT ON CODE** — see below |
-| 25c | **Category create / rename / reassign** — `/api/v1/categories` | 1d | The 409 is **reassign-first**: a category with items refuses deletion until they are moved, and the till has nowhere for that refusal to land today |
-| 25d | **The Bin** (soft delete + restore) | 1d | ⚠ A binned item must stop selling on an **offline** till — that is what the feed's `Removed` tombstone is for, and it is carried and still unread by any screen |
+| ~~25c~~ | ✅ **Categories — DONE 2026-08-10 (1.38.0)** | — | The 409 now lands: the refusal becomes the OFFER to reassign. ⚠ A test pins that the till never calls the LEGACY delete, which cascades and would take every item in the category with it |
+| ~~25d~~ | ✅ **The Bin — DONE 2026-08-10 (1.37.0)** | — | ⚠ The offline-tombstone rule was honoured on every read path and pinned by NOTHING; now covered across scan, search and browse separately. **Restore stays portal-side** — MAUI has no binned-items view, which is the honest remainder |
 | 25e | **Portal-published VAT bands, whole timeline** | ½d | ⚠ Caching only *today's* rate is a bug: the timeline is what lets an offline till apply a future-dated change on the day it starts |
 
 #### ⚠⚠ 25b is a PERMISSIONS decision and it is Matt's, not mine

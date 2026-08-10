@@ -113,3 +113,25 @@ public sealed class CategoryDto
     [JsonPropertyName("idOne")] public Guid IdOne { get; set; }
     [JsonPropertyName("name")] public string? Name { get; set; }
 }
+
+/// <summary>
+/// A category as the MANAGEMENT endpoint `GET /api/v1/categories` returns it — with the item count,
+/// which is the field the whole reassign-first flow turns on.
+///
+/// ⚠ DIFFERENT SHAPE AND DIFFERENT ID NAME from <see cref="CategoryDto"/>, which is the legacy
+/// `/api/Category/Index` row the item editor's dropdown reads. Two endpoints over one table,
+/// deliberately: the legacy one is what the WEB TILL's editor calls (binding default 10) and the v1
+/// one is tenant-scoped and guards the delete. ⚠ The legacy DELETE cascades — deleting a category
+/// there silently deletes every item in it, and their sale lines and stock with them — which is why
+/// management goes through v1 and nothing on a till may call the legacy delete.
+///
+/// ⚠ <see cref="ItemCount"/> COUNTS BINNED ITEMS TOO. A category that looks empty on screen can
+/// still refuse to delete, and the server's 409 is the honest answer rather than a bug.
+/// </summary>
+public sealed class CategoryListDto
+{
+    [JsonPropertyName("id")] public Guid Id { get; set; }
+    [JsonPropertyName("name")] public string? Name { get; set; }
+    [JsonPropertyName("description")] public string? Description { get; set; }
+    [JsonPropertyName("itemCount")] public int ItemCount { get; set; }
+}

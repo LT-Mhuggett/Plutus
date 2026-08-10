@@ -446,6 +446,80 @@ public sealed class PlutusApiClient
         }
     }
 
+    // ── categories: the MANAGEMENT endpoints (WP10 / cutover step 25) ────────────────────────
+    //
+    // ⚠ NOT the legacy `/api/Category` CRUD, and never its DELETE. `Item → Category` is configured
+    // `OnDelete(Cascade)`, so deleting a category on the legacy route silently deletes every item in
+    // it — and their sale lines and stock with them. The v1 controller exists to guard exactly that:
+    // it refuses (409) while any item still references the category, and refuses the LAST category
+    // because `Item.CatId` is required. Reassign first, then delete.
+
+    /// <summary>Categories WITH their item counts — the number the reassign-first flow turns on.
+    /// ⚠ Needs `portal.reports.view`.</summary>
+    public Task<List<CategoryListDto>?> GetCategoryListAsync(CancellationToken ct = default)
+        => GetAsync<List<CategoryListDto>>("/api/v1/categories", ct);
+
+    /// <summary>Create a category. ⚠ 409 when the name is taken — names are unique per tenant.</summary>
+    public Task<(bool Ok, string? Problem)> CreateCategoryAsync(
+        string name, string? description = null, CancellationToken ct = default)
+        => WriteCategoryAsync(HttpMethod.Post, "/api/v1/categories",
+            new { name, description = description ?? "" }, "create that category", ct);
+
+    /// <summary>Rename a category. ⚠ A blank description leaves the existing one alone — unlike
+    /// create, where blank defaults to the name.</summary>
+    public Task<(bool Ok, string? Problem)> RenameCategoryAsync(
+        Guid id, string name, CancellationToken ct = default)
+        => WriteCategoryAsync(HttpMethod.Put, $"/api/v1/categories/{id:D}",
+            new { name, description = "" }, "rename that category", ct);
+
+    /// <summary>
+    /// Move EVERY item out of one category into another.
+    ///
+    /// ⚠ IT IS UNCONDITIONAL AND HAS NO CAP. There is no partial or selective reassign — this moves
+    /// the whole category, which is what makes a delete possible and also what makes it worth
+    /// confirming with a COUNT in front of the operator first.
+    /// </summary>
+    public Task<(bool Ok, string? Problem)> ReassignCategoryAsync(
+        Guid fromId, Guid toId, CancellationToken ct = default)
+        => WriteCategoryAsync(HttpMethod.Post, $"/api/v1/categories/{fromId:D}/reassign",
+            new { toId }, "move those items", ct);
+
+    /// <summary>
+    /// Delete a category.
+    ///
+    /// ⚠ **409 IS THE NORMAL ANSWER, NOT AN ERROR** — it means items are still in it, and the
+    /// server's message says how many. That refusal is the reassign-first flow: a client that
+    /// treats it as a failure and stops has removed the only route through.
+    /// </summary>
+    public Task<(bool Ok, string? Problem)> DeleteCategoryAsync(Guid id, CancellationToken ct = default)
+        => WriteCategoryAsync(HttpMethod.Delete, $"/api/v1/categories/{id:D}", null, "delete that category", ct);
+
+    private async Task<(bool Ok, string? Problem)> WriteCategoryAsync(
+        HttpMethod method, string url, object? body, string what, CancellationToken ct)
+    {
+        try
+        {
+            using var req = new HttpRequestMessage(method, url);
+            if (body is not null) req.Content = JsonContent.Create(body, options: Json);
+            await AuthoriseAsync(req, ct);
+
+            using var res = await _http.SendAsync(req, ct);
+            if (res.IsSuccessStatusCode) return (true, null);
+
+            // ⚠ THE SERVER'S OWN WORDS, and they are the useful part. Its 409s name the count
+            // ("12 item(s) are still in this category — reassign them first") and its 400s name the
+            // rule. Replacing them with "couldn't do that" throws away the only actionable thing.
+            var detail = await res.Content.ReadAsStringAsync(ct);
+            return (false, string.IsNullOrWhiteSpace(detail)
+                ? $"Plutus wouldn't {what} ({(int)res.StatusCode})."
+                : detail);
+        }
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
+        {
+            return (false, $"Couldn't reach Plutus to {what}.");
+        }
+    }
+
     /// <summary>
     /// Move items to the Bin, or bring them back (WP10 / cutover step 25).
     ///

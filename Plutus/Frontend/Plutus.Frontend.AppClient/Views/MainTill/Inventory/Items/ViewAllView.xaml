@@ -46,16 +46,18 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto">
                 <SearchBar Grid.Column="0"
                            Placeholder="{Binding Source={i18n:Translate Items}, StringFormat={i18n:Translate SearchArg}}"
                            Text="{Binding SearchText}"/>
-                <!-- ⚠ A VISIBLE "Add item", for the same reason Edit got one: a capability reachable
+                <!-- ⚠ VISIBLE BUTTONS, for the same reason Edit got one: a capability reachable
                      only by a gesture nobody advertises is a capability that does not exist. The
-                     till's unknown-barcode flow reaches the SAME command with the scanned code
-                     already filled in. -->
+                     till's unknown-barcode flow reaches the SAME "Add item" command with the
+                     scanned code already filled in. -->
                 <Button Grid.Column="1" Text="Add item" Margin="4,0"
                         Command="{Binding CreateItemCommand}"/>
+                <Button Grid.Column="2" Text="Categories" Margin="0,0,4,0"
+                        Command="{Binding ManageCategoriesCommand}"/>
             </Grid>
 
             <!-- ⚠ FOUR columns, and the row template below MUST match. A header that disagrees with

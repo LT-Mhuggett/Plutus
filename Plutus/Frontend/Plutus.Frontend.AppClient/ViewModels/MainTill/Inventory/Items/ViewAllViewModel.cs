@@ -365,6 +365,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
             get => _createItemCommand ?? (_createItemCommand = new Command<string>(ExecuteCreateItem));
         }
 
+        Command _manageCategoriesCommand;
+        public Command ManageCategoriesCommand
+        {
+            get => _manageCategoriesCommand ?? (_manageCategoriesCommand = new Command(ExecuteManageCategories));
+        }
+
         Command _updateItemStockCommandArg;
         public Command UpdateItemStockCommandArg
         {
@@ -664,6 +670,32 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
             {
                 // ⚠ `async void` — an escape here closes the till.
                 Services.Analytics.CrashLog.Write("ViewAllViewModel.EditItem", ex);
+                await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "That didn't work. Nothing has been changed.", "OK".Translate());
+            }
+        }
+
+        /// <summary>
+        /// Create / rename / reassign / delete categories (WP10 / cutover step 25).
+        ///
+        /// ⚠ The catalogue is re-synced only if something CHANGED, because an item's category is on
+        /// the feed — a rename or a reassign that this screen does not pick up leaves the editor's
+        /// dropdown naming a category that no longer exists.
+        /// </summary>
+        private async void ExecuteManageCategories()
+        {
+            try
+            {
+                if (await Services.Inventory.CategoryManager.ShowAsync())
+                {
+                    await Services.Storage.CatalogueSyncService.SyncAsync();
+                    InitItems();
+                }
+            }
+            catch (Exception ex)
+            {
+                // ⚠ `async void` — an escape here closes the till.
+                Services.Analytics.CrashLog.Write("ViewAllViewModel.Categories", ex);
                 await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
                     "That didn't work. Nothing has been changed.", "OK".Translate());
             }
