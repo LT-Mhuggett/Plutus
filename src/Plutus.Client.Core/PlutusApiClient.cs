@@ -313,6 +313,28 @@ public sealed class PlutusApiClient
             + $"&from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}&granularity={Uri.EscapeDataString(granularity)}", ct);
 
     /// <summary>
+    /// Sales the PLATFORM holds for a date range — from every till unless one is named (WP11).
+    ///
+    /// ⚠ THIS IS HOW A CROSS-TILL REFUND BECOMES FINDABLE. A till's own list works offline and
+    /// covers the common case; goods bought at another branch exist only here, and without this the
+    /// operator has to type a UUID off a receipt to reach one.
+    ///
+    /// ⚠ NEEDS AN OPERATOR TOKEN (`perm:portal.reports.view,pos.reports.view`).
+    ///
+    /// ⚠ `take` is clamped 1..500 SERVER-side. Ask for what a person can actually read, not for
+    /// everything — a picker of 500 sales is a picker nobody uses.
+    /// </summary>
+    /// <param name="tillId">Null for every till — which is the point when looking for another
+    /// branch's sale.</param>
+    public Task<List<SaleListEntry>?> GetSalesAsync(
+        DateOnly from, DateOnly to, Guid? tillId = null, int take = 50, CancellationToken ct = default)
+    {
+        var url = $"/api/v1/sales?from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}&take={take}";
+        if (tillId is Guid t) url += $"&tillId={t:D}";
+        return GetAsync<List<SaleListEntry>>(url, ct);
+    }
+
+    /// <summary>
     /// Read one catalogue item from the platform, as the legacy endpoints hold it (WP10).
     ///
     /// ⚠ NEEDS AN OPERATOR TOKEN, and a device token does not merely fail the policy — it 500s.

@@ -1,6 +1,6 @@
 # Shop-day test — the hand-run script
 
-**Build: `D:\tmp\plutus-till-1.26.0\Plutus.Frontend.AppClient.exe`** (unpackaged — no signing, no
+**Build: `D:\tmp\plutus-till-1.29.0\Plutus.Frontend.AppClient.exe`** (unpackaged — no signing, no
 install; just run the .exe).
 
 This is the USER-VERIFY script for everything that landed on 2026-08-10. It is ordered as a real
@@ -20,7 +20,7 @@ path. `CrashLog` hooks both `AppDomain` and `Microsoft.UI.Xaml.Application.Unhan
 | # | Do | Expect | ⚠ If not |
 |---|---|---|---|
 | 0.1 | Launch the till | Signs in; tabs are **Till · Inventory Managment · Cash · Statistics · Store Information · Settings · Plutus** | No **Cash** tab = you are on an older build |
-| 0.2 | **Plutus** tab | Version chip reads **v1.28.0**; connection green | — |
+| 0.2 | **Plutus** tab | Version chip reads **v1.29.0**; connection green | — |
 | 0.3 | Wait ~60s, then check the portal's fleet list | The till reports **1.26.0+10fed46** | Versions were NULL on every row until backend 1.8.1 — this is the fix |
 
 ## 1. Open the day

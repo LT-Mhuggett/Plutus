@@ -565,7 +565,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 var recent = await Services.Storage.TillStoreAccess.TryUseAsync(
                     s => s.ListRecentSalesAsync(20, purchasesOnly: true));
 
-                var typeItInstead = "Enter a sale ID…";
+                const string anotherTill = "Sold on another till — look it up in Plutus…";
+                const string typeItInstead = "Enter a sale ID…";
                 string saleIdFromPicker = null;
 
                 if (recent is { Count: > 0 })
@@ -576,10 +577,16 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                                    + $"{r.LineCount} item{(r.LineCount == 1 ? "" : "s")}"
                                    + (string.IsNullOrWhiteSpace(r.FirstItemIdOne) ? "" : $" · {r.FirstItemIdOne}"))
                         .ToList();
+
+                    // ⚠ THIS TILL'S SALES FIRST, ALWAYS. They are the common case and the only ones
+                    // available with the line down. The platform lookup is the second step, not the
+                    // default, so a refund never depends on the network unless it has to.
+                    labels.Add(anotherTill);
                     labels.Add(typeItInstead);
 
-                    var picked = await Application.Current.MainPage.DisplayActionSheet(
-                        "Which sale is this going back to?", "Cancel".Translate(), null, labels.ToArray());
+                    var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
+                        Application.Current.MainPage.DisplayActionSheet(
+                            "Which sale is this going back to?", "Cancel".Translate(), null, labels.ToArray()));
 
                     if (string.IsNullOrEmpty(picked) || picked == "Cancel".Translate())
                     {
@@ -588,9 +595,17 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         return;
                     }
 
-                    var index = labels.IndexOf(picked);
-                    if (index >= 0 && index < recent.Count)
-                        saleIdFromPicker = recent[index].SaleId.ToString("D");
+                    if (picked == anotherTill)
+                    {
+                        saleIdFromPicker = await PickPlatformSaleAsync();
+                        if (saleIdFromPicker is null) return;   // backed out, or nothing to show
+                    }
+                    else
+                    {
+                        var index = labels.IndexOf(picked);
+                        if (index >= 0 && index < recent.Count)
+                            saleIdFromPicker = recent[index].SaleId.ToString("D");
+                    }
                 }
 
                 // ⚠ Only ask for what is still unknown. Having just chosen the sale from a list,
@@ -1675,6 +1690,73 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// item, not a confirmation step, and a picker containing one row is a keystroke tax paid on
         /// every sale.
         /// </summary>
+        /// <summary>
+        /// Find a sale the PLATFORM holds — from any till (WP11 / cutover step 26).
+        ///
+        /// ⚠ THIS IS WHAT MAKES A CROSS-TILL REFUND REACHABLE. Goods bought at another branch exist
+        /// only on the platform, and until now the only way to name one was typing a UUID off a
+        /// receipt — so in practice they were not refundable at all unless the customer still had a
+        /// printed receipt AND somebody was willing to type 36 characters.
+        ///
+        /// ⚠ REFUNDS ARE EXCLUDED, exactly as they are in the local picker. A refund is itself a sale
+        /// with a negative gross; offering one defeats the cap entirely, which cost £13.99 twice on
+        /// 2026-08-10.
+        ///
+        /// ⚠ Needs an OPERATOR token and a connection, and says so plainly when it has neither. This
+        /// is the one refund path that genuinely cannot work offline — the local list is what covers
+        /// that case.
+        /// </summary>
+        /// <returns>The chosen sale id, or null if the operator backed out or there was nothing.</returns>
+        private async Task<string> PickPlatformSaleAsync()
+        {
+            var api = await Services.Connectivity.PlutusApi.GetOperatorAsync();
+            if (api is null)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "Looking up another till's sale needs someone signed in and a connection to "
+                    + "Plutus. This till's own sales are in the previous list.", "OK".Translate());
+                return null;
+            }
+
+            // ⚠ A FORTNIGHT, not "everything". Refunds are overwhelmingly recent, and a picker
+            // holding months of sales is one nobody reads — the server clamps `take` at 500 anyway.
+            var today = SharedKernel.BusinessDay.Today();
+            var sales = await api.GetSalesAsync(today.AddDays(-14), today, tillId: null, take: 40);
+
+            var purchases = sales?.Where(s => s.GrossPence > 0).ToList();
+            if (purchases is null || purchases.Count == 0)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    sales is null
+                        ? "Plutus couldn't be reached, so other tills' sales can't be listed."
+                        : "Plutus has no sales in the last fortnight to refund against.",
+                    "OK".Translate());
+                return null;
+            }
+
+            var thisTill = await Services.Storage.TillStoreAccess.TryUseAsync(
+                s => s.GetGuidMetaAsync(Plutus.Client.Storage.MetaKeys.TillId));
+
+            var labels = purchases
+                .Select(s => $"{s.OccurredAtUtc.ToLocalTime():dd MMM HH:mm} · {s.GrossPence / 100m:C}"
+                           // ⚠ Says WHOSE sale it is. Without it the operator cannot tell a
+                           // neighbouring till's sale from one of their own, which is the entire
+                           // question this list exists to answer.
+                           + (thisTill is Guid t && s.TillId == t ? " · this till" : " · another till")
+                           + (string.Equals(s.Channel, "Till", StringComparison.OrdinalIgnoreCase)
+                               ? "" : $" · {s.Channel}"))
+                .ToList();
+
+            var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
+                Application.Current.MainPage.DisplayActionSheet(
+                    "Which sale, from Plutus?", "Cancel".Translate(), null, labels.ToArray()));
+
+            if (string.IsNullOrEmpty(picked) || picked == "Cancel".Translate()) return null;
+
+            var index = labels.IndexOf(picked);
+            return index >= 0 && index < purchases.Count ? purchases[index].Id.ToString("D") : null;
+        }
+
         private async Task<SearchChoice> SearchForOneAsync(string typed)
         {
             // ⚠ Ask for one MORE than we will show, so "there are others" is known rather than

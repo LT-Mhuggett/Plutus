@@ -46,6 +46,39 @@ public sealed class ReportTotals
     [JsonPropertyName("avgBasketPence")] public long AvgBasketPence { get; set; }
 }
 
+/// <summary>
+/// One sale in the platform's list — enough to RECOGNISE it, from ANY till.
+///
+/// ⚠ THIS IS WHAT MAKES A CROSS-TILL REFUND FINDABLE. `TillStore.ListRecentSalesAsync` covers this
+/// till's own sales and works offline, which is the common case; goods bought at another branch are
+/// only in the platform, and until now the operator had to type a UUID off a receipt to reach one.
+///
+/// ⚠ NO LINES HERE, deliberately — same reasoning as `LocalSaleSummary`. It cannot say what is still
+/// returnable, so the caller reads the real sale (`GET /api/v1/sales/{saleId}`) before capping
+/// anything. A cap computed from a list entry is not a cap.
+///
+/// ⚠ TWIN of the anonymous object `ReportsController.SalesList` returns (till-design C2).
+/// </summary>
+public sealed class SaleListEntry
+{
+    [JsonPropertyName("id")] public Guid Id { get; set; }
+    [JsonPropertyName("businessDay")] public string? BusinessDay { get; set; }
+    [JsonPropertyName("occurredAtUtc")] public DateTime OccurredAtUtc { get; set; }
+
+    /// <summary>⚠ Which till took it — the whole reason an operator is looking at this list.</summary>
+    [JsonPropertyName("tillId")] public Guid TillId { get; set; }
+
+    /// <summary>`Till`, `Webstore`, … — a webstore order is not refundable at a counter the same way.</summary>
+    [JsonPropertyName("channel")] public string? Channel { get; set; }
+
+    /// <summary>⚠ NEGATIVE for a refund. A refund is itself a sale, and one must never be offered as
+    /// something to refund against — that cost £13.99 twice on 2026-08-10.</summary>
+    [JsonPropertyName("grossPence")] public long GrossPence { get; set; }
+
+    [JsonPropertyName("vatPence")] public long VatPence { get; set; }
+    [JsonPropertyName("legacyRef")] public string? LegacyRef { get; set; }
+}
+
 public sealed class ReportBucket
 {
     [JsonPropertyName("period")] public string? Period { get; set; }
