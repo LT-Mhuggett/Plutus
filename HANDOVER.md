@@ -27,15 +27,54 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 | | |
 |---|---|
-| **Suite** | Unit **757** · Integration **145** · Architecture **13** · AppClient **409** (+3 skipped) — all green |
-| **Till build to run** | **`D:\tmp\plutus-till-1.22.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing needed. Stamp `1.22.0+b690d17` |
+| **Suite** | Unit **767** · Integration **145** · Architecture **13** · AppClient **409** (+3 skipped) — all green |
+| **Till build to run** | **`D:\tmp\plutus-till-1.23.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing needed. Stamp `1.23.0+dee72a7` |
 | **Deployed** | backend **1.8.1** LIVE (2026-08-10 12:35). Rollback `~/PLUTUS/backend.pre-20260810-123535`. Verified: DB-path probe 401, ETRIE 200, health 200, restart count 0 over 20s. ⚠ **The heartbeat version fix is CONFIRMED WORKING in production** — `Devices.AppVersion` now reads `1.19.0+c8931ef` for Matt's till, having been NULL on every row since the column shipped |
-| **Versions** | till-maui **1.22.0** · platform **1.20.0** · backend **1.8.1** · portal **1.3.0** · till-web **1.5.0** |
+| **Versions** | till-maui **1.23.0** · platform **1.21.0** · backend **1.8.1** · portal **1.3.0** · till-web **1.5.0** |
 | **Deployed** | backend 1.7.0, portal 1.3.0, web till 1.5.0 — **LIVE and unchanged by today**. Nothing today needs a deploy; it is all MAUI + docs |
 | **Commits** | `bb3c13a` (overlay) → `79b8d7a` (search + button sweep) → `80dd81b` (payment dialog + layout). ⚠ **NOT PUSHED** — still local on `Matt's-Horror` |
 | **Health** | Plutus 200 · ETRIE 200 · backend up, 838 restarts is the historical rotation count and is not climbing |
 
+## ▶ WHAT LANDED IN THE SECOND HALF OF 2026-08-10
+
+**Cash (step 23) — a shop can open and close.** The blocker is gone; details in the plan and Part B.
+**Backend 1.8.1 deployed and verified.** **The operator token is wired**, which unblocks 24–27.
+
+⚠ **THE SURVEY WAS RIGHT AND I DOUBTED IT — worth remembering.** It reported the cross-till refund
+lookup had "silently 403'd since it shipped" because `OperatorSession.Token` is fetched at sign-in
+and attached to nothing. I grepped for `Route("api/v1/sales"`, found nothing, concluded the endpoint
+had never been built, and **built a duplicate**. It already existed at `ReportsController.cs:694`
+with an ABSOLUTE route on the action. Worse, mine was `{saleId:guid}` — a constrained parameter
+outranks an unconstrained one — so for ~20 minutes the deployed server served sale detail from a
+**device-gated** handler in place of the operator-gated one. Reverted, redeployed, verified.
+
+Two lessons, both cheap to apply:
+- **Grep for the ROUTE STRING, not the attribute form.** `grep -rn '"api/v1/sales'` finds both;
+  `Route("api/v1/sales"` finds only one of them.
+- **Ask the running server.** It answered 401-not-404 from the start and I explained that away.
+  ⚠ `/swagger/v1/swagger.json` through Caddy returns the **portal's HTML** — hit
+  `http://127.0.0.1:5100/swagger/v1/swagger.json` on the Mac instead. Any past "I checked swagger"
+  was checking nothing.
+
+⚠ **Six built-but-uncalled components have now been found**, plus a write that never ran:
+`OutboxPusher.DrainAsync`, the catalogue browse, `TillStore.SearchAsync`, `NoticesClient`,
+`VatBandCache.RefreshAsync`, `OperatorSession.Token` — and `HeartbeatController`'s version assign,
+saved only inside `if (syncNow)`. **Check what exists before estimating anything.**
+
 ## ▶ TOMORROW, IN ORDER
+
+**0. ⚠ HAND-RUN A WHOLE SHOP DAY ON `1.23.0` BEFORE BUILDING ANYTHING ELSE.** The checkout path
+changed (the tender loop moved into `TenderLoop`), cash is brand new, and the drawer fix has never
+been exercised on hardware. Layering inventory on top of untested cash widens the blast radius of
+anything wrong. Open a float → sell → refund → X-read → Z-read → try to record more (it must
+refuse). Then pull the network, take a paid-out, reconnect, and watch "(waiting to send)" clear.
+
+**Step 25 (inventory / item editing) is VERIFIED UNBLOCKED and ready to start after that.** The item
+write API already exists — `POST /api/Item` and `PUT /api/Item/{id1}`, which the web till calls in
+production today — and the legacy base controller's constructor reads an `objectidentifier` claim
+that the OPERATOR token carries (`PlutusTokenAuthHandler.cs:95`) and a device token does not. That
+was the real blocker and it is now wired. So step 25 is a screen plus client methods, not a screen
+plus an API.
 
 **1. Retest the till (`1.17.0`) — this is the fastest way to find the next real problem.**
 Four things, in this order, because each unblocks the next:
