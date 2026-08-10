@@ -82,6 +82,8 @@ namespace Plutus.Frontend.AppClient.Helpers.CustomViews
         private static async Task<Dictionary<uint, string>> ShowAsync(
             AlertDialogBase<Dictionary<uint, string>> popUp, InputAlert inputAlert)
         {
+            return await Services.UIHandeling.Modal.ShowAsync(async () =>
+            {
             try
             {
                 await MopupService.Instance.PushAsync(popUp);
@@ -113,6 +115,7 @@ namespace Plutus.Frontend.AppClient.Helpers.CustomViews
                     Debug.WriteLine(ex);
                 }
             }
+            });
         }
 
         /// <summary>

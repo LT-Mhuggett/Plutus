@@ -1,6 +1,6 @@
 # Shop-day test — the hand-run script
 
-**Build: `D:\tmp\plutus-till-1.24.0\Plutus.Frontend.AppClient.exe`** (unpackaged — no signing, no
+**Build: `D:\tmp\plutus-till-1.25.0\Plutus.Frontend.AppClient.exe`** (unpackaged — no signing, no
 install; just run the .exe).
 
 This is the USER-VERIFY script for everything that landed on 2026-08-10. It is ordered as a real

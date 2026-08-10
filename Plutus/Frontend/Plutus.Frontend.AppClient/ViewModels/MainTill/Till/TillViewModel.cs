@@ -1109,8 +1109,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     chooseMethod: async outstanding =>
                     {
                         var payMethNames = payMeths.Keys.ToArray();
-                        var picked = await Application.Current.MainPage.DisplayActionSheet(
-                            "PayMeth".Translate(), "Cancel".Translate(), null, payMethNames);
+                        // ⚠ Through `Modal` — one dialog at a time, with a settle between them.
+                        // Entering `0` refuses and loops back HERE, and raising this action sheet
+                        // while the amount popup was still tearing down threw a COMException out of
+                        // an `async void` and closed the till (2026-08-10).
+                        var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
+                            Application.Current.MainPage.DisplayActionSheet(
+                                "PayMeth".Translate(), "Cancel".Translate(), null, payMethNames));
 
                         if (string.IsNullOrEmpty(picked) || picked == "Cancel".Translate()
                             || !payMeths.ContainsKey(picked))
@@ -1321,6 +1326,26 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 FinaliseTransation(sale, change);
                 return;
+            }
+            catch (Exception ex)
+            {
+                // ⚠ `async void` — WITHOUT THIS THE TILL CLOSES. This method had a `try`/`finally`
+                // and no `catch` for its entire life, so anything that escaped went straight to the
+                // dispatcher as an unhandled exception and took the process with it, mid-sale, with
+                // a full basket. It happened on 2026-08-10: entering `0` at the payment prompt is
+                // refused and the tender loop asks again, and WinUI threw a COMException building
+                // the second action sheet while the first popup was still tearing down
+                // (`ActionSheetContent..ctor` → `UserControl..ctor`). The loop was right; the
+                // absence of a catch is what turned a glitch into a closed till.
+                //
+                // ⚠ THE BASKET IS LEFT ALONE. If the sale committed before the fault, it is safely
+                // queued and clearing would hide it; if it did not, the operator still has their
+                // basket. Either way, losing it is the one outcome that cannot be undone at a
+                // counter.
+                Services.Analytics.CrashLog.Write("TillViewModel.Checkout", ex);
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "Something went wrong taking payment. Your basket is still here — please try again.",
+                    "OK".Translate());
             }
             finally
             {

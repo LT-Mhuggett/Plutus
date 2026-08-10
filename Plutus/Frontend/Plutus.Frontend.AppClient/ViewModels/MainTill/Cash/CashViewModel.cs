@@ -187,34 +187,59 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Cash
                 return;
             }
 
-            Refresh();
+            // ⚠ REDRAW BEFORE NUDGING THE CLOCK, and the order is the fix for "I had to navigate off
+            // the page for it to update" (reported 2026-08-10).
+            //
+            // `TillStoreAccess` serialises EVERY caller behind one semaphore. Kicking the cadence
+            // first put a whole tick — a heartbeat with a 30-SECOND deadline, then the outbox drain,
+            // then the cash drain — into that queue ahead of this screen's little read. The refresh
+            // then sat waiting for up to half a minute, so the float appeared only when something
+            // else re-read the page later.
+            await RefreshAsync();
 
             // ⚠ Nudge the clock rather than posting inline. Recording is done and safe; sending is
             // the cadence's job, and an operator must never wait on the network to open a drawer.
             _ = Task.Run(() => Services.Sync.TillCadence.TickAsync());
         }
 
-        /// <summary>Redraw the day's story from this till's own record — available offline.</summary>
-        public void Refresh()
-        {
-            _ = Task.Run(async () =>
-            {
-                var day = Today();
-                IReadOnlyList<LocalCashEvent> events;
-                bool closed;
-                try
-                {
-                    events = await Services.Storage.TillStoreAccess.UseAsync(s => s.CashEventsForDayAsync(day));
-                    closed = await Services.Storage.TillStoreAccess.UseAsync(s => s.IsDayClosedAsync(day));
-                }
-                catch (Exception ex)
-                {
-                    Services.Analytics.CrashLog.Write("CashViewModel.Refresh", ex);
-                    return;
-                }
+        /// <summary>Redraw the day's story — fire and forget, for the view's OnAppearing.</summary>
+        public void Refresh() => _ = RefreshAsync();
 
-                MainThread.BeginInvokeOnMainThread(() =>
-                {
+        /// <summary>
+        /// Redraw the day's story from this till's own record — available offline.
+        ///
+        /// ⚠ AWAITABLE, because the caller that has just recorded something must be able to wait for
+        /// the screen to catch up before it does anything else with the shared store.
+        /// </summary>
+        public async Task RefreshAsync()
+        {
+            var day = Today();
+            IReadOnlyList<LocalCashEvent> events;
+            bool closed;
+            try
+            {
+                // ⚠ ONE gate acquisition, not two. `TillStoreAccess` serialises every caller, so two
+                // separate `UseAsync` calls can be split apart by the cadence's tick — a 30-second
+                // heartbeat deadline and two drains — and the screen would then show a day's events
+                // with a closed-flag read from the far side of it.
+                var snapshot = await Services.Storage.TillStoreAccess.UseAsync(async s =>
+                    (Events: await s.CashEventsForDayAsync(day), Closed: await s.IsDayClosedAsync(day)));
+
+                events = snapshot.Events;
+                closed = snapshot.Closed;
+            }
+            catch (Exception ex)
+            {
+                Services.Analytics.CrashLog.Write("CashViewModel.Refresh", ex);
+                return;
+            }
+
+            // ⚠ The redraw itself is a completion source the caller can wait on, so "recorded" and
+            // "visible" are not two separate moments an operator can notice.
+            var drawn = new TaskCompletionSource();
+
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
                     try
                     {
                         _summary.Text = closed
@@ -252,8 +277,16 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Cash
                     {
                         Services.Analytics.CrashLog.Write("CashViewModel.Draw", ex);
                     }
-                });
+                    finally
+                    {
+                        // ⚠ ALWAYS completes, even if the draw threw. A caller awaiting a redraw
+                        // that failed must still be released — a screen that did not update is a
+                        // nuisance; a checkout wedged waiting for one is a shop that stops.
+                        drawn.TrySetResult();
+                    }
             });
+
+            await drawn.Task;
         }
     }
 }
