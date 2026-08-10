@@ -71,10 +71,13 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
+                            <!-- ⚠ FOUR columns, matching the row template below. A header that
+                                 disagrees with its rows misaligns every price on the screen. -->
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width=".8*"/>
+                                <ColumnDefinition Width=".7*"/>
                                 <ColumnDefinition Width=".1*"/>
                                 <ColumnDefinition Width=".1*"/>
+                                <ColumnDefinition Width="90"/>
                             </Grid.ColumnDefinitions>
                             <Label Grid.Row="0" Grid.Column="0" FontSize="Medium" FontAttributes="Bold" Text="{i18n:Translate Name}"/>
                             <Label Grid.Row="0" Grid.Column="1" FontSize="Medium" FontAttributes="Bold" Text="{i18n:Translate Price}"/>
@@ -98,13 +101,33 @@
                                             <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width=".8*"/>
+                                            <ColumnDefinition Width=".7*"/>
                                             <ColumnDefinition Width=".1*"/>
                                             <ColumnDefinition Width=".1*"/>
+                                            <ColumnDefinition Width="90"/>
                                         </Grid.ColumnDefinitions>
-                                        <Label Grid.Row="0" Grid.Column="0" Text="{Binding Name}"/>
-                                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding Price, StringFormat='{0:C}'}"/>
-                                        <Label Grid.Row="0" Grid.Column="2" Text="{Binding Stock.Quantity}"/>
+                                        <Label Grid.Row="0" Grid.Column="0" Text="{Binding Name}" VerticalOptions="Center"/>
+                                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding Price, StringFormat='{0:C}'}" VerticalOptions="Center"/>
+                                        <Label Grid.Row="0" Grid.Column="2" Text="{Binding Stock.Quantity}" VerticalOptions="Center"/>
+
+                                        <!-- ⚠ A VISIBLE EDIT BUTTON, on every row. Matt, 2026-08-10:
+                                             "Having an 'Edit item' button would be better than
+                                             assuming somebody knew to tap on a row." He is right —
+                                             editing lived only on a right-click menu, then only on a
+                                             tap, and neither says so on screen. A control you have to
+                                             be told about is one nobody uses.
+
+                                             ⚠ The command lives on the VIEWMODEL, not on the row, so
+                                             it is reached through the list by name — the same
+                                             `Source={x:Reference ItemsListView}` pattern the context
+                                             menu already uses. A plain `{Binding …}` here would
+                                             resolve against `ItemModel`, find nothing, and render a
+                                             button that silently does nothing when pressed. -->
+                                        <Button Grid.Row="0" Grid.Column="3"
+                                                Text="{i18n:Translate Edit}"
+                                                FontSize="Micro" Padding="0" HeightRequest="32" Margin="4,0"
+                                                Command="{Binding Path=BindingContext.OpenEditItemCommandArg, Source={x:Reference ItemsListView}}"
+                                                CommandParameter="{Binding Id}"/>
                                     </Grid>
                                 </Frame>
                             </ViewCell.View>
