@@ -192,8 +192,18 @@ public class TillHardeningE2eTests : IClassFixture<PlutusAppFactory>
             db.CurrentUser = "step19-seed";
             await RbacSeeder.EnsureBuiltInRolesAsync(db, Kapow);
 
-            // Store Manager holds pos.reports.view but no portal.* reporting permission.
-            var role = await db.RbacRoles.FirstAsync(r => r.TenantId == Kapow && r.Name == "Store Manager");
+            // ⚠ SUPERVISOR, and the role matters more than it looks. This said "Store Manager
+            // holds pos.reports.view but no portal.* reporting permission" — which is FALSE:
+            // `RbacSeeder` gives Store Manager `portal.financials.view` AND `portal.reports.view`
+            // (RbacSeeder.cs, the Store Manager block). So this test passed on the PORTAL
+            // permission and proved nothing whatever about the `pos.*` alternative it exists to
+            // pin. Verified 2026-08-10 by reverting the gate on `/api/v1/reports/summary` and
+            // watching the test stay green.
+            //
+            // Supervisor holds `pos.reports.view` and NOT ONE portal permission, which is exactly
+            // the person this rule is for: they can close a day with a Z-read, so they must be able
+            // to see the takings they counted against.
+            var role = await db.RbacRoles.FirstAsync(r => r.TenantId == Kapow && r.Name == "Supervisor");
             db.RbacRoleAssignments.Add(new RbacRoleAssignment
             {
                 Id = Guid.NewGuid(), TenantId = Kapow, RoleId = role.Id, UserId = ownerId,
@@ -210,6 +220,13 @@ public class TillHardeningE2eTests : IClassFixture<PlutusAppFactory>
                  {
                      "/api/v1/sales?from=2026-08-01&to=2026-08-09",
                      $"/api/v1/cash-events?tillId={Guid.NewGuid()}&day=2026-08-09",
+
+                     // ⚠ WP11 / step 26: the till's own X-report. Rollups are written per till per
+                     // business day, so `level=till` is literally "what has this till taken today" —
+                     // and it was gated on `portal.financials.view` alone, which a Store Manager
+                     // does not hold. A supervisor could close the day with a Z-read and be refused
+                     // the takings they had just counted against.
+                     $"/api/v1/reports/summary?level=till&id={Guid.NewGuid()}&from=2026-08-01&to=2026-08-09",
                  })
         {
             using var req = new HttpRequestMessage(HttpMethod.Get, url);

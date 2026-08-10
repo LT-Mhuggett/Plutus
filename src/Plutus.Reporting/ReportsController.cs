@@ -102,8 +102,18 @@ namespace Plutus.Reporting
             }
         }
 
+        // ⚠ `pos.reports.view` as an ALTERNATIVE (WP11 / cutover step 26). This is a till's X-report:
+        // rollups are written per till per business day, so `level=till&id={tillId}` is exactly "what
+        // has this till taken today". Gated on a PORTAL permission alone it 403'd for the very
+        // people who need it — `RbacSeeder` gives Supervisor `pos.reports.view` and NO portal
+        // permission, so a supervisor could close the day with a Z-read and not be allowed to see
+        // the day's takings they were counting against.
+        //
+        // ⚠ The identical defect was fixed for `/api/v1/sales` at step 19 (the comment above that
+        // action says so). Adding an alternative does NOT widen portal access: a portal user still
+        // needs their portal permission, and a till operator's `pos.*` never reaches anything else.
         [HttpGet("api/v1/reports/summary")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalFinancialsView)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalFinancialsView + "," + PermissionCatalogue.PosReportsView)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Summary(
