@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Plutus.Entities;
@@ -469,5 +470,122 @@ namespace Plutus.Sales
         }
 
         private static string Trunc(string s, int max) => string.IsNullOrEmpty(s) || s.Length <= max ? s : s.Substring(0, max);
+
+        /// <summary>
+        /// One sale, as a till needs it to decide a receipt-led refund for goods it did not sell.
+        ///
+        /// ⚠ Returns null for "no such sale in this tenant" — the caller turns that into a 404. The
+        /// tenant boundary is the global query filter, not a predicate written here.
+        ///
+        /// ⚠ ADJUSTMENTS ARE THE POINT, not a decoration. They are the server's half of the refund
+        /// cap: what OTHER tills have already given back against this sale. Without them a till
+        /// decides a refund from its own memory alone, and a customer only has to walk to a
+        /// different counter to be refunded twice (binding default 12).
+        /// </summary>
+        public async Task<SaleView> FindSaleAsync(Guid saleId, Guid tenantId, CancellationToken ct = default)
+        {
+            var sale = await _db.SalesV2.AsNoTracking()
+                .Include(s => s.Lines)
+                .FirstOrDefaultAsync(s => s.Id == saleId && s.TenantId == tenantId, ct);
+            if (sale == null) return null;
+
+            var adjustments = await _db.SaleAdjustments.AsNoTracking()
+                .Where(a => a.OriginalSaleId == saleId && a.TenantId == tenantId)
+                .ToListAsync(ct);
+
+            // ⚠ Names come from the CATALOGUE, by the line's own IdOne. The sale line stores no
+            // name on purpose — a receipt reprinted two years later should read the way the
+            // catalogue reads now, and duplicating the name onto every line would freeze a typo
+            // into the ledger. One query for the whole sale, never one per line.
+            var idOnes = sale.Lines.Select(l => l.ItemIdOne).Where(i => !string.IsNullOrEmpty(i)).Distinct().ToList();
+            var names = idOnes.Count == 0
+                ? new Dictionary<string, string>()
+                : await _db.Items.AsNoTracking()
+                    .Where(i => idOnes.Contains(i.IdOne))
+                    .Select(i => new { i.IdOne, i.Name })
+                    .ToDictionaryAsync(i => i.IdOne, i => i.Name, ct);
+
+            return new SaleView
+            {
+                Id = sale.Id,
+                // ⚠ ISO date, as the client contract's `businessDay` string expects. A locale-shaped
+                // date here would be parsed differently by a till in another region.
+                BusinessDay = sale.BusinessDay.ToString("yyyy-MM-dd"),
+                OccurredAtUtc = sale.OccurredAtUtc,
+                GrossPence = sale.GrossPence,
+                VatPence = sale.VatPence,
+                Lines = sale.Lines.OrderBy(l => l.LineNo).Select(l => new SaleLineView
+                {
+                    LineNo = l.LineNo,
+                    ItemIdOne = l.ItemIdOne,
+                    ItemName = l.ItemIdOne != null && names.TryGetValue(l.ItemIdOne, out var n) ? n : null,
+                    Qty = l.Qty,
+                    UnitPricePence = l.UnitPricePence,
+                    DiscountPence = l.DiscountPence,
+                    LineGrossPence = l.LineGrossPence,
+                    VatRateBp = l.VatRateBp,
+                    VatAmountPence = l.VatAmountPence,
+                    // ⚠ Passed through VERBATIM. The EX-VAT unit price lives in here and the client
+                    // reads it rather than re-deriving one from the rate — re-running VAT arithmetic
+                    // the sale already settled disagrees by a penny on some lines, on a refund,
+                    // against a receipt the customer is holding.
+                    DiscountsJson = l.DiscountsJson,
+                }).ToList(),
+                Adjustments = adjustments.Select(a => new SaleAdjustmentView
+                {
+                    Type = a.Type.ToString(),
+                    ItemId = a.ItemId,
+                    Qty = a.Qty ?? 0,
+                    AmountPence = a.AmountPence,
+                    Reason = a.Reason,
+                }).ToList(),
+            };
+        }
+    }
+
+    // ⚠ TWINS of SaleDto / SaleLineDto / SaleAdjustmentDto in Plutus.Contracts.Client, following the
+    // convention this codebase already uses for EnrolResult, DeviceTokenResult, StoreInfoResult,
+    // PingResult and HeartbeatRequest/Result: the contracts project has NO references and no
+    // packages **because it ships onto tills**, so the server declares its own copy rather than
+    // being referenced by it. Recorded in till-design C2 — change one shape, change both.
+    //
+    // ⚠ Property names are PascalCase and serialise camelCase by ASP.NET's default, which is what
+    // the client's [JsonPropertyName] attributes expect. `AlreadyRefundedPence` is deliberately
+    // ABSENT: it is computed client-side from Adjustments, so sending it would create a second
+    // opinion about how much of a sale is left to refund.
+
+    public sealed class SaleView
+    {
+        public Guid Id { get; set; }
+        public string BusinessDay { get; set; }
+        public DateTime OccurredAtUtc { get; set; }
+        public long GrossPence { get; set; }
+        public long VatPence { get; set; }
+        public string OperatorName { get; set; }
+        public List<SaleLineView> Lines { get; set; } = new();
+        public List<SaleAdjustmentView> Adjustments { get; set; } = new();
+    }
+
+    public sealed class SaleLineView
+    {
+        public int LineNo { get; set; }
+        public string ItemIdOne { get; set; }
+        public string ItemName { get; set; }
+        public int Qty { get; set; }
+        public long UnitPricePence { get; set; }
+        public long DiscountPence { get; set; }
+        public long LineGrossPence { get; set; }
+        public int VatRateBp { get; set; }
+        public long VatAmountPence { get; set; }
+        public string DiscountsJson { get; set; }
+    }
+
+    public sealed class SaleAdjustmentView
+    {
+        public string Type { get; set; }
+        public Guid? ItemId { get; set; }
+        public int Qty { get; set; }
+        public long AmountPence { get; set; }
+        public string Reason { get; set; }
     }
 }

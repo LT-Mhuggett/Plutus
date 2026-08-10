@@ -316,4 +316,111 @@ public class SaleAssemblerE2eTests : IClassFixture<PlutusAppFactory>
         Assert.Equal(HttpStatusCode.OK, status);                     // 200 duplicate
         Assert.NotEqual("quarantined", body?.Status?.ToLowerInvariant());
     }
+
+    // ── reading a sale back: the endpoint cross-till refunds need (2026-08-10) ──
+    //
+    // ⚠ `GET /api/v1/sales/{saleId}` DID NOT EXIST. `PlutusApiClient.GetSaleAsync` has targeted it
+    // since it was written; `ReturnLookup.TryServerAsync` calls it and — by design — swallows the
+    // failure and falls back to this till's own record. So refunding goods bought at ANOTHER branch
+    // silently became "we have no record of that sale", on a platform holding the sale all along.
+    // Nothing errored. No test anywhere called `GetSaleAsync`, and the client contract was fully
+    // specified, so everything read as built.
+
+    /// <summary>
+    /// ⚠ THROUGH THE REAL CLIENT, not a hand-rolled request. That is the whole value of this test:
+    /// the server declares its own twin of `SaleDto` (the contracts project ships onto tills and so
+    /// has no references), and deserialising the server's JSON into the CLIENT's record is the only
+    /// thing that actually pins the two shapes together. A field renamed on either side fails here.
+    /// </summary>
+    [Fact]
+    public async Task A_committed_sale_can_be_READ_BACK_through_the_client_contract()
+    {
+        var http = _f.CreateClient();
+        var (api, deviceId, businessId) = await EnrolAsync(http, "readback@acme.test");
+
+        var lines = new[]
+        {
+            new BasketLine(Guid.Empty, "5010001", "Comic", 1499, 1249, 1),
+            new BasketLine(Guid.Empty, "5010002", "Newspaper", 250, 250, 2),   // zero-rated
+        };
+        var totals = SaleAssembler.Total(lines);
+        var saleId = Uuid7.New();
+        var sale = SaleAssembler.Assemble(
+            saleId, deviceId, 1, businessId, lines,
+            new[] { new IngestTender { TenderType = Tenders.Cash, AmountPence = totals.GrossPence } },
+            new DateOnly(2026, 8, 9), DateTime.UtcNow);
+
+        Assert.Equal(HttpStatusCode.Created,
+            (await api.PostSaleAsync(JsonSerializer.Serialize(sale, PlutusApiClient.Json))).Status);
+
+        var read = await api.GetSaleAsync(saleId);
+
+        Assert.NotNull(read);
+        Assert.Equal(saleId, read!.Id);
+        Assert.Equal(totals.GrossPence, read.GrossPence);
+        Assert.Equal("2026-08-09", read.BusinessDay);
+        Assert.Equal(2, read.Lines.Count);
+
+        // ⚠ The EX-VAT unit price must survive the round trip inside the line meta. The client reads
+        // it from there rather than re-deriving one from the rate — re-running VAT arithmetic the
+        // sale already settled disagrees by a penny on some lines, on a refund, against a receipt
+        // the customer is holding.
+        var comic = read.Lines.Single(l => l.ItemIdOne == "5010001");
+        Assert.Equal(1499, comic.UnitPricePence);
+        Assert.Equal(1249, comic.UnitExPence);
+
+        // Nothing has been given back yet.
+        Assert.Equal(0, read.AlreadyRefundedPence);
+    }
+
+    /// <summary>
+    /// ⚠ THE SERVER'S HALF OF THE REFUND CAP. A till knows only what IT has refunded; this is how
+    /// it learns what another counter already gave back. Without it the cap is decided from one
+    /// till's memory and a customer only has to walk to a different till (binding default 12).
+    /// </summary>
+    [Fact]
+    public async Task Reading_a_sale_back_reports_what_has_ALREADY_been_refunded()
+    {
+        var http = _f.CreateClient();
+        var (api, deviceId, businessId) = await EnrolAsync(http, "readback-refunded@acme.test");
+
+        var originId = Uuid7.New();
+        var original = SaleAssembler.Assemble(
+            originId, deviceId, 1, businessId,
+            new[] { new BasketLine(Guid.Empty, "5030005", "Item", 1000, 833, 2) },
+            new[] { new IngestTender { TenderType = Tenders.Cash, AmountPence = 2000 } },
+            new DateOnly(2026, 8, 9), DateTime.UtcNow);
+        Assert.Equal(HttpStatusCode.Created,
+            (await api.PostSaleAsync(JsonSerializer.Serialize(original, PlutusApiClient.Json))).Status);
+
+        // one of the two given back, on this or any other till
+        var refundLines = new[]
+        {
+            new BasketLine(Guid.Empty, "5030005", "Item", 1000, 833, 1, IsReturn: true, OriginSaleId: originId),
+        };
+        var refund = SaleAssembler.Assemble(
+            Uuid7.New(), deviceId, 2, businessId, refundLines,
+            new[] { new IngestTender { TenderType = Tenders.Cash, AmountPence = SaleAssembler.Total(refundLines).GrossPence } },
+            new DateOnly(2026, 8, 9), DateTime.UtcNow);
+        Assert.Equal(HttpStatusCode.Created,
+            (await api.PostSaleAsync(JsonSerializer.Serialize(refund, PlutusApiClient.Json))).Status);
+
+        var read = await api.GetSaleAsync(originId);
+
+        Assert.NotNull(read);
+        // ⚠ POSITIVE, however the adjustment was signed — the client sums magnitudes.
+        Assert.Equal(1000, read!.AlreadyRefundedPence);
+        Assert.Single(read.Adjustments);
+    }
+
+    /// <summary>⚠ 404, never an empty sale. A till that cannot tell "no such sale" from "a sale
+    /// with nothing on it" refuses a legitimate refund and blames the customer's receipt.</summary>
+    [Fact]
+    public async Task An_unknown_sale_id_is_a_404_rather_than_an_empty_sale()
+    {
+        var http = _f.CreateClient();
+        var (api, _, _) = await EnrolAsync(http, "readback-missing@acme.test");
+
+        Assert.Null(await api.GetSaleAsync(Uuid7.New()));
+    }
 }
