@@ -290,6 +290,29 @@ public sealed class PlutusApiClient
         GetAsync<SaleDto>($"/api/v1/sales/{saleId:D}", ct);
 
     /// <summary>
+    /// What this till has taken, from the platform (WP11 / cutover step 26).
+    ///
+    /// ⚠ THE TILL CANNOT ANSWER THIS ITSELF, which is the whole reason to ask. Sales posted by the
+    /// other device on the same till, sales pruned out of local history, and refunds taken at another
+    /// counter against sales rung up here all belong in the figure an operator counts a drawer
+    /// against. A till summing its own local sales would be confidently wrong, differently every day.
+    ///
+    /// ⚠ NEEDS AN OPERATOR TOKEN. Gated `perm:portal.financials.view,pos.reports.view`, and `perm:*`
+    /// resolves from RBAC by the token's userId — a device token has none. Build the client with the
+    /// operator provider (`PlutusApi.GetOperatorAsync` on MAUI).
+    ///
+    /// ⚠ PENCE. `/reports/summary-rich` returns POUNDS for the portal; confusing the two is a 100×
+    /// error in a number somebody banks against.
+    /// </summary>
+    /// <param name="level">`till` for an X-report, `store`, or `company`.</param>
+    public Task<ReportSummary?> GetReportSummaryAsync(
+        string level, string id, DateOnly from, DateOnly to,
+        string granularity = "day", CancellationToken ct = default) =>
+        GetAsync<ReportSummary>(
+            $"/api/v1/reports/summary?level={Uri.EscapeDataString(level)}&id={Uri.EscapeDataString(id)}"
+            + $"&from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}&granularity={Uri.EscapeDataString(granularity)}", ct);
+
+    /// <summary>
     /// Read one catalogue item from the platform, as the legacy endpoints hold it (WP10).
     ///
     /// ⚠ NEEDS AN OPERATOR TOKEN, and a device token does not merely fail the policy — it 500s.
