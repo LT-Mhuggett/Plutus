@@ -104,7 +104,18 @@ which is what WP5's tombstones (`CatalogueItem.Removed`, built and still unread)
 Also here: **"add unknown scan as a new item"**, the flow the web till has and MAUI does not.
 USER-VERIFY: scanner round-trip including the unknown-barcode path.
 
-### 4b. ⚠ Refunds work, but a sale cannot be LOOKED UP on the till (~1–2 days, rides step 26)
+### 4b. ✅ Refunds are now reachable — the remainder rides step 26 (~1 day)
+
+✅ **Closed 2026-08-10.** `TillStore.ListRecentSalesAsync` + a picker in front of the Returns
+dialog: choose the sale from a list of this till's last 20, then give only the reason. Typing an id
+stays available. Pinned by five new `TillStoreReadPathTests`.
+
+⚠ **Still to do, and it belongs with step 26:** the picker shows **this till's own sales only**.
+Goods bought at another branch still need the sale id typed, because only the server knows that
+sale. The same screen serves **reprint from a past sale** (Part B 🟡), so build them together.
+
+<details>
+<summary>What was wrong, for the record</summary>
 
 **Matt, 2026-08-10: *"In MAUI I cannot do a refund?"*** — the refund *rule* is built and shipped
 (cutover steps 15–17). What is missing is how you find the sale.
@@ -125,8 +136,9 @@ window.
    screen suggests it exists.
 
 Neither needs new platform work: `GET /api/v1/sales` already answers, and step 15 built the read
-path. This is a screen — a recent-sales list with a search, which is also what
-**"reprint from a past sale"** (Part B 🟡) needs. Do them together.
+path.
+
+</details>
 
 ### 5. Step 26 — WP11 reporting + cross-till lookup (~8–10 days) — a rewrite, not a port
 

@@ -172,3 +172,23 @@ public readonly record struct PricePair(long IncPence, long ExPence);
 /// the band identity travels with the sale line.</param>
 /// <param name="StockUntracked">Sells without moving stock — services, carrier bags.</param>
 public readonly record struct ItemTaxInfo(int TaxId, int VatRateBp, bool StockUntracked);
+
+/// <summary>
+/// Enough of a past sale to RECOGNISE it in a list — not enough to reason about it.
+///
+/// ⚠ NEVER REFUND FROM THIS. It carries no lines, so it cannot say what is still returnable. The
+/// caller picks a sale here and then reads the real thing through
+/// <see cref="TillStore.FindLocalSaleAsync"/> (or the server, which knows what OTHER tills have
+/// already given back). A cap computed from a summary is not a cap.
+/// </summary>
+/// <param name="Status">Mirrors <c>Plutus.Client.Core.OutboxStatus</c> — a sale still queued is
+/// perfectly refundable (the money left the drawer when it was handed over), so this is shown, not
+/// filtered on.</param>
+public readonly record struct LocalSaleSummary(
+    Guid SaleId,
+    DateTime OccurredAtUtc,
+    string BusinessDay,
+    long GrossPence,
+    int LineCount,
+    string FirstItemIdOne,
+    int Status);

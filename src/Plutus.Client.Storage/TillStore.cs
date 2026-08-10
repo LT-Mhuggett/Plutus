@@ -507,6 +507,92 @@ public sealed class TillStore : IOutboxStore, ISyncStore
     }
 
     /// <summary>
+    /// The sales this till has rung up, newest first — enough to RECOGNISE one, not the whole thing.
+    ///
+    /// ⚠ WITHOUT THIS, REFUNDS ARE UNREACHABLE, and that is how it shipped. The refund RULE has
+    /// been complete since cutover steps 15–17 — origin lookup, the "never more than was paid" cap
+    /// at both gates, per-line accounting server-side. But the only way to name a sale was
+    /// <see cref="FindLocalSaleAsync"/>, which takes a <c>Guid</c>, and nothing in the app could
+    /// produce one: no list, no search, no recent sales. The id's only source was the barcode on a
+    /// printed receipt, so **a till with no printer could not refund anything at all**. Reported by
+    /// Matt on 2026-08-10 as "In MAUI I cannot do a refund?" — a complete feature, with no door.
+    ///
+    /// ⚠ Reads THIS TILL's own record, so it works with the network down — which is when a shop
+    /// most needs to hand money back. The server's cross-till view (goods bought at another branch)
+    /// stays <see cref="Plutus.Contracts.Client"/>'s job and is what `ReturnLookup` prefers when it
+    /// can reach it.
+    ///
+    /// ⚠ A sale whose payload will not parse is SKIPPED, not surfaced as a blank row. Offering a
+    /// sale that cannot then be refunded is worse than not offering it.
+    /// </summary>
+    public async Task<IReadOnlyList<LocalSaleSummary>> ListRecentSalesAsync(
+        int limit = 25, CancellationToken ct = default)
+    {
+        if (limit <= 0) limit = 25;
+
+        // ⚠ Ordered by OccurredAtUtc and then DeviceSeq. DeviceSeq alone is monotonic per device and
+        // would do — but two devices on one till share this list, and a clock-tie without a
+        // tiebreak makes the order differ between reads.
+        var rows = await _db.LocalSales.AsNoTracking()
+            .OrderByDescending(s => s.OccurredAtUtc).ThenByDescending(s => s.DeviceSeq)
+            .Take(limit)
+            .ToListAsync(ct);
+
+        var summaries = new List<LocalSaleSummary>(rows.Count);
+        foreach (var row in rows)
+        {
+            IngestSaleRequest? payload;
+            try
+            {
+                payload = JsonSerializer.Deserialize<IngestSaleRequest>(row.PayloadJson, PlutusApiClient.Json);
+            }
+            catch (JsonException)
+            {
+                continue;
+            }
+
+            if (payload is null) continue;
+
+            summaries.Add(new LocalSaleSummary(
+                row.SaleId,
+                row.OccurredAtUtc,
+                row.BusinessDay,
+                payload.GrossPence,
+                payload.Lines?.Count ?? 0,
+                // ⚠ The FIRST line's name is the label an operator recognises a sale by. It is not
+                // a description of the sale and must never be treated as one.
+                FirstLineLabel(payload),
+                row.Status));
+        }
+
+        return summaries;
+    }
+
+    private static string FirstLineLabel(IngestSaleRequest payload)
+    {
+        var first = payload.Lines?.FirstOrDefault();
+        if (first is null) return "";
+
+        // The item's own id is the only human-facing text on a wire line; the catalogue holds the
+        // name, and joining to it per row would turn a list into N queries.
+        return ExtractItemIdOne(first) ?? "";
+    }
+
+    private static string? ExtractItemIdOne(IngestLine line)
+    {
+        if (string.IsNullOrWhiteSpace(line.DiscountsJson)) return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(line.DiscountsJson);
+            return doc.RootElement.TryGetProperty("itemIdOne", out var v) ? v.GetString() : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
     /// How much of <paramref name="originSaleId"/> has ALREADY been given back, in pence, as a
     /// positive number — summed across every part-refund this till knows about.
     ///

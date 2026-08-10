@@ -27,9 +27,9 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 | | |
 |---|---|
-| **Suite** | Unit **752** · Architecture **13** · AppClient **409** (+3 skipped) — all green |
-| **Till build to run** | **`D:\tmp\plutus-till-1.19.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing needed. Stamp `1.19.0+c8931ef` |
-| **Versions** | till-maui **1.19.0** · platform **1.18.0** · backend **1.7.0** · portal **1.3.0** · till-web **1.5.0** |
+| **Suite** | Unit **757** · Architecture **13** · AppClient **409** (+3 skipped) — all green |
+| **Till build to run** | **`D:\tmp\plutus-till-1.20.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing needed. Stamp `1.20.0+3f9a037` |
+| **Versions** | till-maui **1.20.0** · platform **1.19.0** · backend **1.7.0** · portal **1.3.0** · till-web **1.5.0** |
 | **Deployed** | backend 1.7.0, portal 1.3.0, web till 1.5.0 — **LIVE and unchanged by today**. Nothing today needs a deploy; it is all MAUI + docs |
 | **Commits** | `bb3c13a` (overlay) → `79b8d7a` (search + button sweep) → `80dd81b` (payment dialog + layout). ⚠ **NOT PUSHED** — still local on `Matt's-Horror` |
 | **Health** | Plutus 200 · ETRIE 200 · backend up, 838 restarts is the historical rotation count and is not climbing |
@@ -70,6 +70,19 @@ dialogs and the loop is not — that is exactly the seam this week's bugs lived 
 **Still to do in 11b:** the `BasketItem` → long-pence reshape. ⚠ The binding inventory is done and
 recorded in the plan; the trap is that `Price`/`PriceExTax` are `decimal` and the rows format them
 `{0:C}` — **switching to `long` renders £3.30 as £330.00 and nothing fails.**
+
+**4. ✅ Refunds are reachable now — retest that too.** The refund RULE had been complete since steps
+15–17, but the "Returns" dialog asked for the original **sale ID** and nothing in the app could
+produce one: no list, no search. The only source was the barcode on a printed receipt, so **a till
+with no printer could not refund anything.** A complete feature with no door.
+
+`TillStore.ListRecentSalesAsync` + a picker in front of the dialog: choose from this till's last 20
+sales, then give only the reason. ⚠ Reads the till's OWN record so it works offline — which is when
+a shop most needs to hand money back. ⚠ A **queued** sale is offered: the money left the drawer when
+the goods did, whatever the outbox has delivered. Typing an id remains, for goods bought on another
+till. To try it: add the item to the basket, **right-click the basket line → Returns**.
+⚠ **Discoverability is still poor** — nothing on screen says that menu exists; step 26's screen fixes
+it properly.
 
 **4. After that, steps 22–28** — theming (22), cash (23), Users (24), inventory WP10 (25),
 reporting WP11 (26), loyalty/gift cards (27), online-first login (28). Step 25 closes the biggest

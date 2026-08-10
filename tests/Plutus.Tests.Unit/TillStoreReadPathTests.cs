@@ -287,4 +287,93 @@ public class TillStoreReadPathTests : IAsyncLifetime
         Assert.Null(await _store.FindLocalSaleAsync(row.SaleId));      // the sale is gone
         Assert.Equal(1200, await _store.AlreadyRefundedPenceAsync(origin));  // the money is not
     }
+
+    // ── finding a sale AT ALL (2026-08-10) ──
+    //
+    // ⚠ The refund rule has been complete since steps 15–17. What was missing was the door: the
+    // only way to name a sale was `FindLocalSaleAsync(Guid)`, and nothing in the app could produce
+    // a Guid — no list, no search. The id's only source was the barcode on a printed receipt, so a
+    // till with no printer could not refund anything. Reported as "In MAUI I cannot do a refund?".
+
+    [Fact]
+    public async Task Recent_sales_come_back_NEWEST_first()
+    {
+        var oldest = Sale(); oldest.OccurredAtUtc = DateTime.UtcNow.AddMinutes(-30);
+        var middle = Sale(); middle.OccurredAtUtc = DateTime.UtcNow.AddMinutes(-20);
+        var newest = Sale(); newest.OccurredAtUtc = DateTime.UtcNow.AddMinutes(-10);
+
+        await _store.CommitSaleAsync(oldest);
+        await _store.CommitSaleAsync(newest);
+        await _store.CommitSaleAsync(middle);
+
+        var recent = await _store.ListRecentSalesAsync();
+
+        Assert.Equal(
+            new[] { newest.SaleId, middle.SaleId, oldest.SaleId },
+            recent.Select(s => s.SaleId).ToArray());
+    }
+
+    /// <summary>The summary must carry enough to RECOGNISE a sale — the money, and what was on it.</summary>
+    [Fact]
+    public async Task A_recent_sale_carries_what_an_operator_recognises_it_by()
+    {
+        var sale = Sale();
+        await _store.CommitSaleAsync(sale);
+
+        var found = Assert.Single(await _store.ListRecentSalesAsync());
+
+        Assert.Equal(sale.SaleId, found.SaleId);
+        Assert.Equal(600, found.GrossPence);
+        Assert.Equal(1, found.LineCount);
+        Assert.Equal("5010001", found.FirstItemIdOne);
+    }
+
+    /// <summary>
+    /// ⚠ A QUEUED SALE IS REFUNDABLE. The money left the drawer when the goods were handed over,
+    /// whatever the outbox has managed to deliver — so this list must not filter on status. Hiding
+    /// unsent sales would make a shop unable to refund anything it sold while the line was down,
+    /// which is exactly when it will need to.
+    /// </summary>
+    [Fact]
+    public async Task A_sale_still_QUEUED_is_offered_for_refund()
+    {
+        var sale = Sale();
+        var row = await _store.CommitSaleAsync(sale);
+        Assert.Equal((int)OutboxStatus.Pending, row.Status);
+
+        var found = Assert.Single(await _store.ListRecentSalesAsync());
+        Assert.Equal(sale.SaleId, found.SaleId);
+    }
+
+    [Fact]
+    public async Task The_list_is_capped_at_what_was_asked_for()
+    {
+        for (var i = 0; i < 8; i++)
+        {
+            var s = Sale();
+            s.OccurredAtUtc = DateTime.UtcNow.AddMinutes(-i);
+            await _store.CommitSaleAsync(s);
+        }
+
+        Assert.Equal(3, (await _store.ListRecentSalesAsync(3)).Count);
+    }
+
+    /// <summary>
+    /// ⚠ A sale whose payload will not parse is SKIPPED, not shown as a blank row. Offering a sale
+    /// that cannot then be read back is offering a refund that will fail at the counter.
+    /// </summary>
+    [Fact]
+    public async Task A_sale_whose_payload_is_corrupt_is_left_OUT_rather_than_shown_blank()
+    {
+        var good = Sale();
+        await _store.CommitSaleAsync(good);
+
+        var bad = await _store.CommitSaleAsync(Sale());
+        bad.PayloadJson = "{ this is not json";
+        await _db.SaveChangesAsync();
+
+        var recent = await _store.ListRecentSalesAsync();
+
+        Assert.Equal(good.SaleId, Assert.Single(recent).SaleId);
+    }
 }

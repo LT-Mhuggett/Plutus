@@ -549,17 +549,83 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 IValidator[] stringValidators = {
                     new RequiredValidator()
                 };
-
-                ViewElementData[] elements = {
-                    new ViewElementData(1, string.Format("IdArg".Translate(), "Sale".Translate()), "", stringValidators, false, true),
-                    new ViewElementData(2, "Reason".Translate(), "ReturnReasonExample".Translate(), stringValidators, false, true)
-                };
                 #endregion
 
                 var returnItem = basketItem.Adapt<BasketReturnItem>();
 
+                // ⚠ PICK THE SALE, DON'T TYPE ITS UUID. Until 2026-08-10 this dialog's first field
+                // was "Sale id" and nothing in the app could produce one — no list, no search. The
+                // only source was the barcode on a PRINTED RECEIPT, so a till with no printer could
+                // not refund anything at all, and the refund rule (complete since steps 15–17) had
+                // no door. Reported by Matt as *"In MAUI I cannot do a refund?"*.
+                //
+                // ⚠ Reads this till's OWN sales, so it works with the line down — which is when a
+                // shop most needs to hand money back. Typing an id stays available for goods bought
+                // on ANOTHER till, where only the server knows the sale.
+                var recent = await Services.Storage.TillStoreAccess.TryUseAsync(
+                    s => s.ListRecentSalesAsync(20));
+
+                var typeItInstead = "Enter a sale ID…";
+                string saleIdFromPicker = null;
+
+                if (recent is { Count: > 0 })
+                {
+                    var labels = recent
+                        .Select(r => $"{r.OccurredAtUtc.ToLocalTime():dd MMM HH:mm} · "
+                                   + $"{r.GrossPence / 100m:C} · "
+                                   + $"{r.LineCount} item{(r.LineCount == 1 ? "" : "s")}"
+                                   + (string.IsNullOrWhiteSpace(r.FirstItemIdOne) ? "" : $" · {r.FirstItemIdOne}"))
+                        .ToList();
+                    labels.Add(typeItInstead);
+
+                    var picked = await Application.Current.MainPage.DisplayActionSheet(
+                        "Which sale is this going back to?", "Cancel".Translate(), null, labels.ToArray());
+
+                    if (string.IsNullOrEmpty(picked) || picked == "Cancel".Translate())
+                    {
+                        Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Return",
+                            new Dictionary<string, string> { { "Canceled", "True" }, { "At", "SalePicker" } });
+                        return;
+                    }
+
+                    var index = labels.IndexOf(picked);
+                    if (index >= 0 && index < recent.Count)
+                        saleIdFromPicker = recent[index].SaleId.ToString("D");
+                }
+
+                // ⚠ Only ask for what is still unknown. Having just chosen the sale from a list,
+                // being asked to type its id as well is the kind of step that gets worked around.
+                var elements = saleIdFromPicker is null
+                    ? new[]
+                    {
+                        new ViewElementData(1, string.Format("IdArg".Translate(), "Sale".Translate()), "", stringValidators, false, true),
+                        new ViewElementData(2, "Reason".Translate(), "ReturnReasonExample".Translate(), stringValidators, false, true)
+                    }
+                    : new[]
+                    {
+                        new ViewElementData(2, "Reason".Translate(), "ReturnReasonExample".Translate(), stringValidators, false, true)
+                    };
+
                 {
                     var alertReturnValues = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(elements, "Confirm".Translate(), true, "Returns".Translate(), "Cancel".Translate());
+
+                    // ⚠ AN EMPTY DICTIONARY IS "THEY BACKED OUT" — checked BEFORE anything is
+                    // injected into it. Since 2026-08-10 the dialog can be dismissed with Escape as
+                    // well as Cancel, and that path returns nothing at all rather than blanked
+                    // entries. Injecting the picked sale id first would have made an ordinary
+                    // Escape look like a missing-key fault and shown "a critical error has been
+                    // reported" for pressing Esc.
+                    if (alertReturnValues.Count == 0)
+                    {
+                        Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Return",
+                            new Dictionary<string, string> { { "Canceled", "True" }, { "At", "Reason" } });
+                        return;
+                    }
+
+                    // ⚠ The sale id comes from the picker when there was one — the dialog only ever
+                    // carries the fields it actually asked for.
+                    if (saleIdFromPicker is not null)
+                        alertReturnValues[1] = saleIdFromPicker;
 
                     // ⚠ BOTH answers are required, and the old test said the opposite. It was
                     // `!TryGetValue(1, …) & !TryGetValue(2, …)` — a non-short-circuit AND, so it
