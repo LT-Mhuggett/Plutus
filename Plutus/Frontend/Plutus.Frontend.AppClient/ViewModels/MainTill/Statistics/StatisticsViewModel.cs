@@ -44,7 +44,14 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Statistics
             // ⚠ NOTHING IS DELETED. A till migrated from NatApp still holds real pre-cutover history
             // in that file, and these screens are how you read it — once the key is renewed. Recorded
             // in `Build/legacy-removal.md` (L4).
-            var buttons = new List<Tuple<string, string>>();
+            // ⚠ REPRINT LIVES HERE, on the "what has this till taken today" screen (cutover step
+            // 26). It is the screen an operator is already on when somebody comes back to the
+            // counter without their receipt, and it is the only screen in the app that lists past
+            // sales for a reason other than refunding them.
+            var buttons = new List<Tuple<string, string>>
+            {
+                Tuple.Create("Reprint a receipt", "ReprintReceiptCommand"),
+            };
 
             for(int i = 0; i < buttons.Count; i++)
             {
@@ -176,9 +183,41 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Statistics
         {
             get => _openStockOuttakeReportCommand ?? (_openStockOuttakeReportCommand = new Command(ExecuteOpenStockOuttakeReport));
         }
+
+        Command _reprintReceiptCommand;
+        public Command ReprintReceiptCommand
+        {
+            get => _reprintReceiptCommand ?? (_reprintReceiptCommand = new Command(ExecuteReprintReceipt));
+        }
         #endregion
 
         #region Execute Commands
+        /// <summary>
+        /// Print another copy of a receipt this till has already issued (cutover step 26).
+        ///
+        /// ⚠ `async void` on a Command — so it must not let anything escape. An unhandled exception
+        /// here is not a failed button, it is a closed till.
+        /// </summary>
+        private async void ExecuteReprintReceipt()
+        {
+            if (IsBusy) return;
+            IsBusy = true;
+            try
+            {
+                await Services.Printing.ReceiptReprint.PickAndReprintAsync();
+            }
+            catch (Exception ex)
+            {
+                Services.Analytics.CrashLog.Write("StatisticsViewModel.Reprint", ex);
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "That didn't work. Nothing has been printed.", "OK".Translate());
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
         // ⚠ NO LOADING OVERLAY AROUND A NAVIGATION — same fault, same fix as
         // `InventoryViewModel.ExecuteOpenViewAllItems`, whose header explains it: a modal push and a
         // navigation push issued against one window in the same instant produce a corrupted layout,

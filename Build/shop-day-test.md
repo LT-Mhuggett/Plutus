@@ -1,6 +1,6 @@
 # Shop-day test — the hand-run script
 
-**Build: `D:\tmp\plutus-till-1.33.0\Plutus.Frontend.AppClient.exe`** (unpackaged — no signing, no
+**Build: `D:\tmp\plutus-till-1.34.0\Plutus.Frontend.AppClient.exe`** (unpackaged — no signing, no
 install; just run the .exe).
 
 This is the USER-VERIFY script for everything that landed on 2026-08-10. It is ordered as a real
@@ -20,8 +20,8 @@ path. `CrashLog` hooks both `AppDomain` and `Microsoft.UI.Xaml.Application.Unhan
 | # | Do | Expect | ⚠ If not |
 |---|---|---|---|
 | 0.1 | Launch the till | Signs in; tabs are **Till · Inventory Managment · Cash · Statistics · Store Information · Settings · Plutus** | No **Cash** tab = you are on an older build |
-| 0.2 | **Plutus** tab | Version chip reads **v1.33.0**; connection green | — |
-| 0.3 | Wait ~60s, then check the portal's fleet list | The till reports **1.32.0** | Versions were NULL on every row until backend 1.8.1 — this is the fix |
+| 0.2 | **Plutus** tab | Version chip reads **v1.34.0**; connection green | — |
+| 0.3 | Wait ~60s, then check the portal's fleet list | The till reports **1.34.0** | Versions were NULL on every row until backend 1.8.1 — this is the fix |
 
 ## 1. Open the day
 
@@ -70,12 +70,15 @@ path. `CrashLog` hooks both `AppDomain` and `Microsoft.UI.Xaml.Application.Unhan
 | 5.3 | **Inventory Managment → View all items** | List **fills the window**, sits under the tabs, and you can navigate away | A short scroll box in the top ~230px = the layout fix isn't in |
 | 5.3a | ⚠ **Check the A–Z grouping and the search** | Letter headers down the list; typing narrows it; the **column header stays put** while you scroll | ⚠ The list is a plain `CollectionView` now, not Syncfusion. This is the biggest untested swap in the build |
 | 5.4 | **Press the Edit button on a row** (or tap the row for a sheet) | The edit prompt opens | ⚠ Tap the SAME row twice — it must open both times. A `CollectionView` won't re-raise selection for a row already selected, so this is the one that would read as a freeze |
-| 5.4a | **Edit item** → change price, brand, description, cost | Then three sheets in turn: **Tax band · Category · Stock** | ⚠ New 1.33.0 — Matt: *"it seems to be missing a lot of options compared to the webtill"*. The barcode is deliberately NOT editable (it is half the primary key). ⚠ Needs a connection, a signed-in operator, and `portal.prices.manage` — which **Owner and Company Admin hold and Store Manager does NOT** |
+| 5.4a | **Edit item** — the order is now: **Tax band → Category → Stock**, then the form | The three sheets come FIRST, and the form that follows SHOWS the tax band (with its **percentage**, e.g. `Standard — 20%`), the category and the stock setting as greyed rows beside the price | ⚠ Reworked in 1.34.0 — Matt: *"Maui edit items is missing category and tax e.g. 20%."* If a sheet is missing entirely you should now get a MESSAGE saying Plutus sent no bands/categories, never silence. ⚠ Needs a connection, a signed-in operator, and `portal.prices.manage` — **Owner and Company Admin hold it, Store Manager does NOT** |
 | 5.4b | ⚠ Change the **tax band** on something and save | The ex-tax price on the portal follows the NEW band | ⚠ The ex price is derived by DIVIDING by the band's multiplier. If the portal shows an ex price *higher* than the inc price, the units are inverted — stop and tell me |
+| 5.4c | ⚠ If you see *"Plutus didn't send back any tax bands"* | Tell me — the list call is failing | That message is new in 1.34.0 and exists to make this visible; before it, the sheet was skipped in silence |
 | 5.5 | Check that item in the **portal** | Every field you changed | If the portal disagrees, stop and tell me |
 | 5.6 | **Settings → Receipt printer** | Either the **agent's** version and printer name, or a plain message saying no Plutus Till Agent is running on this PC | ⚠ Rebuilt in 1.33.0. Matt saw *"Wireless is turned off"* — that was Windows' generic device picker complaining about RADIOS because no OPOS printer exists, not about the printer. The till now prints the way the **web till** does, through the agent |
 | 5.6a | If an agent is running: **Pair this till** → type the code from its tray window | A test receipt comes out | ⚠ The code is per PC and never leaves it. A wrong code gives "the agent didn't accept that code", not silence |
 | 5.6b | **Settings → Print test page** | Paper, or a message | ⚠ This used to do **nothing at all** on a till with no OPOS printer — no paper, no message, indistinguishable from a broken printer |
+| 5.6c | **Statistics → Reprint a receipt** → pick the sale from step 3.5 | A copy prints, headed **"REPRINT — not a new sale"** | ⚠ New 1.34.0 (cutover step 26). ⚠ **The drawer must NOT open** — no money is moving. ⚠ The barcode must be the SAME as the original's, or the copy can't be used to find the sale, which is the whole point |
+| 5.6d | Reprint a **refund** receipt too | Prints, headed with **both** REFUND and REPRINT | Refunds are reprintable even though they are not re-refundable |
 | 5.7 | **Statistics** | *"Today — £x taken over n sales · VAT £x · average basket £x"*, from the PLATFORM | ⚠ The two legacy report buttons are GONE: they read the pre-Plutus database (always zero since cutover) and their Syncfusion charts are unlicensed. Matt is **not renewing** — as of 1.33.0 no Syncfusion control is on any screen you can reach. See `Build/syncfusion-footprint.md` |
 
 ## 6. Trading with the line down

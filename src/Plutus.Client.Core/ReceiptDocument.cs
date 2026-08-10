@@ -51,6 +51,17 @@ public sealed record ReceiptDocInput
     /// the only evidence a sale happened until the outbox drains.</summary>
     public bool Queued { get; init; }
 
+    /// <summary>
+    /// This paper is a COPY of a receipt already issued.
+    ///
+    /// ⚠ IT MUST SAY SO, and this is a money rule rather than a courtesy. A reprint that is
+    /// indistinguishable from the original is a second receipt for one sale — and this till's own
+    /// refund flow accepts a sale found by the barcode on a receipt. Two identical papers for one
+    /// purchase is the shape of a double refund, which has already happened here once from a
+    /// different cause. The customer keeps a receipt; the shop must be able to see which one it is.
+    /// </summary>
+    public bool IsReprint { get; init; }
+
     public int Columns { get; init; } = 42;
     public bool OpenDrawer { get; init; }
 }
@@ -121,6 +132,12 @@ public static class ReceiptDocumentBuilder
         // reading a receipt should not depend on spotting a minus sign.
         if (input.GrossPence < 0)
             ops.Add(PrintOp.Line("** REFUND **", PrintAlign.Centre, bold: true));
+
+        // ⚠ ABOVE THE RULE, WITH THE REFUND BANNER, not buried in the footer. Both answer the same
+        // question — "what am I holding?" — and a reprint marker nobody reads is a reprint marker
+        // that does not exist. See ReceiptDocInput.IsReprint for why it is a money rule.
+        if (input.IsReprint)
+            ops.Add(PrintOp.Line("** REPRINT — not a new sale **", PrintAlign.Centre, bold: true));
 
         ops.Add(PrintOp.Rule());
 

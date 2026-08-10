@@ -209,7 +209,7 @@ public class ReceiptDocumentTests
         // finds its sale again — for a reprint or a receipt-led refund.
         var doc = ReceiptDocumentBuilder.Build(Sale());
 
-        var barcode = Assert.Single(doc.Ops.Where(o => o.Kind == PrintOpKind.Barcode));
+        var barcode = Assert.Single(doc.Ops, o => o.Kind == PrintOpKind.Barcode);
         Assert.Equal("ABC123", barcode.Text);
     }
 
@@ -218,7 +218,7 @@ public class ReceiptDocumentTests
     {
         var doc = ReceiptDocumentBuilder.Build(Sale() with { ShowBarcode = false });
 
-        Assert.Empty(doc.Ops.Where(o => o.Kind == PrintOpKind.Barcode));
+        Assert.DoesNotContain(doc.Ops, o => o.Kind == PrintOpKind.Barcode);
         Assert.Contains("abc123", TextOf(doc));
     }
 
@@ -294,5 +294,82 @@ public class ReceiptDocumentTests
 
         Assert.Equal(PrintOpKind.Cut, doc.Ops[^1].Kind);
         Assert.True(doc.OpenDrawer);
+    }
+}
+
+/// <summary>
+/// A reprint is a COPY, and the paper has to say so.
+///
+/// ⚠ This is a money rule, not a courtesy. The refund flow accepts a sale found by the barcode on a
+/// receipt, so two indistinguishable papers for one purchase is the shape of a double refund —
+/// which has already happened on this till once, from a different cause (2026-08-10, £13.99 out
+/// twice). Cutover step 26.
+/// </summary>
+public class ReceiptReprintMarkingTests
+{
+    private static ReceiptDocInput Sale() => new()
+    {
+        StoreName = "Kapow Comics",
+        WhenLocal = new DateTime(2026, 8, 10, 14, 30, 0),
+        Lines = new[] { new ReceiptDocLine("Batman #1", 1, 500, 500) },
+        ExPence = 417,
+        GrossPence = 500,
+        Tenders = new[] { new ReceiptDocTender("Cash", 500) },
+        SaleId = "abc123",
+    };
+
+    private static IEnumerable<string> TextOf(PrintDocument doc)
+        => doc.Ops.Where(o => o.Kind == PrintOpKind.Text).Select(o => o.Text ?? "");
+
+    [Fact]
+    public void A_reprint_says_REPRINT_on_the_paper()
+    {
+        var doc = ReceiptDocumentBuilder.Build(Sale() with { IsReprint = true });
+
+        Assert.Contains(TextOf(doc), t => t.Contains("REPRINT"));
+    }
+
+    [Fact]
+    public void An_original_does_not()
+    {
+        Assert.DoesNotContain(TextOf(ReceiptDocumentBuilder.Build(Sale())), t => t.Contains("REPRINT"));
+    }
+
+    [Fact]
+    public void The_marking_is_ABOVE_the_first_rule_where_it_will_be_read()
+    {
+        // ⚠ A reprint marker in the footer is a reprint marker nobody reads. It belongs with the
+        // REFUND banner, at the top, because both answer "what am I holding?".
+        var doc = ReceiptDocumentBuilder.Build(Sale() with { IsReprint = true });
+
+        var marker = doc.Ops.FindIndex(o => (o.Text ?? "").Contains("REPRINT"));
+        var firstRule = doc.Ops.FindIndex(o => o.Kind == PrintOpKind.Rule);
+
+        Assert.True(marker >= 0, "the reprint marker should be on the paper");
+        Assert.True(marker < firstRule, "the reprint marker must be above the first rule");
+    }
+
+    [Fact]
+    public void A_reprinted_REFUND_carries_both_banners()
+    {
+        // ⚠ They are different facts and neither substitutes for the other: what the paper is, and
+        // what the transaction was.
+        var doc = ReceiptDocumentBuilder.Build(Sale() with { IsReprint = true, GrossPence = -500 });
+
+        Assert.Contains(TextOf(doc), t => t.Contains("REFUND"));
+        Assert.Contains(TextOf(doc), t => t.Contains("REPRINT"));
+    }
+
+    [Fact]
+    public void A_reprint_carries_the_SAME_barcode_as_the_original()
+    {
+        // ⚠ It must, or the copy cannot be used to find the sale — which is the entire reason
+        // somebody asks for a reprint. The marking distinguishes the PAPER, never the sale id.
+        var original = ReceiptDocumentBuilder.Build(Sale());
+        var copy = ReceiptDocumentBuilder.Build(Sale() with { IsReprint = true });
+
+        Assert.Equal(
+            original.Ops.Single(o => o.Kind == PrintOpKind.Barcode).Text,
+            copy.Ops.Single(o => o.Kind == PrintOpKind.Barcode).Text);
     }
 }

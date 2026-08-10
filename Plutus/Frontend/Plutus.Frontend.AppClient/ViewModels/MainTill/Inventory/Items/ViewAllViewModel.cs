@@ -405,6 +405,29 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 var bands = await api.GetTaxBandsAsync(business) ?? new List<TaxBandDto>();
                 var categories = await api.GetCategoriesAsync(business) ?? new List<CategoryDto>();
 
+                // ⚠ THE CHOICES COME FIRST, AND THE FORM THEN SHOWS WHAT WAS CHOSEN. Matt,
+                // 2026-08-10 (second report): *"Maui edit items is missing category and tax e.g.
+                // 20%."* The first attempt asked for them in action sheets AFTER the form, so an
+                // operator opening "Edit item" saw name/brand/price and no tax or category anywhere
+                // — and if the lists came back empty the sheets were skipped in silence and never
+                // appeared at all. Both readings of "missing" were true.
+                //
+                // ⚠ The rule this breaks is the one that keeps biting: A SCREEN MUST NOT DECIDE
+                // SOMETHING WITHOUT SHOWING IT. Tax band and category are written on every save
+                // (the PUT binds the whole entity), so they are always part of the edit whether or
+                // not anyone was asked.
+                var taxId = await PickTaxBandAsync(bands, current.TaxId);
+                if (taxId is null) return;                       // ⚠ Cancel means cancel, not "keep the old band"
+
+                var catId = await PickCategoryAsync(categories, current.CatId);
+                if (catId is null) return;
+
+                var untracked = await PickStockTrackingAsync(current.StockUntracked);
+                if (untracked is null) return;
+
+                var chosenBand = bands.FirstOrDefault(b => b.IdOne == taxId.Value);
+                var chosenCategory = categories.FirstOrDefault(c => c.IdOne == catId.Value);
+
                 var elements = new ViewElementData[]
                 {
                     new ViewElementData(1, "Name".Translate(), current.Name ?? "",
@@ -420,6 +443,19 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                         new IValidator[] { new CurrencyValueValidator(money) }, false, true),
                     new ViewElementData(5, "Price inc tax (£)", current.Price.ToString("0.00"),
                         new IValidator[] { new RequiredValidator(), new CurrencyValueValidator(money) }, false, true),
+
+                    // ⚠ DISABLED ROWS, and their answers are IGNORED — they exist so the operator
+                    // can SEE the tax band and the category on the same screen as the price they
+                    // are setting. "20% VAT" next to "£9.99" is the check that catches a
+                    // zero-rated book priced as if it carried VAT, and no amount of correct
+                    // arithmetic further down replaces being able to look at it.
+                    new ViewElementData(6, "Tax band", BandLabel(chosenBand, taxId.Value),
+                        Array.Empty<IValidator>(), false, false),
+                    new ViewElementData(7, "Category",
+                        chosenCategory?.Name ?? (catId.Value == Guid.Empty ? "none" : catId.Value.ToString("D")),
+                        Array.Empty<IValidator>(), false, false),
+                    new ViewElementData(8, "Stock", untracked.Value ? "not tracked (∞)" : "counted",
+                        Array.Empty<IValidator>(), false, false),
                 };
 
                 var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
@@ -444,16 +480,6 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 if (!decimal.TryParse(costText ?? "", money, CultureInfo.CurrentCulture, out var cost) || cost < 0)
                     cost = current.Cost;   // blank or nonsense leaves the cost alone; it is not the operator's field
 
-                // ── the three choices a text prompt cannot ask for ──
-                var taxId = await PickTaxBandAsync(bands, current.TaxId);
-                if (taxId is null) return;                       // ⚠ Cancel means cancel, not "keep the old band"
-
-                var catId = await PickCategoryAsync(categories, current.CatId);
-                if (catId is null) return;
-
-                var untracked = await PickStockTrackingAsync(current.StockUntracked);
-                if (untracked is null) return;
-
                 // ⚠ THE EX PRICE IS DERIVED FROM THE CHOSEN BAND, never typed and never carried
                 // over. The server guards `|price − exPrice × rate| ≤ 2p` because free-typed
                 // ex-prices corrupted 47 live items — a £7.99 item with a £799.00 ex-price — and
@@ -464,9 +490,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 // ⚠ Falls back to the item's EXISTING pair ratio when the band is unknown to
                 // `/api/Tax/Index` — which keeps an unclassified item editable instead of
                 // unsaveable.
-                var chosen = bands.FirstOrDefault(b => b.IdOne == taxId.Value);
-                var exPrice = chosen is not null && chosen.Rate > 0
-                    ? Math.Round(price / chosen.Rate, 2, MidpointRounding.AwayFromZero)
+                var exPrice = chosenBand is not null && chosenBand.Rate > 0
+                    ? Math.Round(price / chosenBand.Rate, 2, MidpointRounding.AwayFromZero)
                     : Math.Round(price * (current.Price > 0 ? current.ExPrice / current.Price : 1m), 2,
                                  MidpointRounding.AwayFromZero);
 
@@ -523,10 +548,24 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         /// </summary>
         private static async Task<int?> PickTaxBandAsync(IReadOnlyList<TaxBandDto> bands, int currentId)
         {
-            if (bands.Count == 0) return currentId;   // nothing to choose from — keep what it has
+            if (bands.Count == 0)
+            {
+                // ⚠ IT USED TO RETURN `currentId` IN SILENCE, and that is the bug Matt reported as
+                // *"missing category and tax"*. An empty list meant the sheet never opened, so the
+                // operator was never asked and never told — the screen simply behaved as though tax
+                // bands were not part of editing an item. A capability that vanishes without a word
+                // when a call fails is indistinguishable from one that was never built.
+                //
+                // ⚠ It still keeps the item's existing band, which is the only safe default: the
+                // PUT binds the whole entity, so guessing a band here would re-rate the item.
+                await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "Plutus didn't send back any tax bands, so this item keeps the one it has. " +
+                    "Everything else you change will still be saved.", "OK".Translate());
+                return currentId;
+            }
 
             var labels = bands
-                .Select(b => $"{b.Name}{(b.IdOne == currentId ? "  ✓" : "")}")
+                .Select(b => $"{BandLabel(b, b.IdOne)}{(b.IdOne == currentId ? "  ✓" : "")}")
                 .ToArray();
 
             var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
@@ -538,13 +577,32 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
             return index >= 0 ? bands[index].IdOne : null;
         }
 
+        /// <summary>
+        /// How a tax band reads to an operator: "Standard — 20%".
+        ///
+        /// ⚠ THE RULE LIVES IN `Client.Core/TaxBandLabel.cs`, not here, because the part that can be
+        /// got wrong is the CONVERSION: `Rate` is a MULTIPLIER (1.2 = 20%), so the percentage is
+        /// `(rate − 1) × 100`. A screen that quietly prints "1.2%" beside a 20% band is worse than
+        /// one that shows no rate at all — and a rule in a private method on a viewmodel is a rule
+        /// no test can reach. See `till-design.md` C1 and `TaxBandLabelTests`.
+        /// </summary>
+        private static string BandLabel(TaxBandDto band, int fallbackId)
+            => Plutus.Client.Core.TaxBandLabel.For(band, fallbackId);
+
         /// <summary>Which category the item belongs to. Null means the operator backed out.</summary>
         private static async Task<Guid?> PickCategoryAsync(IReadOnlyList<CategoryDto> categories, Guid currentId)
         {
-            if (categories.Count == 0) return currentId;
+            if (categories.Count == 0)
+            {
+                // ⚠ Same silent skip, same fix — see PickTaxBandAsync.
+                await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "Plutus didn't send back any categories, so this item keeps the one it has. " +
+                    "Everything else you change will still be saved.", "OK".Translate());
+                return currentId;
+            }
 
             var labels = categories
-                .Select(c => $"{c.Name}{(c.IdOne == currentId ? "  ✓" : "")}")
+                .Select(c => $"{(string.IsNullOrWhiteSpace(c.Name) ? c.IdOne.ToString("D") : c.Name)}{(c.IdOne == currentId ? "  ✓" : "")}")
                 .ToArray();
 
             var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
