@@ -20,8 +20,8 @@ path. `CrashLog` hooks both `AppDomain` and `Microsoft.UI.Xaml.Application.Unhan
 | # | Do | Expect | ⚠ If not |
 |---|---|---|---|
 | 0.1 | Launch the till | Signs in; tabs are **Till · Inventory Managment · Cash · Statistics · Store Information · Settings · Plutus** | No **Cash** tab = you are on an older build |
-| 0.2 | **Plutus** tab | Version chip reads **v1.24.0**; connection green | — |
-| 0.3 | Wait ~60s, then check the portal's fleet list | The till reports **1.24.0+2edd77f** | Versions were NULL on every row until backend 1.8.1 — this is the fix |
+| 0.2 | **Plutus** tab | Version chip reads **v1.25.0**; connection green | — |
+| 0.3 | Wait ~60s, then check the portal's fleet list | The till reports **1.25.0+51c729a** | Versions were NULL on every row until backend 1.8.1 — this is the fix |
 
 ## 1. Open the day
 
