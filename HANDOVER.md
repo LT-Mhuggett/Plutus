@@ -27,9 +27,10 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 | | |
 |---|---|
-| **Suite** | Unit **757** · Architecture **13** · AppClient **409** (+3 skipped) — all green |
-| **Till build to run** | **`D:\tmp\plutus-till-1.20.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing needed. Stamp `1.20.0+3f9a037` |
-| **Versions** | till-maui **1.20.0** · platform **1.19.0** · backend **1.7.0** · portal **1.3.0** · till-web **1.5.0** |
+| **Suite** | Unit **757** · Integration **145** · Architecture **13** · AppClient **409** (+3 skipped) — all green |
+| **Till build to run** | **`D:\tmp\plutus-till-1.22.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing needed. Stamp `1.22.0+b690d17` |
+| **Deployed** | backend **1.8.1** LIVE (2026-08-10 12:35). Rollback `~/PLUTUS/backend.pre-20260810-123535`. Verified: DB-path probe 401, ETRIE 200, health 200, restart count 0 over 20s. ⚠ **The heartbeat version fix is CONFIRMED WORKING in production** — `Devices.AppVersion` now reads `1.19.0+c8931ef` for Matt's till, having been NULL on every row since the column shipped |
+| **Versions** | till-maui **1.22.0** · platform **1.20.0** · backend **1.8.1** · portal **1.3.0** · till-web **1.5.0** |
 | **Deployed** | backend 1.7.0, portal 1.3.0, web till 1.5.0 — **LIVE and unchanged by today**. Nothing today needs a deploy; it is all MAUI + docs |
 | **Commits** | `bb3c13a` (overlay) → `79b8d7a` (search + button sweep) → `80dd81b` (payment dialog + layout). ⚠ **NOT PUSHED** — still local on `Matt's-Horror` |
 | **Health** | Plutus 200 · ETRIE 200 · backend up, 838 restarts is the historical rotation count and is not climbing |
