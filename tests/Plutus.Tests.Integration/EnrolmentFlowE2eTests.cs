@@ -235,4 +235,83 @@ public class EnrolmentFlowE2eTests : IClassFixture<PlutusAppFactory>, IAsyncLife
         Assert.Null(creds.DeviceId);
         Assert.Equal(1, await _store.CountAsync(OutboxStatus.Pending));   // the sale survived
     }
+
+    /// <summary>
+    /// ⚠ FORGETTING A TILL MUST CLEAR ITS POSTING, not just its credential.
+    ///
+    /// `ForgetDeviceAsync` used to null `MetaKeys.DeviceId` alone, leaving TillId, TenantId, StoreId
+    /// and BusinessId behind — so a "forgotten" till went on answering as the till it had just been
+    /// un-enrolled from. `TillPlacement` kept handing out the old TillId and StoreId, receipts kept
+    /// the old store's address, and item ids kept deriving from the old BusinessId. Enrolling it
+    /// somewhere else then produced a device carrying two identities at once.
+    ///
+    /// ⚠ `ServerUrl` deliberately SURVIVES — it is how the operator reaches the portal to enrol
+    /// again. Wiping it turns "forget this till" into "and now type the address in from memory".
+    /// </summary>
+    [Fact]
+    public async Task Forgetting_a_till_clears_its_PLACEMENT_but_keeps_the_server_address()
+    {
+        var http = _f.CreateClient();
+        var (code, _, _) = await ProvisionAsync(http, "forget-placement@acme.test");
+        var creds = new SecureStorageStub();
+        var api = new PlutusApiClient(http);
+        var flow = new EnrolmentFlow(_store, api, creds);
+
+        await flow.EnrolAsync("https://plutus.example", code);
+
+        // Placement needs a DEVICE token — the same shape as the clean-install test above.
+        var authed = new PlutusApiClient(http, new DeviceTokenProvider(api, creds));
+        await new EnrolmentFlow(_store, authed, creds).RefreshPlacementAsync();
+
+        // Precondition: enrolment + placement recorded a full identity.
+        Assert.NotNull(await _store.GetMetaAsync(MetaKeys.TillId));
+        Assert.NotNull(await _store.GetMetaAsync(MetaKeys.ServerUrl));
+
+        await flow.ForgetDeviceAsync();
+
+        Assert.Null(creds.DeviceId);
+        Assert.Null(await _store.GetMetaAsync(MetaKeys.DeviceId));
+        Assert.Null(await _store.GetMetaAsync(MetaKeys.TillId));
+        Assert.Null(await _store.GetMetaAsync(MetaKeys.TenantId));
+        Assert.Null(await _store.GetMetaAsync(MetaKeys.StoreId));
+        Assert.Null(await _store.GetMetaAsync(MetaKeys.BusinessId));
+
+        // ⚠ The way back in.
+        Assert.NotNull(await _store.GetMetaAsync(MetaKeys.ServerUrl));
+    }
+
+    /// <summary>
+    /// ⚠ ENROLMENT MUST NOT BE A ONE-WAY DOOR — regression guard for a live incident, 2026-08-10.
+    ///
+    /// The archive gate (binding default 9.3) was switched on at step 21, satisfied only by
+    /// Settings' "Archive legacy database". That button was removed the same day, leaving a gate ON
+    /// with nothing able to satisfy it — and because the legacy `Database` constructor CREATES
+    /// `Database.db` on first touch, EVERY till that had ever been signed into was permanently
+    /// blocked from enrolling. Forget a till and you could never get it back.
+    ///
+    /// The caller now passes null. This pins the property that actually matters: a legacy file
+    /// sitting on disk does not block enrolment.
+    /// </summary>
+    [Fact]
+    public async Task A_legacy_database_on_disk_does_not_block_enrolment_when_the_gate_is_off()
+    {
+        var http = _f.CreateClient();
+        var creds = new SecureStorageStub();
+        var flow = new EnrolmentFlow(_store, new PlutusApiClient(http), creds);
+
+        var legacy = Path.Combine(Path.GetTempPath(), $"plutus-legacy-{Guid.NewGuid():N}.db");
+        await File.WriteAllTextAsync(legacy, "not really a database");
+        try
+        {
+            // The gate, asked about the file, still refuses — the mechanism is intact...
+            Assert.NotNull(await flow.BlockedReasonAsync(legacy));
+
+            // ...but the till does not ASK about it, which is what the caller now does.
+            Assert.Null(await flow.BlockedReasonAsync(null));
+        }
+        finally
+        {
+            File.Delete(legacy);
+        }
+    }
 }

@@ -185,6 +185,38 @@ namespace Plutus.Frontend.AppClient.Services.Sync
                     catalogue = " " + (await CatalogueSyncService.SyncAsync(ct).ConfigureAwait(false)).Message;
             }
 
+            // 4. Refresh the published VAT bands and their WHOLE dated timeline.
+            //
+            // ⚠ NOTHING HAS EVER CALLED THIS, on any till, and the visible symptom is the blank Tax
+            // column. `VatBandCache.RefreshAsync` is the only thing that writes `MetaKeys.VatBands`;
+            // every reader — `VatBands.BandKeyForItemAsync`, `DisplayNameForItemAsync`,
+            // `RateBpAtAsync` — loads from that key. With it never written they all correctly return
+            // null for ever, so the Tax column renders blank on every basket line on every MAUI till
+            // in the field. The cache was built and tested at WP2c; it just had no caller.
+            //
+            // ⚠ EVERY TICK, matching the web till (binding default 10: when in doubt, match it —
+            // `till-design` C1 records it caching "the bands and their whole effective-dated
+            // timeline at boot + every 60 s"). Two tills on different cadences would classify the
+            // same sale differently on the day a rate changes.
+            //
+            // ⚠ THE TIMELINE, NOT TODAY'S RATE. Caching only the current rate is a bug the C1 row
+            // calls out by name: the timeline is what lets an offline till apply a future-dated
+            // change ON THE DAY, without hearing from anyone.
+            //
+            // ⚠ Never blocks the tick. A VAT refresh that fails is a Tax column that stays as it
+            // was; a till must keep selling regardless, and the outbox has already drained above.
+            try
+            {
+                await TillStoreAccess.UseAsync(
+                    store => new VatBandCache(api, new Plutus.Client.Storage.MetaVatBandStore(store))
+                        .RefreshAsync(ct),
+                    ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                Analytics.CrashLog.Write("TillCadence.VatBands", ex);
+            }
+
             var locked = beat.Locked ? $" ⚠ This till has been locked: {beat.LockReason}" : "";
 
             return LastResult = beat.Delivered

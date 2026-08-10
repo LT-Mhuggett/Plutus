@@ -1456,7 +1456,22 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         case CommonPOSLibrary.Enums.POSTargetObjectType.CashDrawer:
                             trackEventArgs.Remove("Cash Drawer Opened Successfully");
                             trackEventArgs.Add("Cash Drawer Opened Successfully", "False");
-                            CashDrawerWarningSilenced = !await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "CashDrawerErrorWarning".Translate(), "OK".Translate(), "Silence".Translate());
+
+                            // ⚠ THE "SILENCE" BUTTON SILENCED NOTHING. This line SET
+                            // `CashDrawerWarningSilenced` and **nothing anywhere read it** — the
+                            // alert was raised unconditionally on every drawer failure. So an
+                            // operator who pressed Silence got the same modal on the very next cash
+                            // sale, and on every cash sale after that, with no way to stop it.
+                            //
+                            // ⚠ It matters more than a nuisance: until the missing `return` in
+                            // `POSCashDrawer.InitPOSObject` was fixed (same commit), a WORKING
+                            // drawer threw `NotClaimable` on its own success path — so this modal
+                            // fired on every cash sale on every till, and could not be dismissed
+                            // for good. The setting existed, the button existed, the guard did not.
+                            if (!CashDrawerWarningSilenced)
+                            {
+                                CashDrawerWarningSilenced = !await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "CashDrawerErrorWarning".Translate(), "OK".Translate(), "Silence".Translate());
+                            }
                             break;
                     }
                 }

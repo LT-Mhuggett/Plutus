@@ -52,8 +52,21 @@ namespace Plutus.Frontend.AppClient.Platforms.Windows.Services.POS
                         _claimedCashDrawer.Dispose();
                         throw new POSObjectException(POSObjectExceptionType.NotEnableable, POSTargetObjectType.CashDrawer, $"Cash Drawer with Id: {DeviceId}, is not currently enableable.");
                     }
+
+                    // ⚠ THIS `return` WAS MISSING, AND IT MEANT THE DRAWER COULD NEVER OPEN.
+                    //
+                    // On the SUCCESS path — drawer claimed, drawer enabled — control fell straight
+                    // out of this block and into the `NotClaimable` throw below. So a cash drawer
+                    // that was working perfectly reported "currently in use by another process" on
+                    // every single cash sale, and the more correctly the hardware behaved the more
+                    // certainly it failed.
+                    //
+                    // Its sibling `POSPrinter.InitPOSObject` has the identical shape WITH the
+                    // return (POSPrinter.cs:63-66) — this is a port that lost one line, not a
+                    // design. Found by survey, 2026-08-10.
+                    return;
                 }
-                throw new POSObjectException(POSObjectExceptionType.NotClaimable, POSTargetObjectType.CashDrawer, $"Caash Drawer with Id: {DeviceId}, is currently in use by another process. Please wait.");
+                throw new POSObjectException(POSObjectExceptionType.NotClaimable, POSTargetObjectType.CashDrawer, $"Cash Drawer with Id: {DeviceId}, is currently in use by another process. Please wait.");
             }
             throw new POSObjectException(POSObjectExceptionType.OffOrOffline, POSTargetObjectType.CashDrawer, $"Cash Drawer with Id: {DeviceId}, is off/offline.");
         }

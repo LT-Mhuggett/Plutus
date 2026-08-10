@@ -302,22 +302,28 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
                 // The flow also enforces the archive gate (binding default 9.3): a till holding an
                 // un-archived legacy database refuses to enrol, because that file is the shop's
                 // history and the translation agent's only input.
-                // ⚠ THE ARCHIVE GATE IS NOW ON (cutover step 21, binding default 9.3). It was
-                // passed null deliberately while nothing in the build could archive: switching it
-                // on first would have refused enrolment with no way through, on every till that had
-                // ever opened its legacy file — which is all of them, because the legacy `Database`
-                // constructor CREATES one on first touch.
+                // ⚠ THE ARCHIVE GATE IS OFF AGAIN — binding default 9.3 REVERSED, 2026-08-10, and
+                // this is a bug fix rather than a preference.
                 //
-                // Settings' "Archive legacy database" is that way through: it copies the file
-                // (never moves it, never overwrites an existing archive) and stamps
-                // MetaKeys.LegacyArchivedAtUtc, which is what this gate reads.
+                // Step 21 switched it on, correctly at the time: "Archive legacy database" in
+                // Settings was the way through, stamping `MetaKeys.LegacyArchivedAtUtc`. Then Matt
+                // decided the archive on-ramp was not needed ("all the archive legacy database and
+                // restore. Its no longer needed") and that button was removed the same day — which
+                // left a gate ON with **nothing in the product able to satisfy it**.
                 //
-                // ⚠ A till with no legacy file is unaffected — `BlockedReasonAsync` returns null
-                // when the path does not exist, so a clean install still enrols straight through.
-                var legacyDatabasePath = Path.Combine(FileSystem.AppDataDirectory, "Database.db");
-
+                // ⚠ That is a ONE-WAY DOOR, and it catches every till, not just migrated ones:
+                // `LoginViewModel.EnsureStoreAsync` opens the legacy `Helpers.Database.Database`,
+                // whose constructor CREATES `Database.db` on first touch. So any till that has ever
+                // been signed into has the file, has no stamp, and can never enrol again — you
+                // could forget a till and never get it back. Passing null restores the pre-step-21
+                // behaviour: the file is left exactly where it is (binding default 3 — archive,
+                // never delete) and enrolment stops asking about it.
+                //
+                // ⚠ IF A REAL MIGRATION OFF NatApp IS EVER PLANNED, this gate is the mechanism that
+                // protects that shop's history, and it needs an on-ramp built BEFORE it is switched
+                // back on. Recorded in `Build/legacy-removal.md` L1.
                 var blocked = await TillStoreAccess.UseAsync(store =>
-                    new EnrolmentFlow(store, api, _credentials).BlockedReasonAsync(legacyDatabasePath));
+                    new EnrolmentFlow(store, api, _credentials).BlockedReasonAsync(null));
 
                 if (blocked != null)
                 {
@@ -327,7 +333,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
 
                 var deviceId = await TillStoreAccess.UseAsync(store =>
                     new EnrolmentFlow(store, api, _credentials)
-                        .EnrolAsync(ServerUrl, EnrolmentCode.Trim(), legacyDatabasePath));
+                        .EnrolAsync(ServerUrl, EnrolmentCode.Trim(), null));
 
                 // ⚠ THE SHARED CLIENT MUST FORGET THE OLD CREDENTIAL. Enrolment issues a NEW device
                 // id and secret; a cached client built before this point would keep presenting the
@@ -383,10 +389,19 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
                 var api = Api(out var error);
                 if (api is null) { LastAction = error; return; }
 
-                // A real till beats on a 60s timer with its own outbox depth. This is the same call
-                // with a stub store, so the round trip is testable before the local store is wired.
-                var sync = new SyncClient(api, new NullSyncStore());
-                var outcome = await sync.BeatAsync(deviceId, PlutusVersion.Of(typeof(App).Assembly));
+                // ⚠ THE REAL STORE. This used a `NullSyncStore` stub whose comment claimed
+                // "TillStore is not referenced by this app yet ... AppClient is still on EF Core
+                // 3.1.17" — both untrue since the WP2 cutover: `TillCadence` hands the real
+                // `TillStore` to this same `SyncClient`.
+                //
+                // ⚠ It made this button LIE, in the one place it matters. The stub reports outbox
+                // depth 0 and no oldest-pending, so pressing "Beat" while investigating a stuck
+                // outbox POSTs a heartbeat asserting the till is clear — overwriting the true
+                // figures the 60s cadence had just sent, and making the portal show a backed-up till
+                // as healthy. A diagnostic that reassures you about the thing you are diagnosing is
+                // worse than no diagnostic.
+                var outcome = await TillStoreAccess.UseAsync(store =>
+                    new SyncClient(api, store).BeatAsync(deviceId, PlutusVersion.Of(typeof(App).Assembly)));
 
                 LastAction = outcome.Delivered
                     ? $"Heartbeat OK. syncNow={outcome.SyncNow}, locked={outcome.Locked}" +
@@ -507,34 +522,22 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
                 "Forget", "Cancel");
             if (!confirmed) return;
 
-            _credentials?.Clear();
+            // ⚠ THROUGH `EnrolmentFlow`, not `_credentials.Clear()` alone. Clearing the credential
+            // left every Meta key behind — DeviceId, TillId, TenantId, StoreId, BusinessId — so a
+            // "forgotten" till went on answering as the till it had just been un-enrolled from.
+            // `ForgetDeviceAsync` is the one place that knows what enrolment wrote, which is what
+            // stops the two drifting apart.
+            //
+            // ⚠ Local SALES ARE KEPT, deliberately: they are money that may not have synced, and
+            // dropping them because a credential went away would be the worst possible response.
+            var api = await TillPlacement.TryCreateApiAsync();
+            await TillStoreAccess.UseAsync(store =>
+                new EnrolmentFlow(store, api, _credentials).ForgetDeviceAsync());
+
             DescribeDevice();
-            LastAction = "Local device identity cleared.";
+            LastAction = "This till has been forgotten. Queued sales are untouched.";
             await CheckAsync();
         }
 
-        /// <summary>
-        /// A stand-in store for the diagnostics heartbeat.
-        ///
-        /// ⚠ The REAL store is <c>Plutus.Client.Storage.TillStore</c>, which is not referenced by
-        /// this app yet: it carries EF Core 9's SQLite provider and AppClient is still on EF Core
-        /// 3.1.17, so wiring it is part of WP2's cutover rather than something to slip in here. Until
-        /// then the heartbeat reports an empty outbox — true today, because nothing in MAUI writes to
-        /// the v2 outbox yet.
-        /// </summary>
-        private sealed class NullSyncStore : ISyncStore
-        {
-            public Task<string> GetCatalogueCursorAsync(System.Threading.CancellationToken ct = default) =>
-                Task.FromResult<string>(null);
-
-            public Task ApplyCatalogueAsync(
-                System.Collections.Generic.IReadOnlyList<Contracts.Client.CatalogueItemDto> items,
-                string cursor, System.Threading.CancellationToken ct = default) => Task.CompletedTask;
-
-            public Task<int> OutboxDepthAsync(System.Threading.CancellationToken ct = default) => Task.FromResult(0);
-
-            public Task<TimeSpan?> OldestPendingAgeAsync(System.Threading.CancellationToken ct = default) =>
-                Task.FromResult<TimeSpan?>(null);
-        }
     }
 }

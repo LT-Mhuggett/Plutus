@@ -108,6 +108,20 @@ public sealed class EnrolmentFlow
     public async Task ForgetDeviceAsync(CancellationToken ct = default)
     {
         _credentials.Clear();
+
+        // ⚠ CLEAR THE PLACEMENT TOO, not just the credential. `EnrolAsync` records DeviceId, TillId
+        // and TenantId, and `RefreshPlacementAsync` adds StoreId and BusinessId — so clearing the
+        // device id alone left the till still ANSWERING as the till it had just been un-enrolled
+        // from: `TillPlacement` kept handing out the old TillId/StoreId, receipts kept the old
+        // store's address, and item ids kept deriving from the old BusinessId. A device that has
+        // been forgotten must not keep claiming a posting.
+        //
+        // ⚠ `ServerUrl` DELIBERATELY SURVIVES. It is how the operator reaches the portal to enrol
+        // again; wiping it turns "forget this till" into "and now type the address in from memory".
         await _store.SetMetaAsync(MetaKeys.DeviceId, null, ct);
+        await _store.SetMetaAsync(MetaKeys.TillId, null, ct);
+        await _store.SetMetaAsync(MetaKeys.TenantId, null, ct);
+        await _store.SetMetaAsync(MetaKeys.StoreId, null, ct);
+        await _store.SetMetaAsync(MetaKeys.BusinessId, null, ct);
     }
 }
