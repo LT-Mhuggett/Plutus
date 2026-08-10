@@ -28,9 +28,15 @@ above the seam the tests stop at.
 
 So: a step's VERIFY passing means its *logic* is right. It says nothing about whether a person can
 use the screen. **Budget a hand-run of the affected screen into every remaining step**, and add
-what you find to §H. Three separate components in this plan were found fully built, tested, and
-called from **nowhere** (`OutboxPusher.DrainAsync`, the catalogue browse, `TillStore.SearchAsync`) —
-when a screen looks broken, grep for callers before debugging the component.
+what you find to §H. **FOUR** separate components in this plan have now been found fully built,
+tested, and called from **nowhere** — `OutboxPusher.DrainAsync`, the catalogue browse,
+`TillStore.SearchAsync`, and `NoticesClient`, which appears in the entire AppClient **once, in a
+comment**. When a screen looks broken, grep for callers before debugging the component.
+
+📄 **[`../maui-whats-left.md`](../maui-whats-left.md)** is the short answer to "how much is left" —
+every remaining step in order with rough effort, which step carries each smaller Part B row, and the
+three rows where the *web* till is behind. This document remains the **how**; that one is the
+**how much**.
 
 ---
 
@@ -482,7 +488,7 @@ pos-gated cash read · server refund cap (default 12) · additive feed fields (d
 - [ ] Step 25: scanner round-trip incl. unknown-barcode add flow
 - [ ] Any web-till TS edits: `npm run typecheck` on the Mac (5 pre-existing edits already queued)
 
-### Raised by USER-VERIFY on 2026-08-10 — retest on **1.17.0**
+### Raised by USER-VERIFY on 2026-08-10 — retest on **1.18.0**
 
 ⚠ **These are the items that make or break "can a person use this".** Each was found by hand
 because nothing automated could reach it; each is fixed but pinned by review only.

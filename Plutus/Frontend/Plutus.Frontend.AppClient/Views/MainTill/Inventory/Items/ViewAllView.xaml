@@ -13,11 +13,30 @@
     <ContentPage.BindingContext>
         <viewModels:ViewAllViewModel/>
     </ContentPage.BindingContext>
+    <!--
+        ⚠ A GRID, NOT A STACKLAYOUT, AND THAT IS THE WHOLE FIX FOR THE SHORT LIST.
+
+        This was a `StackLayout`, which in MAUI measures each child to its DESIRED height and does
+        not distribute what is left over. `VerticalOptions="FillAndExpand"` did that in
+        Xamarin.Forms and is effectively a NO-OP in MAUI — one of the quieter differences between
+        the two, because nothing warns and the screen still renders. The list asked for a modest
+        height, got exactly that, and scrolled 20,000 items inside a ~230px box with the rest of the
+        window empty below it.
+
+        `RowDefinition Height="*"` is what actually gives the list the remaining space.
+    -->
     <ContentPage.Content>
-        <StackLayout>
-            <SearchBar Placeholder="{Binding Source={i18n:Translate Items}, StringFormat={i18n:Translate SearchArg}}"
+        <Grid RowSpacing="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <SearchBar Grid.Row="0"
+                       Placeholder="{Binding Source={i18n:Translate Items}, StringFormat={i18n:Translate SearchArg}}"
                        Text="{Binding SearchText}"/>
-            <listViewCM:ListViewWithContextMenu x:Name="ItemsListView" ItemsSource="{Binding Items}"
+            <listViewCM:ListViewWithContextMenu x:Name="ItemsListView" Grid.Row="1"
+                                   ItemsSource="{Binding Items}"
+                                   VerticalOptions="Fill" HorizontalOptions="Fill"
                                    LoadMoreOption="AutoOnScroll"
                                    AutoFitMode="DynamicHeight" IsStickyHeader="True" IsStickyGroupHeader="True"
                                    AllowGroupExpandCollapse="True" DataSource="{Binding SfListViewDataSource, Mode=OneWayToSource}">
@@ -90,6 +109,6 @@
                     </DataTemplate>
                 </listViewCM:ListViewWithContextMenu.ItemTemplate>
             </listViewCM:ListViewWithContextMenu>
-        </StackLayout>
+        </Grid>
     </ContentPage.Content>
 </ContentPage>

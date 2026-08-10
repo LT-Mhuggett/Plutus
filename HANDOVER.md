@@ -28,8 +28,8 @@ Head: see `git log` — this line goes stale; the commits don't.
 | | |
 |---|---|
 | **Suite** | Unit **733** · Architecture **13** · AppClient **409** (+3 skipped) — all green |
-| **Till build to run** | **`D:\tmp\plutus-till-1.17.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing needed. Stamp `1.17.0+79b8d7a` |
-| **Versions** | till-maui **1.17.0** · platform **1.17.0** · backend **1.7.0** · portal **1.3.0** · till-web **1.5.0** |
+| **Till build to run** | **`D:\tmp\plutus-till-1.18.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing needed. Stamp `1.18.0+df66096` |
+| **Versions** | till-maui **1.18.0** · platform **1.17.0** · backend **1.7.0** · portal **1.3.0** · till-web **1.5.0** |
 | **Deployed** | backend 1.7.0, portal 1.3.0, web till 1.5.0 — **LIVE and unchanged by today**. Nothing today needs a deploy; it is all MAUI + docs |
 | **Commits** | `bb3c13a` (overlay) → `79b8d7a` (search + button sweep) → `80dd81b` (payment dialog + layout). ⚠ **NOT PUSHED** — still local on `Matt's-Horror` |
 | **Health** | Plutus 200 · ETRIE 200 · backend up, 838 restarts is the historical rotation count and is not climbing |
@@ -65,6 +65,13 @@ what to extract and what to pin.
 **4. After that, steps 22–28** — theming (22), cash (23), Users (24), inventory WP10 (25),
 reporting WP11 (26), loyalty/gift cards (27), online-first login (28). Step 25 closes the biggest
 honest gap and step 26 removes the reports that currently read zero.
+
+📄 **[`Build/maui-whats-left.md`](Build/maui-whats-left.md) is the "how much is left" page** — every
+remaining step in order with rough effort, the smaller Part B rows and which step carries each, the
+three rows where the *web* till is behind, and what is deliberately not on the list. Verified against
+the tree 2026-08-10. ⚠ It records a **fourth** built-but-uncalled component: `NoticesClient` appears
+in the whole AppClient once, **in a comment** — so the announcements/pick-notes rows were corrected
+from 🟡 to ⬜.
 
 ---
 

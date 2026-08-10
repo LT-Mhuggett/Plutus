@@ -52,5 +52,7 @@ cheap path, not the disciplined one.
 | [`Build/repo-runbook.md`](Build/repo-runbook.md) | Build, test, migrate, deploy — and the codebase pitfalls that have each cost a session. Read before writing code. |
 | [`Build/plutus-platform-architecture.md`](Build/plutus-platform-architecture.md) | **Wins on any design conflict** with a plan. |
 | [`Build/till-design.md`](Build/till-design.md) | Tills — see above. |
+| [`Build/maui-whats-left.md`](Build/maui-whats-left.md) | **What remains of the MAUI retrofit, in order.** The "how much is left" page. |
+| [`Build/legacy-removal.md`](Build/legacy-removal.md) | What comes **out** of the till afterwards, in dependency order. Matt does this last. |
 | [`Build/table-standard.md`](Build/table-standard.md) | Every data table in all three surfaces. |
 | [`Build/index.md`](Build/index.md) | What every other document is for, and which are archived. |
