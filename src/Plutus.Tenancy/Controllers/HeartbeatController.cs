@@ -86,7 +86,16 @@ namespace Plutus.Tenancy.Controllers
             //
             // ⚠ Guarded on inequality so the common beat stays a pure read. Writing it every minute
             // would recreate the write path this design exists to avoid.
-            if (!string.IsNullOrWhiteSpace(body.AppVersion) && device.AppVersion != body.AppVersion)
+            //
+            // ⚠⚠ THIS NEVER ONCE PERSISTED, from the day it shipped until 2026-08-10. The assignment
+            // below was right, the comment above was right, and `SaveChangesAsync` was called ONLY
+            // inside the `if (syncNow)` block underneath — so on every ordinary beat the mutation was
+            // tracked and then thrown away with the DbContext. Six devices beating for two days, all
+            // still reporting `AppVersion NULL`, while their SALES arrived perfectly: the till was
+            // fine, the write was missing. A feature that reads as built and has never worked.
+            var versionChanged = !string.IsNullOrWhiteSpace(body.AppVersion)
+                                 && device.AppVersion != body.AppVersion;
+            if (versionChanged)
             {
                 device.AppVersion = body.AppVersion;
                 device.AppVersionReportedAtUtc = DateTime.UtcNow;
@@ -96,9 +105,14 @@ namespace Plutus.Tenancy.Controllers
             // instruction: leaving it set would have the till re-sync on every beat for ever, which
             // turns one operator click into a permanent load.
             var syncNow = device.SyncNow;
-            if (syncNow)
+            if (syncNow) device.SyncNow = false;
+
+            // ⚠ ONE SAVE, covering BOTH reasons to write. Keeping the save inside the `syncNow`
+            // branch is what lost the version; keeping it unconditional would put a write on every
+            // beat of every till, which is the thing `TillPresence` exists to avoid. Save when
+            // something actually changed, and only then.
+            if (versionChanged || syncNow)
             {
-                device.SyncNow = false;
                 _db.CurrentUser = "heartbeat"; // pitfall #1 — every save needs this, background paths included
                 await _db.SaveChangesAsync();
             }

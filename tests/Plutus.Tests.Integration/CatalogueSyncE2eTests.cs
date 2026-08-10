@@ -360,6 +360,92 @@ public class CatalogueSyncE2eTests : IClassFixture<PlutusAppFactory>
         Assert.False(string.IsNullOrEmpty(body.GetProperty("catalogueCursor").GetString()));
     }
 
+    /// <summary>
+    /// ⚠ THE VERSION MUST SURVIVE THE REQUEST, and for two days it did not.
+    ///
+    /// `HeartbeatController` assigned `device.AppVersion` on the tracked entity and then called
+    /// `SaveChangesAsync` ONLY inside its `if (syncNow)` branch — so on every ordinary beat the
+    /// mutation was tracked and thrown away with the DbContext. Six real devices beat for two days
+    /// and every one still read `AppVersion NULL`, while their SALES arrived perfectly. The till was
+    /// never at fault; the write was missing.
+    ///
+    /// The old test asserted the RESPONSE and never looked at the database, which is exactly how a
+    /// missing write hides: everything the caller can see is correct.
+    /// </summary>
+    [Fact]
+    public async Task A_heartbeat_PERSISTS_the_reported_app_version()
+    {
+        var till = await ProvisionAsync("hb-version@acme.test");
+
+        await BeatAsync(till, appVersion: "1.20.0+abc1234");
+
+        using (var scope = _f.Services.CreateScope())
+        {
+            var device = await Db(scope, till.TenantId).Devices.FirstAsync(d => d.Id == till.DeviceId);
+            Assert.Equal("1.20.0+abc1234", device.AppVersion);
+            Assert.NotNull(device.AppVersionReportedAtUtc);
+        }
+    }
+
+    /// <summary>
+    /// ⚠ An UPGRADED till must be seen to upgrade — the fleet list's whole purpose is answering
+    /// "which build is this exactly", and a version written once and never updated is worse than
+    /// none, because it reads as current.
+    /// </summary>
+    [Fact]
+    public async Task A_heartbeat_UPDATES_the_version_when_the_till_is_upgraded()
+    {
+        var till = await ProvisionAsync("hb-upgrade@acme.test");
+
+        await BeatAsync(till, appVersion: "1.19.0+aaaaaaa");
+        await BeatAsync(till, appVersion: "1.20.0+bbbbbbb");
+
+        using (var scope = _f.Services.CreateScope())
+        {
+            var device = await Db(scope, till.TenantId).Devices.FirstAsync(d => d.Id == till.DeviceId);
+            Assert.Equal("1.20.0+bbbbbbb", device.AppVersion);
+        }
+    }
+
+    /// <summary>
+    /// ⚠ A beat carrying NO version must not blank the one already recorded. The fleet list is asked
+    /// about switched-off tills most of all, and an older or cut-down client that omits the field
+    /// must not erase what a working one reported.
+    /// </summary>
+    [Fact]
+    public async Task A_heartbeat_without_a_version_does_not_erase_the_one_on_record()
+    {
+        var till = await ProvisionAsync("hb-noversion@acme.test");
+
+        await BeatAsync(till, appVersion: "1.20.0+ccccccc");
+        await BeatAsync(till, appVersion: null);
+
+        using (var scope = _f.Services.CreateScope())
+        {
+            var device = await Db(scope, till.TenantId).Devices.FirstAsync(d => d.Id == till.DeviceId);
+            Assert.Equal("1.20.0+ccccccc", device.AppVersion);
+        }
+    }
+
+    private async Task BeatAsync(Till till, string? appVersion)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Post, "/api/v1/heartbeat")
+        {
+            Content = JsonContent.Create(new
+            {
+                deviceId = till.DeviceId,
+                appVersion,
+                outboxDepth = 0,
+                oldestUnsyncedAgeSeconds = (long?)null,
+                deviceClockUtc = DateTime.UtcNow,
+            }),
+        };
+        req.Headers.Authorization = new("Bearer", till.DeviceToken);
+
+        var res = await till.Http.SendAsync(req);
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+    }
+
     [Fact]
     public async Task SyncNow_is_delivered_exactly_once()
     {
