@@ -236,6 +236,15 @@ is needed before anyone installs this on a shop PC, and is not needed to test.
     `finally`, and `TrySetResult` (four code paths can fire the confirm handler). ⚠ Cancelling now
     completes with `default` — **null** for reference types, so null-check the result.
 
+15. ⚠ **An endpoint whose job is to WRITE needs a test that reads the row back.** Asserting the
+    *response* is not enough and is how a missing write hides — everything the caller can see is
+    correct. `HeartbeatController` assigned `device.AppVersion` and called `SaveChangesAsync` only
+    inside its `if (syncNow)` branch, so on every ordinary beat the mutation was tracked and thrown
+    away with the DbContext. Six real devices beat for two days reporting `AppVersion NULL` while
+    their sales arrived perfectly; the E2E test passed throughout, because it only ever looked at
+    the 200. ⚠ Watch for a `SaveChangesAsync` nested inside a conditional that is narrower than the
+    set of things it needs to save.
+
 ⚠ **The standing check these came from:** a green suite proves a component works, never that
 anything *uses* it. `OutboxPusher.DrainAsync`, the catalogue browse and `TillStore.SearchAsync` were
 each fully built and tested while the screen in front of them looked broken. When a screen misbehaves,
