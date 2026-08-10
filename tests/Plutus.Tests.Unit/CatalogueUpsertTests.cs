@@ -193,3 +193,104 @@ public class CatalogueUpsertTests
         }
     }
 }
+
+/// <summary>
+/// A binned item must stop selling — including on a till with no network.
+///
+/// ⚠ THIS IS WHAT THE TOMBSTONE IS FOR, and it is the rule most likely to be quietly broken by a
+/// new read path. "Not in this page of the feed" and "withdrawn from sale" are indistinguishable to
+/// a client that only ever receives upserts, so the feed sends `Removed: true` rather than simply
+/// omitting the row — and EVERY read on the till has to honour it. One that forgets puts a
+/// withdrawn product back on sale on an offline till, indefinitely, with nothing to notice.
+///
+/// ⚠ The withdrawal can be a recall. That is the case worth having tests for.
+/// </summary>
+public class CatalogueTombstoneTests
+{
+    private static async Task<(TillStore Store, Microsoft.Data.Sqlite.SqliteConnection Conn)> NewStoreAsync()
+    {
+        var conn = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await conn.OpenAsync();
+
+        var options = new DbContextOptionsBuilder<TillDbContext>().UseSqlite(conn).Options;
+        var db = new TillDbContext(options);
+        await db.Database.EnsureCreatedAsync();
+
+        return (new TillStore(db), conn);
+    }
+
+    private static CatalogueItemDto Dto(string idOne, string name, bool removed) =>
+        new(
+            Id: DeterministicGuid.ForItem(Guid.Parse("33333333-3333-3333-3333-333333333333"), idOne),
+            IdOne: idOne, Name: name,
+            PricePence: 599, ExPricePence: 499, TaxId: 1, CategoryId: null,
+            StockUntracked: false, Removed: removed,
+            UpdatedAtUtc: new DateTime(2026, 8, 10, 12, 0, 0, DateTimeKind.Utc),
+            Brand: "DC");
+
+    [Fact]
+    public async Task A_binned_item_cannot_be_SCANNED()
+    {
+        // ⚠ The hot path. If a barcode still resolves, the item goes straight into a basket.
+        var (store, conn) = await NewStoreAsync();
+        using var _ = conn;
+
+        await store.ApplyCatalogueAsync(new[] { Dto("BAT001", "Batman #1", removed: false) }, "c1");
+        Assert.NotNull(await store.FindByBarcodeAsync("BAT001"));
+
+        await store.ApplyCatalogueAsync(new[] { Dto("BAT001", "Batman #1", removed: true) }, "c2");
+
+        Assert.Null(await store.FindByBarcodeAsync("BAT001"));
+    }
+
+    [Fact]
+    public async Task A_binned_item_cannot_be_SEARCHED_for()
+    {
+        var (store, conn) = await NewStoreAsync();
+        using var _ = conn;
+
+        await store.ApplyCatalogueAsync(new[] { Dto("BAT001", "Batman #1", removed: true) }, "c1");
+
+        Assert.Empty(await store.SearchAsync("batman"));
+        // ⚠ Brand too — the new searched field must not become a back door to a withdrawn item.
+        Assert.Empty(await store.SearchAsync("DC"));
+    }
+
+    [Fact]
+    public async Task A_binned_item_is_not_offered_by_the_BROWSE_list()
+    {
+        // ⚠ The browse list's whole purpose is tapping a row to add it to a basket, so a withdrawn
+        // item appearing there is one tap from being sold.
+        var (store, conn) = await NewStoreAsync();
+        using var _ = conn;
+
+        await store.ApplyCatalogueAsync(new[]
+        {
+            Dto("BAT001", "Batman #1", removed: true),
+            Dto("SPI001", "Spider-Man #1", removed: false),
+        }, "c1");
+
+        var browsed = await store.BrowseAsync();
+
+        Assert.Equal("SPI001", Assert.Single(browsed).IdOne);
+    }
+
+    [Fact]
+    public async Task Restoring_an_item_brings_it_back()
+    {
+        // ⚠ The tombstone is not a delete. A product pulled and then cleared has to sell again
+        // without anyone re-creating it — and its id must be the same one, or its sales history
+        // splits in two.
+        var (store, conn) = await NewStoreAsync();
+        using var _ = conn;
+
+        await store.ApplyCatalogueAsync(new[] { Dto("BAT001", "Batman #1", removed: true) }, "c1");
+        Assert.Null(await store.FindByBarcodeAsync("BAT001"));
+
+        await store.ApplyCatalogueAsync(new[] { Dto("BAT001", "Batman #1", removed: false) }, "c2");
+
+        var back = await store.FindByBarcodeAsync("BAT001");
+        Assert.NotNull(back);
+        Assert.Equal(Dto("BAT001", "Batman #1", false).Id, back!.Id);
+    }
+}

@@ -210,10 +210,10 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                     // SILENTLY, so a null `Stock` rendered as an empty cell rather than an error:
                     // an operator reading that column would conclude the shop has none of anything.
                     //
-                    // ⚠ Until the feed carries stock (cutover step 25, `GET /api/v1/stock/levels`),
-                    // the honest answer is "not known here", NOT a number. `StockUntracked` IS in
-                    // the feed, so an item that deliberately has no count says so with ∞ — that
-                    // one is a fact, and it is the answer for carrier bags and back-issues.
+                    // ⚠ "∞" or "—" UNTIL THE REAL COUNT ARRIVES — never a zero. `StockUntracked` is
+                    // in the feed, so ∞ is a fact from the moment the rows render; "—" means "this
+                    // screen has not been told", which is different from "none" and must not be
+                    // rendered as 0. `FillStockLevelsAsync` below replaces the dashes.
                     for (var i = 0; i < loaded.Count; i++)
                         loaded[i].StockDisplay = catalogue[i].StockUntracked ? "∞" : "—";
                 }
@@ -241,6 +241,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                         Items = new ObservableCollection<ItemModel>(loaded);
                         OnPropertyChanged(nameof(Items));
                         RebuildGroups();
+
+                        // ⚠ AFTER the rows are on screen, never before. Stock counts come from the
+                        // network; making the list wait for them would put a spinner between the
+                        // operator and a catalogue the till already holds locally — and leave the
+                        // screen blank whenever the line is down, which is when browsing matters
+                        // most. The list renders, then the dashes fill in.
+                        _ = FillStockLevelsAsync();
                     }
                     catch (Exception ex)
                     {
@@ -248,6 +255,65 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                     }
                 });
             });
+        }
+
+        /// <summary>
+        /// Ask the platform how many of each item the shop actually holds, and fill the column
+        /// (WP10 / cutover step 25).
+        ///
+        /// ⚠ STOCK IS NOT IN THE CATALOGUE FEED, and should not be. It moves on every sale on every
+        /// till in the shop, so pushing it down an effective-dated feed would either flood the feed
+        /// or deliver a number already stale on arrival. It is read when a screen asks.
+        ///
+        /// ⚠ WHICH MEANS THE COLUMN IS A LIVE READ AND THE LIST IS NOT. A count shown here is true
+        /// as of a moment ago; the rows around it come from a local catalogue that may be an hour
+        /// old. That is the right trade for a browse screen, and it is why nothing on this screen
+        /// may be used to decide a SALE — the basket resolves prices and stock itself.
+        ///
+        /// ⚠ FAILURE LEAVES THE DASHES. No count is not zero. An operator reading "0" against an
+        /// item the shop has simply never counted will reorder it.
+        /// </summary>
+        private async Task FillStockLevelsAsync()
+        {
+            try
+            {
+                var tracked = Items.Where(i => i.StockDisplay != "∞" && !string.IsNullOrWhiteSpace(i.Id))
+                                   .ToList();
+                if (tracked.Count == 0) return;
+
+                var api = await Services.Connectivity.PlutusApi.GetOperatorAsync();
+                if (api is null) return;   // nobody signed in, or no line — the dashes stand
+
+                // ⚠ 200 AT A TIME, because the endpoint clamps to 200 and does so by TAKING the
+                // first 200 rather than refusing. One page of 500 would come back with 300 silent
+                // gaps, every one of which renders as "never counted" — a wrong answer that looks
+                // exactly like the honest one.
+                for (var offset = 0; offset < tracked.Count; offset += 200)
+                {
+                    var page = tracked.Skip(offset).Take(200).ToList();
+                    var levels = await api.GetStockLevelsAsync(page.Select(i => i.Id).ToList());
+                    if (levels is null) return;   // refused or unreachable — leave every dash alone
+
+                    var byId = levels
+                        .Where(l => !string.IsNullOrWhiteSpace(l.ItemIdOne))
+                        .ToDictionary(l => l.ItemIdOne!, l => l, StringComparer.OrdinalIgnoreCase);
+
+                    // ⚠ On the UI thread: `StockDisplay` raises PropertyChanged and the list is
+                    // bound to it. Mutating it from a background thread is the kind of thing that
+                    // works in testing and throws on a shop floor.
+                    MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                        foreach (var item in page)
+                            if (byId.TryGetValue(item.Id, out var level))
+                                item.StockDisplay = level.Display;
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                // ⚠ Fire-and-forget from `InitItems` — an escape here has no caller to catch it.
+                Services.Analytics.CrashLog.Write("ViewAllViewModel.StockLevels", ex);
+            }
         }
 
         #region Commands
@@ -372,12 +438,18 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 const string addToBasket = "Add to basket";
                 const string edit = "Edit item";
 
+                // ⚠ "Move to the Bin" is a DESTRUCTIVE-LOOKING action on a tap menu, so it is last
+                // and it confirms. Binning withdraws the item from sale on every till in the
+                // estate, including offline ones — it is not a local tidy-up.
+                const string bin = "Move to the Bin…";
+
                 var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
                     App.Current.MainPage.DisplayActionSheet(
-                        item.Name ?? "Item", "Cancel".Translate(), null, addToBasket, edit));
+                        item.Name ?? "Item", "Cancel".Translate(), null, addToBasket, edit, bin));
 
                 if (picked == addToBasket) ExecuteAddToBasket(item.Id);
                 else if (picked == edit) ExecuteOpenEditItem(item.Id);
+                else if (picked == bin) ExecuteBinItem(item);
             }
             catch (Exception ex)
             {
@@ -592,6 +664,81 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
             {
                 // ⚠ `async void` — an escape here closes the till.
                 Services.Analytics.CrashLog.Write("ViewAllViewModel.EditItem", ex);
+                await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "That didn't work. Nothing has been changed.", "OK".Translate());
+            }
+        }
+
+        /// <summary>
+        /// Move an item to the Bin — withdraw it from sale (WP10 / cutover step 25).
+        ///
+        /// ⚠ IT IS NOT A LOCAL TIDY-UP AND THE WORDING MUST SAY SO. Binning stamps the item on the
+        /// PLATFORM, the catalogue feed carries it to every till as a tombstone, and every read
+        /// path on every till then refuses it — including tills that have been offline since. That
+        /// is exactly the behaviour a recall needs, and exactly the behaviour somebody clearing
+        /// clutter off a list does not expect.
+        ///
+        /// ⚠ NOTHING IS DESTROYED. The item keeps its id, so a restore does not split its sales
+        /// history, and past sale lines still resolve. The confirmation says that too — an operator
+        /// who thinks this is permanent will not use it when they should.
+        /// </summary>
+        private async void ExecuteBinItem(ItemModel item)
+        {
+            try
+            {
+                if (item?.Id is null) return;
+
+                var gate = Services.Security.TillGate.Check(
+                    App.GetViewModel().SignedInOperator, PermissionCatalogue.InventoryBulk);
+
+                if (!gate.Allowed)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(), gate.Message, "OK".Translate());
+                    return;
+                }
+
+                var confirmed = await Services.UIHandeling.Modal.ShowAsync(() =>
+                    App.Current.MainPage.DisplayAlert(
+                        "Move to the Bin?",
+                        $"“{item.Name}” will stop selling on EVERY till, including tills that are " +
+                        "offline right now. Nothing is deleted — it keeps its sales history and can " +
+                        "be restored from the portal.",
+                        "Move to the Bin", "Cancel".Translate()));
+
+                if (!confirmed) return;
+
+                var api = await Services.Connectivity.PlutusApi.GetOperatorAsync();
+                if (api is null)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "Binning an item needs someone signed in and a connection to Plutus.", "OK".Translate());
+                    return;
+                }
+
+                var (ok, problem) = await api.BinItemsAsync(new[] { item.Id }, bin: true);
+                if (!ok)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        problem ?? "Plutus refused that.", "OK".Translate());
+                    return;
+                }
+
+                // ⚠ Pull the catalogue so the row LEAVES THIS LIST. Without it the operator bins an
+                // item, sees it still sitting there, and bins it again — and the second attempt
+                // succeeds silently because binning is idempotent (`BinnedAtUtc ??=`), which teaches
+                // them the button does nothing.
+                await Services.Storage.CatalogueSyncService.SyncAsync();
+                InitItems();
+
+                await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    $"“{item.Name}” has been moved to the Bin.", "OK".Translate());
+
+                Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Item Binned");
+            }
+            catch (Exception ex)
+            {
+                // ⚠ `async void` — an escape here closes the till.
+                Services.Analytics.CrashLog.Write("ViewAllViewModel.BinItem", ex);
                 await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
                     "That didn't work. Nothing has been changed.", "OK".Translate());
             }

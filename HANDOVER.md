@@ -27,10 +27,10 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 | | |
 |---|---|
-| **Suite** | Unit **821** · Integration **146** · Architecture **15** · AppClient **409** (+3 skipped) — all green |
-| **Till build to run** | **`D:\tmp\plutus-till-1.36.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing needed. Stamp `1.29.0+6fa2ac2` |
+| **Suite** | Unit **836** · Integration **146** · Architecture **15** · AppClient **409** (+3 skipped) — all green |
+| **Till build to run** | **`D:\tmp\plutus-till-1.37.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing needed. Stamp `1.29.0+6fa2ac2` |
 | **Deployed** | backend **1.8.3** LIVE (2026-08-10 15:28). Rollback `~/PLUTUS/backend.pre-20260810-152835`; the two before it are `.pre-20260810-151429` (1.8.2) and `.pre-20260810-123535` (1.8.1). Each verified: DB-path probe **401**, ETRIE **200**, health 200, restart count 0. ⚠ **The heartbeat version fix is CONFIRMED WORKING in production** — `Devices.AppVersion` reads a real build, having been NULL on every row since the column shipped. ⚠ **1.8.2 carries the server-side "a refund cannot be refunded" guard** (verified present in the deployed DLL, UTF-16 aware — a plain grep finds nothing and would mislead you). ⚠ **1.8.3 lets a till operator read `/api/v1/reports/summary`.** |
-| **Versions** | till-maui **1.36.0** · platform **1.25.0** · backend **1.8.3** (⚠ **1.9.0 built, NOT deployed**) · portal **1.3.0** · till-web **1.5.0** |
+| **Versions** | till-maui **1.37.0** · platform **1.25.0** · backend **1.8.3** (⚠ **1.9.0 built, NOT deployed**) · portal **1.3.0** · till-web **1.5.0** |
 | **Deployed** | backend 1.7.0, portal 1.3.0, web till 1.5.0 — **LIVE and unchanged by today**. Nothing today needs a deploy; it is all MAUI + docs |
 | **Commits** | `bb3c13a` (overlay) → `79b8d7a` (search + button sweep) → `80dd81b` (payment dialog + layout). ⚠ **NOT PUSHED** — still local on `Matt's-Horror` |
 | **Health** | Plutus 200 · ETRIE 200 · backend up, 838 restarts is the historical rotation count and is not climbing |

@@ -86,6 +86,27 @@ public sealed class TaxBandDto
     [JsonPropertyName("rate")] public decimal Rate { get; set; }
 }
 
+/// <summary>
+/// On-hand quantity for one item, as `POST /api/v1/stock/levels/bulk` reports it.
+///
+/// ⚠ THE TWO KINDS OF "NO NUMBER" ARE DIFFERENT AND BOTH ARRIVE AS NULL. `Quantity` is null when
+/// the item is <see cref="Untracked"/> — its level is meaningless by design — and ALSO when there
+/// is simply no stock record, because nothing has ever been received. The flag is what tells them
+/// apart, and a client that ignores it will print "0" for a carrier bag.
+///
+/// ⚠ Neither case is a zero. Inventing one is the bug this shape exists to prevent: an operator
+/// reading "0" against an item the shop has never counted will reorder it.
+/// </summary>
+public sealed class StockLevelDto
+{
+    [JsonPropertyName("itemIdOne")] public string? ItemIdOne { get; set; }
+    [JsonPropertyName("untracked")] public bool Untracked { get; set; }
+    [JsonPropertyName("quantity")] public int? Quantity { get; set; }
+
+    /// <summary>What the column shows: a number, "∞" for untracked, "—" for never counted.</summary>
+    public string Display => Untracked ? "∞" : Quantity?.ToString() ?? "—";
+}
+
 /// <summary>A catalogue category as `/api/Category/Index` returns it.</summary>
 public sealed class CategoryDto
 {

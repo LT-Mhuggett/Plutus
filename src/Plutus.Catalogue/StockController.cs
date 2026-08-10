@@ -46,8 +46,17 @@ namespace Plutus.Catalogue
         /// `untracked` items report null quantity: their level is meaningless by design (FE5.5), and
         /// the UI shows ∞ rather than a misleading 0.
         /// </summary>
+        // ⚠ `pos.reports.view` IS ACCEPTED TOO, and this is the third time the same defect has been
+        // fixed on the same reasoning (`/api/v1/sales` at step 19, `/api/v1/reports/summary` after
+        // it). `RbacSeeder` gives Supervisor and Cashier NO portal permission at all — so gated on
+        // `portal.reports.view` alone, an operator browsing the inventory list on a till could see
+        // every item and never the quantity beside it, which is the one number they went to look at.
+        //
+        // ⚠ It does NOT widen portal access. A portal user still needs their portal permission, and
+        // a till operator's `pos.*` reaches nothing else. ⚠ It is a READ of on-hand quantity —
+        // changing stock stays on `portal.stock.adjust`, which is a separate decision.
         [HttpPost("api/v1/stock/levels/bulk")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView + "," + PermissionCatalogue.PosReportsView)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> LevelsBulk([FromBody] string[] itemIdOnes, CancellationToken ct = default)
         {

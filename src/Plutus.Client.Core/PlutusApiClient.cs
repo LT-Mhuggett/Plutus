@@ -447,6 +447,96 @@ public sealed class PlutusApiClient
     }
 
     /// <summary>
+    /// Move items to the Bin, or bring them back (WP10 / cutover step 25).
+    ///
+    /// ⚠ THE BIN IS A SOFT DELETE AND THAT IS THE WHOLE DESIGN. Binning stamps `BinnedAtUtc`; the
+    /// catalogue feed then sends the item as a TOMBSTONE (`Removed: true`) rather than omitting it,
+    /// because "not in this page" and "withdrawn from sale" are indistinguishable to a client that
+    /// only ever receives upserts. Every read path on the till honours it, so a binned item stops
+    /// scanning even on a till that has been offline since — which is the point when the withdrawal
+    /// is a recall.
+    ///
+    /// ⚠ NOTHING IS DESTROYED. The item keeps its id, so restoring it does not split its sales
+    /// history in two, and past sale lines still resolve.
+    ///
+    /// ⚠ Needs `inventory.bulk` — Owner, Company Admin and Store Manager. Withdrawing a product
+    /// from sale across the whole estate is deliberately not a cashier's action.
+    /// </summary>
+    /// <param name="bin">True to bin, false to restore.</param>
+    public async Task<(bool Ok, string? Problem)> BinItemsAsync(
+        IReadOnlyList<string> itemIdOnes, bool bin, CancellationToken ct = default)
+    {
+        if (itemIdOnes is null || itemIdOnes.Count == 0) return (true, null);
+
+        var body = new Dictionary<string, object?>
+        {
+            ["action"] = bin ? "bin" : "restore",
+            ["ids"] = itemIdOnes,
+        };
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, "/api/v1/items/bulk")
+        {
+            Content = JsonContent.Create(body, options: Json),
+        };
+        await AuthoriseAsync(req, ct);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode) return (true, null);
+
+        // ⚠ The SERVER's words on a 409 — it refuses a bulk over its per-call limit and says what
+        // the limit is, which is more useful than anything this layer could invent.
+        var detail = await res.Content.ReadAsStringAsync(ct);
+        return (false, string.IsNullOrWhiteSpace(detail)
+            ? $"Plutus refused that ({(int)res.StatusCode})."
+            : detail);
+    }
+
+    /// <summary>
+    /// On-hand quantity for a PAGE of items (WP10 / cutover step 25).
+    ///
+    /// ⚠ ONE CALL PER VISIBLE PAGE, NEVER ONE PER ROW — the endpoint is a bulk POST for exactly
+    /// that reason, and it clamps to 200 ids server-side. A per-row call over a 500-row list is 500
+    /// round trips on a counter with a queue.
+    ///
+    /// ⚠ IT IS NOT IN THE CATALOGUE FEED, and deliberately so. Stock moves on every sale on every
+    /// till in the shop; pushing it down the effective-dated catalogue feed would either flood the
+    /// feed or ship a number already stale by the time it arrived. A quantity is read when a screen
+    /// asks, or not at all.
+    ///
+    /// ⚠ Needs an OPERATOR token — `portal.reports.view` OR `pos.reports.view`. Returns null on any
+    /// failure, because an inventory list must still render without counts; the column shows "—",
+    /// which is what it showed before this call existed.
+    /// </summary>
+    public async Task<List<StockLevelDto>?> GetStockLevelsAsync(
+        IReadOnlyList<string> itemIdOnes, CancellationToken ct = default)
+    {
+        if (itemIdOnes is null || itemIdOnes.Count == 0) return new List<StockLevelDto>();
+
+        // ⚠ Clamped HERE as well as server-side. The server silently TAKES the first 200 rather than
+        // refusing, so sending 500 would come back with 200 answers and 300 silent gaps — every one
+        // of which would render as "never counted".
+        var page = itemIdOnes.Count > 200 ? itemIdOnes.Take(200).ToArray() : itemIdOnes.ToArray();
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, "/api/v1/stock/levels/bulk")
+        {
+            Content = JsonContent.Create(page, options: Json),
+        };
+        await AuthoriseAsync(req, ct);
+
+        try
+        {
+            using var res = await _http.SendAsync(req, ct);
+            if (!res.IsSuccessStatusCode) return null;
+            return await res.Content.ReadFromJsonAsync<List<StockLevelDto>>(Json, ct);
+        }
+        catch (Exception e) when (e is JsonException or NotSupportedException
+                                    or HttpRequestException or TaskCanceledException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Create a catalogue item (WP10 / cutover step 25, the add-unknown-scan flow).
     ///
     /// ⚠ CHECK THE BARCODE IS FREE FIRST — with <see cref="GetItemAsync"/> — and this method does
