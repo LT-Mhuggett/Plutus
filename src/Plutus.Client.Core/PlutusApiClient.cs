@@ -521,6 +521,71 @@ public sealed class PlutusApiClient
     }
 
     /// <summary>
+    /// Post a stock movement — a signed DELTA against an item (WP10 / cutover step 25).
+    ///
+    /// ⚠ IT IS A DELTA, NOT A COUNT, AND THIS IS THE EASIEST THING IN THE WHOLE STEP TO GET WRONG.
+    /// Stock is an append-only ledger: `qty` is what CHANGES, and `StockLevel` is a materialised sum
+    /// the server maintains with `level.Quantity += qtyDelta`. Sending the number an operator typed
+    /// into a box labelled "quantity" would ADD their count to the existing count — 7 on the shelf,
+    /// operator counts 7, stock becomes 14, and nothing errors.
+    ///
+    /// The only "set it to N" surface in the v1 API is `POST /api/v1/stock/takes`, which converts
+    /// counted − expected server-side. This client deliberately does NOT expose it: that endpoint
+    /// sits under a controller-wide portal gate that also covers inter-store transfers, and widening
+    /// it to reach a till would grant transfers by accident. A till adjusts; a stock take is a
+    /// portal job until it has its own gate.
+    ///
+    /// ⚠ `Reason` IS REQUIRED for anything but a receipt, and the server refuses without it — which
+    /// is right: an unexplained stock correction is indistinguishable from shrinkage being hidden.
+    /// ⚠ A WriteOff must be NEGATIVE; the server refuses a positive one.
+    /// ⚠ Zero is refused. A movement that moves nothing is a ledger row that means nothing.
+    ///
+    /// ⚠ Needs `portal.stock.adjust` OR `pos.stock.adjust` — Owner / Company Admin / Store Manager
+    /// / Supervisor. Never a cashier.
+    /// </summary>
+    /// <param name="type">`Adjustment` (± with a reason) or `WriteOff` (negative only).</param>
+    /// <param name="qtyDelta">⚠ The CHANGE, signed. Never the counted total.</param>
+    public async Task<(bool Ok, string? Problem)> PostStockMovementAsync(
+        string itemIdOne, string type, int qtyDelta, string reason, int? storeId = null,
+        CancellationToken ct = default)
+    {
+        var body = new Dictionary<string, object?>
+        {
+            ["itemIdOne"] = itemIdOne,
+            ["type"] = type,
+            ["qty"] = qtyDelta,
+            ["reason"] = reason,
+            ["storeId"] = storeId,
+        };
+
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, "/api/v1/stock/movements")
+            {
+                Content = JsonContent.Create(body, options: Json),
+            };
+            await AuthoriseAsync(req, ct);
+
+            using var res = await _http.SendAsync(req, ct);
+            if (res.IsSuccessStatusCode) return (true, null);
+
+            // ⚠ The server's own words. Its 400s name the rule that was broken ("a write-off must
+            // have a negative qty", "reason is required") and those are the actionable sentences.
+            var detail = await res.Content.ReadAsStringAsync(ct);
+            return (false, string.IsNullOrWhiteSpace(detail)
+                ? $"Plutus wouldn't record that stock change ({(int)res.StatusCode})."
+                : detail);
+        }
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
+        {
+            // ⚠ NOT QUEUED, and that is deliberate. A sale is queued because the money moved
+            // whether or not the platform heard about it; a stock correction is a DECISION, and
+            // replaying one made against a count that has since changed writes the wrong number.
+            return (false, "Couldn't reach Plutus. The stock change has NOT been recorded — try again when the till is back online.");
+        }
+    }
+
+    /// <summary>
     /// Move items to the Bin, or bring them back (WP10 / cutover step 25).
     ///
     /// ⚠ THE BIN IS A SOFT DELETE AND THAT IS THE WHOLE DESIGN. Binning stamps `BinnedAtUtc`; the

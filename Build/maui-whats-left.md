@@ -23,14 +23,19 @@ Z-read — and as of 2026-08-10 **add an item, edit an item, and add an unknown 
 counter**. What it still cannot do is **loyalty, gift cards, users, theming, reporting, and the
 stock ledger**.
 
-**Done: cutover steps 1–20, 23, 26's reprint half, and the first two slices of 25.**
-**Remaining: 11b · 21 · 22 · 24 · the tail of 25 · the rest of 26 · 27 · 28 — about 42 working days.**
+**Done: cutover steps 1–20, 23, **25**, and 26's reprint half.**
+**Remaining: 11b · 21 · 22 · 24 · the rest of 26 · 27 · 28 — about 40 working days.**
 Two thirds of that is three items: **loyalty + gift cards (27, ~15d)**, **reporting (26, ~9d)** and
 **the basket reshape (11b, ~4d)**.
 
-⚠ **Step 25 is all but done** — down to ~2 days, and 1½ of those are **blocked on a permissions
-decision rather than on code** (§25b below). Inventory was the largest gap on this page when it was
-written; it is now the smallest.
+✅ **Step 25 is DONE** (bar the VAT-band timeline, ½ day). It was the largest gap on this page when
+it was written — inventory CRUD, the stock ledger, categories, the Bin, add-unknown-scan and the
+feed fields all landed on 10–11 August.
+
+⚠⚠ **ONE OPERATIONAL STEP IS OUTSTANDING AND NOTHING WILL REMIND YOU:** `pos.stock.adjust` does not
+reach a live tenant until **`Plutus.SeedMigrator` is run**. `RbacSeeder` is a TOOL, not a startup
+step. Until it runs, a Supervisor is refused politely and managers work as before — nothing breaks,
+it simply does not switch on.
 
 ### ⚠ Four rows are now closed that this page previously listed as open
 
@@ -128,7 +133,7 @@ Employee list/create + set password, via the legacy `/api/Employee` and `/api/Au
 the MAUI parity target is the smaller surface. MAUI's current add-user command is a stopgap dialog
 reading *"not available in this version yet"*.
 
-### 4. Step 25 — WP10 inventory + stock ledger — **~2 days left of ~10, and 1½ of those are blocked on a decision**
+### 4. ✅ Step 25 — WP10 inventory + stock ledger — **DONE 2026-08-11, bar ½ day**
 
 ✅ **Slices 1 and 2 landed 2026-08-10 (tills 1.33.0–1.36.0).** Item **create** and **edit** with the
 web till's full field set; **add-unknown-scan** from the counter; the catalogue feed grown to carry
@@ -142,28 +147,29 @@ brand and the till had no brand column, so "Marvel" found nothing here and every
 | # | Piece | ~ | ⚠ |
 |---|---|---|---|
 | ~~25a~~ | ✅ **Stock column — DONE 2026-08-10 (1.37.0)** | — | Number / **∞** untracked / **—** never counted. ⚠ The column was BLANK on every row and blank reads as ZERO. Gate widened to accept `pos.reports.view` — third time, same defect |
-| 25b | **Adjust stock** — `POST /api/v1/stock/movements` | 1–2d | ⚠ **BLOCKED ON A DECISION, NOT ON CODE** — see below |
+| ~~25b~~ | ✅ **Adjust stock — DONE 2026-08-11 (1.39.0)** | — | Matt chose a new till-side `pos.stock.adjust`, seeded to Supervisor and up, never the Cashier. ⚠⚠ **It does not reach a live tenant until `Plutus.SeedMigrator` is run** — the RBAC seeder is a tool, not a startup step |
 | ~~25c~~ | ✅ **Categories — DONE 2026-08-10 (1.38.0)** | — | The 409 now lands: the refusal becomes the OFFER to reassign. ⚠ A test pins that the till never calls the LEGACY delete, which cascades and would take every item in the category with it |
 | ~~25d~~ | ✅ **The Bin — DONE 2026-08-10 (1.37.0)** | — | ⚠ The offline-tombstone rule was honoured on every read path and pinned by NOTHING; now covered across scan, search and browse separately. **Restore stays portal-side** — MAUI has no binned-items view, which is the honest remainder |
 | 25e | **Portal-published VAT bands, whole timeline** | ½d | ⚠ Caching only *today's* rate is a bug: the timeline is what lets an offline till apply a future-dated change on the day it starts |
 
-#### ⚠⚠ 25b is a PERMISSIONS decision and it is Matt's, not mine
+#### ✅ 25b — DECIDED 2026-08-11, and built
 
-`POST /api/v1/stock/movements` is gated on **`portal.stock.adjust`**, and the RBAC seed gives that to
-**Owner, Company Admin, Store Manager** and the legacy "Stock & Items" role — **and to nobody else.**
+Matt chose **a new till-side `pos.stock.adjust`**, seeded to Owner / Company Admin / Store Manager /
+**Supervisor**, and never the Cashier. The endpoints accept either that or `portal.stock.adjust`, so
+managers needed nothing new.
 
-**Supervisor and Cashier do not hold it.** So a supervisor standing at the counter with a damaged
-box cannot write it off, and the till can only offer stock adjustment to a manager.
+⚠ **Why not simply give Supervisor the portal code?** It was one line and the wrong shape — that
+permission also carries category create/rename/delete and price-list writes in the portal. A till
+permission has to be expressed as a till permission.
 
-Three options, and they are genuinely different policies rather than implementations:
+⚠ **The Cashier exclusion is load-bearing, not an oversight.** The person minding the shelf and the
+person who can alter its count must differ, or shrinkage stops being visible. A named test fails if
+that ever changes.
 
-1. **Leave it.** Stock adjustment is a back-office job; the till shows counts and does not change
-   them. Cheapest, and defensible for a single shop.
-2. **Add `pos.stock.adjust`** as a separate till-side code and give it to Supervisor. ⚠ Needs a
-   `PermissionCatalogue` entry, an RBAC re-seed, and the server endpoint taught to accept either.
-3. **Give Supervisor `portal.stock.adjust`.** One line in the seed — ⚠ but it is a *portal*
-   permission, so it also grants category and price-list writes in the portal. Almost certainly not
-   what is wanted.
+⚠⚠ **IT DOES NOT REACH A LIVE TENANT UNTIL `Plutus.SeedMigrator` IS RUN.** `RbacSeeder` is a TOOL,
+not a startup step — `EnsureBuiltInRolesAsync` backfills the new grant onto existing built-in roles,
+but only when something calls it. Until then a Supervisor is refused politely and managers work as
+before, so nothing breaks; it simply does not switch on.
 
 ⚠ **It is also a stock LEDGER, not a quantity box.** `qty` is a signed delta and zero is refused;
 the only "set it to N" surface in the v1 API is `POST /api/v1/stock/takes`, which converts

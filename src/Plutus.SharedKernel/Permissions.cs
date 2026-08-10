@@ -52,12 +52,32 @@ public static class PermissionCatalogue
     /// barcode, printer). Seeded to Owner / Company Admin / Store Manager.</summary>
     public const string PosSettingsManage = "pos.settings.manage";
 
+    /// <summary>
+    /// WP10 / cutover step 25: correct a stock count or write stock off FROM A TILL.
+    ///
+    /// ⚠ IT IS A SEPARATE CODE FROM <see cref="PortalStockAdjust"/> ON PURPOSE, and the reason is
+    /// the whole point of the decision behind it (Matt, 2026-08-11). The endpoints accept EITHER,
+    /// so a manager needs nothing new — but a **Supervisor** holds no portal permission at all, and
+    /// under the portal code alone a supervisor standing at the counter with a damaged box could
+    /// not write it off. Waiting for a manager to come in and adjust it is how a shop ends up with
+    /// stock figures nobody trusts.
+    ///
+    /// ⚠ Granting the PORTAL code to Supervisor instead would have been one line and the wrong
+    /// shape: it also carries category create/rename/delete and price-list writes in the portal.
+    /// A till permission has to be expressed as a till permission.
+    ///
+    /// ⚠ Seeded to Owner / Company Admin / Store Manager / **Supervisor** — never Cashier. A
+    /// cashier changing stock counts unsupervised is how shrinkage stops being visible.
+    /// </summary>
+    public const string PosStockAdjust = "pos.stock.adjust";
+
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
         PortalFinancialsView, PortalUsersManage, PortalStockAdjust, PortalPricesManage,
         PortalTillsEnrol, PortalReportsView, PortalCompanyManage, CustomersManage, SupportTickets,
         InventoryBulk, GiftCardsManage,
         PosSell, PosRefund, PosVoid, PosDiscount, PosPriceOverride, PosNoSale, PosReportsView, PosSettingsManage,
+        PosStockAdjust,
     };
 
     /// <summary>Permissions that may carry a MaxPence ceiling on a grant.</summary>
@@ -119,6 +139,10 @@ public static class PermissionCatalogue
         [PosNoSale] = "Open the cash drawer without a sale.",
         [PosReportsView] = "View reports on the till.",
         [PosSettingsManage] = "Change this till's device settings — receipt behaviour, carrier-bag barcode, printer.",
+        // ⚠ The wording says CHANGE, not count. The endpoint takes a signed delta, and somebody
+        // reading this in the portal's role editor must not come away thinking it lets an operator
+        // set a stock figure.
+        [PosStockAdjust] = "Write stock off or add it back from a till — damaged, lost or found goods. Always needs a reason.",
     };
 
     /// <summary>The description, or a readable fallback for a permission added without one.</summary>

@@ -448,13 +448,21 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 // and it confirms. Binning withdraws the item from sale on every till in the
                 // estate, including offline ones — it is not a local tidy-up.
                 const string bin = "Move to the Bin…";
+                const string stock = "Adjust stock…";
+
+                // ⚠ Not offered for an UNTRACKED item. Its level is meaningless by design, and a
+                // movement against it writes a number nothing will ever read.
+                var actions = item.StockDisplay == "∞"
+                    ? new[] { addToBasket, edit, bin }
+                    : new[] { addToBasket, edit, stock, bin };
 
                 var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
                     App.Current.MainPage.DisplayActionSheet(
-                        item.Name ?? "Item", "Cancel".Translate(), null, addToBasket, edit, bin));
+                        item.Name ?? "Item", "Cancel".Translate(), null, actions));
 
                 if (picked == addToBasket) ExecuteAddToBasket(item.Id);
                 else if (picked == edit) ExecuteOpenEditItem(item.Id);
+                else if (picked == stock) ExecuteAdjustStock(item);
                 else if (picked == bin) ExecuteBinItem(item);
             }
             catch (Exception ex)
@@ -670,6 +678,140 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
             {
                 // ⚠ `async void` — an escape here closes the till.
                 Services.Analytics.CrashLog.Write("ViewAllViewModel.EditItem", ex);
+                await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "That didn't work. Nothing has been changed.", "OK".Translate());
+            }
+        }
+
+        /// <summary>
+        /// Write stock off, or correct a count, from the till (WP10 / cutover step 25).
+        ///
+        /// ⚠⚠ EVERYTHING HERE IS A CHANGE, NEVER A COUNT, AND THE SCREEN MUST SAY SO. Stock is an
+        /// append-only ledger: the server does `level.Quantity += qtyDelta`. A box labelled
+        /// "quantity" that an operator fills in with what they counted would ADD their count to the
+        /// existing one — 7 on the shelf, operator counts 7, stock becomes 14, nothing errors and
+        /// nobody finds out until a stock take. So every prompt here asks **how many**, in a
+        /// direction the operator has already chosen, and the CURRENT figure is shown beside it.
+        ///
+        /// ⚠ "Correct the count to N" is deliberately NOT offered. That is `POST /api/v1/stock/takes`,
+        /// which sits under a controller-wide portal gate covering inter-store transfers too —
+        /// reaching it from a till would grant transfers by accident. Recorded in
+        /// `maui-whats-left.md`; a till adjusts, a stock take stays a portal job until it has its
+        /// own gate.
+        ///
+        /// ⚠ A REASON IS COMPULSORY and the server refuses without one. An unexplained stock
+        /// correction is indistinguishable from shrinkage being hidden, which is the entire reason
+        /// this is gated at supervisor level rather than cashier.
+        /// </summary>
+        private async void ExecuteAdjustStock(ItemModel item)
+        {
+            try
+            {
+                if (item?.Id is null) return;
+
+                // ⚠ `pos.stock.adjust` — the till-side code (Matt, 2026-08-11). Owner, Company
+                // Admin, Store Manager and Supervisor; never a cashier. The endpoint also accepts
+                // `portal.stock.adjust`, so a manager needs nothing new.
+                var gate = Services.Security.TillGate.Check(
+                    App.GetViewModel().SignedInOperator, PermissionCatalogue.PosStockAdjust);
+
+                if (!gate.Allowed)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(), gate.Message, "OK".Translate());
+                    return;
+                }
+
+                const string wroteOff = "Write some off (damaged, lost, expired)";
+                const string cameIn = "Add some (found, returned to stock, delivery)";
+
+                var direction = await Services.UIHandeling.Modal.ShowAsync(() =>
+                    App.Current.MainPage.DisplayActionSheet(
+                        $"{item.Name} — {item.StockDisplay} in stock",
+                        "Cancel".Translate(), null, wroteOff, cameIn));
+
+                if (direction != wroteOff && direction != cameIn) return;
+
+                var isWriteOff = direction == wroteOff;
+
+                // ⚠ "HOW MANY", not "the new total". The wording is the guard: there is no way to
+                // phrase this that makes typing a counted total the obvious thing to do.
+                var typed = await App.Current.MainPage.DisplayPromptAsync(
+                    isWriteOff ? "Write off how many?" : "Add how many?",
+                    $"“{item.Name}” currently shows {item.StockDisplay}. " +
+                    "This changes the count by the number you type — it is not the new total.",
+                    "OK".Translate(), "Cancel".Translate(), keyboard: Microsoft.Maui.Keyboard.Numeric);
+
+                if (string.IsNullOrWhiteSpace(typed)) return;
+
+                if (!int.TryParse(typed.Trim(), out var howMany) || howMany <= 0)
+                {
+                    // ⚠ A NEGATIVE typed into "write off how many" would flip the direction the
+                    // operator just chose, so only a positive count is accepted and the SIGN comes
+                    // from the choice above.
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "Enter how many, as a whole number more than zero. Nothing has been changed.",
+                        "OK".Translate());
+                    return;
+                }
+
+                var reason = await App.Current.MainPage.DisplayPromptAsync(
+                    "Why?",
+                    isWriteOff
+                        ? "Damaged, lost, expired, used in the shop…"
+                        : "Found, returned to stock, delivery not booked in…",
+                    "OK".Translate(), "Cancel".Translate(), maxLength: 120);
+
+                if (string.IsNullOrWhiteSpace(reason))
+                {
+                    // ⚠ Cancel and blank are BOTH treated as "don't", because the server refuses a
+                    // blank reason anyway and a round trip to be told so helps nobody.
+                    return;
+                }
+
+                var api = await Services.Connectivity.PlutusApi.GetOperatorAsync();
+                if (api is null)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "Adjusting stock needs someone signed in and a connection to Plutus.", "OK".Translate());
+                    return;
+                }
+
+                var storeId = await Services.Storage.TillStoreAccess.UseAsync(
+                    s => s.GetIntMetaAsync(Plutus.Client.Storage.MetaKeys.StoreId));
+
+                // ⚠ THE SIGN COMES FROM THE CHOICE, and `WriteOff` must be negative or the server
+                // refuses it. The operator never types a minus sign — asking somebody to get a sign
+                // right on a stock ledger at a counter is asking for the wrong answer.
+                var (ok, problem) = await api.PostStockMovementAsync(
+                    item.Id,
+                    isWriteOff ? "WriteOff" : "Adjustment",
+                    isWriteOff ? -howMany : howMany,
+                    reason.Trim(),
+                    storeId);
+
+                if (!ok)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        problem ?? "Plutus wouldn't record that stock change.", "OK".Translate());
+                    return;
+                }
+
+                // ⚠ Re-read the levels so the column moves. Without it the operator writes off two,
+                // sees the same number, and does it again — and the ledger takes both.
+                await FillStockLevelsAsync();
+
+                await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    isWriteOff
+                        ? $"Wrote off {howMany} × “{item.Name}”."
+                        : $"Added {howMany} × “{item.Name}”.",
+                    "OK".Translate());
+
+                Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Stock Adjusted");
+            }
+            catch (Exception ex)
+            {
+                // ⚠ `async void` — an escape here closes the till.
+                Services.Analytics.CrashLog.Write("ViewAllViewModel.AdjustStock", ex);
                 await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
                     "That didn't work. Nothing has been changed.", "OK".Translate());
             }

@@ -99,6 +99,11 @@ namespace Plutus.Identity
                 PermissionCatalogue.PosSell, PermissionCatalogue.PosRefund, PermissionCatalogue.PosVoid,
                 PermissionCatalogue.PosDiscount, PermissionCatalogue.PosPriceOverride,
                 PermissionCatalogue.PosNoSale, PermissionCatalogue.PosReportsView,
+                // WP10 / step 25: correct a count or write stock off from a till. Owner, Company
+                // Admin and Store Manager already hold `portal.stock.adjust`, which the endpoints
+                // also accept — this is here so the POS bundle is complete and so the till's gate
+                // has one code to check regardless of who is signed in.
+                PermissionCatalogue.PosStockAdjust,
             };
             static List<EffectivePermission> G(params string[] codes) =>
                 codes.Select(c => new EffectivePermission(c, null)).ToList();
@@ -137,7 +142,15 @@ namespace Plutus.Identity
                     new(PermissionCatalogue.PosNoSale, null),
                     new(PermissionCatalogue.PosReportsView, null),
                     new(PermissionCatalogue.CustomersManage, null),
+                    // ⚠ THE POINT OF THE SEPARATE CODE (Matt, 2026-08-11). A supervisor holds NO
+                    // portal permission, so under `portal.stock.adjust` alone they could not write
+                    // off a damaged box at the counter — it waits for a manager, and stock figures
+                    // nobody trusts are how that ends. ⚠ Deliberately NOT `inventory.bulk`: one
+                    // bulk action moves thousands of items, this moves one.
+                    new(PermissionCatalogue.PosStockAdjust, null),
                 }),
+                // ⚠ NOT the Cashier. A cashier changing stock counts unsupervised is how shrinkage
+                // stops being visible — the count and the person who can alter it must differ.
                 ("Cashier", G(PermissionCatalogue.PosSell)),
                 ("Auditor", G(PermissionCatalogue.PortalFinancialsView, PermissionCatalogue.PortalReportsView,
                               PermissionCatalogue.PosReportsView)),

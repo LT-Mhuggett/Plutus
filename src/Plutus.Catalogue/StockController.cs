@@ -197,8 +197,13 @@ namespace Plutus.Catalogue
 
         /// <summary>Manual movement: Receipt (goods-in until WP5.3), Adjustment (± with
         /// reason), WriteOff (negative). Audited; level updated atomically.</summary>
+        // ⚠ `pos.stock.adjust` IS ACCEPTED TOO (WP10 / step 25, Matt's decision 2026-08-11). A
+        // Supervisor holds no portal permission at all, so under the portal code alone a supervisor
+        // at the counter could not write off a damaged box — it would wait for a manager, and stock
+        // figures nobody trusts are how that ends. ⚠ It does NOT widen portal access: a portal user
+        // still needs their portal permission, and a till operator's `pos.*` reaches nothing else.
         [HttpPost("api/v1/stock/movements")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalStockAdjust)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalStockAdjust + "," + PermissionCatalogue.PosStockAdjust)]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Post([FromBody] MovementBody body)
