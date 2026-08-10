@@ -104,6 +104,30 @@ which is what WP5's tombstones (`CatalogueItem.Removed`, built and still unread)
 Also here: **"add unknown scan as a new item"**, the flow the web till has and MAUI does not.
 USER-VERIFY: scanner round-trip including the unknown-barcode path.
 
+### 4b. ⚠ Refunds work, but a sale cannot be LOOKED UP on the till (~1–2 days, rides step 26)
+
+**Matt, 2026-08-10: *"In MAUI I cannot do a refund?"*** — the refund *rule* is built and shipped
+(cutover steps 15–17). What is missing is how you find the sale.
+
+The flow today: add the item to the basket → **context menu on the basket line → "Returns"** → a
+dialog asks for **the original sale ID** and a reason. `ReturnLookup` then prefers the SERVER record
+(goods bought on till B and returned at till A is ordinary retail, and only the platform knows what
+has already been given back elsewhere), falling back to this till's own record inside the 14-day
+window.
+
+⚠ **Two things make it unusable in practice, and neither is the refund logic:**
+
+1. **There is no way to list or search past sales on the till.** `TillStore.FindLocalSaleAsync`
+   takes a `Guid` and there is no browse, no "today's sales", no receipt search — verified by grep,
+   nothing of the sort exists. The sale ID's only source is the barcode on the printed receipt, so
+   **a till without a printer cannot refund anything.**
+2. **"Returns" is a context-menu item on a basket row** — a right-click on Windows. Nothing on the
+   screen suggests it exists.
+
+Neither needs new platform work: `GET /api/v1/sales` already answers, and step 15 built the read
+path. This is a screen — a recent-sales list with a search, which is also what
+**"reprint from a past sale"** (Part B 🟡) needs. Do them together.
+
 ### 5. Step 26 — WP11 reporting + cross-till lookup (~8–10 days) — a rewrite, not a port
 
 ⚠ **The Statistics tab currently reads ZERO** for everything sold since cutover step 11, because both
@@ -111,6 +135,32 @@ reports read the legacy local database and sales no longer go there. It carries 
 exactly that, and it is **warned rather than hidden** only because a till migrated from NatApp still
 holds real history in that file and this is the only way to see it. This step replaces it with
 server-aggregated reporting. Removes [`legacy-removal.md`](legacy-removal.md) **L4**.
+
+#### ⚠ Splitting reports per store and per till — Matt asked 2026-08-10. It WORKS, with one catch.
+
+Verified against live data the same day: three sales rang up on Matt's till and landed as
+`SalesRollups` **StoreId 4 · TillId 019fe244… · 3 txns · £97.94**. So the answer to *"does all of
+this information get sent?"* is **yes** — nothing needs to change on the till.
+
+- **Per till** is solid. `SalesV2.TillId` is on every sale and is **server-authoritative**, derived
+  from the enrolled device at ingest rather than trusted from the payload — a till cannot claim to
+  be another one. `DeviceId` is there too, so two devices on one till are separable.
+- **Per store** works *today* through `SalesRollups.StoreId`.
+
+⚠ **But the store is DERIVED, not recorded.** `SalesV2` has **no `StoreId` column**;
+`RollupProjection.ResolveSpineAsync` resolves till → store → company at the moment the rollup is
+written. Rollup rows already written keep the store they were written with, so ordinary history is
+safe — **but `RollupRebuilder.RebuildAsync` re-derives from the till's CURRENT store**, and a rebuild
+is exactly what you run after a projection bug or to fold in migrated rows.
+
+So: **move a till between stores, then rebuild, and every historical sale it ever took moves with
+it.** Yesterday's takings change shop. Nothing errors and nothing flags it.
+
+This is cheap to close *now* and expensive later: stamp `StoreId` onto `SalesV2` at ingest (the
+device already resolves the till, and `TillPlacement` already re-reads placement on every start), and
+have the rebuild read the stamped value instead of re-resolving. Matt's call — he has said **no
+changes for now**, and with one store live the exposure is currently nil. Recorded here so the
+decision is deliberate rather than discovered during a year-end.
 
 ### 6. Step 27 — WP12 loyalty, then WP13 gift cards (~12–15 days) ⚠ largest single block
 
