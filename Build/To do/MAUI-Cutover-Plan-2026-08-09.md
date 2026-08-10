@@ -15,6 +15,23 @@ post a sale to Plutus at all** — its checkout writes a legacy EF object graph 
 `/api/v1/sales`. Every screen port is cosmetic until Steps 9–14 land. Scale: **~55–75 working
 days**. Steps 1–14 deliver the most working till soonest.
 
+## ▶ STATUS (2026-08-10)
+
+**Steps 1–20 are DONE.** **11b is split out and PROMOTED** — do it before 21–28. **21–28 remain.**
+
+⚠ **The 2026-08-10 lesson, and it changes how to read the rest of this plan.** Steps 1–20 all
+verified green and Matt then ran the till by hand for the first time. In one day that found: a
+loading overlay that bricked every screen after the first fast one, a scan box that had never
+searched by name, nine buttons that closed the app rather than refusing, and a payment dialog with
+no exit of any kind. **None of it was reachable by any test in this repo**, because all of it lives
+above the seam the tests stop at.
+
+So: a step's VERIFY passing means its *logic* is right. It says nothing about whether a person can
+use the screen. **Budget a hand-run of the affected screen into every remaining step**, and add
+what you find to §H. Three separate components in this plan were found fully built, tested, and
+called from **nowhere** (`OutboxPusher.DrainAsync`, the catalogue browse, `TillStore.SearchAsync`) —
+when a screen looks broken, grep for callers before debugging the component.
+
 ---
 
 ## A. Execution protocol (extends retrofit plan §0 — read that first, it all applies)
@@ -227,6 +244,18 @@ VERIFY: binned item does not resolve; scheduled reprice applies at its instant; 
 ⚠ **SPLIT, AND WHY.** The step as written bundled (a) commit-through-the-store with (b) reshaping `BasketItem`/`BasketReturnItem` to long pence and an `IsReturn` flag. They are separable, and bundling them was wrong: (b) touches XAML bindings, **which fail SILENTLY in MAUI** — a binding to a property that no longer exists renders blank instead of crashing. Landing a silent-failure class of change in the same commit as the money path would make any regression impossible to bisect. (a) is done and independently verified; (b) becomes **step 11b**, before step 14 re-signatures the receipt.
 
 **Step 11b (NEW) — reshape the basket.** `BasketItem` to long pence, `BasketReturnItem` collapsed to `IsReturn`, the nine `is BasketReturnItem` type-tests, both Mapster configs, `BasketDataTemplateSelector`, and every XAML binding onto those members. ⚠ Enumerate the bindings FIRST and check each renders — they do not throw.
+
+⚠ **PROMOTED 2026-08-10 — do this BEFORE steps 22–28, not after.** The argument is no longer
+tidiness. `ExecuteCheckoutTransaction` is a ~200-line `async void` that holds the tender loop, the
+cancel handling, the surcharge line, the change calculation and the commit, and **none of it can be
+exercised without a UI host** — so the three checkout defects found on 2026-08-10 (a payment dialog
+with no exit, a cancel that fell through and appended a £0 payment, an unbounded re-prompt loop)
+shipped, were found by hand, and are now fixed with **no test pinning any of them**. That is the
+only cluster of money-adjacent logic left in this app with no coverage at all.
+**Extract the tender loop into a testable unit as part of this step** — given a basket total, a
+sequence of tender answers (including "cancelled"), it returns payments + change or "abandoned".
+Then pin: cancel abandons and takes nothing; over-tender on a non-changeable method is refused;
+partial tenders accumulate to exactly the total. VERIFY those by mutation, per §A.5.
 ✅ **The card-surcharge question this step was waiting on is RESOLVED (2026-08-09, Matt-directed):**
 the fee is a real line against the provisioned `CARD-SURCHARGE` item, priced by
 `SharedKernel.CardSurchargeVat` (the fee follows the basket — Bookit/NEC), configured per tenant on
@@ -241,7 +270,7 @@ attributes movement from `LineMeta.itemIdOne`. ⚠ Commit BEFORE printing.
 VERIFY: after commit, outbox depth 1, DeviceSeq unique and monotonic; crash-between-commit-and-print
 leaves the sale recorded.
 
-**Step 12 — Permission gates → `SignedInOperator.Can(...)`.** Replace `IsAuthorised("Till", …)`
+**Step 12 — Permission gates → `SignedInOperator.Can(...)`** ✅ **DONE 2026-08-09** (`Services/Security/TillGate.cs`; no `IsAuthorised("Till", …)` remains anywhere). Replace `IsAuthorised("Till", …)`
 string gates with `PermissionCatalogue` codes + the operator's own ceilings; supervisor escalation →
 `OperatorLogin.AuthoriseOverrideAsync` (refuses self-auth, applies the supervisor's ceiling, names
 both people). ⚠ Fix: refund threshold (≈`:999`) sums `bRI.Price` **without quantity** — five £30
@@ -272,7 +301,7 @@ the tender byte (change = cash only). Kill `GenPaymentMethodActions` and the leg
 VERIFY: a till with an empty legacy DB completes a cash sale and a card sale; card still asks the
 surcharge question (step above); refund-only baskets keep their tender restrictions.
 
-**Step 14 — Receipt off legacy models.** `PosPrinterManager.SetUpSalePrint(SaleModel, …,
+**Step 14 — Receipt off legacy models** ✅ **DONE 2026-08-09** (`Printing.ReceiptSale`, built from the payload the platform accepted). `PosPrinterManager.SetUpSalePrint(SaleModel, …,
 StoreModel)` → contract sale + line records + a store header cached from `StoreInfoResult` into
 Meta (nothing caches it today). Rendering from the portal's `ReceiptTemplateJson` stays deferred
 (no schema/parser exists in any client — that is WP3's business, not this step's).
@@ -280,7 +309,7 @@ VERIFY: existing `PosPrinterManagerTests` composition. USER-VERIFY: paper.
 
 ### Phase 3 — Returns, parking, reprint
 
-**Step 15 — The sale READ path (three missing methods).** A committed sale cannot be read back at
+**Step 15 — The sale READ path (three missing methods)** ✅ **DONE 2026-08-09.** A committed sale cannot be read back at
 all today (`GetPendingAsync` filters Pending) — blocking reprint, offline refunds and X/Z at once.
 Build: `TillStore.FindLocalSaleAsync(saleId)` + payload→`IngestSaleRequest` deserialiser;
 `TillStore.AlreadyRefundedPenceAsync(originSaleId)` — ⚠ needs a real **indexed column** on
@@ -289,7 +318,7 @@ Build: `TillStore.FindLocalSaleAsync(saleId)` + payload→`IngestSaleRequest` de
 `pos.refund`; needs Step 19's operator token).
 VERIFY: commit → find → deserialise round-trips; refunded-so-far sums across two part-refunds.
 
-**Step 16 — Wire `RefundRules` into `ExecuteReturn`.** Delete the legacy query block
+**Step 16 — Wire `RefundRules` into `ExecuteReturn`** ✅ **DONE 2026-08-09.** Delete the legacy query block
 (≈`:486–547`); `ClassifyLocal` (14-day window) → `Authorise`. Server record preferred when online
 (only it knows other tills' refunds); local only inside the window. ⚠ Surface `WasCapped` — the
 doc comment is explicit that silently refunding less starts disputes. Keep `NeedsConnection` and
@@ -297,12 +326,12 @@ doc comment is explicit that silently refunding less starts disputes. Keep `Need
 is not on the sale; non-short-circuit `&` across two `TryGetValue`s.
 VERIFY: cap/window/unknown matrix, capped-and-said-so. Mutation-check.
 
-**Step 17 — Server-side refund cap (default 12 — ⚠ confirm with Matt first).**
+**Step 17 — Server-side refund cap (default 12)** ✅ **DONE 2026-08-09** — confirmed with Matt; per-sale AND per-item, 202 past it.
 `SalesIngestService` + `RefundRules.Authorise` against the origin sale's recorded refunds;
 over-refund → quarantine 202 with reason.
 VERIFY: integration — hand-crafted over-refund posts 202 not 201; legitimate part-refunds post 201.
 
-**Step 18 — Parked baskets (default 15).** `SavedBasket` table exists, mapped, and `TillStore`
+**Step 18 — Parked baskets (default 15)** ✅ **DONE 2026-08-09** (`SaveBasketAsync`/`ListBasketsAsync`/`DeleteBasketAsync` wired to Save/Retrieve Transaction). `SavedBasket` table exists, mapped, and `TillStore`
 never touches it. Add `SaveBasketAsync/ListBasketsAsync/DeleteBasketAsync`; replace the Newtonsoft
 `TypeNameHandling.Auto` park/recall (≈`:687–819`) with contract JSON; load async (the ctor
 currently blocks the UI thread on a DB read).
@@ -310,7 +339,7 @@ VERIFY: park → kill → restore, including a discounted and a return line.
 
 ### Phase 4 — Operator auth
 
-**Step 19 — `/api/Auth/Login` wiring + four backend fixes (default 11).** MAUI online sign-in
+**Step 19 — `/api/Auth/Login` wiring + four backend fixes (default 11)** ✅ **DONE 2026-08-09.** MAUI online sign-in
 calls the same endpoint the web till uses; token held in memory; offline stays the roster. Backend
 fixes bundled: `Employee.Active` checked at login (verified missing — deactivation is currently
 theatre); `unenrol-request` reachable by the device token its own doc-comment names as the caller;
@@ -320,7 +349,7 @@ employee refused online AND their next roster sync drops them.
 
 ### Phase 5 — Screens, cheapest-first (retrofit plan WP bodies hold the full DoDs — read them)
 
-**Step 20 — WP6 Store Information (~1 day, a deletion).** Strip the five local-write commands +
+**Step 20 — WP6 Store Information** ✅ **DONE 2026-08-09** (screen is read-only off `StoreInfoCache`; five local-write commands and the logo gone). Strip the five local-write commands +
 `StoreModel`; one `GetStoreInfoAsync` + an `OpeningHoursJson` weekly table; cache last-good; show
 "unavailable", never stale. **Drop the logo** (default 18 — no contract field).
 
@@ -444,10 +473,24 @@ pos-gated cash read · server refund cap (default 12) · additive feed fields (d
 
 ## H. USER-VERIFY checklist (accumulate; Matt ticks)
 
-- [ ] Step 1: one real till launch on EF 9 before anyone trades on it
+- [x] **Step 1: one real till launch on EF 9** — Matt ran 1.14.0–1.16.0 on Windows, 2026-08-10.
+      ⚠ The launch itself is sound; what it found was the UI layer (below).
 - [ ] Step 4: real enrolment round-trip (fresh code from the portal)
 - [ ] Step 14: paper receipt renders correctly
 - [ ] Step 22: theme applied from portal + byte-identical receipt light/dark
 - [ ] Step 23: drawer kicks on cash events
 - [ ] Step 25: scanner round-trip incl. unknown-barcode add flow
 - [ ] Any web-till TS edits: `npm run typecheck` on the Mac (5 pre-existing edits already queued)
+
+### Raised by USER-VERIFY on 2026-08-10 — retest on **1.17.0**
+
+⚠ **These are the items that make or break "can a person use this".** Each was found by hand
+because nothing automated could reach it; each is fixed but pinned by review only.
+
+- [ ] **Inventory → item list** fills the window, sits under the tabs, and can be navigated away from
+- [ ] **Typing `BAT`** in the scan box offers matching items (barcode still resolves exactly first)
+- [ ] **A cash sale, end to end** — and the sale appears in the portal within ~60s
+- [ ] **Cancel at the amount prompt** returns to the basket, intact, taking nothing
+- [ ] **Settings → Change printer** opens the printer list or refuses politely — never closes the app
+- [ ] **The fleet list shows a till version** once an enrolled till has beaten (`Devices.AppVersion`
+      has been NULL on all six rows since the column shipped)

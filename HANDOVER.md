@@ -1,11 +1,19 @@
 # Handover — Plutus platform build
 
-**Date:** 2026-08-09 — Platform on **.NET 10**. Backend **1.1.1 DEPLOYED** to the test environment. All 18 phases + Operator Portal (OP1–OP4), the
-**portal/till refresh (P1–P6)** and **FE1–FE10** built & LIVE. The **MAUI retrofit is underway**:
-WP0–WP5, WP8 and WP2c done — **the backend gap is closed**, and everything left is screen work
-against endpoints that exist, are tested, and are now **deployed** (2026-08-09) — so screen tests
-are unblocked. VAT follows UK law (HMRC Notice 727/701/10).
+**Date:** 2026-08-10 — Platform on **.NET 10**. Backend **1.7.0**, portal **1.3.0** and web till
+**1.5.0** are DEPLOYED to the test environment. All 18 phases + Operator Portal (OP1–OP4), the
+**portal/till refresh (P1–P6)** and **FE1–FE10** built & LIVE. The **MAUI retrofit**: cutover
+**steps 1–20 are done** (11b split out and promoted), **21–28 remain** — see
+[`Build/To do/MAUI-Cutover-Plan-2026-08-09.md`](Build/To%20do/MAUI-Cutover-Plan-2026-08-09.md).
+The backend gap is closed; everything left is screen work against endpoints that exist, are tested
+and are deployed. VAT follows UK law (HMRC Notice 727/701/10).
 Head: see `git log` — this line goes stale; the commits don't.
+
+> ⚠ **The till is now being driven by a person, and that is finding a different class of bug.**
+> 2026-08-10 alone: an overlay that bricked every screen, a scan box that never searched, nine
+> buttons that closed the app instead of refusing, and a payment dialog with no exit. All of it
+> compiled, reviewed and sat behind green tests. **`Build/repo-runbook.md` pitfalls 11–14 are the
+> MAUI UI traps** — read them before touching a screen.
 
 > 📁 **Docs reorganised 2026-08-07.** `Build/` is now three places: **standards** at the top level,
 > **`Build/To do/`** for plans with work still in them (all native-till work), and
@@ -15,153 +23,182 @@ Head: see `git log` — this line goes stale; the commits don't.
 > Older references below that say `Build/<plan>.md` now mean `Build/archive/<plan>.md` or
 > `Build/To do/<plan>.md`.
 
-### ⏰⏰⏰⏰⏰⏰⏰⏰⏰⏰ RESUME HERE (2026-08-10, LATEST — the payment dialog had NO WAY OUT)
+### ⏰⏰⏰⏰⏰⏰⏰⏰ START HERE (2026-08-10 — the till's UI layer, four traps deep)
 
-Suite: **Unit 733 · AppClient 409 (+3 skipped) — all green.** till-maui **1.17.0**.
-**Build for Matt: `D:\tmp\plutus-till-1.17.0\Plutus.Frontend.AppClient.exe`** (stamp
-`1.17.0+79b8d7a`). No deploy needed.
+| | |
+|---|---|
+| **Suite** | Unit **733** · Architecture **13** · AppClient **409** (+3 skipped) — all green |
+| **Till build to run** | **`D:\tmp\plutus-till-1.17.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing needed. Stamp `1.17.0+79b8d7a` |
+| **Versions** | till-maui **1.17.0** · platform **1.17.0** · backend **1.7.0** · portal **1.3.0** · till-web **1.5.0** |
+| **Deployed** | backend 1.7.0, portal 1.3.0, web till 1.5.0 — **LIVE and unchanged by today**. Nothing today needs a deploy; it is all MAUI + docs |
+| **Commits** | `bb3c13a` (overlay) → `79b8d7a` (search + button sweep) → `80dd81b` (payment dialog + layout). ⚠ **NOT PUSHED** — still local on `Matt's-Horror` |
+| **Health** | Plutus 200 · ETRIE 200 · backend up, 838 restarts is the historical rotation count and is not climbing |
 
-#### ⚠ "Paid cash, the screen went dark, I can't get out" — three decisions, one trap
+## ▶ TOMORROW, IN ORDER
 
-The cash-payment dialog was raised with **no `cancelText`** (so `InputAlert` built no Cancel
-button), **`interuptable: false`** (so `OnBackgroundClicked` refused), and
-`AlertDialogBase.OnBackButtonPressed` returned **`true`** (so Escape was swallowed). Each is
-defensible alone. Together the operator could only leave by killing the process, mid-sale. What was
-visible was `AlertDialogBase`'s `Color(0,0,0,.4f)` scrim — hence "the screen goes dark".
+**1. Retest the till (`1.17.0`) — this is the fastest way to find the next real problem.**
+Four things, in this order, because each unblocks the next:
+- **Inventory Managment → the item list.** Should fill the window, sit under the tabs, and let you
+  navigate away. (Was: drawn over the tab bar, wrong size, no way out.)
+- **Type `BAT` in the till's scan box.** Should offer a picker of matches. (Was: *"We can't find an
+  item with that ID"* against 20,344 sellable items.)
+- **Ring up an item and pay CASH, end to end.** Then do it again and press **Cancel** at the amount
+  prompt — you should land back on your basket with it intact. (Was: a dark screen with no exit.)
+- **Settings → Change printer.** Should open the printer list or refuse politely. (Was: closed the
+  app.)
 
-⚠ **And the checkout FELL THROUGH on cancel.** It ran `if (amountText != null) { … }` then added the
-payment to the sale regardless, so a cancelled prompt appended a **£0 payment**, left `paid`
-unchanged, and returned to a loop conditioned on `paid != sale.Total` — reopening the same
-inescapable dialog for ever, accumulating junk rows. Cancelling now returns to the basket, intact.
+⚠ **If anything dies, take the crash log** — `Services/Analytics/CrashLog.cs` hooks
+`Microsoft.UI.Xaml.Application.UnhandledException` as well as `AppDomain`.
 
-⚠ **All three alert helpers looped `while (result.Count == 0) { push; await; pop; }` over a
-`TaskCompletionSource` created ONCE.** A second pass awaits an already-completed task, so any
-rejected result spins the UI thread at full speed. It had never fired only because cancelling was
-impossible — fixing the escape would have armed it. Now one push, one await, one pop in a `finally`;
-`TrySetResult` throughout. ⚠ `SliderAlertHelper` would have NRE'd (`default` is a null `List`) and
-`InputMultiSelectAlertHelper`'s loop condition **was** `result == default`.
+**2. Confirm the fleet list starts showing versions.** No device has EVER reported one
+(`Devices.AppVersion` is NULL on all six rows) because nothing had beaten since the deploy. One
+minute of an enrolled till running 1.17.0 should populate it. ⚠ The web till only beats from an
+**enrolled** browser — an un-enrolled tab stays silent by design.
 
-Also: `InputAlert.OnSizeAllocated` sized the dialog from `Application.Current.MainPage.Width / 2` —
-and `VisualElement.Width` is **-1 until arranged**, so on the first pass it requested `-0.5`. Now
-sized from the values layout passes in, height as a MAXIMUM (it was clipping Confirm off the bottom),
-with opacity forced on appearing rather than left to an animation callback.
+**3. Then step 11b — and it has been PROMOTED above steps 22–28.** Not for tidiness:
+`ExecuteCheckoutTransaction` is a ~200-line `async void` holding the tender loop, cancel handling,
+surcharge line, change calculation and commit, and **none of it can be exercised without a UI host**.
+All three checkout defects fixed today shipped, were found by hand, and are pinned by **nothing**.
+It is the only cluster of money-adjacent logic left with no coverage. The plan's step 11b now says
+what to extract and what to pin.
 
-#### ⚠ The Inventory layout: never raise the global overlay across a navigation
+**4. After that, steps 22–28** — theming (22), cash (23), Users (24), inventory WP10 (25),
+reporting WP11 (26), loyalty/gift cards (27), online-first login (28). Step 25 closes the biggest
+honest gap and step 26 removes the reports that currently read zero.
+
+---
+
+## What today actually was
+
+Three separate bug hunts, one theme: **the till's UI layer had never been exercised by a person.**
+Every defect below was in code that compiled, passed review and had green tests around the parts
+that *were* tested.
+
+### The screens that "hung" — the loading overlay bricked the app
+
+`LoadingViewService` set `_isShowing = true` **before** awaiting `PushModalAsync`. A screen that
+loads fast — a local SQLite read, i.e. most of them — asks to hide while that push is in flight; the
+hide clears the flag and pops a stack the overlay hasn't landed on; the push then lands with the flag
+reading "hidden", so **every later hide returns at its first line**. The overlay covered the app for
+the rest of the process and every screen opened afterwards read as hung. Nothing threw, nothing
+logged. Reported as two unrelated screens breaking; neither was at fault.
+
+Fixed by **`Services/Loading/OverlayGate.cs`** — act on the *difference* between wanted and actual,
+one awaited operation at a time, re-reading the target after each await. **Fails open**: if it can't
+tell what's on screen it assumes the overlay is down, because a missing spinner is recoverable and a
+locked screen is not. Pinned by `OverlayGateTests` (5), mutation-checked by collapsing the reconcile
+loop to a single `if` — caught by exactly the two named tests describing the symptom.
+
+### The scan box never searched
+
+`TillViewModel.FindItem` called `FindByBarcodeAsync` and **nothing else**, so anything typed was
+tried as an exact barcode, missed, and produced *"We can't find an item with that ID"*. The message
+was accurate and completely misleading.
+
+⚠ **`TillStore.SearchAsync` had been built, correct and tested since 2026-08-09 and was called from
+NOWHERE** — the third finished component found unwired behind a broken-looking screen, after
+`OutboxPusher.DrainAsync` and the catalogue browse. **Treat as a standing check**: a green suite
+proves a component works, never that anything uses it.
+
+Now: barcode first (a scan must stay exact — it must never open a picker in front of a queue), then
+`SearchAsync`, whose matching is `SharedKernel.ItemSearch` and not a `LIKE` at the call site. One
+match goes in silently; several open a picker labelled `Name · barcode · price` (the barcode is
+there because `DisplayActionSheet` returns the chosen *string* and two same-name items would be
+indistinguishable). Asks for 26 to show 25 so "there are more" is known rather than guessed.
+**Cancel ≠ not-found** — telling someone who just pressed Cancel that the item doesn't exist is how a
+working catalogue gets reported as broken.
+
+### "Change printer" closed the app — a whole class, not one button
+
+`Authorisation.IsAuthorised` opens the **legacy** local database and does `emp.EmpAuths` on the
+result of `GetEmployee(...)` unchecked. A portal till has no legacy employee rows and
+`AppViewModel.EmployeeId` is null for every roster operator, so it threw — out of an `async void`
+handler with no `catch`, which is an unhandled exception and closes the process. **Nine call sites
+had that shape.** It now refuses instead of throwing and logs that it was reached at all; Change
+printer and the default-bag setting moved onto `TillGate` / `pos.settings.manage`.
+
+⚠ Also fixed in passing: cancelling the printer picker **unset the till's printer** (the old code
+assigned the empty result in the `else` branch too), so the next receipt went nowhere.
+
+### The payment dialog had no way out
+
+Raised with **no `cancelText`** (so no Cancel button was built), **`interuptable: false`** (so
+background clicks were refused), and an inherited `OnBackButtonPressed` returning **`true`** (so
+Escape was swallowed). Three decisions, each defensible alone; together, a screen you could only
+leave by killing the process, mid-sale. What was visible was `AlertDialogBase`'s
+`Color(0,0,0,.4f)` scrim — *"the screen goes dark"*.
+
+⚠ **And the checkout fell through on cancel**: `if (amountText != null) { … }` then added the payment
+regardless, so a cancelled prompt appended a **£0 payment**, left `paid` unchanged, and returned to a
+loop conditioned on `paid != sale.Total` — reopening the same inescapable dialog for ever.
+
+⚠ **All three alert helpers looped `while (empty) { push; await; pop; }` over a
+`TaskCompletionSource` created ONCE.** A second pass awaits an already-completed task and spins the
+UI thread flat out. It had never fired only because cancelling was impossible — **fixing the escape
+would have armed it**. `SliderAlertHelper` would have NRE'd on the null `default`;
+`InputMultiSelectAlertHelper`'s loop condition literally *was* `result == default`. Now one push,
+one await, one pop in a `finally`, `TrySetResult` throughout.
+
+⚠ `InputAlert.OnSizeAllocated` sized the dialog from `Application.Current.MainPage.Width / 2` — and
+`VisualElement.Width` is **-1 until arranged**, so the first pass requested **-0.5**.
+
+**No sale was lost.** Confirmed server-side: zero `Sales` rows in 24h, and the commit point is after
+the dialog that trapped the operator. Nothing was taken.
+
+### The Inventory layout — never raise the overlay across a navigation
 
 `App.SetLoading(true)` pushes a **modal page**. `ExecuteOpenViewAllItems` did that and then awaited
 `PushAsync` — a modal push and a navigation push against one window at once. MAUI does not serialise
-the two stacks; the WinUI handler resolved it into the corrupted layout Matt photographed (list over
-the tab bar, wrong size, no way back). ⚠ `ViewAllView.OnAppearing` raised it *again* mid-transition,
-so removing it from the opener alone was not enough — `InitItems` no longer raises one either.
+the two stacks; WinUI resolved the collision into the corrupted layout. ⚠ `ViewAllView.OnAppearing`
+raised it *again* mid-transition, so removing it from the opener alone was not enough.
 
 ⚠ It was also a **cross-screen contract**: the opener raised the overlay and the opened screen was
-expected to lower it. A screen owns its own spinner, or has none.
+expected to lower it, so a screen that failed to load left it over the whole app. **A screen owns
+its own spinner, or has none.**
 
-**Matt's sale was NOT recorded** — confirmed server-side, zero `Sales` rows in 24h, and the commit
-point is after the dialog he was trapped in. Nothing was taken.
+### The heartbeat questions
 
-### ⏰⏰⏰⏰⏰⏰⏰⏰⏰ RESUME HERE (2026-08-10, LATER — search, the button sweep, and the removal register)
+- **No redeploy was needed.** The deployed web-till bundle was checked directly on the Mac: it
+  contains `api/v1/heartbeat` with **zero** unsubstituted `__APP_VERSION__`, and
+  `POST /api/v1/heartbeat` answers **401** (route exists; a 404 would have meant missing).
+- **Why no versions showed.** Nothing had beaten since the deploy. The web till beats only for an
+  enrolled browser; the MAUI beat was parked behind the same wedged store gate as the hung screen.
+- ⚠ **The beat now has a 30s deadline.** It runs through `TillStoreAccess`, which serialises every
+  caller behind ONE semaphore — so a wedged *screen* silenced the *heartbeat* and the till vanished
+  from the fleet list while still selling perfectly well. That symptom appears on the platform, not
+  the till, so it reads as a network or enrolment fault. `ViewAllViewModel`'s browse takes 20s for
+  the same reason.
 
-Suite: **Unit 733 · AppClient 409 (+3 skipped) — all green.** till-maui **1.16.0**.
-**Build for Matt: `D:\tmp\plutus-till-1.16.0\Plutus.Frontend.AppClient.exe`** (stamp
-`1.16.0+bb3c13a`). Nothing here needs a deploy.
+## The legacy sweep — and the register Matt asked for
 
-#### ⚠ "BAT finds nothing" — the till never searched at all
+**[`Build/legacy-removal.md`](Build/legacy-removal.md)** is new: **L1–L10 in dependency order**, with
+status keys and the things that must **not** be deleted. Matt does the deletions last of all.
 
-`TillViewModel.FindItem` called `FindByBarcodeAsync` and **nothing else**, so anything an operator
-TYPED was tried as an exact barcode, missed, and produced *"We can't find an item with that ID"* —
-against 20,344 synced, sellable items. The message was accurate and completely misleading.
-
-⚠ **`TillStore.SearchAsync` had been built, correct and tested since 2026-08-09 and was called from
-NOWHERE.** That is the **third** finished component found sitting unwired behind a screen that
-looked broken, after `OutboxPusher.DrainAsync` and the catalogue browse. Worth treating as a
-standing check: a suite proves a component works, never that anything uses it.
-
-Now: barcode first (a scan stays exact and instant — it must never open a picker in front of a
-queue), then `SearchAsync`. One match is added silently; several open a picker labelled
-`Name · barcode · price` — the barcode is there because `DisplayActionSheet` returns the chosen
-STRING and two same-name items would otherwise be indistinguishable. Asks for 26 to show 25, so
-"there are more" is known rather than guessed. **Cancel ≠ not-found**: telling somebody who just
-pressed Cancel that the item does not exist is how a working catalogue gets reported as broken.
-
-#### ⚠ Why "Change printer" crashed — and it was a whole CLASS, not one button
-
-`Authorisation.IsAuthorised` opens the **legacy** local database and does `emp.EmpAuths` on the
-result of `GetEmployee(...)` with no null check. A portal till has no legacy employee rows and
-`AppViewModel.EmployeeId` is null for every roster operator, so that threw — out of an `async void`
-command with no `catch`, which is an unhandled exception and closes the till. Nine call sites had
-the same shape. It now **refuses instead of throwing** and logs that it was reached; "Change
-printer" and the default-bag setting are on `TillGate` / `pos.settings.manage`.
-
-⚠ Also fixed while there: cancelling the printer picker used to **unset the till's printer** (the
-old code assigned the empty result in the else branch too), so the next receipt went nowhere.
-
-#### The button sweep — what was hidden, and the register Matt asked for
-
-**[`Build/legacy-removal.md`](Build/legacy-removal.md)** is new and is the list Matt deletes from
-last of all: L1–L10, in dependency order, with status keys and the two things that must **not** be
-deleted (the legacy `Database.db` file itself, and the theming port before ClientUI goes).
-
-Hidden this round: the Settings **Database** section (archive + restore — Matt: *"its no longer
-needed"*), **Add item**, and **Edit / Update stock** on the item list. All wrote to the legacy DB,
-which nothing reads — and since the basket resolves from the v2 catalogue, a till-created item could
-not even be sold on the machine that made it.
+**Hidden this round:** the Settings **Database** section (archive + restore — *"its no longer
+needed"*), **Add item**, and **Edit / Update stock** on the item list. All wrote to the legacy
+database that nothing reads — and since the basket resolves from the v2 catalogue, a till-created
+item could not even be sold on the machine that made it.
 
 ⚠ **Statistics was WARNED, not hidden.** Both reports read the legacy DB, so they show **zero** for
-everything sold since cutover step 11 — and "£0.00 takings" about a £2,000 day is worse than a
-screen that will not open. But a till migrated from NatApp still holds real history there and this
-is the only way to see it, so the tab now carries a red notice saying exactly that. WP11 / step 26
-replaces it.
+everything sold since cutover step 11 — and "£0.00 takings" on a £2,000 day is worse than a screen
+that won't open. But a till migrated from NatApp still holds real history there and this is the only
+way to see it, so the tab now carries a red notice. WP11 / step 26 replaces it.
 
-⚠ **till-design B4 "Inventory CRUD ✅ / ✅" was WRONG and is now ⬜ for MAUI.** That row is a good
-example of the failure the register exists to catch: it read as built for months and could never
-have worked.
+⚠ **Two judgement calls worth revisiting:**
+1. **Removing "Archive legacy database" (L1) has a consequence.** It was the only thing that could
+   stamp `MetaKeys.LegacyArchivedAtUtc`, the enrolment gate's input. That gate is disabled today so
+   nothing breaks — but it can now never be switched on, so a shop migrated off NatApp would have no
+   on-ramp for its history. Matt's call, taken on the basis that no such migration is planned.
+2. **till-design B4 "Inventory CRUD ✅ / ✅" was WRONG** and is now ⬜ for MAUI. It read as built for
+   months and could never have worked — a good example of what the parity register exists to catch.
 
-### ⏰⏰⏰⏰⏰⏰⏰⏰ RESUME HERE (2026-08-10 — the "hung till" was the LOADING OVERLAY)
+## ⚠ What is NOT pinned, stated plainly
 
-Suite: **Unit 733 · Architecture 13 · AppClient 409 (+3 skipped) — all green.** Versions: till-maui
-**1.15.0**, platform **1.17.0**. Backend **1.7.0**, portal **1.3.0**, web till **1.5.0** are LIVE and
-**unchanged by this batch — nothing here needs a deploy.**
-
-**Build for Matt: `D:\tmp\plutus-till-1.15.0\Plutus.Frontend.AppClient.exe`** (unpackaged, no signing
-needed). Verified stamp: `1.15.0+8e45fa2`.
-
-#### ⚠ The real bug: `LoadingViewService` bricked the app, permanently, on the first fast screen
-
-Reported as *"View all items and Inventory management just hung"* — neither screen was at fault. The
-service flipped `_isShowing = true` **before** awaiting `PushModalAsync`. A screen that loads fast —
-a local SQLite read, i.e. most of them — asks to hide while that push is still in flight, so the
-hide sees the flag set, clears it, and pops a modal stack the overlay has not landed on yet. The
-push then completes with the flag reading "hidden", and **every later hide returns at its first
-line**. The translucent overlay sits over the app for the rest of the process, so every screen
-opened afterwards looks hung. Nothing threw; nothing was logged.
-
-Fixed by `AppClient/Services/Loading/OverlayGate.cs` — act on the **difference** between wanted and
-actual, one awaited operation at a time, re-reading the target after each await. Fails **open**: if
-it cannot tell what is on screen it assumes the overlay is down, because a missing spinner is
-recoverable and a locked screen is not. `LoadingViewService` is now just push/pop/marshal, and pops
-only when our own page is topmost (`PopModalAsync` takes no argument — popping blind closes somebody
-else's page *and* leaves the overlay behind). Pinned by `OverlayGateTests` (5), mutation-checked by
-collapsing the reconcile loop to a single `if`: caught by two named tests. Recorded in till-design
-C1 under **"Screens that must never trap the operator"**.
-
-#### The heartbeat questions, answered
-
-- **No redeploy needed.** The deployed web-till bundle was checked directly on the Mac: it contains
-  `api/v1/heartbeat` and has **zero** unsubstituted `__APP_VERSION__`. `POST /api/v1/heartbeat`
-  answers **401** (route exists, needs auth — a 404 would have meant missing). Backend and ETRIE
-  both 200.
-- **Why no versions show yet.** All six `Devices` rows still have `AppVersion NULL` — nothing has
-  beaten since the deploy. The web till beats only for an **enrolled** browser
-  (`getDeviceCredential()` returns null otherwise and it stays silent by design), and the MAUI till's
-  beat was parked behind the same wedged store gate as the hung screen.
-- ⚠ **The beat now has a 30s deadline** (`TillCadence`). It goes through `TillStoreAccess`, which
-  serialises every caller behind ONE semaphore — so a wedged screen silenced the heartbeat and the
-  till vanished from the fleet list *while still selling perfectly well*. That symptom shows up on
-  the platform, not the till, so it reads as a network or enrolment fault. `ViewAllViewModel`'s
-  browse takes a 20s deadline for the same reason. ⚠ **Nothing pins this convention** — see the C1
-  row; the next caller written without a deadline restores the fault in full.
-
+Today's UI fixes are held by **review, not tests**, except the overlay gate. None of the dialog,
+navigation or checkout behaviour can be exercised without a UI host. That is weaker than it should be
+for two overlay-family bugs in two days, and it is why **step 11b moved up the order**. Recorded
+honestly in till-design C1 rather than implied away. Also unpinned: the store-gate deadline
+convention — the next `UseAsync` caller written without one restores that fault in full.
 ### ⏰⏰⏰⏰⏰⏰⏰ RESUME HERE (2026-08-09, LATE — cutover Phases 1–3 done, MySQL password rotated)
 
 Suite: **Unit 733 · Architecture 13 · Integration 140 · AppClient 404 (+3 skipped) — all green.**
@@ -270,7 +307,7 @@ Backend **1.1.1 deployed** to the test environment; MAUI till stamps **`1.2.0+5a
 
 ---
 
-## ▶ TOMORROW, IN ORDER
+## ~~▶ TOMORROW, IN ORDER~~ — SUPERSEDED (this was 2026-08-09's list; the live one is at the top)
 
 **1. ✅ DONE 2026-08-09 (late) — the `plutus` MySQL password is rotated.** See the newest RESUME HERE above: it also moved the backend onto the unix socket, because rotating a `caching_sha2_password` account breaks any plain-TCP client. Original note kept below for the record.
 

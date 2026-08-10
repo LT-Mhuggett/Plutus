@@ -517,3 +517,19 @@ condition every till commit has to leave true.
   controllers** (Item, Employee, SavedTransaction, Auth/Login…), so a diff against a
   `/api/v1`-only MAUI client must not read those as parity gaps; and the diff won't catch
   behavioural drift (C2), which is why C2 exists as prose.
+
+- ⚠ **A ✅ MEANS A PERSON HAS USED IT — added 2026-08-10, and it was learned the hard way.** Three
+  rows in this register have now been found ✅ against code that could never work: **Inventory CRUD**
+  (wrote to a database nothing reads, on a till with no item-write endpoint), the **item search**
+  the till never called, and the **outbox drain** that was referenced nowhere in the app. Each was
+  fully built and had passing tests; what none of them had was a caller and a human.
+
+  So before writing ✅, ask two questions that a test suite cannot answer for you:
+
+  1. **Who calls this?** `grep` for the entry point. A green suite proves a component works, never
+     that anything uses it. This is the single most common way a row here becomes a lie.
+  2. **Has anyone driven it?** If the capability has a screen, someone must have used that screen.
+     If not, it is 🟡 — and the Notes say "built, not yet driven".
+
+  ⚠ **The failure mode is specific and nasty**: a ✅ that reads as built stops anyone looking, so
+  the gap survives every subsequent review of this document. A 🟡 costs nothing and is honest.

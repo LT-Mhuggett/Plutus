@@ -212,6 +212,35 @@ is needed before anyone installs this on a shop PC, and is not needed to test.
 10. **Login tokens are cached for 12h.** They carry the user's full effective permission set, so
     after deploying anything permission-related you must sign out and back in to see the change.
 
+### MAUI till — the UI pitfalls (all four cost the 2026-08-10 session)
+
+11. **`App.SetLoading(true)` pushes a MODAL PAGE.** Never raise it immediately before, during or
+    from inside a navigation — including from a destination page's `OnAppearing`, which fires while
+    the push is still transitioning. MAUI does not serialise the modal and navigation stacks, and
+    the WinUI handler resolves the collision into a **corrupted layout**: content drawn over the tab
+    bar, at the wrong size, with no way back out. ⚠ And a screen must **own its own spinner** — the
+    old pattern had the opening screen raise it and the opened screen lower it, so a screen that
+    failed to load left the overlay over the whole app for the session.
+12. **`VisualElement.Width` / `.Height` are `-1` until the element has been arranged.** Sizing
+    anything from them on a first layout pass gives you negative requests. `InputAlert` did
+    `Application.Current.MainPage.Width / 2` and asked for **-0.5**. Size from the values
+    `OnSizeAllocated` passes in, and guard `> 0`.
+13. **Every modal dialog needs a way out, and the trap is built from parts that each look fine.**
+    The cash-payment dialog passed no `cancelText` (so no Cancel button was built),
+    `interuptable: false` (so background clicks were refused) and inherited an
+    `OnBackButtonPressed` returning `true` (so Escape was swallowed). Three reasonable decisions,
+    one screen you could only leave by killing the process. **Check the combination.**
+14. **`AlertDialogBase.PageClosedTaskCompletionSource` is created ONCE.** Never loop
+    `while (empty) { push; await PageClosedTask; pop; }` — the second pass awaits an
+    already-completed task and spins the UI thread at full speed. One push, one await, one pop in a
+    `finally`, and `TrySetResult` (four code paths can fire the confirm handler). ⚠ Cancelling now
+    completes with `default` — **null** for reference types, so null-check the result.
+
+⚠ **The standing check these came from:** a green suite proves a component works, never that
+anything *uses* it. `OutboxPusher.DrainAsync`, the catalogue browse and `TillStore.SearchAsync` were
+each fully built and tested while the screen in front of them looked broken. When a screen misbehaves,
+grep for callers of the thing that should be doing the work before debugging the thing itself.
+
 ## Exemplar files (copy these shapes, don't invent)
 
 | Shape | File |
