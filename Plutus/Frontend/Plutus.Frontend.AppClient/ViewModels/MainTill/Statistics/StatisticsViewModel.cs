@@ -26,11 +26,25 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Statistics
             Title = "Statistics".Translate();
             Icon = "md-data-usage";
 
-            var buttons = new List<Tuple<string, string>>
-            {
-                Tuple.Create("SalesReports".Translate(), "OpenSalesReportsCommand"),
-                Tuple.Create("StockOuttakeReport".Translate(), "OpenStockOuttakeReportComamnd"),
-            };
+            // ⚠ THE TWO LEGACY REPORT BUTTONS ARE HIDDEN (2026-08-10). Matt hit the reason: opening
+            // Sales Reports raises a SYNCFUSION LICENCE dialog and then **the screen cannot be left**
+            // — a dead end on a shop floor, which is the worst failure this app can have.
+            //
+            // The licence IS registered (`App.xaml.cs`), but Syncfusion keys are VERSION-SPECIFIC and
+            // the packages are on **34.1.32**; the registered key predates that, so `SfCartesianChart`
+            // and `SfCalendar` refuse to render. ⚠ A new key can only come from Matt's Syncfusion
+            // account (Downloads → Get License Key, for 34.x) — nothing in this repo can produce one.
+            //
+            // Hiding rather than fixing is the right call for three reasons, not one:
+            //   • both reports read the LEGACY local database, so they show ZERO for everything sold
+            //     since cutover step 11 — the figure they would show is wrong even when they render;
+            //   • "what has this till taken" is now answered from the platform, below;
+            //   • a screen you cannot leave beats every other consideration.
+            //
+            // ⚠ NOTHING IS DELETED. A till migrated from NatApp still holds real pre-cutover history
+            // in that file, and these screens are how you read it — once the key is renewed. Recorded
+            // in `Build/legacy-removal.md` (L4).
+            var buttons = new List<Tuple<string, string>>();
 
             for(int i = 0; i < buttons.Count; i++)
             {
@@ -61,11 +75,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Statistics
             // way to see it — so the honest position is both facts at once, not a deletion.
             leftStackColumn.Children.Add(new Label
             {
-                Text = "⚠ The two reports above read this till's OLD local database only — useful "
-                     + "for pre-Plutus history, and NOT a record of anything sold since. Today's "
-                     + "real figures are on the right.",
+                Text = "The old Sales and Stock reports are hidden: they read this till's pre-Plutus "
+                     + "database (so they show nothing sold since it joined Plutus), and the charting "
+                     + "licence needs renewing for the current version. Fuller reporting is in the "
+                     + "Plutus portal.",
                 FontSize = new Label().FontSize - 1,
-                TextColor = Colors.OrangeRed,
+                TextColor = Colors.Gray,
                 Margin = new Microsoft.Maui.Thickness(0, 12, 0, 0),
             });
         }
