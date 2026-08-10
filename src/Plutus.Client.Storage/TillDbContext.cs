@@ -18,7 +18,7 @@ public sealed class TillDbContext : DbContext
     /// <summary>⚠ Bump this AND add a matching step to <see cref="UpgradeAsync"/> in the same
     /// commit. A bump with no step silently stamps a store as current without changing it; a step
     /// with no bump never runs.</summary>
-    public const int SchemaVersion = 3;
+    public const int SchemaVersion = 4;
 
     public TillDbContext(DbContextOptions<TillDbContext> options) : base(options) { }
 
@@ -29,6 +29,7 @@ public sealed class TillDbContext : DbContext
     public DbSet<LocalSale> LocalSales => Set<LocalSale>();
     public DbSet<LocalRefund> LocalRefunds => Set<LocalRefund>();
     public DbSet<SavedBasket> SavedBaskets => Set<SavedBasket>();
+    public DbSet<LocalCashEvent> LocalCashEvents => Set<LocalCashEvent>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -67,6 +68,15 @@ public sealed class TillDbContext : DbContext
             // The server dedupes on it; a local duplicate would mean the counter went backwards.
             e.HasIndex(x => x.DeviceSeq).IsUnique();
             e.Property(x => x.PayloadJson).IsRequired();
+        });
+
+        b.Entity<LocalCashEvent>(e =>
+        {
+            e.ToTable("LocalCashEvents");
+            e.HasKey(x => x.EventId);
+            e.HasIndex(x => x.Status);
+            // "Has this day already been Z-closed?" is asked before every cash action.
+            e.HasIndex(x => x.BusinessDay);
         });
 
         b.Entity<LocalRefund>(e =>
@@ -139,6 +149,39 @@ public sealed class TillDbContext : DbContext
 
             await Database.ExecuteSqlRawAsync(
                 """CREATE INDEX IF NOT EXISTS "IX_LocalRefunds_OriginSaleId" ON "LocalRefunds" ("OriginSaleId");""", ct);
+        }
+
+        // v4 — LocalCashEvents (WP9). A shop opens before its broadband does: the opening float, a
+        // paid-out for a supplier and the Z-close all have to be recordable with the line down,
+        // because the money moves whether or not the platform hears about it. Queued and drained
+        // like a sale rather than posted inline.
+        if (from < 4)
+        {
+            await Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS "LocalCashEvents" (
+                    "EventId" TEXT NOT NULL CONSTRAINT "PK_LocalCashEvents" PRIMARY KEY,
+                    "Type" TEXT NOT NULL,
+                    "BusinessDay" TEXT NOT NULL,
+                    "OccurredAtUtc" TEXT NOT NULL,
+                    "AmountPence" INTEGER NOT NULL,
+                    "CountedPence" INTEGER NULL,
+                    "Reason" TEXT NULL,
+                    "OperatorUserId" TEXT NULL,
+                    "Status" INTEGER NOT NULL,
+                    "PushedAtUtc" TEXT NULL,
+                    "Attempts" INTEGER NOT NULL DEFAULT 0,
+                    "ServerResponseJson" TEXT NULL
+                );
+                """, ct);
+
+            // ⚠ The drain scans by status, and "has this day been Z-closed?" is asked before every
+            // cash action — both on a table that grows by a handful of rows a day but is read on a
+            // counter with a customer waiting.
+            await Database.ExecuteSqlRawAsync(
+                """CREATE INDEX IF NOT EXISTS "IX_LocalCashEvents_Status" ON "LocalCashEvents" ("Status");""", ct);
+            await Database.ExecuteSqlRawAsync(
+                """CREATE INDEX IF NOT EXISTS "IX_LocalCashEvents_BusinessDay" ON "LocalCashEvents" ("BusinessDay");""", ct);
         }
     }
 }

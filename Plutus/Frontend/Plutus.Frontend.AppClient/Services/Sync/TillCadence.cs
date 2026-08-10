@@ -175,6 +175,12 @@ namespace Plutus.Frontend.AppClient.Services.Sync
             // whole interval.
             var push = await OutboxPushService.PushAsync(ct).ConfigureAwait(false);
 
+            // 2b. Drain the CASH queue too (WP9). ⚠ A shop opens before its broadband does, so the
+            // opening float, a paid-out and the Z-close are all recorded locally and sent later —
+            // the money moved whether or not the platform heard about it, and a float that never
+            // banked is a day that cannot be reconciled.
+            var cash = await CashPushService.PushAsync(ct).ConfigureAwait(false);
+
             // 3. Pull the catalogue, when the platform says it has moved and no basket is open.
             var catalogue = "";
             if (beat.CatalogueStale || beat.SyncNow)
@@ -220,8 +226,8 @@ namespace Plutus.Frontend.AppClient.Services.Sync
             var locked = beat.Locked ? $" ⚠ This till has been locked: {beat.LockReason}" : "";
 
             return LastResult = beat.Delivered
-                ? $"{push.Message}{catalogue}{locked}"
-                : $"Can't reach Plutus. {push.Message}";
+                ? $"{push.Message}{cash}{catalogue}{locked}"
+                : $"Can't reach Plutus. {push.Message}{cash}";
         }
 
         /// <summary>

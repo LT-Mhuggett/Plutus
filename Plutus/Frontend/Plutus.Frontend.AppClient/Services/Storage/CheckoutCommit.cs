@@ -286,7 +286,9 @@ namespace Plutus.Frontend.AppClient.Services.Storage
                 // ⚠ The BUSINESS DAY is the till's WALL CLOCK date, not UTC — a sale at 00:30 local
                 // belongs to the day the shop calls it, and every X/Z and VAT period is grouped by
                 // that. `till-design` C2 records this as deliberate.
-                var businessDay = DateOnly.FromDateTime(DateTime.Now);
+                // ⚠ THE SHARED RULE. The drawer reconciles against these takings, so a cash event
+                // and a sale must never disagree about what "today" is — see SharedKernel.BusinessDay.
+                var businessDay = SharedKernel.BusinessDay.Today();
 
                 var request = SaleAssembler.Assemble(
                     saleId, deviceId, deviceSeq: 0, businessId, lines, tenders,

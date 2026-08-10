@@ -728,4 +728,98 @@ public sealed class TillStore : IOutboxStore, ISyncStore
             .OrderBy(s => s.DeviceSeq)
             .Select(s => (DateTime?)s.OccurredAtUtc)
             .FirstOrDefaultAsync(ct);
+
+    // ── Cash: the drawer's own record (WP9, cutover step 23) ──────────────────────────────────
+
+    /// <summary>
+    /// Record a cash movement or a drawer count, locally and immediately.
+    ///
+    /// ⚠ LOCAL FIRST, ALWAYS. A shop opens before its broadband does, and the money moves whether
+    /// or not the platform hears about it. An opening float that failed to post is a day whose
+    /// banking cannot be reconciled at all — so this returns as soon as it is on disk, and
+    /// `CashPushService` drains it on the 60s tick exactly like a sale.
+    ///
+    /// ⚠ REFUSES AFTER A Z, and that is a rule about the DAY rather than a convenience. A Z-close
+    /// is the statement "this is what the drawer held when we finished"; anything recorded against
+    /// that day afterwards makes the statement false, and the server 409s it anyway. Refusing here
+    /// means the operator is told at the counter instead of discovering it in a report tomorrow.
+    /// </summary>
+    /// <returns>The stored row, or null when the day is already closed.</returns>
+    public async Task<LocalCashEvent?> RecordCashEventAsync(
+        string type, string businessDay, long amountPence, long? countedPence = null,
+        string? reason = null, Guid? operatorUserId = null, DateTime? occurredAtUtc = null,
+        CancellationToken ct = default)
+    {
+        if (await IsDayClosedAsync(businessDay, ct).ConfigureAwait(false)) return null;
+
+        var row = new LocalCashEvent
+        {
+            // ⚠ UUIDv7, minted HERE. It is what makes the drain safe to retry: the server replays a
+            // known id back as 200 with the stored outcome, so an event posted twice because the
+            // line dropped mid-request is recorded once.
+            EventId = Uuid7.New(),
+            Type = type,
+            BusinessDay = businessDay,
+            OccurredAtUtc = occurredAtUtc ?? DateTime.UtcNow,
+            AmountPence = amountPence,
+            CountedPence = countedPence,
+            Reason = reason,
+            OperatorUserId = operatorUserId,
+            Status = (int)OutboxStatus.Pending,
+        };
+
+        _db.LocalCashEvents.Add(row);
+        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        return row;
+    }
+
+    /// <summary>
+    /// Has this business day already been Z-closed on this till?
+    ///
+    /// ⚠ Asked BEFORE every cash action, and before every sale would be better still. It reads the
+    /// till's own record, so it is the answer available with the line down — which is when it
+    /// matters, because the server's identical guard cannot be consulted.
+    /// </summary>
+    public Task<bool> IsDayClosedAsync(string businessDay, CancellationToken ct = default) =>
+        _db.LocalCashEvents.AsNoTracking()
+            .AnyAsync(e => e.BusinessDay == businessDay && e.Type == CashEventTypes.ZClose, ct);
+
+    /// <summary>Everything this till recorded for a business day, oldest first — the local X/Z
+    /// history, available offline.</summary>
+    public async Task<IReadOnlyList<LocalCashEvent>> CashEventsForDayAsync(
+        string businessDay, CancellationToken ct = default) =>
+        await _db.LocalCashEvents.AsNoTracking()
+            .Where(e => e.BusinessDay == businessDay)
+            .OrderBy(e => e.OccurredAtUtc)
+            .ToListAsync(ct).ConfigureAwait(false);
+
+    /// <summary>Cash events still waiting to reach the platform, oldest first.</summary>
+    public async Task<IReadOnlyList<LocalCashEvent>> PendingCashEventsAsync(
+        int limit = 50, CancellationToken ct = default) =>
+        await _db.LocalCashEvents
+            .Where(e => e.Status == (int)OutboxStatus.Pending)
+            .OrderBy(e => e.OccurredAtUtc)
+            .Take(limit)
+            .ToListAsync(ct).ConfigureAwait(false);
+
+    /// <summary>
+    /// Mark a queued cash event as dealt with.
+    ///
+    /// ⚠ `Failed` IS TERMINAL and is recorded with the server's words. A 409 "already Z-closed" or a
+    /// 400 "reason required" cannot be fixed by asking again, and a till that retries them for ever
+    /// looks healthy while quietly never banking. Somebody has to read the reason, so it is kept.
+    /// </summary>
+    public async Task SettleCashEventAsync(
+        Guid eventId, OutboxStatus status, string? serverResponseJson = null, CancellationToken ct = default)
+    {
+        var row = await _db.LocalCashEvents.FirstOrDefaultAsync(e => e.EventId == eventId, ct).ConfigureAwait(false);
+        if (row == null) return;
+
+        row.Status = (int)status;
+        row.Attempts += 1;
+        row.ServerResponseJson = serverResponseJson ?? row.ServerResponseJson;
+        if (status == OutboxStatus.Pushed) row.PushedAtUtc = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+    }
 }

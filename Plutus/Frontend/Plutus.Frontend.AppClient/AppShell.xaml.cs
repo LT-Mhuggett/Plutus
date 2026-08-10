@@ -17,6 +17,9 @@ namespace Plutus.Frontend.AppClient
             var tabBar = new TabBar();
             tabBar.Items.Add(Tab(new Views.MainTill.Till.TillView()));
             tabBar.Items.Add(Tab(new Views.MainTill.Inventory.InventoryView()));
+            // WP9 cash (cutover step 23). ⚠ Its own tab, next to the Till: a shop cannot OPEN or
+            // CLOSE without it, so it must be reachable without knowing where to look.
+            tabBar.Items.Add(Tab(new Views.MainTill.Cash.CashView()));
             tabBar.Items.Add(Tab(new Views.MainTill.Statistics.StatisticsView()));
             if (DeviceInfo.Idiom == DeviceIdiom.Desktop)
             {

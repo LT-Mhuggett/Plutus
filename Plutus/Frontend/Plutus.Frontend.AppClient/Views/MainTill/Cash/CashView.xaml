@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Plutus.Frontend.AppClient.Views.MainTill.Cash.CashView"
+             Title="{Binding Title}"
+             IconImageSource="{Binding Icon, Converter={StaticResource MaterialIconConverter}}">
+    <!--
+        ⚠ Built in CODE, like Settings and Statistics, and deliberately so. MAUI bindings fail
+        SILENTLY — a binding to a missing property renders blank and never throws — and this screen
+        is where a shop declares its float and closes its day. A blank row here is money nobody can
+        account for, so the rows are constructed where a typo is a compile error.
+
+        ⚠ A Grid with an Auto/* pair, never a StackLayout: in MAUI a StackLayout measures children
+        to their DESIRED height and does not distribute what is left, so a scrollable history inside
+        one collapses to a few rows. That exact mistake shipped on the item list.
+    -->
+    <Grid RowSpacing="0" Padding="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Label Grid.Row="0" x:Name="Summary" FontAttributes="Bold" Margin="0,0,0,8"/>
+        <StackLayout Grid.Row="1" x:Name="Actions" Orientation="Horizontal" Spacing="6"/>
+        <ScrollView Grid.Row="2">
+            <StackLayout x:Name="History" Spacing="2" Margin="0,10,0,0"/>
+        </ScrollView>
+    </Grid>
+</ContentPage>

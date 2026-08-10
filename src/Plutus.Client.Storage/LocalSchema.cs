@@ -192,3 +192,42 @@ public readonly record struct LocalSaleSummary(
     int LineCount,
     string FirstItemIdOne,
     int Status);
+
+/// <summary>
+/// A cash movement or drawer count this till has taken, waiting to reach the platform.
+///
+/// ⚠ WHY IT IS QUEUED RATHER THAN POSTED. A shop opens before its broadband does. Declaring the
+/// opening float, taking a paid-out for a supplier, and closing the day are things a till must be
+/// able to DO with the line down — the money moves whether or not the platform hears about it, and
+/// a float that failed to post is a day whose banking cannot be reconciled at all. Same discipline
+/// as a sale: record locally, drain later, never block the operator.
+///
+/// ⚠ The EVENT ID IS MINTED HERE and is what makes the drain safe to retry: the server replays a
+/// known id back as 200 with the stored outcome, so an event posted twice because the line dropped
+/// mid-request is recorded once.
+///
+/// ⚠ NO EXPECTED OR VARIANCE FIELD, deliberately. Only the platform can compute what the drawer
+/// SHOULD hold — it needs the sales half, including sales another device on the same till posted.
+/// A till that cached its own expected figure would disagree with the banking report and nobody
+/// could say which was right.
+/// </summary>
+public class LocalCashEvent
+{
+    public Guid EventId { get; set; }
+    public string Type { get; set; } = "";
+    public string BusinessDay { get; set; } = "";
+    public DateTime OccurredAtUtc { get; set; }
+    public long AmountPence { get; set; }
+    public long? CountedPence { get; set; }
+    public string? Reason { get; set; }
+    public Guid? OperatorUserId { get; set; }
+
+    /// <summary>Mirrors <c>Plutus.Client.Core.OutboxStatus</c>, exactly as <see cref="LocalSale"/> does.</summary>
+    public int Status { get; set; }
+    public DateTime? PushedAtUtc { get; set; }
+    public int Attempts { get; set; }
+
+    /// <summary>What the platform said when it refused. ⚠ Kept, because a 409 "already Z-closed"
+    /// is a fact somebody has to explain at the end of the day, not a transport hiccup to discard.</summary>
+    public string? ServerResponseJson { get; set; }
+}

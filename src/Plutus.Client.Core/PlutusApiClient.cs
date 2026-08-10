@@ -290,6 +290,63 @@ public sealed class PlutusApiClient
         GetAsync<SaleDto>($"/api/v1/sales/{saleId:D}", ct);
 
     /// <summary>
+    /// Record a cash movement or a drawer count (WP9).
+    ///
+    /// ⚠ THE STATUS IS THE POLICY, exactly as it is for a sale, which is why the raw status comes
+    /// back rather than a bool:
+    ///   • **201** recorded · **200** an idempotent replay of an eventId already stored — both mean
+    ///     "the platform has it", so the queue may drop the entry;
+    ///   • **409** the business day is already Z-CLOSED. Terminal. Retrying for ever cannot help,
+    ///     and the honest answer is that somebody closed the day while this was queued;
+    ///   • **400** the platform refused the shape (no reason on a paid-out, no count on a Z).
+    ///     Terminal — a till cannot fix it by asking again;
+    ///   • anything else is transport, and stays queued for the backoff.
+    ///
+    /// ⚠ A DEVICE token is enough (`sales.ingest`), on purpose. Declaring a float and closing a day
+    /// are the till's own record of its own drawer, and they must work when the shop opens before
+    /// anyone has signed in — the same reasoning that gates the heartbeat this way.
+    /// </summary>
+    public async Task<(HttpStatusCode Status, CashEventResult? Body)> PostCashEventAsync(
+        CashEventRequest body, CancellationToken ct = default)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Post, "/api/v1/cash-events")
+        {
+            Content = JsonContent.Create(body, options: Json),
+        };
+        await AuthoriseAsync(req, ct);
+        using var res = await _http.SendAsync(req, ct);
+
+        CashEventResult? parsed = null;
+        try
+        {
+            if (res.IsSuccessStatusCode)
+                parsed = await res.Content.ReadFromJsonAsync<CashEventResult>(Json, ct);
+        }
+        catch (Exception e) when (e is JsonException or NotSupportedException)
+        {
+            // ⚠ A non-JSON error page must not look like a failure to POST. The STATUS already told
+            // the caller what to do; the body is a bonus.
+        }
+
+        return (res.StatusCode, parsed);
+    }
+
+    /// <summary>
+    /// The day's cash events for one till — the X/Z history, and what the drawer was expected to
+    /// hold at each count.
+    ///
+    /// ⚠ NEEDS AN OPERATOR TOKEN. This is gated `perm:portal.financials.view,pos.reports.view`, and
+    /// `perm:*` policies resolve from RBAC by the token's **userId** — a device token has none, so a
+    /// device-authorised client gets 403 for ever. Build this client with the OPERATOR provider
+    /// (`PlutusApi.GetOperatorAsync` on MAUI). Reading the day's takings is a question about a
+    /// PERSON's permissions; recording the float is not, which is why only one of the two needs it.
+    /// </summary>
+    public Task<List<CashEventResult>?> GetCashEventsAsync(
+        Guid tillId, DateOnly day, CancellationToken ct = default) =>
+        GetAsync<List<CashEventResult>>(
+            $"/api/v1/cash-events?tillId={tillId:D}&day={day:yyyy-MM-dd}", ct);
+
+    /// <summary>
     /// POST a sale. Returns the raw status alongside the parsed body because the STATUS is the
     /// policy: 201/200 done · 202 quarantined (never retry) · 400 failed (skip, don't block the
     /// queue) · anything else stays pending for the backoff.
