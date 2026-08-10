@@ -402,8 +402,15 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 // edit too (`disabled={busy || !!item}`). It is half the composite primary key:
                 // changing it is a DELETE and an INSERT, which orphans every stock movement, every
                 // sale line and every webstore listing that points at the old one.
-                var bands = await api.GetTaxBandsAsync(business) ?? new List<TaxBandDto>();
-                var categories = await api.GetCategoriesAsync(business) ?? new List<CategoryDto>();
+                // ⚠ THE REASON TRAVELS WITH THE RESULT. An empty list and a failed call are
+                // different answers — "this shop has no tax bands" is a fact about the shop,
+                // "I couldn't ask" is a fact about the till — and flattening them into one is what
+                // made this whole capability look absent.
+                var (bandList, bandProblem) = await api.GetTaxBandsAsync(business);
+                var (categoryList, categoryProblem) = await api.GetCategoriesAsync(business);
+
+                var bands = bandList ?? new List<TaxBandDto>();
+                var categories = categoryList ?? new List<CategoryDto>();
 
                 // ⚠ THE CHOICES COME FIRST, AND THE FORM THEN SHOWS WHAT WAS CHOSEN. Matt,
                 // 2026-08-10 (second report): *"Maui edit items is missing category and tax e.g.
@@ -416,10 +423,10 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 // SOMETHING WITHOUT SHOWING IT. Tax band and category are written on every save
                 // (the PUT binds the whole entity), so they are always part of the edit whether or
                 // not anyone was asked.
-                var taxId = await PickTaxBandAsync(bands, current.TaxId);
+                var taxId = await PickTaxBandAsync(bands, current.TaxId, bandProblem);
                 if (taxId is null) return;                       // ⚠ Cancel means cancel, not "keep the old band"
 
-                var catId = await PickCategoryAsync(categories, current.CatId);
+                var catId = await PickCategoryAsync(categories, current.CatId, categoryProblem);
                 if (catId is null) return;
 
                 var untracked = await PickStockTrackingAsync(current.StockUntracked);
@@ -546,7 +553,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         /// modals in quick succession is what threw the COMException that closed the till at the
         /// payment prompt.
         /// </summary>
-        private static async Task<int?> PickTaxBandAsync(IReadOnlyList<TaxBandDto> bands, int currentId)
+        private static async Task<int?> PickTaxBandAsync(
+            IReadOnlyList<TaxBandDto> bands, int currentId, string problem)
         {
             if (bands.Count == 0)
             {
@@ -556,11 +564,17 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 // bands were not part of editing an item. A capability that vanishes without a word
                 // when a call fails is indistinguishable from one that was never built.
                 //
+                // ⚠ AND THE REASON IS NAMED. "Plutus didn't send any" is still a dead end if the
+                // real answer was a 403 or a 500; the client now carries the status back, so the
+                // person in front of the till is told what to do about it instead of being told
+                // that a fact about the network is a fact about their shop.
+                //
                 // ⚠ It still keeps the item's existing band, which is the only safe default: the
                 // PUT binds the whole entity, so guessing a band here would re-rate the item.
                 await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                    "Plutus didn't send back any tax bands, so this item keeps the one it has. " +
-                    "Everything else you change will still be saved.", "OK".Translate());
+                    (problem ?? "Plutus didn't send back any tax bands.") +
+                    " This item keeps the band it has; everything else you change will still be saved.",
+                    "OK".Translate());
                 return currentId;
             }
 
@@ -590,14 +604,16 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
             => Plutus.Client.Core.TaxBandLabel.For(band, fallbackId);
 
         /// <summary>Which category the item belongs to. Null means the operator backed out.</summary>
-        private static async Task<Guid?> PickCategoryAsync(IReadOnlyList<CategoryDto> categories, Guid currentId)
+        private static async Task<Guid?> PickCategoryAsync(
+            IReadOnlyList<CategoryDto> categories, Guid currentId, string problem)
         {
             if (categories.Count == 0)
             {
                 // ⚠ Same silent skip, same fix — see PickTaxBandAsync.
                 await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                    "Plutus didn't send back any categories, so this item keeps the one it has. " +
-                    "Everything else you change will still be saved.", "OK".Translate());
+                    (problem ?? "Plutus didn't send back any categories.") +
+                    " This item keeps the category it has; everything else you change will still be saved.",
+                    "OK".Translate());
                 return currentId;
             }
 

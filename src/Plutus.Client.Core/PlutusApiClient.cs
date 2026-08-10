@@ -366,13 +366,15 @@ public sealed class PlutusApiClient
     ///
     /// ⚠ `Rate` is a MULTIPLIER (1.2 = 20%); see <see cref="TaxBandDto"/>.
     /// </summary>
-    public Task<List<TaxBandDto>?> GetTaxBandsAsync(Guid businessId, CancellationToken ct = default)
-        => GetLegacyAsync<List<TaxBandDto>>("/api/Tax/Index?PageNumber=1&PageSize=50", businessId, ct);
+    public Task<(List<TaxBandDto>? Bands, string? Problem)> GetTaxBandsAsync(
+        Guid businessId, CancellationToken ct = default)
+        => GetLegacyAsync<List<TaxBandDto>>("/api/Tax/Index?PageNumber=1&PageSize=50", businessId, "tax bands", ct);
 
     /// <summary>The tenant's categories, for the item editor's Category list. Same URL as the web
     /// till's `fetchCategories`.</summary>
-    public Task<List<CategoryDto>?> GetCategoriesAsync(Guid businessId, CancellationToken ct = default)
-        => GetLegacyAsync<List<CategoryDto>>("/api/Category/Index?PageNumber=1&PageSize=100", businessId, ct);
+    public Task<(List<CategoryDto>? Categories, string? Problem)> GetCategoriesAsync(
+        Guid businessId, CancellationToken ct = default)
+        => GetLegacyAsync<List<CategoryDto>>("/api/Category/Index?PageNumber=1&PageSize=100", businessId, "categories", ct);
 
     /// <summary>
     /// A GET against a LEGACY composite controller.
@@ -381,18 +383,67 @@ public sealed class PlutusApiClient
     /// through <c>GetAsync</c>. It is the LEGACY business id, not the tenant id — the web till
     /// sends the same header on every request (`api.ts headers()`), and the wrong one silently
     /// returns another tenant's rows or none at all.
+    ///
+    /// ⚠ IT RETURNS A REASON, AND THAT IS THE POINT OF THE SHAPE. This used to return `default` —
+    /// null — for every failure: 400, 401, 403, 404, 500, an unparseable body, a wrapped envelope.
+    /// The caller turned that into an empty list, and an empty list is indistinguishable from *"this
+    /// tenant genuinely has no tax bands"*. So the item editor skipped its tax and category prompts
+    /// in silence and Matt reported the feature as **missing** (2026-08-10) — which, from where he
+    /// was standing, it was.
+    ///
+    /// ⚠ An empty list and a failed call are DIFFERENT ANSWERS and a client must not flatten them
+    /// into one. "There are none" is a fact about the shop; "I could not ask" is a fact about the
+    /// till, and only the second one is worth waking somebody up for.
     /// </summary>
-    private async Task<T?> GetLegacyAsync<T>(string url, Guid businessId, CancellationToken ct)
+    /// <param name="what">What was being fetched, for the message — "tax bands", "categories".</param>
+    private async Task<(T? Value, string? Problem)> GetLegacyAsync<T>(
+        string url, Guid businessId, string what, CancellationToken ct)
     {
-        using var req = new HttpRequestMessage(HttpMethod.Get, url);
-        req.Headers.Add("businessId", businessId.ToString("D"));
-        await AuthoriseAsync(req, ct);
+        if (businessId == Guid.Empty)
+            return (default, $"This till hasn't learnt which business it belongs to, so it can't load {what}.");
 
-        using var res = await _http.SendAsync(req, ct);
-        if (!res.IsSuccessStatusCode) return default;
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, url);
+            req.Headers.Add("businessId", businessId.ToString("D"));
+            await AuthoriseAsync(req, ct);
 
-        try { return await res.Content.ReadFromJsonAsync<T>(Json, ct); }
-        catch (Exception e) when (e is JsonException or NotSupportedException) { return default; }
+            using var res = await _http.SendAsync(req, ct);
+
+            if (!res.IsSuccessStatusCode)
+            {
+                // ⚠ THE STATUS IS NAMED, because these three fail for genuinely different reasons
+                // and the fix differs each time. ⚠ 500 in particular is the legacy base
+                // controller's CONSTRUCTOR doing `.First()` on the `objectidentifier` claim — a
+                // DEVICE token does not merely fail the policy, it 500s before the action runs —
+                // so "signed in?" is the right question to put in front of an operator.
+                var reason = (int)res.StatusCode switch
+                {
+                    401 => "Plutus didn't accept this till's sign-in",
+                    403 => "this operator isn't allowed to read them",
+                    404 => "Plutus has no such list",
+                    500 => "Plutus errored — this usually means nobody is signed in on this till",
+                    _ => $"Plutus answered {(int)res.StatusCode}",
+                };
+                return (default, $"Couldn't load {what}: {reason}.");
+            }
+
+            var value = await res.Content.ReadFromJsonAsync<T>(Json, ct);
+            return (value, null);
+        }
+        catch (Exception e) when (e is JsonException or NotSupportedException)
+        {
+            // ⚠ A SHAPE MISMATCH, not an empty shop. These endpoints return a BARE ARRAY today
+            // (`PagedList<T>` derives from `List<T>`; the paging metadata rides in the
+            // `X-Pagination` header), so this fires only if something starts wrapping the body —
+            // a proxy, or a server change. Silently reporting "none" would send somebody hunting
+            // through the portal's data for a fault that is in the wire.
+            return (default, $"Plutus sent {what} back in a shape this till didn't recognise.");
+        }
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
+        {
+            return (default, $"Couldn't reach Plutus to load {what}.");
+        }
     }
 
     /// <summary>

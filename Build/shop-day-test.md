@@ -1,6 +1,6 @@
 # Shop-day test — the hand-run script
 
-**Build: `D:\tmp\plutus-till-1.34.0\Plutus.Frontend.AppClient.exe`** (unpackaged — no signing, no
+**Build: `D:\tmp\plutus-till-1.35.0\Plutus.Frontend.AppClient.exe`** (unpackaged — no signing, no
 install; just run the .exe).
 
 This is the USER-VERIFY script for everything that landed on 2026-08-10. It is ordered as a real
@@ -20,8 +20,8 @@ path. `CrashLog` hooks both `AppDomain` and `Microsoft.UI.Xaml.Application.Unhan
 | # | Do | Expect | ⚠ If not |
 |---|---|---|---|
 | 0.1 | Launch the till | Signs in; tabs are **Till · Inventory Managment · Cash · Statistics · Store Information · Settings · Plutus** | No **Cash** tab = you are on an older build |
-| 0.2 | **Plutus** tab | Version chip reads **v1.34.0**; connection green | — |
-| 0.3 | Wait ~60s, then check the portal's fleet list | The till reports **1.34.0** | Versions were NULL on every row until backend 1.8.1 — this is the fix |
+| 0.2 | **Plutus** tab | Version chip reads **v1.35.0**; connection green | — |
+| 0.3 | Wait ~60s, then check the portal's fleet list | The till reports **1.35.0** | Versions were NULL on every row until backend 1.8.1 — this is the fix |
 
 ## 1. Open the day
 
@@ -72,7 +72,7 @@ path. `CrashLog` hooks both `AppDomain` and `Microsoft.UI.Xaml.Application.Unhan
 | 5.4 | **Press the Edit button on a row** (or tap the row for a sheet) | The edit prompt opens | ⚠ Tap the SAME row twice — it must open both times. A `CollectionView` won't re-raise selection for a row already selected, so this is the one that would read as a freeze |
 | 5.4a | **Edit item** — the order is now: **Tax band → Category → Stock**, then the form | The three sheets come FIRST, and the form that follows SHOWS the tax band (with its **percentage**, e.g. `Standard — 20%`), the category and the stock setting as greyed rows beside the price | ⚠ Reworked in 1.34.0 — Matt: *"Maui edit items is missing category and tax e.g. 20%."* If a sheet is missing entirely you should now get a MESSAGE saying Plutus sent no bands/categories, never silence. ⚠ Needs a connection, a signed-in operator, and `portal.prices.manage` — **Owner and Company Admin hold it, Store Manager does NOT** |
 | 5.4b | ⚠ Change the **tax band** on something and save | The ex-tax price on the portal follows the NEW band | ⚠ The ex price is derived by DIVIDING by the band's multiplier. If the portal shows an ex price *higher* than the inc price, the units are inverted — stop and tell me |
-| 5.4c | ⚠ If you see *"Plutus didn't send back any tax bands"* | Tell me — the list call is failing | That message is new in 1.34.0 and exists to make this visible; before it, the sheet was skipped in silence |
+| 5.4c | ⚠ If a tax/category sheet does NOT appear | You get a message NAMING the reason — *"this operator isn't allowed to read them"*, *"nobody is signed in on this till"*, *"couldn't reach Plutus"*. **Send me the wording.** | ⚠ Before 1.35.0 every one of those came back as an empty list and the sheet was skipped in silence — a network fault presenting as a fact about your shop |
 | 5.5 | Check that item in the **portal** | Every field you changed | If the portal disagrees, stop and tell me |
 | 5.6 | **Settings → Receipt printer** | Either the **agent's** version and printer name, or a plain message saying no Plutus Till Agent is running on this PC | ⚠ Rebuilt in 1.33.0. Matt saw *"Wireless is turned off"* — that was Windows' generic device picker complaining about RADIOS because no OPOS printer exists, not about the printer. The till now prints the way the **web till** does, through the agent |
 | 5.6a | If an agent is running: **Pair this till** → type the code from its tray window | A test receipt comes out | ⚠ The code is per PC and never leaves it. A wrong code gives "the agent didn't accept that code", not silence |
