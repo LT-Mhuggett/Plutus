@@ -22,8 +22,14 @@ refund against it, print it — and as of 2026-08-10 **open a float and close th
 which was the one thing genuinely blocking an open-to-close test. What it still cannot do is
 inventory, reporting, loyalty, gift cards, users and theming.
 
-**Cutover steps 1–20 and 23: done.** **11b + 21, 22, 24–28: remaining.** Roughly **40–55 working
-days**, dominated by three: inventory (25), reporting (26) and loyalty/gift cards (27).
+**Done: cutover steps 1–20, 23, and the first slice of 25 (item edit).**
+**Remaining: 11b · 21 · 22 · 24 · the rest of 25 · 26 · 27 · 28 — about 55 working days**, and more
+than half of that is three items: loyalty/gift cards (27, ~15d), reporting (26, ~9d) and the rest of
+inventory (25, ~7d).
+
+⚠ **That total has barely moved despite a lot landing, and the reason is worth knowing:** almost
+everything delivered on 2026-08-10 was *wiring* — components that already existed and had no caller
+— rather than the screen-building that dominates what is left. The cheap wins are now largely spent.
 
 ⚠ **The pattern that keeps holding.** Cash looked like a five-day build and the server turned out to
 be finished — the whole step was client-side wiring. Six components have now been found built,

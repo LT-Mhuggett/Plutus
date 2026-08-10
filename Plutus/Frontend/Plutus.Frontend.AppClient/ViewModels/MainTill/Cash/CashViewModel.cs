@@ -90,6 +90,20 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Cash
 
         private async Task RecordAsync(string type, string prompt)
         {
+            // ⚠ `pos.no-sale` — "open the cash drawer without a sale" — gates EVERY cash action, and
+            // the choice is deliberate. The built-in **Cashier role holds only `pos.sell`**, so a
+            // front-line cashier cannot declare a float, pay a supplier out of the till, or close
+            // the day; Supervisor and up can. Money moving in or out of a drawer with no sale behind
+            // it is precisely what that permission exists to control.
+            //
+            // ⚠ STRICTER THAN THE SERVER, on purpose. `POST /api/v1/cash-events` accepts a DEVICE
+            // token, because the till must be able to send a queued event overnight with nobody
+            // signed in. Requiring a person HERE is about who may take the action, not about who may
+            // transmit it — and the two are different questions.
+            //
+            // ⚠ One gate for all five, rather than splitting X/Z onto `pos.reports.view`. A
+            // supervisor who can open a float but not count it would be a worse screen, and the
+            // split gains nothing while a single role holds both.
             var gate = Services.Security.TillGate.Check(
                 App.GetViewModel().SignedInOperator, PermissionCatalogue.PosNoSale);
 
