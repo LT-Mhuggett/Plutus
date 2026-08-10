@@ -194,6 +194,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                         ExPrice = c.VatRateBp > 0
                             ? Math.Round(c.PricePence / (1m + c.VatRateBp / 10000m)) / 100m
                             : c.PricePence / 100m,
+                        // ⚠ Schema v5. Brand in particular is why the column exists: `ItemSearch`
+                        // matches on it, so without it this list and the scan box answered the same
+                        // query differently.
+                        Brand = c.Brand,
+                        Desc = c.Desc,
+                        Cost = c.CostPence / 100m,
                     }).ToList();
 
                     // ⚠ THE STOCK COLUMN WAS BLANK ON EVERY ROW, and blank reads as ZERO.
@@ -283,6 +289,14 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         public Command OpenEditItemCommandArg
         {
             get => _openEditItemCommandArg ?? (_openEditItemCommandArg = new Command<string>(ExecuteOpenEditItem));
+        }
+
+        /// <summary>"Add item" — with a barcode when a scan brought us here, without when the
+        /// operator pressed the button.</summary>
+        Command _createItemCommand;
+        public Command CreateItemCommand
+        {
+            get => _createItemCommand ?? (_createItemCommand = new Command<string>(ExecuteCreateItem));
         }
 
         Command _updateItemStockCommandArg;
@@ -580,6 +594,228 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 Services.Analytics.CrashLog.Write("ViewAllViewModel.EditItem", ex);
                 await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
                     "That didn't work. Nothing has been changed.", "OK".Translate());
+            }
+        }
+
+        /// <summary>
+        /// Create a catalogue item (WP10 / cutover step 25 — the add-unknown-scan flow).
+        ///
+        /// ⚠ IT TAKES THE BARCODE FROM THE SCAN. That is the whole point: an operator holding
+        /// something the till does not know should not have to read the barcode off the packaging
+        /// and type it in, which is the step where a digit gets dropped and a second, unsellable
+        /// item appears in the catalogue.
+        ///
+        /// ⚠ THE BARCODE IS CHECKED FREE FIRST, AND THE CLASH IS SHOWN. It is half the composite
+        /// primary key, so a duplicate is rejected by the database — the web till showed a raw
+        /// "API 500" before it learned to check (`InventoryPage.tsx checkBarcodeFree`). And the
+        /// honest response is not "that's taken": it is to NAME the item that has it, because
+        /// nine times out of ten the answer is "you already stock this".
+        /// </summary>
+        public async void ExecuteCreateItem(string scannedBarcode)
+        {
+            try
+            {
+                var gate = Services.Security.TillGate.Check(
+                    App.GetViewModel().SignedInOperator, PermissionCatalogue.PortalPricesManage);
+
+                if (!gate.Allowed)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(), gate.Message, "OK".Translate());
+                    return;
+                }
+
+                var api = await Services.Connectivity.PlutusApi.GetOperatorAsync();
+                if (api is null)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "Adding an item needs someone signed in and a connection to Plutus.", "OK".Translate());
+                    return;
+                }
+
+                var businessId = await Services.Storage.TillStoreAccess.UseAsync(
+                    s => s.GetGuidMetaAsync(Plutus.Client.Storage.MetaKeys.BusinessId));
+                if (businessId is not Guid business || business == Guid.Empty)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "This till hasn't learnt which business it belongs to yet.", "OK".Translate());
+                    return;
+                }
+
+                const NumberStyles money = NumberStyles.AllowCurrencySymbol | NumberStyles.AllowThousands
+                                           | NumberStyles.AllowDecimalPoint;
+
+                // ── the barcode, and whether anything already has it ──
+                var barcode = (scannedBarcode ?? "").Trim();
+                if (string.IsNullOrWhiteSpace(barcode))
+                {
+                    var typed = await App.Current.MainPage.DisplayPromptAsync(
+                        "New item", "Scan or type the barcode.", "OK".Translate(), "Cancel".Translate(),
+                        maxLength: 20);
+                    if (string.IsNullOrWhiteSpace(typed)) return;
+                    barcode = typed.Trim();
+                }
+
+                // ⚠ 20 CHARACTERS, matching the web till's `maxLength={20}` and the legacy column.
+                // A longer code is truncated by the database, so two different products can end up
+                // sharing a key — and the second one silently fails to insert.
+                if (barcode.Length > 20)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "A barcode can be at most 20 characters. Nothing has been added.", "OK".Translate());
+                    return;
+                }
+
+                var clash = await api.GetItemAsync(barcode, business);
+                if (clash is not null)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        $"“{clash.Name}” already has the barcode {barcode}" +
+                        (clash.BinnedAtUtc is null ? "." : " (it's in the bin).") +
+                        " Nothing has been added.", "OK".Translate());
+                    return;
+                }
+
+                var (bandList, bandProblem) = await api.GetTaxBandsAsync(business);
+                var (categoryList, categoryProblem) = await api.GetCategoriesAsync(business);
+                var bands = bandList ?? new List<TaxBandDto>();
+                var categories = categoryList ?? new List<CategoryDto>();
+
+                // ⚠ A NEW ITEM HAS NO BAND TO FALL BACK ON, unlike an edit. Without a real list
+                // there is no honest way to price it — the ex price cannot be derived and the
+                // server's pair guard would reject the write — so this refuses rather than
+                // guessing 20%, which would be a VAT decision made by a default.
+                if (bands.Count == 0)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        (bandProblem ?? "Plutus didn't send back any tax bands.") +
+                        " A new item can't be priced without one, so nothing has been added.",
+                        "OK".Translate());
+                    return;
+                }
+
+                var taxId = await PickTaxBandAsync(bands, bands[0].IdOne, bandProblem);
+                if (taxId is null) return;
+
+                var catId = await PickCategoryAsync(
+                    categories, categories.Count > 0 ? categories[0].IdOne : Guid.Empty, categoryProblem);
+                if (catId is null) return;
+
+                var untracked = await PickStockTrackingAsync(false);
+                if (untracked is null) return;
+
+                var chosenBand = bands.FirstOrDefault(b => b.IdOne == taxId.Value);
+                var chosenCategory = categories.FirstOrDefault(c => c.IdOne == catId.Value);
+
+                var elements = new List<ViewElementData>
+                {
+                    new ViewElementData(1, "Barcode", barcode, Array.Empty<IValidator>(), false, false),
+                    new ViewElementData(2, "Name".Translate(), "",
+                        new IValidator[] { new RequiredValidator() }, false, true),
+                    new ViewElementData(3, "Brand", "", Array.Empty<IValidator>(), false, true),
+                    new ViewElementData(4, "Description", "", Array.Empty<IValidator>(), false, true),
+                    new ViewElementData(5, "Cost (£)", "0.00",
+                        new IValidator[] { new CurrencyValueValidator(money) }, false, true),
+                    new ViewElementData(6, "Price inc tax (£)", "",
+                        new IValidator[] { new RequiredValidator(), new CurrencyValueValidator(money) }, false, true),
+                    new ViewElementData(7, "Tax band",
+                        Plutus.Client.Core.TaxBandLabel.For(chosenBand, taxId.Value),
+                        Array.Empty<IValidator>(), false, false),
+                    new ViewElementData(8, "Category",
+                        chosenCategory?.Name ?? (catId.Value == Guid.Empty ? "none" : catId.Value.ToString("D")),
+                        Array.Empty<IValidator>(), false, false),
+                };
+
+                // ⚠ ONLY OFFERED WHEN THE ITEM IS TRACKED. Asking for an opening count on a carrier
+                // bag invites somebody to type one, and a count on an untracked item is a number
+                // nothing will ever move — the web till hides the same field for the same reason.
+                if (!untracked.Value)
+                    elements.Add(new ViewElementData(9, "Opening stock (optional)", "",
+                        Array.Empty<IValidator>(), false, true));
+
+                var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                    elements, "Confirm".Translate(), true, "New item", "Cancel".Translate());
+
+                if (answers.Count == 0) return;
+
+                _ = answers.TryGetValue(2, out var name);
+                _ = answers.TryGetValue(3, out var brand);
+                _ = answers.TryGetValue(4, out var desc);
+                _ = answers.TryGetValue(5, out var costText);
+                _ = answers.TryGetValue(6, out var priceText);
+                _ = answers.TryGetValue(9, out var stockText);
+
+                if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(priceText)) return;
+
+                if (!decimal.TryParse(priceText, money, CultureInfo.CurrentCulture, out var price) || price < 0)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "That price didn't look like a number. Nothing has been added.", "OK".Translate());
+                    return;
+                }
+
+                if (!decimal.TryParse(costText ?? "", money, CultureInfo.CurrentCulture, out var cost) || cost < 0)
+                    cost = 0m;
+
+                // ⚠ The ex price DIVIDES by the band multiplier — see `ExecuteOpenEditItem`. A new
+                // item has no existing pair to fall back on, which is why an empty band list
+                // refused the whole operation above.
+                var exPrice = chosenBand is { Rate: > 0 }
+                    ? Math.Round(price / chosenBand.Rate, 2, MidpointRounding.AwayFromZero)
+                    : price;
+
+                var (ok, problem) = await api.CreateItemAsync(new ItemDto
+                {
+                    Id = barcode,
+                    IdOne = barcode,
+                    Name = name.Trim(),
+                    // ⚠ "-" not "", matching the web till, so one column does not end up holding
+                    // two different placeholders depending on which till created the row.
+                    Brand = string.IsNullOrWhiteSpace(brand) ? "-" : brand.Trim(),
+                    Desc = (desc ?? "").Trim(),
+                    Cost = cost,
+                    Price = price,
+                    ExPrice = exPrice,
+                    TaxId = taxId.Value,
+                    CatId = catId.Value,
+                    StockUntracked = untracked.Value,
+                }, business);
+
+                if (!ok)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        problem ?? "Plutus refused the new item.", "OK".Translate());
+                    return;
+                }
+
+                // ⚠ SEPARATE CALL, AND ITS FAILURE IS REPORTED SEPARATELY. The item exists at this
+                // point whatever happens next — saying "that didn't work" would send somebody to
+                // create it a second time, and the barcode check would then refuse them.
+                var stockNote = "";
+                if (!untracked.Value && int.TryParse(stockText ?? "", out var qty) && qty > 0)
+                {
+                    var storeId = await Services.Storage.TillStoreAccess.UseAsync(
+                        s => s.GetIntMetaAsync(Plutus.Client.Storage.MetaKeys.StoreId));
+
+                    var (stockOk, stockProblem) = await api.CreateStockAsync(barcode, qty, business, storeId ?? 0);
+                    stockNote = stockOk
+                        ? $" with {qty} in stock"
+                        : $" — but its opening stock was refused: {stockProblem}";
+                }
+
+                await Services.Storage.CatalogueSyncService.SyncAsync();
+                InitItems();
+
+                await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    $"Added “{name.Trim()}”{stockNote}.", "OK".Translate());
+
+                Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Item Created");
+            }
+            catch (Exception ex)
+            {
+                // ⚠ `async void` — an escape here closes the till.
+                Services.Analytics.CrashLog.Write("ViewAllViewModel.CreateItem", ex);
+                await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "That didn't work. Nothing has been added.", "OK".Translate());
             }
         }
 

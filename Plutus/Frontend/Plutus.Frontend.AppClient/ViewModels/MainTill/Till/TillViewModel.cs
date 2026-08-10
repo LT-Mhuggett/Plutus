@@ -327,7 +327,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 var item = lookup.Item;
                 if (item == null)
                 {
-                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "ItemNotFoundMesg".Translate(), "OK".Translate());
+                    // ⚠ AN UNKNOWN BARCODE IS USUALLY A NEW PRODUCT, NOT A MISTAKE (cutover step
+                    // 25). Until now the till said "we can't find an item with that ID" and stopped
+                    // — so the only way to sell something newly delivered was to leave the counter,
+                    // find another machine, and add it there. That is how shops end up ringing new
+                    // stock through as a "miscellaneous" line, which loses the sale from every
+                    // stock figure and every category report it should appear in.
+                    await OfferToAddUnknownAsync(ItemId);
                     return;
                 }
 
@@ -1771,6 +1777,55 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 Services.Analytics.CrashLog.Write("TillViewModel.FindItem", ex);
                 return ItemLookup.NotFound;
             }
+        }
+
+        /// <summary>
+        /// Nothing matched what was scanned — offer to put it in the catalogue (cutover step 25).
+        ///
+        /// ⚠ THE BARCODE TRAVELS WITH THE OFFER, which is the point. Reading a code off a packet
+        /// and typing it in again is the step where a digit gets dropped, and the result is a second
+        /// item nothing will ever scan to — invisible on the shelf, invisible in stock, and only
+        /// discovered when the real one is added later and the insert is refused.
+        ///
+        /// ⚠ IT IS AN OFFER, NOT AN AUTOMATIC JUMP. A mistyped search is far commoner than a new
+        /// product, and a screen that leaps into "create item" every time someone fat-fingers the
+        /// scan box is a screen people learn to fight.
+        ///
+        /// ⚠ Adding is REFUSED POLITELY without `portal.prices.manage` — a cashier scanning an
+        /// unknown code should be told the item is not in the catalogue, not offered a door that
+        /// closes in their face. `TillGate` supplies the wording.
+        /// </summary>
+        private async Task OfferToAddUnknownAsync(string barcode)
+        {
+            var typed = (barcode ?? "").Trim();
+
+            var allowed = Services.Security.TillGate.Check(
+                App.GetViewModel().SignedInOperator, PermissionCatalogue.PortalPricesManage).Allowed;
+
+            if (!allowed || string.IsNullOrWhiteSpace(typed))
+            {
+                await Application.Current.MainPage.DisplayAlert(
+                    "Hmm".Translate(), "ItemNotFoundMesg".Translate(), "OK".Translate());
+                return;
+            }
+
+            const string add = "Add it to the catalogue…";
+
+            // ⚠ Through `Modal`, because saying yes leads straight into a run of further dialogs,
+            // and two modals in quick succession is what threw the COMException that closed the
+            // till at the payment prompt.
+            var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
+                Application.Current.MainPage.DisplayActionSheet(
+                    $"Nothing in the catalogue matches “{typed}”.", "Cancel".Translate(), null, add));
+
+            if (picked != add) return;
+
+            // ⚠ The inventory viewmodel owns item creation, and it is reached directly rather than
+            // duplicated here — the barcode check, the band list, the ex-price derivation and the
+            // opening-stock call are one flow, and a second copy on the till screen would be the
+            // exact drift `till-design.md` C2 exists to prevent. It re-syncs the catalogue when it
+            // finishes, so the operator can scan the item again immediately.
+            new Inventory.Items.ViewAllViewModel().ExecuteCreateItem(typed);
         }
 
         /// <summary>

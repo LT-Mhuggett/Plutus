@@ -447,6 +447,87 @@ public sealed class PlutusApiClient
     }
 
     /// <summary>
+    /// Create a catalogue item (WP10 / cutover step 25, the add-unknown-scan flow).
+    ///
+    /// ⚠ CHECK THE BARCODE IS FREE FIRST — with <see cref="GetItemAsync"/> — and this method does
+    /// NOT do it for you, because the honest check needs a screen: the clashing item has to be
+    /// shown to the operator so they can decide whether they have just scanned something already in
+    /// the catalogue. The web till learned this the hard way (`InventoryPage.tsx checkBarcodeFree`):
+    /// without it the composite primary key rejects the insert and the till showed a raw "API 500".
+    ///
+    /// ⚠ THE SAME `POST /api/Item` THE WEB TILL USES, with the same body — binding default 10.
+    /// A parallel v2 create would be a second door onto one table, and the two would drift on
+    /// exactly the fields nobody checks: `brand` defaulting to "-" rather than "", `amount` 0,
+    /// `image` null.
+    ///
+    /// ⚠ IT DOES NOT CREATE STOCK. Stock is a separate call (<see cref="CreateStockAsync"/>) and a
+    /// separate decision — an item can exist with none, and a service or carrier bag should never
+    /// have a count at all.
+    /// </summary>
+    public async Task<(bool Ok, string? Problem)> CreateItemAsync(
+        ItemDto item, Guid businessId, CancellationToken ct = default)
+    {
+        if (item is null) throw new ArgumentNullException(nameof(item));
+
+        // ⚠ The composite key must be present or the entity will not bind — the same trap the PUT
+        // has, and the reason `UpdateItemFieldsAsync` sets these too.
+        item.Id ??= item.IdOne;
+        item.IdOne ??= item.Id;
+        if (item.IdTwo == Guid.Empty) item.IdTwo = businessId;
+        if (item.BusinessId == Guid.Empty) item.BusinessId = businessId;
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, "/api/Item")
+        {
+            Content = JsonContent.Create(item, options: Json),
+        };
+        req.Headers.Add("businessId", businessId.ToString("D"));
+        await AuthoriseAsync(req, ct);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode) return (true, null);
+
+        var detail = await res.Content.ReadAsStringAsync(ct);
+        return (false, string.IsNullOrWhiteSpace(detail)
+            ? $"Plutus refused the new item ({(int)res.StatusCode})."
+            : detail);
+    }
+
+    /// <summary>
+    /// Give a new item its opening stock.
+    ///
+    /// ⚠ `bussinessId` IS SPELT THAT WAY ON THE WIRE. It is the legacy `StockBody` property name
+    /// and the web till sends the same misspelling (`api.ts createStock`) — correcting it here
+    /// would bind to nothing and silently create stock of zero. ⚠ The typo is load-bearing.
+    /// </summary>
+    public async Task<(bool Ok, string? Problem)> CreateStockAsync(
+        string itemIdOne, int quantity, Guid businessId, int storeId, CancellationToken ct = default)
+    {
+        var body = new Dictionary<string, object?>
+        {
+            ["id"] = itemIdOne,
+            ["itemIdOne"] = itemIdOne,
+            ["quantity"] = quantity,
+            ["bussinessId"] = businessId,   // ⚠ sic — see above
+            ["storeId"] = storeId,
+        };
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, "/api/Stock")
+        {
+            Content = JsonContent.Create(body, options: Json),
+        };
+        req.Headers.Add("businessId", businessId.ToString("D"));
+        await AuthoriseAsync(req, ct);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode) return (true, null);
+
+        var detail = await res.Content.ReadAsStringAsync(ct);
+        return (false, string.IsNullOrWhiteSpace(detail)
+            ? $"The item was created but its opening stock was refused ({(int)res.StatusCode})."
+            : detail);
+    }
+
+    /// <summary>
     /// Change some fields of an item, safely.
     ///
     /// ⚠ READ-MODIFY-WRITE, AND THIS IS THE WHOLE POINT OF THE METHOD. `PUT /api/Item/{id1}` binds

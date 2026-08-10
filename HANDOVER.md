@@ -27,13 +27,49 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 | | |
 |---|---|
-| **Suite** | Unit **815** · Integration **146** · Architecture **15** · AppClient **409** (+3 skipped) — all green |
-| **Till build to run** | **`D:\tmp\plutus-till-1.35.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing needed. Stamp `1.29.0+6fa2ac2` |
+| **Suite** | Unit **821** · Integration **146** · Architecture **15** · AppClient **409** (+3 skipped) — all green |
+| **Till build to run** | **`D:\tmp\plutus-till-1.36.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing needed. Stamp `1.29.0+6fa2ac2` |
 | **Deployed** | backend **1.8.3** LIVE (2026-08-10 15:28). Rollback `~/PLUTUS/backend.pre-20260810-152835`; the two before it are `.pre-20260810-151429` (1.8.2) and `.pre-20260810-123535` (1.8.1). Each verified: DB-path probe **401**, ETRIE **200**, health 200, restart count 0. ⚠ **The heartbeat version fix is CONFIRMED WORKING in production** — `Devices.AppVersion` reads a real build, having been NULL on every row since the column shipped. ⚠ **1.8.2 carries the server-side "a refund cannot be refunded" guard** (verified present in the deployed DLL, UTF-16 aware — a plain grep finds nothing and would mislead you). ⚠ **1.8.3 lets a till operator read `/api/v1/reports/summary`.** |
-| **Versions** | till-maui **1.35.0** · platform **1.25.0** · backend **1.8.3** · portal **1.3.0** · till-web **1.5.0** |
+| **Versions** | till-maui **1.36.0** · platform **1.25.0** · backend **1.8.3** (⚠ **1.9.0 built, NOT deployed**) · portal **1.3.0** · till-web **1.5.0** |
 | **Deployed** | backend 1.7.0, portal 1.3.0, web till 1.5.0 — **LIVE and unchanged by today**. Nothing today needs a deploy; it is all MAUI + docs |
 | **Commits** | `bb3c13a` (overlay) → `79b8d7a` (search + button sweep) → `80dd81b` (payment dialog + layout). ⚠ **NOT PUSHED** — still local on `Matt's-Horror` |
 | **Health** | Plutus 200 · ETRIE 200 · backend up, 838 restarts is the historical rotation count and is not climbing |
+
+### 📦 2026-08-10, later still — the catalogue feed grows three fields (till **1.36.0**, backend **1.9.0** ⚠ NOT DEPLOYED)
+
+Cutover **step 25**, first real slice. ⚠ **The backend half is BUILT AND NOT DEPLOYED** — say the
+word and I will. Everything below is inert until it is, and safely so: the new columns are nullable.
+
+**The feed now carries Brand, Desc and Cost.** They were already on the `Item` entity — one
+`.Select` line each — and simply never selected. The one that mattered:
+
+⚠ **Brand is a SEARCHED field.** `SharedKernel.ItemSearch` matches name, barcode **and** brand, but
+the till's catalogue row had no brand column, so `TillStore.SearchAsync` passed `null` and the scan
+box matched **two fields where the server and the web till matched three**. Searching "Marvel"
+found nothing on a MAUI till and everything on the web one — same query, same shop, two answers,
+nothing to say which was right.
+
+⚠ **`CatalogueItemDto` exists TWICE**, hand-copied — the server re-declares it inside
+`CatalogueChangesController`. Both were changed; a C2 twin that is already documented.
+
+⚠ **THE CURSOR TRAP, and why there is a new button.** The feed is keyset pagination over
+(ModifiedAt, IdOne), so adding a *field* reaches an existing till only for items somebody edits
+afterwards — the other twenty thousand keep nulls for ever, and the symptom is a search that works
+for three items and not the rest, with nothing in any log. Schema **v5** clears the cursor once to
+force a backfill, **but that only works if the backend is already sending the fields when the
+upgrade runs.** Rather than document an ordering rule nobody will remember, the Plutus tab gained
+**"Re-download the whole catalogue"** — so the deploy order stops mattering.
+
+Also this slice: **add-unknown-scan** (an unknown barcode at the till offers to create the item,
+carrying the barcode with it), **"Add item"** on the inventory screen, and the item list's three
+honesty fixes — see `f1f64a1`.
+
+⚠ **Two bugs the suite caught while writing this**, both worth knowing: `ALTER TABLE … ADD COLUMN`
+has **no `IF NOT EXISTS` in SQLite**, so the first draft of the v5 step threw *"duplicate column
+name"* at start-up on any store built from the current model — a till that would not open, caught
+by `Running_the_upgrade_twice_is_harmless`. And `TillStore` has **two** hand-written upsert
+branches; a field copied into one and not the other reaches only brand-new items, which is exactly
+the `StockUntracked` bug from last week. `CatalogueUpsertTests` now fails if either forgets.
 
 ### 🖨 2026-08-10, late — the printer, the item editor, and the end of Syncfusion (till **1.33.0**)
 

@@ -59,6 +59,11 @@
                    Text="Each button exercises one layer built by the retrofit, so a failure points at a specific thing rather than at 'the network'."/>
             <Button Text="Send a heartbeat" Command="{Binding BeatCommand}" IsEnabled="{Binding NotBusy}"/>
             <Button Text="Read the catalogue feed" Command="{Binding CatalogueCommand}" IsEnabled="{Binding NotBusy}"/>
+            <!-- ⚠ Forgets the cursor and pulls everything again. It exists because adding a FIELD
+                 to the feed reaches an existing till only for items that change afterwards — so
+                 without this, brand/description/cost would arrive on three items and never on the
+                 other twenty thousand, with nothing to say so. -->
+            <Button Text="Re-download the whole catalogue" Command="{Binding ResyncCatalogueCommand}" IsEnabled="{Binding NotBusy}"/>
             <Button Text="Sync staff from the portal" Command="{Binding SyncStaffCommand}" IsEnabled="{Binding NotBusy}"/>
             <!-- ⚠ The only place a stuck sales queue is visible. The cadence drains silently every
                  60s, so a till holding a day of un-sent sales — or sales Plutus REFUSED — looks

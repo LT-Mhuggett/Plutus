@@ -141,6 +141,23 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
         private Command _catalogueCommand;
         public Command CatalogueCommand => _catalogueCommand ??= new Command(async () => await CatalogueAsync());
 
+        /// <summary>
+        /// Forget the catalogue cursor and pull the whole thing again.
+        ///
+        /// ⚠ IT EXISTS TO REMOVE AN ORDERING TRAP, not as a tidy-up. The changes feed is keyset
+        /// pagination over (ModifiedAt, IdOne): a till asks for what has changed SINCE its cursor.
+        /// So when a FIELD is added to the wire — brand, description and cost in schema v5 — an
+        /// existing till receives it only for items somebody happens to edit afterwards. The rest
+        /// keep nulls indefinitely, and the symptom is a search that works for three items and not
+        /// the other twenty thousand, with nothing in any log.
+        ///
+        /// The v5 upgrade clears the cursor once, which fixes it — but only if the SERVER is
+        /// already sending the new fields when that upgrade runs. Deploy the backend after the till
+        /// and the backfill is silently wasted. This button makes that ordering not matter.
+        /// </summary>
+        private Command _resyncCatalogueCommand;
+        public Command ResyncCatalogueCommand => _resyncCatalogueCommand ??= new Command(async () => await ResyncCatalogueAsync());
+
         private Command _syncStaffCommand;
         public Command SyncStaffCommand => _syncStaffCommand ??= new Command(async () => await SyncStaffAsync());
 
@@ -435,6 +452,32 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
             catch (Exception ex)
             {
                 LastAction = Friendly("Couldn't read the catalogue", ex);
+            }
+            finally { Busy = false; }
+        }
+
+        /// <summary>
+        /// Clear the cursor, then sync — see <see cref="ResyncCatalogueCommand"/>.
+        ///
+        /// ⚠ SAFE TO PRESS AT ANY TIME. Every catalogue row is an upsert keyed on the item id, so a
+        /// full re-pull rewrites what is already there rather than duplicating it; the cost is one
+        /// download, not a rebuild. ⚠ It does NOT touch the outbox — nothing queued is at risk.
+        /// </summary>
+        private async Task ResyncCatalogueAsync()
+        {
+            if (Busy) return;
+            Busy = true;
+            try
+            {
+                await Services.Storage.TillStoreAccess.UseAsync(
+                    s => s.SetCatalogueCursorAsync(null));
+
+                var result = await Services.Storage.CatalogueSyncService.SyncAsync();
+                LastAction = "Re-downloaded the whole catalogue. " + result.Message;
+            }
+            catch (Exception ex)
+            {
+                LastAction = Friendly("Couldn't re-download the catalogue", ex);
             }
             finally { Busy = false; }
         }

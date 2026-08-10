@@ -18,7 +18,7 @@ public sealed class TillDbContext : DbContext
     /// <summary>⚠ Bump this AND add a matching step to <see cref="UpgradeAsync"/> in the same
     /// commit. A bump with no step silently stamps a store as current without changing it; a step
     /// with no bump never runs.</summary>
-    public const int SchemaVersion = 4;
+    public const int SchemaVersion = 5;
 
     public TillDbContext(DbContextOptions<TillDbContext> options) : base(options) { }
 
@@ -183,6 +183,97 @@ public sealed class TillDbContext : DbContext
             await Database.ExecuteSqlRawAsync(
                 """CREATE INDEX IF NOT EXISTS "IX_LocalCashEvents_BusinessDay" ON "LocalCashEvents" ("BusinessDay");""", ct);
         }
+
+        // v5 — Brand, Desc and Cost on the catalogue row (WP10 / cutover step 25).
+        //
+        // ⚠ BRAND IS A SEARCHED FIELD and its absence was a live parity gap, not a missing nicety.
+        // `SharedKernel.ItemSearch` matches on name, barcode AND brand — but the till's row had no
+        // brand column, so `TillStore.SearchAsync` passed null and the scan box matched TWO fields
+        // where the server and the web till matched three. Searching "Marvel" found nothing on a
+        // MAUI till and everything on the web one: same query, same shop, two answers.
+        //
+        // ⚠ Cost is PENCE though the source column is decimal — money is integer pence everywhere
+        // and the conversion happens once, at the server's projection.
+        if (from < 5)
+        {
+            // ⚠ GUARDED, BECAUSE `ADD COLUMN` HAS NO `IF NOT EXISTS` IN SQLITE — unlike the
+            // `CREATE TABLE IF NOT EXISTS` steps above, which is why this is the first step in the
+            // file that needs a helper at all. An unguarded ADD COLUMN throws "duplicate column
+            // name" on any store whose tables were built from the CURRENT model (`EnsureCreated`
+            // makes the latest schema, which already has these columns) and on any store where the
+            // upgrade is replayed. Either way it throws at START-UP, which is a till that will not
+            // open. Caught by `Running_the_upgrade_twice_is_harmless`.
+            await AddColumnIfMissingAsync("CatalogueItems", "Brand", "TEXT NULL", ct);
+            await AddColumnIfMissingAsync("CatalogueItems", "Desc", "TEXT NULL", ct);
+            await AddColumnIfMissingAsync("CatalogueItems", "CostPence", "INTEGER NOT NULL DEFAULT 0", ct);
+
+            // ⚠⚠ THE CURSOR IS RESET, AND WITHOUT THIS THE WHOLE MIGRATION DOES NOTHING VISIBLE.
+            //
+            // The changes feed is keyset pagination over (ModifiedAt, IdOne): a till asks for what
+            // has changed SINCE its cursor. Adding a field to the wire does not change any item's
+            // ModifiedAt, so an existing till would receive the new columns only for items somebody
+            // happens to edit afterwards — and would sit for months with brand populated on the
+            // three items that were repriced and null on the other twenty thousand.
+            //
+            // That failure is invisible: search would work for some items and not others, with no
+            // error, no pattern an operator could describe, and nothing in the logs. Clearing the
+            // cursor forces one full re-pull, which is a few hundred KB once, on a schema upgrade
+            // that already happens at start-up.
+            //
+            // ⚠ SAFE TO REPLAY. Every catalogue row is an upsert keyed on the item id, so a
+            // re-pull rewrites what is already there rather than duplicating it.
+            await Database.ExecuteSqlRawAsync(
+                $"""DELETE FROM "Meta" WHERE "Key" = '{MetaKeys.CatalogueVersion}';""", ct);
+        }
+    }
+
+    /// <summary>
+    /// `ALTER TABLE … ADD COLUMN`, but only if the column is not already there.
+    ///
+    /// ⚠ SQLITE HAS NO `ADD COLUMN IF NOT EXISTS`, and every upgrade step in this file must be
+    /// idempotent — it runs at start-up, it can be replayed, and a store built by
+    /// `EnsureCreatedAsync` already carries the LATEST schema, so the columns a step is trying to
+    /// add can be there before the step ever runs. An unguarded ADD COLUMN then throws
+    /// "duplicate column name" and the till does not open.
+    ///
+    /// ⚠ THE IDENTIFIERS GO INTO SQL AS TEXT, because SQL has no way to parameterise a table or
+    /// column name in an `ALTER` (the `pragma_table_info` probe below CAN parameterise, and does).
+    /// Every caller is in this file and passes a literal — but "every caller today" is not a
+    /// guarantee, so the identifiers are VALIDATED rather than trusted. A private method one edit
+    /// away from being handed a variable is exactly where injection gets in.
+    /// </summary>
+    private async Task AddColumnIfMissingAsync(string table, string column, string ddl, CancellationToken ct)
+    {
+        // ⚠ Letters, digits and underscores only — an allow-list, not an escape. Anything else is a
+        // programming error here and there is no legitimate value it could refuse.
+        static bool SafeIdentifier(string s) =>
+            s.Length is > 0 and <= 64 && s.All(ch => char.IsAsciiLetterOrDigit(ch) || ch == '_');
+
+        if (!SafeIdentifier(table) || !SafeIdentifier(column))
+            throw new ArgumentException($"Unsafe schema identifier: {table}.{column}");
+
+        // The DDL fragment is a fixed vocabulary, matched exactly rather than pattern-checked.
+        if (ddl is not ("TEXT NULL" or "INTEGER NOT NULL DEFAULT 0" or "INTEGER NULL"))
+            throw new ArgumentException($"Unsupported column definition: {ddl}");
+
+        var connection = Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+            await connection.OpenAsync(ct);
+
+        await using var probe = connection.CreateCommand();
+        probe.CommandText = "SELECT COUNT(*) FROM pragma_table_info($table) WHERE name = $column;";
+
+        var t = probe.CreateParameter(); t.ParameterName = "$table"; t.Value = table; probe.Parameters.Add(t);
+        var c = probe.CreateParameter(); c.ParameterName = "$column"; c.Value = column; probe.Parameters.Add(c);
+
+        var present = Convert.ToInt32(await probe.ExecuteScalarAsync(ct)) > 0;
+        if (present) return;
+
+        // ⚠ Built as a variable, not an inline interpolation, so the EF analyser's "interpolated
+        // string straight into raw SQL" rule (EF1002) is answered honestly: the identifiers are
+        // validated above, and this line has nothing left to check.
+        var sql = "ALTER TABLE \"" + table + "\" ADD COLUMN \"" + column + "\" " + ddl + ";";
+        await Database.ExecuteSqlRawAsync(sql, ct);
     }
 }
 

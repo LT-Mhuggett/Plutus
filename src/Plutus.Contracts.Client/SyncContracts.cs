@@ -93,7 +93,32 @@ public sealed record CatalogueItemDto(
     /// <summary>This TILL's store's non-revoked overrides, effective-dated. ⚠ Already filtered to
     /// the till's own store and to live overrides — another store's price is not this till's
     /// business, and a revoked override is not a price at all.</summary>
-    PricePointDto[]? StorePrices = null);
+    PricePointDto[]? StorePrices = null,
+
+    /// <summary>
+    /// The manufacturer or publisher. ⚠ **A SEARCHED FIELD**, and its absence was a real parity
+    /// gap: `SharedKernel.ItemSearch` matches on name, barcode AND brand, but the till's catalogue
+    /// row had no brand column, so `TillStore.SearchAsync` passed null and the scan box matched on
+    /// TWO fields where the server and the web till matched three. Searching "Marvel" found nothing
+    /// on a MAUI till and everything on the web one — the same query, the same shop, two answers.
+    /// </summary>
+    string? Brand = null,
+
+    /// <summary>Free text about the item. Shown when editing; not searched (see `ItemSearch` —
+    /// adding a fourth searched field without adding it to the server changes what a till finds
+    /// and nothing would say so).</summary>
+    string? Desc = null,
+
+    /// <summary>
+    /// What the shop PAID, in pence.
+    ///
+    /// ⚠ PENCE, though the column is `decimal`. Money is integer pence everywhere in this project
+    /// (architecture §4.1) and the conversion happens once, here at the boundary, rather than
+    /// travelling as a decimal that every consumer rounds its own way.
+    /// ⚠ It is margin data. It belongs on a till only because the item editor writes it back, and
+    /// the PUT binds the whole entity — an editor that could not see cost would zero it.
+    /// </summary>
+    long CostPence = 0);
 
 /// <summary>
 /// GET /api/v1/catalogue/changes?since={cursor}&amp;limit={n}

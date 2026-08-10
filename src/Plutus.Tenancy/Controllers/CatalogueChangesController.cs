@@ -30,7 +30,14 @@ namespace Plutus.Tenancy.Controllers
         DateTime UpdatedAtUtc,
         byte PricePolicy = 0,
         PricePointDto[]? CentralPrices = null,
-        PricePointDto[]? StorePrices = null);
+        PricePointDto[]? StorePrices = null,
+        // ⚠ Brand is a SEARCHED field — `ItemSearch` matches name, barcode and brand, and until
+        // this arrived the till's catalogue row had no brand column, so its scan box matched two
+        // fields where the server matched three. `CostPence` is pence, though the column is
+        // decimal: money is integer pence everywhere and the conversion happens once, here.
+        string? Brand = null,
+        string? Desc = null,
+        long CostPence = 0);
 
     public sealed record CatalogueChangesResult(
         string? Cursor,
@@ -106,6 +113,12 @@ namespace Plutus.Tenancy.Controllers
                     i.StockUntracked,
                     i.BinnedAtUtc,
                     i.ModifiedAt,
+                    // ⚠ Already on the entity — one column each, no join. They were simply never
+                    // selected, so a till could not search by brand, show a description, or edit an
+                    // item without blanking its cost.
+                    i.Brand,
+                    i.Desc,
+                    i.Cost,
                 })
                 .ToListAsync();
 
@@ -168,7 +181,13 @@ namespace Plutus.Tenancy.Controllers
                 UpdatedAtUtc: r.ModifiedAt,
                 PricePolicy: policies.TryGetValue(r.IdOne, out var pol) ? pol : (byte)0,
                 CentralPrices: central.TryGetValue(r.IdOne, out var cp) ? cp : null,
-                StorePrices: overrides.TryGetValue(r.IdOne, out var op) ? op : null))
+                StorePrices: overrides.TryGetValue(r.IdOne, out var op) ? op : null,
+                // ⚠ "-" IS THE LEGACY "NO BRAND" PLACEHOLDER, written by both tills, and it must
+                // not reach a till as a brand to search or display. Normalised here, once, rather
+                // than in each of the clients that would otherwise each decide for themselves.
+                Brand: string.IsNullOrWhiteSpace(r.Brand) || r.Brand == "-" ? null : r.Brand,
+                Desc: string.IsNullOrWhiteSpace(r.Desc) ? null : r.Desc,
+                CostPence: Pence.FromDecimal(r.Cost)))
                 .ToArray();
 
             var cursor = rows.Count == 0

@@ -110,13 +110,22 @@ public sealed class TillStore : IOutboxStore, ISyncStore
         // superset, and ItemSearch makes the real decision below.)
         var pattern = "%" + widest + "%";
 
+        // ⚠ BRAND IS IN BOTH HALVES NOW (schema v5). It was in NEITHER, and that was a live parity
+        // gap rather than a missing nicety: `ItemSearch` matches name, barcode AND brand, so
+        // passing null below made this till match two fields where the server and the web till
+        // matched three. Searching "Marvel" found nothing here and everything there — the same
+        // query, in the same shop, answered two ways, with nothing to say which was right.
+        // ⚠ The prefilter must stay a SUPERSET of the real answer, so brand belongs in the SQL too;
+        // adding it only to the in-memory pass would filter out rows that never got fetched.
         var candidates = await _db.CatalogueItems.AsNoTracking()
-            .Where(i => !i.Removed && (EF.Functions.Like(i.Name, pattern) || EF.Functions.Like(i.IdOne, pattern)))
+            .Where(i => !i.Removed && (EF.Functions.Like(i.Name, pattern)
+                                       || EF.Functions.Like(i.IdOne, pattern)
+                                       || (i.Brand != null && EF.Functions.Like(i.Brand, pattern))))
             .Take(Math.Max(limit * 20, 200))
             .ToListAsync(ct);
 
         return candidates
-            .Where(i => ItemSearch.Matches(tokens, i.Name, i.IdOne, null))
+            .Where(i => ItemSearch.Matches(tokens, i.Name, i.IdOne, i.Brand))
             .OrderBy(i => i.Name)
             .Take(limit)
             .ToList();
@@ -293,6 +302,12 @@ public sealed class TillStore : IOutboxStore, ISyncStore
                 existing.BandData = incoming.BandData;
                 existing.Removed = incoming.Removed;
                 existing.UpdatedAtUtc = incoming.UpdatedAtUtc;
+                // ⚠ v5 — and this is the SECOND hand-written upsert branch in this file. Both have
+                // to be kept in step by hand, which is exactly how StockUntracked came to be
+                // dropped for a fortnight; `CatalogueUpsertTests` now fails if either forgets.
+                existing.Brand = incoming.Brand;
+                existing.Desc = incoming.Desc;
+                existing.CostPence = incoming.CostPence;
             }
         }
         await _db.SaveChangesAsync(ct);
@@ -303,6 +318,31 @@ public sealed class TillStore : IOutboxStore, ISyncStore
 
     public Task<string?> GetCatalogueCursorAsync(CancellationToken ct = default) =>
         GetMetaAsync(MetaKeys.CatalogueVersion, ct);
+
+    /// <summary>
+    /// Move the catalogue cursor, or clear it with null to force a full re-pull.
+    ///
+    /// ⚠ CLEARING IT IS THE ONLY WAY TO BACKFILL A NEW FIELD. The feed is keyset pagination over
+    /// (ModifiedAt, IdOne), so adding a column to the wire reaches a till only for items that
+    /// change AFTERWARDS — every other row keeps the old value indefinitely, and the symptom is a
+    /// search that works for a handful of items and not the rest, with nothing in any log.
+    ///
+    /// ⚠ Safe to replay: every catalogue row is an upsert keyed on the item id, so a full re-pull
+    /// rewrites what is already there rather than duplicating it.
+    /// </summary>
+    public Task SetCatalogueCursorAsync(string? cursor, CancellationToken ct = default) =>
+        cursor is null
+            ? RemoveMetaAsync(MetaKeys.CatalogueVersion, ct)
+            : SetMetaAsync(MetaKeys.CatalogueVersion, cursor, ct);
+
+    private async Task RemoveMetaAsync(string key, CancellationToken ct)
+    {
+        var row = await _db.Meta.FirstOrDefaultAsync(m => m.Key == key, ct);
+        if (row is null) return;
+
+        _db.Meta.Remove(row);
+        await _db.SaveChangesAsync(ct);
+    }
 
     /// <summary>
     /// Apply one page of the changes feed and advance the cursor.
@@ -342,6 +382,13 @@ public sealed class TillStore : IOutboxStore, ISyncStore
             existing.StockUntracked = mapped.StockUntracked;
             existing.Removed = mapped.Removed;
             existing.UpdatedAtUtc = mapped.UpdatedAtUtc;
+            // ⚠ v5, and copied HERE as well as in Map — the omission above is the whole reason this
+            // comment exists. An item that gained a brand in the portal would otherwise keep a null
+            // one on every till that already held it, and only brand-new items would search
+            // correctly. That is precisely the StockUntracked bug, one field along.
+            existing.Brand = mapped.Brand;
+            existing.Desc = mapped.Desc;
+            existing.CostPence = mapped.CostPence;
         }
 
         if (cursor != null) await SetMetaAsync(MetaKeys.CatalogueVersion, cursor, ct);
@@ -379,6 +426,11 @@ public sealed class TillStore : IOutboxStore, ISyncStore
         BandData = SerialiseBandData(dto),
         Removed = dto.Removed,
         UpdatedAtUtc = dto.UpdatedAtUtc,
+        // ⚠ Schema v5. Brand is SEARCHED (`ItemSearch` matches name, barcode and brand), so its
+        // absence made the till's scan box match two fields where the server matched three.
+        Brand = dto.Brand,
+        Desc = dto.Desc,
+        CostPence = dto.CostPence,
     };
 
     /// <summary>Tax row + price timeline, so an offline till can resolve the price at the SALE's

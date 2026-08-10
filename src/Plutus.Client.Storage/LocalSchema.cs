@@ -36,6 +36,23 @@ public class CatalogueItem
     public string IdOne { get; set; } = "";
 
     public string Name { get; set; } = "";
+
+    /// <summary>
+    /// The manufacturer or publisher. ⚠ **SEARCHED** — `SharedKernel.ItemSearch` matches on name,
+    /// barcode and brand, and until this column existed (schema v5) `SearchAsync` passed null, so
+    /// the till's scan box matched TWO fields where the server and the web till matched three.
+    /// ⚠ Null, never "-": the legacy "no brand" placeholder is normalised away at the server's
+    /// projection so it cannot be searched for or displayed as if it were a brand.
+    /// </summary>
+    public string? Brand { get; set; }
+
+    /// <summary>Free text. Shown when editing; deliberately NOT searched — see `ItemSearch`.</summary>
+    public string? Desc { get; set; }
+
+    /// <summary>What the shop paid, in pence. ⚠ Held so the item editor can write it back: the
+    /// legacy PUT binds the WHOLE entity, so an editor that could not see cost would zero it.</summary>
+    public long CostPence { get; set; }
+
     /// <summary>0 Product · 1 Department.</summary>
     public int Kind { get; set; }
     public long PricePence { get; set; }
