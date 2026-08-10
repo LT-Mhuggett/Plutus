@@ -110,6 +110,18 @@ than one that will not open, which is why the Statistics tab now carries a warni
 real history in that file, and this is the only way to see it. Hiding it would remove the only
 access to data that has no server copy.
 
+⚠ **THESE TWO SCREENS ARE NOW THE ONLY THING KEEPING SYNCFUSION IN THE BUILD.** Matt, 2026-08-10:
+*"I am not going to renew Syncfusion, it seems like it can be replaced."* As of till 1.33.0 every
+Syncfusion control on a reachable screen is gone — quantity box, alterations picker, item list,
+discount multi-select. What remains is `SfCartesianChart` and `SfCalendar` here, plus the `XlsIO`
+export in `Helpers/FileIO/ExcelHandling.cs`, whose **only** caller is `SalesReportsViewModel`.
+
+So deleting L4 also deletes: `ExcelHandling.cs`, `SyncfusionLicenseProvider.RegisterLicense` in
+`App.xaml.cs`, `ConfigureSyncfusionCore` in `MauiProgram.cs`, and every Syncfusion package
+reference. ⚠ **In that order, and not before** — removing the licence registration while a licensed
+control still exists in the assembly turns a dormant screen into a trial-dialog screen, which is
+worse than leaving it. Full detail in [`syncfusion-footprint.md`](syncfusion-footprint.md).
+
 ---
 
 ## L5 — The legacy database layer 🔒

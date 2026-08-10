@@ -66,3 +66,29 @@ public sealed class ItemDto
     /// sale — on every till, offline, via the catalogue feed's tombstone being lifted.</summary>
     [JsonPropertyName("binnedAtUtc")] public DateTime? BinnedAtUtc { get; set; }
 }
+
+/// <summary>
+/// A tax band as `/api/Tax/Index` returns it.
+///
+/// ⚠ <see cref="Rate"/> IS A MULTIPLIER, NOT A PERCENTAGE — 1.2 means 20% VAT, 1.0 means zero-rated
+/// or exempt. Reading it as a percentage makes a £10 item cost £2, and the server's band guard
+/// (`|price − exPrice × rate| ≤ 2p`) would reject the write with a message about ex-prices that
+/// gives no hint the units were wrong. The web till says the same thing in `api.ts`.
+///
+/// ⚠ ZERO-RATED AND EXEMPT BOTH HAVE RATE 1.0 AND ARE NOT THE SAME THING. They are different bands
+/// with different names and they land in different boxes on a VAT return; only the band id
+/// distinguishes them. Never collapse them by comparing rates.
+/// </summary>
+public sealed class TaxBandDto
+{
+    [JsonPropertyName("idOne")] public int IdOne { get; set; }
+    [JsonPropertyName("name")] public string? Name { get; set; }
+    [JsonPropertyName("rate")] public decimal Rate { get; set; }
+}
+
+/// <summary>A catalogue category as `/api/Category/Index` returns it.</summary>
+public sealed class CategoryDto
+{
+    [JsonPropertyName("idOne")] public Guid IdOne { get; set; }
+    [JsonPropertyName("name")] public string? Name { get; set; }
+}

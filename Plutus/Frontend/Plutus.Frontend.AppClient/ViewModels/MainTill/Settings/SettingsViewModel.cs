@@ -13,6 +13,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Devices;
 using Microsoft.Maui.Networking;
@@ -59,8 +60,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
             // more.
             var buttonsAndSubHeadings = new List<Tuple<string, string>>
             {
+                // ⚠ "Receipt printer" now opens the AGENT flow, not the Windows device picker.
+                // Matt, 2026-08-10: *"I still cannot see a printer, it says wifi is turned off …
+                // The webtill can see the receipt printer fine."* Both true, same cause — see
+                // `ExecuteChangePrinter`. The OPOS picker is still reachable from inside that flow
+                // for a till with a genuine PointOfService device; it is no longer the front door.
                 Tuple.Create("Printer", ""),
-                Tuple.Create("ChangePrinter".Translate(), "ChangePrinterCommand"),
+                Tuple.Create("Receipt printer", "ChangePrinterCommand"),
                 Tuple.Create("PrintTestPage".Translate(), "PrintTestPageCommand"),
                 Tuple.Create("CheckoutOptions", ""),
                 Tuple.Create("AskForReceiptOption".Translate(), "ChangeAskForReceiptOptionCommand"),
@@ -268,6 +274,24 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
         ///
         /// Now gated on `pos.settings.manage` through the platform's own permissions, with the
         /// refusal shown rather than thrown.
+        ///
+        /// ⚠ AND IT NO LONGER OPENS THE WINDOWS DEVICE PICKER, because that picker could not find a
+        /// printer the web till prints on every day. Matt, 2026-08-10: *"I still cannot see a
+        /// printer, it says wifi is turned off, but I do not understand what this means? The webtill
+        /// can see the receipt printer fine."* Both observations were correct and had one cause:
+        ///
+        ///   • The picker enumerated `Windows.Devices.PointOfService` devices — a specialist driver
+        ///     profile almost no receipt printer ships. With nothing to show, Windows' generic
+        ///     device chrome fills the empty list with its stock advice about Bluetooth and Wi-Fi
+        ///     Direct radios. ⚠ "Wireless is turned off" was never about the printer.
+        ///   • The WEB till never used that route at all. It POSTs to the Plutus Till Agent, which
+        ///     prints through the ordinary Windows print queue — so every driver-installed printer
+        ///     is visible to it.
+        ///
+        /// This screen now leads with the agent, which is the parity answer: one hardware route for
+        /// both tills. The OPOS picker survives one level down, for a till that genuinely has a
+        /// PointOfService device — but it is no longer what an operator meets first, and it no
+        /// longer looks like a fault when it finds nothing.
         /// </summary>
         private async void ExecuteChangePrinter()
         {
@@ -285,18 +309,67 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
                     return;
                 }
 
-                using (var printerMgr = new PosPrinterManager())
-                {
-                    var printerId = await printerMgr.SelectPrinterAndGetPrinterId();
+                var status = await Services.Printing.TillAgentPrinting.StatusAsync();
 
-                    // ⚠ Only WRITE the setting when one was actually chosen. The old code assigned
-                    // the empty result in the else branch too, so cancelling the picker silently
-                    // UNSET the till's printer and the next receipt went nowhere.
-                    if (!string.IsNullOrEmpty(printerId))
-                        PrinterLogicalNameSetting = printerId;
-                    else
-                        await Application.Current.MainPage.DisplayAlert(
-                            "Warning".Translate(), "NoPrinter".Translate(), "OK".Translate());
+                if (status is null)
+                {
+                    // ⚠ Say WHAT IS MISSING and WHERE IT COMES FROM. "No printer selected" told an
+                    // operator nothing they could act on; this names the thing to install and the
+                    // fact that the web till on this same PC would have the same problem.
+                    var fallback = "Use a POS (OPOS) printer instead";
+                    var choice = await Services.UIHandeling.Modal.ShowAsync(() =>
+                        Application.Current.MainPage.DisplayActionSheet(
+                            "No Plutus Till Agent is running on this PC. The agent is the tray app that " +
+                            "owns the receipt printer and cash drawer — the web till prints through it too. " +
+                            "Start it (or install it) and try again.",
+                            "Cancel".Translate(), null, "Try again", fallback));
+
+                    if (choice == "Try again") { ExecuteChangePrinter(); return; }
+                    if (choice == fallback) await PickOposPrinterAsync();
+                    return;
+                }
+
+                var printer = string.IsNullOrWhiteSpace(status.PrinterName) ? "none chosen yet" : status.PrinterName;
+                var pair = string.IsNullOrWhiteSpace(TillAgentTokenSetting) ? "Pair this till" : "Change the pairing code";
+                const string test = "Print a test receipt";
+
+                var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
+                    Application.Current.MainPage.DisplayActionSheet(
+                        $"Plutus Till Agent v{status.AgentVersion} — printer: {printer}" +
+                        (status.PrinterOnline ? "" : " (offline)") +
+                        (status.DrawerSupported ? ", cash drawer supported" : ", no cash drawer"),
+                        "Cancel".Translate(), null, pair, test, "Use a POS (OPOS) printer instead"));
+
+                if (picked == pair)
+                {
+                    // ⚠ The agent's own tray window shows this code. It is per till PC, never
+                    // leaves the machine, and is NOT a Plutus login — the same design the web till
+                    // uses in `hardware.ts`.
+                    var typed = await Application.Current.MainPage.DisplayPromptAsync(
+                        "Pair with the agent",
+                        "Enter the pairing code from the Plutus Till Agent's tray window.",
+                        "OK".Translate(), "Cancel".Translate(), initialValue: TillAgentTokenSetting);
+
+                    if (typed is null) return;   // ⚠ null is Cancel; empty is "unpair me", which is allowed
+                    TillAgentTokenSetting = typed;
+
+                    var ok = await Services.Printing.TillAgentPrinting.TestPrintAsync();
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        ok ? "Paired. A test receipt should be coming out of the printer."
+                           : "The agent didn't accept that code. Check it in the agent's tray window.",
+                        "OK".Translate());
+                }
+                else if (picked == test)
+                {
+                    var ok = await Services.Printing.TillAgentPrinting.TestPrintAsync();
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        ok ? "Sent to the printer."
+                           : "The agent refused. Pair this till first, or check the printer is on.",
+                        "OK".Translate());
+                }
+                else if (picked == "Use a POS (OPOS) printer instead")
+                {
+                    await PickOposPrinterAsync();
                 }
             }
             catch (Exception ex)
@@ -304,11 +377,37 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
                 // ⚠ `async void` — an escape here is an UNHANDLED exception, not a failed command.
                 CrashLog.Write("SettingsViewModel.ExecuteChangePrinter", ex);
                 await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                    "Couldn't open the printer list. The till's printer hasn't been changed.", "OK".Translate());
+                    "Couldn't open the printer settings. Nothing has been changed.", "OK".Translate());
             }
             finally
             {
                 IsBusy = false;
+            }
+        }
+
+        /// <summary>
+        /// The old route, kept for a till with a genuine OPOS device.
+        ///
+        /// ⚠ It now WARNS FIRST rather than presenting an empty list as a fault. Almost no receipt
+        /// printer ships a Windows PointOfService driver profile, so on most till PCs this picker is
+        /// correctly empty — and the empty state is what produced "Wireless is turned off".
+        /// </summary>
+        private async Task PickOposPrinterAsync()
+        {
+            using (var printerMgr = new PosPrinterManager())
+            {
+                var printerId = await printerMgr.SelectPrinterAndGetPrinterId();
+
+                // ⚠ Only WRITE the setting when one was actually chosen. The old code assigned
+                // the empty result in the else branch too, so cancelling the picker silently
+                // UNSET the till's printer and the next receipt went nowhere.
+                if (!string.IsNullOrEmpty(printerId))
+                    PrinterLogicalNameSetting = printerId;
+                else
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "Windows found no POS (OPOS) printer on this PC — which is normal, as most " +
+                        "receipt printers don't ship that driver profile. Use the Plutus Till Agent " +
+                        "instead: it prints to any printer Windows already has.", "OK".Translate());
             }
         }
 
@@ -319,6 +418,21 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
             IsBusy = true;
             try
             {
+                // ⚠ THE AGENT FIRST, because it is what will print the next real receipt. A test
+                // page that exercises a route the till no longer uses proves nothing — and this
+                // button silently did NOTHING at all on a till with no OPOS device: `InitPrinter`
+                // returned false, the `if` fell through, and the operator got no paper and no
+                // message, which is indistinguishable from a broken printer.
+                if (Services.Printing.TillAgentPrinting.Paired)
+                {
+                    var ok = await Services.Printing.TillAgentPrinting.TestPrintAsync();
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        ok ? "Sent to the printer."
+                           : "The Plutus Till Agent didn't print. Check it's running and this till is paired.",
+                        "OK".Translate());
+                    return;
+                }
+
                 if(DeviceInfo.Idiom == DeviceIdiom.Desktop)
                 {
                     using (var printMgr = new PosPrinterManager())
@@ -347,12 +461,31 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
                             await printMgr.ExecuteOposOrPdfAsync();
                             await printMgr.CloseConnection();
                         }
+                        else
+                        {
+                            // ⚠ THE SILENT PATH, now closed. `InitPrinter` returns false whenever
+                            // no OPOS printer is set — which is every till PC without that driver
+                            // profile — and the `if` simply fell through. No paper, no message, no
+                            // log: identical to a printer that is broken, from a button whose whole
+                            // job is telling you whether the printer works.
+                            await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                                "This till has no printer set up. Set one up under Receipt printer — " +
+                                "the Plutus Till Agent is the one the web till uses.", "OK".Translate());
+                        }
                     }
                 }
             }
             catch(POSObjectException pOSObjectException)
             {
                 Debug.WriteLine(pOSObjectException.Message);
+            }
+            catch (Exception ex)
+            {
+                // ⚠ `async void` — anything that is not a POS exception was an UNHANDLED exception
+                // and took the app down from a settings button.
+                CrashLog.Write("SettingsViewModel.ExecutePrintTestPage", ex);
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "The test print didn't work. Nothing has been changed.", "OK".Translate());
             }
             finally
             {

@@ -358,6 +358,44 @@ public sealed class PlutusApiClient
     }
 
     /// <summary>
+    /// The tenant's tax bands, for the item editor's Tax list (WP10 / cutover step 25).
+    ///
+    /// ⚠ THE SAME URL THE WEB TILL CALLS, page size and all — binding default 10, "when in doubt,
+    /// match the web till". A second listing endpoint over the same table is how two tills end up
+    /// offering different bands for the same item.
+    ///
+    /// ⚠ `Rate` is a MULTIPLIER (1.2 = 20%); see <see cref="TaxBandDto"/>.
+    /// </summary>
+    public Task<List<TaxBandDto>?> GetTaxBandsAsync(Guid businessId, CancellationToken ct = default)
+        => GetLegacyAsync<List<TaxBandDto>>("/api/Tax/Index?PageNumber=1&PageSize=50", businessId, ct);
+
+    /// <summary>The tenant's categories, for the item editor's Category list. Same URL as the web
+    /// till's `fetchCategories`.</summary>
+    public Task<List<CategoryDto>?> GetCategoriesAsync(Guid businessId, CancellationToken ct = default)
+        => GetLegacyAsync<List<CategoryDto>>("/api/Category/Index?PageNumber=1&PageSize=100", businessId, ct);
+
+    /// <summary>
+    /// A GET against a LEGACY composite controller.
+    ///
+    /// ⚠ `businessId` travels as a HEADER on every one of these, which is why they cannot go
+    /// through <c>GetAsync</c>. It is the LEGACY business id, not the tenant id — the web till
+    /// sends the same header on every request (`api.ts headers()`), and the wrong one silently
+    /// returns another tenant's rows or none at all.
+    /// </summary>
+    private async Task<T?> GetLegacyAsync<T>(string url, Guid businessId, CancellationToken ct)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.Add("businessId", businessId.ToString("D"));
+        await AuthoriseAsync(req, ct);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (!res.IsSuccessStatusCode) return default;
+
+        try { return await res.Content.ReadFromJsonAsync<T>(Json, ct); }
+        catch (Exception e) when (e is JsonException or NotSupportedException) { return default; }
+    }
+
+    /// <summary>
     /// Change some fields of an item, safely.
     ///
     /// ⚠ READ-MODIFY-WRITE, AND THIS IS THE WHOLE POINT OF THE METHOD. `PUT /api/Item/{id1}` binds

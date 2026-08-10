@@ -3,8 +3,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:d="http://schemas.microsoft.com/dotnet/maui/design"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:listViewCM="clr-namespace:Plutus.Frontend.AppClient.Helpers.Extensions.XAML.ListViewWithContextMenu"
-             xmlns:Behaviors="clr-namespace:Plutus.Frontend.AppClient.Behaviors"
              xmlns:viewModels="clr-namespace:Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items"
              xmlns:i18n="clr-namespace:I18N_L10N.Extensions;assembly=I18N_L10N"
              mc:Ignorable="d"
@@ -24,117 +22,108 @@
         window empty below it.
 
         `RowDefinition Height="*"` is what actually gives the list the remaining space.
+
+        ⚠ NO SYNCFUSION ON THIS SCREEN ANY MORE. Matt, 2026-08-10: *"I am not going to renew
+        Syncfusion, it seems like it can be replaced."* It was an `SfListView` with an `SfPopup`
+        context menu; it is now a plain MAUI `CollectionView`. What that swap costs and what it
+        buys:
+          • grouping moved into the VIEWMODEL (`ItemGroups`) — no shared mutable DataSource between
+            view and viewmodel, which is what the crash-on-open bug was;
+          • the header is a fixed Grid ABOVE the list rather than a scrolling HeaderTemplate, so the
+            column titles no longer scroll away;
+          • the right-click/long-press menu is gone — replaced by the visible per-row Edit button
+            and tap-to-choose, which is what Matt asked for anyway ("Having an 'Edit item' button
+            would be better than assuming somebody knew to tap on a row").
+        ⚠ MAUI bindings fail SILENTLY, so this file is the one most likely to regress without a
+        symptom. Every binding here resolves against `ItemModel` except the two marked otherwise.
     -->
     <ContentPage.Content>
         <Grid RowSpacing="0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
+
             <SearchBar Grid.Row="0"
                        Placeholder="{Binding Source={i18n:Translate Items}, StringFormat={i18n:Translate SearchArg}}"
                        Text="{Binding SearchText}"/>
-            <listViewCM:ListViewWithContextMenu x:Name="ItemsListView" Grid.Row="1"
-                                   ItemsSource="{Binding Items}"
-                                   VerticalOptions="Fill" HorizontalOptions="Fill"
-                                   LoadMoreOption="AutoOnScroll"
-                                   AutoFitMode="DynamicHeight" IsStickyHeader="True" IsStickyGroupHeader="True"
-                                   AllowGroupExpandCollapse="True" DataSource="{Binding SfListViewDataSource, Mode=OneWayToSource}">
-                <listViewCM:ListViewWithContextMenu.Behaviors>
-                    <Behaviors:SfListViewContextMenuBehavior>
-                        <Behaviors:SfListViewContextMenuBehavior.Buttons>
-                            <Button Text="{i18n:Translate AddToBasket}" HeightRequest="40"
-                                    Command="{Binding Path=BindingContext.AddToBasketCommandArg, Source={x:Reference ItemsListView}}"/>
-                            <!-- ⚠ EDIT writes to the PLATFORM now (WP10 / step 25, 2026-08-10). It was
-                                 hidden earlier the same day because it wrote to the legacy local
-                                 database, which nothing reads — the change reached no report, no
-                                 other till and no VAT return, and the operator could not even see
-                                 it. It now goes through `PUT /api/Item/{id1}`, the same endpoint
-                                 the web till uses, with an OPERATOR token.
-                                 ⚠ "Update stock" stays hidden: stock is a MOVEMENT LEDGER on the
-                                 platform (`POST /api/v1/stock/movements`), not a quantity to
-                                 overwrite, and wiring it to the legacy flat column would be the
-                                 same mistake in a new place. See `Build/legacy-removal.md` (L2). -->
-                            <Button Text="{i18n:Translate Edit}" HeightRequest="40"
-                                    Command="{Binding Path=BindingContext.OpenEditItemCommandArg, Source={x:Reference ItemsListView}}"/>
-                        </Behaviors:SfListViewContextMenuBehavior.Buttons>
-                        <Behaviors:SfListViewContextMenuBehavior.ItemBindings>
-                            <x:String>.Id</x:String>
-                            <x:String>.Id</x:String>
-                            <x:String>.Id</x:String>
-                        </Behaviors:SfListViewContextMenuBehavior.ItemBindings>
-                    </Behaviors:SfListViewContextMenuBehavior>
-                </listViewCM:ListViewWithContextMenu.Behaviors>
-                <listViewCM:ListViewWithContextMenu.HeaderTemplate>
-                    <DataTemplate>
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <!-- ⚠ FOUR columns, matching the row template below. A header that
-                                 disagrees with its rows misaligns every price on the screen. -->
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width=".7*"/>
-                                <ColumnDefinition Width=".1*"/>
-                                <ColumnDefinition Width=".1*"/>
-                                <ColumnDefinition Width="90"/>
-                            </Grid.ColumnDefinitions>
-                            <Label Grid.Row="0" Grid.Column="0" FontSize="Medium" FontAttributes="Bold" Text="{i18n:Translate Name}"/>
-                            <Label Grid.Row="0" Grid.Column="1" FontSize="Medium" FontAttributes="Bold" Text="{i18n:Translate Price}"/>
-                            <Label Grid.Row="0" Grid.Column="2" FontSize="Medium" FontAttributes="Bold" Text="{i18n:Translate Stock}"/>
-                        </Grid>
-                    </DataTemplate>
-                </listViewCM:ListViewWithContextMenu.HeaderTemplate>
-                <listViewCM:ListViewWithContextMenu.ItemTemplate>
-                    <DataTemplate>
-                        <ViewCell>
-                            <ViewCell.View>
-                                <Frame CornerRadius="2" Padding="1" Margin="1">
-                                    <Frame.HasShadow>
-                                        <OnPlatform x:TypeArguments="x:Boolean">
-                                            <On Platform="Android, Windows">True</On>
-                                            <On Platform="iOS">False</On>
-                                        </OnPlatform>
-                                    </Frame.HasShadow>
-                                    <Grid VerticalOptions="FillAndExpand" HorizontalOptions="FillAndExpand">
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width=".7*"/>
-                                            <ColumnDefinition Width=".1*"/>
-                                            <ColumnDefinition Width=".1*"/>
-                                            <ColumnDefinition Width="90"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Label Grid.Row="0" Grid.Column="0" Text="{Binding Name}" VerticalOptions="Center"/>
-                                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding Price, StringFormat='{0:C}'}" VerticalOptions="Center"/>
-                                        <Label Grid.Row="0" Grid.Column="2" Text="{Binding Stock.Quantity}" VerticalOptions="Center"/>
 
-                                        <!-- ⚠ A VISIBLE EDIT BUTTON, on every row. Matt, 2026-08-10:
-                                             "Having an 'Edit item' button would be better than
-                                             assuming somebody knew to tap on a row." He is right —
-                                             editing lived only on a right-click menu, then only on a
-                                             tap, and neither says so on screen. A control you have to
-                                             be told about is one nobody uses.
+            <!-- ⚠ FOUR columns, and the row template below MUST match. A header that disagrees with
+                 its rows misaligns every price on the screen. It sits OUTSIDE the list on purpose:
+                 as a CollectionView header it would scroll away with the first group. -->
+            <Grid Grid.Row="1" Padding="6,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width=".7*"/>
+                    <ColumnDefinition Width=".1*"/>
+                    <ColumnDefinition Width=".1*"/>
+                    <ColumnDefinition Width="90"/>
+                </Grid.ColumnDefinitions>
+                <Label Grid.Column="0" FontSize="Medium" FontAttributes="Bold" Text="{i18n:Translate Name}"/>
+                <Label Grid.Column="1" FontSize="Medium" FontAttributes="Bold" Text="{i18n:Translate Price}"/>
+                <Label Grid.Column="2" FontSize="Medium" FontAttributes="Bold" Text="{i18n:Translate Stock}"/>
+            </Grid>
 
-                                             ⚠ The command lives on the VIEWMODEL, not on the row, so
-                                             it is reached through the list by name — the same
-                                             `Source={x:Reference ItemsListView}` pattern the context
-                                             menu already uses. A plain `{Binding …}` here would
-                                             resolve against `ItemModel`, find nothing, and render a
-                                             button that silently does nothing when pressed. -->
-                                        <Button Grid.Row="0" Grid.Column="3"
-                                                Text="{i18n:Translate Edit}"
-                                                FontSize="Micro" Padding="0" HeightRequest="32" Margin="4,0"
-                                                Command="{Binding Path=BindingContext.OpenEditItemCommandArg, Source={x:Reference ItemsListView}}"
-                                                CommandParameter="{Binding Id}"/>
-                                    </Grid>
-                                </Frame>
-                            </ViewCell.View>
-                        </ViewCell>
+            <!-- ⚠ An honest empty state. A blank list with no message reads as "this shop sells
+                 nothing" — which is precisely how the legacy-table bug (the list read a table that
+                 is empty for ever on a portal till) stayed hidden for as long as it did. -->
+            <Label Grid.Row="2" Text="{Binding EmptyNotice}" IsVisible="{Binding ShowEmptyNotice}"
+                   HorizontalOptions="Center" VerticalOptions="Center" Margin="20"
+                   HorizontalTextAlignment="Center" TextColor="Gray"/>
+
+            <CollectionView x:Name="ItemsListView" Grid.Row="2"
+                            ItemsSource="{Binding ItemGroups}"
+                            IsGrouped="True"
+                            SelectionMode="Single"
+                            SelectionChanged="OnRowSelected">
+                <CollectionView.GroupHeaderTemplate>
+                    <DataTemplate>
+                        <!-- ⚠ Binds to `ItemGroup.Key`, NOT to ItemModel. -->
+                        <Label Text="{Binding Key}" FontAttributes="Bold" FontSize="Medium"
+                               Padding="6,8,6,4" BackgroundColor="{AppThemeBinding Light=#EEEEEE, Dark=#303030}"/>
                     </DataTemplate>
-                </listViewCM:ListViewWithContextMenu.ItemTemplate>
-            </listViewCM:ListViewWithContextMenu>
+                </CollectionView.GroupHeaderTemplate>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Frame CornerRadius="2" Padding="1" Margin="1">
+                            <Frame.HasShadow>
+                                <OnPlatform x:TypeArguments="x:Boolean">
+                                    <On Platform="Android, Windows">True</On>
+                                    <On Platform="iOS">False</On>
+                                </OnPlatform>
+                            </Frame.HasShadow>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width=".7*"/>
+                                    <ColumnDefinition Width=".1*"/>
+                                    <ColumnDefinition Width=".1*"/>
+                                    <ColumnDefinition Width="90"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Grid.Column="0" Text="{Binding Name}" VerticalOptions="Center"/>
+                                <Label Grid.Column="1" Text="{Binding Price, StringFormat='{0:C}'}" VerticalOptions="Center"/>
+                                <Label Grid.Column="2" Text="{Binding Stock.Quantity}" VerticalOptions="Center"/>
+
+                                <!-- ⚠ A VISIBLE EDIT BUTTON, on every row. Matt, 2026-08-10:
+                                     "Having an 'Edit item' button would be better than assuming
+                                     somebody knew to tap on a row." He is right — editing lived
+                                     only on a right-click menu, then only on a tap, and neither
+                                     says so on screen. A control you have to be told about is one
+                                     nobody uses.
+
+                                     ⚠ The command lives on the VIEWMODEL, not on the row, so it is
+                                     reached through the list by name — `Source={x:Reference
+                                     ItemsListView}`. A plain `{Binding …}` here would resolve
+                                     against `ItemModel`, find nothing, and render a button that
+                                     silently does nothing when pressed. -->
+                                <Button Grid.Column="3" Text="{i18n:Translate Edit}"
+                                        FontSize="Micro" Padding="0" HeightRequest="32" Margin="4,0"
+                                        Command="{Binding Path=BindingContext.OpenEditItemCommandArg, Source={x:Reference ItemsListView}}"
+                                        CommandParameter="{Binding Id}"/>
+                            </Grid>
+                        </Frame>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
         </Grid>
     </ContentPage.Content>
 </ContentPage>

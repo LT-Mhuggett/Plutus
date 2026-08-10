@@ -1,6 +1,6 @@
 # Shop-day test — the hand-run script
 
-**Build: `D:\tmp\plutus-till-1.32.0\Plutus.Frontend.AppClient.exe`** (unpackaged — no signing, no
+**Build: `D:\tmp\plutus-till-1.33.0\Plutus.Frontend.AppClient.exe`** (unpackaged — no signing, no
 install; just run the .exe).
 
 This is the USER-VERIFY script for everything that landed on 2026-08-10. It is ordered as a real
@@ -20,7 +20,7 @@ path. `CrashLog` hooks both `AppDomain` and `Microsoft.UI.Xaml.Application.Unhan
 | # | Do | Expect | ⚠ If not |
 |---|---|---|---|
 | 0.1 | Launch the till | Signs in; tabs are **Till · Inventory Managment · Cash · Statistics · Store Information · Settings · Plutus** | No **Cash** tab = you are on an older build |
-| 0.2 | **Plutus** tab | Version chip reads **v1.32.0**; connection green | — |
+| 0.2 | **Plutus** tab | Version chip reads **v1.33.0**; connection green | — |
 | 0.3 | Wait ~60s, then check the portal's fleet list | The till reports **1.32.0** | Versions were NULL on every row until backend 1.8.1 — this is the fix |
 
 ## 1. Open the day
@@ -68,11 +68,15 @@ path. `CrashLog` hooks both `AppDomain` and `Microsoft.UI.Xaml.Application.Unhan
 | 5.1 | **Cash** → **Paid out** → `20.00`, reason *"window cleaner"* | Recorded | A missing reason must be refused |
 | 5.2 | **Cash** → **X read** → count the drawer | Recorded as a count; **day stays open** | An X must never close the day |
 | 5.3 | **Inventory Managment → View all items** | List **fills the window**, sits under the tabs, and you can navigate away | A short scroll box in the top ~230px = the layout fix isn't in |
-| 5.4 | **Press the Edit button on a row** (or tap the row for a sheet) | The edit prompt opens | ⚠ Tapping is now the way in. Editing used to live ONLY on a right-click menu with nothing advertising it — asked what happened, Matt's answer was *"I didn't know how to open it"*, which is the honest verdict on that design. Right-click still works too |
-| 5.4a | **Edit item** → change the price | Saves; list shows the **new** price | ⚠ Needs a connection and a signed-in operator — item writes go to the platform now, not to a local table. ⚠ Needs `portal.prices.manage`, which **Owner and Company Admin hold and Store Manager does NOT** |
-| 5.5 | Check that item in the **portal** | Same new price | If the portal disagrees, stop and tell me |
-| 5.6 | **Settings → Change printer** | The Windows CONNECT panel, then "No printer selected" if nothing is attached | ⚠ **That is CORRECT, not a fault** — it is the device picker with no OPOS printer paired (Matt saw "Wireless is turned off"). What matters is that it **no longer closes the app**, which was the actual crash. |
-| 5.7 | **Statistics** | *"Today — £x taken over n sales · VAT £x · average basket £x"*, from the PLATFORM | ⚠ The two legacy report buttons are GONE: they read the pre-Plutus database (always zero since cutover) and the Syncfusion chart licence does not cover v34, so opening one raised a licence dialog on a page you could not leave. A new key must come from Matt's Syncfusion account. |
+| 5.3a | ⚠ **Check the A–Z grouping and the search** | Letter headers down the list; typing narrows it; the **column header stays put** while you scroll | ⚠ The list is a plain `CollectionView` now, not Syncfusion. This is the biggest untested swap in the build |
+| 5.4 | **Press the Edit button on a row** (or tap the row for a sheet) | The edit prompt opens | ⚠ Tap the SAME row twice — it must open both times. A `CollectionView` won't re-raise selection for a row already selected, so this is the one that would read as a freeze |
+| 5.4a | **Edit item** → change price, brand, description, cost | Then three sheets in turn: **Tax band · Category · Stock** | ⚠ New 1.33.0 — Matt: *"it seems to be missing a lot of options compared to the webtill"*. The barcode is deliberately NOT editable (it is half the primary key). ⚠ Needs a connection, a signed-in operator, and `portal.prices.manage` — which **Owner and Company Admin hold and Store Manager does NOT** |
+| 5.4b | ⚠ Change the **tax band** on something and save | The ex-tax price on the portal follows the NEW band | ⚠ The ex price is derived by DIVIDING by the band's multiplier. If the portal shows an ex price *higher* than the inc price, the units are inverted — stop and tell me |
+| 5.5 | Check that item in the **portal** | Every field you changed | If the portal disagrees, stop and tell me |
+| 5.6 | **Settings → Receipt printer** | Either the **agent's** version and printer name, or a plain message saying no Plutus Till Agent is running on this PC | ⚠ Rebuilt in 1.33.0. Matt saw *"Wireless is turned off"* — that was Windows' generic device picker complaining about RADIOS because no OPOS printer exists, not about the printer. The till now prints the way the **web till** does, through the agent |
+| 5.6a | If an agent is running: **Pair this till** → type the code from its tray window | A test receipt comes out | ⚠ The code is per PC and never leaves it. A wrong code gives "the agent didn't accept that code", not silence |
+| 5.6b | **Settings → Print test page** | Paper, or a message | ⚠ This used to do **nothing at all** on a till with no OPOS printer — no paper, no message, indistinguishable from a broken printer |
+| 5.7 | **Statistics** | *"Today — £x taken over n sales · VAT £x · average basket £x"*, from the PLATFORM | ⚠ The two legacy report buttons are GONE: they read the pre-Plutus database (always zero since cutover) and their Syncfusion charts are unlicensed. Matt is **not renewing** — as of 1.33.0 no Syncfusion control is on any screen you can reach. See `Build/syncfusion-footprint.md` |
 
 ## 6. Trading with the line down
 
@@ -98,10 +102,18 @@ path. `CrashLog` hooks both `AppDomain` and `Microsoft.UI.Xaml.Application.Unhan
 
 Ranked by how likely and how much it matters:
 
-1. **The drawer kick (3.6)** — hardware, never exercised, and the fix was one missing line.
-2. **The Tax column (2.2)** — the VAT band cache has *never* been populated on any till; this is its first run.
-3. **Item edit (5.4–5.5)** — brand new, and the first thing on the till to WRITE to the platform catalogue.
-4. **Offline cash (6.3–6.4)** — the queue and drain are tested headlessly but not on a device.
+1. ⚠ **The Syncfusion removals (2.x quantity box, 5.3a item list, alterations)** — four controls
+   swapped for MAUI ones in 1.33.0, on screens with **no automated coverage at all**, because that
+   needs a running UI host and this repo has none. The quantity box is the one that matters: it is
+   on the money path.
+2. **Printing through the agent (5.6, 3.5)** — the till has never printed this way. ⚠ If no agent is
+   installed on the PC, everything degrades to today's behaviour and nothing breaks; that is the
+   design, so "no agent found" is a valid outcome, not a failure.
+3. **The drawer kick (3.6)** — hardware, never exercised, and the fix was one missing line. In
+   1.33.0 the drawer rides **with** the print job when the agent is in use.
+4. **The Tax column (2.2)** — the VAT band cache has *never* been populated on any till; this is its first run.
+5. **Item edit (5.4–5.5)** — now writes eight fields to the platform catalogue instead of two.
+6. **Offline cash (6.3–6.4)** — the queue and drain are tested headlessly but not on a device.
 
 **None of section 3 is covered by an automated test** — a running UI host is needed and this repo has
 none. It is held by review, which is why the hand-run matters more than usual.

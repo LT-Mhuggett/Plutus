@@ -14,6 +14,15 @@
   <ItemGroup>
     <ProjectReference Include="..\Plutus.SharedKernel\Plutus.SharedKernel.csproj" />
     <ProjectReference Include="..\Plutus.Contracts.Client\Plutus.Contracts.Client.csproj" />
+
+    <!-- ⚠ THE PRINT WIRE CONTRACT, REFERENCED RATHER THAN RE-DECLARED. `PrintOp`/`PrintDocument` is
+         what the Plutus Till Agent binds on `POST /print`, and the web till already speaks it (see
+         `receiptDoc.ts`). A second copy of those enums in this project would be a silent drift the
+         first time an op is added: the till would send `kind: 5` and the agent would print nothing,
+         with no error anywhere. One definition, in the project that defines the endpoint.
+         ⚠ It is a pure contract project — no Windows deps, no packages — so referencing it from
+         `tools/` into `src/` costs this library nothing and keeps it unit-testable everywhere. -->
+    <ProjectReference Include="..\..\tools\Plutus.TillAgent.Core\Plutus.TillAgent.Core.csproj" />
   </ItemGroup>
 
 </Project>

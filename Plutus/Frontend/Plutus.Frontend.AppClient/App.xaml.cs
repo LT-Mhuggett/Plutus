@@ -25,7 +25,22 @@ namespace Plutus.Frontend.AppClient
             // exe in a shop and it disappears.
             Services.Analytics.CrashLog.Install();
 
-            //Register the syncfusion license
+            // ⚠ THE SYNCFUSION LICENCE KEY, AND IT IS OUT OF DATE ON PURPOSE. Matt, 2026-08-10:
+            // *"I am not going to renew Syncfusion, it seems like it can be replaced."* Keys are
+            // version-specific and this one predates the 34.1.32 packages, so any licensed control
+            // that renders puts a modal in front of the page — which is how `SalesReportsView`
+            // became a screen with no way out.
+            //
+            // ⚠ AS OF THIS COMMIT NO SYNCFUSION CONTROL IS ON ANY SCREEN AN OPERATOR CAN REACH.
+            // The quantity box, the alterations picker, the item list and the discount multi-select
+            // are plain MAUI. What is left is the two HIDDEN legacy report screens and the XlsIO
+            // export they use — see `Build/legacy-removal.md` (L4) and `syncfusion-footprint.md`.
+            // The registration stays only until those go, because removing it while a licensed
+            // control still exists in the assembly is worse, not better: it turns a dormant screen
+            // into a trial-dialog screen.
+            //
+            // ⚠ DO NOT ADD A SYNCFUSION CONTROL TO A LIVE SCREEN. There is no key that will license
+            // it, and the failure is a modal on the shop floor, not a build error.
             Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense(
                 "NDg3MzQ2QDMxMzkyZTMyMmUzMGxFd1VHR3l1ekdldEJSbjQyQ2NRTHhyakorOVZ6cmF6NSszNkNPTmtJNEk9");
 

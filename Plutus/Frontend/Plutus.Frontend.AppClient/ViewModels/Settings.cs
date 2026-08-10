@@ -17,6 +17,29 @@ namespace Plutus.Frontend.AppClient.ViewModels
         }
 
         /// <summary>
+        /// The pairing code for the Plutus Till Agent on THIS PC — the tray app that owns the
+        /// receipt printer and the cash drawer.
+        ///
+        /// ⚠ THE AGENT IS HOW THE WEB TILL HAS ALWAYS PRINTED, and teaching MAUI to use it is the
+        /// fix for "I still cannot see a printer, it says wifi is turned off" (Matt, 2026-08-10).
+        /// The old route asked Windows for a `PointOfService` device, a driver profile almost no
+        /// receipt printer ships, and the picker's generic chrome then volunteered a complaint about
+        /// RADIOS. The agent instead prints through the ordinary Windows print queue, so any printer
+        /// this PC has a driver for is one both tills can use.
+        ///
+        /// ⚠ PER TILL PC and it NEVER LEAVES THE MACHINE — same as the web till's
+        /// `localStorage["plutus.agentToken"]`. It authorises hardware on this counter, not a person
+        /// or a tenant, so it must not travel with a Plutus login or ride in a device enrolment.
+        /// ⚠ Upper-cased on the way in: the agent compares it exactly, and a code read off a tray
+        /// window and typed in lower case is otherwise a 401 that reads as "the printer is broken".
+        /// </summary>
+        public string TillAgentTokenSetting
+        {
+            get => Preferences.Get(nameof(TillAgentTokenSetting), string.Empty);
+            set => Preferences.Set(nameof(TillAgentTokenSetting), (value ?? string.Empty).Trim().ToUpperInvariant());
+        }
+
+        /// <summary>
         /// Item search matches each word separately — "batman one" finds *Batman Year One*. Off,
         /// the whole phrase must appear.
         ///

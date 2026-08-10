@@ -130,7 +130,17 @@ public class ConventionTests
         //     server become verifiable only on a physical till;
         //   • no BACKEND module reference — a till must speak the wire contract, never link the
         //     server's internals (that is how a client ends up needing a MySQL context).
-        var allowed = new[] { "Plutus.SharedKernel", "Plutus.Contracts.Client" };
+        //
+        // ⚠ `Plutus.TillAgent.Core` is on the list and it is the ONLY entry that is not under
+        // `src/`. It is the print-op WIRE CONTRACT — the shape `POST /print` binds on the Plutus
+        // Till Agent — and it is a pure contract project: no MAUI, no packages, no Windows, one
+        // TargetFramework and zero ProjectReferences of its own, so it costs this library nothing
+        // and stays testable on a build agent. It is here rather than in `Contracts.Client` because
+        // the agent defines the endpoint and must not depend on the till's contract assembly.
+        // ⚠ The alternative was declaring `PrintOp`/`PrintDocument` a second time in Client.Core,
+        // which is a silent drift the first time an op is added: the till would send `kind: 5`, the
+        // agent would print nothing, and no error would surface anywhere.
+        var allowed = new[] { "Plutus.SharedKernel", "Plutus.Contracts.Client", "Plutus.TillAgent.Core" };
         var offenders = new List<string>();
 
         foreach (var name in new[] { "Plutus.Client.Core", "Plutus.Contracts.Client" })
@@ -158,6 +168,38 @@ public class ConventionTests
         Assert.True(offenders.Count == 0,
             "The till client libraries must stay MAUI-free and backend-module-free. Offenders:\n  "
             + string.Join("\n  ", offenders));
+    }
+
+    [Fact]
+    public void The_print_wire_contract_stays_a_pure_contract()
+    {
+        // ⚠ THIS IS WHAT PAYS FOR THE EXCLUSION ABOVE. `Plutus.Client.Core` is allowed to reference
+        // `Plutus.TillAgent.Core` ONLY because that project has nothing in it — no packages, no
+        // project references, no Windows. The moment it grows one, `Client.Core` inherits it
+        // silently, and the rule that keeps the till's money-handling code testable on a build
+        // agent with no device is gone with nothing to say so.
+        //
+        // A widened allow-list without this test is not a narrower rule; it is no rule.
+        var csproj = Path.Combine(Repo.Root(), "tools", "Plutus.TillAgent.Core", "Plutus.TillAgent.Core.csproj");
+        Assert.True(File.Exists(csproj), $"Expected the print wire contract at {csproj}");
+
+        var text = File.ReadAllText(csproj);
+        var offenders = new List<string>();
+
+        foreach (Match m in Regex.Matches(text, @"PackageReference\s+Include=""([^""]+)"""))
+            offenders.Add($"package {m.Groups[1].Value}");
+        foreach (Match m in Regex.Matches(text, @"ProjectReference\s+Include=""([^""]+)"""))
+            offenders.Add($"project {Path.GetFileNameWithoutExtension(m.Groups[1].Value)}");
+
+        // ⚠ And it must stay platform-neutral: a `net10.0-windows` target here would make the
+        // till's client library unbuildable on the Mac and on CI.
+        foreach (Match m in Regex.Matches(text, @"<TargetFrameworks?>([^<]+)</TargetFrameworks?>"))
+            if (m.Groups[1].Value.Contains("windows", StringComparison.OrdinalIgnoreCase))
+                offenders.Add($"platform-specific target {m.Groups[1].Value}");
+
+        Assert.True(offenders.Count == 0,
+            "Plutus.TillAgent.Core must stay a dependency-free, platform-neutral contract, because "
+            + "Plutus.Client.Core is allowed to reference it. Offenders:\n  " + string.Join("\n  ", offenders));
     }
 
     /// <summary>

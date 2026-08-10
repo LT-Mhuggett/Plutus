@@ -3,8 +3,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:d="http://schemas.microsoft.com/dotnet/maui/design"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:sfNumeric="clr-namespace:Syncfusion.Maui.Inputs;assembly=Syncfusion.Maui.Inputs"
-             xmlns:sfPicker="clr-namespace:Syncfusion.Maui.Picker;assembly=Syncfusion.Maui.Picker"
              xmlns:viewModels="clr-namespace:Plutus.Frontend.AppClient.ViewModels.MainTill.Till"
              xmlns:settings="clr-namespace:Plutus.Frontend.AppClient.ViewModels"
              xmlns:controls="clr-namespace:Plutus.Frontend.AppClient.Controls"
@@ -116,13 +114,33 @@
         <Grid>
             <StackLayout>
                 <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
-                    <ContentView>
-                        <sfNumeric:SfNumericEntry Value="{Binding Quantity}"
-                                                 Minimum="1" FontSize="{Binding TopBarFontSize}"
-                                                 UpDownButtonAlignment="Right"
-                                                 MaximumNumberDecimalDigits="0"
-                                                 Completed="Quantity_Completed"/>
-                    </ContentView>
+                    <!-- ⚠ THE QUANTITY BOX, NO LONGER SYNCFUSION. Matt, 2026-08-10: *"I am not
+                         going to renew Syncfusion, it seems like it can be replaced."* This was an
+                         `SfNumericEntry` and it was the ONLY licensed control on the selling path —
+                         a licence the library rejects can start putting a modal in front of the
+                         page at any version bump, and this one sits between the operator and every
+                         sale.
+
+                         ⚠ `Minimum="1"` went with it, so the clamp now lives in the VIEWMODEL's
+                         setter where it cannot leave with a control. A quantity of 0 adds a basket
+                         line that charges nothing and looks exactly like a sale.
+
+                         ⚠ Explicit − and + buttons because the Syncfusion spinner had them and a
+                         touch till needs them: `Keyboard="Numeric"` shows no keypad on desktop
+                         Windows, so without these there is no way to change quantity except typing. -->
+                    <Grid ColumnDefinitions="Auto,80,Auto" ColumnSpacing="0">
+                        <Button Grid.Column="0" Text="−" WidthRequest="44" Padding="0"
+                                Command="{Binding QuantityDownCommand}"/>
+                        <Entry Grid.Column="1" x:Name="QuantityEntry"
+                               Text="{Binding Quantity, Mode=TwoWay}"
+                               Keyboard="Numeric" HorizontalTextAlignment="Center"
+                               FontSize="{Binding TopBarFontSize}"
+                               TextChanged="Quantity_TextChanged"
+                               Unfocused="Quantity_Unfocused"
+                               Completed="Quantity_Completed"/>
+                        <Button Grid.Column="2" Text="+" WidthRequest="44" Padding="0"
+                                Command="{Binding QuantityUpCommand}"/>
+                    </Grid>
                     <Button HorizontalOptions="FillAndExpand" Text="{i18n:Translate Scan}" Command="{Binding AutoScanCommand}"
                             IsVisible="{Binding IsDesktop, Mode=OneWay, Converter={StaticResource InverseBool}}"/>
                     <Entry HorizontalOptions="FillAndExpand" Text="{Binding ItemId}" 
@@ -178,24 +196,20 @@
                             Text="{i18n:Translate CancelTransaction}" Command="{Binding CancelTransactionCommand}"/>
                 </Grid>
             </StackLayout>
-            <!--Alterations selection Picker Start-->
-            <sfPicker:SfPicker HorizontalOptions="Center" VerticalOptions="Center" IsEnabled="True"
-                               IsOpen="{Binding PickerOpen, Mode=TwoWay}" Mode="Dialog"
-                               OkButtonClicked="AlterationsSelected">
-                <sfPicker:SfPicker.HeaderView>
-                    <sfPicker:PickerHeaderView Text="{i18n:Translate Alterations}" />
-                </sfPicker:SfPicker.HeaderView>
-                <!-- ⚠ Columns is a plain collection property, so the items go straight in. This
-                     used to wrap them in <sfPicker:PickerColumnCollection>, a type that does NOT
-                     exist in Syncfusion 34.1.32 — and because this project has no
-                     [XamlCompilation(Compile)] attribute, Debug parsed the XAML at RUNTIME and threw
-                     a XamlParseException the moment the Till tab was constructed. Release caught it
-                     at build time; Debug turned it into a crash on the shop floor. -->
-                <sfPicker:SfPicker.Columns>
-                    <sfPicker:PickerColumn ItemsSource="{Binding AlterationNames}" />
-                </sfPicker:SfPicker.Columns>
-            </sfPicker:SfPicker>
-            <!--Alterations selection Picker End-->
+            <!-- ⚠ THE ALTERATIONS PICKER IS GONE FROM THE XAML — it is now a `DisplayActionSheet`,
+                 raised from `TillViewModel.AlterTransactionSelectorCommand`.
+
+                 Matt, 2026-08-10: *"I am not going to renew Syncfusion."* This was an `SfPicker`,
+                 and it had already cost a session on its own: the columns were wrapped in
+                 `PickerColumnCollection`, a type that does NOT exist in Syncfusion 34.1.32, and
+                 because this project has no [XamlCompilation(Compile)] attribute, DEBUG parsed the
+                 XAML at runtime and threw the moment the Till tab was constructed. Release caught
+                 it at build time; Debug turned it into a crash on the shop floor.
+
+                 An action sheet cannot fail that way — there is no markup to get wrong — and this
+                 app already uses one for tenders, item search and refund origins, so it is the
+                 control operators here already know. -->
+            <!--Alterations selection Picker: now an action sheet, see TillViewModel-->
         </Grid>
     </ContentPage.Content>
 </ContentPage>

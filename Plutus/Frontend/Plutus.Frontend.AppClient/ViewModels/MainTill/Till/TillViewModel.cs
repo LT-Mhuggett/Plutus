@@ -52,11 +52,30 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             get => _itemId;
             set => SetProperty(ref _itemId, value);
         }
+        /// <summary>
+        /// How many of the next scanned item go in the basket.
+        ///
+        /// ⚠ CLAMPED TO AT LEAST 1, IN THE SETTER. This used to be a Syncfusion `SfNumericEntry`
+        /// whose `Minimum="1"` did the clamping, so the rule lived in a XAML attribute on a control
+        /// the till no longer uses (Matt, 2026-08-10: *"I am not going to renew Syncfusion"*). A
+        /// plain `Entry` will happily hand over 0, or −3, and `IncrementQuantity(0)` adds a line
+        /// that charges nothing while looking exactly like a sale.
+        /// ⚠ A rule that lives in a control's markup is a rule that leaves with the control.
+        /// </summary>
         public int Quantity
         {
             get => _quantity;
-            set => SetProperty(ref _quantity, value);
+            set => SetProperty(ref _quantity, value < 1 ? 1 : value);
         }
+
+        /// <summary>The − and + either side of the quantity box, which is how a touch till changes
+        /// it. ⚠ The decrement cannot go below 1: the setter refuses, so the button is safe to
+        /// press repeatedly.</summary>
+        Command _quantityUpCommand;
+        public Command QuantityUpCommand => _quantityUpCommand ??= new Command(() => Quantity += 1);
+
+        Command _quantityDownCommand;
+        public Command QuantityDownCommand => _quantityDownCommand ??= new Command(() => Quantity -= 1);
         public ObservableCollection<SavedTransactionModel> StoredTransactions { get; } = new ObservableCollection<SavedTransactionModel>();
         public ObservableCollection<IBasketRecord> Basket { get; } = new ObservableCollection<IBasketRecord>();
         public IBasketRecord SelectedBasketRecord
@@ -80,6 +99,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 return discountNames;
             }
         }
+        /// <summary>
+        /// ⚠ VESTIGIAL, and kept only so the removal is visible. It drove `SfPicker.IsOpen`; the
+        /// alterations picker is a `DisplayActionSheet` now (2026-08-10, Syncfusion removal), so
+        /// nothing reads or writes this any more. It goes with the rest of the Syncfusion clean-up
+        /// in `Build/legacy-removal.md`.
+        /// </summary>
+        [Obsolete("The alterations picker is a DisplayActionSheet now. Nothing binds this.")]
         public bool PickerOpen
         {
             get => _pickerIsOpen;
@@ -753,7 +779,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
         #region Transaction
         #region Alter
-        private void ExecuteAlterTransactionSelector()
+        // ⚠ `async void` because it is a Command handler — so it MUST NOT let an exception escape.
+        // The try/finally below is the only thing between a bad discount list and a closed till.
+        private async void ExecuteAlterTransactionSelector()
         {
             if (IsBusy)
                 return;
@@ -781,12 +809,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         Alterations.Add(discount);
                 }
 
-                // ⚠ THE PICKER MUST NOT OPEN EMPTY. `SfPicker.SelectedIndex` on a column with no
-                // rows is 0, not null, so the view's SelectionChanged fires
-                // `AlterTransactionCommand.Execute(0)` and `Alterations.ElementAt(0)` throws
+                // ⚠ THE PICKER MUST NOT OPEN EMPTY. This was an `SfPicker`, whose `SelectedIndex` on
+                // a column with no rows is 0, not null, so the view's SelectionChanged fired
+                // `AlterTransactionCommand.Execute(0)` and `Alterations.ElementAt(0)` threw
                 // ArgumentOutOfRangeException in another `async void` — an empty dialog whose OK
-                // button closes the app. The legacy Discounts table is empty on a portal till and
-                // was never seeded even on legacy ones.
+                // button closed the app. The legacy Discounts table is empty on a portal till and
+                // was never seeded even on legacy ones. ⚠ The guard STAYS even though an action
+                // sheet cannot do that: an empty sheet is still a dead end for the operator.
                 if (Alterations.Count == 0)
                 {
                     Application.Current.MainPage.DisplayAlert(
@@ -796,7 +825,29 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     return;
                 }
 
-                PickerOpen = true;
+                // ⚠ AN ACTION SHEET, NOT A SYNCFUSION PICKER (2026-08-10). Matt is not renewing the
+                // licence, and this app already uses `DisplayActionSheet` for tenders, item search
+                // and refund origins — so this is the control operators here already know, and it
+                // has no markup that can go stale against a package version.
+                //
+                // ⚠ Through `Modal`, because choosing a discount leads straight into ANOTHER dialog
+                // (the amount prompt), and two modals in quick succession is what threw the
+                // COMException that closed the till at the payment prompt.
+                var names = AlterationNames.ToArray();
+                var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
+                    Application.Current.MainPage.DisplayActionSheet(
+                        "Alterations".Translate(), "Cancel".Translate(), null, names));
+
+                if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return;
+
+                var index = Array.IndexOf(names, picked);
+                if (index < 0) return;
+
+                // ⚠ Released BEFORE dispatching, because `ExecuteAlterTransaction` opens with the
+                // same `if (IsBusy) return;` guard — leaving it set here would make the discount
+                // silently do nothing, which is exactly the failure this whole session keeps finding.
+                IsBusy = false;
+                ExecuteAlterTransaction(index);
             }
             finally
             {
@@ -1440,6 +1491,25 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 if (DeviceInfo.Idiom == DeviceIdiom.Desktop)
                 {
+                    // ⚠ WHICH PRINTER ROUTE, DECIDED ONCE, BEFORE ANYTHING IS DISPATCHED.
+                    //
+                    // The till now prints the way the WEB till always has: it POSTs a rendered
+                    // document to the Plutus Till Agent on this PC, which drives the printer
+                    // through the ordinary Windows print queue. The old OPOS route stays as a
+                    // fallback for tills with a genuine PointOfService device — but it is the
+                    // reason Matt could not find a printer the web till uses every day, because
+                    // `PointOfService` enumerates a driver profile almost no receipt printer ships
+                    // and the empty picker then volunteers "Wireless is turned off".
+                    //
+                    // ⚠ Resolved HERE, not inside the print call, because the DRAWER decision
+                    // depends on it: the agent kicks the drawer as part of the print job, so
+                    // dispatching an OPOS drawer task as well would kick it twice.
+                    // ⚠ Free on a till nobody has paired — `ResolveAsync` does not even probe.
+                    var agent = await Services.Printing.TillAgentPrinting.ResolveAsync();
+
+                    var wantsDrawer = TryCashDrawer
+                        && sale.PaySales.Any(pay => pay.TempPayMethod.IsChangeable.Equals(true));
+
                     if (!AskForReceipt || await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "ReceiptRequired".Translate(), "Yes".Translate(), "No".Translate()))
                     {
                         trackEventArgs.Add("Receipt Requested", "True");
@@ -1452,22 +1522,47 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                             sale.PaySales.Select(p => p.TempPayMethod?.Name).ToList(),
                             sale.Notes.Select(n => n.Note?.Note).Where(n => !string.IsNullOrWhiteSpace(n)).ToList());
 
+                        trackEventArgs.Add("Printer Route", agent is not null ? "agent" : "opos");
+
                         tasks[0] = Task.Run(async () =>
                         {
+                            if (agent is not null)
+                            {
+                                // The agent prints the receipt AND kicks the drawer in one job, so
+                                // the drawer opens as the paper starts moving — as it does on the
+                                // native till. ⚠ It never throws: a wedged agent or an off printer
+                                // returns false, and no receipt is worth losing a committed sale.
+                                var printed = await Services.Printing.TillAgentPrinting.TryPrintSaleAsync(
+                                    receipt, Basket, App.GetViewModel().Store, wantsDrawer, agent);
+
+                                // ⚠ HONESTLY, including when it did not print. This used to be
+                                // added only on the success path, so a failure left the key absent
+                                // and every telemetry reader had to guess what absent meant.
+                                trackEventArgs["Receipt Printed Successfully"] = printed ? "True" : "False";
+                                return;
+                            }
+
                             _ = await printerMgr.InitPrinter();
                             await printerMgr.SetUpSalePrint(receipt, Basket, App.GetViewModel().Store);
                             await printerMgr.ExecuteOposOrPdfAsync();
 
-                            trackEventArgs.Add("Receipt Printed Successfully", "True");
+                            trackEventArgs["Receipt Printed Successfully"] = "True";
                         });
                     }
 
                     if (TryCashDrawer)
                     {
                         trackEventArgs.Add("Cash Drawer Open Requested", "True");
-                        if (sale.PaySales.Any(pay => pay.TempPayMethod.IsChangeable.Equals(true)))
+                        if (wantsDrawer)
                         {
-                            tasks[1] = printerMgr.OpenCashDrawer();
+                            // ⚠ ONLY when the print job did not already carry it. `tasks[0]` is
+                            // null when the operator declined a receipt — and a cash sale still has
+                            // to open the drawer, receipt or no receipt.
+                            if (agent is null)
+                                tasks[1] = printerMgr.OpenCashDrawer();
+                            else if (tasks[0] is null)
+                                tasks[1] = Services.Printing.TillAgentPrinting.OpenDrawerAsync();
+
                             trackEventArgs.Add("Cash Drawer Opened Successfully", "True");
                         }
                     }

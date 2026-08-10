@@ -11,9 +11,10 @@ using Plutus.Frontend.AppClient.Helpers.Security;
 using Plutus.Frontend.AppClient.Helpers.Validators;
 using Plutus.Frontend.AppClient.Services.Analytics;
 using Plutus.Frontend.AppClient.Views.MainTill.Inventory.Items;
+using Plutus.Contracts.Client;
 using Plutus.SharedKernel;
-using Syncfusion.Maui.ListView;
-using Syncfusion.Maui.DataSource;
+
+
 using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -28,9 +29,6 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
     {
         #region Private Fields
         private string _searchText;
-        // ⚠ Left NULL until the view assigns it — see the property. It is the list's own
-        // DataSource, pushed in by a OneWayToSource binding.
-        private DataSource _sfListViewDataSource;
         private int _limit;
         #endregion
 
@@ -42,56 +40,78 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
             set => SetProperty(ref _searchText, value, onChanged: () => ExecuteItemFilter());
         }
         /// <summary>
-        /// ⚠ THE VIEW PUSHES THIS IN — the XAML binds `Mode=OneWayToSource`, so the list view
-        /// assigns its OWN `DataSource` here. The viewmodel must never manufacture one: a
-        /// locally-created DataSource is an orphan the list never reads, so any grouping applied to
-        /// it silently does nothing.
-        ///
-        /// ⚠ Which is why the grouping is applied HERE, on assignment, rather than in the
-        /// constructor. The constructor ran before the binding had pushed anything and dereferenced
-        /// null — that is the NullReferenceException that made "View all items" crash every time it
-        /// was opened, wrapped in a TargetInvocationException from the XAML loader so the stack
-        /// pointed at InitializeComponent.
+        /// Every item this screen knows about, unfiltered. ⚠ The list on screen is
+        /// <see cref="ItemGroups"/>; this is the source it is rebuilt from, so a search narrows the
+        /// view without losing the rows.
         /// </summary>
-        public DataSource SfListViewDataSource
-        {
-            get => _sfListViewDataSource;
-            set
-            {
-                SetProperty(ref _sfListViewDataSource, value);
-                ApplyGrouping();
-            }
-        }
-
-        /// <summary>Group by first letter. ⚠ Null-safe: the old selector did `item.Name[0]`, which
-        /// throws on an item with no name — inside the list's own layout pass, where it strands the
-        /// screen rather than surfacing.</summary>
-        private void ApplyGrouping()
-        {
-            var source = _sfListViewDataSource;
-            if (source is null || source.GroupDescriptors.Count > 0) return;
-
-            source.GroupDescriptors.Add(new GroupDescriptor
-            {
-                PropertyName = "Name",
-                KeySelector = obj =>
-                    obj is ItemModel item && !string.IsNullOrWhiteSpace(item.Name)
-                        ? item.Name.Trim()[0].ToString().ToUpperInvariant()
-                        : "#",
-            });
-        }
         public ObservableCollection<ItemModel> Items { get; private set; } = new ObservableCollection<ItemModel>();
+
+        /// <summary>
+        /// The A–Z groups the list actually renders.
+        ///
+        /// ⚠ GROUPING IS THE VIEWMODEL'S JOB NOW. It used to be Syncfusion's: the view pushed its
+        /// own `DataSource` in through a `OneWayToSource` binding and grouping was applied to that
+        /// object on assignment, because doing it in the constructor dereferenced a null the view
+        /// had not pushed yet — the NullReferenceException that made "View all items" crash on
+        /// every open, wrapped in a TargetInvocationException so the stack pointed at
+        /// InitializeComponent. ⚠ Matt is not renewing the Syncfusion licence (2026-08-10), so the
+        /// list is a plain MAUI `CollectionView` and that entire class of failure is gone with it:
+        /// there is no shared mutable object between view and viewmodel to get the order wrong on.
+        /// </summary>
+        public ObservableCollection<ItemGroup> ItemGroups { get; } = new ObservableCollection<ItemGroup>();
+
+        /// <summary>Is the list empty because there is nothing, or because the search matched
+        /// nothing? ⚠ A blank list with no message reads as "this shop sells nothing" — which is
+        /// exactly how the legacy-table bug hid for as long as it did.</summary>
+        public bool ShowEmptyNotice => ItemGroups.Count == 0;
+
+        public string EmptyNotice => string.IsNullOrWhiteSpace(SearchText)
+            ? "No items yet. They arrive from Plutus with the catalogue."
+            : $"Nothing matches “{SearchText}”.";
         #endregion
         #endregion
 
         public ViewAllViewModel()
         {
             Title = "View All Items";
+        }
 
-            // ⚠ NO GROUPING SET UP HERE. It used to be done from the constructor inside
-            // `BeginInvokeOnMainThread`, against a DataSource the VIEW had not pushed in yet — a
-            // guaranteed NullReferenceException, and the reason this screen crashed on every open.
-            // Grouping is applied when the view assigns `SfListViewDataSource`.
+        /// <summary>
+        /// One A–Z bucket. ⚠ A `List&lt;T&gt;` subclass, which is what MAUI's `IsGrouped` binding
+        /// expects — it enumerates each group directly, so a wrapper with an `Items` property
+        /// renders empty rows and, as ever with MAUI bindings, says nothing about why.
+        /// </summary>
+        public sealed class ItemGroup : List<ItemModel>
+        {
+            public ItemGroup(string key, IEnumerable<ItemModel> items) : base(items) => Key = key;
+            public string Key { get; }
+        }
+
+        /// <summary>
+        /// Rebuild the on-screen groups from <see cref="Items"/> and the current search text.
+        ///
+        /// ⚠ MUST RUN ON THE UI THREAD — it mutates an `ObservableCollection` the list is bound to.
+        /// ⚠ Null-safe on the group key: keying on `item.Name[0]` throws on an item with no name,
+        /// and it used to do so inside the list's own layout pass, where it stranded the screen
+        /// rather than surfacing an error anyone could act on.
+        /// </summary>
+        private void RebuildGroups()
+        {
+            var groups = Items
+                .Where(FilterItem)
+                .OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase)
+                .GroupBy(i => string.IsNullOrWhiteSpace(i.Name)
+                    ? "#"
+                    : char.ToUpperInvariant(i.Name.Trim()[0]).ToString())
+                .OrderBy(g => g.Key, StringComparer.Ordinal)
+                .Select(g => new ItemGroup(g.Key, g))
+                .ToList();
+
+            ItemGroups.Clear();
+            foreach (var group in groups) ItemGroups.Add(group);
+
+            OnPropertyChanged(nameof(ShowEmptyNotice));
+            OnPropertyChanged(nameof(EmptyNotice));
         }
 
         /// <summary>
@@ -172,6 +192,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                     {
                         Items = new ObservableCollection<ItemModel>(loaded);
                         OnPropertyChanged(nameof(Items));
+                        RebuildGroups();
                     }
                     catch (Exception ex)
                     {
@@ -257,14 +278,10 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
             }
         }*/
 
-        private void ExecuteItemFilter()
-        {
-            if (SfListViewDataSource != null)
-            {
-                SfListViewDataSource.Filter = FilterItems;
-                SfListViewDataSource.RefreshFilter();
-            }
-        }
+        // ⚠ A straight rebuild now. This used to hand a predicate to Syncfusion's `DataSource` and
+        // call `RefreshFilter()`; with the licence going (Matt, 2026-08-10) the filtering is the
+        // viewmodel's, over a list capped at 500 rows — cheap enough to redo on every keystroke.
+        private void ExecuteItemFilter() => RebuildGroups();
         /*
         private async void ExecuteItemLoad()
         {
@@ -374,11 +391,34 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 const NumberStyles money = NumberStyles.AllowCurrencySymbol | NumberStyles.AllowThousands
                                            | NumberStyles.AllowDecimalPoint;
 
+                // ⚠ THE FULL FIELD SET, because two fields was not an item editor. Matt,
+                // 2026-08-10: *"I can now edit, but it seems to be missing a lot of options compared
+                // to the webtill."* He is right — the web till's dialog offers barcode, name, brand,
+                // description, cost, price, tax band, category and stock tracking, and this offered
+                // name and price. An editor that can change a third of an item is one an operator
+                // has to leave the till to finish, which is the opposite of parity.
+                //
+                // ⚠ THE BARCODE IS DELIBERATELY NOT EDITABLE, and the web till disables it on an
+                // edit too (`disabled={busy || !!item}`). It is half the composite primary key:
+                // changing it is a DELETE and an INSERT, which orphans every stock movement, every
+                // sale line and every webstore listing that points at the old one.
+                var bands = await api.GetTaxBandsAsync(business) ?? new List<TaxBandDto>();
+                var categories = await api.GetCategoriesAsync(business) ?? new List<CategoryDto>();
+
                 var elements = new ViewElementData[]
                 {
                     new ViewElementData(1, "Name".Translate(), current.Name ?? "",
                         new IValidator[] { new RequiredValidator() }, false, true),
-                    new ViewElementData(2, "Price".Translate(), current.Price.ToString("0.00"),
+                    // ⚠ "-" is what the WEB TILL writes when a brand is unknown, so the same column
+                    // does not end up holding "-" from one till and "" from another. It is shown as
+                    // blank here for the same reason the web till strips it on the way in.
+                    new ViewElementData(2, "Brand", current.Brand == "-" ? "" : current.Brand ?? "",
+                        Array.Empty<IValidator>(), false, true),
+                    new ViewElementData(3, "Description", current.Desc ?? "",
+                        Array.Empty<IValidator>(), false, true),
+                    new ViewElementData(4, "Cost (£)", current.Cost.ToString("0.00"),
+                        new IValidator[] { new CurrencyValueValidator(money) }, false, true),
+                    new ViewElementData(5, "Price inc tax (£)", current.Price.ToString("0.00"),
                         new IValidator[] { new RequiredValidator(), new CurrencyValueValidator(money) }, false, true),
                 };
 
@@ -388,7 +428,10 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 if (answers.Count == 0) return;
 
                 _ = answers.TryGetValue(1, out var name);
-                _ = answers.TryGetValue(2, out var priceText);
+                _ = answers.TryGetValue(2, out var brand);
+                _ = answers.TryGetValue(3, out var desc);
+                _ = answers.TryGetValue(4, out var costText);
+                _ = answers.TryGetValue(5, out var priceText);
                 if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(priceText)) return;
 
                 if (!decimal.TryParse(priceText, money, CultureInfo.CurrentCulture, out var price) || price < 0)
@@ -398,17 +441,46 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                     return;
                 }
 
-                // ⚠ The ex price follows the item's EXISTING band ratio, so the pair stays consistent
-                // and the server's guard passes. Deriving from the stored pair rather than from a
-                // rate keeps this correct for an item whose band the portal has not classified.
-                var ratio = current.Price > 0 ? current.ExPrice / current.Price : 1m;
-                var exPrice = Math.Round(price * ratio, 2, MidpointRounding.AwayFromZero);
+                if (!decimal.TryParse(costText ?? "", money, CultureInfo.CurrentCulture, out var cost) || cost < 0)
+                    cost = current.Cost;   // blank or nonsense leaves the cost alone; it is not the operator's field
+
+                // ── the three choices a text prompt cannot ask for ──
+                var taxId = await PickTaxBandAsync(bands, current.TaxId);
+                if (taxId is null) return;                       // ⚠ Cancel means cancel, not "keep the old band"
+
+                var catId = await PickCategoryAsync(categories, current.CatId);
+                if (catId is null) return;
+
+                var untracked = await PickStockTrackingAsync(current.StockUntracked);
+                if (untracked is null) return;
+
+                // ⚠ THE EX PRICE IS DERIVED FROM THE CHOSEN BAND, never typed and never carried
+                // over. The server guards `|price − exPrice × rate| ≤ 2p` because free-typed
+                // ex-prices corrupted 47 live items — a £7.99 item with a £799.00 ex-price — and
+                // with them every downstream VAT figure. ⚠ `rate` is a MULTIPLIER (1.2 = 20%), so
+                // the ex price DIVIDES by it; multiplying makes a £10 item's ex price £12 and the
+                // server rejects the write with a message that never mentions the units.
+                //
+                // ⚠ Falls back to the item's EXISTING pair ratio when the band is unknown to
+                // `/api/Tax/Index` — which keeps an unclassified item editable instead of
+                // unsaveable.
+                var chosen = bands.FirstOrDefault(b => b.IdOne == taxId.Value);
+                var exPrice = chosen is not null && chosen.Rate > 0
+                    ? Math.Round(price / chosen.Rate, 2, MidpointRounding.AwayFromZero)
+                    : Math.Round(price * (current.Price > 0 ? current.ExPrice / current.Price : 1m), 2,
+                                 MidpointRounding.AwayFromZero);
 
                 var (ok, problem) = await api.UpdateItemFieldsAsync(itemId, business, item =>
                 {
                     item.Name = name.Trim();
+                    item.Brand = string.IsNullOrWhiteSpace(brand) ? "-" : brand.Trim();
+                    item.Desc = (desc ?? "").Trim();
+                    item.Cost = cost;
                     item.Price = price;
                     item.ExPrice = exPrice;
+                    item.TaxId = taxId.Value;
+                    item.CatId = catId.Value;
+                    item.StockUntracked = untracked.Value;
                 });
 
                 if (!ok)
@@ -435,6 +507,79 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
                     "That didn't work. Nothing has been changed.", "OK".Translate());
             }
+        }
+
+        /// <summary>
+        /// Which VAT band the item sits in. Null means the operator backed out.
+        ///
+        /// ⚠ THE BAND IS NOT DERIVABLE FROM THE RATE. Zero-rated and Exempt both have rate 1.0 and
+        /// are entirely different things — they land in different boxes on a VAT return — so the
+        /// list shows NAMES and the id is what gets written. Collapsing them would be the one
+        /// mistake this dropdown exists to prevent (`vat-exempt-must-stay-supported`).
+        ///
+        /// ⚠ Through `Modal`, because every one of these sheets is followed by another one, and two
+        /// modals in quick succession is what threw the COMException that closed the till at the
+        /// payment prompt.
+        /// </summary>
+        private static async Task<int?> PickTaxBandAsync(IReadOnlyList<TaxBandDto> bands, int currentId)
+        {
+            if (bands.Count == 0) return currentId;   // nothing to choose from — keep what it has
+
+            var labels = bands
+                .Select(b => $"{b.Name}{(b.IdOne == currentId ? "  ✓" : "")}")
+                .ToArray();
+
+            var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
+                App.Current.MainPage.DisplayActionSheet("Tax band", "Cancel".Translate(), null, labels));
+
+            if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return null;
+
+            var index = Array.IndexOf(labels, picked);
+            return index >= 0 ? bands[index].IdOne : null;
+        }
+
+        /// <summary>Which category the item belongs to. Null means the operator backed out.</summary>
+        private static async Task<Guid?> PickCategoryAsync(IReadOnlyList<CategoryDto> categories, Guid currentId)
+        {
+            if (categories.Count == 0) return currentId;
+
+            var labels = categories
+                .Select(c => $"{c.Name}{(c.IdOne == currentId ? "  ✓" : "")}")
+                .ToArray();
+
+            var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
+                App.Current.MainPage.DisplayActionSheet("Category", "Cancel".Translate(), null, labels));
+
+            if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return null;
+
+            var index = Array.IndexOf(labels, picked);
+            return index >= 0 ? categories[index].IdOne : null;
+        }
+
+        /// <summary>
+        /// Whether this item's stock is counted. Null means the operator backed out.
+        ///
+        /// ⚠ IT MUST BE ASKED, not assumed. `StockUntracked` is written back on every edit because
+        /// the PUT binds the whole entity — so an editor that does not offer it has to guess, and a
+        /// wrong guess turns a carrier bag into stock-tracked goods (or the reverse) on every till
+        /// in the estate. The wording matches the web till's, deliberately.
+        /// </summary>
+        private static async Task<bool?> PickStockTrackingAsync(bool current)
+        {
+            const string track = "Count stock for this item";
+            const string dont = "Don't track stock (∞ — carrier bags, back-issues)";
+
+            var labels = new[]
+            {
+                track + (current ? "" : "  ✓"),
+                dont + (current ? "  ✓" : ""),
+            };
+
+            var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
+                App.Current.MainPage.DisplayActionSheet("Stock", "Cancel".Translate(), null, labels));
+
+            if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return null;
+            return picked == labels[1];
         }
 
         private async void ExecuteUpdateItemStock(string itemId)
@@ -503,23 +648,22 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         #endregion
 
         #region Operations
-        private bool FilterItems(object obj)
+        /// <summary>
+        /// Does this item match what the operator typed? Barcode, name, brand or description.
+        ///
+        /// ⚠ NULL-SAFE ON `Id` AND `Name` TOO. It was not: a catalogue row with a null name threw
+        /// NullReferenceException out of the filter, which Syncfusion swallowed into its own layout
+        /// pass — the list simply stopped updating and nothing appeared anywhere.
+        /// </summary>
+        private bool FilterItem(ItemModel item)
         {
-            if (string.IsNullOrEmpty(SearchText))
-                return true;
+            if (string.IsNullOrEmpty(SearchText)) return true;
+            if (item is null) return false;
 
-            return obj is ItemModel item &&
-                   (item.Id.Contains(
-                        SearchText, StringComparison.OrdinalIgnoreCase) ||
-                        item.Name.Contains(
-                        SearchText,
-                        StringComparison.OrdinalIgnoreCase) ||
-                        (item.Brand?.Contains(
-                        SearchText,
-                        StringComparison.OrdinalIgnoreCase) ?? false) ||
-                        (item.Desc?.Contains(
-                        SearchText,
-                        StringComparison.OrdinalIgnoreCase) ?? false));
+            return Contains(item.Id) || Contains(item.Name) || Contains(item.Brand) || Contains(item.Desc);
+
+            bool Contains(string field) =>
+                field?.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ?? false;
         }
         /*
         private void LoadItems()
@@ -546,7 +690,6 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         {
             Items = null;
             _searchText = null;
-            _sfListViewDataSource = null;
             base.Dispose(disposing);
         }
         #endregion
