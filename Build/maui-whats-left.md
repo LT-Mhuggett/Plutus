@@ -17,19 +17,36 @@ the one page to open when the question is "how much is left and what order".
 
 ## The one-line answer
 
-**A MAUI till can now trade a whole day.** Take a sale, price it, commit it, queue it, drain it,
-refund against it, print it — and as of 2026-08-10 **open a float and close the day with a Z-read**,
-which was the one thing genuinely blocking an open-to-close test. What it still cannot do is
-inventory, reporting, loyalty, gift cards, users and theming.
+**A MAUI till can now trade a whole day, and print while doing it.** Take a sale, price it, commit
+it, queue it, drain it, refund against it, reprint a receipt, open a float, close the day with a
+Z-read — and as of 2026-08-10 **add an item, edit an item, and add an unknown scan from the
+counter**. What it still cannot do is **loyalty, gift cards, users, theming, reporting, and the
+stock ledger**.
 
-**Done: cutover steps 1–20, 23, and the first slice of 25 (item edit).**
-**Remaining: 11b · 21 · 22 · 24 · the rest of 25 · 26 · 27 · 28 — about 55 working days**, and more
-than half of that is three items: loyalty/gift cards (27, ~15d), reporting (26, ~9d) and the rest of
-inventory (25, ~7d).
+**Done: cutover steps 1–20, 23, 26's reprint half, and the first two slices of 25.**
+**Remaining: 11b · 21 · 22 · 24 · the rest of 25 · the rest of 26 · 27 · 28 — about 45 working
+days.** Two thirds of that is three items: **loyalty + gift cards (27, ~15d)**, **reporting (26,
+~9d)** and **the stock ledger + categories + the Bin (rest of 25, ~5d)**.
 
-⚠ **That total has barely moved despite a lot landing, and the reason is worth knowing:** almost
-everything delivered on 2026-08-10 was *wiring* — components that already existed and had no caller
-— rather than the screen-building that dominates what is left. The cheap wins are now largely spent.
+### ⚠ Four rows are now closed that this page previously listed as open
+
+| Row | Was | Now |
+|---|---|---|
+| **Item edit / create** | "the till can only browse" | ✅ Full field set — name, brand, description, cost, price, **tax band, category, stock tracking**. The band shows its **percentage** |
+| **Add unknown scan as a new item** | ⬜, listed as WP10's | ✅ The till offers it, carrying the barcode, and NAMES the clashing item if the code is taken |
+| **Reprint from a past sale** | 🟡 | ✅ Statistics → "Reprint a receipt", marked **"REPRINT — not a new sale"**. 🟡 only for a sale rung on ANOTHER till |
+| **Printing at all** | not tracked as a gap | ✅ ⚠ **It was a gap and nobody had written it down.** MAUI used an OPOS device picker that finds nothing on most till PCs; the web till has always printed through the **Plutus Till Agent**. One route now. See `till-design.md` |
+
+### ⚠ And one dependency is gone
+
+**Syncfusion is off every screen an operator can reach** (Matt is not renewing). Quantity box,
+alterations picker, item list and the discount multi-select are plain MAUI. What remains is the two
+**hidden** legacy report screens and their spreadsheet export — which step 26 deletes anyway, so the
+licence question closes itself. [`syncfusion-footprint.md`](syncfusion-footprint.md).
+
+⚠ **The cheap wins are now spent.** Almost everything delivered before 2026-08-10 was *wiring* —
+components that already existed with no caller. What is left is screen-building and one server
+change, and it does not compress the same way.
 
 ⚠ **The pattern that keeps holding.** Cash looked like a five-day build and the server turned out to
 be finished — the whole step was client-side wiring. Six components have now been found built,
@@ -107,23 +124,48 @@ Employee list/create + set password, via the legacy `/api/Employee` and `/api/Au
 the MAUI parity target is the smaller surface. MAUI's current add-user command is a stopgap dialog
 reading *"not available in this version yet"*.
 
-### 4. Step 25 — WP10 inventory + stock ledger (~8–10 days) ⚠ largest gap
+### 4. Step 25 — WP10 inventory + stock ledger — **~5 days left of ~10**
 
-**This is the one that answers "you cannot edit an item".** Today the till can only *browse* the
-catalogue — deliberately, since 2026-08-10: the old Add/Edit/Update-stock screens wrote into the
-legacy local database, and the till client has **no item-write endpoint at all**, so an edit reached
-no report, no other till and no VAT return. Since the basket now resolves from the v2 catalogue, a
-locally-created item could not even be **sold** on the machine that made it. Hiding them was the
-honest state; this step is the real fix.
+✅ **Slices 1 and 2 landed 2026-08-10 (tills 1.33.0–1.36.0).** Item **create** and **edit** with the
+web till's full field set; **add-unknown-scan** from the counter; the catalogue feed grown to carry
+**Brand, Desc and Cost** (schema v5), which closed a silent search-parity gap — `ItemSearch` matches
+brand and the till had no brand column, so "Marvel" found nothing here and everything on the web.
 
-Carries five Part B rows: **Inventory CRUD**, **stock as a movement ledger** (MAUI writes a flat
-quantity column — concurrent edits are last-write-wins), the **VAT-band consistency guard**,
-**category reassign** (MAUI creates locally and has no reassign UI, so the server's 409 has nowhere
-to land), and **the Bin + untracked stock** — ⚠ a binned item must stop selling on an *offline* till,
-which is what WP5's tombstones (`CatalogueItem.Removed`, built and still unread) are for.
+⚠ **The backend half of that (1.9.0) is BUILT AND NOT DEPLOYED.**
 
-Also here: **"add unknown scan as a new item"**, the flow the web till has and MAUI does not.
-USER-VERIFY: scanner round-trip including the unknown-barcode path.
+**What is genuinely left, in order:**
+
+| # | Piece | ~ | ⚠ |
+|---|---|---|---|
+| 25a | **Stock quantity on the item list** — `GET /api/v1/stock/levels` | 1d | Read-only, gated `portal.reports.view`. The column currently shows **"—"** (not a number) precisely because nothing knows the count — a blank would read as zero |
+| 25b | **Adjust stock** — `POST /api/v1/stock/movements` | 1–2d | ⚠ **BLOCKED ON A DECISION, NOT ON CODE** — see below |
+| 25c | **Category create / rename / reassign** — `/api/v1/categories` | 1d | The 409 is **reassign-first**: a category with items refuses deletion until they are moved, and the till has nowhere for that refusal to land today |
+| 25d | **The Bin** (soft delete + restore) | 1d | ⚠ A binned item must stop selling on an **offline** till — that is what the feed's `Removed` tombstone is for, and it is carried and still unread by any screen |
+| 25e | **Portal-published VAT bands, whole timeline** | ½d | ⚠ Caching only *today's* rate is a bug: the timeline is what lets an offline till apply a future-dated change on the day it starts |
+
+#### ⚠⚠ 25b is a PERMISSIONS decision and it is Matt's, not mine
+
+`POST /api/v1/stock/movements` is gated on **`portal.stock.adjust`**, and the RBAC seed gives that to
+**Owner, Company Admin, Store Manager** and the legacy "Stock & Items" role — **and to nobody else.**
+
+**Supervisor and Cashier do not hold it.** So a supervisor standing at the counter with a damaged
+box cannot write it off, and the till can only offer stock adjustment to a manager.
+
+Three options, and they are genuinely different policies rather than implementations:
+
+1. **Leave it.** Stock adjustment is a back-office job; the till shows counts and does not change
+   them. Cheapest, and defensible for a single shop.
+2. **Add `pos.stock.adjust`** as a separate till-side code and give it to Supervisor. ⚠ Needs a
+   `PermissionCatalogue` entry, an RBAC re-seed, and the server endpoint taught to accept either.
+3. **Give Supervisor `portal.stock.adjust`.** One line in the seed — ⚠ but it is a *portal*
+   permission, so it also grants category and price-list writes in the portal. Almost certainly not
+   what is wanted.
+
+⚠ **It is also a stock LEDGER, not a quantity box.** `qty` is a signed delta and zero is refused;
+the only "set it to N" surface in the v1 API is `POST /api/v1/stock/takes`, which converts
+counted − expected into an adjustment server-side. **A MAUI screen whose box holds an absolute
+number must post a TAKE, not a movement** — posting the typed number as a delta would add the count
+to the count.
 
 ### 4b. ✅ Refunds are now reachable — the remainder rides step 26 (~1 day)
 
@@ -221,7 +263,7 @@ when its step is opened.
 | **Portal-published VAT bands** — the whole timeline, refreshed | Step 25 | ⚠ Caching only *today's* rate is a bug: the timeline is what lets an offline till apply a future-dated change on the day. `Services/Storage/VatBands` gives the app a route to `VatBandCache`, used at basket-add for the band NAME; the cadence refresh is the missing half |
 | **VAT band on the sale line** (`LineMeta.vatBand`) | Step 25 | 🟡 only because the **server backfills** any line that arrives without one (`VatBandStamp`). MAUI is correct-by-default; it needs to send it for cases the catalogue cannot know — a single-purpose gift-card line is `"standard"` by the voucher treatment, not its catalogue row |
 | **Refund-only baskets** | Step 11b | Partly there — `refundOnly` is computed and drives the prompt wording and surcharge suppression. The reshape settles it |
-| **Reprint from a past sale** | Step 26 | 🟡 — the read path landed at step 15 |
+| **Reprint from a past sale** | ✅ **Done 2026-08-10** | Statistics → "Reprint a receipt", from this till's last 20. ⚠ Marked **"REPRINT — not a new sale"** above the first rule, and the marker's POSITION is pinned by a test: the refund flow accepts a sale found by a receipt barcode, so two identical papers for one purchase is the shape of a double refund. ⚠ Same barcode as the original — the marking distinguishes the paper, never the sale. **Step 26 still owns the cross-till case** |
 | **Portal-controlled receipt template** | Step 26 | ⬜ |
 | **Un-enrol request + manager approval** | Step 21 | ⬜ — WP4's last piece |
 | **Connection status** (network vs server vs revoked) | Step 28 | ⚠ Runs the OTHER way too: the **web till** is 🟡 here, still on `navigator.onLine`, which reports the network interface and never asks whether the server is there (WP17.3) |
