@@ -316,4 +316,55 @@ public class SaleAssemblerE2eTests : IClassFixture<PlutusAppFactory>
         Assert.Equal(HttpStatusCode.OK, status);                     // 200 duplicate
         Assert.NotEqual("quarantined", body?.Status?.ToLowerInvariant());
     }
+
+    /// <summary>
+    /// ⚠ A REFUND IS NOT SOMETHING YOU CAN REFUND — the gate that does not depend on the till.
+    ///
+    /// On 2026-08-10 £13.99 left the drawer twice on a £13.99 sale. A refund is stored as its own
+    /// sale with a NEGATIVE gross, the till offered it in a "which sale?" picker, and the operator
+    /// tapped the newest entry. The server's cap took `Math.Abs(origin.GrossPence)`, so the refund
+    /// looked exactly like a £13.99 sale with nothing yet returned against it, and waved it through.
+    ///
+    /// The till's picker was fixed the same day. This is the half that survives a till being wrong,
+    /// which is the entire reason the cap is enforced in two places (binding default 12).
+    /// </summary>
+    [Fact]
+    public async Task A_refund_cannot_itself_be_refunded()
+    {
+        var http = _f.CreateClient();
+        var (api, deviceId, businessId) = await EnrolAsync(http, "refund-a-refund@acme.test");
+
+        var originId = await SellAsync(api, deviceId, businessId, 1, "5040001", 1399, 1166, 1);
+
+        // a legitimate full refund of it
+        var refundId = Uuid7.New();
+        var refundLines = new[]
+        {
+            new BasketLine(Guid.Empty, "5040001", "Item", 1399, 1166, 1, IsReturn: true, OriginSaleId: originId),
+        };
+        var refund = SaleAssembler.Assemble(
+            refundId, deviceId, 2, businessId, refundLines,
+            new[] { new IngestTender { TenderType = Tenders.Cash, AmountPence = SaleAssembler.Total(refundLines).GrossPence } },
+            new DateOnly(2026, 8, 9), DateTime.UtcNow);
+        Assert.Equal(HttpStatusCode.Created,
+            (await api.PostSaleAsync(JsonSerializer.Serialize(refund, PlutusApiClient.Json))).Status);
+
+        // now try to refund THE REFUND — exactly what the picker let an operator do
+        var secondLines = new[]
+        {
+            new BasketLine(Guid.Empty, "5040001", "Item", 1399, 1166, 1, IsReturn: true, OriginSaleId: refundId),
+        };
+        var second = SaleAssembler.Assemble(
+            Uuid7.New(), deviceId, 3, businessId, secondLines,
+            new[] { new IngestTender { TenderType = Tenders.Cash, AmountPence = SaleAssembler.Total(secondLines).GrossPence } },
+            new DateOnly(2026, 8, 9), DateTime.UtcNow);
+
+        var (status, body) = await api.PostSaleAsync(JsonSerializer.Serialize(second, PlutusApiClient.Json));
+
+        // ⚠ 202 QUARANTINED, not 400. The money may already have left a drawer on a till that broke
+        // the rule; a 400 makes the evidence vanish into that till's Failed queue, quarantine keeps
+        // it where the portal can see it.
+        Assert.Equal(HttpStatusCode.Accepted, status);
+        Assert.Equal("quarantined", body?.Status?.ToLowerInvariant());
+    }
 }

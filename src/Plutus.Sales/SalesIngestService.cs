@@ -258,6 +258,20 @@ namespace Plutus.Sales
 
                 if (origin == null) continue;   // see the remark above — never quarantine on this
 
+                // ⚠ A REFUND IS NOT SOMETHING YOU CAN REFUND, and until 2026-08-10 nothing said so.
+                // A refund is stored as its own sale with a NEGATIVE gross, and the cap below takes
+                // `Math.Abs(origin.GrossPence)` — so a £13.99 refund looked exactly like a £13.99
+                // sale with nothing yet returned against it, and the whole cap waved it through.
+                //
+                // That is not theoretical: on 2026-08-10 a till offered its own refunds in a
+                // "which sale?" picker, an operator tapped the newest entry, and £13.99 left the
+                // drawer twice on a £13.99 sale. The till's picker was fixed the same day — this is
+                // the gate that does not depend on the till being right, which is the whole reason
+                // the cap is enforced in two places (binding default 12).
+                if (origin.GrossPence < 0)
+                    return $"Sale {byOrigin.Key:D} is itself a refund, so nothing can be returned "
+                         + "against it. Refund against the original purchase.";
+
                 // ⚠ Excludes THIS sale's own rows so a re-POST cannot count itself and turn an
                 // idempotent retry into an over-refund.
                 var priorRows = await _db.SaleAdjustments.AsNoTracking()

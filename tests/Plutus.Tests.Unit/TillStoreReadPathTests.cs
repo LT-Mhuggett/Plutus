@@ -358,6 +358,83 @@ public class TillStoreReadPathTests : IAsyncLifetime
         Assert.Equal(3, (await _store.ListRecentSalesAsync(3)).Count);
     }
 
+    // ── the double refund, 2026-08-10 ──
+    //
+    // ⚠ £13.99 LEFT THE DRAWER TWICE ON A £13.99 SALE. A refund is stored as its OWN sale with a
+    // negative gross, so it appeared in the recent-sales picker — newest first, right where the
+    // operator taps — and the second refund was taken AGAINST THE FIRST REFUND. The server recorded
+    // the adjustment against the refund's own id, so the per-sale cap had nothing to compare with.
+
+    /// <summary>⚠ A refund must never be offered as something to refund against.</summary>
+    [Fact]
+    public async Task Refunds_are_NOT_offered_as_sales_to_refund_against()
+    {
+        var origin = Uuid7.New();
+        await _store.CommitSaleAsync(Sale());   // a purchase
+
+        // ⚠ Built with a NEGATIVE header, which is what `SaleAssembler` really produces for a
+        // return and what the live data showed (-1399). The shared `Sale()` helper hardcodes a
+        // positive gross, so using it here would have tested nothing.
+        var refund = Sale(ReturnLine(origin, 600));
+        refund.GrossPence = -600;
+        refund.VatPence = -100;
+        await _store.CommitSaleAsync(refund);
+
+        Assert.Equal(2, (await _store.ListRecentSalesAsync()).Count);
+
+        var refundable = await _store.ListRecentSalesAsync(purchasesOnly: true);
+        var only = Assert.Single(refundable);
+        Assert.True(only.GrossPence > 0, "a negative-gross sale is a refund and cannot be refunded");
+    }
+
+    /// <summary>
+    /// ⚠ THE DRAIN WINDOW. `ReturnLookup` prefers the SERVER's figure, but the platform only counts
+    /// refunds it has RECEIVED — and a refund sits in the outbox for up to a minute. The two real
+    /// refunds on 2026-08-10 were 97 milliseconds apart and drained together, so the server answered
+    /// "nothing refunded" both times, entirely correctly, while this till knew all along.
+    /// </summary>
+    [Fact]
+    public async Task A_refund_still_QUEUED_counts_against_the_next_one()
+    {
+        var origin = Uuid7.New();
+        var refund = await _store.CommitSaleAsync(Sale(ReturnLine(origin, 900)));
+
+        Assert.Equal((int)OutboxStatus.Pending, refund.Status);
+        Assert.Equal(900, await _store.UndeliveredRefundedPenceAsync(origin));
+    }
+
+    /// <summary>⚠ Once DELIVERED it is the server's to count, and counting it here too would double
+    /// it — refusing a legitimate refund of something else on the same sale.</summary>
+    [Fact]
+    public async Task A_refund_the_platform_has_TAKEN_is_no_longer_counted_locally()
+    {
+        var origin = Uuid7.New();
+        var refund = await _store.CommitSaleAsync(Sale(ReturnLine(origin, 900)));
+
+        refund.Status = (int)OutboxStatus.Pushed;
+        await _db.SaveChangesAsync();
+
+        Assert.Equal(0, await _store.UndeliveredRefundedPenceAsync(origin));
+        Assert.Equal(900, await _store.AlreadyRefundedPenceAsync(origin));   // the full record stands
+    }
+
+    /// <summary>
+    /// ⚠ A REJECTED refund still counts. The money left the drawer when the goods were handed over,
+    /// whatever the platform decided afterwards — treating a 400 as "not refunded" would hand it
+    /// over a second time while somebody is investigating the first.
+    /// </summary>
+    [Fact]
+    public async Task A_refund_the_platform_REFUSED_still_counts_against_the_next_one()
+    {
+        var origin = Uuid7.New();
+        var refund = await _store.CommitSaleAsync(Sale(ReturnLine(origin, 900)));
+
+        refund.Status = (int)OutboxStatus.Failed;
+        await _db.SaveChangesAsync();
+
+        Assert.Equal(900, await _store.UndeliveredRefundedPenceAsync(origin));
+    }
+
     /// <summary>
     /// ⚠ A sale whose payload will not parse is SKIPPED, not shown as a blank row. Offering a sale
     /// that cannot then be read back is offering a refund that will fail at the counter.

@@ -563,7 +563,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 // shop most needs to hand money back. Typing an id stays available for goods bought
                 // on ANOTHER till, where only the server knows the sale.
                 var recent = await Services.Storage.TillStoreAccess.TryUseAsync(
-                    s => s.ListRecentSalesAsync(20));
+                    s => s.ListRecentSalesAsync(20, purchasesOnly: true));
 
                 var typeItInstead = "Enter a sale ID…";
                 string saleIdFromPicker = null;

@@ -28,12 +28,32 @@ Head: see `git log` — this line goes stale; the commits don't.
 | | |
 |---|---|
 | **Suite** | Unit **767** · Integration **145** · Architecture **14** · AppClient **409** (+3 skipped) — all green |
-| **Till build to run** | **`D:\tmp\plutus-till-1.25.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing needed. Stamp `1.25.0+51c729a` |
+| **Till build to run** | **`D:\tmp\plutus-till-1.26.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing needed. Stamp `1.26.0+10fed46` |
 | **Deployed** | backend **1.8.1** LIVE (2026-08-10 12:35). Rollback `~/PLUTUS/backend.pre-20260810-123535`. Verified: DB-path probe 401, ETRIE 200, health 200, restart count 0 over 20s. ⚠ **The heartbeat version fix is CONFIRMED WORKING in production** — `Devices.AppVersion` now reads `1.19.0+c8931ef` for Matt's till, having been NULL on every row since the column shipped |
-| **Versions** | till-maui **1.25.0** · platform **1.22.0** · backend **1.8.1** · portal **1.3.0** · till-web **1.5.0** |
+| **Versions** | till-maui **1.26.0** · platform **1.22.0** · backend **1.8.1** · portal **1.3.0** · till-web **1.5.0** |
 | **Deployed** | backend 1.7.0, portal 1.3.0, web till 1.5.0 — **LIVE and unchanged by today**. Nothing today needs a deploy; it is all MAUI + docs |
 | **Commits** | `bb3c13a` (overlay) → `79b8d7a` (search + button sweep) → `80dd81b` (payment dialog + layout). ⚠ **NOT PUSHED** — still local on `Matt's-Horror` |
 | **Health** | Plutus 200 · ETRIE 200 · backend up, 838 restarts is the historical rotation count and is not climbing |
+
+## ⚠⚠ OPEN FAULTS FOUND IN THE 2026-08-10 HAND-RUN — read before touching the till
+
+Two are **fixed and need re-testing**; two are **still open** and were seen in the crash log rather
+than reported, so they are recorded here so they cannot be forgotten.
+
+### FIXED — retest on 1.26.0
+
+| | What | Root cause |
+|---|---|---|
+| ⚠⚠ | **The same item was refunded TWICE** (£13.99 out on a £13.99 sale) | **Two independent holes, either alone enough.** (1) The recent-sales picker I added that morning offered REFUNDS as things to refund against — a refund is its own sale with a negative gross, so it sat at the top of the list, newest first, and the second refund was recorded against *the first refund's id*. The server's cap took `Math.Abs(origin.GrossPence)`, so a −£13.99 refund looked exactly like a £13.99 sale with nothing returned against it. (2) The two refunds were **97ms apart** and drained together, so the server — which `ReturnLookup` now prefers — correctly answered "nothing refunded" both times while the till's own record knew. |
+| ⚠ | **Checkout closed the app** after entering `0` | Refusing `0` sends the tender loop back to the tender prompt, and WinUI threw a COMException building the second action sheet while the first popup was still tearing down. `ExecuteCheckoutTransaction` had `try`/`finally` and **no `catch`** — it is `async void`, so it went unhandled. |
+| ⚠ | **Cash didn't redraw** until you left the page | The cadence tick was kicked BEFORE the refresh, and `TillStoreAccess` serialises everything behind one semaphore — so a heartbeat with a 30-second deadline plus two drains queued ahead of the screen's own read. |
+
+### STILL OPEN — seen in the crash log, not yet fixed
+
+| | What | Where | Why it is not fixed yet |
+|---|---|---|---|
+| 🔴 | **`ParkedBasket.FromJson` cannot read saved baskets** — `JsonException: The JSON value could not be converted to List<ParkedRecord>`, thrown repeatedly | `Services/Storage/ParkedBasket.cs:113` | ⚠ **This means Save/Retrieve Transaction is broken**, and it is money-adjacent: a parked basket that cannot be read is a customer's order lost. It is CAUGHT, so it fails silently as "no parked baskets". Not fixed because it was not on the shop-day script and folding it into a refund fix would have made both harder to review. **Do this next.** |
+| 🟠 | **`LoginViewModel.EnsureStoreAsync` throws on EVERY sign-in** — `InvalidOperationException: Unable to track an entity of type 'StoreModel' because its primary key property 'Id' is null` | `LoginViewModel.cs:389` | Caught and harmless; the screen it fed is now read-only off `StoreInfoCache`. ⚠ It also CREATES the legacy `Database.db` on every sign-in, which is what made the enrolment gate a one-way door. **Cutover step 21 deletes it** — it is already on that step's list, so it is scheduled rather than forgotten. |
 
 ## ▶ WHAT LANDED IN THE SECOND HALF OF 2026-08-10
 

@@ -119,7 +119,21 @@ namespace Plutus.Frontend.AppClient.Services.Sales
                 var lines = dto.Lines.Select(l => new SaleLineFacts(
                     l.ItemIdOne ?? string.Empty, l.Qty, l.UnitPricePence, l.UnitExPence, l.LineGrossPence)).ToList();
 
-                return (SaleRecordSource.Server, new SaleLines(dto.GrossPence, lines), dto.AlreadyRefundedPence);
+                // ⚠ THE SERVER'S FIGURE PLUS WHAT THIS TILL IS STILL HOLDING, and the sum is what
+                // stops a double refund inside the drain window. The platform only counts refunds it
+                // has RECEIVED; a refund sits in the outbox for up to a minute. On 2026-08-10 the
+                // same £13.99 went out twice inside 97 milliseconds — the server answered "nothing
+                // refunded" both times, entirely correctly, while this till's own record knew.
+                //
+                // ⚠ ADDED, not max()'d. They do not overlap: the server counts DELIVERED refunds
+                // (from any till), this counts UNDELIVERED ones (from this till), so a delivered
+                // refund is in exactly one of them. Taking the larger would miss the case where
+                // another till has refunded and this one also has something queued.
+                var undelivered = await TillStoreAccess.TryUseAsync(
+                    s => s.UndeliveredRefundedPenceAsync(saleId, ct), ct).ConfigureAwait(false);
+
+                return (SaleRecordSource.Server, new SaleLines(dto.GrossPence, lines),
+                    dto.AlreadyRefundedPence + undelivered);
             }
             catch (Exception ex)
             {

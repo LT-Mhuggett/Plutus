@@ -525,8 +525,21 @@ public sealed class TillStore : IOutboxStore, ISyncStore
     /// ⚠ A sale whose payload will not parse is SKIPPED, not surfaced as a blank row. Offering a
     /// sale that cannot then be refunded is worse than not offering it.
     /// </summary>
+    /// <param name="purchasesOnly">
+    /// ⚠ TRUE WHEN CHOOSING WHAT TO REFUND AGAINST, and it is a MONEY rule, not a filter.
+    ///
+    /// A refund is stored as its own sale with a NEGATIVE gross. So an unfiltered list offers
+    /// yesterday's refunds as things to refund — and on 2026-08-10 that is exactly what happened:
+    /// the operator refunded £13.99, the refund appeared at the TOP of this list (newest first),
+    /// and the next refund was taken **against the refund**. The server recorded the adjustment
+    /// against the refund's own id, so the per-sale cap compared it with nothing and allowed it.
+    /// £13.99 went out twice on a £13.99 sale.
+    ///
+    /// Refunding a refund is never a valid operation, so it is excluded here rather than guarded
+    /// against later: the cap cannot protect an origin that was never the purchase.
+    /// </param>
     public async Task<IReadOnlyList<LocalSaleSummary>> ListRecentSalesAsync(
-        int limit = 25, CancellationToken ct = default)
+        int limit = 25, bool purchasesOnly = false, CancellationToken ct = default)
     {
         if (limit <= 0) limit = 25;
 
@@ -552,6 +565,12 @@ public sealed class TillStore : IOutboxStore, ISyncStore
             }
 
             if (payload is null) continue;
+
+            // ⚠ A REFUND IS ITSELF A SALE, with a negative gross — so it appears here, newest
+            // first, right where an operator will tap it. Excluding it is what stops "refund the
+            // refund", which defeats the cap entirely: the adjustment is recorded against the
+            // refund's own id, so there is nothing for the per-sale cap to compare against.
+            if (purchasesOnly && payload.GrossPence <= 0) continue;
 
             summaries.Add(new LocalSaleSummary(
                 row.SaleId,
@@ -616,6 +635,37 @@ public sealed class TillStore : IOutboxStore, ISyncStore
         return await _db.LocalRefunds.AsNoTracking()
             .Where(r => r.OriginSaleId == originSaleId)
             .SumAsync(r => r.RefundedPence, ct);
+    }
+
+    /// <summary>
+    /// How much of a sale this till has refunded but NOT YET DELIVERED to the platform.
+    ///
+    /// ⚠ THIS IS THE GAP BETWEEN THE TWO CAPS, and it let £13.99 out twice on 2026-08-10.
+    /// `ReturnLookup` prefers the SERVER's figure, because only the platform knows what other tills
+    /// have given back. But the server only knows about refunds it has RECEIVED — and a refund sits
+    /// in the outbox for up to a minute. Refund something twice inside that minute and the server
+    /// answers "nothing refunded yet" both times, perfectly correctly, while this till's own record
+    /// knew all along.
+    ///
+    /// So the honest total is: what the SERVER has recorded, plus what THIS TILL is still holding.
+    /// Neither figure is complete alone, and taking the larger of the two would still miss the case
+    /// where another till has refunded AND this one has something queued.
+    ///
+    /// ⚠ Counts anything not yet `Pushed` — including `Failed`. A refund the platform REJECTED
+    /// still had money leave the drawer, and treating it as "not refunded" would hand it over a
+    /// second time while somebody is investigating the first.
+    /// </summary>
+    public async Task<long> UndeliveredRefundedPenceAsync(Guid originSaleId, CancellationToken ct = default)
+    {
+        if (originSaleId == Guid.Empty) return 0;
+
+        var undelivered =
+            from refund in _db.LocalRefunds.AsNoTracking()
+            join sale in _db.LocalSales.AsNoTracking() on refund.SaleId equals sale.SaleId
+            where refund.OriginSaleId == originSaleId && sale.Status != (int)OutboxStatus.Pushed
+            select refund.RefundedPence;
+
+        return await undelivered.SumAsync(ct);
     }
 
     // ── parked baskets (cutover step 18) ────────────────────────────────────────────────────
