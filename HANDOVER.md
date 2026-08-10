@@ -23,17 +23,54 @@ Head: see `git log` — this line goes stale; the commits don't.
 > Older references below that say `Build/<plan>.md` now mean `Build/archive/<plan>.md` or
 > `Build/To do/<plan>.md`.
 
-### ⏰⏰⏰⏰⏰⏰⏰⏰ START HERE (2026-08-10 — the till's UI layer, four traps deep)
+### ⏰⏰⏰⏰⏰⏰⏰⏰ START HERE — picking up on **2026-08-12**
+
+**Where we got to: cutover step 25 (inventory) is CLOSED, and it was the largest gap on the board.**
+Steps 1–20, 23, 25 and half of 26 are done. **~40 working days left**, two thirds of it three items.
 
 | | |
 |---|---|
-| **Suite** | Unit **856** · Integration **146** · Architecture **15** · AppClient **409** (+3 skipped) — all green |
-| **Till build to run** | **`D:\tmp\plutus-till-1.39.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing needed. Stamp `1.29.0+6fa2ac2` |
-| **Deployed** | backend **1.8.3** LIVE (2026-08-10 15:28). Rollback `~/PLUTUS/backend.pre-20260810-152835`; the two before it are `.pre-20260810-151429` (1.8.2) and `.pre-20260810-123535` (1.8.1). Each verified: DB-path probe **401**, ETRIE **200**, health 200, restart count 0. ⚠ **The heartbeat version fix is CONFIRMED WORKING in production** — `Devices.AppVersion` reads a real build, having been NULL on every row since the column shipped. ⚠ **1.8.2 carries the server-side "a refund cannot be refunded" guard** (verified present in the deployed DLL, UTF-16 aware — a plain grep finds nothing and would mislead you). ⚠ **1.8.3 lets a till operator read `/api/v1/reports/summary`.** |
-| **Versions** | till-maui **1.39.0** · platform **1.25.0** · backend **1.8.3** (⚠ **1.9.0 built, NOT deployed**) · portal **1.3.0** · till-web **1.5.0** |
-| **Deployed** | backend 1.7.0, portal 1.3.0, web till 1.5.0 — **LIVE and unchanged by today**. Nothing today needs a deploy; it is all MAUI + docs |
-| **Commits** | `bb3c13a` (overlay) → `79b8d7a` (search + button sweep) → `80dd81b` (payment dialog + layout). ⚠ **NOT PUSHED** — still local on `Matt's-Horror` |
-| **Health** | Plutus 200 · ETRIE 200 · backend up, 838 restarts is the historical rotation count and is not climbing |
+| **Suite** | Unit **856** · Integration **146** · Architecture **15** · AppClient **409** (+3 skipped) — **all green**, working tree clean |
+| **Till build to run** | **`D:\tmp\plutus-till-1.39.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
+| **Hand-run script** | [`Build/shop-day-test.md`](Build/shop-day-test.md) — ⚠ **§5 is where everything new lives** and none of it has been run by a person yet |
+| **Versions** | till-maui **1.39.0** · backend **1.9.0 (BUILT, NOT DEPLOYED)** · platform **1.26.0** · portal **1.3.0** · till-web **1.5.0** · agent **1.3.3** |
+| **Deployed** | backend **1.8.3** LIVE (2026-08-10 15:28) — rollback `~/PLUTUS/backend.pre-20260810-152835`. Portal 1.3.0, web till 1.5.0 unchanged. ⚠ **Nothing from 11 August is deployed** |
+| **Commits** | **40 unpushed** on `Matt's-Horror` (upstream at `4d29877`). Today's ten run `92a39d4` → `87fdb96` |
+| **Health** | Plutus 200 · ETRIE 200 · backend up; 838 restarts is the historical rotation count and is not climbing |
+
+#### ⚠⚠ THREE THINGS WAITING ON A HUMAN — do these before anything else
+
+| # | What | Why it matters |
+|---|---|---|
+| 1 | **Rebuild + deploy backend 1.9.0** | Matt said "so we can rebuild the back end later" — this is that. It carries the catalogue feed's new fields, the stock-levels gate, and `pos.stock.adjust`. ⚠ **Until it ships, the till halves are inert** — safely so, the columns are nullable |
+| 2 | ⚠⚠ **Run `Plutus.SeedMigrator`** | Otherwise **`pos.stock.adjust` never reaches Supervisor**. `RbacSeeder` is a TOOL, not a startup step. Nothing breaks without it — a supervisor is just refused politely — which is exactly why it gets discovered by a supervisor who cannot do their job |
+| 3 | **Hand-run §5 of the shop-day script** | Ten builds landed today and **not one screen has been touched by a person**. §5 ranks what is most likely wrong |
+
+⚠ **Deploy order does NOT matter** for the catalogue fields — the Plutus tab's **"Re-download the whole catalogue"** exists precisely so it doesn't. Press it after the backend is up.
+
+#### What landed on 2026-08-10 → 11, newest first
+
+| Build | What |
+|---|---|
+| **1.39.0** | Stock adjustment from the till (`pos.stock.adjust`, Supervisor and up, never Cashier) — **step 25 closes** |
+| **1.38.0** | Category create / rename / reassign / delete — the 409 becomes the way through |
+| **1.37.0** | The stock column stops reading as zero; the Bin; the offline-tombstone rule finally pinned |
+| **1.36.0** | Catalogue feed carries Brand / Desc / Cost (schema **v5**); brand search parity; add-unknown-scan |
+| **1.35.0** | A failed list is no longer reported as an empty one |
+| **1.34.0** | Tax band + category shown in the item editor; **reprint a receipt** (step 26's half) |
+| **1.33.0** | ⚠ **Printing rebuilt on the Plutus Till Agent**; item editor's full field set; **Syncfusion off every reachable screen** |
+
+#### Where to start tomorrow
+
+**Step 11b — reshape the basket (~4 days), and it is promoted for a reason.**
+`ExecuteCheckoutTransaction` is a ~200-line `async void` holding the tender loop, cancel handling,
+the surcharge line, change and the commit. ⚠ **It is the only cluster of money-adjacent logic in
+the app with no test coverage at all** — all three checkout defects Matt hit were found by hand and
+are pinned by nothing. Extract the tender loop as part of it.
+
+Half a day of step 25 also remains: the **portal-published VAT band timeline** (25e). Caching only
+*today's* rate is a bug — the timeline is what lets an offline till apply a future-dated change on
+the day it starts.
 
 ### 📦 2026-08-10, later still — the catalogue feed grows three fields (till **1.36.0**, backend **1.9.0** ⚠ NOT DEPLOYED)
 

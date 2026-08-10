@@ -3,7 +3,8 @@
 **Build: `D:\tmp\plutus-till-1.39.0\Plutus.Frontend.AppClient.exe`** (unpackaged — no signing, no
 install; just run the .exe).
 
-This is the USER-VERIFY script for everything that landed on 2026-08-10. It is ordered as a real
+This is the USER-VERIFY script for everything that landed on **2026-08-10 and 11** — ten builds,
+**1.30.0 → 1.39.0**, and not one screen has been touched by a person yet. It is ordered as a real
 trading day, because that is the order the bugs appear in. **Do them in sequence** — several steps
 set up the next one.
 
@@ -12,6 +13,13 @@ cashier cannot open a float, take a paid-out, or close the day — that is delib
 
 ⚠ **If anything crashes or hangs, grab the crash log before restarting.** The Plutus tab shows its
 path. `CrashLog` hooks both `AppDomain` and `Microsoft.UI.Xaml.Application.UnhandledException`.
+
+### ⚠⚠ Two things must happen on the SERVER first, or parts of §5 cannot pass
+
+| Do this | Or else |
+|---|---|
+| **Deploy backend 1.9.0** | The catalogue feed will not carry brand / description / cost, so **§5.5a's stock column stays "—"** and searching by brand finds nothing. Nothing breaks — the columns are nullable — it simply does not switch on. Afterwards press **Plutus → "Re-download the whole catalogue"** |
+| **Run `Plutus.SeedMigrator`** | `pos.stock.adjust` will not exist on any role, so **§5.5b is refused even for a Supervisor**. ⚠ `RbacSeeder` is a TOOL, not a startup step — deploying alone does not do it |
 
 ---
 
@@ -74,6 +82,11 @@ path. `CrashLog` hooks both `AppDomain` and `Microsoft.UI.Xaml.Application.Unhan
 | 5.4b | ⚠ Change the **tax band** on something and save | The ex-tax price on the portal follows the NEW band | ⚠ The ex price is derived by DIVIDING by the band's multiplier. If the portal shows an ex price *higher* than the inc price, the units are inverted — stop and tell me |
 | 5.4c | ⚠ If a tax/category sheet does NOT appear | You get a message NAMING the reason — *"this operator isn't allowed to read them"*, *"nobody is signed in on this till"*, *"couldn't reach Plutus"*. **Send me the wording.** | ⚠ Before 1.35.0 every one of those came back as an empty list and the sheet was skipped in silence — a network fault presenting as a fact about your shop |
 | 5.5 | Check that item in the **portal** | Every field you changed | If the portal disagrees, stop and tell me |
+| 5.5a | ⚠ **Check the Stock column** | A **number**, or **∞** for an untracked item, or **—** for one never counted | ⚠ It used to be **blank on every row**, which reads as ZERO — the till was saying the shop holds none of anything. ⚠ **"—" is not "0"**: if you see 0 against something never counted, tell me |
+| 5.5b | Tap a row → **Adjust stock…** → *Write some off* → `2` → reason | The column drops by 2 | ⚠ New 1.39.0. ⚠ **It asks HOW MANY, not the new total** — the ledger adds your number to the count. If a prompt ever asks for a total, stop and tell me. ⚠ Needs `pos.stock.adjust`: Owner / Company Admin / Store Manager / **Supervisor**, never a Cashier — and **it does not exist until `Plutus.SeedMigrator` has been run** |
+| 5.5c | Try it as a **Cashier** | Refused politely | Deliberate — the person minding the shelf must not be the one who can alter its count |
+| 5.5d | **Categories** button → create one, rename it, then try to **delete a category that has items** | The delete offers to **move the items first**, naming how many | ⚠ New 1.38.0. That refusal is the feature: the LEGACY delete cascades and would take every item in the category — and their sale lines and stock — with it |
+| 5.5e | Tap a row → **Move to the Bin…** | Confirms, then the row leaves the list | ⚠ New 1.37.0. ⚠ It withdraws the item from sale on **every** till including offline ones — that is a recall, not a tidy-up. Restoring is portal-side for now |
 | 5.6 | **Settings → Receipt printer** | Either the **agent's** version and printer name, or a plain message saying no Plutus Till Agent is running on this PC | ⚠ Rebuilt in 1.33.0. Matt saw *"Wireless is turned off"* — that was Windows' generic device picker complaining about RADIOS because no OPOS printer exists, not about the printer. The till now prints the way the **web till** does, through the agent |
 | 5.6a | If an agent is running: **Pair this till** → type the code from its tray window | A test receipt comes out | ⚠ The code is per PC and never leaves it. A wrong code gives "the agent didn't accept that code", not silence |
 | 5.6b | **Settings → Print test page** | Paper, or a message | ⚠ This used to do **nothing at all** on a till with no OPOS printer — no paper, no message, indistinguishable from a broken printer |
@@ -109,6 +122,10 @@ Ranked by how likely and how much it matters:
    swapped for MAUI ones in 1.33.0, on screens with **no automated coverage at all**, because that
    needs a running UI host and this repo has none. The quantity box is the one that matters: it is
    on the money path.
+1b. ⚠ **The inventory screen's new actions (5.5b–5.5e)** — stock adjust, categories and the Bin all
+   landed within a few hours of each other, all reached through action sheets, all untouched by a
+   person. ⚠ **The Bin and a stock write-off are both irreversible from the till**, so if a
+   confirmation is worded ambiguously that is worth reporting even if it works.
 2. **Printing through the agent (5.6, 3.5)** — the till has never printed this way. ⚠ If no agent is
    installed on the PC, everything degrades to today's behaviour and nothing breaks; that is the
    design, so "no agent found" is a valid outcome, not a failure.
