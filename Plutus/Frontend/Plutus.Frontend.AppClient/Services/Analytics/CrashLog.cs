@@ -26,6 +26,22 @@ namespace Plutus.Frontend.AppClient.Services.Analytics
     {
         private static readonly object Gate = new();
 
+        /// <summary>
+        /// Whether we are inside a real MAUI app host.
+        ///
+        /// ⚠ `FileSystem.AppDataDirectory` reaches through to WinRT and THROWS outside one — a unit
+        /// test host, a design-time load — with `COMException: ClassFactory cannot supply requested
+        /// class`. That is not a fault; it is how you can tell where you are.
+        /// </summary>
+        private static bool InAppHost
+        {
+            get
+            {
+                try { _ = FileSystem.AppDataDirectory; return true; }
+                catch { return false; }
+            }
+        }
+
         /// <summary>Where the logs live. Surfaced in the Plutus tab so nobody has to guess.</summary>
         public static string Directory
         {
@@ -36,7 +52,26 @@ namespace Plutus.Frontend.AppClient.Services.Analytics
             }
         }
 
-        public static string TodaysFile => Path.Combine(Directory, $"plutus-till-{DateTime.Now:yyyy-MM-dd}.log");
+        /// <summary>
+        /// Today's log.
+        ///
+        /// ⚠ THE NAME SAYS WHERE IT CAME FROM, and that is not cosmetic — it cost a wrong diagnosis
+        /// on 2026-08-10. Running the test suite writes here too: `CrashLog` falls back to the
+        /// system temp directory when there is no app host, and it used the SAME filename, so
+        /// `%TEMP%\plutus-till-2026-08-10.log` looked exactly like a till's own log. It held 60
+        /// `ParkedBasket.FromJson` JSON errors — every one of them a test
+        /// (`An_unreadable_blob_returns_an_empty_basket_rather_than_throwing` feeds it bad JSON on
+        /// purpose and the guard logs when it catches). They were read as evidence that parked
+        /// baskets were broken on a real till, reported as such, and queued as the next fix. The
+        /// real till's log had none.
+        ///
+        /// A log a person cannot attribute at a glance is worse than no log, because it is believed.
+        /// </summary>
+        public static string TodaysFile => Path.Combine(
+            Directory,
+            InAppHost
+                ? $"plutus-till-{DateTime.Now:yyyy-MM-dd}.log"
+                : $"plutus-NOT-A-TILL-testhost-{DateTime.Now:yyyy-MM-dd}.log");
 
         /// <summary>
         /// Install global handlers. ⚠ Call this as EARLY as possible — the interesting crashes are

@@ -245,6 +245,18 @@ is needed before anyone installs this on a shop PC, and is not needed to test.
     the 200. ⚠ Watch for a `SaveChangesAsync` nested inside a conditional that is narrower than the
     set of things it needs to save.
 
+16. ⚠ **CHECK WHICH LOG YOU ARE READING.** `CrashLog` falls back to the system temp directory when
+    there is no MAUI app host — which is every `dotnet test` run — and until 2026-08-10 it used the
+    SAME filename as a real till's log. `%TEMP%\plutus-till-<date>.log` therefore accumulated
+    thousands of lines of TEST output that reads exactly like production. Sixty deliberate
+    `ParkedBasket.FromJson` JSON errors (a test feeds it bad JSON on purpose and the guard logs when
+    it catches) were read as "parked baskets are broken on the live till", reported to the owner,
+    and queued as the next fix. **The real till's log had none.** The test-host file is now named
+    `plutus-NOT-A-TILL-testhost-*.log`; the till's own log lives under
+    `FileSystem.AppDataDirectory\logs`. ⚠ **Tells for a test-host log**: errors in identical PAIRS,
+    timestamps that match your own test runs rather than a shift, and
+    `COMException: ClassFactory cannot supply requested class` from `MainThread`/`FileSystem`.
+
 ⚠ **The standing check these came from:** a green suite proves a component works, never that
 anything *uses* it. `OutboxPusher.DrainAsync`, the catalogue browse and `TillStore.SearchAsync` were
 each fully built and tested while the screen in front of them looked broken. When a screen misbehaves,
