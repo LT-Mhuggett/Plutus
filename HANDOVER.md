@@ -27,9 +27,9 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 | | |
 |---|---|
-| **Suite** | Unit **733** · Architecture **13** · AppClient **409** (+3 skipped) — all green |
-| **Till build to run** | **`D:\tmp\plutus-till-1.18.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing needed. Stamp `1.18.0+df66096` |
-| **Versions** | till-maui **1.18.0** · platform **1.17.0** · backend **1.7.0** · portal **1.3.0** · till-web **1.5.0** |
+| **Suite** | Unit **752** · Architecture **13** · AppClient **409** (+3 skipped) — all green |
+| **Till build to run** | **`D:\tmp\plutus-till-1.19.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing needed. Stamp `1.19.0+c8931ef` |
+| **Versions** | till-maui **1.19.0** · platform **1.18.0** · backend **1.7.0** · portal **1.3.0** · till-web **1.5.0** |
 | **Deployed** | backend 1.7.0, portal 1.3.0, web till 1.5.0 — **LIVE and unchanged by today**. Nothing today needs a deploy; it is all MAUI + docs |
 | **Commits** | `bb3c13a` (overlay) → `79b8d7a` (search + button sweep) → `80dd81b` (payment dialog + layout). ⚠ **NOT PUSHED** — still local on `Matt's-Horror` |
 | **Health** | Plutus 200 · ETRIE 200 · backend up, 838 restarts is the historical rotation count and is not climbing |
@@ -55,12 +55,21 @@ Four things, in this order, because each unblocks the next:
 minute of an enrolled till running 1.17.0 should populate it. ⚠ The web till only beats from an
 **enrolled** browser — an un-enrolled tab stays silent by design.
 
-**3. Then step 11b — and it has been PROMOTED above steps 22–28.** Not for tidiness:
-`ExecuteCheckoutTransaction` is a ~200-line `async void` holding the tender loop, cancel handling,
-surcharge line, change calculation and commit, and **none of it can be exercised without a UI host**.
-All three checkout defects fixed today shipped, were found by hand, and are pinned by **nothing**.
-It is the only cluster of money-adjacent logic left with no coverage. The plan's step 11b now says
-what to extract and what to pin.
+**3. Step 11b — the TENDER HALF IS DONE, the basket reshape is not.**
+
+✅ `src/Plutus.Client.Core/TenderLoop.cs` now owns the tender sequence and is wired into the
+checkout, which only ASKS (two dialogs) and maps the answer onto the sale. **19 tests, three
+mutation checks.** ⚠ It closed **two further non-terminating loops** the original could not express:
+a `0` tender was accepted and re-prompted for ever, and `paid > total` cannot mean "wrong way" for a
+refund where both numbers are negative — so **over-refunding walked straight through**.
+
+⚠ **THE CHECKOUT PATH CHANGED, SO HAND-RUN IT.** Cash, card, a split payment across two tenders, a
+refund, and Cancel at both prompts. It builds and the loop is covered, but the *wiring* between the
+dialogs and the loop is not — that is exactly the seam this week's bugs lived in.
+
+**Still to do in 11b:** the `BasketItem` → long-pence reshape. ⚠ The binding inventory is done and
+recorded in the plan; the trap is that `Price`/`PriceExTax` are `decimal` and the rows format them
+`{0:C}` — **switching to `long` renders £3.30 as £330.00 and nothing fails.**
 
 **4. After that, steps 22–28** — theming (22), cash (23), Users (24), inventory WP10 (25),
 reporting WP11 (26), loyalty/gift cards (27), online-first login (28). Step 25 closes the biggest

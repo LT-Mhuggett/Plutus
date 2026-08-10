@@ -1013,123 +1013,147 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 sale.Total = Basket.Sum(bR => bR.Price * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
                 sale.TotalExTax = Basket.Sum(bR => bR.PriceExTax * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
 
-                for (var paid = 0.0m; paid != sale.Total;)
-                {
-                    if (!Basket.Any(br => br is BasketReturnItem))
-                        if (paid > sale.Total)
-                            break;
-                    var payMethNames = payMeths.Keys.ToArray();
+                const NumberStyles testStyles = NumberStyles.AllowCurrencySymbol | NumberStyles.AllowThousands
+                    | NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign;
 
-                    var payMeth = await Application.Current.MainPage.DisplayActionSheet("PayMeth".Translate(), "Cancel".Translate(), null, payMethNames);
+                // ⚠ Remembered across the two callbacks: the amount prompt names the tender the
+                // operator just picked, and each payment row must reuse the SAME
+                // `PaymentMethodModel` instance rather than re-running the factory.
+                var chosenMethods = new Dictionary<string, PaymentMethodModel>();
+                var lastPickedName = string.Empty;
 
-                    if (payMeth == "Cancel".Translate())
+                // ⚠ THE TENDER SEQUENCE NOW LIVES IN `Client.Core.TenderLoop` (cutover step 11b).
+                //
+                // It was ~90 lines here, inside a ~200-line `async void` that also assembles the
+                // sale, adds the surcharge line, commits and prints — so NOTHING about taking money
+                // could be exercised without a running UI host. All three tendering defects found
+                // on 2026-08-10 shipped as a result, and every one was a loop that could not
+                // terminate: a cancel that fell through and appended a £0 payment, a `0` tender that
+                // did the same, and an amount prompt with no exit at all.
+                //
+                // The loop is now 19 unit tests and three mutation checks. What is left here is the
+                // ASKING — dialogs — and mapping the answer onto the legacy sale model.
+                var tender = await Plutus.Client.Core.TenderLoop.RunAsync(
+                    Pence.FromDecimal(sale.Total),
+
+                    // Which tender? ⚠ Also where the surcharge line is added, because choosing CARD
+                    // is what creates it. The fee is returned to the loop, which applies it to the
+                    // outstanding balance AT MOST ONCE — a split card payment must not be charged a
+                    // flat fee twice, and that is now the loop's rule rather than this method's.
+                    chooseMethod: async outstanding =>
                     {
-                        Logger.LogEvent(AppLogLevel.Info, "Sale Processing", new Dictionary<string, string> { { "Canceled", "True" } });
-                        return;
-                    }
+                        var payMethNames = payMeths.Keys.ToArray();
+                        var picked = await Application.Current.MainPage.DisplayActionSheet(
+                            "PayMeth".Translate(), "Cancel".Translate(), null, payMethNames);
 
-                    var pay = new PaymentMethod_SaleModel() { TempPayMethod = payMeths[payMeth]() };
+                        if (string.IsNullOrEmpty(picked) || picked == "Cancel".Translate()
+                            || !payMeths.ContainsKey(picked))
+                            return Plutus.Client.Core.TenderChoice.Abandoned;
 
-                    // ⚠ THE SURCHARGE IS THE TENANT'S GATEWAY SETTING, NOT THE LEGACY
-                    // `PaymentMethod.Charge`. The legacy field lives on a GLOBAL table — one
-                    // tenant's fee would have been every tenant's fee — and its path here was
-                    // broken twice over: the resource key was misspelt (`CardChangeNote` for
-                    // `CardChargeNote`, an ArgumentException in debug and a literal key on the
-                    // receipt in release), and the `BasketNote` it added carries money the platform
-                    // sale cannot represent, so the commit guard refuses the basket.
-                    //
-                    // ⚠ A REAL LINE against the provisioned CARD-SURCHARGE item, priced by the
-                    // shared rules: the fee is further consideration for the main supply (Bookit
-                    // C-607/14 / NEC C-130/15), so its VAT FOLLOWS THE BASKET — zero on zero-rated
-                    // goods, blended on a mixed basket, never a hardcoded rate. Applied ONCE per
-                    // sale (a split payment must not charge the flat fee twice), only to card
-                    // tenders, and never to refunds.
-                    if (SharedKernel.Tenders.FromMethodName(pay.TempPayMethod.Name) == SharedKernel.Tenders.Card
-                        && !refundOnly
-                        && !Services.Storage.CheckoutCommit.HasSurcharge(Basket))
-                    {
-                        var (surchargeBp, surchargeFlat) = await Services.Storage.GatewaySurcharge.GetAsync();
-                        var feeLine = Services.Storage.CheckoutCommit.SurchargeItem(Basket, surchargeBp, surchargeFlat);
-                        if (feeLine != null)
+                        var method = payMeths[picked]();
+                        chosenMethods[picked] = method;
+                        lastPickedName = picked;
+
+                        long feePence = 0;
+
+                        // ⚠ THE SURCHARGE IS THE TENANT'S GATEWAY SETTING, NOT THE LEGACY
+                        // `PaymentMethod.Charge`. That field lives on a GLOBAL table — one tenant's
+                        // fee would have been every tenant's — and its old path was broken twice
+                        // over: a misspelt resource key, and a money-carrying `BasketNote` the
+                        // commit guard refuses.
+                        //
+                        // ⚠ A REAL LINE against the provisioned CARD-SURCHARGE item, priced by the
+                        // shared rules: the fee is further consideration for the main supply (Bookit
+                        // C-607/14 / NEC C-130/15), so its VAT FOLLOWS THE BASKET — zero on
+                        // zero-rated goods, blended on a mixed basket, never a hardcoded rate. Card
+                        // tenders only, never on refunds.
+                        if (SharedKernel.Tenders.FromMethodName(method.Name) == SharedKernel.Tenders.Card
+                            && !refundOnly
+                            && !Services.Storage.CheckoutCommit.HasSurcharge(Basket))
                         {
-                            Basket.Add(feeLine);
-                            sale.Total = Basket.Sum(bR => bR.Price * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
+                            var (surchargeBp, surchargeFlat) = await Services.Storage.GatewaySurcharge.GetAsync();
+                            var feeLine = Services.Storage.CheckoutCommit.SurchargeItem(Basket, surchargeBp, surchargeFlat);
+                            if (feeLine != null)
+                            {
+                                Basket.Add(feeLine);
+                                // ⚠ The BASKET stays authoritative for `sale.Total` — the commit
+                                // guard compares the header against the sum of the lines, so a total
+                                // computed anywhere else is a second opinion about money.
+                                sale.Total = Basket.Sum(bR => bR.Price * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
+                                sale.TotalExTax = Basket.Sum(bR => bR.PriceExTax * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
+                                feePence = Pence.FromDecimal(feeLine.Price * feeLine.Quantity);
+                            }
                         }
-                    }
-                    #region Setup and run payment amount input
-                    const NumberStyles testStyles = NumberStyles.AllowCurrencySymbol | NumberStyles.AllowThousands | NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign;
-                    IValidator[] validators = {
+
+                        return new Plutus.Client.Core.TenderChoice(picked, method.IsChangeable, feePence);
+                    },
+
+                    // How much? ⚠ WITH A CANCEL BUTTON. Raised without one, and with
+                    // `interuptable: false` and an `OnBackButtonPressed` that swallowed Escape, this
+                    // dialog had no exit of any kind — the operator could only leave by killing the
+                    // process, mid-sale.
+                    askAmount: async outstanding =>
+                    {
+                        var outstandingDecimal = outstanding / 100m;
+
+                        IValidator[] validators = {
                             new RequiredValidator(),
                             new CurrencyValueValidator(testStyles)
-                    };
+                        };
 
-                    ViewElementData[] elements = {
-                        new ViewElementData(1, "Amount", "", validators.AsEnumerable(), false, true)
-                    };
+                        ViewElementData[] elements = {
+                            new ViewElementData(1, "Amount", "", validators.AsEnumerable(), false, true)
+                        };
 
-                    // ⚠ A CANCEL BUTTON, which this dialog did not have. It was raised with no
-                    // `cancelText`, so no Cancel button was built, AND `interuptable: false`, so
-                    // clicking the scrim did nothing, AND `AlertDialogBase.OnBackButtonPressed`
-                    // swallowed Escape. The payment dialog had NO EXIT of any kind: once an
-                    // operator reached it the only way out of the app was Task Manager, mid-sale,
-                    // with a customer at the counter.
-                    var tendered = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
-                        elements,
-                        "Confirm".Translate(),
-                        false,
-                        !pay.TempPayMethod.IsCashBackable || (pay.TempPayMethod.IsChangeable),
-                        sale.Total - paid,
-                        string.Format(
-                            refundOnly ? "HowMuchRefund".Translate() : "HowMuchPM".Translate(),
-                            payMeth,
-                            Math.Round(sale.Total - paid, 2, MidpointRounding.AwayFromZero)),
-                        "Cancel".Translate());
+                        var tendered = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                            elements,
+                            "Confirm".Translate(),
+                            false,
+                            true,
+                            outstandingDecimal,
+                            string.Format(
+                                refundOnly ? "HowMuchRefund".Translate() : "HowMuchPM".Translate(),
+                                lastPickedName,
+                                Math.Round(outstandingDecimal, 2, MidpointRounding.AwayFromZero)),
+                            "Cancel".Translate());
 
-                    _ = tendered.TryGetValue(1, out var amountText);
-                    #endregion
+                        _ = tendered.TryGetValue(1, out var amountText);
 
-                    // ⚠ BACKING OUT ABANDONS THE CHECKOUT — it does NOT fall through.
-                    //
-                    // The old code ran `if (amountText != null) { … }` and then added `pay` to the
-                    // sale REGARDLESS. So a cancelled prompt appended a payment of £0, left `paid`
-                    // untouched, and returned to a loop whose condition is `paid != sale.Total` —
-                    // which re-opened the same inescapable dialog, for ever, accumulating junk £0
-                    // payment rows on the way. Cancelling a payment is an ordinary thing to do at a
-                    // counter and it must return the operator to their basket, intact.
-                    if (tendered.Count == 0 || string.IsNullOrWhiteSpace(amountText))
-                    {
-                        Logger.LogEvent(AppLogLevel.Info, "Sale Processing",
-                            new Dictionary<string, string> { { "Canceled", "True" }, { "At", "Amount" } });
-                        return;
-                    }
+                        if (tendered.Count == 0 || string.IsNullOrWhiteSpace(amountText))
+                            return Plutus.Client.Core.TenderAmount.Abandoned;
 
-                    // ⚠ TryParse, not Parse. The validators run in the dialog, but this string has
-                    // crossed a UI boundary and a `FormatException` here is thrown from an
-                    // `async void` — which closes the till rather than rejecting the input.
-                    if (!decimal.TryParse(amountText, testStyles, CultureInfo.CurrentCulture, out var amount))
-                    {
-                        await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                            "That amount didn't look like a number. Nothing has been taken.", "OK".Translate());
-                        return;
-                    }
+                        // ⚠ TryParse, not Parse. The validators run in the dialog, but this string
+                        // has crossed a UI boundary and a `FormatException` here is thrown from an
+                        // `async void` — which closes the till rather than rejecting the input.
+                        if (!decimal.TryParse(amountText, testStyles, CultureInfo.CurrentCulture, out var typed))
+                            return Plutus.Client.Core.TenderAmount.Abandoned;
 
-                    pay.Amount = amount;
-                    paid += amount;
-                    if (paid > sale.Total)
-                    {
-                        if (pay.TempPayMethod.IsChangeable)
-                        {
-                            change = pay.Change = paid - sale.Total;
-                        }
-                        else
-                        {
-                            paid -= amount;
-                            continue;
-                        }
-                    }
+                        return Plutus.Client.Core.TenderAmount.Of(Pence.FromDecimal(typed));
+                    });
 
-                    sale.PaySales.Add(pay);
+                // ⚠ ABANDONED TAKES NOTHING AND LEAVES THE BASKET ALONE. It is not a partial
+                // success: `tender.Payments` is empty by construction. Clearing the basket here
+                // would lose the sale and the evidence together.
+                if (tender.Abandoned)
+                {
+                    Logger.LogEvent(AppLogLevel.Info, "Sale Processing",
+                        new Dictionary<string, string> { { "Canceled", "True" } });
+                    return;
                 }
+
+                foreach (var taken in tender.Payments)
+                {
+                    sale.PaySales.Add(new PaymentMethod_SaleModel
+                    {
+                        TempPayMethod = chosenMethods.TryGetValue(taken.MethodName, out var m)
+                            ? m
+                            : payMeths[taken.MethodName](),
+                        Amount = taken.AmountPence / 100m,
+                        Change = taken.ChangePence / 100m,
+                    });
+                }
+
+                change = tender.ChangePence / 100m;
 
                 if (sale.PaySales.Any(p => p.TempPayMethod.IsCashBackable) && CashbackEnabled)
                 {

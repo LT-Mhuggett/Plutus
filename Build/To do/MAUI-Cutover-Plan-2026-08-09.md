@@ -262,6 +262,27 @@ only cluster of money-adjacent logic left in this app with no coverage at all.
 sequence of tender answers (including "cancelled"), it returns payments + change or "abandoned".
 Then pin: cancel abandons and takes nothing; over-tender on a non-changeable method is refused;
 partial tenders accumulate to exactly the total. VERIFY those by mutation, per §A.5.
+
+✅ **THE TENDER HALF IS DONE — 2026-08-10.** `src/Plutus.Client.Core/TenderLoop.cs`, wired into
+`ExecuteCheckoutTransaction`, which now only ASKS (the two dialogs) and maps the answer onto the
+legacy sale model. **`TenderLoopTests` — 19 tests**, mutation-checked three ways (accepting a
+zero/wrong-way tender, charging the surcharge per tender, letting a card give change — each fails a
+named test and only that test). Unit suite 733 → **752**.
+
+It closed two defects beyond the three it was written for, both **non-terminating loops** the
+original could not express: a `0` tender was accepted and re-prompted for ever, and `paid > total`
+cannot mean "wrong way" for a refund, where both numbers are negative — so **over-refunding walked
+straight through**. There is now a `MaxConsecutiveRefusals` backstop so a mis-wired prompt cannot
+spin the loop at all. ⚠ **New C2 twin** — the web till has its own tender logic in TypeScript and
+nothing executes it; the rules to diff by hand are listed there.
+
+⚠ **STILL TO DO in this step:** the `BasketItem` → long-pence reshape and the nine
+`is BasketReturnItem` type-tests. The XAML binding inventory is done — the Till view binds
+`Name`, `Price`, `Tax`, `Quantity`, `Basket`, `SelectedBasketRecord`, `SaleExTax`, `SaleIncTax`
+through `IBasketRecord` (`Quantity`, `Name`, `Price`, `PriceExTax`, `Tax`) plus
+`BasketDataTemplateSelector`. ⚠ `Price`/`PriceExTax` are `decimal` and the rows format them with
+`StringFormat='{0:C}'` — **switching them to `long` renders £3.30 as £330.00 and nothing fails**, so
+the reshape needs a display member and a hand-run of every row type (item, return, note, alteration).
 ✅ **The card-surcharge question this step was waiting on is RESOLVED (2026-08-09, Matt-directed):**
 the fee is a real line against the provisioned `CARD-SURCHARGE` item, priced by
 `SharedKernel.CardSurchargeVat` (the fee follows the basket — Bookit/NEC), configured per tenant on
