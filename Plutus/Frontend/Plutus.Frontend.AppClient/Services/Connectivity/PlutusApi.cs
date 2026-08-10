@@ -79,6 +79,36 @@ namespace Plutus.Frontend.AppClient.Services.Connectivity
             }
         }
 
+        /// <summary>
+        /// The same server, authorised as the SIGNED-IN OPERATOR rather than as the till.
+        ///
+        /// ⚠ FOR "MAY THIS PERSON DO THIS" CALLS ONLY. `perm:*` policies resolve from RBAC by the
+        /// token's userId, and a DEVICE token has no userId — so every operator-permission endpoint
+        /// answers 403 to the device-authorised client. That is why the cross-till refund lookup
+        /// has never worked: `GET /api/v1/sales/{saleId}` is gated
+        /// `portal.financials.view,pos.reports.view,pos.refund`, and `ReturnLookup` swallowed the
+        /// 403 and fell back to this till's own record.
+        ///
+        /// ⚠ NEVER use it for sales ingest, the heartbeat, the catalogue feed or enrolment. Those
+        /// are the till speaking as itself and must keep working overnight with nobody signed in —
+        /// and the server derives the till id from the device token rather than trusting a body.
+        ///
+        /// ⚠ Returns null when nobody is signed in or the session has lapsed. That is an ANSWER, not
+        /// an error: the caller falls back to what this till knows locally.
+        ///
+        /// ⚠ NOT CACHED, deliberately. The token changes with every sign-in and expires on its own;
+        /// caching the CLIENT would pin whichever operator happened to be first. Building one is a
+        /// couple of allocations over the shared `HttpClient` — the expensive thing this file exists
+        /// to avoid is minting DEVICE tokens, and this path mints nothing at all.
+        /// </summary>
+        internal static async Task<PlutusApiClient> GetOperatorAsync(CancellationToken ct = default)
+        {
+            if (string.IsNullOrEmpty(OperatorSession.Token)) return null;
+
+            var http = PlutusHttp.TryFor(new ViewModels.Settings().ServerUrlSetting);
+            return http is null ? null : new PlutusApiClient(http, OperatorTokenProvider.Instance);
+        }
+
         /// <summary>Drop the cached client — after re-enrolment, or when the server address
         /// changes. The next caller builds a fresh one against the new credential.</summary>
         internal static void Reset()

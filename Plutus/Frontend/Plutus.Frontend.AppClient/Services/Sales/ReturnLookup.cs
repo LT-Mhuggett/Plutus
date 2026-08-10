@@ -97,8 +97,20 @@ namespace Plutus.Frontend.AppClient.Services.Sales
         {
             try
             {
-                // ⚠ THE SHARED client — one token mint for the whole app, not one per service.
-                var api = await PlutusApi.GetAsync(ct).ConfigureAwait(false);
+                // ⚠ THE OPERATOR'S TOKEN, NOT THE TILL'S — and this is why cross-till refunds have
+                // never once worked. `GET /api/v1/sales/{saleId}` is gated
+                // `perm:portal.financials.view,pos.reports.view,pos.refund`; `perm:*` policies
+                // resolve from RBAC by the token's **userId**, and a DEVICE token has no userId. So
+                // this call answered 403 every single time, the `catch` below swallowed it exactly
+                // as designed, and the till fell back to its own record — reporting "we have no
+                // record of that sale" for goods bought at another branch, on a platform holding
+                // the sale all along. Nothing logged, because nothing was wrong.
+                //
+                // ⚠ Null when nobody is signed in, which is CORRECT rather than a degradation: the
+                // platform's answer to "may this person see this sale" is a permission held by a
+                // person, and there is no person. The local record still answers for this till's own
+                // sales, which is the common case.
+                var api = await PlutusApi.GetOperatorAsync(ct).ConfigureAwait(false);
                 if (api is null) return null;
 
                 var dto = await api.GetSaleAsync(saleId, ct).ConfigureAwait(false);
