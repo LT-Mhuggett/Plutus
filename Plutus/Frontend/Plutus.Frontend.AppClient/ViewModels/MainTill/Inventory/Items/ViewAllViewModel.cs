@@ -278,6 +278,42 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         }
 
         /// <summary>
+        /// A row was tapped — offer what can be done with it.
+        ///
+        /// ⚠ THIS IS THE ONLY DISCOVERABLE WAY IN. "Add to basket" and "Edit" lived exclusively on a
+        /// context menu (right-click on desktop, long-press on touch) with nothing on screen to
+        /// advertise it. Asked what happened when he tried to edit an item, Matt answered "I didn't
+        /// know how to open it" — which is the honest verdict on a capability reachable only by a
+        /// gesture nobody mentions.
+        ///
+        /// ⚠ Through `Modal`, because picking an action here leads straight into ANOTHER dialog (the
+        /// edit prompt) — and two modals in quick succession is what threw a COMException and closed
+        /// the till at the payment prompt.
+        /// </summary>
+        public async void RowTapped(ItemModel item)
+        {
+            if (item?.Id is null) return;
+
+            try
+            {
+                const string addToBasket = "Add to basket";
+                const string edit = "Edit item";
+
+                var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
+                    App.Current.MainPage.DisplayActionSheet(
+                        item.Name ?? "Item", "Cancel".Translate(), null, addToBasket, edit));
+
+                if (picked == addToBasket) ExecuteAddToBasket(item.Id);
+                else if (picked == edit) ExecuteOpenEditItem(item.Id);
+            }
+            catch (Exception ex)
+            {
+                // ⚠ `async void` — an escape here closes the till.
+                Services.Analytics.CrashLog.Write("ViewAllViewModel.RowTapped", ex);
+            }
+        }
+
+        /// <summary>
         /// Edit an item's NAME and PRICE, on the platform (WP10 / cutover step 25).
         ///
         /// ⚠ IT USED TO OPEN `AddEditView`, WHICH WROTE TO THE LEGACY LOCAL DATABASE — a table
