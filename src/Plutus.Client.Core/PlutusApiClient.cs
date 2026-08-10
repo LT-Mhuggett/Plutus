@@ -290,6 +290,75 @@ public sealed class PlutusApiClient
         GetAsync<SaleDto>($"/api/v1/sales/{saleId:D}", ct);
 
     /// <summary>
+    /// Read one catalogue item from the platform, as the legacy endpoints hold it (WP10).
+    ///
+    /// ⚠ NEEDS AN OPERATOR TOKEN, and a device token does not merely fail the policy — it 500s.
+    /// `CompositeApiControllerBaseR`'s CONSTRUCTOR does
+    /// `User.Claims.First(c =&gt; c.Type == "…/objectidentifier")`, and only an operator token carries
+    /// that claim. `First` on no match throws before the action ever runs.
+    ///
+    /// ⚠ `businessId` is the LEGACY business id and travels as a HEADER. Not the tenant id.
+    /// </summary>
+    public async Task<ItemDto?> GetItemAsync(string idOne, Guid businessId, CancellationToken ct = default)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, $"/api/Item/{Uri.EscapeDataString(idOne)}");
+        req.Headers.Add("businessId", businessId.ToString("D"));
+        await AuthoriseAsync(req, ct);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (!res.IsSuccessStatusCode) return null;
+
+        try { return await res.Content.ReadFromJsonAsync<ItemDto>(Json, ct); }
+        catch (Exception e) when (e is JsonException or NotSupportedException) { return null; }
+    }
+
+    /// <summary>
+    /// Change some fields of an item, safely.
+    ///
+    /// ⚠ READ-MODIFY-WRITE, AND THIS IS THE WHOLE POINT OF THE METHOD. `PUT /api/Item/{id1}` binds
+    /// the COMPLETE entity, so anything not sent is written back as its default: a plain price
+    /// change would clear `StockUntracked` (a carrier bag becomes stock-tracked) or blank
+    /// `BinnedAtUtc` — **restoring a withdrawn item to sale on every till in the estate**. The web
+    /// till learned this the hard way and carries the same warning in `api.ts itemBody`. Fetching
+    /// first and echoing everything back is the only safe shape, so the client does not expose one
+    /// that isn't.
+    ///
+    /// ⚠ Returns the server's own message on a 400. The band guard
+    /// (`|price − exPrice × rate| ≤ 2p`) explains precisely what is wrong and what to do about it —
+    /// far better than anything this layer could invent.
+    /// </summary>
+    /// <param name="mutate">Applied to the item as the platform currently holds it.</param>
+    public async Task<(bool Ok, string? Problem)> UpdateItemFieldsAsync(
+        string idOne, Guid businessId, Action<ItemDto> mutate, CancellationToken ct = default)
+    {
+        if (mutate is null) throw new ArgumentNullException(nameof(mutate));
+
+        var item = await GetItemAsync(idOne, businessId, ct);
+        if (item is null) return (false, "That item couldn't be read from Plutus.");
+
+        mutate(item);
+
+        // ⚠ The composite key must be present on the way back or the entity will not bind.
+        item.Id ??= idOne;
+        item.IdOne ??= idOne;
+        if (item.IdTwo == Guid.Empty) item.IdTwo = businessId;
+        if (item.BusinessId == Guid.Empty) item.BusinessId = businessId;
+
+        using var req = new HttpRequestMessage(HttpMethod.Put, $"/api/Item/{Uri.EscapeDataString(idOne)}")
+        {
+            Content = JsonContent.Create(item, options: Json),
+        };
+        req.Headers.Add("businessId", businessId.ToString("D"));
+        await AuthoriseAsync(req, ct);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode) return (true, null);
+
+        var detail = await res.Content.ReadAsStringAsync(ct);
+        return (false, string.IsNullOrWhiteSpace(detail) ? $"Plutus refused the change ({(int)res.StatusCode})." : detail);
+    }
+
+    /// <summary>
     /// Record a cash movement or a drawer count (WP9).
     ///
     /// ⚠ THE STATUS IS THE POLICY, exactly as it is for a sale, which is why the raw status comes

@@ -11,11 +11,13 @@ using Plutus.Frontend.AppClient.Helpers.Security;
 using Plutus.Frontend.AppClient.Helpers.Validators;
 using Plutus.Frontend.AppClient.Services.Analytics;
 using Plutus.Frontend.AppClient.Views.MainTill.Inventory.Items;
+using Plutus.SharedKernel;
 using Syncfusion.Maui.ListView;
 using Syncfusion.Maui.DataSource;
 using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
@@ -275,10 +277,128 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
             Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Item Added To Basket Requested (from ViewAllViewModel)");
         }
 
+        /// <summary>
+        /// Edit an item's NAME and PRICE, on the platform (WP10 / cutover step 25).
+        ///
+        /// ⚠ IT USED TO OPEN `AddEditView`, WHICH WROTE TO THE LEGACY LOCAL DATABASE — a table
+        /// nothing reads. The edit reached no report, no other till and no VAT return, and since the
+        /// basket resolves from the v2 catalogue the operator could not even see their own change.
+        /// It was hidden on 2026-08-10 for exactly that reason; this is the real fix.
+        ///
+        /// ⚠ THE PRICE PAIR IS DERIVED, NEVER TYPED TWICE. The server guards
+        /// `|price − exPrice × rate| ≤ 2p` because free-typed ex-prices corrupted 47 live items — a
+        /// £7.99 item with a £799.00 ex-price — and with them every downstream VAT figure. The
+        /// operator gives the INC price; the ex price comes from the band the item already carries.
+        ///
+        /// ⚠ READ-MODIFY-WRITE through `UpdateItemFieldsAsync`, because the PUT binds the WHOLE
+        /// entity: a bare price change would clear `StockUntracked` or blank `BinnedAtUtc`,
+        /// restoring a withdrawn item to sale on every till in the estate.
+        /// </summary>
         private async void ExecuteOpenEditItem(string itemId)
         {
-            await App.Current.MainPage.Navigation.PushAsync(new AddEditView(itemId));
-            Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Item Edit Opened (from ViewAllViewModel)");
+            try
+            {
+                var gate = Services.Security.TillGate.Check(
+                    App.GetViewModel().SignedInOperator, PermissionCatalogue.PortalPricesManage);
+
+                if (!gate.Allowed)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(), gate.Message, "OK".Translate());
+                    return;
+                }
+
+                // ⚠ The OPERATOR's client. The legacy item controllers read an `objectidentifier`
+                // claim in their base CONSTRUCTOR, which only an operator token carries — a device
+                // token does not merely fail the policy, it 500s before the action runs.
+                var api = await Services.Connectivity.PlutusApi.GetOperatorAsync();
+                if (api is null)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "Editing an item needs someone signed in and a connection to Plutus.", "OK".Translate());
+                    return;
+                }
+
+                var businessId = await Services.Storage.TillStoreAccess.UseAsync(
+                    s => s.GetGuidMetaAsync(Plutus.Client.Storage.MetaKeys.BusinessId));
+                if (businessId is not Guid business || business == Guid.Empty)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "This till hasn't learnt which business it belongs to yet.", "OK".Translate());
+                    return;
+                }
+
+                var current = await api.GetItemAsync(itemId, business);
+                if (current is null)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "Plutus couldn't find that item.", "OK".Translate());
+                    return;
+                }
+
+                const NumberStyles money = NumberStyles.AllowCurrencySymbol | NumberStyles.AllowThousands
+                                           | NumberStyles.AllowDecimalPoint;
+
+                var elements = new ViewElementData[]
+                {
+                    new ViewElementData(1, "Name".Translate(), current.Name ?? "",
+                        new IValidator[] { new RequiredValidator() }, false, true),
+                    new ViewElementData(2, "Price".Translate(), current.Price.ToString("0.00"),
+                        new IValidator[] { new RequiredValidator(), new CurrencyValueValidator(money) }, false, true),
+                };
+
+                var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                    elements, "Confirm".Translate(), true, "Edit item", "Cancel".Translate());
+
+                if (answers.Count == 0) return;
+
+                _ = answers.TryGetValue(1, out var name);
+                _ = answers.TryGetValue(2, out var priceText);
+                if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(priceText)) return;
+
+                if (!decimal.TryParse(priceText, money, CultureInfo.CurrentCulture, out var price) || price < 0)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "That price didn't look like a number. Nothing has been changed.", "OK".Translate());
+                    return;
+                }
+
+                // ⚠ The ex price follows the item's EXISTING band ratio, so the pair stays consistent
+                // and the server's guard passes. Deriving from the stored pair rather than from a
+                // rate keeps this correct for an item whose band the portal has not classified.
+                var ratio = current.Price > 0 ? current.ExPrice / current.Price : 1m;
+                var exPrice = Math.Round(price * ratio, 2, MidpointRounding.AwayFromZero);
+
+                var (ok, problem) = await api.UpdateItemFieldsAsync(itemId, business, item =>
+                {
+                    item.Name = name.Trim();
+                    item.Price = price;
+                    item.ExPrice = exPrice;
+                });
+
+                if (!ok)
+                {
+                    // ⚠ The SERVER's words. Its band guard explains exactly what is wrong and what
+                    // to do about it — better than anything this screen could invent.
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        problem ?? "Plutus refused the change.", "OK".Translate());
+                    return;
+                }
+
+                // ⚠ Pull the catalogue so the change is visible HERE. Without it the operator edits
+                // an item, sees the old price on the list and in the basket, and reasonably concludes
+                // the edit failed.
+                await Services.Storage.CatalogueSyncService.SyncAsync();
+                InitItems();
+
+                Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Item Edited");
+            }
+            catch (Exception ex)
+            {
+                // ⚠ `async void` — an escape here closes the till.
+                Services.Analytics.CrashLog.Write("ViewAllViewModel.EditItem", ex);
+                await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "That didn't work. Nothing has been changed.", "OK".Translate());
+            }
         }
 
         private async void ExecuteUpdateItemStock(string itemId)

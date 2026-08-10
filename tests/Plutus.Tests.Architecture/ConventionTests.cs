@@ -23,11 +23,59 @@ public class ConventionTests
 
         var offenders = new List<string>();
         foreach (var file in Repo.CsFiles("src"))
+        {
+            if (VerbatimLegacyWireContracts.Contains(Path.GetFileName(file))) continue;
             foreach (Match m in rx.Matches(File.ReadAllText(file)))
                 offenders.Add($"{Path.GetFileName(file)}: {m.Value.Trim()}");
+        }
 
         Assert.True(offenders.Count == 0,
             "Money must be integer pence in platform code. Offenders:\n  " + string.Join("\n  ", offenders));
+    }
+
+    /// <summary>
+    /// ⚠ THE ONLY FILES ALLOWED DECIMAL MONEY, and each needs a reason written here rather than a
+    /// rename that dodges the regex.
+    ///
+    /// <b>ItemContracts.cs</b> — a VERBATIM mirror of the legacy `/api/Item` wire contract, whose
+    /// columns are `decimal` and which the WEB TILL posts to in production today. The DTO is a
+    /// passthrough: read the item, change the one field the operator changed, send it all back
+    /// (the PUT binds the whole entity, so anything omitted is written back as its default).
+    /// Converting to pence and back would insert a rounding step between the till and the catalogue
+    /// on every edit — and this is not a clean dataset: the live catalogue has held items with a
+    /// £7.99 price against a £799.00 ex-price, which is what the server's band guard now exists to
+    /// stop. Preserving the server's own numbers exactly is safer than normalising them.
+    ///
+    /// ⚠ This is an exception for a WIRE MIRROR, never for logic. Anything that ADDS, COMPARES or
+    /// APPORTIONS money still uses integer pence — see `Pence`, `VatLineMath`, `TenderLoop`.
+    /// </summary>
+    private static readonly HashSet<string> VerbatimLegacyWireContracts = new()
+    {
+        "ItemContracts.cs",
+    };
+
+    /// <summary>
+    /// ⚠ The exclusion above must stay HONEST: an excluded file may mirror the wire, but it must not
+    /// grow arithmetic. A `decimal` money field is a passthrough; a `decimal` money CALCULATION is
+    /// the thing the pence rule exists to prevent, and putting one behind an exclusion would hide it
+    /// from the guard entirely.
+    /// </summary>
+    [Fact]
+    public void The_decimal_money_exclusions_contain_no_arithmetic()
+    {
+        var arithmetic = new Regex(@"(decimal|Price|Cost|ExPrice)\s*[*/+]\s*|Math\.Round\s*\(", RegexOptions.IgnoreCase);
+
+        var offenders = new List<string>();
+        foreach (var file in Repo.CsFiles("src"))
+        {
+            if (!VerbatimLegacyWireContracts.Contains(Path.GetFileName(file))) continue;
+            foreach (Match m in arithmetic.Matches(File.ReadAllText(file)))
+                offenders.Add($"{Path.GetFileName(file)}: {m.Value.Trim()}");
+        }
+
+        Assert.True(offenders.Count == 0,
+            "A file excluded from the pence rule may MIRROR the wire, never compute with it. Offenders:\n  "
+            + string.Join("\n  ", offenders));
     }
 
     [Fact]
