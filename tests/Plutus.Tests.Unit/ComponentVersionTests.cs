@@ -146,3 +146,71 @@ public class ComponentVersionTests
         Assert.Contains("InformationalVersion", targets);
     }
 }
+
+/// <summary>
+/// Is this till behind the version the platform expects? — `PlutusVersion.IsOlderThan`.
+///
+/// ⚠ Matt, 2026-08-11: *"Does the heartbeat from the till check for updates? All tills should do
+/// this."* It did not; the heartbeat carried no version at all. This is the comparison that answers
+/// it, and it is in `SharedKernel` because BOTH tills must decide "am I behind?" the same way — a
+/// browser that disagrees with a .exe about which of two releases is newer is a support call nobody
+/// can close.
+/// </summary>
+public class VersionComparisonTests
+{
+    /// <summary>
+    /// ⚠⚠ THE ONE THAT MAKES A STRING COMPARE WRONG, and the reason this is not a one-liner.
+    /// `"1.10.0".CompareTo("1.9.0")` is NEGATIVE — a string comparer stops at the second character,
+    /// reads '1' against '9', and concludes 1.10.0 is the older release. The MAUI till is already on
+    /// 1.46.0, so this range is not hypothetical: a naive comparer would tell a fully up-to-date
+    /// till it was behind, every 60 seconds, for ever.
+    /// </summary>
+    [Fact]
+    public void A_double_digit_release_is_newer_than_a_single_digit_one()
+    {
+        Assert.True(string.CompareOrdinal("1.10.0", "1.9.0") < 0);   // what a string compare claims
+        Assert.False(PlutusVersion.IsOlderThan("1.10.0", "1.9.0"));  // what is actually true
+        Assert.True(PlutusVersion.IsOlderThan("1.9.0", "1.10.0"));
+    }
+
+    [Theory]
+    [InlineData("1.45.0", "1.46.0", true)]   // one behind
+    [InlineData("1.46.0", "1.46.0", false)]  // ⚠ equal is NOT behind
+    [InlineData("1.47.0", "1.46.0", false)]  // ahead — a test build must not be nagged
+    [InlineData("0.9.0", "1.0.0", true)]     // major
+    [InlineData("1.46.1", "1.46.0", false)]  // fix ahead
+    [InlineData("1.46.0", "1.46.1", true)]   // fix behind
+    public void It_compares_segment_by_segment(string running, string expected, bool behind) =>
+        Assert.Equal(behind, PlutusVersion.IsOlderThan(running, expected));
+
+    /// <summary>⚠ A missing segment is a ZERO, so "1.4" and "1.4.0" are the same release. Reporting
+    /// one as behind the other would be a banner nobody could ever clear.</summary>
+    [Fact]
+    public void A_short_version_is_padded_not_rejected()
+    {
+        Assert.False(PlutusVersion.IsOlderThan("1.4", "1.4.0"));
+        Assert.False(PlutusVersion.IsOlderThan("1.4.0", "1.4"));
+        Assert.True(PlutusVersion.IsOlderThan("1.4", "1.5.0"));
+    }
+
+    /// <summary>
+    /// ⚠⚠ AN UNPARSEABLE VERSION IS NEVER "BEHIND", and that is a deliberate refusal to guess.
+    ///
+    /// `0.0.0` is what a build outside the release process reports — and, until it was fixed on
+    /// 2026-08-11, what EVERY Mac-built web bundle reported, because the version file could not be
+    /// found and the build fell back in silence. A comparer that treated 0.0.0 as "ancient" would
+    /// have nagged every till in the estate to upgrade to a version they were already running.
+    /// ⚠ It also protects a developer's local build from being told to upgrade itself.
+    /// </summary>
+    [Theory]
+    [InlineData("0.0.0", "1.46.0")]
+    [InlineData("dev", "1.46.0")]
+    [InlineData("", "1.46.0")]
+    [InlineData(null, "1.46.0")]
+    [InlineData("1.46.0", null)]
+    [InlineData("1.46.0", "")]
+    [InlineData("1.0.0-rc1", "1.46.0")]
+    [InlineData("1.2.3.4", "1.46.0")]
+    public void What_cannot_be_compared_is_never_reported_as_behind(string running, string expected) =>
+        Assert.False(PlutusVersion.IsOlderThan(running, expected));
+}

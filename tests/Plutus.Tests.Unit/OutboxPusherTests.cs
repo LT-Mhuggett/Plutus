@@ -127,6 +127,41 @@ public class OutboxPusherTests
         Assert.Single(handler.Bodies);
     }
 
+
+    /// <summary>
+    /// ⚠⚠ 426 UPGRADE REQUIRED STOPS THE DRAIN AND SAYS WHY — it is not a transport hiccup.
+    ///
+    /// Matt, 2026-08-11: *"Does the heartbeat from the till check for updates? All tills should do
+    /// this."* Chasing that found this: 426 was lumped in with 5xx and "stayed Pending for the
+    /// backoff", so a till whose build the platform had stopped accepting would have retried for
+    /// ever — looking perfectly healthy while its queue grew and nobody was told. The same shape as
+    /// the 409/400 bug on the cash drain, and worse here, because these entries are the money.
+    ///
+    /// ⚠ PENDING, NOT FAILED, and that distinction is the point. A 400 is terminal because the
+    /// platform will never accept that payload. A 426 is terminal for THIS BUILD ONLY: update the
+    /// till and the very same sale goes through. Marking it Failed would discard recoverable money.
+    /// </summary>
+    [Fact]
+    public async Task A_426_stops_the_drain_but_keeps_the_sale_owed()
+    {
+        var (pusher, store, handler) = Build(HttpStatusCode.UpgradeRequired, HttpStatusCode.Created);
+        store.Entries.AddRange(new[] { Entry(1), Entry(2), Entry(3) });
+
+        var outcomes = await pusher.DrainAsync();
+
+        Assert.Single(outcomes);                                  // stopped — nothing else would fare better
+        Assert.True(outcomes[0].ShouldStop);
+        Assert.Equal(OutboxStatus.Pending, outcomes[0].Status);   // still owed, NOT written off
+
+        // ⚠ A SENTENCE, not "HTTP 426". The Plutus tab shows this to whoever is standing at the
+        // till, and "426" tells them nothing they can act on.
+        Assert.Contains("too old", outcomes[0].Detail);
+        Assert.Contains("Nothing is lost", outcomes[0].Detail);
+
+        // Every entry survives for the next attempt.
+        Assert.Equal(3, store.Entries.Count(e => e.Status == OutboxStatus.Pending));
+        Assert.Single(handler.Bodies);
+    }
     [Fact]
     public async Task A_401_mid_drain_re_mints_the_token_once_and_carries_on()
     {

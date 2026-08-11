@@ -100,8 +100,31 @@ public sealed class OutboxPusher
                 _tokens.Invalidate();
                 return await PushOneAsync(entry, retryOn401: false, ct);
 
+            // ⚠⚠ 426 UPGRADE REQUIRED IS NOT A TRANSPORT HICCUP. It says "this till's build is too
+            // old for the platform to accept" — a state that CANNOT resolve itself, however long the
+            // backoff runs. It was lumped in with 5xx below, so a till that hit it would retry for
+            // ever: healthy-looking, queue quietly growing, nobody told. That is the same shape as
+            // the 409/400 bug fixed on the cash drain (2026-08-11), and it is worse here because the
+            // sale is the money.
+            //
+            // ⚠ STAYS PENDING, NOT FAILED — and the distinction is the whole point. A 400 is
+            // terminal because the platform will never accept that payload. A 426 is terminal for
+            // THIS BUILD: update the till and the very same sale goes through. Marking it Failed
+            // would throw away recoverable money.
+            //
+            // ⚠ SO IT STOPS, AND SAYS WHY. `ShouldStop` halts the drain (nothing else will fare
+            // better), and the reason is carried so the Plutus tab can say "this till needs
+            // updating" rather than "HTTP 426". Selling continues — WP5's rule, and the right one:
+            // an out-of-date till can still take money and still owes its customer a receipt.
+            case HttpStatusCode.UpgradeRequired:
+                entry.Attempts++;
+                await _store.UpdateAsync(entry, ct);
+                return new PushOutcome(entry.SaleId, OutboxStatus.Pending, ShouldStop: true,
+                    "This till's software is too old for Plutus to accept its sales. "
+                    + "Nothing is lost — they will send once it has been updated.");
+
             default:
-                // 401 after a re-mint, 403, 5xx, 426 … all stay Pending for the backoff.
+                // 401 after a re-mint, 403, 5xx … all stay Pending for the backoff.
                 entry.Attempts++;
                 await _store.UpdateAsync(entry, ct);
                 return new PushOutcome(entry.SaleId, OutboxStatus.Pending, ShouldStop: true, $"HTTP {(int)status}");
