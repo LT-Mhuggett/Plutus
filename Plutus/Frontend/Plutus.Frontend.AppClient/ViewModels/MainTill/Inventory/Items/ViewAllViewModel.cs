@@ -709,11 +709,18 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
             {
                 if (item?.Id is null) return;
 
-                // ⚠ `pos.stock.adjust` — the till-side code (Matt, 2026-08-11). Owner, Company
-                // Admin, Store Manager and Supervisor; never a cashier. The endpoint also accepts
-                // `portal.stock.adjust`, so a manager needs nothing new.
-                var gate = Services.Security.TillGate.Check(
-                    App.GetViewModel().SignedInOperator, PermissionCatalogue.PosStockAdjust);
+                // ⚠ EITHER CODE, MIRRORING THE SERVER. `POST /api/v1/stock/movements` is gated
+                // `perm:portal.stock.adjust,pos.stock.adjust`, and this screen asked for the till
+                // code ALONE until 2026-08-11 — so an **Owner**, who holds the portal code, was
+                // refused BY THE TILL for something the platform would have accepted.
+                //
+                // ⚠ It matters most BEFORE the RBAC re-seed has run: until `Plutus.SeedMigrator
+                // rbac` puts `pos.stock.adjust` onto the built-in roles, NOBODY holds it — so a
+                // till-code-only check refused every operator on the estate, including the owner,
+                // with a message that reads like deliberate policy. Nobody debugs that.
+                var gate = Services.Security.TillGate.CheckAny(
+                    App.GetViewModel().SignedInOperator, null,
+                    PermissionCatalogue.PosStockAdjust, PermissionCatalogue.PortalStockAdjust);
 
                 if (!gate.Allowed)
                 {

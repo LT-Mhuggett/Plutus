@@ -1,10 +1,10 @@
 # Shop-day test — the hand-run script
 
-**Build: `D:\tmp\plutus-till-1.39.0\Plutus.Frontend.AppClient.exe`** (unpackaged — no signing, no
+**Build: `D:\tmp\plutus-till-1.40.0\Plutus.Frontend.AppClient.exe`** (unpackaged — no signing, no
 install; just run the .exe).
 
 This is the USER-VERIFY script for everything that landed on **2026-08-10 and 11** — ten builds,
-**1.30.0 → 1.39.0**, and not one screen has been touched by a person yet. It is ordered as a real
+**1.30.0 → 1.40.0**, and not one screen has been touched by a person yet. It is ordered as a real
 trading day, because that is the order the bugs appear in. **Do them in sequence** — several steps
 set up the next one.
 
@@ -19,7 +19,7 @@ path. `CrashLog` hooks both `AppDomain` and `Microsoft.UI.Xaml.Application.Unhan
 | Do this | Or else |
 |---|---|
 | **Deploy backend 1.9.0** | The catalogue feed will not carry brand / description / cost, so **§5.5a's stock column stays "—"** and searching by brand finds nothing. Nothing breaks — the columns are nullable — it simply does not switch on. Afterwards press **Plutus → "Re-download the whole catalogue"** |
-| **Run `Plutus.SeedMigrator`** | `pos.stock.adjust` will not exist on any role, so **§5.5b is refused even for a Supervisor**. ⚠ `RbacSeeder` is a TOOL, not a startup step — deploying alone does not do it |
+| **Run `Plutus.SeedMigrator rbac --mysql "…"`** — ⚠ **from the FRESHLY BUILT copy**, `D:\tmp\plutus-seedmigrator-1.9.0\` | `pos.stock.adjust` will not exist on any role, so **a SUPERVISOR cannot adjust stock (§5.5b)**. ⚠ An **Owner or Store Manager can, without this** — from 1.40.0 the till accepts either that or `portal.stock.adjust`, mirroring the server. ⚠ `RbacSeeder` compiles INTO the binary, so the copy already on the Mac would re-seed the OLD permission set and exit 0. ⚠ Idempotent — safe to re-run |
 
 ---
 
@@ -28,8 +28,8 @@ path. `CrashLog` hooks both `AppDomain` and `Microsoft.UI.Xaml.Application.Unhan
 | # | Do | Expect | ⚠ If not |
 |---|---|---|---|
 | 0.1 | Launch the till | Signs in; tabs are **Till · Inventory Managment · Cash · Statistics · Store Information · Settings · Plutus** | No **Cash** tab = you are on an older build |
-| 0.2 | **Plutus** tab | Version chip reads **v1.39.0**; connection green | — |
-| 0.3 | Wait ~60s, then check the portal's fleet list | The till reports **1.39.0** | Versions were NULL on every row until backend 1.8.1 — this is the fix |
+| 0.2 | **Plutus** tab | Version chip reads **v1.40.0**; connection green | — |
+| 0.3 | Wait ~60s, then check the portal's fleet list | The till reports **1.40.0** | Versions were NULL on every row until backend 1.8.1 — this is the fix |
 
 ## 1. Open the day
 
@@ -83,7 +83,7 @@ path. `CrashLog` hooks both `AppDomain` and `Microsoft.UI.Xaml.Application.Unhan
 | 5.4c | ⚠ If a tax/category sheet does NOT appear | You get a message NAMING the reason — *"this operator isn't allowed to read them"*, *"nobody is signed in on this till"*, *"couldn't reach Plutus"*. **Send me the wording.** | ⚠ Before 1.35.0 every one of those came back as an empty list and the sheet was skipped in silence — a network fault presenting as a fact about your shop |
 | 5.5 | Check that item in the **portal** | Every field you changed | If the portal disagrees, stop and tell me |
 | 5.5a | ⚠ **Check the Stock column** | A **number**, or **∞** for an untracked item, or **—** for one never counted | ⚠ It used to be **blank on every row**, which reads as ZERO — the till was saying the shop holds none of anything. ⚠ **"—" is not "0"**: if you see 0 against something never counted, tell me |
-| 5.5b | Tap a row → **Adjust stock…** → *Write some off* → `2` → reason | The column drops by 2 | ⚠ New 1.39.0. ⚠ **It asks HOW MANY, not the new total** — the ledger adds your number to the count. If a prompt ever asks for a total, stop and tell me. ⚠ Needs `pos.stock.adjust`: Owner / Company Admin / Store Manager / **Supervisor**, never a Cashier — and **it does not exist until `Plutus.SeedMigrator` has been run** |
+| 5.5b | Tap a row → **Adjust stock…** → *Write some off* → `2` → reason | The column drops by 2 | ⚠ New 1.39.0. ⚠ **It asks HOW MANY, not the new total** — the ledger adds your number to the count. If a prompt ever asks for a total, stop and tell me. ⚠ From 1.40.0 the till accepts EITHER `pos.stock.adjust` OR `portal.stock.adjust`, mirroring the server — so **an Owner or Store Manager can do this WITHOUT the RBAC re-seed**. A **Supervisor** still needs `Plutus.SeedMigrator rbac` to have run |
 | 5.5c | Try it as a **Cashier** | Refused politely | Deliberate — the person minding the shelf must not be the one who can alter its count |
 | 5.5d | **Categories** button → create one, rename it, then try to **delete a category that has items** | The delete offers to **move the items first**, naming how many | ⚠ New 1.38.0. That refusal is the feature: the LEGACY delete cascades and would take every item in the category — and their sale lines and stock — with it |
 | 5.5e | Tap a row → **Move to the Bin…** | Confirms, then the row leaves the list | ⚠ New 1.37.0. ⚠ It withdraws the item from sale on **every** till including offline ones — that is a recall, not a tidy-up. Restoring is portal-side for now |

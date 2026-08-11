@@ -232,5 +232,85 @@ namespace Plutus.Frontend.AppClient.Tests.Security
             Assert.False(withReturn.Allowed);
             Assert.True(withReturn.NeedsOverride);
         }
+
+        // ── CheckAny: the till's gate must mirror the SERVER's ──
+
+        /// <summary>
+        /// ⚠ THE BUG THIS EXISTS FOR, found 2026-08-11 by Matt asking a question about something
+        /// else. `POST /api/v1/stock/movements` is gated `perm:portal.stock.adjust,pos.stock.adjust`
+        /// — EITHER grants it — but the screen in front of it asked for the till code ALONE. An
+        /// **Owner**, who holds the portal code, was refused BY THE TILL for an action the platform
+        /// would have accepted.
+        ///
+        /// ⚠ The refusal was polite, correct-looking, and named a permission the operator had an
+        /// equivalent of. Nobody debugs a message that reads like deliberate policy.
+        /// </summary>
+        [Fact]
+        public void CheckAny_allows_an_operator_holding_EITHER_permission()
+        {
+            var tillSide = Operator(Grant(PermissionCatalogue.PosStockAdjust));
+            var portalSide = Operator(Grant(PermissionCatalogue.PortalStockAdjust));
+
+            Assert.True(TillGate.CheckAny(tillSide, null,
+                PermissionCatalogue.PosStockAdjust, PermissionCatalogue.PortalStockAdjust).Allowed);
+
+            Assert.True(TillGate.CheckAny(portalSide, null,
+                PermissionCatalogue.PosStockAdjust, PermissionCatalogue.PortalStockAdjust).Allowed);
+        }
+
+        /// <summary>
+        /// ⚠ THE HALF THAT MUST NOT FALL OPEN. "Any of these" is one careless `||` away from
+        /// "anyone", and this gate stands in front of altering a stock count.
+        /// </summary>
+        [Fact]
+        public void CheckAny_still_refuses_an_operator_holding_NEITHER()
+        {
+            var cashier = Operator(Grant(PermissionCatalogue.PosSell));
+
+            var decision = TillGate.CheckAny(cashier, null,
+                PermissionCatalogue.PosStockAdjust, PermissionCatalogue.PortalStockAdjust);
+
+            Assert.False(decision.Allowed);
+        }
+
+        /// <summary>
+        /// ⚠ A NULL OPERATOR STILL BLOCKS. Adding an "any of these" path is exactly where a
+        /// null-operator hole gets reintroduced — the loop finds no match and something has to
+        /// decide what that means.
+        /// </summary>
+        [Fact]
+        public void CheckAny_refuses_a_null_operator()
+        {
+            var decision = TillGate.CheckAny(null, null,
+                PermissionCatalogue.PosStockAdjust, PermissionCatalogue.PortalStockAdjust);
+
+            Assert.False(decision.Allowed);
+            Assert.Contains("signed in", decision.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// ⚠ The refusal names the FIRST permission, which is why the till-side code is passed
+        /// first at every call site: "you need pos.stock.adjust" is actionable on a till;
+        /// "you need portal.stock.adjust" sends somebody to the portal for a till problem.
+        /// </summary>
+        [Fact]
+        public void CheckAny_refuses_in_the_name_of_the_FIRST_permission()
+        {
+            var cashier = Operator(Grant(PermissionCatalogue.PosSell));
+
+            var decision = TillGate.CheckAny(cashier, null,
+                PermissionCatalogue.PosStockAdjust, PermissionCatalogue.PortalStockAdjust);
+
+            Assert.Equal(PermissionCatalogue.PosStockAdjust, decision.Permission);
+        }
+
+        /// <summary>⚠ An empty list would silently allow everything if it fell through to a
+        /// default — so it throws rather than deciding.</summary>
+        [Fact]
+        public void CheckAny_with_no_permissions_is_a_programming_error_not_an_allow()
+        {
+            Assert.Throws<ArgumentException>(() =>
+                TillGate.CheckAny(Operator(Grant(PermissionCatalogue.PosSell)), null));
+        }
     }
 }

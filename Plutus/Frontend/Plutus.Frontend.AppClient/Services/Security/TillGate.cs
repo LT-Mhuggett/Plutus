@@ -42,6 +42,41 @@ namespace Plutus.Frontend.AppClient.Services.Security
     public static class TillGate
     {
         /// <summary>
+        /// May this operator do ANY ONE of these, for <paramref name="amountPence"/>?
+        ///
+        /// ⚠ IT EXISTS BECAUSE THE TILL'S GATE MUST MIRROR THE SERVER'S, and on 2026-08-11 it did
+        /// not. `POST /api/v1/stock/movements` is gated
+        /// `perm:portal.stock.adjust,pos.stock.adjust` — **either** grants it — but the screen in
+        /// front of it asked `Check(…, PosStockAdjust)` alone. An **Owner**, who holds the portal
+        /// code, was therefore refused BY THE TILL for an action the platform would have accepted.
+        ///
+        /// ⚠ That failure mode is the nasty one: the refusal is polite, correct-looking, and
+        /// mentions a permission the operator does in fact have an equivalent of. Nobody debugs a
+        /// message that reads like a deliberate policy.
+        ///
+        /// ⚠ THE REFUSAL NAMES THE FIRST PERMISSION, which is why the till-side code goes first in
+        /// every call: "you need pos.stock.adjust" is actionable; "you need portal.stock.adjust" on
+        /// a till screen sends somebody to the wrong place.
+        /// </summary>
+        public static GateDecision CheckAny(
+            SignedInOperator? operatorSignedIn, long? amountPence, params string[] permissions)
+        {
+            if (permissions is null || permissions.Length == 0)
+                throw new ArgumentException("At least one permission is required.", nameof(permissions));
+
+            foreach (var permission in permissions)
+            {
+                var decision = Check(operatorSignedIn, permission, amountPence);
+                if (decision.Allowed) return decision;
+            }
+
+            // ⚠ The FIRST one's refusal — see the header. A null operator produces the "nobody is
+            // signed in" wording either way, which is the right answer regardless of which code
+            // was being asked about.
+            return Check(operatorSignedIn, permissions[0], amountPence);
+        }
+
+        /// <summary>
         /// May this operator do <paramref name="permission"/>, for <paramref name="amountPence"/>?
         ///
         /// ⚠ Delegates to <see cref="SignedInOperator.Can"/> — the shared rule, which applies the
