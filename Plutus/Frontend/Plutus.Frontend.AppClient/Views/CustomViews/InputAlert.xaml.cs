@@ -286,9 +286,22 @@ namespace Plutus.Frontend.AppClient.Pages.CustomViews
         public ViewElement CreateLabelEntry(ViewElementData elementValue, StackLayout layout)
         {
             var label = new Label { Text = elementValue.LabelText };
-            IdentifiableEntry entry = elementValue.IsEnabled
-                ? new IdentifiableEntry { UserDefinedId = elementValue.Id, Placeholder = elementValue.PlaceholderText, IsPassword = elementValue.IsPassword, IsEnabled = elementValue.IsEnabled }
-                : new IdentifiableEntry { UserDefinedId = elementValue.Id, Text = elementValue.PlaceholderText, IsPassword = elementValue.IsPassword, IsEnabled = elementValue.IsEnabled };
+            // ⚠ THE VALUE GOES IN AS `Text` WHEN THE CALLER ASKS FOR IT, and that is finding K.
+            // A DISABLED field has always had its value as `Text` (there is nothing else it could
+            // be). An ENABLED one got a `Placeholder` — grey ghost text — so an EDIT form showed its
+            // five editable rows as empty boxes and its three read-only rows as the only ones with
+            // anything in them. That is "I can ONLY change the tax", exactly as reported.
+            //
+            // ⚠ And `InputResults` reads `entry.Text`, so a placeholder submits as "". An operator
+            // who retyped only the price sent an empty name and the save was dropped in silence.
+            //
+            // ⚠ `PrefillWithPlaceholder` is OPT-IN so the sign-in and password forms keep hints as
+            // hints — see its own header.
+            var prefill = elementValue.PrefillWithPlaceholder || !elementValue.IsEnabled;
+
+            IdentifiableEntry entry = prefill
+                ? new IdentifiableEntry { UserDefinedId = elementValue.Id, Text = elementValue.PlaceholderText, IsPassword = elementValue.IsPassword, IsEnabled = elementValue.IsEnabled }
+                : new IdentifiableEntry { UserDefinedId = elementValue.Id, Placeholder = elementValue.PlaceholderText, IsPassword = elementValue.IsPassword, IsEnabled = elementValue.IsEnabled };
             if (elementValue.Validators.Count() != 0)
             {
                 var vBehavior = new ValidationBehavior

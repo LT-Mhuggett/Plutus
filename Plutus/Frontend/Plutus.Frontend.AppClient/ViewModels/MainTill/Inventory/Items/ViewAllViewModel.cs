@@ -616,21 +616,36 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 var chosenBand = bands.FirstOrDefault(b => b.IdOne == taxId.Value);
                 var chosenCategory = categories.FirstOrDefault(c => c.IdOne == catId.Value);
 
+                // ⚠⚠ EVERY EDITABLE ROW IS PREFILLED, and that is finding K. Without
+                // `prefillWithPlaceholder` these five arrive as `Placeholder` — grey ghost text in an
+                // empty box — so this form opened with Name, Brand, Description, Cost and Price
+                // apparently BLANK, and the only rows showing anything solid were the three DISABLED
+                // ones below. Matt, twice: *"Edit item, I can ONLY change the tax?"* and *"When I
+                // right click and edit an item, it just gives me the tax rates still."* He was
+                // describing the screen accurately.
+                //
+                // ⚠ It also lost edits in silence: `InputResults` is seeded from `entry.Text`, and a
+                // placeholder is not text, so retyping only the price submitted an EMPTY name and
+                // hit the bare `return` below with nothing said and nothing saved.
+                //
+                // ⚠ An EDIT form must arrive holding what it is editing. That is not a preference —
+                // a form that shows blanks is asking the operator to retype five fields from memory
+                // to change one, and the four they leave alone are the ones that get lost.
                 var elements = new ViewElementData[]
                 {
                     new ViewElementData(1, "Name".Translate(), current.Name ?? "",
-                        new IValidator[] { new RequiredValidator() }, false, true),
+                        new IValidator[] { new RequiredValidator() }, false, true, prefillWithPlaceholder: true),
                     // ⚠ "-" is what the WEB TILL writes when a brand is unknown, so the same column
                     // does not end up holding "-" from one till and "" from another. It is shown as
                     // blank here for the same reason the web till strips it on the way in.
                     new ViewElementData(2, "Brand", current.Brand == "-" ? "" : current.Brand ?? "",
-                        Array.Empty<IValidator>(), false, true),
+                        Array.Empty<IValidator>(), false, true, prefillWithPlaceholder: true),
                     new ViewElementData(3, "Description", current.Desc ?? "",
-                        Array.Empty<IValidator>(), false, true),
+                        Array.Empty<IValidator>(), false, true, prefillWithPlaceholder: true),
                     new ViewElementData(4, "Cost (£)", current.Cost.ToString("0.00"),
-                        new IValidator[] { new CurrencyValueValidator(money) }, false, true),
+                        new IValidator[] { new CurrencyValueValidator(money) }, false, true, prefillWithPlaceholder: true),
                     new ViewElementData(5, "Price inc tax (£)", current.Price.ToString("0.00"),
-                        new IValidator[] { new RequiredValidator(), new CurrencyValueValidator(money) }, false, true),
+                        new IValidator[] { new RequiredValidator(), new CurrencyValueValidator(money) }, false, true, prefillWithPlaceholder: true),
 
                     // ⚠ DISABLED ROWS, and their answers are IGNORED — they exist so the operator
                     // can SEE the tax band and the category on the same screen as the price they
@@ -647,7 +662,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 };
 
                 var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
-                    elements, "Confirm".Translate(), true, "Edit item", "Cancel".Translate());
+                    elements, "Confirm".Translate(), true, "Edit item — step 4 of 4", "Cancel".Translate());
 
                 if (answers.Count == 0) return;
 
@@ -656,7 +671,22 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 _ = answers.TryGetValue(3, out var desc);
                 _ = answers.TryGetValue(4, out var costText);
                 _ = answers.TryGetValue(5, out var priceText);
-                if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(priceText)) return;
+
+                // ⚠ IT SAYS SO NOW. This was a bare `return` — the operator pressed Confirm and the
+                // dialog shut with nothing saved, nothing said and nothing logged. It was reachable
+                // by accident rather than by carelessness: until the prefill fix above, the name box
+                // rendered EMPTY, so anyone who changed only the price submitted a blank name and
+                // landed here. ⚠ A save that decides not to happen has to say why — the guard is
+                // right, its silence never was.
+                if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(priceText))
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        string.IsNullOrWhiteSpace(name)
+                            ? "An item needs a name. Nothing has been changed."
+                            : "An item needs a price. Nothing has been changed.",
+                        "OK".Translate());
+                    return;
+                }
 
                 if (!decimal.TryParse(priceText, money, CultureInfo.CurrentCulture, out var price) || price < 0)
                 {
@@ -950,8 +980,15 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 await Services.Storage.CatalogueSyncService.SyncAsync();
                 InitItems();
 
-                await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                    $"“{item.Name}” has been moved to the Bin.", "OK".Translate());
+                // ⚠ "Done", NOT "Hmm". This is the SUCCESS alert, and it was titled with the app's
+                // generic error word — so the one dialog confirming the action worked looked exactly
+                // like the four above it that report it failed. It also repeats that nothing is
+                // gone: the whole of finding L was somebody reading a reversible withdrawal as a
+                // delete, and the moment after it happens is when that reassurance is worth most.
+                await App.Current.MainPage.DisplayAlert("Done",
+                    $"“{item.Name}” has been moved to the Bin. It has stopped selling on every till "
+                    + "and nothing has been deleted — restore it from the portal whenever you like.",
+                    "OK".Translate());
 
                 Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Item Binned");
             }
@@ -1228,7 +1265,14 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 .ToArray();
 
             var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
-                App.Current.MainPage.DisplayActionSheet("Tax band", "Cancel".Translate(), null, labels));
+                // ⚠⚠ THE TITLE SAYS WHERE YOU ARE, and that is half of finding K. Pressing
+                // "Edit item" opened a bare sheet headed "Tax band" — so Matt, reasonably, read the
+                // whole feature as a tax editor: *"When I right click and edit an item, it just
+                // gives me the tax rates still."* It was step 1 of 4 and nothing said so. Three
+                // sequential action sheets in front of a form NEED to be numbered, or each one looks
+                // like the entire feature and the operator backs out of the first.
+                App.Current.MainPage.DisplayActionSheet(
+                    "Edit item — step 1 of 4: tax band", "Cancel".Translate(), null, labels));
 
             if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return null;
 
@@ -1267,7 +1311,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 .ToArray();
 
             var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
-                App.Current.MainPage.DisplayActionSheet("Category", "Cancel".Translate(), null, labels));
+                App.Current.MainPage.DisplayActionSheet(
+                    "Edit item — step 2 of 4: category", "Cancel".Translate(), null, labels));
 
             if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return null;
 
@@ -1295,7 +1340,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
             };
 
             var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
-                App.Current.MainPage.DisplayActionSheet("Stock", "Cancel".Translate(), null, labels));
+                App.Current.MainPage.DisplayActionSheet(
+                    "Edit item — step 3 of 4: stock", "Cancel".Translate(), null, labels));
 
             if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return null;
             return picked == labels[1];

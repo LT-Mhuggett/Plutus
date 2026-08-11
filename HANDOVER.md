@@ -31,9 +31,9 @@ Steps 1–20, 23, 25 and half of 26 are done. **~40 working days left**, two thi
 | | |
 |---|---|
 | **Suite** | Unit **875** · Integration **157** · Architecture **15** · AppClient **422** (+3 skipped) — **all green**, working tree clean |
-| **Till build to run** | **`D:\tmp\plutus-till-1.45.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
+| **Till build to run** | **`D:\tmp\plutus-till-1.46.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
 | **Hand-run script** | [`Build/shop-day-test.md`](Build/shop-day-test.md) — ⚠ **§5 is where everything new lives** and none of it has been run by a person yet |
-| **Versions** | till-maui **1.45.0** · backend **1.12.0 DEPLOYED** · platform **1.26.0** · portal **1.4.0 DEPLOYED** · till-web **1.5.0** · agent **1.3.3** |
+| **Versions** | till-maui **1.46.0** · backend **1.12.0 DEPLOYED** · platform **1.26.0** · portal **1.4.0 DEPLOYED** · till-web **1.5.0** · agent **1.3.3** |
 | **Deployed** | backend **1.12.0** LIVE (2026-08-11 12:57) — rollback `~/PLUTUS/backend.pre-20260811-1357`, then `.pre-20260811-1340` (1.11.0), `.pre-20260811-1145` (1.10.0), `.pre-20260811-103300` (1.9.0). Portal 1.3.0, web till 1.5.0 unchanged. ⚠ ETRIE verified 200 after the swap |
 | **Commits** | **40 unpushed** on `Matt's-Horror` (upstream at `4d29877`). Today's ten run `92a39d4` → `87fdb96` |
 | **Health** | Plutus 200 · ETRIE 200 · backend up; 838 restarts is the historical rotation count and is not climbing |
@@ -123,7 +123,7 @@ roles × two tenants gaining `pos.stock.adjust`.
 
 #### ⚠⚠ WHAT STILL WAITS ON A HUMAN
 
-**RE-RUN THE SHOP-DAY SCRIPT on `D:\tmp\plutus-till-1.45.0`.** Matt hand-ran it on 2026-08-11 and it
+**RE-RUN THE SHOP-DAY SCRIPT on `D:\tmp\plutus-till-1.46.0`.** Matt hand-ran it on 2026-08-11 and it
 found **thirteen faults, A–M** — all now recorded, ranked and answered in
 [`Build/handrun-2026-08-11.md`](Build/handrun-2026-08-11.md), which is the register to read before
 touching any of them. That hand-run is why 1.42.0–1.44.0 exist.
@@ -133,6 +133,7 @@ touching any of them. That hand-run is why 1.42.0–1.44.0 exist.
 | Where | What to check |
 |---|---|
 | **§5** | Click into the Inventory search bar — it crashed reliably on 1.41.0 (**A**) |
+| **§5** | **Edit an item.** The form must arrive with Name/Brand/Cost/Price ALREADY FILLED IN — that was the whole of **K**. Three titled pickers come first ("step 1 of 4: tax band"), then the form as step 4 |
 | **§7** | Ring a sale AFTER a Z close — both the till and the platform must now refuse it (**B**) |
 | **§4** | Refund a CARD sale: cash must not be offered (**G**). Then re-add an item you have just sold (**C**) |
 | **§3** | Overpay by card, and underpay in cash — both must say what is wrong, not "something went wrong" (**D**) |
@@ -159,6 +160,7 @@ hardware.
 
 | Build | What |
 |---|---|
+| **1.46.0** | **K really fixed, and my first two diagnoses were both wrong.** Editable fields arrived as grey PLACEHOLDERS while the read-only tax/category/stock rows were the only ones showing values — so the form looked like a tax viewer, and changing only the price submitted an empty name and was dropped in silence. Plus the three pickers in front of the form are now titled **"step N of 4"**; a bare "Tax band" sheet read as the whole feature. **L closed** — the bin success alert said "Hmm" |
 | **1.45.0** | **I — a counted drawer says whether it balanced.** The till kept the Z's status code and threw the body away; expected/variance now land on the row (schema **v6**) and show SHORT/OVER in red. ⚠ **The Z now waits for its own day's sales**, or it reports a shortage equal to everything not yet sent. Portal: a **⚠ Drawers out of balance** pill — backend **1.11.0**, TSX **unbuilt (needs the Mac)** |
 | **1.44.0** | **J + N — the screens are told when something changes.** `TillCadence.Ticked`; the Cash tab stops showing "(waiting to send)" against money already sent, and **today's takings stop being frozen at sign-in** |
 | **1.43.0** | **G, L, M** — refunds go back the way they were paid; every "Delete…" says CATEGORY; tabs match the web till |
