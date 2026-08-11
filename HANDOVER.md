@@ -24,19 +24,61 @@ Head: see `git log` — this line goes stale; the commits don't.
 > `Build/To do/<plan>.md`.
 
 ### ⏰⏰⏰⏰⏰⏰⏰⏰ START HERE — picking up on **2026-08-12**
+**Today was a hand-run response day.** Matt ran the till through a shop day on 1.41.0 and reported
+**fourteen findings (A–N)**; all fourteen are answered, and four more things he raised this evening
+are in too. The till went **1.41.0 → 1.48.0**, the backend **1.9.0 → 1.15.0**.
 
-**Where we got to: cutover step 25 (inventory) is CLOSED, and it was the largest gap on the board.**
+⚠⚠ **THE MOST IMPORTANT THING THAT HAPPENED TODAY WAS NOT A FEATURE.** Preparing a migration deploy
+meant checking the pre-deploy dump instead of assuming it — and **every nightly backup since
+2026-08-10 was a 20-byte empty file while the log recorded `backup ok`.** Kapow had no usable
+database backup for two days. Cause: the script connected over plain TCP, which the 08-09 password
+rotation broke, and `mysqldump | gzip && mv` takes its status from **gzip**, which succeeds on empty
+input. The 7-day prune would have deleted the last good dump on **2026-08-16**. Fixed, and proven
+both ways — a real run gives 63 MB / 101 tables; a deliberately broken one exits 1, logs
+`⚠ BACKUP FAILED`, and leaves the good dump alone. Source now in `ops/mac/`.
+
+### ⚠ START HERE TOMORROW, in this order
+
+| # | What | Why first |
+|---|---|---|
+| **1** | ⚠⚠ **The search regression — NOT INVESTIGATED.** Matt, this evening: *"I could cancel the item, but then searching stopped working."* | It is a live regression on the current build and **nobody has looked at it**. Everything else here is known work; this is an unknown. |
+| **2** | **Hand-run [`Build/Test Maui.md`](Build/Test%20Maui.md) on 1.48.0** | Seven till builds have shipped since a person last touched a screen. Every previous hand-run found faults no test in this repo could reach — today's found fourteen. |
+| **3** | **The web till's Z-close reopen** | Matt asked for it *"in Web and MAUI"*. Only MAUI has it, so the two tills now disagree about whether a closed day can be recovered. |
+| **4** | **Add item still uses the old three-questions-then-form shape** | Same fault as the edit form (finding K), which took three attempts to get right. The fix is known; it was flagged rather than half-done mid-test. |
+| **5** | **A portal screen for the expected till version** | `PUT /api/v1/platform/till-release` is live and works; nothing sets it from a UI, so the update check cannot be switched on without curl. |
+| **6** | **Step 11b — reshape the basket (~4d)** | The plan's next step, and the only money-adjacent cluster in the app with no test coverage at all. |
+
+⚠ **Nothing above is blocked.** 1–5 are all small-to-medium; 6 is the next planned step.
+
+### Where MAUI parity stands — counted, not estimated
+
+**75 capability rows: 40 ✅ both tills · 15 MAUI ⬜ · 7 MAUI 🟡 · 5 where MAUI is AHEAD.**
+
+The 15 blanks are five clusters: **loyalty/gift cards/customers (step 27, ~12–15d)**, **reporting
+(26, ~8–10d)**, **users (24, ~3d)**, **theming (22, ~3–4d)** and **four platform-notice surfaces
+(~3–4d)**. Plus **11b (~4d)**. **≈35–40 working days**, two thirds of it in the first two.
+
+⚠ **That is BUILD time, not DONE time.** Steps 1–20 all passed their VERIFY, and then the first
+hand-run found fourteen faults — six of them invisible to every test here. Add hand-running to every
+row, and expect the screen to be wrong the first time.
+
+⚠ **And treat the number as ±25%.** This morning **three Part B rows still said ⬜ for work that had
+already shipped** (the Bin, VAT bands, and step 25e — which this page carried as "the last half-day
+of step 25" for three days). A stale ⬜ makes the gap look bigger and gets it re-planned. **Grep
+before believing a ⬜.**
+
 Steps 1–20, 23, 25 and half of 26 are done. **~40 working days left**, two thirds of it three items.
 
 | | |
 |---|---|
-| **Suite** | Unit **875** · Integration **157** · Architecture **15** · AppClient **422** (+3 skipped) — **all green**, working tree clean |
-| **Till build to run** | **`D:\tmp\plutus-till-1.48.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
-| **Hand-run script** | [`Build/shop-day-test.md`](Build/shop-day-test.md) — ⚠ **§5 is where everything new lives** and none of it has been run by a person yet |
+| **Suite** | Unit **907** · Integration **169** · Architecture **15** · AppClient **425** (+3 skipped) · web till **19** — **all green**, working tree clean |
+| **Till build to run** | **`D:\tmp\plutus-till-1.48.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe. ⚠ **Not yet run by a person.** |
+| **Hand-run script** | ⚠ **[`Build/Test Maui.md`](Build/Test%20Maui.md)** — the one to follow, and the one to hand anybody else. [`Build/shop-day-test.md`](Build/shop-day-test.md) is the fuller reference behind it. |
 | **Versions** | till-maui **1.48.0** · backend **1.15.0 DEPLOYED** · platform **1.26.0** · portal **1.6.0 DEPLOYED** · till-web **1.6.0 DEPLOYED** · agent **1.3.3** |
-| **Deployed** | backend **1.13.0** LIVE (19:01, carries a MIGRATION) · portal **1.5.0** + web till **1.6.0** LIVE (15:20-15:22, version labels FIXED) (2026-08-11 12:57) — rollback `~/PLUTUS/backend.pre-20260811-1357`, then `.pre-20260811-1340` (1.11.0), `.pre-20260811-1145` (1.10.0), `.pre-20260811-103300` (1.9.0). Portal 1.3.0, web till 1.5.0 unchanged. ⚠ ETRIE verified 200 after the swap |
-| **Commits** | **40 unpushed** on `Matt's-Horror` (upstream at `4d29877`). Today's ten run `92a39d4` → `87fdb96` |
-| **Health** | Plutus 200 · ETRIE 200 · backend up; 838 restarts is the historical rotation count and is not climbing |
+| **Deployed today** | backend **1.9.0 → 1.15.0** (seven deploys) · portal **1.3.0 → 1.6.0** · web till **1.5.0 → 1.6.0**. Newest rollbacks: `~/PLUTUS/backend.pre-20260811-2010`, `/srv/apps/PLUTUS/portal/current.pre-20260811-1925`, `/srv/apps/PLUTUS/web/current.pre-20260811-1522`. ⚠ ETRIE verified **200** after every swap |
+| **Commits** | **79 unpushed** on `Matt's-Horror` (upstream at `4d29877`). **31 of them are today's** |
+| **Health** | backend **1.15.0** up, 0 restarts · Plutus web till **200** · portal **200** · ⚠ **ETRIE 200**, 43h uptime, untouched all day |
+| **Backups** | ⚠⚠ **WERE BROKEN, NOW FIXED AND PROVEN** — see below. Last verified dump **63 MB / 101 tables** |
 
 #### ✅ BACKEND 1.15.0 DEPLOYED — 2026-08-11 19:58 (no migration)
 

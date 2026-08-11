@@ -1,6 +1,6 @@
 # Test Maui — the MAUI till hand-test script
 
-**For till 1.47.0.** Anyone can run this. You do not need to know the codebase, and you should not
+**For till 1.48.0.** Anyone can run this. You do not need to know the codebase, and you should not
 need to ask anyone what a step means — if a step is unclear, that is a bug in this document, so please
 say so.
 
@@ -13,7 +13,7 @@ if that is all the time you have.
 
 | | |
 |---|---|
-| **Run** | `D:\tmp\plutus-till-1.47.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. |
+| **Run** | `D:\tmp\plutus-till-1.48.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
 | **Sign in as** | any operator with **Supervisor** or above — some steps need permission to change stock |
@@ -37,9 +37,10 @@ project.
 
 ---
 
-# §A — the eight things fixed on 2026-08-11
+# §A — the things fixed on 2026-08-11
 
-These are the specific fixes in 1.46.0 and the two builds before it. **If you only have 15 minutes,
+These are the specific fixes in 1.42.0–1.48.0. ⚠ **§E at the end covers what landed latest and has
+never been tested by anyone** — the Z-close reopen is there. **If you only have 15 minutes,
 do this section.** Each one was reported by a real person using the till.
 
 ## A1. Edit an item — does the form arrive filled in?
@@ -285,6 +286,8 @@ hardware.
 | Fuller reports (items sold, VAT, best sellers) | step 26 |
 | Refunding a sale rung up on **another** till | step 26 — you must type the sale id |
 | Restoring an item from the Bin **on the till** | portal-side, by design |
+| Reopening a closed day **on the WEB till** | MAUI only for now — next on the list |
+| **Adding** a new item as one screen | still the old question-then-form flow; the EDIT screen is the new one |
 | Announcements, help tickets, update prompts | platform notices |
 
 ---
@@ -307,3 +310,44 @@ which build had produced them.
 **same** number next to Active. If the portal says something different — or says **v0.0.0** — that is
 worth reporting on its own: the web tills read v0.0.0 there until 2026-08-11, because they were built
 on a machine where the version file could not be found and the build fell back to zero in silence.
+
+---
+
+# §E — added late on 2026-08-11, never yet tested by anyone
+
+## E1. ⚠ Reopen a closed day — the one that unblocked testing
+
+1. **Cash → Z read**, count anything, confirm. The day is now closed.
+2. Go to the **Till** tab and try to add an item.
+
+**✅ Expected:** it refuses immediately with **"Till closed"** and tells you a supervisor can reopen
+it. ⚠ It must refuse **before** you get a basket — the old behaviour let you build a basket, run the
+whole payment flow, and fail at the last moment with no way out.
+
+3. **Cash → "Reopen the day — reverse a Z read"**. Give a reason.
+
+**✅ Expected:** the day reopens, and **the Z read is still listed** in the day's history. Both the
+close and the reopening stay on the record with your name against them.
+
+4. Add an item now — it should work normally.
+5. Close the day again, then reopen again. Both should work.
+
+⚠ **Sign in as a Cashier and check the reopen is REFUSED.** It is Supervisor and above deliberately:
+the person who counted the drawer must not be the only one who can quietly un-count it.
+
+⚠ **This is MAUI only.** The web till cannot reopen a day yet — known, and next on the list.
+
+## E2. The item editor is now ONE screen (see A1)
+
+Covered in A1 above, but worth repeating because it changed again after 1.46.0: pressing **Edit**
+should open a single page with everything on it, not a series of questions.
+
+⚠ **Adding a NEW item is still the old question-then-form flow.** Known. Not a bug report.
+
+## E3. Last online, in the portal
+
+**Locations & Tills** → your till's row.
+
+**✅ Expected:** "never" until the till next beats, then a real time that updates. ⚠ Until today that
+column showed the **enrolment date** for every till — so if it says something days old and your till
+is running, that is worth reporting.

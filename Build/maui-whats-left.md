@@ -331,3 +331,32 @@ Parity is not a synonym for "catch MAUI up". Three rows run the other way:
   is no server copy.
 - **Anything that would make a legacy write path work again.** Where a screen wrote somewhere nothing
   reads, the answer is the platform endpoint, not a repair.
+
+---
+
+## Status at the end of 2026-08-11
+
+**Counted from Part B, not estimated: 75 rows — 40 ✅ both tills · 15 MAUI ⬜ · 7 MAUI 🟡 · 5 where
+MAUI is AHEAD of the web till.**
+
+The till went **1.41.0 → 1.48.0** in one day, answering all fourteen hand-run findings plus four
+things raised the same evening. Backend **1.9.0 → 1.15.0**, portal **1.3.0 → 1.6.0**, web till
+**1.5.0 → 1.6.0**, all deployed and verified.
+
+**Landed today that this page had not planned for:**
+
+| | |
+|---|---|
+| **Reversing a Z close** | `ZReopen` — a compensating event, never a deletion, so the close and the reopening both stay on the record. New `pos.cash.reopen`, Supervisor and above. Every day-closed gate now asks **which came last** rather than whether a close exists |
+| **A closed till refuses at the door** | The Z-close gate was at COMMIT — right for the ledger, far too late for the operator, who could build a basket and be trapped at payment |
+| **The item editor is one page** | Three attempts. The container (`InputAlert`, label+Entry only) was the constraint all along; a `ContentPage` can hold a `Picker` |
+| **The heartbeat checks for updates** | `TillReleaseSettings` + `PlutusVersion.IsOlderThan`. ⚠ Advisory only — there is no self-update for MAUI (Matt's decision), so a till can say it is behind and nothing more |
+| **"Last online" is real** | It had always been the ENROLMENT date. Now `Device.LastSeenUtc`, written throttled to one write per till per five minutes |
+| **The web till's tendering has tests** | 19, its first ever — the C2 twin was verified on one side only |
+
+⚠ **Still open, smallest first:** the search regression reported this evening and **not yet
+investigated**; the web till's reopen; add-item's old flow; a portal screen for the expected till
+version. Then **11b**.
+
+⚠ **Read the warning above about stale ⬜s before re-estimating any row.** Three were wrong this
+morning in the direction that makes the work look bigger than it is.
