@@ -229,6 +229,10 @@ export async function login(email: string, password: string): Promise<Session> {
 export interface DashboardKpis {
   salesTodayPence: number; salesWeekPence: number; weekStart: string;
   activeUsers: number; activeTills: number; activeStores: number; activeWarehouses: number; activeWebstores: number;
+  // Z closes in the last 7 days whose counted drawer did not match what Plutus expected.
+  // Short and over are summed SEPARATELY on purpose — one till £20 short and another £20 over is
+  // money in the wrong drawer, and a single netted figure would report that as a quiet week.
+  drawersOutOfBalance: number; drawersShortPence: number; drawersOverPence: number; drawersFromDay: string;
 }
 export const fetchDashboard = () => get<DashboardKpis>("/api/v1/reports/dashboard");
 

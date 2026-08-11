@@ -43,11 +43,41 @@ namespace Plutus.Frontend.AppClient.Services.Sync
                 var credentials = await SecureDeviceCredentialStore.LoadAsync().ConfigureAwait(false);
                 if (credentials?.DeviceId is not Guid deviceId) return $" {pending.Count} cash event(s) waiting.";
 
-                int sent = 0, refused = 0, held = 0;
+                int sent = 0, refused = 0, held = 0, outOfBalance = 0, zHeldForSales = 0;
 
                 foreach (var row in pending)
                 {
                     ct.ThrowIfCancellationRequested();
+
+                    // ⚠ A Z CLOSE WAITS FOR ITS OWN DAY'S SALES. The platform's expected drawer is
+                    // float + **cash takings** + ins − outs, and the takings half is whatever sales
+                    // it has actually received. Sending the Z first therefore reports a shortage
+                    // equal to every sale still queued: a till that traded £400 through an outage
+                    // would tell the person who counted it correctly that they were £400 down.
+                    //
+                    // ⚠ AND THE Z IS TERMINAL SERVER-SIDE. It refuses everything against the day
+                    // afterwards, so a Z that overtakes its own sales does not merely mis-report —
+                    // it puts the day's real sales into quarantine behind a close that should have
+                    // followed them.
+                    //
+                    // ⚠ `break`, NOT `continue`. Cash events are drained oldest-first and the Z is
+                    // the last of its day; skipping past it to push a later day's float would send
+                    // this till's queue out of order. Waiting a tick costs a minute — the sales
+                    // drain runs first, immediately before this, so the usual case is that it is
+                    // already empty and nothing waits at all.
+                    if (row.Type == CashEventTypes.ZClose)
+                    {
+                        var unsent = await TillStoreAccess
+                            .UseAsync(s => s.PendingSalesForDayAsync(row.BusinessDay, ct), ct)
+                            .ConfigureAwait(false);
+
+                        if (unsent > 0)
+                        {
+                            held = pending.Count - sent - refused;
+                            zHeldForSales = unsent;
+                            break;
+                        }
+                    }
 
                     var request = new CashEventRequest
                     {
@@ -65,14 +95,28 @@ namespace Plutus.Frontend.AppClient.Services.Sync
                         OperatorUserId = row.OperatorUserId,
                     };
 
-                    var (status, _) = await api.PostCashEventAsync(request, ct).ConfigureAwait(false);
+                    // ⚠ THE BODY IS KEPT NOW, and discarding it was finding I. The platform answers a
+                    // Z close with what the drawer SHOULD have held and the difference against what
+                    // was counted — the only place either figure exists, because only the platform
+                    // sees the sales half. This drain took the status code and threw the rest away,
+                    // so a till could close £20 short, be accepted with a 201, and say nothing.
+                    var (status, body) = await api.PostCashEventAsync(request, ct).ConfigureAwait(false);
 
                     if (status == HttpStatusCode.Created || status == HttpStatusCode.OK)
                     {
                         await TillStoreAccess.UseAsync(
-                            s => s.SettleCashEventAsync(row.EventId, OutboxStatus.Pushed, ct: ct), ct)
+                            s => s.SettleCashEventAsync(row.EventId, OutboxStatus.Pushed,
+                                expectedPence: body?.ExpectedPence, variancePence: body?.VariancePence, ct: ct), ct)
                             .ConfigureAwait(false);
                         sent++;
+
+                        // ⚠ COUNTED, NOT ANNOUNCED. This runs on the 60s clock beside the outbox
+                        // drain and must never raise a dialog — a variance popping up mid-sale would
+                        // interrupt the next customer over yesterday's drawer. The figure is
+                        // recorded on the row and the Cash screen shows it; since `TillCadence.Ticked`
+                        // that screen redraws itself, so an operator who stays on the tab after a Z
+                        // watches the verdict arrive.
+                        if (body?.VariancePence is not null and not 0) outOfBalance++;
                     }
                     else if (status == HttpStatusCode.Conflict || status == HttpStatusCode.BadRequest)
                     {
@@ -80,7 +124,7 @@ namespace Plutus.Frontend.AppClient.Services.Sync
                         // ever looks healthy while quietly never banking.
                         await TillStoreAccess.UseAsync(
                             s => s.SettleCashEventAsync(row.EventId, OutboxStatus.Failed,
-                                $"{{\"status\":{(int)status}}}", ct), ct)
+                                $"{{\"status\":{(int)status}}}", ct: ct), ct)
                             .ConfigureAwait(false);
                         refused++;
                     }
@@ -96,6 +140,10 @@ namespace Plutus.Frontend.AppClient.Services.Sync
 
                 var parts = "";
                 if (sent > 0) parts += $" {sent} cash event(s) sent.";
+                if (outOfBalance > 0)
+                    parts += $" ⚠ {outOfBalance} counted drawer(s) DID NOT BALANCE — see the Cash tab.";
+                if (zHeldForSales > 0)
+                    parts += $" Z close waiting for {zHeldForSales} sale(s) to send first.";
                 if (refused > 0) parts += $" ⚠ {refused} cash event(s) REFUSED by the platform — see the Plutus tab.";
                 if (held > 0) parts += $" {held} still waiting.";
                 return parts;

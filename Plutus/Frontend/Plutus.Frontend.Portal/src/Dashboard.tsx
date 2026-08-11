@@ -119,6 +119,21 @@ function Pills() {
       {pill("Active webstores", String(k.activeWebstores), () => go("Webstore"))}
       {cards && cards.outstandingPence > 0 &&
         pill("Gift cards outstanding", gbp(cards.outstandingPence), () => go("Gift cards"))}
+      {/* A till that closed with the wrong money in the drawer. Matt, 2026-08-11: "There should
+          also be a report and or warning on the portal that shows that till closed with the
+          incorrect amount of money." The REPORT already existed — Banking has shown expected /
+          counted / variance in red since §9.2 — but it could not announce itself, and a manager who
+          never opened that tab never learned a till was £20 down.
+          Only rendered when something is actually wrong, so the row stays quiet on a normal week: a
+          warning that is always present is a warning nobody reads.
+          Short and over are shown SEPARATELY and both are shown. An over drawer is not good news —
+          it is a sale rung up wrong, a refund not given, or money in the wrong till. */}
+      {k.drawersOutOfBalance > 0 &&
+        pill(
+          `⚠ Drawers out of balance (${k.drawersOutOfBalance})`,
+          [k.drawersShortPence > 0 ? `${gbp(k.drawersShortPence)} short` : "",
+           k.drawersOverPence > 0 ? `${gbp(k.drawersOverPence)} over` : ""].filter(Boolean).join(" · "),
+          () => go("Banking"))}
     </div>
   );
 }

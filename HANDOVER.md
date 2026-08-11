@@ -31,9 +31,9 @@ Steps 1–20, 23, 25 and half of 26 are done. **~40 working days left**, two thi
 | | |
 |---|---|
 | **Suite** | Unit **875** · Integration **157** · Architecture **15** · AppClient **422** (+3 skipped) — **all green**, working tree clean |
-| **Till build to run** | **`D:\tmp\plutus-till-1.44.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
+| **Till build to run** | **`D:\tmp\plutus-till-1.45.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
 | **Hand-run script** | [`Build/shop-day-test.md`](Build/shop-day-test.md) — ⚠ **§5 is where everything new lives** and none of it has been run by a person yet |
-| **Versions** | till-maui **1.44.0** · backend **1.10.0 DEPLOYED** · platform **1.26.0** · portal **1.3.0** · till-web **1.5.0** · agent **1.3.3** |
+| **Versions** | till-maui **1.45.0** · backend **1.11.0 BUILT, NOT DEPLOYED** · platform **1.26.0** · portal **1.4.0 — needs the Mac to build** · till-web **1.5.0** · agent **1.3.3** |
 | **Deployed** | backend **1.10.0** LIVE (2026-08-11 11:26) — rollback `~/PLUTUS/backend.pre-20260811-1145`, previous `.pre-20260811-103300` (1.9.0). Portal 1.3.0, web till 1.5.0 unchanged. ⚠ ETRIE verified 200 after the swap |
 | **Commits** | **40 unpushed** on `Matt's-Horror` (upstream at `4d29877`). Today's ten run `92a39d4` → `87fdb96` |
 | **Health** | Plutus 200 · ETRIE 200 · backend up; 838 restarts is the historical rotation count and is not climbing |
@@ -65,7 +65,7 @@ roles × two tenants gaining `pos.stock.adjust`.
 
 #### ⚠⚠ WHAT STILL WAITS ON A HUMAN
 
-**RE-RUN THE SHOP-DAY SCRIPT on `D:\tmp\plutus-till-1.44.0`.** Matt hand-ran it on 2026-08-11 and it
+**RE-RUN THE SHOP-DAY SCRIPT on `D:\tmp\plutus-till-1.45.0`.** Matt hand-ran it on 2026-08-11 and it
 found **thirteen faults, A–M** — all now recorded, ranked and answered in
 [`Build/handrun-2026-08-11.md`](Build/handrun-2026-08-11.md), which is the register to read before
 touching any of them. That hand-run is why 1.42.0–1.44.0 exist.
@@ -79,6 +79,7 @@ touching any of them. That hand-run is why 1.42.0–1.44.0 exist.
 | **§4** | Refund a CARD sale: cash must not be offered (**G**). Then re-add an item you have just sold (**C**) |
 | **§3** | Overpay by card, and underpay in cash — both must say what is wrong, not "something went wrong" (**D**) |
 | **§1** | Open a float and **stay on the Cash tab**: "(waiting to send)" must clear on its own within a minute (**J**) |
+| **§7** | Close the day with the WRONG money — open £150, pay out £20, count £110. Within a minute the Z line must turn red and read **£20.00 SHORT — Plutus expected £130.00** (**I**). ⚠ Needs backend **1.11.0**, which is **not deployed yet** |
 | **Reporting** | Ring a sale, **stay on the tab**: today's takings must move. It used to freeze at sign-in (**N**) |
 | tabs | Till · Cash · Inventory Management · Reporting · Store Information · Settings · Plutus (**M**) |
 
@@ -100,6 +101,7 @@ hardware.
 
 | Build | What |
 |---|---|
+| **1.45.0** | **I — a counted drawer says whether it balanced.** The till kept the Z's status code and threw the body away; expected/variance now land on the row (schema **v6**) and show SHORT/OVER in red. ⚠ **The Z now waits for its own day's sales**, or it reports a shortage equal to everything not yet sent. Portal: a **⚠ Drawers out of balance** pill — backend **1.11.0**, TSX **unbuilt (needs the Mac)** |
 | **1.44.0** | **J + N — the screens are told when something changes.** `TillCadence.Ticked`; the Cash tab stops showing "(waiting to send)" against money already sent, and **today's takings stop being frozen at sign-in** |
 | **1.43.0** | **G, L, M** — refunds go back the way they were paid; every "Delete…" says CATEGORY; tabs match the web till |
 | **1.42.0** | **A, C, D, E, K** — the search crash; the ghost line; the payment dialog's real words; the edit form stops hiding below the fold |

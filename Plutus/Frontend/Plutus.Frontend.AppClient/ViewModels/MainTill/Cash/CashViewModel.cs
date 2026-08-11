@@ -242,10 +242,24 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Cash
             {
                     try
                     {
-                        _summary.Text = closed
-                            ? $"{day} — CLOSED. {events.Count} cash event(s)."
-                            : $"{day} — open. {events.Count} cash event(s).";
-                        _summary.TextColor = closed ? Colors.OrangeRed : Colors.Gray;
+                        // ⚠ A DRAWER THAT DID NOT BALANCE IS SAID AT THE TOP, not left to be found
+                        // by reading the list. It is the one fact on this screen somebody has to
+                        // act on tonight — count again, or write down why — and the Z is the LAST
+                        // line of a day that may have twenty.
+                        var offBy = events
+                            .Where(e => CashEventTypes.NeedsCount(e.Type) && e.VariancePence is not null and not 0)
+                            .Sum(e => e.VariancePence ?? 0);
+
+                        _summary.Text = offBy != 0
+                            ? $"{day} — ⚠ THE DRAWER IS {Math.Abs(offBy) / 100m:C} "
+                              + $"{(offBy < 0 ? "SHORT" : "OVER")}. Count again, or say why."
+                            : closed
+                                ? $"{day} — CLOSED. {events.Count} cash event(s)."
+                                : $"{day} — open. {events.Count} cash event(s).";
+
+                        _summary.TextColor = offBy != 0 ? Colors.Red
+                            : closed ? Colors.OrangeRed
+                            : Colors.Gray;
 
                         _history.Children.Clear();
                         foreach (var e in events.Reverse())
@@ -264,12 +278,35 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Cash
                                 _ => "  (waiting to send)",
                             };
 
+                            // ⚠ THE DRAWER DID NOT BALANCE, AND IT SAYS SO ON THE LINE. Matt,
+                            // 2026-08-11: *"If the Zclose is a different number than expected e.g.
+                            // opened with £150, spent £20 and close with £110. This should be
+                            // flagged."*
+                            //
+                            // ⚠ These figures are the PLATFORM's, recorded when it accepted the
+                            // event — this screen does not compute them and must not, because only
+                            // the platform can see the sales half. Blank until the event has been
+                            // sent, which is honest: until then nobody knows.
+                            //
+                            // ⚠ SHORT AND OVER BOTH SHOW. An over drawer is not good news — it is a
+                            // sale rung up wrong, a refund not given, or money in the wrong till,
+                            // and a screen that only flagged shortages would teach an operator that
+                            // one direction of error does not matter.
+                            var balance = "";
+                            if (e.VariancePence is long v && v != 0)
+                                balance = $"  ⚠ {Math.Abs(v) / 100m:C} {(v < 0 ? "SHORT" : "OVER")}"
+                                        + (e.ExpectedPence is long x ? $" — Plutus expected {x / 100m:C}" : "");
+                            else if (e.VariancePence == 0)
+                                balance = "  ✅ balances";
+
                             _history.Children.Add(new Label
                             {
                                 Text = $"{e.OccurredAtUtc.ToLocalTime():HH:mm}  {e.Type}  {money}"
                                      + (string.IsNullOrWhiteSpace(e.Reason) ? "" : $"  — {e.Reason}")
+                                     + balance
                                      + sent,
                                 FontSize = new Label().FontSize - 1,
+                                TextColor = e.VariancePence is long bad && bad != 0 ? Colors.OrangeRed : null,
                             });
                         }
                     }

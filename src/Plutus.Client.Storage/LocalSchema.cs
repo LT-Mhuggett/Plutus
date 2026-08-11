@@ -223,10 +223,14 @@ public readonly record struct LocalSaleSummary(
 /// known id back as 200 with the stored outcome, so an event posted twice because the line dropped
 /// mid-request is recorded once.
 ///
-/// ⚠ NO EXPECTED OR VARIANCE FIELD, deliberately. Only the platform can compute what the drawer
-/// SHOULD hold — it needs the sales half, including sales another device on the same till posted.
-/// A till that cached its own expected figure would disagree with the banking report and nobody
-/// could say which was right.
+/// ⚠ THE TILL NEVER COMPUTES EXPECTED OR VARIANCE — it only RECORDS WHAT THE PLATFORM ANSWERED.
+/// That distinction is the whole of it, and the original note here (which said there were no such
+/// fields at all) was right about the danger and wrong about the remedy. Only the platform can work
+/// out what the drawer should hold: it needs the sales half, including sales another device on the
+/// same till posted. A till that derived its own figure would disagree with the banking report and
+/// nobody could say which was right. But the server SENDS its answer back on the very call that
+/// records the Z, and throwing that away meant an operator could close £20 short and be told
+/// nothing — see <see cref="ExpectedPence"/>.
 /// </summary>
 public class LocalCashEvent
 {
@@ -247,4 +251,28 @@ public class LocalCashEvent
     /// <summary>What the platform said when it refused. ⚠ Kept, because a 409 "already Z-closed"
     /// is a fact somebody has to explain at the end of the day, not a transport hiccup to discard.</summary>
     public string? ServerResponseJson { get; set; }
+
+    /// <summary>
+    /// What the platform said the drawer SHOULD have held — float + cash takings + paid-ins −
+    /// paid-outs. Null until the event has been accepted, and null for ever on the types that carry
+    /// no count.
+    ///
+    /// ⚠ WRITTEN ONLY FROM THE SERVER'S RESPONSE, never derived here. The moment this till starts
+    /// computing its own, two numbers exist for one drawer and no one can say which is right.
+    /// </summary>
+    public long? ExpectedPence { get; set; }
+
+    /// <summary>
+    /// Counted − expected, as the PLATFORM calculated it. Negative is SHORT, positive is OVER.
+    ///
+    /// ⚠ Matt, 2026-08-11: *"If the Zclose is a different number than expected e.g. opened with
+    /// £150, spent £20 and close with £110. This should be flagged."* The platform had always
+    /// computed this and answered with it on the same call that records the Z; the till discarded
+    /// the body and kept only the status code, so a drawer £20 short closed in silence.
+    ///
+    /// ⚠ STORED RATHER THAN FETCHED, because it has to survive the line going down. It is recorded
+    /// once, when the event is accepted, and stays readable on a till with no connection — which is
+    /// exactly the shift where somebody will need to explain the difference tomorrow morning.
+    /// </summary>
+    public long? VariancePence { get; set; }
 }

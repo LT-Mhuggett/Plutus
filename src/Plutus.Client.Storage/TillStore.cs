@@ -895,6 +895,36 @@ public sealed class TillStore : IOutboxStore, ISyncStore
             .OrderBy(e => e.OccurredAtUtc)
             .ToListAsync(ct).ConfigureAwait(false);
 
+    /// <summary>
+    /// How many of this day's SALES have not reached the platform yet.
+    ///
+    /// ⚠ THIS IS WHAT MAKES A Z-CLOSE VARIANCE MEAN ANYTHING. The platform works out what the drawer
+    /// should hold as float + **cash takings** + paid-ins − paid-outs, and the takings half is the
+    /// sales it has actually received. Send the Z while this till still has sales queued and the
+    /// platform answers with a shortage equal to every penny it has not been told about — a till
+    /// that traded £400 through an outage would report itself £400 down, in red, to the person who
+    /// counted it correctly.
+    ///
+    /// ⚠ AND THE Z IS TERMINAL AT THE PLATFORM. It refuses everything against the day afterwards,
+    /// so a Z that overtakes its own sales does not merely mis-report — it lands the day's real
+    /// sales in quarantine behind a close that should have come after them.
+    ///
+    /// ⚠ SCOPED TO THE DAY, deliberately. A single sale stuck from last week must not be able to
+    /// block every Z close from now on; it cannot affect today's expected drawer, so it does not
+    /// get a vote on today's close.
+    ///
+    /// ⚠ AND IT COUNTS **PENDING** ONLY, NOT FAILED — which is a trade, stated rather than hidden. A
+    /// sale the platform has refused outright will never send, so counting it here would block this
+    /// till's Z close for ever, and a till that cannot close its day is worse than one that closes
+    /// with a variance it can explain. The cost is that a refused sale's cash shows as a shortage.
+    /// That is the correct SHAPE of the problem — the money is genuinely unaccounted for at the
+    /// platform — and the refusal itself is already reported on the Plutus tab.
+    /// </summary>
+    public async Task<int> PendingSalesForDayAsync(string businessDay, CancellationToken ct = default) =>
+        await _db.LocalSales.AsNoTracking()
+            .CountAsync(s => s.BusinessDay == businessDay && s.Status == (int)OutboxStatus.Pending, ct)
+            .ConfigureAwait(false);
+
     /// <summary>Cash events still waiting to reach the platform, oldest first.</summary>
     public async Task<IReadOnlyList<LocalCashEvent>> PendingCashEventsAsync(
         int limit = 50, CancellationToken ct = default) =>
@@ -911,8 +941,14 @@ public sealed class TillStore : IOutboxStore, ISyncStore
     /// 400 "reason required" cannot be fixed by asking again, and a till that retries them for ever
     /// looks healthy while quietly never banking. Somebody has to read the reason, so it is kept.
     /// </summary>
+    /// <param name="expectedPence">What the PLATFORM said the drawer should hold, straight from the
+    /// response body. ⚠ Never a local calculation — see <see cref="LocalCashEvent.ExpectedPence"/>.</param>
+    /// <param name="variancePence">Counted − expected, as the platform computed it. Negative is
+    /// SHORT. ⚠ Recorded here because it arrives on the call that accepts the Z and is available
+    /// nowhere else once the line drops.</param>
     public async Task SettleCashEventAsync(
-        Guid eventId, OutboxStatus status, string? serverResponseJson = null, CancellationToken ct = default)
+        Guid eventId, OutboxStatus status, string? serverResponseJson = null,
+        long? expectedPence = null, long? variancePence = null, CancellationToken ct = default)
     {
         var row = await _db.LocalCashEvents.FirstOrDefaultAsync(e => e.EventId == eventId, ct).ConfigureAwait(false);
         if (row == null) return;
@@ -920,6 +956,13 @@ public sealed class TillStore : IOutboxStore, ISyncStore
         row.Status = (int)status;
         row.Attempts += 1;
         row.ServerResponseJson = serverResponseJson ?? row.ServerResponseJson;
+
+        // ⚠ `??=`-shaped on purpose: a retry that comes back without the figures must not ERASE the
+        // ones an earlier answer carried. The platform's verdict on a counted drawer is written
+        // once and then only ever replaced by another verdict, never by a silence.
+        row.ExpectedPence = expectedPence ?? row.ExpectedPence;
+        row.VariancePence = variancePence ?? row.VariancePence;
+
         if (status == OutboxStatus.Pushed) row.PushedAtUtc = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);

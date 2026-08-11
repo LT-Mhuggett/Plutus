@@ -185,8 +185,37 @@ namespace Plutus.Reporting
                 .Where(d => d.Status == DeviceStatus.Active)
                 .Select(d => d.TillId).Distinct().CountAsync();
 
+            // ⚠ DRAWERS THAT DID NOT BALANCE, SURFACED WHERE SOMEBODY IS ALREADY LOOKING.
+            //
+            // Matt, 2026-08-11: *"There should also be a report and or warning on the portal that
+            // shows that till closed with the incorrect amount of money."* The REPORT already
+            // existed — the banking view has shown expected / counted / variance since §9.2, with
+            // the variance in red. What it had no way of doing was ANNOUNCING itself: a manager who
+            // never opened that tab never learned that a till closed £20 down, and the one thing
+            // that must not depend on somebody deciding to go and look is missing money.
+            //
+            // ⚠ A ROLLING WINDOW, NOT ALL OF HISTORY. Seven days is a fortnight of Mondays' worth of
+            // "this needs explaining now" without a pill that counts a discrepancy from last March
+            // for ever — a warning that never clears is a warning nobody reads.
+            //
+            // ⚠ **COUNTED, AND SUMMED SEPARATELY, BECAUSE THEY ANSWER DIFFERENT QUESTIONS.** Three
+            // tills each £5 out is a training problem; one till £300 out is a theft. Netting them
+            // into a single figure would let a £300 shortage and a £300 overage cancel to zero and
+            // report a quiet week — which is the one arrangement that should raise the loudest alarm.
+            var recent = today.AddDays(-7);
+            var offBalance = await _db.CashEvents.AsNoTracking()
+                .Where(e => e.Type == CashEventType.ZClose
+                         && e.BusinessDay >= recent && e.BusinessDay <= today
+                         && e.VariancePence != null && e.VariancePence != 0)
+                .Select(e => new { e.TillId, e.BusinessDay, e.VariancePence })
+                .ToListAsync();
+
             return Ok(new
             {
+                drawersOutOfBalance = offBalance.Count,
+                drawersShortPence = offBalance.Where(e => e.VariancePence < 0).Sum(e => -(e.VariancePence ?? 0)),
+                drawersOverPence = offBalance.Where(e => e.VariancePence > 0).Sum(e => e.VariancePence ?? 0),
+                drawersFromDay = recent.ToString("yyyy-MM-dd"),
                 salesTodayPence = weekRows.Where(r => r.BusinessDay == today).Sum(r => r.GrossPence),
                 salesWeekPence = weekRows.Sum(r => r.GrossPence),
                 weekStart = monday.ToString("yyyy-MM-dd"),

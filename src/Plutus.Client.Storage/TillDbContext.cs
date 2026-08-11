@@ -18,7 +18,7 @@ public sealed class TillDbContext : DbContext
     /// <summary>⚠ Bump this AND add a matching step to <see cref="UpgradeAsync"/> in the same
     /// commit. A bump with no step silently stamps a store as current without changing it; a step
     /// with no bump never runs.</summary>
-    public const int SchemaVersion = 5;
+    public const int SchemaVersion = 6;
 
     public TillDbContext(DbContextOptions<TillDbContext> options) : base(options) { }
 
@@ -171,7 +171,9 @@ public sealed class TillDbContext : DbContext
                     "Status" INTEGER NOT NULL,
                     "PushedAtUtc" TEXT NULL,
                     "Attempts" INTEGER NOT NULL DEFAULT 0,
-                    "ServerResponseJson" TEXT NULL
+                    "ServerResponseJson" TEXT NULL,
+                    "ExpectedPence" INTEGER NULL,
+                    "VariancePence" INTEGER NULL
                 );
                 """, ct);
 
@@ -224,6 +226,24 @@ public sealed class TillDbContext : DbContext
             // re-pull rewrites what is already there rather than duplicating it.
             await Database.ExecuteSqlRawAsync(
                 $"""DELETE FROM "Meta" WHERE "Key" = '{MetaKeys.CatalogueVersion}';""", ct);
+        }
+
+        // v6 — the platform's verdict on a counted drawer, recorded where the operator will see it.
+        //
+        // ⚠ The server has always answered a Z close with `expectedPence` and `variancePence`, and
+        // `CashPushService` threw the body away and kept the status code. A drawer closed £20 short
+        // was therefore accepted in total silence: the platform knew, the banking report showed it
+        // in red, and the person who counted it was told nothing. Matt found it on 2026-08-11.
+        //
+        // ⚠ NULLABLE AND BACKFILLED BY NOBODY, deliberately. These hold what the platform SAID at
+        // the moment the event was accepted; for events already sent under v5 that answer is gone,
+        // and inventing one here — by re-asking the server, or worse by computing it locally —
+        // would put a figure against a past Z that nobody actually saw on the night. A blank is
+        // the truthful record of "we did not keep it".
+        if (from < 6)
+        {
+            await AddColumnIfMissingAsync("LocalCashEvents", "ExpectedPence", "INTEGER NULL", ct);
+            await AddColumnIfMissingAsync("LocalCashEvents", "VariancePence", "INTEGER NULL", ct);
         }
     }
 
