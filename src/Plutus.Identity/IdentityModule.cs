@@ -16,6 +16,16 @@ namespace Plutus.Identity
     {
         public static IServiceCollection AddPlutusIdentity(this IServiceCollection services, IConfiguration configuration)
         {
+            // ⚠ ROLE RECONCILE ON BOOT (2026-08-11). Adding a permission is two things: the
+            // CATALOGUE entry compiles into the binary, but the GRANT — which role holds it — is a
+            // ROW in each tenant's database, and a compiler cannot write rows. Until now that row
+            // arrived only when somebody remembered to run `Plutus.SeedMigrator rbac`, and a
+            // forgotten step whose failure is a polite refusal is a step that gets forgotten.
+            //
+            // ⚠ Additive, idempotent, and never fatal — see `RolePermissionReconciler`. The tool
+            // still exists and is still the way to run it against a database out of band.
+            services.AddHostedService<RolePermissionReconciler>();
+
             // WP3.1 RBAC: effective-permission resolution + the dynamic "perm:*" policy
             // provider. Auth-scheme agnostic — registered under every provider.
             services.AddScoped(sp =>

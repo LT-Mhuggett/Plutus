@@ -30,7 +30,7 @@ Steps 1–20, 23, 25 and half of 26 are done. **~40 working days left**, two thi
 
 | | |
 |---|---|
-| **Suite** | Unit **856** · Integration **146** · Architecture **15** · AppClient **414** (+3 skipped) — **all green**, working tree clean |
+| **Suite** | Unit **856** · Integration **151** · Architecture **15** · AppClient **414** (+3 skipped) — **all green**, working tree clean |
 | **Till build to run** | **`D:\tmp\plutus-till-1.40.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
 | **Hand-run script** | [`Build/shop-day-test.md`](Build/shop-day-test.md) — ⚠ **§5 is where everything new lives** and none of it has been run by a person yet |
 | **Versions** | till-maui **1.40.0** · backend **1.9.0 (BUILT, NOT DEPLOYED)** · platform **1.26.0** · portal **1.3.0** · till-web **1.5.0** · agent **1.3.3** |
@@ -43,7 +43,7 @@ Steps 1–20, 23, 25 and half of 26 are done. **~40 working days left**, two thi
 | # | What | Why it matters |
 |---|---|---|
 | 1 | ✅ **BUILT 2026-08-11 — `D:\tmp\plutus-backend-1.9.0\`** (osx-arm64, self-contained, 146 MB). ⚠ **NOT DEPLOYED** | Carries the catalogue feed's new fields, the stock-levels gate, and `pos.stock.adjust`. ⚠ **Until it ships, the till halves are inert** — safely so, the columns are nullable |
-| 2 | ✅ **A FRESH SeedMigrator IS BUILT TOO — `D:\tmp\plutus-seedmigrator-1.9.0\`**. Run `Plutus.SeedMigrator rbac --mysql "…"` AFTER the deploy | Otherwise **`pos.stock.adjust` never reaches Supervisor**. ⚠ **It must be the FRESHLY PUBLISHED binary** — `RbacSeeder` compiles INTO it, so the copy already on the Mac would re-seed the OLD permission set and appear to succeed (runbook, Backend deploy). ⚠ Idempotent: re-running is a no-op, and grants a tenant has added or re-ceilinged are never overwritten |
+| 2 | ✅ **NO LONGER A MANUAL STEP** — `RolePermissionReconciler` runs on every backend boot | Matt, 2026-08-11: *"why do I need to run this? Is this not something that can be added when the app is compiled, or pushed from the back end?"* ⚠ **He was right and the old answer was an accident of history.** A permission is two things: the CATALOGUE entry compiles in, but the GRANT is a ROW in each tenant's database — so it cannot be a compile-time thing, but it can absolutely be pushed from the backend, and now is. ⚠ Additive only, idempotent, never fatal, and it reads the tenant list from the DB rather than hardcoding Kapow. `Plutus.SeedMigrator rbac` still exists for out-of-band runs |
 | 3 | **Hand-run §5 of the shop-day script** | Ten builds landed today and **not one screen has been touched by a person**. §5 ranks what is most likely wrong |
 
 ⚠ **Deploy order does NOT matter** for the catalogue fields — the Plutus tab's **"Re-download the whole catalogue"** exists precisely so it doesn't. Press it after the backend is up.

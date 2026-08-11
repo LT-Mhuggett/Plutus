@@ -14,12 +14,18 @@ cashier cannot open a float, take a paid-out, or close the day — that is delib
 ⚠ **If anything crashes or hangs, grab the crash log before restarting.** The Plutus tab shows its
 path. `CrashLog` hooks both `AppDomain` and `Microsoft.UI.Xaml.Application.UnhandledException`.
 
-### ⚠⚠ Two things must happen on the SERVER first, or parts of §5 cannot pass
+### One thing must happen on the SERVER first
 
-| Do this | Or else |
-|---|---|
-| **Deploy backend 1.9.0** | The catalogue feed will not carry brand / description / cost, so **§5.5a's stock column stays "—"** and searching by brand finds nothing. Nothing breaks — the columns are nullable — it simply does not switch on. Afterwards press **Plutus → "Re-download the whole catalogue"** |
-| **Run `Plutus.SeedMigrator rbac --mysql "…"`** — ⚠ **from the FRESHLY BUILT copy**, `D:\tmp\plutus-seedmigrator-1.9.0\` | `pos.stock.adjust` will not exist on any role, so **a SUPERVISOR cannot adjust stock (§5.5b)**. ⚠ An **Owner or Store Manager can, without this** — from 1.40.0 the till accepts either that or `portal.stock.adjust`, mirroring the server. ⚠ `RbacSeeder` compiles INTO the binary, so the copy already on the Mac would re-seed the OLD permission set and exit 0. ⚠ Idempotent — safe to re-run |
+**Deploy backend 1.9.0** (`D:\tmp\plutus-backend-1.9.0\`). Until then the catalogue feed does not
+carry brand / description / cost, so **§5.5a's stock column stays "—"** and searching by brand finds
+nothing. Nothing breaks — the columns are nullable — it simply does not switch on. Afterwards press
+**Plutus → "Re-download the whole catalogue"**.
+
+✅ **The RBAC re-seed is no longer a manual step.** Matt asked why it had to be
+(2026-08-11) and the honest answer was that it didn't — `RolePermissionReconciler` now runs on
+every backend boot, so `pos.stock.adjust` reaches Supervisor as soon as 1.9.0 starts. ⚠ It is
+additive only: it never removes a grant and never overwrites a ceiling a shop has set itself.
+`Plutus.SeedMigrator rbac` still exists for running it against a database out of band.
 
 ---
 

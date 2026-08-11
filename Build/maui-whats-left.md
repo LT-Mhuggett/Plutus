@@ -32,10 +32,11 @@ Two thirds of that is three items: **loyalty + gift cards (27, ~15d)**, **report
 it was written — inventory CRUD, the stock ledger, categories, the Bin, add-unknown-scan and the
 feed fields all landed on 10–11 August.
 
-⚠⚠ **ONE OPERATIONAL STEP IS OUTSTANDING AND NOTHING WILL REMIND YOU:** `pos.stock.adjust` does not
-reach a live tenant until **`Plutus.SeedMigrator` is run**. `RbacSeeder` is a TOOL, not a startup
-step. Until it runs, a Supervisor is refused politely and managers work as before — nothing breaks,
-it simply does not switch on.
+✅ **The RBAC re-seed is no longer an operational step.** It used to be: `RbacSeeder` ran only from a
+TOOL somebody had to remember, and its failure was invisible — the permission simply did not exist,
+so every operator was refused politely. Matt asked why on 2026-08-11 and the honest answer was that
+it did not have to be. `RolePermissionReconciler` now runs on every backend boot. ⚠ Additive only:
+it never removes a grant and never overwrites a ceiling a shop has set for itself.
 
 ### ⚠ Four rows are now closed that this page previously listed as open
 
@@ -147,7 +148,7 @@ brand and the till had no brand column, so "Marvel" found nothing here and every
 | # | Piece | ~ | ⚠ |
 |---|---|---|---|
 | ~~25a~~ | ✅ **Stock column — DONE 2026-08-10 (1.37.0)** | — | Number / **∞** untracked / **—** never counted. ⚠ The column was BLANK on every row and blank reads as ZERO. Gate widened to accept `pos.reports.view` — third time, same defect |
-| ~~25b~~ | ✅ **Adjust stock — DONE 2026-08-11 (1.39.0)** | — | Matt chose a new till-side `pos.stock.adjust`, seeded to Supervisor and up, never the Cashier. ⚠⚠ **It does not reach a live tenant until `Plutus.SeedMigrator` is run** — the RBAC seeder is a tool, not a startup step |
+| ~~25b~~ | ✅ **Adjust stock — DONE 2026-08-11 (1.39.0)** | — | A new till-side `pos.stock.adjust`, seeded to Supervisor and up, never the Cashier. ✅ It now reaches a live tenant on the next backend BOOT — see `RolePermissionReconciler` |
 | ~~25c~~ | ✅ **Categories — DONE 2026-08-10 (1.38.0)** | — | The 409 now lands: the refusal becomes the OFFER to reassign. ⚠ A test pins that the till never calls the LEGACY delete, which cascades and would take every item in the category with it |
 | ~~25d~~ | ✅ **The Bin — DONE 2026-08-10 (1.37.0)** | — | ⚠ The offline-tombstone rule was honoured on every read path and pinned by NOTHING; now covered across scan, search and browse separately. **Restore stays portal-side** — MAUI has no binned-items view, which is the honest remainder |
 | 25e | **Portal-published VAT bands, whole timeline** | ½d | ⚠ Caching only *today's* rate is a bug: the timeline is what lets an offline till apply a future-dated change on the day it starts |
@@ -166,10 +167,16 @@ permission has to be expressed as a till permission.
 person who can alter its count must differ, or shrinkage stops being visible. A named test fails if
 that ever changes.
 
-⚠⚠ **IT DOES NOT REACH A LIVE TENANT UNTIL `Plutus.SeedMigrator` IS RUN.** `RbacSeeder` is a TOOL,
-not a startup step — `EnsureBuiltInRolesAsync` backfills the new grant onto existing built-in roles,
-but only when something calls it. Until then a Supervisor is refused politely and managers work as
-before, so nothing breaks; it simply does not switch on.
+✅ **IT REACHES A LIVE TENANT ON THE NEXT BACKEND BOOT.** It did not, at first: `RbacSeeder` ran
+only from a TOOL somebody had to remember. Matt asked *why* on 2026-08-11 — *"is this not something
+that can be added when the app is compiled, or pushed from the back end?"* — and the honest answer
+was that it did not have to be a manual step at all. `RolePermissionReconciler` now runs on every
+boot. ⚠ Additive only: it never removes a grant and never overwrites a ceiling a shop set itself,
+which is what makes running it on every boot safe rather than reckless.
+
+⚠ **And the TILL had to be fixed too.** Its gate asked for `pos.stock.adjust` alone while the server
+accepted either that or `portal.stock.adjust` — so an **Owner** was refused by the till for
+something the platform allowed. `TillGate.CheckAny` mirrors the server now.
 
 ⚠ **It is also a stock LEDGER, not a quantity box.** `qty` is a signed delta and zero is refused;
 the only "set it to N" surface in the v1 API is `POST /api/v1/stock/takes`, which converts
