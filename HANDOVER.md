@@ -33,20 +33,52 @@ Steps 1–20, 23, 25 and half of 26 are done. **~40 working days left**, two thi
 | **Suite** | Unit **863** · Integration **151** · Architecture **15** · AppClient **414** (+3 skipped) — **all green**, working tree clean |
 | **Till build to run** | **`D:\tmp\plutus-till-1.41.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
 | **Hand-run script** | [`Build/shop-day-test.md`](Build/shop-day-test.md) — ⚠ **§5 is where everything new lives** and none of it has been run by a person yet |
-| **Versions** | till-maui **1.41.0** · backend **1.9.0 (BUILT, NOT DEPLOYED)** · platform **1.26.0** · portal **1.3.0** · till-web **1.5.0** · agent **1.3.3** |
-| **Deployed** | backend **1.8.3** LIVE (2026-08-10 15:28) — rollback `~/PLUTUS/backend.pre-20260810-152835`. Portal 1.3.0, web till 1.5.0 unchanged. ⚠ **Nothing from 11 August is deployed** |
+| **Versions** | till-maui **1.41.0** · backend **1.9.0 DEPLOYED** · platform **1.26.0** · portal **1.3.0** · till-web **1.5.0** · agent **1.3.3** |
+| **Deployed** | backend **1.9.0** LIVE (2026-08-11 10:33) — rollback `~/PLUTUS/backend.pre-20260811-103300`. Portal 1.3.0, web till 1.5.0 unchanged. ⚠ ETRIE verified 200 after the swap |
 | **Commits** | **40 unpushed** on `Matt's-Horror` (upstream at `4d29877`). Today's ten run `92a39d4` → `87fdb96` |
 | **Health** | Plutus 200 · ETRIE 200 · backend up; 838 restarts is the historical rotation count and is not climbing |
 
-#### ⚠⚠ THREE THINGS WAITING ON A HUMAN — do these before anything else
+#### ✅ BACKEND 1.9.0 IS DEPLOYED — 2026-08-11 10:33
 
-| # | What | Why it matters |
-|---|---|---|
-| 1 | ✅ **BUILT 2026-08-11 — `D:\tmp\plutus-backend-1.9.0\`** (osx-arm64, self-contained, 146 MB). ⚠ **NOT DEPLOYED** | Carries the catalogue feed's new fields, the stock-levels gate, and `pos.stock.adjust`. ⚠ **Until it ships, the till halves are inert** — safely so, the columns are nullable |
-| 2 | ✅ **NO LONGER A MANUAL STEP** — `RolePermissionReconciler` runs on every backend boot | Matt, 2026-08-11: *"why do I need to run this? Is this not something that can be added when the app is compiled, or pushed from the back end?"* ⚠ **He was right and the old answer was an accident of history.** A permission is two things: the CATALOGUE entry compiles in, but the GRANT is a ROW in each tenant's database — so it cannot be a compile-time thing, but it can absolutely be pushed from the backend, and now is. ⚠ Additive only, idempotent, never fatal, and it reads the tenant list from the DB rather than hardcoding Kapow. `Plutus.SeedMigrator rbac` still exists for out-of-band runs |
-| 3 | **Hand-run §5 of the shop-day script** | Ten builds landed today and **not one screen has been touched by a person**. §5 ranks what is most likely wrong |
+Rollback: **`~/PLUTUS/backend.pre-20260811-103300`**. Verified after the swap:
 
-⚠ **Deploy order does NOT matter** for the catalogue fields — the Plutus tab's **"Re-download the whole catalogue"** exists precisely so it doesn't. Press it after the backend is up.
+| Check | Result |
+|---|---|
+| `/swagger/v1/swagger.json` | **200** |
+| ⚠ DB-path probe (`POST /api/v1/tokens/device`, junk id) | **401 "Device not enrolled or revoked."** — the schema and the model agree |
+| `/api/v1/ping` | `apiVersion: **1.9.0**` |
+| Plutus health | **200** |
+| ⚠ **ETRIE health** | **200** — untouched, 32h uptime, 0 restarts |
+| plutus-backend restarts | **0** |
+
+⚠ **THE RECONCILER RAN, AND IT MATTERED IMMEDIATELY.** From the log on first boot:
+
+> `Role reconcile: added 8 missing built-in grant(s) across 2 tenant(s).`
+
+**Two tenants.** Reading the tenant list from the database rather than hardcoding `KnownTenants.Kapow`
+— the way `Plutus.SeedMigrator` does — was the difference between this working everywhere and
+working on one tenant while the other silently kept the old permission set. Eight grants = four
+roles × two tenants gaining `pos.stock.adjust`.
+
+⚠ The probe payload matters: the field is **`clientSecret`**, not `secret`. A wrong shape returns
+**400**, which looks like a failed deploy and is not one.
+
+#### ⚠⚠ WHAT STILL WAITS ON A HUMAN
+
+**One thing, and it is the only one left: HAND-RUN THE SHOP-DAY SCRIPT** on
+`D:\tmp\plutus-till-1.41.0`. Twelve builds landed across two days and **not one screen has been
+touched by a person.** [`Build/shop-day-test.md`](Build/shop-day-test.md) ranks what is most likely
+wrong; **§5** is where everything new lives and **§5z** is new today.
+
+⚠ **Press Plutus → "Re-download the whole catalogue" first.** The backend now sends brand,
+description and cost, but an existing till only receives new FIELDS for items that change after it
+— that button forces the backfill, and is why deploy order never mattered.
+
+⚠ **§5z.5 is the one to watch, and it is a safety case rather than a feature:** pull the network
+cable while signed in and **nothing should happen**. If the till signs you out when the line drops,
+"couldn't ask the server" is being read as "you are disabled" — which would sign a whole shop out
+mid-sale on every broadband blip. It is pinned by a test; that step is what would catch it on real
+hardware.
 
 #### What landed on 2026-08-10 → 11, newest first
 
