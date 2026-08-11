@@ -33,10 +33,53 @@ Steps 1–20, 23, 25 and half of 26 are done. **~40 working days left**, two thi
 | **Suite** | Unit **875** · Integration **157** · Architecture **15** · AppClient **422** (+3 skipped) — **all green**, working tree clean |
 | **Till build to run** | **`D:\tmp\plutus-till-1.46.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
 | **Hand-run script** | [`Build/shop-day-test.md`](Build/shop-day-test.md) — ⚠ **§5 is where everything new lives** and none of it has been run by a person yet |
-| **Versions** | till-maui **1.46.0** · backend **1.12.0 DEPLOYED** · platform **1.26.0** · portal **1.5.0 DEPLOYED** · till-web **1.6.0 DEPLOYED** · agent **1.3.3** |
-| **Deployed** | portal **1.5.0** + web till **1.6.0** LIVE (15:20-15:22, version labels FIXED) · backend **1.12.0** LIVE (2026-08-11 12:57) — rollback `~/PLUTUS/backend.pre-20260811-1357`, then `.pre-20260811-1340` (1.11.0), `.pre-20260811-1145` (1.10.0), `.pre-20260811-103300` (1.9.0). Portal 1.3.0, web till 1.5.0 unchanged. ⚠ ETRIE verified 200 after the swap |
+| **Versions** | till-maui **1.46.0** · backend **1.13.0 DEPLOYED** · platform **1.26.0** · portal **1.5.0 DEPLOYED** · till-web **1.6.0 DEPLOYED** · agent **1.3.3** |
+| **Deployed** | backend **1.13.0** LIVE (19:01, carries a MIGRATION) · portal **1.5.0** + web till **1.6.0** LIVE (15:20-15:22, version labels FIXED) (2026-08-11 12:57) — rollback `~/PLUTUS/backend.pre-20260811-1357`, then `.pre-20260811-1340` (1.11.0), `.pre-20260811-1145` (1.10.0), `.pre-20260811-103300` (1.9.0). Portal 1.3.0, web till 1.5.0 unchanged. ⚠ ETRIE verified 200 after the swap |
 | **Commits** | **40 unpushed** on `Matt's-Horror` (upstream at `4d29877`). Today's ten run `92a39d4` → `87fdb96` |
 | **Health** | Plutus 200 · ETRIE 200 · backend up; 838 restarts is the historical rotation count and is not climbing |
+
+#### ⚠⚠ 2026-08-11 — THE NIGHTLY DATABASE BACKUPS HAD BEEN EMPTY FOR TWO DAYS
+
+Found while preparing the 1.13.0 migration deploy, by checking the dump rather than assuming it.
+
+```
+2026-08-09  backup ok: 14840   ← 58.8 MB, real
+2026-08-10  backup ok: 8       ← 20-byte file, 0 bytes of content
+2026-08-11  backup ok: 8       ← same
+```
+
+Two faults, and it needed both to stay hidden. **(1)** `plutus-nightly-backup.sh` connected over
+**plain TCP**; rotating the `caching_sha2_password` account on 08-09 broke every plain-TCP client,
+which is why the *backend* moved to the unix socket that night — the backup script did not.
+**(2)** `mysqldump | gzip && mv` takes its exit status from **gzip**, which succeeds on empty input,
+so `mv` ran and the log recorded success. ⚠ The 7-day prune would have deleted the last good dump on
+**2026-08-16**, leaving none: the deletion and the corruption on the same clock.
+
+✅ **FIXED AND PROVEN.** `pipefail`, `--socket=/tmp/mysql.sock`, a **1 MB floor**, and pruning only
+after a verified-good dump. Source now in `ops/mac/` (it was only ever on the Mac). Verified both
+ways: a real run produced **63,114,973 bytes / 101 `CREATE TABLE`**, and a deliberately broken run
+**exited 1, logged `⚠ BACKUP FAILED`, and left the good dump untouched** — where the old script
+exited 0 and logged "ok".
+
+#### ✅ BACKEND 1.13.0 IS DEPLOYED — 2026-08-11 19:01 (carries a MIGRATION)
+
+The heartbeat's update check (`TillReleaseSettings` + `/api/v1/platform/till-release`). Rollback
+**`~/PLUTUS/backend.pre-20260811-1900`**; pre-deploy dump is the verified 63 MB one above.
+
+⚠ **Verified the COLUMNS, not the history table** — the runbook's rule, earned on 2026-08-09 when a
+migration named for three columns contained only a `CreateIndex` and took every till offline:
+
+```
+Id tinyint unsigned null=NO · ExpectedMauiVersion varchar(32) null=YES
+ExpectedWebVersion varchar(32) null=YES · UpdatedAtUtc datetime(6) null=NO
+UpdatedBy varchar(128) null=NO      migration: 20260811164926_AddTillReleaseSettings
+```
+
+Also: ping **1.13.0** · DB-path probe **401** · `/api/v1/platform/till-release` **401** not 500 ·
+ETRIE **200** (41h uptime, untouched) · portal and web till **200** · **0 restarts**.
+
+⚠ **The table is EMPTY, which is correct** — no expected version set means no till says anything.
+The feature is inert until a platform admin PUTs one.
 
 #### ✅ PORTAL 1.5.0 + WEB TILL 1.6.0 DEPLOYED — 2026-08-11 15:20
 

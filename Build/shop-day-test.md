@@ -8,6 +8,11 @@ This is the USER-VERIFY script for everything that landed on **2026-08-10 and 11
 trading day, because that is the order the bugs appear in. **Do them in sequence** — several steps
 set up the next one.
 
+⚠ **HANDING THIS TO SOMEBODY ELSE? GIVE THEM [`Test Maui.md`](Test%20Maui.md) INSTEAD.** Same ground,
+written for a person who does not know the codebase: the recent fixes first with what each looked
+like when it was broken, then a full day, then the two-person safety cases, then a list of what is
+deliberately not built yet so nobody reports the plan as a bug. This page stays the fuller reference.
+
 ⚠ **Sign in as Owner or a Store Manager.** The built-in **Cashier role holds only `pos.sell`**, so a
 cashier cannot open a float, take a paid-out, or close the day — that is deliberate, not a fault.
 

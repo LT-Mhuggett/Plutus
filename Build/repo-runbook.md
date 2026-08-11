@@ -50,6 +50,26 @@ The 8.0.10-vs-9.x version warning is expected. `ef migrations remove` needs a li
 hand-edit the migration + snapshot if you must undo. **Migrations auto-apply on backend startup**,
 so dump the database before deploying anything that carries one.
 
+⚠⚠ **AND CHECK THE DUMP IS NOT EMPTY — ON 2026-08-11 EVERY NIGHTLY BACKUP HAD BEEN 20 BYTES FOR TWO
+DAYS AND THE LOG SAID `backup ok`.** Two faults, and it needed both to stay hidden:
+
+1. **`plutus-nightly-backup.sh` connected over plain TCP** (`-h 127.0.0.1`). Rotating the
+   `caching_sha2_password` account on 2026-08-09 broke every plain-TCP client — which is why the
+   *backend* moved onto the unix socket that night. The backup script did not. Last good dump
+   08-09; 0 bytes from 08-10.
+2. **It could not tell.** `mysqldump | gzip && mv` takes its status from **gzip**, which succeeds on
+   empty input — so `mv` ran, a 20-byte file landed, and the log recorded success.
+
+⚠ The 7-day prune would then have deleted the last good dump on 2026-08-16, leaving nothing: the
+deletion and the corruption driven by the same clock. Fixed with `pipefail`, `--socket=/tmp/mysql.sock`,
+a **1 MB floor** (an empty gzip is 20 bytes and an empty-schema dump is a few hundred — "non-empty"
+is not a test), and pruning only after a verified-good dump. Source in `ops/mac/`.
+
+**Before any migration deploy:** run `zsh ~/PLUTUS/bin/plutus-nightly-backup.sh`, then check the size
+— `gzip -dc ~/PLUTUS/backups/nightly/plutus-$(date +%Y%m%d).sql.gz | wc -c` should be ~60 MB and
+`grep -c "CREATE TABLE"` ~100. ⚠ **NEVER run it under `zsh -x`** — that printed the password into a
+transcript on 2026-08-09 and burned the credential.
+
 ⚠ **OPEN THE GENERATED MIGRATION AND READ ITS `Up()`.** On 2026-08-09 a deploy took every till on
 the estate offline because `AddDeviceSyncSignals` — named for three `Device` columns — contained
 only a `CreateIndex`. The properties had already reached `MySqlDbContextModelSnapshot`, so EF
