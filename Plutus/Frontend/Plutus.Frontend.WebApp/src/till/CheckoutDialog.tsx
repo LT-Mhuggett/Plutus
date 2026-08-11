@@ -3,7 +3,8 @@ import {
   checkout, fetchActiveGateway, fetchPayMethods, lookupGiftCard,
   type ActiveGateway, type CustomerDetail, type GiftCardLookup, type PayMethod,
 } from "../api.ts";
-import { gbp, parsePence } from "../money.ts";
+import { gbp } from "../money.ts";
+import { assess, parseAmounts, refusalReason, restFor } from "./tendering.ts";
 import type { BasketLine } from "./basket.ts";
 import type { ReceiptData } from "./Receipt.tsx";
 
@@ -85,17 +86,11 @@ export default function CheckoutDialog({ lines, totals, customer, onClose, onCom
     }
   }
 
-  const parsed = useMemo(() => {
-    const perMethod = new Map<number, number>();
-    for (const [id, raw] of Object.entries(amounts)) {
-      if (!raw.trim()) continue;
-      const pence = parsePence(raw);
-      if (pence === null) return { valid: false as const };
-      if (pence > 0) perMethod.set(Number(id), pence);
-    }
-    const paid = [...perMethod.values()].reduce((a, b) => a + b, 0);
-    return { valid: true as const, perMethod, paid };
-  }, [amounts]);
+  // ⚠ The arithmetic lives in ./tendering.ts so it can be TESTED. It is the same code, moved: this
+  // is the web half of a C2 twin whose .NET side (TenderLoop) has 19 mutation-checked tests and
+  // whose TypeScript side had none, because this project had no test runner at all. Two tills that
+  // disagree by a penny on one basket disagree on every VAT return afterwards.
+  const parsed = useMemo(() => parseAmounts(amounts), [amounts]);
 
   if (!methods) {
     return (
@@ -115,22 +110,12 @@ export default function CheckoutDialog({ lines, totals, customer, onClose, onCom
   // A basket of returns worth more than anything bought is a REFUND: the same sale, with every
   // figure negative (the T1.3 invariants are sign-agnostic — see SalesV2Tests). The operator
   // types the amount to hand back as a positive number; it goes on the wire negative.
-  const refunding = totals.totalPence < 0;
-  const owed = Math.abs(totals.totalPence);
+  const settled = assess(totals.totalPence, parsed, tenders);
+  const { refunding, owed, paid, remaining, overpay, overRefund, changeOk } = settled;
 
-  const paid = parsed.valid ? parsed.paid : 0;
-  const remaining = Math.max(0, owed - paid);
-  // No change on a refund — you hand back exactly what's owed, so an excess is an error, not change.
-  const overpay = refunding ? 0 : Math.max(0, paid - owed);
-  const overRefund = refunding && paid > owed;
   // Refunding ONTO store credit or a gift card would be a ledger write, not a tender — out of
   // scope, so a refund offers only the real money methods.
   const rows = refunding ? tenders.filter((m) => m.id !== CREDIT_PAYID && m.id !== GIFTCARD_PAYID) : tenders;
-  // change can only be given from a changeable method (cash)
-  const changeablePaid = parsed.valid
-    ? [...parsed.perMethod.entries()].filter(([id]) => tenders.find((m) => m.id === id)?.isChangeable).reduce((a, [, v]) => a + v, 0)
-    : 0;
-  const changeOk = overpay === 0 || overpay <= changeablePaid;
   const creditRedeem = parsed.valid ? parsed.perMethod.get(CREDIT_PAYID) ?? 0 : 0;
   const creditOverBalance = creditRedeem > (customer?.creditBalancePence ?? 0);
   const giftRedeem = parsed.valid ? parsed.perMethod.get(GIFTCARD_PAYID) ?? 0 : 0;
@@ -143,10 +128,9 @@ export default function CheckoutDialog({ lines, totals, customer, onClose, onCom
     // already holds. Using the bare remainder made "rest" toggle 0.00 ↔ full whenever the row was
     // already filled (reported 2026-08-07), and left an overpaid row untouched.
     const own = parsed.valid ? parsed.perMethod.get(id) ?? 0 : 0;
-    const needed = Math.max(0, owed - (paid - own));
     // FE7: "rest" on the gift-card row is capped at what the card holds — the common case is a card
     // that doesn't cover the whole basket, and filling the full remainder would just be refused.
-    const cap = id === GIFTCARD_PAYID ? Math.min(needed, card?.balancePence ?? 0) : needed;
+    const cap = restFor(owed, paid, own, id === GIFTCARD_PAYID ? card?.balancePence ?? 0 : undefined);
     setAmounts((a) => ({ ...a, [id]: (cap / 100).toFixed(2) }));
   }
 
@@ -158,16 +142,9 @@ export default function CheckoutDialog({ lines, totals, customer, onClose, onCom
       // Change is attributed to the changeable method(s) proportionally, with the LAST
       // changeable payment absorbing the rounding remainder — Σchange must equal the
       // overpay to the penny (the v1 pipeline enforces net tender == gross).
+      // ⚠ Computed in ./tendering.ts and tested there; `assess` already did it for this basket.
       const entries = [...parsed.perMethod.entries()];
-      const changeable = entries.filter(([id]) => tenders.find((m) => m.id === id)?.isChangeable);
-      const changeByPayId = new Map<number, number>();
-      let allocated = 0;
-      changeable.forEach(([payId, pence], i) => {
-        const change =
-          i === changeable.length - 1 ? overpay - allocated : Math.round((overpay * pence) / changeablePaid);
-        allocated += change;
-        changeByPayId.set(payId, change);
-      });
+      const changeByPayId = settled.changeByPayId;
       const payments = entries.map(([payId, pence]) => ({
         payId,
         name: tenders.find((x) => x.id === payId)!.name,
@@ -320,6 +297,19 @@ export default function CheckoutDialog({ lines, totals, customer, onClose, onCom
           <p className="error small">That's more than the gift card holds ({gbp(card?.balancePence ?? 0)}) — take the rest another way.</p>
         )}
         {error && <p className="error small">{error}</p>}
+
+        {/* Say WHY the sale can't complete, not just refuse to let it.
+            Matt, 2026-08-11, about the MAUI till: over-paying by card said only "Something went
+            wrong". The web till's version of that failure is quieter and easier to miss — the
+            Complete button simply greys out and nothing explains it, which is the same fault:
+            the screen has decided something and not said what.
+            MAUI names its refusals (TenderRefusal — zero, wrong direction, overpaid without
+            change); this is the matching sentence, from the same tested arithmetic.
+            Suppressed while `busy` and when one of the specific messages above is already showing,
+            so the operator never gets two explanations of one problem. */}
+        {!busy && !creditOverBalance && !giftOverBalance && !canComplete && (
+          <p className="muted small">{refusalReason(settled, parsed, gbp)}</p>
+        )}
 
         <div className="dialog-actions">
           <button className="ghost" disabled={busy} onClick={onClose}>
