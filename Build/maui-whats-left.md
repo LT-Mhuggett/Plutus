@@ -23,14 +23,30 @@ Z-read — and as of 2026-08-10 **add an item, edit an item, and add an unknown 
 counter**. What it still cannot do is **loyalty, gift cards, users, theming, reporting, and the
 stock ledger**.
 
-**Done: cutover steps 1–20, 23, **25**, and 26's reprint half.**
+**Done: cutover steps 1–20, 23, **25 (fully, as of 2026-08-11)**, and 26's reprint half.**
 **Remaining: 11b · 21 · 22 · 24 · the rest of 26 · 27 · 28 — about 40 working days.**
 Two thirds of that is three items: **loyalty + gift cards (27, ~15d)**, **reporting (26, ~9d)** and
 **the basket reshape (11b, ~4d)**.
 
-✅ **Step 25 is DONE** (bar the VAT-band timeline, ½ day). It was the largest gap on this page when
-it was written — inventory CRUD, the stock ledger, categories, the Bin, add-unknown-scan and the
-feed fields all landed on 10–11 August.
+✅ **Step 25 is DONE — all of it.** Inventory CRUD, the stock ledger, categories, the Bin,
+add-unknown-scan and the feed fields landed 10–11 August, and the last item on the list (25e, the VAT
+band timeline) turned out to be **already built**.
+
+### ⚠⚠ Verified against the tree again on 2026-08-11, and the register was UNDERSTATING progress
+
+Three Part B rows still said ⬜ for MAUI **after the work had shipped**: **the Bin** (in since 1.37.0,
+2026-08-10 — Matt used it before the register admitted it existed), **portal-published VAT bands**
+(cache, cadence refresh and a selling-path read all in place), and with them **25e**, which this page
+carried as "the last ½ day of step 25" for three days.
+
+⚠ **This is the D3 reflex failing in the direction nobody watches.** The rule exists to stop a
+feature shipping to one till and the others being forgotten — a stale ⬜ that *overstates* the gap
+feels harmless by comparison, and is not: it gets re-estimated, re-planned and possibly rebuilt.
+**A row is as wrong when it is pessimistic as when it is optimistic.** When you close a capability,
+flip its row in the same commit — including when you are only *finishing* something.
+
+⚠ **And do not trust a ⬜ you have not grepped for.** Every one of these three was findable in
+seconds. Before estimating any remaining row below, check whether it is already there.
 
 ✅ **The RBAC re-seed is no longer an operational step.** It used to be: `RbacSeeder` ran only from a
 TOOL somebody had to remember, and its failure was invisible — the permission simply did not exist,
@@ -151,7 +167,7 @@ brand and the till had no brand column, so "Marvel" found nothing here and every
 | ~~25b~~ | ✅ **Adjust stock — DONE 2026-08-11 (1.39.0)** | — | A new till-side `pos.stock.adjust`, seeded to Supervisor and up, never the Cashier. ✅ It now reaches a live tenant on the next backend BOOT — see `RolePermissionReconciler` |
 | ~~25c~~ | ✅ **Categories — DONE 2026-08-10 (1.38.0)** | — | The 409 now lands: the refusal becomes the OFFER to reassign. ⚠ A test pins that the till never calls the LEGACY delete, which cascades and would take every item in the category with it |
 | ~~25d~~ | ✅ **The Bin — DONE 2026-08-10 (1.37.0)** | — | ⚠ The offline-tombstone rule was honoured on every read path and pinned by NOTHING; now covered across scan, search and browse separately. **Restore stays portal-side** — MAUI has no binned-items view, which is the honest remainder |
-| 25e | **Portal-published VAT bands, whole timeline** | ½d | ⚠ Caching only *today's* rate is a bug: the timeline is what lets an offline till apply a future-dated change on the day it starts |
+| ~~25e~~ | ✅ **Portal-published VAT bands, whole timeline — ALREADY DONE, found 2026-08-11** | — | ⚠⚠ **It was built and its Part B row still said ⬜, so this page carried it as the last ½ day of step 25 for three days.** `VatBandCache` stores the whole timeline (10 tests, including a future-dated change applying offline on the day), `Services/Storage/VatBands.cs` is the app's route to it, `TillCadence:283` refreshes it on the tick and `TillViewModel:1942` reads it on a selling path. **Step 25 is complete.** |
 
 #### ✅ 25b — DECIDED 2026-08-11, and built
 
