@@ -139,6 +139,32 @@ namespace Plutus.Sales
             if (refundProblem != null)
                 return await QuarantineAsync(req, tenantId, refundProblem, receivedAt);
 
+            // ⚠⚠ IS THIS TILL'S BUSINESS DAY ALREADY Z-CLOSED? Matt, 2026-08-11: *"I was able to
+            // make a sale with the till closed."* He was, and the platform ACCEPTED IT — 201
+            // Recorded, straight onto a day whose takings had already been counted and banked.
+            //
+            // The day-closed rule existed only on the CASH-EVENT path (`CashModule`, which 409s
+            // every event after a ZClose). Sales never asked. So the Z-read, the banking and the
+            // platform's figures for that day could disagree for ever, with nothing flagging it —
+            // the variance surfaces weeks later as a discrepancy nobody can attribute.
+            //
+            // ⚠ THE TILL NOW REFUSES THIS TOO (`CheckoutCommit`), and this is deliberately the
+            // SECOND gate rather than the only one. The till's is what protects the OPERATOR — it
+            // refuses before any money is taken, with the basket intact. This one is what protects
+            // the LEDGER, because a till cannot be trusted to be the only thing enforcing a rule
+            // about the platform's own books: an older build, a replayed queue or a second device
+            // on the same till all reach here without passing through that check.
+            //
+            // ⚠ QUARANTINED, NOT REJECTED. The sale is REAL — a customer paid for goods and walked
+            // out with them — so it must not vanish. Quarantine keeps the money visible and puts it
+            // in front of a person, which is the only correct outcome: either the day was closed
+            // too early and the sale belongs to it, or the till was wrong and somebody has to say
+            // which day it counts for. ⚠ `OutboxPusher` treats 202 as TERMINAL and will not retry,
+            // so nothing loops.
+            var closedProblem = await ValidateDayNotClosedAsync(req, tenantId, tillId);
+            if (closedProblem != null)
+                return await QuarantineAsync(req, tenantId, closedProblem, receivedAt);
+
             try
             {
                 await using var tx = await _db.Database.BeginTransactionAsync();
@@ -400,6 +426,38 @@ namespace Plutus.Sales
         /// treatment (activation 0 or 2000bp; a single-purpose REDEMPTION is a negative
         /// standard-rated line), which is a different rule from the catalogue's bands.
         /// </summary>
+        /// <summary>
+        /// Has this till already Z-closed the day this sale claims?
+        ///
+        /// ⚠ SAME QUERY SHAPE AS `CashModule`'s guard — `TillId` and `BusinessDay`, looking for a
+        /// `ZClose`. Two rules that mean the same thing must ask the same question; a subtly
+        /// different one here would let cash and sales disagree about whether a day was open.
+        ///
+        /// ⚠ AN UNKNOWN TILL IS NOT BLOCKED. `tillId` is `Guid.Empty` for a device that has no till
+        /// (a legacy pairing, or a bridge posting on behalf of one), and an empty id would match no
+        /// cash events — so the check simply passes. Refusing instead would quarantine every sale
+        /// from a till the platform has not finished learning about, which is a far bigger outage
+        /// than the one this prevents.
+        /// </summary>
+        private async Task<string> ValidateDayNotClosedAsync(
+            IngestSaleRequest req, Guid tenantId, Guid tillId)
+        {
+            if (tillId == Guid.Empty) return null;
+
+            var closed = await _db.CashEvents.AsNoTracking().AnyAsync(e =>
+                e.TenantId == tenantId &&
+                e.TillId == tillId &&
+                e.BusinessDay == req.BusinessDay &&
+                e.Type == CashEventType.ZClose);
+
+            if (!closed) return null;
+
+            return $"Business day {req.BusinessDay:yyyy-MM-dd} was already closed with a Z read on this "
+                 + "till, so this sale cannot be counted against it. The day's takings have already "
+                 + "been reconciled. Decide whether the day was closed too early (re-open it and "
+                 + "release this sale) or whether this sale belongs to a later day.";
+        }
+
         private async Task<string> ValidateVatRatesAsync(IngestSaleRequest req, Guid tenantId)
         {
             var history = await _db.VatRatePoints.AsNoTracking()
