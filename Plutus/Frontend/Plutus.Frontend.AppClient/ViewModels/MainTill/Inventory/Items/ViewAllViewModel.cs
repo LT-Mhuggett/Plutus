@@ -34,10 +34,25 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
 
         #region Properties
         #region Public
+        /// <summary>
+        /// What the operator typed in the search bar.
+        ///
+        /// ⚠⚠ NORMALISED TO NULL, AND THAT IS A CRASH FIX. Matt, 2026-08-11: *"if I click into the
+        /// search bar (trying to search for Batman) it crashes. I can repeat this."*
+        ///
+        /// A MAUI `SearchBar` on WinUI writes `Text` on FOCUS, moving it from null to "". That is a
+        /// change as far as `SetProperty` is concerned, so merely CLICKING INTO the box rebuilt the
+        /// entire grouped collection under a rendered `CollectionView` — before a single character
+        /// was typed. Treating null and "" as the same thing means focus alone does nothing at all,
+        /// which is also the honest answer: the filter has not changed.
+        /// </summary>
         public string SearchText
         {
             get => _searchText;
-            set => SetProperty(ref _searchText, value, onChanged: () => ExecuteItemFilter());
+            set => SetProperty(
+                ref _searchText,
+                string.IsNullOrWhiteSpace(value) ? null : value,
+                onChanged: () => ExecuteItemFilter());
         }
         /// <summary>
         /// Every item this screen knows about, unfiltered. ⚠ The list on screen is
@@ -58,7 +73,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         /// list is a plain MAUI `CollectionView` and that entire class of failure is gone with it:
         /// there is no shared mutable object between view and viewmodel to get the order wrong on.
         /// </summary>
-        public ObservableCollection<ItemGroup> ItemGroups { get; } = new ObservableCollection<ItemGroup>();
+        /// <summary>
+        /// ⚠ REPLACED WHOLESALE, NEVER MUTATED IN PLACE — see <see cref="RebuildGroups"/>. Hence a
+        /// settable property rather than a get-only collection.
+        /// </summary>
+        public ObservableCollection<ItemGroup> ItemGroups { get; private set; } = new ObservableCollection<ItemGroup>();
 
         /// <summary>Is the list empty because there is nothing, or because the search matched
         /// nothing? ⚠ A blank list with no message reads as "this shop sells nothing" — which is
@@ -116,18 +135,38 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         /// </summary>
         private void RebuildGroups()
         {
-            var groups = Items
-                .Where(FilterItem)
-                .OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase)
-                .GroupBy(i => string.IsNullOrWhiteSpace(i.Name)
-                    ? "#"
-                    : char.ToUpperInvariant(i.Name.Trim()[0]).ToString())
-                .OrderBy(g => g.Key, StringComparer.Ordinal)
-                .Select(g => new ItemGroup(g.Key, g))
-                .ToList();
+            // ⚠⚠ IT MUST NOT THROW, AND THE ABSENCE OF THIS GUARD IS WHY THE TILL CLOSED.
+            // `InitItems` already wrapped its call in a try/catch; the SEARCH path did not — so the
+            // same code was survivable on load and fatal on a keystroke. Anything escaping here
+            // reaches the MAUI dispatcher as an unhandled exception and takes the process with it,
+            // and the operator sees the app vanish rather than a search that failed.
+            try
+            {
+                var groups = Items
+                    .Where(FilterItem)
+                    .OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase)
+                    .GroupBy(i => string.IsNullOrWhiteSpace(i.Name)
+                        ? "#"
+                        : char.ToUpperInvariant(i.Name.Trim()[0]).ToString())
+                    .OrderBy(g => g.Key, StringComparer.Ordinal)
+                    .Select(g => new ItemGroup(g.Key, g))
+                    .ToList();
 
-            ItemGroups.Clear();
-            foreach (var group in groups) ItemGroups.Add(group);
+                // ⚠ A NEW COLLECTION, NOT Clear()-THEN-Add(). Mutating the collection a GROUPED
+                // `CollectionView` is bound to raises a Reset followed by N Adds, and the WinUI
+                // handler has to reconcile group containers against a source that is empty for an
+                // instant — with 500 items and a keystroke per rebuild. Replacing the reference is
+                // ONE notification and lets the view rebind rather than reconcile.
+                //
+                // ⚠ It also removes the window in which the list is bound to an empty collection,
+                // which is what `FillStockLevelsAsync` could otherwise be writing into.
+                ItemGroups = new ObservableCollection<ItemGroup>(groups);
+                OnPropertyChanged(nameof(ItemGroups));
+            }
+            catch (Exception ex)
+            {
+                Services.Analytics.CrashLog.Write("ViewAllViewModel.RebuildGroups", ex);
+            }
 
             OnPropertyChanged(nameof(ShowEmptyNotice));
             OnPropertyChanged(nameof(EmptyNotice));

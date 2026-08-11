@@ -308,6 +308,41 @@ namespace Plutus.Frontend.AppClient.Services.Storage
                         "This is usually a card surcharge or a discount that isn't attached to any " +
                         "item — remove it and ring the sale again. Nothing has been taken.");
 
+                // ⚠⚠ THE DAY MUST STILL BE OPEN. Matt, 2026-08-11: *"I was able to make a sale with
+                // the till closed… I was also able to refund it."*
+                //
+                // He was right, and the consequence is worse than it looked: the sale WAS recorded.
+                // The day-closed gate existed only on the CASH-EVENT path — on the till and on the
+                // server — and nothing on the sales path asked at all. So a sale rung after a Z-read
+                // committed locally, drained normally, and the SERVER ACCEPTED IT as 201 Recorded
+                // against a day whose takings had already been counted and banked.
+                //
+                // ⚠ That is the real damage. A lost sale is one problem; a sale added to a day that
+                // has already been reconciled means the Z-read, the banking and the platform's
+                // figures for that day disagree for ever, and nothing anywhere flags it. The
+                // variance surfaces weeks later as an unexplained discrepancy.
+                //
+                // ⚠ REFUSED AT THE COMMIT, not at the button — this is the one place every sale and
+                // every refund passes through, it already owns the "refuse rather than record
+                // something wrong" decision above, and it leaves the basket intact by contract.
+                // Gating the screen instead would leave the other callers open.
+                //
+                // ⚠ The SERVER needs its own half of this rule and does not have it yet — recorded
+                // in `Build/handrun-2026-08-11.md`. Until then this is a single gate, which is why
+                // it is at the last possible moment rather than the first.
+                // ⚠ `BusinessDay.Wire` — the SAME string the cash events are stored under. Comparing
+                // a differently-formatted date would find no Z read and let the sale through, which
+                // is the quietest possible way for this guard to do nothing at all.
+                if (await TillStoreAccess.UseAsync(
+                        s => s.IsDayClosedAsync(SharedKernel.BusinessDay.Wire(businessDay), ct), ct)
+                    .ConfigureAwait(false))
+                {
+                    return new CommitOutcome(false, Guid.Empty, 0,
+                        $"{businessDay:d MMMM} has been closed with a Z read, so nothing more can be rung " +
+                        "up against it. Nothing has been taken — the basket is still here. If the " +
+                        "shop is still trading, the day was closed too early: open a new float.");
+                }
+
                 // ⚠ DeviceSeq is allocated INSIDE the store's transaction and written into the
                 // payload there — the 0 above is a placeholder, never what gets sent.
                 var committed = await TillStoreAccess.UseAsync(

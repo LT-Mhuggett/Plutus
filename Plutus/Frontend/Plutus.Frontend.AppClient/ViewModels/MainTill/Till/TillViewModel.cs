@@ -55,12 +55,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// <summary>
         /// How many of the next scanned item go in the basket.
         ///
-        /// ⚠ CLAMPED TO AT LEAST 1, IN THE SETTER. This used to be a Syncfusion `SfNumericEntry`
+        /// ÃÂ¢ÃÂÃÂ  CLAMPED TO AT LEAST 1, IN THE SETTER. This used to be a Syncfusion `SfNumericEntry`
         /// whose `Minimum="1"` did the clamping, so the rule lived in a XAML attribute on a control
         /// the till no longer uses (Matt, 2026-08-10: *"I am not going to renew Syncfusion"*). A
-        /// plain `Entry` will happily hand over 0, or −3, and `IncrementQuantity(0)` adds a line
+        /// plain `Entry` will happily hand over 0, or ÃÂ¢ÃÂÃÂ3, and `IncrementQuantity(0)` adds a line
         /// that charges nothing while looking exactly like a sale.
-        /// ⚠ A rule that lives in a control's markup is a rule that leaves with the control.
+        /// ÃÂ¢ÃÂÃÂ  A rule that lives in a control's markup is a rule that leaves with the control.
         /// </summary>
         public int Quantity
         {
@@ -68,8 +68,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             set => SetProperty(ref _quantity, value < 1 ? 1 : value);
         }
 
-        /// <summary>The − and + either side of the quantity box, which is how a touch till changes
-        /// it. ⚠ The decrement cannot go below 1: the setter refuses, so the button is safe to
+        /// <summary>The ÃÂ¢ÃÂÃÂ and + either side of the quantity box, which is how a touch till changes
+        /// it. ÃÂ¢ÃÂÃÂ  The decrement cannot go below 1: the setter refuses, so the button is safe to
         /// press repeatedly.</summary>
         Command _quantityUpCommand;
         public Command QuantityUpCommand => _quantityUpCommand ??= new Command(() => Quantity += 1);
@@ -100,7 +100,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             }
         }
         /// <summary>
-        /// ⚠ VESTIGIAL, and kept only so the removal is visible. It drove `SfPicker.IsOpen`; the
+        /// ÃÂ¢ÃÂÃÂ  VESTIGIAL, and kept only so the removal is visible. It drove `SfPicker.IsOpen`; the
         /// alterations picker is a `DisplayActionSheet` now (2026-08-10, Syncfusion removal), so
         /// nothing reads or writes this any more. It goes with the rest of the Syncfusion clean-up
         /// in `Build/legacy-removal.md`.
@@ -120,10 +120,10 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             Title = "Till".Translate();
             Icon = "md-store";
 
-            // ⚠ THE BASKET OWNS THE CATALOGUE SYNC. A sync mid-basket rewrites prices under the
+            // ÃÂ¢ÃÂÃÂ  THE BASKET OWNS THE CATALOGUE SYNC. A sync mid-basket rewrites prices under the
             // operator's hands: a line added before the tick and one added after would come from
             // different price lists, in one sale, and the receipt would be the only evidence it
-            // happened. The heartbeat and the outbox drain are NOT held — neither touches the
+            // happened. The heartbeat and the outbox drain are NOT held ÃÂ¢ÃÂÃÂ neither touches the
             // catalogue, and a queued sale should not wait for a customer to finish paying.
             Services.Sync.TillCadence.BasketIsOpen = () => Basket.Count > 0;
 
@@ -171,8 +171,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 OnPropertyChanged(nameof(AlterationNames));
             };
             #endregion
-            // ⚠ OFF THE UI THREAD, and off the legacy database (cutover step 18). This opened a
-            // SQLite connection and read it SYNCHRONOUSLY inside `BeginInvokeOnMainThread` — i.e.
+            // ÃÂ¢ÃÂÃÂ  OFF THE UI THREAD, and off the legacy database (cutover step 18). This opened a
+            // SQLite connection and read it SYNCHRONOUSLY inside `BeginInvokeOnMainThread` ÃÂ¢ÃÂÃÂ i.e.
             // the till screen was built while the main thread waited on disk I/O, and on a
             // portal-provisioned till the read is against a legacy file that is created, migrated
             // and then found empty. The parked baskets live in the v2 store now.
@@ -319,7 +319,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             {
                 var lookup = await FindItem(ItemId);
 
-                // ⚠ A cancelled picker leaves the box ALONE and says nothing. The operator is
+                // ÃÂ¢ÃÂÃÂ  A cancelled picker leaves the box ALONE and says nothing. The operator is
                 // mid-decision; clearing what they typed or telling them the item does not exist
                 // both undo work they are still doing.
                 if (lookup.Cancelled) return;
@@ -327,9 +327,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 var item = lookup.Item;
                 if (item == null)
                 {
-                    // ⚠ AN UNKNOWN BARCODE IS USUALLY A NEW PRODUCT, NOT A MISTAKE (cutover step
+                    // ÃÂ¢ÃÂÃÂ  AN UNKNOWN BARCODE IS USUALLY A NEW PRODUCT, NOT A MISTAKE (cutover step
                     // 25). Until now the till said "we can't find an item with that ID" and stopped
-                    // — so the only way to sell something newly delivered was to leave the counter,
+                    // ÃÂ¢ÃÂÃÂ so the only way to sell something newly delivered was to leave the counter,
                     // find another machine, and add it there. That is how shops end up ringing new
                     // stock through as a "miscellaneous" line, which loses the sale from every
                     // stock figure and every category report it should appear in.
@@ -339,7 +339,23 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 BasketItem tempItem;
 
+                // Ã¢ÂÂ Ã¢ÂÂ  `Basket.Contains` IS THE FIX, AND ITS ABSENCE COST A SALE. Matt, 2026-08-11:
+                // *"I am trying to add Ã¢ÂÂAll star batman tp vol1Ã¢ÂÂ which I just sold and it wont let me
+                // add it to the till."*
+                //
+                // `SelectedBasketRecord` is bound to the basket listÃ¢ÂÂs selection and is NOT cleared
+                // when the basket is emptied after a sale. So it kept pointing at the BasketItem for
+                // the line just sold Ã¢ÂÂ an object no longer IN `Basket`. Scanning that same item matched
+                // it here, incremented the quantity of a DETACHED GHOST, and added nothing to the
+                // screen. No error, no line, and the scan box cleared as though it had worked.
+                //
+                // Ã¢ÂÂ  It could only ever affect the item that was just sold, which is exactly what was
+                // reported Ã¢ÂÂ and exactly what makes it look like the item is broken rather than the till.
+                //
+                // Ã¢ÂÂ  Guarding on membership rather than only nulling the selection: this makes the bug
+                // structurally impossible however the selection comes to dangle.
                 if (SelectedBasketRecord != null &&
+                    Basket.Contains(SelectedBasketRecord) &&
                     (SelectedBasketRecord is BasketItem) &&
                     ((BasketItem)SelectedBasketRecord).Item.Id.Equals(item.Id) &&
                     !(SelectedBasketRecord is BasketReturnItem))
@@ -392,7 +408,23 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 BasketItem tempItem;
 
+                // Ã¢ÂÂ Ã¢ÂÂ  `Basket.Contains` IS THE FIX, AND ITS ABSENCE COST A SALE. Matt, 2026-08-11:
+                // *"I am trying to add Ã¢ÂÂAll star batman tp vol1Ã¢ÂÂ which I just sold and it wont let me
+                // add it to the till."*
+                //
+                // `SelectedBasketRecord` is bound to the basket listÃ¢ÂÂs selection and is NOT cleared
+                // when the basket is emptied after a sale. So it kept pointing at the BasketItem for
+                // the line just sold Ã¢ÂÂ an object no longer IN `Basket`. Scanning that same item matched
+                // it here, incremented the quantity of a DETACHED GHOST, and added nothing to the
+                // screen. No error, no line, and the scan box cleared as though it had worked.
+                //
+                // Ã¢ÂÂ  It could only ever affect the item that was just sold, which is exactly what was
+                // reported Ã¢ÂÂ and exactly what makes it look like the item is broken rather than the till.
+                //
+                // Ã¢ÂÂ  Guarding on membership rather than only nulling the selection: this makes the bug
+                // structurally impossible however the selection comes to dangle.
                 if (SelectedBasketRecord != null &&
+                    Basket.Contains(SelectedBasketRecord) &&
                     (SelectedBasketRecord is BasketItem) &&
                     ((BasketItem)SelectedBasketRecord).Item.Id.Equals(item.Id) &&
                     !(SelectedBasketRecord is BasketReturnItem))
@@ -467,15 +499,15 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// <summary>
         /// Ask a SECOND person to authorise something this operator cannot.
         ///
-        /// ⚠ REPLACES `Authorisation.RequestAuthorisedUserInput`, which is not ported and must not
+        /// ÃÂ¢ÃÂÃÂ  REPLACES `Authorisation.RequestAuthorisedUserInput`, which is not ported and must not
         /// be: it declares `string authEmpId = default`, loops `while (string.IsNullOrEmpty(authEmpId))`
-        /// and **never assigns it** — so correct credentials re-prompt indefinitely and the only
+        /// and **never assigns it** ÃÂ¢ÃÂÃÂ so correct credentials re-prompt indefinitely and the only
         /// exit is Cancel. Its caller then re-checked the ORIGINAL operator anyway, so the
         /// authoriser was collected and thrown away.
         ///
-        /// ⚠ The real rule lives in `OperatorLogin.AuthoriseOverrideAsync`: it refuses
-        /// self-authorisation, applies the SUPERVISOR's own ceiling, window and staleness tier —
-        /// nothing about being an override relaxes any of it — and names both people.
+        /// ÃÂ¢ÃÂÃÂ  The real rule lives in `OperatorLogin.AuthoriseOverrideAsync`: it refuses
+        /// self-authorisation, applies the SUPERVISOR's own ceiling, window and staleness tier ÃÂ¢ÃÂÃÂ
+        /// nothing about being an override relaxes any of it ÃÂ¢ÃÂÃÂ and names both people.
         /// </summary>
         private async Task<bool> RequestSupervisorOverrideAsync(string permission, long? amountPence)
         {
@@ -485,7 +517,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 if (requestedBy is null) return false;   // nobody to attribute the request to
 
                 var credentials = await Helpers.Security.SupervisorPrompt.AskAsync();
-                if (credentials is null) return false;   // cancelled — the basket is untouched
+                if (credentials is null) return false;   // cancelled ÃÂ¢ÃÂÃÂ the basket is untouched
 
                 var login = new Plutus.Client.Core.OperatorLogin(
                     new Services.Connectivity.FileOperatorStore());
@@ -514,7 +546,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             }
             catch (Exception ex)
             {
-                // ⚠ An override that errors is an override that did NOT happen.
+                // ÃÂ¢ÃÂÃÂ  An override that errors is an override that did NOT happen.
                 CrashLog.Write("TillViewModel.RequestSupervisorOverrideAsync", ex);
                 return false;
             }
@@ -524,7 +556,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         {
             if (IsBusy) return;
 
-            // ⚠ THIS HAD NO PERMISSION CHECK AT ALL. Anyone who could reach the till could retype
+            // ÃÂ¢ÃÂÃÂ  THIS HAD NO PERMISSION CHECK AT ALL. Anyone who could reach the till could retype
             // any line's price to anything, with nothing recorded about who did it.
             var priceGate = Services.Security.TillGate.Check(
                 App.GetViewModel().SignedInOperator, PermissionCatalogue.PosPriceOverride);
@@ -585,32 +617,32 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 var returnItem = basketItem.Adapt<BasketReturnItem>();
 
-                // ⚠ PICK THE SALE, DON'T TYPE ITS UUID. Until 2026-08-10 this dialog's first field
-                // was "Sale id" and nothing in the app could produce one — no list, no search. The
+                // ÃÂ¢ÃÂÃÂ  PICK THE SALE, DON'T TYPE ITS UUID. Until 2026-08-10 this dialog's first field
+                // was "Sale id" and nothing in the app could produce one ÃÂ¢ÃÂÃÂ no list, no search. The
                 // only source was the barcode on a PRINTED RECEIPT, so a till with no printer could
-                // not refund anything at all, and the refund rule (complete since steps 15–17) had
+                // not refund anything at all, and the refund rule (complete since steps 15ÃÂ¢ÃÂÃÂ17) had
                 // no door. Reported by Matt as *"In MAUI I cannot do a refund?"*.
                 //
-                // ⚠ Reads this till's OWN sales, so it works with the line down — which is when a
+                // ÃÂ¢ÃÂÃÂ  Reads this till's OWN sales, so it works with the line down ÃÂ¢ÃÂÃÂ which is when a
                 // shop most needs to hand money back. Typing an id stays available for goods bought
                 // on ANOTHER till, where only the server knows the sale.
                 var recent = await Services.Storage.TillStoreAccess.TryUseAsync(
                     s => s.ListRecentSalesAsync(20, purchasesOnly: true));
 
-                const string anotherTill = "Sold on another till — look it up in Plutus…";
-                const string typeItInstead = "Enter a sale ID…";
+                const string anotherTill = "Sold on another till ÃÂ¢ÃÂÃÂ look it up in PlutusÃÂ¢ÃÂÃÂ¦";
+                const string typeItInstead = "Enter a sale IDÃÂ¢ÃÂÃÂ¦";
                 string saleIdFromPicker = null;
 
                 if (recent is { Count: > 0 })
                 {
                     var labels = recent
-                        .Select(r => $"{r.OccurredAtUtc.ToLocalTime():dd MMM HH:mm} · "
-                                   + $"{r.GrossPence / 100m:C} · "
+                        .Select(r => $"{r.OccurredAtUtc.ToLocalTime():dd MMM HH:mm} ÃÂÃÂ· "
+                                   + $"{r.GrossPence / 100m:C} ÃÂÃÂ· "
                                    + $"{r.LineCount} item{(r.LineCount == 1 ? "" : "s")}"
-                                   + (string.IsNullOrWhiteSpace(r.FirstItemIdOne) ? "" : $" · {r.FirstItemIdOne}"))
+                                   + (string.IsNullOrWhiteSpace(r.FirstItemIdOne) ? "" : $" ÃÂÃÂ· {r.FirstItemIdOne}"))
                         .ToList();
 
-                    // ⚠ THIS TILL'S SALES FIRST, ALWAYS. They are the common case and the only ones
+                    // ÃÂ¢ÃÂÃÂ  THIS TILL'S SALES FIRST, ALWAYS. They are the common case and the only ones
                     // available with the line down. The platform lookup is the second step, not the
                     // default, so a refund never depends on the network unless it has to.
                     labels.Add(anotherTill);
@@ -640,7 +672,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     }
                 }
 
-                // ⚠ Only ask for what is still unknown. Having just chosen the sale from a list,
+                // ÃÂ¢ÃÂÃÂ  Only ask for what is still unknown. Having just chosen the sale from a list,
                 // being asked to type its id as well is the kind of step that gets worked around.
                 var elements = saleIdFromPicker is null
                     ? new[]
@@ -656,7 +688,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 {
                     var alertReturnValues = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(elements, "Confirm".Translate(), true, "Returns".Translate(), "Cancel".Translate());
 
-                    // ⚠ AN EMPTY DICTIONARY IS "THEY BACKED OUT" — checked BEFORE anything is
+                    // ÃÂ¢ÃÂÃÂ  AN EMPTY DICTIONARY IS "THEY BACKED OUT" ÃÂ¢ÃÂÃÂ checked BEFORE anything is
                     // injected into it. Since 2026-08-10 the dialog can be dismissed with Escape as
                     // well as Cancel, and that path returns nothing at all rather than blanked
                     // entries. Injecting the picked sale id first would have made an ordinary
@@ -669,13 +701,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         return;
                     }
 
-                    // ⚠ The sale id comes from the picker when there was one — the dialog only ever
+                    // ÃÂ¢ÃÂÃÂ  The sale id comes from the picker when there was one ÃÂ¢ÃÂÃÂ the dialog only ever
                     // carries the fields it actually asked for.
                     if (saleIdFromPicker is not null)
                         alertReturnValues[1] = saleIdFromPicker;
 
-                    // ⚠ BOTH answers are required, and the old test said the opposite. It was
-                    // `!TryGetValue(1, …) & !TryGetValue(2, …)` — a non-short-circuit AND, so it
+                    // ÃÂ¢ÃÂÃÂ  BOTH answers are required, and the old test said the opposite. It was
+                    // `!TryGetValue(1, ÃÂ¢ÃÂÃÂ¦) & !TryGetValue(2, ÃÂ¢ÃÂÃÂ¦)` ÃÂ¢ÃÂÃÂ a non-short-circuit AND, so it
                     // only complained when BOTH keys were missing. One missing key sailed through
                     // and the code carried on with a null sale id. Read both (the `out` values are
                     // needed either way), then refuse if EITHER is absent.
@@ -694,9 +726,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         return;
                     }
 
-                    // ⚠ CANCEL MUST ESCAPE, and it did not. `InputAlert`'s Cancel button blanks the
+                    // ÃÂ¢ÃÂÃÂ  CANCEL MUST ESCAPE, and it did not. `InputAlert`'s Cancel button blanks the
                     // entries and then fires the CONFIRM handler, so the dictionary comes back with
-                    // its keys present and their values null — `TryGetValue` returns true, the
+                    // its keys present and their values null ÃÂ¢ÃÂÃÂ `TryGetValue` returns true, the
                     // error branch above is skipped, and this branch re-opened the dialog. The
                     // operator was trapped in a modal with no way out but killing the app, losing
                     // the basket with it. Blank input IS the cancel signal here; there is no other.
@@ -706,9 +738,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         return;
                     }
 
-                    // ⚠ THE WHOLE LEGACY LOOKUP IS GONE (cutover step 16). It queried the local
-                    // legacy `Trans` table — empty on a portal-provisioned till, and permanently
-                    // so, because sales are committed to the new store — and then called
+                    // ÃÂ¢ÃÂÃÂ  THE WHOLE LEGACY LOOKUP IS GONE (cutover step 16). It queried the local
+                    // legacy `Trans` table ÃÂ¢ÃÂÃÂ empty on a portal-provisioned till, and permanently
+                    // so, because sales are committed to the new store ÃÂ¢ÃÂÃÂ and then called
                     // `trans.First()`, which throws from this `async void` with no catch the
                     // moment the item is not on that sale. Scanning the wrong receipt, an ordinary
                     // counter mistake, closed the application. Its "refunds left" test counted
@@ -717,7 +749,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     //
                     // `ReturnLookup` prefers the SERVER (only it knows what other tills have given
                     // back) and falls back to this till's own record only INSIDE the rolling
-                    // window. `RefundRules.Authorise` — the shared rule — decides.
+                    // window. `RefundRules.Authorise` ÃÂ¢ÃÂÃÂ the shared rule ÃÂ¢ÃÂÃÂ decides.
                     var resolution = await Services.Sales.ReturnLookup.ResolveAsync(
                         saleIdText, basketItem.Item?.Id, basketItem.Quantity);
 
@@ -728,9 +760,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         return;
                     }
 
-                    // ⚠ SAY SO WHEN IT WAS CAPPED. `RefundDecision` is explicit that handing over
+                    // ÃÂ¢ÃÂÃÂ  SAY SO WHEN IT WAS CAPPED. `RefundDecision` is explicit that handing over
                     // less than was asked for without saying so is how a refund becomes an argument
-                    // at the counter — the customer expects the figure they asked for.
+                    // at the counter ÃÂ¢ÃÂÃÂ the customer expects the figure they asked for.
                     if (resolution.Decision.WasCapped &&
                         !await Application.Current.MainPage.DisplayAlert(
                             "Hmm".Translate(),
@@ -740,7 +772,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                             "Yes".Translate(), "Cancel".Translate()))
                         return;
 
-                    // ⚠ THE PRICE THE CUSTOMER ACTUALLY PAID, from the original sale — not today's
+                    // ÃÂ¢ÃÂÃÂ  THE PRICE THE CUSTOMER ACTUALLY PAID, from the original sale ÃÂ¢ÃÂÃÂ not today's
                     // catalogue price. A price that moved since would refund the wrong amount, and
                     // the direction it goes wrong is whichever way the shop loses.
                     returnItem.Price = resolution.UnitIncPence / 100m;
@@ -749,6 +781,10 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 }
                 //finalize change
                 Basket.Remove(basketItem);
+
+                // ⚠ Same rule: the line this pointed at has gone.
+
+                if (ReferenceEquals(SelectedBasketRecord, basketItem)) SelectedBasketRecord = null;
                 Basket.Add(returnItem);
                 Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Item Return");
             }
@@ -785,7 +821,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
         #region Transaction
         #region Alter
-        // ⚠ `async void` because it is a Command handler — so it MUST NOT let an exception escape.
+        // ÃÂ¢ÃÂÃÂ  `async void` because it is a Command handler ÃÂ¢ÃÂÃÂ so it MUST NOT let an exception escape.
         // The try/finally below is the only thing between a bad discount list and a closed till.
         private async void ExecuteAlterTransactionSelector()
         {
@@ -800,7 +836,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Transaction Alteration (Discounts)");
                 Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
 
-                // ⚠ `App.GetViewModel().EmployeeId` used to be passed here and it CRASHED THE APP on
+                // ÃÂ¢ÃÂÃÂ  `App.GetViewModel().EmployeeId` used to be passed here and it CRASHED THE APP on
                 // a portal-provisioned till: the property threw on an empty legacy roster, out of a
                 // plain `void` command handler, straight through Button.Clicked to the UI thread.
                 // Tapping the leftmost button on the till screen closed the application. It now
@@ -815,12 +851,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         Alterations.Add(discount);
                 }
 
-                // ⚠ THE PICKER MUST NOT OPEN EMPTY. This was an `SfPicker`, whose `SelectedIndex` on
+                // ÃÂ¢ÃÂÃÂ  THE PICKER MUST NOT OPEN EMPTY. This was an `SfPicker`, whose `SelectedIndex` on
                 // a column with no rows is 0, not null, so the view's SelectionChanged fired
                 // `AlterTransactionCommand.Execute(0)` and `Alterations.ElementAt(0)` threw
-                // ArgumentOutOfRangeException in another `async void` — an empty dialog whose OK
+                // ArgumentOutOfRangeException in another `async void` ÃÂ¢ÃÂÃÂ an empty dialog whose OK
                 // button closed the app. The legacy Discounts table is empty on a portal till and
-                // was never seeded even on legacy ones. ⚠ The guard STAYS even though an action
+                // was never seeded even on legacy ones. ÃÂ¢ÃÂÃÂ  The guard STAYS even though an action
                 // sheet cannot do that: an empty sheet is still a dead end for the operator.
                 if (Alterations.Count == 0)
                 {
@@ -831,12 +867,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     return;
                 }
 
-                // ⚠ AN ACTION SHEET, NOT A SYNCFUSION PICKER (2026-08-10). Matt is not renewing the
+                // ÃÂ¢ÃÂÃÂ  AN ACTION SHEET, NOT A SYNCFUSION PICKER (2026-08-10). Matt is not renewing the
                 // licence, and this app already uses `DisplayActionSheet` for tenders, item search
-                // and refund origins — so this is the control operators here already know, and it
+                // and refund origins ÃÂ¢ÃÂÃÂ so this is the control operators here already know, and it
                 // has no markup that can go stale against a package version.
                 //
-                // ⚠ Through `Modal`, because choosing a discount leads straight into ANOTHER dialog
+                // ÃÂ¢ÃÂÃÂ  Through `Modal`, because choosing a discount leads straight into ANOTHER dialog
                 // (the amount prompt), and two modals in quick succession is what threw the
                 // COMException that closed the till at the payment prompt.
                 var names = AlterationNames.ToArray();
@@ -849,8 +885,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 var index = Array.IndexOf(names, picked);
                 if (index < 0) return;
 
-                // ⚠ Released BEFORE dispatching, because `ExecuteAlterTransaction` opens with the
-                // same `if (IsBusy) return;` guard — leaving it set here would make the discount
+                // ÃÂ¢ÃÂÃÂ  Released BEFORE dispatching, because `ExecuteAlterTransaction` opens with the
+                // same `if (IsBusy) return;` guard ÃÂ¢ÃÂÃÂ leaving it set here would make the discount
                 // silently do nothing, which is exactly the failure this whole session keeps finding.
                 IsBusy = false;
                 ExecuteAlterTransaction(index);
@@ -869,8 +905,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
             try
             {
-                // ⚠ THIS HAD NO PERMISSION CHECK AT ALL, and it is the one place on the till where
-                // an operator types a money amount straight off the goods — a cash discount or a
+                // ÃÂ¢ÃÂÃÂ  THIS HAD NO PERMISSION CHECK AT ALL, and it is the one place on the till where
+                // an operator types a money amount straight off the goods ÃÂ¢ÃÂÃÂ a cash discount or a
                 // percentage, unbounded. `pos.discount` is ceiling-capable precisely so it can be
                 // handed out with a limit; nothing was asking for it.
                 var discountGate = Services.Security.TillGate.Check(
@@ -988,9 +1024,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 var basketRecords = new IBasketRecord[Basket.Count];
                 Basket.CopyTo(basketRecords, 0);
 
-                // ⚠ THE V2 STORE, AND CONTRACT JSON (cutover step 18, binding default 15). This
-                // wrote to the LEGACY database — which on a portal-provisioned till is an empty
-                // file the app creates on first use — and serialised with Newtonsoft
+                // ÃÂ¢ÃÂÃÂ  THE V2 STORE, AND CONTRACT JSON (cutover step 18, binding default 15). This
+                // wrote to the LEGACY database ÃÂ¢ÃÂÃÂ which on a portal-provisioned till is an empty
+                // file the app creates on first use ÃÂ¢ÃÂÃÂ and serialised with Newtonsoft
                 // `TypeNameHandling.Auto`, embedding .NET type names in the blob. Those stop
                 // resolving the moment a namespace moves, and this codebase has renamed the
                 // namespace, the assembly AND the classes: that is what made a discounted parked
@@ -1013,7 +1049,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 if (!saved)
                 {
-                    // ⚠ The basket is NOT cleared. Clearing after a failed park loses it entirely,
+                    // ÃÂ¢ÃÂÃÂ  The basket is NOT cleared. Clearing after a failed park loses it entirely,
                     // and the operator believes it is safely put aside.
                     await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "CriticalIssue".Translate(), "OK".Translate());
                     return;
@@ -1021,6 +1057,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 StoredTransactions.Add(new SavedTransactionModel { Id = parkId.ToString("D"), Name = transName });
                 Basket.Clear();
+
+                // â  THE SELECTION GOES WITH THE LINES. A dangling selection is what stopped a
+
+                // just-sold item being re-added â see the guard in ExecuteItemAdd.
+
+                SelectedBasketRecord = null;
 
                 Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Transaction Store (Saving)", new Dictionary<string, string> { { "Canceled", "False" } });
             }
@@ -1069,8 +1111,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     return;
                 }
 
-                // ⚠ READ IT BEFORE DELETING IT. The old code deleted the row and then deserialised
-                // the copy it happened to be holding — so a blob that failed to parse (which the
+                // ÃÂ¢ÃÂÃÂ  READ IT BEFORE DELETING IT. The old code deleted the row and then deserialised
+                // the copy it happened to be holding ÃÂ¢ÃÂÃÂ so a blob that failed to parse (which the
                 // `$type` metadata made a real possibility) destroyed the basket AND lost it.
                 var contractJson = await Services.Storage.TillStoreAccess.UseAsync(async s =>
                     (await s.ListBasketsAsync()).FirstOrDefault(b => b.Id == parkId)?.ContractJson);
@@ -1085,7 +1127,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     return;
                 }
 
-                // ⚠ DELETE ONLY ONCE THE CONTENTS ARE IN HAND, and only if the row was really there:
+                // ÃÂ¢ÃÂÃÂ  DELETE ONLY ONCE THE CONTENTS ARE IN HAND, and only if the row was really there:
                 // a silent no-op would let the same basket be recalled twice and sold twice.
                 var removed = await Services.Storage.TillStoreAccess.UseAsync(s => s.DeleteBasketAsync(parkId));
                 if (!removed)
@@ -1099,6 +1141,15 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 StoredTransactions.Remove(storedTransaction);
 
                 Basket.Clear();
+
+
+                // â  THE SELECTION GOES WITH THE LINES. A dangling selection is what stopped a
+
+
+                // just-sold item being re-added â see the guard in ExecuteItemAdd.
+
+
+                SelectedBasketRecord = null;
                 foreach (var item in basket)
                     Basket.Add(item);
 
@@ -1121,16 +1172,16 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             IsBusy = true;
             try
             {
-                // ⚠ THIS LINE USED TO READ `App.GetViewModel().EmployeeId` AND IT CLOSED THE APP.
+                // ÃÂ¢ÃÂÃÂ  THIS LINE USED TO READ `App.GetViewModel().EmployeeId` AND IT CLOSED THE APP.
                 // That property is `Employees.Last().Id`, and `Employees` is populated ONLY by the
-                // legacy local login — the portal roster path sets `SignedInOperator` and never
+                // legacy local login ÃÂ¢ÃÂÃÂ the portal roster path sets `SignedInOperator` and never
                 // touches it. So on every portal-provisioned till the read threw
                 // `InvalidOperationException: Sequence contains no elements`, from an `async void`
-                // with no catch, BEFORE the first await — which reposts to the UI thread as an
+                // with no catch, BEFORE the first await ÃÂ¢ÃÂÃÂ which reposts to the UI thread as an
                 // unhandled exception and terminates the process. Pressing Checkout killed the till
                 // mid-sale, with a full basket and a customer at the counter, and no dialog.
                 //
-                // ⚠ And it fed NOTHING. The value was set on a `SaleModel` that step 11 stopped
+                // ÃÂ¢ÃÂÃÂ  And it fed NOTHING. The value was set on a `SaleModel` that step 11 stopped
                 // persisting; the sale is attributed from `SignedInOperator.UserId` at commit. A
                 // read with no consumer was the single thing preventing any sale on any new till.
                 var sale = new SaleModel
@@ -1154,34 +1205,34 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 const NumberStyles testStyles = NumberStyles.AllowCurrencySymbol | NumberStyles.AllowThousands
                     | NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign;
 
-                // ⚠ Remembered across the two callbacks: the amount prompt names the tender the
+                // ÃÂ¢ÃÂÃÂ  Remembered across the two callbacks: the amount prompt names the tender the
                 // operator just picked, and each payment row must reuse the SAME
                 // `PaymentMethodModel` instance rather than re-running the factory.
                 var chosenMethods = new Dictionary<string, PaymentMethodModel>();
                 var lastPickedName = string.Empty;
 
-                // ⚠ THE TENDER SEQUENCE NOW LIVES IN `Client.Core.TenderLoop` (cutover step 11b).
+                // ÃÂ¢ÃÂÃÂ  THE TENDER SEQUENCE NOW LIVES IN `Client.Core.TenderLoop` (cutover step 11b).
                 //
                 // It was ~90 lines here, inside a ~200-line `async void` that also assembles the
-                // sale, adds the surcharge line, commits and prints — so NOTHING about taking money
+                // sale, adds the surcharge line, commits and prints ÃÂ¢ÃÂÃÂ so NOTHING about taking money
                 // could be exercised without a running UI host. All three tendering defects found
                 // on 2026-08-10 shipped as a result, and every one was a loop that could not
-                // terminate: a cancel that fell through and appended a £0 payment, a `0` tender that
+                // terminate: a cancel that fell through and appended a ÃÂÃÂ£0 payment, a `0` tender that
                 // did the same, and an amount prompt with no exit at all.
                 //
                 // The loop is now 19 unit tests and three mutation checks. What is left here is the
-                // ASKING — dialogs — and mapping the answer onto the legacy sale model.
+                // ASKING ÃÂ¢ÃÂÃÂ dialogs ÃÂ¢ÃÂÃÂ and mapping the answer onto the legacy sale model.
                 var tender = await Plutus.Client.Core.TenderLoop.RunAsync(
                     Pence.FromDecimal(sale.Total),
 
-                    // Which tender? ⚠ Also where the surcharge line is added, because choosing CARD
+                    // Which tender? ÃÂ¢ÃÂÃÂ  Also where the surcharge line is added, because choosing CARD
                     // is what creates it. The fee is returned to the loop, which applies it to the
-                    // outstanding balance AT MOST ONCE — a split card payment must not be charged a
+                    // outstanding balance AT MOST ONCE ÃÂ¢ÃÂÃÂ a split card payment must not be charged a
                     // flat fee twice, and that is now the loop's rule rather than this method's.
                     chooseMethod: async outstanding =>
                     {
                         var payMethNames = payMeths.Keys.ToArray();
-                        // ⚠ Through `Modal` — one dialog at a time, with a settle between them.
+                        // ÃÂ¢ÃÂÃÂ  Through `Modal` ÃÂ¢ÃÂÃÂ one dialog at a time, with a settle between them.
                         // Entering `0` refuses and loops back HERE, and raising this action sheet
                         // while the amount popup was still tearing down threw a COMException out of
                         // an `async void` and closed the till (2026-08-10).
@@ -1199,15 +1250,15 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                         long feePence = 0;
 
-                        // ⚠ THE SURCHARGE IS THE TENANT'S GATEWAY SETTING, NOT THE LEGACY
-                        // `PaymentMethod.Charge`. That field lives on a GLOBAL table — one tenant's
-                        // fee would have been every tenant's — and its old path was broken twice
+                        // ÃÂ¢ÃÂÃÂ  THE SURCHARGE IS THE TENANT'S GATEWAY SETTING, NOT THE LEGACY
+                        // `PaymentMethod.Charge`. That field lives on a GLOBAL table ÃÂ¢ÃÂÃÂ one tenant's
+                        // fee would have been every tenant's ÃÂ¢ÃÂÃÂ and its old path was broken twice
                         // over: a misspelt resource key, and a money-carrying `BasketNote` the
                         // commit guard refuses.
                         //
-                        // ⚠ A REAL LINE against the provisioned CARD-SURCHARGE item, priced by the
+                        // ÃÂ¢ÃÂÃÂ  A REAL LINE against the provisioned CARD-SURCHARGE item, priced by the
                         // shared rules: the fee is further consideration for the main supply (Bookit
-                        // C-607/14 / NEC C-130/15), so its VAT FOLLOWS THE BASKET — zero on
+                        // C-607/14 / NEC C-130/15), so its VAT FOLLOWS THE BASKET ÃÂ¢ÃÂÃÂ zero on
                         // zero-rated goods, blended on a mixed basket, never a hardcoded rate. Card
                         // tenders only, never on refunds.
                         if (SharedKernel.Tenders.FromMethodName(method.Name) == SharedKernel.Tenders.Card
@@ -1219,7 +1270,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                             if (feeLine != null)
                             {
                                 Basket.Add(feeLine);
-                                // ⚠ The BASKET stays authoritative for `sale.Total` — the commit
+                                // ÃÂ¢ÃÂÃÂ  The BASKET stays authoritative for `sale.Total` ÃÂ¢ÃÂÃÂ the commit
                                 // guard compares the header against the sum of the lines, so a total
                                 // computed anywhere else is a second opinion about money.
                                 sale.Total = Basket.Sum(bR => bR.Price * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
@@ -1231,9 +1282,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         return new Plutus.Client.Core.TenderChoice(picked, method.IsChangeable, feePence);
                     },
 
-                    // How much? ⚠ WITH A CANCEL BUTTON. Raised without one, and with
+                    // How much? ÃÂ¢ÃÂÃÂ  WITH A CANCEL BUTTON. Raised without one, and with
                     // `interuptable: false` and an `OnBackButtonPressed` that swallowed Escape, this
-                    // dialog had no exit of any kind — the operator could only leave by killing the
+                    // dialog had no exit of any kind ÃÂ¢ÃÂÃÂ the operator could only leave by killing the
                     // process, mid-sale.
                     askAmount: async outstanding =>
                     {
@@ -1248,13 +1299,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                             new ViewElementData(1, "Amount", "", validators.AsEnumerable(), false, true)
                         };
 
-                        // ⚠ THROUGH `Modal`, LIKE THE METHOD PICKER — and its absence here is what
+                        // ÃÂ¢ÃÂÃÂ  THROUGH `Modal`, LIKE THE METHOD PICKER ÃÂ¢ÃÂÃÂ and its absence here is what
                         // produced *"Something went wrong taking payment"* on a card over-payment
                         // (Matt, 2026-08-11). `Modal` serialises what goes THROUGH it: the picker
                         // was wrapped after the `0` crash, but this prompt was not, so the gate
                         // could not know a popup was still tearing down. A refusal loops straight
                         // from this dialog's teardown into the next one, and WinUI threw a
-                        // COMException building the second — caught by the checkout's `catch`,
+                        // COMException building the second ÃÂ¢ÃÂÃÂ caught by the checkout's `catch`,
                         // which is why a perfectly ordinary over-payment surfaced as a fault.
                         var tendered = await Services.UIHandeling.Modal.ShowAsync(() =>
                             Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
@@ -1274,9 +1325,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         if (tendered.Count == 0 || string.IsNullOrWhiteSpace(amountText))
                             return Plutus.Client.Core.TenderAmount.Abandoned;
 
-                        // ⚠ TryParse, not Parse. The validators run in the dialog, but this string
+                        // ÃÂ¢ÃÂÃÂ  TryParse, not Parse. The validators run in the dialog, but this string
                         // has crossed a UI boundary and a `FormatException` here is thrown from an
-                        // `async void` — which closes the till rather than rejecting the input.
+                        // `async void` ÃÂ¢ÃÂÃÂ which closes the till rather than rejecting the input.
                         if (!decimal.TryParse(amountText, testStyles, CultureInfo.CurrentCulture, out var typed))
                             return Plutus.Client.Core.TenderAmount.Abandoned;
 
@@ -1285,13 +1336,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                     ct: default,
 
-                    // ⚠ SAY WHY, BEFORE ASKING AGAIN. Matt, 2026-08-11: over-paying on a card and
+                    // ÃÂ¢ÃÂÃÂ  SAY WHY, BEFORE ASKING AGAIN. Matt, 2026-08-11: over-paying on a card and
                     // under-paying in cash both produced *"Something went wrong"*. Neither is a
-                    // fault — they are ordinary operator actions the loop correctly refuses — but a
+                    // fault ÃÂ¢ÃÂÃÂ they are ordinary operator actions the loop correctly refuses ÃÂ¢ÃÂÃÂ but a
                     // prompt that reappears without a word reads as the till ignoring what was
                     // typed, in front of a customer.
                     //
-                    // ⚠ THE WORDING IS MATT'S. It names what happened and says the basket is safe,
+                    // ÃÂ¢ÃÂÃÂ  THE WORDING IS MATT'S. It names what happened and says the basket is safe,
                     // because the fear at a counter is that a mistake has cost the sale.
                     onRefused: async (reason, outstanding) =>
                     {
@@ -1302,7 +1353,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                             Plutus.Client.Core.TenderRefusal.OverpaidWithoutChange =>
                                 $"You cannot over pay with {lastPickedName}. Your basket is still here, please try again.",
 
-                            // ⚠ Under-payment is NOT refused — the loop takes it and asks for the
+                            // ÃÂ¢ÃÂÃÂ  Under-payment is NOT refused ÃÂ¢ÃÂÃÂ the loop takes it and asks for the
                             // rest, which is how split payments work. Reaching here with Zero means
                             // they entered nothing at all.
                             Plutus.Client.Core.TenderRefusal.Zero =>
@@ -1311,9 +1362,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                             _ => $"That amount can't settle this. {owed} is still to pay.",
                         };
 
-                        // ⚠ Through `Modal` for the same reason as the prompts themselves: this
+                        // ÃÂ¢ÃÂÃÂ  Through `Modal` for the same reason as the prompts themselves: this
                         // sits BETWEEN two dialogs, which is precisely where the COMException lived.
-                        // ⚠ `Modal.ShowAsync` needs a Task<T>; a plain three-button DisplayAlert
+                        // ÃÂ¢ÃÂÃÂ  `Modal.ShowAsync` needs a Task<T>; a plain three-button DisplayAlert
                         // returns a bare Task, so it is wrapped rather than bypassed.
                         await Services.UIHandeling.Modal.ShowAsync(async () =>
                         {
@@ -1323,7 +1374,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         });
                     });
 
-                // ⚠ ABANDONED TAKES NOTHING AND LEAVES THE BASKET ALONE. It is not a partial
+                // ÃÂ¢ÃÂÃÂ  ABANDONED TAKES NOTHING AND LEAVES THE BASKET ALONE. It is not a partial
                 // success: `tender.Payments` is empty by construction. Clearing the basket here
                 // would lose the sale and the evidence together.
                 if (tender.Abandoned)
@@ -1406,20 +1457,20 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     }
                 }
 
-                // ⚠ ONE GATE, AGAINST THE OPERATOR'S OWN CEILING (cutover step 12). What was here
+                // ÃÂ¢ÃÂÃÂ  ONE GATE, AGAINST THE OPERATOR'S OWN CEILING (cutover step 12). What was here
                 // could not work on a portal-provisioned till and had a hole in it besides:
                 //
-                //   · it looked up string action names ("Till", "Refund20", "Refund100") in a local
+                //   ÃÂÃÂ· it looked up string action names ("Till", "Refund20", "Refund100") in a local
                 //     AuthActions table that such a till does not have;
-                //   · the hardcoded £20/£100/unlimited bands ignored each operator's actual ceiling;
-                //   · ⚠ the refund total summed each return line's UNIT price and IGNORED QUANTITY,
-                //     so five £30 returns tested as £30 and went straight through the £100 band;
-                //   · and the do/while "escalation" re-tested the SAME operator every pass while
-                //     RequestAuthorisedUserInput never assigned the id it returned — so entering
+                //   ÃÂÃÂ· the hardcoded ÃÂÃÂ£20/ÃÂÃÂ£100/unlimited bands ignored each operator's actual ceiling;
+                //   ÃÂÃÂ· ÃÂ¢ÃÂÃÂ  the refund total summed each return line's UNIT price and IGNORED QUANTITY,
+                //     so five ÃÂÃÂ£30 returns tested as ÃÂÃÂ£30 and went straight through the ÃÂÃÂ£100 band;
+                //   ÃÂÃÂ· and the do/while "escalation" re-tested the SAME operator every pass while
+                //     RequestAuthorisedUserInput never assigned the id it returned ÃÂ¢ÃÂÃÂ so entering
                 //     correct supervisor credentials re-prompted for ever and only Cancel escaped.
                 //     Supervisor override on this till has never once succeeded.
                 //
-                // ⚠ A NULL operator BLOCKS. "We don't know who this is" must never mean "let them".
+                // ÃÂ¢ÃÂÃÂ  A NULL operator BLOCKS. "We don't know who this is" must never mean "let them".
                 var gate = Services.Security.TillGate.CheckCheckout(
                     App.GetViewModel().SignedInOperator, Basket);
 
@@ -1431,13 +1482,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         return;
                     }
 
-                    // ⚠ A real override: a SECOND person authenticates, and OperatorLogin refuses
+                    // ÃÂ¢ÃÂÃÂ  A real override: a SECOND person authenticates, and OperatorLogin refuses
                     // self-authorisation, applies the SUPERVISOR's own ceiling and window, and names
                     // both people for the audit trail. Declining leaves the basket untouched.
                     //
-                    // ⚠ ESCALATE WHAT THE GATE ACTUALLY REFUSED. `CheckCheckout` tests `pos.sell`
-                    // FIRST, so hardcoding "refund" here asked a supervisor to authorise a £0.00
-                    // refund — a basket with no returns refunds nothing — and then let an ordinary
+                    // ÃÂ¢ÃÂÃÂ  ESCALATE WHAT THE GATE ACTUALLY REFUSED. `CheckCheckout` tests `pos.sell`
+                    // FIRST, so hardcoding "refund" here asked a supervisor to authorise a ÃÂÃÂ£0.00
+                    // refund ÃÂ¢ÃÂÃÂ a basket with no returns refunds nothing ÃÂ¢ÃÂÃÂ and then let an ordinary
                     // sale through on the strength of it, nobody having been asked whether this
                     // operator may sell. Any supervisor holding `pos.refund`, including one
                     // explicitly denied `pos.sell`, would have waved it through.
@@ -1450,22 +1501,22 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             }
             catch (Exception ex)
             {
-                // ⚠ `async void` — WITHOUT THIS THE TILL CLOSES. This method had a `try`/`finally`
+                // ÃÂ¢ÃÂÃÂ  `async void` ÃÂ¢ÃÂÃÂ WITHOUT THIS THE TILL CLOSES. This method had a `try`/`finally`
                 // and no `catch` for its entire life, so anything that escaped went straight to the
                 // dispatcher as an unhandled exception and took the process with it, mid-sale, with
                 // a full basket. It happened on 2026-08-10: entering `0` at the payment prompt is
                 // refused and the tender loop asks again, and WinUI threw a COMException building
                 // the second action sheet while the first popup was still tearing down
-                // (`ActionSheetContent..ctor` → `UserControl..ctor`). The loop was right; the
+                // (`ActionSheetContent..ctor` ÃÂ¢ÃÂÃÂ `UserControl..ctor`). The loop was right; the
                 // absence of a catch is what turned a glitch into a closed till.
                 //
-                // ⚠ THE BASKET IS LEFT ALONE. If the sale committed before the fault, it is safely
+                // ÃÂ¢ÃÂÃÂ  THE BASKET IS LEFT ALONE. If the sale committed before the fault, it is safely
                 // queued and clearing would hide it; if it did not, the operator still has their
                 // basket. Either way, losing it is the one outcome that cannot be undone at a
                 // counter.
                 Services.Analytics.CrashLog.Write("TillViewModel.Checkout", ex);
                 await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                    "Something went wrong taking payment. Your basket is still here — please try again.",
+                    "Something went wrong taking payment. Your basket is still here ÃÂ¢ÃÂÃÂ please try again.",
                     "OK".Translate());
             }
             finally
@@ -1477,13 +1528,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// <summary>
         /// Throw the basket away.
         ///
-        /// ⚠ ASKS FIRST. This cleared a full basket on a single tap with no confirmation and no
-        /// undo — a customer's whole order, mid-transaction, from a mis-tap on a busy counter.
+        /// ÃÂ¢ÃÂÃÂ  ASKS FIRST. This cleared a full basket on a single tap with no confirmation and no
+        /// undo ÃÂ¢ÃÂÃÂ a customer's whole order, mid-transaction, from a mis-tap on a busy counter.
         ///
-        /// ⚠ NOT gated on `pos.void`, deliberately. Nothing here has been paid for or committed:
+        /// ÃÂ¢ÃÂÃÂ  NOT gated on `pos.void`, deliberately. Nothing here has been paid for or committed:
         /// the sale does not exist until checkout, so this is a correction, not a void. Requiring a
         /// supervisor to undo a mis-scan would put one at the counter for the most ordinary event
-        /// on a till, and the operators would find a way around it — which is worse than the gate
+        /// on a till, and the operators would find a way around it ÃÂ¢ÃÂÃÂ which is worse than the gate
         /// being absent. `pos.void` belongs on voiding a RECORDED sale, which this till cannot do.
         /// </summary>
         private async void ExecuteCancelTransaction()
@@ -1500,6 +1551,15 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 new Dictionary<string, string> { { "Lines", Basket.Count.ToString() } });
 
             Basket.Clear();
+
+
+            // â  THE SELECTION GOES WITH THE LINES. A dangling selection is what stopped a
+
+
+            // just-sold item being re-added â see the guard in ExecuteItemAdd.
+
+
+            SelectedBasketRecord = null;
         }
         #endregion
         #endregion
@@ -1510,15 +1570,15 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             {
                 var itemHasNoStock = false;
 
-                // ⚠ THE PER-LINE STOCK DECREMENT IS GONE (cutover step 11). It read a legacy
+                // ÃÂ¢ÃÂÃÂ  THE PER-LINE STOCK DECREMENT IS GONE (cutover step 11). It read a legacy
                 // StockModel and called db.Save() ONCE PER LINE with no transaction, so a crash
                 // halfway through a basket left some lines decremented and some not, with nothing
                 // to reconcile against. v2 holds no local stock at all: the SERVER attributes
                 // movement from `LineMeta.itemIdOne` on the sale it receives, which is one
                 // authority instead of one per till.
 
-                // ⚠ COMMIT BEFORE PRINTING, and this ordering is the whole point of the block.
-                // The receipt is printed from what was COMMITTED — so a printer failure is a
+                // ÃÂ¢ÃÂÃÂ  COMMIT BEFORE PRINTING, and this ordering is the whole point of the block.
+                // The receipt is printed from what was COMMITTED ÃÂ¢ÃÂÃÂ so a printer failure is a
                 // reprint problem, never a money problem. The reverse order loses a sale that a
                 // customer has already been handed a receipt for.
                 var tenders = Services.Storage.CheckoutCommit.TendersFrom(
@@ -1529,8 +1589,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 if (!outcome.Committed)
                 {
-                    // ⚠ The basket is deliberately NOT cleared. Nothing was recorded, so the sale
-                    // is still there to retry — clearing it would lose the sale and the evidence.
+                    // ÃÂ¢ÃÂÃÂ  The basket is deliberately NOT cleared. Nothing was recorded, so the sale
+                    // is still there to retry ÃÂ¢ÃÂÃÂ clearing it would lose the sale and the evidence.
                     await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), outcome.Message, "OK".Translate());
                     return;
                 }
@@ -1546,20 +1606,20 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 if (DeviceInfo.Idiom == DeviceIdiom.Desktop)
                 {
-                    // ⚠ WHICH PRINTER ROUTE, DECIDED ONCE, BEFORE ANYTHING IS DISPATCHED.
+                    // ÃÂ¢ÃÂÃÂ  WHICH PRINTER ROUTE, DECIDED ONCE, BEFORE ANYTHING IS DISPATCHED.
                     //
                     // The till now prints the way the WEB till always has: it POSTs a rendered
                     // document to the Plutus Till Agent on this PC, which drives the printer
                     // through the ordinary Windows print queue. The old OPOS route stays as a
-                    // fallback for tills with a genuine PointOfService device — but it is the
+                    // fallback for tills with a genuine PointOfService device ÃÂ¢ÃÂÃÂ but it is the
                     // reason Matt could not find a printer the web till uses every day, because
                     // `PointOfService` enumerates a driver profile almost no receipt printer ships
                     // and the empty picker then volunteers "Wireless is turned off".
                     //
-                    // ⚠ Resolved HERE, not inside the print call, because the DRAWER decision
+                    // ÃÂ¢ÃÂÃÂ  Resolved HERE, not inside the print call, because the DRAWER decision
                     // depends on it: the agent kicks the drawer as part of the print job, so
                     // dispatching an OPOS drawer task as well would kick it twice.
-                    // ⚠ Free on a till nobody has paired — `ResolveAsync` does not even probe.
+                    // ÃÂ¢ÃÂÃÂ  Free on a till nobody has paired ÃÂ¢ÃÂÃÂ `ResolveAsync` does not even probe.
                     var agent = await Services.Printing.TillAgentPrinting.ResolveAsync();
 
                     var wantsDrawer = TryCashDrawer
@@ -1568,7 +1628,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     if (!AskForReceipt || await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "ReceiptRequired".Translate(), "Yes".Translate(), "No".Translate()))
                     {
                         trackEventArgs.Add("Receipt Requested", "True");
-                        // ⚠ Built from the COMMITTED payload, not from `sale` — the receipt states
+                        // ÃÂ¢ÃÂÃÂ  Built from the COMMITTED payload, not from `sale` ÃÂ¢ÃÂÃÂ the receipt states
                         // what the platform accepted, and its barcode carries the platform saleId
                         // (the legacy `sale.Id` has been empty since step 11 removed the save that
                         // assigned it, so every receipt printed a blank barcode).
@@ -1584,13 +1644,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                             if (agent is not null)
                             {
                                 // The agent prints the receipt AND kicks the drawer in one job, so
-                                // the drawer opens as the paper starts moving — as it does on the
-                                // native till. ⚠ It never throws: a wedged agent or an off printer
+                                // the drawer opens as the paper starts moving ÃÂ¢ÃÂÃÂ as it does on the
+                                // native till. ÃÂ¢ÃÂÃÂ  It never throws: a wedged agent or an off printer
                                 // returns false, and no receipt is worth losing a committed sale.
                                 var printed = await Services.Printing.TillAgentPrinting.TryPrintSaleAsync(
                                     receipt, Basket, App.GetViewModel().Store, wantsDrawer, agent);
 
-                                // ⚠ HONESTLY, including when it did not print. This used to be
+                                // ÃÂ¢ÃÂÃÂ  HONESTLY, including when it did not print. This used to be
                                 // added only on the success path, so a failure left the key absent
                                 // and every telemetry reader had to guess what absent meant.
                                 trackEventArgs["Receipt Printed Successfully"] = printed ? "True" : "False";
@@ -1610,8 +1670,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         trackEventArgs.Add("Cash Drawer Open Requested", "True");
                         if (wantsDrawer)
                         {
-                            // ⚠ ONLY when the print job did not already carry it. `tasks[0]` is
-                            // null when the operator declined a receipt — and a cash sale still has
+                            // ÃÂ¢ÃÂÃÂ  ONLY when the print job did not already carry it. `tasks[0]` is
+                            // null when the operator declined a receipt ÃÂ¢ÃÂÃÂ and a cash sale still has
                             // to open the drawer, receipt or no receipt.
                             if (agent is null)
                                 tasks[1] = printerMgr.OpenCashDrawer();
@@ -1647,15 +1707,15 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                             trackEventArgs.Remove("Cash Drawer Opened Successfully");
                             trackEventArgs.Add("Cash Drawer Opened Successfully", "False");
 
-                            // ⚠ THE "SILENCE" BUTTON SILENCED NOTHING. This line SET
-                            // `CashDrawerWarningSilenced` and **nothing anywhere read it** — the
+                            // ÃÂ¢ÃÂÃÂ  THE "SILENCE" BUTTON SILENCED NOTHING. This line SET
+                            // `CashDrawerWarningSilenced` and **nothing anywhere read it** ÃÂ¢ÃÂÃÂ the
                             // alert was raised unconditionally on every drawer failure. So an
                             // operator who pressed Silence got the same modal on the very next cash
                             // sale, and on every cash sale after that, with no way to stop it.
                             //
-                            // ⚠ It matters more than a nuisance: until the missing `return` in
+                            // ÃÂ¢ÃÂÃÂ  It matters more than a nuisance: until the missing `return` in
                             // `POSCashDrawer.InitPOSObject` was fixed (same commit), a WORKING
-                            // drawer threw `NotClaimable` on its own success path — so this modal
+                            // drawer threw `NotClaimable` on its own success path ÃÂ¢ÃÂÃÂ so this modal
                             // fired on every cash sale on every till, and could not be dismissed
                             // for good. The setting existed, the button existed, the guard did not.
                             if (!CashDrawerWarningSilenced)
@@ -1676,6 +1736,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "There is no POS Printer selected. Transaction has succeeded but a receipt is currently unavailable.", "OK".Translate());
                 }
                 Basket.Clear();
+
+                // â  THE SELECTION GOES WITH THE LINES. A dangling selection is what stopped a
+
+                // just-sold item being re-added â see the guard in ExecuteItemAdd.
+
+                SelectedBasketRecord = null;
                 await Application.Current.MainPage.DisplayAlert("Transaction".Translate(), "TransConfMesg".Translate(), "OK".Translate());
 
                 Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Sale Processing", trackEventArgs);
@@ -1691,9 +1757,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// <summary>
         /// The ways this till can take money (cutover step 13b).
         ///
-        /// ⚠ THIS USED TO READ THE LEGACY `PaymentMethodModel` TABLE, AND THAT STOPPED A NEW TILL
-        /// SELLING AT ALL. The table is seeded only by `Database.Init()` — the legacy first-run
-        /// path — which a portal-provisioned till never runs, and it has no local database anyway.
+        /// ÃÂ¢ÃÂÃÂ  THIS USED TO READ THE LEGACY `PaymentMethodModel` TABLE, AND THAT STOPPED A NEW TILL
+        /// SELLING AT ALL. The table is seeded only by `Database.Init()` ÃÂ¢ÃÂÃÂ the legacy first-run
+        /// path ÃÂ¢ÃÂÃÂ which a portal-provisioned till never runs, and it has no local database anyway.
         /// So the payment sheet rendered ZERO buttons and the `paid != sale.Total` loop above could
         /// never terminate: the operator was stuck in a checkout with nothing to press but Cancel,
         /// with a customer in front of them. Every dev machine hid it, because they were migrated
@@ -1701,7 +1767,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         ///
         /// The tenders now come from the FIXED shared set (binding default 13). The legacy model is
         /// still the carrier because the rest of this checkout reads `IsChangeable`/`IsCashBackable`
-        /// off it; step 11b retires the model itself. ⚠ `Charge`/`MinimumCharge` stay ZERO — the
+        /// off it; step 11b retires the model itself. ÃÂ¢ÃÂÃÂ  `Charge`/`MinimumCharge` stay ZERO ÃÂ¢ÃÂÃÂ the
         /// card surcharge is the TENANT's gateway setting now, not a per-row legacy field on a
         /// GLOBAL table where one client's fee would have been every client's.
         /// </summary>
@@ -1725,19 +1791,19 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// <summary>
         /// Resolve a scanned or typed code against the V2 CATALOGUE (cutover step 10).
         ///
-        /// ⚠ THIS FIXES TWO LIVE DEFECTS, not just a data source.
+        /// ÃÂ¢ÃÂÃÂ  THIS FIXES TWO LIVE DEFECTS, not just a data source.
         ///   1. `Database.SearchId` matched on `Id` alone and **did not honour tombstones**, so an
-        ///      item the portal had BINNED was still sellable on this till — indefinitely, because
+        ///      item the portal had BINNED was still sellable on this till ÃÂ¢ÃÂÃÂ indefinitely, because
         ///      nothing local ever learned it had gone. `FindByBarcodeAsync` excludes `Removed`,
         ///      which is precisely why the changes feed carries tombstones rather than upserts.
         ///   2. The price came from a stored column, so a price scheduled for 02:00 only applied if
         ///      a sync happened to land after it. It now comes from `EffectivePricePairAsync`,
-        ///      evaluated at LOOKUP time against the effective-dated timeline — the change lands on
+        ///      evaluated at LOOKUP time against the effective-dated timeline ÃÂ¢ÃÂÃÂ the change lands on
         ///      the minute on a till that has been offline for a week.
         ///
-        /// ⚠ IT STILL RETURNS AN `ItemModel`, AND THAT IS TEMPORARY SCAFFOLDING. The basket holds
+        /// ÃÂ¢ÃÂÃÂ  IT STILL RETURNS AN `ItemModel`, AND THAT IS TEMPORARY SCAFFOLDING. The basket holds
         /// `BasketItem.Item` as a legacy entity, and reshaping that means reshaping
-        /// `BasketReturnItem`, ~14 call sites, both Mapster configs and the template selector — all
+        /// `BasketReturnItem`, ~14 call sites, both Mapster configs and the template selector ÃÂ¢ÃÂÃÂ all
         /// of which have to land WITH `CommitSaleAsync` in step 11, or the till would build v2
         /// baskets and still save legacy sales, which is a worse half-state than either end.
         /// Only Id/Name/Price/ExPrice/Vat.Name are ever read off this object (verified by grep), so
@@ -1748,7 +1814,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         private const int SearchPickerLimit = 25;
 
         /// <summary>
-        /// The outcome of asking for an item. ⚠ "Nothing matched" and "the operator changed their
+        /// The outcome of asking for an item. ÃÂ¢ÃÂÃÂ  "Nothing matched" and "the operator changed their
         /// mind" are DIFFERENT and must not share a return value: telling somebody who just pressed
         /// Cancel that the item does not exist is how a working catalogue gets reported as broken.
         /// </summary>
@@ -1759,21 +1825,21 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         }
 
         /// <summary>
-        /// Turn what is in the scan box into an item — by BARCODE first, then by NAME.
+        /// Turn what is in the scan box into an item ÃÂ¢ÃÂÃÂ by BARCODE first, then by NAME.
         ///
-        /// ⚠ SEARCHING BY NAME DID NOT EXIST HERE, and its absence read as an empty catalogue.
+        /// ÃÂ¢ÃÂÃÂ  SEARCHING BY NAME DID NOT EXIST HERE, and its absence read as an empty catalogue.
         /// This method called `FindByBarcodeAsync` and nothing else, so anything an operator TYPED
-        /// — "BAT" — was tried as an exact barcode, missed, and produced *"We can't find an item
+        /// ÃÂ¢ÃÂÃÂ "BAT" ÃÂ¢ÃÂÃÂ was tried as an exact barcode, missed, and produced *"We can't find an item
         /// with that ID"*. With 20,000 items synced and sellable. The message even said "that ID",
         /// which was accurate and completely misleading: it was never searching.
         ///
-        /// ⚠ `TillStore.SearchAsync` had been built, correct and tested since 2026-08-09 — and was
+        /// ÃÂ¢ÃÂÃÂ  `TillStore.SearchAsync` had been built, correct and tested since 2026-08-09 ÃÂ¢ÃÂÃÂ and was
         /// called from NOWHERE in the app. That is the third time a finished component has sat
         /// unwired behind a screen that looked broken (the outbox drain, the catalogue browse, this)
         /// and it is worth naming as a pattern: a test suite proves a component works, never that
         /// anything uses it.
         ///
-        /// ⚠ BARCODE FIRST, ALWAYS. A scan is the hot path and must stay exact and instant; a real
+        /// ÃÂ¢ÃÂÃÂ  BARCODE FIRST, ALWAYS. A scan is the hot path and must stay exact and instant; a real
         /// barcode that happens to appear inside another item's name must never open a picker in
         /// front of a queue.
         /// </summary>
@@ -1788,7 +1854,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 var found = await Services.Storage.TillStoreAccess.TryUseAsync(
                     s => s.FindByBarcodeAsync(typed));
 
-                // Not a code this till holds — so it was typed. Search names.
+                // Not a code this till holds ÃÂ¢ÃÂÃÂ so it was typed. Search names.
                 if (found == null)
                 {
                     var chosen = await SearchForOneAsync(typed);
@@ -1801,20 +1867,20 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 var price = await Services.Storage.TillStoreAccess.TryUseAsync(
                     s => s.EffectivePricePairAsync(found.Id));
 
-                // The band's display name, for the Tax column. ⚠ Null is a legitimate answer — the
-                // portal may not have decided which band this tax row means — and it must render as
+                // The band's display name, for the Tax column. ÃÂ¢ÃÂÃÂ  Null is a legitimate answer ÃÂ¢ÃÂÃÂ the
+                // portal may not have decided which band this tax row means ÃÂ¢ÃÂÃÂ and it must render as
                 // blank rather than being guessed at.
                 var bandName = await Services.Storage.VatBands.DisplayNameForItemAsync(found.Id);
 
                 return new ItemLookup(new ItemModel
                 {
-                    // ⚠ IdOne, not the GUID: every legacy screen and the basket key on this string,
+                    // ÃÂ¢ÃÂÃÂ  IdOne, not the GUID: every legacy screen and the basket key on this string,
                     // and it IS the barcode.
                     Id = found.IdOne,
                     Name = found.Name,
-                    // ⚠ Pence → decimal pounds ONLY because the legacy model is decimal. Deliberately
+                    // ÃÂ¢ÃÂÃÂ  Pence ÃÂ¢ÃÂÃÂ decimal pounds ONLY because the legacy model is decimal. Deliberately
                     // inline rather than a SharedKernel helper: money is integer pence end-to-end
-                    // (architecture §4.1) and a shared pence→decimal converter would legitimise the
+                    // (architecture ÃÂÃÂ§4.1) and a shared penceÃÂ¢ÃÂÃÂdecimal converter would legitimise the
                     // conversion everywhere instead of confining it to this scaffolding.
                     Price = price.IncPence / 100m,
                     ExPrice = price.ExPence / 100m,
@@ -1829,18 +1895,18 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         }
 
         /// <summary>
-        /// Nothing matched what was scanned — offer to put it in the catalogue (cutover step 25).
+        /// Nothing matched what was scanned ÃÂ¢ÃÂÃÂ offer to put it in the catalogue (cutover step 25).
         ///
-        /// ⚠ THE BARCODE TRAVELS WITH THE OFFER, which is the point. Reading a code off a packet
+        /// ÃÂ¢ÃÂÃÂ  THE BARCODE TRAVELS WITH THE OFFER, which is the point. Reading a code off a packet
         /// and typing it in again is the step where a digit gets dropped, and the result is a second
-        /// item nothing will ever scan to — invisible on the shelf, invisible in stock, and only
+        /// item nothing will ever scan to ÃÂ¢ÃÂÃÂ invisible on the shelf, invisible in stock, and only
         /// discovered when the real one is added later and the insert is refused.
         ///
-        /// ⚠ IT IS AN OFFER, NOT AN AUTOMATIC JUMP. A mistyped search is far commoner than a new
+        /// ÃÂ¢ÃÂÃÂ  IT IS AN OFFER, NOT AN AUTOMATIC JUMP. A mistyped search is far commoner than a new
         /// product, and a screen that leaps into "create item" every time someone fat-fingers the
         /// scan box is a screen people learn to fight.
         ///
-        /// ⚠ Adding is REFUSED POLITELY without `portal.prices.manage` — a cashier scanning an
+        /// ÃÂ¢ÃÂÃÂ  Adding is REFUSED POLITELY without `portal.prices.manage` ÃÂ¢ÃÂÃÂ a cashier scanning an
         /// unknown code should be told the item is not in the catalogue, not offered a door that
         /// closes in their face. `TillGate` supplies the wording.
         /// </summary>
@@ -1858,19 +1924,19 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 return;
             }
 
-            const string add = "Add it to the catalogue…";
+            const string add = "Add it to the catalogueÃÂ¢ÃÂÃÂ¦";
 
-            // ⚠ Through `Modal`, because saying yes leads straight into a run of further dialogs,
+            // ÃÂ¢ÃÂÃÂ  Through `Modal`, because saying yes leads straight into a run of further dialogs,
             // and two modals in quick succession is what threw the COMException that closed the
             // till at the payment prompt.
             var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
                 Application.Current.MainPage.DisplayActionSheet(
-                    $"Nothing in the catalogue matches “{typed}”.", "Cancel".Translate(), null, add));
+                    $"Nothing in the catalogue matches ÃÂ¢ÃÂÃÂ{typed}ÃÂ¢ÃÂÃÂ.", "Cancel".Translate(), null, add));
 
             if (picked != add) return;
 
-            // ⚠ The inventory viewmodel owns item creation, and it is reached directly rather than
-            // duplicated here — the barcode check, the band list, the ex-price derivation and the
+            // ÃÂ¢ÃÂÃÂ  The inventory viewmodel owns item creation, and it is reached directly rather than
+            // duplicated here ÃÂ¢ÃÂÃÂ the barcode check, the band list, the ex-price derivation and the
             // opening-stock call are one flow, and a second copy on the till screen would be the
             // exact drift `till-design.md` C2 exists to prevent. It re-syncs the catalogue when it
             // finishes, so the operator can scan the item again immediately.
@@ -1880,29 +1946,29 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// <summary>
         /// Name search, and the choice that follows when more than one thing matches.
         ///
-        /// ⚠ MATCHING IS NOT DECIDED HERE. `TillStore.SearchAsync` runs `SharedKernel.ItemSearch`,
+        /// ÃÂ¢ÃÂÃÂ  MATCHING IS NOT DECIDED HERE. `TillStore.SearchAsync` runs `SharedKernel.ItemSearch`,
         /// the single home for what a typed query finds (till-design C1). A `LIKE` written in this
         /// file would be a fourth copy of a rule that was deliberately reduced to one, and the
         /// symptom of drift is two tills in the same shop disagreeing about the same query.
         ///
-        /// ⚠ One match is added WITHOUT a prompt. Somebody typing a distinctive title wants the
+        /// ÃÂ¢ÃÂÃÂ  One match is added WITHOUT a prompt. Somebody typing a distinctive title wants the
         /// item, not a confirmation step, and a picker containing one row is a keystroke tax paid on
         /// every sale.
         /// </summary>
         /// <summary>
-        /// Find a sale the PLATFORM holds — from any till (WP11 / cutover step 26).
+        /// Find a sale the PLATFORM holds ÃÂ¢ÃÂÃÂ from any till (WP11 / cutover step 26).
         ///
-        /// ⚠ THIS IS WHAT MAKES A CROSS-TILL REFUND REACHABLE. Goods bought at another branch exist
+        /// ÃÂ¢ÃÂÃÂ  THIS IS WHAT MAKES A CROSS-TILL REFUND REACHABLE. Goods bought at another branch exist
         /// only on the platform, and until now the only way to name one was typing a UUID off a
-        /// receipt — so in practice they were not refundable at all unless the customer still had a
+        /// receipt ÃÂ¢ÃÂÃÂ so in practice they were not refundable at all unless the customer still had a
         /// printed receipt AND somebody was willing to type 36 characters.
         ///
-        /// ⚠ REFUNDS ARE EXCLUDED, exactly as they are in the local picker. A refund is itself a sale
-        /// with a negative gross; offering one defeats the cap entirely, which cost £13.99 twice on
+        /// ÃÂ¢ÃÂÃÂ  REFUNDS ARE EXCLUDED, exactly as they are in the local picker. A refund is itself a sale
+        /// with a negative gross; offering one defeats the cap entirely, which cost ÃÂÃÂ£13.99 twice on
         /// 2026-08-10.
         ///
-        /// ⚠ Needs an OPERATOR token and a connection, and says so plainly when it has neither. This
-        /// is the one refund path that genuinely cannot work offline — the local list is what covers
+        /// ÃÂ¢ÃÂÃÂ  Needs an OPERATOR token and a connection, and says so plainly when it has neither. This
+        /// is the one refund path that genuinely cannot work offline ÃÂ¢ÃÂÃÂ the local list is what covers
         /// that case.
         /// </summary>
         /// <returns>The chosen sale id, or null if the operator backed out or there was nothing.</returns>
@@ -1917,8 +1983,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 return null;
             }
 
-            // ⚠ A FORTNIGHT, not "everything". Refunds are overwhelmingly recent, and a picker
-            // holding months of sales is one nobody reads — the server clamps `take` at 500 anyway.
+            // ÃÂ¢ÃÂÃÂ  A FORTNIGHT, not "everything". Refunds are overwhelmingly recent, and a picker
+            // holding months of sales is one nobody reads ÃÂ¢ÃÂÃÂ the server clamps `take` at 500 anyway.
             var today = SharedKernel.BusinessDay.Today();
             var sales = await api.GetSalesAsync(today.AddDays(-14), today, tillId: null, take: 40);
 
@@ -1937,13 +2003,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 s => s.GetGuidMetaAsync(Plutus.Client.Storage.MetaKeys.TillId));
 
             var labels = purchases
-                .Select(s => $"{s.OccurredAtUtc.ToLocalTime():dd MMM HH:mm} · {s.GrossPence / 100m:C}"
-                           // ⚠ Says WHOSE sale it is. Without it the operator cannot tell a
+                .Select(s => $"{s.OccurredAtUtc.ToLocalTime():dd MMM HH:mm} ÃÂÃÂ· {s.GrossPence / 100m:C}"
+                           // ÃÂ¢ÃÂÃÂ  Says WHOSE sale it is. Without it the operator cannot tell a
                            // neighbouring till's sale from one of their own, which is the entire
                            // question this list exists to answer.
-                           + (thisTill is Guid t && s.TillId == t ? " · this till" : " · another till")
+                           + (thisTill is Guid t && s.TillId == t ? " ÃÂÃÂ· this till" : " ÃÂÃÂ· another till")
                            + (string.Equals(s.Channel, "Till", StringComparison.OrdinalIgnoreCase)
-                               ? "" : $" · {s.Channel}"))
+                               ? "" : $" ÃÂÃÂ· {s.Channel}"))
                 .ToList();
 
             var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
@@ -1958,7 +2024,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
         private async Task<SearchChoice> SearchForOneAsync(string typed)
         {
-            // ⚠ Ask for one MORE than we will show, so "there are others" is known rather than
+            // ÃÂ¢ÃÂÃÂ  Ask for one MORE than we will show, so "there are others" is known rather than
             // guessed. A silently truncated list reads as a complete one, and the operator concludes
             // the item is not in stock.
             var matches = await Services.Storage.TillStoreAccess.TryUseAsync(
@@ -1969,22 +2035,22 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
             var shown = matches.Take(SearchPickerLimit).ToList();
 
-            // ⚠ The barcode is in the label because it is the only field guaranteed UNIQUE.
+            // ÃÂ¢ÃÂÃÂ  The barcode is in the label because it is the only field guaranteed UNIQUE.
             // `DisplayActionSheet` hands back the chosen STRING, so two items sharing a name and
-            // price would be indistinguishable and the first would always win — quietly ringing up
+            // price would be indistinguishable and the first would always win ÃÂ¢ÃÂÃÂ quietly ringing up
             // the wrong variant.
             var choices = shown
-                .Select(m => $"{m.Name} · {m.IdOne} · {(m.PricePence / 100m):C}")
+                .Select(m => $"{m.Name} ÃÂÃÂ· {m.IdOne} ÃÂÃÂ· {(m.PricePence / 100m):C}")
                 .ToArray();
 
             var title = matches.Count > SearchPickerLimit
-                ? $"Showing the first {SearchPickerLimit} matches — type more to narrow it down"
+                ? $"Showing the first {SearchPickerLimit} matches ÃÂ¢ÃÂÃÂ type more to narrow it down"
                 : $"{shown.Count} matches for \"{typed}\"";
 
             var picked = await Application.Current.MainPage.DisplayActionSheet(
                 title, "Cancel".Translate(), null, choices);
 
-            // ⚠ Cancel — and dismissing by tapping away, which returns null — is ABANDONED, not
+            // ÃÂ¢ÃÂÃÂ  Cancel ÃÂ¢ÃÂÃÂ and dismissing by tapping away, which returns null ÃÂ¢ÃÂÃÂ is ABANDONED, not
             // NOT-FOUND. The two produce different messages and only one of them is a lie.
             if (string.IsNullOrEmpty(picked) || picked == "Cancel".Translate())
                 return SearchChoice.Abandoned;

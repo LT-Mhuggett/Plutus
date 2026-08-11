@@ -1,4 +1,4 @@
-﻿using CommonPOSLibrary.Exceptions;
+Ã¯Â»Â¿using CommonPOSLibrary.Exceptions;
 using CommunityToolkit.Maui.Extensions;
 using CommunityToolkit.Maui.Views;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -391,6 +391,9 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
                 }
 
                 Basket.Clear();
+
+
+                SelectedBasketRecord = null;   // ⚠ the selection goes with the lines — see the guard below
                 if (basket != null)
                     foreach (var item in basket)
                         Basket.Add(item);
@@ -464,6 +467,8 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
         private void CancelTransaction()
         {
             Basket.Clear();
+
+            SelectedBasketRecord = null;   // ⚠ the selection goes with the lines — see the guard below
         }
 
         [RelayCommand]
@@ -674,7 +679,13 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
 
                 BasketItem tempItem;
 
+                // â  SAME BUG AS THE MAUI TILL, fixed the same day (2026-08-11). A selection left
+                // pointing at a line the basket no longer holds made re-adding a just-sold item a
+                // silent no-op â it incremented a detached object. `Basket.Contains` makes that
+                // structurally impossible. Fixed here too because UI bugs get fixed in BOTH
+                // frontends until ClientUI is actually removed (legacy-removal L10).
                 if (SelectedBasketRecord != null &&
+                   Basket.Contains(SelectedBasketRecord) &&
                    (SelectedBasketRecord is BasketItem) &&
                    ((BasketItem)SelectedBasketRecord).Item.IdTwo.Equals(item.IdTwo) &&
                    !(SelectedBasketRecord is BasketReturnItem))
@@ -786,6 +797,9 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
             }
 
             Basket.Clear();
+
+
+            SelectedBasketRecord = null;   // ⚠ the selection goes with the lines — see the guard below
             await Application.Current.MainPage.DisplayAlert(Strings.Transaction, Strings.TransConfMesg, Strings.OK);
 
             Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Sale Processing", trackEventsArgs);
