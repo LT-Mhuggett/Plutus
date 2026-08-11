@@ -1,6 +1,6 @@
 # Test Maui — the MAUI till hand-test script
 
-**For till 1.46.0.** Anyone can run this. You do not need to know the codebase, and you should not
+**For till 1.47.0.** Anyone can run this. You do not need to know the codebase, and you should not
 need to ask anyone what a step means — if a step is unclear, that is a bug in this document, so please
 say so.
 
@@ -13,7 +13,7 @@ if that is all the time you have.
 
 | | |
 |---|---|
-| **Run** | `D:\tmp\plutus-till-1.46.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. |
+| **Run** | `D:\tmp\plutus-till-1.47.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
 | **Sign in as** | any operator with **Supervisor** or above — some steps need permission to change stock |
@@ -49,25 +49,22 @@ twice before it was fixed.
 
 1. Go to **Inventory Management → View all items**.
 2. Right-click any item (or press its **Edit** button).
-3. You get **"Edit item — step 1 of 4: tax band"**. Pick a band (or the one already ticked).
-4. Then **step 2 of 4: category**. Pick one.
-5. Then **step 3 of 4: stock**. Pick one.
-6. Then **step 4 of 4** — the form.
 
-**✅ Expected:** the form has **Name, Brand, Description, Cost, Price** with the item's current values
-**already in the boxes as normal black text you can edit**, plus **Tax band, Category, Stock** below
-them, greyed out, showing what you just chose.
+**✅ Expected: ONE screen opens with everything on it** — Barcode (shown, not editable), Name, Brand,
+Description, Cost, Price, a **Tax band dropdown**, a **Category dropdown**, and a **stock switch** —
+with the item's current values **already filled in**. Change what you like, press **Save**.
 
-**❌ The bug that was fixed:** the five editable boxes appeared **empty** (the values were there as
-grey ghost text, which vanishes as soon as you type), so the only rows with anything visible in them
-were the three greyed-out ones. It looked like a tax editor with five blanks above it.
+**❌ What was wrong, three times over:** pressing Edit used to open a **"Tax band" question**, then a
+Category question, then a Stock question, and only then a form — whose editable boxes rendered as
+grey ghost text so they looked empty. It read as "I can only change the tax", which is exactly what
+was reported. In 1.46.0 the boxes were filled in and the questions were numbered "step 1 of 4"; the
+report came back **unchanged**, because numbering a wrong shape only tells you how far there is to go.
 
-⚠ **Also check:** change **only the price**, press Confirm. It should save. Previously this silently
-saved nothing at all, because the name box submitted as empty.
+⚠ **Things worth trying here:** change **only the price** and save. Change the **tax band** and check
+the list shows it. Press **Cancel** and confirm nothing changed.
 
-⚠ **And check the titles are there.** Before 1.46.0 step 1 was headed just "Tax band" with no hint
-that three more screens followed — so people reasonably backed out of it, which threw the whole edit
-away without a word.
+⚠ **Adding a NEW item still uses the old question-then-form flow** (titled "New item — step 1 of 4").
+That is known, not a new bug — say if it bothers you and it gets the same treatment.
 
 ## A2. Click into the Inventory search box
 

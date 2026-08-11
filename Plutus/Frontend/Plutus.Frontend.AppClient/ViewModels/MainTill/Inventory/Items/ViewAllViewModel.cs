@@ -593,110 +593,42 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 var bands = bandList ?? new List<TaxBandDto>();
                 var categories = categoryList ?? new List<CategoryDto>();
 
-                // ⚠ THE CHOICES COME FIRST, AND THE FORM THEN SHOWS WHAT WAS CHOSEN. Matt,
-                // 2026-08-10 (second report): *"Maui edit items is missing category and tax e.g.
-                // 20%."* The first attempt asked for them in action sheets AFTER the form, so an
-                // operator opening "Edit item" saw name/brand/price and no tax or category anywhere
-                // — and if the lists came back empty the sheets were skipped in silence and never
-                // appeared at all. Both readings of "missing" were true.
+                // ⚠⚠ ONE PAGE, NOT FOUR DIALOGS — and this is the THIRD attempt at Matt's complaint,
+                // because the first two fixed real faults that were not the one he was reporting.
                 //
-                // ⚠ The rule this breaks is the one that keeps biting: A SCREEN MUST NOT DECIDE
-                // SOMETHING WITHOUT SHOWING IT. Tax band and category are written on every save
-                // (the PUT binds the whole entity), so they are always part of the edit whether or
-                // not anyone was asked.
-                var taxId = await PickTaxBandAsync(bands, current.TaxId, bandProblem);
-                if (taxId is null) return;                       // ⚠ Cancel means cancel, not "keep the old band"
-
-                var catId = await PickCategoryAsync(categories, current.CatId, categoryProblem);
-                if (catId is null) return;
-
-                var untracked = await PickStockTrackingAsync(current.StockUntracked);
-                if (untracked is null) return;
-
-                var chosenBand = bands.FirstOrDefault(b => b.IdOne == taxId.Value);
-                var chosenCategory = categories.FirstOrDefault(c => c.IdOne == catId.Value);
-
-                // ⚠⚠ EVERY EDITABLE ROW IS PREFILLED, and that is finding K. Without
-                // `prefillWithPlaceholder` these five arrive as `Placeholder` — grey ghost text in an
-                // empty box — so this form opened with Name, Brand, Description, Cost and Price
-                // apparently BLANK, and the only rows showing anything solid were the three DISABLED
-                // ones below. Matt, twice: *"Edit item, I can ONLY change the tax?"* and *"When I
-                // right click and edit an item, it just gives me the tax rates still."* He was
-                // describing the screen accurately.
+                // He said "Edit item, I can ONLY change the tax?" on 2026-08-10, and twice more on
+                // 2026-08-11 — the last time with a screenshot of my own "Edit item — step 1 of 4:
+                // tax band" title and the words *"I am STILL just seeing the tax."*
                 //
-                // ⚠ It also lost edits in silence: `InputResults` is seeded from `entry.Text`, and a
-                // placeholder is not text, so retyping only the price submitted an EMPTY name and
-                // hit the bare `return` below with nothing said and nothing saved.
+                // What was here: three action sheets (tax, category, stock) and THEN a form. The
+                // sheets came first for a good reason — asking afterwards had made tax and category
+                // invisible, which was his SECOND report — but the fix traded one wrong shape for
+                // another. Being asked three questions before being shown the thing you asked to
+                // edit is not a labelling problem, and numbering the steps only told him how much
+                // further there was to go.
                 //
-                // ⚠ An EDIT form must arrive holding what it is editing. That is not a preference —
-                // a form that shows blanks is asking the operator to retype five fields from memory
-                // to change one, and the four they leave alone are the ones that get lost.
-                var elements = new ViewElementData[]
-                {
-                    new ViewElementData(1, "Name".Translate(), current.Name ?? "",
-                        new IValidator[] { new RequiredValidator() }, false, true, prefillWithPlaceholder: true),
-                    // ⚠ "-" is what the WEB TILL writes when a brand is unknown, so the same column
-                    // does not end up holding "-" from one till and "" from another. It is shown as
-                    // blank here for the same reason the web till strips it on the way in.
-                    new ViewElementData(2, "Brand", current.Brand == "-" ? "" : current.Brand ?? "",
-                        Array.Empty<IValidator>(), false, true, prefillWithPlaceholder: true),
-                    new ViewElementData(3, "Description", current.Desc ?? "",
-                        Array.Empty<IValidator>(), false, true, prefillWithPlaceholder: true),
-                    new ViewElementData(4, "Cost (£)", current.Cost.ToString("0.00"),
-                        new IValidator[] { new CurrencyValueValidator(money) }, false, true, prefillWithPlaceholder: true),
-                    new ViewElementData(5, "Price inc tax (£)", current.Price.ToString("0.00"),
-                        new IValidator[] { new RequiredValidator(), new CurrencyValueValidator(money) }, false, true, prefillWithPlaceholder: true),
+                // ⚠ `EditItemPage` shows every field at once with a Picker for tax and category and
+                // a Switch for stock. Those controls are why it had to become a page: `InputAlert`
+                // hosts label + Entry pairs and nothing else, which is precisely what forced the
+                // choices out into sheets in the first place. Nothing is decided before it is shown.
+                var edited = await Views.MainTill.Inventory.Items.EditItemPage.ShowAsync(
+                    current, itemId, bands, categories);
 
-                    // ⚠ DISABLED ROWS, and their answers are IGNORED — they exist so the operator
-                    // can SEE the tax band and the category on the same screen as the price they
-                    // are setting. "20% VAT" next to "£9.99" is the check that catches a
-                    // zero-rated book priced as if it carried VAT, and no amount of correct
-                    // arithmetic further down replaces being able to look at it.
-                    new ViewElementData(6, "Tax band", BandLabel(chosenBand, taxId.Value),
-                        Array.Empty<IValidator>(), false, false),
-                    new ViewElementData(7, "Category",
-                        chosenCategory?.Name ?? (catId.Value == Guid.Empty ? "none" : catId.Value.ToString("D")),
-                        Array.Empty<IValidator>(), false, false),
-                    new ViewElementData(8, "Stock", untracked.Value ? "not tracked (∞)" : "counted",
-                        Array.Empty<IValidator>(), false, false),
-                };
+                if (edited is null) return;   // cancelled — change nothing, say nothing
 
-                var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
-                    elements, "Confirm".Translate(), true, "Edit item — step 4 of 4", "Cancel".Translate());
+                var name = edited.Name;
+                var brand = edited.Brand;
+                var desc = edited.Desc;
+                var price = edited.Price;
+                // ⚠ Blank or nonsense keeps the cost that was already there. The page pre-fills it,
+                // so "unchanged" is what the operator was looking at; it is a supplier's number, not
+                // theirs, and it must never block a price change.
+                var cost = edited.Cost > 0 ? edited.Cost : current.Cost;
+                var taxId = edited.TaxId;
+                var catId = edited.CatId;
+                var untracked = edited.StockUntracked;
 
-                if (answers.Count == 0) return;
-
-                _ = answers.TryGetValue(1, out var name);
-                _ = answers.TryGetValue(2, out var brand);
-                _ = answers.TryGetValue(3, out var desc);
-                _ = answers.TryGetValue(4, out var costText);
-                _ = answers.TryGetValue(5, out var priceText);
-
-                // ⚠ IT SAYS SO NOW. This was a bare `return` — the operator pressed Confirm and the
-                // dialog shut with nothing saved, nothing said and nothing logged. It was reachable
-                // by accident rather than by carelessness: until the prefill fix above, the name box
-                // rendered EMPTY, so anyone who changed only the price submitted a blank name and
-                // landed here. ⚠ A save that decides not to happen has to say why — the guard is
-                // right, its silence never was.
-                if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(priceText))
-                {
-                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                        string.IsNullOrWhiteSpace(name)
-                            ? "An item needs a name. Nothing has been changed."
-                            : "An item needs a price. Nothing has been changed.",
-                        "OK".Translate());
-                    return;
-                }
-
-                if (!decimal.TryParse(priceText, money, CultureInfo.CurrentCulture, out var price) || price < 0)
-                {
-                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                        "That price didn't look like a number. Nothing has been changed.", "OK".Translate());
-                    return;
-                }
-
-                if (!decimal.TryParse(costText ?? "", money, CultureInfo.CurrentCulture, out var cost) || cost < 0)
-                    cost = current.Cost;   // blank or nonsense leaves the cost alone; it is not the operator's field
+                var chosenBand = bands.FirstOrDefault(b => b.IdOne == taxId);
 
                 // ⚠ THE EX PRICE IS DERIVED FROM THE CHOSEN BAND, never typed and never carried
                 // over. The server guards `|price − exPrice × rate| ≤ 2p` because free-typed
@@ -721,9 +653,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                     item.Cost = cost;
                     item.Price = price;
                     item.ExPrice = exPrice;
-                    item.TaxId = taxId.Value;
-                    item.CatId = catId.Value;
-                    item.StockUntracked = untracked.Value;
+                    item.TaxId = taxId;
+                    item.CatId = catId;
+                    item.StockUntracked = untracked;
                 });
 
                 if (!ok)
@@ -1272,7 +1204,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 // sequential action sheets in front of a form NEED to be numbered, or each one looks
                 // like the entire feature and the operator backs out of the first.
                 App.Current.MainPage.DisplayActionSheet(
-                    "Edit item — step 1 of 4: tax band", "Cancel".Translate(), null, labels));
+                    "New item — step 1 of 4: tax band", "Cancel".Translate(), null, labels));
 
             if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return null;
 
@@ -1312,7 +1244,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
 
             var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
                 App.Current.MainPage.DisplayActionSheet(
-                    "Edit item — step 2 of 4: category", "Cancel".Translate(), null, labels));
+                    "New item — step 2 of 4: category", "Cancel".Translate(), null, labels));
 
             if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return null;
 
@@ -1341,7 +1273,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
 
             var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
                 App.Current.MainPage.DisplayActionSheet(
-                    "Edit item — step 3 of 4: stock", "Cancel".Translate(), null, labels));
+                    "New item — step 3 of 4: stock", "Cancel".Translate(), null, labels));
 
             if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return null;
             return picked == labels[1];

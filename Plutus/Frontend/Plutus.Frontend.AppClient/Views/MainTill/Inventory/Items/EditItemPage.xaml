@@ -1,0 +1,97 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Plutus.Frontend.AppClient.Views.MainTill.Inventory.Items.EditItemPage"
+             Title="Edit item">
+    <!--
+      ⚠⚠ ONE SCREEN. THIS REPLACES FOUR STACKED DIALOGS, AND THAT WAS THE WHOLE BUG.
+
+      Matt reported "Edit item — I can ONLY change the tax?" THREE TIMES across two days. My first
+      answer was a ScrollView (wrong — the form was not clipped). My second put the item's values
+      into the boxes properly (right, and still necessary) and numbered the pickers "step 1 of 4"
+      (wrong). He came back with a screenshot of "Edit item — step 1 of 4: tax band" and the same
+      sentence: *"I am STILL just seeing the tax."*
+
+      He was right every time. Pressing Edit and being asked three modal questions BEFORE seeing the
+      thing you asked to edit is not an edit form with a labelling problem — it is the wrong shape.
+      Numbering the steps only told the operator how much further there was to go. A person who
+      wants to change a price should see the price.
+
+      ⚠ So: a real page, every field at once, tax and category as PICKERS and stock as a SWITCH —
+      the controls MAUI already has, which the InputAlert dialog could not host. Nothing is decided
+      before it is shown, and nothing is hidden behind a step.
+    -->
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="14" MaximumWidthRequest="560" HorizontalOptions="Center">
+
+            <Label x:Name="HeaderLabel" FontSize="Title" FontAttributes="Bold" LineBreakMode="WordWrap"/>
+
+            <!-- ⚠ The barcode is SHOWN AND NOT EDITABLE. It is half the composite key every stock,
+                 price and sale-line row keys on, so changing it here would orphan the item's whole
+                 history — but hiding it entirely is why people could not tell two similar items
+                 apart on this screen. -->
+            <VerticalStackLayout Spacing="2">
+                <Label Text="Barcode" FontSize="Micro" Opacity="0.6"/>
+                <Label x:Name="BarcodeLabel" FontSize="Body" FontAttributes="Bold"/>
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="2">
+                <Label Text="Name" FontSize="Micro" Opacity="0.6"/>
+                <Entry x:Name="NameEntry" Placeholder="Required"/>
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="2">
+                <Label Text="Brand" FontSize="Micro" Opacity="0.6"/>
+                <Entry x:Name="BrandEntry"/>
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="2">
+                <Label Text="Description" FontSize="Micro" Opacity="0.6"/>
+                <Entry x:Name="DescEntry"/>
+            </VerticalStackLayout>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                <VerticalStackLayout Grid.Column="0" Spacing="2">
+                    <Label Text="Cost (£)" FontSize="Micro" Opacity="0.6"/>
+                    <Entry x:Name="CostEntry" Keyboard="Numeric"/>
+                </VerticalStackLayout>
+                <VerticalStackLayout Grid.Column="1" Spacing="2">
+                    <Label Text="Price inc tax (£)" FontSize="Micro" Opacity="0.6"/>
+                    <Entry x:Name="PriceEntry" Keyboard="Numeric"/>
+                </VerticalStackLayout>
+            </Grid>
+
+            <!-- ⚠ A PICKER, NOT AN ACTION SHEET. Same choice, same list, but it sits next to the
+                 price where it can be checked against it — "20% VAT" beside "£9.99" is the glance
+                 that catches a zero-rated book priced as though it carried VAT. -->
+            <VerticalStackLayout Spacing="2">
+                <Label Text="Tax band" FontSize="Micro" Opacity="0.6"/>
+                <Picker x:Name="TaxPicker"/>
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="2">
+                <Label Text="Category" FontSize="Micro" Opacity="0.6"/>
+                <Picker x:Name="CategoryPicker"/>
+            </VerticalStackLayout>
+
+            <!-- ⚠ Asked, never assumed: StockUntracked is written back on every edit because the PUT
+                 binds the whole entity, so an editor that does not offer it has to guess — and a
+                 wrong guess turns a carrier bag into stock-tracked goods on every till in the estate. -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <VerticalStackLayout Grid.Column="0" Spacing="2">
+                    <Label Text="Count this item's stock" FontSize="Micro" Opacity="0.6"/>
+                    <Label x:Name="StockHint" FontSize="Micro" Opacity="0.6" LineBreakMode="WordWrap"/>
+                </VerticalStackLayout>
+                <Switch x:Name="StockSwitch" Grid.Column="1" VerticalOptions="Center"/>
+            </Grid>
+
+            <Label x:Name="ErrorLabel" TextColor="OrangeRed" FontSize="Micro"
+                   IsVisible="False" LineBreakMode="WordWrap"/>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,8,0,0">
+                <Button x:Name="CancelButton" Grid.Column="0" Text="Cancel" Clicked="OnCancel"/>
+                <Button x:Name="SaveButton" Grid.Column="1" Text="Save" Clicked="OnSave"/>
+            </Grid>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
