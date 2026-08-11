@@ -75,9 +75,25 @@ no `git pull` step. Copy the changed files across before building.
 ```bash
 cd ~/PLUTUS/Plutus.Frontend.Portal && VITE_AUTH_MODE=oidc \
   VITE_OIDC_AUTHORITY=https://login.plutus.huggett.dscloud.me/realms/plutus \
-  VITE_OIDC_CLIENT_ID=plutus-portal npm run build     # portal is OIDC mode — env REQUIRED
-cd ~/PLUTUS/Plutus.Frontend.WebApp && npm run build   # till stays password mode — no env
+  PLUTUS_APP_VERSION=1.5.0 VITE_OIDC_CLIENT_ID=plutus-portal npm run build   # portal: OIDC env REQUIRED
+cd ~/PLUTUS/Plutus.Frontend.WebApp && PLUTUS_APP_VERSION=1.6.0 npm run build # till: password mode, no OIDC env
 ```
+
+⚠⚠ **`PLUTUS_APP_VERSION` IS NOT OPTIONAL ON THE MAC, and omitting it ships `0.0.0`.** Both configs
+read the version from `../../../versions/<app>.txt`, which resolves inside a **checkout** — and the
+Mac's `~/PLUTUS/Plutus.Frontend.*` trees are **flat copies with no `versions/` above them**, so the
+read throws and the `catch` returns `0.0.0`. Every web-till and portal build did this until
+2026-08-11: Matt found both web tills reading **v0.0.0** in the portal's Locations & Tills list while
+the MAUI till (built inside the repo, on Windows) correctly read v1.45.0. Take the number from
+`versions/till-web.txt` / `versions/portal.txt` — they are still the source of truth.
+
+⚠ **The build now WARNS on stderr** when it cannot resolve a version, because the old signal was too
+quiet: `0.0.0` was supposed to read as "did not come from the release process", and instead it sat in
+a settings panel for days. If you see that warning, the number in the bundle is wrong.
+
+⚠ **Verify the version got in, not just that the build succeeded** —
+`grep -c "<version>" dist/assets/index-*.js` before deploying. A bundle labelled 0.0.0 builds, serves
+and looks perfect.
 
 Deploy the built assets with `rsync -a --delete dist/ /srv/apps/PLUTUS/{portal,web}/current/`,
 taking a `current.pre-<tag>` copy first. Caddy serves them statically.

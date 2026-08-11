@@ -33,12 +33,38 @@ Steps 1–20, 23, 25 and half of 26 are done. **~40 working days left**, two thi
 | **Suite** | Unit **875** · Integration **157** · Architecture **15** · AppClient **422** (+3 skipped) — **all green**, working tree clean |
 | **Till build to run** | **`D:\tmp\plutus-till-1.46.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
 | **Hand-run script** | [`Build/shop-day-test.md`](Build/shop-day-test.md) — ⚠ **§5 is where everything new lives** and none of it has been run by a person yet |
-| **Versions** | till-maui **1.46.0** · backend **1.12.0 DEPLOYED** · platform **1.26.0** · portal **1.4.0 DEPLOYED** · till-web **1.6.0 — built + 19 tests, NOT deployed** · agent **1.3.3** |
-| **Deployed** | backend **1.12.0** LIVE (2026-08-11 12:57) — rollback `~/PLUTUS/backend.pre-20260811-1357`, then `.pre-20260811-1340` (1.11.0), `.pre-20260811-1145` (1.10.0), `.pre-20260811-103300` (1.9.0). Portal 1.3.0, web till 1.5.0 unchanged. ⚠ ETRIE verified 200 after the swap |
+| **Versions** | till-maui **1.46.0** · backend **1.12.0 DEPLOYED** · platform **1.26.0** · portal **1.5.0 DEPLOYED** · till-web **1.6.0 DEPLOYED** · agent **1.3.3** |
+| **Deployed** | portal **1.5.0** + web till **1.6.0** LIVE (15:20-15:22, version labels FIXED) · backend **1.12.0** LIVE (2026-08-11 12:57) — rollback `~/PLUTUS/backend.pre-20260811-1357`, then `.pre-20260811-1340` (1.11.0), `.pre-20260811-1145` (1.10.0), `.pre-20260811-103300` (1.9.0). Portal 1.3.0, web till 1.5.0 unchanged. ⚠ ETRIE verified 200 after the swap |
 | **Commits** | **40 unpushed** on `Matt's-Horror` (upstream at `4d29877`). Today's ten run `92a39d4` → `87fdb96` |
 | **Health** | Plutus 200 · ETRIE 200 · backend up; 838 restarts is the historical rotation count and is not climbing |
 
-#### ✅ PORTAL 1.4.0 IS DEPLOYED — 2026-08-11 14:00
+#### ✅ PORTAL 1.5.0 + WEB TILL 1.6.0 DEPLOYED — 2026-08-11 15:20
+
+Rollbacks `/srv/apps/PLUTUS/portal/current.pre-20260811-1520` and
+`/srv/apps/PLUTUS/web/current.pre-20260811-1522`. ETRIE **200** throughout.
+
+| What | Verified |
+|---|---|
+| **Portal 1.5.0** | index names `index-COrPRNws.js`, serves 486,705 bytes, contains `1.5.0` **and** `Locations & Tills` |
+| **Web till 1.6.0** | index names `index-BLdgkMj1.js`, serves 340,807 bytes, contains `1.6.0`. Carries the tendering module + 19 tests and the refusal sentence |
+
+⚠⚠ **AND IT FIXED THE `0.0.0` BUG ON BOTH — a build-machine fault, not a code one.** Both
+`vite.config.ts` files read the version from `../../../versions/<app>.txt`, which resolves only inside
+a **checkout**. The Mac builds from **flat copies** at `~/PLUTUS/Plutus.Frontend.*` with no
+`versions/` above them, so the read threw, the `catch` returned `0.0.0`, and **every web-till and
+portal build ever made on the Mac shipped mislabelled**. Matt found it in the till's Environment panel
+and in Locations & Tills, where both web tills read **v0.0.0** while the MAUI till — built inside the
+repo on Windows — correctly read v1.45.0.
+
+⚠ **`PLUTUS_APP_VERSION` must now be set when building on the Mac**, the config tries a second
+candidate path, and it **warns on stderr** when it falls back. The old reasoning was that `0.0.0`
+"reads as did-not-come-from-the-release-process" — it does, and it sat in a settings panel for days
+regardless, so the signal moved to where a release is actually done. Runbook, Frontend deploy.
+
+⚠ **Verify the number reached the bundle, not just that the build passed** —
+`grep -c "<version>" dist/assets/index-*.js`. A bundle labelled 0.0.0 builds and serves perfectly.
+
+#### ✅ PORTAL 1.4.0 WAS DEPLOYED — 2026-08-11 14:00
 
 Built on the Mac (Node 26 / npm 11) — `tsc --noEmit && vite build` both clean, which was the first
 real check on 126 lines of TSX Windows cannot compile. Rollback

@@ -113,9 +113,9 @@ function Pills() {
       {pill("Sales today", gbp(k.salesTodayPence), () => go("Reporting"))}
       {pill(`Sales this week${wc ? ` (w/c ${wc})` : ""}`, gbp(k.salesWeekPence), () => go("Reporting"))}
       {pill("Active users", String(k.activeUsers), () => go("Users & Roles"))}
-      {pill("Active tills", String(k.activeTills), () => go("Locations", "stores"))}
-      {pill("Active stores", String(k.activeStores), () => go("Locations", "stores"))}
-      {pill("Active warehouses", String(k.activeWarehouses), () => go("Locations", "warehouses"))}
+      {pill("Active tills", String(k.activeTills), () => go("Locations & Tills", "stores"))}
+      {pill("Active stores", String(k.activeStores), () => go("Locations & Tills", "stores"))}
+      {pill("Active warehouses", String(k.activeWarehouses), () => go("Locations & Tills", "warehouses"))}
       {pill("Active webstores", String(k.activeWebstores), () => go("Webstore"))}
       {cards && cards.outstandingPence > 0 &&
         pill("Gift cards outstanding", gbp(cards.outstandingPence), () => go("Gift cards"))}
