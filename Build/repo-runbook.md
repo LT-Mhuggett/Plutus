@@ -82,6 +82,19 @@ cd ~/PLUTUS/Plutus.Frontend.WebApp && npm run build   # till stays password mode
 Deploy the built assets with `rsync -a --delete dist/ /srv/apps/PLUTUS/{portal,web}/current/`,
 taking a `current.pre-<tag>` copy first. Caddy serves them statically.
 
+⚠⚠ **THE PORTAL IS `admin.plutus.huggett.dscloud.me`. `plutus.huggett.dscloud.me` IS THE WEB TILL.**
+From `/etc/caddy/Caddyfile`: `plutus.…` → `/srv/apps/PLUTUS/web/current`, `admin.plutus.…` →
+`/srv/apps/PLUTUS/portal/current`. Verifying a portal deploy against `plutus.…` checks the till and
+tells you nothing — hit on 2026-08-11, where a clean portal deploy "verified" against a bundle hash
+belonging to a different application.
+
+⚠ **AND A 200 FROM EITHER HOST PROVES ALMOST NOTHING**, because both have an SPA fallback: every
+unknown path returns `index.html` with a **200**. Asking for a bundle you have just deleted still
+answers 200. **Check the SIZE, or check the content**: the fallback is ~1 KB, a real bundle is
+~490 KB. The reliable verification is three parts — the hostname is right, `curl / | grep -o
+"index-[A-Za-z0-9_-]*\.js"` names the hash you just built, and grepping that bundle finds a string
+only your change introduced.
+
 ## Backend deploy
 
 Publish `-c Release -r osx-arm64 --self-contained true`, tar, `scp` to `~/PLUTUS/staging/`, then on

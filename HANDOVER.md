@@ -33,10 +33,31 @@ Steps 1–20, 23, 25 and half of 26 are done. **~40 working days left**, two thi
 | **Suite** | Unit **875** · Integration **157** · Architecture **15** · AppClient **422** (+3 skipped) — **all green**, working tree clean |
 | **Till build to run** | **`D:\tmp\plutus-till-1.45.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
 | **Hand-run script** | [`Build/shop-day-test.md`](Build/shop-day-test.md) — ⚠ **§5 is where everything new lives** and none of it has been run by a person yet |
-| **Versions** | till-maui **1.45.0** · backend **1.12.0 DEPLOYED** · platform **1.26.0** · portal **1.4.0 — ⚠ NOT BUILT, needs the Mac** · till-web **1.5.0** · agent **1.3.3** |
+| **Versions** | till-maui **1.45.0** · backend **1.12.0 DEPLOYED** · platform **1.26.0** · portal **1.4.0 DEPLOYED** · till-web **1.5.0** · agent **1.3.3** |
 | **Deployed** | backend **1.12.0** LIVE (2026-08-11 12:57) — rollback `~/PLUTUS/backend.pre-20260811-1357`, then `.pre-20260811-1340` (1.11.0), `.pre-20260811-1145` (1.10.0), `.pre-20260811-103300` (1.9.0). Portal 1.3.0, web till 1.5.0 unchanged. ⚠ ETRIE verified 200 after the swap |
 | **Commits** | **40 unpushed** on `Matt's-Horror` (upstream at `4d29877`). Today's ten run `92a39d4` → `87fdb96` |
 | **Health** | Plutus 200 · ETRIE 200 · backend up; 838 restarts is the historical rotation count and is not climbing |
+
+#### ✅ PORTAL 1.4.0 IS DEPLOYED — 2026-08-11 14:00
+
+Built on the Mac (Node 26 / npm 11) — `tsc --noEmit && vite build` both clean, which was the first
+real check on 126 lines of TSX Windows cannot compile. Rollback
+**`/srv/apps/PLUTUS/portal/current.pre-20260811-1400`**.
+
+Carries **I**'s ⚠ Drawers-out-of-balance pill and **H**'s Stock adjustments table. Verified at
+`admin.plutus.huggett.dscloud.me`: root **200**, the index references **`index-CTVP_NhH.js`** (the
+hash just built), that bundle serves **486,663 bytes**, and it contains both
+`"Drawers out of balance"` and `"stock/adjustments"`. ⚠ ETRIE **200**.
+
+⚠⚠ **`plutus.huggett.dscloud.me` IS THE WEB TILL, NOT THE PORTAL** — the portal is
+`admin.plutus.…`. The first verification pass here checked the wrong host and "confirmed" a bundle
+hash belonging to a different application. ⚠ **And a 200 means very little on either**: both have an
+SPA fallback, so a bundle you have just deleted still answers **200** — with ~1 KB of `index.html`.
+Check the size or the content. Runbook, Backend/Frontend deploy section.
+
+⚠ **The Mac's `~/PLUTUS/Plutus.Frontend.*` trees are NOT git checkouts** — they are copies. Before
+building, diff them against HEAD (a `wc -l` of `src/*.ts*` on both sides is enough); on 2026-08-11
+every file matched to the line except the three being changed.
 
 #### ✅ BACKEND 1.12.0 IS DEPLOYED — 2026-08-11 12:57
 
