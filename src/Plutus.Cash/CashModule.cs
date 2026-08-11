@@ -89,11 +89,34 @@ namespace Plutus.Cash
                 .Where(e => e.TillId == tillId && e.BusinessDay == req.BusinessDay)
                 .ToListAsync();
 
-            if (dayEvents.Any(e => e.Type == CashEventType.ZClose))
+            // ⚠⚠ WHICHEVER CAME LAST WINS — no longer "does a ZClose exist". A supervisor can reverse
+            // a close (`ZReopen`, Matt 2026-08-11), and both events stay on the record. Left on
+            // `Any(ZClose)` this would refuse a REOPENED day for ever, which is the trap the reopen
+            // exists to escape; and it would refuse the reopen itself, locking the escape hatch
+            // inside the thing it unlocks.
+            //
+            // ⚠ TIES GO TO CLOSED. Two events on one timestamp is a clock artefact, and the safe
+            // reading of an ambiguous drawer is that it is shut — a wrongly-open day quietly adds
+            // sales to banked takings; a wrongly-shut one asks somebody to press reopen again.
+            if (CashDay.IsClosed(dayEvents) && type != CashEventType.ZReopen)
                 return new CashOutcome
                 {
-                    Status = type == CashEventType.ZClose ? 409 : 409,
-                    Body = new { detail = "The session for this business day is already Z-closed." },
+                    Status = 409,
+                    Body = new
+                    {
+                        detail = "The session for this business day is already Z-closed. "
+                               + "A supervisor can reopen it from the till (Cash → Reopen the day).",
+                    },
+                };
+
+            // ⚠ And a reopen only makes sense against a day that IS closed. Refusing it otherwise
+            // keeps the ledger honest: a ZReopen with no ZClose behind it would read as though a
+            // close had been reversed that never happened.
+            if (type == CashEventType.ZReopen && !CashDay.IsClosed(dayEvents))
+                return new CashOutcome
+                {
+                    Status = 409,
+                    Body = new { detail = "That business day is not closed, so there is nothing to reopen." },
                 };
 
             var cashEvent = new CashEvent

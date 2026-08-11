@@ -31,9 +31,9 @@ Steps 1–20, 23, 25 and half of 26 are done. **~40 working days left**, two thi
 | | |
 |---|---|
 | **Suite** | Unit **875** · Integration **157** · Architecture **15** · AppClient **422** (+3 skipped) — **all green**, working tree clean |
-| **Till build to run** | **`D:\tmp\plutus-till-1.47.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
+| **Till build to run** | **`D:\tmp\plutus-till-1.48.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
 | **Hand-run script** | [`Build/shop-day-test.md`](Build/shop-day-test.md) — ⚠ **§5 is where everything new lives** and none of it has been run by a person yet |
-| **Versions** | till-maui **1.47.0** · backend **1.14.0 DEPLOYED** · platform **1.26.0** · portal **1.6.0 DEPLOYED** · till-web **1.6.0 DEPLOYED** · agent **1.3.3** |
+| **Versions** | till-maui **1.48.0** · backend **1.15.0 BUILT — 1.14.0 is LIVE** · platform **1.26.0** · portal **1.6.0 DEPLOYED** · till-web **1.6.0 DEPLOYED** · agent **1.3.3** |
 | **Deployed** | backend **1.13.0** LIVE (19:01, carries a MIGRATION) · portal **1.5.0** + web till **1.6.0** LIVE (15:20-15:22, version labels FIXED) (2026-08-11 12:57) — rollback `~/PLUTUS/backend.pre-20260811-1357`, then `.pre-20260811-1340` (1.11.0), `.pre-20260811-1145` (1.10.0), `.pre-20260811-103300` (1.9.0). Portal 1.3.0, web till 1.5.0 unchanged. ⚠ ETRIE verified 200 after the swap |
 | **Commits** | **40 unpushed** on `Matt's-Horror` (upstream at `4d29877`). Today's ten run `92a39d4` → `87fdb96` |
 | **Health** | Plutus 200 · ETRIE 200 · backend up; 838 restarts is the historical rotation count and is not climbing |
@@ -211,7 +211,7 @@ roles × two tenants gaining `pos.stock.adjust`.
 
 #### ⚠⚠ WHAT STILL WAITS ON A HUMAN
 
-**RE-RUN THE SHOP-DAY SCRIPT on `D:\tmp\plutus-till-1.47.0`.** Matt hand-ran it on 2026-08-11 and it
+**RE-RUN THE SHOP-DAY SCRIPT on `D:\tmp\plutus-till-1.48.0`.** Matt hand-ran it on 2026-08-11 and it
 found **thirteen faults, A–M** — all now recorded, ranked and answered in
 [`Build/handrun-2026-08-11.md`](Build/handrun-2026-08-11.md), which is the register to read before
 touching any of them. That hand-run is why 1.42.0–1.44.0 exist.

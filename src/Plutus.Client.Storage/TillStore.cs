@@ -852,7 +852,14 @@ public sealed class TillStore : IOutboxStore, ISyncStore
         string? reason = null, Guid? operatorUserId = null, DateTime? occurredAtUtc = null,
         CancellationToken ct = default)
     {
-        if (await IsDayClosedAsync(businessDay, ct).ConfigureAwait(false)) return null;
+        // ⚠⚠ THE REOPEN IS THE ONE EVENT A CLOSED DAY MUST ACCEPT. Everything else is refused on a
+        // closed day — that is the point of closing it — but `ZReopen` exists precisely to be
+        // recorded against a day that IS closed. Without this exemption the escape hatch is locked
+        // inside the thing it unlocks, and a day closed by accident stays shut until midnight, which
+        // is what Matt hit on a till he was trying to test with.
+        if (type != CashEventTypes.ZReopen
+            && await IsDayClosedAsync(businessDay, ct).ConfigureAwait(false))
+            return null;
 
         var row = new LocalCashEvent
         {
@@ -882,9 +889,42 @@ public sealed class TillStore : IOutboxStore, ISyncStore
     /// till's own record, so it is the answer available with the line down — which is when it
     /// matters, because the server's identical guard cannot be consulted.
     /// </summary>
-    public Task<bool> IsDayClosedAsync(string businessDay, CancellationToken ct = default) =>
-        _db.LocalCashEvents.AsNoTracking()
-            .AnyAsync(e => e.BusinessDay == businessDay && e.Type == CashEventTypes.ZClose, ct);
+    /// <summary>
+    /// Is this business day closed to further trade?
+    ///
+    /// ⚠⚠ WHICHEVER CAME LAST WINS — it is no longer "does a ZClose exist". A supervisor can reverse
+    /// a close (`CashEventTypes.ZReopen`, Matt 2026-08-11), and both events STAY on the record: the
+    /// day was closed at 17:32 and reopened at 17:41. So the question this answers is which of the
+    /// two is the more recent, not whether a close ever happened.
+    ///
+    /// ⚠ Left on `Any(ZClose)` this would refuse a reopened day for ever, which is exactly the trap
+    /// the reopen exists to escape.
+    ///
+    /// ⚠ TIES GO TO **CLOSED**, deliberately. Two events on the same `OccurredAtUtc` is a clock
+    /// artefact, not an instruction, and the safe reading of an ambiguous drawer is that it is shut —
+    /// a wrongly-open day silently adds sales to banked takings, a wrongly-shut one merely asks
+    /// somebody to press reopen again.
+    /// </summary>
+    public async Task<bool> IsDayClosedAsync(string businessDay, CancellationToken ct = default)
+    {
+        var marks = await _db.LocalCashEvents.AsNoTracking()
+            .Where(e => e.BusinessDay == businessDay
+                     && (e.Type == CashEventTypes.ZClose || e.Type == CashEventTypes.ZReopen))
+            .Select(e => new { e.Type, e.OccurredAtUtc })
+            .ToListAsync(ct).ConfigureAwait(false);
+
+        if (marks.Count == 0) return false;
+
+        var lastClose = marks.Where(m => m.Type == CashEventTypes.ZClose)
+            .Select(m => (DateTime?)m.OccurredAtUtc).Max();
+        if (lastClose is null) return false;
+
+        var lastReopen = marks.Where(m => m.Type == CashEventTypes.ZReopen)
+            .Select(m => (DateTime?)m.OccurredAtUtc).Max();
+
+        // ⚠ `>` not `>=` — see the tie rule above.
+        return lastReopen is null || lastReopen.Value <= lastClose.Value;
+    }
 
     /// <summary>Everything this till recorded for a business day, oldest first — the local X/Z
     /// history, available offline.</summary>

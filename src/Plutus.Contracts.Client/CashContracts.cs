@@ -34,7 +34,31 @@ public static class CashEventTypes
     /// follows one, not merely a second Z.</summary>
     public const string ZClose = "ZClose";
 
-    public static readonly string[] All = { OpenFloat, PaidIn, PaidOut, XSnapshot, ZClose };
+    /// <summary>
+    /// Reverse a Z close so the day can trade again — supervisor and above.
+    ///
+    /// ⚠ Matt, 2026-08-11: *"I need to be able to override a Z-closed till. A supervisor or above
+    /// needs to be able to reverse the close."* A day closed early — or closed by accident, or
+    /// closed on a test till — otherwise stranded that till until midnight.
+    ///
+    /// ⚠⚠ A COMPENSATING EVENT, NOT A DELETION, and this is the whole design. Deleting the ZClose
+    /// would erase the fact that somebody counted and banked the drawer, along with the variance the
+    /// platform calculated against it. **Both events stay**: the day was closed at 17:32 and
+    /// reopened at 17:41, by a named person, for a stated reason. That is what a ledger is for, and
+    /// it is the only version of this feature that can survive being asked about in three months.
+    ///
+    /// ⚠ SO "IS THE DAY CLOSED?" BECOMES "WHICH CAME LAST?" — every gate that used to look for the
+    /// existence of a ZClose must now compare the newest ZClose against the newest ZReopen. A gate
+    /// left on `Any(ZClose)` would refuse a reopened day for ever, and a gate that forgot the rule
+    /// entirely would let a genuinely closed day keep trading.
+    ///
+    /// ⚠ IT CARRIES NO MONEY. Reopening does not move a penny — the float, the takings and the
+    /// counted figure are all still what they were. It only makes the day writable again, which is
+    /// why it needs no counted amount and must never be mistaken for a second float.
+    /// </summary>
+    public const string ZReopen = "ZReopen";
+
+    public static readonly string[] All = { OpenFloat, PaidIn, PaidOut, XSnapshot, ZClose, ZReopen };
 
     /// <summary>Does this type need a counted figure? X and Z are counts; the others are movements.</summary>
     public static bool NeedsCount(string type) =>

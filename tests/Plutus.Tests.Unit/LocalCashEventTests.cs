@@ -191,10 +191,10 @@ public class LocalCashEventTests : IAsyncLifetime
     /// `Enum.TryParse&lt;CashEventType&gt;`. A rename on either side is a 400 — a till that cannot
     /// bank — so the vocabulary is pinned.</summary>
     [Fact]
-    public void The_wire_vocabulary_is_exactly_the_five_the_server_parses()
+    public void The_wire_vocabulary_is_exactly_the_six_the_server_parses()
     {
         Assert.Equal(
-            new[] { "OpenFloat", "PaidIn", "PaidOut", "XSnapshot", "ZClose" },
+            new[] { "OpenFloat", "PaidIn", "PaidOut", "XSnapshot", "ZClose", "ZReopen" },
             CashEventTypes.All);
 
         Assert.True(CashEventTypes.NeedsCount(CashEventTypes.XSnapshot));
@@ -204,6 +204,16 @@ public class LocalCashEventTests : IAsyncLifetime
         Assert.True(CashEventTypes.NeedsReason(CashEventTypes.PaidIn));
         Assert.True(CashEventTypes.NeedsReason(CashEventTypes.PaidOut));
         Assert.False(CashEventTypes.NeedsReason(CashEventTypes.ZClose));
+
+        // ⚠⚠ ZReopen MUST BE IN THIS LIST, AND THIS TEST IS WHY. The six names travel to the server
+        // as STRINGS and are parsed there with `Enum.TryParse<CashEventType>` — so a type the till
+        // can record but the server cannot parse is a 400 on the drain: recorded locally, refused
+        // for ever, and the operator told nothing. Adding the reopen to the till without adding it
+        // to the server enum is exactly the mistake this catches, and it caught it.
+        Assert.Contains(CashEventTypes.ZReopen, CashEventTypes.All);
+
+        // ⚠ A reopen carries NO money and NO count — it makes the day writable, nothing more.
+        Assert.False(CashEventTypes.NeedsCount(CashEventTypes.ZReopen));
     }
 
     // ── the platform's verdict on a counted drawer (finding I, 2026-08-11) ──

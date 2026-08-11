@@ -71,13 +71,30 @@ public static class PermissionCatalogue
     /// </summary>
     public const string PosStockAdjust = "pos.stock.adjust";
 
+    /// <summary>
+    /// Reverse a Z close so the day can trade again.
+    ///
+    /// ⚠ Matt, 2026-08-11: *"A supervisor or above needs to be able to reverse the close."* Same
+    /// shape as <see cref="PosStockAdjust"/> and for the same reason: it is a TILL action, taken at
+    /// the counter, by somebody who holds no portal permission at all. Expressing it as a portal
+    /// code would mean a supervisor could not do the one thing this exists for.
+    ///
+    /// ⚠ Seeded to Owner / Company Admin / Store Manager / **Supervisor** — never Cashier. Closing
+    /// the day is a statement about counted money; reopening it makes that statement editable, and
+    /// the person who counted the drawer must not be the only one who can quietly un-count it.
+    ///
+    /// ⚠ IT MOVES NO MONEY. Reopening changes no float, no takings and no counted figure — it makes
+    /// the day writable again, and leaves both the close and the reopen on the record.
+    /// </summary>
+    public const string PosCashReopen = "pos.cash.reopen";
+
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
         PortalFinancialsView, PortalUsersManage, PortalStockAdjust, PortalPricesManage,
         PortalTillsEnrol, PortalReportsView, PortalCompanyManage, CustomersManage, SupportTickets,
         InventoryBulk, GiftCardsManage,
         PosSell, PosRefund, PosVoid, PosDiscount, PosPriceOverride, PosNoSale, PosReportsView, PosSettingsManage,
-        PosStockAdjust,
+        PosStockAdjust, PosCashReopen,
     };
 
     /// <summary>Permissions that may carry a MaxPence ceiling on a grant.</summary>
@@ -143,6 +160,9 @@ public static class PermissionCatalogue
         // reading this in the portal's role editor must not come away thinking it lets an operator
         // set a stock figure.
         [PosStockAdjust] = "Write stock off or add it back from a till — damaged, lost or found goods. Always needs a reason.",
+        // ⚠ Says plainly that nothing is deleted: the fear this wording answers is "will I lose the
+        // Z read?", and the honest answer is that both the close and the reopening stay on record.
+        [PosCashReopen] = "Reopen a day that has been closed with a Z read, so the till can trade again. The Z read is kept — both the close and the reopening are recorded. Always needs a reason.",
     };
 
     /// <summary>The description, or a readable fallback for a permission added without one.</summary>

@@ -314,6 +314,31 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         {
             if (IsBusy) return;
 
+            // ⚠⚠ REFUSED AT THE DOOR, NOT AT THE TILL DRAWER. Matt, 2026-08-11: *"with the till
+            // closed, I can still add items in the till… I have added an item, it let me checkout,
+            // but then I got stuck."*
+            //
+            // The Z-closed gate I added earlier that day lives in `CheckoutCommit` — the right place
+            // for the LEDGER, and far too late for the OPERATOR. It let a basket be built, let the
+            // tender loop run, and refused at the moment of recording, which is the worst possible
+            // moment: the customer is waiting and the screen has already behaved as though the sale
+            // were happening. Checking here costs one indexed read and turns a dead end into a
+            // sentence before anything is scanned.
+            //
+            // ⚠ THE COMMIT GATE STAYS. This one protects the operator; that one protects the books,
+            // and a till cannot be the only thing enforcing a rule about the platform's own ledger —
+            // an older build or a replayed queue reaches the endpoint without passing through here.
+            if (await Services.Storage.TillStoreAccess.UseAsync(
+                    s => s.IsDayClosedAsync(SharedKernel.BusinessDay.Wire(SharedKernel.BusinessDay.Today()))))
+            {
+                ItemId = string.Empty;
+                await Application.Current.MainPage.DisplayAlert("Till closed",
+                    "This day has been closed with a Z read, so nothing more can be rung up against "
+                    + "it.\n\nIf the shop is still trading, a supervisor can reopen the day: "
+                    + "Cash → \"Reopen the day\".", "OK".Translate());
+                return;
+            }
+
             IsBusy = true;
             try
             {

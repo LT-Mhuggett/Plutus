@@ -104,6 +104,9 @@ namespace Plutus.Identity
                 // also accept — this is here so the POS bundle is complete and so the till's gate
                 // has one code to check regardless of who is signed in.
                 PermissionCatalogue.PosStockAdjust,
+                // Reverse a Z close from a till (Matt, 2026-08-11). In the POS bundle for the same
+                // reason as the line above: the till gate checks one code whoever is signed in.
+                PermissionCatalogue.PosCashReopen,
             };
             static List<EffectivePermission> G(params string[] codes) =>
                 codes.Select(c => new EffectivePermission(c, null)).ToList();
@@ -148,6 +151,10 @@ namespace Plutus.Identity
                     // nobody trusts are how that ends. ⚠ Deliberately NOT `inventory.bulk`: one
                     // bulk action moves thousands of items, this moves one.
                     new(PermissionCatalogue.PosStockAdjust, null),
+                    // ⚠ SAME REASONING, SAME ROLE LIST (Matt, 2026-08-11): *"A supervisor or above
+                    // needs to be able to reverse the close."* A day closed early strands the till
+                    // until midnight, and the supervisor on shift is exactly who notices.
+                    new(PermissionCatalogue.PosCashReopen, null),
                 }),
                 // ⚠ NOT the Cashier. A cashier changing stock counts unsupervised is how shrinkage
                 // stops being visible — the count and the person who can alter it must differ.

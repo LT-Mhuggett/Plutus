@@ -444,13 +444,23 @@ namespace Plutus.Sales
         {
             if (tillId == Guid.Empty) return null;
 
-            var closed = await _db.CashEvents.AsNoTracking().AnyAsync(e =>
-                e.TenantId == tenantId &&
-                e.TillId == tillId &&
-                e.BusinessDay == req.BusinessDay &&
-                e.Type == CashEventType.ZClose);
+            // ⚠⚠ THE LATEST Z-MARK WINS, and this must agree with `CashModule.IsClosed` exactly. A
+            // supervisor can reverse a close (`ZReopen`, Matt 2026-08-11), so asking `Any(ZClose)`
+            // here would refuse every sale on a REOPENED day — a till that looked reopened, said it
+            // was reopened, and then quarantined every sale it took.
+            //
+            // ⚠ Both Z types are fetched and the decision is made by ONE shared helper rather than
+            // re-derived here. Two rules that mean the same thing must ask the same question; a
+            // subtly different copy is how a day ends up open for a float and shut for a sale, which
+            // nobody finds until the figures stop matching.
+            var zMarks = await _db.CashEvents.AsNoTracking()
+                .Where(e => e.TenantId == tenantId &&
+                            e.TillId == tillId &&
+                            e.BusinessDay == req.BusinessDay &&
+                            (e.Type == CashEventType.ZClose || e.Type == CashEventType.ZReopen))
+                .ToListAsync();
 
-            if (!closed) return null;
+            if (!CashDay.IsClosed(zMarks)) return null;
 
             return $"Business day {req.BusinessDay:yyyy-MM-dd} was already closed with a Z read on this "
                  + "till, so this sale cannot be counted against it. The day's takings have already "

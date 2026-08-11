@@ -55,6 +55,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Cash
             Add("X read", () => RecordAsync(CashEventTypes.XSnapshot, "What is in the drawer?"));
             Add("Z read — close the day", () => RecordAsync(CashEventTypes.ZClose, "What is in the drawer?"));
 
+            // ⚠ Matt, 2026-08-11: *"I need to be able to override a Z-closed till… A supervisor or
+            // above needs to be able to reverse the close."* Before this, a day closed early — or by
+            // accident, or on a till somebody was testing with — was stranded until midnight.
+            Add("Reopen the day — reverse a Z read", ReopenAsync);
+
             Refresh();
         }
 
@@ -87,6 +92,80 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Cash
         /// </summary>
         private static string Today() =>
             SharedKernel.BusinessDay.Wire(SharedKernel.BusinessDay.Today());
+
+        /// <summary>
+        /// Reverse a Z close so the day can trade again — supervisor and above.
+        ///
+        /// ⚠ Matt, 2026-08-11: *"I need to be able to override a Z-closed till… A supervisor or above
+        /// needs to be able to reverse the close."* He found it the hard way: a till closed for
+        /// testing could not do anything at all afterwards, and there was no way back.
+        ///
+        /// ⚠⚠ IT RECORDS A COMPENSATING EVENT AND DELETES NOTHING. The ZClose stays exactly where it
+        /// is, with the figure that was counted and the variance the platform worked out against it;
+        /// a ZReopen goes on top. So the day reads "closed at 17:32, reopened at 17:41 by X because
+        /// Y" — which is what somebody needs three months later, and is the only version of this that
+        /// survives being asked about.
+        ///
+        /// ⚠ A REASON IS REQUIRED. Reopening a banked day is the sort of thing that has to be
+        /// explainable, and "no reason given" in an audit trail is worse than no trail at all because
+        /// it looks like a record.
+        /// </summary>
+        private async Task ReopenAsync()
+        {
+            var day = Today();
+
+            // ⚠ Nothing to reverse is its own answer, and a plain one. Offering a confirmation for
+            // an action that would do nothing is how an operator learns to stop reading them.
+            if (!await Services.Storage.TillStoreAccess.UseAsync(s => s.IsDayClosedAsync(day)))
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    $"{day} isn't closed — there's nothing to reopen.", "OK".Translate());
+                return;
+            }
+
+            // ⚠ CheckAny, not Check. The till's gate has to mirror what the server accepts, and an
+            // OWNER was once refused by this till for something the platform allowed because the
+            // check asked for one code when either would do (2026-08-11, the stock gate).
+            // ⚠ `null` amount: reopening moves no money, so there is no ceiling to test against.
+            var gate = Services.Security.TillGate.CheckAny(
+                App.GetViewModel().SignedInOperator, null,
+                PermissionCatalogue.PosCashReopen, PermissionCatalogue.PortalFinancialsView);
+
+            if (!gate.Allowed)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), gate.Message, "OK".Translate());
+                return;
+            }
+
+            var reason = await Services.UIHandeling.Modal.ShowAsync(() =>
+                Application.Current.MainPage.DisplayPromptAsync(
+                    "Reopen the day",
+                    $"{day} was closed with a Z read. Reopening lets this till trade against it again.\n\n"
+                    + "⚠ The Z read is NOT deleted — both the close and this reopening stay on the "
+                    + "record, with your name against them. Why is it being reopened?",
+                    "Reopen the day", "Cancel".Translate(), maxLength: 120));
+
+            if (string.IsNullOrWhiteSpace(reason)) return;
+
+            var row = await Services.Storage.TillStoreAccess.UseAsync(s => s.RecordCashEventAsync(
+                CashEventTypes.ZReopen, day, 0, countedPence: null, reason: reason.Trim(),
+                operatorUserId:
+                App.GetViewModel().SignedInOperator?.UserId));
+
+            if (row is null)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "That didn't work. The day is still closed.", "OK".Translate());
+                return;
+            }
+
+            await RefreshAsync();
+            _ = Task.Run(() => Services.Sync.TillCadence.TickAsync());
+
+            await Application.Current.MainPage.DisplayAlert("Done",
+                $"{day} is open again. The Z read stays on the record, and closing the day a second "
+                + "time will count the drawer as it stands then.", "OK".Translate());
+        }
 
         private async Task RecordAsync(string type, string prompt)
         {

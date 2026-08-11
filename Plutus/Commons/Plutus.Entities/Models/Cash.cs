@@ -13,6 +13,50 @@ namespace Plutus.Entities.Models
         PaidOut = 2,     // AmountPence removed from the drawer (reason required)
         XSnapshot = 3,   // non-closing count: CountedPence vs server-computed ExpectedPence
         ZClose = 4,      // closes the session; ONE per till per business day
+
+        /// <summary>
+        /// Reverses a <see cref="ZClose"/> so the day can trade again — supervisor and above
+        /// (Matt, 2026-08-11: *"A supervisor or above needs to be able to reverse the close."*).
+        /// ⚠⚠ COMPENSATING, NOT A DELETION: the close stays with its counted figure and variance,
+        /// and this goes on top. ⚠ Carries no money. ⚠ **Value 5 is permanent** — stored as a byte,
+        /// so renumbering re-labels history.
+        /// </summary>
+        ZReopen = 5,
+    }
+
+    /// <summary>
+    /// Is a business day closed to further trade?
+    ///
+    /// ⚠⚠ IT LIVES BESIDE THE ENTITY BECAUSE THREE PLACES ASK IT AND THEY MUST NOT DISAGREE: the
+    /// cash guard (`Plutus.Cash`), the sales gate (`Plutus.Sales`) and the till's own local copy.
+    /// `Plutus.Sales` cannot reference `Plutus.Cash`, so putting the rule in either would have forced
+    /// a second implementation — and a day that is open for a float and shut for a sale is a
+    /// disagreement nobody finds until the figures stop matching.
+    ///
+    /// ⚠ THE LATEST Z-MARK WINS — never "does a close exist". `Any(ZClose)` refuses a reopened day
+    /// for ever, which is the trap the reopen exists to escape.
+    ///
+    /// ⚠ TIES GO TO CLOSED. Two events on one timestamp is a clock artefact, and the safe reading of
+    /// an ambiguous drawer is that it is shut: a wrongly-open day quietly adds sales to takings
+    /// already counted and banked, while a wrongly-shut one asks somebody to press reopen again.
+    /// </summary>
+    public static class CashDay
+    {
+        public static bool IsClosed(IEnumerable<CashEvent> dayEvents)
+        {
+            DateTime? lastClose = null, lastReopen = null;
+
+            foreach (var e in dayEvents)
+            {
+                if (e.Type == CashEventType.ZClose && (lastClose is null || e.OccurredAtUtc > lastClose))
+                    lastClose = e.OccurredAtUtc;
+                else if (e.Type == CashEventType.ZReopen && (lastReopen is null || e.OccurredAtUtc > lastReopen))
+                    lastReopen = e.OccurredAtUtc;
+            }
+
+            if (lastClose is null) return false;
+            return lastReopen is null || lastReopen.Value <= lastClose.Value;
+        }
     }
 
     public class CashEvent
