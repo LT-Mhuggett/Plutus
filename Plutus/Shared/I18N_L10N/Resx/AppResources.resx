@@ -512,7 +512,7 @@ Are you sure you wish to continue?</value>
 Please try another name.</value>
   </data>
   <data name="InventMgmt" xml:space="preserve">
-    <value>Inventory Managment</value>
+    <value>Inventory Management</value>
   </data>
   <data name="Items" xml:space="preserve">
     <value>Items</value>
@@ -601,7 +601,7 @@ The application will need to be restarted after this process.</value>
     <value>Sales Reports</value>
   </data>
   <data name="Statistics" xml:space="preserve">
-    <value>Statistics</value>
+    <value>Reporting</value>
   </data>
   <data name="StockOuttakeReport" xml:space="preserve">
     <value>Stock Outtake Report</value>

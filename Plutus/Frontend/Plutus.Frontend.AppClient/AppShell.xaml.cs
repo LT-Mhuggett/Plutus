@@ -14,12 +14,27 @@ namespace Plutus.Frontend.AppClient
         {
             InitializeComponent();
 
+            // ⚠ THE ORDER AND THE NAMES MATCH THE WEB TILL (Matt, 2026-08-11: *"Can the tabs be
+            // renamed to match the webtill please."*). Its `App.tsx` reads:
+            //
+            //     Till · Cash · Inventory Management · Reporting · Loyalty · Store Information · Settings
+            //
+            // ⚠ Two tills whose tabs read differently are two products to be trained on, and the
+            // same person uses both. The renames also fix "Inventory Managment", misspelt in the
+            // tab bar since it was written, and retitle Statistics to **Reporting** — which is what
+            // the screen will actually be once cutover step 26 lands.
+            //
+            // ⚠ **Loyalty is absent, deliberately** — cutover step 27. An empty tab is worse than a
+            // missing one: it promises a capability and then explains that it does not exist.
+            // ⚠ **Plutus is EXTRA**, and stays last. It is enrolment and diagnostics — the screen
+            // somebody opens when the till is NOT working — and the web till has no equivalent
+            // because a browser till cannot be un-enrolled from itself.
             var tabBar = new TabBar();
             tabBar.Items.Add(Tab(new Views.MainTill.Till.TillView()));
-            tabBar.Items.Add(Tab(new Views.MainTill.Inventory.InventoryView()));
-            // WP9 cash (cutover step 23). ⚠ Its own tab, next to the Till: a shop cannot OPEN or
-            // CLOSE without it, so it must be reachable without knowing where to look.
+            // WP9 cash (cutover step 23). ⚠ Second, as on the web till: a shop cannot OPEN or CLOSE
+            // without it, so it must be reachable without knowing where to look.
             tabBar.Items.Add(Tab(new Views.MainTill.Cash.CashView()));
+            tabBar.Items.Add(Tab(new Views.MainTill.Inventory.InventoryView()));
             tabBar.Items.Add(Tab(new Views.MainTill.Statistics.StatisticsView()));
             if (DeviceInfo.Idiom == DeviceIdiom.Desktop)
             {

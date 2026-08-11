@@ -1196,7 +1196,19 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 var refundOnly = !Basket.Any(bR => bR is BasketItem && !(bR is BasketReturnItem));
 
-                var payMeths = GenPaymentMethodActions();
+                // ⚠ A REFUND GOES BACK THE WAY IT WAS PAID. Matt, 2026-08-11: *"Refunds need to
+                // ONLY offer the method that was used to pay. E.g. if it was a card payment, needs
+                // to go back to card."*
+                //
+                // ⚠ Not tidiness — refunding a card sale in cash is the oldest till fraud there is,
+                // and the honest version empties the drawer just as effectively: a day of card
+                // sales refunded in cash leaves the drawer short and the card takings untouched.
+                //
+                // ⚠ Only for a refund-ONLY basket. A mixed basket is a net SALE; restricting how
+                // the customer may pay the balance because one line is a return would be nonsense.
+                var payMeths = GenPaymentMethodActions(
+                    refundOnly ? await OriginTenderTypesAsync() : null);
+
                 Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
 
                 sale.Total = Basket.Sum(bR => bR.Price * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
@@ -1771,11 +1783,68 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// card surcharge is the TENANT's gateway setting now, not a per-row legacy field on a
         /// GLOBAL table where one client's fee would have been every client's.
         /// </summary>
-        private Dictionary<string, Func<PaymentMethodModel>> GenPaymentMethodActions()
+        /// <summary>
+        /// How the sales being returned in this basket were originally PAID.
+        ///
+        /// ⚠ THE UNION ACROSS EVERY RETURN LINE. A basket can hold returns against more than one
+        /// sale, and if one was cash and another card the operator has to be able to settle both —
+        /// the tender loop supports a split, so offering both is right and offering neither is not.
+        ///
+        /// ⚠ NULL WHEN NOTHING COULD BE READ, which is the honest answer for a cross-till refund or
+        /// a sale older than local history. `OfferedForRefund` treats null as "offer everything"
+        /// rather than blocking a legitimate refund over a fact this till does not have.
+        ///
+        /// ⚠ Reads THIS TILL's own record only — no network. A refund must work with the line down.
+        /// </summary>
+        private async Task<IReadOnlyCollection<byte>> OriginTenderTypesAsync()
+        {
+            try
+            {
+                var originIds = Basket.OfType<BasketReturnItem>()
+                    .Select(r => r.ReturnSaleId)
+                    .Where(id => Guid.TryParse(id, out _))
+                    .Select(Guid.Parse)
+                    .Distinct()
+                    .ToList();
+
+                if (originIds.Count == 0) return null;
+
+                var types = new HashSet<byte>();
+                foreach (var originId in originIds)
+                {
+                    var origin = await Services.Storage.TillStoreAccess.TryUseAsync(
+                        s => s.FindLocalSaleAsync(originId));
+
+                    if (origin?.Tenders is null) continue;
+
+                    foreach (var tender in origin.Tenders) types.Add(tender.TenderType);
+                }
+
+                return types.Count > 0 ? types : null;
+            }
+            catch (Exception ex)
+            {
+                // ⚠ NEVER BLOCK A REFUND OVER THIS. If the lookup fails the operator gets the full
+                // sheet, which is exactly where we were before the restriction existed.
+                Services.Analytics.CrashLog.Write("TillViewModel.OriginTenders", ex);
+                return null;
+            }
+        }
+
+        /// <param name="refundToTenderTypes">⚠ On a refund-only basket, the tenders the ORIGIN sale
+        /// used — so the money goes back the way it came. Null means "offer everything": either this
+        /// is not a refund, or the origin is not on this till and the restriction cannot be
+        /// applied. See <see cref="Services.Sales.TillTenders.OfferedForRefund"/>.</param>
+        private Dictionary<string, Func<PaymentMethodModel>> GenPaymentMethodActions(
+            IReadOnlyCollection<byte> refundToTenderTypes = null)
         {
             var refundOnly = !Basket.Any(bR => bR is BasketItem && !(bR is BasketReturnItem));
 
-            return Services.Sales.TillTenders.Offered(refundOnly).ToDictionary<
+            var offered = refundOnly
+                ? Services.Sales.TillTenders.OfferedForRefund(refundToTenderTypes)
+                : Services.Sales.TillTenders.Offered(false);
+
+            return offered.ToDictionary<
                 Services.Sales.TillTender, string, Func<PaymentMethodModel>>(
                 t => t.Name,
                 t => () => new PaymentMethodModel

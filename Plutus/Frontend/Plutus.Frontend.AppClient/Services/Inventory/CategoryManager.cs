@@ -120,13 +120,24 @@ namespace Plutus.Frontend.AppClient.Services.Inventory
         private static async Task<bool> ActOnAsync(
             Plutus.Client.Core.PlutusApiClient api, CategoryListDto category, IReadOnlyList<CategoryListDto> all)
         {
-            const string rename = "Rename…";
+            // ⚠ EVERY LABEL SAYS "CATEGORY", and that is a direct response to the hand-run. Matt,
+            // 2026-08-11: *"There is also a 'Delete item'. This needs to not delete an item, this
+            // should be controlled on the portal."* There is no delete-item anywhere in the till —
+            // the only "Delete…" is THIS one, and it deletes a CATEGORY. On a screen reached from a
+            // list of items, a bare "Delete…" reads as deleting the item you were just looking at.
+            //
+            // ⚠ He is right about the underlying worry even though the button was not what he
+            // thought: an item must never be deletable from a till, because deleting one cascades
+            // to its sale lines and its stock. The till's withdrawal action is the BIN, which is
+            // reversible and keeps the item's history. That has not changed — this is a wording fix
+            // so nobody has to find out by pressing it.
+            const string rename = "Rename this category…";
             const string move = "Move its items to another category…";
-            const string delete = "Delete…";
+            const string delete = "Delete this category…";
 
             var picked = await UIHandeling.Modal.ShowAsync(() =>
                 Application.Current.MainPage.DisplayActionSheet(
-                    $"{category.Name} — {category.ItemCount} item{(category.ItemCount == 1 ? "" : "s")}",
+                    $"Category: {category.Name} — {category.ItemCount} item{(category.ItemCount == 1 ? "" : "s")}",
                     "Cancel".Translate(), null, rename, move, delete));
 
             if (picked == rename) return await RenameAsync(api, category);
@@ -246,8 +257,10 @@ namespace Plutus.Frontend.AppClient.Services.Inventory
             var confirmed = await UIHandeling.Modal.ShowAsync(() =>
                 Application.Current.MainPage.DisplayAlert(
                     "Delete this category?",
-                    $"“{category.Name}” is empty and will be removed. No items are affected.",
-                    "Delete", "Cancel".Translate()));
+                    $"The CATEGORY “{category.Name}” is empty and will be removed. " +
+                    "⚠ No items are deleted — items cannot be deleted from a till at all. " +
+                    "To withdraw an item from sale, use Move to the Bin.",
+                    "Delete the category", "Cancel".Translate()));
 
             if (!confirmed) return false;
 

@@ -30,10 +30,10 @@ Steps 1–20, 23, 25 and half of 26 are done. **~40 working days left**, two thi
 
 | | |
 |---|---|
-| **Suite** | Unit **875** · Integration **151** · Architecture **15** · AppClient **414** (+3 skipped) — **all green**, working tree clean |
-| **Till build to run** | **`D:\tmp\plutus-till-1.42.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
+| **Suite** | Unit **875** · Integration **157** · Architecture **15** · AppClient **422** (+3 skipped) — **all green**, working tree clean |
+| **Till build to run** | **`D:\tmp\plutus-till-1.43.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
 | **Hand-run script** | [`Build/shop-day-test.md`](Build/shop-day-test.md) — ⚠ **§5 is where everything new lives** and none of it has been run by a person yet |
-| **Versions** | till-maui **1.42.0** · backend **1.10.0 DEPLOYED** · platform **1.26.0** · portal **1.3.0** · till-web **1.5.0** · agent **1.3.3** |
+| **Versions** | till-maui **1.43.0** · backend **1.10.0 DEPLOYED** · platform **1.26.0** · portal **1.3.0** · till-web **1.5.0** · agent **1.3.3** |
 | **Deployed** | backend **1.10.0** LIVE (2026-08-11 11:26) — rollback `~/PLUTUS/backend.pre-20260811-1145`, previous `.pre-20260811-103300` (1.9.0). Portal 1.3.0, web till 1.5.0 unchanged. ⚠ ETRIE verified 200 after the swap |
 | **Commits** | **40 unpushed** on `Matt's-Horror` (upstream at `4d29877`). Today's ten run `92a39d4` → `87fdb96` |
 | **Health** | Plutus 200 · ETRIE 200 · backend up; 838 restarts is the historical rotation count and is not climbing |
@@ -66,7 +66,7 @@ roles × two tenants gaining `pos.stock.adjust`.
 #### ⚠⚠ WHAT STILL WAITS ON A HUMAN
 
 **One thing, and it is the only one left: HAND-RUN THE SHOP-DAY SCRIPT** on
-`D:\tmp\plutus-till-1.42.0`. Twelve builds landed across two days and **not one screen has been
+`D:\tmp\plutus-till-1.43.0`. Twelve builds landed across two days and **not one screen has been
 touched by a person.** [`Build/shop-day-test.md`](Build/shop-day-test.md) ranks what is most likely
 wrong; **§5** is where everything new lives and **§5z** is new today.
 

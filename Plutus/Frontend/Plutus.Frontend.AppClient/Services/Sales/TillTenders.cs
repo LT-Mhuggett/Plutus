@@ -51,5 +51,41 @@ namespace Plutus.Frontend.AppClient.Services.Sales
                 ? tenders.Select(t => t with { GivesChange = false, GivesCashback = false }).ToList()
                 : tenders;
         }
+
+        /// <summary>
+        /// What a REFUND may go back on — restricted to how the original sale was actually paid.
+        ///
+        /// ⚠ Matt, 2026-08-11: *"Refunds need to ONLY offer the method that was used to pay. E.g.
+        /// if it was a card payment, needs to go back to card."*
+        ///
+        /// ⚠ IT IS NOT A TIDINESS RULE. Refunding a card sale in cash is the oldest till fraud there
+        /// is: buy on a card, return for notes, and the card is never debited in the end. It is also
+        /// how an honest shop accidentally empties its drawer — a day of card sales refunded in cash
+        /// leaves the drawer short and the card takings untouched, and the Z read is the first thing
+        /// that notices.
+        ///
+        /// ⚠ AN UNKNOWN ORIGIN OFFERS EVERYTHING, DELIBERATELY. `null` means this till does not hold
+        /// the original sale — a cross-till refund, or a sale older than local history. Refusing
+        /// there would block a legitimate refund at the counter over a fact the till simply does not
+        /// have, which is a worse outcome than the one this prevents. The restriction is a guard
+        /// rail, not a lock.
+        ///
+        /// ⚠ SO IS AN ORIGIN PAID BY SOMETHING THIS TILL NO LONGER OFFERS — a gift card, say. An
+        /// empty list would leave the operator in a checkout with nothing to press, which is exactly
+        /// the trap `Offered` was written to fix in the first place.
+        /// </summary>
+        /// <param name="originalTenderTypes">The <see cref="Tenders"/> bytes on the origin sale, or
+        /// null when this till cannot see it.</param>
+        public static IReadOnlyList<TillTender> OfferedForRefund(IReadOnlyCollection<byte> originalTenderTypes)
+        {
+            var all = Offered(refundOnly: true);
+
+            if (originalTenderTypes is null || originalTenderTypes.Count == 0) return all;
+
+            var matching = all.Where(t => originalTenderTypes.Contains(t.TenderType)).ToList();
+
+            // ⚠ Never hand back an empty sheet — see the header.
+            return matching.Count > 0 ? matching : all;
+        }
     }
 }
