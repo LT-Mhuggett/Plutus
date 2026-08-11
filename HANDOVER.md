@@ -33,12 +33,38 @@ Steps 1–20, 23, 25 and half of 26 are done. **~40 working days left**, two thi
 | **Suite** | Unit **875** · Integration **157** · Architecture **15** · AppClient **422** (+3 skipped) — **all green**, working tree clean |
 | **Till build to run** | **`D:\tmp\plutus-till-1.45.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
 | **Hand-run script** | [`Build/shop-day-test.md`](Build/shop-day-test.md) — ⚠ **§5 is where everything new lives** and none of it has been run by a person yet |
-| **Versions** | till-maui **1.45.0** · backend **1.11.0 BUILT, NOT DEPLOYED** · platform **1.26.0** · portal **1.4.0 — needs the Mac to build** · till-web **1.5.0** · agent **1.3.3** |
-| **Deployed** | backend **1.10.0** LIVE (2026-08-11 11:26) — rollback `~/PLUTUS/backend.pre-20260811-1145`, previous `.pre-20260811-103300` (1.9.0). Portal 1.3.0, web till 1.5.0 unchanged. ⚠ ETRIE verified 200 after the swap |
+| **Versions** | till-maui **1.45.0** · backend **1.11.0 DEPLOYED** · platform **1.26.0** · portal **1.4.0 — ⚠ NOT BUILT, needs the Mac** · till-web **1.5.0** · agent **1.3.3** |
+| **Deployed** | backend **1.11.0** LIVE (2026-08-11 12:41) — rollback `~/PLUTUS/backend.pre-20260811-1340`, then `.pre-20260811-1145` (1.10.0), `.pre-20260811-103300` (1.9.0). Portal 1.3.0, web till 1.5.0 unchanged. ⚠ ETRIE verified 200 after the swap |
 | **Commits** | **40 unpushed** on `Matt's-Horror` (upstream at `4d29877`). Today's ten run `92a39d4` → `87fdb96` |
 | **Health** | Plutus 200 · ETRIE 200 · backend up; 838 restarts is the historical rotation count and is not climbing |
 
-#### ✅ BACKEND 1.9.0 IS DEPLOYED — 2026-08-11 10:33
+#### ✅ BACKEND 1.11.0 IS DEPLOYED — 2026-08-11 12:41
+
+Carries finding **I**'s server half: the dashboard now reports `drawersOutOfBalance` /
+`drawersShortPence` / `drawersOverPence` over a rolling 7 days. Rollback:
+**`~/PLUTUS/backend.pre-20260811-1340`**.
+
+| Check | Result |
+|---|---|
+| `/swagger/v1/swagger.json` | **200** |
+| ⚠ DB-path probe (`POST /api/v1/tokens/device`, junk id) | **401 "Device not enrolled or revoked."** |
+| `/api/v1/ping` | `apiVersion: **1.11.0**` |
+| `/api/v1/reports/dashboard` unauthenticated | **401**, not 500 — the new query routes |
+| Plutus public | **200** |
+| ⚠ **ETRIE health** | **200** — untouched |
+| pm2 restarts (all five processes) | **0** |
+
+⚠ **`appsettings.json` and `appsettings.Development.json` were hash-compared against the Mac's live
+copies BEFORE the swap** — both identical, so the publish overwrote nothing that mattered. That
+check is in the runbook because the publish always overwrites them and the connection string living
+in the pm2 env is a convention, not a guarantee.
+
+⚠ **THE PORTAL PILL IS NOT LIVE.** The backend sends the figures; nothing renders them yet. The
+dashboard TSX is written and committed but **unbuilt — there is no Node on the Windows machine**, so
+it ships with the next portal build on the Mac. Until then finding I is visible on the TILL (which
+is where the person counting the drawer is standing) and in Banking, as it always was.
+
+#### ✅ BACKEND 1.9.0 WAS DEPLOYED — 2026-08-11 10:33
 
 Rollback: **`~/PLUTUS/backend.pre-20260811-103300`**. Verified after the swap:
 
@@ -79,7 +105,7 @@ touching any of them. That hand-run is why 1.42.0–1.44.0 exist.
 | **§4** | Refund a CARD sale: cash must not be offered (**G**). Then re-add an item you have just sold (**C**) |
 | **§3** | Overpay by card, and underpay in cash — both must say what is wrong, not "something went wrong" (**D**) |
 | **§1** | Open a float and **stay on the Cash tab**: "(waiting to send)" must clear on its own within a minute (**J**) |
-| **§7** | Close the day with the WRONG money — open £150, pay out £20, count £110. Within a minute the Z line must turn red and read **£20.00 SHORT — Plutus expected £130.00** (**I**). ⚠ Needs backend **1.11.0**, which is **not deployed yet** |
+| **§7** | Close the day with the WRONG money — open £150, pay out £20, count £110. Within a minute the Z line must turn red and read **£20.00 SHORT — Plutus expected £130.00** (**I**). Backend 1.11.0 is live, so this is testable now |
 | **Reporting** | Ring a sale, **stay on the tab**: today's takings must move. It used to freeze at sign-in (**N**) |
 | tabs | Till · Cash · Inventory Management · Reporting · Store Information · Settings · Plutus (**M**) |
 
