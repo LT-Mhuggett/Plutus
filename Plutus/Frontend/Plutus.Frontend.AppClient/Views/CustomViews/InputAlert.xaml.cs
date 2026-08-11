@@ -432,8 +432,14 @@ namespace Plutus.Frontend.AppClient.Pages.CustomViews
             // ⚠ Height is a MAXIMUM, not a request. Forcing half the window onto a stack holding a
             // cash grid, entries and up to three buttons clipped the buttons off the bottom of the
             // payment dialog on a short window — including Confirm.
+            //
+            // ⚠ THE CAP GOES ON THE SCROLLER, NOT ON THE STACK. Capping the inner stack caps the
+            // CONTENT, which leaves the scroller nothing to scroll and clips exactly as before —
+            // which is how the item editor lost five of its eight fields and was reported as
+            // *"I can ONLY change the tax"* (Matt, 2026-08-11). The stack must be free to be
+            // taller than the window; the scroller is what makes that reachable.
             if (height > 0)
-                MainLayout.MaximumHeightRequest = height * 0.9;
+                Scroller.MaximumHeightRequest = height * 0.9;
         }
 
         /// <summary>

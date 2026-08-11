@@ -32,6 +32,32 @@ public sealed record TenderAmount(long Pence, bool IsAbandoned)
 public sealed record TenderPayment(string MethodName, long AmountPence, long ChangePence);
 
 /// <summary>
+/// Why the loop would not take an amount, so the SCREEN can say so.
+///
+/// ⚠ IT EXISTS BECAUSE THE LOOP REFUSED IN SILENCE. Matt, 2026-08-11: over-paying on a card said
+/// *"Something went wrong"* and under-paying in cash said the same. Both are ordinary operator
+/// actions with obvious explanations — the loop knew exactly which one had happened and simply
+/// re-asked, so the only thing in front of the customer was a prompt that had apparently ignored
+/// them.
+///
+/// ⚠ The WORDING stays in the UI layer. This is the reason; the sentence is the screen's.
+/// </summary>
+public enum TenderRefusal
+{
+    None = 0,
+
+    /// <summary>Zero settles nothing, so accepting it is an infinite loop with a friendly face.</summary>
+    Zero = 1,
+
+    /// <summary>Money going the wrong way — paying out to settle a sale, or in to settle a refund.</summary>
+    WrongDirection = 2,
+
+    /// <summary>⚠ More than the balance on a method that cannot hand the difference back. A card
+    /// cannot give change; the operator who typed £20 for a £3 sale meant to type £3.</summary>
+    OverpaidWithoutChange = 3,
+}
+
+/// <summary>
 /// How the tendering ended.
 ///
 /// ⚠ <see cref="Abandoned"/> means NOTHING WAS TAKEN and the caller must leave the basket alone.
@@ -91,11 +117,18 @@ public static class TenderLoop
     /// <param name="totalPence">What the basket comes to. NEGATIVE for a refund.</param>
     /// <param name="chooseMethod">Ask which tender. Receives what is still outstanding.</param>
     /// <param name="askAmount">Ask how much. Receives what is still outstanding.</param>
+    /// <param name="onRefused">
+    /// ⚠ TELL THE OPERATOR WHY, before asking again. Optional only so existing callers and tests
+    /// keep compiling — a real screen must supply it, because a prompt that re-appears without
+    /// explanation reads as the till ignoring what was typed. It is awaited, so the message is
+    /// gone before the next dialog opens.
+    /// </param>
     public static async Task<TenderOutcome> RunAsync(
         long totalPence,
         Func<long, Task<TenderChoice>> chooseMethod,
         Func<long, Task<TenderAmount>> askAmount,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        Func<TenderRefusal, long, Task>? onRefused = null)
     {
         if (chooseMethod is null) throw new ArgumentNullException(nameof(chooseMethod));
         if (askAmount is null) throw new ArgumentNullException(nameof(askAmount));
@@ -147,6 +180,9 @@ public static class TenderLoop
             if (amount == 0 || Math.Sign(amount) != Math.Sign(outstanding))
             {
                 refusals++;
+                if (onRefused is not null)
+                    await onRefused(amount == 0 ? TenderRefusal.Zero : TenderRefusal.WrongDirection,
+                                    outstanding).ConfigureAwait(false);
                 continue;
             }
 
@@ -158,6 +194,9 @@ public static class TenderLoop
                 if (!choice.GivesChange)
                 {
                     refusals++;
+                    if (onRefused is not null)
+                        await onRefused(TenderRefusal.OverpaidWithoutChange, outstanding)
+                            .ConfigureAwait(false);
                     continue;
                 }
 

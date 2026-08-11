@@ -1,12 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui" 
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Plutus.Frontend.AppClient.Pages.CustomViews.InputAlert">
+    <!--
+        ⚠ THE SCROLLVIEW IS NOT COSMETIC — WITHOUT IT THIS DIALOG SILENTLY LOSES FIELDS.
+
+        `MainLayout` is capped at 90% of the window height in `OnSizeAllocated`, and a bare
+        StackLayout does not scroll: anything past the cap is CLIPPED, invisible, with nothing to
+        say so. The file already carried a warning that a cash grid plus entries plus three buttons
+        clipped Confirm off the bottom — and then the item editor grew to eight rows and reproduced
+        it. Matt, 2026-08-11: *"Edit item, I can ONLY change the tax? This doesn't seem right."*
+        The other fields were there. They were below the fold.
+
+        ⚠ A clipped dialog is worse than a broken one. A broken one gets reported; this one looks
+        like a deliberately small feature, so the operator concludes the software cannot do it.
+
+        ⚠ The height cap moves ONTO the ScrollView. Leaving it on the inner stack would cap the
+        content and give the scroller nothing to scroll.
+    -->
     <ContentView.Content>
-        <StackLayout
-            x:Name="MainLayout" Padding="10,10,10,10"
-            Spacing="5" BackgroundColor="White"
-            HorizontalOptions="CenterAndExpand"
-            VerticalOptions="CenterAndExpand"/>
+        <ScrollView x:Name="Scroller"
+                    HorizontalOptions="CenterAndExpand"
+                    VerticalOptions="CenterAndExpand"
+                    BackgroundColor="White">
+            <StackLayout
+                x:Name="MainLayout" Padding="10,10,10,10"
+                Spacing="5" BackgroundColor="White"
+                HorizontalOptions="FillAndExpand"
+                VerticalOptions="StartAndExpand"/>
+        </ScrollView>
     </ContentView.Content>
 </ContentView>

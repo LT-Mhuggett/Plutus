@@ -1248,17 +1248,26 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                             new ViewElementData(1, "Amount", "", validators.AsEnumerable(), false, true)
                         };
 
-                        var tendered = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
-                            elements,
-                            "Confirm".Translate(),
-                            false,
-                            true,
-                            outstandingDecimal,
-                            string.Format(
-                                refundOnly ? "HowMuchRefund".Translate() : "HowMuchPM".Translate(),
-                                lastPickedName,
-                                Math.Round(outstandingDecimal, 2, MidpointRounding.AwayFromZero)),
-                            "Cancel".Translate());
+                        // ⚠ THROUGH `Modal`, LIKE THE METHOD PICKER — and its absence here is what
+                        // produced *"Something went wrong taking payment"* on a card over-payment
+                        // (Matt, 2026-08-11). `Modal` serialises what goes THROUGH it: the picker
+                        // was wrapped after the `0` crash, but this prompt was not, so the gate
+                        // could not know a popup was still tearing down. A refusal loops straight
+                        // from this dialog's teardown into the next one, and WinUI threw a
+                        // COMException building the second — caught by the checkout's `catch`,
+                        // which is why a perfectly ordinary over-payment surfaced as a fault.
+                        var tendered = await Services.UIHandeling.Modal.ShowAsync(() =>
+                            Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                                elements,
+                                "Confirm".Translate(),
+                                false,
+                                true,
+                                outstandingDecimal,
+                                string.Format(
+                                    refundOnly ? "HowMuchRefund".Translate() : "HowMuchPM".Translate(),
+                                    lastPickedName,
+                                    Math.Round(outstandingDecimal, 2, MidpointRounding.AwayFromZero)),
+                                "Cancel".Translate()));
 
                         _ = tendered.TryGetValue(1, out var amountText);
 
@@ -1272,6 +1281,46 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                             return Plutus.Client.Core.TenderAmount.Abandoned;
 
                         return Plutus.Client.Core.TenderAmount.Of(Pence.FromDecimal(typed));
+                    },
+
+                    ct: default,
+
+                    // ⚠ SAY WHY, BEFORE ASKING AGAIN. Matt, 2026-08-11: over-paying on a card and
+                    // under-paying in cash both produced *"Something went wrong"*. Neither is a
+                    // fault — they are ordinary operator actions the loop correctly refuses — but a
+                    // prompt that reappears without a word reads as the till ignoring what was
+                    // typed, in front of a customer.
+                    //
+                    // ⚠ THE WORDING IS MATT'S. It names what happened and says the basket is safe,
+                    // because the fear at a counter is that a mistake has cost the sale.
+                    onRefused: async (reason, outstanding) =>
+                    {
+                        var owed = (outstanding / 100m).ToString("C2");
+
+                        var message = reason switch
+                        {
+                            Plutus.Client.Core.TenderRefusal.OverpaidWithoutChange =>
+                                $"You cannot over pay with {lastPickedName}. Your basket is still here, please try again.",
+
+                            // ⚠ Under-payment is NOT refused — the loop takes it and asks for the
+                            // rest, which is how split payments work. Reaching here with Zero means
+                            // they entered nothing at all.
+                            Plutus.Client.Core.TenderRefusal.Zero =>
+                                $"Enough {lastPickedName.ToLowerInvariant()} has not been taken. {owed} is still to pay.",
+
+                            _ => $"That amount can't settle this. {owed} is still to pay.",
+                        };
+
+                        // ⚠ Through `Modal` for the same reason as the prompts themselves: this
+                        // sits BETWEEN two dialogs, which is precisely where the COMException lived.
+                        // ⚠ `Modal.ShowAsync` needs a Task<T>; a plain three-button DisplayAlert
+                        // returns a bare Task, so it is wrapped rather than bypassed.
+                        await Services.UIHandeling.Modal.ShowAsync(async () =>
+                        {
+                            await Application.Current.MainPage.DisplayAlert(
+                                "Hmm".Translate(), message, "OK".Translate());
+                            return true;
+                        });
                     });
 
                 // ⚠ ABANDONED TAKES NOTHING AND LEAVES THE BASKET ALONE. It is not a partial
