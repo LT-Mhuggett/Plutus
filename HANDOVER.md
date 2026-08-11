@@ -30,10 +30,10 @@ Steps 1–20, 23, 25 and half of 26 are done. **~40 working days left**, two thi
 
 | | |
 |---|---|
-| **Suite** | Unit **856** · Integration **151** · Architecture **15** · AppClient **414** (+3 skipped) — **all green**, working tree clean |
-| **Till build to run** | **`D:\tmp\plutus-till-1.40.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
+| **Suite** | Unit **863** · Integration **151** · Architecture **15** · AppClient **414** (+3 skipped) — **all green**, working tree clean |
+| **Till build to run** | **`D:\tmp\plutus-till-1.41.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
 | **Hand-run script** | [`Build/shop-day-test.md`](Build/shop-day-test.md) — ⚠ **§5 is where everything new lives** and none of it has been run by a person yet |
-| **Versions** | till-maui **1.40.0** · backend **1.9.0 (BUILT, NOT DEPLOYED)** · platform **1.26.0** · portal **1.3.0** · till-web **1.5.0** · agent **1.3.3** |
+| **Versions** | till-maui **1.41.0** · backend **1.9.0 (BUILT, NOT DEPLOYED)** · platform **1.26.0** · portal **1.3.0** · till-web **1.5.0** · agent **1.3.3** |
 | **Deployed** | backend **1.8.3** LIVE (2026-08-10 15:28) — rollback `~/PLUTUS/backend.pre-20260810-152835`. Portal 1.3.0, web till 1.5.0 unchanged. ⚠ **Nothing from 11 August is deployed** |
 | **Commits** | **40 unpushed** on `Matt's-Horror` (upstream at `4d29877`). Today's ten run `92a39d4` → `87fdb96` |
 | **Health** | Plutus 200 · ETRIE 200 · backend up; 838 restarts is the historical rotation count and is not climbing |

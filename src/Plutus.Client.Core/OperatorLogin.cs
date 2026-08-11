@@ -283,11 +283,24 @@ public sealed class OperatorSync
     /// offline sign-in possible, so it is only ever replaced by something better.
     /// </summary>
     public async Task<int?> RefreshAsync(Guid tillId, CancellationToken ct = default)
+        => (await RefreshRosterAsync(tillId, ct))?.Operators.Length;
+
+    /// <summary>
+    /// Refresh and return the roster ITSELF — null when the server could not be asked.
+    ///
+    /// ⚠ THE DISTINCTION BETWEEN NULL AND EMPTY IS THE WHOLE POINT OF THIS OVERLOAD. The heartbeat
+    /// uses it to decide whether a signed-in operator has been revoked (`OperatorRevocation`), and
+    /// "the wifi dropped" must never look like "you are no longer allowed here" — that would sign a
+    /// whole shop out mid-sale every time the line blipped.
+    ///
+    /// ⚠ The cached roster is still left alone on failure, for the same reason it always was.
+    /// </summary>
+    public async Task<TillOperatorsResult?> RefreshRosterAsync(Guid tillId, CancellationToken ct = default)
     {
         var roster = await _api.GetTillOperatorsAsync(tillId, ct);
         if (roster is null) return null;
 
         await _store.SaveAsync(roster, ct);
-        return roster.Operators.Length;
+        return roster;
     }
 }

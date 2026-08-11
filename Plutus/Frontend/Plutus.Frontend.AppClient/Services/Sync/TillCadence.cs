@@ -41,6 +41,24 @@ namespace Plutus.Frontend.AppClient.Services.Sync
         /// </summary>
         public static Func<bool> BasketIsOpen { get; set; }
 
+        /// <summary>
+        /// Who is signed in right now, or null. ⚠ A delegate rather than a reference, for the same
+        /// reason `BasketIsOpen` is one: this class must not take a dependency on the UI layer, and
+        /// the answer changes without it being told.
+        /// </summary>
+        public static Func<Guid?> SignedInOperatorId { get; set; }
+
+        /// <summary>
+        /// Called when the signed-in operator is no longer on a roster THE SERVER ANSWERED WITH —
+        /// deactivated in the portal, or their last `pos.*` permission removed.
+        ///
+        /// ⚠ Matt, 2026-08-11: *"If a user is disabled, the user needs immediately logging out with
+        /// an information message."* This is that signal. The cadence does not sign anybody out
+        /// itself — it has no UI and must never raise a dialog (see the class header); the shell
+        /// owns what "log out" means.
+        /// </summary>
+        public static Action<string> OperatorRevoked { get; set; }
+
         /// <summary>The last tick's outcome, for the Plutus tab to display. Never null after a tick.</summary>
         public static string LastResult { get; private set; } = "Not started.";
 
@@ -221,6 +239,47 @@ namespace Plutus.Frontend.AppClient.Services.Sync
             catch (Exception ex) when (!ct.IsCancellationRequested)
             {
                 Analytics.CrashLog.Write("TillCadence.VatBands", ex);
+            }
+
+            // 5. Re-read WHO MAY USE THIS TILL, and what they may do.
+            //
+            // ⚠ NOTHING DID THIS ON A CADENCE UNTIL 2026-08-11, and Matt spotted it: *"MAUI getting
+            // updates from the portal should happen all the time. E.g. if an account is disabled,
+            // or new permissions added, should refresh immediately."* The roster was refreshed at
+            // the LOGIN SCREEN and by a manual button on the Plutus tab — and nowhere else. So a
+            // till left signed in through a shift never re-read permissions at all: a role change
+            // made in the portal reached it at the next sign-in, which on a quiet day is tomorrow.
+            //
+            // ⚠ IT ALSO CARRIES THE REVOCATION CHECK. A deactivated employee DROPS OUT of the
+            // roster server-side (`TillOperatorsController` filters on `e.Active`, and again on
+            // holding at least one `pos.*` permission), so "gone from the roster" is the signal for
+            // both "disabled" and "no longer allowed at a counter".
+            //
+            // ⚠⚠ ONLY FROM A ROSTER THE SERVER ACTUALLY SENT. `RefreshRosterAsync` returns null
+            // when it could not ask, and `OperatorRevocation.Check` treats null as "carry on" —
+            // because treating it as "not on the list" would sign the whole shop out, mid-sale,
+            // every time the broadband hiccuped, with a message accusing the operator of being
+            // disabled. That is a worse outage than the one this prevents.
+            //
+            // ⚠ Never blocks the tick, and never throws: a roster refresh that fails leaves the
+            // cached one in place, which is what makes offline sign-in work.
+            try
+            {
+                if (await TillPlacement.TillIdAsync(api).ConfigureAwait(false) is Guid rosterTill)
+                {
+                    var roster = await new Plutus.Client.Core.OperatorSync(api, new FileOperatorStore())
+                        .RefreshRosterAsync(rosterTill, ct).ConfigureAwait(false);
+
+                    if (Plutus.Client.Core.OperatorRevocation.Check(SignedInOperatorId?.Invoke(), roster)
+                        != Plutus.Client.Core.RevocationReason.None)
+                    {
+                        OperatorRevoked?.Invoke(Plutus.Client.Core.OperatorRevocation.DisabledMessage);
+                    }
+                }
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                Analytics.CrashLog.Write("TillCadence.Roster", ex);
             }
 
             var locked = beat.Locked ? $" ⚠ This till has been locked: {beat.LockReason}" : "";
