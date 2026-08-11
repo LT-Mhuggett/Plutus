@@ -203,6 +203,87 @@ public class SyncClientTests
         Assert.True(outcome.Succeeded); // a bound, not a failure
     }
 
+
+    // ── "is this till out of date?" (Matt, 2026-08-11) ──
+
+    /// <summary>
+    /// The beat now answers *"am I behind?"*, which it never used to — the heartbeat carried no
+    /// version at all. ⚠ The comparison lives HERE, once, so every till answers it the same way.
+    /// </summary>
+    [Fact]
+    public async Task A_till_behind_the_expected_build_is_told_which_build_to_get()
+    {
+        var (sync, _, handler) = Build();
+        handler.HeartbeatJson =
+            "{\"catalogueCursor\":null,\"syncNow\":false,\"locked\":false,\"lockReason\":null," +
+            "\"serverUtcNow\":\"2026-08-11T12:00:00Z\",\"expectedMauiVersion\":\"1.46.0\"}";
+
+        var outcome = await sync.BeatAsync(Guid.NewGuid(), "1.45.0");
+
+        Assert.Equal("1.46.0", outcome.UpdateAvailable);
+    }
+
+    /// <summary>
+    /// ⚠⚠ THE CASE A STRING COMPARE GETS WRONG, end to end. `"1.10.0" &lt; "1.9.0"` is TRUE to a
+    /// string comparer, so a till on the TENTH release of a series would be told for ever that it
+    /// was behind the ninth. This till is already on 1.46.0 — that range is not hypothetical.
+    /// </summary>
+    [Fact]
+    public async Task A_till_AHEAD_of_the_expected_build_is_told_nothing()
+    {
+        var (sync, _, handler) = Build();
+        handler.HeartbeatJson =
+            "{\"catalogueCursor\":null,\"syncNow\":false,\"locked\":false,\"lockReason\":null," +
+            "\"serverUtcNow\":\"2026-08-11T12:00:00Z\",\"expectedMauiVersion\":\"1.9.0\"}";
+
+        Assert.Null((await sync.BeatAsync(Guid.NewGuid(), "1.10.0")).UpdateAvailable);
+    }
+
+    /// <summary>⚠ Up to date is SILENT — equal is not behind, or every correct till nags for ever.</summary>
+    [Fact]
+    public async Task A_current_till_is_told_nothing()
+    {
+        var (sync, _, handler) = Build();
+        handler.HeartbeatJson =
+            "{\"catalogueCursor\":null,\"syncNow\":false,\"locked\":false,\"lockReason\":null," +
+            "\"serverUtcNow\":\"2026-08-11T12:00:00Z\",\"expectedMauiVersion\":\"1.46.0\"}";
+
+        Assert.Null((await sync.BeatAsync(Guid.NewGuid(), "1.46.0")).UpdateAvailable);
+    }
+
+    /// <summary>
+    /// ⚠ NO EXPECTED VERSION SET = SAY NOTHING, and this is the shipped default. The feature is
+    /// inert until a platform admin deliberately turns it on, so a fresh install never greets its
+    /// owner with an upgrade banner. It is also what every till sees on a backend that predates
+    /// the field, since the JSON simply has no such property.
+    /// </summary>
+    [Fact]
+    public async Task No_expected_version_means_no_prompt()
+    {
+        var (sync, _, handler) = Build();
+        handler.HeartbeatJson =
+            "{\"catalogueCursor\":null,\"syncNow\":false,\"locked\":false,\"lockReason\":null," +
+            "\"serverUtcNow\":\"2026-08-11T12:00:00Z\"}";
+
+        Assert.Null((await sync.BeatAsync(Guid.NewGuid(), "1.45.0")).UpdateAvailable);
+    }
+
+    /// <summary>
+    /// ⚠⚠ A `0.0.0` TILL IS NEVER NAGGED. That is the sentinel for a build outside the release
+    /// process — and, until it was fixed on 2026-08-11, what every Mac-built web bundle reported
+    /// because the version file could not be found. Treating it as ancient would have told an estate
+    /// of correctly-updated tills to upgrade to what they were already running.
+    /// </summary>
+    [Fact]
+    public async Task A_build_outside_the_release_process_is_not_nagged()
+    {
+        var (sync, _, handler) = Build();
+        handler.HeartbeatJson =
+            "{\"catalogueCursor\":null,\"syncNow\":false,\"locked\":false,\"lockReason\":null," +
+            "\"serverUtcNow\":\"2026-08-11T12:00:00Z\",\"expectedMauiVersion\":\"1.46.0\"}";
+
+        Assert.Null((await sync.BeatAsync(Guid.NewGuid(), "0.0.0")).UpdateAvailable);
+    }
     // ── the heartbeat ──
 
     [Fact]

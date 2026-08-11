@@ -63,6 +63,19 @@ namespace Plutus.Frontend.AppClient.Services.Sync
         public static string LastResult { get; private set; } = "Not started.";
 
         /// <summary>
+        /// The build the platform says this till should be on, when this till is BEHIND it — null
+        /// otherwise, which is the normal case.
+        ///
+        /// ⚠ Set from the heartbeat every tick, so it clears itself the moment the till is updated
+        /// or a platform admin changes the expected version. Nothing has to remember to reset it.
+        /// ⚠ **ADVISORY.** Nothing may refuse to sell, refuse to sync or interrupt a basket because
+        /// of this. Matt, 2026-08-11: *"No self update for MAUI"* — the till cannot fetch its own
+        /// replacement, so a gate would leave a shop stuck with no way forward. Somebody copies the
+        /// new build over; this is only how they find out they need to.
+        /// </summary>
+        public static string UpdateAvailable { get; private set; }
+
+        /// <summary>
         /// Raised after every tick, so a screen showing queued state can redraw.
         ///
         /// ⚠ Matt, 2026-08-11: *"The open float was 'Waiting' and never updated. I navigated away
@@ -235,6 +248,18 @@ namespace Plutus.Frontend.AppClient.Services.Sync
             var beat = await TillStoreAccess.UseAsync(
                 store => new SyncClient(api, store).BeatAsync(deviceId, AppVersion(), beatDeadline.Token),
                 beatDeadline.Token).ConfigureAwait(false);
+
+            // ⚠ IS THIS TILL BEHIND? Matt, 2026-08-11: *"Does the heartbeat from the till check for
+            // updates? All tills should do this."* It now does — the beat returns the build the
+            // platform expects, and `SyncClient` has already compared it against what this till
+            // reported. Null unless genuinely older, so no news is the silent case.
+            //
+            // ⚠ RECORDED, NOT ACTED ON. There is no self-update for MAUI (Matt's decision) — the
+            // till is an unpackaged .exe that cannot fetch its own replacement — so the only useful
+            // thing it can do is SAY SO. Nothing here interrupts a sale, and nothing refuses to
+            // work: a till that stopped selling over a version number would strand a shop with no
+            // route out.
+            UpdateAvailable = beat.UpdateAvailable;
 
             // 2. Drain. ⚠ BEFORE the catalogue pull: a sale already rung up is worth more than a
             // price that has not been asked for yet, and on a slow link the catalogue can take the

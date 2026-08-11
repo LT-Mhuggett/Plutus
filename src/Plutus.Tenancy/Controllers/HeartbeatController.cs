@@ -23,12 +23,23 @@ namespace Plutus.Tenancy.Controllers
         long? OldestUnsyncedAgeSeconds,
         DateTime DeviceClockUtc);
 
+    /// <summary>
+    /// ⚠⚠ THIS IS A SECOND COPY OF THE WIRE CONTRACT. `Plutus.Contracts.Client.HeartbeatResult`
+    /// declares the same shape, and the CLIENT deserialises against that one while the server
+    /// serialises this one. Nothing enforces that they match — they are matched by name and by luck.
+    /// Adding a field to one and not the other produces a field the till silently never sees, which
+    /// is the quietest possible failure: no error, no log, just a feature that does nothing.
+    /// Discovered on 2026-08-11 while adding the version fields; both were updated together.
+    /// ⚠ If you touch either, touch both — and see C2 in `till-design.md`.
+    /// </summary>
     public sealed record HeartbeatResult(
         string? CatalogueCursor,
         bool SyncNow,
         bool Locked,
         string? LockReason,
-        DateTime ServerUtcNow);
+        DateTime ServerUtcNow,
+        string? ExpectedMauiVersion = null,
+        string? ExpectedWebVersion = null);
 
     /// <summary>
     /// WP5 — POST /api/v1/heartbeat. A till says it is alive and collects whatever the platform
@@ -117,12 +128,30 @@ namespace Plutus.Tenancy.Controllers
                 await _db.SaveChangesAsync();
             }
 
+            // ⚠ THE BEAT IS WHERE "YOU ARE OUT OF DATE" HAS TO TRAVEL, because it is the only
+            // channel there is: tills sit on shop LANs behind NAT and nothing can reach in, so every
+            // instruction waits in a mailbox until the till asks. Matt, 2026-08-11: *"Does the
+            // heartbeat from the till check for updates? All tills should do this."* It carried no
+            // version at all until now.
+            //
+            // ⚠ ONE GLOBAL ROW, AND ITS ABSENCE IS THE DEFAULT. No row, or a blank version, means
+            // the till says nothing — so this ships inert and stays inert until a platform admin
+            // decides a build is "the one you should be on". The alternative (derive it from the
+            // newest version any till has reported) would start nagging an estate the moment one
+            // machine ran a test build.
+            var release = await _db.TillReleaseSettings.AsNoTracking().FirstOrDefaultAsync(r => r.Id == 1);
+
             return Ok(new HeartbeatResult(
                 CatalogueCursor: await CatalogueCursorAsync(),
                 SyncNow: syncNow,
                 Locked: device.Locked,
                 LockReason: device.LockReason,
-                ServerUtcNow: DateTime.UtcNow));
+                ServerUtcNow: DateTime.UtcNow,
+                ExpectedMauiVersion: Blank(release?.ExpectedMauiVersion),
+                ExpectedWebVersion: Blank(release?.ExpectedWebVersion)));
+
+            // Empty string and null both mean "say nothing"; the wire carries one of them, not two.
+            static string? Blank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
         }
 
         /// <summary>

@@ -39,12 +39,24 @@ public sealed record HeartbeatRequest(
 /// untouched and the outbox keeps draining — this is a till that must stop SELLING, not a till that
 /// must lose what it has already taken.</param>
 /// <param name="ServerUtcNow">For clock-drift detection, same as the ping.</param>
+/// <param name="ExpectedMauiVersion">The MAUI till build the platform expects, or null for "say
+/// nothing". ⚠ Matt, 2026-08-11: *"Does the heartbeat from the till check for updates? All tills
+/// should do this."* It did not — this is that answer, and it rides the beat because the beat is
+/// already the platform's only way to tell a till anything (tills sit behind NAT; nothing can reach
+/// in). ⚠ **ADVISORY, NEVER A GATE**: a till below this still sells, still takes money, still
+/// drains. There is no self-update for MAUI (Matt's decision, same day) — it is an unpackaged .exe
+/// that cannot fetch its own replacement, so refusing to work would strand a shop with no way out.</param>
+/// <param name="ExpectedWebVersion">The same for the web till. ⚠ Expected to stay null: the browser
+/// already detects a new deploy exactly, by comparing its running bundle hash against the one the
+/// server serves. Carried so both surfaces are configured in one place, not because it is needed.</param>
 public sealed record HeartbeatResult(
     string? CatalogueCursor,
     bool SyncNow,
     bool Locked,
     string? LockReason,
-    DateTime ServerUtcNow);
+    DateTime ServerUtcNow,
+    string? ExpectedMauiVersion = null,
+    string? ExpectedWebVersion = null);
 
 /// <summary>
 /// One catalogue row as a till holds it.

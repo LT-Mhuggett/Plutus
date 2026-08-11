@@ -6,6 +6,7 @@ using System.Net.Http.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Plutus.Contracts.Client;
+using Plutus.SharedKernel;
 
 namespace Plutus.Client.Core;
 
@@ -35,7 +36,12 @@ public sealed record SyncOutcome(int Pages, int ItemsApplied, string? Cursor, bo
 }
 
 /// <summary>What the last heartbeat said the till should do.</summary>
-public sealed record HeartbeatOutcome(bool Delivered, bool SyncNow, bool Locked, string? LockReason, bool CatalogueStale);
+/// <param name="UpdateAvailable">The build the platform says this till should be on, when this till
+/// is BEHIND it — otherwise null. 26a0 Matt, 2026-08-11: *"Does the heartbeat from the till check for
+/// updates? All tills should do this."* 26a0 The comparison happens HERE, once, using
+/// `PlutusVersion.IsOlderThan` 2014 never a string compare, or a till on 1.10.0 is told it is behind
+/// 1.9.0 for ever. 26a0 ADVISORY ONLY: nothing downstream may refuse to sell because of it.</param>
+public sealed record HeartbeatOutcome(bool Delivered, bool SyncNow, bool Locked, string? LockReason, bool CatalogueStale, string? UpdateAvailable = null);
 
 /// <summary>
 /// WP5 — the till's sync loop: beat, and pull the catalogue when it has moved.
@@ -91,7 +97,19 @@ public sealed class SyncClient
                 LockReason: result.LockReason,
                 // Any difference means "pull". Comparing rather than trusting a flag keeps the
                 // common case — nothing changed — free.
-                CatalogueStale: result.CatalogueCursor is not null && result.CatalogueCursor != mine);
+                CatalogueStale: result.CatalogueCursor is not null && result.CatalogueCursor != mine,
+
+                // ⚠ THE COMPARISON HAPPENS ONCE, HERE, and in `Client.Core` so every till answers
+                // "am I behind?" the same way — a browser and a .exe disagreeing about which of two
+                // releases is newer is a support call nobody can close.
+                // ⚠ `appVersion` is what this till just REPORTED, so the answer is about the build
+                // actually running rather than anything the caller believes.
+                // ⚠ Null unless genuinely behind: equal, ahead, unset, and unparseable all mean
+                // "say nothing" — see `PlutusVersion.IsOlderThan`, which also refuses to treat the
+                // `0.0.0` sentinel as ancient.
+                UpdateAvailable: PlutusVersion.IsOlderThan(appVersion, result.ExpectedMauiVersion)
+                    ? result.ExpectedMauiVersion
+                    : null);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

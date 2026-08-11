@@ -48,4 +48,46 @@ namespace Plutus.Entities.Models
         /// <summary>Card surcharge, flat half, in integer pence. See <see cref="SurchargeBp"/>.</summary>
         public long SurchargeFlatPence { get; set; }
     }
+
+    /// <summary>
+    /// The till build the platform expects each surface to be running — GLOBAL single row (Id
+    /// always 1), like <see cref="BillingSettings"/>.
+    ///
+    /// ⚠ Matt, 2026-08-11: *"Does the heartbeat from the till check for updates? All tills should do
+    /// this."* It did not — the heartbeat carried no version at all. This is the reference point it
+    /// now returns, and the reason it is a SETTING rather than something derived: the platform must
+    /// not start nagging forty tills the moment a build is published. Somebody decides when a
+    /// release becomes "the one you should be on", and that somebody is a platform admin.
+    ///
+    /// ⚠ **PLATFORM-GLOBAL, NOT TENANT-OWNED** — deliberately absent from the `TenantOwned` array.
+    /// A till build is the operator's release decision, not a shop's; a tenant cannot pin itself to
+    /// an old till, and one tenant's upgrade window is not another's problem to configure.
+    ///
+    /// ⚠ **BLANK MEANS "SAY NOTHING"**, and that is the safe default this ships with. An empty
+    /// expected version disables the prompt entirely rather than comparing against "" — so the
+    /// feature is inert until somebody deliberately turns it on, and a fresh install never greets
+    /// its owner with an upgrade banner it cannot act on.
+    ///
+    /// ⚠ **THIS DOES NOT GATE ANYTHING.** It is advisory: a till below the expected version still
+    /// sells, still takes money, still drains. Matt, 2026-08-11: *"No self update for MAUI"* — the
+    /// till is an unpackaged .exe that cannot fetch its own replacement, so refusing to work would
+    /// strand a shop with no route out. The `426 Upgrade Required` gate remains deferred (WP5, risk
+    /// #6) and would be a separate, deliberate decision.
+    /// </summary>
+    public class TillReleaseSettings
+    {
+        public byte Id { get; set; } = 1;
+
+        /// <summary>The MAUI till build tills should be on. Blank = no prompt.</summary>
+        public string ExpectedMauiVersion { get; set; }
+
+        /// <summary>The web till build. ⚠ Blank by default and expected to STAY blank: the web till
+        /// already detects a new deploy exactly, by comparing its running bundle hash against the
+        /// one the server serves. This exists so the two surfaces are configured in one place if
+        /// that ever changes — not because the browser needs telling.</summary>
+        public string ExpectedWebVersion { get; set; }
+
+        public DateTime UpdatedAtUtc { get; set; }
+        public string UpdatedBy { get; set; }
+    }
 }

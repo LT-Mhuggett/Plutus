@@ -86,6 +86,10 @@ namespace Plutus.Entities
         public DbSet<MessageEvent> MessageEvents { get; set; }
         public DbSet<NotificationSettings> NotificationSettings { get; set; }
         public DbSet<BillingSettings> BillingSettings { get; set; }
+
+        /// <summary>Which till build the platform expects — GLOBAL single row. ⚠ Deliberately NOT
+        /// in <c>TenantOwned</c>: a release decision belongs to the operator, not to a shop.</summary>
+        public DbSet<TillReleaseSettings> TillReleaseSettings { get; set; }
         public DbSet<PaymentGatewaySettings> PaymentGatewaySettings { get; set; }
         public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
         public DbSet<SupportTicket> SupportTickets { get; set; }
@@ -672,6 +676,17 @@ namespace Plutus.Entities
                 e.Property(x => x.UpdatedBy).HasMaxLength(128);
             });
             // 16.4 billing provider (GLOBAL single row) + 17.2 per-tenant payment gateway.
+            // The expected till build (GLOBAL single row) — see TillReleaseSettings.
+            modelBuilder.Entity<TillReleaseSettings>(e =>
+            {
+                e.ToTable("TillReleaseSettings");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                // ⚠ Nullable on purpose: blank means "say nothing", which is the safe default.
+                e.Property(x => x.ExpectedMauiVersion).HasMaxLength(32).IsRequired(false);
+                e.Property(x => x.ExpectedWebVersion).HasMaxLength(32).IsRequired(false);
+                e.Property(x => x.UpdatedBy).HasMaxLength(128);
+            });
             modelBuilder.Entity<BillingSettings>(e =>
             {
                 e.ToTable("BillingSettings");

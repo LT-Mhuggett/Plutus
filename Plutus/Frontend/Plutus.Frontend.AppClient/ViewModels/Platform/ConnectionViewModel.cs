@@ -125,6 +125,21 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
 
         public string TillVersionText { get; }
 
+        /// <summary>
+        /// The build the platform says this till should be on — shown only when this till is behind
+        /// it. Read from <see cref="Services.Sync.TillCadence.UpdateAvailable"/>, which the beat
+        /// refreshes every tick.
+        ///
+        /// ⚠ A PLAIN BOOL COMPANION (<see cref="HasUpdate"/>) rather than a null-to-visible
+        /// converter, and that is not fussiness: the converter did not exist, and a missing
+        /// `StaticResource` throws when the XAML is PARSED — it would have taken the whole Plutus
+        /// tab down, which is the one screen somebody opens when the till is already misbehaving.
+        /// </summary>
+        public string UpdateAvailable => Services.Sync.TillCadence.UpdateAvailable;
+
+        /// <summary>True when this till is behind. See <see cref="UpdateAvailable"/>.</summary>
+        public bool HasUpdate => !string.IsNullOrWhiteSpace(UpdateAvailable);
+
         #endregion
 
         #region Commands
