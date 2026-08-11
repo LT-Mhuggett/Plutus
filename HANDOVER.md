@@ -42,8 +42,8 @@ Steps 1–20, 23, 25 and half of 26 are done. **~40 working days left**, two thi
 
 | # | What | Why it matters |
 |---|---|---|
-| 1 | **Rebuild + deploy backend 1.9.0** | Matt said "so we can rebuild the back end later" — this is that. It carries the catalogue feed's new fields, the stock-levels gate, and `pos.stock.adjust`. ⚠ **Until it ships, the till halves are inert** — safely so, the columns are nullable |
-| 2 | ⚠⚠ **Run `Plutus.SeedMigrator`** | Otherwise **`pos.stock.adjust` never reaches Supervisor**. `RbacSeeder` is a TOOL, not a startup step. Nothing breaks without it — a supervisor is just refused politely — which is exactly why it gets discovered by a supervisor who cannot do their job |
+| 1 | ✅ **BUILT 2026-08-11 — `D:\tmp\plutus-backend-1.9.0\`** (osx-arm64, self-contained, 146 MB). ⚠ **NOT DEPLOYED** | Carries the catalogue feed's new fields, the stock-levels gate, and `pos.stock.adjust`. ⚠ **Until it ships, the till halves are inert** — safely so, the columns are nullable |
+| 2 | ✅ **A FRESH SeedMigrator IS BUILT TOO — `D:\tmp\plutus-seedmigrator-1.9.0\`**. Run `Plutus.SeedMigrator rbac --mysql "…"` AFTER the deploy | Otherwise **`pos.stock.adjust` never reaches Supervisor**. ⚠ **It must be the FRESHLY PUBLISHED binary** — `RbacSeeder` compiles INTO it, so the copy already on the Mac would re-seed the OLD permission set and appear to succeed (runbook, Backend deploy). ⚠ Idempotent: re-running is a no-op, and grants a tenant has added or re-ceilinged are never overwritten |
 | 3 | **Hand-run §5 of the shop-day script** | Ten builds landed today and **not one screen has been touched by a person**. §5 ranks what is most likely wrong |
 
 ⚠ **Deploy order does NOT matter** for the catalogue fields — the Plutus tab's **"Re-download the whole catalogue"** exists precisely so it doesn't. Press it after the backend is up.
