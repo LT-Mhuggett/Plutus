@@ -100,6 +100,21 @@ additive only: it never removes a grant and never overwrites a ceiling a shop ha
 | 5.6d | Reprint a **refund** receipt too | Prints, headed with **both** REFUND and REPRINT | Refunds are reprintable even though they are not re-refundable |
 | 5.7 | **Statistics** | *"Today — £x taken over n sales · VAT £x · average basket £x"*, from the PLATFORM | ⚠ The two legacy report buttons are GONE: they read the pre-Plutus database (always zero since cutover) and their Syncfusion charts are unlicensed. Matt is **not renewing** — as of 1.33.0 no Syncfusion control is on any screen you can reach. See `Build/syncfusion-footprint.md` |
 
+## 5z. ⚠ The one worth testing with two people — disable an account mid-shift
+
+New in **1.41.0**. Until now **nothing re-read the roster on any cadence**: it was fetched by the
+Plutus tab's manual button, and by a login path that only fires when the roster is *empty*. So a
+till left signed in through a shift never re-read permissions at all.
+
+| # | Do | Expect | ⚠ If not |
+|---|---|---|---|
+| 5z.1 | Sign in on the till as a **test account** (not your own) | Normal | — |
+| 5z.2 | In the **portal**, deactivate that account | — | — |
+| 5z.3 | Wait up to **60 seconds**, watching the till | It signs itself out and shows **"Your account has been disabled, please speak to your manager"** | ⚠ Longer than ~65s = the roster isn't on the beat. Tell me |
+| 5z.4 | Re-activate the account, sign back in | Works normally | — |
+| 5z.5 | ⚠ **Now the safety case: pull the network cable while signed in** | ⚠ **NOTHING HAPPENS.** You stay signed in and can keep selling | ⚠⚠ **If the till signs you out when the line drops, STOP AND TELL ME IMMEDIATELY.** "Couldn't ask the server" must never be read as "you're disabled" — that would sign a whole shop out mid-sale on every broadband blip |
+| 5z.6 | Change a **permission** in the portal (e.g. give the test account `pos.discount`) and wait 60s | The new permission works on the till without signing out and back in | Permission changes ride the same refresh |
+
 ## 6. Trading with the line down
 
 | # | Do | Expect | ⚠ If not |
