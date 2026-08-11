@@ -31,6 +31,29 @@ namespace Plutus.Entities.Models
         public long LastSeenSeq { get; set; }
         public DateTime CreatedAtUtc { get; set; }
 
+        /// <summary>
+        /// When this device last sent a heartbeat — the DURABLE answer to "when was this till last
+        /// online?".
+        ///
+        /// ⚠ Matt, 2026-08-11: *"I expect the 'Last online' to be updated via the heartbeat? It's
+        /// showing tills last online days ago?"* It was showing `Till.LastOnline`, which is written
+        /// in exactly two places — both when the till is CREATED — and updated by nothing. Every
+        /// date in that column was an enrolment date. The giveaway sat in the same row: a till
+        /// reporting v1.46.0, a build hours old, beside a "last online" of three days earlier.
+        ///
+        /// ⚠ THROTTLED, NOT WRITTEN EVERY BEAT. `TillPresence` stays the live answer and stays
+        /// in-process — a MySQL write per till per minute, for ever, for data whose value expires in
+        /// five minutes, is a cost this fleet does not need. This column exists for the two cases
+        /// presence cannot serve: a backend restart (there were four on 2026-08-11), and a till that
+        /// is switched OFF, which is most tills most of the time. Written only when it is more than
+        /// <see cref="Plutus.Tenancy.TillPresence.PersistEvery"/> old, so it is one write per till
+        /// per five minutes rather than sixty.
+        ///
+        /// ⚠ NULL MEANS NEVER HEARD FROM, and must render as "never" rather than falling back to
+        /// the enrolment date. Substituting a plausible-looking date is the bug this replaces.
+        /// </summary>
+        public DateTime? LastSeenUtc { get; set; }
+
         // FE3.0 hardware-agent telemetry (Matt, 2026-07-31): the browser till polls its local
         // "Plutus Till Agent" (localhost) and forwards what it finds, so the portal's Locations
         // page can see which till PCs run which agent version and whether the printer is up.

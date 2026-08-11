@@ -51,6 +51,21 @@ namespace Plutus.Tenancy
         /// <summary>Beyond this: Offline. Five missed beats — long enough that it is not a blip.</summary>
         public static readonly TimeSpan StaleWindow = TimeSpan.FromMinutes(5);
 
+        /// <summary>
+        /// How stale the PERSISTED `Device.LastSeenUtc` may get before the heartbeat writes it again.
+        ///
+        /// ⚠ THE WHOLE POINT IS NOT TO WRITE EVERY BEAT. Presence above is in-process precisely so a
+        /// fleet beating every 60 seconds is not the busiest write path in the system. But
+        /// in-process cannot survive a restart, and says nothing at all about a till that is switched
+        /// off — so the portal's "last online" column needs something durable behind it. Five minutes
+        /// makes that one write per till per five minutes instead of sixty, and the column is read by
+        /// a human deciding whether to walk to a shop: minute-precision is not what they need.
+        ///
+        /// ⚠ Deliberately the same figure as <see cref="StaleWindow"/>: a till that has gone quiet
+        /// long enough to be called Offline is exactly a till whose last-seen is worth having on disk.
+        /// </summary>
+        public static readonly TimeSpan PersistEvery = TimeSpan.FromMinutes(5);
+
         private sealed record Beat(
             Guid TillId, DateTime AtUtc, string? AppVersion,
             int OutboxDepth, long? OldestUnsyncedAgeSeconds, TimeSpan? ClockSkew);

@@ -118,11 +118,27 @@ namespace Plutus.Tenancy.Controllers
             var syncNow = device.SyncNow;
             if (syncNow) device.SyncNow = false;
 
-            // ⚠ ONE SAVE, covering BOTH reasons to write. Keeping the save inside the `syncNow`
+            // ⚠⚠ THE DURABLE "LAST ONLINE", AND WHY IT IS THROTTLED. Matt, 2026-08-11: *"I expect
+            // the 'Last online' to be updated via the heartbeat? It's showing tills last online days
+            // ago?"* It was showing `Till.LastOnline` — written twice in the whole codebase, both at
+            // ENROLMENT, updated by nothing — so every date in that column was the day the till was
+            // created.
+            //
+            // ⚠ Presence stays the LIVE answer and stays in-process; this is only for what presence
+            // cannot do — survive a restart, and speak for a till that is switched off. Written only
+            // once it is older than `TillPresence.PersistEvery`, so a fleet costs one write per till
+            // per five minutes rather than one per minute, which is the cost `TillPresence` was
+            // built to avoid in the first place.
+            var now = DateTime.UtcNow;
+            var lastSeenStale = device.LastSeenUtc is null
+                                || now - device.LastSeenUtc.Value >= TillPresence.PersistEvery;
+            if (lastSeenStale) device.LastSeenUtc = now;
+
+            // ⚠ ONE SAVE, covering EVERY reason to write. Keeping the save inside the `syncNow`
             // branch is what lost the version; keeping it unconditional would put a write on every
             // beat of every till, which is the thing `TillPresence` exists to avoid. Save when
             // something actually changed, and only then.
-            if (versionChanged || syncNow)
+            if (versionChanged || syncNow || lastSeenStale)
             {
                 _db.CurrentUser = "heartbeat"; // pitfall #1 — every save needs this, background paths included
                 await _db.SaveChangesAsync();

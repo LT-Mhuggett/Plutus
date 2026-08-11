@@ -345,7 +345,14 @@ export default function StoresPage() {
                 ? <span className="muted small">n/a</span>
                 : <DeviceChips devices={t.devices} />,
             },
-            { key: "lastOnline", label: "Last online", render: (t) => <span className="small">{new Date(t.lastOnline + "Z").toLocaleString("en-GB")}</span> },
+            {
+            // 26a0 null = never heard from. `new Date(null + "Z")` renders "Invalid Date", so the
+            // empty case has to be handled explicitly rather than left to the formatter.
+            key: "lastOnline", label: "Last online",
+            render: (t) => t.lastOnline
+              ? <span className="small">{new Date(t.lastOnline + "Z").toLocaleString("en-GB")}</span>
+              : <span className="muted small">never</span>,
+          },
           ]}
           rows={tills} getKey={(t) => t.id} initialSortKey="name"
           search={(t) => `${t.name} ${t.id} ${stores.find((s) => s.id === t.storeId)?.name ?? ""}`}
@@ -485,7 +492,14 @@ function TillsTable({ tills, busy, onRename, onRemove, onRevoke, storeId, onNewT
               </>
             ),
           },
-          { key: "lastOnline", label: "Last online", render: (t) => <span className="small">{new Date(t.lastOnline + "Z").toLocaleString("en-GB")}</span> },
+          {
+            // 26a0 null = never heard from. `new Date(null + "Z")` renders "Invalid Date", so the
+            // empty case has to be handled explicitly rather than left to the formatter.
+            key: "lastOnline", label: "Last online",
+            render: (t) => t.lastOnline
+              ? <span className="small">{new Date(t.lastOnline + "Z").toLocaleString("en-GB")}</span>
+              : <span className="muted small">never</span>,
+          },
           {
             key: "devices", label: "Devices", sortable: false,
             render: (t) => (

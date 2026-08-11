@@ -70,7 +70,31 @@ namespace Plutus.Tenancy.Controllers
                 id = t.Id,
                 name = names.TryGetValue(t.Id, out var n) ? n : $"Till {t.Id.ToString()[..8]}",
                 storeId = t.StoreId,
-                lastOnline = t.LastOnline,
+                // ⚠⚠ NOT `t.LastOnline` — THAT IS THE ENROLMENT DATE. It is written in exactly two
+                // places (`EnrolmentService`, `WebstoreOnboarding`), both when the till is CREATED,
+                // and updated by nothing since. Matt, 2026-08-11: *"I expect the 'Last online' to be
+                // updated via the heartbeat? It's showing tills last online days ago?"* — it was
+                // showing 30/07, 25/07 and 08/08 because those are the days those tills were
+                // enrolled. The giveaway sat in the same row: a till reporting **v1.46.0**, a build
+                // hours old, beside a "last online" three days earlier — the version being a
+                // persisted device column the heartbeat maintains, and this being one it does not.
+                //
+                // ⚠ LIVE PRESENCE FIRST, THE PERSISTED COLUMN SECOND, and NEVER a fallback to
+                // enrolment. Presence is authoritative while a till is talking to us and is
+                // in-process, so it is empty after a restart; `LastSeenUtc` is what survives one and
+                // what answers for a till that is switched off. A till nobody has ever heard from
+                // returns **null**, which the portal must render as "never" — substituting a
+                // plausible-looking date is the whole of the bug this replaces.
+                //
+                // ⚠ MAX ACROSS DEVICES: a till can hold more than one (a replaced PC leaves the old
+                // device retired), and "last online" is about the TILL, so the most recent wins.
+                lastOnline = devices
+                    .Where(d => d.TillId == t.Id)
+                    .Select(d => _presence.Get(d.Id)?.LastSeenUtc ?? d.LastSeenUtc)
+                    .Where(seen => seen != null)
+                    .DefaultIfEmpty(null)
+                    .Max(),
+                enrolledAtUtc = t.LastOnline,
                 isWebstore = webstoreTillIds.Contains(t.Id),
                 devices = devices.Where(d => d.TillId == t.Id).Select(d => new
                 {

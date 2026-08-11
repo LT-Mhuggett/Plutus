@@ -151,3 +151,61 @@ public class CatalogueCursorTests
         Assert.Equal("AB:CD:EF", idOne);
     }
 }
+
+/// <summary>
+/// The DURABLE "last online" — `Device.LastSeenUtc`, written by the heartbeat on a throttle.
+///
+/// ⚠ Matt, 2026-08-11: *"I expect the 'Last online' to be updated via the heartbeat? It's showing
+/// tills last online days ago?"* It was showing `Till.LastOnline`, written twice in the whole
+/// codebase — both at ENROLMENT — and updated by nothing. Every date in that column was the day the
+/// till was created.
+///
+/// ⚠ These pin the THROTTLE ARITHMETIC, which is the part with a number in it. The write itself
+/// lives in `HeartbeatController`; what must not drift is how often it fires.
+/// </summary>
+public class DeviceLastSeenThrottleTests
+{
+    /// <summary>The rule as the controller applies it: write when never written, or when older
+    /// than the window.</summary>
+    private static bool ShouldPersist(DateTime? lastSeen, DateTime now) =>
+        lastSeen is null || now - lastSeen.Value >= TillPresence.PersistEvery;
+
+    /// <summary>⚠ A device nobody has ever heard from must be written on its FIRST beat — otherwise
+    /// a freshly enrolled till reads "never" until five minutes have passed, which looks exactly
+    /// like the bug this replaces.</summary>
+    [Fact]
+    public void A_device_never_seen_is_written_immediately() =>
+        Assert.True(ShouldPersist(null, new DateTime(2026, 8, 11, 12, 0, 0, DateTimeKind.Utc)));
+
+    /// <summary>
+    /// ⚠⚠ THE POINT OF THE THROTTLE. A fleet beating every 60 seconds must not become a MySQL write
+    /// per till per minute for ever — that is precisely the cost `TillPresence` was built in-process
+    /// to avoid, and re-introducing it through the back door would make the fix worse than the bug.
+    /// </summary>
+    [Fact]
+    public void A_beat_a_minute_after_the_last_write_does_NOT_write_again()
+    {
+        var at = new DateTime(2026, 8, 11, 12, 0, 0, DateTimeKind.Utc);
+        Assert.False(ShouldPersist(at, at.AddMinutes(1)));
+        Assert.False(ShouldPersist(at, at.AddMinutes(4).AddSeconds(59)));
+    }
+
+    /// <summary>⚠ And it MUST write once the window has passed, or the column freezes at the first
+    /// beat and we are back to a confident, wrong date.</summary>
+    [Fact]
+    public void A_beat_past_the_window_writes_again()
+    {
+        var at = new DateTime(2026, 8, 11, 12, 0, 0, DateTimeKind.Utc);
+        Assert.True(ShouldPersist(at, at.AddMinutes(5)));
+        Assert.True(ShouldPersist(at, at.AddHours(3)));
+    }
+
+    /// <summary>
+    /// ⚠ Five minutes is not arbitrary: it is the same figure as `StaleWindow`, so a till that has
+    /// gone quiet long enough to be called **Offline** is exactly a till whose last-seen is already
+    /// on disk. If someone widens one they should think about the other.
+    /// </summary>
+    [Fact]
+    public void The_persist_window_matches_the_offline_window() =>
+        Assert.Equal(TillPresence.StaleWindow, TillPresence.PersistEvery);
+}

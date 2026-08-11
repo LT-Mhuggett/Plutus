@@ -926,7 +926,12 @@ export interface TillRow {
   id: string;
   name: string;
   storeId: number;
-  lastOnline: string;
+  /** When a device on this till last sent a heartbeat — live presence first, the persisted column
+   *  second. ⚠ NULL means never heard from, and must render as "never": until 2026-08-11 this field
+   *  carried the till's ENROLMENT date, so every row showed a confident, wrong "last online". */
+  lastOnline: string | null;
+  /** When the till was enrolled. What `lastOnline` used to be, now under its real name. */
+  enrolledAtUtc: string;
   /** true = the virtual till a webstore connection sells through (not an enrollable device) */
   isWebstore: boolean;
   devices: {

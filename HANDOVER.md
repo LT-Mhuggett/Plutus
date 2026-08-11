@@ -33,10 +33,29 @@ Steps 1–20, 23, 25 and half of 26 are done. **~40 working days left**, two thi
 | **Suite** | Unit **875** · Integration **157** · Architecture **15** · AppClient **422** (+3 skipped) — **all green**, working tree clean |
 | **Till build to run** | **`D:\tmp\plutus-till-1.47.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
 | **Hand-run script** | [`Build/shop-day-test.md`](Build/shop-day-test.md) — ⚠ **§5 is where everything new lives** and none of it has been run by a person yet |
-| **Versions** | till-maui **1.47.0** · backend **1.13.0 DEPLOYED** · platform **1.26.0** · portal **1.5.0 DEPLOYED** · till-web **1.6.0 DEPLOYED** · agent **1.3.3** |
+| **Versions** | till-maui **1.47.0** · backend **1.14.0 DEPLOYED** · platform **1.26.0** · portal **1.6.0 DEPLOYED** · till-web **1.6.0 DEPLOYED** · agent **1.3.3** |
 | **Deployed** | backend **1.13.0** LIVE (19:01, carries a MIGRATION) · portal **1.5.0** + web till **1.6.0** LIVE (15:20-15:22, version labels FIXED) (2026-08-11 12:57) — rollback `~/PLUTUS/backend.pre-20260811-1357`, then `.pre-20260811-1340` (1.11.0), `.pre-20260811-1145` (1.10.0), `.pre-20260811-103300` (1.9.0). Portal 1.3.0, web till 1.5.0 unchanged. ⚠ ETRIE verified 200 after the swap |
 | **Commits** | **40 unpushed** on `Matt's-Horror` (upstream at `4d29877`). Today's ten run `92a39d4` → `87fdb96` |
 | **Health** | Plutus 200 · ETRIE 200 · backend up; 838 restarts is the historical rotation count and is not climbing |
+
+#### ✅ BACKEND 1.14.0 + PORTAL 1.6.0 DEPLOYED — 2026-08-11 19:20 (carries a MIGRATION)
+
+**"Last online" was the ENROLMENT date.** `Till.LastOnline` is written twice in the whole codebase,
+both when the till is created, and updated by nothing — so Matt saw 30/07, 25/07 and 08/08 for tills
+that had beaten far more recently. The giveaway sat in the same row: **v1.46.0**, a build hours old,
+beside a "last online" of three days earlier.
+
+Now `Device.LastSeenUtc`, written by the heartbeat **throttled to one write per till per five
+minutes** (`TillPresence.PersistEvery`) rather than one per beat — presence stays in-process and
+live; this is only for what presence cannot do: survive a restart, and speak for a till that is
+switched off. The portal reads **live presence → persisted → null**, and renders null as **"never"**.
+⚠ `new Date(null + "Z")` renders *"Invalid Date"*, so both call sites needed the empty case handled
+explicitly. ⚠ The enrolment date is still there, under its real name `enrolledAtUtc`.
+
+Rollbacks `~/PLUTUS/backend.pre-20260811-1930` and `/srv/apps/PLUTUS/portal/current.pre-20260811-1925`.
+Pre-migration backup taken and verified. ⚠ **Column verified, not the history table**:
+`LastSeenUtc datetime(6) null=YES`, `0 of 6` devices populated — correct, no till had beaten yet.
+ping **1.14.0** · ETRIE **200** · portal serves `index-Dnlz4B6L.js` containing 1.6.0.
 
 #### ⚠⚠ 2026-08-11 — THE NIGHTLY DATABASE BACKUPS HAD BEEN EMPTY FOR TWO DAYS
 
