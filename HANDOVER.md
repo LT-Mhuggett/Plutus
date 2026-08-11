@@ -33,12 +33,23 @@ Steps 1–20, 23, 25 and half of 26 are done. **~40 working days left**, two thi
 | **Suite** | Unit **875** · Integration **157** · Architecture **15** · AppClient **422** (+3 skipped) — **all green**, working tree clean |
 | **Till build to run** | **`D:\tmp\plutus-till-1.45.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
 | **Hand-run script** | [`Build/shop-day-test.md`](Build/shop-day-test.md) — ⚠ **§5 is where everything new lives** and none of it has been run by a person yet |
-| **Versions** | till-maui **1.45.0** · backend **1.12.0 BUILT — 1.11.0 is what is LIVE** · platform **1.26.0** · portal **1.4.0 — ⚠ NOT BUILT, needs the Mac** · till-web **1.5.0** · agent **1.3.3** |
-| **Deployed** | backend **1.11.0** LIVE (2026-08-11 12:41) — rollback `~/PLUTUS/backend.pre-20260811-1340`, then `.pre-20260811-1145` (1.10.0), `.pre-20260811-103300` (1.9.0). Portal 1.3.0, web till 1.5.0 unchanged. ⚠ ETRIE verified 200 after the swap |
+| **Versions** | till-maui **1.45.0** · backend **1.12.0 DEPLOYED** · platform **1.26.0** · portal **1.4.0 — ⚠ NOT BUILT, needs the Mac** · till-web **1.5.0** · agent **1.3.3** |
+| **Deployed** | backend **1.12.0** LIVE (2026-08-11 12:57) — rollback `~/PLUTUS/backend.pre-20260811-1357`, then `.pre-20260811-1340` (1.11.0), `.pre-20260811-1145` (1.10.0), `.pre-20260811-103300` (1.9.0). Portal 1.3.0, web till 1.5.0 unchanged. ⚠ ETRIE verified 200 after the swap |
 | **Commits** | **40 unpushed** on `Matt's-Horror` (upstream at `4d29877`). Today's ten run `92a39d4` → `87fdb96` |
 | **Health** | Plutus 200 · ETRIE 200 · backend up; 838 restarts is the historical rotation count and is not climbing |
 
-#### ✅ BACKEND 1.11.0 IS DEPLOYED — 2026-08-11 12:41
+#### ✅ BACKEND 1.12.0 IS DEPLOYED — 2026-08-11 12:57
+
+Carries finding **H**'s server half: `GET /api/v1/stock/adjustments` — date-ranged, manual movements
+only, with names rather than GUIDs. Rollback **`~/PLUTUS/backend.pre-20260811-1357`**.
+
+Verified: swagger **200** · ping **1.12.0** · the new route answers **401** not 500 · DB-path probe
+**401 "Device not enrolled or revoked."** · Plutus public **200** · ⚠ **ETRIE 200** · **0 restarts**
+across all five pm2 processes. `appsettings*.json` hash-matched the live copies before the swap.
+
+⚠ **Its portal table is NOT live** — same reason as I's pill: no Node here.
+
+#### ✅ BACKEND 1.11.0 WAS DEPLOYED — 2026-08-11 12:41
 
 Carries finding **I**'s server half: the dashboard now reports `drawersOutOfBalance` /
 `drawersShortPence` / `drawersOverPence` over a rolling 7 days. Rollback:
