@@ -156,6 +156,123 @@ namespace Plutus.Catalogue
             return Ok(rows);
         }
 
+        /// <summary>
+        /// The stock ADJUSTMENTS report — who changed a count, by how much, and why.
+        ///
+        /// ⚠ Matt, 2026-08-11: *"Writing off stock, where is this captured? I need a report on the
+        /// portal (that will then be reflected in all tills) that shows stock adjustments."*
+        ///
+        /// ⚠ IT WAS ALREADY CAPTURED — every write-off has been a `StockMovement` row with its
+        /// reason, its actor and its timestamp since WP5.1, and `pos.stock.adjust` has stamped the
+        /// operator since 2026-08-11. Nothing was lost. What did not exist was a way to READ it as a
+        /// report: `/api/v1/stock/movements` is an item DRILL — it wants an `itemIdOne`, has no date
+        /// range, and hands back raw GUIDs. "Who has been writing stock off this month?" is not a
+        /// question it can answer, and that is the question shrinkage is found by.
+        ///
+        /// ⚠ MANUAL MOVEMENTS ONLY — `Adjustment` and `WriteOff`. Sales, returns, transfers and
+        /// goods-in are all stock movements too and they would bury the handful of rows that
+        /// represent somebody DECIDING to change a number. A report that lists every sale is a sales
+        /// report, and there is one of those.
+        ///
+        /// ⚠ NAMES, NOT IDS. The drill endpoint returns `actorUserId` and `stockLocationId` as
+        /// GUIDs, which is correct for a machine and useless to a manager: nobody recognises a
+        /// person by their UUID, and a report about ACCOUNTABILITY that cannot say who is not a
+        /// report about accountability. Resolved in one pass each, not per row.
+        ///
+        /// ⚠ AN UNKNOWN ACTOR IS SHOWN AS UNKNOWN, never hidden and never blank. Movements folded
+        /// in from the pipeline carry no user, and older rows predate the operator stamp — dropping
+        /// them would quietly shrink the very report somebody is using to account for stock.
+        /// </summary>
+        [HttpGet("api/v1/stock/adjustments")]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> Adjustments(
+            [FromQuery] DateOnly? from, [FromQuery] DateOnly? to,
+            [FromQuery] Guid? locationId, [FromQuery] string itemIdOne, [FromQuery] int take = 200)
+        {
+            // ⚠ Defaults to the last 30 days rather than to ALL OF HISTORY. A report that opens on
+            // every write-off a shop has ever made is slow on the first click and useless on the
+            // second; the range is a query parameter for the times somebody needs further back.
+            var toDay = to ?? DateOnly.FromDateTime(DateTime.UtcNow);
+            var fromDay = from ?? toDay.AddDays(-30);
+
+            if (toDay < fromDay) return BadRequest(new { detail = "to must be >= from." });
+
+            take = Math.Clamp(take, 1, 1000);
+
+            // ⚠ HALF-OPEN ON THE UPPER BOUND. `AtUtc` is a timestamp and the filter is by DAY, so
+            // `<= to` as a date would compare against midnight and silently drop everything written
+            // during the last day of the range — including today's, which is the day somebody is
+            // most likely to be asking about.
+            var fromUtc = fromDay.ToDateTime(TimeOnly.MinValue);
+            var toUtc = toDay.AddDays(1).ToDateTime(TimeOnly.MinValue);
+
+            var rows = await _db.StockMovements.AsNoTracking()
+                .Where(m => m.Type == StockMovementType.Adjustment || m.Type == StockMovementType.WriteOff)
+                .Where(m => m.AtUtc >= fromUtc && m.AtUtc < toUtc)
+                .Where(m => locationId == null || m.StockLocationId == locationId)
+                .Where(m => itemIdOne == null || m.ItemIdOne == itemIdOne)
+                .OrderByDescending(m => m.AtUtc)
+                .Take(take)
+                .Select(m => new
+                {
+                    m.Id, m.StockLocationId, m.ItemIdOne, m.Type, m.QtyDelta,
+                    m.Reason, m.ActorUserId, m.AtUtc,
+                })
+                .ToListAsync();
+
+            // ⚠ Three lookups for the whole page, not three per row.
+            var locations = await _db.StockLocations.AsNoTracking()
+                .Select(l => new { l.Id, l.Name }).ToListAsync();
+
+            var itemIds = rows.Select(r => r.ItemIdOne).Distinct().ToList();
+            var items = await _db.Items.AsNoTracking()
+                .Where(i => itemIds.Contains(i.IdOne))
+                .Select(i => new { i.IdOne, i.Name }).ToListAsync();
+
+            var actorIds = rows.Where(r => r.ActorUserId != null)
+                .Select(r => r.ActorUserId!.Value).Distinct().ToList();
+            // ⚠ Falls back to the EMAIL when a name is blank rather than rendering an empty cell.
+            // A row that names nobody is indistinguishable from a row nobody has looked at.
+            var actors = await _db.People.AsNoTracking()
+                .Where(p => actorIds.Contains(p.Id))
+                .Select(p => new { p.Id, p.FName, p.LName, p.Email }).ToListAsync();
+
+            string ActorName(Guid? id)
+            {
+                if (id == null) return "unknown";
+                var p = actors.FirstOrDefault(a => a.Id == id);
+                if (p == null) return "unknown";
+                var full = $"{p.FName} {p.LName}".Trim();
+                return full.Length > 0 ? full : (p.Email ?? "unknown");
+            }
+
+            return Ok(new
+            {
+                from = fromDay.ToString("yyyy-MM-dd"),
+                to = toDay.ToString("yyyy-MM-dd"),
+                // ⚠ SAID OUT LOUD WHEN THE PAGE IS CAPPED. A silently truncated list of write-offs
+                // reads as "that is all of them", which is the one conclusion this report must never
+                // let somebody reach by accident.
+                truncated = rows.Count == take,
+                rows = rows.Select(r => new
+                {
+                    id = r.Id,
+                    atUtc = r.AtUtc,
+                    type = r.Type.ToString(),
+                    itemIdOne = r.ItemIdOne,
+                    itemName = items.FirstOrDefault(i => i.IdOne == r.ItemIdOne)?.Name,
+                    locationId = r.StockLocationId,
+                    location = locations.FirstOrDefault(l => l.Id == r.StockLocationId)?.Name ?? "?",
+                    qtyDelta = r.QtyDelta,
+                    reason = r.Reason,
+                    actorUserId = r.ActorUserId,
+                    actor = ActorName(r.ActorUserId),
+                }),
+            });
+        }
+
         [HttpGet("api/v1/stock/locations")]
         [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView)]
         [ProducesResponseType(StatusCodes.Status200OK)]

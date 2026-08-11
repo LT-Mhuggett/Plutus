@@ -123,8 +123,115 @@ export default function StockPage() {
         emptyText="No stock rows."
       />
 
+      <AdjustmentsReport locations={locations} />
+
       {drill && <ItemDialog level={drill} locations={locations} onClose={() => { setDrill(null); void refresh(); }} />}
     </section>
+  );
+}
+
+interface AdjustmentRow {
+  id: string; atUtc: string; type: string;
+  itemIdOne: string; itemName: string | null;
+  locationId: string; location: string;
+  qtyDelta: number; reason: string | null;
+  actorUserId: string | null; actor: string;
+}
+interface AdjustmentsResp { from: string; to: string; truncated: boolean; rows: AdjustmentRow[] }
+
+const isoDay = (d: Date) => d.toISOString().slice(0, 10);
+
+/**
+ * The stock ADJUSTMENTS report — who changed a count, by how much, and why.
+ *
+ * Matt, 2026-08-11: "Writing off stock, where is this captured? I need a report on the portal
+ * (that will then be reflected in all tills) that shows stock adjustments."
+ *
+ * It was always captured — every write-off has been a StockMovement row with its reason, actor and
+ * timestamp since WP5.1. What did not exist was a way to READ it as a report: /stock/movements is a
+ * per-item drill with no date range that returns raw GUIDs, so "who has been writing stock off this
+ * month?" — the question shrinkage is found by — had no answer.
+ *
+ * It lives on the Stock page rather than in Reporting on purpose: this is where somebody already is
+ * when they are thinking about stock, and a report nobody navigates to is the problem we just fixed
+ * for drawer variances.
+ */
+function AdjustmentsReport({ locations }: { locations: LocationRow[] }) {
+  const [from, setFrom] = useState(isoDay(new Date(Date.now() - 30 * 86400_000)));
+  const [to, setTo] = useState(isoDay(new Date()));
+  const [locationId, setLocationId] = useState("");
+  const [data, setData] = useState<AdjustmentsResp | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setError("");
+    j<AdjustmentsResp>(
+      "GET",
+      `/api/v1/stock/adjustments?from=${from}&to=${to}&take=1000${locationId ? `&locationId=${locationId}` : ""}`,
+    ).then(setData).catch((e) => setError(String(e)));
+  }, [from, to, locationId]);
+
+  // Written off vs added back, counted separately — a stock take that corrected +5 on one item and
+  // −5 on another is not a nil event, and one netted number would report it as one.
+  const out = (data?.rows ?? []).filter((r) => r.qtyDelta < 0).reduce((n, r) => n + -r.qtyDelta, 0);
+  const back = (data?.rows ?? []).filter((r) => r.qtyDelta > 0).reduce((n, r) => n + r.qtyDelta, 0);
+
+  return (
+    <>
+      <h3>Stock adjustments</h3>
+      <p className="muted small">
+        Every manual change to a count — write-offs and stock takes. Sales, returns, transfers and
+        goods-in are movements too and are deliberately not here; they would bury these.
+      </p>
+      <div className="toolbar">
+        <label>From <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+        <label>To <input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+        <label>
+          Location{" "}
+          <select value={locationId} onChange={(e) => setLocationId(e.target.value)}>
+            <option value="">All locations</option>
+            {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+          </select>
+        </label>
+      </div>
+      {error && <p className="error">{error}</p>}
+      {data && (
+        <p className="muted small">
+          {data.rows.length.toLocaleString()} adjustment{data.rows.length === 1 ? "" : "s"} ·{" "}
+          <strong>{out.toLocaleString()}</strong> written off · <strong>{back.toLocaleString()}</strong> added back
+          {/* Never let a capped page read as "that is all of them". */}
+          {data.truncated && <span className="error"> · ⚠ capped — narrow the dates to see the rest</span>}
+        </p>
+      )}
+      <DataTable<AdjustmentRow>
+        columns={[
+          { key: "atUtc", label: "When", render: (r) => new Date(r.atUtc + "Z").toLocaleString("en-GB") },
+          { key: "type", label: "Type" },
+          { key: "itemIdOne", label: "Item", render: (r) => <span className="mono small">{r.itemIdOne}</span> },
+          { key: "itemName", label: "Name", render: (r) => r.itemName ?? <span className="muted">?</span> },
+          { key: "location", label: "Location" },
+          {
+            key: "qtyDelta", label: "Change", numeric: true,
+            // Negative in red: a count going DOWN is the direction that costs money.
+            render: (r) => (
+              <span className={r.qtyDelta < 0 ? "error" : undefined}>
+                {r.qtyDelta > 0 ? `+${r.qtyDelta}` : r.qtyDelta}
+              </span>
+            ),
+          },
+          { key: "reason", label: "Reason", render: (r) => r.reason ?? <span className="muted">none given</span> },
+          // "unknown" comes from the server for movements that carry no user — shown, never hidden.
+          { key: "actor", label: "Who", render: (r) => r.actor === "unknown" ? <span className="muted">unknown</span> : r.actor },
+        ]}
+        rows={data?.rows ?? []}
+        getKey={(r) => r.id}
+        initialSortKey="atUtc"
+        initialSortDir="desc"
+        search={(r) => `${r.itemIdOne} ${r.itemName ?? ""} ${r.reason ?? ""} ${r.actor}`}
+        searchPlaceholder="Search item / reason / who…"
+        emptyText="No stock adjustments in this range."
+      />
+    </>
   );
 }
 

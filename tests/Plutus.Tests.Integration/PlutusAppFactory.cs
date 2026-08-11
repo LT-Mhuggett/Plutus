@@ -65,7 +65,18 @@ public class PlutusAppFactory : WebApplicationFactory<Program>
                          .Where(d => d.ImplementationType?.FullName is
                              "Plutus.Infrastructure.Outbox.OutboxDispatcher" or
                              "Plutus.Tenancy.RetentionSweeper" or
-                             "Plutus.Infrastructure.Health.RequestStatsFlusher")
+                             "Plutus.Infrastructure.Health.RequestStatsFlusher" or
+                             // ⚠ ADDED 2026-08-11, and it was already breaking things. The
+                             // reconciler enumerates `Tenants` on boot to grant missing built-in
+                             // permissions — correct in production, and on this host it races the
+                             // startup `EnsureCreated` on the one shared connection. The symptom is
+                             // `SQLite Error 1: 'no such table: Tenants'` surfacing as a transient
+                             // MySQL retry suggestion, which points nowhere near the real cause.
+                             // ⚠ It was intermittent: it depended on which class booted the host
+                             // and how fast its first request arrived, so the suite stayed green
+                             // until `StockAdjustmentReportE2eTests` shifted the timing and took
+                             // out all eight of its tests at once.
+                             "Plutus.Identity.RolePermissionReconciler")
                          .ToList())
                 services.Remove(d);
         });
