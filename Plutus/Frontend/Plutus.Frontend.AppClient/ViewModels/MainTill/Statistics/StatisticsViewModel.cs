@@ -102,8 +102,14 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Statistics
         /// while it is being built, and a figures panel that fails must never be able to stop
         /// somebody signing in. That exact shape — a viewmodel constructor throwing — is how a
         /// correct password came back as "something went wrong signing in" on 2026-08-09.
+        ///
+        /// ⚠ PUBLIC AND RE-ENTRANT, because it is called again on every cadence tick while this
+        /// screen is up. It was called ONCE, from the constructor `AppShell` runs at sign-in — so
+        /// the takings figure was frozen at whatever it read the moment the operator signed in, and
+        /// a full day of selling never moved it. It redraws by clearing <see cref="_today"/> first,
+        /// so repeat calls replace the panel rather than stacking copies of it.
         /// </summary>
-        private void LoadToday()
+        public void LoadToday()
         {
             _ = Task.Run(async () =>
             {

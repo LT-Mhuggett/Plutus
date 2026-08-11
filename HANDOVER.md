@@ -31,9 +31,9 @@ Steps 1–20, 23, 25 and half of 26 are done. **~40 working days left**, two thi
 | | |
 |---|---|
 | **Suite** | Unit **875** · Integration **157** · Architecture **15** · AppClient **422** (+3 skipped) — **all green**, working tree clean |
-| **Till build to run** | **`D:\tmp\plutus-till-1.43.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
+| **Till build to run** | **`D:\tmp\plutus-till-1.44.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
 | **Hand-run script** | [`Build/shop-day-test.md`](Build/shop-day-test.md) — ⚠ **§5 is where everything new lives** and none of it has been run by a person yet |
-| **Versions** | till-maui **1.43.0** · backend **1.10.0 DEPLOYED** · platform **1.26.0** · portal **1.3.0** · till-web **1.5.0** · agent **1.3.3** |
+| **Versions** | till-maui **1.44.0** · backend **1.10.0 DEPLOYED** · platform **1.26.0** · portal **1.3.0** · till-web **1.5.0** · agent **1.3.3** |
 | **Deployed** | backend **1.10.0** LIVE (2026-08-11 11:26) — rollback `~/PLUTUS/backend.pre-20260811-1145`, previous `.pre-20260811-103300` (1.9.0). Portal 1.3.0, web till 1.5.0 unchanged. ⚠ ETRIE verified 200 after the swap |
 | **Commits** | **40 unpushed** on `Matt's-Horror` (upstream at `4d29877`). Today's ten run `92a39d4` → `87fdb96` |
 | **Health** | Plutus 200 · ETRIE 200 · backend up; 838 restarts is the historical rotation count and is not climbing |
@@ -65,10 +65,26 @@ roles × two tenants gaining `pos.stock.adjust`.
 
 #### ⚠⚠ WHAT STILL WAITS ON A HUMAN
 
-**One thing, and it is the only one left: HAND-RUN THE SHOP-DAY SCRIPT** on
-`D:\tmp\plutus-till-1.43.0`. Twelve builds landed across two days and **not one screen has been
-touched by a person.** [`Build/shop-day-test.md`](Build/shop-day-test.md) ranks what is most likely
-wrong; **§5** is where everything new lives and **§5z** is new today.
+**RE-RUN THE SHOP-DAY SCRIPT on `D:\tmp\plutus-till-1.44.0`.** Matt hand-ran it on 2026-08-11 and it
+found **thirteen faults, A–M** — all now recorded, ranked and answered in
+[`Build/handrun-2026-08-11.md`](Build/handrun-2026-08-11.md), which is the register to read before
+touching any of them. That hand-run is why 1.42.0–1.44.0 exist.
+
+⚠ **What needs a person's eyes this time**, because it is fixed in code and unproven on hardware:
+
+| Where | What to check |
+|---|---|
+| **§5** | Click into the Inventory search bar — it crashed reliably on 1.41.0 (**A**) |
+| **§7** | Ring a sale AFTER a Z close — both the till and the platform must now refuse it (**B**) |
+| **§4** | Refund a CARD sale: cash must not be offered (**G**). Then re-add an item you have just sold (**C**) |
+| **§3** | Overpay by card, and underpay in cash — both must say what is wrong, not "something went wrong" (**D**) |
+| **§1** | Open a float and **stay on the Cash tab**: "(waiting to send)" must clear on its own within a minute (**J**) |
+| **Reporting** | Ring a sale, **stay on the tab**: today's takings must move. It used to freeze at sign-in (**N**) |
+| tabs | Till · Cash · Inventory Management · Reporting · Store Information · Settings · Plutus (**M**) |
+
+⚠ **L is still an open QUESTION, not a fix.** Matt reported a "Delete item"; **there is none anywhere
+in the till** — I searched the whole app. The only "Delete…" is in the CATEGORIES flow and it deletes
+a category, so every label there now says so. **If you saw it somewhere else, say where.**
 
 ⚠ **Press Plutus → "Re-download the whole catalogue" first.** The backend now sends brand,
 description and cost, but an existing till only receives new FIELDS for items that change after it
@@ -84,6 +100,11 @@ hardware.
 
 | Build | What |
 |---|---|
+| **1.44.0** | **J + N — the screens are told when something changes.** `TillCadence.Ticked`; the Cash tab stops showing "(waiting to send)" against money already sent, and **today's takings stop being frozen at sign-in** |
+| **1.43.0** | **G, L, M** — refunds go back the way they were paid; every "Delete…" says CATEGORY; tabs match the web till |
+| **1.42.0** | **A, C, D, E, K** — the search crash; the ghost line; the payment dialog's real words; the edit form stops hiding below the fold |
+| **1.41.0** | The heartbeat re-reads permissions — **a disabled account is signed out mid-shift** with Matt's wording |
+| **1.40.0** | The stock gate refused an OWNER — the till's check now mirrors the server's (`CheckAny`) |
 | **1.39.0** | Stock adjustment from the till (`pos.stock.adjust`, Supervisor and up, never Cashier) — **step 25 closes** |
 | **1.38.0** | Category create / rename / reassign / delete — the 409 becomes the way through |
 | **1.37.0** | The stock column stops reading as zero; the Bin; the offline-tombstone rule finally pinned |

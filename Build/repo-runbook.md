@@ -256,6 +256,19 @@ is needed before anyone installs this on a shop PC, and is not needed to test.
     `FileSystem.AppDataDirectory\logs`. ⚠ **Tells for a test-host log**: errors in identical PAIRS,
     timestamps that match your own test runs rather than a shift, and
     `COMException: ClassFactory cannot supply requested class` from `MainThread`/`FileSystem`.
+17. ⚠ **`AppShell` BUILDS EVERY TAB UP FRONT, so a viewmodel constructor runs ONCE — at sign-in.**
+    Anything loaded there is frozen for the life of the session. `StatisticsViewModel` called
+    `LoadToday()` from its constructor, so today's takings were fixed at the moment the operator
+    signed in and a full day of trading never moved them. ⚠ **`OnAppearing` is not enough either**
+    for anything that changes while the screen is up: the Cash tab showed "(waiting to send)"
+    against money the outbox had already delivered, and the only way to find out was to leave the
+    page and come back. **Subscribe to `Services.Sync.TillCadence.Ticked`** in `OnAppearing` and
+    **unsubscribe in `OnDisappearing`** — it is a static event, so a page that stays attached is
+    held alive for the life of the process along with every query it makes each minute. Handlers
+    arrive on the cadence thread, must marshal their own UI work, and must not throw.
+    ⚠ **The dangerous one is the silent one.** A stuck "(waiting to send)" gets reported within the
+    hour; a takings total eight hours stale looks exactly like a correct one. **When you find one
+    stale screen, go and look for its siblings straight away.**
 
 ⚠ **The standing check these came from:** a green suite proves a component works, never that
 anything *uses* it. `OutboxPusher.DrainAsync`, the catalogue browse and `TillStore.SearchAsync` were

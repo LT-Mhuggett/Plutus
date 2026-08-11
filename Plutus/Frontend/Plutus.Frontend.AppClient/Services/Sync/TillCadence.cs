@@ -63,6 +63,33 @@ namespace Plutus.Frontend.AppClient.Services.Sync
         public static string LastResult { get; private set; } = "Not started.";
 
         /// <summary>
+        /// Raised after every tick, so a screen showing queued state can redraw.
+        ///
+        /// ⚠ Matt, 2026-08-11: *"The open float was 'Waiting' and never updated. I navigated away
+        /// and back onto the cash tab and it had updated."* The DATA was right — the drain worked
+        /// and the queue cleared — but the Cash screen only ever redrew in `OnAppearing`, so the
+        /// operator stared at "(waiting to send)" against something already sent, and the only way
+        /// to find out was to leave the page and come back.
+        ///
+        /// ⚠ AN EVENT, NOT A SECOND TIMER. This class exists because four timers drift into each
+        /// other and fire together behind a rate limit sized for one — a screen adding its own
+        /// refresh clock would be the fifth. The tick already knows when something changed; it just
+        /// never said so.
+        ///
+        /// ⚠ RAISED FROM <see cref="TickAsync"/>, so it covers EVERY tick — the timer's, the Plutus
+        /// tab's "sync now", and the one the cash screen nudges the instant it records a float. That
+        /// last one is the case that matters: recording writes "(waiting to send)", the nudged tick
+        /// clears it, and until now nothing told the screen.
+        ///
+        /// ⚠ HANDLERS MUST NOT THROW AND MUST NOT ASSUME A UI THREAD. This fires from the
+        /// background loop, and an escape here would take the app down from a thread with no
+        /// handler — so the raise is wrapped, and a subscriber that touches UI marshals itself.
+        /// ⚠ Subscribers must UNSUBSCRIBE when their screen goes away, or a static event holds
+        /// every page the till has ever shown alive for the life of the process.
+        /// </summary>
+        public static event Action Ticked;
+
+        /// <summary>
         /// Start ticking. ⚠ Idempotent — sign-in, a connectivity change and a resume all call this,
         /// and starting twice would double every call the loop makes.
         /// </summary>
@@ -107,6 +134,9 @@ namespace Plutus.Frontend.AppClient.Services.Sync
             {
                 try
                 {
+                    // ⚠ `Ticked` is raised inside `TickAsync`, NOT here — see its header. Raising it
+                    // from the loop would redraw on the timer and miss every nudged tick, which
+                    // includes the one the cash screen fires the instant it records a float.
                     await TickAsync(ct).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -153,6 +183,24 @@ namespace Plutus.Frontend.AppClient.Services.Sync
             {
                 Analytics.CrashLog.Write("TillCadence.TickAsync", ex);
                 return LastResult = "Couldn't sync with Plutus. See the Plutus tab's log.";
+            }
+            finally
+            {
+                // ⚠ HERE, NOT IN THE LOOP, so EVERY tick redraws — the timer's, the Plutus tab's
+                // "sync now", and the one the cash screen nudges the moment it records a float. That
+                // last one is the whole point: recording writes `(waiting to send)`, the nudged tick
+                // sends it, and nothing then told the screen. Raised from the loop instead, the
+                // label would have sat wrong for up to a further minute.
+                //
+                // ⚠ IN A `finally`, so a tick that FAILED still redraws. The screen's job is to show
+                // what is true, and "still waiting to send" is true — leaving the last render up
+                // because the network was down is how a stale figure outlives the fault behind it.
+                //
+                // ⚠ AND IN ITS OWN GUARD. A screen's redraw is not worth the loop: a subscriber that
+                // throws must not be able to stop the heartbeat, the drain or the catalogue for
+                // every tick after it.
+                try { Ticked?.Invoke(); }
+                catch (Exception ex) { Analytics.CrashLog.Write("TillCadence.Ticked", ex); }
             }
         }
 
