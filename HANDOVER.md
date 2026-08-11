@@ -33,10 +33,26 @@ Steps 1–20, 23, 25 and half of 26 are done. **~40 working days left**, two thi
 | **Suite** | Unit **875** · Integration **157** · Architecture **15** · AppClient **422** (+3 skipped) — **all green**, working tree clean |
 | **Till build to run** | **`D:\tmp\plutus-till-1.48.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe |
 | **Hand-run script** | [`Build/shop-day-test.md`](Build/shop-day-test.md) — ⚠ **§5 is where everything new lives** and none of it has been run by a person yet |
-| **Versions** | till-maui **1.48.0** · backend **1.15.0 BUILT — 1.14.0 is LIVE** · platform **1.26.0** · portal **1.6.0 DEPLOYED** · till-web **1.6.0 DEPLOYED** · agent **1.3.3** |
+| **Versions** | till-maui **1.48.0** · backend **1.15.0 DEPLOYED** · platform **1.26.0** · portal **1.6.0 DEPLOYED** · till-web **1.6.0 DEPLOYED** · agent **1.3.3** |
 | **Deployed** | backend **1.13.0** LIVE (19:01, carries a MIGRATION) · portal **1.5.0** + web till **1.6.0** LIVE (15:20-15:22, version labels FIXED) (2026-08-11 12:57) — rollback `~/PLUTUS/backend.pre-20260811-1357`, then `.pre-20260811-1340` (1.11.0), `.pre-20260811-1145` (1.10.0), `.pre-20260811-103300` (1.9.0). Portal 1.3.0, web till 1.5.0 unchanged. ⚠ ETRIE verified 200 after the swap |
 | **Commits** | **40 unpushed** on `Matt's-Horror` (upstream at `4d29877`). Today's ten run `92a39d4` → `87fdb96` |
 | **Health** | Plutus 200 · ETRIE 200 · backend up; 838 restarts is the historical rotation count and is not climbing |
+
+#### ✅ BACKEND 1.15.0 DEPLOYED — 2026-08-11 19:58 (no migration)
+
+The server half of the Z-close REOPEN: `ZReopen` accepted, and both the cash guard and the sales
+gate moved onto the shared `CashDay.IsClosed` (latest Z-mark wins). Rollback
+`~/PLUTUS/backend.pre-20260811-2010`. ⚠ No schema change — `ZReopen = 5` is a new value in an
+existing byte column — so no dump was required.
+
+⚠⚠ **THE CHECK THAT MATTERED: did `pos.cash.reopen` reach live tenants?** A new permission that never
+gets granted makes the feature dead on arrival, and the boot log showed no "Role reconcile" line —
+which looked alarming and was not: it logs a summary I had grepped for wrongly. Verified in the
+database instead: **8 grants — Owner, Company Admin, Store Manager, Supervisor, across both tenants**,
+exactly matching `pos.stock.adjust`. `RolePermissionReconciler` earning its place again.
+
+ping **1.15.0** · DB-path probe **401** · cash-events **401** not 500 · ETRIE **200** (43h uptime) ·
+portal **200** · **0 restarts**.
 
 #### ✅ BACKEND 1.14.0 + PORTAL 1.6.0 DEPLOYED — 2026-08-11 19:20 (carries a MIGRATION)
 
