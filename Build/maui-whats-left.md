@@ -313,6 +313,9 @@ Parity is not a synonym for "catch MAUI up". Three rows run the other way:
 | Row | Why |
 |---|---|
 | **Offline sign-in with an expiry** | MAUI has it (WP8 + WP16b, tiered horizons in `SharedKernel.OfflineCredentials`). The web till **cannot sign in offline at all** — WP17.1 |
+| ⚠⚠ **A disabled operator is signed OUT** | **WP17.4 — added 2026-08-11, and the row's Notes were EMPTY until then.** MAUI drops a disabled operator within 60 s of the portal disabling them, with Matt's wording. The web till has **no proactive check at all**: it signs out only when a request happens to return 401 (`api.ts:50`), and login tokens are cached **12 hours** with their permission set. ⚠ How quickly a refusal actually arrives is untraced — `perm:*` resolves live from RBAC by userId, so a permission-gated call may well 401 promptly — but "we think something will fail eventually" is not the same rule as "you are signed out now", and this is the row where that distinction is the point |
+| **Roster + permissions re-read on a cadence** | **WP17.4**, the same change — the web till posts its heartbeat and **discards the response**, so `Locked`, `SyncNow` and `CatalogueCursor` are dead there too. One cadence would fix all four |
+| **Reprint a receipt for a past sale** | MAUI has it (step 26, till 1.34.0), marked *"REPRINT — not a new sale"*. Web ⬜ — **WP11**, joining the reporting screen that already lists sales |
 | **Connection status** | Web is on `navigator.onLine`; both tills should move onto the shared `ConnectivityProbe` — WP17.3 |
 | **Card surcharge** | Built on MAUI 2026-08-09. Web deliberately ⬜ — it reads `charge`/`minimumCharge` off the legacy wire and ignores them, and no tenant charges a fee today (UK consumer surcharges have been **banned since 2018-01-13**). Rides WP15's checkout reshape |
 
