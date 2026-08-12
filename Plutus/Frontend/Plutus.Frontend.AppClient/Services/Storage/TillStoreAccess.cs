@@ -43,7 +43,35 @@ namespace Plutus.Frontend.AppClient.Services.Storage
         {
             if (work is null) throw new ArgumentNullException(nameof(work));
 
-            await Gate.WaitAsync(ct).ConfigureAwait(false);
+            // ⚠⚠ A TIMEOUT, BECAUSE WITHOUT ONE A SINGLE HANG BRICKS ALL STORAGE IN SILENCE.
+            //
+            // Every store call in the app queues behind this one gate. `Release()` is in a `finally`,
+            // so a call that finishes OR throws always frees it — but a call that never returns holds
+            // it for ever, and then every later read simply waits: the scan box accepts text and
+            // nothing happens, the Cash tab never redraws, and no error is raised anywhere. There is
+            // no way to tell that from "the feature is broken".
+            //
+            // ⚠ Matt, 2026-08-11: *"I could cancel the item, but then searching stopped working."*
+            // I have NOT proven this is that bug — `IsBusy` is cleared in a `finally` on every path,
+            // the cancel handler touches no shared state, and nothing awaits a dialog while holding
+            // this gate. But this is the one mechanism found that produces exactly that symptom with
+            // no trace, and an unfalsifiable failure mode is worth closing on its own account.
+            //
+            // ⚠ 30 SECONDS, and it is deliberately long. This gate is held across a heartbeat with
+            // its own 30s deadline plus two drains, so a busy tick can legitimately queue a read for
+            // several seconds; anything past half a minute is not contention, it is a hang.
+            // ⚠ AND IT THROWS RATHER THAN RETURNING A DEFAULT. A silent empty answer here is how a
+            // blank stock column read as zero (2026-08-10) — the caller's own catch will report it,
+            // and the log will name which caller was waiting.
+            if (!await Gate.WaitAsync(TimeSpan.FromSeconds(30), ct).ConfigureAwait(false))
+            {
+                var stuck = new TimeoutException(
+                    "The till's local store did not become free within 30 seconds. Something is "
+                    + "holding it open; this call was abandoned rather than waiting for ever.");
+                Analytics.CrashLog.Write("TillStoreAccess.UseAsync(timeout)", stuck);
+                throw stuck;
+            }
+
             try
             {
                 if (_store is null)
