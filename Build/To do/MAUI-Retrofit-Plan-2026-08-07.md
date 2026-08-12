@@ -1,4 +1,14 @@
 # MAUI Retrofit — the single plan
+> ## ⚠⚠ THIS PLAN'S STATUS BOARD IS NO LONGER MAINTAINED — read [`MAUI-parity.md`](../MAUI-parity.md)
+>
+> **Superseded for STATUS on 2026-08-12, at Matt's request** (*"I need this consolidated into one
+> document"*). The board below was actively wrong: it showed steps 23 and 25 unticked when both had
+> shipped, which is precisely the confusion of keeping status in four places.
+>
+> ⚠ **This document is NOT retired.** It holds the step BODIES, the DoDs and the execution protocol —
+> real knowledge that is not repeated anywhere else. **Read it for HOW to build a step; read
+> `MAUI-parity.md` for WHETHER it is built.**
+
 
 **Date:** 2026-08-07 · **Status:** plan; no code written from it yet.
 **Goal:** take Sean's MAUI till (`Plutus.Frontend.AppClient`), which today is a fully offline,

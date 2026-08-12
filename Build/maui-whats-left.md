@@ -1,5 +1,16 @@
 # MAUI retrofit — what is left to change
 
+> ## ⚠⚠ SUPERSEDED 2026-08-12 — read [`MAUI-parity.md`](MAUI-parity.md)
+>
+> Consolidated into one page at Matt's request: *"I need this consolidated into one document with a
+> clear 'What has been completed' section and 'What remains'."* Status lived in four places — this
+> page, `HANDOVER.md`, and the two plans in `To do/` — and they disagreed. The two plans keep their
+> step bodies and DoDs; **status now lives in `MAUI-parity.md` alone.**
+>
+> Kept for its history: the reasoning about why steps were ordered as they were, and the record of
+> components found built-and-uncalled, is preserved below.
+
+
 **Matt, 2026-08-10:** *"I do need to finish the entire MAUI retrofit plan to understand what is left
 to change."*
 

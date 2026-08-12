@@ -50,7 +50,12 @@ both ways — a real run gives 63 MB / 101 tables; a deliberately broken one exi
 
 ⚠ **Nothing above is blocked.** 1–5 are all small-to-medium; 6 is the next planned step.
 
-### Where MAUI parity stands — counted, not estimated
+### Where MAUI parity stands → ⚠ **[`Build/MAUI-parity.md`](Build/MAUI-parity.md)** is now the ONE page
+
+**Consolidated 2026-08-12** at Matt.s request: what remains at the top, what is completed at the
+bottom. The two `To do/` plans keep their step bodies and DoDs but their status boards are no longer
+maintained — one still showed steps 23 and 25 unticked after both had shipped. The summary below is
+kept in step with it.
 
 **75 capability rows: 40 ✅ both tills · 15 MAUI ⬜ · 7 MAUI 🟡 · 5 where MAUI is AHEAD.**
 

@@ -20,12 +20,35 @@ import { ask } from "./Ask.tsx";
  * Note there can be at most one live device per till (FE6.1's one-active-device rule), so the
  * common case is exactly one chip.
  */
+/**
+ * Parse a timestamp the API sent, whether or not it already says it is UTC.
+ *
+ * ⚠⚠ THIS EXISTS BECAUSE `+ "Z"` SHIPPED A BUG THE SAME DAY IT FIXED ONE. Matt, 2026-08-12, with a
+ * screenshot: every till read **"Invalid Date"**.
+ *
+ * The pattern all over this file was `new Date(value + "Z")`, which assumes the server always sends
+ * a BARE timestamp. It did, while "last online" came from a MySQL column — EF hands those back as
+ * `DateTimeKind.Unspecified`, which System.Text.Json writes without a suffix. The fix on 2026-08-11
+ * made the value come from `TillPresence` instead, which records `DateTime.UtcNow` — **Kind=Utc**,
+ * which serialises **with a trailing `Z`**. So `+ "Z"` produced `…ZZ`, and `Date` gave up.
+ *
+ * ⚠ The tell was in the screenshot: the webstore row said "never" (no device, so null, so the empty
+ * branch) while every row with a live till said "Invalid Date". Only the non-null path was broken.
+ *
+ * ⚠ So this stops guessing what the server meant. A value that already carries `Z` or a `+01:00`
+ * offset is passed through untouched; a bare one is treated as UTC, which is what every timestamp
+ * on this API is. The whole class of bug goes with it.
+ */
+function apiDate(value: string): Date {
+  return new Date(/[Zz]$|[+-]\d\d:?\d\d$/.test(value) ? value : value + "Z");
+}
+
 /** FE3.0: what we know about a device's hardware agent, as a chip. Never reported → nothing (a
  *  native till, or a web till from before this feature). Reported without a version → the web till
  *  looked at its PC and found no agent installed. */
 function AgentChip({ d }: { d: TillRow["devices"][number] }) {
   if (!d.agentReportedAtUtc) return null;
-  const reported = new Date(d.agentReportedAtUtc + "Z").toLocaleString("en-GB");
+  const reported = apiDate(d.agentReportedAtUtc).toLocaleString("en-GB");
   if (!d.agentVersion) {
     return <span className="chip" title={`The till checked its PC and found no hardware agent (last checked ${reported}). Receipts print as PDF.`}>no agent</span>;
   }
@@ -52,7 +75,7 @@ function AgentChip({ d }: { d: TillRow["devices"][number] }) {
  * of the BACKEND is expected and resolves itself.
  */
 function VersionChip({ d }: { d: TillRow["devices"][number] }) {
-  const seen = d.lastSeenUtc ? new Date(d.lastSeenUtc + "Z").toLocaleString("en-GB") : null;
+  const seen = d.lastSeenUtc ? apiDate(d.lastSeenUtc).toLocaleString("en-GB") : null;
 
   if (!d.appVersion) {
     return (
@@ -350,7 +373,7 @@ export default function StoresPage() {
             // empty case has to be handled explicitly rather than left to the formatter.
             key: "lastOnline", label: "Last online",
             render: (t) => t.lastOnline
-              ? <span className="small">{new Date(t.lastOnline + "Z").toLocaleString("en-GB")}</span>
+              ? <span className="small">{apiDate(t.lastOnline).toLocaleString("en-GB")}</span>
               : <span className="muted small">never</span>,
           },
           ]}
@@ -497,7 +520,7 @@ function TillsTable({ tills, busy, onRename, onRemove, onRevoke, storeId, onNewT
             // empty case has to be handled explicitly rather than left to the formatter.
             key: "lastOnline", label: "Last online",
             render: (t) => t.lastOnline
-              ? <span className="small">{new Date(t.lastOnline + "Z").toLocaleString("en-GB")}</span>
+              ? <span className="small">{apiDate(t.lastOnline).toLocaleString("en-GB")}</span>
               : <span className="muted small">never</span>,
           },
           {
