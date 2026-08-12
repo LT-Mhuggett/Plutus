@@ -1,13 +1,20 @@
 # MAUI Retrofit — the single plan
-> ## ⚠⚠ THIS PLAN'S STATUS BOARD IS NO LONGER MAINTAINED — read [`MAUI-parity.md`](../MAUI-parity.md)
+> ## 📦 ARCHIVED 2026-08-12 — folded into [`Build/MAUI-retrofit.md`](../MAUI-retrofit.md)
 >
-> **Superseded for STATUS on 2026-08-12, at Matt's request** (*"I need this consolidated into one
-> document"*). The board below was actively wrong: it showed steps 23 and 25 unticked when both had
-> shipped, which is precisely the confusion of keeping status in four places.
+> **Matt, 2026-08-12:** *"I do not know why its splintered into so many."* This plan already replaced
+> six earlier documents (the table below); on 2026-08-12 it and four others became **one**.
 >
-> ⚠ **This document is NOT retired.** It holds the step BODIES, the DoDs and the execution protocol —
-> real knowledge that is not repeated anywhere else. **Read it for HOW to build a step; read
-> `MAUI-parity.md` for WHETHER it is built.**
+> **Everything still live is in `MAUI-retrofit.md`:** the WP bodies and DoDs for open work (§3),
+> binding defaults 1–9 (§13), the offline-credential horizons (§14), the risk register (§9), the
+> item-identity seam with the translation agent (§16), the architecture decisions (§18), the VAT
+> rules (§22) and the WP-by-WP record (§21).
+>
+> **What shipped from this plan:** WP0–WP6, WP8 (bar the Users screen), WP9, WP10, WP2b/2c and the
+> VAT law fixes — the transport spine, the money path and the screens up to inventory. **What did
+> not:** WP7 theming, WP8's Users screen, WP11 reporting, WP12 loyalty, WP13 gift cards, WP14's
+> checkout XAML, WP15 (the web till's test runner — needs the Mac) and WP16/WP17's remaining halves.
+>
+> ⚠ **Read the §3b board below as history, never as state.**
 
 
 **Date:** 2026-08-07 · **Status:** plan; no code written from it yet.

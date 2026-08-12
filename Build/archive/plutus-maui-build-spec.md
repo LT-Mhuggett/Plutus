@@ -1,4 +1,4 @@
-> **📦 SUPERSEDED — pause lifted, folded into [`Build/To do/MAUI-Retrofit-Plan-2026-08-07.md`](../To%20do/MAUI-Retrofit-Plan-2026-08-07.md).**
+> **📦 SUPERSEDED — pause lifted, folded into [`Build/archive/MAUI-Retrofit-Plan-2026-08-07.md`](MAUI-Retrofit-Plan-2026-08-07.md).**
 > The upstream MAUI code this spec was waiting for **has landed** (`Plutus.Frontend.AppClient`,
 > merged at `4494a57`), so the ⏸ hold below is void. Its M0–M4 acceptance criteria and the local
 > schema v2 design were carried forward — they were the best-specified part of it and stand as

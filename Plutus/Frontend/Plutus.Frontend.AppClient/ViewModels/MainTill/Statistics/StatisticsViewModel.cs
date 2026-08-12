@@ -43,7 +43,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Statistics
             //
             // ⚠ NOTHING IS DELETED. A till migrated from NatApp still holds real pre-cutover history
             // in that file, and these screens are how you read it — once the key is renewed. Recorded
-            // in `Build/legacy-removal.md` (L4).
+            // in `Build/MAUI-retrofit.md` §10 (L4).
             // ⚠ REPRINT LIVES HERE, on the "what has this till taken today" screen (cutover step
             // 26). It is the screen an operator is already on when somebody comes back to the
             // counter without their receipt, and it is the only screen in the app that lists past

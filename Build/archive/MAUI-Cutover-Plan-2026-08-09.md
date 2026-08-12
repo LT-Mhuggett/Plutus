@@ -1,13 +1,18 @@
 # MAUI cutover + parity — the execution plan (WP6–13, no questions)
-> ## ⚠⚠ THIS PLAN'S STATUS BOARD IS NO LONGER MAINTAINED — read [`MAUI-parity.md`](../MAUI-parity.md)
+> ## 📦 ARCHIVED 2026-08-12 — folded into [`Build/MAUI-retrofit.md`](../MAUI-retrofit.md)
 >
-> **Superseded for STATUS on 2026-08-12, at Matt's request** (*"I need this consolidated into one
-> document"*). The board below was actively wrong: it showed steps 23 and 25 unticked when both had
-> shipped, which is precisely the confusion of keeping status in four places.
+> **Matt, 2026-08-12:** *"I do not know why its splintered into so many."* Five MAUI documents became
+> one. **Everything in here that was still live is in `MAUI-retrofit.md`** — the execution protocol
+> (§12), binding defaults 10–18 (§13), every open step's body and DoD (§3), the pitfalls (§15), the
+> USER-VERIFY checklist (§8) and the record of the delivered steps (§20).
 >
-> ⚠ **This document is NOT retired.** It holds the step BODIES, the DoDs and the execution protocol —
-> real knowledge that is not repeated anywhere else. **Read it for HOW to build a step; read
-> `MAUI-parity.md` for WHETHER it is built.**
+> **What shipped from this plan:** steps 1–21, 23, 25 and the reprint half of 26 — a MAUI till that
+> trades a full shop day. **What did not:** 11b (the basket reshape, promoted and still open), 22, 24,
+> the rest of 26, 27 and 28.
+>
+> ⚠ **Its status board was wrong when it was archived** — it showed steps 23 and 25 unticked after
+> both had shipped, which is exactly why one document now carries the status. **Read the board below
+> as history, never as state.**
 
 
 **Created 2026-08-09; rewritten the same day as the SELF-SUFFICIENT execution document** for an
@@ -43,7 +48,7 @@ tested, and called from **nowhere** — `OutboxPusher.DrainAsync`, the catalogue
 `TillStore.SearchAsync`, and `NoticesClient`, which appears in the entire AppClient **once, in a
 comment**. When a screen looks broken, grep for callers before debugging the component.
 
-📄 **[`../maui-whats-left.md`](../maui-whats-left.md)** is the short answer to "how much is left" —
+📄 **[`../maui-whats-left.md`](maui-whats-left.md)** is the short answer to "how much is left" —
 every remaining step in order with rough effort, which step carries each smaller Part B row, and the
 three rows where the *web* till is behind. This document remains the **how**; that one is the
 **how much**.

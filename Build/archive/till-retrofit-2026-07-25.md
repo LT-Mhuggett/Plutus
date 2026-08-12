@@ -1,4 +1,4 @@
-> **📦 SUPERSEDED — the MAUI column moved to [`Build/To do/MAUI-Retrofit-Plan-2026-08-07.md`](../To%20do/MAUI-Retrofit-Plan-2026-08-07.md).**
+> **📦 SUPERSEDED — the MAUI column moved to [`Build/archive/MAUI-Retrofit-Plan-2026-08-07.md`](MAUI-Retrofit-Plan-2026-08-07.md).**
 > The web-POS column was closed on 2026-07-25 and stays closed. The four MAUI to-dos (effective
 > pricing, customer attach, store credit, CustomerId on the sale) are now WP10 and WP12 there.
 > Row 4 (card capture) is greenfield for both tills — there is no integration code anywhere in the

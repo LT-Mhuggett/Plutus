@@ -1,12 +1,13 @@
 # Handover — Plutus platform build
 
-**Date:** 2026-08-10 — Platform on **.NET 10**. Backend **1.7.0**, portal **1.3.0** and web till
-**1.5.0** are DEPLOYED to the test environment. All 18 phases + Operator Portal (OP1–OP4), the
-**portal/till refresh (P1–P6)** and **FE1–FE10** built & LIVE. The **MAUI retrofit**: cutover
-**steps 1–20 are done** (11b split out and promoted), **21–28 remain** — see
-[`Build/To do/MAUI-Cutover-Plan-2026-08-09.md`](Build/To%20do/MAUI-Cutover-Plan-2026-08-09.md).
-The backend gap is closed; everything left is screen work against endpoints that exist, are tested
-and are deployed. VAT follows UK law (HMRC Notice 727/701/10).
+**Date:** 2026-08-12 — Platform on **.NET 10**. Backend **1.15.0**, portal **1.7.0** and web till
+**1.6.0** are DEPLOYED to the test environment; till-maui **1.48.0**, platform **1.26.0**, agent
+**1.3.3**. All 18 phases + Operator Portal (OP1–OP4), the **portal/till refresh (P1–P6)** and
+**FE1–FE10** built & LIVE. The **MAUI retrofit**: cutover **steps 1–21, 23, 25 and half of 26 are
+done**; **11b (promoted), 22, 24, the rest of 26, 27 and 28 remain** — ⚠ **one document now:**
+[`Build/MAUI-retrofit.md`](Build/MAUI-retrofit.md). The backend gap is closed; everything left is
+screen work against endpoints that exist, are tested and are deployed. VAT follows UK law (HMRC
+Notice 727/701/10).
 Head: see `git log` — this line goes stale; the commits don't.
 
 > ⚠ **The till is now being driven by a person, and that is finding a different class of bug.**
@@ -49,13 +50,18 @@ both ways — a real run gives 63 MB / 101 tables; a deliberately broken one exi
 | **6** | **Step 11b — reshape the basket (~4d)** | The plan's next step, and the only money-adjacent cluster in the app with no test coverage at all. |
 
 ⚠ **Nothing above is blocked.** 1–5 are all small-to-medium; 6 is the next planned step.
+📄 **All six are written up with bodies, DoDs and traps in
+[`Build/MAUI-retrofit.md`](Build/MAUI-retrofit.md)** — 1 is its §1 finding **Q**, 3–5 are **W1/W2/W3**,
+4 is **W2**, and 6 is **step 11b** in §3.
 
-### Where MAUI parity stands → ⚠ **[`Build/MAUI-parity.md`](Build/MAUI-parity.md)** is now the ONE page
+### Where MAUI stands → ⚠⚠ **[`Build/MAUI-retrofit.md`](Build/MAUI-retrofit.md)** is the ONE document
 
-**Consolidated 2026-08-12** at Matt.s request: what remains at the top, what is completed at the
-bottom. The two `To do/` plans keep their step bodies and DoDs but their status boards are no longer
-maintained — one still showed steps 23 and 25 unticked after both had shipped. The summary below is
-kept in step with it.
+**Consolidated 2026-08-12 at Matt's request** — *"I do not know why its splintered into so many."*
+**Five documents became one**: both `To do/` MAUI plans, `maui-whats-left.md`, `MAUI-parity.md` and
+`legacy-removal.md`, all now in [`Build/archive/`](Build/archive/) with banners. It carries what
+remains (with the step bodies and DoDs), how to work (protocol, binding defaults 1–18, pitfalls), and
+what is done. **Take MAUI status from there, not from the summary below**, which is kept short
+deliberately.
 
 **75 capability rows: 40 ✅ both tills · 15 MAUI ⬜ · 7 MAUI 🟡 · 5 where MAUI is AHEAD.**
 
@@ -402,7 +408,7 @@ markup into the viewmodel setter — a rule in markup leaves with the control), 
 `DisplayActionSheet`, item list → `CollectionView` with viewmodel-side grouping, discount
 multi-select → `CollectionView`. `SfListViewContextMenuBehavior` and `ListViewWithContextMenu` are
 deleted. What is left is the two **hidden** legacy report screens + their `XlsIO` export —
-[`Build/legacy-removal.md`](Build/legacy-removal.md) **L4**, which now also deletes the licence
+[`Build/MAUI-retrofit.md`](Build/MAUI-retrofit.md) **§10 / L4**, which now also deletes the licence
 registration and the packages. Detail: [`Build/syncfusion-footprint.md`](Build/syncfusion-footprint.md).
 
 ⚠ **These are UI swaps on screens with NO automated coverage** — a running UI host is needed and
@@ -526,12 +532,13 @@ it properly.
 reporting WP11 (26), loyalty/gift cards (27), online-first login (28). Step 25 closes the biggest
 honest gap and step 26 removes the reports that currently read zero.
 
-📄 **[`Build/maui-whats-left.md`](Build/maui-whats-left.md) is the "how much is left" page** — every
+📄 **`Build/maui-whats-left.md` is the "how much is left" page** — every
 remaining step in order with rough effort, the smaller Part B rows and which step carries each, the
 three rows where the *web* till is behind, and what is deliberately not on the list. Verified against
 the tree 2026-08-10. ⚠ It records a **fourth** built-but-uncalled component: `NoticesClient` appears
 in the whole AppClient once, **in a comment** — so the announcements/pick-notes rows were corrected
 from 🟡 to ⬜.
+*(Consolidated into [`Build/MAUI-retrofit.md`](Build/MAUI-retrofit.md) on 2026-08-12.)*
 
 ---
 
@@ -638,8 +645,10 @@ its own spinner, or has none.**
 
 ## The legacy sweep — and the register Matt asked for
 
-**[`Build/legacy-removal.md`](Build/legacy-removal.md)** is new: **L1–L10 in dependency order**, with
+**`Build/legacy-removal.md`** is new: **L1–L10 in dependency order**, with
 status keys and the things that must **not** be deleted. Matt does the deletions last of all.
+*(That register is now [`Build/MAUI-retrofit.md`](Build/MAUI-retrofit.md) §10 — consolidated
+2026-08-12.)*
 
 **Hidden this round:** the Settings **Database** section (archive + restore — *"its no longer
 needed"*), **Add item**, and **Edit / Update stock** on the item list. All wrote to the legacy
@@ -1486,7 +1495,8 @@ Run `POST /api/v1/reports/rebuild` (platform-admin) if you want history re-proje
    app; `Plutus.Frontend.ClientUI` is the abandoned port, kept only to harvest its colour palette
    and repository interface shape, then retired. Both are already **net10**.
 4. **The MAUI retrofit plan is written for autonomous execution** — `Build/To do/MAUI-Retrofit-Plan-2026-08-07.md`,
-   WP0–WP13 with DoDs, §0 protocol and §9 **binding defaults** instead of open questions.
+   WP0–WP13 with DoDs, §0 protocol and §9 **binding defaults** instead of open questions. *(Now
+   [`Build/MAUI-retrofit.md`](Build/MAUI-retrofit.md); the plan was archived 2026-08-12.)*
    ⚠ Two of those defaults touch real shop data (**archive local till data at enrolment**;
    **migrate before enrol**) — Matt can veto, but they're built in after WP2.
 5. **`DeterministicGuid.ForItem(businessId, itemIdOne)` is the catalogue ID mapping — keyed on the
@@ -1517,7 +1527,8 @@ DB dumps: `~/PLUTUS/backups/plutus-pre-themes-20260807.sql.gz`,
 
 #### MAUI retrofit — the TRANSPORT SPINE IS DONE (WP0–WP4 + WP2b)
 
-Progress board is in the plan (`Build/To do/MAUI-Retrofit-Plan-2026-08-07.md` §3b) — keep it
+Progress board is in the plan (`Build/To do/MAUI-Retrofit-Plan-2026-08-07.md` §3b — archived
+2026-08-12; status now lives in [`Build/MAUI-retrofit.md`](Build/MAUI-retrofit.md)) — keep it
 current, it is the resume point. **Next: WP5** (heartbeat + catalogue sync), the last backend gap.
 WP6–13 are the parity WPs, where MAUI **UI** work starts and a device is needed to verify.
 

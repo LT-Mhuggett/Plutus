@@ -1,4 +1,4 @@
-> **📦 SUPERSEDED — folded into [`Build/To do/MAUI-Retrofit-Plan-2026-08-07.md`](../To%20do/MAUI-Retrofit-Plan-2026-08-07.md).**
+> **📦 SUPERSEDED — folded into [`Build/archive/MAUI-Retrofit-Plan-2026-08-07.md`](MAUI-Retrofit-Plan-2026-08-07.md).**
 > Almost all of this document survives there: the no-broker architecture decision, the work
 > packages with their exact DTO and endpoint names, the six-area parity analysis, and the risk
 > register. Kept for the three-way option scoring and the review notes behind them.

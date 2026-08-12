@@ -1,9 +1,20 @@
 # MAUI parity — what remains, and what is done
 
+> ## 📦 ARCHIVED 2026-08-12 — folded into [`Build/MAUI-retrofit.md`](../MAUI-retrofit.md)
+>
+> **This page lived for one day.** It was written on 2026-08-12 to end a status board kept in four
+> places; that afternoon Matt asked for the whole retrofit in one document —
+> *"I do not know why its splintered into so many"* — so its shape (what remains first, what is
+> completed at the bottom) became Parts 1 and 3 of `MAUI-retrofit.md`, and the four documents it
+> pointed *at* were folded in with it.
+>
+> ⚠ **Its counted figures were correct on 2026-08-12** (75 Part B rows: 40 ✅ · 15 ⬜ · 7 🟡 · 5 where
+> MAUI is ahead) and are carried forward. **Take the numbers from `MAUI-retrofit.md`, not from here.**
+
 **The single page for "where are we with the MAUI till".** Replaces the status boards in
-[`To do/MAUI-Cutover-Plan-2026-08-09.md`](To%20do/MAUI-Cutover-Plan-2026-08-09.md) and
-[`To do/MAUI-Retrofit-Plan-2026-08-07.md`](To%20do/MAUI-Retrofit-Plan-2026-08-07.md), and the
-"what's left" half of [`HANDOVER.md`](../HANDOVER.md).
+[`archive/MAUI-Cutover-Plan-2026-08-09.md`](MAUI-Cutover-Plan-2026-08-09.md) and
+[`archive/MAUI-Retrofit-Plan-2026-08-07.md`](MAUI-Retrofit-Plan-2026-08-07.md), and the
+"what's left" half of [`HANDOVER.md`](../../HANDOVER.md).
 
 ⚠ **The two plans are NOT retired — they hold the step bodies and DoDs, which is real knowledge.**
 What they must no longer be trusted for is STATUS: on 2026-08-12 the cutover plan's board still showed
@@ -13,11 +24,11 @@ them for HOW to build a step. Read this for WHETHER it is built.**
 | Where | For |
 |---|---|
 | **This page** | What remains, in order · what is done · how long |
-| [`till-design.md`](till-design.md) **Part B** | The row-by-row register — which capability, on which till |
-| [`To do/MAUI-Cutover-Plan-2026-08-09.md`](To%20do/MAUI-Cutover-Plan-2026-08-09.md) | Step bodies, DoDs, the execution protocol |
-| [`To do/MAUI-Retrofit-Plan-2026-08-07.md`](To%20do/MAUI-Retrofit-Plan-2026-08-07.md) | The WP bodies behind each step |
+| [`till-design.md`](../till-design.md) **Part B** | The row-by-row register — which capability, on which till |
+| [`archive/MAUI-Cutover-Plan-2026-08-09.md`](MAUI-Cutover-Plan-2026-08-09.md) | Step bodies, DoDs, the execution protocol |
+| [`archive/MAUI-Retrofit-Plan-2026-08-07.md`](MAUI-Retrofit-Plan-2026-08-07.md) | The WP bodies behind each step |
 | [`legacy-removal.md`](legacy-removal.md) | What comes OUT afterwards — Matt does this last |
-| [`Test Maui.md`](Test%20Maui.md) | The hand-test script to give a person |
+| [`Test Maui.md`](../Test%20Maui.md) | The hand-test script to give a person |
 
 **Counted, not estimated — Part B, 2026-08-12: 75 capability rows.**
 **40 ✅ both tills · 15 MAUI ⬜ · 7 MAUI 🟡 · 5 where MAUI is AHEAD of the web till.**
@@ -31,7 +42,7 @@ them for HOW to build a step. Read this for WHETHER it is built.**
 | # | What | State |
 |---|---|---|
 | **Q** | ⚠⚠ **"I could cancel the item, but then searching stopped working."** (Matt, 2026-08-11) | **Cause not found.** Ruled out: `IsBusy` stuck (every set has a `finally`), the cancel handler (touches no shared flag), a dialog awaited inside the store lock (nothing does it). ⚠ A 30s timeout was added to the store gate so this CLASS of failure can no longer hang in silence — but that is a safety net, not a diagnosis. ⚠ **Not reproducible the way it was found**: on 1.48.0 a closed till refuses at the door, so a basket cannot be built on a closed day. **Needs: which search box, and whether the rest of the app still responded.** |
-| — | **Hand-run 1.48.0** | ⚠ **Eight till builds have shipped since a person last touched a screen.** Every hand-run so far has found faults no test in this repo could reach — the 2026-08-11 run found fourteen, six of them invisible to every automated test. [`Test Maui.md`](Test%20Maui.md) |
+| — | **Hand-run 1.48.0** | ⚠ **Eight till builds have shipped since a person last touched a screen.** Every hand-run so far has found faults no test in this repo could reach — the 2026-08-11 run found fourteen, six of them invisible to every automated test. [`Test Maui.md`](../Test%20Maui.md) |
 
 ## 1. Small, and each closes a real inconsistency
 
@@ -124,7 +135,7 @@ within 60 seconds, and keep trading with the line down.
 
 Matt ran a shop day on till 1.41.0 and reported **A–N**. Every one is answered, and six more raised
 that evening (**O–T**). Full detail with causes in
-[`handrun-2026-08-11.md`](handrun-2026-08-11.md).
+[`handrun-2026-08-11.md`](../handrun-2026-08-11.md).
 
 | | What was wrong |
 |---|---|

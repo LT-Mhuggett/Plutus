@@ -1,7 +1,7 @@
 > **📦 SUPERSEDED — implemented where it matters.** All three bugs are **fixed in AppClient**, the
 > go-forward app: the add-user crash is a guarded dialog, `Basket` is a plain `ObservableCollection`
 > with no reversing copy, and `Models/BasketAlteration.cs` carries `[JsonConstructor]` plus setters.
-> They remain unfixed in **ClientUI**, which [`Build/To do/MAUI-Retrofit-Plan-2026-08-07.md`](../To%20do/MAUI-Retrofit-Plan-2026-08-07.md)
+> They remain unfixed in **ClientUI**, which [`Build/archive/MAUI-Retrofit-Plan-2026-08-07.md`](MAUI-Retrofit-Plan-2026-08-07.md)
 > recommends retiring — so they will never need fixing there. The original NatApp is no longer in
 > this repo at all.
 

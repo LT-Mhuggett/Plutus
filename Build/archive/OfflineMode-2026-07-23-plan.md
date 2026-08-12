@@ -1,6 +1,6 @@
 > **📦 SUPERSEDED — one live decision carried forward.**
 > The offline *goal* was met on the web till (PWA + IndexedDB outbox, 2026-07); the MAUI half is
-> now WP3 of [`Build/To do/MAUI-Retrofit-Plan-2026-08-07.md`](../To%20do/MAUI-Retrofit-Plan-2026-08-07.md).
+> now WP3 of [`Build/archive/MAUI-Retrofit-Plan-2026-08-07.md`](MAUI-Retrofit-Plan-2026-08-07.md).
 > **§4.3 (the credential fork — local PIN vs synced password hashes) is still open** and is
 > decision #2 in that plan; the evidence for Option B recorded here is why it is the recommendation.
 >

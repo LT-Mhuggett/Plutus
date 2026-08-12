@@ -103,7 +103,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// ÃÂ¢ÃÂÃÂ  VESTIGIAL, and kept only so the removal is visible. It drove `SfPicker.IsOpen`; the
         /// alterations picker is a `DisplayActionSheet` now (2026-08-10, Syncfusion removal), so
         /// nothing reads or writes this any more. It goes with the rest of the Syncfusion clean-up
-        /// in `Build/legacy-removal.md`.
+        /// in `Build/MAUI-retrofit.md` §10.
         /// </summary>
         [Obsolete("The alterations picker is a DisplayActionSheet now. Nothing binds this.")]
         public bool PickerOpen

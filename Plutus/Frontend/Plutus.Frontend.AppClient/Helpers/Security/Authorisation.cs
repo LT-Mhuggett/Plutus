@@ -14,7 +14,7 @@ namespace Plutus.Frontend.AppClient.Helpers.Security
     /// <summary>
     /// ⚠ THE LEGACY PERMISSION GATE. <see cref="Services.Security.TillGate"/> replaced it at cutover
     /// step 12 and is what new code must use. This is kept only until the last caller is ported —
-    /// see `Build/legacy-removal.md` (L3).
+    /// see `Build/MAUI-retrofit.md` §10 (L3).
     ///
     /// ⚠ IT CANNOT SUCCEED ON A PORTAL-PROVISIONED TILL, and until 2026-08-10 it did not merely fail
     /// — it CRASHED THE APP. It reads employees and an `AuthActions` table out of the legacy local

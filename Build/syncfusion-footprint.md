@@ -39,7 +39,7 @@ critical screen in the app was already free of it.
 
 | Thing | Where | Goes when |
 |---|---|---|
-| The two chart screens | `SalesReportsView`, `StockOuttakeView` | They are already HIDDEN and listed for deletion in [`legacy-removal.md`](legacy-removal.md) **L4** |
+| The two chart screens | `SalesReportsView`, `StockOuttakeView` | They are already HIDDEN and listed for deletion in [`MAUI-retrofit.md`](MAUI-retrofit.md) §10 **L4** |
 | `XlsIO` spreadsheet export | `Helpers/FileIO/ExcelHandling.cs` | Used **only** by `SalesReportsViewModel`, so it goes with L4 |
 | `RegisterLicense` + `ConfigureSyncfusionCore` + the package references | `App.xaml.cs`, `MauiProgram.cs`, the csproj | **Last.** ⚠ Removing the registration while a licensed control still exists in the assembly is *worse*, not better: it turns a dormant screen into a trial-dialog screen |
 
@@ -65,5 +65,5 @@ coverage**, because that needs a running UI host and this repo has none.
 ## Related
 
 - [`till-design.md`](till-design.md) — the printing and item-edit rows in Part B, and C1/C2.
-- [`legacy-removal.md`](legacy-removal.md) — L4, the two chart screens and the export.
+- [`MAUI-retrofit.md`](MAUI-retrofit.md) §10 — L4, the two chart screens and the export.
 - [`shop-day-test.md`](shop-day-test.md) — the hand-run.

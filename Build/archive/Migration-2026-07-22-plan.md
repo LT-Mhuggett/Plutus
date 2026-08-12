@@ -1,6 +1,6 @@
 > **📦 SUPERSEDED — nothing outstanding for the go-forward app.**
 > Workstreams A and B are done; F resolved itself (NatApp left the repo). C, D, E and G were all
-> about **ClientUI**, which [`Build/To do/MAUI-Retrofit-Plan-2026-08-07.md`](../To%20do/MAUI-Retrofit-Plan-2026-08-07.md)
+> about **ClientUI**, which [`Build/archive/MAUI-Retrofit-Plan-2026-08-07.md`](MAUI-Retrofit-Plan-2026-08-07.md)
 > recommends harvesting and retiring — so they die with it. Re-verified 2026-08-07: AppClient has
 > **zero** AppCenter references (workstream C.3 never applied to it), and AutoMapper was migrated
 > to **Mapster** in both apps at `9f65772`, resolving C.4 differently from the plan below.

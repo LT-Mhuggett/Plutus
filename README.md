@@ -53,12 +53,12 @@ The four you'll reach for most often:
 - [repo-runbook.md](Build/repo-runbook.md) — build / test / migrate / deploy commands, hard rules, and the codebase pitfalls that have each cost a session. Read before writing code.
 - [table-standard.md](Build/table-standard.md) — the shared `DataTable` (sort / search / 25-50-100 / pagination) all tables must use, across till, portal, and operator console.
 
-Two plans are open, both about the **native till**:
-[MAUI-Retrofit-Plan](Build/To%20do/MAUI-Retrofit-Plan-2026-08-07.md) (make Sean's MAUI app a
-platform client) and [NatApp-Translation-Agent](Build/To%20do/NatApp-Translation-Agent-Plan-2026-08-05.md)
-(move the legacy shop data in). Everything else lives
-in [Build/archive/](Build/archive/), banner-stamped with what shipped, what was gated, or what
-later document superseded it.
+Two bodies of work are open, both about the **native till**:
+[MAUI-retrofit.md](Build/MAUI-retrofit.md) — **the one MAUI document**, consolidated 2026-08-12 from
+five (what remains, how to build it, what is done, and what comes out afterwards) — and
+[NatApp-Translation-Agent](Build/To%20do/NatApp-Translation-Agent-Plan-2026-08-05.md) (move the
+legacy shop data in). Everything else lives in [Build/archive/](Build/archive/), banner-stamped with
+what shipped, what was gated, or what later document superseded it.
 
 **Operations**
 

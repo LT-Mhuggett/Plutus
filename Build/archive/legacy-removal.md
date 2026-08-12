@@ -1,5 +1,17 @@
 # Legacy removal register — what comes out of the MAUI till, and in what order
 
+> ## 📦 ARCHIVED 2026-08-12 — this register now lives in [`Build/MAUI-retrofit.md`](../MAUI-retrofit.md) §10
+>
+> ⚠⚠ **NOT delivered — the deletions have NOT been done.** L1–L10 are still ahead, and Matt still does
+> them last of all. The register was folded in **verbatim** (every L-row, both do-not-delete warnings
+> and the "deleted rather than listed" table) because it belongs with the steps that unblock each row:
+> L4 waits on step 26, L6 on step 11b, L7/L8 on step 21, L10 on step 22.
+>
+> ⚠ **Code comments in the MAUI app cite "`Build/legacy-removal.md` (L3)" and similar.** Those L-keys
+> are unchanged and still findable — they now anchor in `MAUI-retrofit.md` §10 (`#l3--the-legacy-permission-gate`).
+> Comments were repointed in the same commit; if you find one that was missed, the L-key is the thing
+> to search for.
+
 **Matt, 2026-08-10:** *"As part of bringing MAUI to Parity, the legacy stuff needs hiding and
 eventually removing. Can you document what will eventually need removing and I will do that last of
 all."*
@@ -120,7 +132,7 @@ So deleting L4 also deletes: `ExcelHandling.cs`, `SyncfusionLicenseProvider.Regi
 `App.xaml.cs`, `ConfigureSyncfusionCore` in `MauiProgram.cs`, and every Syncfusion package
 reference. ⚠ **In that order, and not before** — removing the licence registration while a licensed
 control still exists in the assembly turns a dormant screen into a trial-dialog screen, which is
-worse than leaving it. Full detail in [`syncfusion-footprint.md`](syncfusion-footprint.md).
+worse than leaving it. Full detail in [`syncfusion-footprint.md`](../syncfusion-footprint.md).
 
 ---
 
@@ -231,8 +243,8 @@ For the record, so nobody hunts for them:
 
 ## Related
 
-- [`till-design.md`](till-design.md) — Part B says which of these gaps is whose work package; C1 says
+- [`till-design.md`](../till-design.md) — Part B says which of these gaps is whose work package; C1 says
   where the replacement rule lives.
-- [`To do/MAUI-Cutover-Plan-2026-08-09.md`](To%20do/MAUI-Cutover-Plan-2026-08-09.md) — steps 21, 22
+- [`archive/MAUI-Cutover-Plan-2026-08-09.md`](MAUI-Cutover-Plan-2026-08-09.md) — steps 21, 22
   and 26 own L7, L8, L10 and L4.
-- [`HANDOVER.md`](../HANDOVER.md) — the living state.
+- [`HANDOVER.md`](../../HANDOVER.md) — the living state.

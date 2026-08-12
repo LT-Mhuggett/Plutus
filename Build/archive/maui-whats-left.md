@@ -1,14 +1,13 @@
 # MAUI retrofit — what is left to change
 
-> ## ⚠⚠ SUPERSEDED 2026-08-12 — read [`MAUI-parity.md`](MAUI-parity.md)
+> ## 📦 ARCHIVED 2026-08-12 — folded into [`Build/MAUI-retrofit.md`](../MAUI-retrofit.md)
 >
-> Consolidated into one page at Matt's request: *"I need this consolidated into one document with a
-> clear 'What has been completed' section and 'What remains'."* Status lived in four places — this
-> page, `HANDOVER.md`, and the two plans in `To do/` — and they disagreed. The two plans keep their
-> step bodies and DoDs; **status now lives in `MAUI-parity.md` alone.**
+> Superseded twice in two days, which is itself the argument for one document: by `MAUI-parity.md` on
+> 2026-08-12 (status), then by `MAUI-retrofit.md` the same day (everything).
 >
-> Kept for its history: the reasoning about why steps were ordered as they were, and the record of
-> components found built-and-uncalled, is preserved below.
+> **What carried forward:** the order of work and the reasoning for it, the per-store/per-till rollup
+> finding Matt parked, the `pos.stock.adjust` decision, the record of components found built-and-
+> uncalled, and the "what is NOT on this list" section. **Nothing here is state any more.**
 
 
 **Matt, 2026-08-10:** *"I do need to finish the entire MAUI retrofit plan to understand what is left
@@ -20,8 +19,8 @@ the one page to open when the question is "how much is left and what order".
 | Document | Answers |
 |---|---|
 | **This page** | *What is left, in order, and roughly how long* |
-| [`till-design.md`](till-design.md) Part B | *Which capability, on which till* — the row-by-row register |
-| [`To do/MAUI-Cutover-Plan-2026-08-09.md`](To%20do/MAUI-Cutover-Plan-2026-08-09.md) | *How to build each step* — the bodies and DoDs |
+| [`till-design.md`](../till-design.md) Part B | *Which capability, on which till* — the row-by-row register |
+| [`archive/MAUI-Cutover-Plan-2026-08-09.md`](MAUI-Cutover-Plan-2026-08-09.md) | *How to build each step* — the bodies and DoDs |
 | [`legacy-removal.md`](legacy-removal.md) | *What comes OUT afterwards* — Matt does this last |
 
 ---
@@ -79,7 +78,7 @@ it never removes a grant and never overwrites a ceiling a shop has set for itsel
 **Syncfusion is off every screen an operator can reach** (Matt is not renewing). Quantity box,
 alterations picker, item list and the discount multi-select are plain MAUI. What remains is the two
 **hidden** legacy report screens and their spreadsheet export — which step 26 deletes anyway, so the
-licence question closes itself. [`syncfusion-footprint.md`](syncfusion-footprint.md).
+licence question closes itself. [`syncfusion-footprint.md`](../syncfusion-footprint.md).
 
 ⚠ **The cheap wins are now spent.** Almost everything delivered before 2026-08-10 was *wiring* —
 components that already existed with no caller. What is left is screen-building and one server

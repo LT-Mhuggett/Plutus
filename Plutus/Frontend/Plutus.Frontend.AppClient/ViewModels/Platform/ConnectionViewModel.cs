@@ -353,7 +353,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
                 //
                 // ⚠ IF A REAL MIGRATION OFF NatApp IS EVER PLANNED, this gate is the mechanism that
                 // protects that shop's history, and it needs an on-ramp built BEFORE it is switched
-                // back on. Recorded in `Build/legacy-removal.md` L1.
+                // back on. Recorded in `Build/MAUI-retrofit.md` §10 L1.
                 var blocked = await TillStoreAccess.UseAsync(store =>
                     new EnrolmentFlow(store, api, _credentials).BlockedReasonAsync(null));
 

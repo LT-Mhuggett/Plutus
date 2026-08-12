@@ -26,7 +26,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory
             //
             // Items are the PORTAL's to create (till-design "Portal decides, till obeys"). MAUI's
             // parity target for inventory is WP10; until then this is honestly absent rather than
-            // dishonestly present. Recorded in `Build/legacy-removal.md` (L2).
+            // dishonestly present. Recorded in `Build/MAUI-retrofit.md` §10 (L2).
             var buttons = new List<Tuple<string, string>>
             {
                 Tuple.Create(string.Format("ViewAllArg".Translate(), "Items"), "OpenViewAllItemsCommand" ),
@@ -99,7 +99,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory
         }
 
         /// <summary>⚠ Unreachable — "Add item" has no button (see the constructor). Kept only until
-        /// `Build/legacy-removal.md` L2 is actioned.</summary>
+        /// `Build/MAUI-retrofit.md` §10 L2 is actioned.</summary>
         private async void ExecuteOpenAddItem()
         {
             if (IsBusy)

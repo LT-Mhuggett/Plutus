@@ -52,7 +52,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
             // `null` today and does not run, so removing this button changes nothing that works
             // — but it does mean the gate can never be switched ON, because nothing else can
             // produce the stamp. ⚠ If a real shop is ever migrated off NatApp, its sales history
-            // has no on-ramp until something replaces this. Recorded in `Build/legacy-removal.md`.
+            // has no on-ramp until something replaces this. Recorded in `Build/MAUI-retrofit.md` §10.
             //
             // "Restore database" was worse than unused: it ran the legacy `IsAuthorised` gate, so on
             // a portal-provisioned till it crashed the app rather than refusing (same fault as
@@ -114,7 +114,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
         // thing that can stamp `MetaKeys.LegacyArchivedAtUtc`, which is the enrolment gate's input —
         // deleting the implementation would remove a platform capability, not just a control, and
         // the gate is a binding default. The button is gone because Matt does not need the on-ramp;
-        // the code goes when `Build/legacy-removal.md` item L1 is actioned.
+        // the code goes when `Build/MAUI-retrofit.md` §10 item L1 is actioned.
         Command _backupDbCommand;
         public Command BackupDbCommand
         {
