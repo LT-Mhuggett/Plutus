@@ -1,6 +1,6 @@
 # Handover — Plutus platform build
 
-**Date:** 2026-08-13 — Platform on **.NET 10**. Backend **1.15.0**, portal **1.7.0** and web till
+**Date:** 2026-08-13 — Platform on **.NET 10**. Backend **1.16.0**, portal **1.7.0** and web till
 **1.6.0** are DEPLOYED to the test environment; till-maui **1.51.0**, platform **1.30.0**, agent
 **1.3.3**. All 18 phases + Operator Portal (OP1–OP4), the **portal/till refresh (P1–P6)** and
 **FE1–FE10** built & LIVE. The **MAUI retrofit**: cutover **steps 1–21, 23, 25 and half of 26 are
@@ -165,6 +165,28 @@ although WP6's DoD required them and step 20 is ✅ — portal, server and web t
 check whether Kapow's are simply unset · "as at HH:MM" on today's takings (it *does* refresh on the 60s
 tick — verified — but nothing says when) · ⚠ **portal: amber the out-of-balance drawer tile** and **give
 stock adjustments its own tab** — both need the Mac.
+
+#### ✅ BACKEND 1.16.0 DEPLOYED — 2026-08-13 19:34 (no migration)
+
+Finding Y's server half: `SalesIngestService` now quarantines a refund that puts more back on a tender
+than that tender took. Rollback **`~/PLUTUS/backend.pre-20260813-1935`**.
+
+⚠ **No schema change** — verified by checking that no migration was added since 1.15.0, so no dump was
+required (the runbook's rule). ⚠ **No new permission code**, so no RBAC re-seed either.
+⚠ **`appsettings.json` and `appsettings.Development.json` hash-matched the live copies before the swap**,
+so the publish overwrote nothing that mattered.
+
+ping **1.16.0** · DB-path probe **401 "Device not enrolled or revoked."** not 500 · swagger **200** ·
+web till **200** · portal **200** · ⚠ **ETRIE 200, untouched, 3d uptime, 0 restarts** · plutus-backend
+0 restarts.
+
+⚠⚠ **AND THE BINARY WAS CHECKED, NOT JUST THE VERSION STRING — which caught my own bad check.** Grepping
+the deployed DLL for the new refusal text came back ABSENT, twice. The tool was lying: macOS `strings`
+has no `-e l`, so it cannot see .NET's UTF-16 string literals at all — and the giveaway was that a
+literal **both** builds contain also returned zero. A raw UTF-16LE byte search settled it: *"which can
+take at most"* is **present in the deployed `Plutus.Sales.dll` and absent from the previous one**.
+**Sanity-check the instrument on something you know is there before believing what it says about
+something you don't.**
 
 **3e. FINDING Y IS FIXED EVERYWHERE EXCEPT THE WEB TILL — four slices, till 1.51.0, backend 1.16.0.**
 A refund can no longer put more back on a tender than that tender took.

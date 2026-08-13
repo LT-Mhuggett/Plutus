@@ -57,7 +57,7 @@ item-identity seam all outlive the retrofit, and archiving them unlifted buries 
 | | |
 |---|---|
 | **Till build to run** | **`D:\tmp\plutus-till-1.51.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe. ⚠ **Six builds on 2026-08-13, each fixing what the next test found:** 1.48.0 could not take a sale (U) · 1.49.0 crashed on a card overpay (V) · 1.49.1 said nothing during a split payment (W) · 1.49.2 let a closed day take items from the item list (X) · 1.49.3 and 1.50.0 let a split-paid refund go on one card (Y). ⚠ **§A and §B are run through** (C needs two people) — **open: [Y](#1-open-faults--before-any-new-work)'s web-till half, and Z1–Z5** |
-| **Versions** | till-maui **1.51.0** · backend **1.16.0** (⚠ not deployed) · platform **1.30.0** · portal **1.7.0** · till-web **1.6.0** · agent **1.3.3** |
+| **Versions** | till-maui **1.51.0** · backend **1.16.0** (deployed) · platform **1.30.0** · portal **1.7.0** · till-web **1.6.0** · agent **1.3.3** |
 | **Deploy state** | ⚠ **Nothing MAUI-side is blocked on a deploy.** Every backend endpoint the remaining steps need is live on the test environment |
 | **Suite** | Unit **907** · Integration **169** · Architecture **15** · AppClient **425** (+3 skipped) · web till **19** — all green |
 
@@ -217,9 +217,13 @@ nothing in any report to show it. Reverse the signs and it is a way to walk cash
 
 **The rule that is missing** (and it belongs in `SharedKernel` beside `RefundRules`, not in a screen):
 > **A refund to tender T is capped at what T actually took on the origin sale, less whatever has
-> already been refunded to T.** Cash may be the exception a shop *chooses* — refunding a card sale in
-> cash is the fraud finding G exists to stop, so the default must be "back the way it came" — but
-> refunding MORE to a method than it took can never be right.
+> already been refunded to T.** Refunding MORE to a method than it took can never be right.
+
+✅ **AND THERE IS NO CASH EXCEPTION — Matt, 2026-08-13: *"If the card machine is down, we cannot refund
+cards."*** That is now **binding default 19**. It was worth asking, because it costs a customer a second
+trip; the answer is the strict one, because refunding card takings out of the drawer is the oldest till
+fraud there is and an *honest* one empties the drawer just as effectively. **Do not re-litigate it in
+code.**
 
 **Size: ~2–3 days**, four pieces, **one done**:
 1. ✅ **DONE 2026-08-13 — `SharedKernel.RefundRules` now carries the rule.** `RefundCapacities` gives
@@ -1101,6 +1105,7 @@ before or after — most are cheap to change.
 | **15** | **Parked baskets are local-only**, in the v2 `SavedBasket` table, serialised as **contract JSON via `PlutusApiClient.Json` — no Newtonsoft `$type`.** No server sync (the web till parks locally too). `$type` coupling already broke discounted parked baskets once. | 18 |
 | **16** | ⚠ **First sign-in of any account on a device must be ONLINE** *(Matt, 2026-08-09)*. That first login mints a **device-local PBKDF2 verifier** (fresh salt); offline sign-in verifies against it. The roster keeps shipping hashes until both tills run verifiers, then the server stops (flagged, separate change, C2 row required). A till that has never been online cannot sign anyone in — deliberately: it has no catalogue or prices either. | 28 |
 | **17** | **Reporting series with no server answer are DROPPED, not locally recomputed.** `summary-rich` is in **POUNDS**, everything else in **PENCE** — encode it in the contract type names. Local re-derivation is C2 drift by construction. | 26 |
+| **19** | ✅ **CONFIRMED — Matt, 2026-08-13: "If the card machine is down, we cannot refund cards."** A refund goes back **only** to the tender that took the money, capped at what that tender took, **with no exception for a dead card terminal and no supervisor override** — the same shape as default 12 for the sale total. So a part-cash-part-card customer cannot be handed the whole refund in notes, and a card sale cannot be refunded from the drawer at all. ⚠ **This was raised as an owner-level question precisely because it has a shop-floor cost** (a customer sent away until the terminal is back), and the answer is the strict one: the alternative is the oldest till fraud there is, and an honest cash refund of card takings empties the drawer just as effectively. **Do not re-litigate it in code** — if it ever changes it changes here first. | 16, 17, ingest |
 | **18** | **Additive feed fields are allowed.** `CatalogueItemDto` gained `Brand`, `Description`, `CostPence?`, `StockQty?` (nullable, so old servers stay compatible). ⚠ **`Barcodes[]` CANNOT be wired and that is settled**: there is no barcode entity in `Plutus.Entities` at all — **`IdOne` IS the barcode**, and multi-barcode items are not something the platform models. `FindByBarcodeAsync`'s alias path is dead **by design, not omission**; adding it is a platform decision, not a till task. `PriceSchedule` is likewise unpopulated but harmless — the effective-dated timeline rides in `BandData` from the feed, so scheduled prices work. The store-info screen **drops the logo** (no contract field). | 10, 20, 25 |
 
 ## 14. How long a cached login lasts (the numbers, and why)
