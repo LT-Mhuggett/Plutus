@@ -46,7 +46,7 @@
 **when the last step closes it moves to [`archive/`](../archive/) with a banner.** It does not become a
 permanent standard. Anything in it that outlives the retrofit (a convention, a rule, a pitfall) gets
 lifted up to `Build/` level — into `till-design.md` or `repo-runbook.md` — **before** it is archived,
-per [`index.md`](../index.md). ⚠ That lift matters: binding defaults 1–18, §15's pitfalls and §16's
+per [`index.md`](../index.md). ⚠ That lift matters: binding defaults 1–21, §15's pitfalls and §16's
 item-identity seam all outlive the retrofit, and archiving them unlifted buries them.
 
 ## Where it stands
@@ -81,7 +81,7 @@ item-identity seam all outlive the retrofit, and archiving them unlifted buries 
 [11 Not on the list](#11-what-is-not-on-this-list-deliberately)
 
 **Part 2 — how to work:** [12 Execution protocol](#12-execution-protocol) ·
-[13 Binding defaults 1–18](#13-binding-defaults--the-decisions-already-made) ·
+[13 Binding defaults 1–21](#13-binding-defaults--the-decisions-already-made) ·
 [14 Offline horizons](#14-how-long-a-cached-login-lasts-the-numbers-and-why) ·
 [15 Pitfalls](#15-pitfalls-that-have-each-cost-a-session) ·
 [16 Item identity](#16-item-identity--the-seam-with-the-translation-agent) ·
@@ -639,6 +639,26 @@ nil. Recorded so it is a decision rather than a year-end discovery.
 > `customers.manage`, online-only, **and the web till's create dialog gains the same gate in the same
 > slice** — today it demands `customers.manage`, so a web-till cashier cannot add either).
 
+> ⚠ **Binding default 21 — the programme's economics, decided 2026-08-13.** Matt: *"We already have
+> tier'd discount. The credits/Gems value need to be set in the portal. Each credit/gem is worth
+> £0.10. Earn one credit/gem for every £10 spent. Use as many credits/gems as you want on an order.
+> Need to be able to set an expiry date or never."* → a `LoyaltySettings` row per tenant
+> (`PencePerGem` 10, `SpendPerGemPence` 1000, `ExpiryMonths int?` null = never), the ledger storing a
+> **count of gems not pence** (the rate is a setting and settings change), redemption as a
+> **basket-wide discount** reusing `DiscountApportionment.Across` + `VatLineMath.ForLine`, expiry
+> **per earn-entry** consumed **oldest-first**, and refunds that claw back the earn *and* restore the
+> burn. Full reasoning and the two edge cases in [`updatedesign.md`](updatedesign.md) §18. **None of
+> this is step 27** — step 27 is parity with today's web till; the economics land in the programme's
+> phase A/B on top of it.
+
+⚠⚠ **A LIVE PARITY BUG, found 2026-08-13 while reviewing the design — this is not future work.**
+The web till applies the member's tier discount at `TillPage.tsx:122–123`
+(`if (m && !m.expired && m.autoDiscountRate > 0) dispatch({type:"applyMemberDiscount", …})`).
+`autoDiscountRate` appears **nowhere** in `Plutus.Frontend.AppClient` — MAUI has no customer attach,
+so it cannot apply it. **A Gold member is charged 10% more on the MAUI till than on the web till for
+the same basket, right now.** "We already have tier'd discount" is true only of the browser. This is
+precisely the drift Part B exists to catch, and it is the reason step 27 precedes the programme.
+
 **WP12 — loyalty.** Confirmed **zero** in both MAUI projects; the only backend work is the
 `pos.customers.add` permission (default 20 — `RolePermissionReconciler` delivers it on the next
 boot). Otherwise pure consumption. Customer search/attach on the sale screen
@@ -1158,6 +1178,7 @@ before or after — most are cheap to change.
 | **17** | **Reporting series with no server answer are DROPPED, not locally recomputed.** `summary-rich` is in **POUNDS**, everything else in **PENCE** — encode it in the contract type names. Local re-derivation is C2 drift by construction. | 26 |
 | **19** | ✅ **CONFIRMED — Matt, 2026-08-13: "If the card machine is down, we cannot refund cards."** A refund goes back **only** to the tender that took the money, capped at what that tender took, **with no exception for a dead card terminal and no supervisor override** — the same shape as default 12 for the sale total. So a part-cash-part-card customer cannot be handed the whole refund in notes, and a card sale cannot be refunded from the drawer at all. ⚠ **This was raised as an owner-level question precisely because it has a shop-floor cost** (a customer sent away until the terminal is back), and the answer is the strict one: the alternative is the oldest till fraud there is, and an honest cash refund of card takings empties the drawer just as effectively. **Do not re-litigate it in code** — if it ever changes it changes here first. | 16, 17, ingest |
 | **20** | ✅ **CONFIRMED — Matt, 2026-08-13: "Tiers need to be set on the portal, but you need to be able to assign and change a tier on the tills IF you have the correct permissions. Supervisor to change tiers. Till operator to add new loyalty members."** Three rules: **(a)** tiers are *configured* in the **portal only** — no till creates or edits a tier. **(b)** *Assigning/changing* a member's tier at a till is **Supervisor and up** — `customers.manage`, which Supervisor already holds, so this is screen work only. **(c)** *Adding* a new member at a till is **Cashier and up** via a new **`pos.customers.add`**, with `POST /api/v1/customers` accepting either it or `customers.manage` (the `CheckAny` shape from `pos.stock.adjust`). ⚠ **Create-only, deliberately** — a cashier may add but not alter: editing a member's email quietly redirects their account, and a tier changes every future basket. ⚠ **Changes the WEB till too** — its create dialog is gated `customers.manage` alone today, so a web-till cashier cannot add either; both tills gain the gate in the same slice. ⚠ Adding is **online-only on every till**: member numbers come from a tenant-wide counter, and two offline tills would mint the same one. Expanded design: [`updatedesign.md`](updatedesign.md) §14. | 27 |
+| **21** | ✅ **CONFIRMED — Matt, 2026-08-13: "We already have tier'd discount. The credits/Gems value need to be set in the portal. Each credit/gem is worth £0.10. Earn one credit/gem for every £10 spent. Use as many credits/gems as you want on an order. Need to be able to set an expiry date or never."** The programme's economics, and every till reads them from the server: a per-tenant **`LoyaltySettings`** row (`PencePerGem` 10, `SpendPerGemPence` 1000, `ExpiryMonths int?` — **null = never**, the `GiftCard.ExpiresAtUtc` precedent), following the `GiftCardSettings` idiom where **absence is the gate**. Four consequences are binding because each is a silent-wrongness risk: **(a)** the ledger stores a **count of gems, never pence** — the rate is a portal setting, and a pence balance would either re-value all history or fail to, depending on which figure was written. **(b)** Redemption is a **basket-wide discount** of `gems × PencePerGem`, reusing `DiscountApportionment.Across` + `VatLineMath.ForLine`, so a mixed-VAT basket apportions right for free; ⚠ `Across` **throws** above basket value, so the till caps the offer or ingest quarantines the sale. **(c)** Expiry is **per earn-entry**, consumed **oldest-expiring-first**, and changing `ExpiryMonths` **never retro-expires**. **(d)** ⚠⚠ A refund must **claw back the earn** *and* **restore the burn** — the earn alone leaves a gem printer (buy £1,000, refund, keep 100 gems); the burn alone loses the member gems they paid with. Balance may go negative; redemption blocks while it is. ⚠ **Earn base:** gross inc-VAT **actually paid** — after tier discount, after redemption, **excluding gift-card activation** (a liability, not a supply — earning there pays out twice). Rounding **floors per sale**. Reasoning and edge cases: [`updatedesign.md`](updatedesign.md) §18. ⚠ Still gated on §14 decision 1 (discount vs tender) — **the accountant's**. | programme phase A/B, not 27 |
 | **18** | **Additive feed fields are allowed.** `CatalogueItemDto` gained `Brand`, `Description`, `CostPence?`, `StockQty?` (nullable, so old servers stay compatible). ⚠ **`Barcodes[]` CANNOT be wired and that is settled**: there is no barcode entity in `Plutus.Entities` at all — **`IdOne` IS the barcode**, and multi-barcode items are not something the platform models. `FindByBarcodeAsync`'s alias path is dead **by design, not omission**; adding it is a platform decision, not a till task. `PriceSchedule` is likewise unpopulated but harmless — the effective-dated timeline rides in `BandData` from the feed, so scheduled prices work. The store-info screen **drops the logo** (no contract field). | 10, 20, 25 |
 
 ## 14. How long a cached login lasts (the numbers, and why)

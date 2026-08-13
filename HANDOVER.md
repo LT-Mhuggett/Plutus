@@ -268,6 +268,36 @@ online-only, **and the web till's create dialog needs the same gate** — a web-
 today either). **Retrofit step 27 stays the parity slice** and starts with the `MemberNumbers`
 extraction to SharedKernel.
 
+**3g. THE ECONOMICS ARE NOW DECIDED — binding default 21, and one live bug fell out of checking it.**
+Matt, 2026-08-13: *"Each credit/gem is worth £0.10. Earn one credit/gem for every £10 spent. Use as
+many credits/gems as you want on an order. Need to be able to set an expiry date or never"*, with the
+value set in the portal. Written into `updatedesign.md` **§18** (and applied in place through §2/§3/§4/
+§6/§14, so no "Open" row now contradicts a settled one): a per-tenant **`LoyaltySettings`** row copying
+the `GiftCardSettings` absence-is-the-gate idiom, `ExpiryMonths int?` with **null = never** per
+`GiftCard.ExpiresAtUtc`. ⚠ Four consequences are binding because each fails silently: the ledger stores
+a **count of gems, not pence** (the rate is a setting that can change); redemption is a **basket-wide
+discount** reusing `DiscountApportionment.Across` + `VatLineMath.ForLine`, which is also a second,
+code-level argument for decision 1 — a mixed-VAT basket apportions right for free, where a *tender*
+needs a new tender type and reports gem "takings" the bank never saw; expiry is **per earn-entry**,
+consumed **oldest-first**, and never retro-applies; and ⚠⚠ **a refund must claw back the earn AND
+restore the burn** — the earn alone is a gem printer (buy £1,000, refund, keep 100 gems), the burn
+alone robs the member. Also settled: earn base is gross inc-VAT **actually paid** (after tier discount,
+after redemption, **excluding gift-card activation** — a liability, so earning there pays out twice),
+floored per sale. Two new edge cases flagged for test: a **£0.00 basket can now happen** (full
+redemption) and neither till is known to handle it — the answer is to skip tendering, not invent a £0
+payment; and `Across` **throws** above basket value, so a till must cap the offer or ingest quarantines
+the sale. ⚠ Still gated on decision 1 (the accountant); ⚠ **new open question for Matt** — changing
+`PencePerGem` re-values every outstanding balance (10p→5p halves what members hold), so that field must
+warn, show the liability delta, and be audited.
+
+**3h. ⚠⚠ A LIVE PARITY BUG, found while reviewing the above — MAUI applies NO tier discount.** The web
+till applies it at `TillPage.tsx:122–123` (`if (m && !m.expired && m.autoDiscountRate > 0) dispatch({
+type: "applyMemberDiscount", … })`). `autoDiscountRate` appears **nowhere** in
+`Plutus.Frontend.AppClient` — MAUI has no customer attach at all, so it cannot. **A Gold member is
+charged 10% more on the MAUI till than on the web till for the same basket, today.** Matt's *"we
+already have tier'd discount"* is true only of the browser. Not a regression from this week's work —
+pre-existing, inside **step 27**, and exactly the drift `till-design.md` Part B exists to catch.
+
 **4. Corrected:** §1 below described the backend as ".NET 8". It is `net10.0`.
 
 **5. ⚠ Noticed, not fixed: `TillViewModel.cs` has 184 lines of byte-corrupted comments.** Its `⚠`

@@ -25,7 +25,13 @@ The credit currency is fully configurable per programme:
 |---|---|
 | Name | Singular and plural forms, both configurable ("1 gem" / "250 gems") — appears throughout the UI |
 | Icon / visual | Configurable icon or uploaded image, with a fallback (emoji or default graphic) if none set. Must render well small (nav badge) and large (balance page) |
-| Value semantics | Abstract points vs money-mapped (e.g. 1 credit = £0.01). This decision affects redemption mechanics and accounting — see §7 and §13 |
+| Value semantics | ✅ **DECIDED (Matt, 2026-08-13): money-mapped. 1 gem = £0.10**, set in the portal. See §18 for the settings row and what follows from it |
+
+⚠ **The ledger stores a COUNT of gems, never their pence value** — see §18. The rate is a
+portal setting and a setting can change; a balance stored in pence would either silently
+re-value every historical entry or silently fail to, depending on which figure was written.
+Storing the count and applying the *current* rate at redemption is the only version that
+survives Matt changing 10p to 15p.
 
 ---
 
@@ -33,7 +39,11 @@ The credit currency is fully configurable per programme:
 
 Each earning source is individually configurable and toggleable:
 
-- **Purchases** — credits per £ spent, with configurable rounding (up / down / nearest)
+- **Purchases** — ✅ **DECIDED: 1 gem per £10 spent**, portal-configurable (§18). Rounding is
+  **floor, per sale, remainder discarded** — a £15 basket earns 1 gem, not 1.5, and the £5 is
+  not carried forward. Whole gems only; this matches Clubcard/Boots and avoids a per-member
+  remainder accumulator. ⚠ Decision 14 — cheap to revisit *before* launch, expensive after,
+  because carrying the remainder forward retrospectively means recomputing every sale ever made.
 - **Visits / check-ins**
 - **Sign-up bonus**
 - **Referrals** — with fraud protection
@@ -46,15 +56,37 @@ Additional rules:
 - **Exclusions** — gift cards, already-discounted items, delivery fees; implemented via an "earns credits" flag at line-item level (§8)
 - **Multipliers & promotions** — double-points weekends, tier-based multipliers, category boosts, each with start/end dates
 - **Caps & anti-abuse** — daily and per-transaction earning limits
-- **No earn on credit-paid amounts** — members do not earn credits on the portion of a sale paid with credits, preventing a compounding loop
+- ⚠ **THE EARN BASE, stated exactly** (decision 15 — every channel must use the same one or two
+  tills disagree about what a customer earned): **the gross, inc-VAT amount the customer actually
+  paid** — i.e. *after* the tier discount, *after* any gem redemption, *excluding* gift-card
+  activation lines, *excluding* delivery. Consequences, all deliberate:
+  - **After the tier discount:** a Gold member paying £90 on a £100 basket earns on £90. Earning
+    on the pre-discount figure would pay the tier benefit twice.
+  - **After gem redemption:** this *is* the "no earn on credit-paid amounts" rule, and it is what
+    stops the compounding loop — gems earned on gem-funded spend is a slow, permanent leak.
+  - **Inc-VAT:** it is the figure on the receipt, so it is the only one explainable at a counter.
+  - ⚠ **Excluding gift-card activation:** selling a £50 gift card is a *liability*, not a supply —
+    it posts zero VAT (see `GiftCardSettings`). Earning on it pays out twice: once on the card,
+    once when the card is spent. This falls straight out of the gift-card VAT decision already
+    taken and is easy to miss.
 - Earning is calculated on sale completion and written to the ledger as an EARN entry referencing the sale (§9)
 
 ---
 
 ## 4. Redemption
 
-- **Reward catalogue** — each reward has a configurable credit cost. Reward types: percentage discounts, fixed-value vouchers, free products, experiences, tier-exclusive items
-- **Mechanics to configure** — redeem directly at checkout vs converting to a voucher first; whether credits can part-pay or must cover the whole reward; minimum balance to redeem; minimum spend requirements
+✅ **DECIDED (Matt, 2026-08-13): a member may spend as many gems as they like on an order** — no
+per-order cap, no minimum balance, no minimum spend. £0.10 a gem, straight off the basket.
+
+⚠ **"As many as you like" is still bounded by the basket, and the bound is already enforced in
+code.** `DiscountApportionment.Across` **throws** if the discount exceeds the lines it is spread
+over, so a basket can reach £0.00 but never go below. That guard is the backstop, not the UX: the
+till must **cap the offered redemption at the basket value** before it gets there, or a
+too-large redemption becomes a *quarantined sale* (a 202 from `SalesIngestService`) rather than a
+polite refusal at the counter. See §18 for the two edge cases this creates.
+
+- **Reward catalogue** — each reward has a configurable credit cost. Reward types: percentage discounts, fixed-value vouchers, free products, experiences, tier-exclusive items. ⚠ **Not v1** — v1 is the flat 10p-a-gem rate above, which needs no catalogue at all
+- **Mechanics to configure** — redeem directly at checkout vs converting to a voucher first; whether credits can part-pay or must cover the whole reward; minimum balance to redeem; minimum spend requirements. ⚠ Superseded for v1 by the decision above: redeem directly at checkout, part-pay always allowed, no minimums
 - **Refund handling** — refunds reference the original sale: earned credits are clawed back and spent credits restored automatically (§9)
 
 ### Key decision: discount vs tender
@@ -65,6 +97,12 @@ How a redemption is represented on the sale:
 - **As a tender** (credits are a wallet that part-pays) — more flexible, but credits then behave like money, with heavier accounting and VAT implications.
 
 ⚠️ Confirm with the accountant before committing — this is expensive to change later.
+
+**§18.4 adds a code-level argument the recommendation did not originally have:** the apportionment
+and VAT-split machinery a discount needs (`DiscountApportionment.Across`, `VatLineMath.ForLine`)
+**already exists, is deterministic to the penny, and is already a C2 twin with the web till** — so
+a mixed-VAT basket apportions correctly for free. A tender needs a new tender type and reports gem
+"takings" the bank never saw. The accountant still decides; the build cost is not symmetric.
 
 ---
 
@@ -79,7 +117,20 @@ How a redemption is represented on the sale:
 
 ## 6. Credit Lifecycle Rules
 
-- **Expiry:** fixed-date, rolling from earn date, or inactivity-based — with warning notifications before credits lapse
+- ✅ **Expiry — DECIDED (Matt, 2026-08-13): a settable expiry, or never.** Portal-configured as
+  `ExpiryMonths` (rolling from the earn date) with **null = never expires** — the same shape as
+  `GiftCard.ExpiresAtUtc`, whose comment already reads *"Null = never expires (the default)"*. Copy
+  that precedent rather than inventing a second expiry idiom.
+- ⚠ **Expiry is a property of the EARN ENTRY, not of the member.** Gems earned in January expire
+  before gems earned in June, so the balance is never one number with one date — it is a set of
+  dated batches. Two consequences that must be built, not discovered:
+  - **Redemption consumes oldest-expiring-first (FIFO).** Spending newest-first would silently
+    burn gems the member was about to lose anyway and let the older ones lapse — the member is
+    worse off for shopping. FIFO belongs in `Plutus.SharedKernel` because *both* tills must show
+    the same "you have 240 gems, 30 expiring on 14 Sep".
+  - **Changing `ExpiryMonths` must not retro-expire.** Entries carry their own computed expiry, so
+    shortening the window affects *future* earns only. Otherwise one portal edit can vaporise a
+    balance a member is standing at the counter holding.
 - **Manual adjustments:** staff can add/remove credits, with a mandatory reason logged to the audit trail
 - **Transfers / pooling:** optional — gifting credits between members, or shared family/household balances
 - **Negative balances:** define behaviour when a refund claws back credits that were already spent
@@ -191,19 +242,24 @@ Target **WCAG 2.2 AA**. Highlights relevant to loyalty screens: AA contrast with
 
 | # | Decision | Recommendation | Status |
 |---|---|---|---|
-| 1 | Credits as discount or tender | Discount | ⚠️ Confirm with accountant |
-| 2 | Credit value semantics (abstract vs money-mapped) | Abstract points | Open |
-| 3 | Tier qualification basis | Rolling 12-month, spent credits count | Open |
+| 1 | Credits as discount or tender | **Discount** — and §18 adds a second, code-level reason: the apportionment-and-VAT machinery a discount needs *already exists and is already tested*; a tender needs a new tender type, and puts "gem takings" in the Z-read that never reached the bank | ⚠️ **Still the accountant's call** — the 10p rate does not change it |
+| 2 | Credit value semantics (abstract vs money-mapped) | ~~Abstract points~~ → **money-mapped, 1 gem = £0.10**, portal-set. ⚠ Ledger stores the **count**, not pence (§18) | ✅ **Decided — Matt, 2026-08-13** |
+| 3 | Tier qualification basis | Rolling 12-month, spent credits count | Open — ⚠ **but tiers already exist and are assigned by hand**; this decision only bites when the engine replaces manual assignment (§17) |
 | 4 | Tier downgrade policy & grace period | — | Open |
-| 5 | Expiry policy | Inactivity-based with warnings | Open |
+| 5 | Expiry policy | **Settable expiry, or never** — `ExpiryMonths` rolling from earn date, null = never, per the `GiftCard.ExpiresAtUtc` precedent. ⚠ Per-entry, FIFO redemption, no retro-expiry (§6) | ✅ **Decided — Matt, 2026-08-13** |
 | 6 | Transfers / family pooling in v1? | Defer to v2 | Open |
 | 7 | Enrollment: opt-in or automatic | — | Open |
-| 8 | Earn on VAT-inclusive or net amount | — | Open |
+| 8 | Earn on VAT-inclusive or net amount | **Gross inc-VAT, on what was actually paid** — after tier discount, after gem redemption, excluding gift-card activation (§3) | ✅ **Decided — Matt, 2026-08-13** (implied by "£10 spent"; stated exactly so no two channels differ) |
 | 9 | Where tiers are **configured** | Portal only | ✅ **Decided — Matt, 2026-08-13** |
 | 10 | Assign / change a member's tier at a till | **Supervisor and up** (`customers.manage`, which Supervisor already holds — no permission work) | ✅ **Decided — Matt, 2026-08-13** |
 | 11 | Add a new member at a till | **Till operator (Cashier and up)**, via a new `pos.customers.add` — create-only; editing and tiers stay `customers.manage` | ✅ **Decided — Matt, 2026-08-13** |
 | 12 | Where earning is **computed** | At **ingest**, server-side, never on a till — §16 | Proposed (follows the platform's own precedent) |
 | 13 | Loyalty credits vs the existing **store credit** | Two distinct things, named distinctly — §17 | Proposed |
+| 14 | Earn rounding | **Floor per sale, remainder discarded** — £15 earns 1 gem (§3) | Proposed — ⚠ decide **before** launch; carrying remainders forward later means recomputing history |
+| 15 | Per-order redemption cap | **None** — as many gems as the member likes, bounded only by the basket reaching £0.00 (§4) | ✅ **Decided — Matt, 2026-08-13** |
+| 16 | Reward catalogue (tiered rewards, vouchers, free products) | **Not v1.** A flat 10p-a-gem rate needs no catalogue; adding one later is additive | Proposed |
+| 17 | ⚠ Changing `PencePerGem` re-values every outstanding balance | Portal edit must **warn, show the liability delta, and be audited** — 10p→5p halves what every member holds. Never a silent field | **Open — needs Matt's policy call** |
+| 18 | ⚠⚠ Refund symmetry (see §18) | Refund **claws back the earn** *and* **restores the burn**; balance may go negative and redemption is blocked while it is | Proposed — this is the one that is a **cash-out exploit** if got wrong |
 
 ### Decisions 10–11, mechanics (so nobody re-derives them)
 
@@ -294,7 +350,7 @@ The till's job is **identification and redemption UX**; the platform's is every 
 
 | Phase | What | ~ |
 |---|---|---|
-| **A — the engine** (platform) | `ProgrammeConfig` · loyalty ledger with `HOLD`/`RELEASE` (atomic balance-and-burn) · earn-at-ingest · redemption per decision 1 · `CustomerId` on the sale header | **15–20d** |
+| **A — the engine** (platform) | `LoyaltySettings` (§18.2) · the `GemEntry` ledger with `HOLD`/`RELEASE` (atomic balance-and-burn) and per-entry expiry · earn-at-ingest · redemption-as-discount per decision 1 · `CustomerId` on the sale header · **FIFO consumption + refund symmetry in SharedKernel** (§18.5) | **15–20d** |
 | **B — POS surfaces** | Web till (~4–5d) and MAUI (~5–6d, extends retrofit step 27): identify, balance surfacing, one-tap redeem, holds | **~10d** |
 | **C — admin portal** | Config screens, §11 reporting (liability, breakage, engagement), drilldown | **5–7d** |
 | **D — member portal** | The new surface **and member authentication** (customers are not users), statement, tier progress, QR, notifications | **15–20d** — the strongest v2 candidate |
@@ -303,3 +359,113 @@ The till's job is **identification and redemption UX**; the platform's is every 
 what the web till has *today* (attach, store-credit tender, member scan, tier assignment, member add
 per decisions 10–11, then gift cards). This design is platform-first work that follows it — building
 the engine before the parity slice exists would put the cart before a horse that cannot yet walk.
+
+---
+
+## 18. The configured economics *(Matt, 2026-08-13 — the numbers, and what follows from them)*
+
+> *"We already have tier'd discount. The credits/Gems value need to be set in the portal. Suggested is
+> 'Each credit/gem' is worth £0.10. Earn one credit/gem for every £10 spent. Use as many
+> credits/gems as you want on an order. Need to be able to set an expiry date or never."*
+
+Applied in place above — §2 (value), §3 (earn), §4 (redemption), §6 (expiry), §14 rows 2/5/8/15.
+This section holds the parts that are consequences rather than choices, so they are decided once here
+instead of three times in three surfaces.
+
+### 18.1 The rate is a 1% reward — worth sanity-checking against margin
+
+£10 spent → 1 gem → £0.10 back. **That is 1% of revenue given away**, and because it comes out of
+margin rather than turnover the real cost is 1%/margin — on a 40%-margin line, **~2.5% of gross
+margin**. That is a normal, conservative retail rate (Clubcard is ~1%, Nectar ~0.5%). Noted only so
+the figure is deliberate: it is the single number that decides what the programme costs, and it is
+one portal field away from being 10× that by accident. Hence §14 row 17 — that field warns.
+
+### 18.2 `LoyaltySettings` — one row per tenant, following `GiftCardSettings`
+
+The platform already has a settled idiom for "a per-tenant money decision": a settings table whose
+**absence is the gate** (`GiftCardSettings` — *"until the owner has chosen a treatment,
+generate/activate/redeem all refuse"*). Loyalty copies it rather than inventing a second idiom.
+
+| Field | v1 value | Why it is a column and not a constant |
+|---|---|---|
+| `PencePerGem` | `10` | Matt's rate, and the number §18.1 is about |
+| `SpendPerGemPence` | `1000` | "every £10" — the earn divisor |
+| `ExpiryMonths` | `int?`, null = **never** | Matt's "expiry date or never", per `GiftCard.ExpiresAtUtc` |
+| `NameSingular` / `NamePlural` | `"gem"` / `"gems"` | §2. ⚠ **Never the word "credit"** in member-facing text — store credit already exists and means *money* (§17) |
+| `MaxRedeemPerOrder` | `0` = unlimited | Matt's ruling is unlimited; the column costs nothing now and a migration later. Another tenant will want a cap |
+| `Active` | — | Turn the programme off without deleting a ledger |
+| `DecidedByUserId` / `DecidedAtUtc` | — | Straight from `GiftCardSettings`: a money rule records who set it |
+
+⚠ **Do not put these on `LoyaltyTier`.** They are programme-wide; per-tier *multipliers* are a §5
+concern and belong on the tier row.
+
+### 18.3 The gem ledger is a second ledger, and it counts gems
+
+`CreditEntry` already exists and is exactly the right *shape* — append-only, signed, `Issue`/`Redeem`/
+`Expire`, anchored to `SaleId` and `ActorUserId`, balance = Σ entries (D15). **Reuse the pattern, not
+the table**: `CreditEntry.AmountPence` is **money**, and gems are a **count** (§2, §17).
+
+`GemEntry` therefore differs from `CreditEntry` in exactly three ways:
+
+| | `CreditEntry` (exists) | `GemEntry` (new) |
+|---|---|---|
+| Amount | `AmountPence` — money | `Amount` — **whole gems**, signed |
+| Types | `Issue` / `Redeem` / `Expire` | `Earn` / `Redeem` / `Expire` / `Adjust` (§6 manual, reason mandatory) |
+| Expiry | on the gift card, not the entry | **`ExpiresOn DateOnly?` on the entry** — §6, because batches expire independently |
+
+### 18.4 Redemption as a discount: the machinery already exists
+
+This is a second, code-level argument for §14 decision 1 that the design did not have:
+
+- `DiscountApportionment.Across` already spreads a basket-wide discount across lines
+  **deterministically, to the penny, ties breaking on the earlier line**.
+- `VatLineMath.ForLine` already splits each line's discount across net and VAT — so a gem
+  redemption on a **mixed-VAT basket apportions correctly for free**. This is the thing that would
+  otherwise be got wrong quietly and show up as a wrong VAT return.
+- Both are already a **C2 twin** with the web till (`till/basket.ts`), so parity is already pinned.
+
+A gem redemption is therefore *"a basket-wide discount of `gems × PencePerGem`"* and reuses tested
+code. As a **tender** it would instead need a new tender type, and would report gem "takings" in the
+Z-read that never reached the bank — a reconciliation gap to be journalled out for ever.
+
+### 18.5 ⚠ Two edge cases "as many as you want" creates
+
+**A £0.00 basket can now happen** — 10% tier discount plus enough gems, and there is nothing left to
+pay. Neither till has been shown to handle it:
+
+- Web till: `CheckoutDialog.tsx:161` gates completion on `parsed.valid && remaining === 0`. With a
+  zero total and no tenders, `remaining` *is* 0 — but whether `parsed.valid` holds for an empty
+  amounts box is **untested**, and `TenderLoop` explicitly refuses a zero payment (`TenderRefusal.Zero`
+  — *"Zero settles nothing, so accepting it is an infinite loop with a friendly face"*).
+- The right answer is to **skip tendering entirely when the basket settles to zero** and complete the
+  sale with no payment rows — not to invent a £0 payment. ⚠ It needs a test on both tills and a row
+  in `Test Maui.md`; a fully-redeemed sale is exactly the demo someone will try first.
+
+**Refunds are where gems become a cash-out exploit.** Both halves are required, and each is useless
+alone:
+
+1. **A refund must claw back what the sale earned.** Otherwise buy £1,000, refund it, keep 100 gems —
+   a gem printer. Balance may go **negative**; redemption is blocked while it is (honest, and the
+   append-only ledger makes it explainable).
+2. **A refund must give back the gems the sale consumed.** `LineDiscounts` already states the money
+   half correctly — *"RETURNS TAKE NO DISCOUNT… refunding a discounted sale gives back what the
+   customer actually paid"* — so a customer who paid £90 after £10 of gems gets **£90 back**. If the
+   gems did not also return they would simply have lost them, which is both unfair and a support
+   ticket. ⚠ And note the inverse is the exploit: refunding the **full** £100 *and* returning the
+   gems pays the discount out in cash. Exactly one of those two may happen.
+
+### 18.6 ⚠ Found while checking this: MAUI applies no tier discount at all
+
+Not a design question — a **live parity gap**, found in the code today. `TillPage.tsx:122–123`
+applies the member discount on the web till:
+
+```ts
+if (m && !m.expired && m.autoDiscountRate > 0)
+  dispatch({ type: "applyMemberDiscount", rate: m.autoDiscountRate, … });
+```
+
+`autoDiscountRate` appears nowhere in `Plutus.Frontend.AppClient` — MAUI has **no customer attach at
+all**, so it cannot apply it. **A Gold member is charged 10% more on the MAUI till than on the web
+till, for the same basket, today.** That is the exact failure `till-design.md` Part B exists to
+catch, and "we already have tier'd discount" is true only of the browser. It is inside retrofit
+**step 27** and is the reason step 27 comes first.
