@@ -258,7 +258,8 @@ Target **WCAG 2.2 AA**. Highlights relevant to loyalty screens: AA contrast with
 | 14 | Earn rounding | **Floor per sale, remainder discarded** — £15 earns 1 gem (§3) | Proposed — ⚠ decide **before** launch; carrying remainders forward later means recomputing history |
 | 15 | Per-order redemption cap | **None** — as many gems as the member likes, bounded only by the basket reaching £0.00 (§4) | ✅ **Decided — Matt, 2026-08-13** |
 | 16 | Reward catalogue (tiered rewards, vouchers, free products) | **Not v1.** A flat 10p-a-gem rate needs no catalogue; adding one later is additive | Proposed |
-| 17 | ⚠ Changing `PencePerGem` re-values every outstanding balance | Portal edit must **warn, show the liability delta, and be audited** — 10p→5p halves what every member holds. Never a silent field | **Open — needs Matt's policy call** |
+| 17 | ⚠ Changing `PencePerGem` re-values every outstanding balance | **Two-stage `Ask.tsx` confirm** — Matt's reputation warning, then the measured impact (*"X members holding Y gems, £A → £B, a change of Z"*), `danger` + `typeToConfirm` on the new rate, and an `AuditLog` row carrying the figures shown. ⚠ Figures from the **same code as §11's liability report**, server-side at dialog-open, never a cached rollup. ⚠ Skip the warning when X = 0; drop the reputation line on an *increase* — §18.7 | ✅ **Decided — Matt, 2026-08-13** |
+| 19 | ⚠ Grandfather gems at the rate they were earned? | **Stamp `PencePerGemAtEarn` on every `GemEntry` from day one** even though v1 does not read it. One column now; retrofitted, every historical entry has an unknown rate. Keeps grandfathering — the fix that removes the reputation problem rather than warning about it — available later. ⚠ Cost if ever switched on: a balance stops having one value at the counter (§18.7) | Proposed — **cheap now, impossible later** |
 | 18 | ⚠⚠ Refund symmetry (see §18) | Refund **claws back the earn** *and* **restores the burn**; balance may go negative and redemption is blocked while it is | Proposed — this is the one that is a **cash-out exploit** if got wrong |
 
 ### Decisions 10–11, mechanics (so nobody re-derives them)
@@ -469,3 +470,75 @@ all**, so it cannot apply it. **A Gold member is charged 10% more on the MAUI ti
 till, for the same basket, today.** That is the exact failure `till-design.md` Part B exists to
 catch, and "we already have tier'd discount" is true only of the browser. It is inside retrofit
 **step 27** and is the reason step 27 comes first.
+
+### 18.7 Changing the rate: the warning, and the figures behind it
+
+> *"Yes needs a warning, also saying something like 'Do not change this when you have live users. The
+> store will have reputation damage. Are you sure you want to do this?' Then 'It will effect X
+> customers, Y credits with a value change of Z'."* — Matt, 2026-08-13. Closes decision 17.
+
+Two stages, using the portal's **existing** confirm idiom — `Ask.tsx`'s `ConfirmOptions` already has
+`danger` and `typeToConfirm`, and `UsersPage.tsx` already does type-to-confirm for deleting a user.
+Do not build a third dialog.
+
+**Stage 1 — the warning** (Matt's copy, with *affect* for *effect*, since this is a live UI string):
+
+> ⚠ **Do not change this when you have live members.** The store will suffer reputation damage.
+> Are you sure you want to do this?
+
+**Stage 2 — the measured impact**, before the confirm button unlocks:
+
+> This will affect **X members** holding **Y gems**, changing what they are worth from **£A** to
+> **£B** — a change of **Z**.
+
+`danger: true`, and `typeToConfirm` set to the **new rate in pence** so the owner has to type the
+number they are imposing. Then an `AuditLog` row: `Action = "loyalty.rate.change"`, `EntityType =
+"LoyaltySettings"`, `DetailJson` carrying `{from, to, members, gems, valueFromPence, valueToPence}`.
+⚠ **The figures go in the audit record, not just the dialog** — the point of auditing this is
+evidence of *what the owner was shown when they agreed to it*.
+
+#### What X, Y and Z actually are — where this can quietly lie
+
+| | Definition | ⚠ The trap |
+|---|---|---|
+| **X** | Members with a **non-zero, unexpired** balance as at now | Counting expired gems inflates X and the dialog cries wolf. Counting *all* members ever enrolled inflates it enormously |
+| **Y** | Total **unexpired** gems outstanding | Same. §6 expiry is per entry, so "unexpired" is a per-batch test, not one date |
+| **Z** | `Y × (new − old)` pence, shown **signed and with both totals** (£A → £B) | A bare delta hides the scale: "−£300" reads differently next to "£600 → £300" |
+
+⚠⚠ **X, Y and £A must come from the same code as §11's outstanding-liability report.** If the
+dialog and the report disagree, the portal contradicts itself about the store's own liability, and
+whichever number is worse is the one the owner will remember. One function, one source, called by
+both — a C1 concern even though it never leaves C#.
+
+⚠ **Compute it server-side from the ledger when the dialog opens, never from a cached rollup.** A
+stale figure inside a confirmation is worse than no figure: it makes a wrong number authoritative at
+the exact moment someone is deciding. This needs a **preview** call — the impact depends on the
+*proposed* rate, so a plain `PUT` cannot warn: `GET /api/v1/loyalty/settings/rate-preview?pencePerGem=5`.
+
+#### ⚠ Two things the copy should not say when they are not true
+
+- **If X = 0, skip the scary dialog entirely** and say so plainly: *"No members are holding gems, so
+  this change affects nobody."* A warning shown when it does not apply is how people learn to click
+  through warnings — and then the one that matters gets clicked through too.
+- **Direction is not symmetric.** A **decrease** is a takeaway, and Matt's reputation sentence is
+  exactly right for it. An **increase** is a giveaway: nobody's reputation suffers, but the store's
+  **liability rises** by Z. Show the figures for both, and the reputation line only on a decrease —
+  an owner being generous should not be told they are damaging their reputation.
+
+#### The alternative that removes the problem instead of warning about it
+
+**Grandfathering:** store `PencePerGemAtEarn` on each `GemEntry`, so gems keep the rate they were
+earned under and a rate change only ever affects **future** earns. No reputation risk, no warning
+needed, and it is the same shape as §6's per-entry expiry and the platform's existing habit of
+stamping a rule onto the row it applied to (`VatBandStamp`, `Membership`'s as-assigned snapshot).
+
+⚠ **The cost is real and it is at the counter:** a balance stops being "240 gems = £24" and becomes
+240 gems across batches at different rates. Harder to print on a receipt, harder to explain, and
+"how much are my gems worth?" stops having one answer.
+
+⚠⚠ **But the column is nearly free NOW and impossible to add later** — retrofitted, every historical
+entry has an unknown rate and has to be assumed at whatever the current setting happens to be.
+**Recommendation: build the warning as asked (decision 17, settled), and stamp `PencePerGemAtEarn`
+on every entry from day one anyway.** It costs one column, it is written but unread, and it keeps
+grandfathering available as the escape hatch the first time a rate change is genuinely needed.
+Decision 19.

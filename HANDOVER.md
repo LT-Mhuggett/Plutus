@@ -286,9 +286,27 @@ after redemption, **excluding gift-card activation** — a liability, so earning
 floored per sale. Two new edge cases flagged for test: a **£0.00 basket can now happen** (full
 redemption) and neither till is known to handle it — the answer is to skip tendering, not invent a £0
 payment; and `Across` **throws** above basket value, so a till must cap the offer or ingest quarantines
-the sale. ⚠ Still gated on decision 1 (the accountant); ⚠ **new open question for Matt** — changing
-`PencePerGem` re-values every outstanding balance (10p→5p halves what members hold), so that field must
-warn, show the liability delta, and be audited.
+the sale. ⚠ Still gated on decision 1 (the accountant).
+
+**3g-i. The rate-change guard is specified — decision 17 closed** (Matt, 2026-08-13: *"needs a warning…
+'Do not change this when you have live users. The store will have reputation damage. Are you sure you
+want to do this?' Then 'It will effect X customers, Y credits with a value change of Z'"*). Two stages
+in **`Ask.tsx`'s existing** confirm — it already has `danger` and `typeToConfirm`, and `UsersPage.tsx`
+already type-to-confirms a deletion, so no third dialog — then an `AuditLog` row
+(`loyalty.rate.change`) carrying **the figures the owner was shown**, which is the point of auditing
+it. ⚠ The figures are where this can quietly lie: X counts members with a **non-zero, unexpired**
+balance (counting expired gems inflates it and the dialog cries wolf), Z shows **both totals and the
+sign** (£600 → £300 reads differently from "−£300"), and X/Y/£A must come from **the same code as
+§11's liability report** or the portal contradicts itself about the store's own liability. ⚠ Computed
+**server-side at dialog-open, never from a cached rollup** — a stale number inside a confirmation is
+worse than none, because it makes a wrong figure authoritative exactly when someone is deciding; so it
+needs a **preview** endpoint, as a plain `PUT` cannot warn about a rate it has already applied. ⚠ Two
+honesty rules: **skip the dialog when X = 0** (a warning shown when it does not apply teaches people
+to click through the one that does), and **drop the reputation line on an increase** — that is a
+giveaway, costing the store liability, not the member anything. ⚠ **Decision 19, cheap now and
+impossible later:** stamp `PencePerGemAtEarn` on every ledger entry from day one even though v1 never
+reads it — it keeps *grandfathering* (old gems keep their earned rate, so a change can never take
+value away) available as the escape hatch; retrofitted, every historical entry has an unknown rate.
 
 **3h. ⚠⚠ A LIVE PARITY BUG, found while reviewing the above — MAUI applies NO tier discount.** The web
 till applies it at `TillPage.tsx:122–123` (`if (m && !m.expired && m.autoDiscountRate > 0) dispatch({
