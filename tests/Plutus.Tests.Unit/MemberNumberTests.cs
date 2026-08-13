@@ -165,6 +165,96 @@ public class MemberNumberTests
         Assert.Equal(n, MemberNumbers.TryCanonicalise(MemberNumbers.BarcodePayload(n)));
     }
 
+    // ── routing a SCAN: member card, or product barcode? (step 27) ──
+
+    [Fact]
+    public void A_scanned_member_card_is_recognised_as_one()
+    {
+        var payload = MemberNumbers.BarcodePayload(MemberNumbers.Format(482));
+        Assert.True(MemberNumbers.LooksLikeMemberScan(payload));
+        Assert.True(MemberNumbers.LooksLikeMemberScan(payload.ToLowerInvariant()));
+        Assert.True(MemberNumbers.LooksLikeMemberScan($" {payload} "));
+    }
+
+    /// <summary>⚠ THE WHOLE REASON THIS PREDICATE EXISTS SEPARATELY FROM <c>TryCanonicalise</c>.
+    /// A six-digit product barcode canonicalises happily — that is deliberate, because a human
+    /// reading a card down the phone says "four eight two". But a SCAN of six digits is far more
+    /// likely to be a product, and hijacking it into a customer lookup would make the item
+    /// un-scannable with no explanation. So the scan path demands the prefix.</summary>
+    [Fact]
+    public void A_bare_six_digit_scan_is_NOT_treated_as_a_member_card()
+    {
+        Assert.False(MemberNumbers.LooksLikeMemberScan("000482"));
+        Assert.False(MemberNumbers.LooksLikeMemberScan("482"));
+        // ...while the typed/spoken short form still resolves through search, unchanged:
+        Assert.Equal(MemberNumbers.Format(482), MemberNumbers.TryCanonicalise("482"));
+    }
+
+    /// <summary>A prefixed code whose check character fails must be reported as a bad card scan,
+    /// not fall through to an item search that can never match.</summary>
+    [Fact]
+    public void A_prefixed_code_with_a_broken_check_character_is_not_a_member_scan()
+    {
+        var good = MemberNumbers.Format(482);
+        var broken = MemberNumbers.Prefix + "000842" + good[^1]; // transposed, original check char
+        Assert.False(MemberNumbers.LooksLikeMemberScan(broken));
+        Assert.Null(MemberNumbers.TryCanonicalise(broken));
+    }
+
+    [Theory]
+    [InlineData("5012345678900")]   // a 13-digit EAN
+    [InlineData("C")]
+    [InlineData("")]
+    [InlineData(null)]
+    [InlineData("CANCEL")]
+    [InlineData("C000482K9")]       // prefixed but too long
+    public void Non_member_scans_are_left_for_the_item_lookup(string? scanned)
+    {
+        Assert.False(MemberNumbers.LooksLikeMemberScan(scanned));
+    }
+
+    /// <summary>Every number the allocator can hand out must survive the round trip its own card
+    /// takes: format → print as a barcode → scan → route → canonicalise back.</summary>
+    [Fact]
+    public void Every_issued_number_round_trips_through_its_own_barcode()
+    {
+        foreach (var seq in new long[] { 0, 1, 9, 10, 482, 99_999, 999_999 })
+        {
+            var n = MemberNumbers.Format(seq);
+            var payload = MemberNumbers.BarcodePayload(n);
+            Assert.Equal(n, MemberNumbers.TryCanonicalise(payload));
+            Assert.Equal(n, MemberNumbers.TryCanonicalise(n));
+            Assert.True(MemberNumbers.LooksLikeMemberScan(payload), payload);
+            Assert.True(MemberNumbers.IsValid(n), n);
+        }
+    }
+
+    /// <summary>⚠⚠ THE CEILING, PINNED — found by the round-trip test above on 2026-08-13.
+    /// <c>Format</c> happily grows a seventh digit past 999,999, but <c>TryCanonicalise</c> keys off
+    /// LENGTH (it has to: a check character can itself be a digit) and accepts only
+    /// <c>SequenceDigits + 1</c>. So the millionth member of a tenant gets a card that prints, scans
+    /// and **resolves to nobody**.
+    ///
+    /// This test exists to make that boundary a decision rather than a surprise, and to fail loudly
+    /// for whoever widens <c>SequenceDigits</c> — which is the supported fix, because both halves
+    /// read that one constant and widen in step. ⚠ Loosening the PARSER instead would let a bare
+    /// EAN-8 product barcode canonicalise as a member number, which is much worse at a counter.</summary>
+    [Fact]
+    public void Past_the_sequence_ceiling_a_number_formats_but_cannot_be_read_back()
+    {
+        var ceiling = (long)Math.Pow(10, MemberNumbers.SequenceDigits);   // 1,000,000 at 6 digits
+
+        var last = MemberNumbers.Format(ceiling - 1);
+        Assert.Equal(MemberNumbers.SequenceDigits + 1, last.Length);
+        Assert.Equal(last, MemberNumbers.TryCanonicalise(last));          // the last good one
+
+        var over = MemberNumbers.Format(ceiling);
+        Assert.Equal(MemberNumbers.SequenceDigits + 2, over.Length);      // it grew a digit...
+        Assert.Null(MemberNumbers.TryCanonicalise(over));                 // ...and became unreadable
+        Assert.False(MemberNumbers.IsValid(over));
+        Assert.False(MemberNumbers.LooksLikeMemberScan(MemberNumbers.BarcodePayload(over)));
+    }
+
     // ── allocation ──
 
     [Fact]

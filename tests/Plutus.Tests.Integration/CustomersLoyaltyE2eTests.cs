@@ -123,7 +123,7 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
             custId = body.GetProperty("id").GetGuid();
             memberNo = body.GetProperty("memberNo").GetString()!;
         }
-        Assert.True(Plutus.Customers.MemberNumbers.IsValid(memberNo), memberNo);
+        Assert.True(Plutus.SharedKernel.MemberNumbers.IsValid(memberNo), memberNo);
 
         // the detail read exposes the number and the barcode payload to print on a card
         using (var req = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/customers/{custId}"))

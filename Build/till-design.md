@@ -248,6 +248,9 @@ and what stops them drifting.
 | **Entity ids are UUIDv7** | `SharedKernel/Uuid7.cs` | Web till `pipeline.ts` `uuidv7()` — **deliberate** | `No_module_mints_entity_ids_with_Guid_NewGuid` (.NET side) |
 | **The four sale invariants** | `SaleV2.Validate()` — enforced at ingest, so a client cannot diverge undetected | — | `SalesV2Tests` |
 | **Ingest status policy** — 201 recorded · 200 duplicate · 202 quarantined (never retry) · 400 skip | `Plutus.Client.Core` `OutboxPusher` | Web till `pipeline.ts` | `TillOutboxSoakE2eTests`, `ClientCoreE2eTests` |
+| **A member number's shape and check character**, and **whether a scan is a member card at all** | `SharedKernel/MemberNumbers.cs` (moved out of `Plutus.Customers` 2026-08-13 — a till must answer it **offline at the scanner**, and MAUI may not reference a backend module) | None — ⚠ and there must never be one. A card that validates on one till and is refused on the next is indistinguishable from a damaged card | `MemberNumberTests` (38) — round-trip through the printed barcode, and the ceiling pinned |
+| ⚠ **A member number is ALLOCATED server-side only** | `Plutus.Customers/MemberNoAllocator` — needs a tenant-wide counter row, whose value is its own concurrency token | **None possible.** Two offline tills would mint the same number, which is why adding a member is online-only on **every** till (binding defaults 20/21) | `MemberNumberTests` allocation + backfill sections |
+| ⚠ **The member-number ceiling is `SequenceDigits`** (1,000,000/tenant) | Past it a number **formats but cannot be parsed back** — the card prints and resolves to nobody. Widening the one constant is the fix; both halves read it and widen in step | ⚠ **Never loosen the parser instead** — arbitrary lengths make a bare **EAN-8** canonicalise as a member number ~3% of the time | `Past_the_sequence_ceiling_a_number_formats_but_cannot_be_read_back` |
 
 ### Connection and offline trust
 

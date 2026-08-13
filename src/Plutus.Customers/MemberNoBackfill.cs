@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Plutus.Entities;
 using Plutus.Entities.Models;
+using Plutus.SharedKernel;   // MemberNumbers moved here 2026-08-13 — see MemberNumbers.cs
 
 namespace Plutus.Customers
 {

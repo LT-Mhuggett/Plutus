@@ -669,10 +669,26 @@ membership), a create dialog gated **`pos.customers.add` OR `customers.manage`**
 picker gated `customers.manage`** reading `GET /api/v1/loyalty/tiers`, a store-credit tender
 mirroring the web till's synthetic `CREDIT_PAYID`, and a management list off `GET /api/v1/loyalty`.
 
-⚠ **Extract `MemberNumbers` from `src/Plutus.Customers` to SharedKernel FIRST** — it is a backend
-module MAUI may not reference, and the Crockford check character is a *rule*. Member-card scan: a
-code beginning `C` with a valid check digit routes to **customer attach**, not item lookup; a bad
-check digit says so rather than searching for an item that will never exist.
+✅ **DONE 2026-08-13 — `MemberNumbers` is in `Plutus.SharedKernel`.** The format and check character
+moved (a backend module MAUI may not reference, and the Crockford check character is a *rule*);
+`MemberNoAllocator` **stayed** in `Plutus.Customers`, because handing out the *next* number needs a
+tenant-wide counter and is server-only — the rule travels, the sequence does not. The scan-routing
+predicate the till needs now exists as **`MemberNumbers.LooksLikeMemberScan`**: prefixed `C` + valid
+check character → **customer attach**; prefixed and **invalid** → say the card did not scan cleanly,
+rather than searching for an item that cannot exist. ⚠ Deliberately stricter than
+`TryCanonicalise`, which still accepts a bare `"482"` for the human reading a card down the phone —
+a *scan* of six digits is far more likely to be a product. C1 rows added to `till-design.md`.
+Unit 938 → **949**; `platform` 1.30.0 → 1.31.0.
+
+⚠⚠ **AND IT SURFACED A LATENT DEFECT — the member-number ceiling.** `Format` grows a seventh digit
+past 999,999, but `TryCanonicalise` keys off length and accepts only `SequenceDigits + 1`, so
+sequence 1,000,000 formats as `"10000007"` and canonicalises to **null**: the millionth member of a
+tenant would get a card that prints, scans and **resolves to nobody**. The old comment claimed the
+growth was safe. Now pinned by `Past_the_sequence_ceiling_a_number_formats_but_cannot_be_read_back`
+and documented on `Format`: **the fix is to widen `SequenceDigits`** (both halves read that one
+constant, so they widen in step and existing zero-padded numbers are unaffected) — ⚠ **never to
+loosen the parser**, which would make a bare **EAN-8** canonicalise as a member number ~3% of the
+time. Nobody is near 1,000,000 members; it is recorded so it is a decision and not a surprise.
 
 **The hard part is offline design, and the rule is strict.** A bounded local `LoyaltyCache`
 (CustomerId, Name, Tier, AutoDiscountRate, CreditBalancePenceAsOf, RefreshedAtUtc) serves offline
