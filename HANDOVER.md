@@ -304,9 +304,33 @@ needs a **preview** endpoint, as a plain `PUT` cannot warn about a rate it has a
 honesty rules: **skip the dialog when X = 0** (a warning shown when it does not apply teaches people
 to click through the one that does), and **drop the reputation line on an increase** — that is a
 giveaway, costing the store liability, not the member anything. ⚠ **Decision 19, cheap now and
-impossible later:** stamp `PencePerGemAtEarn` on every ledger entry from day one even though v1 never
-reads it — it keeps *grandfathering* (old gems keep their earned rate, so a change can never take
-value away) available as the escape hatch; retrofitted, every historical entry has an unknown rate.
+impossible later:** stamp `PencePerGemAtEarn` on every ledger entry from day one — retrofitted, every
+historical entry has an unknown rate. **Matt settled that immediately rather than deferring it → 3g-ii.**
+
+**3g-ii. GRANDFATHERING ADOPTED, WITH OLDEST-FIRST CONSUMPTION — decision 19 closed** (Matt,
+2026-08-13: *"Can we make it grandfathering but oldest gems are used first in any transaction, but
+slowly removing the problem?"*). Yes, and it is the better design: each batch keeps
+`PencePerGemAtEarn`, oldest-first consumption drains the old-rate cohort, so a rate change **cannot
+take value from anyone** and the mixed population liquidates itself unadministered. It needs no new
+ordering rule — **§6 already specified oldest-first** to protect gems from lapsing, so one rule serves
+both. ⚠ **Precision added, or the two diverge:** oldest-*earned* and oldest-*expiring* coincide only
+while `ExpiryMonths` is unchanged — **soonest-expiring wins, oldest-earned is the tie-break**, since
+ordering by earn date would let a sooner-expiring batch lapse. ⚠ **The hinge, and it dissolves the
+objection I had raised:** the member-facing figure becomes **money, not a count** (*"you have £23.50 in
+gems"*) — a count has no single value once batches differ, and a **money-denominated** redemption makes
+oldest-first **value-neutral to the member**, since batch order then changes which rows drain and never
+what they get. ⚠⚠ Best consequence: **no till ever holds `PencePerGem`** — it gets a money balance and
+sends a money redemption, so this is **a C2 twin that never gets created**, and MAUI's offline
+`LoyaltyCache` hint is right by construction. ⚠ The one added cost: **a redemption is one ledger row
+per source batch** (`SourceEntryId` + the rate it was valued at), because §18.5's refund-restores-the-
+burn rule means putting back *those* batches at *those* rates — without it a refund invents a rate or
+silently re-values the balance, the exact failure grandfathering prevents; it also makes §11's
+liability the true Σ(count × rate). ⚠ **Honest limit:** it converges in a few cycles for active
+members and by a **guaranteed date** where `ExpiryMonths` is set, but for a hoarder with expiry
+**null** it never drains — so grandfathering is a standing feature there, not a transitional state, and
+must not be described internally as temporary. Net effect on 3g-i: the rate-change dialog keeps every
+mechanism but **downgrades from `danger` to informational**; the hard warning moves to **shortening
+`ExpiryMonths`**, now the only edit that destroys value.
 
 **3h. ⚠⚠ A LIVE PARITY BUG, found while reviewing the above — MAUI applies NO tier discount.** The web
 till applies it at `TillPage.tsx:122–123` (`if (m && !m.expired && m.autoDiscountRate > 0) dispatch({

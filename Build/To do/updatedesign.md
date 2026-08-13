@@ -30,8 +30,13 @@ The credit currency is fully configurable per programme:
 ⚠ **The ledger stores a COUNT of gems, never their pence value** — see §18. The rate is a
 portal setting and a setting can change; a balance stored in pence would either silently
 re-value every historical entry or silently fail to, depending on which figure was written.
-Storing the count and applying the *current* rate at redemption is the only version that
-survives Matt changing 10p to 15p.
+
+⚠ **Each batch also carries the rate it was EARNED under** (`PencePerGemAtEarn`) — decision 19,
+**§18.8**: gems are *grandfathered*, so a rate change touches future earns only and can never take
+value from a member. A member's balance is therefore **Σ(batch count × that batch's rate)**, and
+what they are shown is **the money** — *"you have £23.50 in gems"* — because once batches differ a
+raw count has no single value. ⚠ Consequently **no till ever holds `PencePerGem`**: it receives a
+money balance and sends a money redemption, so the rate cannot drift across surfaces.
 
 ---
 
@@ -77,6 +82,12 @@ Additional rules:
 
 ✅ **DECIDED (Matt, 2026-08-13): a member may spend as many gems as they like on an order** — no
 per-order cap, no minimum balance, no minimum spend. £0.10 a gem, straight off the basket.
+
+⚠ **The redemption is entered as MONEY, not as a count of gems** (decision 19, §18.8). Because gems
+are grandfathered at the rate they were earned under, *"spend 100 gems"* has no single value — so the
+cashier asks **"how much would you like to take off?"** and the engine consumes whatever batches that
+costs, **oldest first**. This also makes the oldest-first order value-neutral to the member: spending
+a money amount means batch order changes which rows drain, never what the member gets.
 
 ⚠ **"As many as you like" is still bounded by the basket, and the bound is already enforced in
 code.** `DiscountApportionment.Across` **throws** if the discount exceeds the lines it is spread
@@ -127,7 +138,13 @@ a mixed-VAT basket apportions correctly for free. A tender needs a new tender ty
   - **Redemption consumes oldest-expiring-first (FIFO).** Spending newest-first would silently
     burn gems the member was about to lose anyway and let the older ones lapse — the member is
     worse off for shopping. FIFO belongs in `Plutus.SharedKernel` because *both* tills must show
-    the same "you have 240 gems, 30 expiring on 14 Sep".
+    the same "you have £23.50 in gems, £3.00 of it expiring on 14 Sep".
+    ⚠ **The same ordering also drains the old-rate cohort** under grandfathering (§18.8), so one
+    rule serves both purposes. ⚠ **Precision, or the two diverge:** oldest-*earned* and
+    oldest-*expiring* coincide only while `ExpiryMonths` is unchanged — shorten it and a June gem
+    can expire before a March one. **Soonest-expiring wins; oldest-earned is the tie-break.**
+    Ordering by earn date instead would let the sooner-expiring batch lapse, destroying exactly the
+    value FIFO exists to protect.
   - **Changing `ExpiryMonths` must not retro-expire.** Entries carry their own computed expiry, so
     shortening the window affects *future* earns only. Otherwise one portal edit can vaporise a
     balance a member is standing at the counter holding.
@@ -258,8 +275,8 @@ Target **WCAG 2.2 AA**. Highlights relevant to loyalty screens: AA contrast with
 | 14 | Earn rounding | **Floor per sale, remainder discarded** — £15 earns 1 gem (§3) | Proposed — ⚠ decide **before** launch; carrying remainders forward later means recomputing history |
 | 15 | Per-order redemption cap | **None** — as many gems as the member likes, bounded only by the basket reaching £0.00 (§4) | ✅ **Decided — Matt, 2026-08-13** |
 | 16 | Reward catalogue (tiered rewards, vouchers, free products) | **Not v1.** A flat 10p-a-gem rate needs no catalogue; adding one later is additive | Proposed |
-| 17 | ⚠ Changing `PencePerGem` re-values every outstanding balance | **Two-stage `Ask.tsx` confirm** — Matt's reputation warning, then the measured impact (*"X members holding Y gems, £A → £B, a change of Z"*), `danger` + `typeToConfirm` on the new rate, and an `AuditLog` row carrying the figures shown. ⚠ Figures from the **same code as §11's liability report**, server-side at dialog-open, never a cached rollup. ⚠ Skip the warning when X = 0; drop the reputation line on an *increase* — §18.7 | ✅ **Decided — Matt, 2026-08-13** |
-| 19 | ⚠ Grandfather gems at the rate they were earned? | **Stamp `PencePerGemAtEarn` on every `GemEntry` from day one** even though v1 does not read it. One column now; retrofitted, every historical entry has an unknown rate. Keeps grandfathering — the fix that removes the reputation problem rather than warning about it — available later. ⚠ Cost if ever switched on: a balance stops having one value at the counter (§18.7) | Proposed — **cheap now, impossible later** |
+| 17 | ⚠ ~~Changing `PencePerGem` re-values every outstanding balance~~ → **it no longer does** (decision 19) | **Two-stage `Ask.tsx` confirm** — the measured impact (*"X members holding Y gems keep their earned rate, worth £A, unchanged"*), `typeToConfirm` on the new rate, and an `AuditLog` row carrying the figures shown. ⚠ Figures from the **same code as §11's liability report**, server-side at dialog-open, never a cached rollup. ⚠ Skip the dialog when X = 0. ⚠ The hard `danger` warning **moves to shortening `ExpiryMonths`**, the one edit that still destroys value — §18.7 + §18.8 | ✅ **Decided — Matt, 2026-08-13** |
+| 19 | ⚠ Grandfather gems at the rate they were earned? | **YES — grandfathering, with oldest-first consumption**, so the old-rate cohort liquidates itself and a rate change can never take value from a member. ⚠ Requires two things: the member-facing figure becomes **money not a count** (a count has no single value once batches differ), and a redemption becomes **one ledger row per source batch** (so a refund restores the same batches at the same rates). ⚠ Converges for active members; for a hoarder with `ExpiryMonths` null it is **permanent, not transitional** — §18.8 | ✅ **Decided — Matt, 2026-08-13** |
 | 18 | ⚠⚠ Refund symmetry (see §18) | Refund **claws back the earn** *and* **restores the burn**; balance may go negative and redemption is blocked while it is | Proposed — this is the one that is a **cash-out exploit** if got wrong |
 
 ### Decisions 10–11, mechanics (so nobody re-derives them)
@@ -389,7 +406,7 @@ generate/activate/redeem all refuse"*). Loyalty copies it rather than inventing 
 
 | Field | v1 value | Why it is a column and not a constant |
 |---|---|---|
-| `PencePerGem` | `10` | Matt's rate, and the number §18.1 is about |
+| `PencePerGem` | `10` | Matt's rate, and the number §18.1 is about. ⚠ **Applies to FUTURE earns only** — existing batches keep `PencePerGemAtEarn` (§18.8), so this is the rate the *next* gem is minted at, not a global multiplier |
 | `SpendPerGemPence` | `1000` | "every £10" — the earn divisor |
 | `ExpiryMonths` | `int?`, null = **never** | Matt's "expiry date or never", per `GiftCard.ExpiresAtUtc` |
 | `NameSingular` / `NamePlural` | `"gem"` / `"gems"` | §2. ⚠ **Never the word "credit"** in member-facing text — store credit already exists and means *money* (§17) |
@@ -413,6 +430,16 @@ the table**: `CreditEntry.AmountPence` is **money**, and gems are a **count** (�
 | Amount | `AmountPence` — money | `Amount` — **whole gems**, signed |
 | Types | `Issue` / `Redeem` / `Expire` | `Earn` / `Redeem` / `Expire` / `Adjust` (§6 manual, reason mandatory) |
 | Expiry | on the gift card, not the entry | **`ExpiresOn DateOnly?` on the entry** — §6, because batches expire independently |
+| Rate | n/a — pence *are* the value | **`PencePerGemAtEarn` on the entry** — §18.8 grandfathering. Set on `Earn`; on a `Redeem` row it records the rate the consumed batch was valued at |
+| Redemption granularity | one row | ⚠ **one `Redeem` row PER SOURCE BATCH**, each with `SourceEntryId` — see below |
+
+⚠⚠ **A redemption is several rows, not one, and this is load-bearing rather than bookkeeping.**
+Consuming £10 of gems may draw 10 @15p from January and 40 @10p from March. §18.5 requires a refund
+to **restore the burn**, and restoring it correctly means putting back *those* batches at *those*
+rates — not 50 gems at today's rate. Without per-batch rows a refund must either invent a rate or
+silently re-value the member's balance, which is the precise failure grandfathering exists to
+prevent. It also makes §10's statement explainable line by line, and §11's liability the **true**
+Σ(count × rate) instead of `total × current rate`.
 
 ### 18.4 Redemption as a discount: the machinery already exists
 
@@ -477,6 +504,13 @@ catch, and "we already have tier'd discount" is true only of the browser. It is 
 > store will have reputation damage. Are you sure you want to do this?' Then 'It will effect X
 > customers, Y credits with a value change of Z'."* — Matt, 2026-08-13. Closes decision 17.
 
+⚠⚠ **READ §18.8 FIRST — it supersedes the SEVERITY of this section, not its machinery.** Decision 19
+adopted grandfathering, so a rate change can no longer take value from a member and **Stage 1's
+reputation warning is no longer the right copy for the ordinary case**. Every mechanism below still
+stands (the preview endpoint, the shared figures, the audit row, type-to-confirm); the wording and
+the `danger` flag move to the informational form in §18.8. Stage 1 as written is retained because it
+is still exactly right for **shortening `ExpiryMonths`**, which does destroy value.
+
 Two stages, using the portal's **existing** confirm idiom — `Ask.tsx`'s `ConfirmOptions` already has
 `danger` and `typeToConfirm`, and `UsersPage.tsx` already does type-to-confirm for deleting a user.
 Do not build a third dialog.
@@ -525,20 +559,100 @@ the exact moment someone is deciding. This needs a **preview** call — the impa
   **liability rises** by Z. Show the figures for both, and the reputation line only on a decrease —
   an owner being generous should not be told they are damaging their reputation.
 
-#### The alternative that removes the problem instead of warning about it
+#### The alternative that removes the problem instead of warning about it → ✅ ADOPTED, §18.8
 
 **Grandfathering:** store `PencePerGemAtEarn` on each `GemEntry`, so gems keep the rate they were
 earned under and a rate change only ever affects **future** earns. No reputation risk, no warning
 needed, and it is the same shape as §6's per-entry expiry and the platform's existing habit of
 stamping a rule onto the row it applied to (`VatBandStamp`, `Membership`'s as-assigned snapshot).
 
-⚠ **The cost is real and it is at the counter:** a balance stops being "240 gems = £24" and becomes
-240 gems across batches at different rates. Harder to print on a receipt, harder to explain, and
-"how much are my gems worth?" stops having one answer.
+It was raised here as a *deferred escape hatch* — build the warning, stamp the column, decide later.
+**Matt took it further and settled it immediately** (*"grandfathering but oldest gems are used first
+… slowly removing the problem"*), which also answers the objection this block raised: see **§18.8**,
+where the cost turns out to fall on the gem *count*, not on the balance's value.
 
-⚠⚠ **But the column is nearly free NOW and impossible to add later** — retrofitted, every historical
-entry has an unknown rate and has to be assumed at whatever the current setting happens to be.
-**Recommendation: build the warning as asked (decision 17, settled), and stamp `PencePerGemAtEarn`
-on every entry from day one anyway.** It costs one column, it is written but unread, and it keeps
-grandfathering available as the escape hatch the first time a rate change is genuinely needed.
-Decision 19.
+### 18.8 Grandfathering + oldest-first: decision 19 settled, and it is the better design
+
+> *"Can we make it grandfathering but oldest gems are used first in any transaction, but slowly
+> removing the problem?"* — Matt, 2026-08-13. **Yes. Adopted.** Decision 19 ✅.
+
+Each `GemEntry` carries `PencePerGemAtEarn`; redemption consumes **oldest first**; so every
+redemption and every expiry drains the old-rate cohort, which can only ever shrink. A rate change
+therefore **cannot take value from anyone**, and the mixed-rate population liquidates itself without
+anybody administering it.
+
+It also needs no new consumption rule — **§6 already says oldest-first** (to protect gems from
+lapsing). The same ordering that stops a member losing gems to expiry is the one that drains the
+legacy rate. ⚠ **One precision, or the two rules diverge:** oldest-*earned* and oldest-*expiring* are
+the same order only while `ExpiryMonths` is unchanged; shorten it and a June gem can expire before a
+March one. **Soonest-expiring wins, oldest-earned is the tie-break** — consuming by earn date would
+let the sooner-expiring batch lapse, destroying value FIFO exists to protect.
+
+#### ⚠ What has to change for it to work at the counter: the member-facing number becomes MONEY
+
+This is the whole hinge, and it removes the objection I raised against grandfathering in §18.7.
+
+Once batches hold different rates, **"spend 100 gems" has no single meaning** — its value depends on
+*which* gems. So redemption is denominated in **money**, not in a count: the cashier asks *"how much
+would you like to take off?"*, the engine consumes whatever batches that costs, oldest first.
+
+Three things fall out, all good:
+
+- **The balance has one honest answer again** — *"you have £23.50 in gems"*, computed as
+  Σ(batch count × batch rate). My §18.7 worry that grandfathering costs the balance its single
+  answer was wrong: it costs the *count* its single meaning, and the count was never the number a
+  member cares about.
+- **FIFO becomes value-neutral to the member.** Spending a money amount means batch order cannot
+  change what they get — only which rows drain. Had we let them spend a *count*, oldest-first would
+  actively disadvantage them after a rate rise. The fairness objection disappears entirely.
+- ⚠⚠ **No till ever holds `PencePerGem`.** The till receives a money balance and sends a money
+  redemption; the rate stays server-side. That is a **C2 twin that never gets created** — exactly the
+  CLAUDE.md principle. It also makes MAUI's offline `LoyaltyCache` hint correct by construction,
+  since a cached *value* needs no rate to interpret.
+
+⚠ Display the **value** as primary. If a count is shown too it must sit beside the value, never
+instead of it — a member reading "240 gems" who multiplies by today's 10p and gets £24 against a
+stated £23.50 is a support ticket. §10's per-batch statement is what answers it.
+
+#### The honest limit: it converges for active members, not for hoarders
+
+"Slowly removing the problem" is right, with one caveat worth stating before someone relies on it:
+
+| | Old-rate cohort |
+|---|---|
+| **Active member** (redeems periodically) | Drains in a few redemption cycles — typically months |
+| **Hoarder, `ExpiryMonths` set** | Drains **no later than `ExpiryMonths` after the change** — a guaranteed end date |
+| **Hoarder, `ExpiryMonths` null (never)** | ⚠ **Never drains.** Grandfathering is permanent for them |
+
+⚠ So the *guaranteed* convergence date exists only when expiry is set — and Matt has deliberately
+allowed "never". With never-expire, grandfathering is not a transitional state but a standing
+feature: correct, self-consistent, and permanently mixed for the long tail. That is acceptable —
+it just must not be described internally as temporary.
+
+#### The one place it costs more: a redemption becomes several ledger rows
+
+Consuming across batches means a redemption is **one `Redeem` entry per source batch**, each naming
+its `SourceEntryId` and the rate it was valued at — not one row for the whole redemption.
+
+This is not optional bookkeeping. §18.5 requires a refund to **restore the burn**, and restoring it
+correctly means putting back *the same batches at the same rates* — 10 gems @15p from January and
+40 @10p from March, not 50 gems at today's rate. Without per-batch rows a refund either invents a
+rate or silently re-values the member's balance, which is the exact failure grandfathering exists to
+prevent. It also makes §10's statement explainable line by line, and §11's liability the **true**
+Σ(count × rate) rather than `total × current rate`.
+
+#### The payoff: the §18.7 dialog stops being frightening
+
+With grandfathering, changing `PencePerGem` **affects future earns only**. So the confirm downgrades
+from `danger` to informational, and Matt's reputation warning is no longer the right copy for the
+ordinary case:
+
+> This changes what gems are worth **from now on**. Existing balances are unaffected — **X members
+> holding Y gems keep their earned rate**, worth **£A**, unchanged.
+
+⚠ **Keep §18.7's machinery, all of it.** The preview endpoint, the shared-with-the-liability-report
+figures, the `AuditLog` row and the type-to-confirm all still apply — a rate change is still a
+commercial decision worth recording, and the figures are still the evidence of what the owner was
+shown. What changes is only the *severity*, and it changes because the risk genuinely went away.
+⚠ Retain the hard `danger` warning for the one case that still destroys value: **shortening
+`ExpiryMonths`**, which §6 already forbids from applying retroactively.
