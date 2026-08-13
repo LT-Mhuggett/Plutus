@@ -540,12 +540,14 @@ live; when it is wired the `DEFECT_…` test fails by design and must be rewritt
 
 ⚠⚠ **(b) and (c) are NOT built, and four findings say why:**
 
-1. ⚠⚠ **The operator ceiling is enforced by nothing.** `PermissionCatalogue.Allows(...)` — the
-   amount-aware check — has **zero callers in the repo**. `MaxPence` is seeded (Supervisor's
-   `pos.refund` capped at £100) and travels to every till via `OperatorLogin.cs:157`, and **nothing
-   checks it**: that supervisor can refund any amount. The refund *remainder* IS enforced
-   (`RefundRules`), a different cap, which is exactly why this is easy to miss. **It is also the
-   machinery ruling (b) needs** — levels already have a home.
+1. ⚠⚠ **CORRECTED — I REPORTED THIS WRONG.** I said *"the operator ceiling is enforced by nothing"*,
+   having grepped for `Allows(`. **The method is `PermissionResolution.Can(...)` and it has callers**
+   (`SignedInOperator.Can`, `TillGate.Check`, and the Cash/Inventory/Settings/price-override paths,
+   all passing amounts). **Ceilings ARE enforced.** The true finding is narrower: **the DISCOUNT gate
+   passes no amount** — `TillViewModel:979` asks *"may this operator discount at all?"*, never *"may
+   they discount THIS much?"* — so a cashier with any `pos.discount` grant can take off any amount
+   and the step-up prompt never appears. The comment above that line already admits it. ⚠ The fix is
+   structural: the gate runs **before** the amount is entered, so it must move to after.
 2. ⚠⚠ **The MAUI percentage path does not use the shared rule.** `TillViewModel` (~1030, ~1046)
    computes `item.Price * Decimal.Parse(input)` under a box labelled **"Percent"** — precisely the bug
    `LineDiscounts.Percentage` documents itself as existing to prevent (*"entering 10 for 10%
@@ -559,14 +561,25 @@ live; when it is wired the `DEFECT_…` test fails by design and must be rewritt
    (b)** — record only the cashier and the approval leaves no trace.
 4. The over-basket defect (3k) — 22(a) is its rule.
 
-⚠ **THE ONE QUESTION FOR MATT, and (b) is blocked on it:** *"approval from a supervisor"* is either
-**(i) step-up** — the cashier keeps the sale, a supervisor enters their own credentials, the record
-names **both** (standard retail, keeps the queue moving, and the reading that makes (c)'s "logged-in
-employee" mean something) — or **(ii) refusal**, where the cashier simply cannot and a supervisor
-takes the till (much cheaper: finding 1 alone, but it stops the queue). ⚠ **No step-up machinery
-exists anywhere today** — the Z-reopen precedent is a plain permission check, not one person
-authorising another — so (i) is new work, though `OfflineCredentials` + the synced roster can
-authenticate a supervisor offline.
+✅ **STEP-UP — Matt chose it, 2026-08-13. ⚠ AND I WAS WRONG THAT IT DOES NOT EXIST: IT IS BUILT.**
+`TillViewModel.RequestSupervisorOverrideAsync` (533) is already wired into the discount path (984),
+price override (587) and one more (1640): `SupervisorPrompt.AskAsync()` takes the supervisor's own
+credentials, `OperatorLogin.AuthoriseOverrideAsync` verifies them **against the synced roster so it
+works offline** and checks they hold the permission **at that amount**, ⚠ **self-approval is already
+refused** (`OperatorLogin.cs:204`), it returns `AuthorisedByUserId`/`AuthorisedByName`, and an
+override that throws counts as one that did not happen.
+
+**So (b) is mostly built.** Genuinely missing: **(i)** the amount never reaches the discount gate, so
+the ceiling never bites and the prompt never appears (finding 1); **(ii)** the override is written to
+the **till's local log only** — nothing reaches the sale or the platform, so *"who approved this?"*
+needs a till's log file and a re-imaged till has none; **(iii)** ⚠ **no reason is captured anywhere**
+— ruling (c) names till, employee and reason, and **reason is the one nothing collects.**
+
+⚠ **"Levels" may need no new entity:** a grant's `MaxPence` per role already IS a level (Cashier £5,
+Supervisor £50, Manager unlimited), owner-editable in the portal (`AdminController.cs:306`), and
+levels are "added" by adding a role. **Worth confirming with Matt** whether that is what he means, or
+named discount tiers independent of roles — the first is nearly free, the second is a new entity plus
+portal UI.
 
 Suites: **Unit 984 → 999 · Architecture 15 · Integration 174 · AppClient 436**. `platform` 1.34.0.
 

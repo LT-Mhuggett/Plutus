@@ -773,13 +773,22 @@ already off precisely so the message can explain a maximum lower than the basket
 
 ### ⚠⚠ Four live findings behind default 22 — (b) and (c) cannot be built without them
 
-1. ⚠⚠ **THE OPERATOR CEILING IS ENFORCED BY NOTHING.** `PermissionCatalogue.Allows(grants, code,
-   now, amountPence)` — the amount-aware check — has **zero callers in the entire repo**. `MaxPence`
-   is `CeilingCapable` for `pos.discount` and `pos.refund`, is seeded (Supervisor's `pos.refund` is
-   capped at £100), and travels to every till via `OperatorLogin.cs:157` — **and is never checked**.
-   A supervisor capped at £100 can refund any amount. ⚠ The refund *remainder* IS enforced
-   (`RefundRules`), which is a different cap and is exactly why this is easy to miss. **This is also
-   the machinery ruling (b) needs**, so the gap is the opportunity: levels already have a home.
+1. ⚠⚠ **CORRECTED — I GOT THIS WRONG FIRST TIME, AND THE TRUTH IS NARROWER AND MORE USEFUL.** I
+   reported *"the operator ceiling is enforced by nothing"* after grepping for `Allows(`. **The
+   method is `PermissionResolution.Can(...)`, and it has callers** — `SignedInOperator.Can`,
+   `TillGate.Check` (`TillGate.cs:93`), and the Cash / Inventory / Settings / StoreOptions / price-
+   override paths all pass amounts. **Ceilings ARE enforced.** The real finding is one line narrower:
+
+   ⚠ **The DISCOUNT gate passes no amount.** `TillViewModel:979` calls
+   `TillGate.Check(SignedInOperator, PermissionCatalogue.PosDiscount)` with **no `amountPence`**, so
+   it asks *"may this operator discount at all?"* and never *"may they discount THIS much?"* — a
+   cashier holding any `pos.discount` grant can take off any amount without stepping up. The comment
+   immediately above it already says so: *"`pos.discount` is ceiling-capable precisely so it can be
+   handed out with a limit; nothing was asking for it."*
+
+   ⚠ **The fix is structural, not a one-liner:** the gate runs *before* the amount is entered
+   (input dialog at ~1010), so it has nothing to check. Gate **after** the amount is known — which
+   is also where `BasketDiscounts.Authorise` has to go, so both checks land together.
 2. ⚠⚠ **THE MAUI PERCENTAGE PATH DOES NOT USE THE SHARED RULE.** `TillViewModel` (~1030, ~1046)
    computes `item.Price * Decimal.Parse(input)` directly, under a box labelled **"Percent"**. That is
    *precisely* the bug `LineDiscounts.Percentage` documents itself as existing to prevent —
@@ -796,21 +805,39 @@ already off precisely so the message can explain a maximum lower than the basket
    leaves no trace and the audit answers the wrong question.
 4. **Discounts over the basket make the sale un-completable** — the defect above; 22(a) is its rule.
 
-### ⚠ The one question only Matt can answer — (b) is blocked on it
+### ✅ STEP-UP — Matt chose it, 2026-08-13. ⚠ AND IT IS ALREADY BUILT.
 
-*"Approval from a supervisor or higher"* has two very different shapes at a counter:
+**I was wrong to say no step-up machinery exists.** `TillViewModel.RequestSupervisorOverrideAsync`
+(line 533) is a complete step-up and is **already wired into the discount path** (line 984), the
+price-override path (587) and one more (1640):
 
-- **(i) STEP-UP** — the cashier keeps the sale, a supervisor enters their own credentials to
-  authorise it, the sale continues under the cashier, and the record names **both** people. Standard
-  retail, keeps the queue moving, and it is the reading that makes ruling (c)'s *"logged-in
-  employee"* meaningful — there are two of them.
-- **(ii) REFUSAL** — the cashier simply cannot, and a supervisor has to take the till. Much cheaper:
-  it is finding 1 alone (`Allows(...)` plus a message) and nothing else. But it stops the queue.
+- `SupervisorPrompt.AskAsync()` collects the supervisor's own credentials;
+- `OperatorLogin.AuthoriseOverrideAsync(requestedBy, emailOrId, password, permission, amountPence)`
+  verifies them **against the synced roster, so it works offline**, and checks the authoriser holds
+  the permission **at that amount**;
+- ⚠ **self-approval is already refused** — `OperatorLogin.cs:204`, *"the same person authorising
+  their own action is…"*;
+- it returns `AuthorisedByUserId` / `AuthorisedByName`, and the till logs Permission, RequestedBy,
+  AuthorisedBy, AuthorisedByName and AmountPence;
+- ⚠ an override that throws is treated as an override that **did not happen**.
 
-⚠ **There is no step-up machinery anywhere in the codebase today** — the Z-reopen precedent is a
-plain permission check on the signed-in operator, not one person authorising another — so (i) is
-genuinely new work rather than a variation on something existing. It also needs a way to
-authenticate a supervisor **offline**, which `OfflineCredentials` + the synced roster can do.
+**So ruling (b) is mostly built.** What is genuinely missing is only:
+
+1. **Pass the amount to the discount gate** (finding 1) — without it the ceiling never bites, so the
+   step-up prompt never appears for a discount however large. Needs the gate moved after the amount
+   is entered.
+2. ⚠ **Nothing reaches the platform.** The override is written to the **till's local log only** — not
+   to the sale, not to the server. So an auditor asking *"who approved this discount?"* has to be
+   handed a till's log file, and a re-imaged till has none.
+3. **No reason is captured anywhere** — not by the override, not by the discount dialog. Ruling (c)
+   names three things (till, employee, reason) and **reason is the one nothing collects.**
+
+⚠ **Owner-configurable "levels" (ruling b) may need no new entity.** A grant's `MaxPence` per role
+already IS a level — Cashier £5, Supervisor £50, Manager unlimited — it is owner-editable in the
+portal (`AdminController.cs:306` exposes `maxPence`), and levels can be "added" by adding a role.
+**Confirm with Matt** whether that satisfies *"levels which can be added and configurable"*, or
+whether he means named discount tiers independent of roles; the first is nearly free, the second is
+a new entity plus portal UI.
 
 ⚠ **And it constrains how the members' discount is built.** MAUI's shape is a `BasketAlteration`
 apportioned at commit, *not* the web till's per-line `discount` field, so a member's basket ends up
