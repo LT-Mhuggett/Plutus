@@ -676,10 +676,14 @@ still cannot add a member even though the server now permits it.** Until both ti
 permission nothing exercises; it is the same slice per default 20, and Part B carries the web till as
 🟡 for exactly this reason.
 
-⚠ **Deploy note:** RBAC seeding does **not** run on startup (runbook). A backend deploy carrying
-this must be followed by `Plutus.SeedMigrator rbac` from a **freshly published** SeedMigrator, or the
-code exists and no role holds it. `EnsureBuiltInRolesAsync` then backfills it onto already-seeded
-tenants — and ⚠ **login tokens cache for 12h**, so a cashier must sign out and back in to see it.
+✅ **DEPLOYED 2026-08-13 — backend 1.17.0 and till-web 1.8.0 are LIVE.** ⚠ **Deploy note, corrected on
+the day:** this said the deploy must be followed by `Plutus.SeedMigrator rbac`, on a stale runbook line
+claiming RBAC seeding does not run on startup. **It does** — `RolePermissionReconciler` is a hosted
+service that reconciles catalogue grants once per boot, and the grants were already present in **both**
+tenants before I ran the tool by hand. Running it anyway also fired `MapKapowAuthActionsAsync`, adding
+**7 role assignments** — all to one employee who already held `Owner`, so the net effective change was
+nil (verified by diffing the new roles' codes against Owner's). Runbook corrected. ⚠ **What IS still
+required: a sign-out/in**, because login tokens cache for 12h with the permission set baked in.
 
 **WP12 — the rest.** Confirmed **zero** in both MAUI projects. Pure consumption from here. Customer search/attach on the sale screen
 (`GET /api/v1/customers?search=`, then a live `GET /api/v1/customers/{id}` for balance and

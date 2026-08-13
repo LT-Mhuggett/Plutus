@@ -150,9 +150,27 @@ disagree.
 ⚠ The publish overwrites `appsettings*.json`. Compare hashes against the Mac's copies first — the
 connection string lives in the pm2 env, not in the file, but that is a convention, not a guarantee.
 
-⚠ **RBAC seeding does NOT run on startup.** A deploy that adds a permission must be followed by
-`Plutus.SeedMigrator rbac --mysql "…"` from a **freshly published** SeedMigrator — `RbacSeeder`
-compiles into it, so a stale binary re-seeds the old permission set.
+⚠ ~~**RBAC seeding does NOT run on startup.**~~ **CORRECTED 2026-08-13 — IT DOES, and this stale
+line cost a step.** `RolePermissionReconciler` is a registered hosted service (`IdentityModule.cs:27`)
+that runs **once per boot**, additively and idempotently, and exists precisely because *"a forgotten
+step whose failure is a polite refusal is a step that gets forgotten"*. So **a deploy that adds a
+permission needs nothing extra** — grants for `pos.customers.add` were already in both tenants'
+`RbacRoleGrants` before the seeder was run by hand.
+
+⚠ **The tool still exists and is still right for an out-of-band run** (a database the backend has not
+booted against): `Plutus.SeedMigrator rbac --mysql "…"` from a **freshly published** SeedMigrator —
+`RbacSeeder` compiles into it, so a stale binary re-seeds the old permission set.
+
+⚠⚠ **But `rbac` is NOT only the permission grants — it also runs `MapKapowAuthActionsAsync`**, which
+maps legacy `AuthActions` onto role *assignments* for real users. Running it "just for the grants" on
+2026-08-13 added **7 assignments** (all to one employee who already held `Owner`, so the net effective
+change was nil — verified by diffing the new roles' codes against Owner's). It is additive and creates
+no duplicates, but it is **not the no-op the header comment implies**, so do not reach for it casually
+on a live database: check what it changed afterwards. ⚠ And use the **unix socket** in the connection
+string — plain TCP fails since the `caching_sha2_password` rotation.
+
+⚠ **A permission deploy still needs a sign-out/in**: login tokens cache for 12h with the user's full
+effective permission set baked in (pitfall 10).
 
 ⚠ `pm2 restart <name> --update-env` does **not** load new keys from the ecosystem *file*. To pick
 up new env keys, restart from the file path.

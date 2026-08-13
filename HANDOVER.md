@@ -415,6 +415,40 @@ default 20; Part B carries the web till as 🟡 for this, not ✅.
 is deployed** — this is committed only. Suites: **Unit 938 → 949 · Architecture 15 · Integration
 173 → 174**, all green.
 
+**3j. ✅ DEPLOYED 2026-08-13 — backend 1.17.0 + till-web 1.8.0 are LIVE.** *(Matt: "Please deploy then
+continue.")*
+
+| Component | Version | Rollback | Verified by |
+|---|---|---|---|
+| Backend | **1.17.0** (`Product=1.17.0+76edd7a`) | `~/PLUTUS/backend.pre-1.17.0` | swagger 200 **plus** `POST /api/v1/tokens/device` → **401 "Device not enrolled or revoked."** (the DB-path probe) |
+| Web till | **1.8.0**, bundle `index-BXTgzlgt.js` | `/srv/apps/PLUTUS/web/current.pre-1.8.0` (was `index-DpCa41zh.js`) | served bundle **342,920 bytes** and contains `pos.customers.add` + the new tier copy + `1.8.0` |
+
+No migration rode along (schema unchanged), but a **verified backup** was taken first anyway before
+any DB write: **66 MB uncompressed, 102 `CREATE TABLE`** — so the post-incident backup fix still works.
+appsettings hashes compared before publish (identical, no config drift); tarball hash matched on both
+sides; extracted to `backend.new` before the swap. **ETRIE 200** after every step. Portal untouched
+(`admin.plutus.…` still serves `index-X2HmT_BH.js`).
+
+⚠ **Two probes initially proved nothing, and both are the runbook's own lesson repeating.** (i) The
+device-token probe returned **400 "deviceId and clientSecret are required"** because my junk id was
+all zeros — which *is* `Guid.Empty`, so the length guard rejected it before any table was read; a
+non-empty junk GUID then gave the real 401. (ii) The old bundle still answers **200 — with 981 bytes**,
+the SPA fallback, which is exactly why size or content is the check and a status code is not.
+
+⚠⚠ **CORRECTED: the runbook was stale and it cost a step with a side effect.** It said *"RBAC seeding
+does NOT run on startup"*, so I ran `SeedMigrator rbac`. **It does run** —
+`RolePermissionReconciler` (`IdentityModule.cs:27`) is a hosted service that reconciles catalogue
+grants once per boot, added precisely because *"a forgotten step whose failure is a polite refusal is a
+step that gets forgotten"*. The `pos.customers.add` grants were already in **both** tenants before I
+ran the tool. ⚠ And `rbac` is **not only** the grants — it also runs `MapKapowAuthActionsAsync`, which
+added **7 role assignments** to one employee (`81a77ac0`). **Net effective privilege change: none** —
+that employee has held `Owner` since 2026-07-30, and diffing the seven new roles' permission codes
+against Owner's returned **empty**. No duplicate grants or assignments. Runbook, Part B and step 27 all
+corrected; the runbook now also warns that `rbac` is not the no-op its header implies.
+
+⚠ **Still required before a person can see this:** a **sign-out/in**, because login tokens cache for
+12h with the effective permission set baked in.
+
 **(c) The web till's create gate is widened** — commit `566d8b8`, closing the 🟡 (b) left behind.
 `pipeline.ts` `mayAddCustomer(scopes)` (pure, so testable without a session) + `canAddCustomers()`,
 on **＋ New** at the sale screen and **Add member** on the Loyalty page. ⚠ `edit` and the Loyalty row
