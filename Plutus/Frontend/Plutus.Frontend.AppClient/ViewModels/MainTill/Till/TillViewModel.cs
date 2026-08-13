@@ -1306,7 +1306,15 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                             var feeLine = Services.Storage.CheckoutCommit.SurchargeItem(Basket, surchargeBp, surchargeFlat);
                             if (feeLine != null)
                             {
-                                Basket.Add(feeLine);
+                                // ⚠ ON THE UI THREAD. `Basket` is bound, and `TenderLoop` awaits this
+                                // callback with `ConfigureAwait(false)` — so from the second pass
+                                // onwards (any pass after a refusal) we are on a pool thread, where a
+                                // CollectionChanged notification into WinUI is the same crash class as
+                                // A4's dialog. ⚠ Currently DORMANT rather than fixed-in-time: Kapow's
+                                // surcharge rate is zero, so `SurchargeItem` returns null and nothing
+                                // is added. It would have surfaced on the first tenant that charges a
+                                // card fee, as a crash nobody could reproduce here.
+                                await MainThread.InvokeOnMainThreadAsync(() => Basket.Add(feeLine));
                                 // ÃÂ¢ÃÂÃÂ  The BASKET stays authoritative for `sale.Total` ÃÂ¢ÃÂÃÂ the commit
                                 // guard compares the header against the sum of the lines, so a total
                                 // computed anywhere else is a second opinion about money.

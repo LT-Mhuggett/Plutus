@@ -1,6 +1,8 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Maui.ApplicationModel;
+using Microsoft.Maui.Controls;
 
 namespace Plutus.Frontend.AppClient.Services.UIHandeling
 {
@@ -40,6 +42,30 @@ namespace Plutus.Frontend.AppClient.Services.UIHandeling
     /// The redundant wrap is gone, but a dialog helper that protects itself is the RIGHT design, and
     /// a caller that reasonably wraps it must not be able to hang the app. So a nested call now
     /// PASSES THROUGH: the outermost call owns the gate and owns the settle.
+    ///
+    /// ⚠⚠ AND IT MARSHALS ONTO THE UI THREAD, BECAUSE THAT IS WHAT CLOSED THE TILL ON 1.49.0.
+    /// Matt, 2026-08-13, hand-test A4 (overpay by card): the refusal message crashed the process.
+    ///
+    ///     System.Runtime.InteropServices.COMException
+    ///        at Microsoft.UI.Xaml.Controls.ContentDialog..ctor()
+    ///        at Microsoft.Maui.Controls.Platform.AlertManager.AlertRequestHelper.OnAlertRequested(…)
+    ///        at System.Threading.Tasks.Task.ThrowAsync(…)      ← rethrown on the POOL, unobservable
+    ///
+    /// `DisplayAlert` and `DisplayActionSheet` construct a WinUI `ContentDialog` **on the calling
+    /// thread**, and a XAML object built off the UI thread throws. The caller was the pool, because
+    /// `Client.Core.TenderLoop` awaits its callbacks with `ConfigureAwait(false)` — which is CORRECT
+    /// for a shared library with no UI to return to. So the boundary has to marshal, and this is the
+    /// boundary.
+    ///
+    /// ⚠ Why a successful sale did NOT crash, since that is the confusing part: `MopupService` marshals
+    /// internally, so the amount prompt hops onto the UI thread and stays there — and the viewmodel
+    /// awaits `TenderLoop.RunAsync` without `ConfigureAwait(false)`, so the happy path lands back on
+    /// the UI thread before it shows anything else. Only the REFUSAL path raised a dialog while still
+    /// on the pool, which is why a normal sale worked and overpaying by card killed the app.
+    ///
+    /// ⚠ The exception is delivered by `Task.ThrowAsync` on a pool thread, so a `catch` around the
+    /// checkout could never have caught it. **Getting the thread right is the only fix; a try/catch is
+    /// not an alternative.**
     /// </summary>
     internal static class Modal
     {
@@ -57,20 +83,46 @@ namespace Plutus.Frontend.AppClient.Services.UIHandeling
         /// </summary>
         private static readonly AsyncLocal<bool> Holding = new();
 
-        /// <summary>Show something modal, one at a time.</summary>
+        /// <summary>
+        /// Whether there is a UI thread to marshal onto at all.
+        ///
+        /// ⚠ Probed through `Application.Current`, and NOT by attempting the marshal and catching:
+        /// `InvokeOnMainThreadAsync` cannot tell you whether it failed before or after invoking the
+        /// delegate, so a retry-on-failure fallback could show the same dialog twice.
+        ///
+        /// ⚠ False in the unit-test host, which never constructs `App` — a `BindableObject` needs a
+        /// live WinUI dispatcher that xunit does not have. There the delegate runs inline, which is
+        /// correct: there is no UI thread to be wrong about.
+        /// </summary>
+        private static bool HasUiThread
+        {
+            get
+            {
+                try { return Application.Current?.Dispatcher is not null; }
+                catch { return false; }
+            }
+        }
+
+        /// <summary>Run the dialog where WinUI will accept it.</summary>
+        private static Task<T> OnUiThread<T>(Func<Task<T>> show)
+            => !HasUiThread || MainThread.IsMainThread
+                ? show()
+                : MainThread.InvokeOnMainThreadAsync(show);
+
+        /// <summary>Show something modal, one at a time, on the UI thread.</summary>
         internal static async Task<T> ShowAsync<T>(Func<Task<T>> show)
         {
             if (show is null) throw new ArgumentNullException(nameof(show));
 
             // ⚠ Already inside a modal on this flow — the outer call is holding the gate and will do
             // the settle. Waiting here would be waiting on ourselves.
-            if (Holding.Value) return await show().ConfigureAwait(true);
+            if (Holding.Value) return await OnUiThread(show).ConfigureAwait(true);
 
             await Gate.WaitAsync().ConfigureAwait(true);
             Holding.Value = true;
             try
             {
-                return await show().ConfigureAwait(true);
+                return await OnUiThread(show).ConfigureAwait(true);
             }
             finally
             {

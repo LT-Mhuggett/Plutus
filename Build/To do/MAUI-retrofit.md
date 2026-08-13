@@ -56,8 +56,8 @@ item-identity seam all outlive the retrofit, and archiving them unlifted buries 
 
 | | |
 |---|---|
-| **Till build to run** | **`D:\tmp\plutus-till-1.49.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe. ⚠ **1.48.0 could not take a sale at all** ([finding U](#1-open-faults--before-any-new-work)); **1.49.0 fixes it and has not been hand-run yet.** Resume the shop day from the checkout |
-| **Versions** | till-maui **1.49.0** · backend **1.15.0** · platform **1.26.0** · portal **1.7.0** · till-web **1.6.0** · agent **1.3.3** |
+| **Till build to run** | **`D:\tmp\plutus-till-1.49.1\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe. ⚠ **1.48.0 could not take a sale** ([U](#1-open-faults--before-any-new-work)) and **1.49.0 crashed on a card overpay** ([V](#1-open-faults--before-any-new-work)). **1.49.1 fixes both; A1–A3 already pass.** Resume at **A4** |
+| **Versions** | till-maui **1.49.1** · backend **1.15.0** · platform **1.26.0** · portal **1.7.0** · till-web **1.6.0** · agent **1.3.3** |
 | **Deploy state** | ⚠ **Nothing MAUI-side is blocked on a deploy.** Every backend endpoint the remaining steps need is live on the test environment |
 | **Suite** | Unit **907** · Integration **169** · Architecture **15** · AppClient **425** (+3 skipped) · web till **19** — all green |
 
@@ -168,10 +168,62 @@ after** — the loop was never wrong. That is the argument for step 11b, made by
 Cancel at both prompts; then **type in the scan box afterwards** and confirm search still works —
 that last one is what proves Q is closed rather than merely explained.
 
+✅ **A1, A2 and A3 passed on 1.49.0** (Matt, 2026-08-13). **A4 then crashed the till — see V.**
+
+### V — overpaying by card crashed the till on 1.49.0. ✅ **FIXED IN 1.49.1**
+
+**Matt, hand-test A4 on 1.49.0:** *"card overpay crashes the till."*
+
+⚠ **This was NOT a regression from U's fix — it was hiding BEHIND it.** On 1.48.0 the deadlock stopped
+you at the first amount prompt, so the refusal path had not been reachable since 1.47.0. Fixing U
+exposed the next layer.
+
+**The crash log named it exactly:**
+
+```
+2026-08-13 16:16:53  [UnhandledException]  System.Runtime.InteropServices.COMException:
+   at Microsoft.UI.Xaml.Controls.ContentDialog..ctor()
+   at Microsoft.Maui.Controls.Platform.AlertManager.AlertRequestHelper.OnAlertRequested(…)
+   at System.Threading.Tasks.Task.ThrowAsync(…)          ← rethrown on the POOL, unobservable
+```
+
+**The cause: the dialog was built on the wrong thread.** `DisplayAlert` and `DisplayActionSheet`
+construct a WinUI `ContentDialog` **on the calling thread**, and `Client.Core.TenderLoop` awaits its
+three callbacks with **`ConfigureAwait(false)`** — which is *correct* for a shared library with no UI
+to return to. So every dialog from the second pass onwards was raised from a **thread-pool thread**,
+and WinUI refuses to build XAML there.
+
+⚠ **Why a normal sale did not crash, because that is the confusing part and it is the whole diagnosis:**
+`MopupService` marshals internally, so the amount prompt hops onto the UI thread and stays there; and
+the viewmodel awaits `TenderLoop.RunAsync` **without** `ConfigureAwait(false)`, so the happy path is
+back on the UI thread before it shows anything else. **Only the refusal path raised a dialog while
+still on the pool** — hence A2/A3 passing and A4 killing the app.
+
+⚠⚠ **And no `catch` could ever have caught it.** The exception is delivered by `Task.ThrowAsync` on a
+pool thread, outside the checkout's awaited path. **Getting the thread right is the only fix; a
+try/catch is not an alternative** — which is also why 1.42.0's *"something went wrong taking payment"*
+was the same fault wearing a friendlier face.
+
+**Fixed at the choke point:** `Modal.ShowAsync` now marshals its dialog onto the UI thread
+(`MainThread.InvokeOnMainThreadAsync`), so **every** dialog in the app is thread-safe by construction —
+including the action sheet on the *next* pass, which would have crashed immediately after this one.
+⚠ The dispatcher is probed via `Application.Current?.Dispatcher` rather than by attempting the marshal
+and catching: a retry-on-failure fallback cannot tell whether the delegate already ran, and could show
+the same dialog twice.
+
+⚠ **A dormant twin was fixed with it.** `chooseMethod` does `Basket.Add(feeLine)` for the card
+surcharge — a bound collection, mutated from a pool thread on any pass after a refusal. **Kapow's
+surcharge rate is zero**, so `SurchargeItem` returns null and nothing is added; it would have surfaced
+on the first tenant that charges a card fee, as a crash nobody could reproduce here. Now marshalled.
+
+**Suite 432 → 434.** ⚠ **The two new tests pin the off-thread path, NOT the marshalling** — there is no
+dispatcher in the test host, so the delegate runs inline there by design. **That the dialog lands on
+the UI thread is USER-VERIFY (A4)**, and saying so is better than a test that pretends otherwise.
+
 | # | What | State |
 |---|---|---|
 | **Q** | ⚠⚠ **"I could cancel the item, but then searching stopped working."** (Matt, 2026-08-11) | ✅ **EXPLAINED 2026-08-13 — same root cause as U above.** Any checkout that reaches the amount prompt wedges `IsBusy` on, and every command guarded by it — including the scan box — then does nothing silently. ⚠⚠ **The original rule-out was wrong, and worth remembering why:** *"`IsBusy` stuck — ruled out, every set has a `finally`"* checked that a `finally` **exists**, not that the body could ever **reach** it. **A `finally` does not run when the `try` deadlocks.** ⚠ Closes only when U is fixed and a hand-run confirms search works after a completed sale |
-| — | **Hand-run** | 🔨 **STARTED on 1.48.0 (2026-08-13) and stopped at the first sale — resume on 1.49.0.** ⚠ Everything downstream of taking money is still **untested on this build line**: refunds, the drawer, X/Z with sales in it, the Cash tab's "(waiting to send)", today's takings. **[`Test Maui.md`](../Test%20Maui.md) §B**, from the checkout. Nine till builds have now shipped since a person last completed a shop day |
+| — | **Hand-run** | 🔨 **IN PROGRESS on 1.49.1.** Started 2026-08-13 on 1.48.0 and stopped at the first sale (U); **A1–A3 then passed on 1.49.0 and A4 crashed it (V)**. ⚠ Everything downstream of taking money is still **untested on this build line**: refunds, the drawer, X/Z with sales in it, the Cash tab's "(waiting to send)", today's takings. **[`Test Maui.md`](../Test%20Maui.md) §B**, from the checkout. Nine till builds have now shipped since a person last completed a shop day |
 | 🟠 | **`LoginViewModel.EnsureStoreAsync` throws on EVERY sign-in** — `InvalidOperationException: Unable to track an entity of type 'StoreModel' because its primary key property 'Id' is null` (`LoginViewModel.cs:389`) | Caught and harmless; the screen it fed is now read-only off `StoreInfoCache`. ⚠ It also **creates the legacy `Database.db` on every sign-in**, which is what made the enrolment gate a one-way door. **Step 21 deletes it** — scheduled, not forgotten (also register row [L7](#l7--loginviewmodelensurestoreasync)) |
 
 ## 2. Small, and each closes a real inconsistency

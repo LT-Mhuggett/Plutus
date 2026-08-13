@@ -1,6 +1,6 @@
 # Test Maui — the MAUI till hand-test script
 
-**For till 1.49.0.** Anyone can run this. You do not need to know the codebase, and you should not
+**For till 1.49.1.** Anyone can run this. You do not need to know the codebase, and you should not
 need to ask anyone what a step means — if a step is unclear, that is a bug in this document, so please
 say so.
 
@@ -13,7 +13,7 @@ if that is all the time you have.
 
 | | |
 |---|---|
-| **Run** | `D:\tmp\plutus-till-1.49.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Not 1.48.0** — that build cannot take a sale at all (see A0). |
+| **Run** | `D:\tmp\plutus-till-1.49.1\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Not 1.48.0** (cannot take a sale at all — A0) and **not 1.49.0** (crashes when you overpay by card — A4). |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
 | **Sign in as** | any operator with **Supervisor** or above — some steps need permission to change stock |
@@ -39,7 +39,7 @@ project.
 
 # §A — the things fixed on 2026-08-11
 
-These are the specific fixes in 1.42.0–1.49.0. ⚠ **§E at the end covers what landed latest and has
+These are the specific fixes in 1.42.0–1.49.1. ⚠ **§E at the end covers what landed latest and has
 never been tested by anyone** — the Z-close reopen is there. **If you only have 15 minutes,
 do this section.** Each one was reported by a real person using the till.
 
@@ -116,15 +116,26 @@ broken rather than the till.
 
 ## A4. Overpay by card, and underpay in cash
 
+⚠⚠ **This step has now broken the till twice, in two different ways. It is the one to be fussy about.**
+
 1. Put something in the basket — say £3.30.
 2. Checkout → **Card** → type **20.00**.
 
-**✅ Expected:** a message telling you a card cannot give change, and **your basket is still there**.
-**❌ The bug:** "Something went wrong" — which was not a wording choice, it was a crash.
+**✅ Expected:** a message telling you a card cannot give change, then it **asks again** — and **your
+basket is still there** throughout.
 
-3. Now try **Cash** → type **1.00** on a £3.30 basket.
+3. Type **3.30** and complete the sale.
+4. Now try **Cash** → type **1.00** on a £3.30 basket.
 
 **✅ Expected:** it tells you how much is still to pay and asks again. This is normal — see A5.
+
+**❌ What was wrong, twice:** on 1.42.0 it said *"Something went wrong"* — not a wording choice, a
+crash. On **1.49.0 the app closed outright**: the refusal message is a dialog, and it was being built
+on a background thread, which Windows refuses. ⚠ **A normal sale was fine on that build** — only the
+refusal path was affected, which is exactly why it survived to be found by hand.
+
+⚠ **So the thing to watch for here is the app vanishing**, not the wording. If it closes, say what you
+had typed and which tender you had chosen.
 
 ## A5. Split a payment across two methods
 

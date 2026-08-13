@@ -164,4 +164,38 @@ public class ModalGateTests
     {
         await Assert.ThrowsAsync<ArgumentNullException>(() => Modal.ShowAsync<int>(null));
     }
+
+    /// <summary>
+    /// ⚠⚠ CALLED FROM A POOL THREAD, which is how the till actually calls it and how it crashed.
+    /// `Client.Core.TenderLoop` awaits its callbacks with `ConfigureAwait(false)` — right for a shared
+    /// library — so every dialog after the first pass is raised off the UI thread. On 1.49.0 that
+    /// constructed a WinUI `ContentDialog` on a pool thread, which threw a COMException that arrived
+    /// via `Task.ThrowAsync` and killed the process: hand-test A4, overpay by card.
+    ///
+    /// ⚠ THIS TEST DOES NOT PROVE THE MARSHALLING — there is no dispatcher in the test host, so the
+    /// delegate runs inline here by design. What it pins is that the OFF-THREAD PATH still completes
+    /// and does not deadlock, which is the part that can regress silently. **That the dialog lands on
+    /// the UI thread is USER-VERIFY (A4) and cannot be asserted without a UI host** — saying so is
+    /// better than a test that pretends otherwise.
+    /// </summary>
+    [Fact(Timeout = TimeoutMs)]
+    public async Task Called_from_a_pool_thread_it_still_completes()
+    {
+        var result = await Bounded(
+            Task.Run(() => Modal.ShowAsync(Returns(9))),
+            "a dialog raised from a pool thread");
+
+        Assert.Equal(9, result);
+    }
+
+    /// <summary>And nested, from a pool thread — the exact shape of the refusal path.</summary>
+    [Fact(Timeout = TimeoutMs)]
+    public async Task Nested_from_a_pool_thread_still_completes()
+    {
+        var result = await Bounded(
+            Task.Run(() => Modal.ShowAsync(async () => await Modal.ShowAsync(Returns(11)))),
+            "a nested dialog raised from a pool thread");
+
+        Assert.Equal(11, result);
+    }
 }
