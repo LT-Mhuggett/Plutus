@@ -180,6 +180,65 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
             Assert.Equal(2000, CheckoutCommit.BasketMoneyPence(basket));
         }
 
+        /// <summary>
+        /// ⚠⚠ **DOCUMENTS A LIVE DEFECT — found 2026-08-13 while planning the members' discount.**
+        /// This test asserts what the code does TODAY, not what it should do, so the behaviour is
+        /// visible and pinned. **When it is fixed, this test must fail** and be rewritten to the new
+        /// behaviour — that is the point of it.
+        ///
+        /// Discounts totalling more than the basket make `ApplyAlterations` throw, because it
+        /// computes each alteration's `grosses` NET OF THE DISCOUNTS ALREADY APPLIED and
+        /// `DiscountApportionment.Across` refuses a discount larger than the lines it lands on
+        /// (rightly — the alternative is a negative-gross "sale").
+        ///
+        /// ⚠ WHY IT MATTERS AT A COUNTER: `CommitAsync` catches this and reports *"The sale couldn't
+        /// be recorded on this till. Nothing has been taken — try again."* No money moves, which is
+        /// the one thing it gets right. But **trying again does exactly the same thing** — the basket
+        /// is permanently un-completable, and nothing tells the operator that a discount is the
+        /// cause or which one to remove.
+        ///
+        /// ⚠ IT IS REACHABLE: nothing caps a discount at the basket's value. `TillViewModel` builds
+        /// each `BasketAlteration` straight from the entered amount (~line 1022–1043) with no check
+        /// against `SaleIncTax`, and `Alterations` is a collection, so two are allowed.
+        ///
+        /// ⚠ THE FIX IS NOT "cap it silently" — a £5 discount quietly becoming £3 is the silent
+        /// money change this codebase exists to avoid. It belongs at the point of APPLYING the
+        /// discount, where the operator can still act, and the web till's behaviour decides the
+        /// shape (binding default 10).
+        /// </summary>
+        [Fact]
+        public void DEFECT_discounts_exceeding_the_basket_throw_instead_of_refusing_politely()
+        {
+            var basket = new List<IBasketRecord>
+            {
+                Item("A", 8m, 8m),          // £8 of goods
+                Alteration(-5m, null),      // £5 off …
+                Alteration(-5m, null),      // … and £5 off again = £10 off an £8 basket
+            };
+
+            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => CheckoutCommit.LinesFrom(basket));
+
+            // The message names the real numbers, which is what makes the log actionable even though
+            // the operator never sees it.
+            Assert.Contains("500p", ex.Message);
+            Assert.Contains("300p", ex.Message);   // £8 less the first £5 — the remaining gross
+        }
+
+        /// <summary>A single discount equal to the whole basket is FINE — the boundary is inclusive,
+        /// so "everything free" works and only *more* than everything is refused. Worth pinning
+        /// separately: an off-by-one here would refuse a legitimate 100% staff discount.</summary>
+        [Fact]
+        public void A_discount_equal_to_the_whole_basket_is_allowed()
+        {
+            var basket = new List<IBasketRecord> { Item("A", 8m, 8m), Alteration(-8m, null) };
+
+            var lines = CheckoutCommit.LinesFrom(basket);
+
+            Assert.Equal(800, lines.Single().DiscountPence);
+            Assert.Equal(0, lines.Sum(l => l.UnitIncPence * l.Quantity - l.DiscountPence));
+            Assert.Equal(0, CheckoutCommit.BasketMoneyPence(basket));
+        }
+
         /// <summary>A discount attached to one item does not come off another.</summary>
         [Fact]
         public void A_discount_lands_only_on_the_item_it_was_applied_to()

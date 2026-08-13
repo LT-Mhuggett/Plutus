@@ -477,6 +477,50 @@ is *always confirm the mutant actually applied*, not a nicety.
 member-card scan via `LooksLikeMemberScan`, and the store-credit tender. Nothing on the
 1.49.3→1.52.0 MAUI line has been hand-run by a person yet either (`Test Maui.md` §A4b, §E0/E0b).
 
+**3k. ⚙ The shared CLIENT layer landed, and looking at how it would attach found a live MAUI defect.**
+
+**(a) `PlutusApiClient` customer methods** — commit `8ddb90a`. There were **none**, which is the
+mechanical reason MAUI has no attach screen. Mirrors `api.ts:309–418` (search/detail/tiers/create/
+set-tier + DTOs), 17 tests on URL shapes, payload shapes and refusal wording. ⚠ Customer **edit** and
+`credit/redeem` deliberately absent — edit is `customers.manage` and must not sit beside the add call;
+redeem needs the `CREDIT_PAYID` checkout plumbing beside it rather than arriving as an orphan.
+⚠ Read/write auth split: search/detail/tiers work on a **device** token, create/set-tier need an
+**operator** one (`perm:*` resolves from RBAC by userId; a device token has none).
+
+⚠ **Three traps found writing the tests.** (i) ⚠⚠ **A doc example was wrong in five places** —
+`MemberNumbers` claimed `482 → "000482K"`; it is **`000482P`**. It came from an archived plan, I copied
+it verbatim on Wednesday, then built a fixture from it and the fixture failed. A wrong worked example
+where people copy from is a defect, not a typo. (ii) **A space is no test of URL encoding** — removing
+`Uri.EscapeDataString` SURVIVED, because `Uri` escapes a space itself; `&` is the character that
+matters ("Marks & Spencer" would search for "Marks"). My comment had named `a&b` while the code tested
+a space. (iii) `Uri.ToString()` **unescapes** — assert on `AbsoluteUri`.
+
+**(b) ⚠⚠ LIVE MAUI DEFECT — discounts totalling more than the basket make the sale UN-COMPLETABLE.**
+Found while working out how a members' discount would attach, which matters because that screen adds a
+second discount to every member's basket. `CheckoutCommit.ApplyAlterations` computes each alteration's
+`grosses` **net of discounts already applied**, and `DiscountApportionment.Across` rightly refuses a
+discount bigger than the lines it lands on — so it **throws**, `CommitAsync` catches it, and the
+operator gets *"Nothing has been taken — try again."* ✅ No money moves. ⚠⚠ But **trying again never
+works**: the basket cannot be completed, and nothing says a discount is the cause or which to remove.
+⚠ **Reachable today with no member discount involved** — nothing caps a discount at the basket value
+(`TillViewModel` ~1022–1043 builds alterations straight from the entered amount; `Alterations` is a
+collection). Verified: £5 + £5 off an £8 basket → *"A discount of 500p was applied to lines worth 300p"*.
+
+**Pinned** by `DEFECT_discounts_exceeding_the_basket_throw_instead_of_refusing_politely`, which asserts
+**today's** behaviour and so **will fail when fixed** — deliberately. `A_discount_equal_to_the_whole_basket_is_allowed`
+pins the boundary as inclusive so a 100% staff discount is not caught by an off-by-one in the fix.
+⚠ **The fix is not "cap it silently"** (a £5 discount quietly becoming £3 is the silent money change
+this codebase exists to prevent) — it belongs where the discount is **applied**, and the web till's
+behaviour decides the shape (default 10). **Fix this before the attach screen.**
+
+⚠ It also constrains the members' discount: MAUI's shape is a `BasketAlteration` apportioned at commit,
+not a per-line field, and `TargetsOf` excludes returns but **not** already-discounted or gift-card
+lines — which `MemberDiscount.LineIsEligible` does exclude. So the member alteration must be
+**explicitly associated with the eligible items**, which also keeps it clear of the throw.
+
+Suites: **Unit 984 · Architecture 15 · Integration 174 · AppClient 436 (+3 skipped)** — all green.
+`platform` 1.33.0. ⚠ Committed, **not deployed** (shared-library and test code; no live caller yet).
+
 **4. Corrected:** §1 below described the backend as ".NET 8". It is `net10.0`.
 
 **5. ⚠ Noticed, not fixed: `TillViewModel.cs` has 184 lines of byte-corrupted comments.** Its `⚠`

@@ -735,6 +735,43 @@ line, enforced in the client's own surface rather than only at the server).
 3. ⚠ **`Uri.ToString()` unescapes**, so it cannot distinguish an encoded query from a raw one —
    assert on `AbsoluteUri`.
 
+⚠⚠ **A LIVE MAUI DEFECT, FOUND 2026-08-13 WHILE PLANNING HOW THE MEMBERS' DISCOUNT WOULD ATTACH —
+FIX IT BEFORE THE ATTACH SCREEN, because that screen adds a second discount to every member's basket
+and walks straight into it.**
+
+**Discounts totalling more than the basket make the sale un-completable.** `CheckoutCommit.ApplyAlterations`
+computes each alteration's `grosses` **net of the discounts already applied**, and
+`DiscountApportionment.Across` rightly refuses a discount larger than the lines it lands on (the
+alternative is a negative-gross "sale"). So it **throws** `ArgumentOutOfRangeException`, `CommitAsync`
+catches it, and the operator is told *"The sale couldn't be recorded on this till. Nothing has been
+taken — try again."*
+
+- ✅ **No money moves** — the one thing it gets right.
+- ⚠⚠ **But "try again" never works.** The basket is permanently un-completable, and nothing says a
+  discount is the cause or which one to remove. Mid-queue, the only way out is to clear the sale.
+- ⚠ **It is reachable today, with no member discount involved.** Nothing caps a discount at the
+  basket's value: `TillViewModel` builds each `BasketAlteration` straight from the entered amount
+  (~1022–1043) with no check against `SaleIncTax`, and `Alterations` is a collection, so two are
+  allowed. Verified: £5 off + £5 off an £8 basket throws with *"A discount of 500p was applied to
+  lines worth 300p"*.
+- **Pinned** by `DEFECT_discounts_exceeding_the_basket_throw_instead_of_refusing_politely` — which
+  asserts **today's** behaviour, so **it will fail when the defect is fixed**, and that is deliberate.
+  `A_discount_equal_to_the_whole_basket_is_allowed` pins the boundary as inclusive, so a legitimate
+  100% staff discount is not caught by an off-by-one in the fix.
+
+⚠ **The fix is NOT "cap it silently."** A £5 discount quietly becoming £3 is exactly the silent money
+change this codebase exists to prevent. It belongs at the point of **applying** the discount, where
+the operator can still act on it — and what the **web till** does decides the shape (binding
+default 10), which is the first thing to check.
+
+⚠ **And it constrains how the members' discount is built.** MAUI's shape is a `BasketAlteration`
+apportioned at commit, *not* the web till's per-line `discount` field, so a member's basket ends up
+with **two** alterations whenever a manual discount is also present. `TargetsOf` already excludes
+returns, but **not** already-discounted lines or gift-card lines — both of which
+`MemberDiscount.LineIsEligible` excludes — so the member alteration must be **explicitly associated
+with the eligible items** rather than left whole-basket, or it lands on lines the shared rule says it
+must not touch. That association is also what keeps it clear of the throw above.
+
 **WP12 — the rest.** Screens. Everything below the client is still ⬜ in both MAUI projects. Customer search/attach on the sale screen
 (`GET /api/v1/customers?search=`, then a live `GET /api/v1/customers/{id}` for balance and
 membership), a create dialog gated **`pos.customers.add` OR `customers.manage`**, a **tier-assign
