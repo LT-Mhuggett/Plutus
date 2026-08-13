@@ -7,7 +7,7 @@ namespace Plutus.SharedKernel;
 /// FE2 membership numbers: a short, human-typeable, scannable customer id.
 ///
 /// Shape: <c>NNNNNNC</c> — a 6-digit per-tenant sequence plus one check character, e.g.
-/// <c>000482K</c>. On a card the barcode payload carries a <see cref="Prefix"/> ("C…") so the
+/// <c>000482P</c>. On a card the barcode payload carries a <see cref="Prefix"/> ("C…") so the
 /// till's scan handler can tell a member card from a product EAN or a receipt's sale id.
 ///
 /// Why this shape: short enough to read down a phone line, entirely within the Code 39 charset
@@ -57,7 +57,7 @@ public static class MemberNumbers
     }
 
     /// <summary>
-    /// Sequence number → member number, e.g. 482 → "000482K".
+    /// Sequence number → member number, e.g. 482 → "000482P".
     ///
     /// ⚠⚠ **THE CEILING IS <see cref="SequenceDigits"/> DIGITS — 1,000,000 members per tenant — AND
     /// PAST IT A NUMBER FORMATS BUT CANNOT BE READ BACK.** Found by the round-trip test on
@@ -69,7 +69,7 @@ public static class MemberNumbers
     ///
     /// ⚠ **The fix, if a tenant ever approaches it, is to widen <see cref="SequenceDigits"/>** — both
     /// halves read that one constant, so they widen in step and every existing shorter number keeps
-    /// working (they are zero-padded, so "000482K" is unchanged at 7 digits). It is NOT to loosen the
+    /// working (they are zero-padded, so "000482P" is unchanged at 7 digits). It is NOT to loosen the
     /// parser: accepting arbitrary lengths would make a bare **EAN-8** product barcode canonicalise
     /// as a member number roughly 3% of the time, which is a far worse failure at a counter than a
     /// ceiling nobody has reached.
@@ -86,8 +86,8 @@ public static class MemberNumbers
 
     /// <summary>
     /// Turn anything a human or scanner might supply into the canonical member number, or null
-    /// when the input is not one. Accepts: the bare number ("000482K"), the barcode payload
-    /// ("C000482K"), the sequence without its check character ("000482", "482"), and any of those
+    /// when the input is not one. Accepts: the bare number ("000482P"), the barcode payload
+    /// ("C000482P"), the sequence without its check character ("000482", "482"), and any of those
     /// in lower case or with spaces/hyphens. A 7+ character candidate whose check character does
     /// not verify is REJECTED (null) — that is the whole point of having one.
     /// </summary>

@@ -704,11 +704,38 @@ third answer.
 gap — two guards on a money rule is right — but do not "simplify" either away on the grounds that the
 other exists.
 
-**WP12 — the rest.** Confirmed **zero** in both MAUI projects. Pure consumption from here. ⚠ Next
-concrete piece: `PlutusApiClient` has **no customer methods at all** (checked), so the client layer
-comes before any XAML — `GET /api/v1/customers?take=10&search=`, `GET /api/v1/customers/{id}`,
-`POST /api/v1/customers`, `POST /api/v1/customers/{id}/membership`, `GET /api/v1/loyalty/tiers`,
-`POST /api/v1/customers/{id}/credit/redeem`, mirroring `api.ts` lines 309–418. Customer search/attach on the sale screen
+✅ **The shared CLIENT layer landed 2026-08-13 — `PlutusApiClient` customer methods.** There were
+**none at all** before, which is the mechanical reason MAUI has no attach screen. Mirrors `api.ts`
+309–418 method for method (binding default 10): `SearchCustomersAsync` (take=10, encoded term),
+`GetCustomerAsync`, `GetLoyaltyTiersAsync`, `CreateCustomerAsync`, `SetMembershipAsync`, plus
+`CustomerSummaryDto`/`CustomerDetailDto`/`MembershipDto`/`LoyaltyTierDto`. 17 tests pinning the URL
+and payload shapes — a client that talks to a slightly different URL fails at a counter, not in a
+compiler — and the refusal wording, because "Forbidden" mid-queue tells a cashier nothing and the next
+step is to ask a supervisor.
+
+⚠ **Deliberately NOT exposed: customer EDIT.** Editing is `customers.manage`; a cashier holding
+`pos.customers.add` must not find an edit call sitting next to the add call (default 20's create-only
+line, enforced in the client's own surface rather than only at the server).
+
+⚠ **`credit/redeem` is NOT here yet** — the store-credit tender needs the checkout plumbing
+(`CREDIT_PAYID`) alongside it, so it lands with that slice rather than as an orphan method.
+
+⚠ **Three findings while writing the tests, all recorded because each is a trap:**
+1. ⚠⚠ **The doc example was WRONG, in five places.** `MemberNumbers`' header claimed
+   `482 → "000482K"`; it is **`000482P`** (weights 7,3,1 over `000482` sum to 54, and
+   `Crockford32.Alphabet[54 % 32]` is `P`). It came in from `further-enhancements-plan.md` and I
+   copied it verbatim when moving the file — then built a test fixture from it, which failed. **A
+   wrong worked example in the one place people copy from is a defect**; corrected. Also fixed
+   `MemberNumberTests`' "prefixed but too long" fixture, which was invalid for *two* reasons and so
+   did not isolate the rule it named.
+2. ⚠ **A space is no test of URL encoding.** Removing `Uri.EscapeDataString` entirely SURVIVED,
+   because `Uri` escapes a space to `%20` on its own. `&` is the character that matters — raw,
+   `search=Marks & Spencer` reaches the server as `search=Marks` plus a stray parameter. The test now
+   uses it and the mutant dies. My own comment had named `a&b` while the code tested a space.
+3. ⚠ **`Uri.ToString()` unescapes**, so it cannot distinguish an encoded query from a raw one —
+   assert on `AbsoluteUri`.
+
+**WP12 — the rest.** Screens. Everything below the client is still ⬜ in both MAUI projects. Customer search/attach on the sale screen
 (`GET /api/v1/customers?search=`, then a live `GET /api/v1/customers/{id}` for balance and
 membership), a create dialog gated **`pos.customers.add` OR `customers.manage`**, a **tier-assign
 picker gated `customers.manage`** reading `GET /api/v1/loyalty/tiers`, a store-credit tender

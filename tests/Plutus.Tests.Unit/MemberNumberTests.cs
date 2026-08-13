@@ -207,7 +207,7 @@ public class MemberNumberTests
     [InlineData("")]
     [InlineData(null)]
     [InlineData("CANCEL")]
-    [InlineData("C000482K9")]       // prefixed but too long
+    [InlineData("C000482P9")]       // prefixed but too long
     public void Non_member_scans_are_left_for_the_item_lookup(string? scanned)
     {
         Assert.False(MemberNumbers.LooksLikeMemberScan(scanned));

@@ -879,6 +879,216 @@ public sealed class PlutusApiClient
         return (res.StatusCode, body);
     }
 
+    // ── customers, membership, store credit (WP12 / step 27) ─────────────────────────────────────
+    //
+    // ⚠⚠ THERE WAS NOTHING HERE AT ALL until 2026-08-13, which is why the MAUI till has no customer
+    // attach and why a Gold member is charged 10% more on it than on the web till for the same
+    // basket. `Plutus.Frontend.WebApp/src/api.ts:309–418` is the reference (binding default 10 —
+    // when in doubt, match the web till), and these mirror it method for method.
+    //
+    // ⚠ READS ARE OPEN TO ANY AUTHENTICATED PRINCIPAL, WRITES NEED AN OPERATOR TOKEN, and the split
+    // matters on a till: `CustomersController`'s reads (search, detail, tier catalogue) are
+    // deliberately ungated so a till can look a member up with its DEVICE token, while create and
+    // set-tier are `perm:*` gated — and `perm:*` policies resolve from RBAC **by the token's
+    // userId**, which a device token does not have (runbook pitfall 5). So a write attempted on a
+    // device token fails as a permission error rather than a login prompt, and the message has to
+    // say so.
+    //
+    // ⚠ ALL OF IT IS ONLINE-ONLY, and not because nobody has written the offline path: member
+    // numbers come from a tenant-wide counter, so two disconnected tills would mint the same one
+    // (binding defaults 20/21). The offline story is a bounded read-through cache serving name/tier
+    // as a HINT — never an input to redemption maths — and that lives in the till, not here.
+
+    /// <summary>A customer as the search list shows them. ⚠ Not sealed — <see cref="CustomerDetailDto"/>
+    /// extends it, mirroring the web till's `CustomerDetail extends CustomerSummary`.</summary>
+    public class CustomerSummaryDto
+    {
+        public Guid Id { get; set; }
+        public string? Name { get; set; }
+        public string? Email { get; set; }
+        public string? Phone { get; set; }
+        /// <summary>FE2 membership number — printed on the card as a "C…" Code 39 barcode. Validate
+        /// and route scans of it with <see cref="Plutus.SharedKernel.MemberNumbers"/>.</summary>
+        public string? MemberNo { get; set; }
+    }
+
+    /// <summary>Membership as the detail read returns it. ⚠ <see cref="Expired"/> is the server's
+    /// verdict, not something a till re-derives from <see cref="RenewalDay"/> — one clock decides.</summary>
+    public sealed class MembershipDto
+    {
+        public Guid? TierId { get; set; }
+        public string? Tier { get; set; }
+        public decimal AutoDiscountRate { get; set; }
+        public string? RenewalDay { get; set; }
+        public bool Expired { get; set; }
+    }
+
+    /// <summary>
+    /// The full customer read — what the sale screen needs to attach somebody.
+    ///
+    /// ⚠ <see cref="CreditBalancePence"/> IS A LIVE FIGURE AND MUST BE TREATED AS ONE. It is the sum
+    /// of an append-only ledger that another till, or the webstore, may have spent from a second
+    /// ago. It is fetched per attach for that reason, and a cached copy is a hint only.
+    /// </summary>
+    public sealed class CustomerDetailDto : CustomerSummaryDto
+    {
+        /// <summary>"C" + <see cref="CustomerSummaryDto.MemberNo"/> — what a scanner reads.</summary>
+        public string? MemberBarcode { get; set; }
+        public Guid? CreditAccountId { get; set; }
+        public long CreditBalancePence { get; set; }
+        public MembershipDto? Membership { get; set; }
+    }
+
+    /// <summary>A tenant's loyalty tier. ⚠ DEFINED IN THE PORTAL ONLY (binding default 20) — a till
+    /// assigns one, never creates one.</summary>
+    public sealed class LoyaltyTierDto
+    {
+        public Guid Id { get; set; }
+        public string? Name { get; set; }
+        public decimal AutoDiscountRate { get; set; }
+        public int DurationMonths { get; set; }
+        public bool Active { get; set; }
+        public int SortOrder { get; set; }
+        public int MemberCount { get; set; }
+    }
+
+    /// <summary>
+    /// Search customers for the attach box — name, email, phone, or a membership number.
+    ///
+    /// ⚠ A SCANNED CARD RESOLVES THROUGH THIS SAME CALL, because scanners are keyboard-wedge into
+    /// the same box: the server canonicalises a `C…` payload and matches the exact member. Use
+    /// <see cref="Plutus.SharedKernel.MemberNumbers.LooksLikeMemberScan"/> to decide whether a scan
+    /// belongs here at all rather than in item lookup.
+    /// </summary>
+    /// <param name="take">Matches the web till's 10 — a picker, not a report.</param>
+    public Task<List<CustomerSummaryDto>?> SearchCustomersAsync(
+        string? term, int take = 10, CancellationToken ct = default) =>
+        GetAsync<List<CustomerSummaryDto>>(
+            $"/api/v1/customers?take={take}" +
+            (string.IsNullOrWhiteSpace(term) ? "" : $"&search={Uri.EscapeDataString(term)}"), ct);
+
+    /// <summary>
+    /// The live read for the customer being attached — balance and membership included.
+    ///
+    /// ⚠ CALL IT AT ATTACH, EVERY TIME, even when the summary from the search looks sufficient. The
+    /// search does not carry the balance or the tier, and the tier is what decides the money.
+    /// </summary>
+    public Task<CustomerDetailDto?> GetCustomerAsync(Guid id, CancellationToken ct = default) =>
+        GetAsync<CustomerDetailDto>($"/api/v1/customers/{id:D}", ct);
+
+    /// <summary>The tenant's active tiers, for the assign-tier picker. Readable by any signed-in
+    /// operator; the picker itself is gated `customers.manage` (binding default 20).</summary>
+    public Task<List<LoyaltyTierDto>?> GetLoyaltyTiersAsync(CancellationToken ct = default) =>
+        GetAsync<List<LoyaltyTierDto>>("/api/v1/loyalty/tiers", ct);
+
+    /// <summary>
+    /// Sign a new member up from the till. Returns their id and the membership number just issued.
+    ///
+    /// ⚠ Needs **`pos.customers.add` OR `customers.manage`** — Cashier and up (binding default 20:
+    /// *"Till operator to add new loyalty members"*). **Create-only**: this client deliberately
+    /// exposes no customer *edit*, because editing is `customers.manage` and a cashier holding the
+    /// add permission must not find an edit call sitting next to it.
+    ///
+    /// ⚠ ONLINE-ONLY — the number comes from a tenant-wide counter. Failing offline is correct
+    /// behaviour, not a gap, and the message says so rather than implying a retry will help.
+    /// </summary>
+    public async Task<(bool Ok, Guid Id, string? MemberNo, string? Problem)> CreateCustomerAsync(
+        string name, string? email = null, string? phone = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return (false, Guid.Empty, null, "A name is required to add a member.");
+
+        var body = new Dictionary<string, object?>
+        {
+            ["name"] = name.Trim(),
+            ["email"] = string.IsNullOrWhiteSpace(email) ? null : email.Trim(),
+            ["phone"] = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim(),
+        };
+
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, "/api/v1/customers")
+            {
+                Content = JsonContent.Create(body, options: Json),
+            };
+            await AuthoriseAsync(req, ct);
+            using var res = await _http.SendAsync(req, ct);
+
+            if (res.IsSuccessStatusCode)
+            {
+                var created = await res.Content.ReadFromJsonAsync<CreatedCustomer>(Json, ct);
+                return (true, created?.Id ?? Guid.Empty, created?.MemberNo, null);
+            }
+
+            // ⚠ 403 gets its own sentence. The server's problem body for a permission refusal is not
+            // written for a counter, and "Forbidden" in front of a customer tells the operator
+            // nothing about what to do next — which is to ask a supervisor.
+            if (res.StatusCode == HttpStatusCode.Forbidden)
+                return (false, Guid.Empty, null,
+                    "You don't have permission to add a member. A supervisor can add them.");
+
+            var detail = await res.Content.ReadAsStringAsync(ct);
+            return (false, Guid.Empty, null, string.IsNullOrWhiteSpace(detail)
+                ? $"Plutus wouldn't add that member ({(int)res.StatusCode})."
+                : detail);
+        }
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
+        {
+            return (false, Guid.Empty, null,
+                "Couldn't reach Plutus, so the member has NOT been added. Membership numbers are "
+                + "issued centrally, so this needs the till to be online — sell to them now and add "
+                + "them when the connection is back.");
+        }
+    }
+
+    private sealed class CreatedCustomer
+    {
+        public Guid Id { get; set; }
+        public string? MemberNo { get; set; }
+    }
+
+    /// <summary>
+    /// Assign a member one of the tenant's tiers.
+    ///
+    /// ⚠ Needs **`customers.manage`** — Supervisor and up (binding default 20: *"Supervisor to
+    /// change tiers"*). A cashier who may add a member may NOT set their tier, because a tier
+    /// changes every future basket that customer puts through.
+    ///
+    /// ⚠ The TIER owns the discount and the renewal length. A till passes an id and nothing else —
+    /// it never types a name or a rate, so re-rating "Gold" in the portal updates every Gold member
+    /// at once instead of leaving a snapshot behind on whichever till happened to assign it.
+    /// </summary>
+    public async Task<(bool Ok, string? Problem)> SetMembershipAsync(
+        Guid customerId, Guid tierId, CancellationToken ct = default)
+    {
+        try
+        {
+            using var req = new HttpRequestMessage(
+                HttpMethod.Post, $"/api/v1/customers/{customerId:D}/membership")
+            {
+                Content = JsonContent.Create(new Dictionary<string, object?> { ["tierId"] = tierId }, options: Json),
+            };
+            await AuthoriseAsync(req, ct);
+            using var res = await _http.SendAsync(req, ct);
+            if (res.IsSuccessStatusCode) return (true, null);
+
+            if (res.StatusCode == HttpStatusCode.Forbidden)
+                return (false, "You don't have permission to change a member's tier — that needs a supervisor.");
+
+            // ⚠ A 400 here is usually "that tier is no longer active", which is the server's own
+            // words and the actionable sentence: deactivating a tier stops new assignments while
+            // leaving existing members working.
+            var detail = await res.Content.ReadAsStringAsync(ct);
+            return (false, string.IsNullOrWhiteSpace(detail)
+                ? $"Plutus wouldn't set that tier ({(int)res.StatusCode})."
+                : detail);
+        }
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
+        {
+            return (false, "Couldn't reach Plutus. The tier has NOT been changed.");
+        }
+    }
+
     private async Task<T?> GetAsync<T>(string url, CancellationToken ct)
     {
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
