@@ -248,3 +248,83 @@ public class RefundTenderSplitTests
         Assert.False(string.IsNullOrWhiteSpace(refused.Reason));
     }
 }
+
+/// <summary>
+/// ⚠ Finding Y piece 4b: reading how a sale the PLATFORM holds was paid. The server has always sent
+/// `tenders` on `GET /api/v1/sales/{saleId}`; the contract had no property for them, so a till
+/// refunding another till's sale could not cap anything. **The data was there and nobody asked.**
+/// </summary>
+public class SaleDtoTenderPairsTests
+{
+    [Fact]
+    public void The_enum_names_the_server_sends_map_to_wire_bytes()
+    {
+        var sale = new Plutus.Contracts.Client.SaleDto
+        {
+            Tenders = new()
+            {
+                new() { TenderType = "Cash", AmountPence = 200 },
+                new() { TenderType = "Card", AmountPence = 240 },
+            },
+        };
+
+        var capacities = RefundRules.RefundCapacities(Plutus.Client.Core.SaleDtoTenders.TenderPairs(sale));
+
+        Assert.Equal(200, capacities.Single(c => c.TenderType == Tenders.Cash).TookPence);
+        Assert.Equal(240, capacities.Single(c => c.TenderType == Tenders.Card).TookPence);
+    }
+
+    [Fact]
+    public void Every_tender_name_the_platform_can_serialise_is_understood()
+    {
+        foreach (var (name, expected) in new (string, byte)[]
+                 {
+                     ("Cash", Tenders.Cash), ("Card", Tenders.Card), ("Online", Tenders.Online),
+                     ("Credit", Tenders.Credit), ("GiftCard", Tenders.GiftCard),
+                 })
+        {
+            Assert.True(Tenders.TryFromWireName(name, out var actual), name);
+            Assert.Equal(expected, actual);
+        }
+    }
+
+    /// <summary>
+    /// ⚠⚠ AN UNKNOWN NAME IS DROPPED, NOT CALLED A CARD. `Tenders.FromMethodName` falls back to Card
+    /// on purpose — a cashier typing an odd method name should still be able to sell. On THIS path the
+    /// same leniency would hand the card a capacity it never earned, out of somebody else's money.
+    /// </summary>
+    [Fact]
+    public void An_unknown_tender_name_is_dropped_rather_than_treated_as_a_card()
+    {
+        Assert.False(Tenders.TryFromWireName("Bitcoin", out _));
+
+        var sale = new Plutus.Contracts.Client.SaleDto
+        {
+            Tenders = new() { new() { TenderType = "Bitcoin", AmountPence = 440 } },
+        };
+
+        Assert.Empty(Plutus.Client.Core.SaleDtoTenders.TenderPairs(sale));
+
+        // ⚠ And the lenient mapper WOULD have said Card — the difference this test exists for.
+        Assert.Equal(Tenders.Card, Tenders.FromMethodName("Bitcoin"));
+    }
+
+    [Fact]
+    public void A_sale_with_no_tenders_yields_nothing_rather_than_throwing()
+    {
+        Assert.Empty(Plutus.Client.Core.SaleDtoTenders.TenderPairs(new Plutus.Contracts.Client.SaleDto()));
+        Assert.Empty(Plutus.Client.Core.SaleDtoTenders.TenderPairs(null));
+    }
+
+    /// <summary>⚠ A refund's tenders are negative on the wire; the rules compare magnitudes.</summary>
+    [Fact]
+    public void Negative_wire_amounts_become_magnitudes()
+    {
+        var sale = new Plutus.Contracts.Client.SaleDto
+        {
+            Tenders = new() { new() { TenderType = "Card", AmountPence = -240 } },
+        };
+
+        Assert.Equal(240, Plutus.Client.Core.SaleDtoTenders.TenderPairs(sale).Single().Value);
+    }
+}

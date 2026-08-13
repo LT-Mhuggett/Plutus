@@ -46,6 +46,34 @@ public static class Tenders
     /// a busy counter should complete the sale as a card payment rather than refuse it. A misfiled
     /// tender is a reporting correction; a refused sale is a customer walking out.
     /// </summary>
+    /// <summary>
+    /// Wire name → byte, STRICTLY: unrecognised names are refused rather than guessed.
+    ///
+    /// ⚠⚠ USE THIS, NOT <see cref="FromMethodName"/>, WHEN READING A SERVER PAYLOAD. That one falls
+    /// back to <see cref="Card"/> on purpose, because a cashier typing an unrecognised method name
+    /// should still be able to complete a sale. Applied to a wire value the same leniency is a
+    /// liability: a tender name this build does not know would be counted as CARD, and on the refund
+    /// path (finding Y) that inflates the card's refundable capacity by somebody else's money.
+    ///
+    /// ⚠ Matches the `TenderType` enum's own names, which is what `GET /api/v1/sales/{saleId}`
+    /// serialises — `"Cash"`, `"Card"`, `"Online"`, `"Credit"`, `"GiftCard"`.
+    /// </summary>
+    public static bool TryFromWireName(string? wireName, out byte tenderType)
+    {
+        tenderType = 0;
+        if (string.IsNullOrWhiteSpace(wireName)) return false;
+
+        switch (wireName.Trim().ToLowerInvariant())
+        {
+            case "cash": tenderType = Cash; return true;
+            case "card": tenderType = Card; return true;
+            case "online": tenderType = Online; return true;
+            case "credit": tenderType = Credit; return true;
+            case "giftcard": tenderType = GiftCard; return true;
+            default: return false;
+        }
+    }
+
     public static byte FromMethodName(string? methodName)
     {
         var n = methodName?.ToLowerInvariant() ?? string.Empty;

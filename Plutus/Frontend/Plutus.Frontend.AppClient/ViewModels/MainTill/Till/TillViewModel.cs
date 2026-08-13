@@ -1978,10 +1978,28 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     var origin = await Services.Storage.TillStoreAccess.TryUseAsync(
                         s => s.FindLocalSaleAsync(originId));
 
-                    if (origin?.Tenders is null) continue;
+                    if (origin?.Tenders is { Count: > 0 })
+                    {
+                        foreach (var tender in origin.Tenders)
+                            took.Add(new KeyValuePair<byte, long>(tender.TenderType, tender.AmountPence));
+                        continue;
+                    }
 
-                    foreach (var tender in origin.Tenders)
-                        took.Add(new KeyValuePair<byte, long>(tender.TenderType, tender.AmountPence));
+                    // ⚠ NOT OURS — ASK THE PLATFORM (piece 4b). A sale rung up on another till is not
+                    // in this store, and that is the case a cap matters MOST in: the operator has no
+                    // receipt knowledge to fall back on. The server has always sent the tenders; until
+                    // today nothing read them.
+                    //
+                    // ⚠ Silence here is not an error. No operator token, no network, or a sale the
+                    // platform does not have all mean "no capacities", which means no caps — the
+                    // behaviour before this existed, with the ingest gate still behind it.
+                    var api = await Services.Connectivity.PlutusApi.GetOperatorAsync();
+                    if (api is null) continue;
+
+                    var dto = await api.GetSaleAsync(originId);
+                    if (dto is null) continue;
+
+                    took.AddRange(Plutus.Client.Core.SaleDtoTenders.TenderPairs(dto));
                 }
 
                 return SharedKernel.RefundRules.RefundCapacities(took);

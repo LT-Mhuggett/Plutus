@@ -1,6 +1,6 @@
 # Test Maui — the MAUI till hand-test script
 
-**For till 1.50.0.** Anyone can run this. You do not need to know the codebase, and you should not
+**For till 1.51.0.** Anyone can run this. You do not need to know the codebase, and you should not
 need to ask anyone what a step means — if a step is unclear, that is a bug in this document, so please
 say so.
 
@@ -13,7 +13,7 @@ if that is all the time you have.
 
 | | |
 |---|---|
-| **Run** | `D:\tmp\plutus-till-1.50.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Not** 1.48.0 (cannot take a sale — A0), 1.49.0 (crashes on a card overpay — A4), 1.49.1 (a split payment tells you nothing — A5), 1.49.2 (a closed day accepts items from the item list — A8) or 1.49.3 (a split-paid refund can all go on one card — A4b). |
+| **Run** | `D:\tmp\plutus-till-1.50.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Not** 1.48.0 (cannot take a sale — A0), 1.49.0 (crashes on a card overpay — A4), 1.49.1 (a split payment tells you nothing — A5), 1.49.2 (a closed day accepts items from the item list — A8) or 1.49.3 (a split-paid refund can all go on one card — A4b) or 1.50.0 (the same, for another till's sale). |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
 | **Sign in as** | any operator with **Supervisor** or above — some steps need permission to change stock |
@@ -39,7 +39,7 @@ project.
 
 # §A — the reported faults, and whether they are really fixed
 
-The specific fixes in **1.42.0–1.50.0**, from the hand-runs of 2026-08-11 and 2026-08-13. Each one was
+The specific fixes in **1.42.0–1.51.0**, from the hand-runs of 2026-08-11 and 2026-08-13. Each one was
 reported by a real person using the till. **If you only have 15 minutes, do this section.**
 
 ⚠ **A0, A4, A4b, A5 and A8 are the newest** — all checkout or closed-day faults found on
@@ -159,9 +159,9 @@ actually paid.
 ⚠ **Also worth trying:** refund a **card-only** sale and see whether cash is offered at all (it should
 not be), and refund a **cash-only** sale to cash (which should be entirely normal).
 
-⚠ **Known limit, not a bug:** a sale rung up on **another till** cannot be capped this way yet — the
-platform will accept the refund and then quarantine it rather than the till refusing it at the counter.
-Say so if you see a refund "succeed" and then show as quarantined in the portal.
+⚠ **Also try a sale rung up on ANOTHER till** if you have two enrolled — 1.51.0 asks the platform how it
+was paid, so the same caps should apply. If instead the refund "succeeds" and then shows as quarantined
+in the portal, say so — that is the fallback working and the cap not.
 
 **❌ What was wrong up to 1.49.3:** both methods were offered — correctly — and **neither was capped**, so
 the whole £4.40 could go back on the card: credited £2.40 more than it ever took, the £2.00 left in the
@@ -411,7 +411,7 @@ and nothing calls it, so this path is currently the only way to find it.
 correct" is what lets a fix be closed; without it, it stays open and gets re-tested for weeks.
 
 ⚠ **And say which version you ran.** It is the small grey line at the bottom of the **Plutus** tab,
-which should read **`MAUI till v1.50.0`**. (It is also on the sign-in screen.) ⚠ **If it says anything
+which should read **`MAUI till v1.51.0`**. (It is also on the sign-in screen.) ⚠ **If it says anything
 else, stop and say so** — 1.48.0 cannot take a sale and 1.49.0 crashes on a card overpay, so a run on
 either of those will just re-find faults that are already fixed. Two of the fourteen findings on
 2026-08-11 took much longer to settle than they needed to, partly because nobody could be certain

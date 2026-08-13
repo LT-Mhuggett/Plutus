@@ -9,6 +9,9 @@ using System.Threading.Tasks;
 using Plutus.Client.Core;
 using Plutus.Contracts.Client;
 using Plutus.SharedKernel;
+using Microsoft.Extensions.DependencyInjection;
+using Plutus.Entities;
+using Plutus.Identity;
 using Xunit;
 
 namespace Plutus.Tests.Integration;
@@ -183,6 +186,65 @@ public class SaleAssemblerE2eTests : IClassFixture<PlutusAppFactory>
         return (status, body?.Status?.ToLowerInvariant() ?? "");
     }
 
+    /// <summary>
+    /// An operator who may read a sale's detail — the endpoint is gated on `perm:pos.refund` (among
+    /// others), which a DEVICE token can never satisfy (WP4's two-token rule).
+    /// </summary>
+    private async Task<(Guid OperatorId, Guid TenantId)> SeedRefundingOperatorAsync(Guid saleId)
+    {
+        var userId = Guid.NewGuid();
+        using var scope = _f.Services.CreateScope();
+
+        // ⚠⚠ AN UNSCOPED CONTEXT, and worth reading before copying this: the DI one falls back to Kapow,
+        // and `StampAndGuardTenant` then refuses to write a role for the tenant this test just created —
+        // *"Cross-tenant write blocked: RbacRole.TenantId … != context …"* (runbook pitfall 3).
+        // `DrawerVarianceE2eTests.OwnerTokenAsync` hit the same wall and solved it the same way;
+        // `Guid.Empty` is the deliberate cross-tenant bypass for tooling like this, and it also lets the
+        // sale lookup below see a row the tenant filter would otherwise hide.
+        var db = new MySqlDbContext(
+            scope.ServiceProvider.GetRequiredService<
+                Microsoft.EntityFrameworkCore.DbContextOptions<MySqlDbContext>>(),
+            new Plutus.Entities.Tenancy.FixedTenantContext(Guid.Empty));
+
+        db.CurrentUser = "refund-split-e2e-seed";
+
+        // ⚠ THE SALE'S OWN TENANT, not Kapow. Every test in this class creates a fresh tenant, and an
+        // assignment on the wrong one reads exactly like "the platform sends no tenders" — which is how
+        // the first version of this test lied to me.
+        // ⚠ `.AsQueryable()` first — a DbSet from the EF 3.1-era model is ambiguous between
+        // `IQueryable` and `IAsyncEnumerable` on .NET 10 (repo-runbook pitfall).
+        var tenant = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstAsync(
+            db.SalesV2.AsQueryable().Where(s => s.Id == saleId).Select(s => s.TenantId));
+
+        await RbacSeeder.EnsureBuiltInRolesAsync(db, tenant);
+
+        // Store Manager holds the till permissions including pos.refund.
+        var role = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+            .FirstAsync(db.RbacRoles, r => r.Name == "Store Manager" && r.TenantId == tenant);
+
+        db.RbacRoleAssignments.Add(new Plutus.Entities.Models.RbacRoleAssignment
+        {
+            Id = Uuid7.New(), TenantId = tenant, UserId = userId, RoleId = role.Id,
+            ScopeType = Plutus.Entities.Models.RbacScopeType.Tenant, ScopeId = "",
+            CreatedAtUtc = DateTime.UtcNow,
+        });
+        await db.SaveChangesAsync();
+        return (userId, tenant);
+    }
+
+    /// <summary>Read `GET /api/v1/sales/{id}` as an operator, through the real contract type.</summary>
+    private static async Task<SaleDto?> GetSaleAsDtoAsync(HttpClient http, Guid operatorId, Guid tenantId, Guid saleId)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/sales/{saleId:D}");
+        req.Headers.Authorization = new("Bearer", PlutusAppFactory.OperatorTokenFor(operatorId, "pos.sell", tenantId));
+
+        var resp = await http.SendAsync(req);
+        if (!resp.IsSuccessStatusCode) return null;
+
+        return JsonSerializer.Deserialize<SaleDto>(
+            await resp.Content.ReadAsStringAsync(), PlutusApiClient.Json);
+    }
+
     /// <summary>Sell one line, paid with the tenders given — so a test can make a SPLIT-paid sale.</summary>
     private static async Task<Guid> SellPaidWithAsync(
         PlutusApiClient api, Guid deviceId, Guid businessId, long seq, string idOne,
@@ -247,6 +309,46 @@ public class SaleAssemblerE2eTests : IClassFixture<PlutusAppFactory>
 
         Assert.Equal(HttpStatusCode.Accepted, status);   // 202
         Assert.Equal("quarantined", body);
+    }
+
+    /// <summary>
+    /// ⚠⚠ FINDING Y PIECE 4b: the platform tells a till HOW a sale was paid, and the contract now reads
+    /// it. `GET /api/v1/sales/{saleId}` has projected `tenders` since it was written and `SaleDto` had no
+    /// property for them — so a till refunding a sale rung up on ANOTHER till could not tell £2.00 cash
+    /// + £2.40 card from £4.40 on a card, and offered the whole refund wherever the operator tapped.
+    /// **The data was there and nobody asked for it.**
+    ///
+    /// ⚠ This is an END-TO-END assertion on purpose: the names are the `TenderType` enum's
+    /// (`"Cash"`, `"GiftCard"`), not the wire bytes, so a unit test against a hand-written DTO would
+    /// have proved nothing about what the server actually sends.
+    /// </summary>
+    [Fact]
+    public async Task The_platform_tells_a_till_how_a_sale_was_paid()
+    {
+        var http = _f.CreateClient();
+        var (api, deviceId, businessId) = await EnrolAsync(http, "refundsplit4@acme.test");
+
+        var saleId = await SellPaidWithAsync(api, deviceId, businessId, 1, "5040004", 440, 367, 1,
+            new IngestTender { TenderType = Tenders.Cash, AmountPence = 200 },
+            new IngestTender { TenderType = Tenders.Card, AmountPence = 240 });
+
+        // ⚠ THE SALE-DETAIL ENDPOINT IS `perm:*` GATED, so a DEVICE token cannot read it — WP4's
+        // two-token rule, and the reason this test seeds an operator with a role rather than reusing
+        // the enrolment client. Getting this wrong reads as "the platform sends no tenders".
+        var (operatorId, tenantId) = await SeedRefundingOperatorAsync(saleId);
+        var dto = await GetSaleAsDtoAsync(http, operatorId, tenantId, saleId);
+        Assert.NotNull(dto);
+
+        // Straight into the refund rule, which is the only reason the till wants them.
+        var capacities = RefundRules.RefundCapacities(SaleDtoTenders.TenderPairs(dto));
+
+        Assert.Equal(2, capacities.Count);
+        Assert.Equal(200, capacities.Single(c => c.TenderType == Tenders.Cash).RemainingPence);
+        Assert.Equal(240, capacities.Single(c => c.TenderType == Tenders.Card).RemainingPence);
+
+        // …and the rule then refuses the whole £4.40 on the card, at the till, before any money moves.
+        Assert.False(RefundRules.AuthoriseSplit(capacities,
+            new[] { new KeyValuePair<byte, long>(Tenders.Card, 440) }).IsAllowed);
     }
 
     /// <summary>The same refund, split the way the customer actually paid, is recorded.</summary>

@@ -175,6 +175,18 @@ public sealed class SaleDto
     /// </summary>
     public long AlreadyRefundedPence =>
         Adjustments?.Sum(a => Math.Abs(a.AmountPence)) ?? 0;
+
+    /// <summary>
+    /// How the sale was PAID — finding Y, 2026-08-13.
+    ///
+    /// ⚠⚠ THE SERVER HAS ALWAYS SENT THESE AND THIS CONTRACT IGNORED THEM. `GET /api/v1/sales/{saleId}`
+    /// has projected `tenders` since the endpoint was written; nothing here read them, so a till
+    /// refunding a sale rung up on ANOTHER till could not tell a £2.00-cash-plus-£2.40-card payment
+    /// from £4.40 on a card — and put the whole refund wherever the operator tapped.
+    /// </summary>
+    /// ⚠ A SHAPE, NOT A RULE. Turning these names into wire bytes needs `SharedKernel`, and this
+    /// project deliberately references NOTHING — see `SaleDtoTenders` in `Plutus.Client.Core`.
+    [JsonPropertyName("tenders")] public List<SaleTenderDto> Tenders { get; set; } = new();
 }
 
 public sealed class LineDiscount
@@ -197,4 +209,16 @@ public sealed class IngestResponse
     public Guid SaleId { get; set; }
     public DateTime? ReceivedAtUtc { get; set; }
     public string? Detail { get; set; }
+}
+
+/// <summary>One tender on a sale the platform holds, as `GET /api/v1/sales/{saleId}` serialises it.</summary>
+public sealed class SaleTenderDto
+{
+    /// <summary>⚠ The `TenderType` ENUM NAME — "Cash", "Card", "GiftCard" — not the wire byte. Parse
+    /// it with <see cref="Plutus.SharedKernel.Tenders.TryFromWireName"/>, which refuses what it does
+    /// not recognise instead of defaulting to Card.</summary>
+    [JsonPropertyName("tenderType")] public string? TenderType { get; set; }
+
+    [JsonPropertyName("amountPence")] public long AmountPence { get; set; }
+    [JsonPropertyName("changePence")] public long ChangePence { get; set; }
 }
