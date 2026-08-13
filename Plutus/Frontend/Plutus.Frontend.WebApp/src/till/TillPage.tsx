@@ -72,6 +72,12 @@ export default function TillPage() {
 
   // Customer attach (Phase 8 retrofit): drives the members' auto-discount + store-credit tender.
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);
+
+  /**
+   * How the sale(s) being returned were PAID — finding Y, 2026-08-13. Empty for an ordinary sale.
+   * ⚠ Page state, not basket state: see the note where it is set.
+   */
+  const [refundTenders, setRefundTenders] = useState<{ tenderType: string; amountPence: number }[]>([]);
   // The attached customer rides along with the persisted basket. Restoring the LINES without the
   // member would leave member-discounted lines on screen with nobody attached — the discount would
   // look unexplained, and the next scanned item wouldn't get it.
@@ -343,6 +349,7 @@ export default function TillPage() {
     try {
       await parkTransaction(name.trim() || "Unnamed", JSON.stringify(basket));
       dispatch({ type: "clear" });
+      setRefundTenders([]);   // finding Y: a fresh basket has no refund caps
       setNotice("Transaction saved.");
     } catch (e) {
       setNotice(String(e));
@@ -616,7 +623,8 @@ export default function TillPage() {
         <button className="action retrieve" onClick={() => setDialog("parked")}>
           Retrieve Transaction
         </button>
-        <button className="action cancel" disabled={basket.lines.length === 0} onClick={() => dispatch({ type: "clear" })}>
+        <button className="action cancel" disabled={basket.lines.length === 0}
+          onClick={() => { dispatch({ type: "clear" }); setRefundTenders([]); }}>
           Cancel Transaction
         </button>
         <button
@@ -638,10 +646,12 @@ export default function TillPage() {
           lines={basket.lines}
           totals={totals}
           customer={customer}
+          refundTenders={refundTenders}
           onClose={() => setDialog("none")}
           onComplete={async (data) => {
             setReceipt(data);
             dispatch({ type: "clear" });
+            setRefundTenders([]);   // finding Y: a fresh basket has no refund caps
             setCustomer(null); // fresh sale starts with no customer attached
             // ⚠ The sale is RECORDED by this point. Close the checkout dialog before any of the
             // slow work below (ask, agent probe, print) — leaving it mounted showed it recomputing
@@ -694,7 +704,16 @@ export default function TillPage() {
         <ReturnDialog
           onClose={() => setDialog("none")}
           onPick={(p) => {
-            dispatch({ type: "addReturn", ...p });
+            // ⚠ FINDING Y: the origin's tenders are kept in PAGE state, deliberately not in the
+            // basket — basket state is what a PARKED basket serialises, and widening that shape is a
+            // migration on every parked basket in the field for something the checkout needs for the
+            // next ninety seconds.
+            //
+            // ⚠ POOLED across returns, the same way the server pools capacities across the origins a
+            // basket returns against: two items from two sales contribute both sales' tenders.
+            const { originTenders, ...line } = p;
+            setRefundTenders((prev) => [...prev, ...originTenders]);
+            dispatch({ type: "addReturn", ...line });
             setDialog("none");
           }}
         />

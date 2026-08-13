@@ -166,3 +166,112 @@ export function refusalReason(
   if (!s.changeOk) return `${gbp(s.overpay)} over, and only cash can give change back.`;
   return null;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Finding Y (2026-08-13): a refund goes back the way it was paid, in the amounts it was paid.
+// ⚠⚠ THIS IS A C2 TWIN of `Plutus.SharedKernel.RefundRules.RefundCapacities` / `AuthoriseSplit`, and
+// the tests below are deliberately the SAME VECTORS as `RefundTenderSplitTests` for that reason.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** What one tender may still give back on the sale being refunded. */
+export interface TenderCapacity {
+  /** The wire byte — 0 cash, 1 card, 2 online, 3 credit, 4 gift card. */
+  tenderType: number;
+  /** What this tender took on the original sale, positive pence. */
+  tookPence: number;
+}
+
+/**
+ * The wire's tender NAME → byte, strictly.
+ *
+ * ⚠⚠ NOT the same function as `api.ts`'s `tenderTypeFor`, and the difference is money. That one maps
+ * an operator-facing METHOD name ("Visa card", "Cash drawer") and falls back to CARD so an odd name
+ * still completes a sale. Applied to a value the SERVER sent, that leniency hands the card a
+ * refundable capacity it never earned — someone else's money. An unrecognised name here is refused,
+ * so a refund to it is refused. Mirrors `SharedKernel.Tenders.TryFromWireName`.
+ */
+export function tenderTypeFromWireName(wireName: string | null | undefined): number | null {
+  switch ((wireName ?? "").trim().toLowerCase()) {
+    case "cash": return 0;
+    case "card": return 1;
+    case "online": return 2;
+    case "credit": return 3;
+    case "giftcard": return 4;
+    default: return null;
+  }
+}
+
+/**
+ * What each tender may give back: what it took, less what has already gone back to it.
+ *
+ * ⚠ SUMMED, not last-wins — one sale can pay twice with the same method, and treating the second as
+ * a replacement understates what that tender took and refuses a legitimate refund.
+ * ⚠ MAGNITUDES: a refund's tenders are negative on the wire and these figures compare as positives.
+ * ⚠ Clamped at zero: corrupt data reads as "nothing left", never as a negative some caller subtracts
+ * into a payout.
+ */
+export function refundCapacities(
+  originTenders: { tenderType: string; amountPence: number }[] | null | undefined,
+  alreadyRefunded?: { tenderType: string; amountPence: number }[] | null,
+): TenderCapacity[] {
+  const took = new Map<number, number>();
+  for (const t of originTenders ?? []) {
+    const type = tenderTypeFromWireName(t.tenderType);
+    if (type === null) continue;              // unknown name → no capacity → refunds to it refused
+    took.set(type, (took.get(type) ?? 0) + Math.abs(t.amountPence));
+  }
+
+  const back = new Map<number, number>();
+  for (const r of alreadyRefunded ?? []) {
+    const type = tenderTypeFromWireName(r.tenderType);
+    if (type === null) continue;
+    back.set(type, (back.get(type) ?? 0) + Math.abs(r.amountPence));
+  }
+
+  return [...took.entries()]
+    .filter(([, tookPence]) => tookPence > 0)
+    .map(([tenderType, tookPence]) => ({
+      tenderType,
+      tookPence: Math.max(0, tookPence - (back.get(tenderType) ?? 0)),
+    }))
+    .filter((c) => c.tookPence > 0)
+    .sort((a, b) => a.tenderType - b.tenderType);
+}
+
+/** What this method may take on a refund: its remaining capacity, or null when uncapped. */
+export function capacityFor(
+  capacities: TenderCapacity[] | null | undefined,
+  methodTenderType: number,
+): number | null {
+  if (!capacities || capacities.length === 0) return null;   // unknown split → no caps
+  return capacities.find((c) => c.tenderType === methodTenderType)?.tookPence ?? 0;
+}
+
+/**
+ * Is this refund split allowed?
+ *
+ * ⚠ THE SALE-LEVEL CAP FALLS OUT FOR FREE: if every tender is within what it took, the sum is within
+ * what the sale took.
+ * ⚠ No override — binding default 19, from Matt: *"If the card machine is down, we cannot refund
+ * cards."* A card sale cannot be refunded from the drawer, terminal down or not.
+ */
+export function refundSplitRefusal(
+  capacities: TenderCapacity[] | null | undefined,
+  requested: { tenderType: number; pence: number }[],
+): string {
+  if (!capacities || capacities.length === 0) return "";   // nothing known → nothing to enforce
+
+  const asked = new Map<number, number>();
+  for (const r of requested) {
+    if (r.pence === 0) continue;
+    asked.set(r.tenderType, (asked.get(r.tenderType) ?? 0) + Math.abs(r.pence));
+  }
+
+  for (const [tenderType, pence] of [...asked.entries()].sort((a, b) => a[0] - b[0])) {
+    const remaining = capacities.find((c) => c.tenderType === tenderType)?.tookPence ?? 0;
+    if (remaining === 0) return "That sale wasn't paid this way, so the money can't go back that way.";
+    if (pence > remaining) return "That is more than this method took on the original sale.";
+  }
+
+  return "";
+}

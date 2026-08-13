@@ -57,7 +57,7 @@ item-identity seam all outlive the retrofit, and archiving them unlifted buries 
 | | |
 |---|---|
 | **Till build to run** | **`D:\tmp\plutus-till-1.51.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe. ⚠ **Six builds on 2026-08-13, each fixing what the next test found:** 1.48.0 could not take a sale (U) · 1.49.0 crashed on a card overpay (V) · 1.49.1 said nothing during a split payment (W) · 1.49.2 let a closed day take items from the item list (X) · 1.49.3 and 1.50.0 let a split-paid refund go on one card (Y). ⚠ **§A and §B are run through** (C needs two people) — **open: [Y](#1-open-faults--before-any-new-work)'s web-till half, and Z1–Z5** |
-| **Versions** | till-maui **1.51.0** · backend **1.16.0** (deployed) · platform **1.30.0** · portal **1.7.0** · till-web **1.6.0** · agent **1.3.3** |
+| **Versions** | till-maui **1.51.0** · backend **1.16.0** (deployed) · platform **1.30.0** · portal **1.7.0** · till-web **1.7.0** (deployed) · agent **1.3.3** |
 | **Deploy state** | ⚠ **Nothing MAUI-side is blocked on a deploy.** Every backend endpoint the remaining steps need is live on the test environment |
 | **Suite** | Unit **907** · Integration **169** · Architecture **15** · AppClient **425** (+3 skipped) · web till **19** — all green |
 
@@ -195,7 +195,7 @@ shipped.** The message is honest but it still lets an operator get as far as pre
 it properly means the item list knowing the day's state and re-reading it when the day is reopened;
 that is a small piece of **step 25's** screen rather than a one-liner here. **Captured, ~½d.**
 
-### Y — a split-paid sale could be refunded entirely to one tender. ⚠ **FIXED on MAUI and the server (1.51.0); the WEB TILL is the last piece**
+### Y — a split-paid sale could be refunded entirely to one tender. ✅ **CLOSED 2026-08-13 on every surface** — rule, ingest, MAUI, web till
 
 **Matt, 2026-08-13, hand-test B1:** *"I do not believe either till is taking into account the split
 payment return? I can return an item that was just cash, and it only gives me the cash option. But when
@@ -266,7 +266,26 @@ code.**
    a different card instead of splitting the refund. **6 tests, mutation-checked twice.** Unit 927 →
    **933**. ⚠ The cap binds on a **sale** too, not just a refund — a gift card holding £5 cannot take £8
    of a basket — same code path, opposite sign.
-4. ⬜ **The web till** still has no origin-tender restriction at all. ⚠ **Needs the Mac** (no Node here).
+4. ✅ **DONE 2026-08-13 — the web till too (till-web 1.7.0, DEPLOYED).** It had **no origin-tender
+   restriction of any kind**, so it was the worst of the three. Now: `refundCapacities` /
+   `refundSplitRefusal` / `capacityFor` in `till/tendering.ts`, a refund offers **only** the methods the
+   original sale used (a method with nothing left is not rendered — an operator should never be given a
+   button that can only refuse), "rest" fills that method's remainder, and **Complete is gated**, not
+   merely pre-filled.
+   ⚠⚠ **AND WP15's PREMISE WAS STALE — the web till HAS a test runner.** `package.json` has
+   `"test": "vitest run"` and `till/tendering.test.ts`already mirrors `TenderLoopTests` (added 2026-08-11
+   with finding F). So this landed **pinned on both sides**: **12 new tests using the same vectors as
+   `RefundTenderSplitTests`** — £2.00 cash + £2.40 card, £4.40 refused on the card, cash refusing a
+   card-only sale — **31 web-till tests total, mutation-checked twice** (not comparing against the cap
+   fails 3; treating an unknown wire name as Card fails 2). ⚠ **Update the C2 register**: this twin is
+   now executed on both sides, which is the first one that can say so.
+   ⚠ `tenderTypeFromWireName` mirrors `Tenders.TryFromWireName` and is deliberately **not** `api.ts`'s
+   lenient `tenderTypeFor` — same reasoning as the .NET side.
+   ⚠ The origin's tenders ride in **page state, not basket state**: basket state is what a PARKED basket
+   serialises, and widening that shape would be a migration on every parked basket in the field for
+   something the checkout needs for ninety seconds.
+   ⚠ `SaleDetail.payments` gained an exact `pence` field — it already carried the tender name, but only
+   the amount in **pounds**, and converting that back for a cap is a rounding argument at a counter.
 4b. ✅ **DONE 2026-08-13 — a cross-till refund is capped at the counter too (till 1.51.0).**
    ⚠⚠ **And the server had been sending what was needed all along.** `GET /api/v1/sales/{saleId}` has
    projected `tenders` since it was written; **`SaleDto` simply had no property for them**, so the till

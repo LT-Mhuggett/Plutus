@@ -622,7 +622,12 @@ export interface SaleDetail {
     priceAdjusted: boolean;
     discounts: { name: string; rate: number }[];
   }[];
-  payments: { method: string; amount: number; change: number }[];
+  /**
+   * ⚠ `method` is the WIRE tender name ("Cash", "Card"), and `pence` is the exact figure the server
+   * sent — `amount` is that in pounds and must not be converted back for arithmetic. Finding Y caps a
+   * refund per tender against `pence`, and a pounds round-trip is a rounding argument waiting to happen.
+   */
+  payments: { method: string; amount: number; change: number; pence: number }[];
   refunds: { itemId: string; name: string; quantity: number; reason: string; originalSaleId: string }[];
   notes: string[];
 }
@@ -655,7 +660,10 @@ export async function fetchSaleDetail(id: string): Promise<SaleDetail> {
       priceAdjusted: l.overriddenFromPence != null,
       discounts: [],
     })),
-    payments: s.tenders.map((t) => ({ method: t.tenderType, amount: t.amountPence / 100, change: t.changePence / 100 })),
+    payments: s.tenders.map((t) => ({
+      method: t.tenderType, amount: t.amountPence / 100, change: t.changePence / 100,
+      pence: t.amountPence,
+    })),
     refunds: s.adjustments.filter((a) => a.type === "Refund").map((a) => ({
       itemId: a.itemId ?? "", name: "", quantity: a.qty ?? 0, reason: a.reason, originalSaleId: s.id,
     })),
@@ -1047,7 +1055,7 @@ export interface CompletedSale {
   queued: boolean;
 }
 
-const tenderTypeFor = (methodName: string): number => {
+export const tenderTypeFor = (methodName: string): number => {
   const n = methodName.toLowerCase();
   if (n.includes("cash")) return 0; // TenderType.Cash
   if (n.includes("online")) return 2;

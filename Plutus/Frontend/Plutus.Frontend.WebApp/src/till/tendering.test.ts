@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { apportionChange, assess, parseAmounts, refusalReason, restFor } from "./tendering.ts";
+import {
+  apportionChange, assess, capacityFor, parseAmounts, refundCapacities, refundSplitRefusal,
+  refusalReason, restFor, tenderTypeFromWireName,
+} from "./tendering.ts";
 import { gbp } from "../money.ts";
 
 /**
@@ -188,5 +191,109 @@ describe("an unparseable set", () => {
     expect(s.paid).toBe(0);
     expect(s.remaining).toBe(1000);
     expect(refusalReason(s, p, gbp)).toBe("One of those amounts isn't a number.");
+  });
+});
+
+/**
+ * Finding Y — a refund goes back the way it was paid, in the amounts it was paid.
+ *
+ * ⚠⚠ THE SAME VECTORS AS `RefundTenderSplitTests` ON THE .NET SIDE, deliberately: £2.00 cash + £2.40
+ * card, £4.40 attempted on the card, cash refusing a card-only sale. This is a C2 twin of
+ * `SharedKernel.RefundRules`, and a twin nobody executes is how two tills come to disagree about a
+ * customer's money. Matt found the original by hand: *"when I try to return an item that was split, it
+ * wants to put the full amount to that card."*
+ */
+describe("refund tender capacities (finding Y)", () => {
+  const CASH_T = 0, CARD_T = 1;
+  const splitSale = () => refundCapacities([
+    { tenderType: "Cash", amountPence: 200 },
+    { tenderType: "Card", amountPence: 240 },
+  ]);
+
+  it("gives each tender back what it took", () => {
+    const caps = splitSale();
+    expect(caps).toHaveLength(2);
+    expect(capacityFor(caps, CASH_T)).toBe(200);
+    expect(capacityFor(caps, CARD_T)).toBe(240);
+  });
+
+  it("sums two tenders of the same method rather than letting the last win", () => {
+    const caps = refundCapacities([
+      { tenderType: "Cash", amountPence: 200 },
+      { tenderType: "Cash", amountPence: 150 },
+    ]);
+    expect(caps).toHaveLength(1);
+    expect(capacityFor(caps, CASH_T)).toBe(350);
+  });
+
+  it("reads negative wire amounts as magnitudes", () => {
+    const caps = refundCapacities(
+      [{ tenderType: "Card", amountPence: -240 }],
+      [{ tenderType: "Card", amountPence: -100 }],
+    );
+    expect(capacityFor(caps, CARD_T)).toBe(140);
+  });
+
+  it("subtracts what has already gone back", () => {
+    const caps = refundCapacities(
+      [{ tenderType: "Cash", amountPence: 200 }, { tenderType: "Card", amountPence: 240 }],
+      [{ tenderType: "Card", amountPence: 240 }],
+    );
+    expect(capacityFor(caps, CASH_T)).toBe(200);
+    expect(capacityFor(caps, CARD_T)).toBe(0);
+  });
+
+  // ⚠⚠ THE BUG, in one assertion.
+  it("refuses the whole refund on a card that only took part of it", () => {
+    const refusal = refundSplitRefusal(splitSale(), [{ tenderType: CARD_T, pence: 440 }]);
+    expect(refusal).toMatch(/more than this method took/i);
+  });
+
+  it("allows the split the customer actually paid", () => {
+    expect(refundSplitRefusal(splitSale(), [
+      { tenderType: CASH_T, pence: 200 },
+      { tenderType: CARD_T, pence: 240 },
+    ])).toBe("");
+  });
+
+  it("allows a partial refund within one tender", () => {
+    expect(refundSplitRefusal(splitSale(), [{ tenderType: CARD_T, pence: 100 }])).toBe("");
+  });
+
+  it("cannot be beaten by spreading the excess across both tenders", () => {
+    expect(refundSplitRefusal(splitSale(), [
+      { tenderType: CASH_T, pence: 200 },
+      { tenderType: CARD_T, pence: 241 },
+    ])).not.toBe("");
+  });
+
+  // ⚠⚠ The fraud finding G exists to stop, and binding default 19: no cash refund of card takings,
+  // terminal down or not.
+  it("will not refund a card-only sale in cash", () => {
+    const cardOnly = refundCapacities([{ tenderType: "Card", amountPence: 440 }]);
+    expect(refundSplitRefusal(cardOnly, [{ tenderType: CASH_T, pence: 440 }]))
+      .toMatch(/wasn't paid this way/i);
+  });
+
+  it("will not refund a split sale entirely in cash either", () => {
+    expect(refundSplitRefusal(splitSale(), [{ tenderType: CASH_T, pence: 440 }])).not.toBe("");
+  });
+
+  // ⚠ The strict wire mapper, which `api.ts`'s lenient `tenderTypeFor` must never be used for here.
+  it("understands every name the platform serialises, and refuses the rest", () => {
+    expect(tenderTypeFromWireName("Cash")).toBe(0);
+    expect(tenderTypeFromWireName("Card")).toBe(1);
+    expect(tenderTypeFromWireName("Online")).toBe(2);
+    expect(tenderTypeFromWireName("Credit")).toBe(3);
+    expect(tenderTypeFromWireName("GiftCard")).toBe(4);
+    expect(tenderTypeFromWireName("Bitcoin")).toBeNull();
+    expect(tenderTypeFromWireName("")).toBeNull();
+  });
+
+  it("treats an unknown tender name as no capacity rather than as a card", () => {
+    const caps = refundCapacities([{ tenderType: "Bitcoin", amountPence: 440 }]);
+    expect(caps).toHaveLength(0);
+    // …and with nothing known, nothing is enforced — the server gate is still behind it.
+    expect(refundSplitRefusal(caps, [{ tenderType: CARD_T, pence: 440 }])).toBe("");
   });
 });

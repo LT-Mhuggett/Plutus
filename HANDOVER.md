@@ -1,7 +1,7 @@
 # Handover — Plutus platform build
 
 **Date:** 2026-08-13 — Platform on **.NET 10**. Backend **1.16.0**, portal **1.7.0** and web till
-**1.6.0** are DEPLOYED to the test environment; till-maui **1.51.0**, platform **1.30.0**, agent
+**1.7.0** are DEPLOYED to the test environment; till-maui **1.51.0**, platform **1.30.0**, agent
 **1.3.3**. All 18 phases + Operator Portal (OP1–OP4), the **portal/till refresh (P1–P6)** and
 **FE1–FE10** built & LIVE. The **MAUI retrofit**: cutover **steps 1–21, 23, 25 and half of 26 are
 done**; **11b (promoted), 22, 24, the rest of 26, 27 and 28 remain** — ⚠ **one document now:**
@@ -188,7 +188,24 @@ take at most"* is **present in the deployed `Plutus.Sales.dll` and absent from t
 **Sanity-check the instrument on something you know is there before believing what it says about
 something you don't.**
 
-**3e. FINDING Y IS FIXED EVERYWHERE EXCEPT THE WEB TILL — four slices, till 1.51.0, backend 1.16.0.**
+#### ✅ WEB TILL 1.7.0 DEPLOYED — 2026-08-13 20:00 (finding Y's last surface)
+
+Rollback **`/srv/apps/PLUTUS/web/current.pre-20260813-2000`**. Built on the Mac with
+`PLUTUS_APP_VERSION=1.7.0` set explicitly — the flat-copy trap that shipped `0.0.0` for weeks.
+
+⚠ **Verified on the SERVED bundle, not the build**: the index names `index-DpCa41zh.js`, that file
+serves **342,629 bytes**, and it contains both `1.7.0` and the new refusal text *"more than this method
+took on the original sale"*. A 200 proves nothing here — the SPA fallback answers 200 for anything.
+⚠ **ETRIE 200** after the swap.
+
+⚠⚠ **AND WP15's PREMISE WAS STALE, WHICH CHANGED THE PLAN FOR THE BETTER.** The register said the web
+till had no test runner, so a money rule ported to TypeScript would land unpinned. It has one:
+`"test": "vitest run"` plus `till/tendering.test.ts`, added 2026-08-11 with finding F. So the rule went
+in **pinned on both sides** — 12 new tests using the same vectors as `RefundTenderSplitTests`, 31
+web-till tests total, mutation-checked twice. **This is the first C2 twin in the repo that is executed
+on both halves.** ⚠ Check WP15's other claims before scheduling it.
+
+**3e. FINDING Y — CLOSED ON EVERY SURFACE. Five slices, till 1.51.0, backend 1.16.0, web till 1.7.0.**
 A refund can no longer put more back on a tender than that tender took.
 
 | | |
@@ -198,9 +215,9 @@ A refund can no longer put more back on a tender than that tender took.
 | **The till** | `TenderChoice.CapPence`, **enforced by the loop** rather than by the screen (an operator can always type over a default), the box pre-filled with what will be accepted, and a refusal that says where the rest goes. 6 tests, mutation-checked twice |
 | **Cross-till** | ⚠⚠ **The server had been sending the tenders all along** — `SaleDto` had no property for them. **No server change was needed.** `Tenders.TryFromWireName` is strict where `FromMethodName` is lenient, because on this path "unrecognised → Card" hands the card someone else's money |
 
-⚠ **Still open: the web till has no origin-tender restriction at all**, which makes it the only place
-this can still happen. It needs the Mac, and it is a **C2 twin of a money rule** — so it either lands
-with WP15's test runner or it lands unpinned.
+✅ **The web till is done too** — it had no origin-tender restriction of any kind, so it was the worst of
+the three. A refund now offers only the methods the original sale used, "rest" fills that method.s
+remainder, and Complete is GATED rather than merely pre-filled.
 
 ⚠ **Two limits stated rather than left to be found:** the till does not deduct what *earlier* refunds put
 back per tender (nothing local records it — the pooled server gate covers it), and a part-cash-part-card

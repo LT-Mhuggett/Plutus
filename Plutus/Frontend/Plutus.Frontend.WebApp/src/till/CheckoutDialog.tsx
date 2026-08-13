@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  checkout, fetchActiveGateway, fetchPayMethods, lookupGiftCard,
+  checkout, fetchActiveGateway, fetchPayMethods, lookupGiftCard, tenderTypeFor,
   type ActiveGateway, type CustomerDetail, type GiftCardLookup, type PayMethod,
 } from "../api.ts";
 import { gbp } from "../money.ts";
-import { assess, parseAmounts, refusalReason, restFor } from "./tendering.ts";
+import {
+  assess, capacityFor, parseAmounts, refundCapacities, refundSplitRefusal, refusalReason, restFor,
+} from "./tendering.ts";
 import type { BasketLine } from "./basket.ts";
 import type { ReceiptData } from "./Receipt.tsx";
 
@@ -20,11 +22,19 @@ interface Props {
   lines: BasketLine[];
   totals: { totalPence: number; totalExTaxPence: number };
   customer?: CustomerDetail | null;
+  /**
+   * How the sale being returned was PAID — finding Y, 2026-08-13. Empty for an ordinary sale, and
+   * empty when the split is unknown, in which case nothing is capped here and the server gate is the
+   * only thing standing between an operator and an over-refund.
+   */
+  refundTenders?: { tenderType: string; amountPence: number }[];
   onClose: () => void;
   onComplete: (receipt: ReceiptData) => void;
 }
 
-export default function CheckoutDialog({ lines, totals, customer, onClose, onComplete }: Props) {
+export default function CheckoutDialog(
+  { lines, totals, customer, refundTenders, onClose, onComplete }: Props,
+) {
   const [methods, setMethods] = useState<PayMethod[] | null>(null);
   const [amounts, setAmounts] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
@@ -113,15 +123,43 @@ export default function CheckoutDialog({ lines, totals, customer, onClose, onCom
   const settled = assess(totals.totalPence, parsed, tenders);
   const { refunding, owed, paid, remaining, overpay, overRefund, changeOk } = settled;
 
+  // ⚠⚠ FINDING Y (Matt, 2026-08-13): THE MONEY GOES BACK THE WAY IT CAME, IN THE AMOUNTS IT CAME.
+  // The web till had no restriction at all — every method was offered for every refund and none was
+  // capped — so a £2.00 cash + £2.40 card sale could be refunded £4.40 to the card: the card credited
+  // £2.40 it never took, the £2.00 left in the drawer, and no report anywhere disagreeing.
+  //
+  // ⚠ Binding default 19, from Matt: *"If the card machine is down, we cannot refund cards."* There is
+  // no cash exception and no supervisor override.
+  const caps = useMemo(() => refundCapacities(refundTenders), [refundTenders]);
+
   // Refunding ONTO store credit or a gift card would be a ledger write, not a tender — out of
   // scope, so a refund offers only the real money methods.
-  const rows = refunding ? tenders.filter((m) => m.id !== CREDIT_PAYID && m.id !== GIFTCARD_PAYID) : tenders;
+  //
+  // ⚠ And on a refund, only the methods the ORIGINAL sale actually used. A method with nothing left to
+  // give back is not shown at all: an operator should never be offered a button that can only refuse.
+  const rows = refunding
+    ? tenders.filter((m) => m.id !== CREDIT_PAYID && m.id !== GIFTCARD_PAYID)
+        .filter((m) => {
+          const cap = capacityFor(caps, tenderTypeFor(m.name));
+          return cap === null || cap > 0;
+        })
+    : tenders;
   const creditRedeem = parsed.valid ? parsed.perMethod.get(CREDIT_PAYID) ?? 0 : 0;
   const creditOverBalance = creditRedeem > (customer?.creditBalancePence ?? 0);
   const giftRedeem = parsed.valid ? parsed.perMethod.get(GIFTCARD_PAYID) ?? 0 : 0;
   const giftOverBalance = giftRedeem > (card?.balancePence ?? 0);
+
+  // ⚠⚠ FINDING Y, ENFORCED — not merely pre-filled. The operator can always type over a default, so
+  // the cap has to gate Complete or it is decoration. Empty string = allowed.
+  const tenderRefusal = refunding && parsed.valid
+    ? refundSplitRefusal(caps, rows.map((m) => ({
+        tenderType: tenderTypeFor(m.name),
+        pence: parsed.perMethod.get(m.id) ?? 0,
+      })))
+    : "";
+
   const canComplete = parsed.valid && remaining === 0 && changeOk && !overRefund
-    && !creditOverBalance && !giftOverBalance && !busy;
+    && !creditOverBalance && !giftOverBalance && !tenderRefusal && !busy;
 
   function quickFill(id: number) {
     // "rest" = make THIS row cover everything the others don't, so it must ignore what this row
@@ -130,7 +168,12 @@ export default function CheckoutDialog({ lines, totals, customer, onClose, onCom
     const own = parsed.valid ? parsed.perMethod.get(id) ?? 0 : 0;
     // FE7: "rest" on the gift-card row is capped at what the card holds — the common case is a card
     // that doesn't cover the whole basket, and filling the full remainder would just be refused.
-    const cap = restFor(owed, paid, own, id === GIFTCARD_PAYID ? card?.balancePence ?? 0 : undefined);
+    // ⚠ FINDING Y: on a refund the ceiling is what THIS METHOD took on the original sale, so "rest"
+    // fills a number that will be accepted rather than one the gate is about to refuse.
+    const rowCap = id === GIFTCARD_PAYID
+      ? card?.balancePence ?? 0
+      : refunding ? capacityFor(caps, tenderTypeFor(rows.find((m) => m.id === id)?.name ?? "")) ?? undefined : undefined;
+    const cap = restFor(owed, paid, own, rowCap ?? undefined);
     setAmounts((a) => ({ ...a, [id]: (cap / 100).toFixed(2) }));
   }
 
@@ -290,6 +333,14 @@ export default function CheckoutDialog({ lines, totals, customer, onClose, onCom
           )}
         </div>
 
+        {/* ⚠ FINDING Y: say where the rest has to go, or the operator's next move is to hunt for a
+            different card rather than to split the refund. */}
+        {tenderRefusal && (
+          <p className="error small">
+            {tenderRefusal} Refund what each method paid — {rows.map((m) =>
+              `${m.name} up to ${gbp(capacityFor(caps, tenderTypeFor(m.name)) ?? 0)}`).join(", ")}.
+          </p>
+        )}
         {creditOverBalance && (
           <p className="error small">Store credit exceeds the customer's balance ({gbp(customer?.creditBalancePence ?? 0)}).</p>
         )}

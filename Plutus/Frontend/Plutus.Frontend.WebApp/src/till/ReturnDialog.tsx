@@ -8,6 +8,11 @@ export interface ReturnPick {
   unitPricePence: number;
   unitExPricePence: number;
   originSaleId: string;
+  /**
+   * How the ORIGINAL sale was paid — finding Y, 2026-08-13. The refund is capped per tender against
+   * this, so £2.00 cash + £2.40 card cannot go back as £4.40 on the card.
+   */
+  originTenders: { tenderType: string; amountPence: number }[];
 }
 
 interface Props {
@@ -83,6 +88,12 @@ export default function ReturnDialog({ onPick, onClose }: Props) {
         unitPricePence: toPence(line.unitPrice),
         unitExPricePence: toPence(line.unitExPrice),
         originSaleId: detail.id,
+        // ⚠ From the SERVER record — the only thing that knows how a sale rung up on another till
+        // was paid. Finding Y. `pence` is the server's exact figure; `amount` is it in pounds and
+        // converting that back would be a rounding argument at a counter.
+        originTenders: detail.payments.map((p) => ({
+          tenderType: p.method, amountPence: p.pence,
+        })),
       });
     } catch (e) {
       setError(String(e));
