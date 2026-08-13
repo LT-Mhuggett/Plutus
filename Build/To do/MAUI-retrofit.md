@@ -568,6 +568,13 @@ and called from nowhere**: `OutboxPusher.DrainAsync`, the catalogue browse, `Til
 assigned on every beat and saved on none. **When a screen looks broken, grep for callers of the thing
 that should be doing the work before debugging the thing itself.**
 
+⚠ **The eighth, found 2026-08-13 while writing up the hand-test: `CrashLog.Directory`.** Its own doc
+comment says *"Surfaced in the Plutus tab so nobody has to guess"* and **nothing calls it** — so on the
+one day the crash log identified two faults in minutes, a tester still had no way to find the file from
+inside the app. ⚠ **Note the shape of this one: the comment describes the intent, so reading the code
+tells you it is done.** Same trap as `vatBandForTaxId` — a comment is not a caller any more than it is
+a pin. **~10 minutes to wire into the Plutus tab, beside the log path it already knows.**
+
 ⚠ **The cheap wins are spent.** Almost everything delivered before 2026-08-10 was *wiring* —
 components that already existed with no caller. What is left is screen-building, and it does not
 compress the same way.

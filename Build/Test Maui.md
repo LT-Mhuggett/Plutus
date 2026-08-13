@@ -37,11 +37,14 @@ project.
 
 ---
 
-# §A — the things fixed on 2026-08-11
+# §A — the reported faults, and whether they are really fixed
 
-These are the specific fixes in 1.42.0–1.49.1. ⚠ **§E at the end covers what landed latest and has
-never been tested by anyone** — the Z-close reopen is there. **If you only have 15 minutes,
-do this section.** Each one was reported by a real person using the till.
+The specific fixes in **1.42.0–1.49.1**, from the hand-runs of 2026-08-11 and 2026-08-13. Each one was
+reported by a real person using the till. **If you only have 15 minutes, do this section.**
+
+⚠ **A0 and A4 are the newest and the least proven** — both are checkout faults found on 2026-08-13,
+and A4 has broken the till twice in two different ways. **§E** covers three things from 2026-08-11
+that still nobody has tested.
 
 ## A0. Take a payment — does the "Amounts" box actually appear?
 
@@ -333,14 +336,28 @@ hardware.
 # When you are done
 
 Write your findings up **in the order you hit them**, with the three lines each (did / expected /
-happened). Send them over however is easiest — they get copied into
-`Build/handrun-<date>.md` and worked through from there.
+happened). Send them over however is easiest — they get recorded in
+[`To do/MAUI-retrofit.md`](To%20do/MAUI-retrofit.md) §1 and worked through from there. (Older runs live
+in `archive/handrun-2026-08-11.md`.)
+
+⚠ **If the app closes, the crash log is worth more than any description**, and it writes itself:
+
+```
+%LOCALAPPDATA%\User Name\com.MBH.NatApp.Plutus\Data\logs\plutus-till-<today>.log
+```
+
+(Yes, `User Name` is a literal folder — it comes from the app manifest.) **Attach it, or paste the last
+20 lines.** That file identified both 2026-08-13 faults in minutes: one of them named the offending
+thread outright. ⚠ **It is not shown anywhere in the app** — `CrashLog.Directory` exists to surface it
+and nothing calls it, so this path is currently the only way to find it.
 
 ⚠ **Please include the things that worked**, not only the failures. "A7 said £20.00 SHORT in red,
 correct" is what lets a fix be closed; without it, it stays open and gets re-tested for weeks.
 
 ⚠ **And say which version you ran.** It is the small grey line at the bottom of the **Plutus** tab,
-reading **`MAUI till v1.46.0`**. (It is also on the sign-in screen.) Two of the fourteen findings on
+which should read **`MAUI till v1.49.1`**. (It is also on the sign-in screen.) ⚠ **If it says anything
+else, stop and say so** — 1.48.0 cannot take a sale and 1.49.0 crashes on a card overpay, so a run on
+either of those will just re-find faults that are already fixed. Two of the fourteen findings on
 2026-08-11 took much longer to settle than they needed to, partly because nobody could be certain
 which build had produced them.
 
