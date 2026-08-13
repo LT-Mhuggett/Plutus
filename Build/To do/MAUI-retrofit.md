@@ -685,7 +685,30 @@ tenants before I ran the tool by hand. Running it anyway also fired `MapKapowAut
 nil (verified by diffing the new roles' codes against Owner's). Runbook corrected. ⚠ **What IS still
 required: a sign-out/in**, because login tokens cache for 12h with the permission set baked in.
 
-**WP12 — the rest.** Confirmed **zero** in both MAUI projects. Pure consumption from here. Customer search/attach on the sale screen
+✅ **The members'-discount RULE is shared, 2026-08-13 — `SharedKernel/MemberDiscount.cs`.** Extracted
+*before* the MAUI screen rather than after, per CLAUDE.md's C2 discipline: a members' discount is money,
+and the alternative was MAUI guessing four eligibility conditions from TypeScript. `Applies` (an expired
+membership grants nothing), `LineIsEligible` (**not** a return · **not** already discounted — NO
+STACKING · **not** a gift card, which is stored value, not a supply), `ForLine` composing both with the
+already-shared `LineDiscounts.Percentage`, and `Label` so both tills print the same words on a receipt.
+18 tests; **all four exclusions mutation-checked**. C1 rows added.
+
+⚠ **It has no caller yet, deliberately, and that is tracked here so it does not become a ninth
+built-and-uncalled component** (§ the standing check). Its caller is the attach screen below. ⚠⚠ **AND
+THE LIVE BUG IS NOT FIXED BY IT** — a Gold member is still charged 10% more on MAUI than on the web
+till until that screen exists. The rule only guarantees that when the screen lands it will not add a
+third answer.
+
+⚠ Also found while extracting: **dropping the return exclusion fails only ONE test**, because
+`LineDiscounts.Percentage` independently guards returns. That is defence-in-depth rather than a test
+gap — two guards on a money rule is right — but do not "simplify" either away on the grounds that the
+other exists.
+
+**WP12 — the rest.** Confirmed **zero** in both MAUI projects. Pure consumption from here. ⚠ Next
+concrete piece: `PlutusApiClient` has **no customer methods at all** (checked), so the client layer
+comes before any XAML — `GET /api/v1/customers?take=10&search=`, `GET /api/v1/customers/{id}`,
+`POST /api/v1/customers`, `POST /api/v1/customers/{id}/membership`, `GET /api/v1/loyalty/tiers`,
+`POST /api/v1/customers/{id}/credit/redeem`, mirroring `api.ts` lines 309–418. Customer search/attach on the sale screen
 (`GET /api/v1/customers?search=`, then a live `GET /api/v1/customers/{id}` for balance and
 membership), a create dialog gated **`pos.customers.add` OR `customers.manage`**, a **tier-assign
 picker gated `customers.manage`** reading `GET /api/v1/loyalty/tiers`, a store-credit tender
