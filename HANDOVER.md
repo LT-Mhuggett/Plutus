@@ -250,6 +250,24 @@ worse than no test**, so each reason is now a comment in it.
 
 **Suites: Unit 938 · Integration 173 · Architecture 15 · AppClient 434.**
 
+**3f. LOYALTY IS NEXT, AND ITS DESIGN IS REVIEWED.** Matt's expanded design
+([`Build/To do/updatedesign.md`](Build/To%20do/updatedesign.md)) — a configurable credit currency,
+earning rules, an append-only ledger with holds, rewards, a member portal — is now reconciled with
+what exists: **§16** pins the surfaces (every till + webstore + both portals) and the rule that
+**earning is computed at ingest, never on a till** (the `VatBandStamp` pattern — every channel earns
+identically and an offline MAUI sale earns when its outbox drains); **§17** is the code-verified gap
+analysis. ⚠ Three collisions found and settled on paper: **store credit is not "credits"** (money vs
+points — merging them would let a promotion mint refundable cash); **the sale header has NO member
+link today** (`IngestSaleRequest` carries only `OperatorUserId` — an additive wire+schema change is
+the programme's first slice); **tiers become derived-with-override** rather than purely manual.
+⚠ **The programme (~45–55d, four phases) is gated on its decision 1** — credits as *discount* vs
+*tender*, the accountant's call, expensive to change. **Binding default 20 added** from Matt's ruling:
+tiers configured in the portal only; tier assign/change at tills Supervisor+ (`customers.manage`,
+already held); member ADD at tills Cashier+ via a new `pos.customers.add` (create-only, `CheckAny`,
+online-only, **and the web till's create dialog needs the same gate** — a web-till cashier cannot add
+today either). **Retrofit step 27 stays the parity slice** and starts with the `MemberNumbers`
+extraction to SharedKernel.
+
 **4. Corrected:** §1 below described the backend as ".NET 8". It is `net10.0`.
 
 **5. ⚠ Noticed, not fixed: `TillViewModel.cs` has 184 lines of byte-corrupted comments.** Its `⚠`

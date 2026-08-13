@@ -625,11 +625,27 @@ nil. Recorded so it is a decision rather than a year-end discovery.
 
 ### Step 27 — WP12 loyalty, then WP13 gift cards · **12–15d** · ⚠ the largest single block
 
-**WP12 — loyalty.** Confirmed **zero** in both MAUI projects; no backend work needed, pure
-consumption. Customer search/attach on the sale screen (`GET /api/v1/customers?search=`, then a live
-`GET /api/v1/customers/{id}` for balance and membership), a create/edit dialog gated
-`perm:CustomersManage`, a store-credit tender mirroring the web till's synthetic `CREDIT_PAYID`, and
-a management list off `GET /api/v1/loyalty`.
+> ⚠⚠ **SCOPE, SETTLED 2026-08-13 — read [`updatedesign.md`](updatedesign.md) before starting this
+> step.** Matt's loyalty design expands the programme far beyond this step: a configurable credit
+> currency, earning rules computed **at ingest**, an append-only loyalty ledger with holds, a rewards
+> catalogue, and a member-facing portal. **Step 27 is the PARITY slice, not that programme** — it
+> brings MAUI level with what the web till has *today*, and it is the foundation the programme's
+> phase B builds on. The programme is platform-first work, phased and sized in the design doc's §17,
+> and gated on its decision 1 (discount vs tender — **the accountant's call, expensive to change**).
+>
+> ⚠ **Binding default 20 applies throughout** (Matt's ruling): tiers are configured in the **portal
+> only**; a till **assigns** tiers at Supervisor+ (`customers.manage` — already held); a till **adds**
+> members at Cashier+ via the new **`pos.customers.add`** (create-only, `CheckAny` with
+> `customers.manage`, online-only, **and the web till's create dialog gains the same gate in the same
+> slice** — today it demands `customers.manage`, so a web-till cashier cannot add either).
+
+**WP12 — loyalty.** Confirmed **zero** in both MAUI projects; the only backend work is the
+`pos.customers.add` permission (default 20 — `RolePermissionReconciler` delivers it on the next
+boot). Otherwise pure consumption. Customer search/attach on the sale screen
+(`GET /api/v1/customers?search=`, then a live `GET /api/v1/customers/{id}` for balance and
+membership), a create dialog gated **`pos.customers.add` OR `customers.manage`**, a **tier-assign
+picker gated `customers.manage`** reading `GET /api/v1/loyalty/tiers`, a store-credit tender
+mirroring the web till's synthetic `CREDIT_PAYID`, and a management list off `GET /api/v1/loyalty`.
 
 ⚠ **Extract `MemberNumbers` from `src/Plutus.Customers` to SharedKernel FIRST** — it is a backend
 module MAUI may not reference, and the Crockford check character is a *rule*. Member-card scan: a
@@ -755,6 +771,12 @@ Not fifteen problems — **five clusters**, each already owned by a step above:
 ## 7. How long, honestly
 
 **≈35–40 working days.** Two thirds is **step 27 (12–15d)** and **step 26 (8–10d)**.
+
+⚠ **That total does NOT include the expanded loyalty programme** ([`updatedesign.md`](updatedesign.md),
+2026-08-13). Step 27's 12–15d is the **parity slice** — MAUI level with today's web till, plus gift
+cards. The programme (credit currency, earn-at-ingest, ledger with holds, rewards, member portal) is
+platform-first work sized separately in the design doc's §17 at roughly **45–55d across four phases**,
+of which only phase B's MAUI half (~5–6d) would land in this document as a new step.
 
 ⚠ **That is BUILD time, not DONE time.** Every step up to 21 passed its VERIFY, and then the first
 hand-run found fourteen faults — six invisible to every test here. **Add hand-running to every row,
@@ -1135,6 +1157,7 @@ before or after — most are cheap to change.
 | **16** | ⚠ **First sign-in of any account on a device must be ONLINE** *(Matt, 2026-08-09)*. That first login mints a **device-local PBKDF2 verifier** (fresh salt); offline sign-in verifies against it. The roster keeps shipping hashes until both tills run verifiers, then the server stops (flagged, separate change, C2 row required). A till that has never been online cannot sign anyone in — deliberately: it has no catalogue or prices either. | 28 |
 | **17** | **Reporting series with no server answer are DROPPED, not locally recomputed.** `summary-rich` is in **POUNDS**, everything else in **PENCE** — encode it in the contract type names. Local re-derivation is C2 drift by construction. | 26 |
 | **19** | ✅ **CONFIRMED — Matt, 2026-08-13: "If the card machine is down, we cannot refund cards."** A refund goes back **only** to the tender that took the money, capped at what that tender took, **with no exception for a dead card terminal and no supervisor override** — the same shape as default 12 for the sale total. So a part-cash-part-card customer cannot be handed the whole refund in notes, and a card sale cannot be refunded from the drawer at all. ⚠ **This was raised as an owner-level question precisely because it has a shop-floor cost** (a customer sent away until the terminal is back), and the answer is the strict one: the alternative is the oldest till fraud there is, and an honest cash refund of card takings empties the drawer just as effectively. **Do not re-litigate it in code** — if it ever changes it changes here first. | 16, 17, ingest |
+| **20** | ✅ **CONFIRMED — Matt, 2026-08-13: "Tiers need to be set on the portal, but you need to be able to assign and change a tier on the tills IF you have the correct permissions. Supervisor to change tiers. Till operator to add new loyalty members."** Three rules: **(a)** tiers are *configured* in the **portal only** — no till creates or edits a tier. **(b)** *Assigning/changing* a member's tier at a till is **Supervisor and up** — `customers.manage`, which Supervisor already holds, so this is screen work only. **(c)** *Adding* a new member at a till is **Cashier and up** via a new **`pos.customers.add`**, with `POST /api/v1/customers` accepting either it or `customers.manage` (the `CheckAny` shape from `pos.stock.adjust`). ⚠ **Create-only, deliberately** — a cashier may add but not alter: editing a member's email quietly redirects their account, and a tier changes every future basket. ⚠ **Changes the WEB till too** — its create dialog is gated `customers.manage` alone today, so a web-till cashier cannot add either; both tills gain the gate in the same slice. ⚠ Adding is **online-only on every till**: member numbers come from a tenant-wide counter, and two offline tills would mint the same one. Expanded design: [`updatedesign.md`](updatedesign.md) §14. | 27 |
 | **18** | **Additive feed fields are allowed.** `CatalogueItemDto` gained `Brand`, `Description`, `CostPence?`, `StockQty?` (nullable, so old servers stay compatible). ⚠ **`Barcodes[]` CANNOT be wired and that is settled**: there is no barcode entity in `Plutus.Entities` at all — **`IdOne` IS the barcode**, and multi-barcode items are not something the platform models. `FindByBarcodeAsync`'s alias path is dead **by design, not omission**; adding it is a platform decision, not a till task. `PriceSchedule` is likewise unpopulated but harmless — the effective-dated timeline rides in `BandData` from the feed, so scheduled prices work. The store-info screen **drops the logo** (no contract field). | 10, 20, 25 |
 
 ## 14. How long a cached login lasts (the numbers, and why)

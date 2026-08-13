@@ -45,12 +45,13 @@ Last audited **2026-08-07** against the code, not against the documents' own hea
 
 ## To do — plans with work still in them
 
-In [`To do/`](To%20do/). **Three documents** — down from four: the two MAUI plans that lived here were
-consolidated into `MAUI-retrofit.md` on 2026-08-12.
+In [`To do/`](To%20do/). **Four documents**: the two MAUI plans that lived here were consolidated into
+`MAUI-retrofit.md` on 2026-08-12, and the loyalty design arrived on 2026-08-13.
 
 | Document | What's left |
 |---|---|
 | [MAUI-retrofit.md](To%20do/MAUI-retrofit.md) | ⚠⚠ **THE ONE MAUI DOCUMENT.** Part 1 what remains (open faults, the open steps with bodies and DoDs, the ⬜ rows, the risks, and the L1–L10 legacy-removal register Matt actions last) · Part 2 how to work (protocol, binding defaults 1–18, offline horizons, pitfalls, the item-identity seam) · Part 3 what is done (the step and WP records, VAT, the hand-run). **≈35–40 working days left**, two thirds of it steps 26 and 27. Consolidated 2026-08-12 from five documents, all now archived. |
+| [updatedesign.md](To%20do/updatedesign.md) | **The loyalty programme design** (Matt, 2026-08-13) — a configurable credit currency ("gems"), earning rules, an append-only loyalty ledger with holds, rewards, tiers with auto-qualification, and a member-facing portal. §16 pins the surfaces (**every till + webstore + both portals**) and the rule that **earning is computed at ingest, never on a till**; §17 is the gap analysis against what is already live and the four-phase sizing (~45–55d). ⚠ **Gated on its decision 1** — credits as discount vs tender is the accountant's call and expensive to change. Retrofit step 27 is the parity slice this builds on, not this programme. |
 | [Migrate back end to Linux.md](To%20do/Migrate%20back%20end%20to%20Linux.md) | **Moving `Plutus.DBService` off the Mac mini.** Written 2026-08-13 after Matt asked what an ARM→Linux move would cost. ⚠ **The answer is "nothing needs redeveloping"** — the backend is plain `net10.0` with no native dependencies and no OS branching, so `osx-arm64` is a publish flag. The real cost is **the MySQL auth channel** (the unix-socket workaround for `caching_sha2_password` cannot cross a machine boundary), four macOS-coupled ops scripts, supervision, ICU and the proxy split from ETRIE. **~1–2 days, operational.** |
 | [NatApp-Translation-Agent-Plan-2026-08-05.md](To%20do/NatApp-Translation-Agent-Plan-2026-08-05.md) | **The data plan** — translates the legacy NatApp database into the current schema (confirmed by Matt 2026-08-08 as the migration mechanism). Runs in parallel with the retrofit; they meet at **item identity**, in [`MAUI-retrofit.md`](To%20do/MAUI-retrofit.md) §16 — the barcode is the invariant, not the GUID, and the central catalogue has no item UUIDs to compare against. |
 
