@@ -13,7 +13,7 @@ if that is all the time you have.
 
 | | |
 |---|---|
-| **Run** | `D:\tmp\plutus-till-1.50.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Not** 1.48.0 (cannot take a sale — A0), 1.49.0 (crashes on a card overpay — A4), 1.49.1 (a split payment tells you nothing — A5), 1.49.2 (a closed day accepts items from the item list — A8) or 1.49.3 (a split-paid refund can all go on one card — A4b) or 1.50.0 (the same, for another till's sale). |
+| **Run** | `D:\tmp\plutus-till-1.51.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Nothing older.** Each of the five builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b). |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
 | **Sign in as** | any operator with **Supervisor** or above — some steps need permission to change stock |

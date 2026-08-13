@@ -1,7 +1,7 @@
 # Handover — Plutus platform build
 
 **Date:** 2026-08-13 — Platform on **.NET 10**. Backend **1.15.0**, portal **1.7.0** and web till
-**1.6.0** are DEPLOYED to the test environment; till-maui **1.49.3**, platform **1.27.0**, agent
+**1.6.0** are DEPLOYED to the test environment; till-maui **1.51.0**, platform **1.30.0**, agent
 **1.3.3**. All 18 phases + Operator Portal (OP1–OP4), the **portal/till refresh (P1–P6)** and
 **FE1–FE10** built & LIVE. The **MAUI retrofit**: cutover **steps 1–21, 23, 25 and half of 26 are
 done**; **11b (promoted), 22, 24, the rest of 26, 27 and 28 remain** — ⚠ **one document now:**
@@ -26,7 +26,7 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 ### ⏰⏰⏰⏰⏰⏰⏰⏰⏰ START HERE — picking up on **2026-08-13**
 
-**A documentation day that turned into a hand-run day.** ⚠ **Till 1.49.0 → 1.49.3 shipped, four builds, each fixing what the next test found** (items 3–3d below); nothing deployed, backend/portal/web versions unchanged. The work list below
+**A documentation day that turned into a hand-run day.** ⚠ **Till 1.49.0 → 1.51.0 shipped — six builds, each fixing what the next test found** (items 3–3e below); nothing deployed, backend/portal/web versions unchanged. The work list below
 (*START HERE TOMORROW*) is still the work list — it was not touched, only written up properly.
 
 **1. The MAUI documents are now ONE.** [`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md)
@@ -165,6 +165,35 @@ although WP6's DoD required them and step 20 is ✅ — portal, server and web t
 check whether Kapow's are simply unset · "as at HH:MM" on today's takings (it *does* refresh on the 60s
 tick — verified — but nothing says when) · ⚠ **portal: amber the out-of-balance drawer tile** and **give
 stock adjustments its own tab** — both need the Mac.
+
+**3e. FINDING Y IS FIXED EVERYWHERE EXCEPT THE WEB TILL — four slices, till 1.51.0, backend 1.16.0.**
+A refund can no longer put more back on a tender than that tender took.
+
+| | |
+|---|---|
+| **The rule** | `SharedKernel.RefundRules.RefundCapacities` + `AuthoriseSplit`. ⚠ **The sale-level cap falls out for free**: if every tender is within what it took, the sum is within what the sale took. 18 tests, mutation-checked three ways |
+| **The server** | `SalesIngestService` quarantines (202) an over-refund to one tender. ⚠ Refund-only requests, capacities pooled across origins, prior refunds attributed whole — **failing closed** where the arithmetic gets ambiguous. 3 E2E |
+| **The till** | `TenderChoice.CapPence`, **enforced by the loop** rather than by the screen (an operator can always type over a default), the box pre-filled with what will be accepted, and a refusal that says where the rest goes. 6 tests, mutation-checked twice |
+| **Cross-till** | ⚠⚠ **The server had been sending the tenders all along** — `SaleDto` had no property for them. **No server change was needed.** `Tenders.TryFromWireName` is strict where `FromMethodName` is lenient, because on this path "unrecognised → Card" hands the card someone else's money |
+
+⚠ **Still open: the web till has no origin-tender restriction at all**, which makes it the only place
+this can still happen. It needs the Mac, and it is a **C2 twin of a money rule** — so it either lands
+with WP15's test runner or it lands unpinned.
+
+⚠ **Two limits stated rather than left to be found:** the till does not deduct what *earlier* refunds put
+back per tender (nothing local records it — the pooled server gate covers it), and a part-cash-part-card
+customer **cannot** be refunded entirely in cash even with the terminal down. That second one is the same
+rule that stops a card sale being refunded from the drawer, **and it is an owner-level decision if you
+want an exception.**
+
+⚠⚠ **The E2E test for the cross-till half took four goes and every failure looked like "the platform
+sends no tenders":** a device token cannot pass a `perm:*` gate; the operator must be seeded in the
+sale's tenant, not Kapow; the sale lookup is tenant-filtered; and `StampAndGuardTenant` blocks a
+cross-tenant role write unless the context is unscoped — runbook pitfall 3, which
+`DrawerVarianceE2eTests` had already hit and written down. **A test that fails for the wrong reason is
+worse than no test**, so each reason is now a comment in it.
+
+**Suites: Unit 938 · Integration 173 · Architecture 15 · AppClient 434.**
 
 **4. Corrected:** §1 below described the backend as ".NET 8". It is `net10.0`.
 

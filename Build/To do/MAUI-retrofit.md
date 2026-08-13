@@ -56,7 +56,7 @@ item-identity seam all outlive the retrofit, and archiving them unlifted buries 
 
 | | |
 |---|---|
-| **Till build to run** | **`D:\tmp\plutus-till-1.49.3\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe. ⚠ Four builds in one day, each fixing what the next test found: **1.48.0** could not take a sale (U) · **1.49.0** crashed on a card overpay (V) · **1.49.1** said nothing during a split payment (W) · **1.49.2** let a closed day take items from the item list (X). ⚠ **§A and §B are now run through** (C needs two people) — **the open findings are [Y](#1-open-faults--before-any-new-work) (money, both tills) and Z1–Z5** |
+| **Till build to run** | **`D:\tmp\plutus-till-1.51.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe. ⚠ **Six builds on 2026-08-13, each fixing what the next test found:** 1.48.0 could not take a sale (U) · 1.49.0 crashed on a card overpay (V) · 1.49.1 said nothing during a split payment (W) · 1.49.2 let a closed day take items from the item list (X) · 1.49.3 and 1.50.0 let a split-paid refund go on one card (Y). ⚠ **§A and §B are run through** (C needs two people) — **open: [Y](#1-open-faults--before-any-new-work)'s web-till half, and Z1–Z5** |
 | **Versions** | till-maui **1.51.0** · backend **1.16.0** (⚠ not deployed) · platform **1.30.0** · portal **1.7.0** · till-web **1.6.0** · agent **1.3.3** |
 | **Deploy state** | ⚠ **Nothing MAUI-side is blocked on a deploy.** Every backend endpoint the remaining steps need is live on the test environment |
 | **Suite** | Unit **907** · Integration **169** · Architecture **15** · AppClient **425** (+3 skipped) · web till **19** — all green |
