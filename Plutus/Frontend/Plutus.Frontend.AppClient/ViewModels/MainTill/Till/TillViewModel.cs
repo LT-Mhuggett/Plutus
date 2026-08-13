@@ -1336,26 +1336,36 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                             new ViewElementData(1, "Amount", "", validators.AsEnumerable(), false, true)
                         };
 
-                        // ÃÂ¢ÃÂÃÂ  THROUGH `Modal`, LIKE THE METHOD PICKER ÃÂ¢ÃÂÃÂ and its absence here is what
-                        // produced *"Something went wrong taking payment"* on a card over-payment
-                        // (Matt, 2026-08-11). `Modal` serialises what goes THROUGH it: the picker
-                        // was wrapped after the `0` crash, but this prompt was not, so the gate
-                        // could not know a popup was still tearing down. A refusal loops straight
-                        // from this dialog's teardown into the next one, and WinUI threw a
-                        // COMException building the second ÃÂ¢ÃÂÃÂ caught by the checkout's `catch`,
-                        // which is why a perfectly ordinary over-payment surfaced as a fault.
-                        var tendered = await Services.UIHandeling.Modal.ShowAsync(() =>
-                            Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
-                                elements,
-                                "Confirm".Translate(),
-                                false,
-                                true,
-                                outstandingDecimal,
-                                string.Format(
-                                    refundOnly ? "HowMuchRefund".Translate() : "HowMuchPM".Translate(),
-                                    lastPickedName,
-                                    Math.Round(outstandingDecimal, 2, MidpointRounding.AwayFromZero)),
-                                "Cancel".Translate()));
+                        // ⚠⚠ DO NOT WRAP THIS IN `Modal`. `InputAlertHelper` ALREADY DOES, INTERNALLY.
+                        //
+                        // ⚠ This call was wrapped here on 2026-08-11 while fixing *"something went
+                        // wrong taking payment"*, on the belief that the prompt did not go through the
+                        // gate. It did — `InputAlertHelper.ShowAsync` has gated every input alert
+                        // since the `Modal` gate was written the day before. So the flow took a
+                        // non-reentrant `SemaphoreSlim(1,1)` TWICE and waited on itself for ever.
+                        //
+                        // ⚠⚠ THE TILL COULD NOT TAKE A SALE (Matt, 2026-08-13, on 1.48.0): the tender
+                        // sheet closed, the amount box never appeared, and because the deadlock is
+                        // inside the `try`, `finally { IsBusy = false; }` never ran — so the scan box,
+                        // which opens `if (IsBusy) return;`, silently stopped searching too. One
+                        // redundant guard, three symptoms, no exception and no log line.
+                        //
+                        // ⚠ The COMException the wrap was reaching for is real, and it is handled
+                        // where it belongs: the gate inside the helper serialises the push against
+                        // whatever dialog is still tearing down. `Modal` is now re-entrancy-safe as
+                        // well, so this mistake cannot hang the app again — but a redundant wrap is
+                        // still a lie about who owns the gate, so it is gone rather than tolerated.
+                        var tendered = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                            elements,
+                            "Confirm".Translate(),
+                            false,
+                            true,
+                            outstandingDecimal,
+                            string.Format(
+                                refundOnly ? "HowMuchRefund".Translate() : "HowMuchPM".Translate(),
+                                lastPickedName,
+                                Math.Round(outstandingDecimal, 2, MidpointRounding.AwayFromZero)),
+                            "Cancel".Translate());
 
                         _ = tendered.TryGetValue(1, out var amountText);
 

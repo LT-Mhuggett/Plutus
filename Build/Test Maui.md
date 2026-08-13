@@ -1,6 +1,6 @@
 # Test Maui — the MAUI till hand-test script
 
-**For till 1.48.0.** Anyone can run this. You do not need to know the codebase, and you should not
+**For till 1.49.0.** Anyone can run this. You do not need to know the codebase, and you should not
 need to ask anyone what a step means — if a step is unclear, that is a bug in this document, so please
 say so.
 
@@ -13,7 +13,7 @@ if that is all the time you have.
 
 | | |
 |---|---|
-| **Run** | `D:\tmp\plutus-till-1.48.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. |
+| **Run** | `D:\tmp\plutus-till-1.49.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Not 1.48.0** — that build cannot take a sale at all (see A0). |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
 | **Sign in as** | any operator with **Supervisor** or above — some steps need permission to change stock |
@@ -39,9 +39,36 @@ project.
 
 # §A — the things fixed on 2026-08-11
 
-These are the specific fixes in 1.42.0–1.48.0. ⚠ **§E at the end covers what landed latest and has
+These are the specific fixes in 1.42.0–1.49.0. ⚠ **§E at the end covers what landed latest and has
 never been tested by anyone** — the Z-close reopen is there. **If you only have 15 minutes,
 do this section.** Each one was reported by a real person using the till.
+
+## A0. Take a payment — does the "Amounts" box actually appear?
+
+**⚠⚠ DO THIS FIRST. On 1.48.0 the till could not take a sale at all**, so nothing past the checkout
+has been tested on this build line.
+
+1. Add any item to the basket. Press **Checkout**.
+2. Choose **Cash**.
+
+**✅ Expected:** the tender sheet closes and the **"How much…" amount box appears immediately**. Type
+the amount, press Confirm, and the sale completes.
+
+**Then, and this is the second half of the test:**
+
+3. **Type something into the scan box** — a name like `BAT`, or a barcode — and press Enter.
+
+**✅ Expected: it searches, exactly as it did before the sale.**
+
+**❌ What was wrong on 1.48.0:** choosing Cash or Card made the tender sheet disappear and **nothing
+else happened** — no amount box, no error, no crash. The till just sat there. And from that moment
+**the scan box silently stopped searching**, because the stuck sale left the screen marked "busy" for
+the rest of the session. Two symptoms, one cause: a dialog that waited for itself for ever.
+
+⚠ **Also worth trying, since they use the same machinery:** a **card** payment, a **split payment**
+across two tenders, a **refund**, and pressing **Cancel** at both prompts — the basket must survive
+Cancel with nothing taken. And a discount, a category change, or the Settings printer picker: those
+dialogs were all dead behind the same fault.
 
 ## A1. Edit an item — does the form arrive filled in?
 

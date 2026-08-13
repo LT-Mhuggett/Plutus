@@ -1,7 +1,7 @@
 # Handover — Plutus platform build
 
 **Date:** 2026-08-13 — Platform on **.NET 10**. Backend **1.15.0**, portal **1.7.0** and web till
-**1.6.0** are DEPLOYED to the test environment; till-maui **1.48.0**, platform **1.26.0**, agent
+**1.6.0** are DEPLOYED to the test environment; till-maui **1.49.0**, platform **1.26.0**, agent
 **1.3.3**. All 18 phases + Operator Portal (OP1–OP4), the **portal/till refresh (P1–P6)** and
 **FE1–FE10** built & LIVE. The **MAUI retrofit**: cutover **steps 1–21, 23, 25 and half of 26 are
 done**; **11b (promoted), 22, 24, the rest of 26, 27 and 28 remain** — ⚠ **one document now:**
@@ -26,7 +26,7 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 ### ⏰⏰⏰⏰⏰⏰⏰⏰⏰ START HERE — picking up on **2026-08-13**
 
-**A documentation day. No code shipped, nothing deployed, versions unchanged.** The work list below
+**A documentation day that ended in a code fix.** ⚠ **Till 1.49.0 shipped** (item 3 below); nothing deployed, backend/portal/web versions unchanged. The work list below
 (*START HERE TOMORROW*) is still the work list — it was not touched, only written up properly.
 
 **1. The MAUI documents are now ONE.** [`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md)
@@ -61,7 +61,40 @@ prove it against a COLD cache** — a warm one hid this for months.
 (`EnrolmentFlow.cs:77`) and nothing can change it remotely, so a rename means visiting every till.
 **Estimate: 1–2 days, operational.**
 
-**3. Corrected:** §1 below described the backend as ".NET 8". It is `net10.0`.
+**3. ⚠⚠ TILL 1.49.0 SHIPPED — 1.48.0 COULD NOT TAKE A SALE.** Matt, testing: *"I click on Checkout,
+click cash or card, the box disappears and it appears to get stuck. Its not popping the 'Amounts'
+box? I think this is what stopped the search working."* **He was right that it was one fault.**
+
+**A deadlock, from two fixes for the same problem landing a day apart.** `InputAlertHelper` has gated
+every input alert through `Modal` since 2026-08-10; on 08-11, while fixing *"something went wrong
+taking payment"*, the amount prompt was wrapped in `Modal` **again at the call site** — so the flow
+waited on a `SemaphoreSlim(1,1)` it was already holding. The tender sheet closed, the amount box never
+appeared, and because the deadlock sat inside the checkout's `try`, **`finally { IsBusy = false; }`
+never ran** — so the scan box, which opens `if (IsBusy) return;`, silently stopped searching, and every
+dialog behind that gate died too. ⚠ **This also explains finding Q**, whose rule-out (*"`IsBusy` is
+safe, every set has a `finally`"*) checked that the cleanup **existed**, not that the body could ever
+**reach** it.
+
+**Fixed:** the redundant wrap is gone and `Modal` is now re-entrancy-safe (`AsyncLocal` marks the
+holding flow; a nested call passes through). `ModalGateTests` — 7 tests. **AppClient 425 → 432, all
+green.** Built to **`D:\tmp\plutus-till-1.49.0`**, artefact verified at `1.49.0`. ⚠ **Nothing is
+deployed — this is till-side only**, and it still needs a hand-run: the shop day stopped at the first
+sale, so refunds, the drawer and X/Z are untested on this line.
+
+⚠⚠ **THE MUTATION CHECK TAUGHT MORE THAN THE FIX.** With the guard removed the test file did not fail
+— **it HUNG for ten minutes**, because the gate is a private static semaphore and one deadlocked test
+strands every test behind it. Every test in that file now carries a bound, so the same mutation gives
+**6 red tests in 39 seconds** with *"a nested dialog did not complete within 3s — the gate
+deadlocked."* **A regression that hangs CI is a regression nobody diagnoses.**
+
+**4. Corrected:** §1 below described the backend as ".NET 8". It is `net10.0`.
+
+**5. ⚠ Noticed, not fixed: `TillViewModel.cs` has 184 lines of byte-corrupted comments.** Its `⚠`
+markers were written through a Latin-1 pipe twice, so the file holds `C3 83 C2 83 …` where it should
+hold `E2 9A A0` — they render as `ÃÂ¢ÃÂÃÂ` in an editor. **Comments only, no behavioural effect**,
+and confined to that one file (checked every `.cs` and `.xaml` in the repo). The block rewritten today
+was corrected in passing; the rest is a mechanical sweep worth doing on its own so it does not bury a
+real diff.
 
 ---
 
@@ -124,7 +157,7 @@ Steps 1–20, 23, 25 and half of 26 are done. **~40 working days left**, two thi
 | | |
 |---|---|
 | **Suite** | Unit **907** · Integration **169** · Architecture **15** · AppClient **425** (+3 skipped) · web till **19** — **all green**, working tree clean |
-| **Till build to run** | **`D:\tmp\plutus-till-1.48.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe. ⚠ **Not yet run by a person.** |
+| **Till build to run** | **`D:\tmp\plutus-till-1.48.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe. ⚠ **Not yet run by a person.** ⚠⚠ **SUPERSEDED — do not run 1.48.0: it cannot take a sale. Use `plutus-till-1.49.0`** (2026-08-13, item 3 at the top). |
 | **Hand-run script** | ⚠ **[`Build/Test Maui.md`](Build/Test%20Maui.md)** — the one to follow, and the one to hand anybody else. [`Build/shop-day-test.md`](Build/shop-day-test.md) is the fuller reference behind it. |
 | **Versions** | till-maui **1.48.0** · backend **1.15.0 DEPLOYED** · platform **1.26.0** · portal **1.6.0 DEPLOYED** · till-web **1.6.0 DEPLOYED** · agent **1.3.3** |
 | **Deployed today** | backend **1.9.0 → 1.15.0** (seven deploys) · portal **1.3.0 → 1.6.0** · web till **1.5.0 → 1.6.0**. Newest rollbacks: `~/PLUTUS/backend.pre-20260811-2010`, `/srv/apps/PLUTUS/portal/current.pre-20260811-1925`, `/srv/apps/PLUTUS/web/current.pre-20260811-1522`. ⚠ ETRIE verified **200** after every swap |

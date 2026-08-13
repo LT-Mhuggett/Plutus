@@ -56,8 +56,8 @@ item-identity seam all outlive the retrofit, and archiving them unlifted buries 
 
 | | |
 |---|---|
-| **Till build to run** | `D:\tmp\plutus-till-1.48.0\Plutus.Frontend.AppClient.exe` — unpackaged, no signing, just run the .exe. ⚠ **Not yet run by a person** |
-| **Versions** | till-maui **1.48.0** · backend **1.15.0** · platform **1.26.0** · portal **1.7.0** · till-web **1.6.0** · agent **1.3.3** |
+| **Till build to run** | **`D:\tmp\plutus-till-1.49.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe. ⚠ **1.48.0 could not take a sale at all** ([finding U](#1-open-faults--before-any-new-work)); **1.49.0 fixes it and has not been hand-run yet.** Resume the shop day from the checkout |
+| **Versions** | till-maui **1.49.0** · backend **1.15.0** · platform **1.26.0** · portal **1.7.0** · till-web **1.6.0** · agent **1.3.3** |
 | **Deploy state** | ⚠ **Nothing MAUI-side is blocked on a deploy.** Every backend endpoint the remaining steps need is live on the test environment |
 | **Suite** | Unit **907** · Integration **169** · Architecture **15** · AppClient **425** (+3 skipped) · web till **19** — all green |
 
@@ -104,10 +104,74 @@ item-identity seam all outlive the retrofit, and archiving them unlifted buries 
 
 ## 1. Open faults — before any new work
 
+### U — the till could not take a sale on 1.48.0. ✅ **FIXED IN 1.49.0** · ⚠ needs a hand-run
+
+**Matt, testing 1.48.0:** *"Something has gone wrong, I now don't appear to be able to make a sale. I
+click on Checkout, click cash or card, the box disappears and it appears to get stuck. Its not
+popping the 'Amounts' box? I think this is what stopped the search working."*
+
+⚠⚠ **He is right that it is one fault, and it also answers finding Q** (below). **It is a deadlock,
+and the cause is two fixes for the same problem landing a day apart.**
+
+**The chain, verified against the tree:**
+
+| | What happens |
+|---|---|
+| 1 | `ExecuteCheckoutTransaction` sets **`IsBusy = true`** (`TillViewModel.cs:1197`) |
+| 2 | The tender picker runs through `Modal.ShowAsync` (`:1276`), the operator taps **Cash** or **Card**, and it **releases the gate normally** — ✔ *"the box disappears"* |
+| 3 | The loop calls `askAmount`, which wraps the amount prompt in **`Modal.ShowAsync` (`:1347`)** → the gate is **taken** |
+| 4 | That calls `InputAlertHelper.LaunchInputAlertAsync`, whose private `ShowAsync` **wraps its body in `Modal.ShowAsync` AGAIN** (`InputAlertHelper.cs:85`) → `Gate.WaitAsync()` on a **`SemaphoreSlim(1,1)` the same flow is already holding** |
+| 5 | ⚠⚠ **Deadlock, permanently.** The popup is never pushed — ✔ *"its not popping the Amounts box"* |
+| 6 | The `finally { IsBusy = false; }` at `:1560` **never runs, because the `try` body never completes.** `IsBusy` stays `true` for the rest of the session |
+| 7 | `ExecuteItemAdd` — the **scan box / search** entry point — opens `if (IsBusy) return;` (`:315`). So typing and pressing enter **silently does nothing** — ✔ *"this is what stopped the search working"* |
+| 8 | And `Modal.Gate` is never released either, so **every dialog routed through `Modal` anywhere in the app is dead for the rest of the session**: discounts (`:904`), the return sale picker (`:676`), the unknown-scan offer (`:2026`), category management, the cash reason prompt, receipt reprint, the Settings printer picker |
+
+⚠ **Provenance — and this is the lesson.** `Modal` was created on 2026-08-10 (`a51c1cd`) to stop the
+COMException that closed the till, and it gated **inside** `InputAlertHelper.ShowAsync`, so every
+input alert was already serialised. On 2026-08-11 (`976094a`), while fixing finding **D/E**
+(*"something went wrong taking payment"*), the amount prompt was wrapped **at the call site** as
+well — the comment there still asserts the prompt "was not" going through `Modal`. **Two fixes for
+one problem, on a non-reentrant semaphore. A crash became a silent permanent hang, which is worse.**
+
+⚠ **Only ONE call site double-wraps.** Every other `LaunchInputAlertAsync` caller in the app calls it
+bare and is correct — checked all fourteen. So the blast radius is the payment prompt only, and from
+there the whole session.
+
+✅ **FIXED — till 1.49.0, built to `D:\tmp\plutus-till-1.49.0`, artefact verified at `1.49.0`.**
+
+1. **The outer wrap is gone** (`TillViewModel.cs`, the `askAmount` callback) and the comment that
+   asserted the prompt "was not" gated went with it — a wrong comment on a money path is how the
+   second guard got added in the first place.
+2. ⚠ **`Modal` is now re-entrancy-safe**, so this class of mistake cannot hang the app again: an
+   `AsyncLocal<bool>` marks the flow that holds the gate, and a nested call **passes through** while
+   the outermost call keeps ownership of the gate and the settle. `AsyncLocal` and not a `static bool`
+   deliberately — a static flag would let a modal raised from a *different* flow skip the gate
+   entirely, reintroducing the COMException the gate exists to prevent.
+3. **`ModalGateTests` — 7 tests**, and the gate still serialises two independent flows, which is the
+   half a careless re-entrancy fix would have quietly deleted.
+
+⚠⚠ **Mutation-checked, and the mutation taught us something.** With the guard removed, the test file
+did not fail — **it HUNG, and took the whole run down for ten minutes**, because the gate is a private
+static semaphore and one deadlocked test strands every test behind it. Every test in that file now
+carries a bound: the same mutation now gives **6 red tests in 39 seconds**, the first reading
+*"a nested dialog did not complete within 3s — the gate deadlocked."* **A regression that hangs CI is
+a regression nobody diagnoses.**
+
+⚠ **Do not "fix" a future recurrence by raising `SettleMs` or by putting a timeout on the gate.** The
+gate was never slow; it was held by a caller waiting on itself. A timeout would have converted this
+into an intermittent 30-second stall and hidden it for months.
+
+**AppClient suite 425 → 432, all green.** ⚠ **`TenderLoop`'s 19 tests passed throughout, before and
+after** — the loop was never wrong. That is the argument for step 11b, made by the code.
+
+**Still needs a person:** ring up a cash sale, a card sale, a split across two tenders, and a refund;
+Cancel at both prompts; then **type in the scan box afterwards** and confirm search still works —
+that last one is what proves Q is closed rather than merely explained.
+
 | # | What | State |
 |---|---|---|
-| **Q** | ⚠⚠ **"I could cancel the item, but then searching stopped working."** (Matt, 2026-08-11) | **Cause not found.** Ruled out: `IsBusy` stuck (every set has a `finally`), the cancel handler (touches no shared flag), a dialog awaited inside the store lock (nothing does it). ⚠ A 30s timeout was added to the store gate so this CLASS of failure can no longer hang in silence — but that is a safety net, not a diagnosis. ⚠ **Not reproducible the way it was found**: on 1.48.0 a closed till refuses at the door, so a basket cannot be built on a closed day. **Needs: which search box, and whether the rest of the app still responded.** |
-| — | **Hand-run 1.48.0** | ⚠ **Eight till builds have shipped since a person last touched a screen.** Every hand-run so far has found faults no test in this repo could reach — the 2026-08-11 run found fourteen, six of them invisible to every automated test. [`Test Maui.md`](../Test%20Maui.md) |
+| **Q** | ⚠⚠ **"I could cancel the item, but then searching stopped working."** (Matt, 2026-08-11) | ✅ **EXPLAINED 2026-08-13 — same root cause as U above.** Any checkout that reaches the amount prompt wedges `IsBusy` on, and every command guarded by it — including the scan box — then does nothing silently. ⚠⚠ **The original rule-out was wrong, and worth remembering why:** *"`IsBusy` stuck — ruled out, every set has a `finally`"* checked that a `finally` **exists**, not that the body could ever **reach** it. **A `finally` does not run when the `try` deadlocks.** ⚠ Closes only when U is fixed and a hand-run confirms search works after a completed sale |
+| — | **Hand-run** | 🔨 **STARTED on 1.48.0 (2026-08-13) and stopped at the first sale — resume on 1.49.0.** ⚠ Everything downstream of taking money is still **untested on this build line**: refunds, the drawer, X/Z with sales in it, the Cash tab's "(waiting to send)", today's takings. **[`Test Maui.md`](../Test%20Maui.md) §B**, from the checkout. Nine till builds have now shipped since a person last completed a shop day |
 | 🟠 | **`LoginViewModel.EnsureStoreAsync` throws on EVERY sign-in** — `InvalidOperationException: Unable to track an entity of type 'StoreModel' because its primary key property 'Id' is null` (`LoginViewModel.cs:389`) | Caught and harmless; the screen it fed is now read-only off `StoreInfoCache`. ⚠ It also **creates the legacy `Database.db` on every sign-in**, which is what made the enrolment gate a one-way door. **Step 21 deletes it** — scheduled, not forgotten (also register row [L7](#l7--loginviewmodelensurestoreasync)) |
 
 ## 2. Small, and each closes a real inconsistency
@@ -172,6 +236,12 @@ on 2026-08-11 while checking the split-payment finding.
 
 **VERIFY:** the tender-loop tests stay green; a hand-run of cash, card, a split across two tenders, a
 refund, and Cancel at both prompts. **Mutation-check anything touching money** (§12.5).
+
+⚠⚠ **Finding U is the argument for this step, made by the code itself.** On 2026-08-13 the till could
+not take a sale at all because the two dialogs and the loop were wired together wrongly — and
+**`TenderLoop`'s 19 tests all passed throughout**, because they drive fake callbacks. The loop is
+covered; **the seam between the loop and the UI is not, and that seam is where every checkout defect
+has now come from.** Whatever this step does, it must leave that seam testable.
 
 ### Step 22 — WP7 theming · **3–4d**
 
@@ -871,6 +941,15 @@ platform-wide list and **both apply**.
   not just the library. (Seven such components found so far — §7.)
 - ⚠ **MAUI bindings fail silently.** A binding onto a member that no longer exists renders blank
   instead of failing. Enumerate bindings before changing a bound type, and hand-run every row type.
+- ⚠⚠ **`Services.UIHandeling.Modal` is a NON-REENTRANT gate, and `InputAlertHelper` already goes
+  through it.** Wrapping an input alert in `Modal.ShowAsync` at the call site takes the same
+  `SemaphoreSlim(1,1)` twice on one flow and **deadlocks for ever** — no exception, no log, and every
+  dialog in the app dead behind it. That is finding **U**: it stopped the till taking a sale on
+  1.48.0. **Call `LaunchInputAlertAsync` bare; wrap only raw `DisplayActionSheet`/`DisplayAlert`.**
+- ⚠⚠ **A `finally` does not run when the `try` body deadlocks.** "`IsBusy` is safe, every set has a
+  `finally`" was used to rule `IsBusy` out of finding Q, and it was wrong: the flag stayed set because
+  the method never got that far. **When a flag is stuck, ask whether the body can hang — not whether
+  the cleanup exists.**
 - ⚠ **`ALTER TABLE … ADD COLUMN` has no `IF NOT EXISTS` in SQLite** — the first draft of the v5 step
   threw *"duplicate column name"* at start-up on any store built from the current model: a till that
   would not open. Pinned by `Running_the_upgrade_twice_is_harmless`.
@@ -1315,3 +1394,12 @@ Written here because each one cost real time more than once.
    20-byte backup logs `ok`; a migration named for three columns can contain only an index.
 9. **A ruling in a table is not a specification.** Only the bodies are, because they are the only half
    anyone builds from.
+10. ⚠⚠ **A fix in the wrong place can be worse than the bug it fixes.** Finding U: a crash at the
+    payment prompt was correctly diagnosed and then guarded **twice**, a day apart, in two different
+    files — and the second guard turned a crash into a **silent permanent hang** that also killed the
+    scan box and every dialog in the app. **Before adding a guard, check whether the thing you are
+    guarding already guards itself.**
+11. **Green tests can coexist with a dead app.** `TenderLoop` had 19 passing tests while the till
+    could not take a penny, because the fault was in the wiring, not the logic. **Coverage of a
+    component says nothing about the seam that calls it** — the same lesson as the seven
+    built-and-uncalled components, from the other direction.
