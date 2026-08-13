@@ -1230,6 +1230,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 var payMeths = GenPaymentMethodActions(
                     refundOnly ? await OriginTenderTypesAsync() : null);
 
+                // ⚠ FINDING Y: how much each tender may take back, not merely WHICH may be used.
+                var refundCaps = refundOnly
+                    ? await OriginTenderCapacitiesAsync()
+                    : Array.Empty<SharedKernel.TenderCapacity>();
+
                 Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
 
                 sale.Total = Basket.Sum(bR => bR.Price * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
@@ -1346,16 +1351,32 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                             }
                         }
 
-                        return new Plutus.Client.Core.TenderChoice(picked, method.IsChangeable, feePence);
+                        // ⚠ FINDING Y: the cap travels with the choice, so the loop can enforce it and
+                        // the amount prompt can pre-fill a number that will actually be accepted. Zero
+                        // when this is not a refund, or when the origin's tenders are unknown (a sale
+                        // from another till — see `OriginTenderCapacitiesAsync`).
+                        var capPence = refundCaps
+                            .Where(c => c.TenderType == SharedKernel.Tenders.FromMethodName(method.Name))
+                            .Select(c => c.RemainingPence)
+                            .DefaultIfEmpty(0)
+                            .First();
+
+                        return new Plutus.Client.Core.TenderChoice(
+                            picked, method.IsChangeable, feePence, capPence);
                     },
 
                     // How much? ÃÂ¢ÃÂÃÂ  WITH A CANCEL BUTTON. Raised without one, and with
                     // `interuptable: false` and an `OnBackButtonPressed` that swallowed Escape, this
                     // dialog had no exit of any kind ÃÂ¢ÃÂÃÂ the operator could only leave by killing the
                     // process, mid-sale.
-                    askAmount: async outstanding =>
+                    askAmount: async (outstanding, mostAllowed) =>
                     {
-                        var outstandingDecimal = outstanding / 100m;
+                        // ⚠ FINDING Y: the box is pre-filled and worded from what this METHOD may take,
+                        // not from the sale's balance. On a split-paid refund those differ, and a
+                        // default the loop is about to refuse teaches an operator to type over it.
+                        var outstandingDecimal = mostAllowed / 100m;
+                        var balanceDecimal = outstanding / 100m;
+                        var cappedByTender = Math.Abs(mostAllowed) < Math.Abs(outstanding);
 
                         IValidator[] validators = {
                             new RequiredValidator(),
@@ -1391,10 +1412,19 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                             false,
                             true,
                             outstandingDecimal,
-                            string.Format(
-                                refundOnly ? "HowMuchRefund".Translate() : "HowMuchPM".Translate(),
-                                lastPickedName,
-                                Math.Round(outstandingDecimal, 2, MidpointRounding.AwayFromZero)),
+                            // ⚠ When a tender's own limit is the binding one, SAY WHICH NUMBER IS WHICH.
+                            // "There is £4.40 left to refund" beside a box that will only accept £2.40 is
+                            // how an operator concludes the till is broken — which is exactly what
+                            // happened with the split payment that told them nothing (finding W).
+                            cappedByTender
+                                ? $"How much to refund with {lastPickedName}? That method took "
+                                  + $"{Math.Abs(Math.Round(outstandingDecimal, 2, MidpointRounding.AwayFromZero)):C} "
+                                  + $"of this sale, and {Math.Abs(Math.Round(balanceDecimal, 2, MidpointRounding.AwayFromZero)):C} "
+                                  + "is left to refund altogether — the rest goes back the way it was paid."
+                                : string.Format(
+                                    refundOnly ? "HowMuchRefund".Translate() : "HowMuchPM".Translate(),
+                                    lastPickedName,
+                                    Math.Round(outstandingDecimal, 2, MidpointRounding.AwayFromZero)),
                             "Cancel".Translate());
 
                         _ = tendered.TryGetValue(1, out var amountText);
@@ -1435,6 +1465,14 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                             // they entered nothing at all.
                             Plutus.Client.Core.TenderRefusal.Zero =>
                                 $"Enough {lastPickedName.ToLowerInvariant()} has not been taken. {owed} is still to pay.",
+
+                            // ⚠⚠ FINDING Y. Not "too much" in the sale's terms — too much for THIS
+                            // method. The sentence has to say where the rest goes, or the operator's
+                            // next move is to try a different card rather than to split the refund.
+                            Plutus.Client.Core.TenderRefusal.OverTenderCapacity =>
+                                $"That is more than {lastPickedName.ToLowerInvariant()} took on this sale, so it "
+                                + "cannot all go back that way. Refund what this method paid, then pick the "
+                                + $"other one for the rest — {owed} is left to refund altogether.",
 
                             _ => $"That amount can't settle this. {owed} is still to pay.",
                         };
@@ -1898,6 +1936,63 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 + "it.\n\nIf the shop is still trading, a supervisor can reopen the day: "
                 + "Cash → \"Reopen the day\".", "OK".Translate());
             return true;
+        }
+
+        /// <summary>
+        /// How much may go back to each tender the origin sale used — finding Y, 2026-08-13.
+        ///
+        /// ⚠⚠ WHAT IT FIXES. Matt: *"when I try to return an item that was split, it wants to put the
+        /// full amount to that card."* `OriginTenderTypesAsync` (below) gathers the SET of tenders and
+        /// nothing more, so a £2.00 cash + £2.40 card sale offered both — correctly — and then let the
+        /// whole £4.40 go on the card.
+        ///
+        /// ⚠ LOCAL SALES ONLY, AND THAT IS A REAL LIMIT, NOT AN OVERSIGHT. `SaleDto`
+        /// (`GET /api/v1/sales/{saleId}`) carries lines and adjustments and **no tenders at all**, so a
+        /// sale rung up on ANOTHER till cannot be capped per tender here. The server gate added the same
+        /// day catches it (quarantine 202) — so the money is protected either way — but the operator gets
+        /// a quarantine after the fact instead of a refusal at the counter. Closing it properly means
+        /// adding `tenders` to that contract: captured as finding Y piece 4b.
+        ///
+        /// ⚠ NO PER-TENDER DEDUCTION FOR EARLIER REFUNDS, deliberately: nothing local records which
+        /// tender a past refund went back to. So these caps are what each tender TOOK, and a second
+        /// visit could in principle overpay one across two refunds — which is exactly the case the
+        /// pooled server gate exists to refuse. The till's job here is to make the right thing easy;
+        /// the platform's is to make the wrong thing impossible.
+        /// </summary>
+        private async Task<IReadOnlyList<SharedKernel.TenderCapacity>> OriginTenderCapacitiesAsync()
+        {
+            try
+            {
+                var originIds = Basket.OfType<BasketReturnItem>()
+                    .Select(r => r.ReturnSaleId)
+                    .Where(id => Guid.TryParse(id, out _))
+                    .Select(Guid.Parse)
+                    .Distinct()
+                    .ToList();
+
+                if (originIds.Count == 0) return Array.Empty<SharedKernel.TenderCapacity>();
+
+                var took = new List<KeyValuePair<byte, long>>();
+                foreach (var originId in originIds)
+                {
+                    var origin = await Services.Storage.TillStoreAccess.TryUseAsync(
+                        s => s.FindLocalSaleAsync(originId));
+
+                    if (origin?.Tenders is null) continue;
+
+                    foreach (var tender in origin.Tenders)
+                        took.Add(new KeyValuePair<byte, long>(tender.TenderType, tender.AmountPence));
+                }
+
+                return SharedKernel.RefundRules.RefundCapacities(took);
+            }
+            catch (Exception ex)
+            {
+                // ⚠ NEVER BLOCK A REFUND OVER THIS — the same rule as the tender SET below. No
+                // capacities means no caps, and the server gate is still behind it.
+                Services.Analytics.CrashLog.Write("TillViewModel.OriginTenderCapacities", ex);
+                return Array.Empty<SharedKernel.TenderCapacity>();
+            }
         }
 
         private async Task<IReadOnlyCollection<byte>> OriginTenderTypesAsync()

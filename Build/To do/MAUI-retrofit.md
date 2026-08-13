@@ -57,7 +57,7 @@ item-identity seam all outlive the retrofit, and archiving them unlifted buries 
 | | |
 |---|---|
 | **Till build to run** | **`D:\tmp\plutus-till-1.49.3\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe. ⚠ Four builds in one day, each fixing what the next test found: **1.48.0** could not take a sale (U) · **1.49.0** crashed on a card overpay (V) · **1.49.1** said nothing during a split payment (W) · **1.49.2** let a closed day take items from the item list (X). ⚠ **§A and §B are now run through** (C needs two people) — **the open findings are [Y](#1-open-faults--before-any-new-work) (money, both tills) and Z1–Z5** |
-| **Versions** | till-maui **1.49.3** · backend **1.15.0** · platform **1.27.0** · portal **1.7.0** · till-web **1.6.0** · agent **1.3.3** |
+| **Versions** | till-maui **1.50.0** · backend **1.16.0** (⚠ not deployed) · platform **1.29.0** · portal **1.7.0** · till-web **1.6.0** · agent **1.3.3** |
 | **Deploy state** | ⚠ **Nothing MAUI-side is blocked on a deploy.** Every backend endpoint the remaining steps need is live on the test environment |
 | **Suite** | Unit **907** · Integration **169** · Architecture **15** · AppClient **425** (+3 skipped) · web till **19** — all green |
 
@@ -195,7 +195,7 @@ shipped.** The message is honest but it still lets an operator get as far as pre
 it properly means the item list knowing the day's state and re-reading it when the day is reopened;
 that is a small piece of **step 25's** screen rather than a one-liner here. **Captured, ~½d.**
 
-### ⚠⚠⚠ Y — A SPLIT-PAID SALE CAN BE REFUNDED ENTIRELY TO ONE TENDER. **OPEN. BOTH TILLS. MONEY.**
+### Y — a split-paid sale could be refunded entirely to one tender. ⚠ **MAUI + SERVER FIXED (1.50.0); web till and the cross-till case OPEN**
 
 **Matt, 2026-08-13, hand-test B1:** *"I do not believe either till is taking into account the split
 payment return? I can return an item that was just cash, and it only gives me the cash option. But when
@@ -252,11 +252,29 @@ nothing in any report to show it. Reverse the signs and it is a way to walk cash
    replaced — the evidence is preserved where the portal can see it, which is default 12's whole
    reasoning — **but it is a refund that looks done at the till and is not on the books.** Piece 3 is
    what turns it into a refusal in front of the customer, and it should not wait.
-3. **MAUI** passes per-tender caps into the tender loop (which today knows only one outstanding
-   figure), and the amount prompt pre-fills **that tender's** remainder rather than the whole balance.
-4. **The web till** gets the origin-tender restriction it has never had. ⚠ Needs the Mac.
+3. ✅ **DONE 2026-08-13 — MAUI refuses it at the counter (till 1.50.0).** `TenderChoice` carries a
+   `CapPence`, **the loop enforces it** (a caller that pre-fills sensibly and then accepts whatever comes
+   back has no rule in it — an operator can always type over a default), `askAmount` is told the smaller
+   of the balance and the cap so the box pre-fills a number that will be accepted, and a new
+   `TenderRefusal.OverTenderCapacity` gets its own sentence: *"That is more than card took on this sale,
+   so it cannot all go back that way. Refund what this method paid, then pick the other one for the
+   rest."* ⚠ **The wording has to name where the rest goes**, or the operator's next move is to hunt for
+   a different card instead of splitting the refund. **6 tests, mutation-checked twice.** Unit 927 →
+   **933**. ⚠ The cap binds on a **sale** too, not just a refund — a gift card holding £5 cannot take £8
+   of a basket — same code path, opposite sign.
+4. ⬜ **The web till** still has no origin-tender restriction at all. ⚠ **Needs the Mac** (no Node here).
+4b. ⬜ ⚠⚠ **A CROSS-TILL REFUND STILL CANNOT BE CAPPED AT THE COUNTER, and this is the honest limit of
+   piece 3.** `SaleDto` — what `GET /api/v1/sales/{saleId}` gives a till — carries lines and adjustments
+   and **no tenders at all**, so MAUI can only read the split for sales *this* till holds locally. For a
+   sale rung up elsewhere the till offers everything uncapped and **the server catches it after the
+   fact** (quarantine). The money is protected; the operator gets a quarantine instead of a refusal.
+   **Fix: add `tenders` to that contract and project it in the controller — small and additive, ~½d.**
 
-⚠ **Until it lands, the till will let this happen.** Worth telling whoever is refunding.
+⚠ **Also not deducted at the till: what previous refunds already put back on each tender.** Nothing
+local records which tender a past refund went to, so MAUI's caps are what each tender *took*. A second
+visit could in principle overpay one across two refunds — which is exactly the case the pooled server
+gate refuses. **The till's job is to make the right thing easy; the platform's is to make the wrong
+thing impossible.**
 
 ⚠ **And the parity register was wrong to be comfortable here.** "Refunds go back the way they were
 paid" was ✅ for MAUI on the strength of finding G — which restricted the *set* and never the *amounts*.
@@ -295,7 +313,7 @@ on one form (`CheckoutDialog.tsx`); MAUI asks in sequence, so the same two numbe
 Same money, same vocabulary, different shape — **they converge when the checkout screen is rebuilt
 (step 11b)**, and until then this is a Part B 🟡 rather than a ✅.
 
-**Unit 907 → 909 · AppClient 434.** Till **1.49.2**, platform **1.27.0** (a `src/` library changed, so
+**Unit 907 → 909 · AppClient 434.** Till **1.49.2**, platform **1.29.0** (a `src/` library changed, so
 both bump — nearly missed).
 
 ### V — overpaying by card crashed the till on 1.49.0. ✅ **FIXED IN 1.49.1**

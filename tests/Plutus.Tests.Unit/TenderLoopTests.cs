@@ -51,6 +51,13 @@ public class TenderLoopTests
 
         public Operator AbandonsMethod() { _choices.Enqueue(TenderChoice.Abandoned); return this; }
 
+        /// <summary>Picks a method that may take at most <paramref name="capPence"/> — finding Y.</summary>
+        public Operator PicksCapped(string method, long capPence, bool givesChange = false)
+        {
+            _choices.Enqueue(new TenderChoice(method, givesChange, 0, capPence));
+            return this;
+        }
+
         public Operator Pays(params long[] pence)
         {
             foreach (var p in pence) _amounts.Enqueue(TenderAmount.Of(p));
@@ -69,10 +76,14 @@ public class TenderLoopTests
             return Task.FromResult(_choices.Count > 0 ? _choices.Dequeue() : TenderChoice.Abandoned);
         }
 
-        public Task<TenderAmount> AskAsync(long outstanding)
+        /// <summary>What the AMOUNT prompt was told each time: (outstanding, most this tender may take).</summary>
+        public readonly List<(long Outstanding, long MostAllowed)> PromptWasTold = new();
+
+        public Task<TenderAmount> AskAsync(long outstanding, long mostAllowed)
         {
             AmountsAsked++;
             OutstandingWhenAsked.Add(outstanding);
+            PromptWasTold.Add((outstanding, mostAllowed));
             return Task.FromResult(_amounts.Count > 0 ? _amounts.Dequeue() : TenderAmount.Abandoned);
         }
     }
@@ -161,6 +172,106 @@ public class TenderLoopTests
         // ⚠ The SECOND ask must report £2.00 taken against £2.90 left — not £2.40, which is what a
         // basket-derived figure would have said.
         Assert.Equal((290L, 200L), op.PickerWasTold[1]);
+    }
+
+    // ── Finding Y: a tender may not take back more than it took ──────────────
+
+    /// <summary>
+    /// ⚠⚠ THE FAULT MATT FOUND, at the loop. A £4.40 refund where the card took only £2.40 of the
+    /// original sale: putting the whole £4.40 on the card must be REFUSED, not merely discouraged by a
+    /// pre-filled box. An operator can always type over a default, and on a touch till they do.
+    /// </summary>
+    [Fact]
+    public async Task A_refund_cannot_put_more_on_a_tender_than_that_tender_took()
+    {
+        // Refund of £4.40; the card may take £2.40 back. The operator tries the lot, then relents.
+        var op = new Operator()
+            .PicksCapped("Card", capPence: 240)
+            .PicksCapped("Card", capPence: 240)
+            .PicksCash()
+            .Pays(-440, -240, -200);
+
+        var outcome = await Run(-440, op);
+
+        Assert.False(outcome.Abandoned);
+        Assert.Equal(-440, outcome.Payments.Sum(p => p.AmountPence));
+
+        // The £4.40 attempt took nothing; the £2.40 and the £2.00 did.
+        Assert.Equal(2, outcome.Payments.Count);
+        Assert.Equal(-240, outcome.Payments[0].AmountPence);
+        Assert.Equal(-200, outcome.Payments[1].AmountPence);
+    }
+
+    /// <summary>⚠ And it says WHY — the screen cannot word a refusal it was not told about.</summary>
+    [Fact]
+    public async Task Going_over_a_tenders_capacity_reports_that_reason_specifically()
+    {
+        var reasons = new List<TenderRefusal>();
+        var op = new Operator().PicksCapped("Card", 240).PicksCapped("Card", 240).Pays(-440, -240);
+
+        await TenderLoop.RunAsync(-440, op.ChooseAsync, op.AskAsync,
+            onRefused: (reason, _) => { reasons.Add(reason); return Task.CompletedTask; });
+
+        Assert.Equal(TenderRefusal.OverTenderCapacity, Assert.Single(reasons));
+    }
+
+    /// <summary>
+    /// ⚠ THE PROMPT IS TOLD THE SMALLER OF THE TWO, so it can pre-fill a number that will be accepted.
+    /// A default the loop is about to refuse is how an operator learns to ignore defaults.
+    /// </summary>
+    [Fact]
+    public async Task The_prompt_is_told_the_most_this_tender_may_take()
+    {
+        var op = new Operator().PicksCapped("Card", 240).Pays(-240);
+
+        await Run(-440, op);
+
+        // Balance −£4.40, but this method may only take −£2.40 back.
+        Assert.Equal((-440L, -240L), op.PromptWasTold[0]);
+    }
+
+    /// <summary>An uncapped tender still sees the whole balance — nothing limits cash on a sale.</summary>
+    [Fact]
+    public async Task An_uncapped_tender_is_offered_the_whole_balance()
+    {
+        var op = new Operator().PicksCash().Pays(330);
+
+        await Run(330, op);
+
+        Assert.Equal((330L, 330L), op.PromptWasTold[0]);
+    }
+
+    /// <summary>
+    /// ⚠ A cap AT the balance changes nothing — the common case where a sale was paid one way, and the
+    /// case that must not accidentally start refusing exact refunds.
+    /// </summary>
+    [Fact]
+    public async Task A_cap_equal_to_the_balance_allows_the_whole_refund()
+    {
+        var op = new Operator().PicksCapped("Card", 440).Pays(-440);
+
+        var outcome = await Run(-440, op);
+
+        Assert.False(outcome.Abandoned);
+        Assert.Equal(-440, Assert.Single(outcome.Payments).AmountPence);
+    }
+
+    /// <summary>⚠ The cap binds on a SALE too, not only a refund — a gift card with £5 on it cannot
+    /// take £8 of a basket. Same rule, same code path, opposite sign.</summary>
+    [Fact]
+    public async Task A_cap_binds_on_a_sale_as_well_as_a_refund()
+    {
+        var op = new Operator()
+            .PicksCapped("GiftCard", capPence: 500)
+            .PicksCapped("GiftCard", capPence: 500)
+            .PicksCash()
+            .Pays(800, 500, 300);
+
+        var outcome = await Run(800, op);
+
+        Assert.False(outcome.Abandoned);
+        Assert.Equal(2, outcome.Payments.Count);
+        Assert.Equal(800, outcome.Payments.Sum(p => p.AmountPence));
     }
 
     [Fact]

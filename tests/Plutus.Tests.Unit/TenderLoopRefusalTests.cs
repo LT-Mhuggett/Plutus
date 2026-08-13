@@ -22,10 +22,10 @@ public class TenderLoopRefusalTests
         (_, _) => Task.FromResult(new TenderChoice(name, givesChange));
 
     /// <summary>Answers the amount prompt with each value in turn.</summary>
-    private static Func<long, Task<TenderAmount>> Amounts(params long[] pence)
+    private static Func<long, long, Task<TenderAmount>> Amounts(params long[] pence)
     {
         var i = 0;
-        return _ => Task.FromResult(i < pence.Length ? TenderAmount.Of(pence[i++]) : TenderAmount.Abandoned);
+        return (_, _) => Task.FromResult(i < pence.Length ? TenderAmount.Of(pence[i++]) : TenderAmount.Abandoned);
     }
 
     [Fact]

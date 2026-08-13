@@ -11,7 +11,25 @@ namespace Plutus.Client.Core;
 /// <param name="SurchargePence">A fee this METHOD adds to the sale (a card surcharge). ⚠ The loop
 /// applies it AT MOST ONCE however many times the method is chosen — see
 /// <see cref="TenderLoop.RunAsync"/>.</param>
-public sealed record TenderChoice(string? MethodName, bool GivesChange, long SurchargePence = 0)
+/// <param name="CapPence">
+/// ⚠⚠ THE MOST THIS METHOD MAY TAKE, or 0 for no limit — finding Y, 2026-08-13.
+///
+/// On a REFUND this is what the method actually took on the original sale, less anything already
+/// given back to it (<see cref="Plutus.SharedKernel.RefundRules.RefundCapacities"/>). Matt found the
+/// hole by hand: *"when I try to return an item that was split, it wants to put the full amount to
+/// that card."* £2.00 cash + £2.40 card refunded £4.40 to the card credits the card £2.40 it never
+/// took and leaves the £2.00 in the drawer.
+///
+/// ⚠ ENFORCED BY THE LOOP, not merely used to pre-fill a box. A caller that pre-fills sensibly and
+/// then accepts whatever comes back has no rule in it — the operator can always type over a default,
+/// and on a touch till they routinely do.
+///
+/// ⚠ Zero means UNCAPPED, which is right for an ordinary sale: nothing limits how much cash a
+/// customer may hand over. It does NOT mean "this method may take nothing" — a spent tender is
+/// removed from the offered set instead, so the operator is never shown a method that cannot be used.
+/// </param>
+public sealed record TenderChoice(
+    string? MethodName, bool GivesChange, long SurchargePence = 0, long CapPence = 0)
 {
     /// <summary>The operator backed out of choosing a method.</summary>
     public static readonly TenderChoice Abandoned = new(null, false);
@@ -55,6 +73,14 @@ public enum TenderRefusal
     /// <summary>⚠ More than the balance on a method that cannot hand the difference back. A card
     /// cannot give change; the operator who typed £20 for a £3 sale meant to type £3.</summary>
     OverpaidWithoutChange = 3,
+
+    /// <summary>
+    /// ⚠⚠ More than this METHOD took on the sale being refunded (finding Y). Distinct from
+    /// <see cref="OverpaidWithoutChange"/>, which is about the sale's balance: this one is about where
+    /// the money is allowed to go. Refunding £4.40 to a card that took £2.40 of a split payment is
+    /// within the sale's balance and still wrong.
+    /// </summary>
+    OverTenderCapacity = 4,
 }
 
 /// <summary>
@@ -129,7 +155,12 @@ public static class TenderLoop
     /// computing `paid = myTotal - outstanding` would be right until a tenant switched a card fee on,
     /// and then quietly wrong by the fee, on a screen showing an operator how much money they hold.
     /// </param>
-    /// <param name="askAmount">Ask how much. Receives what is still outstanding.</param>
+    /// <param name="askAmount">
+    /// Ask how much. Receives **what is still outstanding, and the most this tender may take** — the
+    /// second being the smaller of the balance and the chosen method's <see cref="TenderChoice.CapPence"/>.
+    /// ⚠ Pre-fill the box with the SECOND number: a default the loop will refuse teaches an operator to
+    /// type over it.
+    /// </param>
     /// <param name="onRefused">
     /// ⚠ TELL THE OPERATOR WHY, before asking again. Optional only so existing callers and tests
     /// keep compiling — a real screen must supply it, because a prompt that re-appears without
@@ -139,7 +170,7 @@ public static class TenderLoop
     public static async Task<TenderOutcome> RunAsync(
         long totalPence,
         Func<long, long, Task<TenderChoice>> chooseMethod,
-        Func<long, Task<TenderAmount>> askAmount,
+        Func<long, long, Task<TenderAmount>> askAmount,
         CancellationToken ct = default,
         Func<TenderRefusal, long, Task>? onRefused = null)
     {
@@ -182,10 +213,30 @@ public static class TenderLoop
                 outstanding += surcharge;
             }
 
-            var answer = await askAmount(outstanding).ConfigureAwait(false);
+            // ⚠ THE MOST THIS PROMPT MAY LEGITIMATELY BE ANSWERED WITH. Normally the whole balance; on
+            // a refund, no more than the chosen method took on the original sale (finding Y). Passed to
+            // the caller so the box can be pre-filled with a number that will be ACCEPTED — a prompt
+            // whose default is refused is a prompt that teaches the operator to ignore it.
+            var mostAllowed = choice.CapPence > 0 && choice.CapPence < Math.Abs(outstanding)
+                ? choice.CapPence * Math.Sign(outstanding)
+                : outstanding;
+
+            var answer = await askAmount(outstanding, mostAllowed).ConfigureAwait(false);
             if (answer is null || answer.IsAbandoned) return TenderOutcome.GaveUp(surcharge);
 
             var amount = answer.Pence;
+
+            // ⚠⚠ THE CAP IS THE LOOP'S RULE, NOT THE SCREEN'S (finding Y). Checked BEFORE the
+            // change/overpay rules below, because "that money cannot go back this way" is a different
+            // and stricter statement than "this method cannot give change" — and reporting the wrong one
+            // sends the operator looking for a different card rather than splitting the refund.
+            if (choice.CapPence > 0 && Math.Abs(amount) > choice.CapPence)
+            {
+                refusals++;
+                if (onRefused is not null)
+                    await onRefused(TenderRefusal.OverTenderCapacity, outstanding).ConfigureAwait(false);
+                continue;
+            }
 
             // ⚠ ZERO NEVER SETTLES ANYTHING, so accepting it is an infinite loop with a friendly
             // face. The original did `paid += amount` unconditionally and re-prompted for ever.

@@ -1,6 +1,6 @@
 # Test Maui — the MAUI till hand-test script
 
-**For till 1.49.3.** Anyone can run this. You do not need to know the codebase, and you should not
+**For till 1.50.0.** Anyone can run this. You do not need to know the codebase, and you should not
 need to ask anyone what a step means — if a step is unclear, that is a bug in this document, so please
 say so.
 
@@ -13,7 +13,7 @@ if that is all the time you have.
 
 | | |
 |---|---|
-| **Run** | `D:\tmp\plutus-till-1.49.3\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Not** 1.48.0 (cannot take a sale — A0), 1.49.0 (crashes on a card overpay — A4), 1.49.1 (a split payment tells you nothing — A5) or 1.49.2 (a closed day still accepts items from the item list — A8). |
+| **Run** | `D:\tmp\plutus-till-1.50.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Not** 1.48.0 (cannot take a sale — A0), 1.49.0 (crashes on a card overpay — A4), 1.49.1 (a split payment tells you nothing — A5), 1.49.2 (a closed day accepts items from the item list — A8) or 1.49.3 (a split-paid refund can all go on one card — A4b). |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
 | **Sign in as** | any operator with **Supervisor** or above — some steps need permission to change stock |
@@ -39,7 +39,7 @@ project.
 
 # §A — the reported faults, and whether they are really fixed
 
-The specific fixes in **1.42.0–1.49.3**, from the hand-runs of 2026-08-11 and 2026-08-13. Each one was
+The specific fixes in **1.42.0–1.50.0**, from the hand-runs of 2026-08-11 and 2026-08-13. Each one was
 reported by a real person using the till. **If you only have 15 minutes, do this section.**
 
 ⚠ **A0, A4, A4b, A5 and A8 are the newest** — all checkout or closed-day faults found on
@@ -142,22 +142,34 @@ had typed and which tender you had chosen.
 
 ## A4b. ⚠⚠ Refund a sale that was paid TWO ways — the money one
 
-**This is currently BROKEN on both tills. It is here so nobody reports it as new, and so anyone
-refunding knows to watch it.**
+**Fixed in 1.50.0 and never yet tested by a person. This is the one to be most careful about.**
 
 1. Sell something for **£4.40**, paid **£2.00 cash + £2.40 card** (A5 does exactly this).
-2. Now return that item, and look at what the refund offers you.
+2. Now return that item. Choose **Card** and try to put the whole **4.40** back on it.
 
-**✅ Expected, eventually:** cash offered up to **£2.00** and card up to **£2.40** — the money goes back
-the way it came, in the proportions it came.
+**✅ Expected:** it refuses, and the refusal says where the rest goes — *"That is more than card took on
+this sale, so it cannot all go back that way. Refund what this method paid, then pick the other one for
+the rest."* ⚠ **The amount box should already be filled in with 2.40**, not 4.40.
 
-**❌ What happens today:** both methods are offered — correctly — and **neither is capped**, so the whole
-£4.40 can be refunded to the card. The card is then credited £2.40 more than it ever took, the £2 stays
-in the drawer, and nothing in any report shows it. ⚠ **The server does not catch this either.**
+3. Accept **2.40** on the card, then pick **Cash** for the remaining **2.00**.
 
-⚠ **So for now: when you refund a split-paid sale, split the refund yourself** in the same proportions.
-Reported by Matt on 2026-08-13 (finding **Y**); the fix is a shared rule plus an ingest gate, ~2–3 days,
-and it is the next thing on the list.
+**✅ Expected:** the refund completes as one refund with two tenders, in the proportions the customer
+actually paid.
+
+⚠ **Also worth trying:** refund a **card-only** sale and see whether cash is offered at all (it should
+not be), and refund a **cash-only** sale to cash (which should be entirely normal).
+
+⚠ **Known limit, not a bug:** a sale rung up on **another till** cannot be capped this way yet — the
+platform will accept the refund and then quarantine it rather than the till refusing it at the counter.
+Say so if you see a refund "succeed" and then show as quarantined in the portal.
+
+**❌ What was wrong up to 1.49.3:** both methods were offered — correctly — and **neither was capped**, so
+the whole £4.40 could go back on the card: credited £2.40 more than it ever took, the £2.00 left in the
+drawer, the till balancing, and no report anywhere disagreeing. ⚠ **The server did not catch it either.**
+
+⚠ **Reported by Matt on 2026-08-13 (finding Y).** The shared rule, the server gate and the MAUI screen
+all landed the same day; the web till still has no such restriction, and neither till can cap a
+refund against ANOTHER till's sale yet.
 
 ## A5. Split a payment across two methods
 
@@ -399,7 +411,7 @@ and nothing calls it, so this path is currently the only way to find it.
 correct" is what lets a fix be closed; without it, it stays open and gets re-tested for weeks.
 
 ⚠ **And say which version you ran.** It is the small grey line at the bottom of the **Plutus** tab,
-which should read **`MAUI till v1.49.3`**. (It is also on the sign-in screen.) ⚠ **If it says anything
+which should read **`MAUI till v1.50.0`**. (It is also on the sign-in screen.) ⚠ **If it says anything
 else, stop and say so** — 1.48.0 cannot take a sale and 1.49.0 crashes on a card overpay, so a run on
 either of those will just re-find faults that are already fixed. Two of the fourteen findings on
 2026-08-11 took much longer to settle than they needed to, partly because nobody could be certain
