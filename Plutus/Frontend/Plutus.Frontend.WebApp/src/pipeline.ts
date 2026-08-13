@@ -32,8 +32,27 @@ export function sessionScopes(): string[] {
 
 export const canEnrolTills = () => sessionScopes().includes("portal.tills.enrol");
 
-/** Loyalty usability: create/edit customers at the till (supervisors/managers only). */
+/** Loyalty usability: EDIT a customer, or set their tier — supervisors/managers only. */
 export const canManageCustomers = () => sessionScopes().includes("customers.manage");
+
+/**
+ * WP12 / binding default 20 (Matt, 2026-08-13: *"Till operator to add new loyalty members"*):
+ * may this operator SIGN A NEW MEMBER UP? Pure so it is testable — `canAddCustomers` supplies the
+ * session's scopes.
+ *
+ * ⚠ ADDING IS A LOWER BAR THAN EDITING, deliberately. Signing someone up happens at the counter with
+ * a queue behind them, so it reaches the Cashier via `pos.customers.add`; changing a member's email
+ * quietly redirects their account and changing a tier changes every future basket, so both stay on
+ * `customers.manage`. Use `canManageCustomers()` for those — not this.
+ *
+ * ⚠ `customers.manage` counts too, so nobody who could already add a member loses the ability. This
+ * mirrors the server's `perm:customers.manage,pos.customers.add` (comma is OR), and the server is
+ * the real gate — a till getting this wrong shows or hides a button, and the endpoint still refuses.
+ */
+export const mayAddCustomer = (scopes: readonly string[]) =>
+  scopes.includes("pos.customers.add") || scopes.includes("customers.manage");
+
+export const canAddCustomers = () => mayAddCustomer(sessionScopes());
 
 /** WP6.3: manage this device's settings (receipt behaviour, carrier-bag barcode, printer). */
 export const canManageSettings = () => sessionScopes().includes("pos.settings.manage");

@@ -4,7 +4,7 @@ import {
   searchItemsOfflineAware, createCustomer, updateCustomer,
   type CustomerDetail, type CustomerSummary, type GiftCardLookup, type Item,
 } from "../api.ts";
-import { canManageCustomers } from "../pipeline.ts";
+import { canAddCustomers, canManageCustomers } from "../pipeline.ts";
 import { requestNewItem } from "../newItemHandoff.ts";
 import { gbp, parsePence } from "../money.ts";
 import { useBasket, basketTotals, lineDiscountPence, lineTotalPence, type BasketState } from "./basket.ts";
@@ -439,7 +439,9 @@ export default function TillPage() {
               onKeyDown={(e) => e.key === "Enter" && doCustSearch()}
             />
             <button className="ghost small" onClick={doCustSearch}>Find</button>
-            {canManageCustomers() && (
+            {/* ⚠ canAddCustomers, NOT canManageCustomers — adding reaches the Cashier (default 20).
+                The `edit` button above stays on canManageCustomers. */}
+            {canAddCustomers() && (
               <button className="ghost small"
                 onClick={() => setCustForm({ id: null, name: custSearch.trim(), email: "", phone: "" })}>
                 ＋ New
