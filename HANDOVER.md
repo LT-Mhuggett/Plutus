@@ -273,8 +273,8 @@ Matt, 2026-08-13: *"Each credit/gem is worth £0.10. Earn one credit/gem for eve
 many credits/gems as you want on an order. Need to be able to set an expiry date or never"*, with the
 value set in the portal. Written into `updatedesign.md` **§18** (and applied in place through §2/§3/§4/
 §6/§14, so no "Open" row now contradicts a settled one): a per-tenant **`LoyaltySettings`** row copying
-the `GiftCardSettings` absence-is-the-gate idiom, `ExpiryMonths int?` with **null = never** per
-`GiftCard.ExpiresAtUtc`. ⚠ Four consequences are binding because each fails silently: the ledger stores
+the `GiftCardSettings` absence-is-the-gate idiom (⚠ the expiry shape here was superseded within the day
+by **3g-iii** — `ExpiryChoice`, not a bare nullable). ⚠ Four consequences are binding because each fails silently: the ledger stores
 a **count of gems, not pence** (the rate is a setting that can change); redemption is a **basket-wide
 discount** reusing `DiscountApportionment.Across` + `VatLineMath.ForLine`, which is also a second,
 code-level argument for decision 1 — a mixed-VAT basket apportions right for free, where a *tender*
@@ -304,13 +304,13 @@ needs a **preview** endpoint, as a plain `PUT` cannot warn about a rate it has a
 honesty rules: **skip the dialog when X = 0** (a warning shown when it does not apply teaches people
 to click through the one that does), and **drop the reputation line on an increase** — that is a
 giveaway, costing the store liability, not the member anything. ⚠ **Decision 19, cheap now and
-impossible later:** stamp `PencePerGemAtEarn` on every ledger entry from day one — retrofitted, every
+impossible later:** stamp `PencePerPointAtEarn` on every ledger entry from day one — retrofitted, every
 historical entry has an unknown rate. **Matt settled that immediately rather than deferring it → 3g-ii.**
 
 **3g-ii. GRANDFATHERING ADOPTED, WITH OLDEST-FIRST CONSUMPTION — decision 19 closed** (Matt,
 2026-08-13: *"Can we make it grandfathering but oldest gems are used first in any transaction, but
 slowly removing the problem?"*). Yes, and it is the better design: each batch keeps
-`PencePerGemAtEarn`, oldest-first consumption drains the old-rate cohort, so a rate change **cannot
+`PencePerPointAtEarn`, oldest-first consumption drains the old-rate cohort, so a rate change **cannot
 take value from anyone** and the mixed population liquidates itself unadministered. It needs no new
 ordering rule — **§6 already specified oldest-first** to protect gems from lapsing, so one rule serves
 both. ⚠ **Precision added, or the two diverge:** oldest-*earned* and oldest-*expiring* coincide only
@@ -319,7 +319,7 @@ ordering by earn date would let a sooner-expiring batch lapse. ⚠ **The hinge, 
 objection I had raised:** the member-facing figure becomes **money, not a count** (*"you have £23.50 in
 gems"*) — a count has no single value once batches differ, and a **money-denominated** redemption makes
 oldest-first **value-neutral to the member**, since batch order then changes which rows drain and never
-what they get. ⚠⚠ Best consequence: **no till ever holds `PencePerGem`** — it gets a money balance and
+what they get. ⚠⚠ Best consequence: **no till ever holds `PencePerPoint`** — it gets a money balance and
 sends a money redemption, so this is **a C2 twin that never gets created**, and MAUI's offline
 `LoyaltyCache` hint is right by construction. ⚠ The one added cost: **a redemption is one ledger row
 per source batch** (`SourceEntryId` + the rate it was valued at), because §18.5's refund-restores-the-
@@ -331,6 +331,32 @@ members and by a **guaranteed date** where `ExpiryMonths` is set, but for a hoar
 must not be described internally as temporary. Net effect on 3g-i: the rate-change dialog keeps every
 mechanism but **downgrades from `danger` to informational**; the hard warning moves to **shortening
 `ExpiryMonths`**, now the only edit that destroys value.
+
+**3g-iii. EXPIRY IS THE OWNER'S CHOICE, AND LAPSING IS ACCOUNTED FOR — decisions 20/21** (Matt,
+2026-08-13: *"Never expires needs to be a setting decision for the till owner. We need to account for
+gems expiring (Also, the gem term needs to be configurable yes? I am just using it for ease of
+conversation)"*). Three things, §18.9 and §2. **(a)** `ExpiryChoice` = `NotChosen`/`Never`/`AfterMonths`
++ `ExpiryMonths`, and **`NotChosen` gates earning** exactly as `GiftCardSettings` gates gift cards —
+⚠ two fields rather than a bare nullable so *"the owner chose never"* is distinguishable from *"nobody
+has decided"*: one is a commercial promise to members, the other an unconfigured programme, and they
+must never be confused. Turning expiry **on** later never applies retroactively — `ExpiresOn` is
+computed at earn time, so a batch earned under "never" stays null for ever (grandfathering, applied to
+expiry). **(b)** ⚠⚠ **The unexpired balance is computed ON READ from the date, and the platform already
+does this** — `GiftCardLedger.cs:57`/`:95` guard `ExpiresAtUtc <= UtcNow` at the point of use and
+`GiftCardsController.cs:162` derives `"expired"` on read; **nothing sweeps gift-card expiry at all**.
+Copying it means the balance is right **whether or not any job has run** — if expiry lived only in
+swept rows, a job that died on Friday would let members spend lapsed gems all weekend. So the sweeper
+(`RetentionSweeper : BackgroundService` shape, recording to **`JobRun`** so a stopped sweeper is visible
+rather than inferred from a wrong report) writes idempotent `Expire` rows **purely for the accounting
+record**: dated when they lapsed, so **breakage lands in a period** — which a compute-on-read balance
+can never tell you, since it shows what is left and not what was released and when. ⚠ Breakage **and**
+outstanding liability are valued at each batch's **own** `PencePerPointAtEarn`, from the same code as
+3g-i's dialog, or the portal states three different liabilities in three places. **(c)** The brand term
+is configurable — ⚠ **and I had named the ledger after it.** `GemEntry`/`PencePerGem` are renamed
+`LoyaltyPointEntry`/`PencePerPoint`: a `GemBalance` column makes one tenant's brand word permanent
+schema, and *"Point"* not *"Credit"* because `CreditEntry` already means money. The word now lives only
+in `NameSingular`/`NamePlural`, and must reach **every** surface from there — receipts and till buttons
+included, with MAUI carrying the strings alongside its synced `LoyaltyCache`.
 
 **3h. ⚠⚠ A LIVE PARITY BUG, found while reviewing the above — MAUI applies NO tier discount.** The web
 till applies it at `TillPage.tsx:122–123` (`if (m && !m.expired && m.autoDiscountRate > 0) dispatch({

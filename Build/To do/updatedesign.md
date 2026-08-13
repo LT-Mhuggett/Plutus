@@ -23,7 +23,7 @@ The credit currency is fully configurable per programme:
 
 | Setting | Detail |
 |---|---|
-| Name | Singular and plural forms, both configurable ("1 gem" / "250 gems") — appears throughout the UI |
+| Name | ✅ **CONFIRMED (Matt, 2026-08-13: *"the gem term needs to be configurable yes? I am just using it for ease of conversation"*)** — singular and plural both configurable ("1 gem" / "250 gems"), both stored because English plurals are not reliably "+s" and a tenant may pick a word that is not. See the naming rule below |
 | Icon / visual | Configurable icon or uploaded image, with a fallback (emoji or default graphic) if none set. Must render well small (nav badge) and large (balance page) |
 | Value semantics | ✅ **DECIDED (Matt, 2026-08-13): money-mapped. 1 gem = £0.10**, set in the portal. See §18 for the settings row and what follows from it |
 
@@ -31,11 +31,29 @@ The credit currency is fully configurable per programme:
 portal setting and a setting can change; a balance stored in pence would either silently
 re-value every historical entry or silently fail to, depending on which figure was written.
 
-⚠ **Each batch also carries the rate it was EARNED under** (`PencePerGemAtEarn`) — decision 19,
+#### ⚠ The naming rule: "gem" is Kapow's SETTING, never an identifier
+
+**Code, tables, columns, API fields and DTOs use the neutral term `Point`** — `LoyaltyPointEntry`,
+`PencePerPoint`, `PencePerPointAtEarn`, `SpendPerPointPence`. **"Gem" appears only in data**, as
+`NameSingular`/`NamePlural` on `LoyaltySettings`, and only ever reaches a screen through them.
+
+⚠ This is not tidiness. A column called `GemBalance` makes one tenant's brand term permanent
+schema, and the next tenant's "stars" then either lives in a table that calls them gems or needs a
+migration to rename it. *"Point"* is chosen over *"credit"* deliberately — `CreditEntry` already
+exists and means **money** (§17), and reusing that word is the collision this whole design is
+avoiding. ⚠ **This document deliberately says "gems" in prose**, because it is Kapow's configured
+term and reads better than "points"; that is the display name in use, not a name in the code.
+
+⚠ **The term must reach every surface from the setting** — both tills, receipts, the member portal,
+the admin portal and any notification. A hardcoded "gems" on a receipt template or a till button is
+a bug the moment a second tenant enrols, and it will be found by that tenant rather than by us. For
+MAUI that means the two strings ride along with the synced `LoyaltyCache`, not a resource file.
+
+⚠ **Each batch also carries the rate it was EARNED under** (`PencePerPointAtEarn`) — decision 19,
 **§18.8**: gems are *grandfathered*, so a rate change touches future earns only and can never take
 value from a member. A member's balance is therefore **Σ(batch count × that batch's rate)**, and
 what they are shown is **the money** — *"you have £23.50 in gems"* — because once batches differ a
-raw count has no single value. ⚠ Consequently **no till ever holds `PencePerGem`**: it receives a
+raw count has no single value. ⚠ Consequently **no till ever holds `PencePerPoint`**: it receives a
 money balance and sends a money redemption, so the rate cannot drift across surfaces.
 
 ---
@@ -128,10 +146,13 @@ a mixed-VAT basket apportions correctly for free. A tender needs a new tender ty
 
 ## 6. Credit Lifecycle Rules
 
-- ✅ **Expiry — DECIDED (Matt, 2026-08-13): a settable expiry, or never.** Portal-configured as
-  `ExpiryMonths` (rolling from the earn date) with **null = never expires** — the same shape as
-  `GiftCard.ExpiresAtUtc`, whose comment already reads *"Null = never expires (the default)"*. Copy
-  that precedent rather than inventing a second expiry idiom.
+- ✅ **Expiry — DECIDED (Matt, 2026-08-13): a settable expiry, or never — and it is the TILL OWNER's
+  decision to make.** Portal-configured as `ExpiryChoice` (`NotChosen` / `Never` / `AfterMonths`)
+  plus `ExpiryMonths`, rolling from the earn date. ⚠ **`NotChosen` is the gate** and the programme
+  does not earn until the owner has picked, per `GiftCardSettings`; **"never" is chosen, never
+  defaulted into**. ⚠ Two fields rather than a bare nullable so *"the owner chose never"* is
+  distinguishable from *"nobody has decided"* — see **§18.9**, which also covers the sweeper,
+  breakage and the accounting.
 - ⚠ **Expiry is a property of the EARN ENTRY, not of the member.** Gems earned in January expire
   before gems earned in June, so the balance is never one number with one date — it is a set of
   dated batches. Two consequences that must be built, not discovered:
@@ -263,7 +284,7 @@ Target **WCAG 2.2 AA**. Highlights relevant to loyalty screens: AA contrast with
 | 2 | Credit value semantics (abstract vs money-mapped) | ~~Abstract points~~ → **money-mapped, 1 gem = £0.10**, portal-set. ⚠ Ledger stores the **count**, not pence (§18) | ✅ **Decided — Matt, 2026-08-13** |
 | 3 | Tier qualification basis | Rolling 12-month, spent credits count | Open — ⚠ **but tiers already exist and are assigned by hand**; this decision only bites when the engine replaces manual assignment (§17) |
 | 4 | Tier downgrade policy & grace period | — | Open |
-| 5 | Expiry policy | **Settable expiry, or never** — `ExpiryMonths` rolling from earn date, null = never, per the `GiftCard.ExpiresAtUtc` precedent. ⚠ Per-entry, FIFO redemption, no retro-expiry (§6) | ✅ **Decided — Matt, 2026-08-13** |
+| 5 | Expiry policy | **Settable expiry, or never — and it is the TILL OWNER's decision.** `ExpiryChoice` (`NotChosen`/`Never`/`AfterMonths`) + `ExpiryMonths`; ⚠ **`NotChosen` gates earning** and "never" must be *chosen*, not defaulted into. ⚠ Per-entry, oldest-first redemption, **no retro-expiry ever** (§6, §18.9) | ✅ **Decided — Matt, 2026-08-13** |
 | 6 | Transfers / family pooling in v1? | Defer to v2 | Open |
 | 7 | Enrollment: opt-in or automatic | — | Open |
 | 8 | Earn on VAT-inclusive or net amount | **Gross inc-VAT, on what was actually paid** — after tier discount, after gem redemption, excluding gift-card activation (§3) | ✅ **Decided — Matt, 2026-08-13** (implied by "£10 spent"; stated exactly so no two channels differ) |
@@ -275,9 +296,11 @@ Target **WCAG 2.2 AA**. Highlights relevant to loyalty screens: AA contrast with
 | 14 | Earn rounding | **Floor per sale, remainder discarded** — £15 earns 1 gem (§3) | Proposed — ⚠ decide **before** launch; carrying remainders forward later means recomputing history |
 | 15 | Per-order redemption cap | **None** — as many gems as the member likes, bounded only by the basket reaching £0.00 (§4) | ✅ **Decided — Matt, 2026-08-13** |
 | 16 | Reward catalogue (tiered rewards, vouchers, free products) | **Not v1.** A flat 10p-a-gem rate needs no catalogue; adding one later is additive | Proposed |
-| 17 | ⚠ ~~Changing `PencePerGem` re-values every outstanding balance~~ → **it no longer does** (decision 19) | **Two-stage `Ask.tsx` confirm** — the measured impact (*"X members holding Y gems keep their earned rate, worth £A, unchanged"*), `typeToConfirm` on the new rate, and an `AuditLog` row carrying the figures shown. ⚠ Figures from the **same code as §11's liability report**, server-side at dialog-open, never a cached rollup. ⚠ Skip the dialog when X = 0. ⚠ The hard `danger` warning **moves to shortening `ExpiryMonths`**, the one edit that still destroys value — §18.7 + §18.8 | ✅ **Decided — Matt, 2026-08-13** |
-| 19 | ⚠ Grandfather gems at the rate they were earned? | **YES — grandfathering, with oldest-first consumption**, so the old-rate cohort liquidates itself and a rate change can never take value from a member. ⚠ Requires two things: the member-facing figure becomes **money not a count** (a count has no single value once batches differ), and a redemption becomes **one ledger row per source batch** (so a refund restores the same batches at the same rates). ⚠ Converges for active members; for a hoarder with `ExpiryMonths` null it is **permanent, not transitional** — §18.8 | ✅ **Decided — Matt, 2026-08-13** |
+| 17 | ⚠ ~~Changing `PencePerPoint` re-values every outstanding balance~~ → **it no longer does** (decision 19) | **Two-stage `Ask.tsx` confirm** — the measured impact (*"X members holding Y gems keep their earned rate, worth £A, unchanged"*), `typeToConfirm` on the new rate, and an `AuditLog` row carrying the figures shown. ⚠ Figures from the **same code as §11's liability report**, server-side at dialog-open, never a cached rollup. ⚠ Skip the dialog when X = 0. ⚠ The hard `danger` warning **moves to shortening `ExpiryMonths`**, the one edit that still destroys value — §18.7 + §18.8 | ✅ **Decided — Matt, 2026-08-13** |
 | 18 | ⚠⚠ Refund symmetry (see §18) | Refund **claws back the earn** *and* **restores the burn**; balance may go negative and redemption is blocked while it is | Proposed — this is the one that is a **cash-out exploit** if got wrong |
+| 19 | ⚠ Grandfather gems at the rate they were earned? | **YES — grandfathering, with oldest-first consumption**, so the old-rate cohort liquidates itself and a rate change can never take value from a member. ⚠ Requires two things: the member-facing figure becomes **money not a count** (a count has no single value once batches differ), and a redemption becomes **one ledger row per source batch** (so a refund restores the same batches at the same rates). ⚠ Converges for active members; for a hoarder whose owner chose `Never` it is **permanent, not transitional** — §18.8 | ✅ **Decided — Matt, 2026-08-13** |
+| 20 | ⚠ How gems actually expire, and how lapsing is accounted for | **The unexpired balance is computed ON READ from the date** — the `GiftCardLedger.cs:57` precedent, where nothing sweeps at all — so the balance is right **even if no job has run**. A sweeper (`RetentionSweeper`/`JobRun` shape) writes idempotent `Expire` rows **only for the accounting record**, dated when they lapsed, so **breakage lands in a period**; never load-bearing for correctness. ⚠ Breakage and outstanding liability both valued at each batch's **own** rate, from the same code as §18.7's dialog — §18.9 | ✅ **Decided — Matt, 2026-08-13** |
+| 21 | The currency term is configurable | **Yes** — `NameSingular`/`NamePlural` are the **only** place the brand word lives. ⚠ **Code, tables, columns and DTOs use the neutral `Point`** (`LoyaltyPointEntry`, `PencePerPoint`); a `GemBalance` column would make one tenant's brand term permanent schema. "Point" not "credit", because `CreditEntry` already means money. ⚠ Must reach **every** surface incl. receipts and MAUI — §2 | ✅ **Confirmed — Matt, 2026-08-13** |
 
 ### Decisions 10–11, mechanics (so nobody re-derives them)
 
@@ -368,7 +391,7 @@ The till's job is **identification and redemption UX**; the platform's is every 
 
 | Phase | What | ~ |
 |---|---|---|
-| **A — the engine** (platform) | `LoyaltySettings` (§18.2) · the `GemEntry` ledger with `HOLD`/`RELEASE` (atomic balance-and-burn) and per-entry expiry · earn-at-ingest · redemption-as-discount per decision 1 · `CustomerId` on the sale header · **FIFO consumption + refund symmetry in SharedKernel** (§18.5) | **15–20d** |
+| **A — the engine** (platform) | `LoyaltySettings` (§18.2) · the `LoyaltyPointEntry` ledger with `HOLD`/`RELEASE` (atomic balance-and-burn) and per-entry expiry · earn-at-ingest · redemption-as-discount per decision 1 · `CustomerId` on the sale header · **FIFO consumption + refund symmetry in SharedKernel** (§18.5) | **15–20d** |
 | **B — POS surfaces** | Web till (~4–5d) and MAUI (~5–6d, extends retrofit step 27): identify, balance surfacing, one-tap redeem, holds | **~10d** |
 | **C — admin portal** | Config screens, §11 reporting (liability, breakage, engagement), drilldown | **5–7d** |
 | **D — member portal** | The new surface **and member authentication** (customers are not users), statement, tier progress, QR, notifications | **15–20d** — the strongest v2 candidate |
@@ -406,10 +429,12 @@ generate/activate/redeem all refuse"*). Loyalty copies it rather than inventing 
 
 | Field | v1 value | Why it is a column and not a constant |
 |---|---|---|
-| `PencePerGem` | `10` | Matt's rate, and the number §18.1 is about. ⚠ **Applies to FUTURE earns only** — existing batches keep `PencePerGemAtEarn` (§18.8), so this is the rate the *next* gem is minted at, not a global multiplier |
-| `SpendPerGemPence` | `1000` | "every £10" — the earn divisor |
-| `ExpiryMonths` | `int?`, null = **never** | Matt's "expiry date or never", per `GiftCard.ExpiresAtUtc` |
-| `NameSingular` / `NamePlural` | `"gem"` / `"gems"` | §2. ⚠ **Never the word "credit"** in member-facing text — store credit already exists and means *money* (§17) |
+| `PencePerPoint` | `10` | Matt's rate, and the number §18.1 is about. ⚠ **Applies to FUTURE earns only** — existing batches keep `PencePerPointAtEarn` (§18.8), so this is the rate the *next* gem is minted at, not a global multiplier |
+| `SpendPerPointPence` | `1000` | "every £10" — the earn divisor |
+| `ExpiryChoice` | `enum { NotChosen, Never, AfterMonths }` | ⚠ **The OWNER's decision, made explicitly** — Matt, 2026-08-13: *"Never expires needs to be a setting decision for the till owner."* `NotChosen` is the gate (`GiftCardSettings`' own idiom): the programme does not start earning until the owner has picked. **"Never" must be chosen, not defaulted into** — see §18.9 |
+| `ExpiryMonths` | `int?` — required when `AfterMonths`, ignored otherwise | Rolling from the earn date. ⚠ Two fields rather than "null means never" so the schema can tell *"the owner chose never"* from *"nobody has decided"*; `GiftCard.ExpiresAtUtc` can use bare null because a card is expiry-per-batch by hand |
+| `ExpiryWarnDays` | `30` | §6 wants warning before gems lapse; the lead time is the owner's call too. 0 = no warning |
+| `NameSingular` / `NamePlural` | `"gem"` / `"gems"` | §2. ⚠ **Never the word "credit"** in member-facing text — store credit already exists and means *money* (§17). ⚠ The only place the brand term lives |
 | `MaxRedeemPerOrder` | `0` = unlimited | Matt's ruling is unlimited; the column costs nothing now and a migration later. Another tenant will want a cap |
 | `Active` | — | Turn the programme off without deleting a ledger |
 | `DecidedByUserId` / `DecidedAtUtc` | — | Straight from `GiftCardSettings`: a money rule records who set it |
@@ -423,14 +448,14 @@ concern and belong on the tier row.
 `Expire`, anchored to `SaleId` and `ActorUserId`, balance = Σ entries (D15). **Reuse the pattern, not
 the table**: `CreditEntry.AmountPence` is **money**, and gems are a **count** (§2, §17).
 
-`GemEntry` therefore differs from `CreditEntry` in exactly three ways:
+`LoyaltyPointEntry` therefore differs from `CreditEntry` in exactly three ways:
 
-| | `CreditEntry` (exists) | `GemEntry` (new) |
+| | `CreditEntry` (exists) | `LoyaltyPointEntry` (new) |
 |---|---|---|
 | Amount | `AmountPence` — money | `Amount` — **whole gems**, signed |
 | Types | `Issue` / `Redeem` / `Expire` | `Earn` / `Redeem` / `Expire` / `Adjust` (§6 manual, reason mandatory) |
 | Expiry | on the gift card, not the entry | **`ExpiresOn DateOnly?` on the entry** — §6, because batches expire independently |
-| Rate | n/a — pence *are* the value | **`PencePerGemAtEarn` on the entry** — §18.8 grandfathering. Set on `Earn`; on a `Redeem` row it records the rate the consumed batch was valued at |
+| Rate | n/a — pence *are* the value | **`PencePerPointAtEarn` on the entry** — §18.8 grandfathering. Set on `Earn`; on a `Redeem` row it records the rate the consumed batch was valued at |
 | Redemption granularity | one row | ⚠ **one `Redeem` row PER SOURCE BATCH**, each with `SourceEntryId` — see below |
 
 ⚠⚠ **A redemption is several rows, not one, and this is load-bearing rather than bookkeeping.**
@@ -452,7 +477,7 @@ This is a second, code-level argument for §14 decision 1 that the design did no
   otherwise be got wrong quietly and show up as a wrong VAT return.
 - Both are already a **C2 twin** with the web till (`till/basket.ts`), so parity is already pinned.
 
-A gem redemption is therefore *"a basket-wide discount of `gems × PencePerGem`"* and reuses tested
+A gem redemption is therefore *"a basket-wide discount of `gems × PencePerPoint`"* and reuses tested
 code. As a **tender** it would instead need a new tender type, and would report gem "takings" in the
 Z-read that never reached the bank — a reconciliation gap to be journalled out for ever.
 
@@ -561,7 +586,7 @@ the exact moment someone is deciding. This needs a **preview** call — the impa
 
 #### The alternative that removes the problem instead of warning about it → ✅ ADOPTED, §18.8
 
-**Grandfathering:** store `PencePerGemAtEarn` on each `GemEntry`, so gems keep the rate they were
+**Grandfathering:** store `PencePerPointAtEarn` on each `LoyaltyPointEntry`, so gems keep the rate they were
 earned under and a rate change only ever affects **future** earns. No reputation risk, no warning
 needed, and it is the same shape as §6's per-entry expiry and the platform's existing habit of
 stamping a rule onto the row it applied to (`VatBandStamp`, `Membership`'s as-assigned snapshot).
@@ -576,7 +601,7 @@ where the cost turns out to fall on the gem *count*, not on the balance's value.
 > *"Can we make it grandfathering but oldest gems are used first in any transaction, but slowly
 > removing the problem?"* — Matt, 2026-08-13. **Yes. Adopted.** Decision 19 ✅.
 
-Each `GemEntry` carries `PencePerGemAtEarn`; redemption consumes **oldest first**; so every
+Each `LoyaltyPointEntry` carries `PencePerPointAtEarn`; redemption consumes **oldest first**; so every
 redemption and every expiry drains the old-rate cohort, which can only ever shrink. A rate change
 therefore **cannot take value from anyone**, and the mixed-rate population liquidates itself without
 anybody administering it.
@@ -605,7 +630,7 @@ Three things fall out, all good:
 - **FIFO becomes value-neutral to the member.** Spending a money amount means batch order cannot
   change what they get — only which rows drain. Had we let them spend a *count*, oldest-first would
   actively disadvantage them after a rate rise. The fairness objection disappears entirely.
-- ⚠⚠ **No till ever holds `PencePerGem`.** The till receives a money balance and sends a money
+- ⚠⚠ **No till ever holds `PencePerPoint`.** The till receives a money balance and sends a money
   redemption; the rate stays server-side. That is a **C2 twin that never gets created** — exactly the
   CLAUDE.md principle. It also makes MAUI's offline `LoyaltyCache` hint correct by construction,
   since a cached *value* needs no rate to interpret.
@@ -622,7 +647,7 @@ stated £23.50 is a support ticket. §10's per-batch statement is what answers i
 |---|---|
 | **Active member** (redeems periodically) | Drains in a few redemption cycles — typically months |
 | **Hoarder, `ExpiryMonths` set** | Drains **no later than `ExpiryMonths` after the change** — a guaranteed end date |
-| **Hoarder, `ExpiryMonths` null (never)** | ⚠ **Never drains.** Grandfathering is permanent for them |
+| **Hoarder, `ExpiryChoice = Never`** | ⚠ **Never drains.** Grandfathering is permanent for them |
 
 ⚠ So the *guaranteed* convergence date exists only when expiry is set — and Matt has deliberately
 allowed "never". With never-expire, grandfathering is not a transitional state but a standing
@@ -643,7 +668,7 @@ prevent. It also makes §10's statement explainable line by line, and §11's lia
 
 #### The payoff: the §18.7 dialog stops being frightening
 
-With grandfathering, changing `PencePerGem` **affects future earns only**. So the confirm downgrades
+With grandfathering, changing `PencePerPoint` **affects future earns only**. So the confirm downgrades
 from `danger` to informational, and Matt's reputation warning is no longer the right copy for the
 ordinary case:
 
@@ -656,3 +681,87 @@ commercial decision worth recording, and the figures are still the evidence of w
 shown. What changes is only the *severity*, and it changes because the risk genuinely went away.
 ⚠ Retain the hard `danger` warning for the one case that still destroys value: **shortening
 `ExpiryMonths`**, which §6 already forbids from applying retroactively.
+
+### 18.9 Expiry: the owner's choice, and accounting for gems that lapse
+
+> *"Never expires needs to be a setting decision for the till owner. We need to account for gems
+> expiring."* — Matt, 2026-08-13. Decision 20.
+
+#### The owner chooses, and "never" is a choice — not a default
+
+`ExpiryChoice` starts at **`NotChosen`**, and the programme **does not earn** until the owner has
+picked. That is `GiftCardSettings`' idiom exactly — *"until the owner has chosen a treatment,
+generate/activate/redeem all refuse"* — and it exists for the same reason: an unmade decision must
+not resolve itself silently into whichever branch the code happens to take first.
+
+⚠ **Why two fields instead of "null means never".** A single nullable `ExpiryMonths` cannot
+distinguish *"the owner decided gems never expire"* from *"nobody has decided yet"*, and those must
+never be confused: one is a deliberate commercial promise to members, the other is an unconfigured
+programme. `GiftCard.ExpiresAtUtc` gets away with bare null because expiry there is set per print
+batch by hand; a programme-wide policy needs the distinction.
+
+⚠ **Turning expiry ON later must not expire anything retroactively** — §6's rule, restated because
+this is where it will be tempted. Entries carry their own `ExpiresOn`, computed **at earn time** from
+the policy then in force. A batch earned while the policy was "never" has `ExpiresOn = null` **for
+ever**, even after the owner switches to 12 months. This is the same grandfathering principle as the
+rate (§18.8), applied to expiry, and it is why the hard `danger` warning now lives on **shortening**
+the window rather than on the rate.
+
+#### ⚠⚠ The balance must be correct even if nothing has swept — the gift-card precedent
+
+The platform has already solved this, and **not** with a sweeper. Gift cards test expiry **on read,
+at the point of use** — `GiftCardLedger.cs:57` and `:95` both guard
+`card.ExpiresAtUtc != null && card.ExpiresAtUtc <= DateTime.UtcNow`, and
+`GiftCardsController.cs:162` derives the `"expired"` **status** on read. **Nothing sweeps gift-card
+expiry at all.** Follow it:
+
+- **The authority is the date filter, computed on read.** An unexpired balance is
+  `Σ over batches where ExpiresOn is null or ExpiresOn >= today`. This is correct **whether or not
+  any job has run**, which is the only property that matters: if expiry lived in swept `Expire` rows
+  alone, a job that failed on Friday would let members spend lapsed gems all weekend, and the till
+  would be right to allow it.
+- **The sweeper writes the accounting record, and is never load-bearing for correctness.** It is
+  therefore free to be late, to be re-run, and to be skipped in a test.
+
+#### The sweeper, and why it still has to exist
+
+`RetentionSweeper : BackgroundService` (with `Task.Delay(_opts.Interval)`) is the shape to copy, and
+it should record each pass to **`JobRun`** so a sweeper that silently stopped is visible rather than
+inferred from a wrong report months later.
+
+It writes one `Expire` entry per lapsed batch. Two rules:
+
+- **Idempotent** — an `Expire` row already present for a batch means skip. Since correctness does not
+  depend on these rows, a double-run must be harmless, not merely unlikely.
+- ⚠ **Valued at the batch's OWN rate** (`PencePerPointAtEarn`), not today's. Grandfathering applies
+  to lapsing exactly as it applies to spending; valuing breakage at the current rate would misstate
+  the liability released in precisely the periods where a rate had changed.
+
+#### Accounting for it: breakage is income, and it belongs to a period
+
+Unredeemed gems are a **liability** (§13). When they lapse, that liability is **released** — which is
+income, and an accountant will want it in the period it happened. So:
+
+- **`Expire` rows are dated when the gems lapsed**, which is what makes "breakage in period" a real
+  query rather than a snapshot difference. This is the reason the sweeper must exist even though the
+  balance does not need it: a compute-on-read balance shows *what is left*, never *what was released
+  and when*.
+- **§11's report gains breakage per period**, alongside outstanding liability — and both must come
+  from the same Σ(count × own rate) code as §18.7's dialog, or the portal will state three different
+  liabilities in three places.
+- ⚠ **The liability report must value outstanding gems at each batch's own rate too.** After any rate
+  change, `outstanding × current rate` is simply the wrong number, and it is wrong in a direction
+  nobody notices — it moves the moment a setting changes, with no transaction behind it.
+
+#### At the counter and on the member's side
+
+- **Warn before it happens** — `ExpiryWarnDays` (default 30). The till shows it on attach
+  (*"£23.50 in gems — £3.00 expires on 14 Sep"*) and §10's statement shows it per batch, which is
+  also what answers *"where did my gems go?"* when a batch has already lapsed.
+- ⚠ **The offline MAUI hint may overstate.** A cached balance can include gems that lapsed since
+  `LoyaltyCache.RefreshedAtUtc`. That is tolerable **only because redemption is online-only** (the
+  step 27 rule for store credit), so the server always revalidates — but the hint must be labelled
+  *as at* its refresh time, and must never be the figure a redemption is computed from.
+- ⚠ **If the owner sets expiry, the member has to have been told.** §13's T&Cs and §10's per-batch
+  statement are the mechanism; expiring points a member was never warned about is the reputational
+  damage §18.7's warning was originally worried about, arriving by a different route.
