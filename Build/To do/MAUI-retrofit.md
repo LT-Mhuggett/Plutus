@@ -56,8 +56,8 @@ item-identity seam all outlive the retrofit, and archiving them unlifted buries 
 
 | | |
 |---|---|
-| **Till build to run** | **`D:\tmp\plutus-till-1.49.1\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe. ⚠ **1.48.0 could not take a sale** ([U](#1-open-faults--before-any-new-work)) and **1.49.0 crashed on a card overpay** ([V](#1-open-faults--before-any-new-work)). **1.49.1 fixes both; A1–A3 already pass.** Resume at **A4** |
-| **Versions** | till-maui **1.49.1** · backend **1.15.0** · platform **1.26.0** · portal **1.7.0** · till-web **1.6.0** · agent **1.3.3** |
+| **Till build to run** | **`D:\tmp\plutus-till-1.49.2\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe. ⚠ Three builds in one day: **1.48.0 could not take a sale (U), 1.49.0 crashed on a card overpay (V), 1.49.1 said nothing during a split payment (W).** **1.49.2 fixes all three.** A1–A3 pass; **resume at A4** |
+| **Versions** | till-maui **1.49.2** · backend **1.15.0** · platform **1.27.0** · portal **1.7.0** · till-web **1.6.0** · agent **1.3.3** |
 | **Deploy state** | ⚠ **Nothing MAUI-side is blocked on a deploy.** Every backend endpoint the remaining steps need is live on the test environment |
 | **Suite** | Unit **907** · Integration **169** · Architecture **15** · AppClient **425** (+3 skipped) · web till **19** — all green |
 
@@ -169,6 +169,42 @@ Cancel at both prompts; then **type in the scan box afterwards** and confirm sea
 that last one is what proves Q is closed rather than merely explained.
 
 ✅ **A1, A2 and A3 passed on 1.49.0** (Matt, 2026-08-13). **A4 then crashed the till — see V.**
+
+### W — a split payment looked like it had swallowed the money. ✅ **FIXED IN 1.49.2**
+
+**Matt, 1.49.1:** *"When I try to do a split payment. e.g. an item is £4.40, I press cash, put in £2, it
+takes me back to the 'Card or cash' screen but doesn't tell me anything has been paid or there is X to
+pay. I assume its not actually working."*
+
+✅ **It WAS working.** `A_split_payment_accumulates_to_exactly_the_total` has pinned that since the loop
+was extracted: three tenders of £1.00/£1.00/£1.30 on a £3.30 basket all land, and the sale posts once.
+The £2 was held and £2.40 was outstanding.
+
+⚠⚠ **But "it works and looks broken" is not a smaller problem than "it is broken", it is a worse one.**
+An operator who cannot tell a working split payment from a swallowed £2 will stop using split payments
+— or take the money twice, in front of the customer. **The title said only "Payment Method", on the
+second pass exactly as on the first**, and the balance appeared one screen LATER in the amount prompt,
+which is no use to someone deciding whether the till just ate £2.
+
+**Fixed:** the tender picker now says what has been taken and what is left —
+`Paid £2.00 — £2.40 left to pay`, and `Refunded … — … left to refund` on a refund. The first ask names
+the amount too: `Payment Method — £4.40 to pay`.
+
+⚠ **The figure comes from `TenderLoop`, not from the basket, and that is the point.** The loop adds the
+card surcharge to what is owed, so a caller deriving `paid = myTotal − outstanding` would be right
+until a tenant switched a card fee on and then **wrong by the fee — on a screen telling an operator how
+much money they are holding.** `chooseMethod` therefore takes `(outstanding, paidSoFar)`.
+`What_has_been_paid_accounts_for_a_surcharge_the_loop_added` pins exactly that case: £4.40 basket + 50p
+fee, £2.00 taken → the second ask must report **£2.90 left, £2.00 taken**, not the £2.40 a
+basket-derived figure would have given.
+
+⚠ **Shape, not wording, is the residual gap.** The web till shows a standing **Paid / Remaining** pair
+on one form (`CheckoutDialog.tsx`); MAUI asks in sequence, so the same two numbers ride in the title.
+Same money, same vocabulary, different shape — **they converge when the checkout screen is rebuilt
+(step 11b)**, and until then this is a Part B 🟡 rather than a ✅.
+
+**Unit 907 → 909 · AppClient 434.** Till **1.49.2**, platform **1.27.0** (a `src/` library changed, so
+both bump — nearly missed).
 
 ### V — overpaying by card crashed the till on 1.49.0. ✅ **FIXED IN 1.49.1**
 

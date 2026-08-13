@@ -18,8 +18,8 @@ namespace Plutus.Tests.Unit;
 /// </summary>
 public class TenderLoopRefusalTests
 {
-    private static Func<long, Task<TenderChoice>> Method(string name, bool givesChange) =>
-        _ => Task.FromResult(new TenderChoice(name, givesChange));
+    private static Func<long, long, Task<TenderChoice>> Method(string name, bool givesChange) =>
+        (_, _) => Task.FromResult(new TenderChoice(name, givesChange));
 
     /// <summary>Answers the amount prompt with each value in turn.</summary>
     private static Func<long, Task<TenderAmount>> Amounts(params long[] pence)

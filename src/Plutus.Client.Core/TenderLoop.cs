@@ -115,7 +115,20 @@ public static class TenderLoop
     /// Run the tendering.
     /// </summary>
     /// <param name="totalPence">What the basket comes to. NEGATIVE for a refund.</param>
-    /// <param name="chooseMethod">Ask which tender. Receives what is still outstanding.</param>
+    /// <param name="chooseMethod">
+    /// Ask which tender. Receives **what is still outstanding, and what has been taken so far**.
+    ///
+    /// ⚠ THE SECOND ARGUMENT EXISTS BECAUSE A SPLIT PAYMENT LOOKED BROKEN. Matt, 2026-08-13, on a
+    /// £4.40 basket: *"I press cash, put in £2, it takes me back to the 'Card or cash' screen but
+    /// doesn't tell me anything has been paid or there is X to pay. I assume its not actually
+    /// working."* It was working — this loop had the £2 and the £2.40 — but the screen it handed back
+    /// to knew neither, so the till looked like it had swallowed the money.
+    ///
+    /// ⚠ It comes from HERE rather than being derived by the caller on purpose. The caller's running
+    /// total is the basket, and the loop adds the card surcharge to what is owed — so a caller
+    /// computing `paid = myTotal - outstanding` would be right until a tenant switched a card fee on,
+    /// and then quietly wrong by the fee, on a screen showing an operator how much money they hold.
+    /// </param>
     /// <param name="askAmount">Ask how much. Receives what is still outstanding.</param>
     /// <param name="onRefused">
     /// ⚠ TELL THE OPERATOR WHY, before asking again. Optional only so existing callers and tests
@@ -125,7 +138,7 @@ public static class TenderLoop
     /// </param>
     public static async Task<TenderOutcome> RunAsync(
         long totalPence,
-        Func<long, Task<TenderChoice>> chooseMethod,
+        Func<long, long, Task<TenderChoice>> chooseMethod,
         Func<long, Task<TenderAmount>> askAmount,
         CancellationToken ct = default,
         Func<TenderRefusal, long, Task>? onRefused = null)
@@ -148,7 +161,9 @@ public static class TenderLoop
 
             if (refusals >= MaxConsecutiveRefusals) return TenderOutcome.GaveUp(surcharge);
 
-            var choice = await chooseMethod(outstanding).ConfigureAwait(false);
+            // ⚠ `total` already carries any surcharge this loop applied, so this is what the operator
+            // is actually holding — not what the basket came to.
+            var choice = await chooseMethod(outstanding, total - outstanding).ConfigureAwait(false);
 
             // ⚠ A BLANK NAME IS ABANDONMENT, not a nameless tender. The name is what
             // `Tenders.FromMethodName` turns into the wire byte every payment-split report groups

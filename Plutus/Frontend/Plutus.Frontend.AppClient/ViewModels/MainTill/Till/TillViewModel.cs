@@ -1266,16 +1266,42 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     // is what creates it. The fee is returned to the loop, which applies it to the
                     // outstanding balance AT MOST ONCE ÃÂ¢ÃÂÃÂ a split card payment must not be charged a
                     // flat fee twice, and that is now the loop's rule rather than this method's.
-                    chooseMethod: async outstanding =>
+                    chooseMethod: async (outstanding, paidSoFar) =>
                     {
                         var payMethNames = payMeths.Keys.ToArray();
+
+                        // ⚠⚠ SAY WHAT HAS BEEN TAKEN AND WHAT IS LEFT. Matt, 2026-08-13, on a £4.40
+                        // basket: *"I press cash, put in £2, it takes me back to the 'Card or cash'
+                        // screen but doesn't tell me anything has been paid or there is X to pay. I
+                        // assume its not actually working."*
+                        //
+                        // ⚠ It WAS working — `A_split_payment_accumulates_to_exactly_the_total` has
+                        // pinned that since the loop was extracted — and this title said only
+                        // "Payment Method", on the second pass exactly as on the first. The balance
+                        // appeared one screen LATER, in the amount prompt, which is no use to someone
+                        // deciding whether the till has just eaten £2 in front of a customer.
+                        //
+                        // ⚠ An operator who cannot tell a working split payment from a broken one will
+                        // stop using split payments, or worse, take the money twice.
+                        //
+                        // ⚠ The web till shows a standing "Paid / Remaining" pair on one form
+                        // (`CheckoutDialog.tsx`); MAUI asks in sequence, so the same two numbers ride
+                        // in the title instead. Same words, same money, different shape — the shapes
+                        // converge when the checkout screen is rebuilt (step 11b).
+                        var owed = Math.Abs(outstanding) / 100m;
+                        var taken = Math.Abs(paidSoFar) / 100m;
+                        var title = paidSoFar == 0
+                            ? $"{"PayMeth".Translate()} — {owed:C} to {(refundOnly ? "refund" : "pay")}"
+                            : refundOnly
+                                ? $"Refunded {taken:C} — {owed:C} left to refund"
+                                : $"Paid {taken:C} — {owed:C} left to pay";
                         // ÃÂ¢ÃÂÃÂ  Through `Modal` ÃÂ¢ÃÂÃÂ one dialog at a time, with a settle between them.
                         // Entering `0` refuses and loops back HERE, and raising this action sheet
                         // while the amount popup was still tearing down threw a COMException out of
                         // an `async void` and closed the till (2026-08-10).
                         var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
                             Application.Current.MainPage.DisplayActionSheet(
-                                "PayMeth".Translate(), "Cancel".Translate(), null, payMethNames));
+                                title, "Cancel".Translate(), null, payMethNames));
 
                         if (string.IsNullOrEmpty(picked) || picked == "Cancel".Translate()
                             || !payMeths.ContainsKey(picked))

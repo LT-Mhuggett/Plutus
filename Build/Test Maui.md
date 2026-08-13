@@ -1,6 +1,6 @@
 # Test Maui — the MAUI till hand-test script
 
-**For till 1.49.1.** Anyone can run this. You do not need to know the codebase, and you should not
+**For till 1.49.2.** Anyone can run this. You do not need to know the codebase, and you should not
 need to ask anyone what a step means — if a step is unclear, that is a bug in this document, so please
 say so.
 
@@ -13,7 +13,7 @@ if that is all the time you have.
 
 | | |
 |---|---|
-| **Run** | `D:\tmp\plutus-till-1.49.1\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Not 1.48.0** (cannot take a sale at all — A0) and **not 1.49.0** (crashes when you overpay by card — A4). |
+| **Run** | `D:\tmp\plutus-till-1.49.2\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Not** 1.48.0 (cannot take a sale — A0), 1.49.0 (crashes on a card overpay — A4) or 1.49.1 (a split payment tells you nothing — A5). |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
 | **Sign in as** | any operator with **Supervisor** or above — some steps need permission to change stock |
@@ -39,12 +39,12 @@ project.
 
 # §A — the reported faults, and whether they are really fixed
 
-The specific fixes in **1.42.0–1.49.1**, from the hand-runs of 2026-08-11 and 2026-08-13. Each one was
+The specific fixes in **1.42.0–1.49.2**, from the hand-runs of 2026-08-11 and 2026-08-13. Each one was
 reported by a real person using the till. **If you only have 15 minutes, do this section.**
 
-⚠ **A0 and A4 are the newest and the least proven** — both are checkout faults found on 2026-08-13,
-and A4 has broken the till twice in two different ways. **§E** covers three things from 2026-08-11
-that still nobody has tested.
+⚠ **A0, A4 and A5 are the newest and the least proven** — all three are checkout faults found on
+2026-08-13, and A4 has broken the till twice in two different ways. **§E** covers three things from
+2026-08-11 that still nobody has tested.
 
 ## A0. Take a payment — does the "Amounts" box actually appear?
 
@@ -142,15 +142,27 @@ had typed and which tender you had chosen.
 
 ## A5. Split a payment across two methods
 
-1. Basket of **£10.00**. Checkout → **Cash** → **4.00**.
-2. It should ask again, saying **there is £6.00 left to pay**.
-3. **Card** → **6.00**.
+**What you are really checking here is whether the screen TELLS you what it has taken.**
 
-**✅ Expected:** the sale completes as one sale with two payments. The receipt shows both.
+1. Basket of **£4.40**. Checkout → **Cash** → **2.00**.
+2. It takes you back to the tender list. **Read the heading.**
 
-⚠ This always worked, but nothing on the screen said the second prompt was the *rest of the same
-sale*, so it read as an error. **What you are checking is whether it is now obvious.** If it still
-is not, say so — that is a real finding.
+**✅ Expected:** the heading says **`Paid £2.00 — £2.40 left to pay`**. The first time round it should
+have read **`Payment Method — £4.40 to pay`**.
+
+3. **Card** → **2.40**.
+
+**✅ Expected:** the sale completes as **one** sale with **two** payments, and the receipt shows both.
+
+**❌ What was wrong on 1.49.1:** the heading said only *"Payment Method"* — the same on the second pass
+as on the first — so there was nothing to say the £2 had been taken or that £2.40 was left. It read
+exactly like a till that had swallowed £2. ⚠ **The money was never lost** (a test has pinned that since
+the tender loop was written); the screen simply never said so, which is its own fault and arguably a
+worse one, because it invites taking the money twice.
+
+⚠ **Try a THREE-way split too** — £2, £1, £1.40 — and check the running total is right at each step.
+And try **Cancel** halfway through: nothing should be taken, and if you have already put cash in the
+drawer, hand it back — a cancelled sale records nothing at all, deliberately.
 
 ## A6. Open a float and stay on the Cash tab
 
@@ -355,7 +367,7 @@ and nothing calls it, so this path is currently the only way to find it.
 correct" is what lets a fix be closed; without it, it stays open and gets re-tested for weeks.
 
 ⚠ **And say which version you ran.** It is the small grey line at the bottom of the **Plutus** tab,
-which should read **`MAUI till v1.49.1`**. (It is also on the sign-in screen.) ⚠ **If it says anything
+which should read **`MAUI till v1.49.2`**. (It is also on the sign-in screen.) ⚠ **If it says anything
 else, stop and say so** — 1.48.0 cannot take a sale and 1.49.0 crashes on a card overpay, so a run on
 either of those will just re-find faults that are already fixed. Two of the fourteen findings on
 2026-08-11 took much longer to settle than they needed to, partly because nobody could be certain

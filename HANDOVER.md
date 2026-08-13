@@ -1,7 +1,7 @@
 # Handover — Plutus platform build
 
 **Date:** 2026-08-13 — Platform on **.NET 10**. Backend **1.15.0**, portal **1.7.0** and web till
-**1.6.0** are DEPLOYED to the test environment; till-maui **1.49.1**, platform **1.26.0**, agent
+**1.6.0** are DEPLOYED to the test environment; till-maui **1.49.2**, platform **1.27.0**, agent
 **1.3.3**. All 18 phases + Operator Portal (OP1–OP4), the **portal/till refresh (P1–P6)** and
 **FE1–FE10** built & LIVE. The **MAUI retrofit**: cutover **steps 1–21, 23, 25 and half of 26 are
 done**; **11b (promoted), 22, 24, the rest of 26, 27 and 28 remain** — ⚠ **one document now:**
@@ -26,7 +26,7 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 ### ⏰⏰⏰⏰⏰⏰⏰⏰⏰ START HERE — picking up on **2026-08-13**
 
-**A documentation day that ended in a code fix.** ⚠ **Till 1.49.0 then 1.49.1 shipped** (items 3 and 3b below); nothing deployed, backend/portal/web versions unchanged. The work list below
+**A documentation day that ended in a code fix.** ⚠ **Till 1.49.0 → 1.49.1 → 1.49.2 shipped** (items 3, 3b and 3c below); nothing deployed, backend/portal/web versions unchanged. The work list below
 (*START HERE TOMORROW*) is still the work list — it was not touched, only written up properly.
 
 **1. The MAUI documents are now ONE.** [`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md)
@@ -87,7 +87,7 @@ strands every test behind it. Every test in that file now carries a bound, so th
 **6 red tests in 39 seconds** with *"a nested dialog did not complete within 3s — the gate
 deadlocked."* **A regression that hangs CI is a regression nobody diagnoses.**
 
-**3b. ⚠⚠ THEN 1.49.1 — A4 (OVERPAY BY CARD) CRASHED THE TILL, AND IT WAS HIDING BEHIND THE DEADLOCK.**
+**3b. ⚠⚠ THEN A4 (OVERPAY BY CARD) CRASHED 1.49.0 — FIXED IN 1.49.1, AND IT HAD BEEN HIDING BEHIND THE DEADLOCK.**
 Matt got A1–A3 passing on 1.49.0 and *"A4 card overpay crashes the till."* ⚠ **Not a regression from
 the deadlock fix — the refusal path had been unreachable since 1.47.0**, so fixing U exposed the next
 layer.
@@ -114,6 +114,27 @@ crashed straight after this one. ⚠ A **dormant twin** went with it: `chooseMet
 because Kapow's surcharge rate is zero. Suite 432 → **434**. Built to **`D:\tmp\plutus-till-1.49.1`**,
 artefact verified. ⚠ **The marshalling itself is USER-VERIFY (A4)** — there is no dispatcher in the test
 host, so the new tests pin the off-thread path, not the thread it lands on.
+
+**3c. THEN 1.49.2 — a split payment worked and looked broken.** Matt: *"an item is £4.40, I press cash,
+put in £2, it takes me back to the 'Card or cash' screen but doesn't tell me anything has been paid or
+there is X to pay. I assume its not actually working."* ✅ **It was working** — the accumulation has been
+pinned since the tender loop was extracted — but the tender picker's title read *"Payment Method"* on
+the second pass exactly as on the first, and the balance only appeared one screen later.
+
+⚠ **"Works and looks broken" is not a smaller problem than "broken", it is a worse one:** an operator
+who cannot tell a working split payment from a swallowed £2 will stop splitting payments, or take the
+money twice with a customer watching. Now `Paid £2.00 — £2.40 left to pay`.
+
+⚠ **The figure comes from `TenderLoop`, not the basket**, because the loop adds the card surcharge to
+what is owed — a caller deriving `paid = myTotal − outstanding` would be right until a tenant switched a
+card fee on, and then wrong **by the fee**, on a screen telling an operator how much money they hold.
+`chooseMethod` takes `(outstanding, paidSoFar)` and a test pins the surcharge case specifically.
+**Unit 907 → 909.** ⚠ **`platform` bumped to 1.27.0 as well** — a `src/` library changed, and I nearly
+shipped without it.
+
+⚠ **Residual, and honest:** the web till shows a standing **Paid / Remaining** pair on one form; MAUI
+asks in sequence. Same numbers and vocabulary, different shape — **Part B stays 🟡 until step 11b
+rebuilds that screen.**
 
 **4. Corrected:** §1 below described the backend as ".NET 8". It is `net10.0`.
 

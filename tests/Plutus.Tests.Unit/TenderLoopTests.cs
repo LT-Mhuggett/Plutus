@@ -28,6 +28,9 @@ public class TenderLoopTests
         public int AmountsAsked { get; private set; }
         public readonly List<long> OutstandingWhenAsked = new();
 
+        /// <summary>What the tender PICKER was told each time it was raised: (outstanding, paid).</summary>
+        public readonly List<(long Outstanding, long Paid)> PickerWasTold = new();
+
         public Operator Picks(string method, bool givesChange, long surchargePence = 0)
         {
             _choices.Enqueue(new TenderChoice(method, givesChange, surchargePence));
@@ -56,9 +59,10 @@ public class TenderLoopTests
 
         public Operator AbandonsAmount() { _amounts.Enqueue(TenderAmount.Abandoned); return this; }
 
-        public Task<TenderChoice> ChooseAsync(long outstanding)
+        public Task<TenderChoice> ChooseAsync(long outstanding, long paidSoFar)
         {
             ChoicesAsked++;
+            PickerWasTold.Add((outstanding, paidSoFar));
             // ⚠ Falls back to Abandoned rather than throwing on an empty queue: a test whose loop
             // runs longer than expected should FAIL ON ITS ASSERTION, not on a queue exception that
             // hides which rule broke.
@@ -115,6 +119,48 @@ public class TenderLoopTests
         Assert.Equal(3, outcome.Payments.Count);
         Assert.Equal(330, outcome.Payments.Sum(p => p.AmountPence));
         Assert.Equal(0, outcome.ChangePence);
+    }
+
+    /// <summary>
+    /// ⚠⚠ THE TENDER PICKER IS TOLD WHAT HAS BEEN TAKEN, and this is the test for the fault that made
+    /// a working split payment look broken. Matt, 2026-08-13, £4.40 basket, £2 cash: *"it takes me back
+    /// to the 'Card or cash' screen but doesn't tell me anything has been paid or there is X to pay. I
+    /// assume its not actually working."*
+    ///
+    /// The money was never lost — the test above has always proved that. What the screen could not do
+    /// was SAY so, because the loop handed it the outstanding balance and nothing else.
+    /// </summary>
+    [Fact]
+    public async Task The_picker_is_told_what_has_been_paid_so_far()
+    {
+        var op = new Operator().PicksCash(3).Pays(200, 140, 100);
+
+        await Run(440, op);
+
+        // First ask: nothing taken yet. Then £2.00, then £3.40 — the operator's own running total.
+        Assert.Equal(new[] { (440L, 0L), (240L, 200L), (100L, 340L) }, op.PickerWasTold);
+    }
+
+    /// <summary>
+    /// ⚠ AND IT INCLUDES THE SURCHARGE, which is exactly why this figure comes from the loop rather
+    /// than from the caller's basket total. A caller deriving `paid = myTotal - outstanding` is right
+    /// until a tenant switches a card fee on, and then wrong by the fee — on a screen telling an
+    /// operator how much money they are holding.
+    /// </summary>
+    [Fact]
+    public async Task What_has_been_paid_accounts_for_a_surcharge_the_loop_added()
+    {
+        // £4.40 basket, 50p card fee applied on the first pick, then £2.00 and the £2.90 balance.
+        var op = new Operator().PicksCard(surchargePence: 50).PicksCash().Pays(200, 290);
+
+        var outcome = await Run(440, op);
+
+        Assert.False(outcome.Abandoned);
+        Assert.Equal(490, outcome.Payments.Sum(p => p.AmountPence));
+
+        // ⚠ The SECOND ask must report £2.00 taken against £2.90 left — not £2.40, which is what a
+        // basket-derived figure would have said.
+        Assert.Equal((290L, 200L), op.PickerWasTold[1]);
     }
 
     [Fact]
