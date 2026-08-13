@@ -415,8 +415,33 @@ default 20; Part B carries the web till as 🟡 for this, not ✅.
 is deployed** — this is committed only. Suites: **Unit 938 → 949 · Architecture 15 · Integration
 173 → 174**, all green.
 
-**Next:** the MAUI customer-attach screen and the tier discount (item 3h — the live money
-difference), plus widening the web till's create gate.
+**(c) The web till's create gate is widened** — commit `566d8b8`, closing the 🟡 (b) left behind.
+`pipeline.ts` `mayAddCustomer(scopes)` (pure, so testable without a session) + `canAddCustomers()`,
+on **＋ New** at the sale screen and **Add member** on the Loyalty page. ⚠ `edit` and the Loyalty row
+action deliberately stay on `canManageCustomers()` — adding and editing are different bars, and a
+single helper for both would pass every test while losing the distinction (hence no `mayEditCustomer`).
+
+⚠⚠ **Widening the gate alone would have shipped a half-success.** `MemberDialog` is shared between
+add and edit and always rendered the tier picker, and `submit` creates the customer and *then*
+assigns the tier as two calls — so a cashier picking a tier would get **201 on the create and 403 on
+the tier**: an error in front of a customer, for a member who *had* been added, whose natural retry
+creates a duplicate. The dialog now takes `canSetTier`, hides the picker without it, and explains who
+to ask. The till page's own customer form was checked too — name/email/phone only, no equivalent.
+
+⚠ **Verified on the Mac** (Windows has no Node): `tsc --noEmit` clean, `npm test` **31 → 35**,
+mutation-checked (OR→AND fails both permissive cases). ⚠ Only the four changed files were copied and
+**nothing was deployed** — no rsync to `current/`, no pm2; hashes verified identical both sides after
+reverting the mutant, **ETRIE 200**. ⚠ So the Mac's WebApp source is **ahead of its served bundle**
+until a deploy is asked for. `till-web` 1.7.0 → **1.8.0**.
+
+⚠ **Twice in this batch a mutation check silently proved nothing** — a perl expression emitted invalid
+C#, and a `sed` choked on the `||` in its own pattern and left the file untouched while the suite went
+green. Both caught only by re-reading the mutated line and grepping for errors. That is why the rule
+is *always confirm the mutant actually applied*, not a nicety.
+
+**Next:** the MAUI side — customer attach, the tier discount (item 3h, the live money difference),
+member-card scan via `LooksLikeMemberScan`, and the store-credit tender. Nothing on the
+1.49.3→1.52.0 MAUI line has been hand-run by a person yet either (`Test Maui.md` §A4b, §E0/E0b).
 
 **4. Corrected:** §1 below described the backend as ".NET 8". It is `net10.0`.
 
