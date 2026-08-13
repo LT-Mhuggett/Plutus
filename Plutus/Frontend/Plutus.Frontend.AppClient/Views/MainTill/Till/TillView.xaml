@@ -143,9 +143,17 @@
                     </Grid>
                     <Button HorizontalOptions="FillAndExpand" Text="{i18n:Translate Scan}" Command="{Binding AutoScanCommand}"
                             IsVisible="{Binding IsDesktop, Mode=OneWay, Converter={StaticResource InverseBool}}"/>
-                    <Entry HorizontalOptions="FillAndExpand" Text="{Binding ItemId}" 
+                    <Entry HorizontalOptions="FillAndExpand" Text="{Binding ItemId}"
                            ReturnCommand="{Binding ManualAddCommand}" FontSize="Medium"
                            IsVisible="{Binding IsDesktop, Mode=OneWay}"/>
+                    <!-- ⚠⚠ THE VISIBLE DOOR ONTO A REFUND (finding Z1, 2026-08-13). The only way in was
+                         a RIGHT-CLICK on a basket line, which nothing on screen advertised — Matt asked
+                         where the web till's button was. A feature reachable only by right-click on a
+                         touch till is a feature that does not exist, and this one hands money back.
+                         ⚠ Beside the scan box on purpose: that is where the web till's is, and where an
+                         operator is already looking when a customer puts something on the counter. -->
+                    <Button Text="↩ Return an item" Command="{Binding ReturnSelectedCommand}"
+                            HorizontalOptions="FillAndExpand"/>
                 </StackLayout>
                 <ListView x:Name="TillList" VerticalOptions="FillAndExpand" HasUnevenRows="True"
                           ItemsSource="{Binding Basket}" ItemTemplate="{StaticResource BasketDataTemplateSelector}"

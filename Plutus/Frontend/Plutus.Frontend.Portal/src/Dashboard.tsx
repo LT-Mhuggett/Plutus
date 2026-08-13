@@ -103,8 +103,29 @@ function Pills() {
   }, []);
   if (!k) return null;
   const wc = k.weekStart ? new Date(k.weekStart + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "";
-  const pill = (label: string, value: string, onClick: () => void) => (
-    <button className="stat" style={{ cursor: "pointer", textAlign: "left", border: "none" }} onClick={onClick} title="Open">
+  const pill = (label: string, value: string, onClick: () => void, alert = false) => (
+    // ⚠⚠ AMBER WHEN IT WANTS ATTENTION — finding Z4, 2026-08-13. Matt: *"would be good to have the
+    // button/info amber to highlight it."* The out-of-balance drawers tile read in exactly the same
+    // grey as the six tiles beside it, so the one number a manager needs to act on today looked like
+    // the ones that are merely interesting.
+    //
+    // ⚠ Inline styles rather than a new class, deliberately: the portal's stat tiles are styled in one
+    // place and this is the only tile that is ever a warning. A `stat-alert` class would invite a
+    // second, and then a third, each a shade further from "attention" meaning anything.
+    //
+    // ⚠ Amber, not red: the drawer being out is a thing to look into, not a failure. Red is what the
+    // portal uses for errors, and spending it here would devalue it there.
+    <button
+      className="stat"
+      style={{
+        cursor: "pointer", textAlign: "left",
+        border: alert ? "1px solid #b45309" : "none",
+        background: alert ? "#fffbeb" : undefined,
+        color: alert ? "#7c2d12" : undefined,
+      }}
+      onClick={onClick}
+      title="Open"
+    >
       <span className="stat-label">{label}</span><span className="stat-value">{value}</span>
     </button>
   );
@@ -133,7 +154,8 @@ function Pills() {
           `⚠ Drawers out of balance (${k.drawersOutOfBalance})`,
           [k.drawersShortPence > 0 ? `${gbp(k.drawersShortPence)} short` : "",
            k.drawersOverPence > 0 ? `${gbp(k.drawersOverPence)} over` : ""].filter(Boolean).join(" · "),
-          () => go("Banking"))}
+          () => go("Banking"),
+          true)}
     </div>
   );
 }

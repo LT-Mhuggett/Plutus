@@ -1,7 +1,7 @@
 # Handover — Plutus platform build
 
-**Date:** 2026-08-13 — Platform on **.NET 10**. Backend **1.16.0**, portal **1.7.0** and web till
-**1.7.0** are DEPLOYED to the test environment; till-maui **1.51.0**, platform **1.30.0**, agent
+**Date:** 2026-08-13 — Platform on **.NET 10**. Backend **1.16.0**, portal **1.8.0** and web till
+**1.7.0** are DEPLOYED to the test environment; till-maui **1.52.0**, platform **1.30.0**, agent
 **1.3.3**. All 18 phases + Operator Portal (OP1–OP4), the **portal/till refresh (P1–P6)** and
 **FE1–FE10** built & LIVE. The **MAUI retrofit**: cutover **steps 1–21, 23, 25 and half of 26 are
 done**; **11b (promoted), 22, 24, the rest of 26, 27 and 28 remain** — ⚠ **one document now:**
@@ -26,7 +26,7 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 ### ⏰⏰⏰⏰⏰⏰⏰⏰⏰ START HERE — picking up on **2026-08-13**
 
-**A documentation day that turned into a hand-run day.** ⚠ **Till 1.49.0 → 1.51.0 shipped — six builds, each fixing what the next test found** (items 3–3e below); nothing deployed, backend/portal/web versions unchanged. The work list below
+**A documentation day that turned into a hand-run day.** ⚠ **Till 1.49.0 → 1.52.0, backend 1.16.0, web till 1.7.0 and portal 1.8.0 — seven till builds and three deploys** (items 3–3e below); nothing deployed, backend/portal/web versions unchanged. The work list below
 (*START HERE TOMORROW*) is still the work list — it was not touched, only written up properly.
 
 **1. The MAUI documents are now ONE.** [`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md)
@@ -204,6 +204,22 @@ till had no test runner, so a money rule ported to TypeScript would land unpinne
 in **pinned on both sides** — 12 new tests using the same vectors as `RefundTenderSplitTests`, 31
 web-till tests total, mutation-checked twice. **This is the first C2 twin in the repo that is executed
 on both halves.** ⚠ Check WP15's other claims before scheduling it.
+
+#### ✅ Z1–Z5 ALL DONE — till 1.52.0 built, portal 1.8.0 DEPLOYED (2026-08-13 20:15)
+
+The five requests from the hand-run, cleared the same day. Portal rollback
+**`/srv/apps/PLUTUS/portal/current.pre-20260813-2015`**; verified on the SERVED bundle at
+**`admin.plutus`** (not `plutus` — that mistake "confirmed" a bundle belonging to a different app on
+2026-08-11): `index-X2HmT_BH.js`, **487,234 bytes**, containing `1.8.0`, `Stock adjustments` and the
+amber tile's colour. ⚠ ETRIE 200, web till 200.
+
+| | |
+|---|---|
+| **Z1** | ⚠ **"↩ Return an item" beside the scan box.** The only way in was a right-click on a basket line and nothing said so — *a feature reachable only by right-click on a touch till is a feature that does not exist*, and this one hands money back. ⚠ **Not the web till's flow**: it starts from the SALE, MAUI from the BASKET. Step 26 converges them; this stops it being invisible meanwhile |
+| **Z2** | ⚠⚠ **Opening hours existed everywhere except MAUI** — portal sets them, server serves them, web till renders them, MAUI had **zero references**. WP6's DoD required the weekly table and step 20 was ticked without it: **the third ⬜-wearing-a-✅ this week.** ⚠ If the web till shows nothing either, they are simply unset in the portal |
+| **Z3** | **`· as at 16:32`** on today's takings. It always refreshed; nothing let anyone tell a five-second-old figure from one read at sign-in — on the number a manager counts a drawer against, that is not decoration |
+| **Z4** | The out-of-balance drawer tile is **amber**. ⚠ Amber, not red: a drawer being out is a thing to look into, and spending red here devalues it where errors live |
+| **Z5** | **Inventory → Stock adjustments** is its own tab. The report already existed at the foot of the ledger page and Matt went looking and didn't find it; it renders in **both** places now, because the reason for the original placement did not stop being true |
 
 **3e. FINDING Y — CLOSED ON EVERY SURFACE. Five slices, till 1.51.0, backend 1.16.0, web till 1.7.0.**
 A refund can no longer put more back on a tender than that tender took.

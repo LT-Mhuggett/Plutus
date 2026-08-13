@@ -123,6 +123,10 @@ export default function StockPage() {
         emptyText="No stock rows."
       />
 
+      {/* ⚠ Finding Z5: this report now ALSO has its own Inventory sub-tab, because that is where Matt
+          looked for it. It stays here as well — somebody thinking about the ledger is already thinking
+          about adjustments, and the reason it lives on this page (a report nobody navigates to is the
+          problem the drawer-variance pill just fixed) has not stopped being true. */}
       <AdjustmentsReport locations={locations} />
 
       {drill && <ItemDialog level={drill} locations={locations} onClose={() => { setDrill(null); void refresh(); }} />}
@@ -156,7 +160,18 @@ const isoDay = (d: Date) => d.toISOString().slice(0, 10);
  * when they are thinking about stock, and a report nobody navigates to is the problem we just fixed
  * for drawer variances.
  */
-function AdjustmentsReport({ locations }: { locations: LocationRow[] }) {
+export function AdjustmentsReport({ locations }: { locations?: LocationRow[] }) {
+  // ⚠ SELF-SUFFICIENT WHEN IT IS ITS OWN TAB (finding Z5, 2026-08-13). Matt: *"stock adjustments needs
+  // its own tab e.g. Items, Stock ledger, stock adjustments, Categories, Bin."* Rendered inside the
+  // ledger it can borrow that page's locations; standing alone it has to fetch them, and passing an
+  // empty array instead would silently reduce the location filter to "Central" for ever.
+  const [own, setOwn] = useState<LocationRow[]>([]);
+  useEffect(() => {
+    if (locations) return;
+    j<LocationRow[]>("GET", `/api/v1/stock/locations`).then(setOwn).catch(() => undefined);
+  }, [locations]);
+  const locs = locations ?? own;
+
   const [from, setFrom] = useState(isoDay(new Date(Date.now() - 30 * 86400_000)));
   const [to, setTo] = useState(isoDay(new Date()));
   const [locationId, setLocationId] = useState("");
@@ -190,7 +205,7 @@ function AdjustmentsReport({ locations }: { locations: LocationRow[] }) {
           Location{" "}
           <select value={locationId} onChange={(e) => setLocationId(e.target.value)}>
             <option value="">All locations</option>
-            {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            {locs.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
           </select>
         </label>
       </div>

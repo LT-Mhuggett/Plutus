@@ -57,7 +57,7 @@ item-identity seam all outlive the retrofit, and archiving them unlifted buries 
 | | |
 |---|---|
 | **Till build to run** | **`D:\tmp\plutus-till-1.51.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe. ⚠ **Six builds on 2026-08-13, each fixing what the next test found:** 1.48.0 could not take a sale (U) · 1.49.0 crashed on a card overpay (V) · 1.49.1 said nothing during a split payment (W) · 1.49.2 let a closed day take items from the item list (X) · 1.49.3 and 1.50.0 let a split-paid refund go on one card (Y). ⚠ **§A and §B are run through** (C needs two people) — **open: [Y](#1-open-faults--before-any-new-work)'s web-till half, and Z1–Z5** |
-| **Versions** | till-maui **1.51.0** · backend **1.16.0** (deployed) · platform **1.30.0** · portal **1.7.0** · till-web **1.7.0** (deployed) · agent **1.3.3** |
+| **Versions** | till-maui **1.52.0** · backend **1.16.0** (deployed) · platform **1.30.0** · portal **1.8.0** (deployed) · till-web **1.7.0** (deployed) · agent **1.3.3** |
 | **Deploy state** | ⚠ **Nothing MAUI-side is blocked on a deploy.** Every backend endpoint the remaining steps need is live on the test environment |
 | **Suite** | Unit **907** · Integration **169** · Architecture **15** · AppClient **425** (+3 skipped) · web till **19** — all green |
 
@@ -405,7 +405,17 @@ the UI thread is USER-VERIFY (A4)**, and saying so is better than a test that pr
 | — | **Hand-run** | 🔨 **IN PROGRESS on 1.49.1.** Started 2026-08-13 on 1.48.0 and stopped at the first sale (U); **A1–A3 then passed on 1.49.0 and A4 crashed it (V)**. ⚠ Everything downstream of taking money is still **untested on this build line**: refunds, the drawer, X/Z with sales in it, the Cash tab's "(waiting to send)", today's takings. **[`Test Maui.md`](../Test%20Maui.md) §B**, from the checkout. Nine till builds have now shipped since a person last completed a shop day |
 | 🟠 | **`LoginViewModel.EnsureStoreAsync` throws on EVERY sign-in** — `InvalidOperationException: Unable to track an entity of type 'StoreModel' because its primary key property 'Id' is null` (`LoginViewModel.cs:389`) | Caught and harmless; the screen it fed is now read-only off `StoreInfoCache`. ⚠ It also **creates the legacy `Database.db` on every sign-in**, which is what made the enrolment gate a one-way door. **Step 21 deletes it** — scheduled, not forgotten (also register row [L7](#l7--loginviewmodelensurestoreasync)) |
 
-## 1b. Raised by the 2026-08-13 hand-run — captured, not yet built
+## 1b. Raised by the 2026-08-13 hand-run — ✅ ALL FIVE DONE the same day
+
+| # | What | Where it landed |
+|---|---|---|
+| **Z1** | A visible door onto a refund | ✅ **Till 1.52.0.** A **"↩ Return an item"** button beside the scan box. ⚠ **It is not the web till's flow and the difference is recorded rather than papered over:** the web till starts from the SALE (a dialog finds it, then adds the line), MAUI starts from the BASKET (scan the item, then mark the line as going back). So the button drives the flow MAUI has, and when nothing is selected it says what to do instead of opening a dialog that cannot work yet. **Step 26's lookup is where the two shapes converge** |
+| **Z2** | Opening hours, missing from MAUI entirely | ✅ **Till 1.52.0.** A read-only weekly table on Store Information, parsed exactly as the web till parses it (day key → spans, a missing day meaning **Closed**, not "unknown"). ⚠⚠ **WP6's DoD required this and step 20 was ticked without it** — a ⬜ wearing a ✅, which is the third this week. ⚠ Unparseable JSON reads "not set" rather than throwing: a store screen must never be the thing that takes a till down. ⚠ **If the web till also shows nothing, the hours are simply unset** — Portal → Locations & Tills → edit the store |
+| **Z3** | Today's takings: say when it was read | ✅ **Till 1.52.0.** `· as at 16:32` on the line. It always refreshed (on appearing **and** on the 60s tick — verified in the code, not taken from a comment); what it could not do was let anyone tell a figure read five seconds ago from one read at sign-in. **On the number a manager counts a drawer against, that is not decoration** |
+| **Z4** | Portal: amber the out-of-balance drawer tile | ✅ **Portal 1.8.0, DEPLOYED.** ⚠ Amber, not red: a drawer being out is a thing to look into, not a failure, and spending red here devalues it where errors live. Inline style rather than a new class, so there is no `stat-alert` for a second and third tile to dilute |
+| **Z5** | Portal: stock adjustments its own tab | ✅ **Portal 1.8.0, DEPLOYED.** Inventory → **Items · Stock ledger · Stock adjustments · Categories · Bin**. ⚠ The report already existed at the bottom of the ledger page and Matt went looking for it and did not find it. It renders in **both** places: the reason for putting it on the ledger (somebody thinking about stock is already there) did not stop being true when it gained a front door. Deep-link `focus=adjustments` too |
+
+## 1c. Captured earlier, kept for the reasoning
 
 Each is real and none is a blocker. **The two portal items need the Mac** (no Node on Windows), so they
 ship with the next portal build.

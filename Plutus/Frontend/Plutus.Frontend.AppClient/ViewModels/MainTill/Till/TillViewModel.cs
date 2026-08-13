@@ -623,6 +623,52 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         }
         #endregion
         #region Return
+        private Command _returnSelectedCommand;
+
+        /// <summary>
+        /// The visible door onto a refund — finding Z1, 2026-08-13.
+        ///
+        /// ⚠⚠ THE ONLY WAY IN WAS A RIGHT-CLICK ON A BASKET LINE, and nothing on screen said so. Matt:
+        /// *"The webtill allows you look up returns and sales via a button next to the barcode entry
+        /// bar. Is this set to be replicated within MAUI?"* **A feature reachable only by right-click on
+        /// a touch till is a feature that does not exist** — and this one hands money back.
+        ///
+        /// ⚠ IT IS NOT THE WEB TILL'S FLOW, and the difference is worth knowing rather than papering
+        /// over. The web till opens a dialog, finds the SALE, and adds the returned line from it. MAUI
+        /// works the other way round: put the item in the basket, then mark that line as going back. So
+        /// this button drives the flow MAUI actually has, and says what to do when nothing is selected
+        /// rather than opening a dialog that cannot work yet.
+        ///
+        /// ⚠ **Step 26 is where the shapes converge** — its cross-till sale lookup is the screen that
+        /// lets MAUI start from the sale like the web till does. This is the ½-day version that stops
+        /// the feature being invisible in the meantime.
+        /// </summary>
+        public Command ReturnSelectedCommand => _returnSelectedCommand ??= new Command(async () =>
+        {
+            if (IsBusy) return;
+
+            // Already a return: RevertReturn is that line's job, and silently doing nothing here is
+            // how an operator concludes the button is broken.
+            if (SelectedBasketRecord is BasketReturnItem)
+            {
+                await Application.Current.MainPage.DisplayAlert("Already going back",
+                    "That line is already a return. Use the line's own menu to undo it.", "OK".Translate());
+                return;
+            }
+
+            if (SelectedBasketRecord is BasketItem item)
+            {
+                ExecuteReturn(item);
+                return;
+            }
+
+            await Application.Current.MainPage.DisplayAlert("Which item is coming back?",
+                "Scan or search for the item the customer is returning so it is in the basket, tap its "
+                + "line to select it, then press this again.\n\nYou will be asked which sale it came "
+                + "from — pick it from this till's recent sales, or type the number on the receipt.",
+                "OK".Translate());
+        });
+
         private async void ExecuteReturn(BasketItem basketItem)
         {
             if (IsBusy)

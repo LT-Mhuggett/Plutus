@@ -144,7 +144,19 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Statistics
                             : $"Today — {summary.Totals.GrossPence / 100m:C} taken over "
                               + $"{summary.Totals.TxnCount} sale{(summary.Totals.TxnCount == 1 ? "" : "s")}"
                               + $"  ·  VAT {summary.Totals.VatPence / 100m:C}"
-                              + $"  ·  average basket {summary.Totals.AvgBasketPence / 100m:C}";
+                              + $"  ·  average basket {summary.Totals.AvgBasketPence / 100m:C}"
+                              // ⚠⚠ SAY WHEN IT WAS READ — finding Z3, 2026-08-13. Matt: *"does this
+                              // refresh automatically? It only refreshed when I moved between tabs."*
+                              // It does — the page reloads on appearing AND on `TillCadence.Ticked` —
+                              // but the tick is SIXTY SECONDS, so under a minute of watching looks
+                              // exactly like "only on tab change".
+                              //
+                              // ⚠ The real gap was that nothing distinguished a figure read five
+                              // seconds ago from one read at sign-in, which is finding N over again.
+                              // On this screen a timestamp is not decoration: this is the number a
+                              // manager counts a drawer against, and "as at" is what makes a stale one
+                              // visible instead of merely wrong.
+                              + $"  ·  as at {DateTime.Now:HH:mm}";
                         colour = summary is null ? Colors.Gray : Colors.SeaGreen;
                     }
                 }

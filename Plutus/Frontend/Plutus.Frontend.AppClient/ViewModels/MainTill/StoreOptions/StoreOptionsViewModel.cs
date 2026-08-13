@@ -177,8 +177,95 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.StoreOptions
                         Services.Storage.StoreInfoCache.AddressOf(info)));
                     _storeDetails.Children.Add(Detail("ContactNumber".Translate(), info.ContactNumber));
                     _storeDetails.Children.Add(Detail("VatIN".Translate(), info.VatNumber));
+                    _storeDetails.Children.Add(OpeningHours(info.OpeningHoursJson));
                 });
             });
+        }
+
+        /// <summary>
+        /// The week, as the portal set it — finding Z2, 2026-08-13.
+        ///
+        /// ⚠⚠ WP6's DoD REQUIRED THIS AND STEP 20 WAS TICKED WITHOUT IT: *"rendering the per-day
+        /// `openingHoursJson` as a read-only weekly table"*. Matt found it by looking: *"Opening hours
+        /// is not reflected on the webtill or Maui."* The portal sets them, the server serves them and
+        /// the web till renders them — MAUI had **zero references to `openingHours` anywhere**. A ⬜
+        /// wearing a ✅, which is the failure the Part B register exists to catch.
+        ///
+        /// ⚠ THE SAME PARSE AS THE WEB TILL (`StoreInformationPage.tsx`): a map of day key → spans of
+        /// `{open, close}`, where a missing or empty day means CLOSED — not "unknown". Keys are the
+        /// portal's `mon`…`sun`, so this is a C2-shaped agreement about a data format rather than about
+        /// money; the format lives in the portal's editor and both tills read it.
+        ///
+        /// ⚠ Unparseable JSON reads as "not set" rather than throwing. A store screen must never be the
+        /// thing that takes the till down, and a malformed field is the portal's problem to fix.
+        /// </summary>
+        private static View OpeningHours(string openingHoursJson)
+        {
+            var stack = new StackLayout
+            {
+                Children =
+                {
+                    new Label
+                    {
+                        Text = "Opening hours",
+                        FontSize = new Label().FontSize,
+                        TextColor = Colors.LightGray,
+                        FontAttributes = FontAttributes.Bold,
+                    },
+                },
+            };
+
+            Dictionary<string, List<OpeningSpan>> week = null;
+            if (!string.IsNullOrWhiteSpace(openingHoursJson))
+            {
+                try
+                {
+                    week = System.Text.Json.JsonSerializer
+                        .Deserialize<Dictionary<string, List<OpeningSpan>>>(openingHoursJson);
+                }
+                catch (System.Text.Json.JsonException ex)
+                {
+                    Services.Analytics.CrashLog.Write("StoreOptions.OpeningHours", ex);
+                }
+            }
+
+            if (week is null || week.Count == 0)
+            {
+                stack.Children.Add(new Label
+                {
+                    Text = "Not set — add opening hours in the management portal.",
+                    TextColor = Colors.Gray,
+                });
+                return stack;
+            }
+
+            foreach (var (key, label) in Days)
+            {
+                var spans = week.TryGetValue(key, out var found) ? found : null;
+                var text = spans is null || spans.Count == 0
+                    ? "Closed"
+                    : string.Join(", ", spans.Select(s => $"{s.open}–{s.close}"));
+
+                stack.Children.Add(new Label { Text = $"{label}   {text}" });
+            }
+
+            return stack;
+        }
+
+        /// <summary>⚠ The portal's own keys, in the portal's own order — not `DayOfWeek`, which starts
+        /// on Sunday and would silently reorder a shop's week.</summary>
+        private static readonly (string Key, string Label)[] Days =
+        {
+            ("mon", "Monday"), ("tue", "Tuesday"), ("wed", "Wednesday"), ("thu", "Thursday"),
+            ("fri", "Friday"), ("sat", "Saturday"), ("sun", "Sunday"),
+        };
+
+        /// <summary>One open period. ⚠ Lower-case members: these are the JSON's own names, and the
+        /// portal writes `{"open":"09:00","close":"17:30"}`.</summary>
+        private sealed class OpeningSpan
+        {
+            public string open { get; set; }
+            public string close { get; set; }
         }
 
         /// <summary>A label pair. ⚠ An empty value reads "Not set" rather than rendering blank —

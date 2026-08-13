@@ -1,6 +1,6 @@
 # Test Maui — the MAUI till hand-test script
 
-**For till 1.51.0.** Anyone can run this. You do not need to know the codebase, and you should not
+**For till 1.52.0.** Anyone can run this. You do not need to know the codebase, and you should not
 need to ask anyone what a step means — if a step is unclear, that is a bug in this document, so please
 say so.
 
@@ -13,7 +13,7 @@ if that is all the time you have.
 
 | | |
 |---|---|
-| **Run** | `D:\tmp\plutus-till-1.51.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Nothing older.** Each of the five builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b). |
+| **Run** | `D:\tmp\plutus-till-1.52.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Nothing older.** Each of the five builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b). |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
 | **Sign in as** | any operator with **Supervisor** or above — some steps need permission to change stock |
@@ -39,7 +39,7 @@ project.
 
 # §A — the reported faults, and whether they are really fixed
 
-The specific fixes in **1.42.0–1.51.0**, from the hand-runs of 2026-08-11 and 2026-08-13. Each one was
+The specific fixes in **1.42.0–1.52.0**, from the hand-runs of 2026-08-11 and 2026-08-13. Each one was
 reported by a real person using the till. **If you only have 15 minutes, do this section.**
 
 ⚠ **A0, A4, A4b, A5 and A8 are the newest** — all checkout or closed-day faults found on
@@ -142,7 +142,7 @@ had typed and which tender you had chosen.
 
 ## A4b. ⚠⚠ Refund a sale that was paid TWO ways — the money one
 
-**Fixed in 1.50.0 and never yet tested by a person. This is the one to be most careful about.**
+**Fixed across 1.49.3–1.51.0 and never yet tested by a person. This is the one to be most careful about.**
 
 1. Sell something for **£4.40**, paid **£2.00 cash + £2.40 card** (A5 does exactly this).
 2. Now return that item. Choose **Card** and try to put the whole **4.40** back on it.
@@ -411,7 +411,7 @@ and nothing calls it, so this path is currently the only way to find it.
 correct" is what lets a fix be closed; without it, it stays open and gets re-tested for weeks.
 
 ⚠ **And say which version you ran.** It is the small grey line at the bottom of the **Plutus** tab,
-which should read **`MAUI till v1.51.0`**. (It is also on the sign-in screen.) ⚠ **If it says anything
+which should read **`MAUI till v1.52.0`**. (It is also on the sign-in screen.) ⚠ **If it says anything
 else, stop and say so** — 1.48.0 cannot take a sale and 1.49.0 crashes on a card overpay, so a run on
 either of those will just re-find faults that are already fixed. Two of the fourteen findings on
 2026-08-11 took much longer to settle than they needed to, partly because nobody could be certain
@@ -424,7 +424,29 @@ on a machine where the version file could not be found and the build fell back t
 
 ---
 
-# §E — added late on 2026-08-11, never yet tested by anyone
+# §E — added late, never yet tested by anyone
+
+## E0. The three things you asked for on 2026-08-13 (till 1.52.0)
+
+1. **A visible way to refund.** On the **Till** tab, look beside the scan box for **"↩ Return an item"**.
+   Press it with nothing selected — it should tell you what to do. Then scan an item, tap its line, and
+   press it again: you should land in the same Returns flow the right-click menu gives.
+   ⚠ **This is not the web till's shape yet** — the web till starts from the *sale*, MAUI starts from the
+   *basket*. Step 26 is where they converge. Say if the wording doesn't make that obvious.
+2. **Opening hours.** **Store Information** should now list Monday–Sunday with times, or **Closed** for a
+   day with none. ⚠ If every day says nothing at all, the hours are probably **unset** — check
+   Portal → Locations & Tills → edit the store, then reopen the tab.
+3. **Today's takings say when they were read.** On **Reporting**, the line should end **· as at HH:MM**.
+   Ring a sale and watch: within a minute the figure and the time should both move.
+
+## E0b. In the portal (1.8.0)
+
+1. **Dashboard:** if any drawer is out of balance, that tile should now be **amber**, not grey like the
+   others. ⚠ Amber deliberately, not red — it is something to look into, not a failure.
+2. **Inventory:** there should be a **Stock adjustments** tab of its own, between *Stock ledger* and
+   *Categories*. It is also still at the bottom of the ledger page, which is intended.
+
+## The 2026-08-11 additions, still untested
 
 ## E1. ⚠ Reopen a closed day — the one that unblocked testing
 
