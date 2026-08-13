@@ -107,6 +107,10 @@ namespace Plutus.Identity
                 // Reverse a Z close from a till (Matt, 2026-08-11). In the POS bundle for the same
                 // reason as the line above: the till gate checks one code whoever is signed in.
                 PermissionCatalogue.PosCashReopen,
+                // WP12 / step 27: sign a new loyalty member up at the till. In the bundle so the
+                // till's gate is one code for everybody — these three roles already hold
+                // customers.manage, which the endpoint also accepts.
+                PermissionCatalogue.PosCustomersAdd,
             };
             static List<EffectivePermission> G(params string[] codes) =>
                 codes.Select(c => new EffectivePermission(c, null)).ToList();
@@ -155,10 +159,21 @@ namespace Plutus.Identity
                     // needs to be able to reverse the close."* A day closed early strands the till
                     // until midnight, and the supervisor on shift is exactly who notices.
                     new(PermissionCatalogue.PosCashReopen, null),
+                    // WP12: a supervisor can both ADD a member and change their tier — the tier half
+                    // comes from CustomersManage above, which they already hold.
+                    new(PermissionCatalogue.PosCustomersAdd, null),
                 }),
-                // ⚠ NOT the Cashier. A cashier changing stock counts unsupervised is how shrinkage
-                // stops being visible — the count and the person who can alter it must differ.
-                ("Cashier", G(PermissionCatalogue.PosSell)),
+                // ⚠ NOT the Cashier for stock or cash reopen. A cashier changing stock counts
+                // unsupervised is how shrinkage stops being visible — the count and the person who
+                // can alter it must differ.
+                //
+                // ⚠ BUT `pos.customers.add` IS the Cashier's, and it is the only customer capability
+                // that reaches this role (Matt, 2026-08-13: *"Till operator to add new loyalty
+                // members"* — binding default 20). Signing someone up happens at the counter, in the
+                // queue, while they are standing there; making it wait for a supervisor is how a
+                // loyalty programme quietly stops being offered. ⚠ Adding only — editing a member or
+                // setting a tier still needs `customers.manage`, which a Cashier does not have.
+                ("Cashier", G(PermissionCatalogue.PosSell, PermissionCatalogue.PosCustomersAdd)),
                 ("Auditor", G(PermissionCatalogue.PortalFinancialsView, PermissionCatalogue.PortalReportsView,
                               PermissionCatalogue.PosReportsView)),
                 ("Stock & Items", G(PermissionCatalogue.PortalStockAdjust, PermissionCatalogue.PortalPricesManage)),

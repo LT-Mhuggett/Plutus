@@ -25,22 +25,83 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
     private static readonly Guid Kapow = Plutus.Entities.Tenancy.KnownTenants.Kapow;
 
     /// <summary>Assigns a user a built-in role that carries customers.manage (Store Manager).</summary>
-    private async Task<Guid> SeedCustomerManagerAsync()
+    private Task<Guid> SeedCustomerManagerAsync() => SeedRoleAsync("Store Manager");
+
+    /// <summary>Assigns a user any built-in role, seeding the tenant's roles first.</summary>
+    private async Task<Guid> SeedRoleAsync(string roleName)
     {
         var userId = Guid.NewGuid();
         using var scope = _f.Services.CreateScope();
         var db = (MySqlDbContext)scope.ServiceProvider.GetRequiredService<RepositoryContext>();
         db.CurrentUser = "loyalty-e2e-seed";
         await RbacSeeder.EnsureBuiltInRolesAsync(db, Kapow);
-        var manager = await db.RbacRoles.FirstAsync(r => r.Name == "Store Manager");
+        var role = await db.RbacRoles.FirstAsync(r => r.Name == roleName);
         db.RbacRoleAssignments.Add(new Plutus.Entities.Models.RbacRoleAssignment
         {
             Id = Plutus.SharedKernel.Uuid7.New(), TenantId = Kapow, UserId = userId,
-            RoleId = manager.Id, ScopeType = Plutus.Entities.Models.RbacScopeType.Tenant,
+            RoleId = role.Id, ScopeType = Plutus.Entities.Models.RbacScopeType.Tenant,
             ScopeId = "", CreatedAtUtc = DateTime.UtcNow,
         });
         await db.SaveChangesAsync();
         return userId;
+    }
+
+    /// <summary>
+    /// WP12 / binding default 20 (Matt, 2026-08-13: *"Till operator to add new loyalty members.
+    /// Supervisor to change tiers."*) — a **Cashier** may sign a member up and do nothing else to
+    /// them.
+    ///
+    /// ⚠ THIS TEST IS THE CREATE/EDIT LINE, and it is the half that would fail silently. Widening
+    /// the create gate is visible the moment a cashier tries it; accidentally widening EDIT is not
+    /// — a cashier who can change an email quietly redirects somebody's account, and one who can set
+    /// a tier changes every future basket that customer puts through. So the refusals are asserted,
+    /// not just the permission.
+    /// </summary>
+    [Fact]
+    public async Task A_cashier_can_ADD_a_member_but_not_edit_one_or_set_a_tier()
+    {
+        var client = _f.CreateClient();
+        var cashier = PlutusAppFactory.OperatorTokenFor(await SeedRoleAsync("Cashier"), "pos.sell");
+
+        // ADD → allowed, and it really is a member (a number was issued)
+        Guid customerId;
+        using (var req = new HttpRequestMessage(HttpMethod.Post, "/api/v1/customers"))
+        {
+            req.Headers.Authorization = new("Bearer", cashier);
+            req.Content = JsonContent.Create(new { name = $"Queue Signup {Guid.NewGuid().ToString()[..8]}" });
+            var resp = await client.SendAsync(req);
+            Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
+            var body = JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement;
+            customerId = body.GetProperty("id").GetGuid();
+            Assert.True(Plutus.SharedKernel.MemberNumbers.IsValid(body.GetProperty("memberNo").GetString()));
+        }
+
+        // EDIT → refused. Adding a row can be undone by deactivating it; altering one leaves no
+        // trace of what it used to be.
+        using (var req = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/customers/{customerId}"))
+        {
+            req.Headers.Authorization = new("Bearer", cashier);
+            req.Content = JsonContent.Create(new { name = "Renamed By Cashier", email = "redirected@example.com" });
+            Assert.Equal(HttpStatusCode.Forbidden, (await client.SendAsync(req)).StatusCode);
+        }
+
+        // SET A TIER → refused. That is the supervisor's call, and it changes every future basket.
+        using (var req = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/customers/{customerId}/membership"))
+        {
+            req.Headers.Authorization = new("Bearer", cashier);
+            req.Content = JsonContent.Create(new { tier = "Gold", autoDiscountRate = 0.10m });
+            Assert.Equal(HttpStatusCode.Forbidden, (await client.SendAsync(req)).StatusCode);
+        }
+
+        // ⚠ And a Supervisor — who holds BOTH codes — can do the tier half, so the split above is a
+        // deliberate line rather than the whole capability being missing.
+        var supervisor = PlutusAppFactory.OperatorTokenFor(await SeedRoleAsync("Supervisor"), "pos.sell");
+        using (var req = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/customers/{customerId}/membership"))
+        {
+            req.Headers.Authorization = new("Bearer", supervisor);
+            req.Content = JsonContent.Create(new { tier = "Gold", autoDiscountRate = 0.10m });
+            Assert.Equal(HttpStatusCode.Created, (await client.SendAsync(req)).StatusCode);   // SetMembership creates
+        }
     }
 
     [Fact]

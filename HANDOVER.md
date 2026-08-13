@@ -366,6 +366,58 @@ charged 10% more on the MAUI till than on the web till for the same basket, toda
 already have tier'd discount"* is true only of the browser. Not a regression from this week's work —
 pre-existing, inside **step 27**, and exactly the drift `till-design.md` Part B exists to catch.
 
+**3i. ⚙ IMPLEMENTATION STARTED — step 27's two gating pieces are done, and the first one found a
+latent defect.** *(Matt: "Please continue with implementation as per plan.")*
+
+**(a) `MemberNumbers` is a shared rule** — commit `bdd4dd4`. The format and check character moved to
+`Plutus.SharedKernel`; **`MemberNoAllocator` stayed** in `Plutus.Customers`, because handing out the
+*next* number needs a tenant-wide counter and is server-only (two offline tills would mint the same
+one). The rule travels, the sequence does not. New **`MemberNumbers.LooksLikeMemberScan`** is the
+scan-routing predicate — ⚠ deliberately stricter than `TryCanonicalise`, which still accepts a bare
+`"482"` for a customer reading their card down the phone, whereas a *scan* of six digits is far more
+likely to be a product. Part B's Notes cell already claimed the rule lived in SharedKernel; it did
+not, so that cell described an intention. It does now.
+
+⚠⚠ **The round-trip test found that the millionth member's card would not scan.** `Format` grows a
+seventh digit past 999,999, but `TryCanonicalise` keys off length (it must — a check character can
+itself be a digit) and accepts only `SequenceDigits + 1`. Probed: sequence 1,000,000 formats as
+`"10000007"` and canonicalises to **null** — the card prints, scans and resolves to nobody, while the
+comment claimed the growth was safe. Pinned now, and the fix is to **widen `SequenceDigits`** (both
+halves read that constant, so they widen in step); ⚠ **never to loosen the parser**, which would make
+a bare **EAN-8** canonicalise as a member number ~3% of the time. Nobody is near a million members —
+recorded so it is a decision, not a surprise.
+
+⚠ Mutation-checked and reported honestly: killing the check-character verification is caught, and
+weakening the weights `7,3,1 → 1,1,1` is caught twice — but removing the length or prefix test
+**survives**, because they are *equivalent mutants* (only a `C`-prefixed 8-char code can canonicalise
+at all). Kept as deliberate belt-and-braces against exactly the parser loosening warned against, and
+now commented as such rather than looking like tested code.
+
+**(b) `pos.customers.add` exists**, so WP12 is pure consumption. Seeded to every selling role
+**including the Cashier** — the only customer capability that reaches it — in `ImpersonationDenied`,
+and `POST /api/v1/customers` now accepts **`customers.manage` OR `pos.customers.add`** (comma-is-OR,
+the `CheckAny` shape from `pos.stock.adjust`). ⚠ **Create-only:** `PUT` and the membership endpoints
+stay on `customers.manage`, because an added row can be deactivated while an altered one leaves no
+trace of what it was. Pinned by `A_cashier_can_ADD_a_member_but_not_edit_one_or_set_a_tier`, and
+**mutation-checked** — putting the new code on the edit gate fails the test.
+
+⚠⚠ **NOTHING EXERCISES IT YET, AND THE WEB TILL IS WHY.** Its create dialog is gated
+`canManageCustomers()` (`pipeline.ts:36` — `customers.manage` alone), so a web-till cashier still
+cannot add a member even though the server now permits it. Both tills widen in the same slice per
+default 20; Part B carries the web till as 🟡 for this, not ✅.
+
+⚠ **Deploy prerequisites, both easy to miss:** RBAC seeding does **not** run on startup, so this needs
+`Plutus.SeedMigrator rbac` from a **freshly published** SeedMigrator or no role holds the code; and
+**login tokens cache for 12h**, so a cashier must sign out and back in.
+
+**Versions:** `platform` 1.30.0 → **1.31.0** (SharedKernel changed — covers both commits, since
+1.31.0 has not shipped), `backend` 1.16.0 → **1.17.0** (new permission + changed gate). ⚠ **Neither
+is deployed** — this is committed only. Suites: **Unit 938 → 949 · Architecture 15 · Integration
+173 → 174**, all green.
+
+**Next:** the MAUI customer-attach screen and the tier discount (item 3h — the live money
+difference), plus widening the web till's create gate.
+
 **4. Corrected:** §1 below described the backend as ".NET 8". It is `net10.0`.
 
 **5. ⚠ Noticed, not fixed: `TillViewModel.cs` has 184 lines of byte-corrupted comments.** Its `⚠`

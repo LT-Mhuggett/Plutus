@@ -164,8 +164,22 @@ namespace Plutus.Customers
             });
         }
 
+        /// <summary>
+        /// Sign a new loyalty member up. ⚠ Accepts **`pos.customers.add` OR `customers.manage`** —
+        /// the `CheckAny` shape from `pos.stock.adjust`.
+        ///
+        /// ⚠ WHY A CASHIER MAY DO THIS AND NOTHING ELSE TO A CUSTOMER (Matt, 2026-08-13: *"Till
+        /// operator to add new loyalty members"*, binding default 20). Signing someone up happens at
+        /// the counter with a queue behind them; if it needs a supervisor it stops happening. But
+        /// `Update` below and the membership endpoints stay on `customers.manage`, because changing
+        /// an email quietly redirects an account and changing a tier changes every future basket —
+        /// an added row can be deactivated, an altered one leaves no trace of what it was.
+        ///
+        /// ⚠ **Online-only on every till, and no permission changes that**: the number comes from a
+        /// tenant-wide counter, so two offline tills would mint the same one.
+        /// </summary>
         [HttpPost("api/v1/customers")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.CustomersManage)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.CustomersManage + "," + PermissionCatalogue.PosCustomersAdd)]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Create([FromBody] CustomerBody body)

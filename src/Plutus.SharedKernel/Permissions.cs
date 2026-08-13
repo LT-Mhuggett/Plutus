@@ -88,13 +88,41 @@ public static class PermissionCatalogue
     /// </summary>
     public const string PosCashReopen = "pos.cash.reopen";
 
+    /// <summary>
+    /// WP12 / step 27: sign a new loyalty member up FROM A TILL.
+    ///
+    /// ⚠ Matt, 2026-08-13: *"Supervisor to change tiers. Till operator to add new loyalty members."*
+    /// (Binding default 20.) So this is the one customer capability that reaches the **Cashier** —
+    /// and it has to, because signing someone up happens at the counter, mid-queue, while they are
+    /// standing there. Making it wait for a supervisor is how a loyalty programme quietly stops
+    /// being offered.
+    ///
+    /// ⚠ **CREATE-ONLY, DELIBERATELY.** Editing a member stays <see cref="CustomersManage"/>, and
+    /// the split is not fussiness: changing an email quietly redirects somebody's account, and
+    /// changing a tier changes every future basket they put through. Adding a row can be undone by
+    /// deactivating it; altering one cannot be seen at all afterwards.
+    ///
+    /// ⚠ The create endpoint accepts **either** this or <see cref="CustomersManage"/> — the
+    /// `CheckAny` shape from <see cref="PosStockAdjust"/> — so nobody who could already add a member
+    /// loses the ability, and a till has ONE code to check whoever is signed in.
+    ///
+    /// ⚠ **Online-only on every till, and no permission can change that.** Member numbers come from
+    /// a tenant-wide counter (`MemberNoAllocator`), so two offline tills would mint the same one.
+    /// The gate says *who may*; the connection says *whether it is possible at all*.
+    ///
+    /// ⚠ Seeded to every selling role — Owner / Company Admin / Store Manager / Supervisor /
+    /// **Cashier**. Also <see cref="ImpersonationDenied"/>: creating records inside a customer's
+    /// tenant is not diagnosis, and it burns a number from their sequence.
+    /// </summary>
+    public const string PosCustomersAdd = "pos.customers.add";
+
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
         PortalFinancialsView, PortalUsersManage, PortalStockAdjust, PortalPricesManage,
         PortalTillsEnrol, PortalReportsView, PortalCompanyManage, CustomersManage, SupportTickets,
         InventoryBulk, GiftCardsManage,
         PosSell, PosRefund, PosVoid, PosDiscount, PosPriceOverride, PosNoSale, PosReportsView, PosSettingsManage,
-        PosStockAdjust, PosCashReopen,
+        PosStockAdjust, PosCashReopen, PosCustomersAdd,
     };
 
     /// <summary>Permissions that may carry a MaxPence ceiling on a grant.</summary>
@@ -113,6 +141,11 @@ public static class PermissionCatalogue
         // FE7: an impersonated session must not be able to mint gift cards or move balances — that is
         // money creation, which is exactly what this list exists to keep out of support sessions.
         GiftCardsManage,
+        // WP12: creating a member is not diagnosis, and it consumes a number from the tenant's own
+        // sequence — consistent with CustomersManage above, which this list already denies for
+        // "account/customer administration". ⚠ Easy to relax if support ever needs to add a member
+        // on a shop's behalf; the reverse (discovering a support session minted customers) is not.
+        PosCustomersAdd,
     };
 
     public static bool IsKnown(string code) => code != null && All.Contains(code);
@@ -163,6 +196,10 @@ public static class PermissionCatalogue
         // ⚠ Says plainly that nothing is deleted: the fear this wording answers is "will I lose the
         // Z read?", and the honest answer is that both the close and the reopening stay on record.
         [PosCashReopen] = "Reopen a day that has been closed with a Z read, so the till can trade again. The Z read is kept — both the close and the reopening are recorded. Always needs a reason.",
+        // ⚠ Spells out the create/edit line, because "add customers" in a role editor reads as
+        // "manage customers" and this deliberately is not that. Also says the till must be online:
+        // an owner granting it needs to know why a cashier still cannot do it on a dead connection.
+        [PosCustomersAdd] = "Sign a new loyalty member up at the till. Adding only — changing a member's details or their tier needs the Customers permission. The till must be online, because membership numbers are issued centrally.",
     };
 
     /// <summary>The description, or a readable fallback for a permission added without one.</summary>

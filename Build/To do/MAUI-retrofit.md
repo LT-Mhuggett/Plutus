@@ -661,9 +661,27 @@ so it cannot apply it. **A Gold member is charged 10% more on the MAUI till than
 the same basket, right now.** "We already have tier'd discount" is true only of the browser. This is
 precisely the drift Part B exists to catch, and it is the reason step 27 precedes the programme.
 
-**WP12 — loyalty.** Confirmed **zero** in both MAUI projects; the only backend work is the
-`pos.customers.add` permission (default 20 — `RolePermissionReconciler` delivers it on the next
-boot). Otherwise pure consumption. Customer search/attach on the sale screen
+✅ **The backend half is DONE 2026-08-13 — `pos.customers.add` exists, and WP12 is now pure
+consumption.** `PermissionCatalogue.PosCustomersAdd`, seeded to **every selling role including the
+Cashier** (the only customer capability that reaches it), in `ImpersonationDenied` (creating records
+in a customer's tenant is not diagnosis, and it burns a number from their sequence), and
+`POST /api/v1/customers` gated **`customers.manage` OR `pos.customers.add`** — the comma-is-OR
+`CheckAny` shape from `pos.stock.adjust`. ⚠ **Create-only**, with `PUT` and the membership endpoints
+left on `customers.manage`; pinned by `A_cashier_can_ADD_a_member_but_not_edit_one_or_set_a_tier`,
+**mutation-checked** (putting the new code on the edit gate is caught). Integration 173 → 174.
+
+⚠⚠ **AND THE WEB TILL NEEDS THE SAME WIDENING BEFORE ANY OF THIS IS VISIBLE.** Its create dialog is
+gated `canManageCustomers()` — `pipeline.ts:36`, `customers.manage` alone — so **a web-till cashier
+still cannot add a member even though the server now permits it.** Until both tills widen, this is a
+permission nothing exercises; it is the same slice per default 20, and Part B carries the web till as
+🟡 for exactly this reason.
+
+⚠ **Deploy note:** RBAC seeding does **not** run on startup (runbook). A backend deploy carrying
+this must be followed by `Plutus.SeedMigrator rbac` from a **freshly published** SeedMigrator, or the
+code exists and no role holds it. `EnsureBuiltInRolesAsync` then backfills it onto already-seeded
+tenants — and ⚠ **login tokens cache for 12h**, so a cashier must sign out and back in to see it.
+
+**WP12 — the rest.** Confirmed **zero** in both MAUI projects. Pure consumption from here. Customer search/attach on the sale screen
 (`GET /api/v1/customers?search=`, then a live `GET /api/v1/customers/{id}` for balance and
 membership), a create dialog gated **`pos.customers.add` OR `customers.manage`**, a **tier-assign
 picker gated `customers.manage`** reading `GET /api/v1/loyalty/tiers`, a store-credit tender
