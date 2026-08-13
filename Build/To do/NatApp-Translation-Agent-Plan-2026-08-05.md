@@ -85,7 +85,7 @@ Recommend **(b)** for the bridge-runs use case (nothing forces this now, and `St
 >
 > Matt confirmed this document is the mechanism that translates a legacy till database into the
 > current schema, which makes it the input to the MAUI retrofit's cutover
-> ([`MAUI-Retrofit-Plan-2026-08-07.md`](MAUI-Retrofit-Plan-2026-08-07.md) §10, WP2).
+> ([`MAUI-retrofit.md`](MAUI-retrofit.md) §16, and the archived [`MAUI-Retrofit-Plan-2026-08-07.md`](../archive/MAUI-Retrofit-Plan-2026-08-07.md) §10 it came from).
 >
 > **If option (a) is ever taken and `Items` gains real UUID PKs, those UUIDs MUST be
 > `Plutus.SharedKernel.DeterministicGuid.ForItem(businessId, itemIdOne)`** — the same function the

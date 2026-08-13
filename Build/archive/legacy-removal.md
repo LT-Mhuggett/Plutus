@@ -1,6 +1,6 @@
 # Legacy removal register — what comes out of the MAUI till, and in what order
 
-> ## 📦 ARCHIVED 2026-08-12 — this register now lives in [`Build/MAUI-retrofit.md`](../MAUI-retrofit.md) §10
+> ## 📦 ARCHIVED 2026-08-12 — this register now lives in [`Build/To do/MAUI-retrofit.md`](../To%20do/MAUI-retrofit.md) §10
 >
 > ⚠⚠ **NOT delivered — the deletions have NOT been done.** L1–L10 are still ahead, and Matt still does
 > them last of all. The register was folded in **verbatim** (every L-row, both do-not-delete warnings

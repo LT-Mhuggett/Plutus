@@ -14,7 +14,7 @@
 > | `To do/MAUI-Retrofit-Plan-2026-08-07.md` | The WP bodies and DoDs, binding defaults 1–9, the risk register, the item-identity seam |
 > | `legacy-removal.md` (2026-08-10) | L1–L10 in dependency order — §10 below, unchanged |
 >
-> All five are in [`archive/`](archive/) with a banner pointing here. **Nothing was summarised away:
+> All five are in [`archive/`](../archive/) with a banner pointing here. **Nothing was summarised away:
 > every step body, DoD, binding default, pitfall and L-row is below in full.**
 >
 > ⚠ **Why they splintered, so it does not happen again.** Each one was written to answer a question
@@ -32,19 +32,22 @@
 | Where | For |
 |---|---|
 | **This page** | Everything about the MAUI retrofit: what remains, how to build it, what is done |
-| [`till-design.md`](till-design.md) **Part B** | The row-by-row capability register — which capability, on which till. ⚠ **A capability is not done until its Part B row is updated in the same commit** |
-| [`till-design.md`](till-design.md) **Part C2** | The drift register — **read before writing anything that computes money on a client** |
-| [`Test Maui.md`](Test%20Maui.md) | The hand-test script to give a person |
-| [`handrun-2026-08-11.md`](handrun-2026-08-11.md) | The 2026-08-11 hand-run findings A–T with causes |
-| [`repo-runbook.md`](repo-runbook.md) | Build, test, migrate, deploy — read before writing code |
-| [`../HANDOVER.md`](../HANDOVER.md) | The living state: what is deployed, rollback tags, today's resume point |
-| [`plutus-platform-architecture.md`](plutus-platform-architecture.md) | **Wins on any design conflict** with this document |
+| [`till-design.md`](../till-design.md) **Part B** | The row-by-row capability register — which capability, on which till. ⚠ **A capability is not done until its Part B row is updated in the same commit** |
+| [`till-design.md`](../till-design.md) **Part C2** | The drift register — **read before writing anything that computes money on a client** |
+| [`Test Maui.md`](../Test%20Maui.md) | The hand-test script to give a person |
+| [`handrun-2026-08-11.md`](../archive/handrun-2026-08-11.md) | The 2026-08-11 hand-run findings A–T with causes |
+| [`repo-runbook.md`](../repo-runbook.md) | Build, test, migrate, deploy — read before writing code |
+| [`../HANDOVER.md`](../../HANDOVER.md) | The living state: what is deployed, rollback tags, today's resume point |
+| [`plutus-platform-architecture.md`](../plutus-platform-architecture.md) | **Wins on any design conflict** with this document |
 
 **Authority order on a conflict:** architecture doc → `till-design.md` → this document.
 
-⚠ **When the last step closes, this document moves to [`archive/`](archive/) with a banner** — it does
-not become a permanent standard. Anything in it that outlives the retrofit (a convention, a rule, a
-pitfall) gets lifted into `till-design.md` or `repo-runbook.md` first, per [`index.md`](index.md).
+⚠ **It lives in `Build/To do/` because it has unbuilt work in it**, which is the folder rule — and
+**when the last step closes it moves to [`archive/`](../archive/) with a banner.** It does not become a
+permanent standard. Anything in it that outlives the retrofit (a convention, a rule, a pitfall) gets
+lifted up to `Build/` level — into `till-design.md` or `repo-runbook.md` — **before** it is archived,
+per [`index.md`](../index.md). ⚠ That lift matters: binding defaults 1–18, §15's pitfalls and §16's
+item-identity seam all outlive the retrofit, and archiving them unlifted buries them.
 
 ## Where it stands
 
@@ -104,7 +107,7 @@ pitfall) gets lifted into `till-design.md` or `repo-runbook.md` first, per [`ind
 | # | What | State |
 |---|---|---|
 | **Q** | ⚠⚠ **"I could cancel the item, but then searching stopped working."** (Matt, 2026-08-11) | **Cause not found.** Ruled out: `IsBusy` stuck (every set has a `finally`), the cancel handler (touches no shared flag), a dialog awaited inside the store lock (nothing does it). ⚠ A 30s timeout was added to the store gate so this CLASS of failure can no longer hang in silence — but that is a safety net, not a diagnosis. ⚠ **Not reproducible the way it was found**: on 1.48.0 a closed till refuses at the door, so a basket cannot be built on a closed day. **Needs: which search box, and whether the rest of the app still responded.** |
-| — | **Hand-run 1.48.0** | ⚠ **Eight till builds have shipped since a person last touched a screen.** Every hand-run so far has found faults no test in this repo could reach — the 2026-08-11 run found fourteen, six of them invisible to every automated test. [`Test Maui.md`](Test%20Maui.md) |
+| — | **Hand-run 1.48.0** | ⚠ **Eight till builds have shipped since a person last touched a screen.** Every hand-run so far has found faults no test in this repo could reach — the 2026-08-11 run found fourteen, six of them invisible to every automated test. [`Test Maui.md`](../Test%20Maui.md) |
 | 🟠 | **`LoginViewModel.EnsureStoreAsync` throws on EVERY sign-in** — `InvalidOperationException: Unable to track an entity of type 'StoreModel' because its primary key property 'Id' is null` (`LoginViewModel.cs:389`) | Caught and harmless; the screen it fed is now read-only off `StoreInfoCache`. ⚠ It also **creates the legacy `Database.db` on every sign-in**, which is what made the enrolment gate a one-way door. **Step 21 deletes it** — scheduled, not forgotten (also register row [L7](#l7--loginviewmodelensurestoreasync)) |
 
 ## 2. Small, and each closes a real inconsistency
@@ -467,7 +470,7 @@ item is done.**
 - [ ] Step 25: scanner round-trip including the unknown-barcode add flow
 - [ ] Any web-till TS edits: `npm run typecheck` **on the Mac** (5 pre-existing edits queued)
 
-**Open on 1.48.0** — fixed in code, unproven on hardware. Full script: [`Test Maui.md`](Test%20Maui.md).
+**Open on 1.48.0** — fixed in code, unproven on hardware. Full script: [`Test Maui.md`](../Test%20Maui.md).
 
 | Where | What to check |
 |---|---|
@@ -629,7 +632,7 @@ also deletes `ExcelHandling.cs`, `SyncfusionLicenseProvider.RegisterLicense` in 
 `ConfigureSyncfusionCore` in `MauiProgram.cs`, and every Syncfusion package reference. ⚠ **In that
 order, and not before** — removing the licence registration while a licensed control still exists in
 the assembly turns a dormant screen into a **trial-dialog** screen, which is worse than leaving it.
-Detail: [`syncfusion-footprint.md`](syncfusion-footprint.md).
+Detail: [`syncfusion-footprint.md`](../syncfusion-footprint.md).
 
 ### L5 — The legacy database layer
 
@@ -733,8 +736,8 @@ So nobody hunts for them.
 1. **One STEP per working session**, in this document's order. Announce the step, build it, run its
    VERIFY, paste the test output, commit, and **update this document's status AND `till-design.md`
    Part B rows in the same commit** (the CLAUDE.md reflex, D3).
-2. **Required reading before any code, in order:** [`repo-runbook.md`](repo-runbook.md) (its codebase
-   pitfalls have each cost a session) → [`till-design.md`](till-design.md) **Part C2** → §15 below →
+2. **Required reading before any code, in order:** [`repo-runbook.md`](../repo-runbook.md) (its codebase
+   pitfalls have each cost a session) → [`till-design.md`](../till-design.md) **Part C2** → §15 below →
    the step body.
 3. **NEVER deploy, NEVER push.** Backend changes are verified through `PlutusAppFactory` integration
    tests and a locally-run `Plutus.DBService`. Matt deploys via the runbook when he chooses.
@@ -844,7 +847,7 @@ stale until someone deliberately says otherwise.
 
 ## 15. Pitfalls that have each cost a session
 
-All still live. These are the MAUI/cutover ones; [`repo-runbook.md`](repo-runbook.md) holds the
+All still live. These are the MAUI/cutover ones; [`repo-runbook.md`](../repo-runbook.md) holds the
 platform-wide list and **both apply**.
 
 - **Green build ≠ working EF.** The EF-9 break compiled clean and died at runtime. Same lesson as a
@@ -889,7 +892,7 @@ platform-wide list and **both apply**.
 
 ## 16. Item identity — the seam with the translation agent
 
-[`To do/NatApp-Translation-Agent-Plan-2026-08-05.md`](To%20do/NatApp-Translation-Agent-Plan-2026-08-05.md)
+[`To do/NatApp-Translation-Agent-Plan-2026-08-05.md`](NatApp-Translation-Agent-Plan-2026-08-05.md)
 moves **legacy shop data** into the backend; this document makes **a till talk to** it. They run in
 parallel and meet at exactly one point: item identity.
 
@@ -1150,7 +1153,7 @@ only half anyone builds from.**
 **The governing principle: ALL VAT GUIDANCE COMES FROM THE PORTAL, DOWN TO THE TILLS.** A till — web
 or MAUI — never decides a VAT rule. It receives bands, applies them, and reports what it charged.
 Same shape as receipt templates and themes. ✅ **True of the platform since 2026-08-08** (WP2c).
-Live rules and their homes: [`till-design.md`](till-design.md) **C1/C2**.
+Live rules and their homes: [`till-design.md`](../till-design.md) **C1/C2**.
 
 ### The law (HMRC, checked 2026-08-08)
 
@@ -1215,7 +1218,7 @@ appear to have made it. **It files nothing.**
 ## 23. The 2026-08-11 hand-run — all fourteen findings closed
 
 Matt ran a shop day on till 1.41.0 and reported **A–N**. Every one is answered, and six more raised
-that evening (**O–T**). Full detail with causes: [`handrun-2026-08-11.md`](handrun-2026-08-11.md).
+that evening (**O–T**). Full detail with causes: [`handrun-2026-08-11.md`](../archive/handrun-2026-08-11.md).
 
 | | What was wrong |
 |---|---|

@@ -34,7 +34,7 @@ namespace Plutus.Frontend.AppClient.Pages.CustomViews
         /// (`ExecuteOpenEditItem`, `ExecuteCreateItem`, the tender prompt), so nothing invalid gets
         /// through regardless.
         ///
-        /// â  Recorded in `Build/handrun-2026-08-11.md` rather than silently fixed.
+        /// â  Recorded in `Build/archive/handrun-2026-08-11.md` rather than silently fixed.
         /// </summary>
         public ValidationGroupBehavior ValidationGroup;
         private readonly decimal _targetAmount;

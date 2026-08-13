@@ -1,11 +1,11 @@
 # Handover — Plutus platform build
 
-**Date:** 2026-08-12 — Platform on **.NET 10**. Backend **1.15.0**, portal **1.7.0** and web till
+**Date:** 2026-08-13 — Platform on **.NET 10**. Backend **1.15.0**, portal **1.7.0** and web till
 **1.6.0** are DEPLOYED to the test environment; till-maui **1.48.0**, platform **1.26.0**, agent
 **1.3.3**. All 18 phases + Operator Portal (OP1–OP4), the **portal/till refresh (P1–P6)** and
 **FE1–FE10** built & LIVE. The **MAUI retrofit**: cutover **steps 1–21, 23, 25 and half of 26 are
 done**; **11b (promoted), 22, 24, the rest of 26, 27 and 28 remain** — ⚠ **one document now:**
-[`Build/MAUI-retrofit.md`](Build/MAUI-retrofit.md). The backend gap is closed; everything left is
+[`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md). The backend gap is closed; everything left is
 screen work against endpoints that exist, are tested and are deployed. VAT follows UK law (HMRC
 Notice 727/701/10).
 Head: see `git log` — this line goes stale; the commits don't.
@@ -24,8 +24,49 @@ Head: see `git log` — this line goes stale; the commits don't.
 > Older references below that say `Build/<plan>.md` now mean `Build/archive/<plan>.md` or
 > `Build/To do/<plan>.md`.
 
-### ⏰⏰⏰⏰⏰⏰⏰⏰ START HERE — picking up on **2026-08-12**
-**Today was a hand-run response day.** Matt ran the till through a shop day on 1.41.0 and reported
+### ⏰⏰⏰⏰⏰⏰⏰⏰⏰ START HERE — picking up on **2026-08-13**
+
+**A documentation day. No code shipped, nothing deployed, versions unchanged.** The work list below
+(*START HERE TOMORROW*) is still the work list — it was not touched, only written up properly.
+
+**1. The MAUI documents are now ONE.** [`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md)
+— *"I do not know why its splintered into so many."* Five became one; all five are in
+[`Build/archive/`](Build/archive/) with banners. It lives in `To do/` because it has unbuilt work in
+it, and `handrun-2026-08-11.md` moved to `archive/` with it. ⚠ **Everything that pointed at the old
+paths was repointed, including ten code comments citing the L1–L10 legacy-removal register** — that
+register is now §10 of the one document, with the L-keys unchanged.
+
+⚠⚠ **Consolidating it found a real disagreement, which is the point of consolidating.** **Step 21 was
+marked ✅ in one document while another had L7 and L8 waiting on it.** Settled against the tree:
+`SetupViewModel` and `TransferThirdPartyViewModel` are gone and `RecoveryViewModel` was kept as
+planned — but **`LoginViewModel.EnsureStoreAsync` still runs, and still throws, on every sign-in**
+(`LoginViewModel.cs:301`), and the un-enrol request has **no client code at all**. Step 21 now has its
+own ~1½d entry. **Third time in three days a status marker has been wrong.**
+
+**2. "Would moving the back end to Linux mean redeveloping it?" — NO.** Matt asked, on the basis of
+something said earlier about ARM. Answered in
+[`Build/To do/Migrate back end to Linux.md`](Build/To%20do/Migrate%20back%20end%20to%20Linux.md), from
+the tree rather than from memory: `Plutus.DBService` is plain **`net10.0`** with **no
+`RuntimeIdentifier` in the project**, **no native dependencies** (Pomelo MySQL is fully managed — no
+SkiaSharp, no System.Drawing, no PDF or spreadsheet libraries) and **zero `IsOSPlatform` branching**.
+`osx-arm64` is a **publish flag**. Swap it for `linux-x64` and the same source builds.
+
+⚠⚠ **The one real cost is the MySQL auth channel, and it is a consequence of the 08-09 fix.** The
+`plutus` account is `caching_sha2_password`; with a cold cache MySQL permits full auth only over a
+socket, TLS, or an RSA key exchange — which is why the backend was moved onto `/tmp/mysql.sock`.
+**A unix socket cannot cross a machine boundary**, so moving the app off the database host puts it
+back on the path that failed, across a LAN. Either move MySQL with it, or do TLS properly. ⚠ **And
+prove it against a COLD cache** — a warm one hid this for months.
+⚠ **Also: do not change the public hostname.** A till stores its server address at enrolment
+(`EnrolmentFlow.cs:77`) and nothing can change it remotely, so a rename means visiting every till.
+**Estimate: 1–2 days, operational.**
+
+**3. Corrected:** §1 below described the backend as ".NET 8". It is `net10.0`.
+
+---
+
+### ⏰⏰⏰⏰⏰⏰⏰⏰ Picking up on **2026-08-12**
+**That day was a hand-run response day.** Matt ran the till through a shop day on 1.41.0 and reported
 **fourteen findings (A–N)**; all fourteen are answered, and four more things he raised this evening
 are in too. The till went **1.41.0 → 1.48.0**, the backend **1.9.0 → 1.15.0**.
 
@@ -51,10 +92,10 @@ both ways — a real run gives 63 MB / 101 tables; a deliberately broken one exi
 
 ⚠ **Nothing above is blocked.** 1–5 are all small-to-medium; 6 is the next planned step.
 📄 **All six are written up with bodies, DoDs and traps in
-[`Build/MAUI-retrofit.md`](Build/MAUI-retrofit.md)** — 1 is its §1 finding **Q**, 3–5 are **W1/W2/W3**,
+[`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md)** — 1 is its §1 finding **Q**, 3–5 are **W1/W2/W3**,
 4 is **W2**, and 6 is **step 11b** in §3.
 
-### Where MAUI stands → ⚠⚠ **[`Build/MAUI-retrofit.md`](Build/MAUI-retrofit.md)** is the ONE document
+### Where MAUI stands → ⚠⚠ **[`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md)** is the ONE document
 
 **Consolidated 2026-08-12 at Matt's request** — *"I do not know why its splintered into so many."*
 **Five documents became one**: both `To do/` MAUI plans, `maui-whats-left.md`, `MAUI-parity.md` and
@@ -282,7 +323,7 @@ roles × two tenants gaining `pos.stock.adjust`.
 
 **RE-RUN THE SHOP-DAY SCRIPT on `D:\tmp\plutus-till-1.48.0`.** Matt hand-ran it on 2026-08-11 and it
 found **thirteen faults, A–M** — all now recorded, ranked and answered in
-[`Build/handrun-2026-08-11.md`](Build/handrun-2026-08-11.md), which is the register to read before
+[`Build/archive/handrun-2026-08-11.md`](Build/archive/handrun-2026-08-11.md), which is the register to read before
 touching any of them. That hand-run is why 1.42.0–1.44.0 exist.
 
 ⚠ **What needs a person's eyes this time**, because it is fixed in code and unproven on hardware:
@@ -408,7 +449,7 @@ markup into the viewmodel setter — a rule in markup leaves with the control), 
 `DisplayActionSheet`, item list → `CollectionView` with viewmodel-side grouping, discount
 multi-select → `CollectionView`. `SfListViewContextMenuBehavior` and `ListViewWithContextMenu` are
 deleted. What is left is the two **hidden** legacy report screens + their `XlsIO` export —
-[`Build/MAUI-retrofit.md`](Build/MAUI-retrofit.md) **§10 / L4**, which now also deletes the licence
+[`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md) **§10 / L4**, which now also deletes the licence
 registration and the packages. Detail: [`Build/syncfusion-footprint.md`](Build/syncfusion-footprint.md).
 
 ⚠ **These are UI swaps on screens with NO automated coverage** — a running UI host is needed and
@@ -538,7 +579,7 @@ three rows where the *web* till is behind, and what is deliberately not on the l
 the tree 2026-08-10. ⚠ It records a **fourth** built-but-uncalled component: `NoticesClient` appears
 in the whole AppClient once, **in a comment** — so the announcements/pick-notes rows were corrected
 from 🟡 to ⬜.
-*(Consolidated into [`Build/MAUI-retrofit.md`](Build/MAUI-retrofit.md) on 2026-08-12.)*
+*(Consolidated into [`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md) on 2026-08-12.)*
 
 ---
 
@@ -647,7 +688,7 @@ its own spinner, or has none.**
 
 **`Build/legacy-removal.md`** is new: **L1–L10 in dependency order**, with
 status keys and the things that must **not** be deleted. Matt does the deletions last of all.
-*(That register is now [`Build/MAUI-retrofit.md`](Build/MAUI-retrofit.md) §10 — consolidated
+*(That register is now [`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md) §10 — consolidated
 2026-08-12.)*
 
 **Hidden this round:** the Settings **Database** section (archive + restore — *"its no longer
@@ -1496,7 +1537,7 @@ Run `POST /api/v1/reports/rebuild` (platform-admin) if you want history re-proje
    and repository interface shape, then retired. Both are already **net10**.
 4. **The MAUI retrofit plan is written for autonomous execution** — `Build/To do/MAUI-Retrofit-Plan-2026-08-07.md`,
    WP0–WP13 with DoDs, §0 protocol and §9 **binding defaults** instead of open questions. *(Now
-   [`Build/MAUI-retrofit.md`](Build/MAUI-retrofit.md); the plan was archived 2026-08-12.)*
+   [`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md); the plan was archived 2026-08-12.)*
    ⚠ Two of those defaults touch real shop data (**archive local till data at enrolment**;
    **migrate before enrol**) — Matt can veto, but they're built in after WP2.
 5. **`DeterministicGuid.ForItem(businessId, itemIdOne)` is the catalogue ID mapping — keyed on the
@@ -1528,7 +1569,7 @@ DB dumps: `~/PLUTUS/backups/plutus-pre-themes-20260807.sql.gz`,
 #### MAUI retrofit — the TRANSPORT SPINE IS DONE (WP0–WP4 + WP2b)
 
 Progress board is in the plan (`Build/To do/MAUI-Retrofit-Plan-2026-08-07.md` §3b — archived
-2026-08-12; status now lives in [`Build/MAUI-retrofit.md`](Build/MAUI-retrofit.md)) — keep it
+2026-08-12; status now lives in [`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md)) — keep it
 current, it is the resume point. **Next: WP5** (heartbeat + catalogue sync), the last backend gap.
 WP6–13 are the parity WPs, where MAUI **UI** work starts and a device is needed to verify.
 
@@ -2059,7 +2100,7 @@ A complete **React web POS** + **management portal** trading against the **multi
 
 - **Till:** `https://plutus.huggett.dscloud.me` — login-first (real token auth). Logins: `dev@plutus.local` / `PlutusDev2026`, or `kapow_comics@outlook.com` / (the till's real password). Features: scan/search, basket (qty/price-adjust/reorder), discounts, returns (by receipt id **or by date**), park/retrieve, split-payment checkout, browser receipts + copy-reprint, offline/PWA (IndexedDB catalogue + checkout outbox), employee management, item add/edit, **Reporting** (Summary dashboard w/ SVG charts, Custom + Excel + sale recall, VAT calc + off-band integrity banner), editable Store Information, Settings. **Since Phase 2 the till is an enrolled DEVICE**: checkout goes outbox-first through `POST /api/v1/sales` (Settings → Till device to enrol a browser).
 - **Portal (Phase 3):** management back office — dashboard (year→month→day→transaction drill), VAT view, Users & Roles (RBAC), Stores & Tills (enrolment codes), Financial Periods. Live at **https://admin.plutus.huggett.dscloud.me** (Caddy vhost applied by Matt 2026-07-25; LAN preview retired).
-- **Backend:** `Plutus.DBService` (**.NET 8** modular monolith: SharedKernel/Identity/Catalogue/Sales/Reporting/Tenancy), self-contained `osx-arm64`, under **pm2** as `plutus-backend` on `127.0.0.1:5100`. Auth = HMAC bearer (`PlutusTokenAuthHandler`, 12h) with REAL scope + RBAC (`perm:*`) policies — the flag swaps B2C out, it does NOT bypass auth. Every `/api` endpoint 401s without a token.
+- **Backend:** `Plutus.DBService` (**.NET 10** modular monolith: SharedKernel/Identity/Catalogue/Sales/Reporting/Tenancy), self-contained `osx-arm64`, under **pm2** as `plutus-backend` on `127.0.0.1:5100`. ⚠ `osx-arm64` is a **publish flag, not a code constraint** — moving to Linux is a re-publish plus operational work, costed in [`Build/To do/Migrate back end to Linux.md`](Build/To%20do/Migrate%20back%20end%20to%20Linux.md). Auth = HMAC bearer (`PlutusTokenAuthHandler`, 12h) with REAL scope + RBAC (`perm:*`) policies — the flag swaps B2C out, it does NOT bypass auth. Every `/api` endpoint 401s without a token.
 - **DB:** MySQL 9.6 (Homebrew), schema `plutus` — **graduated to the full platform schema in Phase 2/3** (tenancy, devices, sales-v2, outbox, RBAC, audit, rollups, periods; all also on staging `plutus_t1`). Seeded from the Kapow backup (20,340 items / 21,657 legacy sales). Credentials in `~/PLUTUS/secrets/mysql.env` (also holds `TEST_TOKEN_SECRET`). Rollback dump: `~/PLUTUS/backups/plutus-pre-phase2-20260724.sql.gz`.
 - **Edge:** Caddy serves the static till at `plutus.huggett.dscloud.me` and reverse-proxies `/api/*` → 5100. LE cert auto-renews. (Router SNATs WAN→LAN, so Caddy IP allowlists don't work — auth is the gate, not IP. ⚠ No basic_auth on the till host — flagged in §5, Matt to decide.)
 

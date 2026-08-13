@@ -39,7 +39,7 @@ cheap path, not the disciplined one.
 |---|---|
 | Add or change a till capability | Fill its Part B row for **every** till, same commit — see D3 |
 | Ship a feature to one till only | Give the others a ⬜ **with a WP number and a reason**; add the WP if none covers it |
-| Work on the MAUI till at all | Read [`Build/MAUI-retrofit.md`](Build/MAUI-retrofit.md) — the one document — and update it in the same commit |
+| Work on the MAUI till at all | Read [`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md) — the one document — and update it in the same commit |
 | Write a rule that could live in more than one place | Put it in `Plutus.SharedKernel`; add a row to C1 |
 | Find yourself copying logic between TypeScript and .NET | Add a row to C2 saying what pins the copies — or state honestly that nothing does |
 | Add a new till surface or platform | Follow D2, then add its column to Part B |
@@ -53,6 +53,6 @@ cheap path, not the disciplined one.
 | [`Build/repo-runbook.md`](Build/repo-runbook.md) | Build, test, migrate, deploy — and the codebase pitfalls that have each cost a session. Read before writing code. |
 | [`Build/plutus-platform-architecture.md`](Build/plutus-platform-architecture.md) | **Wins on any design conflict** with a plan. |
 | [`Build/till-design.md`](Build/till-design.md) | Tills — see above. |
-| [`Build/MAUI-retrofit.md`](Build/MAUI-retrofit.md) | ⚠⚠ **THE ONE MAUI DOCUMENT.** What remains (Part 1, including the legacy-removal register Matt actions last), how to build it — protocol, binding defaults, DoDs, pitfalls (Part 2), and what is done (Part 3). **Consolidated 2026-08-12 from five documents** (both `To do/` plans, `maui-whats-left.md`, `MAUI-parity.md`, `legacy-removal.md`), all now in `Build/archive/`. **Do not start a sixth** — if a MAUI question has no answer in here, the answer belongs in here. |
+| [`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md) | ⚠⚠ **THE ONE MAUI DOCUMENT.** What remains (Part 1, including the legacy-removal register Matt actions last), how to build it — protocol, binding defaults, DoDs, pitfalls (Part 2), and what is done (Part 3). **Consolidated 2026-08-12 from five documents** (both `To do/` plans, `maui-whats-left.md`, `MAUI-parity.md`, `legacy-removal.md`), all now in `Build/archive/`. **Do not start a sixth** — if a MAUI question has no answer in here, the answer belongs in here. |
 | [`Build/table-standard.md`](Build/table-standard.md) | Every data table in all three surfaces. |
 | [`Build/index.md`](Build/index.md) | What every other document is for, and which are archived. |

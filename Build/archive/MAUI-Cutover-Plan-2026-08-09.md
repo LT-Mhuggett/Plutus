@@ -1,5 +1,5 @@
 # MAUI cutover + parity — the execution plan (WP6–13, no questions)
-> ## 📦 ARCHIVED 2026-08-12 — folded into [`Build/MAUI-retrofit.md`](../MAUI-retrofit.md)
+> ## 📦 ARCHIVED 2026-08-12 — folded into [`Build/To do/MAUI-retrofit.md`](../To%20do/MAUI-retrofit.md)
 >
 > **Matt, 2026-08-12:** *"I do not know why its splintered into so many."* Five MAUI documents became
 > one. **Everything in here that was still live is in `MAUI-retrofit.md`** — the execution protocol

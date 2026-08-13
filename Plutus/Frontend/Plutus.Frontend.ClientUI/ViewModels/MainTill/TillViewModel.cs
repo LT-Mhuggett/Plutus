@@ -683,7 +683,7 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
                 // pointing at a line the basket no longer holds made re-adding a just-sold item a
                 // silent no-op â it incremented a detached object. `Basket.Contains` makes that
                 // structurally impossible. Fixed here too because UI bugs get fixed in BOTH
-                // frontends until ClientUI is actually removed (`Build/MAUI-retrofit.md` §10, L10).
+                // frontends until ClientUI is actually removed (`Build/To do/MAUI-retrofit.md` §10, L10).
                 if (SelectedBasketRecord != null &&
                    Basket.Contains(SelectedBasketRecord) &&
                    (SelectedBasketRecord is BasketItem) &&

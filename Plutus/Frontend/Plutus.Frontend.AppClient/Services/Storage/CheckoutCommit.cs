@@ -328,7 +328,7 @@ namespace Plutus.Frontend.AppClient.Services.Storage
                 // Gating the screen instead would leave the other callers open.
                 //
                 // ⚠ The SERVER needs its own half of this rule and does not have it yet — recorded
-                // in `Build/handrun-2026-08-11.md`. Until then this is a single gate, which is why
+                // in `Build/archive/handrun-2026-08-11.md`. Until then this is a single gate, which is why
                 // it is at the last possible moment rather than the first.
                 // ⚠ `BusinessDay.Wire` — the SAME string the cash events are stored under. Comparing
                 // a differently-formatted date would find no Z read and let the sale through, which

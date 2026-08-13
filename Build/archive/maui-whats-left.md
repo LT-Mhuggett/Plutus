@@ -1,6 +1,6 @@
 # MAUI retrofit — what is left to change
 
-> ## 📦 ARCHIVED 2026-08-12 — folded into [`Build/MAUI-retrofit.md`](../MAUI-retrofit.md)
+> ## 📦 ARCHIVED 2026-08-12 — folded into [`Build/To do/MAUI-retrofit.md`](../To%20do/MAUI-retrofit.md)
 >
 > Superseded twice in two days, which is itself the argument for one document: by `MAUI-parity.md` on
 > 2026-08-12 (status), then by `MAUI-retrofit.md` the same day (everything).

@@ -1,6 +1,6 @@
 # MAUI parity — what remains, and what is done
 
-> ## 📦 ARCHIVED 2026-08-12 — folded into [`Build/MAUI-retrofit.md`](../MAUI-retrofit.md)
+> ## 📦 ARCHIVED 2026-08-12 — folded into [`Build/To do/MAUI-retrofit.md`](../To%20do/MAUI-retrofit.md)
 >
 > **This page lived for one day.** It was written on 2026-08-12 to end a status board kept in four
 > places; that afternoon Matt asked for the whole retrofit in one document —
@@ -135,7 +135,7 @@ within 60 seconds, and keep trading with the line down.
 
 Matt ran a shop day on till 1.41.0 and reported **A–N**. Every one is answered, and six more raised
 that evening (**O–T**). Full detail with causes in
-[`handrun-2026-08-11.md`](../handrun-2026-08-11.md).
+[`handrun-2026-08-11.md`](handrun-2026-08-11.md).
 
 | | What was wrong |
 |---|---|

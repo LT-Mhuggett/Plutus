@@ -34,7 +34,7 @@ namespace Plutus.Frontend.AppClient
             // ⚠ AS OF THIS COMMIT NO SYNCFUSION CONTROL IS ON ANY SCREEN AN OPERATOR CAN REACH.
             // The quantity box, the alterations picker, the item list and the discount multi-select
             // are plain MAUI. What is left is the two HIDDEN legacy report screens and the XlsIO
-            // export they use — see `Build/MAUI-retrofit.md` §10 (L4) and `syncfusion-footprint.md`.
+            // export they use — see `Build/To do/MAUI-retrofit.md` §10 (L4) and `syncfusion-footprint.md`.
             // The registration stays only until those go, because removing it while a licensed
             // control still exists in the assembly is worse, not better: it turns a dormant screen
             // into a trial-dialog screen.

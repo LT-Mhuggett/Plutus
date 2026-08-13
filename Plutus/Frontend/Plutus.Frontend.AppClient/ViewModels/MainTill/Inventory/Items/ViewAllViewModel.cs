@@ -697,7 +697,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         /// ⚠ "Correct the count to N" is deliberately NOT offered. That is `POST /api/v1/stock/takes`,
         /// which sits under a controller-wide portal gate covering inter-store transfers too —
         /// reaching it from a till would grant transfers by accident. Recorded in
-        /// `Build/MAUI-retrofit.md`; a till adjusts, a stock take stays a portal job until it has its
+        /// `Build/To do/MAUI-retrofit.md`; a till adjusts, a stock take stays a portal job until it has its
         /// own gate.
         ///
         /// ⚠ A REASON IS COMPULSORY and the server refuses without one. An unexplained stock
