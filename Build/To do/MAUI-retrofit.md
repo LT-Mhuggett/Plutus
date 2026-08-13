@@ -221,9 +221,20 @@ nothing in any report to show it. Reverse the signs and it is a way to walk cash
 > cash is the fraud finding G exists to stop, so the default must be "back the way it came" — but
 > refunding MORE to a method than it took can never be right.
 
-**Size: ~2–3 days**, because it is four pieces and one of them is the wire:
-1. `SharedKernel.RefundRules` gains per-tender remainders — the origin's tenders less refunds already
-   made to each. **Unit-tested and mutation-checked; this is money.**
+**Size: ~2–3 days**, four pieces, **one done**:
+1. ✅ **DONE 2026-08-13 — `SharedKernel.RefundRules` now carries the rule.** `RefundCapacities` gives
+   what each tender may still give back (what it took, less what has gone back to it); `AuthoriseSplit`
+   refuses a proposed split that overpays any tender, names the offender and says what it *could* have
+   had. ⚠ **The sale-level cap falls out for free**: if every tender is within what it took, the sum is
+   within what the sale took. **18 tests, mutation-checked three ways** — removing the cap, giving an
+   unused tender unlimited capacity, and summing-vs-last-wins each fail named tests. Unit 909 → **927**.
+   ⚠ **The mutation check earned its place immediately:** the first draft asked "did we find a capacity
+   for this tender?" via `FirstOrDefault` on a **struct**, whose `default` has `TenderType = 0` — the
+   same byte as `Tenders.Cash`. The tests passed anyway, because a later `TookPence <= 0` check happened
+   to catch it. **A guard that only works because another guard is behind it is not a guard**; it is a
+   dictionary lookup now. ⚠ **And one mutation attempt lied to me**: `if (false)` produced
+   unreachable-code build errors that my grep filter hid, so a broken experiment read as "safe". **A
+   mutation that does not compile is not a mutation** — always watch for `error CS` in the output.
 2. **Ingest re-runs it** and quarantines (202) a refund that overpays a tender, exactly as default 12
    does for the total. ⚠ **Without this it stays a client-only gate on both tills** — the same hole
    default 12 was written to close.
