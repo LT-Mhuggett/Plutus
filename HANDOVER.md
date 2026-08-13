@@ -1,8 +1,9 @@
 # Handover — Plutus platform build
 
-**Date:** 2026-08-13 — Platform on **.NET 10**. Backend **1.16.0**, portal **1.8.0** and web till
-**1.7.0** are DEPLOYED to the test environment; till-maui **1.52.0**, platform **1.30.0**, agent
-**1.3.3**. All 18 phases + Operator Portal (OP1–OP4), the **portal/till refresh (P1–P6)** and
+**Date:** 2026-08-13 (late) — Platform on **.NET 10**. Backend **1.17.0**, web till **1.8.0** and
+portal **1.8.0** are DEPLOYED to the test environment and verified; ⚠ till-maui **1.53.0** and
+platform **1.34.0** are **committed but NOT shipped**, and 1.53.0 has **not been hand-run** — see
+START HERE item 1. Agent **1.3.3**. All 18 phases + Operator Portal (OP1–OP4), the **portal/till refresh (P1–P6)** and
 **FE1–FE10** built & LIVE. The **MAUI retrofit**: cutover **steps 1–21, 23, 25 and half of 26 are
 done**; **11b (promoted), 22, 24, the rest of 26, 27 and 28 remain** — ⚠ **one document now:**
 [`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md). The backend gap is closed; everything left is
@@ -24,7 +25,107 @@ Head: see `git log` — this line goes stale; the commits don't.
 > Older references below that say `Build/<plan>.md` now mean `Build/archive/<plan>.md` or
 > `Build/To do/<plan>.md`.
 
-### ⏰⏰⏰⏰⏰⏰⏰⏰⏰ START HERE — picking up on **2026-08-13**
+### ⏰⏰⏰⏰⏰⏰⏰⏰⏰⏰ START HERE — picking up on **2026-08-14**
+
+**A loyalty-foundations day that turned into a discount-controls day.** Nine commits, two deploys,
+and four things found in code that nobody had asked me to look at.
+
+#### 1. ⚠ DO THIS FIRST — hand-run the discount flow. It has never been run by a person.
+
+`4d98068` changed **`TillViewModel.ExecuteAlterTransaction`**, which is a dialog flow in the **money
+path** — the exact shape that produced four separate defects in one session on 2026-08-10 (runbook
+pitfalls 11–14). It compiles, 436 AppClient tests pass, and **that proves nothing about a screen**.
+
+Build unpackaged (runbook § MAUI till build) and run, on a basket of a few items:
+
+| # | Do | Expect |
+|---|---|---|
+| D1 | Discount **less** than the basket | Applies as before |
+| D2 | Discount **equal** to the basket | **Allowed** — 100% is legitimate |
+| D3 | Discount **more** than the basket | Refused, naming the maximum. ⚠ **Nothing added to the basket** |
+| D4 | £5 off, then £5 off again on an £8 basket | Second one refused, and the message says **£5.00 is already off** |
+| D5 | A discount above the operator's `pos.discount` ceiling | **Supervisor prompt appears** — it never used to |
+| D6 | Supervisor authorises at D5 | Applies; ⚠ check both names in the till log |
+| D7 | Cancel the supervisor prompt | Basket **untouched** |
+| D8 | Discount on a **returns-only** basket | Refused with the "nothing to discount" wording |
+
+⚠ **D3 and D4 are the ones that matter** — before today they made the basket permanently
+un-completable, reported as *"Nothing has been taken — try again"*, which never worked.
+⚠ **D5 is the one most likely to be wrong**, because it is the newly-added gate.
+
+#### 2. What is LIVE, and what is only committed
+
+| | Version | State |
+|---|---|---|
+| Backend | **1.17.0** | ✅ **DEPLOYED & verified** — rollback `~/PLUTUS/backend.pre-1.17.0` |
+| Web till | **1.8.0** (`index-BXTgzlgt.js`) | ✅ **DEPLOYED & verified** — rollback `/srv/apps/PLUTUS/web/current.pre-1.8.0` |
+| Portal | 1.8.0 | unchanged, untouched |
+| platform | **1.34.0** | ⚠ committed, **not** shipped |
+| till-maui | **1.53.0** | ⚠ committed, **not** built or hand-run |
+
+**12 commits unpushed.** Nothing has been pushed — as always, only on request.
+
+#### 3. ⚠ TWO QUESTIONS WAITING ON MATT — one blocks work
+
+- ⚠ **"Discount levels which can be added and configurable" — is a ROLE's `MaxPence` the level?**
+  Cashier £5 / Supervisor £50 / Manager unlimited is already owner-editable in the portal
+  (`AdminController.cs:306`), and a level is "added" by adding a role. **If yes, ruling (b) is nearly
+  free.** If you meant named discount tiers independent of roles, that is a new entity + portal UI.
+- **Loyalty decision 1 — credits as a discount or a tender?** The accountant's call; the whole ~45–55d
+  loyalty programme is gated on it (`updatedesign.md` §14).
+
+#### 4. The next slice, already scoped
+
+**Rulings (b) and (c) share one additive wire change**, so they are one piece of work:
+`reason` + `authorisedBy` on `LineDiscount` (`SaleContracts.cs`). Today: ⚠ **the wire carries
+neither**, and the supervisor override is written to the **till's local log only** — so *"who
+approved this discount?"* needs that till's log file, and a re-imaged till has none. `SaleAdjustmentDto`
+already carries a `Reason` for refunds, so the precedent is next door. ⚠ **No reason is captured
+anywhere today** — of Matt's three (till, employee, reason), reason is the one nothing collects.
+
+#### 5. ⚠ STILL OPEN — a Gold member is charged 10% more on MAUI than on the web till
+
+Unchanged today, and it is still the reason step 27 exists. The **rule** (`MemberDiscount`), the
+**client** (`PlutusApiClient` customer methods) and the **permission** (`pos.customers.add`) are all
+built now — what is missing is the **attach screen**. ⚠ Read step 27's constraint first: MAUI's shape
+is a `BasketAlteration` apportioned at commit, so the member discount must be **explicitly associated
+with the eligible items** (`TargetsOf` excludes returns but *not* already-discounted or gift-card
+lines, both of which the shared rule excludes).
+
+#### 6. ⚠ Four things found in the code today, none of them asked for
+
+1. **The millionth member's card would not scan** — `Format` grows a 7th digit past 999,999 but
+   `TryCanonicalise` accepts only `SequenceDigits + 1`. Pinned; fix is to widen the constant, **never**
+   to loosen the parser (a bare EAN-8 would then canonicalise as a member number ~3% of the time).
+2. **A doc example was wrong in five places** — `482` is `000482P`, not `000482K`. I copied it
+   verbatim, built a fixture from it, and the fixture failed.
+3. **The MAUI percentage path never calls `LineDiscounts.Percentage`** — it computes
+   `item.Price * Decimal.Parse(input)` under a box labelled *"Percent"*, which is precisely the
+   *"typed 10 for 10%, charged 10×"* bug that rule documents itself as preventing. ⚠ **Contained but
+   not fixed:** today's money rule now refuses the result instead of charging it. **Confirm what units
+   that box expects before touching it** — if it wants a fraction the label is wrong, if it wants a
+   percent the maths is, and only one of those is a money bug.
+4. **The runbook was stale about RBAC seeding** — `RolePermissionReconciler` reconciles grants every
+   boot, so a permission deploy needs **no** `SeedMigrator rbac`. Corrected; ⚠ running it anyway also
+   fires `MapKapowAuthActionsAsync`, which added 7 role assignments (all to a user who already held
+   `Owner`, so no effective change — verified).
+
+#### 7. ⚠ Two corrections I had to make to my own reporting
+
+Both were wrong for the same reason — **grepping for a name I assumed rather than the one in the code**:
+
+- I said *"the operator ceiling is enforced by nothing"*. The method is `PermissionResolution.**Can**`,
+  not `Allows`, and it has callers. **Ceilings are enforced.**
+- I said *"no step-up machinery exists anywhere"*. `RequestSupervisorOverrideAsync` is complete,
+  works **offline** against the synced roster, and **already refuses self-approval**.
+
+⚠ **The method lesson, worth keeping:** three mutation checks this session silently proved nothing —
+one emitted invalid C#, one `sed` choked on the `||` in its own pattern, one `if (false)` failed to
+compile. **Always confirm the mutant actually applied before believing a green run.**
+
+---
+
+### ⏰⏰⏰⏰⏰⏰⏰⏰⏰ Picking up on **2026-08-13**
 
 **A documentation day that turned into a hand-run day.** ⚠ **Till 1.49.0 → 1.52.0, backend 1.16.0, web till 1.7.0 and portal 1.8.0 — seven till builds and three deploys** (items 3–3e below); nothing deployed, backend/portal/web versions unchanged. The work list below
 (*START HERE TOMORROW*) is still the work list — it was not touched, only written up properly.
