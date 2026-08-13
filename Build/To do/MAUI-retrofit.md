@@ -759,10 +759,58 @@ taken — try again."*
   `A_discount_equal_to_the_whole_basket_is_allowed` pins the boundary as inclusive, so a legitimate
   100% staff discount is not caught by an off-by-one in the fix.
 
+✅ **RULED ON, 2026-08-13 — binding default 22(a): *"You cannot have a discount greater than the
+basket."*** The rule is built: **`SharedKernel/BasketDiscounts.cs`**, headroom **net of what is
+already off**, boundary **inclusive** (a 100% staff discount is legitimate), returns not counted as
+headroom. ⚠ **Still to do: wire it into `TillViewModel`'s apply path** — the rule refuses, but nothing
+calls it yet, so the defect above is still live. When it is wired, the `DEFECT_…` test **fails by
+design** and must be rewritten to the new behaviour.
+
 ⚠ **The fix is NOT "cap it silently."** A £5 discount quietly becoming £3 is exactly the silent money
 change this codebase exists to prevent. It belongs at the point of **applying** the discount, where
-the operator can still act on it — and what the **web till** does decides the shape (binding
-default 10), which is the first thing to check.
+the operator can still act on it — `BasketDiscounts.Authorise` returns the headroom and what is
+already off precisely so the message can explain a maximum lower than the basket total.
+
+### ⚠⚠ Four live findings behind default 22 — (b) and (c) cannot be built without them
+
+1. ⚠⚠ **THE OPERATOR CEILING IS ENFORCED BY NOTHING.** `PermissionCatalogue.Allows(grants, code,
+   now, amountPence)` — the amount-aware check — has **zero callers in the entire repo**. `MaxPence`
+   is `CeilingCapable` for `pos.discount` and `pos.refund`, is seeded (Supervisor's `pos.refund` is
+   capped at £100), and travels to every till via `OperatorLogin.cs:157` — **and is never checked**.
+   A supervisor capped at £100 can refund any amount. ⚠ The refund *remainder* IS enforced
+   (`RefundRules`), which is a different cap and is exactly why this is easy to miss. **This is also
+   the machinery ruling (b) needs**, so the gap is the opportunity: levels already have a home.
+2. ⚠⚠ **THE MAUI PERCENTAGE PATH DOES NOT USE THE SHARED RULE.** `TillViewModel` (~1030, ~1046)
+   computes `item.Price * Decimal.Parse(input)` directly, under a box labelled **"Percent"**. That is
+   *precisely* the bug `LineDiscounts.Percentage` documents itself as existing to prevent —
+   *"entering 10 for '10%' multiplied the price BY TEN and the basket cheerfully charged it"* — and
+   the shared fix is never called from here. ⚠ **Confirm what units that box expects before changing
+   it:** if it wants a fraction the label is wrong, if it wants a percent the maths is, and only one
+   of those is a money bug.
+3. ⚠⚠ **THE WIRE CARRIES NO REASON AND NO ACTOR FOR A DISCOUNT**, so ruling (c) is impossible today.
+   `LineDiscount` is `{ id, rate }` and nothing else. The sale records `OperatorUserId` (who rang it)
+   and the till — but **not who authorised a discount, nor why**. ⚠ Precedent sits next door:
+   `SaleAdjustmentDto` carries a `Reason` for refunds and voids. The change is **additive** (`reason`
+   and `authorisedBy` on `LineDiscount`), and ⚠ **the authoriser is the whole point of (b)** — if a
+   supervisor approves a cashier's discount and the sale records only the cashier, the approval
+   leaves no trace and the audit answers the wrong question.
+4. **Discounts over the basket make the sale un-completable** — the defect above; 22(a) is its rule.
+
+### ⚠ The one question only Matt can answer — (b) is blocked on it
+
+*"Approval from a supervisor or higher"* has two very different shapes at a counter:
+
+- **(i) STEP-UP** — the cashier keeps the sale, a supervisor enters their own credentials to
+  authorise it, the sale continues under the cashier, and the record names **both** people. Standard
+  retail, keeps the queue moving, and it is the reading that makes ruling (c)'s *"logged-in
+  employee"* meaningful — there are two of them.
+- **(ii) REFUSAL** — the cashier simply cannot, and a supervisor has to take the till. Much cheaper:
+  it is finding 1 alone (`Allows(...)` plus a message) and nothing else. But it stops the queue.
+
+⚠ **There is no step-up machinery anywhere in the codebase today** — the Z-reopen precedent is a
+plain permission check on the signed-in operator, not one person authorising another — so (i) is
+genuinely new work rather than a variation on something existing. It also needs a way to
+authenticate a supervisor **offline**, which `OfflineCredentials` + the synced roster can do.
 
 ⚠ **And it constrains how the members' discount is built.** MAUI's shape is a `BasketAlteration`
 apportioned at commit, *not* the web till's per-line `discount` field, so a member's basket ends up
@@ -1306,6 +1354,7 @@ before or after — most are cheap to change.
 | **19** | ✅ **CONFIRMED — Matt, 2026-08-13: "If the card machine is down, we cannot refund cards."** A refund goes back **only** to the tender that took the money, capped at what that tender took, **with no exception for a dead card terminal and no supervisor override** — the same shape as default 12 for the sale total. So a part-cash-part-card customer cannot be handed the whole refund in notes, and a card sale cannot be refunded from the drawer at all. ⚠ **This was raised as an owner-level question precisely because it has a shop-floor cost** (a customer sent away until the terminal is back), and the answer is the strict one: the alternative is the oldest till fraud there is, and an honest cash refund of card takings empties the drawer just as effectively. **Do not re-litigate it in code** — if it ever changes it changes here first. | 16, 17, ingest |
 | **20** | ✅ **CONFIRMED — Matt, 2026-08-13: "Tiers need to be set on the portal, but you need to be able to assign and change a tier on the tills IF you have the correct permissions. Supervisor to change tiers. Till operator to add new loyalty members."** Three rules: **(a)** tiers are *configured* in the **portal only** — no till creates or edits a tier. **(b)** *Assigning/changing* a member's tier at a till is **Supervisor and up** — `customers.manage`, which Supervisor already holds, so this is screen work only. **(c)** *Adding* a new member at a till is **Cashier and up** via a new **`pos.customers.add`**, with `POST /api/v1/customers` accepting either it or `customers.manage` (the `CheckAny` shape from `pos.stock.adjust`). ⚠ **Create-only, deliberately** — a cashier may add but not alter: editing a member's email quietly redirects their account, and a tier changes every future basket. ⚠ **Changes the WEB till too** — its create dialog is gated `customers.manage` alone today, so a web-till cashier cannot add either; both tills gain the gate in the same slice. ⚠ Adding is **online-only on every till**: member numbers come from a tenant-wide counter, and two offline tills would mint the same one. Expanded design: [`updatedesign.md`](updatedesign.md) §14. | 27 |
 | **21** | ✅ **CONFIRMED — Matt, 2026-08-13: "We already have tier'd discount. The credits/Gems value need to be set in the portal. Each credit/gem is worth £0.10. Earn one credit/gem for every £10 spent. Use as many credits/gems as you want on an order. Need to be able to set an expiry date or never."** The programme's economics, and every till reads them from the server: a per-tenant **`LoyaltySettings`** row (`PencePerPoint` 10, `SpendPerPointPence` 1000, `ExpiryChoice` `NotChosen`/`Never`/`AfterMonths` + `ExpiryMonths`), following the `GiftCardSettings` idiom where **absence is the gate** — ⚠ **expiry is the TILL OWNER's explicit decision** (Matt, 2026-08-13), so `NotChosen` blocks earning and *"never"* is **chosen, not defaulted into**; two fields rather than a bare nullable so *"the owner chose never"* is distinguishable from *"nobody has decided"*. ⚠ **The brand term is configurable and lives ONLY in `NameSingular`/`NamePlural`** — code, tables, columns and DTOs use the neutral `Point`, and MAUI carries the two strings with its synced `LoyaltyCache` rather than a resource file, because a hardcoded "gems" on a till button or receipt is a bug the second tenant finds. ⚠ **Expiry is computed ON READ from the date** (the `GiftCardLedger.cs:57` precedent — nothing sweeps gift cards at all), so a balance is right **even if no job has run**; a sweeper writes idempotent `Expire` rows **only** for the accounting record, valued at each batch's **own** rate. Four consequences are binding because each is a silent-wrongness risk: **(a)** the ledger stores a **count of gems, never pence** — the rate is a portal setting, and a pence balance would either re-value all history or fail to, depending on which figure was written. **(b)** Redemption is a **basket-wide discount** of `gems × PencePerPoint`, reusing `DiscountApportionment.Across` + `VatLineMath.ForLine`, so a mixed-VAT basket apportions right for free; ⚠ `Across` **throws** above basket value, so the till caps the offer or ingest quarantines the sale. **(c)** Expiry is **per earn-entry**, consumed **oldest-expiring-first**, and changing `ExpiryMonths` **never retro-expires**. **(d)** ⚠⚠ A refund must **claw back the earn** *and* **restore the burn** — the earn alone leaves a gem printer (buy £1,000, refund, keep 100 gems); the burn alone loses the member gems they paid with. Balance may go negative; redemption blocks while it is. ⚠ **Earn base:** gross inc-VAT **actually paid** — after tier discount, after redemption, **excluding gift-card activation** (a liability, not a supply — earning there pays out twice). Rounding **floors per sale**. Reasoning and edge cases: [`updatedesign.md`](updatedesign.md) §18. ⚠ **GEMS ARE GRANDFATHERED** (§18.8): each batch carries `PencePerPointAtEarn`, consumption is **oldest-first**, so a rate change touches future earns only and the old-rate cohort liquidates itself. Two consequences bind the tills: the member-facing figure is **money, not a count** (*"you have £23.50 in gems"* — a count has no single value once batches differ, and a money-denominated redemption makes oldest-first value-neutral to the member), and ⚠⚠ **NO TILL EVER HOLDS `PencePerPoint`** — it receives a money balance and sends a money redemption, so this is **a C2 twin that never gets created**, and MAUI's offline `LoyaltyCache` hint is correct by construction since a cached *value* needs no rate to interpret. A redemption is **one ledger row per source batch** (a refund must restore the same batches at the same rates). The portal still previews, audits and type-to-confirms a rate change (§18.7) — the hard `danger` warning moves to shortening `ExpiryMonths`, the one edit that still destroys value. ⚠ Still gated on §14 decision 1 (discount vs tender) — **the accountant's**. | programme phase A/B, not 27 |
+| **22** | ✅ **CONFIRMED — Matt, 2026-08-13, three rulings on discounts.** **(a)** *"You cannot have a discount greater than the basket."* **(b)** *"Discount levels should be a setting that is configurable by the owner, and over certain levels (which can be added and configurable) need approval from a supervisor or higher."* **(c)** *"All discounts need to be tracked — till, logged-in employee and reason."* ⚠ **(a) IS BUILT** — `SharedKernel/BasketDiscounts.cs`, the same shape as `RefundRules` (a verdict plus amounts, with **no money baked into a string** — `RefundDecision` already settled that formatting is a client concern, wrong the first time a tenant trades in another currency and unlocalisable for MAUI's `I18N_L10N`; I had written `£` into it and that decision caught me). Headroom is **net of what is already off**, because the commit-time apportioner judges it that way and a gate that disagrees passes a basket through one and throws at the other. ⚠ **The boundary is INCLUSIVE** — a 100% staff discount is legitimate, and only *more* than everything is refused. Returns are **not** headroom. 15 tests, mutation-checked. ⚠ **(b) and (c) are NOT built** — four findings below, and **(b) has one question only Matt can answer**. | 27, and the discount path generally |
 | **18** | **Additive feed fields are allowed.** `CatalogueItemDto` gained `Brand`, `Description`, `CostPence?`, `StockQty?` (nullable, so old servers stay compatible). ⚠ **`Barcodes[]` CANNOT be wired and that is settled**: there is no barcode entity in `Plutus.Entities` at all — **`IdOne` IS the barcode**, and multi-barcode items are not something the platform models. `FindByBarcodeAsync`'s alias path is dead **by design, not omission**; adding it is a platform decision, not a till task. `PriceSchedule` is likewise unpopulated but harmless — the effective-dated timeline rides in `BandData` from the feed, so scheduled prices work. The store-info screen **drops the logo** (no contract field). | 10, 20, 25 |
 
 ## 14. How long a cached login lasts (the numbers, and why)
