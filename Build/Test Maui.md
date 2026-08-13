@@ -1,6 +1,6 @@
 # Test Maui — the MAUI till hand-test script
 
-**For till 1.49.2.** Anyone can run this. You do not need to know the codebase, and you should not
+**For till 1.49.3.** Anyone can run this. You do not need to know the codebase, and you should not
 need to ask anyone what a step means — if a step is unclear, that is a bug in this document, so please
 say so.
 
@@ -13,7 +13,7 @@ if that is all the time you have.
 
 | | |
 |---|---|
-| **Run** | `D:\tmp\plutus-till-1.49.2\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Not** 1.48.0 (cannot take a sale — A0), 1.49.0 (crashes on a card overpay — A4) or 1.49.1 (a split payment tells you nothing — A5). |
+| **Run** | `D:\tmp\plutus-till-1.49.3\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Not** 1.48.0 (cannot take a sale — A0), 1.49.0 (crashes on a card overpay — A4), 1.49.1 (a split payment tells you nothing — A5) or 1.49.2 (a closed day still accepts items from the item list — A8). |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
 | **Sign in as** | any operator with **Supervisor** or above — some steps need permission to change stock |
@@ -39,10 +39,10 @@ project.
 
 # §A — the reported faults, and whether they are really fixed
 
-The specific fixes in **1.42.0–1.49.2**, from the hand-runs of 2026-08-11 and 2026-08-13. Each one was
+The specific fixes in **1.42.0–1.49.3**, from the hand-runs of 2026-08-11 and 2026-08-13. Each one was
 reported by a real person using the till. **If you only have 15 minutes, do this section.**
 
-⚠ **A0, A4 and A5 are the newest and the least proven** — all three are checkout faults found on
+⚠ **A0, A4, A4b, A5 and A8 are the newest** — all checkout or closed-day faults found on
 2026-08-13, and A4 has broken the till twice in two different ways. **§E** covers three things from
 2026-08-11 that still nobody has tested.
 
@@ -140,6 +140,25 @@ refusal path was affected, which is exactly why it survived to be found by hand.
 ⚠ **So the thing to watch for here is the app vanishing**, not the wording. If it closes, say what you
 had typed and which tender you had chosen.
 
+## A4b. ⚠⚠ Refund a sale that was paid TWO ways — the money one
+
+**This is currently BROKEN on both tills. It is here so nobody reports it as new, and so anyone
+refunding knows to watch it.**
+
+1. Sell something for **£4.40**, paid **£2.00 cash + £2.40 card** (A5 does exactly this).
+2. Now return that item, and look at what the refund offers you.
+
+**✅ Expected, eventually:** cash offered up to **£2.00** and card up to **£2.40** — the money goes back
+the way it came, in the proportions it came.
+
+**❌ What happens today:** both methods are offered — correctly — and **neither is capped**, so the whole
+£4.40 can be refunded to the card. The card is then credited £2.40 more than it ever took, the £2 stays
+in the drawer, and nothing in any report shows it. ⚠ **The server does not catch this either.**
+
+⚠ **So for now: when you refund a split-paid sale, split the refund yourself** in the same proportions.
+Reported by Matt on 2026-08-13 (finding **Y**); the fix is a shared rule plus an ingest gate, ~2–3 days,
+and it is the next thing on the list.
+
 ## A5. Split a payment across two methods
 
 **What you are really checking here is whether the screen TELLS you what it has taken.**
@@ -194,15 +213,28 @@ counted the drawer was never told.
 ⚠ **Then check the opposite:** on another day, count **more** than expected. It should say **OVER**.
 An over drawer is not good news — it is a sale rung up wrong or money in the wrong till.
 
-## A8. Try to sell after closing the day
+## A8. Try to sell after closing the day — by BOTH routes
 
 1. With the day **Z-closed** (from A7), go to the **Till** tab and try to ring up a sale.
 
-**✅ Expected:** it refuses **before taking any money**, and your basket is left intact.
-**❌ The bug:** the sale went through, and the platform accepted it against a day already counted and
-banked — which makes the Z read, the banking and the platform's figures disagree for ever.
+**✅ Expected:** it refuses **before taking any money**, with *"This day has been closed with a Z read…"*,
+and your basket is left intact.
+
+2. ⚠ **Now the second route, which is where it was still getting through:** go to **Inventory
+Management → View all items**, pick any item and use **Add to till**.
+
+**✅ Expected:** the same refusal. Nothing reaches the basket.
+
+**❌ The bugs, in order:** first the sale went through entirely and the platform accepted it against a
+day already counted and banked. Then the till refused a **scan** but happily accepted the same item from
+the **item list** — the rule had been put on the door that was reported and not on the other door to the
+same basket (Matt, 2026-08-13; fixed in 1.49.3).
 
 ⚠ **Also try a refund** against that closed day. It should refuse too.
+
+⚠ **Known and not yet done:** the *"Add to till"* button is not greyed out — it refuses when pressed
+rather than looking unavailable. Matt asked for the greyed-out version with "Till closed" beside it, and
+that rides step 25's screen.
 
 ---
 
@@ -367,7 +399,7 @@ and nothing calls it, so this path is currently the only way to find it.
 correct" is what lets a fix be closed; without it, it stays open and gets re-tested for weeks.
 
 ⚠ **And say which version you ran.** It is the small grey line at the bottom of the **Plutus** tab,
-which should read **`MAUI till v1.49.2`**. (It is also on the sign-in screen.) ⚠ **If it says anything
+which should read **`MAUI till v1.49.3`**. (It is also on the sign-in screen.) ⚠ **If it says anything
 else, stop and say so** — 1.48.0 cannot take a sale and 1.49.0 crashes on a card overpay, so a run on
 either of those will just re-find faults that are already fixed. Two of the fourteen findings on
 2026-08-11 took much longer to settle than they needed to, partly because nobody could be certain

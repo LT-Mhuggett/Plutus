@@ -314,28 +314,19 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         {
             if (IsBusy) return;
 
-            // ⚠⚠ REFUSED AT THE DOOR, NOT AT THE TILL DRAWER. Matt, 2026-08-11: *"with the till
-            // closed, I can still add items in the till… I have added an item, it let me checkout,
-            // but then I got stuck."*
+            // ⚠⚠ EVERY DOOR, NOT JUST THIS ONE. Matt, 2026-08-13, hand-test A8: *"you can add an item
+            // from inventory, add to till. This needs to be stopped as well."* He was right, and the
+            // shape of the miss is the one this codebase keeps making: the rule was put on the path
+            // that was REPORTED (the scan box) and not on the other path to the same basket
+            // (Inventory → Add to till → `ExecuteItemAddArg`, which had only the `IsBusy` guard).
             //
-            // The Z-closed gate I added earlier that day lives in `CheckoutCommit` — the right place
-            // for the LEDGER, and far too late for the OPERATOR. It let a basket be built, let the
-            // tender loop run, and refused at the moment of recording, which is the worst possible
-            // moment: the customer is waiting and the screen has already behaved as though the sale
-            // were happening. Checking here costs one indexed read and turns a dead end into a
-            // sentence before anything is scanned.
-            //
-            // ⚠ THE COMMIT GATE STAYS. This one protects the operator; that one protects the books,
-            // and a till cannot be the only thing enforcing a rule about the platform's own ledger —
-            // an older build or a replayed queue reaches the endpoint without passing through here.
-            if (await Services.Storage.TillStoreAccess.UseAsync(
-                    s => s.IsDayClosedAsync(SharedKernel.BusinessDay.Wire(SharedKernel.BusinessDay.Today()))))
+            // ⚠ Same class as the original finding B, one level up. That gate was at COMMIT — right
+            // for the ledger, too late for the operator. This one was at the door — but only at one
+            // of the doors. A rule enforced per-entry-point is a rule with a hole in it, so it now
+            // lives in ONE method that every add path calls.
+            if (await RefuseIfDayClosedAsync())
             {
                 ItemId = string.Empty;
-                await Application.Current.MainPage.DisplayAlert("Till closed",
-                    "This day has been closed with a Z read, so nothing more can be rung up against "
-                    + "it.\n\nIf the shop is still trading, a supervisor can reopen the day: "
-                    + "Cash → \"Reopen the day\".", "OK".Translate());
                 return;
             }
 
@@ -415,6 +406,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         private async void ExecuteItemAddArg(string id)
         {
             if (IsBusy) return;
+
+            // ⚠⚠ THE DOOR MATT CAME THROUGH (A8, 2026-08-13). Inventory → "Add to till" arrives here
+            // via the `AddToBasket` message, and this path had NO day-closed check — so a Z-closed
+            // till refused a scan and accepted the same item from the item list.
+            if (await RefuseIfDayClosedAsync()) return;
 
             IsBusy = true;
             try
@@ -1865,6 +1861,45 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         ///
         /// ⚠ Reads THIS TILL's own record only — no network. A refund must work with the line down.
         /// </summary>
+        /// <summary>
+        /// Is the business day Z-closed? If so, SAY so and return true.
+        ///
+        /// ⚠ ONE METHOD, CALLED BY EVERY PATH THAT PUTS SOMETHING IN THE BASKET. There are two —
+        /// the scan box (<see cref="ExecuteItemAdd"/>) and the item list's "Add to till"
+        /// (<see cref="ExecuteItemAddArg"/>, reached by the `AddToBasket` message) — and on 1.49.2
+        /// only the first one checked. Matt found the other in ten seconds (A8).
+        ///
+        /// ⚠ THIS PROTECTS THE OPERATOR, NOT THE BOOKS. The ledger's gate stays where it is, in
+        /// `CheckoutCommit`: a till cannot be the only thing enforcing a rule about the platform's
+        /// own records, because an older build or a replayed queue reaches the endpoint without
+        /// passing through any screen. Two gates, two different jobs.
+        ///
+        /// ⚠ Fails OPEN on a lookup error, deliberately: refusing to sell because a local read threw
+        /// would turn a bad day into a closed shop. The commit gate is still behind it.
+        /// </summary>
+        private async Task<bool> RefuseIfDayClosedAsync()
+        {
+            bool closed;
+            try
+            {
+                closed = await Services.Storage.TillStoreAccess.UseAsync(
+                    s => s.IsDayClosedAsync(SharedKernel.BusinessDay.Wire(SharedKernel.BusinessDay.Today())));
+            }
+            catch (Exception ex)
+            {
+                Services.Analytics.CrashLog.Write("TillViewModel.RefuseIfDayClosed", ex);
+                return false;
+            }
+
+            if (!closed) return false;
+
+            await Application.Current.MainPage.DisplayAlert("Till closed",
+                "This day has been closed with a Z read, so nothing more can be rung up against "
+                + "it.\n\nIf the shop is still trading, a supervisor can reopen the day: "
+                + "Cash → \"Reopen the day\".", "OK".Translate());
+            return true;
+        }
+
         private async Task<IReadOnlyCollection<byte>> OriginTenderTypesAsync()
         {
             try

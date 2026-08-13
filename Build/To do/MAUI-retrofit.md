@@ -56,8 +56,8 @@ item-identity seam all outlive the retrofit, and archiving them unlifted buries 
 
 | | |
 |---|---|
-| **Till build to run** | **`D:\tmp\plutus-till-1.49.2\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe. ⚠ Three builds in one day: **1.48.0 could not take a sale (U), 1.49.0 crashed on a card overpay (V), 1.49.1 said nothing during a split payment (W).** **1.49.2 fixes all three.** A1–A3 pass; **resume at A4** |
-| **Versions** | till-maui **1.49.2** · backend **1.15.0** · platform **1.27.0** · portal **1.7.0** · till-web **1.6.0** · agent **1.3.3** |
+| **Till build to run** | **`D:\tmp\plutus-till-1.49.3\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe. ⚠ Four builds in one day, each fixing what the next test found: **1.48.0** could not take a sale (U) · **1.49.0** crashed on a card overpay (V) · **1.49.1** said nothing during a split payment (W) · **1.49.2** let a closed day take items from the item list (X). ⚠ **§A and §B are now run through** (C needs two people) — **the open findings are [Y](#1-open-faults--before-any-new-work) (money, both tills) and Z1–Z5** |
+| **Versions** | till-maui **1.49.3** · backend **1.15.0** · platform **1.27.0** · portal **1.7.0** · till-web **1.6.0** · agent **1.3.3** |
 | **Deploy state** | ⚠ **Nothing MAUI-side is blocked on a deploy.** Every backend endpoint the remaining steps need is live on the test environment |
 | **Suite** | Unit **907** · Integration **169** · Architecture **15** · AppClient **425** (+3 skipped) · web till **19** — all green |
 
@@ -170,6 +170,73 @@ that last one is what proves Q is closed rather than merely explained.
 
 ✅ **A1, A2 and A3 passed on 1.49.0** (Matt, 2026-08-13). **A4 then crashed the till — see V.**
 
+### X — a closed day refused the scan box and accepted the item list. ✅ **FIXED IN 1.49.3**
+
+**Matt, hand-test A8:** *"A8 works that if you try to add an item from the till it stops it, but you can
+add an item from inventory, add to till. This needs to be stopped as well, either the same message or
+the add to till button greyed out with 'Till closed' next to it."*
+
+**Confirmed and fixed.** The day-closed check sat inside `ExecuteItemAdd` (the scan box). Inventory →
+"Add to till" sends the `AddToBasket` message, which lands in **`ExecuteItemAddArg`** — a different
+method, guarded only by `IsBusy`. So a Z-closed till refused a scan and cheerfully accepted the same
+item from the item list.
+
+⚠ **This is the same class as finding B, one level up, and worth saying out loud.** B was "the gate is
+at COMMIT, which is right for the ledger and far too late for the operator". The answer was a gate at
+the door — **but only at one of the doors.** A rule enforced per-entry-point is a rule with a hole in
+it. It now lives in one `RefuseIfDayClosedAsync()` that both paths call, and the next path to be added
+has one obvious thing to call.
+
+⚠ **It fails OPEN on a lookup error**, deliberately: refusing to sell because a local read threw would
+turn a bad day into a closed shop, and the commit gate is still behind it.
+
+⚠ **Matt's alternative — greying the button out with "Till closed" — is the better UX and is NOT what
+shipped.** The message is honest but it still lets an operator get as far as pressing the button. Doing
+it properly means the item list knowing the day's state and re-reading it when the day is reopened;
+that is a small piece of **step 25's** screen rather than a one-liner here. **Captured, ~½d.**
+
+### ⚠⚠⚠ Y — A SPLIT-PAID SALE CAN BE REFUNDED ENTIRELY TO ONE TENDER. **OPEN. BOTH TILLS. MONEY.**
+
+**Matt, 2026-08-13, hand-test B1:** *"I do not believe either till is taking into account the split
+payment return? I can return an item that was just cash, and it only gives me the cash option. But when
+I try to return an item that was split, it wants to put the full amount to that card. It needs to be
+aware of how the payments were split for it to work."*
+
+**He is right, and nothing anywhere catches it.** Traced 2026-08-13:
+
+| Layer | What it does about it |
+|---|---|
+| **MAUI** | `OriginTenderTypesAsync` collects the **SET** of tender types the origin used (`types.Add(tender.TenderType)`) and passes it to `TillTenders.OfferedForRefund`. For a cash+card sale that offers **both** — correctly — **and then caps neither.** The amount prompt pre-fills the whole outstanding refund, so putting all £4.40 on the card is the path of least resistance |
+| **Web till** | ⚠ **No origin-tender restriction at all** — grep finds none. It offers every method for a refund, so it is *worse* than MAUI, not merely different |
+| **The server** | ⚠⚠ **`RefundRules` has no notion of a tender.** It caps the refund against the origin sale's **gross** and its recorded refunds — nothing per method. So ingest accepts it, the rollups accept it, and no report flags it |
+
+⚠⚠ **The consequence is real money, in the shop's direction of loss.** A customer pays £2.00 cash +
+£2.40 card. The refund goes £4.40 to the card. **The card is credited £2.40 more than it ever took, and
+the £2 stays in the drawer** — the till balances, the customer is £2 up, and the shop is £2 down with
+nothing in any report to show it. Reverse the signs and it is a way to walk cash out of a shop.
+
+**The rule that is missing** (and it belongs in `SharedKernel` beside `RefundRules`, not in a screen):
+> **A refund to tender T is capped at what T actually took on the origin sale, less whatever has
+> already been refunded to T.** Cash may be the exception a shop *chooses* — refunding a card sale in
+> cash is the fraud finding G exists to stop, so the default must be "back the way it came" — but
+> refunding MORE to a method than it took can never be right.
+
+**Size: ~2–3 days**, because it is four pieces and one of them is the wire:
+1. `SharedKernel.RefundRules` gains per-tender remainders — the origin's tenders less refunds already
+   made to each. **Unit-tested and mutation-checked; this is money.**
+2. **Ingest re-runs it** and quarantines (202) a refund that overpays a tender, exactly as default 12
+   does for the total. ⚠ **Without this it stays a client-only gate on both tills** — the same hole
+   default 12 was written to close.
+3. **MAUI** passes per-tender caps into the tender loop (which today knows only one outstanding
+   figure), and the amount prompt pre-fills **that tender's** remainder rather than the whole balance.
+4. **The web till** gets the origin-tender restriction it has never had. ⚠ Needs the Mac.
+
+⚠ **Until it lands, the till will let this happen.** Worth telling whoever is refunding.
+
+⚠ **And the parity register was wrong to be comfortable here.** "Refunds go back the way they were
+paid" was ✅ for MAUI on the strength of finding G — which restricted the *set* and never the *amounts*.
+**A ✅ earned by a partial rule is how a money hole hides in a register.**
+
 ### W — a split payment looked like it had swallowed the money. ✅ **FIXED IN 1.49.2**
 
 **Matt, 1.49.1:** *"When I try to do a split payment. e.g. an item is £4.40, I press cash, put in £2, it
@@ -261,6 +328,22 @@ the UI thread is USER-VERIFY (A4)**, and saying so is better than a test that pr
 | **Q** | ⚠⚠ **"I could cancel the item, but then searching stopped working."** (Matt, 2026-08-11) | ✅ **EXPLAINED 2026-08-13 — same root cause as U above.** Any checkout that reaches the amount prompt wedges `IsBusy` on, and every command guarded by it — including the scan box — then does nothing silently. ⚠⚠ **The original rule-out was wrong, and worth remembering why:** *"`IsBusy` stuck — ruled out, every set has a `finally`"* checked that a `finally` **exists**, not that the body could ever **reach** it. **A `finally` does not run when the `try` deadlocks.** ⚠ Closes only when U is fixed and a hand-run confirms search works after a completed sale |
 | — | **Hand-run** | 🔨 **IN PROGRESS on 1.49.1.** Started 2026-08-13 on 1.48.0 and stopped at the first sale (U); **A1–A3 then passed on 1.49.0 and A4 crashed it (V)**. ⚠ Everything downstream of taking money is still **untested on this build line**: refunds, the drawer, X/Z with sales in it, the Cash tab's "(waiting to send)", today's takings. **[`Test Maui.md`](../Test%20Maui.md) §B**, from the checkout. Nine till builds have now shipped since a person last completed a shop day |
 | 🟠 | **`LoginViewModel.EnsureStoreAsync` throws on EVERY sign-in** — `InvalidOperationException: Unable to track an entity of type 'StoreModel' because its primary key property 'Id' is null` (`LoginViewModel.cs:389`) | Caught and harmless; the screen it fed is now read-only off `StoreInfoCache`. ⚠ It also **creates the legacy `Database.db` on every sign-in**, which is what made the enrolment gate a one-way door. **Step 21 deletes it** — scheduled, not forgotten (also register row [L7](#l7--loginviewmodelensurestoreasync)) |
+
+## 1b. Raised by the 2026-08-13 hand-run — captured, not yet built
+
+Each is real and none is a blocker. **The two portal items need the Mac** (no Node on Windows), so they
+ship with the next portal build.
+
+| # | What | ~ | Detail |
+|---|---|---|---|
+| **Z1** | **A visible "look up a sale / return" button on the MAUI till** | **½d** (rides step 26) | Matt, B: *"The webtill allows you look up returns and sales via a button next to the barcode entry bar. Is this set to be replicated within MAUI?"* **Partly** — the lookup itself is step 26's cross-till screen, but the **entry point** was never a row. Today MAUI's only door is a **right-click on a basket line → Returns**, which nothing on screen advertises; the web till has a plain button beside the scan box (`TillPage.tsx:390` → `ReturnDialog`). ⚠ **A feature reachable only by right-click on a touch till is a feature that does not exist.** Part B row added |
+| **Z2** | ⚠ **Opening hours are missing from MAUI entirely** | **½d** | Matt: *"Opening hours is not reflected on the webtill or Maui."* Traced: the **portal can set them** (`StoresPage.tsx` → `OpeningHoursEditor`), the **server stores and serves them** (`StoresController`, `StoreInfoResult.OpeningHoursJson`), and the **web till renders them** (`StoreInformationPage.tsx` → `OpeningHours`). **MAUI has ZERO references to `openingHours` anywhere.** ⚠⚠ **WP6's DoD explicitly required "the per-day `openingHoursJson` as a read-only weekly table" and step 20 is marked ✅** — so this is a ⬜ wearing a ✅, the third such this week. ⚠ **On the web till the likely answer is that nobody has filled them in** — check Portal → Stores → edit before treating that half as a bug |
+| **Z3** | **Today's takings: say WHEN the figure was read** | **~2h** | Matt, B3: *"does this refresh automatically? It only refreshed when I moved between tabs."* ✅ **It does refresh automatically** — `StatisticsView.OnAppearing` loads and subscribes to `TillCadence.Ticked`, `OnTicked` reloads, and `LoadToday` marshals its own redraw (verified, not taken from the comment). **But the tick is 60 seconds**, so anything less than a minute of watching looks like "only on tab change". ⚠ **The real gap is that nothing on screen distinguishes a figure read 5 seconds ago from one read at sign-in** — which is exactly what made finding N worth fixing. Stamp it: *"as at 16:32"* |
+| **Z4** | **Portal: make the out-of-balance drawer tile AMBER** | **~1h** ⚠ Mac | Matt, A7: *"would be good to have the button/info amber to highlight it."* The tile reads **⚠ DRAWERS OUT OF BALANCE (3) · £135.95 short** in the same grey as every other stat, so the one number that wants a manager's attention looks like the six that do not |
+| **Z5** | **Portal: stock adjustments as its own tab** | **~2h** ⚠ Mac | Matt, B4: *"stock adjustments needs its own tab e.g. Items, Stock ledger, stock adjustments, Categories, Bin."* The data is live (`GET /api/v1/stock/adjustments`, backend 1.12.0) and currently has no home of its own |
+
+⚠ **Z4 and Z5 are the portal, and there is no Node on the Windows box** — they are written but cannot be
+built or verified here. Both land on the next Mac build, per the runbook's frontend deploy section.
 
 ## 2. Small, and each closes a real inconsistency
 

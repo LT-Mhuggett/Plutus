@@ -1,7 +1,7 @@
 # Handover — Plutus platform build
 
 **Date:** 2026-08-13 — Platform on **.NET 10**. Backend **1.15.0**, portal **1.7.0** and web till
-**1.6.0** are DEPLOYED to the test environment; till-maui **1.49.2**, platform **1.27.0**, agent
+**1.6.0** are DEPLOYED to the test environment; till-maui **1.49.3**, platform **1.27.0**, agent
 **1.3.3**. All 18 phases + Operator Portal (OP1–OP4), the **portal/till refresh (P1–P6)** and
 **FE1–FE10** built & LIVE. The **MAUI retrofit**: cutover **steps 1–21, 23, 25 and half of 26 are
 done**; **11b (promoted), 22, 24, the rest of 26, 27 and 28 remain** — ⚠ **one document now:**
@@ -26,7 +26,7 @@ Head: see `git log` — this line goes stale; the commits don't.
 
 ### ⏰⏰⏰⏰⏰⏰⏰⏰⏰ START HERE — picking up on **2026-08-13**
 
-**A documentation day that ended in a code fix.** ⚠ **Till 1.49.0 → 1.49.1 → 1.49.2 shipped** (items 3, 3b and 3c below); nothing deployed, backend/portal/web versions unchanged. The work list below
+**A documentation day that turned into a hand-run day.** ⚠ **Till 1.49.0 → 1.49.3 shipped, four builds, each fixing what the next test found** (items 3–3d below); nothing deployed, backend/portal/web versions unchanged. The work list below
 (*START HERE TOMORROW*) is still the work list — it was not touched, only written up properly.
 
 **1. The MAUI documents are now ONE.** [`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md)
@@ -135,6 +135,36 @@ shipped without it.
 ⚠ **Residual, and honest:** the web till shows a standing **Paid / Remaining** pair on one form; MAUI
 asks in sequence. Same numbers and vocabulary, different shape — **Part B stays 🟡 until step 11b
 rebuilds that screen.**
+
+**3d. THE HAND-RUN IS THROUGH §A AND §B (C needs two people). Till 1.49.3.** A1–A8 and B1–B8 all run.
+**Two more faults found, one of them money, plus five captured requests** — all in
+[`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md) §1 and §1b.
+
+⚠⚠ **THE ONE THAT MATTERS — finding Y, and it is OPEN: a split-paid sale can be refunded entirely to one
+tender.** Matt, B1: *"I can return an item that was just cash, and it only gives me the cash option. But
+when I try to return an item that was split, it wants to put the full amount to that card."* Traced
+through all three layers: **MAUI** restricts the *set* of tenders (finding G) and caps **none** of the
+amounts; **the web till** has no origin-tender restriction at all; and ⚠⚠ **`RefundRules` has no notion
+of a tender** — it caps against the sale's gross, so ingest, the rollups and every report accept it.
+**£2 cash + £2.40 card refunded £4.40 to the card leaves the card £2.40 over-credited and the £2 in the
+drawer, and nothing anywhere flags it.** The rule belongs in SharedKernel with an ingest gate behind it —
+**~2–3 days, and it is the next thing I would do.** ⚠ Until then, split the refund by hand.
+
+⚠ **The register was wrong to be comfortable:** that row was ✅ for MAUI on the strength of finding G,
+which restricted the set and never the amounts. **A ✅ earned by a partial rule is how a money hole hides
+in a register.**
+
+**Fixed in 1.49.3 (finding X):** a Z-closed day refused the scan box and **accepted the same item from
+Inventory → Add to till** — a second door to the same basket with no gate on it. Same class as finding B
+one level up: the rule went on the path that was reported. Now one `RefuseIfDayClosedAsync()` that every
+add path calls. AppClient 434 green.
+
+**Captured, not built (Z1–Z5):** a visible sales/returns lookup button on MAUI (the web till has one by
+the scan box; MAUI's only door is a right-click) · ⚠ **opening hours are missing from MAUI entirely**
+although WP6's DoD required them and step 20 is ✅ — portal, server and web till all handle them, so
+check whether Kapow's are simply unset · "as at HH:MM" on today's takings (it *does* refresh on the 60s
+tick — verified — but nothing says when) · ⚠ **portal: amber the out-of-balance drawer tile** and **give
+stock adjustments its own tab** — both need the Mac.
 
 **4. Corrected:** §1 below described the backend as ".NET 8". It is `net10.0`.
 
