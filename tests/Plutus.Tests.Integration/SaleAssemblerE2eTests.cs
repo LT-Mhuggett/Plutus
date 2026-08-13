@@ -183,6 +183,113 @@ public class SaleAssemblerE2eTests : IClassFixture<PlutusAppFactory>
         return (status, body?.Status?.ToLowerInvariant() ?? "");
     }
 
+    /// <summary>Sell one line, paid with the tenders given — so a test can make a SPLIT-paid sale.</summary>
+    private static async Task<Guid> SellPaidWithAsync(
+        PlutusApiClient api, Guid deviceId, Guid businessId, long seq, string idOne,
+        long incPence, long exPence, int qty, params IngestTender[] tenders)
+    {
+        var id = Uuid7.New();
+        var lines = new[] { new BasketLine(Guid.Empty, idOne, "Item " + idOne, incPence, exPence, qty) };
+        var sale = SaleAssembler.Assemble(
+            id, deviceId, seq, businessId, lines, tenders, new DateOnly(2026, 8, 9), DateTime.UtcNow);
+
+        Assert.Equal(HttpStatusCode.Created,
+            (await api.PostSaleAsync(JsonSerializer.Serialize(sale, PlutusApiClient.Json))).Status);
+        return id;
+    }
+
+    /// <summary>Refund a line, putting the money back on the tenders given.</summary>
+    private static async Task<(HttpStatusCode Status, string Body)> RefundToTendersAsync(
+        PlutusApiClient api, Guid deviceId, Guid businessId, long seq,
+        Guid originId, string idOne, long incPence, long exPence, int qty, params IngestTender[] tenders)
+    {
+        var lines = new[]
+        {
+            new BasketLine(Guid.Empty, idOne, "Item " + idOne, incPence, exPence, qty,
+                IsReturn: true, OriginSaleId: originId),
+        };
+        var refund = SaleAssembler.Assemble(
+            Uuid7.New(), deviceId, seq, businessId, lines, tenders,
+            new DateOnly(2026, 8, 9), DateTime.UtcNow);
+
+        var (status, body) = await api.PostSaleAsync(JsonSerializer.Serialize(refund, PlutusApiClient.Json));
+        return (status, body?.Status?.ToLowerInvariant() ?? "");
+    }
+
+    /// <summary>
+    /// ⚠⚠ FINDING Y (Matt, 2026-08-13): *"when I try to return an item that was split, it wants to put
+    /// the full amount to that card. It needs to be aware of how the payments were split."*
+    ///
+    /// A £4.40 sale paid £2.00 cash + £2.40 card, refunded £4.40 ENTIRELY TO THE CARD. Every existing
+    /// gate waves it through: the sale-level cap sees £4.40 of a £4.40 sale, the per-item cap sees one
+    /// item fully returned, and neither has any notion of a tender. The result is a card credited £2.40
+    /// more than it ever took and £2.00 still in the drawer — a till that balances, and a shop £2 down
+    /// with nothing in any report to show it.
+    ///
+    /// ⚠ This is the SERVER half. The tills are being fixed too, but a cap that only a till enforces is
+    /// no cap at all — that is binding default 12's whole reasoning, applied to the split.
+    /// </summary>
+    [Fact]
+    public async Task A_split_paid_sale_cannot_be_refunded_entirely_to_one_tender()
+    {
+        var http = _f.CreateClient();
+        var (api, deviceId, businessId) = await EnrolAsync(http, "refundsplit1@acme.test");
+
+        // £4.40, paid £2.00 cash + £2.40 card
+        var originId = await SellPaidWithAsync(api, deviceId, businessId, 1, "5040001", 440, 367, 1,
+            new IngestTender { TenderType = Tenders.Cash, AmountPence = 200 },
+            new IngestTender { TenderType = Tenders.Card, AmountPence = 240 });
+
+        // …refunded £4.40 to the card alone
+        var (status, body) = await RefundToTendersAsync(api, deviceId, businessId, 2, originId,
+            "5040001", 440, 367, 1,
+            new IngestTender { TenderType = Tenders.Card, AmountPence = -440 });
+
+        Assert.Equal(HttpStatusCode.Accepted, status);   // 202
+        Assert.Equal("quarantined", body);
+    }
+
+    /// <summary>The same refund, split the way the customer actually paid, is recorded.</summary>
+    [Fact]
+    public async Task A_split_paid_sale_refunded_the_way_it_was_paid_is_recorded()
+    {
+        var http = _f.CreateClient();
+        var (api, deviceId, businessId) = await EnrolAsync(http, "refundsplit2@acme.test");
+
+        var originId = await SellPaidWithAsync(api, deviceId, businessId, 1, "5040002", 440, 367, 1,
+            new IngestTender { TenderType = Tenders.Cash, AmountPence = 200 },
+            new IngestTender { TenderType = Tenders.Card, AmountPence = 240 });
+
+        var (status, _) = await RefundToTendersAsync(api, deviceId, businessId, 2, originId,
+            "5040002", 440, 367, 1,
+            new IngestTender { TenderType = Tenders.Cash, AmountPence = -200 },
+            new IngestTender { TenderType = Tenders.Card, AmountPence = -240 });
+
+        Assert.Equal(HttpStatusCode.Created, status);
+    }
+
+    /// <summary>
+    /// ⚠ THE FRAUD FINDING G EXISTS TO STOP, now refused by the SERVER as well as by MAUI's action
+    /// sheet: a card sale refunded out of the cash drawer. A day of card sales refunded in cash empties
+    /// the drawer and leaves the card takings untouched.
+    /// </summary>
+    [Fact]
+    public async Task A_card_sale_cannot_be_refunded_in_cash()
+    {
+        var http = _f.CreateClient();
+        var (api, deviceId, businessId) = await EnrolAsync(http, "refundsplit3@acme.test");
+
+        var originId = await SellPaidWithAsync(api, deviceId, businessId, 1, "5040003", 440, 367, 1,
+            new IngestTender { TenderType = Tenders.Card, AmountPence = 440 });
+
+        var (status, body) = await RefundToTendersAsync(api, deviceId, businessId, 2, originId,
+            "5040003", 440, 367, 1,
+            new IngestTender { TenderType = Tenders.Cash, AmountPence = -440 });
+
+        Assert.Equal(HttpStatusCode.Accepted, status);
+        Assert.Equal("quarantined", body);
+    }
+
     /// <summary>
     /// ⚠ THE ONE THAT MATTERS — Matt's binding default 12: *"You should not be able to refund MORE
     /// than the price paid for it."* Two part-refunds inside the total are fine; the one that tips

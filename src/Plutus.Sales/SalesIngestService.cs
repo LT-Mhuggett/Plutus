@@ -276,10 +276,19 @@ namespace Plutus.Sales
 
             if (returns.Count == 0) return null;
 
+            // ⚠⚠ FINDING Y (Matt, 2026-08-13): what each tender TOOK, pooled across every origin this
+            // basket returns against, and what has already gone back to each. Accumulated in the loop
+            // below and judged after it — see the block at the end of this method for why it cannot be
+            // done per origin.
+            var tookByTender = new Dictionary<byte, long>();
+            var refundedByTender = new Dictionary<byte, long>();
+            var priorRefundSaleIds = new HashSet<Guid>();
+
             foreach (var byOrigin in returns.GroupBy(x => x.Origin!.Value))
             {
                 var origin = await _db.SalesV2.AsNoTracking()
                     .Include(s => s.Lines)
+                    .Include(s => s.Tenders)
                     .FirstOrDefaultAsync(s => s.Id == byOrigin.Key);
 
                 if (origin == null) continue;   // see the remark above — never quarantine on this
@@ -302,8 +311,21 @@ namespace Plutus.Sales
                 // idempotent retry into an over-refund.
                 var priorRows = await _db.SaleAdjustments.AsNoTracking()
                     .Where(a => a.OriginalSaleId == byOrigin.Key && a.AdjustmentSaleId != req.SaleId)
-                    .Select(a => new { a.ItemId, a.AmountPence })
+                    .Select(a => new { a.ItemId, a.AmountPence, a.AdjustmentSaleId })
                     .ToListAsync();
+
+                // Finding Y: this origin's tenders join the pool.
+                foreach (var t in origin.Tenders)
+                {
+                    var type = (byte)t.TenderType;
+                    var magnitude = Math.Abs(t.AmountPence);
+                    tookByTender[type] = tookByTender.TryGetValue(type, out var running)
+                        ? running + magnitude : magnitude;
+                }
+
+                foreach (var id in priorRows.Where(a => a.AdjustmentSaleId.HasValue)
+                                            .Select(a => a.AdjustmentSaleId!.Value))
+                    priorRefundSaleIds.Add(id);
 
                 // ── per sale ──
                 var alreadyAll = priorRows.Sum(a => Math.Abs(a.AmountPence));
@@ -341,6 +363,64 @@ namespace Plutus.Sales
                              + $"({alreadyItem}p already returned of {soldPence}p sold).";
                 }
             }
+
+            // ── per TENDER (finding Y, 2026-08-13) ───────────────────────────────────────────────
+            //
+            // ⚠⚠ THE HOLE THIS CLOSES. Matt: *"when I try to return an item that was split, it wants to
+            // put the full amount to that card."* Both tills let it, and this method — which re-runs the
+            // sale-level and per-item caps precisely so a modified or buggy till cannot over-refund —
+            // had no notion of a tender at all. £2.00 cash + £2.40 card refunded £4.40 to the card was
+            // accepted here, recorded, rolled up, and visible in no report as wrong: the card credited
+            // £2.40 more than it ever took, the £2 still in the drawer.
+            //
+            // ⚠ REFUND-ONLY REQUESTS ONLY. A mixed basket's tenders take money IN for the sold lines as
+            // well as paying it out for the returned ones, so they cannot be compared against what the
+            // origin's tenders took — the numbers are not the same kind of thing. A mixed basket is
+            // still covered by the sale-level and per-item caps above.
+            if (req.GrossPence >= 0) return null;
+            if (tookByTender.Count == 0) return null;   // origin had no recorded tenders: nothing to judge
+
+            // What has already gone back, per tender: the tenders of the PRIOR refund sales.
+            // ⚠ POOLED, and deliberately on the strict side. A prior refund that spanned two origins
+            // contributes all of its tenders here, which can overstate what a tender has had back and
+            // so refuse a little early. Failing closed on a money path is the right way round, and the
+            // alternative — attributing a refund sale's tenders across origins by line — is arithmetic
+            // nobody could check at a counter.
+            if (priorRefundSaleIds.Count > 0)
+            {
+                var priorTenders = await _db.SaleTenders.AsNoTracking()
+                    .Where(t => priorRefundSaleIds.Contains(t.SaleId))
+                    .Select(t => new { t.TenderType, t.AmountPence })
+                    .ToListAsync();
+
+                foreach (var t in priorTenders)
+                {
+                    var type = (byte)t.TenderType;
+                    var magnitude = Math.Abs(t.AmountPence);
+                    refundedByTender[type] = refundedByTender.TryGetValue(type, out var running)
+                        ? running + magnitude : magnitude;
+                }
+            }
+
+            var requestedByTender = new Dictionary<byte, long>();
+            foreach (var t in req.Tenders ?? Enumerable.Empty<IngestTender>())
+            {
+                var type = t.TenderType;
+                var magnitude = Math.Abs(t.AmountPence);
+                if (magnitude == 0) continue;   // a £0 row is the till's problem, not a cap breach
+                requestedByTender[type] = requestedByTender.TryGetValue(type, out var running)
+                    ? running + magnitude : magnitude;
+            }
+
+            if (requestedByTender.Count == 0) return null;
+
+            var capacities = RefundRules.RefundCapacities(tookByTender, refundedByTender);
+            var split = RefundRules.AuthoriseSplit(capacities, requestedByTender);
+
+            if (!split.IsAllowed)
+                return $"Refund would put {split.RequestedPence}p back on tender {split.OffendingTenderType}, "
+                     + $"which can take at most {split.AllowedPence}p against the sale(s) being returned "
+                     + $"({split.Reason})";
 
             return null;
         }

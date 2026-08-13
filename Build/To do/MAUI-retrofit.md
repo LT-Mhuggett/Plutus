@@ -235,9 +235,23 @@ nothing in any report to show it. Reverse the signs and it is a way to walk cash
    dictionary lookup now. ⚠ **And one mutation attempt lied to me**: `if (false)` produced
    unreachable-code build errors that my grep filter hid, so a broken experiment read as "safe". **A
    mutation that does not compile is not a mutation** — always watch for `error CS` in the output.
-2. **Ingest re-runs it** and quarantines (202) a refund that overpays a tender, exactly as default 12
-   does for the total. ⚠ **Without this it stays a client-only gate on both tills** — the same hole
-   default 12 was written to close.
+2. ✅ **DONE 2026-08-13 — ingest enforces it.** `SalesIngestService.ValidateRefundCapAsync` now runs a
+   per-tender pass beside its sale-level and per-item ones, and **quarantines (202)** a refund that
+   overpays a tender. **3 E2E tests**, and mutation-checked: skipping the gate fails exactly the two
+   that expect a quarantine and leaves the legitimate split passing. Integration 169 → **172**.
+   ⚠ **Refund-only requests only** — a mixed basket's tenders take money IN for the sold lines as well
+   as paying it out, so they are not the same kind of number; the sale-level and per-item caps still
+   cover those. ⚠ **Capacities are POOLED across the origins a basket returns against**, and prior
+   refunds are attributed whole, which can refuse slightly early when one refund spanned two sales.
+   **Failing closed on a money path is the right way round**, and the alternative is arithmetic nobody
+   could check at a counter.
+
+   ⚠⚠ **THE MONEY IS NOW PROTECTED, THE COUNTER EXPERIENCE IS NOT.** Until piece 3 lands, a MAUI
+   operator can still put the whole refund on one card: the till accepts it, the money leaves the
+   terminal, and the platform **quarantines** it. That is strictly better than the silent acceptance it
+   replaced — the evidence is preserved where the portal can see it, which is default 12's whole
+   reasoning — **but it is a refund that looks done at the till and is not on the books.** Piece 3 is
+   what turns it into a refusal in front of the customer, and it should not wait.
 3. **MAUI** passes per-tender caps into the tender loop (which today knows only one outstanding
    figure), and the amount prompt pre-fills **that tender's** remainder rather than the whole balance.
 4. **The web till** gets the origin-tender restriction it has never had. ⚠ Needs the Mac.
