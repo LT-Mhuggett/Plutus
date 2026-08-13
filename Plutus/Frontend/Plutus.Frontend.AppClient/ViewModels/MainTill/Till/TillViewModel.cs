@@ -530,6 +530,60 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// self-authorisation, applies the SUPERVISOR's own ceiling, window and staleness tier ÃÂ¢ÃÂÃÂ
         /// nothing about being an override relaxes any of it ÃÂ¢ÃÂÃÂ and names both people.
         /// </summary>
+        /// <summary>
+        /// Σ (price × qty) over SALE lines only, in pence — the room a discount has.
+        ///
+        /// ⚠ RETURNS ARE EXCLUDED, not subtracted. `SaleIncTax` nets them off, which is right for a
+        /// total and wrong here: £10 of goods beside a £30 refund has £10 of discount headroom, not
+        /// −£20. `VatLineMath.ForLine` drops a discount on a return by design, so money apportioned
+        /// onto one vanishes and the sale then fails the server's reconcile invariant.
+        /// </summary>
+        private long SaleLinesGrossPence() =>
+            Basket.OfType<BasketItem>()
+                  .Where(b => b is not BasketReturnItem)
+                  .Sum(b => Pence.FromDecimal(b.Price) * Math.Max(1, b.Quantity));
+
+        /// <summary>Σ of the discounts already on this basket, in pence, as a POSITIVE number.
+        /// ⚠ Same shape as `CheckoutCommit.ApplyAlterations` reads them (magnitude × quantity), so
+        /// the gate and the commit path agree about what is already off.</summary>
+        private long DiscountAlreadyPence() =>
+            Basket.OfType<BasketAlteration>()
+                  .Sum(a => Pence.FromDecimal(Math.Abs(a.Price)) * Math.Max(1, a.Quantity));
+
+        /// <summary>
+        /// Turn a <see cref="Plutus.SharedKernel.DiscountDecision"/> into words for the counter.
+        ///
+        /// ⚠ THE SENTENCE IS BUILT HERE, NOT IN THE RULE, and that is deliberate: `RefundDecision`
+        /// already settled that money formatting is a client concern — "£" is wrong the first time a
+        /// tenant trades in another currency, and a baked sentence cannot go through `I18N_L10N`.
+        /// The rule hands over a verdict and the amounts; this composes them.
+        ///
+        /// ⚠ `AlreadyPence` is named whenever it is non-zero. Told only "the most you can take off
+        /// is £3.00" on an £8 basket, an operator reasonably concludes the till is wrong.
+        /// </summary>
+        private static string DiscountRefusalMessage(Plutus.SharedKernel.DiscountDecision d)
+        {
+            string Gbp(long pence) => (pence / 100m).ToString("C2", CultureInfo.CurrentCulture);
+
+            switch (d.Verdict)
+            {
+                case Plutus.SharedKernel.DiscountVerdict.NothingToDiscount:
+                    return "There's nothing in the basket to discount. A returned item can't be discounted — a refund gives back what the customer actually paid.".Translate();
+
+                case Plutus.SharedKernel.DiscountVerdict.NotAnAmount:
+                    return "A discount has to be more than nothing.".Translate();
+
+                default:
+                    return d.AlreadyPence > 0
+                        ? string.Format(
+                            "That's more than is left to discount. {0} is already off, so the most you can take off now is {1}.".Translate(),
+                            Gbp(d.AlreadyPence), Gbp(d.HeadroomPence))
+                        : string.Format(
+                            "A discount can't be more than the basket. The most you can take off is {0}.".Translate(),
+                            Gbp(d.HeadroomPence));
+            }
+        }
+
         private async Task<bool> RequestSupervisorOverrideAsync(string permission, long? amountPence)
         {
             try
@@ -1012,6 +1066,17 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 BasketAlteration adjustment;
 
+                // ⚠⚠ BUILT FIRST, CHECKED, AND ONLY THEN ADDED TO THE BASKET (2026-08-13, binding
+                // default 22). The two branches below produce the same total by different arithmetic
+                // — one rounds per item, the other rounds the sum — so computing "what will this
+                // discount come to?" a second time for the check would be a copy that drifts from the
+                // thing it is checking. Building the real alterations and summing THEM cannot drift.
+                //
+                // ⚠ Nothing reaches `Basket` until both gates below have passed. A half-applied
+                // discount (some items altered, then a refusal) would leave the operator to undo it
+                // by hand, in front of a customer.
+                var pending = new List<BasketAlteration>();
+
                 if (applyAlterationsToBasketItems.Count() < items.Count())
                 {
                     foreach (var item in applyAlterationsToBasketItems)
@@ -1027,7 +1092,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                             var alterationAmount = Tuple.Create(Math.Abs(Math.Round(item.Price * Decimal.Parse(alterationAmounts.First()), 2, MidpointRounding.AwayFromZero)) * -1, Math.Abs(Math.Round(item.PriceExTax * Decimal.Parse(alterationAmounts.First()), 2, MidpointRounding.AwayFromZero)) * -1);
                             adjustment = new BasketAlteration(new NoteModel($"{alteration.Name}, {item.Name} {alterationAmount.Item1.ToString("C2", CultureInfo.CurrentCulture)}"), alteration, item, alterationAmount.Item1, alterationAmount.Item2);
                         }
-                        Basket.Add(adjustment);
+                        pending.Add(adjustment);
                     }
                 }
                 else
@@ -1042,9 +1107,49 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         var alterationAmount = Tuple.Create(Math.Abs(Math.Round(applyAlterationsToBasketItems.Sum(tempItem => tempItem.Price) * Decimal.Parse(alterationAmounts.First()), 2, MidpointRounding.AwayFromZero)) * -1, Math.Abs(Math.Round(applyAlterationsToBasketItems.Sum(tempItem => tempItem.PriceExTax) * Decimal.Parse(alterationAmounts.First()), 2, MidpointRounding.AwayFromZero)) * -1);
                         adjustment = new BasketAlteration(new NoteModel($"{alteration.Name}, {alterationAmount.Item1.ToString("C2", CultureInfo.CurrentCulture)}"), alteration, applyAlterationsToBasketItems, alterationAmount.Item1, alterationAmount.Item2);
                     }
-                    Basket.Add(adjustment);
+                    pending.Add(adjustment);
                 }
 
+                var requestedPence = pending.Sum(a => Pence.FromDecimal(Math.Abs(a.Price)) * Math.Max(1, a.Quantity));
+
+                // ── Gate 1: the money rule (default 22a) ──────────────────────────────────────────
+                // ⚠ Matt, 2026-08-13: *"You cannot have a discount greater than the basket."* Checked
+                // BEFORE the ceiling, because "that is more than the basket" is true regardless of
+                // who is signed in — asking a supervisor to step up and authorise an impossible
+                // discount would waste their walk to the till and still fail.
+                var headroomDecision = Plutus.SharedKernel.BasketDiscounts.Authorise(
+                    requestedPence, SaleLinesGrossPence(), DiscountAlreadyPence());
+
+                if (!headroomDecision.IsAllowed)
+                {
+                    await Application.Current.MainPage.DisplayAlert(
+                        "Hmm".Translate(), DiscountRefusalMessage(headroomDecision), "OK".Translate());
+                    return;
+                }
+
+                // ── Gate 2: the operator's ceiling, now that the AMOUNT is known ──────────────────
+                // ⚠⚠ THIS IS WHY THE CHECK MOVED. The gate at the top of this method asks only "may
+                // this operator discount AT ALL?" — it runs before the amount exists, so
+                // `pos.discount`'s ceiling could never bite and the supervisor prompt never appeared
+                // however large the discount. Found 2026-08-13; the comment up there already said
+                // "nothing was asking for it".
+                //
+                // ⚠ BOTH gates stay. The early one refuses someone who may not discount at all
+                // before making them type an amount they can never apply; this one refuses the
+                // amount. Removing either brings back a defect.
+                var amountGate = Services.Security.TillGate.Check(
+                    App.GetViewModel().SignedInOperator, PermissionCatalogue.PosDiscount, requestedPence);
+
+                if (!amountGate.Allowed &&
+                    (!amountGate.NeedsOverride ||
+                     !await RequestSupervisorOverrideAsync(amountGate.Permission, amountGate.AmountPence)))
+                {
+                    await Application.Current.MainPage.DisplayAlert(
+                        "Hmm".Translate(), amountGate.Message, "OK".Translate());
+                    return;
+                }
+
+                foreach (var a in pending) Basket.Add(a);
             }
             finally
             {

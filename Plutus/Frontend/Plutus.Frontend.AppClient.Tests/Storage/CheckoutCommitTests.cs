@@ -181,10 +181,16 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
         }
 
         /// <summary>
-        /// ⚠⚠ **DOCUMENTS A LIVE DEFECT — found 2026-08-13 while planning the members' discount.**
-        /// This test asserts what the code does TODAY, not what it should do, so the behaviour is
-        /// visible and pinned. **When it is fixed, this test must fail** and be rewritten to the new
-        /// behaviour — that is the point of it.
+        /// ⚠⚠ **THIS IS NOW THE BACKSTOP, NOT THE DEFECT** — updated 2026-08-13, later the same day.
+        /// The defect (a basket that could not be completed) was closed at the **entry** gate:
+        /// `TillViewModel.ExecuteAlterTransaction` now runs `BasketDiscounts.Authorise` before any
+        /// alteration reaches the basket, so an operator is refused while they can still act, with a
+        /// message naming the headroom. **This throw stays**, deliberately, as the second gate — a
+        /// basket assembled some other way (a recalled parked basket, a future caller) must still
+        /// never produce a negative-gross sale. Binding default 12's shape: enforce at BOTH gates.
+        ///
+        /// ⚠ So it no longer "must fail when fixed". What it pins is that the backstop is still
+        /// armed. If a change ever makes this NOT throw, that is the regression.
         ///
         /// Discounts totalling more than the basket make `ApplyAlterations` throw, because it
         /// computes each alteration's `grosses` NET OF THE DISCOUNTS ALREADY APPLIED and
@@ -207,7 +213,7 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
         /// shape (binding default 10).
         /// </summary>
         [Fact]
-        public void DEFECT_discounts_exceeding_the_basket_throw_instead_of_refusing_politely()
+        public void BACKSTOP_discounts_exceeding_the_basket_still_throw_at_commit()
         {
             var basket = new List<IBasketRecord>
             {

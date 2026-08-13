@@ -759,12 +759,21 @@ taken — try again."*
   `A_discount_equal_to_the_whole_basket_is_allowed` pins the boundary as inclusive, so a legitimate
   100% staff discount is not caught by an off-by-one in the fix.
 
-✅ **RULED ON, 2026-08-13 — binding default 22(a): *"You cannot have a discount greater than the
-basket."*** The rule is built: **`SharedKernel/BasketDiscounts.cs`**, headroom **net of what is
-already off**, boundary **inclusive** (a 100% staff discount is legitimate), returns not counted as
-headroom. ⚠ **Still to do: wire it into `TillViewModel`'s apply path** — the rule refuses, but nothing
-calls it yet, so the defect above is still live. When it is wired, the `DEFECT_…` test **fails by
-design** and must be rewritten to the new behaviour.
+✅ ✅ **CLOSED 2026-08-13 — binding default 22(a) is built AND wired.** `SharedKernel/BasketDiscounts.cs`
+(headroom **net of what is already off**, boundary **inclusive**, returns not headroom) now runs in
+`TillViewModel.ExecuteAlterTransaction` **before any alteration reaches the basket**, so the operator
+is refused while they can still act, with a message naming the headroom and what is already off.
+
+⚠ **The alterations are BUILT FIRST, CHECKED, AND ONLY THEN ADDED.** The two branches produce the same
+total by different arithmetic (one rounds per item, the other rounds the sum), so computing "what will
+this come to?" separately for the check would be a copy that drifts from the thing it checks. Summing
+the real alterations cannot drift. ⚠ It also means **nothing is half-applied** — a refusal after some
+items had been altered would leave the operator undoing it by hand in front of a customer.
+
+⚠ **The commit-time throw STAYS as the backstop** (default 12's shape: enforce at both gates), so a
+basket assembled another way — a recalled parked basket, a future caller — still cannot produce a
+negative-gross sale. The test is renamed `BACKSTOP_discounts_exceeding_the_basket_still_throw_at_commit`:
+it no longer documents a defect, it pins that the second gate is still armed.
 
 ⚠ **The fix is NOT "cap it silently."** A £5 discount quietly becoming £3 is exactly the silent money
 change this codebase exists to prevent. It belongs at the point of **applying** the discount, where
@@ -786,9 +795,11 @@ already off precisely so the message can explain a maximum lower than the basket
    immediately above it already says so: *"`pos.discount` is ceiling-capable precisely so it can be
    handed out with a limit; nothing was asking for it."*
 
-   ⚠ **The fix is structural, not a one-liner:** the gate runs *before* the amount is entered
-   (input dialog at ~1010), so it has nothing to check. Gate **after** the amount is known — which
-   is also where `BasketDiscounts.Authorise` has to go, so both checks land together.
+   ✅ **FIXED the same day.** A second `TillGate.Check(..., PosDiscount, requestedPence)` now runs
+   **after** the amount is known, so the ceiling bites and the step-up prompt appears. ⚠ **BOTH gates
+   stay:** the early one refuses somebody who may not discount at all *before* making them type an
+   amount they could never apply; the new one refuses the amount. Removing either brings back a
+   defect — the first one's absence is what the comment at ~975 was written about.
 2. ⚠⚠ **THE MAUI PERCENTAGE PATH DOES NOT USE THE SHARED RULE.** `TillViewModel` (~1030, ~1046)
    computes `item.Price * Decimal.Parse(input)` directly, under a box labelled **"Percent"**. That is
    *precisely* the bug `LineDiscounts.Percentage` documents itself as existing to prevent —

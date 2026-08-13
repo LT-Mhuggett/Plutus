@@ -561,6 +561,34 @@ live; when it is wired the `DEFECT_…` test fails by design and must be rewritt
    (b)** — record only the cashier and the approval leaves no trace.
 4. The over-basket defect (3k) — 22(a) is its rule.
 
+**3m. ✅ DEFAULT 22(a) IS NOW WIRED, AND THE DISCOUNT CEILING BITES — till-maui 1.53.0.**
+`TillViewModel.ExecuteAlterTransaction` now runs two gates **after the amount is known** and before
+anything reaches the basket: `BasketDiscounts.Authorise` (the money rule) then
+`TillGate.Check(..., PosDiscount, requestedPence)` (the ceiling, which triggers the existing
+supervisor step-up). ⚠ **Order matters** — the money rule first, because *"that is more than the
+basket"* is true regardless of who is signed in, and asking a supervisor to walk over and authorise an
+impossible discount wastes their time and still fails.
+
+⚠ **The alterations are BUILT, CHECKED, THEN ADDED.** The two branches reach the same total by
+different arithmetic (one rounds per item, one rounds the sum), so a separate "what will this come to?"
+calculation for the check would be a copy that drifts from what it checks; summing the real alterations
+cannot. It also means **nothing is half-applied** — a refusal partway would otherwise leave some items
+altered for the operator to undo by hand at the counter.
+
+⚠ **Both discount gates stay.** The early one (no amount) refuses somebody who may not discount at all
+before making them type a figure they could never apply; the new one refuses the figure. ⚠ **The
+commit-time throw also stays** as the backstop (default 12's shape — enforce at both gates), so a
+basket assembled another way still cannot produce a negative-gross sale; its test is renamed
+`BACKSTOP_…` and now pins that the second gate is armed rather than documenting a defect.
+
+⚠ **Message composed in the viewmodel, not the rule** — `RefundDecision` settled that money formatting
+is a client concern (wrong in another currency, and unlocalisable through `I18N_L10N`), so the rule
+hands over a verdict plus amounts and `DiscountRefusalMessage` builds the sentence, naming what is
+already off whenever it is non-zero.
+
+**Still open on (b)/(c):** nothing reaches the platform (the override is logged to the till's local file
+only) and **no reason is captured anywhere**. Those are the next two.
+
 ✅ **STEP-UP — Matt chose it, 2026-08-13. ⚠ AND I WAS WRONG THAT IT DOES NOT EXIST: IT IS BUILT.**
 `TillViewModel.RequestSupervisorOverrideAsync` (533) is already wired into the discount path (984),
 price override (587) and one more (1640): `SupervisorPrompt.AskAsync()` takes the supervisor's own
