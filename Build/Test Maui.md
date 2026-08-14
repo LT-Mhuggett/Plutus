@@ -1,6 +1,6 @@
 # Test Maui — the MAUI till hand-test script
 
-**For till 1.52.0.** Anyone can run this. You do not need to know the codebase, and you should not
+**For till 1.54.0.** Anyone can run this. You do not need to know the codebase, and you should not
 need to ask anyone what a step means — if a step is unclear, that is a bug in this document, so please
 say so.
 
@@ -13,7 +13,7 @@ if that is all the time you have.
 
 | | |
 |---|---|
-| **Run** | `D:\tmp\plutus-till-1.52.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Nothing older.** Each of the five builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b). |
+| **Run** | `D:\tmp\plutus-till-1.54.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
 | **Sign in as** | any operator with **Supervisor** or above — some steps need permission to change stock |
@@ -484,3 +484,93 @@ should open a single page with everything on it, not a series of questions.
 **✅ Expected:** "never" until the till next beats, then a real time that updates. ⚠ Until today that
 column showed the **enrolment date** for every till — so if it says something days old and your till
 is running, that is worth reporting.
+
+---
+
+# F. Discounts — the reason, and who said yes (**NEW in 1.54.0**)
+
+**Why this section exists.** Matt, 2026-08-13: *"All discounts need to be tracked — till, logged-in
+employee and reason."* The till and the employee were already recorded. **The reason was recorded
+nowhere**, on any till — and when a supervisor authorised a discount above a cashier's limit, their
+name went into a log file **on that till and nowhere else**. Re-image the till and the answer to
+*"who approved this?"* is gone.
+
+⚠ **This section is the most likely place to find a new bug in 1.54.0**, because it adds a dialog to
+a chain that already had two. Four separate faults came out of exactly this shape on 2026-08-10.
+
+Put **a few items** in the basket first — say £8 worth. Then press **Alterations**.
+
+## F1. A discount now asks WHY
+
+Pick a discount, tick a line, enter an amount, confirm.
+
+**✅ Expected:** a box asking **"Why is this discount being given?"** Type something — `damaged box` —
+and confirm. The discount applies exactly as it always did.
+
+## F2. An empty reason is REFUSED
+
+Do F1 again, but leave the reason box **empty** and confirm.
+
+**✅ Expected:** *"Every discount has to say why it was given. Try again and type a short reason."*
+**Nothing comes off the basket.**
+
+## F3. Spaces are not a reason
+
+Do F1 again, and type **only spaces** into the reason box.
+
+**✅ Expected: refused, exactly as F2.** ⚠ **This is the one most likely to be wrong** — a box that
+accepts `"   "` looks like it is working and produces a report column full of blanks, which is worse
+than no column at all because it looks answered.
+
+## F4. Cancelling the reason leaves the basket alone
+
+Do F1 again and press **Cancel** at the reason box.
+
+**✅ Expected:** no discount, no error message, **basket unchanged**. You can carry on and complete
+the sale normally.
+
+## F5. Over your limit: the reason comes FIRST, then the supervisor
+
+Sign in as a **Cashier** (someone whose discount limit is small — check the portal if unsure) and try
+a discount **larger than that limit**.
+
+**✅ Expected:** it asks **why first**, and *then* asks a supervisor to sign in.
+
+⚠ **That order is deliberate, not accidental.** The supervisor should be approving *a reason*, not a
+bare number. If the supervisor prompt comes first, that is a bug — report it.
+
+**Then:** have a supervisor sign in and approve. The discount applies.
+
+## F6. A supervisor cannot approve their own discount
+
+At the supervisor prompt in F5, enter **the same person's** credentials as the operator who is signed
+in.
+
+**✅ Expected: refused** — *"A discount can't be authorised by the person giving it."*
+
+## F7. The record actually leaves the till
+
+Complete a discounted sale from F1 (and, if you can, one from F5 with a supervisor).
+
+Then look the sale up — the **portal**, or the web till's sale history.
+
+**✅ Expected:** the sale carries the reason you typed, and for the F5 one, **the supervisor's name**.
+
+⚠ **This is the whole point of the section.** Everything above can pass while the record never leaves
+the machine — which is exactly the state 1.53.0 was in. If the reason is on the screen but not on the
+sale, say so.
+
+## F8. The things that must NOT have changed
+
+These worked before and must still work — they are refused **before** the reason box, so you should
+never see it:
+
+| Do | Expect |
+|---|---|
+| Discount **more** than the basket is worth | Refused, naming the maximum. ⚠ **No reason box** |
+| £5 off, then £5 off again on an £8 basket | Second refused: *"£5.00 is already off"* |
+| Discount **equal** to the whole basket | **Allowed** — 100% off is legitimate |
+| Discount on a basket holding **only returns** | Refused: nothing to discount |
+
+⚠ **If a reason box appears for any row in this table, that is a bug** — it means the money rule
+stopped running first, and an operator is being asked to justify a discount that can never apply.

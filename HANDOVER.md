@@ -1,9 +1,9 @@
 # Handover — Plutus platform build
 
-**Date:** 2026-08-13 (late) — Platform on **.NET 10**. Backend **1.17.0**, web till **1.8.0** and
-portal **1.8.0** are DEPLOYED to the test environment and verified; ⚠ till-maui **1.53.0** and
-platform **1.34.0** are **committed but NOT shipped**, and 1.53.0 has **not been hand-run** — see
-START HERE item 1. Agent **1.3.3**. All 18 phases + Operator Portal (OP1–OP4), the **portal/till refresh (P1–P6)** and
+**Date:** 2026-08-14 — Platform on **.NET 10**. Backend **1.17.0** and portal **1.8.0** are DEPLOYED
+to the test environment and verified; ⚠ web till **1.9.0**, till-maui **1.54.0** and platform
+**1.35.0** are **committed but NOT shipped**, and **1.54.0 is BUILT and waiting to be hand-run** —
+see START HERE item 1. (Web till **1.8.0** is what is live.) Agent **1.3.3**. All 18 phases + Operator Portal (OP1–OP4), the **portal/till refresh (P1–P6)** and
 **FE1–FE10** built & LIVE. The **MAUI retrofit**: cutover **steps 1–21, 23, 25 and half of 26 are
 done**; **11b (promoted), 22, 24, the rest of 26, 27 and 28 remain** — ⚠ **one document now:**
 [`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md). The backend gap is closed; everything left is
@@ -25,63 +25,85 @@ Head: see `git log` — this line goes stale; the commits don't.
 > Older references below that say `Build/<plan>.md` now mean `Build/archive/<plan>.md` or
 > `Build/To do/<plan>.md`.
 
-### ⏰⏰⏰⏰⏰⏰⏰⏰⏰⏰ START HERE — picking up on **2026-08-14**
+### ⏰⏰⏰⏰⏰⏰⏰⏰⏰⏰ START HERE — **2026-08-14**
 
-**A loyalty-foundations day that turned into a discount-controls day.** Nine commits, two deploys,
-and four things found in code that nobody had asked me to look at.
+**Matt answered both open questions, and the answers closed the discount work.** Two commits.
+Both rulings are now built, on **both tills**, and the MAUI till is **built and waiting for a person**.
 
-#### 1. ⚠ DO THIS FIRST — hand-run the discount flow. It has never been run by a person.
+#### 1. ⚠ DO THIS FIRST — hand-run the discount flow. It has still never been run by a person, and it changed again today.
 
-`4d98068` changed **`TillViewModel.ExecuteAlterTransaction`**, which is a dialog flow in the **money
-path** — the exact shape that produced four separate defects in one session on 2026-08-10 (runbook
-pitfalls 11–14). It compiles, 436 AppClient tests pass, and **that proves nothing about a screen**.
+Built and version-verified: **`D:\tmp\plutus-till-1.54.0`** (artefact reads `1.54.0`). Just run
+`Plutus.Frontend.AppClient.exe` — unpackaged, no install. ⚠ **It will say the till isn't enrolled**;
+that is expected for an unpackaged build (runbook § MAUI till build), enrol it as a fresh till.
 
-Build unpackaged (runbook § MAUI till build) and run, on a basket of a few items:
+⚠⚠ **There is now a REASON PROMPT in the middle of this flow**, which is a third dialog in a chain
+that already produced four defects in one session on 2026-08-10 (runbook pitfalls 11–14). 442
+AppClient tests pass and **that proves nothing about a screen**.
 
 | # | Do | Expect |
 |---|---|---|
-| D1 | Discount **less** than the basket | Applies as before |
+| D1 | Discount **less** than the basket | Asks **why** → applies |
 | D2 | Discount **equal** to the basket | **Allowed** — 100% is legitimate |
-| D3 | Discount **more** than the basket | Refused, naming the maximum. ⚠ **Nothing added to the basket** |
-| D4 | £5 off, then £5 off again on an £8 basket | Second one refused, and the message says **£5.00 is already off** |
-| D5 | A discount above the operator's `pos.discount` ceiling | **Supervisor prompt appears** — it never used to |
-| D6 | Supervisor authorises at D5 | Applies; ⚠ check both names in the till log |
-| D7 | Cancel the supervisor prompt | Basket **untouched** |
-| D8 | Discount on a **returns-only** basket | Refused with the "nothing to discount" wording |
+| D3 | Discount **more** than the basket | Refused, naming the maximum. ⚠ **No reason prompt** — it is refused before that, and **nothing is added to the basket** |
+| D4 | £5 off, then £5 off again on an £8 basket | Second one refused, message says **£5.00 is already off** |
+| **D5** | **Leave the reason box empty and confirm** | ⚠ **NEW —** refused: *"Every discount has to say why it was given."* Basket untouched |
+| **D6** | **Type only spaces as the reason** | ⚠ **NEW —** refused the same way. This is the one most likely to be wrong |
+| **D7** | **Cancel at the reason prompt** | Basket **untouched**, no discount, no error |
+| D8 | A discount above the operator's `pos.discount` ceiling | Reason asked **first**, *then* the supervisor prompt — deliberately, so the supervisor is approving a reason and not a bare number |
+| D9 | Supervisor authorises at D8 | Applies |
+| D10 | Cancel the supervisor prompt | Basket **untouched** |
+| D11 | Discount on a **returns-only** basket | Refused with the "nothing to discount" wording |
+| **D12** | **Complete a discounted sale, then look at it** | The reason and (if stepped up) the supervisor are **on the sale**, not just in the till log |
 
-⚠ **D3 and D4 are the ones that matter** — before today they made the basket permanently
-un-completable, reported as *"Nothing has been taken — try again"*, which never worked.
-⚠ **D5 is the one most likely to be wrong**, because it is the newly-added gate.
+⚠⚠ **D5–D7 are the new gate and the most likely to be wrong.** ⚠ **D3 and D4 still matter** — before
+yesterday they made the basket permanently un-completable, reported as *"Nothing has been taken —
+try again"*, which never worked.
 
 #### 2. What is LIVE, and what is only committed
 
 | | Version | State |
 |---|---|---|
 | Backend | **1.17.0** | ✅ **DEPLOYED & verified** — rollback `~/PLUTUS/backend.pre-1.17.0` |
-| Web till | **1.8.0** (`index-BXTgzlgt.js`) | ✅ **DEPLOYED & verified** — rollback `/srv/apps/PLUTUS/web/current.pre-1.8.0` |
+| Web till | **1.8.0** live / **1.9.0** committed | ⚠ 1.9.0 has the reason box — **built & typechecked on the Mac, NOT deployed** |
 | Portal | 1.8.0 | unchanged, untouched |
-| platform | **1.34.0** | ⚠ committed, **not** shipped |
-| till-maui | **1.53.0** | ⚠ committed, **not** built or hand-run |
+| platform | **1.35.0** | ⚠ committed, **not** shipped |
+| till-maui | **1.54.0** | ⚠ **BUILT** to `D:\tmp\plutus-till-1.54.0`, not hand-run |
 
-**12 commits unpushed.** Nothing has been pushed — as always, only on request.
+**14 commits unpushed** (105 vs `upstream`, whose last push was 2026-08-09). Only on request.
 
-#### 3. ⚠ TWO QUESTIONS WAITING ON MATT — one blocks work
+#### 3. ✅ BOTH QUESTIONS ANSWERED — and both are recorded with the reasoning, not just the verdict
 
-- ⚠ **"Discount levels which can be added and configurable" — is a ROLE's `MaxPence` the level?**
-  Cashier £5 / Supervisor £50 / Manager unlimited is already owner-editable in the portal
-  (`AdminController.cs:306`), and a level is "added" by adding a role. **If yes, ruling (b) is nearly
-  free.** If you meant named discount tiers independent of roles, that is a new entity + portal UI.
-- **Loyalty decision 1 — credits as a discount or a tender?** The accountant's call; the whole ~45–55d
-  loyalty programme is gated on it (`updatedesign.md` §14).
+- ✅ **"Base it on roles."** A discount level **IS** a role's `pos.discount` `MaxPence`. No new
+  entity, no new portal screen. ⚠ The reason it is *right* rather than merely cheap: a separate
+  discount-tier entity would state a cashier's money limit **twice**, with nothing to notice them
+  disagreeing — the C2 drift failure applied to permissions.
+- ✅ **A gem is a DISCOUNT, not a tender.** *"Only ever earned, never purchased, not transferable to
+  cash."* So nothing was ever owed and there is no liability for a tender to discharge; it reduces
+  what is owed on a supply, which is a price reduction, and HMRC treats one as reducing the
+  VAT-inclusive consideration. ⚠ **That same line separates a gem from a gift card** — which IS
+  purchased, IS a liability, and is why activation posts zero VAT. **The ~45–55d loyalty programme
+  is no longer gated.**
 
-#### 4. The next slice, already scoped
+#### 4. ✅ THE SLICE IS BUILT — and the plan's wire design was wrong
 
-**Rulings (b) and (c) share one additive wire change**, so they are one piece of work:
-`reason` + `authorisedBy` on `LineDiscount` (`SaleContracts.cs`). Today: ⚠ **the wire carries
-neither**, and the supervisor override is written to the **till's local log only** — so *"who
-approved this discount?"* needs that till's log file, and a re-imaged till has none. `SaleAdjustmentDto`
-already carries a `Reason` for refunds, so the precedent is next door. ⚠ **No reason is captured
-anywhere today** — of Matt's three (till, employee, reason), reason is the one nothing collects.
+Rulings (b) and (c) are done on both tills. ⚠ **The plan said to put `reason`/`authorisedBy` on
+`LineDiscount`. That would have FK-failed the projection of every discounted sale**:
+`LineMeta.discounts[]` becomes legacy `Transaction_Discount` rows keyed on a real `DiscountId`, and
+a manual discount has none. The clue was in the file all along — the members' auto-discount is
+already deliberately omitted from that array for exactly this reason. It went in its own field,
+`LineMeta.discountAuthority[]`, with a test that fails if anyone moves it back.
+
+⚠ **No server change and no migration** — `DiscountsJson` is stored verbatim in a `longtext` column
+and only ever read back field-by-field with `JsonDocument`.
+
+#### 4b. ⚠ NEW GAP FOUND, NOT FIXED — the web till has no discount ceiling at all
+
+Found while building the above. MAUI gates on `pos.discount` with the operator's ceiling and steps
+up to a supervisor; **the web till has no client-side permission model whatsoever** — `session.ts`
+holds token, employeeId and name and nothing else. So a web-till cashier can take off **any amount**,
+and the only enforcement is whatever the server does at ingest. ⚠ Ruling (b) is therefore ⬜ on the
+web till, recorded in Part B with the reason and homed to a web-till slice. Its `discountAuthority`
+correctly writes **no** `authorisedBy` — on that till no step-up is possible, so "absent" is true.
 
 #### 5. ⚠ STILL OPEN — a Gold member is charged 10% more on MAUI than on the web till
 
@@ -92,25 +114,27 @@ is a `BasketAlteration` apportioned at commit, so the member discount must be **
 with the eligible items** (`TargetsOf` excludes returns but *not* already-discounted or gift-card
 lines, both of which the shared rule excludes).
 
-#### 6. ⚠ Four things found in the code today, none of them asked for
+#### 6. ⚠ Four things found on **2026-08-13**, none of them asked for — and **#3 is the one question still waiting on Matt**
 
 1. **The millionth member's card would not scan** — `Format` grows a 7th digit past 999,999 but
    `TryCanonicalise` accepts only `SequenceDigits + 1`. Pinned; fix is to widen the constant, **never**
    to loosen the parser (a bare EAN-8 would then canonicalise as a member number ~3% of the time).
 2. **A doc example was wrong in five places** — `482` is `000482P`, not `000482K`. I copied it
    verbatim, built a fixture from it, and the fixture failed.
-3. **The MAUI percentage path never calls `LineDiscounts.Percentage`** — it computes
-   `item.Price * Decimal.Parse(input)` under a box labelled *"Percent"*, which is precisely the
-   *"typed 10 for 10%, charged 10×"* bug that rule documents itself as preventing. ⚠ **Contained but
-   not fixed:** today's money rule now refuses the result instead of charging it. **Confirm what units
-   that box expects before touching it** — if it wants a fraction the label is wrong, if it wants a
-   percent the maths is, and only one of those is a money bug.
+3. ⚠⚠ **STILL OPEN — THE ONE QUESTION LEFT FOR MATT. The MAUI percentage path never calls
+   `LineDiscounts.Percentage`** — it computes `item.Price * Decimal.Parse(input)` under a box
+   labelled *"Percent"*, which is precisely the *"typed 10 for 10%, charged 10×"* bug that rule
+   documents itself as preventing. ⚠ **Contained, not fixed:** the money rule refuses the result
+   instead of charging it, so nobody is overcharged — but the box is still wrong in one of two ways.
+   **Ask Matt what an operator types into it:** if `0.1` for 10% the LABEL is wrong; if `10` for 10%
+   the MATHS is. Only the second is a money bug, and the fix differs completely. ⚠ Do not guess —
+   guessing here changes what every percentage discount charges.
 4. **The runbook was stale about RBAC seeding** — `RolePermissionReconciler` reconciles grants every
    boot, so a permission deploy needs **no** `SeedMigrator rbac`. Corrected; ⚠ running it anyway also
    fires `MapKapowAuthActionsAsync`, which added 7 role assignments (all to a user who already held
    `Owner`, so no effective change — verified).
 
-#### 7. ⚠ Two corrections I had to make to my own reporting
+#### 7. ⚠ Two corrections made on **2026-08-13** to my own reporting
 
 Both were wrong for the same reason — **grepping for a name I assumed rather than the one in the code**:
 
