@@ -1490,12 +1490,16 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 // ÃÂ¢ÃÂÃÂ  And it fed NOTHING. The value was set on a `SaleModel` that step 11 stopped
                 // persisting; the sale is attributed from `SignedInOperator.UserId` at commit. A
                 // read with no consumer was the single thing preventing any sale on any new till.
+                // ⚠ `Notes` is no longer initialised here — nothing fills it and nothing reads it
+                // since the receipt started taking its notes from the basket (step 11b). What is
+                // left of this legacy model on the checkout path is `Total` (the tender loop and
+                // the confirm dialog) and `PaySales` (tenders, drawer, receipt method names); both
+                // go with L6.
                 var sale = new SaleModel
                 {
                     DateOfSale = DateTime.Now,
                     Total = 0.0m,
                     PaySales = new List<PaymentMethod_SaleModel>(),
-                    Notes = new List<Notes_SaleModel>()
                 };
 
                 var change = 0.0m;
@@ -1803,11 +1807,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     //Cash-back stuff here
                 }
 
-                foreach (var basketNote in Basket.Where(bR => bR is BasketNote || bR is BasketAlteration).Cast<BasketNote>().ToList())
-                {
-                    var sNote = new Notes_SaleModel() { Note = basketNote.Note };
-                    sale.Notes.Add(sNote);
-                }
+                // ⚠ The receipt's notes are read straight off the BASKET now
+                // (`CheckoutCommit.ReceiptNotesFrom`, step 11b) rather than copied into
+                // `sale.Notes` here and read back out at print time. One collection, one order, and
+                // the rule is testable — it was two hops through a legacy model that nothing else
+                // ever looked at.
 
                 var @continue = await App.Current.MainPage.DisplayAlert(
                     "Hmm".Translate(),
@@ -1821,41 +1825,27 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 if (!@continue) return;
 
-                //Prepare sale for Transaction and Refunds adding
-                sale.Transactions = new List<TransactionModel>();
-                sale.Refunds = new List<RefundModel>();
-
-                //Loop through all BasketItems in Basket
-                foreach (var item in Basket.Where(bR => bR is BasketItem).Cast<BasketItem>().ToList())
-                {
-                    var tran = new TransactionModel() { ItemId = item.Item.Id, Sale = sale, Amount = item.Quantity, ItemCostExPrice = item.Item.ExPrice, ItemCostPrice = item.Item.Price, Transaction_Discounts = new ObservableCollection<TransactionModel_DiscountModel>() };
-                    if (Basket.Where(bR => bR is BasketAlteration).Cast<BasketAlteration>().Any())
-                    {
-                        var tempIA = Basket.Where(bR => bR is BasketAlteration && !(bR is BasketReturnItem)).Cast<BasketAlteration>().FirstOrDefault(bA => bA.ItemsAssocitated.Any(iA => iA.Item.Id.Equals(item.Item.Id)));
-                        if (tempIA != default)
-                        {
-                            var tranDisc = new TransactionModel_DiscountModel { DiscountId = tempIA.Discount.Id };
-                            tran.Transaction_Discounts.Add(tranDisc);
-                        }
-                    }
-                    sale.Transactions.Add(tran);
-                    if (item.PriceExTax != item.Item.ExPrice || item.Price != item.Item.Price)
-                    {
-                        var itemPriceChange = new CheckoutItemChangeModel() { ItemId = item.Item.Id, ExPrice = item.PriceExTax, Price = item.Price, Tran = tran };
-                        tran.CheckoutItemChange = itemPriceChange;
-                    }
-                }
-
-                foreach (var returnItem in Basket.Where(bR => bR is BasketReturnItem).Cast<BasketReturnItem>().ToList())
-                {
-                    var refund = new RefundModel() { ItemId = returnItem.Item.Id, Sale = sale, SaleIdReturned = returnItem.ReturnSaleId, Reason = returnItem.Reason, Amount = returnItem.Quantity };
-                    sale.Refunds.Add(refund);
-                    if (returnItem.PriceExTax != returnItem.Item.ExPrice || returnItem.Price != returnItem.Item.Price)
-                    {
-                        var itemPriceChange = new CheckoutItemChangeModel() { ItemId = returnItem.Item.Id, ExPrice = returnItem.PriceExTax, Price = returnItem.Price, Refund = refund };
-                        refund.CheckoutItemChange = itemPriceChange;
-                    }
-                }
+                // ⚠⚠ THE LEGACY SALE GRAPH IS GONE (step 11b, 2026-08-14) — ~35 lines that built
+                // `sale.Transactions`, `sale.Refunds` and their `CheckoutItemChangeModel`s.
+                //
+                // ⚠ IT WAS BUILT AND NEVER READ. Traced before deleting: `FinaliseTransation` — the
+                // only thing `sale` is passed to — touches `PaySales` (tenders, the drawer decision,
+                // the receipt's method names) and `Notes`, and nothing else. Nothing persists it
+                // either: step 11 removed the `db.Save()`, so this object graph was assembled in
+                // memory on every single checkout and dropped on the floor.
+                //
+                // ⚠ The only readers of `.Transactions`/`.Refunds` are `SalesReportsViewModel` and
+                // `StockOuttakeViewModel`, and they `.Include(...)` them **from the legacy database**
+                // — which this checkout has not written to since step 11. They were reading a table
+                // this code was no longer filling; deleting the write changes nothing they see.
+                //
+                // ⚠ It also carried a defect nobody would ever have seen fire: the discount lookup
+                // took `FirstOrDefault` over the alterations, so an item discounted by TWO
+                // alterations recorded only the first — and the whole record was discarded anyway.
+                // The real attribution now travels on the wire as `LineMeta.discountAuthority`.
+                //
+                // ⚠ This is the last coupling from the money path to `TransactionModel` /
+                // `RefundModel` / `CheckoutItemChangeModel` — see L6.
 
                 // ÃÂ¢ÃÂÃÂ  ONE GATE, AGAINST THE OPERATOR'S OWN CEILING (cutover step 12). What was here
                 // could not work on a portal-provisioned till and had a hole in it besides:
@@ -2035,7 +2025,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         var receipt = Services.Printing.ReceiptSale.From(
                             outcome.Request,
                             sale.PaySales.Select(p => p.TempPayMethod?.Name).ToList(),
-                            sale.Notes.Select(n => n.Note?.Note).Where(n => !string.IsNullOrWhiteSpace(n)).ToList());
+                            // ⚠ From the BASKET, which is still intact here — `Basket.Clear()` runs
+                            // at the end of this method, after the receipt has been built.
+                            Services.Storage.CheckoutCommit.ReceiptNotesFrom(Basket));
 
                         trackEventArgs.Add("Printer Route", agent is not null ? "agent" : "opos");
 

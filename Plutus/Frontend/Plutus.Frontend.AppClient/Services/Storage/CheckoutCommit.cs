@@ -286,6 +286,32 @@ namespace Plutus.Frontend.AppClient.Services.Storage
             return reasons.Count == 0 ? null : string.Join("; ", reasons);
         }
 
+        /// <summary>
+        /// The notes that go on the receipt, in basket order — an operator's note, and the label of
+        /// every discount applied.
+        ///
+        /// ⚠ EXTRACTED FROM `ExecuteCheckoutTransaction` (step 11b, 2026-08-14), where it sat inside
+        /// a ~200-line `async void` and could not be exercised without a UI host. That method is the
+        /// only cluster of money-adjacent logic in this app with no coverage at all, and every
+        /// checkout defect so far has been found by hand.
+        ///
+        /// ⚠ `BasketAlteration` DERIVES FROM `BasketNote`, so one type test covers both. The original
+        /// asked `bR is BasketNote || bR is BasketAlteration`, which reads as though alterations were
+        /// a separate case and would send a maintainer looking for a difference that does not exist.
+        ///
+        /// ⚠ A basket ITEM is not a note and must never appear here — `OfType` is doing real work,
+        /// not tidying: a receipt listing every line twice is a receipt nobody trusts.
+        ///
+        /// ⚠ Blank notes are dropped. An empty line on a printed receipt looks like a printer fault.
+        /// </summary>
+        internal static IReadOnlyList<string> ReceiptNotesFrom(IEnumerable<IBasketRecord> basket) =>
+            (basket ?? Enumerable.Empty<IBasketRecord>())
+                .OfType<BasketNote>()
+                .Select(n => n.Note?.Note)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .Select(n => n.Trim())
+                .ToList();
+
         /// <summary>Is the surcharge already in this basket? Applied ONCE per sale — a split
         /// payment across two cards must not charge the flat fee twice.</summary>
         public static bool HasSurcharge(IEnumerable<IBasketRecord> basket) =>

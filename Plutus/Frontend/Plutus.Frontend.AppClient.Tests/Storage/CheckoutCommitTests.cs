@@ -402,6 +402,89 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
             Assert.Empty(CheckoutCommit.TendersFrom(null));
         }
 
+        // ── receipt notes (step 11b: extracted from the untestable checkout method) ──
+
+        /// <summary>
+        /// ⚠ THE REASON THIS IS A TEST AT ALL. It lived inside `ExecuteCheckoutTransaction`, a
+        /// ~200-line `async void` that cannot run without a UI host — the one cluster of
+        /// money-adjacent logic in this app with no coverage, and the source of every checkout
+        /// defect found so far.
+        /// </summary>
+        [Fact]
+        public void An_operators_note_and_every_discount_label_reach_the_receipt_in_basket_order()
+        {
+            var item = Item("A", 10m, 10m);
+            var notes = CheckoutCommit.ReceiptNotesFrom(new List<IBasketRecord>
+            {
+                item,
+                new BasketNote(new NoteModel { Note = "gift wrap" }),
+                Attributed(-2m, item, "damaged box"),
+            });
+
+            Assert.Equal(new[] { "gift wrap", "Discount" }, notes);
+        }
+
+        /// <summary>
+        /// ⚠ A BASKET ITEM IS NOT A NOTE — a receipt listing every line a second time under the
+        /// notes is one nobody trusts, and on a discounted sale it reads as though the goods were
+        /// rung up twice.
+        ///
+        /// ⚠⚠ HONESTLY: THE COMPILER ENFORCES THIS, NOT THIS TEST. Widening `OfType&lt;BasketNote&gt;`
+        /// does not compile — `IBasketRecord` has no `Note` — so the mutation check produced an
+        /// invalid mutant, which proves nothing either way. Kept as documentation of the intent, and
+        /// recorded as documentation rather than claimed as a pin. (The blank-note filter below IS
+        /// mutation-checked; removing it turns that test red.)
+        /// </summary>
+        [Fact]
+        public void Basket_items_and_returns_never_appear_as_notes()
+        {
+            var returned = new BasketReturnItem(new ItemModel
+            {
+                Id = "R", Name = "Returned", Price = 10m, ExPrice = 10m,
+                Vat = new TaxModel { Name = "Standard" },
+            }, 1);
+
+            Assert.Empty(CheckoutCommit.ReceiptNotesFrom(new List<IBasketRecord>
+            {
+                Item("A", 10m, 10m),
+                returned,
+            }));
+        }
+
+        /// <summary>⚠ `BasketAlteration` DERIVES from `BasketNote`, so one type test covers both.
+        /// The original asked `is BasketNote || is BasketAlteration`, which reads as though they
+        /// were separate cases and sends a maintainer looking for a difference that is not
+        /// there.</summary>
+        [Fact]
+        public void A_discount_is_a_note_by_inheritance_and_needs_no_special_case()
+        {
+            var item = Item("A", 10m, 10m);
+            var note = Assert.Single(CheckoutCommit.ReceiptNotesFrom(
+                new List<IBasketRecord> { item, Attributed(-2m, item, "damaged box") }));
+
+            Assert.Equal("Discount", note);
+        }
+
+        /// <summary>⚠ An empty line on a printed receipt looks like a printer fault, and a till that
+        /// looks like it is misprinting gets taken out of service.</summary>
+        [Fact]
+        public void Blank_notes_are_dropped_rather_than_printed_as_empty_lines()
+        {
+            Assert.Empty(CheckoutCommit.ReceiptNotesFrom(new List<IBasketRecord>
+            {
+                new BasketNote(new NoteModel { Note = "   " }),
+                new BasketNote(new NoteModel { Note = "" }),
+                new BasketNote(new NoteModel { Note = null }),
+            }));
+        }
+
+        [Fact]
+        public void An_empty_or_null_basket_produces_no_notes_rather_than_throwing()
+        {
+            Assert.Empty(CheckoutCommit.ReceiptNotesFrom(null));
+            Assert.Empty(CheckoutCommit.ReceiptNotesFrom(Array.Empty<IBasketRecord>()));
+        }
+
         // ── the discount audit trail (binding default 22c) ──
 
         /// <summary>An alteration as the till builds it once a reason has been given.</summary>
