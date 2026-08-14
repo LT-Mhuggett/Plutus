@@ -584,15 +584,90 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             }
         }
 
-        private async Task<bool> RequestSupervisorOverrideAsync(string permission, long? amountPence)
+        /// <summary>
+        /// Ask why this discount is being given — binding default 22(c).
+        ///
+        /// ⚠ Returns null when the operator cancels OR types nothing usable, and the caller abandons
+        /// the discount either way. There is no "skip" and that is the ruling: an optional reason is
+        /// an empty column, and the one discount anybody ever asks about is the one where nobody
+        /// typed anything.
+        ///
+        /// ⚠ THROUGH `InputAlertHelper`, which gates on `Modal`. This dialog sits between two others
+        /// (the amount prompt before it, possibly the supervisor prompt after), and stacking dialogs
+        /// outside that gate is what threw the COMException that closed the till at the payment
+        /// prompt — runbook pitfalls 11–14.
+        ///
+        /// ⚠ `RequiredValidator` refuses an empty box up front, so the operator is told by the field
+        /// rather than by an alert after the fact; `DiscountAudit.NormaliseReason` is still the
+        /// decider, because a validator cannot see that "   " is blank.
+        /// </summary>
+        private static async Task<string> AskForDiscountReasonAsync()
+        {
+            IValidator[] validators = { new RequiredValidator() };
+
+            ViewElementData[] elements =
+            {
+                new ViewElementData(1, "Reason".Translate(), "", validators.AsEnumerable(), false, true),
+            };
+
+            var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                elements, "Confirm".Translate(), false, "WhyThisDiscount".Translate(), "Cancel".Translate());
+
+            answers.TryGetValue(1, out var typed);
+
+            return Plutus.SharedKernel.DiscountAudit.NormaliseReason(typed);
+        }
+
+        /// <summary>
+        /// Why the till would not record this discount, in words for the counter.
+        ///
+        /// ⚠ Same split as <see cref="DiscountRefusalMessage"/>: the rule returns a verdict, the
+        /// client composes the sentence, so nothing in `SharedKernel` carries a translatable string.
+        ///
+        /// ⚠ Each sentence names the operator's NEXT ACTION. "Self-authorised" in particular has to
+        /// say *fetch someone else* — an operator told only that it was refused will simply try the
+        /// same credentials again.
+        /// </summary>
+        private static string DiscountAuditRefusalMessage(Plutus.SharedKernel.DiscountAuditVerdict verdict) =>
+            verdict switch
+            {
+                Plutus.SharedKernel.DiscountAuditVerdict.NoReason =>
+                    "Every discount has to say why it was given. Try again and type a short reason.".Translate(),
+
+                Plutus.SharedKernel.DiscountAuditVerdict.NoAuthoriser =>
+                    "This discount is above your limit, so a supervisor has to authorise it. Nothing has been taken off.".Translate(),
+
+                Plutus.SharedKernel.DiscountAuditVerdict.SelfAuthorised =>
+                    "A discount can't be authorised by the person giving it. Ask someone else to sign in on the prompt.".Translate(),
+
+                _ => "This discount can't be recorded.".Translate(),
+            };
+
+        /// <summary>
+        /// Who authorised a step-up, for the record that outlives this till.
+        ///
+        /// ⚠⚠ THIS TYPE EXISTS BECAUSE THE ANSWER USED TO BE THROWN AWAY. The override returned
+        /// `bool`: it verified a supervisor, wrote their name to the till's LOCAL LOG, and dropped
+        /// it. So *"who approved this discount?"* could only be answered by walking to that till and
+        /// reading a file — and a re-imaged till has none. Binding default 22(c) needs it on the
+        /// SALE, which means it has to survive the return.
+        /// </summary>
+        private readonly record struct SupervisorGrant(Guid AuthorisedByUserId, string AuthorisedByName);
+
+        /// <summary>
+        /// Ask a supervisor to authorise this. ⚠ Null means it did NOT happen — cancelled, refused,
+        /// nobody signed in, or an error. Every caller must treat null as a refusal, which is why
+        /// this returns a grant rather than a bool with the identity logged out of band.
+        /// </summary>
+        private async Task<SupervisorGrant?> RequestSupervisorOverrideAsync(string permission, long? amountPence)
         {
             try
             {
                 var requestedBy = App.GetViewModel().SignedInOperator;
-                if (requestedBy is null) return false;   // nobody to attribute the request to
+                if (requestedBy is null) return null;   // nobody to attribute the request to
 
                 var credentials = await Helpers.Security.SupervisorPrompt.AskAsync();
-                if (credentials is null) return false;   // cancelled ÃÂ¢ÃÂÃÂ the basket is untouched
+                if (credentials is null) return null;   // cancelled ÃÂ¢ÃÂÃÂ the basket is untouched
 
                 var login = new Plutus.Client.Core.OperatorLogin(
                     new Services.Connectivity.FileOperatorStore());
@@ -604,9 +679,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 if (!result.Succeeded)
                 {
                     await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), result.Message, "OK".Translate());
-                    return false;
+                    return null;
                 }
 
+                // ⚠ THE LOCAL LOG STAYS. It is not the audit record any more — the sale is — but it
+                // is the only trace of an override that authorised something which then FAILED to
+                // commit, and that is precisely the sequence somebody investigates.
                 Logger.LogEvent(AppLogLevel.Info, $"{GetType().Name}: Supervisor override",
                     new Dictionary<string, string>
                     {
@@ -617,13 +695,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         { "AmountPence", amountPence?.ToString() ?? "n/a" },
                     });
 
-                return true;
+                return new SupervisorGrant(result.Granted.AuthorisedByUserId, result.Granted.AuthorisedByName);
             }
             catch (Exception ex)
             {
                 // ÃÂ¢ÃÂÃÂ  An override that errors is an override that did NOT happen.
                 CrashLog.Write("TillViewModel.RequestSupervisorOverrideAsync", ex);
-                return false;
+                return null;
             }
         }
 
@@ -639,7 +717,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             if (!priceGate.Allowed)
             {
                 if (!priceGate.NeedsOverride ||
-                    !await RequestSupervisorOverrideAsync(PermissionCatalogue.PosPriceOverride, null))
+                    await RequestSupervisorOverrideAsync(PermissionCatalogue.PosPriceOverride, null) is null)
                 {
                     await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), priceGate.Message, "OK".Translate());
                     return;
@@ -1035,7 +1113,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 if (!discountGate.Allowed &&
                     (!discountGate.NeedsOverride ||
-                     !await RequestSupervisorOverrideAsync(discountGate.Permission, discountGate.AmountPence)))
+                     await RequestSupervisorOverrideAsync(discountGate.Permission, discountGate.AmountPence) is null))
                 {
                     await Application.Current.MainPage.DisplayAlert(
                         "Hmm".Translate(), discountGate.Message, "OK".Translate());
@@ -1127,6 +1205,21 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     return;
                 }
 
+                // ── Gate 2: WHY (default 22c) ─────────────────────────────────────────────────────
+                // ⚠ Matt, 2026-08-13: *"All discounts need to be tracked — till, logged-in employee
+                // and reason."* The till and the employee were already on the sale header; the
+                // reason was collected NOWHERE, on any till.
+                //
+                // ⚠ BEFORE THE CEILING, deliberately, so a supervisor is approving a REASON and not a
+                // bare number. Fetching them first and asking why afterwards means the person with
+                // the authority never sees what they authorised.
+                //
+                // ⚠ The refusal is HERE, where the operator can still act on it — not at commit,
+                // where the money is already on the basket and dropping the sale would cost more
+                // than the missing string is worth.
+                var reason = await AskForDiscountReasonAsync();
+                if (reason is null) return;   // cancelled — the basket is untouched
+
                 // ── Gate 2: the operator's ceiling, now that the AMOUNT is known ──────────────────
                 // ⚠⚠ THIS IS WHY THE CHECK MOVED. The gate at the top of this method asks only "may
                 // this operator discount AT ALL?" — it runs before the amount exists, so
@@ -1140,13 +1233,54 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 var amountGate = Services.Security.TillGate.Check(
                     App.GetViewModel().SignedInOperator, PermissionCatalogue.PosDiscount, requestedPence);
 
-                if (!amountGate.Allowed &&
-                    (!amountGate.NeedsOverride ||
-                     !await RequestSupervisorOverrideAsync(amountGate.Permission, amountGate.AmountPence)))
+                // ⚠ `stepUpWasRequired` is what the GATE said, not whether a grant turned up. Inferring
+                // it from the grant would make a step-up that silently failed to record an authoriser
+                // read as "no step-up was needed" — the one case the audit rule exists to catch.
+                var stepUpWasRequired = !amountGate.Allowed;
+                SupervisorGrant? grant = null;
+
+                if (!amountGate.Allowed)
+                {
+                    grant = amountGate.NeedsOverride
+                        ? await RequestSupervisorOverrideAsync(amountGate.Permission, amountGate.AmountPence)
+                        : null;
+
+                    if (grant is null)
+                    {
+                        await Application.Current.MainPage.DisplayAlert(
+                            "Hmm".Translate(), amountGate.Message, "OK".Translate());
+                        return;
+                    }
+                }
+
+                // ── Gate 4: can what just happened be WRITTEN DOWN? ───────────────────────────────
+                // ⚠ The rule is shared (`SharedKernel.DiscountAudit`) so the web till cannot enforce
+                // a different one. It re-checks self-approval that `OperatorLogin` already refused —
+                // two guards on one rule, the first protecting the ACT and this one the RECORD,
+                // because an audit trail saying a cashier approved their own £50 discount is worse
+                // than no trail at all.
+                var operatorId = App.GetViewModel().SignedInOperator?.UserId ?? Guid.Empty;
+
+                var (auditVerdict, authority) = Plutus.SharedKernel.DiscountAudit.Authorise(
+                    reason, requestedPence, operatorId,
+                    stepUpWasRequired, grant?.AuthorisedByUserId, grant?.AuthorisedByName);
+
+                if (auditVerdict != Plutus.SharedKernel.DiscountAuditVerdict.Recordable)
                 {
                     await Application.Current.MainPage.DisplayAlert(
-                        "Hmm".Translate(), amountGate.Message, "OK".Translate());
+                        "Hmm".Translate(), DiscountAuditRefusalMessage(auditVerdict), "OK".Translate());
                     return;
+                }
+
+                // ⚠ Stamped on every pending alteration BEFORE any of them reaches the basket, so a
+                // discount can never be added without its attribution. `CheckoutCommit` splits the
+                // reason across the lines the money apportions onto.
+                foreach (var a in pending)
+                {
+                    a.DiscountReason = authority.Reason;
+                    a.RequestedByUserId = authority.RequestedByUserId;
+                    a.AuthorisedByUserId = authority.AuthorisedByUserId;
+                    a.AuthorisedByName = authority.AuthorisedByName;
                 }
 
                 foreach (var a in pending) Basket.Add(a);
@@ -1758,7 +1892,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     // sale through on the strength of it, nobody having been asked whether this
                     // operator may sell. Any supervisor holding `pos.refund`, including one
                     // explicitly denied `pos.sell`, would have waved it through.
-                    if (!await RequestSupervisorOverrideAsync(gate.Permission, gate.AmountPence))
+                    if (await RequestSupervisorOverrideAsync(gate.Permission, gate.AmountPence) is null)
                         return;
                 }
 

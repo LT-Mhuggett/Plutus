@@ -401,5 +401,160 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
             Assert.Empty(CheckoutCommit.TendersFrom(Array.Empty<(string?, decimal, decimal)>()));
             Assert.Empty(CheckoutCommit.TendersFrom(null));
         }
+
+        // ── the discount audit trail (binding default 22c) ──
+
+        /// <summary>An alteration as the till builds it once a reason has been given.</summary>
+        private static BasketAlteration Attributed(
+            decimal price, BasketItem appliesTo, string reason,
+            Guid? authorisedBy = null, string authorisedByName = null)
+        {
+            var a = Alteration(price, appliesTo);
+            a.DiscountReason = reason;
+            a.RequestedByUserId = Cashier;
+            a.AuthorisedByUserId = authorisedBy;
+            a.AuthorisedByName = authorisedByName;
+            return a;
+        }
+
+        private static readonly Guid Cashier = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        private static readonly Guid Supervisor = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+        [Fact]
+        public void A_discounts_reason_and_authoriser_travel_with_the_line_it_lands_on()
+        {
+            var item = Item("A", 10m, 10m);
+            var lines = CheckoutCommit.LinesFrom(new List<IBasketRecord>
+            {
+                item,
+                Attributed(-5m, item, "damaged box", Supervisor, "Sam Supervisor"),
+            });
+
+            var authority = Assert.Single(Assert.Single(lines).DiscountAuthorities);
+
+            Assert.Equal("damaged box", authority.Reason);
+            Assert.Equal(500, authority.AmountPence);
+            Assert.Equal(Cashier, authority.RequestedByUserId);
+            Assert.Equal(Supervisor, authority.AuthorisedByUserId);
+        }
+
+        /// <summary>
+        /// ⚠⚠ THE ATTRIBUTION FOLLOWS THE MONEY, SHARE BY SHARE — and the shares are the SAME ones
+        /// the lines' `DiscountPence` took, never a second apportionment. A second one would drift
+        /// from the first only on baskets that do not divide evenly, which is exactly when nobody is
+        /// checking: the audit trail would say a line took 334p while the line itself says 333p.
+        ///
+        /// £10 across three £10 lines is 334/333/333 by largest-remainder, and the authorities must
+        /// sum back to the £10 an auditor is asking about.
+        /// </summary>
+        [Fact]
+        public void A_basket_wide_discount_splits_its_attribution_by_the_same_shares_as_the_money()
+        {
+            var a = Item("A", 10m, 10m);
+            var b = Item("B", 10m, 10m);
+            var c = Item("C", 10m, 10m);
+
+            var lines = CheckoutCommit.LinesFrom(new List<IBasketRecord>
+            {
+                a, b, c,
+                Attributed(-10m, null, "manager discount", Supervisor, "Sam Supervisor"),
+            });
+
+            var shares = lines.Select(l => Assert.Single(l.DiscountAuthorities).AmountPence).ToList();
+
+            Assert.Equal(1000, shares.Sum());
+            Assert.Equal(lines.Select(l => l.DiscountPence), shares);
+            Assert.All(lines, l => Assert.Equal("manager discount", l.DiscountAuthorities[0].Reason));
+        }
+
+        /// <summary>
+        /// ⚠ TWO DISCOUNTS ON ONE LINE ARE BOTH RECORDED. `DiscountPence` is their sum, so it cannot
+        /// say which half a supervisor approved; appending rather than replacing is what keeps the
+        /// answer available.
+        /// </summary>
+        [Fact]
+        public void A_second_discount_on_the_same_line_is_appended_rather_than_replacing_the_first()
+        {
+            var item = Item("A", 20m, 20m);
+            var lines = CheckoutCommit.LinesFrom(new List<IBasketRecord>
+            {
+                item,
+                Attributed(-2m, item, "Gold member 10%"),
+                Attributed(-3m, item, "damaged box", Supervisor, "Sam Supervisor"),
+            });
+
+            var authorities = Assert.Single(lines).DiscountAuthorities;
+
+            Assert.Equal(2, authorities.Count);
+            Assert.Equal(500, authorities.Sum(x => x.AmountPence));
+            Assert.Null(authorities[0].AuthorisedByUserId);
+            Assert.Equal(Supervisor, authorities[1].AuthorisedByUserId);
+        }
+
+        /// <summary>
+        /// ⚠⚠ A BASKET PARKED BEFORE 2026-08-14 AND RECALLED AFTERWARDS HAS NO REASON ON ITS
+        /// ALTERATIONS, and this is the case where inventing one would be worst.
+        ///
+        /// ⚠ The money still goes through — the refusal belongs where the discount is APPLIED, while
+        /// the operator can still act on it. By checkout the basket is assembled and a customer is
+        /// waiting; dropping the sale over a missing string would cost far more than it is worth.
+        /// What must NOT happen is an authority with a blank reason, which would masquerade as a
+        /// complete record.
+        /// </summary>
+        [Fact]
+        public void A_discount_recalled_from_before_this_field_existed_sends_no_authority_rather_than_a_blank_one()
+        {
+            var item = Item("A", 10m, 10m);
+            var lines = CheckoutCommit.LinesFrom(new List<IBasketRecord>
+            {
+                item,
+                Alteration(-5m, item),      // no reason — an old parked basket
+            });
+
+            var line = Assert.Single(lines);
+
+            Assert.Equal(500, line.DiscountPence);            // the money is still right
+            Assert.True(line.DiscountAuthorities is null || line.DiscountAuthorities.Count == 0);
+        }
+
+        /// <summary>⚠ Whitespace is not a reason. `"   "` looks present to a query and is blank to a
+        /// human — the same trap `DiscountAudit.NormaliseReason` exists for, re-checked here because
+        /// this is the path a recalled basket takes.</summary>
+        [Fact]
+        public void A_reason_of_only_whitespace_is_not_recorded_as_an_authority()
+        {
+            var item = Item("A", 10m, 10m);
+            var lines = CheckoutCommit.LinesFrom(new List<IBasketRecord>
+            {
+                item,
+                Attributed(-5m, item, "   "),
+            });
+
+            var line = Assert.Single(lines);
+            Assert.True(line.DiscountAuthorities is null || line.DiscountAuthorities.Count == 0);
+        }
+
+        /// <summary>
+        /// ⚠ A DISCOUNT ON A RETURNS-ONLY BASKET LANDS NOWHERE, so it records nothing either. The
+        /// attribution must not appear on a line that took no money off — `TargetsOf` excludes
+        /// returns because `VatLineMath.ForLine` drops a discount on one by design.
+        /// </summary>
+        [Fact]
+        public void A_discount_that_lands_on_no_line_records_no_attribution()
+        {
+            var returned = new BasketReturnItem(new ItemModel
+            {
+                Id = "R", Name = "Returned", Price = 10m, ExPrice = 10m,
+                Vat = new TaxModel { Name = "Standard" },
+            }, 1);
+
+            var lines = CheckoutCommit.LinesFrom(new List<IBasketRecord>
+            {
+                returned,
+                Attributed(-5m, null, "should not stick"),
+            });
+
+            Assert.All(lines, l => Assert.True(l.DiscountAuthorities is null || l.DiscountAuthorities.Count == 0));
+        }
     }
 }

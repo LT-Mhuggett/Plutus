@@ -696,8 +696,8 @@ export default function TillPage() {
         <DiscountDialog
           lines={basket.lines}
           onClose={() => setDialog("none")}
-          onApply={(discount, keys) => {
-            dispatch({ type: "applyDiscount", discount, keys });
+          onApply={(discount, keys, reason) => {
+            dispatch({ type: "applyDiscount", discount, keys, reason });
             setDialog("none");
           }}
         />

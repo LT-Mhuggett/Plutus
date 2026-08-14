@@ -1149,6 +1149,37 @@ export async function checkout(
           discounts: l.discount && l.discount.discountId !== 0
             ? [{ id: l.discount.discountId, rate: l.discount.amount }]
             : undefined,
+          // Binding default 22(c) — Matt, 2026-08-13: "All discounts need to be tracked — till,
+          // logged-in employee and reason."
+          //
+          // ⚠⚠ ITS OWN FIELD, NOT A PROPERTY ON `discounts[]`, and that is the design decision.
+          // `discounts[]` is projected straight into legacy Transaction_Discount rows keyed on a
+          // REAL DiscountId — which is why the members' auto-discount is already filtered out of it
+          // above. Hanging the audit fields there would have meant the members' discount could never
+          // carry one, and any future free-typed discount would need a synthetic id that FK-fails.
+          //
+          // ⚠ The MAUI till writes the identical shape from `DiscountAuthorityWire`; till-design C2
+          // pins the pair. A basket-wide discount there repeats one entry per line with each line's
+          // share, which is why `amountPence` is per line here too rather than a basket figure.
+          //
+          // ⚠ OMITTED, never an empty array, when there is nothing to say — so an undiscounted
+          // line's metadata is byte-identical to what it was before this field existed.
+          //
+          // ⚠ A basket parked before 2026-08-14 has a discount with no reason. It sends NOTHING
+          // rather than a blank one: an authority with an empty reason would masquerade as a
+          // complete record, and the money is already on the basket by the time we are here.
+          discountAuthority: l.discount && !l.isReturn && l.discount.reason
+            ? [{
+                reason: l.discount.reason,
+                amountPence: disc,
+                requestedBy: session.employeeId || undefined,
+                // ⚠ ABSENT, deliberately: the web till has NO ceiling and NO supervisor step-up
+                // (binding default 22(b) is unbuilt here — see till-design Part B). Absent means
+                // "no step-up was required", which on this till is true of every discount today.
+                // ⚠ It must NOT be filled with the operator: that would record a self-approval that
+                // never happened, and the shared rule refuses exactly that.
+              }]
+            : undefined,
           return: l.isReturn && l.originSaleId ? { originSaleId: l.originSaleId } : undefined,
         }),
       };

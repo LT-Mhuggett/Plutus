@@ -36,6 +36,12 @@ namespace Plutus.Client.Core;
 /// answer meaning "the portal has not decided which band this tax row is" — never guess one.</param>
 /// <param name="OverriddenFromPence">The price before an operator overrode it, if they did.</param>
 /// <param name="OriginSaleId">For a return: the sale being refunded.</param>
+/// <param name="DiscountAuthorities">Who authorised each discount on this line, and why — binding
+/// default 22(c). ⚠ ONE PER DISCOUNT, not one per line: <paramref name="DiscountPence"/> is their
+/// sum, so it cannot on its own say which half a supervisor approved. ⚠ Each entry's `AmountPence`
+/// is THIS LINE's share, which is why a basket-wide discount appears on every line it landed on.
+/// ⚠ Empty is legitimate on a line with no discount, and on any line from a till built before
+/// 2026-08-14 — absent means "not recorded", never "nobody authorised it".</param>
 public sealed record BasketLine(
     Guid ItemId,
     string IdOne,
@@ -47,7 +53,8 @@ public sealed record BasketLine(
     string? VatBandKey = null,
     long? OverriddenFromPence = null,
     bool IsReturn = false,
-    Guid? OriginSaleId = null);
+    Guid? OriginSaleId = null,
+    IReadOnlyList<DiscountAuthority>? DiscountAuthorities = null);
 
 /// <summary>What a basket is worth, as the header must state it.</summary>
 public sealed record BasketTotals(long GrossPence, long ExPence, long VatPence);
@@ -134,6 +141,17 @@ public static class SaleAssembler
                 Return = line.IsReturn && line.OriginSaleId is Guid origin
                     ? new ReturnRef { OriginSaleId = origin.ToString("D") }
                     : null,
+
+                // ⚠ Binding default 22(c) — "all discounts need to be tracked". Emitted here rather
+                // than by the caller so that EVERY payload this assembler builds carries the
+                // attribution, on every till, without each checkout screen remembering to.
+                //
+                // ⚠ NULL, NOT AN EMPTY LIST, when there is nothing to say: `LineMeta` serialises
+                // with `WhenWritingNull`, so an undiscounted line's JSON stays byte-identical to what
+                // it was before this field existed. A sale is compared against its own stored meta in
+                // more than one place, and a new empty array on every line would be a diff on every
+                // line.
+                DiscountAuthority = DiscountAuthorityWire.ToWire(line.DiscountAuthorities),
             };
 
             ingestLines.Add(new IngestLine

@@ -8,6 +8,20 @@ export interface LineDiscount {
   /** 0 = fixed pence off per unit; else fraction (0.10 = 10%) */
   type: number;
   amount: number;
+  /** WHY this discount was given — binding default 22(c), Matt 2026-08-13: "All discounts need to be
+   *  tracked — till, logged-in employee and reason."
+   *
+   *  ⚠ NOT THE SAME AS `name`. The name is the CATEGORY the operator picked off the list ("Staff
+   *  discount"); the reason is why this basket got one. A report grouped by name answers "how much
+   *  staff discount did we give", never "why was this £40 taken off".
+   *
+   *  ⚠ Mandatory for an operator-applied discount — the dialog will not apply one without it. Set
+   *  automatically for the members' auto-discount, where the tier IS the reason and no operator
+   *  decided anything.
+   *
+   *  ⚠ Optional in the TYPE only so a basket parked before 2026-08-14 still deserialises. A recalled
+   *  basket without one sends no authority rather than a blank one — see `checkout` in api.ts. */
+  reason?: string;
 }
 
 export interface BasketLine {
@@ -38,7 +52,7 @@ type Action =
   | { type: "addGiftCard"; item: Item; code: string; amountPence: number; exAmountPence: number }
   | { type: "quantity"; key: number; delta: number }
   | { type: "adjust"; key: number; pricePence: number }
-  | { type: "applyDiscount"; discount: Discount; keys: number[] }
+  | { type: "applyDiscount"; discount: Discount; keys: number[]; reason: string }
   | { type: "clearDiscount"; key: number }
   | { type: "applyMemberDiscount"; rate: number; name: string }
   | { type: "clearMemberDiscount" }
@@ -127,6 +141,10 @@ function reduce(state: BasketState, action: Action): BasketState {
                   name: action.discount.name,
                   type: action.discount.type,
                   amount: action.discount.amount,
+                  // Binding default 22(c). Normalised here rather than at the dialog so every
+                  // caller of this action stores the same shape — the MAUI till's
+                  // `DiscountAudit.NormaliseReason` is the twin, and till-design C2 pins them.
+                  reason: normaliseReason(action.reason),
                 },
               }
             : l,
@@ -142,7 +160,13 @@ function reduce(state: BasketState, action: Action): BasketState {
         ...state,
         lines: state.lines.map((l) =>
           !l.isReturn && !l.discount && !l.giftCardCode
-            ? { ...l, discount: { discountId: 0, name: action.name, type: 1, amount: action.rate } }
+            ? {
+                ...l,
+                // ⚠ The tier IS the reason — nobody decided anything, so there is nothing to type
+                // and nothing to refuse. "All discounts" includes the automatic ones, and this is the
+                // one most likely to be queried later ("why is this basket 10% under?").
+                discount: { discountId: 0, name: action.name, type: 1, amount: action.rate, reason: action.name },
+              }
             : l,
         ),
       };
@@ -227,6 +251,30 @@ export const useBasket = () => {
     }
   }, [state]);
   return [state, dispatch] as const;
+};
+
+/** The longest reason stored — the twin of `SharedKernel.DiscountAudit.MaxReasonLength`.
+ *
+ *  ⚠ If you change this, change it there too: the reason rides in the line's `discountsJson`, and
+ *  two tills truncating at different lengths write the same operator's words two different ways. */
+export const MAX_DISCOUNT_REASON = 200;
+
+/** A discount's reason, in the form it is stored in — the C2 twin of
+ *  `SharedKernel.DiscountAudit.NormaliseReason`, and it must agree with it character for character.
+ *
+ *  ⚠ Returns undefined for anything that is not a reason. `"   "` is present to a query and blank to
+ *  a human, which is exactly the empty column binding default 22(c) exists to prevent.
+ *
+ *  ⚠ Interior whitespace collapses so "damaged    box" and "damaged box" group together in a report
+ *  instead of reading as two distinct reasons.
+ *
+ *  ⚠ TRUNCATED, never refused for length — losing a discount at a counter over a long paste costs
+ *  more than the extra characters are worth. */
+export const normaliseReason = (raw: string | undefined | null): string | undefined => {
+  if (!raw) return undefined;
+  const collapsed = raw.trim().replace(/\s+/g, " ");
+  if (collapsed.length === 0) return undefined;
+  return collapsed.length <= MAX_DISCOUNT_REASON ? collapsed : collapsed.slice(0, MAX_DISCOUNT_REASON);
 };
 
 /** Pence knocked off a line by its discount (0 when none). Matches the MAUI

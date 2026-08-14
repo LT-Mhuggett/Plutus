@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { fetchDiscounts, type Discount } from "../api.ts";
-import type { BasketLine } from "./basket.ts";
+import { MAX_DISCOUNT_REASON, normaliseReason, type BasketLine } from "./basket.ts";
 
 interface Props {
   lines: BasketLine[];
-  onApply: (discount: Discount, keys: number[]) => void;
+  onApply: (discount: Discount, keys: number[], reason: string) => void;
   onClose: () => void;
 }
 
@@ -13,6 +13,10 @@ export default function DiscountDialog({ lines, onApply, onClose }: Props) {
   const [selected, setSelected] = useState<Discount | null>(null);
   const [keys, setKeys] = useState<number[]>([]);
   const [error, setError] = useState("");
+  // Binding default 22(c) — Matt, 2026-08-13: "All discounts need to be tracked — till, logged-in
+  // employee and reason." The till and the employee were already on the sale header; the reason was
+  // collected nowhere, on any till.
+  const [reason, setReason] = useState("");
 
   useEffect(() => {
     fetchDiscounts().then(setDiscounts).catch((e) => setError(String(e)));
@@ -71,6 +75,21 @@ export default function DiscountDialog({ lines, onApply, onClose }: Props) {
                 </li>
               ))}
             </ul>
+
+            {/* ⚠ MANDATORY, and that is the ruling rather than an oversight. An optional reason is an
+                empty column: the one discount anybody ever asks about is the one where nobody typed
+                anything. The Apply button below is disabled until this holds words. */}
+            <label className="field">
+              <span>Why is this discount being given?</span>
+              <input
+                type="text"
+                value={reason}
+                maxLength={MAX_DISCOUNT_REASON}
+                placeholder="e.g. damaged box, price-match, staff purchase"
+                onChange={(e) => setReason(e.target.value)}
+                autoFocus
+              />
+            </label>
           </>
         )}
 
@@ -79,7 +98,13 @@ export default function DiscountDialog({ lines, onApply, onClose }: Props) {
             {selected ? "Back" : "Cancel"}
           </button>
           {selected && (
-            <button className="primary" disabled={keys.length === 0} onClick={() => onApply(selected, keys)}>
+            <button
+              className="primary"
+              // ⚠ `normaliseReason`, not `reason.length` — "   " passes a length check and is blank
+              // to a human, which is the exact empty-column failure this field exists to prevent.
+              disabled={keys.length === 0 || !normaliseReason(reason)}
+              onClick={() => onApply(selected, keys, reason)}
+            >
               Apply to {keys.length} line{keys.length === 1 ? "" : "s"}
             </button>
           )}

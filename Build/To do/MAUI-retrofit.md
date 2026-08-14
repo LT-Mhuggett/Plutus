@@ -812,7 +812,21 @@ already off precisely so the message can explain a maximum lower than the basket
    the shared fix is never called from here. ⚠ **Confirm what units that box expects before changing
    it:** if it wants a fraction the label is wrong, if it wants a percent the maths is, and only one
    of those is a money bug.
-3. ⚠⚠ **THE WIRE CARRIES NO REASON AND NO ACTOR FOR A DISCOUNT**, so ruling (c) is impossible today.
+3. ✅✅ **CLOSED 2026-08-14 — the wire now carries both, on BOTH tills.** `LineMeta.discountAuthority[]`
+   (`reason`, `amountPence`, `requestedBy`, `authorisedBy`, `authorisedByName`), built through
+   `SharedKernel.DiscountAudit` → `Client.Core.DiscountAuthorityWire` on MAUI and the matching object
+   literal in the web till's `api.ts`. ⚠⚠ **It is NOT on `LineDiscount`, and the original plan below
+   was wrong to say it should be** — `discounts[]` projects into legacy `Transaction_Discount` rows
+   keyed on a real `DiscountId`, so a manual discount's synthetic id would have FK-failed the
+   projection of *every discounted sale*. The clue was in the file the whole time: the members'
+   auto-discount is already deliberately omitted from that array for exactly this reason.
+   ⚠ **No server change and no migration** — `SalesIngestService` stores `DiscountsJson` verbatim in a
+   `longtext` column and only plucks named fields back out with `JsonDocument`, so the field survives
+   the round trip and comes back on `SaleLineDto.DiscountsJson`. ⚠ **The reason is mandatory on both
+   tills**; MAUI additionally records the supervisor, because it is the only till that has one.
+   Details in `till-design.md` Part B + C1/C2. **The original finding, kept because the reasoning still
+   applies to anything else added to this envelope:**
+   ⚠⚠ **THE WIRE CARRIES NO REASON AND NO ACTOR FOR A DISCOUNT**, so ruling (c) is impossible today.
    `LineDiscount` is `{ id, rate }` and nothing else. The sale records `OperatorUserId` (who rang it)
    and the till — but **not who authorised a discount, nor why**. ⚠ Precedent sits next door:
    `SaleAdjustmentDto` carries a `Reason` for refunds and voids. The change is **additive** (`reason`
@@ -842,11 +856,17 @@ price-override path (587) and one more (1640):
 1. **Pass the amount to the discount gate** (finding 1) — without it the ceiling never bites, so the
    step-up prompt never appears for a discount however large. Needs the gate moved after the amount
    is entered.
-2. ⚠ **Nothing reaches the platform.** The override is written to the **till's local log only** — not
-   to the sale, not to the server. So an auditor asking *"who approved this discount?"* has to be
-   handed a till's log file, and a re-imaged till has none.
-3. **No reason is captured anywhere** — not by the override, not by the discount dialog. Ruling (c)
-   names three things (till, employee, reason) and **reason is the one nothing collects.**
+2. ✅ **CLOSED 2026-08-14. It reaches the platform now.** `RequestSupervisorOverrideAsync` used to
+   return `bool` — it verified a supervisor, wrote their name to the till's local log and **dropped
+   it**. It now returns a `SupervisorGrant`, and the identity lands on the sale. ⚠ The local log
+   entry STAYS: it is no longer the audit record, but it is the only trace of an override that
+   authorised something which then failed to commit, and that is precisely the sequence somebody
+   investigates.
+3. ✅ **CLOSED 2026-08-14. The reason is captured, and it is mandatory** — on both tills, refused
+   rather than recorded blank. ⚠ **The refusal sits where the discount is APPLIED**, not at commit:
+   at commit the money is already on the basket and a customer is waiting, so dropping the sale over
+   a missing string would cost more than it is worth. A basket parked before today and recalled after
+   sends **no** authority rather than a blank one.
 
 ### ✅ ANSWERED — "Base it on roles." Matt, 2026-08-14. Ruling (b) needs NO new entity.
 

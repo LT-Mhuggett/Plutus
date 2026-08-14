@@ -91,6 +91,36 @@ public sealed class LineMeta
     [JsonPropertyName("discounts")] public List<LineDiscount>? Discounts { get; set; }
     [JsonPropertyName("return")] public ReturnRef? Return { get; set; }
 
+    /// <summary>
+    /// WHO authorised each discount on this line, and WHY — binding default 22(c).
+    ///
+    /// ⚠⚠ IT IS NOT ON <see cref="LineDiscount"/>, AND THAT IS THE WHOLE DESIGN DECISION.
+    /// <c>discounts[]</c> is projected straight into legacy `Transaction_Discount` rows keyed on a
+    /// real `DiscountId` (`LegacySaleBridgeConsumer.cs:195`) — which is why the members'
+    /// auto-discount is already deliberately omitted from it. A manual discount has no catalogue id
+    /// either, so putting the audit fields there would have meant emitting a synthetic-id entry, and
+    /// the bridge would have FK-failed the projection of every discounted sale. This list is its own
+    /// field precisely so the bridge never sees it.
+    ///
+    /// ⚠ ONE ENTRY PER DISCOUNT, NOT PER LINE. A line can attract two (a member's tier rate and a
+    /// manual one) and <see cref="IngestLine.DiscountPence"/> is their SUM — so the sum alone cannot
+    /// say which half a supervisor approved.
+    ///
+    /// ⚠ A BASKET-WIDE DISCOUNT REPEATS ON EVERY LINE IT LANDS ON, with each line's own share in
+    /// <c>amountPence</c>. That is duplication and it is the right kind: the money is apportioned per
+    /// line, so the attribution has to be too, or a line-level report of "discount given, and why"
+    /// has to re-derive the apportionment to answer.
+    ///
+    /// ⚠ NULL ON EVERY SALE WRITTEN BEFORE 2026-08-14, and null-safe forever. Absent means "this
+    /// till did not record it", NOT "nobody authorised it" — do not render the two the same way.
+    ///
+    /// ⚠ The server needs NO change to keep this: `SalesIngestService` stores `DiscountsJson`
+    /// VERBATIM into a `longtext` column and only ever plucks named fields back out with
+    /// `JsonDocument`, so an unknown field survives the round trip and comes back on
+    /// `SaleLineDto.DiscountsJson`.
+    /// </summary>
+    [JsonPropertyName("discountAuthority")] public List<DiscountAuthorityRef>? DiscountAuthority { get; set; }
+
     private static readonly JsonSerializerOptions Options = new()
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
@@ -198,6 +228,35 @@ public sealed class LineDiscount
 public sealed class ReturnRef
 {
     [JsonPropertyName("originSaleId")] public string OriginSaleId { get; set; } = "";
+}
+
+/// <summary>
+/// One discount's audit record as it travels — see <see cref="LineMeta.DiscountAuthority"/>.
+///
+/// ⚠ A SHAPE, NOT A RULE. What makes an authority valid — the reason being mandatory, the
+/// normalisation, the refusal of self-approval — lives in `SharedKernel.DiscountAudit`, which this
+/// project deliberately cannot reference. Same split as `SaleTenderDto` ↔ `SaleDtoTenders`. Build
+/// these from a `DiscountAuthority`; never hand-roll one, or the rule is enforced on one till only.
+/// </summary>
+public sealed class DiscountAuthorityRef
+{
+    /// <summary>Why, in the operator's words — or the tier's name for an automatic one.</summary>
+    [JsonPropertyName("reason")] public string Reason { get; set; } = "";
+
+    /// <summary>THIS LINE's share of the discount, positive. ⚠ Not the whole basket-wide amount:
+    /// the shares across the lines sum to what was taken off, so a report can add them up.</summary>
+    [JsonPropertyName("amountPence")] public long AmountPence { get; set; }
+
+    /// <summary>The signed-in operator who applied it.</summary>
+    [JsonPropertyName("requestedBy")] public string? RequestedBy { get; set; }
+
+    /// <summary>The supervisor who authorised it, or ABSENT when the discount was within the
+    /// operator's own ceiling. ⚠ Absent is a real answer — "no step-up was required".</summary>
+    [JsonPropertyName("authorisedBy")] public string? AuthorisedBy { get; set; }
+
+    /// <summary>The authoriser's name as the roster had it at the time — stored, never resolved
+    /// later, because staff leave and "(deleted user)" answers nothing.</summary>
+    [JsonPropertyName("authorisedByName")] public string? AuthorisedByName { get; set; }
 }
 
 /// <summary>What the ingest endpoint answers with. 201 recorded · 200 duplicate (same outcome

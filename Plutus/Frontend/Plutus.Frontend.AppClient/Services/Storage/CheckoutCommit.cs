@@ -133,8 +133,60 @@ namespace Plutus.Frontend.AppClient.Services.Storage
                     lines[targets[t]] = lines[targets[t]] with
                     {
                         DiscountPence = lines[targets[t]].DiscountPence + shares[t],
+
+                        // ⚠ Binding default 22(c). The attribution follows the MONEY, share by
+                        // share, using the SAME `shares[t]` the line's own DiscountPence just took —
+                        // never a second apportionment. A basket-wide "£5 off, damaged box" lands on
+                        // three lines as three authorities of 167p/167p/166p, and they sum back to
+                        // the £5 an auditor is asking about.
+                        //
+                        // ⚠ APPENDED, never replaced. A line can carry a member's tier discount AND
+                        // a manual one; overwriting here would leave one of them attributed and the
+                        // other anonymous, and `DiscountPence` — being their sum — could not say
+                        // which was which.
+                        DiscountAuthorities = Appended(
+                            lines[targets[t]].DiscountAuthorities,
+                            AuthorityOf(alteration, shares[t])),
                     };
             }
+        }
+
+        /// <summary>
+        /// This alteration's audit record for ONE line, carrying that line's share of the money.
+        ///
+        /// ⚠ RETURNS NULL WHEN THE ALTERATION HAS NO REASON, and that is not the same as refusing.
+        /// The refusal happens where the discount is APPLIED (`TillViewModel`), while the operator
+        /// can still act on it. By the time a basket reaches checkout the money is already on it —
+        /// dropping the sale here would lose a paid-for basket over a missing string. What this does
+        /// instead is send NOTHING rather than an authority with a blank reason, so an empty record
+        /// never masquerades as a complete one.
+        ///
+        /// ⚠ It is reachable: a basket parked before 2026-08-14 and recalled afterwards has
+        /// alterations with no reason on them, and that is exactly the case where inventing one
+        /// would be worst.
+        /// </summary>
+        private static DiscountAuthority? AuthorityOf(BasketAlteration alteration, long sharePence)
+        {
+            var reason = DiscountAudit.NormaliseReason(alteration.DiscountReason);
+            if (reason is null) return null;
+
+            return new DiscountAuthority(
+                reason,
+                sharePence,
+                alteration.RequestedByUserId,
+                alteration.AuthorisedByUserId,
+                alteration.AuthorisedByName);
+        }
+
+        /// <summary>Add one authority to a line's list, leaving what is already there alone.</summary>
+        private static IReadOnlyList<DiscountAuthority> Appended(
+            IReadOnlyList<DiscountAuthority> existing, DiscountAuthority? addition)
+        {
+            if (addition is not DiscountAuthority a) return existing;
+
+            var list = existing is null ? new List<DiscountAuthority>() : new List<DiscountAuthority>(existing);
+            list.Add(a);
+            return list;
         }
 
         /// <summary>
