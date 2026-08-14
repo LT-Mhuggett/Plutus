@@ -118,20 +118,33 @@ polite refusal at the counter. See §18 for the two edge cases this creates.
 - **Mechanics to configure** — redeem directly at checkout vs converting to a voucher first; whether credits can part-pay or must cover the whole reward; minimum balance to redeem; minimum spend requirements. ⚠ Superseded for v1 by the decision above: redeem directly at checkout, part-pay always allowed, no minimums
 - **Refund handling** — refunds reference the original sale: earned credits are clawed back and spent credits restored automatically (§9)
 
-### Key decision: discount vs tender
+### ✅ SETTLED: a redemption is a DISCOUNT — Matt, 2026-08-14
 
-How a redemption is represented on the sale:
+*"Credits are only ever earned, never purchased, not transferable to cash → discount. This is the
+model, and it's the standard retail approach (Tesco Clubcard, Boots points, Nectar all work this
+way)."*
 
-- **As a discount** ("500 gems = £5 off") — simpler to build, sits naturally in discount reporting, standard retail treatment; VAT calculated on the reduced amount. **Recommended default.**
-- **As a tender** (credits are a wallet that part-pays) — more flexible, but credits then behave like money, with heavier accounting and VAT implications.
+⚠ **The two clauses before the arrow are the whole argument, and they are what to cite — not the
+brand names.** Clubcard is evidence that the treatment is orthodox; it is not the reason:
 
-⚠️ Confirm with the accountant before committing — this is expensive to change later.
+| Because a gem… | It cannot be a tender, because… |
+|---|---|
+| is **only ever earned, never purchased** | no money entered the business against it. A tender discharges a liability; nothing here was ever owed |
+| is **not transferable to cash** | it is not a monetary instrument. A wallet you cannot withdraw from is not a wallet |
+| **reduces what is owed on a supply** | that is a **price reduction** — and HMRC treats one as reducing the VAT-inclusive consideration, so §18.4's apportionment is the *correct treatment*, not a convenience |
 
-**§18.4 adds a code-level argument the recommendation did not originally have:** the apportionment
-and VAT-split machinery a discount needs (`DiscountApportionment.Across`, `VatLineMath.ForLine`)
-**already exists, is deterministic to the penny, and is already a C2 twin with the web till** — so
-a mixed-VAT basket apportions correctly for free. A tender needs a new tender type and reports gem
-"takings" the bank never saw. The accountant still decides; the build cost is not symmetric.
+⚠⚠ **This is why the gift-card contrast matters, and why the two must never be merged.** A gift card
+**is** purchased: real money arrives, VAT is deferred to redemption, and it is a **liability** — hence
+the zero-VAT activation. A gem is neither purchased nor a liability, so pointing the loyalty build at
+the gift-card machinery because "they both take money off a basket" would put a genuine liability and
+a mere price reduction through one code path, and the VAT return would be wrong in one of the two
+cases for ever.
+
+**§18.4 is the code-level half:** the apportionment and VAT-split machinery a discount needs
+(`DiscountApportionment.Across`, `VatLineMath.ForLine`) **already exists, is deterministic to the
+penny, and is already a C2 twin with the web till** — so a mixed-VAT basket apportions correctly for
+free. A tender needs a new tender type and reports gem "takings" the bank never saw. ⚠ **The build
+cost was never symmetric, and now it does not have to be argued** — it agrees with the accounting.
 
 ---
 
@@ -280,7 +293,7 @@ Target **WCAG 2.2 AA**. Highlights relevant to loyalty screens: AA contrast with
 
 | # | Decision | Recommendation | Status |
 |---|---|---|---|
-| 1 | Credits as discount or tender | **Discount** — and §18 adds a second, code-level reason: the apportionment-and-VAT machinery a discount needs *already exists and is already tested*; a tender needs a new tender type, and puts "gem takings" in the Z-read that never reached the bank | ⚠️ **Still the accountant's call** — the 10p rate does not change it |
+| 1 | Credits as discount or tender | **DISCOUNT.** Matt, 2026-08-14: *"Credits are only ever earned, never purchased, not transferable to cash → discount. This is the model, and it's the standard retail approach (Tesco Clubcard, Boots points, Nectar all work this way)."* ⚠ **The reasoning is the substance, not the citation:** a gem is never *bought*, so no money ever entered the business against it — there is no liability to discharge, and a tender exists to discharge one. It cannot leave as cash, so it is not a monetary instrument. What it does is reduce what is owed on a supply, which is a **price reduction**, and HMRC treats a price reduction as reducing the VAT-inclusive consideration — §18.4's apportionment is then not a convenience but the correct treatment. §18 adds the code-level half: the apportionment-and-VAT machinery *already exists and is already tested*; a tender needs a new tender type and puts "gem takings" in the Z-read that never reached the bank | ✅ **DECIDED — Matt, 2026-08-14.** ⚠ **Unblocks phase A** (§17) and closes the last gate on binding default 21 |
 | 2 | Credit value semantics (abstract vs money-mapped) | ~~Abstract points~~ → **money-mapped, 1 gem = £0.10**, portal-set. ⚠ Ledger stores the **count**, not pence (§18) | ✅ **Decided — Matt, 2026-08-13** |
 | 3 | Tier qualification basis | Rolling 12-month, spent credits count | Open — ⚠ **but tiers already exist and are assigned by hand**; this decision only bites when the engine replaces manual assignment (§17) |
 | 4 | Tier downgrade policy & grace period | — | Open |
@@ -376,7 +389,8 @@ The till's job is **identification and redemption UX**; the platform's is every 
   decide what happens when the engine and an override disagree.
 - ⚠⚠ **STORE CREDIT IS NOT "CREDITS", and merging them would make points into cash.** Store credit
   is money (typically from a refund), a real liability in pence, spent as a **tender**. Loyalty
-  credits are earned points, represented per §4 decision 1 (recommended: discount). **Both exist,
+  credits are earned points, represented as a **discount** (§14 decision 1, settled 2026-08-14 — and
+  the *reason* they differ is the same reason: store credit was **paid for**, a gem never was). **Both exist,
   named distinctly everywhere a member or operator sees them** — "store credit £4.40" vs "1,240
   gems". A single bucket would let an earning promotion mint refundable cash.
 - ⚠ **The sale header has NO member link today.** Verified: `IngestSaleRequest` carries
@@ -387,7 +401,9 @@ The till's job is **identification and redemption UX**; the platform's is every 
 - **`LineMeta` gains `earnsCredits`** (§3 exclusions) — additive and null-safe, like `vatBand`:
   null means "the catalogue decides", stated only where the till knows better (a gift-card line).
 
-**New builds, phased** *(±25% at least, and phase A is gated on §14 decision 1 — the accountant)*:
+**New builds, phased** *(±25% at least). ✅ **Phase A is NO LONGER GATED** — §14 decision 1 was
+settled on 2026-08-14: redemption is a **discount**, so `DiscountApportionment.Across` +
+`VatLineMath.ForLine` carry it and no new tender type is built:*
 
 | Phase | What | ~ |
 |---|---|---|
