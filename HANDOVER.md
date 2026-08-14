@@ -31,9 +31,15 @@ Both rulings are now built, on **both tills**, and the MAUI till is **built and 
 
 #### 1. ⚠ DO THIS FIRST — hand-run the discount flow. It has still never been run by a person, and it changed again today.
 
-Built and version-verified: **`D:\tmp\plutus-till-1.54.0`** (artefact reads `1.54.0`). Just run
+Built and version-verified: **`D:\tmp\plutus-till-1.54.1`** (artefact reads `1.54.1`). Just run
 `Plutus.Frontend.AppClient.exe` — unpackaged, no install. ⚠ **It will say the till isn't enrolled**;
 that is expected for an unpackaged build (runbook § MAUI till build), enrol it as a fresh till.
+⚠ `1.54.0` has been **deleted** so nobody runs the superseded one by mistake.
+
+⚠⚠ **1.54.1 also changed the CHECKOUT path** (step 11b — the dead legacy sale graph came out, and
+the receipt's notes now come off the basket). So §A of the hand-run matters again, not just §F:
+**a cash sale, a card sale, a split payment, a refund, and a receipt that still prints its notes**
+— an operator note and a discount label should both appear on the paper.
 
 ⚠⚠ **There is now a REASON PROMPT in the middle of this flow**, which is a third dialog in a chain
 that already produced four defects in one session on 2026-08-10 (runbook pitfalls 11–14). 442
@@ -66,7 +72,7 @@ try again"*, which never worked.
 | Web till | **1.9.0** (`index-BLeVrCti.js`) | ✅ **DEPLOYED & verified 2026-08-14** — rollback `/srv/apps/PLUTUS/web/current.pre-1.9.0` (holds `index-BXTgzlgt.js` = 1.8.0) |
 | Portal | 1.8.0 (`index-X2HmT_BH.js`) | unchanged — **confirmed untouched** by the web deploy |
 | platform | **1.35.0** | ships inside the others; in the web till as deployed |
-| till-maui | **1.54.0** | ⚠ **BUILT** to `D:\tmp\plutus-till-1.54.0`, not installed, not hand-run |
+| till-maui | **1.54.1** | ⚠ **BUILT** to `D:\tmp\plutus-till-1.54.1`, not installed, not hand-run |
 
 ⚠ **The web-till deploy was verified on all three axes the runbook demands**, because a 200 proves
 almost nothing (both hosts SPA-fallback to `index.html`): the **till** host names the new bundle
@@ -111,6 +117,27 @@ and the only enforcement is whatever the server does at ingest. ⚠ Ruling (b) i
 web till, recorded in Part B with the reason and homed to a web-till slice. Its `discountAuthority`
 correctly writes **no** `authorisedBy` — on that till no step-up is possible, so "absent" is true.
 
+#### 4c. Progress on the PLAN, and ⚠ an honest size for what is left
+
+Matt, 2026-08-14: *"continue to build. I want to get to the end of the plan before I test."*
+**Started, and the plan is bigger than one sitting** — ⚠ **~35–40 days remain**, so "the end of the
+plan" is not a state this session could reach. What was taken, in the plan's own order:
+
+- ✅ **Step 11b, first bite** — the ~35-line legacy sale graph (`sale.Transactions`, `sale.Refunds`,
+  `CheckoutItemChangeModel`) is gone. It was **built on every checkout and read by nothing**: traced
+  before deleting, because it is the money path. The receipt's notes now come off the basket through
+  a tested rule instead of two hops via a legacy model. **AppClient 442 → 447.**
+- ✅ **Step 21 / L7 — corrected, not built.** See item 8.
+
+⚠⚠ **A SEQUENCING RISK WORTH A DECISION, because it is the one thing batching hurts.** Step 11b's
+*remaining* half is the `decimal` → **long pence** reshape, 28 `is BasketReturnItem` type tests and
+every XAML binding onto them. Its failure mode is **invisible**: the rows format with
+`StringFormat='{0:C}'`, so £3.30 renders as **£330.00** and nothing fails — and a MAUI binding to a
+property that no longer exists **renders blank rather than crashing**. Its own DoD is therefore *"a
+hand-run of every row type"*. Stacking that under 35 more days of other work before anyone looks at
+a screen is how a pile of changes becomes un-attributable. **Recommendation: hand-run §A+§F on
+1.54.1 first — it is ~20 minutes — then the reshape can land against a known-good baseline.**
+
 #### 5. ⚠ STILL OPEN — a Gold member is charged 10% more on MAUI than on the web till
 
 Unchanged today, and it is still the reason step 27 exists. The **rule** (`MemberDiscount`), the
@@ -139,6 +166,26 @@ lines, both of which the shared rule excludes).
    boot, so a permission deploy needs **no** `SeedMigrator rbac`. Corrected; ⚠ running it anyway also
    fires `MapKapowAuthActionsAsync`, which added 7 role assignments (all to a user who already held
    `Owner`, so no effective change — verified).
+
+#### 8. ⚠⚠ The FOURTH wrong status marker in a week — step 21 / L7 is BLOCKED, not "a ½d deletion"
+
+I went to do step 21's *"delete `LoginViewModel.EnsureStoreAsync` — ~½d, it is just a deletion"* and
+**both descriptions of it were wrong**:
+
+- ❌ *"still throws every time"* — **it cannot throw out at all.** The body is one `try` with a
+  swallowing `catch`, deliberately, so a missing store never blocks sign-in. It does not even reach
+  the `db.Add` that was blamed unless the till has no local store row *and* the API answers.
+- ❌ *"a deletion"* — **it NullReferences two inventory screens.** Step 14's Meta cache replaced the
+  store's *details*; the blocker is **`Store.Id`**, which is why that did not free it.
+
+⚠ **And the code's own comment — the accurate one — named only ONE of the two dereferences.** That
+omission is the dangerous half: delete the method, test the screen the comment points at, watch it
+pass, ship a crash on the other one. Both are now named in the code and in L7.
+**It goes with step 25**, not step 21. ⚠ And **not** by null-coalescing to `0`, which writes stock
+rows against store 0 — a silent data change dressed as a null fix.
+
+**The pattern is identical every time:** a claim about *behaviour*, written from reading a call site
+instead of following what it calls. **Grep the callers before believing a ⬜ or a ✅.**
 
 #### 7. ⚠ Two corrections made on **2026-08-13** to my own reporting
 

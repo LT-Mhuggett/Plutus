@@ -1,6 +1,6 @@
 # Test Maui — the MAUI till hand-test script
 
-**For till 1.54.0.** Anyone can run this. You do not need to know the codebase, and you should not
+**For till 1.54.1.** Anyone can run this. You do not need to know the codebase, and you should not
 need to ask anyone what a step means — if a step is unclear, that is a bug in this document, so please
 say so.
 
@@ -13,7 +13,7 @@ if that is all the time you have.
 
 | | |
 |---|---|
-| **Run** | `D:\tmp\plutus-till-1.54.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
+| **Run** | `D:\tmp\plutus-till-1.54.1\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
 | **Sign in as** | any operator with **Supervisor** or above — some steps need permission to change stock |
@@ -487,7 +487,7 @@ is running, that is worth reporting.
 
 ---
 
-# F. Discounts — the reason, and who said yes (**NEW in 1.54.0**)
+# F. Discounts — the reason, and who said yes (**NEW in 1.54.0**, still unrun on 1.54.1)
 
 **Why this section exists.** Matt, 2026-08-13: *"All discounts need to be tracked — till, logged-in
 employee and reason."* The till and the employee were already recorded. **The reason was recorded
@@ -495,7 +495,7 @@ nowhere**, on any till — and when a supervisor authorised a discount above a c
 name went into a log file **on that till and nowhere else**. Re-image the till and the answer to
 *"who approved this?"* is gone.
 
-⚠ **This section is the most likely place to find a new bug in 1.54.0**, because it adds a dialog to
+⚠ **This section is the most likely place to find a new bug in 1.54.1**, because it adds a dialog to
 a chain that already had two. Four separate faults came out of exactly this shape on 2026-08-10.
 
 Put **a few items** in the basket first — say £8 worth. Then press **Alterations**.
@@ -574,3 +574,18 @@ never see it:
 
 ⚠ **If a reason box appears for any row in this table, that is a bug** — it means the money rule
 stopped running first, and an operator is being asked to justify a discount that can never apply.
+
+## F9. ⚠ Receipt notes — new in 1.54.1, and easy to miss
+
+The receipt's notes used to be copied into a legacy sale model at checkout and read back at print
+time. In 1.54.1 they come straight off the basket. Same words, one hop instead of two — **but this
+is a printed-output change, so it needs eyes.**
+
+1. Add an item. Add an **operator note** to the basket if your till offers one.
+2. Apply a **discount** (with a reason, per §F1).
+3. Complete the sale and **take the receipt**.
+
+**✅ Expected:** the receipt shows the note **and** the discount's label, in basket order, exactly as
+it did on 1.53.0. No blank lines where a note used to be.
+
+**❌ What to report:** a missing note, a missing discount line, an empty line, or the same note twice.
