@@ -1,9 +1,8 @@
 # Handover — Plutus platform build
 
-**Date:** 2026-08-14 — Platform on **.NET 10**. Backend **1.17.0** and portal **1.8.0** are DEPLOYED
-to the test environment and verified; ⚠ web till **1.9.0**, till-maui **1.54.0** and platform
-**1.35.0** are **committed but NOT shipped**, and **1.54.0 is BUILT and waiting to be hand-run** —
-see START HERE item 1. (Web till **1.8.0** is what is live.) Agent **1.3.3**. All 18 phases + Operator Portal (OP1–OP4), the **portal/till refresh (P1–P6)** and
+**Date:** 2026-08-14 — Platform on **.NET 10**. Backend **1.17.0**, web till **1.9.0** and portal
+**1.8.0** are DEPLOYED to the test environment and verified; ⚠ till-maui **1.54.0** is **built but not
+installed**, and **has not been hand-run** — see START HERE item 1. Agent **1.3.3**. All 18 phases + Operator Portal (OP1–OP4), the **portal/till refresh (P1–P6)** and
 **FE1–FE10** built & LIVE. The **MAUI retrofit**: cutover **steps 1–21, 23, 25 and half of 26 are
 done**; **11b (promoted), 22, 24, the rest of 26, 27 and 28 remain** — ⚠ **one document now:**
 [`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md). The backend gap is closed; everything left is
@@ -63,13 +62,20 @@ try again"*, which never worked.
 
 | | Version | State |
 |---|---|---|
-| Backend | **1.17.0** | ✅ **DEPLOYED & verified** — rollback `~/PLUTUS/backend.pre-1.17.0` |
-| Web till | **1.8.0** live / **1.9.0** committed | ⚠ 1.9.0 has the reason box — **built & typechecked on the Mac, NOT deployed** |
-| Portal | 1.8.0 | unchanged, untouched |
-| platform | **1.35.0** | ⚠ committed, **not** shipped |
-| till-maui | **1.54.0** | ⚠ **BUILT** to `D:\tmp\plutus-till-1.54.0`, not hand-run |
+| Backend | **1.17.0** | ✅ **DEPLOYED & verified** — rollback `~/PLUTUS/backend.pre-1.17.0`. Untouched today; re-probed after the web deploy (`POST /api/v1/tokens/device` → **401 "Device not enrolled"**, i.e. the DB path is healthy, not just `/swagger`) |
+| Web till | **1.9.0** (`index-BLeVrCti.js`) | ✅ **DEPLOYED & verified 2026-08-14** — rollback `/srv/apps/PLUTUS/web/current.pre-1.9.0` (holds `index-BXTgzlgt.js` = 1.8.0) |
+| Portal | 1.8.0 (`index-X2HmT_BH.js`) | unchanged — **confirmed untouched** by the web deploy |
+| platform | **1.35.0** | ships inside the others; in the web till as deployed |
+| till-maui | **1.54.0** | ⚠ **BUILT** to `D:\tmp\plutus-till-1.54.0`, not installed, not hand-run |
 
-**14 commits unpushed** (105 vs `upstream`, whose last push was 2026-08-09). Only on request.
+⚠ **The web-till deploy was verified on all three axes the runbook demands**, because a 200 proves
+almost nothing (both hosts SPA-fallback to `index.html`): the **till** host names the new bundle
+hash, the bundle is **343,520 bytes** rather than the ~1 KB fallback, and it contains a string only
+this change introduced (*"Why is this discount being given"*). The artefact was also checked for
+unsubstituted `__APP_VERSION__` defines **before** copying — the 2026-08-09 blank-portal trap, which
+both `tsc` and `vite build` pass straight through.
+
+**15 commits unpushed** (109 vs `upstream`, whose last push was 2026-08-09). Only on request.
 
 #### 3. ✅ BOTH QUESTIONS ANSWERED — and both are recorded with the reasoning, not just the verdict
 
