@@ -985,7 +985,7 @@ against the tree 2026-08-12:
 | Keep `RecoveryViewModel` as the cutover on-ramp | ✅ As planned ([L8](#l8--obsolete-first-run-screens)) |
 | Delete `SettingsViewModel.ExecuteDeleteDb` | ✅ Gone |
 | Fix `AppViewModel.EmployeeId` = `Employees.Last().Id` | ✅ **No longer crashes** — null is a normal answer now. Its *deletion* is [L9](#l9--appviewmodelemployeeid-and-appviewmodelemployees) |
-| ⚠ **Delete `LoginViewModel.EnsureStoreAsync`** | ⬜ **STILL RUNS on every sign-in** (`LoginViewModel.cs:301` → `:348`) and still throws every time. **~½d** — step 14's Meta-cached store header already replaces it, so this is a deletion. ⚠ Two printing call sites reference its five paths in comments (`PosPrinterManager.cs:150`, `TillAgentPrinting.cs:104`) — check them, because **a missing store must not lose the receipt** |
+| ⚠⚠ **Delete `LoginViewModel.EnsureStoreAsync`** | ⬜ **BLOCKED — and this row was WRONG TWICE. Corrected against the tree 2026-08-14.** ❌ *"still throws every time"* — **it cannot throw at all**: the whole body sits in a `try` whose `catch` swallows to `CrashLog` precisely so a missing store can never block sign-in (`:394`). ❌ *"this is a deletion, ~½d"* — **deleting it NullReferences two inventory screens**. Step 14's Meta cache replaced the store's *details* for display, but **`Store.Id` is the blocker, not the details**, and two screens dereference it outright: `AddEditViewModel.cs:330` and `ViewAllViewModel.cs:1324` (⚠ the code's own comment names only the first — corrected in the same commit). `Database.cs:43` also uses it but is null-guarded, so it degrades rather than breaks. **It goes with step 25**, when inventory moves off the legacy store and nothing needs a legacy store id — not before. ⚠ Do **not** "fix" this by null-coalescing the two dereferences to `0`: that silently writes stock rows against store 0. ⚠ Two printing call sites reference its five paths in comments (`PosPrinterManager.cs:150`, `TillAgentPrinting.cs:104`) — **a missing store must not lose the receipt**, and both already handle null |
 | **Un-enrol request + manager approval** | ⬜ **~1d.** WP4's last piece; there is **no client code at all** (grep for `unenrol` in the app returns nothing). The server side is ready — `POST /api/v1/tills/unenrol-request` got its device-token policy in step 19. ⚠ **`PendingRemoval` is not a stop signal, deliberately**: halting a till the moment someone requests it back would make un-enrolment a way to take a shop's till down. Only `Revoked` stops, and the till learns which from `GET /api/v1/tills/devices/{deviceId}/status` — and it **must poll it**, because device tokens are bearer tokens with **no server-side denylist**, so a revoked till otherwise keeps working until its 12h token expires |
 
 ### The cluster with no step at all
@@ -1285,13 +1285,35 @@ is `decimal`; the platform is integer pence end-to-end — recorded in till-desi
 ### L7 — `LoginViewModel.EnsureStoreAsync`
 
 **Code:** `ViewModels/LoginViewModel.cs` — `EnsureStoreAsync` and its two legacy `Database` blocks.
-⚠️ **Still runs on every sign-in — verified 2026-08-12** (`LoginViewModel.cs:301`). **Order:** step 21, still open (§3).
+⚠️ **Still called on every sign-in** (`LoginViewModel.cs:301`). **Order:** ⚠ **NOT step 21 — it is
+blocked until step 25.** Corrected 2026-08-14; see below.
 
 A 2026-08-09 hotfix that writes API data into the legacy `Stores` table — exactly the bridge default 9
-forbids. Step 14's Meta-cached store header replaces it. It is currently **throwing on every sign-in**
-with a null `StoreModel` primary key (caught, visible in the crash log) — a fair summary of why it
-should go. ⚠ It also creates `Database.db` on every sign-in, which is what made the enrolment gate a
-one-way door.
+forbids. Step 14's Meta-cached store header replaces it **for display**. ⚠ It also creates
+`Database.db` on every sign-in, which is what made the enrolment gate a one-way door.
+
+⚠⚠ **THE DELETION IS BLOCKED, AND TWO EARLIER DESCRIPTIONS OF THIS WERE WRONG. Settled against the
+tree 2026-08-14:**
+
+- ❌ *"throwing on every sign-in"* — **overstated.** It **cannot throw out at all** (the body is one
+  `try` with a swallowing `catch` at `:394`, deliberately, so a missing store never blocks sign-in),
+  and it does not even reach the `db.Add` that was blamed unless the till has **no** local store row
+  *and* the API answers: `:352` returns immediately once `Store` is set, `:359` returns if a row
+  already exists. So on a till that has signed in once, it is a no-op.
+- ❌ *"~½d, it is just a deletion"* — **deleting it NullReferences two inventory screens.** The
+  blocker is **`Store.Id`, not the store's details**, which is why the Meta cache did not free it:
+  - `ViewModels/MainTill/Inventory/Items/AddEditViewModel.cs:330` — `App.GetViewModel().Store.Id`
+  - `ViewModels/MainTill/Inventory/Items/ViewAllViewModel.cs:1324` — same, ⚠ **and this one was
+    missed** by the code's own comment, which named only `AddEditViewModel`
+  - `Helpers/Database/Database.cs:43` — also uses it, but behind a null guard, so it degrades
+
+⚠ **Do not "unblock" this by null-coalescing those to `0`.** That writes stock rows against store 0
+— a silent data change dressed up as a null fix. **It goes with step 25**, when inventory leaves the
+legacy store and nothing needs a legacy store id.
+
+⚠ **This is the fourth status marker in this document found wrong in a week.** The pattern is the
+same every time: a claim about *behaviour* written from reading a call site rather than following
+what it calls. **Grep the callers before believing a ⬜ or a ✅.**
 
 ### L8 — Obsolete first-run screens
 

@@ -336,14 +336,21 @@ namespace Plutus.Frontend.AppClient.ViewModels
         /// no longer edits this row, so the sentence above is already out of date).
         ///
         /// What still holds it up is `Store.Id`, not the store's details:
-        ///   • `Helpers/Database/Database.cs:42` passes it to the legacy `AppDBContext` — null-safe,
+        ///   • `Helpers/Database/Database.cs:43` passes it to the legacy `AppDBContext` — null-safe,
         ///     so this one degrades rather than breaks.
         ///   • `Inventory/Items/AddEditViewModel.cs:330` dereferences `Store.Id` outright and would
         ///     NullReference the moment anyone edited an item.
+        ///   • ⚠ `Inventory/Items/ViewAllViewModel.cs:1324` does the SAME, on the stock-adjust path
+        ///     — added 2026-08-14. This comment previously named only `AddEditViewModel`, which
+        ///     would have let someone delete this method, test the edit screen, and ship a crash on
+        ///     the other one. **Two dereferences, not one.**
         ///
-        /// Deleting it today would trade a design smell for a crash on a screen operators use.
+        /// Deleting it today would trade a design smell for a crash on screens operators use.
         /// It goes when **step 25** moves inventory off the legacy store — at which point nothing
         /// needs a legacy store id and this method has no remaining callers.
+        ///
+        /// ⚠ Do NOT unblock this by null-coalescing those two to `0`: that writes stock rows against
+        /// store 0, which is a silent data change wearing a null-fix disguise.
         /// </summary>
         private static async Task EnsureStoreAsync()
         {
