@@ -1069,6 +1069,39 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// </summary>
         public long CreditAvailablePence => _attachedCustomer?.CreditBalancePence ?? 0;
 
+        private Plutus.Client.Core.PlutusApiClient.GiftCardLookupDto _presentedGiftCard;
+
+        /// <summary>
+        /// A gift card the customer has handed over, looked up and held for checkout.
+        ///
+        /// ⚠ HELD IN PAGE STATE, NOT IN THE BASKET — the same shape finding Y used for the origin
+        /// sale's tenders. It is not a basket line: nothing about it is being sold.
+        ///
+        /// ⚠ The balance here is the figure at LOOKUP. The server re-checks at redeem and refuses an
+        /// overdraw, which is what actually protects the money; this decides whether to offer the
+        /// button and what to cap the box at.
+        /// </summary>
+        public Plutus.Client.Core.PlutusApiClient.GiftCardLookupDto PresentedGiftCard
+        {
+            get => _presentedGiftCard;
+            private set
+            {
+                _presentedGiftCard = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasPresentedGiftCard));
+                OnPropertyChanged(nameof(PresentedGiftCardLabel));
+            }
+        }
+
+        public bool HasPresentedGiftCard => _presentedGiftCard != null;
+
+        public string PresentedGiftCardLabel => _presentedGiftCard is null
+            ? string.Empty
+            : $"{_presentedGiftCard.Pretty ?? _presentedGiftCard.Code} — {(_presentedGiftCard.BalancePence / 100m):C2}";
+
+        public long GiftCardAvailablePence =>
+            _presentedGiftCard is { IsSpendable: true } card ? card.BalancePence : 0;
+
         /// <summary>
         /// What the operator sees at the top of the sale — the member's name and, when it grants
         /// one, the tier and rate.
@@ -1482,14 +1515,18 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// </summary>
         private async Task<bool> TryRouteMemberScanAsync(string scanned)
         {
-            if (!SharedKernel.MemberNumbers.LooksLikeMemberScan(scanned)) return false;
+            var isMember = SharedKernel.MemberNumbers.LooksLikeMemberScan(scanned);
+            var isGiftCard = !isMember && SharedKernel.GiftCardCodes.LooksLikeCard(scanned);
+
+            if (!isMember && !isGiftCard) return false;
 
             if (IsBusy) return true;   // handled: it is a card, and we are mid-flow
             IsBusy = true;
 
             try
             {
-                await SearchAndAttachAsync(scanned);
+                if (isMember) await SearchAndAttachAsync(scanned);
+                else await TryPresentGiftCardAsync(scanned);
             }
             catch (Exception ex)
             {
@@ -1566,6 +1603,119 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 {
                     { "CustomerId", AttachedCustomer.Id.ToString() },
                     { "AmountPence", creditPence.ToString() },
+                });
+
+            return true;
+        }
+
+        /// <summary>
+        /// A gift card has been handed over — look it up and hold it for checkout.
+        ///
+        /// ⚠ IT DOES NOT ADD A BASKET LINE. Nothing is being sold; the card is a way of PAYING, so
+        /// it lands in page state and appears as a tender at checkout.
+        ///
+        /// ⚠ AN UNSOLD CARD IS REFUSED HERE, WITH ITS OWN SENTENCE. A card off the rack scans
+        /// perfectly and has a real code — accepting it would hand over goods against value nobody
+        /// bought. `IsSpendable` is the shared verdict; this only turns it into words.
+        /// </summary>
+        private async Task<bool> TryPresentGiftCardAsync(string scanned)
+        {
+            var api = await Services.Storage.TillPlacement.TryCreateApiAsync();
+            if (api is null)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "A gift card can only be used while the till is online — Plutus holds the balance.",
+                    "OK".Translate());
+                return true;   // handled: it was a card, we just cannot use it
+            }
+
+            var card = await api.LookupGiftCardAsync(scanned);
+
+            if (card is null)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "That gift card wasn't recognised. Check the number and try again.",
+                    "OK".Translate());
+                return true;
+            }
+
+            if (!card.IsSpendable)
+            {
+                // ⚠ Name the actual state. "Not valid" sends an operator round in circles; "that
+                // card hasn't been sold yet" tells them what happened and what to do about it.
+                var why = (card.Status ?? string.Empty).ToLowerInvariant() switch
+                {
+                    "unsold" => "That gift card hasn't been sold yet, so there's nothing on it to spend.",
+                    "spent" => "That gift card has already been spent — its balance is zero.",
+                    "expired" => "That gift card has expired.",
+                    "void" => "That gift card has been cancelled.",
+                    _ => "That gift card can't be used.",
+                };
+
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), why, "OK".Translate());
+                return true;
+            }
+
+            PresentedGiftCard = card;
+
+            await Application.Current.MainPage.DisplayAlert(
+                "Gift card".Translate(),
+                string.Format("{0} — take it as payment at checkout.".Translate(), PresentedGiftCardLabel),
+                "OK".Translate());
+
+            return true;
+        }
+
+        /// <summary>
+        /// Spend the gift card this sale is settling with, if any. False means **abort the sale**.
+        ///
+        /// ⚠ Called BEFORE the commit, exactly like store credit and for exactly the same reason:
+        /// the server owns the balance, so an over-redeem, an expiry or a void must be refused while
+        /// the sale can still be abandoned.
+        /// </summary>
+        private async Task<bool> TryRedeemGiftCardAsync(
+            IReadOnlyList<Plutus.Contracts.Client.IngestTender> tenders)
+        {
+            var giftPence = tenders
+                .Where(t => t.TenderType == SharedKernel.Tenders.GiftCard)
+                .Sum(t => t.AmountPence);
+
+            if (giftPence <= 0) return true;
+
+            if (PresentedGiftCard?.Code is not string code)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "This sale is paying with a gift card but none is being held any more. Nothing has been taken.",
+                    "OK".Translate());
+                return false;
+            }
+
+            var api = await Services.Storage.TillPlacement.TryCreateApiAsync();
+            if (api is null)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "A gift card can only be taken while the till is online. Nothing has been taken — take the payment another way.",
+                    "OK".Translate());
+                return false;
+            }
+
+            var (ok, balance, problem) = await api.RedeemGiftCardAsync(
+                code, giftPence, Uuid7.New(), Uuid7.New());
+
+            if (!ok)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    (problem ?? "That gift card couldn't be taken.")
+                    + " Nothing has been taken — the basket is still here.",
+                    "OK".Translate());
+                return false;
+            }
+
+            Logger.LogEvent(AppLogLevel.Info, $"{GetType().Name}: Gift card redeemed",
+                new Dictionary<string, string>
+                {
+                    { "AmountPence", giftPence.ToString() },
+                    { "BalanceAfterPence", balance.ToString() },
                 });
 
             return true;
@@ -2268,6 +2418,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         if (SharedKernel.Tenders.FromMethodName(method.Name) == SharedKernel.Tenders.Credit)
                             capPence = CreditAvailablePence;
 
+                        // ⚠ Same mechanism again for the gift card's balance — one rule about how
+                        // much a tender may take, three callers of it.
+                        if (SharedKernel.Tenders.FromMethodName(method.Name) == SharedKernel.Tenders.GiftCard)
+                            capPence = GiftCardAvailablePence;
+
                         return new Plutus.Client.Core.TenderChoice(
                             picked, method.IsChangeable, feePence, capPence);
                     },
@@ -2603,6 +2758,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 // ⚠ NOTHING HAS BEEN TAKEN when this refuses: no sale row, no outbox entry. The
                 // basket survives, which is what lets the operator take the money another way.
                 if (!await TryRedeemStoreCreditAsync(tenders)) return;
+                if (!await TryRedeemGiftCardAsync(tenders)) return;
 
                 var outcome = await Services.Storage.CheckoutCommit.CommitAsync(
                     Basket, tenders, App.GetViewModel().SignedInOperator?.UserId);
@@ -2968,7 +3124,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 ? Services.Sales.TillTenders.OfferedForRefund(refundToTenderTypes)
                 // ⚠ The attached customer's LIVE balance, read at attach. Zero when nobody is
                 // attached — which is what keeps the button off the sheet unless it can be spent.
-                : Services.Sales.TillTenders.Offered(false, CreditAvailablePence);
+                : Services.Sales.TillTenders.Offered(false, CreditAvailablePence, GiftCardAvailablePence);
 
             return offered.ToDictionary<
                 Services.Sales.TillTender, string, Func<PaymentMethodModel>>(

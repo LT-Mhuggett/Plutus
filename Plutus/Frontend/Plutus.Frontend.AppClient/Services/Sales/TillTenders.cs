@@ -41,6 +41,16 @@ namespace Plutus.Frontend.AppClient.Services.Sales
         public const string StoreCreditName = "Store credit";
 
         /// <summary>
+        /// The name the gift-card button carries.
+        ///
+        /// ⚠ IT MUST CONTAIN "gift". <see cref="Tenders.FromMethodName"/> tests "gift" before
+        /// "credit" precisely so this name wins — but a rename to something like "Voucher" would map
+        /// to CARD by the fallback, filing stored value against card takings and reconciling against
+        /// a bank statement it will never appear on.
+        /// </summary>
+        public const string GiftCardName = "Gift card";
+
+        /// <summary>
         /// What the sheet offers. ⚠ `Online` is never here: it is how a WEBSTORE order ingests, not
         /// something an operator can press. `GiftCard` arrives with WP13.
         /// </summary>
@@ -50,7 +60,8 @@ namespace Plutus.Frontend.AppClient.Services.Sales
         /// verified — or redeemed — offline, and a button that can only fail is worse than no button:
         /// that is the exact trap `Offered` was written to fix when a portal-provisioned till showed
         /// a payment sheet with nothing on it.</param>
-        public static IReadOnlyList<TillTender> Offered(bool refundOnly = false, long creditAvailablePence = 0)
+        public static IReadOnlyList<TillTender> Offered(
+            bool refundOnly = false, long creditAvailablePence = 0, long giftCardAvailablePence = 0)
         {
             var tenders = new List<TillTender>
             {
@@ -64,6 +75,12 @@ namespace Plutus.Frontend.AppClient.Services.Sales
             // return — which is the gift-card cash-out exploit wearing a different hat.
             if (!refundOnly && creditAvailablePence > 0)
                 tenders.Add(new(StoreCreditName, Tenders.Credit, GivesChange: false, GivesCashback: false));
+
+            // ⚠ SAME RULE, SAME REASON — and here it is the exploit itself rather than a relative of
+            // it: refunding onto a gift card turns returned goods into fresh spendable value, which
+            // is the classic way a card scheme is drained. The web till filters it out too.
+            if (!refundOnly && giftCardAvailablePence > 0)
+                tenders.Add(new(GiftCardName, Tenders.GiftCard, GivesChange: false, GivesCashback: false));
 
             // ⚠ A refund gives money BACK, so nothing here gives change or cashback on top of it —
             // both would hand over the same money twice.

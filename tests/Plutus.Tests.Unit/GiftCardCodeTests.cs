@@ -138,4 +138,69 @@ public class GiftCardCodeTests
         Assert.Equal(code, pretty.Replace("-", ""));
         Assert.Equal(new List<int> { 4, 4, 4, 1 }, pretty.Split('-').Select(p => p.Length).ToList());
     }
+
+    // ── scan routing, now that BOTH tills use this (moved to SharedKernel 2026-08-16) ──────────
+
+    /// <summary>
+    /// ⚠⚠ THE ROUTING PREDICATE IS STRICTER THAN THE WEB TILL'S REGEX, AND THAT IS THE POINT OF
+    /// SHARING IT. The web till tests `/^G[0-9A-Z]{13}$/i`, which accepts I, L, O and U — characters
+    /// **not in the Crockford alphabet** — and never checks the check character. So it routes
+    /// mis-scans to a gift-card lookup that must 404 before falling through to an item search.
+    ///
+    /// ⚠ It fails SAFE on the web till (a wasted round trip, then the item lookup), so this is a
+    /// discrepancy to record rather than a defect to panic about — C2 carries it. MAUI uses the real
+    /// rule, so a mis-scan never leaves the till at all.
+    /// </summary>
+    /// <remarks>
+    /// ⚠ `GOOOOOOOOOOOOO` IS DELIBERATELY NOT IN THIS LIST, and finding out why was worth the test
+    /// failing first. `Crockford32.Normalise` folds **O → 0** on purpose, so that input becomes
+    /// `0000000000000` — whose check character genuinely verifies (the weighted sum of twelve zeros
+    /// is zero, and `Alphabet[0]` is `'0'`). It is a **valid code**, not a mis-scan: the rule is
+    /// right and the assertion was wrong. `New()` could in principle mint it, at 32⁻¹².
+    /// </remarks>
+    [Theory]
+    [InlineData("GIIIIIIIIIIIII")]   // I folds to 1 — and twelve 1s do not check out
+    [InlineData("GLLLLLLLLLLLLL")]   // L folds to 1 as well
+    [InlineData("GUUUUUUUUUUUUU")]   // U is not in the alphabet at all
+    public void A_scan_the_web_tills_regex_would_accept_is_still_refused_by_the_rule(string input)
+    {
+        // ⚠ Shape-matches the web till's pattern — prefix plus 13 — so this really is a case the two
+        // disagree on, not a straw man.
+        Assert.Equal(14, input.Length);
+        Assert.StartsWith(GiftCardCodes.Prefix, input, StringComparison.Ordinal);
+
+        Assert.False(GiftCardCodes.LooksLikeCard(input));
+    }
+
+    /// <summary>
+    /// ⚠ A BARE CODE MAY LEGITIMATELY START WITH 'G' — it is in the alphabet — so the prefix is
+    /// stripped ONLY at full payload length. Getting this wrong turns one card into another, which
+    /// is a lookup against a stranger's balance.
+    /// </summary>
+    [Fact]
+    public void A_code_that_starts_with_the_prefix_letter_is_not_mangled()
+    {
+        string code;
+        var guard = 0;
+        do
+        {
+            code = GiftCardCodes.New();
+            if (++guard > 10_000) return;   // vanishingly unlikely; do not hang the suite
+        } while (!code.StartsWith(GiftCardCodes.Prefix, StringComparison.Ordinal));
+
+        Assert.Equal(code, GiftCardCodes.TryCanonicalise(code));
+        Assert.Equal(code, GiftCardCodes.TryCanonicalise(GiftCardCodes.BarcodePayload(code)));
+    }
+
+    /// <summary>⚠ A member card must never route to the gift-card lookup, nor the reverse. Both
+    /// prefixes are single letters in the same alphabet and both scanners feed the same box.</summary>
+    [Fact]
+    public void A_member_card_is_not_a_gift_card()
+    {
+        var member = MemberNumbers.Format(482);
+
+        Assert.False(GiftCardCodes.LooksLikeCard(member));
+        Assert.False(GiftCardCodes.LooksLikeCard(MemberNumbers.Prefix + member));
+        Assert.False(MemberNumbers.LooksLikeMemberScan(GiftCardCodes.BarcodePayload(GiftCardCodes.New())));
+    }
 }

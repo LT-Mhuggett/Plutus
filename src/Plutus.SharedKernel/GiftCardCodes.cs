@@ -1,8 +1,7 @@
 using System;
 using System.Linq;
-using Plutus.SharedKernel;
 
-namespace Plutus.Customers
+namespace Plutus.SharedKernel
 {
     /// <summary>
     /// FE7 gift-card codes: <c>XXXXXXXXXXXXC</c> — 12 random Crockford32 characters plus one check
@@ -69,7 +68,11 @@ namespace Plutus.Customers
         /// hyphens or spaces, and lower case. A code whose check character does not verify is
         /// REJECTED — that is the entire point of having one.
         /// </summary>
-        public static string TryCanonicalise(string input)
+        /// <remarks>⚠ NULLABILITY IS EXPLICIT NOW. This class moved into SharedKernel on 2026-08-16
+        /// so MAUI could route a scan without a server round trip, and SharedKernel enables nullable
+        /// reference types where `Plutus.Customers` did not — so "not a card" is `null` in the
+        /// signature as well as in the contract. No behaviour changed.</remarks>
+        public static string? TryCanonicalise(string? input)
         {
             if (string.IsNullOrWhiteSpace(input)) return null;
 
@@ -87,6 +90,6 @@ namespace Plutus.Customers
         /// <summary>True when the input could be a gift-card scan — used by the till to route a
         /// scan without a server round trip. Deliberately checks the check character too, so a
         /// mis-scanned product barcode starting with G is not treated as a card.</summary>
-        public static bool LooksLikeCard(string input) => TryCanonicalise(input) != null;
+        public static bool LooksLikeCard(string? input) => TryCanonicalise(input) != null;
     }
 }
