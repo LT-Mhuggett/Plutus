@@ -562,7 +562,22 @@ vice versa.
 which every built-in role holds because a lone cashier with a dead till must be able to shout for
 help. Needs the operator token, which is wired.
 
-### Step 26 — WP11 reporting + cross-till lookup · **8–10d** · ⚠ a rewrite, not a port
+### Step 26 — WP11 reporting + cross-till lookup · **10–12d** · ⚠ a rewrite, not a port
+
+> ✅ **"TABLES ONLY." Matt, 2026-08-16**, asked whether the rebuild would look and feel like the web
+> app. The honest answer was: **the figures yes, the interface no — and two parts were unspecified.**
+>
+> | | |
+> |---|---|
+> | **Figures** | ✅ Identical to the penny. Same endpoints, and anything the server cannot answer is **dropped, never locally recomputed** (default 17) |
+> | **Table behaviour** | ✅ **BUILT to match** — orderable, searchable, page-sized, paginated, via `SharedKernel.TableSort`. ⚠ Before this, **no MAUI list sorted, paged or page-sized at all** |
+> | **The summary chart** | ❌ **NOT built, by decision.** The portal is the right home for charts, and MAUI's chart screens are being deleted with Syncfusion — there is no charting library on this till and none is being added |
+> | **OS chrome** | ❌ Never pixel-matches a browser — step 22 already settles that: *"content and branding will"* |
+>
+> ⚠ **The gap this closed was in the STANDARD, not just the code.** `table-standard.md` opened *"all
+> three surfaces"* and MAUI was the fourth — which is why a till that claims to follow it had no
+> sortable table anywhere. Corrected, and the rules now live in `SharedKernel.TableSort` so the two
+> cannot drift. **+2d on the estimate**, hence 10–12 rather than 8–10.
 
 MAUI's three Statistics viewmodels query local SQLite directly — **zero HTTP**. Even a pixel-perfect
 copy of the web till's screens would show **one till's data** if built that way.

@@ -1,7 +1,19 @@
 # Plutus table standard
 
-Every data table in **all three surfaces** (web till, management portal, operator console)
-must behave the same way. This is enforced by a shared component, `DataTable`.
+Every data table in **all four surfaces** — web till, management portal, operator console **and the
+MAUI till** — must behave the same way.
+
+⚠⚠ **THIS DOCUMENT SAID "THREE" UNTIL 2026-08-16, AND MAUI IS THE FOURTH.** The omission was not
+harmless: it is why the MAUI till has **no sortable, searchable or paged table anywhere**, while
+claiming to follow a standard that says every table has all three. Found while scoping step 26's
+reporting rebuild, when Matt asked whether it would look and feel like the web app.
+
+**Enforcement differs by surface, and that is the honest position:**
+
+| Surfaces | Enforced by |
+|---|---|
+| Web till · portal · operator console | The shared `DataTable` component — a **byte-identical twin** in each app |
+| **MAUI till** | `SharedKernel.TableSort` for the RULES (ordering, search, paging) + a MAUI control for the rendering. ⚠ It cannot share `DataTable.tsx`, so the rules are shared instead and the pixels are not |
 
 ## The rules
 
@@ -84,5 +96,10 @@ page). If you need global ordering, add an `orderBy` query param in the parent a
 ## Adopting it
 
 - **New tables MUST use `DataTable`.** No hand-rolled `<table>` + bespoke pagination.
+- **On MAUI, new tables MUST use `SharedKernel.TableSort`** for ordering, search and paging. ⚠ Do
+  **not** hand-roll a comparison: `"Store 2"` before `"Store 10"` is rule 1, a plain string sort gets
+  it backwards, and the same list then orders differently on a till and on the browser beside it —
+  which is reported as *"the till is wrong"*, not as a sorting preference. `TableSortTests` pins the
+  .NET half; the TypeScript half is `cmp()` in `DataTable.tsx`. See till-design **C2**.
 - **Existing tables** migrate opportunistically — when a work package touches a page, convert its
   table as part of that change rather than in a separate big-bang sweep.
