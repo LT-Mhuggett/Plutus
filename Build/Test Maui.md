@@ -1,6 +1,6 @@
 # Test Maui — the MAUI till hand-test script
 
-**For till 1.58.0.** Anyone can run this. You do not need to know the codebase, and you should not
+**For till 1.59.0.** Anyone can run this. You do not need to know the codebase, and you should not
 need to ask anyone what a step means — if a step is unclear, that is a bug in this document, so please
 say so.
 
@@ -13,7 +13,7 @@ if that is all the time you have.
 
 | | |
 |---|---|
-| **Run** | `D:\tmp\plutus-till-1.58.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
+| **Run** | `D:\tmp\plutus-till-1.59.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
 | **Sign in as** | any operator with **Supervisor** or above — some steps need permission to change stock |
@@ -750,3 +750,39 @@ because a member with a balance is attached.
 ⚠ **The last row matters most.** Store credit is spent on the server *before* the sale is recorded,
 so if that fails the sale must not happen at all. Check the basket is still there and that **no sale
 appears** in the portal afterwards.
+
+## G13. Pay with a gift card — **NEW in 1.59.0**
+
+You need an **active** gift card with a balance. Generate and sell one on the web till if you have
+none — MAUI cannot sell them yet (that half is still being built).
+
+1. Put items in the basket. **Scan the gift card** into the scan box.
+
+**✅ Expected:** a message naming the card and its balance — *"K7QP-2M9W-XT4R-8 — £20.00 — take it as
+payment at checkout."* ⚠ It must **not** add a line to the basket. Nothing is being sold.
+
+2. **Checkout.**
+
+**✅ Expected:** **Gift card** appears in the payment list. Pay part or all of the sale with it, and
+the rest by cash if needed.
+
+3. Check the card's balance afterwards (web till or portal).
+
+**✅ Expected:** down by exactly what you spent, once.
+
+## G14. ⚠ The gift-card refusals
+
+| Do | Expect |
+|---|---|
+| Scan a card that has **not been sold** (off the rack) | *"That gift card hasn't been sold yet"* — and **no** Gift card button at checkout |
+| Scan a **spent**, **expired** or **cancelled** card | It says which of those it is — not just "not valid" |
+| Scan a **made-up** number | *"That gift card wasn't recognised"* — and it must **not** be searched for as a product |
+| Try to spend **more** than the balance | Refused, with the server's own wording naming what is left |
+| Do a **refund** with a card scanned | **No** Gift card button — a refund never goes back onto a card |
+| Pull the **network** and try to pay by card | Refused, nothing taken, basket intact, **no sale in the portal** |
+
+⚠ **The first row is the important one.** A card on the rack has a real number and scans perfectly.
+Accepting it would hand over goods against money nobody ever paid.
+
+⚠ **Also try a product barcode beginning with G.** It must be treated as a **product**, not sent off
+as a gift-card lookup.
