@@ -1,7 +1,9 @@
+using CustomViews.Structs;
 using Database.Enums;
 using Database.Models;
 using Microsoft.EntityFrameworkCore;
 using Plutus.Frontend.AppClient.Helpers.Extensions;
+using Plutus.Frontend.AppClient.Helpers.Validators;
 using Plutus.Frontend.AppClient.Services.Analytics;
 using Plutus.Frontend.AppClient.Views;
 using Plutus.Frontend.AppClient.Helpers.Compatibility;
@@ -122,21 +124,167 @@ namespace Plutus.Frontend.AppClient.ViewModels
         #endregion
 
         #region Command Execution
+        /// <summary>
+        /// ⚠⚠ EVERY DIALOG ON THIS FLOW GOES THROUGH HERE. `App.Current.MainPage` is null whenever
+        /// there is no MAUI host — which includes the test that guards this very command against the
+        /// crash it used to cause — so an unguarded `DisplayAlert` throws from inside the `catch`
+        /// that was supposed to contain the failure. That is how the original people-icon crash
+        /// worked, and it would have come back by a different route.
+        /// </summary>
+        private static async Task SayAsync(string title, string message)
+        {
+            if (App.Current?.MainPage is Page page)
+                await page.DisplayAlert(title, message, "OK");
+        }
+
+        /// <summary>⚠ Same guard as <see cref="SayAsync"/>. Null means "nobody chose anything",
+        /// which every caller already handles.</summary>
+        private static async Task<string> AskAsync(string title, params string[] choices) =>
+            App.Current?.MainPage is Page page
+                ? await page.DisplayActionSheet(title, "Cancel", null, choices)
+                : null;
+
+        /// <summary>
+        /// WP8 / step 24 — who works here, add somebody, set a password.
+        ///
+        /// ⚠ ON THE LOGIN SCREEN, reached by the people icon, which is where the web till puts it
+        /// too ("Users is reached via the people button"). It is also the only place it is any use:
+        /// the person who needs it is standing at a till nobody can get into.
+        ///
+        /// ⚠ Until 1.70.0 this said *"User management is not available in this version yet"* — and
+        /// before that it threw `NotImplementedException` on a synchronous command and closed the
+        /// app. The empty `ExecuteAddEmployee`/`ExecuteViewAllEmployees` pair in
+        /// `StoreOptionsViewModel` is dead scaffolding behind a commented-out menu, and its command
+        /// property is misspelt `AddEmployeeCommmand` against a binding to `AddEmployeeCommand` — so
+        /// it would have done nothing even if the menu were restored. Marked for the removal sweep.
+        ///
+        /// ⚠⚠ NO `Modal.ShowAsync` WRAPPER — `InputAlertHelper` gates internally, and the redundant
+        /// outer guard is what deadlocked the checkout on 2026-08-13.
+        /// </summary>
         private async void ExecuteShowLoggedUsers()
         {
-            // BugFix plan, Bug 1 stopgap: this was `throw new NotImplementedException()`
-            // on a synchronous command with no try/catch — tapping the people icon
-            // crashed the app. Show a friendly notice until the users page is built.
             try
             {
-                await App.Current.MainPage.DisplayAlert(
-                    "Users", "User management is not available in this version yet.", "OK");
+                var (staff, problem) = await Services.People.StaffDirectory.LoadAsync();
+
+                if (staff is null)
+                {
+                    await SayAsync("Users", problem ?? "Plutus can't be reached from this till right now.");
+                    return;
+                }
+
+                const string addSomebody = "Add somebody";
+                var choices = new List<string> { addSomebody };
+                choices.AddRange(staff.Select(Services.People.StaffDirectory.StaffLine));
+
+                // ⚠ The cap is SAID, not swallowed — the legacy list is ordered by CreatedAt, so it
+                // is the newest staff who fall off, which is exactly who this screen is opened for.
+                var warning = Services.People.StaffDirectory.TruncationWarning(staff.Count);
+                if (warning is not null) await SayAsync("Users", warning);
+
+                var picked = await AskAsync("Users", choices.ToArray());
+
+                if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel") return;
+
+                if (picked == addSomebody) { await AddSomebodyAsync(); return; }
+
+                // ⚠ BY INDEX. Two people can share a name and an email is not guaranteed unique on
+                // the legacy table, so matching the label back would set the wrong person's password.
+                var index = choices.IndexOf(picked) - 1;
+                if (index >= 0 && index < staff.Count) await SetPasswordAsync(staff[index]);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine(ex);
+                Services.Analytics.CrashLog.Write("Login.Users", ex);
+                await SayAsync("Users", "That didn't work. Nothing has been changed.");
             }
-            //Implement Show Logged Users Page
+        }
+
+        /// <summary>
+        /// ⚠ THE PASSWORD IS ASKED FOR HERE, in the same flow. A person created without one cannot
+        /// sign in anywhere — see `StaffDirectory.CreateAsync`.
+        /// </summary>
+        private async Task AddSomebodyAsync()
+        {
+            var required = new IValidator[] { new RequiredValidator() };
+
+            var fields = new ViewElementData[]
+            {
+                new(1, "First name", "", required, false, true),
+                new(2, "Last name", "", required, false, true),
+                // ⚠ This is what they SIGN IN WITH, and what SetPassword matches on.
+                new(3, "Email", "", required, false, true),
+                new(4, "Mobile (optional)", "", null, false, true),
+                // ⚠ Masked, and asked twice — a mistyped password on a new starter's account is
+                // indistinguishable from "the till is broken" on their first shift.
+                new(5, "Password", "", required, true, true),
+                new(6, "Password again", "", required, true, true),
+            };
+
+            var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                fields, "Add", true, "Add somebody", "Cancel");
+
+            if (answers is null) return;
+
+            answers.TryGetValue(1, out string first);
+            answers.TryGetValue(2, out string last);
+            answers.TryGetValue(3, out string email);
+            answers.TryGetValue(4, out string mobile);
+            answers.TryGetValue(5, out string password);
+            answers.TryGetValue(6, out string again);
+
+            if (!Services.People.StaffDirectory.CanCreate(first, last, email))
+            {
+                await SayAsync("Users", "A first name, a last name and an email address are all needed — the email is "
+                    + "what they sign in with.");
+                return;
+            }
+
+            if (Services.People.StaffDirectory.PasswordProblem(password, again) is string bad)
+            {
+                await SayAsync("Users", bad);
+                return;
+            }
+
+            var (ok, problem) = await Services.People.StaffDirectory.CreateAsync(
+                first, last, email, mobile, password);
+
+            await SayAsync("Users", ok ? $"{first.Trim()} can now sign in on any till." : problem);
+        }
+
+        /// <summary>Set an existing person's password. ⚠ It takes effect at their NEXT sign-in.</summary>
+        private async Task SetPasswordAsync(Plutus.Contracts.Client.EmployeeDto who)
+        {
+            var required = new IValidator[] { new RequiredValidator() };
+
+            var fields = new ViewElementData[]
+            {
+                new(1, "New password", "", required, true, true),
+                new(2, "New password again", "", required, true, true),
+            };
+
+            var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                fields, "Set password", true, who.DisplayName, "Cancel");
+
+            if (answers is null) return;
+
+            answers.TryGetValue(1, out string password);
+            answers.TryGetValue(2, out string again);
+
+            if (Services.People.StaffDirectory.PasswordProblem(password, again) is string bad)
+            {
+                await SayAsync("Users", bad);
+                return;
+            }
+
+            var (ok, problem) = await Services.People.StaffDirectory.SetPasswordAsync(who, password);
+
+            // ⚠ "NEXT time they sign in" is not padding. Their session is a bearer token with no
+            // denylist, so somebody already signed in on another till stays signed in — and a
+            // manager who expected otherwise would think the change had not saved.
+            await SayAsync("Users", ok
+                ? $"Done. {who.DisplayName} uses the new password next time they sign in."
+                : problem);
         }
         #endregion
 

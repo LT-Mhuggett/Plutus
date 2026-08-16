@@ -416,6 +416,72 @@ public sealed class PlutusApiClient
         Guid businessId, CancellationToken ct = default)
         => GetLegacyAsync<List<CategoryDto>>("/api/Category/Index?PageNumber=1&PageSize=100", businessId, "categories", ct);
 
+    // ── WP8 employees: the till's Users screen (step 24) ──
+
+    /// <summary>
+    /// The business's employees, same URL and page size as the web till's `fetchEmployees`.
+    ///
+    /// ⚠⚠ THE 100-ROW CAP IS THE WEB TILL'S, and it is a real cap, not a default. A business with
+    /// more than 100 employees silently sees the first 100 — ordered by `CreatedAt`, so it is the
+    /// NEWEST staff who disappear, which is exactly backwards for a screen used to set a new
+    /// starter's password. Kept identical on purpose (binding default 10); the caller surfaces it.
+    /// </summary>
+    public Task<(List<EmployeeDto>? Employees, string? Problem)> GetEmployeesAsync(
+        Guid businessId, CancellationToken ct = default)
+        => GetLegacyAsync<List<EmployeeDto>>(
+            "/api/Employee/Index?PageNumber=1&PageSize=100", businessId, "the staff list", ct);
+
+    /// <summary>
+    /// Create an employee. ⚠ The caller mints the id — see <see cref="CreateEmployeeRequest"/>.
+    /// </summary>
+    public async Task<(bool Ok, string? Problem)> CreateEmployeeAsync(
+        CreateEmployeeRequest employee, Guid businessId, CancellationToken ct = default)
+    {
+        if (employee is null) throw new ArgumentNullException(nameof(employee));
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, "/api/Employee")
+        {
+            Content = JsonContent.Create(employee, options: Json),
+        };
+        req.Headers.Add("businessId", businessId.ToString("D"));
+        await AuthoriseAsync(req, ct);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode) return (true, null);
+
+        var detail = await res.Content.ReadAsStringAsync(ct);
+        return (false, string.IsNullOrWhiteSpace(detail)
+            ? $"Plutus refused the new person ({(int)res.StatusCode})."
+            : detail);
+    }
+
+    /// <summary>
+    /// Set or reset an employee's password.
+    ///
+    /// ⚠ IT TAKES EFFECT ON THE NEXT SIGN-IN, not immediately — an operator already signed in on
+    /// another till stays signed in, because their session is a bearer token with no denylist. That
+    /// is the same fact the roster cadence exists to work around, and the caller must not promise
+    /// otherwise.
+    /// </summary>
+    public async Task<(bool Ok, string? Problem)> SetEmployeePasswordAsync(
+        Guid employeeId, string email, string password, Guid businessId, CancellationToken ct = default)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Post, "/api/Auth/SetPassword")
+        {
+            Content = JsonContent.Create(new SetPasswordRequest(employeeId, email, password), options: Json),
+        };
+        req.Headers.Add("businessId", businessId.ToString("D"));
+        await AuthoriseAsync(req, ct);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode) return (true, null);
+
+        var detail = await res.Content.ReadAsStringAsync(ct);
+        return (false, string.IsNullOrWhiteSpace(detail)
+            ? $"Plutus refused the new password ({(int)res.StatusCode})."
+            : detail);
+    }
+
     /// <summary>
     /// A GET against a LEGACY composite controller.
     ///

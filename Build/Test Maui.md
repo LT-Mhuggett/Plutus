@@ -1243,3 +1243,55 @@ With the till working normally, **unplug the network** and leave it for a few mi
 **❌ If a network drop ever signs the till out, that is a worse bug than the one G27b tests** — it
 would close a shop every time its broadband hiccuped, and it would hit the worst-connected shops
 first.
+
+## G28. ⚠ Users — add somebody, and set a password — **NEW in 1.70.0**
+
+⚠ **Before 1.70.0 the people icon said "User management is not available in this version yet"** — and
+before that it closed the app. This is the whole screen.
+
+On the **login screen**, press the **people icon** (top corner). That is where the web till keeps it
+too, and it is the only place it is any use: the person who needs it is standing at a till nobody can
+get into.
+
+### G28a. See who works here
+
+**✅ Expected:** a list of your staff — name and email — with **Add somebody** at the top.
+
+⚠ **People who have left are marked `(left)` and sit at the bottom.** Check one is. Without that mark
+somebody sets a password for a person who cannot sign in and blames the password.
+
+### G28b. Add somebody, and have them sign in
+
+1. **Add somebody.** Fill in first name, last name, email, and a password **twice**.
+2. **✅ Expected:** *"…can now sign in on any till."*
+3. **Sign in as them on THIS till.** ✅ It works.
+4. ⚠⚠ **Now sign in as them on the WEB till.** ✅ It works there too — same person, same password.
+
+**That fourth step is the real test.** One staff list across both tills is the point of the whole
+retrofit; if they can only sign in on one, say so.
+
+⚠ **Things worth trying:**
+- Type a **name** into the email box → it must refuse, and say the email is what they sign in with.
+- Type **two different passwords** → ✅ it must say *"Those two passwords don't match"*, **not** that
+  the password is too short. (Being told the wrong thing here makes people lengthen a password that
+  was never the problem.)
+- Type a **short** password → it must say how many characters are needed.
+
+### G28c. Reset an existing person's password
+
+1. Pick somebody from the list. Enter a new password twice.
+2. **✅ Expected:** *"Done. … uses the new password next time they sign in."*
+3. Sign in as them with the **new** password. ✅ Works.
+4. Check the **old** password no longer works.
+
+⚠ **"Next time they sign in" is exact.** Somebody already signed in on another till **stays** signed
+in — their session is a token that does not get cancelled. That is expected, not a bug.
+
+### G28d. What is deliberately NOT here
+
+**Roles and permissions are not on the till, and that is on purpose.** They live in the portal, where
+the change is audited and whoever makes it can see the whole estate. If you expected to set someone's
+role here, say so — but it is a decision, not an omission.
+
+⚠ **If your business has more than 100 staff**, the till shows the first 100 and **says so**. Check
+you get that warning rather than a silently short list.
