@@ -571,21 +571,49 @@ stock palette; **a printed receipt is byte-identical under a light and a dark sc
 ⚠ **Cheap to carry here:** the announcements banner and pick-from-floor notices (§4) are one cadence
 step plus XAML each, and this step is already touching the shell.
 
-### Step 24 — WP8 Users screen · **3d**
+### Step 24 — WP8 Users screen · ~~3d~~ → 🟡 **DoD MET 2026-08-16; ~1d left (the roster move)**
+
+> ✅ **The screen is built (till 1.70.0).** The people icon on the **login screen** — list, add
+> somebody **with their password**, reset a password. `Services/People/StaffDirectory.cs` (28 tests)
+> + three new `PlutusApiClient` methods on the shared `GetLegacyAsync`. **All three DoD lines are
+> met**; hand-test §G28 in [`Build/Test Maui.md`](../Test%20Maui.md).
+>
+> ⚠ **The password is part of ADDING somebody**, not a second errand — a person created without one
+> cannot sign in anywhere. If the password half fails the create is still reported, because saying
+> it all failed invites a second identical person and the legacy controller will hold both.
+> ⚠ The **100-row cap is surfaced**: the list is ordered by `CreatedAt`, so it is the **newest**
+> staff who fall off — exactly who this screen is opened for.
+> ⚠ Leavers are marked `(left)` and sort last, or somebody sets a password for a person who cannot
+> sign in and blames the password.
+>
+> ⚠ **Found, not fixed:** `StoreOptionsViewModel.AddEmployeeCommmand` (three m's) is bound as
+> `AddEmployeeCommand`, with **empty** handlers behind a **commented-out** menu — dead by two routes.
+> For the removal sweep.
 
 Employee list/create + set password via the legacy `/api/Employee` and `/api/Auth/SetPassword` —
 both still carry the web till, and **no client methods exist, so build them**. ⚠ Roles and effective
 permissions stay **portal-side**: the MAUI parity target is the web till's smaller surface, not the
-portal's. MAUI's current add-user command is a stopgap dialog reading *"not available in this version
-yet"*.
+portal's. ~~MAUI's current add-user command is a stopgap dialog reading *"not available in this
+version yet"*.~~
 
-**Also in this step:** move the roster off `FileOperatorStore` (a JSON file) onto
-`TillDbContext.Operators` — declared, mapped, used by nothing. Its stated blocker (EF 3.1 vs 9.0.18)
-**died with step 1**, and two roster stores is drift by construction.
+#### ⬜ WHAT REMAINS OF STEP 24 — the roster move · **~1d**
 
-*DoD:* the employee LIST renders from `/api/Employee`; a **set-password on an EXISTING employee**
-takes effect on the next sign-in; an employee created on the till can sign in on the web till and
-vice versa.
+Move the roster off `FileOperatorStore` (a JSON file) onto `TillDbContext.Operators` — declared,
+mapped, used by nothing. Its stated blocker (EF 3.1 vs 9.0.18) **died with step 1**, and two roster
+stores is drift by construction.
+
+⚠⚠ **IT IS NOT JUST A SWAP, which is why it was left rather than rushed.** Five call sites construct
+`new FileOperatorStore()` behind `IOperatorStore` (`TillCadence:380`, `LoginViewModel:352` and `:401`,
+`TillViewModel:704`, `ConnectionViewModel:571`), so the substitution itself is small — but **the
+cached roster is what makes OFFLINE SIGN-IN work**. A till that upgrades while offline, with an empty
+`Operators` table and its JSON no longer read, has **nobody who can sign in** and no way to fetch the
+roster that would fix it. So this needs a **one-time import** from the JSON file, and a test that
+proves sign-in survives the upgrade with the network down.
+
+*DoD:* ✅ the employee LIST renders from `/api/Employee`; ✅ a **set-password on an EXISTING employee**
+takes effect on the next sign-in; ✅ an employee created on the till can sign in on the web till and
+vice versa (⚠ §G28b step 4 — hand-test still to run). ⬜ the roster reads from `TillDbContext`, and an
+**offline** sign-in still works on a till upgraded from a JSON roster.
 
 ⚠ ~~**Help / support tickets ride here**~~ — ✅ **DONE 2026-08-16 (till 1.70.0), ahead of this step.**
 It needed none of step 24's employee work, so it went with the rest of the notices cluster:
@@ -1044,7 +1072,8 @@ against the tree 2026-08-12:
 
 | What | ~ | Detail |
 |---|---|---|
-| **Platform notices** — announcements banner, help tickets, app-update prompt, pick-from-floor | **3–4d** total | All small consumers on the existing 60s cadence, copied from the web till's shapes: `GET /api/v1/announcements/active` (Maintenance/Incident banner only — Info must not show), `GET /api/v1/notifications?unackedOnly=true` + acknowledge, and `/api/v1/support/tickets`. ⚠ **`NoticesClient` is built and appears in the entire AppClient once, in a comment** — it needs a cadence step *and* the XAML, which is why these rows were corrected from 🟡 to ⬜. ⚠ Tickets and pick-note acks need the **operator** token; a device token cannot pass a `perm:*` gate. **Cheapest carried on steps 22 and 24.** *DoD:* a seeded Incident announcement shows within a cycle and Info does not; an unacked pick-note persists across restart until acknowledged; a ticket raised on the till appears in the portal inbox and the reply comes back |
+| ✅ ~~**Platform notices**~~ — **ALL FOUR DONE 2026-08-16 (till 1.70.0)** | ~~3–4d~~ | ✅ Banner on the **Till tab** (`Services/Notices/Noticeboard.cs`, cadence step 4c) for pick-notes + announcements; **Settings → Help and support** for tickets; the **app-update prompt was already built** (`ConnectionView.xaml:96`) and its row was a stale ⬜. ⚠⚠ **The one rule this layer added:** a **failed poll does not clear the board** — `NoticesOutcome.Delivered` false means "we could not ask", not "nothing to show", and confusing them takes a live incident banner off the screen the first time the broadband blinks. Marked stale instead, and the stale line shows only alongside something. Mutation-checked both ways. ⚠⚠ **Closing it found the two tills DISAGREED**: `ShowsOnATill` denies `Info` so an unknown severity still shows, but the web till had an **allow-list** — the same incident would appear on MAUI and vanish silently on the browser till. Converged (`api.ts showsOnATill`), pinned both sides. ⚠ `NoticeboardBindingTests` **parses the XAML**, because on this banner a silent binding failure looks exactly like success. Original note below. |
+| ~~**Platform notices**~~ — announcements banner, help tickets, app-update prompt, pick-from-floor | ~~**3–4d**~~ | All small consumers on the existing 60s cadence, copied from the web till's shapes: `GET /api/v1/announcements/active` (Maintenance/Incident banner only — Info must not show), `GET /api/v1/notifications?unackedOnly=true` + acknowledge, and `/api/v1/support/tickets`. ⚠ **`NoticesClient` is built and appears in the entire AppClient once, in a comment** — it needs a cadence step *and* the XAML, which is why these rows were corrected from 🟡 to ⬜. ⚠ Tickets and pick-note acks need the **operator** token; a device token cannot pass a `perm:*` gate. **Cheapest carried on steps 22 and 24.** *DoD:* a seeded Incident announcement shows within a cycle and Info does not; an unacked pick-note persists across restart until acknowledged; a ticket raised on the till appears in the portal inbox and the reply comes back |
 
 ## 4. Smaller rows that ride along, and which step carries each
 
@@ -1053,14 +1082,14 @@ opens.
 
 | Gap | Rides with | ⚠ |
 |---|---|---|
-| **Pick-from-floor notices** + **announcements banner** | 22 or 24 | Corrected 2026-08-10 from 🟡 to ⬜ — the row claimed "pending only the banner XAML" |
-| **Portal-controlled receipt template** | 26 | ⬜ — no schema or parser exists in any client; it is WP3's business, deferred with reason |
+| **Pick-from-floor notices** + **announcements banner** | ~~22 or 24~~ | ✅ **DONE 2026-08-16 (till 1.70.0)** — banner on the Till tab, cadence step 4c. Original note: corrected 2026-08-10 from 🟡 to ⬜ — the row claimed "pending only the banner XAML" |
+| **Portal-controlled receipt template** | ~~26~~ | ✅ **DONE 2026-08-15/16 (till 1.67.0+)** — ⚠ **this row was stale**, found 2026-08-16 while writing the handover: `SharedKernel/ReceiptTemplateRules.cs` (the merge rule), `Client.Core/ReceiptTemplateWire.cs` (the parser) and `Services/Printing/ReceiptBranding.cs` (**one** overlay, three print paths) all exist and are wired on the 60s cadence. Original note: ⬜ — no schema or parser exists in any client; it is WP3's business, deferred with reason |
 | **VAT band on the sale line** (`LineMeta.vatBand`) | 27 | 🟡 only because the **server backfills** any line arriving without one (`VatBandStamp`). MAUI is correct-by-default; it needs to send one only where the till knows something the catalogue cannot — a single-purpose gift-card line is `"standard"` **by the voucher treatment**, not by its catalogue row. ⚠ **Leave it null rather than guessing**: a stated band is never overwritten |
 | **Refund-only baskets** | 11b | Partly there — `refundOnly` drives prompt wording and surcharge suppression |
-| **Un-enrol request + approval** | 21 | ⬜ |
-| **Help / support tickets** | 24 | ⬜ — closes the `support-heavy` churn signal |
+| **Un-enrol request + approval** | ~~21~~ | ✅ **DONE 2026-08-16** — and with it the device-status poll that makes a revoked till stop |
+| **Help / support tickets** | ~~24~~ | ✅ **DONE 2026-08-16** — Settings → Help and support. Closes the `support-heavy` churn signal |
 | **Connection status** (network vs server vs revoked) | 28 | ⚠ Runs the OTHER way too — the **web till** is 🟡, still on `navigator.onLine` (WP17.3) |
-| **App-update prompt** | 28 | ⬜ — advisory only; no self-update exists |
+| **App-update prompt** | ~~28~~ | ✅ **ALREADY BUILT** — found 2026-08-16 on `ConnectionView.xaml:96`, fed by `TillCadence.UpdateAvailable`; the ⬜ was stale. Advisory only; no self-update exists |
 | ⚠⚠ **Remote lock of a lost or stolen till** | **Neither till has it — and it READS as built** | `Device.Locked`/`LockReason` ship, `HeartbeatResult` carries them, `SyncClient` surfaces them — but **nothing sets the flag and nothing enforces it**. `IssueDeviceTokenAsync` refuses only on `Status == Revoked`. ⚠ **Reach for Revoked in a real incident.** Enforcement must land **before** any control that sets the flag, or the switch stays fake. Full detail: [risk 4](#9-risks-this-document-does-not-solve) |
 
 ## 5. Where the WEB till is behind (parity runs both ways)

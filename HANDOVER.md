@@ -1,10 +1,12 @@
 # Handover — Plutus platform build
 
-**Date:** 2026-08-14 — Platform on **.NET 10**. Backend **1.17.0**, web till **1.9.0** and portal
-**1.8.0** are DEPLOYED to the test environment and verified; ⚠ till-maui **1.54.0** is **built but not
-installed**, and **has not been hand-run** — see START HERE item 1. Agent **1.3.3**. All 18 phases + Operator Portal (OP1–OP4), the **portal/till refresh (P1–P6)** and
-**FE1–FE10** built & LIVE. The **MAUI retrofit**: cutover **steps 1–21, 23, 25 and half of 26 are
-done**; **11b (promoted), 22, 24, the rest of 26, 27 and 28 remain** — ⚠ **one document now:**
+**Date:** 2026-08-16 — Platform on **.NET 10**. Backend **1.17.1** and portal **1.8.0** are DEPLOYED
+and verified. ⚠ **Web till 1.10.0 is COMMITTED, NOT DEPLOYED** — 1.9.0 is live; see START HERE item 3,
+because the Mac's source tree is already at 1.10.0. ⚠ **till-maui 1.70.0 is a VERSION ONLY — no
+artefact exists**; the newest build on disk is **1.69.0**. Agent **1.3.3**. All 18 phases + Operator
+Portal (OP1–OP4), the **portal/till refresh (P1–P6)** and **FE1–FE10** built & LIVE. The **MAUI
+retrofit**: cutover **steps 1–21, 23, 24 (bar the roster move), 25, 27 and most of 26 are done**;
+**22 (theming — Matt's call: LAST), the rest of 26, and 28 remain** — ⚠ **one document:**
 [`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md). The backend gap is closed; everything left is
 screen work against endpoints that exist, are tested and are deployed. VAT follows UK law (HMRC
 Notice 727/701/10).
@@ -24,7 +26,114 @@ Head: see `git log` — this line goes stale; the commits don't.
 > Older references below that say `Build/<plan>.md` now mean `Build/archive/<plan>.md` or
 > `Build/To do/<plan>.md`.
 
-### ⏰⏰⏰⏰⏰⏰⏰⏰⏰⏰ START HERE — **2026-08-14**
+### ⏰⏰⏰⏰⏰⏰⏰⏰⏰⏰ START HERE — **2026-08-16**
+
+**Five commits, all MAUI parity. Nothing was deployed and no till was built.** Everything below is
+committed to `main` and green; the two things that need a human are items 1 and 2.
+
+#### 1. ⚠⚠ THE ONE QUESTION STILL WAITING ON YOU — the percentage discount box
+
+**Unanswered since 2026-08-13.** MAUI's percentage path computes `item.Price * Decimal.Parse(input)`
+under a box labelled **"Percent"**, and never calls `LineDiscounts.Percentage` — the rule that exists
+to prevent exactly *"typed 10 for 10%, charged 10×"*.
+
+⚠ **Nobody is being overcharged** — the money rule refuses the result rather than charging it. But
+the box is wrong in one of two ways and **the fix is completely different each way**:
+
+| If an operator types… | Then… |
+|---|---|
+| `0.1` for 10% | the **LABEL** is wrong — cosmetic |
+| `10` for 10% | the **MATHS** is wrong — a money bug |
+
+**Which is it?** I have deliberately not guessed: guessing changes what every percentage discount
+charges.
+
+#### 2. ⚠ Say the word and I will build till **1.70.0** — it does not exist yet
+
+You asked (2026-08-14) that MAUI tills be built **only on request**, so the version file says 1.70.0
+and no artefact was produced. **The newest build on disk is `D:\tmp\plutus-till-1.69.0`**, which has
+none of today's work.
+
+⚠ **[`Build/Test Maui.md`](Build/Test%20Maui.md) is written for 1.70.0** and its "Before you start" row
+says so plainly. Five new sections were added today — **§A1b, §G25, §G26, §G27, §G28** — and **§G27 is
+the one I would run first**, because it is a security behaviour and it has two halves that fail in
+opposite directions.
+
+#### 3. ⚠⚠ THE WEB TILL'S SOURCE ON THE MAC IS AHEAD OF WHAT IS DEPLOYED
+
+Today's announcement-severity fix touches the **web till**, so `versions/till-web.txt` is **1.10.0**.
+It is **committed but NOT deployed** — the live bundle is still **1.9.0**.
+
+⚠⚠ **And I copied three files to the Mac to run its test suite** (there is no node on Windows):
+`api.ts`, `App.tsx`, `notices.test.ts` in `~/PLUTUS/Plutus.Frontend.WebApp/src/`. The Mac's source
+tree is **not a git checkout** (runbook — it is hand-synced with `scp`), so **the next `npm run build`
+anybody runs there will ship 1.10.0 whether they meant to or not.** Either deploy it deliberately or
+know that it is sitting there. Nothing was built or restarted; the running site is untouched.
+
+#### 4. What landed today
+
+| | What | Why it mattered |
+|---|---|---|
+| **VAT-band guard** (WP10) | `ItemPricing.cs`, 23 tests, 5 mutants | ⚠ **The guard cannot fire, on purpose** — the ex price is derived, so the pair is consistent by construction. Kept as a backstop for the day someone re-adds a typed ex-price field, which is how **47 items** were corrupted. Documented as dead *deliberately* so nobody deletes it as dead *accidentally* |
+| ⚠⚠ **…and its own fallback spread the corruption** | `CarriedRatioIsUsable` | With an unknown band the ex price carried the item's **existing ratio** — so the £7.99/£799.00 item (ratio 100) repriced to £9.99 would have written **£999.00**. `ex > inc` is now never valid: VAT is never negative |
+| **Noticeboard** (WP5b) | `Noticeboard.cs` + banner on the Till tab | `NoticesClient` had shipped with 23 tests and was referenced **once in the whole app — in a comment.** The rules were never the missing part; the caller was |
+| ⚠⚠ **The two tills disagreed about announcements** | `api.ts showsOnATill` | MAUI **denies `Info`** so an unknown severity still shows; the web till had an **allow-list**, so a severity a later backend adds would appear on one till and **vanish silently** on the other, in the same shop. C1 claimed one home; there were two. Converged, pinned both sides, mutation-checked against the old behaviour |
+| **Help & support** | Settings → Help and support | MAUI had **no route to support at all**. No shared half existed either — contracts, four API methods and `SupportLabels` are new |
+| ⚠⚠ **A revoked till now STOPS** | `DeviceRevocation` + `TillCadence` step 6 | Device tokens have **no server-side denylist**, so a lost or stolen till kept selling for **up to 12h**. `ConnectivityProbe` knew how to ask but only ran at sign-in and on the Plutus tab |
+| **Un-enrol request** | Plutus tab | WP4's last piece — there was **no client code at all**, so the endpoint whose gate was fixed in step 19 still had no caller |
+| **Users screen** (WP8/step 24) | `StaffDirectory.cs`, 28 tests | The people icon said *"not available in this version yet"*. Now: list, add somebody **with their password**, reset a password |
+
+#### 5. ⚠ Three judgement calls I made today — reverse any of them freely
+
+1. **A revoked till stops; almost nothing else does.** A failed poll, a **401/403**, a **404** and an
+   unknown status **all keep trading**. Closing a shop on a network blip is a worse outage than the
+   one this prevents, and it would hit the worst-connected shops first. `PendingRemoval` trades too,
+   or requesting a removal becomes a way to take a shop down. ⚠ I first had **404** as a revocation
+   on the reasoning that approving a removal deletes the row — **it does not**, it sets
+   `Status = Revoked`, so the explicit answer arrives anyway. Corrected before committing.
+2. **Roles and permissions are NOT on the Users screen.** That is the stated parity target — the web
+   till's smaller surface — and the portal is where such a change is audited. §G28d tells whoever
+   tests it that this is a decision, not an omission.
+3. **Help and Users are dialog flows, not tabs.** Every comparable MAUI flow works that way, and a
+   new tab would break the §B7 check that the tab names match the web till.
+
+#### 6. ⚠ Found today, recorded and NOT fixed
+
+- **`StoreOptionsViewModel.AddEmployeeCommmand`** — three m's, bound as `AddEmployeeCommand`, with
+  **empty** `ExecuteAddEmployee`/`ExecuteViewAllEmployees` behind a **commented-out** menu. Dead by
+  two independent routes. Flagged for the MAUI removal sweep, not touched.
+- **The web till still can't tell a revoked till from a dead one** — it is on `navigator.onLine`
+  (WP17.3). Part B now carries a row where **MAUI is ✅ and the web till is ⬜**; parity runs both ways.
+- **The support labels are a C2 twin, not converged.** The web till indexes `SUPPORT_STATUS[t.status]`
+  **positionally**, so a member added to the server enum anywhere but the end shifts every label after
+  it and a **Closed** ticket reads as **Open**. MAUI maps by value. The web till's array is correct
+  *today*; recorded so the next person to touch that enum knows there are two readers and one is unsafe.
+
+#### 7. What is left, in the order I would take it
+
+| Next | ~ | Note |
+|---|---|---|
+| **The roster move** (step 24's last item) | ~1d | `FileOperatorStore` → `TillDbContext.Operators`; 5 call sites behind `IOperatorStore`. ⚠ **Not just a swap** — it needs a one-time import of the existing JSON roster, or a till that upgrades **offline** loses its cached staff list and **nobody can sign in**. That is why I stopped rather than rushed it |
+| **Step 28** — online-first login | | |
+| **The rest of step 26** | | see the MAUI document |
+| **Step 22 — theming** | | ⚠ **LAST, your call (2026-08-14)** — it spans portal, web till and MAUI |
+| **The MAUI removal sweep** | | L4 deletion is ⚠ **blocked on you**: can pre-cutover local history be dropped? |
+
+#### 8. Test state
+
+**MAUI 592 · unit 1172 · web till 45** — all green. Web-till tests and `tsc --noEmit` were run **on the
+Mac**, because there is no node on this Windows box. Every rule added today was mutation-checked, and
+in two places the mutation found a real defect rather than confirming the code:
+
+- `CanSetPassword` and `PasswordProblem` each held **their own copy** of the password comparison —
+  only one mutant died. Now one rule.
+- The Users flow's `catch` called `DisplayAlert` unguarded, so it **threw from inside the handler
+  meant to contain the failure** — the original people-icon crash by a new route. The regression test
+  that guards that command caught it.
+
+---
+
+### ⏰⏰⏰⏰⏰⏰⏰⏰⏰⏰ Picking up on **2026-08-14**
 
 **Matt answered both open questions, and the answers closed the discount work.** Two commits.
 Both rulings are now built, on **both tills**, and the MAUI till is **built and waiting for a person**.
@@ -138,9 +247,13 @@ hand-run of every row type"*. Stacking that under 35 more days of other work bef
 a screen is how a pile of changes becomes un-attributable. **Recommendation: hand-run §A+§F on
 1.54.1 first — it is ~20 minutes — then the reshape can land against a known-good baseline.**
 
-#### 5. ⚠ STILL OPEN — a Gold member is charged 10% more on MAUI than on the web till
+#### 5. ~~⚠ STILL OPEN — a Gold member is charged 10% more on MAUI than on the web till~~ → ✅ CLOSED IN CODE
 
-Unchanged today, and it is still the reason step 27 exists. The **rule** (`MemberDiscount`), the
+> ✅ **Closed 2026-08-14/15** — the attach screen, the Loyalty tab and the discount engine all landed
+> (`274c6d53`, `db65d4d1`), and step 27's till-side work is done. ⚠ **Closed in code, not on a screen**
+> — nobody has hand-run it; §G of [`Build/Test Maui.md`](Build/Test%20Maui.md) covers it.
+
+Original entry, 2026-08-14 — it is still the reason step 27 exists. The **rule** (`MemberDiscount`), the
 **client** (`PlutusApiClient` customer methods) and the **permission** (`pos.customers.add`) are all
 built now — what is missing is the **attach screen**. ⚠ Read step 27's constraint first: MAUI's shape
 is a `BasketAlteration` apportioned at commit, so the member discount must be **explicitly associated
