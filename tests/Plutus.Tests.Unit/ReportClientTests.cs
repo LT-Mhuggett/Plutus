@@ -80,7 +80,7 @@ public class ReportClientTests
             """{"totals":{"grossPence":9794,"vatPence":1632,"txnCount":3,"avgBasketPence":3265}, "buckets":[{"period":"2026-08-16","grossPence":9794,"vatPence":1632,"txnCount":3,"avgBasketPence":3265}]}"""),
             out _);
 
-        var summary = await api.GetReportSummaryAsync(storeId: 4, From, To);
+        var summary = await api.GetReportSummaryAsync("store", "4", From, To);
 
         Assert.Equal(9794, summary!.Totals.GrossPence);
         Assert.Equal(3265, summary.Totals.AvgBasketPence);
@@ -125,7 +125,7 @@ public class ReportClientTests
     {
         var api = Api(_ => Json("{}"), out var h);
 
-        await api.GetReportSummaryAsync(4, From, To);
+        await api.GetReportSummaryAsync("store", "4", From, To);
         await api.GetReportVatAsync(4, From, To);
 
         Assert.Contains("granularity=day", h.Sent[0].RequestUri!.AbsoluteUri);
@@ -137,7 +137,7 @@ public class ReportClientTests
     {
         var api = Api(_ => Json("{}"), out var h);
 
-        await api.GetReportSummaryAsync(storeId: 4, From, To);
+        await api.GetReportSummaryAsync("store", "4", From, To);
 
         Assert.Contains("level=store", h.Sent[0].RequestUri!.AbsoluteUri);
         Assert.Contains("id=4", h.Sent[0].RequestUri!.AbsoluteUri);
@@ -233,7 +233,7 @@ public class ReportClientTests
         var api = Api(_ => new HttpResponseMessage(HttpStatusCode.Forbidden), out _);
 
         Assert.Null(await api.GetSalesSummaryAsync(From, To));
-        Assert.Null(await api.GetReportSummaryAsync(4, From, To));
+        Assert.Null(await api.GetReportSummaryAsync("store", "4", From, To));
         Assert.Null(await api.GetReportVatAsync(4, From, To));
     }
 }

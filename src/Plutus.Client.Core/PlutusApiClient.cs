@@ -1217,13 +1217,11 @@ public sealed class PlutusApiClient
         GetAsync<SalesSummaryPounds>(
             $"/api/v1/reports/summary-rich?from={Day(from)}&to={Day(to)}", ct);
 
-    /// <summary>Bucketed takings. **PENCE.**</summary>
-    /// <param name="granularity">day · week · month. ⚠ The web till defaults to `day` here and
-    /// `month` on VAT — matched, so the same range gives the same buckets on both.</param>
-    public Task<ReportSummary?> GetReportSummaryAsync(
-        int storeId, DateOnly from, DateOnly to, string granularity = "day", CancellationToken ct = default) =>
-        GetAsync<ReportSummary>(
-            $"/api/v1/reports/summary?level=store&id={storeId}&from={Day(from)}&to={Day(to)}&granularity={granularity}", ct);
+    // ⚠ THERE IS NO SECOND `GetReportSummaryAsync` HERE, AND THERE WAS BRIEFLY. I added an
+    // `(int storeId, …)` overload on 2026-08-16 without noticing the `(string level, string id, …)`
+    // one further up already answered exactly that question — two ways to ask one thing, and the
+    // catalogue never called mine. Deleted rather than kept: a duplicate that nothing uses is how a
+    // codebase grows two answers that later disagree. **Use the `level`/`id` method above.**
 
     /// <summary>The VAT table. **PENCE.** ⚠ Defaults to MONTH buckets, matching the web till — VAT
     /// is returned monthly, and a daily VAT table is a different question nobody asked.</summary>
