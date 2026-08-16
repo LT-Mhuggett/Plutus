@@ -238,6 +238,32 @@ public sealed class PlutusApiClient
     public Task<AnnouncementDto[]?> GetAnnouncementsAsync(CancellationToken ct = default) =>
         GetAsync<AnnouncementDto[]>("/api/v1/announcements/active", ct);
 
+    // ── OP4 / WP6.3 support tickets: the till's "ask for help", and the reply ──
+
+    /// <summary>This tenant's tickets, newest activity first. ⚠ Bare array; gated on
+    /// <c>support.tickets</c>, which is seeded to every role.</summary>
+    public Task<SupportTicketDto[]?> GetSupportTicketsAsync(CancellationToken ct = default) =>
+        GetAsync<SupportTicketDto[]>("/api/v1/support/tickets", ct);
+
+    /// <summary>One ticket's thread, oldest first.</summary>
+    public Task<SupportMessageDto[]?> GetSupportThreadAsync(Guid ticketId, CancellationToken ct = default) =>
+        GetAsync<SupportMessageDto[]>($"/api/v1/support/tickets/{ticketId}/messages", ct);
+
+    /// <summary>
+    /// Raise a ticket. True when the platform has it.
+    ///
+    /// ⚠⚠ NOT QUEUED OFFLINE, and that is deliberate. A ticket is somebody asking for help NOW;
+    /// silently parking it in the outbox would tell them it had been sent, and the one thing worse
+    /// than a shop that cannot reach support is a shop that believes it already has.
+    /// </summary>
+    public Task<bool> RaiseSupportTicketAsync(
+        string subject, string body, byte severity, CancellationToken ct = default) =>
+        PostJsonAsync("/api/v1/support/tickets", new RaiseTicketRequest(subject, body, severity), ct);
+
+    /// <summary>Reply on a thread. ⚠ Same reasoning as raising one — never queued.</summary>
+    public Task<bool> ReplyToSupportTicketAsync(Guid ticketId, string body, CancellationToken ct = default) =>
+        PostJsonAsync($"/api/v1/support/tickets/{ticketId}/messages", new TicketReplyRequest(body), ct);
+
     /// <summary>WP14: the tenant's selected card gateway, and whether a terminal integration is
     /// wired. ⚠ Read it through <c>PaymentGateway.Resolve</c> rather than acting on the fields
     /// directly — "which flow does the operator use" is a rule, not a property.</summary>
@@ -1441,6 +1467,18 @@ public sealed class PlutusApiClient
         using var res = await _http.SendAsync(req, ct);
         if (!res.IsSuccessStatusCode) return default;
         return await res.Content.ReadFromJsonAsync<T>(Json, ct);
+    }
+
+    /// <summary>POST a JSON body where the CALLER only needs to know whether it worked.</summary>
+    private async Task<bool> PostJsonAsync<T>(string url, T body, CancellationToken ct)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = JsonContent.Create(body, options: Json),
+        };
+        await AuthoriseAsync(req, ct);
+        using var res = await _http.SendAsync(req, ct);
+        return res.IsSuccessStatusCode;
     }
 
     private async Task AuthoriseAsync(HttpRequestMessage req, CancellationToken ct)

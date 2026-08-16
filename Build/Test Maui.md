@@ -1133,3 +1133,57 @@ seconds the grey line goes and the notice is current again.
 
 ⚠ **And check the empty case:** with no notices at all, the top of the Till tab should look exactly
 as it did in 1.69.0 — no empty strip, no grey warning line.
+
+## G26. ⚠ Help and support — ask Plutus, and read the reply — **NEW in 1.70.0**
+
+⚠ **Before 1.70.0 the MAUI till had no route to support at all.** A shop on this till could not raise
+a ticket from the till, and could not read a reply.
+
+Go to **Settings**. Under **Help**, press **Help and support**.
+
+### G26a. Raise a ticket
+
+1. Choose **Raise a new ticket**.
+2. Fill in **What's it about?** and **What's happening?**, press **Send to Plutus**.
+3. Answer the urgency question — **No — it can wait**.
+
+**✅ Expected:** *"Plutus has your ticket."*
+
+4. Check the **portal's** support screen: the ticket is there, severity **Problem**.
+5. Now raise a second one and answer **Yes — we can't trade**.
+
+**✅ Expected:** that one arrives as **Urgent**.
+
+⚠ **Try sending with the description empty.** It must refuse and say a ticket needs both — a subject
+alone makes somebody at Plutus ask what the problem is, which costs you another day.
+
+### G26b. Read a reply and answer it
+
+1. From the **portal**, reply to one of the tickets.
+2. Back on the till: **Settings → Help and support**.
+
+**✅ Expected:** the ticket list shows each ticket **with its status on the line** — *Open*, *Waiting
+on you*, *Closed*. Tap it.
+
+**✅ Expected:** the conversation reads **oldest first**, and you can tell **who said what** — your
+name against yours, **Plutus** against theirs.
+
+3. Press **Reply**, type something, **Send reply**.
+
+**✅ Expected:** *"Plutus has your reply."* — and it appears in the portal.
+
+### G26c. A closed ticket takes no reply
+
+Close a ticket in the portal, then open it on the till.
+
+**✅ Expected:** it reads *"This ticket is closed. Raise a new one if you still need help."* and there
+is **no Reply button** — rather than a Send that the server would refuse.
+
+### G26d. ⚠ With the network unplugged
+
+Unplug the network and press **Help and support**.
+
+**✅ Expected:** it says Plutus can't be reached and that **nothing has been sent**.
+
+**❌ If it ever says a ticket was sent while offline, that is a serious bug.** Tickets are deliberately
+NOT queued: a shop that believes it has reached support is worse off than one that knows it has not.

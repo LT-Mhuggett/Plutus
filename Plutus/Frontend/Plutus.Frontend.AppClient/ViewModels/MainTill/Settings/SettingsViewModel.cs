@@ -1,5 +1,8 @@
 using CommonPOSLibrary.Exceptions;
+using CustomViews.Structs;
+using Plutus.Client.Core;
 using Plutus.Frontend.AppClient.Helpers.Compatibility;
+using Plutus.Frontend.AppClient.Helpers.Validators;
 using Plutus.Frontend.AppClient.Helpers.Extensions;
 using Plutus.Frontend.AppClient.Helpers.Security;
 using Plutus.Frontend.AppClient.Services.Analytics;
@@ -72,6 +75,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
                 Tuple.Create("AskForReceiptOption".Translate(), "ChangeAskForReceiptOptionCommand"),
                 Tuple.Create("ChangeCashDrawerExists".Translate(), "ChangeCashDrawerExistsCommand"),
                 //Tuple.Create("ChangeBarcodeType".Translate(), "ChangeBarcodeTypeCommand"),
+
+                // ⚠ OP4/WP6.3 — the till's way of asking Plutus for help, and of READING THE REPLY.
+                // The web till has had this since WP6.3; MAUI had no route to support at all.
+                Tuple.Create("Help", ""),
+                Tuple.Create("Help and support", "HelpAndSupportCommand"),
                 Tuple.Create("","")
             };
             StackLayout stack = null;
@@ -119,6 +127,163 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
         public Command BackupDbCommand
         {
             get => _backupDbCommand ?? (_backupDbCommand = new Command(ExecuteBackupDb));
+        }
+        #endregion
+
+        #region Help and support
+        Command _helpAndSupportCommand;
+        public Command HelpAndSupportCommand =>
+            _helpAndSupportCommand ??= new Command(async () => await ExecuteHelpAndSupport());
+
+        /// <summary>
+        /// OP4 / WP6.3 — raise a ticket with Plutus, or read and answer one.
+        ///
+        /// ⚠⚠ NO `Modal.ShowAsync` WRAPPER HERE. `InputAlertHelper` gates on that semaphore
+        /// internally, and a redundant guard at the call site is the exact defect that stopped the
+        /// till taking money on 2026-08-13 — the flow waited on a semaphore it already held, no
+        /// exception, nothing in any log. `DisplayAlert`/`DisplayActionSheet` are not gated and are
+        /// awaited in sequence, which is what every other flow in this file does.
+        ///
+        /// ⚠ ONLINE ONLY, and it says so. A ticket is somebody asking for help NOW; queueing it
+        /// would tell them it had been sent.
+        /// </summary>
+        private async Task ExecuteHelpAndSupport()
+        {
+            try
+            {
+                var tickets = await Services.Support.SupportDesk.LoadAsync();
+
+                if (tickets is null)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "Plutus can't be reached, so a ticket can't be raised or read right now. "
+                        + "Nothing has been sent — try again when the connection is back.",
+                        "OK".Translate());
+                    return;
+                }
+
+                // ⚠ The new-ticket option is FIRST and always present. Somebody opening this screen
+                // with a problem should not have to read a list of old tickets to find it.
+                var newTicket = "Raise a new ticket";
+                var choices = new List<string> { newTicket };
+                choices.AddRange(tickets.Select(Services.Support.SupportDesk.TicketLine));
+
+                var picked = await Application.Current.MainPage.DisplayActionSheet(
+                    "Help and support", "Cancel".Translate(), null, choices.ToArray());
+
+                if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return;
+
+                if (picked == newTicket) { await RaiseTicketAsync(); return; }
+
+                // ⚠ BY INDEX, not by matching the label back. Two tickets can share a subject AND a
+                // status, and a by-text lookup would silently open the wrong conversation.
+                var index = choices.IndexOf(picked) - 1;
+                if (index >= 0 && index < tickets.Count) await OpenTicketAsync(tickets[index]);
+            }
+            catch (Exception ex)
+            {
+                CrashLog.Write("Settings.HelpAndSupport", ex);
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "That didn't work. Nothing has been sent.", "OK".Translate());
+            }
+        }
+
+        /// <summary>⚠ Subject AND body, both required — a subject alone makes somebody at Plutus ask
+        /// what the problem is, which costs the shop another day.</summary>
+        private async Task RaiseTicketAsync()
+        {
+            var required = new IValidator[] { new RequiredValidator() };
+
+            var fields = new ViewElementData[]
+            {
+                new(1, "What's it about?", "", required, false, true),
+                new(2, "What's happening?", "", required, false, true),
+            };
+
+            var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                fields, "Send to Plutus", true, "Raise a ticket", "Cancel".Translate());
+
+            if (answers is null) return;
+
+            answers.TryGetValue(1, out string subject);
+            answers.TryGetValue(2, out string body);
+
+            if (!Services.Support.SupportDesk.CanRaise(subject, body))
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "A ticket needs both a subject and a description.", "OK".Translate());
+                return;
+            }
+
+            // ⚠ ASKED SEPARATELY, because it changes how fast somebody at Plutus picks it up and the
+            // operator should be making that choice deliberately rather than ticking past it.
+            var urgent = await Application.Current.MainPage.DisplayAlert("How urgent is it?",
+                "Is this stopping you trading?", "Yes — we can't trade", "No — it can wait");
+
+            if (await Services.Support.SupportDesk.RaiseAsync(subject, body, urgent))
+            {
+                await Application.Current.MainPage.DisplayAlert("Sent",
+                    "Plutus has your ticket. The reply appears here, under Help and support.",
+                    "OK".Translate());
+            }
+            else
+            {
+                // ⚠ NEVER "sent" unless it was. See `SupportDesk.RaiseAsync`.
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "That didn't reach Plutus, so nothing has been sent. Try again in a moment.",
+                    "OK".Translate());
+            }
+        }
+
+        /// <summary>Read a ticket, and answer it if it is still open.</summary>
+        private async Task OpenTicketAsync(Plutus.Contracts.Client.SupportTicketDto ticket)
+        {
+            var thread = await Services.Support.SupportDesk.ThreadAsync(ticket.Id);
+
+            if (thread is null)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "Plutus can't be reached, so that conversation can't be opened right now.",
+                    "OK".Translate());
+                return;
+            }
+
+            var body = Services.Support.SupportDesk.ThreadText(thread);
+
+            // ⚠ A CLOSED TICKET OFFERS NO REPLY BOX rather than a Send the server would refuse.
+            if (SupportLabels.IsClosed(ticket.Status))
+            {
+                await Application.Current.MainPage.DisplayAlert(ticket.Subject,
+                    body + "\n\nThis ticket is closed. Raise a new one if you still need help.",
+                    "OK".Translate());
+                return;
+            }
+
+            if (!await Application.Current.MainPage.DisplayAlert(ticket.Subject, body,
+                    "Reply", "Close"))
+                return;
+
+            var fields = new ViewElementData[]
+            {
+                new(1, "Your reply", "", new IValidator[] { new RequiredValidator() }, false, true),
+            };
+
+            var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                fields, "Send reply", true, ticket.Subject, "Cancel".Translate());
+
+            if (answers is null) return;
+            answers.TryGetValue(1, out string reply);
+
+            if (string.IsNullOrWhiteSpace(reply)) return;
+
+            var sent = await Services.Support.SupportDesk.ReplyAsync(ticket.Id, reply);
+
+            await Application.Current.MainPage.DisplayAlert(
+                sent ? "Sent" : "Hmm".Translate(),
+                sent
+                    ? "Plutus has your reply."
+                    : "That didn't reach Plutus, so nothing has been sent. Try again in a moment.",
+                "OK".Translate());
         }
         #endregion
 
