@@ -35,6 +35,15 @@ namespace Plutus.Frontend.AppClient
             // without it, so it must be reachable without knowing where to look.
             tabBar.Items.Add(Tab(new Views.MainTill.Cash.CashView()));
             tabBar.Items.Add(Tab(new Views.MainTill.Inventory.InventoryView()));
+            // ⚠⚠ REPORTS REPLACES STATISTICS (step 26, 2026-08-16). The old tab's three viewmodels
+            // read LOCAL SQLITE, so it has shown ZERO for everything sold since cutover step 11 —
+            // sales stopped being written there. This one reads the platform, which is also the only
+            // way a figure can include sales rung up on the OTHER till.
+            //
+            // ⚠ Statistics is NOT removed yet: a till migrated from NatApp still holds real history
+            // in that legacy file, and its screens are the only way to see it. It goes with L4, once
+            // the cross-till lookup lands and there is nothing left it uniquely answers.
+            tabBar.Items.Add(Tab(new Views.MainTill.Reports.ReportsView()));
             tabBar.Items.Add(Tab(new Views.MainTill.Statistics.StatisticsView()));
             // ⚠ Loyalty landed with step 27 (2026-08-16) — the comment above said it was absent
             // deliberately "until the capability exists", and it now does: members, tiers and store

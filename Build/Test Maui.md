@@ -880,3 +880,51 @@ the text rather than the number.
 
 ⚠ **Also check "Till 2" sorts before "Till 10"** anywhere a numbered name appears. Plain sorting gets
 that backwards and it is the most visible way a table looks broken.
+
+## G20. The Reports tab — **NEW in 1.64.0**
+
+⚠ **There is a new Reports tab, and the old Statistics tab is still there.** That is deliberate for
+now: Statistics reads the *legacy local* database, so on a till migrated from NatApp it still shows
+real pre-cutover history — but it shows **£0.00 for everything sold since the cutover**, because
+sales stopped being written there. Reports reads Plutus and is the one to trust.
+
+1. Open **Reports**. It opens on **Takings** for the **last 7 days**.
+
+**✅ Expected:** real figures — the same ones the web till's Reporting page shows for that range.
+A totals line above the table (orders and money).
+
+2. Change the report in the picker: **Takings · VAT · Items sold · By category · Best sellers**.
+
+**✅ Expected:** each loads. Two of them — **By category** and **Best sellers** — have never existed
+on this till before.
+
+3. Change the **from** / **to** dates.
+
+**✅ Expected:** it reloads for the new range.
+
+4. ⚠ **Set 'to' EARLIER than 'from'.**
+
+**✅ Expected:** it says so. It must **not** show an empty table, which would read as "no trade".
+
+5. Sort, search and page each report (see §G19).
+
+**✅ Expected:** all four table behaviours work on **every** report, because they all use the same
+table.
+
+## G21. ⚠ Reports vs the web till — the figures must MATCH
+
+Open the same date range on the **web till's Reporting page** and on **MAUI's Reports tab**.
+
+| Check | Expect |
+|---|---|
+| **Takings** total for the range | The same to the penny |
+| **VAT** totals | The same |
+| **Items sold** total | The same |
+
+⚠ **This is the whole point of the rebuild.** MAUI used to compute reports from its own local
+database, so it could only ever show what *this* till had sold — and since the cutover, nothing at
+all. Both surfaces now ask Plutus the same question.
+
+⚠ **If "Items sold" shows a warning like "Showing 2,000 of 5,000 lines"** that is correct behaviour,
+not a bug — the server caps the rows and the till now says so rather than showing a short total
+silently.

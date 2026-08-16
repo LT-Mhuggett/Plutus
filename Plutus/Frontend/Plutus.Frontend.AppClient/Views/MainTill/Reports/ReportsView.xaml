@@ -1,0 +1,56 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:i18n="clr-namespace:I18N_L10N.Extensions;assembly=I18N_L10N"
+             x:Class="Plutus.Frontend.AppClient.Views.MainTill.Reports.ReportsView"
+             Title="{Binding Title}"
+             IconImageSource="{Binding Icon, Converter={StaticResource MaterialIconConverter}}">
+    <!--
+        ⚠⚠ ONE SCREEN FOR EVERY REPORT. Matt, 2026-08-16: *"Can I check that you are writing the
+        framework that new reports can just be dropped into MAUI? Not hardcoding them all into MAUI
+        please."* The picker below is filled from `ReportCatalogue.All`, and the table is whatever
+        the chosen definition returns — so a new report is one catalogue entry and never a screen.
+
+        ⚠ THE TABLE IS ADDED IN CODE. It is generic (`TillTable<ReportRow>`), and XAML cannot express
+        that without a markup extension nothing else needs.
+
+        ⚠ A Grid with Auto rows and one * row, never a StackLayout — StackLayout measures children to
+        their DESIRED height and does not distribute what is left, so a scrollable table inside one
+        collapses to a few rows. That already shipped on the item list.
+    -->
+    <Grid Padding="10" RowSpacing="6">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>   <!-- report picker + refresh -->
+            <RowDefinition Height="Auto"/>   <!-- date range -->
+            <RowDefinition Height="Auto"/>   <!-- totals + note -->
+            <RowDefinition Height="*"/>      <!-- the table -->
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" ColumnSpacing="6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Picker Grid.Column="0" x:Name="ReportPicker" Title="Report"/>
+            <Button Grid.Column="1" Text="{i18n:Translate Refresh}" Command="{Binding RefreshCommand}"/>
+        </Grid>
+
+        <Grid Grid.Row="1" ColumnSpacing="6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <DatePicker Grid.Column="0" x:Name="FromPicker"/>
+            <DatePicker Grid.Column="1" x:Name="ToPicker"/>
+        </Grid>
+
+        <VerticalStackLayout Grid.Row="2" Spacing="2">
+            <Label x:Name="TotalsLabel" FontAttributes="Bold"/>
+            <!-- ⚠ The NOTE is where a report admits a server cap, an empty range or a refusal.
+                 Never decoration — a truncated total that looks complete is worse than no report. -->
+            <Label x:Name="NoteLabel" />
+        </VerticalStackLayout>
+
+        <ContentView Grid.Row="3" x:Name="TableHost"/>
+    </Grid>
+</ContentPage>

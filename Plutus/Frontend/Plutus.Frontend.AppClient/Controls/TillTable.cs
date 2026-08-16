@@ -24,8 +24,9 @@ namespace Plutus.Frontend.AppClient.Controls
     /// </summary>
     public sealed class TillTable<T> : Grid
     {
-        private readonly IReadOnlyList<TableColumn<T>> _columns;
-        private readonly TableView<T> _view;
+        private IReadOnlyList<TableColumn<T>> _columns;
+        private TableView<T> _view;
+        private readonly Func<T, string> _search;
         private readonly string _emptyText;
 
         private readonly Grid _header = new() { ColumnSpacing = 8 };
@@ -40,6 +41,7 @@ namespace Plutus.Frontend.AppClient.Controls
             string emptyText = "No rows.")
         {
             _columns = columns ?? throw new ArgumentNullException(nameof(columns));
+            _search = search;
             _view = new TableView<T>(columns, search);
             _emptyText = emptyText;
 
@@ -63,6 +65,26 @@ namespace Plutus.Frontend.AppClient.Controls
         public void SetRows(IReadOnlyList<T> rows)
         {
             _view.SetRows(rows);
+            Redraw();
+        }
+
+        /// <summary>
+        /// Replace the columns — for a screen that renders more than one shape of data, like the
+        /// generic reports page.
+        ///
+        /// ⚠⚠ THE SORT AND THE PAGE ARE DELIBERATELY RESET. They refer to a column INDEX, and the
+        /// new report's column 3 is a different question from the old one's — carrying them over
+        /// would silently order the new report by whatever happened to sit in that position, which
+        /// looks like the table sorting itself at random.
+        ///
+        /// ⚠ Idempotent-ish by design: calling it with the same columns still resets, because this
+        /// is called when the DATA changes shape and that is exactly when stale state is wrong.
+        /// </summary>
+        public void SetColumns(IReadOnlyList<TableColumn<T>> columns)
+        {
+            _columns = columns ?? throw new ArgumentNullException(nameof(columns));
+            _view = new TableView<T>(_columns, _search);
+            BuildHeader();
             Redraw();
         }
 
