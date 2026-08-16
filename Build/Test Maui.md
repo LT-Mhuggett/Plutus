@@ -988,3 +988,36 @@ they were. A receipt has to identify the trader.
 customer's copy must not change shape because the broadband dropped.
 
 ⚠ **Reprints too** (§G22): a reprint and a cross-till reprint use the same layout as the original.
+
+## G24. ⚠ MONEY ON EVERY BASKET ROW — **the most important check in 1.69.0**
+
+The basket's money moved from decimal pounds to integer pence underneath. It is **designed** so this
+cannot go wrong, and it is still the thing to check first, because if it HAS gone wrong every price
+on screen is **100× too big** and nothing errors.
+
+1. Add an item costing, say, **£3.30**.
+
+**✅ Expected:** the row reads **£3.30**. ❌ **If it reads £330.00, stop and report it** — that is the
+one failure this change could have caused.
+
+2. Check the **Sale ex tax** and **Sale inc tax** totals at the bottom.
+
+**✅ Expected:** sensible money, matching the rows.
+
+3. Now check **each row type** shows the right price:
+
+| Row | Check |
+|---|---|
+| An ordinary **item** | Its price |
+| A **return** (goods going back) | Its price, and the totals go DOWN |
+| A **note** (e.g. gift wrap) | No money, or its own |
+| A **discount** | Shows as **negative** |
+
+4. **Park** a basket with a few items and a discount, then **recall** it.
+
+**✅ Expected:** every price is exactly what it was. ⚠ Parked baskets are serialised, so this is where
+a money change shows up as corruption rather than as a wrong-looking number.
+
+5. Complete a sale and check the **receipt** and the **portal** agree with the screen.
+
+⚠ **If G24 is clean, the rest of §A and §F–§G are far less likely to surprise you.**

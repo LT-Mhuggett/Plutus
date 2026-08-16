@@ -71,7 +71,7 @@ namespace Plutus.Frontend.AppClient.Services.Storage
 
             return records
                 .OfType<BasketItem>()
-                .Where(i => i is not BasketReturnItem)
+                .Where(i => !i.IsReturn)
                 .Where(i => !GiftCards.IsActivation(i.Item?.Id))
                 .Where(i => !string.Equals(i.Item?.Id, CardSurchargeVat.ItemIdOne, StringComparison.OrdinalIgnoreCase))
                 // ⚠ Reference identity, matching `CheckoutCommit.TargetsOf`'s first test. Two lines
@@ -116,7 +116,7 @@ namespace Plutus.Frontend.AppClient.Services.Storage
                 // that got `EligibleLines` wrong still cannot charge the wrong money. Defence in
                 // depth on a money rule, the same shape as `LineDiscounts` re-guarding returns.
                 incPence += MemberDiscount.ForLine(
-                    Pence.FromDecimal(line.Price), line.Quantity, autoDiscountRate,
+                    line.PricePence, line.Quantity, autoDiscountRate,
                     hasMembership, expired,
                     isReturn: false, hasDiscount: false, isGiftCard: false);
 
@@ -125,7 +125,7 @@ namespace Plutus.Frontend.AppClient.Services.Storage
                 // re-splits the real money per line at commit — but a pair that disagrees with
                 // itself would show an operator a VAT total that the receipt then contradicts.
                 exPence += LineDiscounts.Percentage(
-                    Pence.FromDecimal(line.PriceExTax), line.Quantity, autoDiscountRate, isReturn: false);
+                    line.PriceExTaxPence, line.Quantity, autoDiscountRate, isReturn: false);
             }
 
             if (incPence <= 0) return null;

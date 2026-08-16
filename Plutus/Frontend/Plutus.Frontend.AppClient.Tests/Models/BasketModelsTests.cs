@@ -58,7 +58,47 @@ namespace Plutus.Frontend.AppClient.Tests.Models
             basketItem.Price = 5m;
             basketItem.PriceExTax = 4m;
 
-            Assert.Equal(new[] { nameof(BasketItem.Quantity), nameof(BasketItem.Price), nameof(BasketItem.PriceExTax) }, raised);
+            // ⚠ THE BOUND NAMES MUST BE RAISED, and this no longer asserts an exact SEQUENCE.
+            // Since step 11b the money lives in pence and `Price` is a view of it, so setting the
+            // view raises BOTH `PricePence` and `Price`. A binding needs the name it binds to —
+            // `Price` — and the extra notification is harmless; pinning the exact list would fail
+            // for a change that cannot affect a screen.
+            Assert.Contains(nameof(BasketItem.Quantity), raised);
+            Assert.Contains(nameof(BasketItem.Price), raised);
+            Assert.Contains(nameof(BasketItem.PriceExTax), raised);
+        }
+
+        /// <summary>
+        /// ⚠⚠ THE POUNDS VIEW AND THE PENCE STORE CANNOT DISAGREE (step 11b). The till rows bind
+        /// `Price` with `StringFormat='{0:C}'`; if it ever stopped being a pounds-shaped decimal,
+        /// £3.30 would render as £330.00 SILENTLY, on every row. This is the pin on that.
+        /// </summary>
+        [Fact]
+        public void The_pounds_view_and_the_pence_store_agree_in_both_directions()
+        {
+            var basketItem = new BasketItem(MakeItem());
+
+            basketItem.PricePence = 330;
+            Assert.Equal(3.30m, basketItem.Price);
+
+            basketItem.Price = 12.99m;
+            Assert.Equal(1299, basketItem.PricePence);
+
+            basketItem.PriceExTaxPence = 275;
+            Assert.Equal(2.75m, basketItem.PriceExTax);
+        }
+
+        /// <summary>⚠ A price a human typed rounds AWAY FROM ZERO into pence, so it cannot land
+        /// between two pence and drift. Banker's rounding would send £0.125 down to 12p.</summary>
+        [Theory]
+        [InlineData(0.125, 13)]
+        [InlineData(0.135, 14)]
+        [InlineData(0.005, 1)]
+        public void Setting_a_fractional_price_rounds_away_from_zero(double pounds, long expectedPence)
+        {
+            var basketItem = new BasketItem(MakeItem()) { Price = (decimal)pounds };
+
+            Assert.Equal(expectedPence, basketItem.PricePence);
         }
 
         [Fact]
@@ -119,7 +159,21 @@ namespace Plutus.Frontend.AppClient.Tests.Models
             note.Price = 2m;
             note.PriceExTax = 1.5m;
 
-            Assert.Equal(new[] { nameof(BasketNote.Quantity), nameof(BasketNote.Price), nameof(BasketNote.PriceExTax) }, raised);
+            // ⚠ Names, not sequence — see the BasketItem test above for why.
+            Assert.Contains(nameof(BasketNote.Quantity), raised);
+            Assert.Contains(nameof(BasketNote.Price), raised);
+            Assert.Contains(nameof(BasketNote.PriceExTax), raised);
+        }
+
+        /// <summary>⚠ A DISCOUNT IS NEGATIVE, and the sign is load-bearing all the way to the
+        /// wire — `CheckoutCommit` takes magnitudes deliberately. Pence must carry it too.</summary>
+        [Fact]
+        public void A_negative_note_price_stays_negative_in_pence()
+        {
+            var note = new BasketNote(new NoteModel("Discount"), -5m, -5m);
+
+            Assert.Equal(-500, note.PricePence);
+            Assert.Equal(-5m, note.Price);
         }
 
         [Fact]

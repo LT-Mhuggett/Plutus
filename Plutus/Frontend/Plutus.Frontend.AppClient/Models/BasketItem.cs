@@ -10,8 +10,12 @@ namespace Plutus.Frontend.AppClient.Models
     {
         #region Variable
         private int _quantity;
-        private decimal _price;
-        private decimal _priceExTax;
+
+        // ⚠ PENCE. The basket's money is integer pence end-to-end (step 11b); `Price` and
+        // `PriceExTax` are pounds-shaped VIEWS of these, kept so the till rows' `{0:C}` bindings
+        // still render £3.30 rather than £330.00.
+        private long _pricePence;
+        private long _priceExTaxPence;
         #endregion
         #region Properties
         #region Public
@@ -29,27 +33,68 @@ namespace Plutus.Frontend.AppClient.Models
 
         public string Name => Item.Name;
 
-        public decimal Price
+        /// <summary>
+        /// The line's unit price INCLUDING VAT, in integer pence — **the source of truth** (step 11b).
+        ///
+        /// ⚠⚠ THE MONEY IS PENCE NOW, AND <see cref="Price"/> IS A VIEW OF IT. Before this the
+        /// basket held `decimal` pounds and `CheckoutCommit` converted at the boundary, which was
+        /// lossless only because the prices had ORIGINATED as pence and been divided by 100. That
+        /// argument had to be re-made every time somebody touched the path; now there is nothing to
+        /// argue about, because nothing converts.
+        ///
+        /// ⚠ WHY <see cref="Price"/> STAYS A DECIMAL IN POUNDS rather than becoming a long: the till
+        /// rows bind it with `StringFormat='{0:C}'`, and a `long` behind that formatter renders £3.30
+        /// as **£330.00** — silently, on every row, on a screen nobody would think to re-check. The
+        /// plan called for switching the type; keeping a pounds-shaped view removes the trap entirely
+        /// instead of relying on somebody noticing it.
+        /// </summary>
+        public long PricePence
         {
-            get => _price;
+            get => _pricePence;
             set
             {
-                _price = value;
+                _pricePence = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(Price));
             }
+        }
+
+        /// <summary>The same price point's ex-VAT half, in integer pence.</summary>
+        public long PriceExTaxPence
+        {
+            get => _priceExTaxPence;
+            set
+            {
+                _priceExTaxPence = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(PriceExTax));
+            }
+        }
+
+        /// <summary>
+        /// The inc-VAT unit price in POUNDS — what the rows display and what legacy callers still
+        /// pass around.
+        ///
+        /// ⚠ A PROJECTION OF <see cref="PricePence"/>, not a second store. Setting it rounds AWAY
+        /// FROM ZERO into pence, so a value a human typed cannot land between two pence and drift.
+        /// </summary>
+        public decimal Price
+        {
+            get => _pricePence / 100m;
+            set => PricePence = Plutus.SharedKernel.Pence.FromDecimal(value);
         }
 
         public decimal PriceExTax
         {
-            get => _priceExTax;
-            set
-            {
-                _priceExTax = value;
-                OnPropertyChanged();
-            }
+            get => _priceExTaxPence / 100m;
+            set => PriceExTaxPence = Plutus.SharedKernel.Pence.FromDecimal(value);
         }
 
         public string Tax => Item.Vat.Name;
+
+        /// <summary>⚠ THE ONE TYPE TEST. Every other place asks `IsReturn`; when `BasketReturnItem`
+        /// is finally collapsed into a flag, this is the line that changes — see `IBasketRecord`.</summary>
+        public virtual bool IsReturn => this is BasketReturnItem;
 
         /// <summary>
         /// When this line SELLS a gift card, the code being loaded — WP13.

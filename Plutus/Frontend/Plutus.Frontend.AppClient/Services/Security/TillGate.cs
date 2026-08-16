@@ -132,7 +132,7 @@ namespace Plutus.Frontend.AppClient.Services.Security
 
         /// <summary>Does this basket contain anything being returned?</summary>
         public static bool HasReturns(IEnumerable<IBasketRecord> basket) =>
-            basket?.Any(r => r is BasketReturnItem) == true;
+            basket?.Any(r => r.IsReturn) == true;
 
         /// <summary>
         /// The gate for completing a sale: always <see cref="PermissionCatalogue.PosSell"/>, plus

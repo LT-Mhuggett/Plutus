@@ -41,12 +41,14 @@ namespace Plutus.Frontend.AppClient.Services.Storage
         /// <summary>
         /// Build the payload from a basket. Pure — no I/O — so the arithmetic can be tested.
         ///
-        /// ⚠ DECIMAL → PENCE AT THIS BOUNDARY IS LOSSLESS, and only because of step 10: the prices
-        /// in the basket ORIGINATED as pence from `EffectivePricePairAsync` and were divided by 100
-        /// purely to satisfy the legacy model. Multiplying back recovers exactly what was resolved.
-        /// It would NOT be lossless for a price a human typed as a decimal — which is why
-        /// `Money.FromDecimal` rounds away from zero rather than banker's, and why the legacy
-        /// basket is being retired rather than kept.
+        /// ⚠⚠ NOTHING CONVERTS HERE ANY MORE (step 11b, 2026-08-16). This used to read
+        /// `Pence.FromDecimal(item.Price)` under a comment arguing the conversion was lossless
+        /// "because the prices ORIGINATED as pence and were divided by 100 to satisfy the legacy
+        /// model" — true, but an argument that had to be re-made every time somebody touched the
+        /// path, and one that would have stopped being true the day a price was typed by a human.
+        ///
+        /// The basket now holds integer pence as its source of truth and `Price` is a pounds-shaped
+        /// VIEW for the bindings. There is no conversion left to be right or wrong about.
         /// </summary>
         public static IReadOnlyList<BasketLine> LinesFrom(IEnumerable<IBasketRecord> basket)
         {
@@ -61,7 +63,7 @@ namespace Plutus.Frontend.AppClient.Services.Storage
             {
                 if (record is not BasketItem item) continue;
 
-                var isReturn = record is BasketReturnItem;
+                var isReturn = record.IsReturn;
 
                 sources.Add(item);
                 lines.Add(new BasketLine(
@@ -70,8 +72,13 @@ namespace Plutus.Frontend.AppClient.Services.Storage
                     ItemId: Guid.Empty,
                     IdOne: item.Item?.Id ?? string.Empty,
                     Name: item.Item?.Name ?? string.Empty,
-                    UnitIncPence: Pence.FromDecimal(item.Price),
-                    UnitExPence: Pence.FromDecimal(item.PriceExTax),
+                    // ⚠ STRAIGHT FROM THE BASKET'S PENCE (step 11b). This used to be
+                    // `Pence.FromDecimal(item.Price)`, lossless only because the prices had
+                    // ORIGINATED as pence and been divided by 100 — an argument that had to be
+                    // re-made every time somebody touched this path. There is nothing to argue
+                    // about now, because nothing converts.
+                    UnitIncPence: item.PricePence,
+                    UnitExPence: item.PriceExTaxPence,
                     Quantity: item.Quantity,
                     // Filled in below from the basket's alterations.
                     DiscountPence: 0,
@@ -111,7 +118,7 @@ namespace Plutus.Frontend.AppClient.Services.Storage
             {
                 // The alteration's price is negative — it is money coming off. Apportionment works
                 // in magnitudes.
-                var discountPence = Pence.FromDecimal(Math.Abs(alteration.Price)) * Math.Max(1, alteration.Quantity);
+                var discountPence = Math.Abs(alteration.PricePence) * Math.Max(1, alteration.Quantity);
                 if (discountPence == 0) continue;
 
                 var targets = TargetsOf(alteration, sources, lines);
@@ -334,7 +341,7 @@ namespace Plutus.Frontend.AppClient.Services.Storage
             (basket ?? Enumerable.Empty<IBasketRecord>())
                 .OfType<BasketItem>()
                 .Where(i => !string.IsNullOrWhiteSpace(i.GiftCardCode))
-                .Select(i => (i.GiftCardCode, Pence.FromDecimal(i.Price) * Math.Max(1, i.Quantity)))
+                .Select(i => (i.GiftCardCode, i.PricePence * Math.Max(1, i.Quantity)))
                 .ToList();
 
         /// <summary>
@@ -378,7 +385,7 @@ namespace Plutus.Frontend.AppClient.Services.Storage
         /// </summary>
         public static long BasketMoneyPence(IEnumerable<IBasketRecord> basket) =>
             (basket ?? Enumerable.Empty<IBasketRecord>())
-                .Sum(r => Pence.FromDecimal(r.Price) * r.Quantity * (r is BasketReturnItem ? -1L : 1L));
+                .Sum(r => r.PricePence * r.Quantity * (r.IsReturn ? -1L : 1L));
 
         private static Guid? OriginOf(IBasketRecord record) =>
             record is BasketReturnItem r && Guid.TryParse(r.ReturnSaleId, out var id) ? id : null;

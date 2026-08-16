@@ -484,6 +484,29 @@ through**. `MaxConsecutiveRefusals` is the backstop so a mis-wired prompt cannot
 ⚠ **New C2 twin** — the web till has its own tender logic in TypeScript; it gained its first 19 tests
 on 2026-08-11 while checking the split-payment finding.
 
+✅ ✅ **THE MONEY HALF IS DONE — 2026-08-16 (till 1.69.0), and the silent trap was DESIGNED OUT rather than watched for.**
+
+`BasketItem` and `BasketNote` now hold **integer pence** as their source of truth
+(`PricePence`/`PriceExTaxPence`), and `CheckoutCommit` reads them straight — the
+`Pence.FromDecimal(item.Price)` conversion is gone, along with the comment that had to argue it was
+lossless every time somebody touched the path.
+
+⚠⚠ **`Price` STAYS A DECIMAL IN POUNDS, and that is the whole point.** The plan said "`BasketItem` to
+long pence"; done literally, the rows' `StringFormat='{0:C}'` bindings would render **£3.30 as
+£330.00**, silently, on every row — the trap this step's own notes call out. A pounds-shaped VIEW over
+a pence store removes the trap instead of relying on somebody spotting it. **Deliberate deviation from
+the plan's wording, in service of the plan's reasoning.**
+
+⚠ Mutation-checked, and this is the one that matters: make the pounds view return pence and **8 tests
+go red** — including the parked-basket round trip and three checkout reconciliations. The £330 bug is
+now caught by the suite rather than by eye.
+
+✅ **The 28 type tests are down to 9**, and the remaining ones are honest: `IsReturn` is on
+`IBasketRecord` with **one** implementation (`this is BasketReturnItem`), and every question of the
+form *"is this a return?"* now asks the flag. What still tests the TYPE genuinely needs the subclass's
+own data — `ReturnSaleId`, `Reason` — plus `BasketDataTemplateSelector`, which picks the row template
+by type and would render the wrong row silently if got wrong.
+
 **⚠ STILL TO DO — and the trap is silent:**
 
 - The `BasketItem` → **long pence** reshape and the nine `is BasketReturnItem` type-tests.

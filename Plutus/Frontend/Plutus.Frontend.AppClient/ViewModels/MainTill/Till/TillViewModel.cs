@@ -83,9 +83,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             get => _selectedBasketRecord;
             set => SetProperty(ref _selectedBasketRecord, value);
         }
-        public decimal SaleExTax => Basket.Sum(bR => bR.PriceExTax * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
+        public decimal SaleExTax => Basket.Sum(bR => bR.PriceExTax * (bR.IsReturn ? -1 : 1) * bR.Quantity);
 
-        public decimal SaleIncTax => Basket.Sum(bR => bR.Price * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
+        public decimal SaleIncTax => Basket.Sum(bR => bR.Price * (bR.IsReturn ? -1 : 1) * bR.Quantity);
         public ObservableCollection<DiscountModel> Alterations { get; } = new ObservableCollection<DiscountModel>();
         public ObservableCollection<string> AlterationNames
         {
@@ -390,7 +390,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     Basket.Contains(SelectedBasketRecord) &&
                     (SelectedBasketRecord is BasketItem) &&
                     ((BasketItem)SelectedBasketRecord).Item.Id.Equals(item.Id) &&
-                    !(SelectedBasketRecord is BasketReturnItem))
+                    !SelectedBasketRecord.IsReturn)
                 {
                     tempItem = SelectedBasketRecord as BasketItem;
                 }
@@ -401,7 +401,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         .LastOrDefault(bI => bI.Item.Id.Equals(item.Id) &&
                             bI.Price.Equals(item.Price) &&
                             bI.PriceExTax.Equals(item.ExPrice) &&
-                            !(bI is BasketReturnItem));
+                            !bI.IsReturn);
                 }
 
                 if (tempItem == default)
@@ -466,7 +466,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     Basket.Contains(SelectedBasketRecord) &&
                     (SelectedBasketRecord is BasketItem) &&
                     ((BasketItem)SelectedBasketRecord).Item.Id.Equals(item.Id) &&
-                    !(SelectedBasketRecord is BasketReturnItem))
+                    !SelectedBasketRecord.IsReturn)
                 {
                     tempItem = SelectedBasketRecord as BasketItem;
                 }
@@ -477,7 +477,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         .LastOrDefault(bI => bI.Item.Id.Equals(item.Id) &&
                             bI.Price.Equals(item.Price) &&
                             bI.PriceExTax.Equals(item.ExPrice) &&
-                            !(bI is BasketReturnItem));
+                            !bI.IsReturn);
                 }
 
                 if (tempItem == default)
@@ -558,7 +558,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// </summary>
         private long SaleLinesGrossPence() =>
             Basket.OfType<BasketItem>()
-                  .Where(b => b is not BasketReturnItem)
+                  .Where(b => !b.IsReturn)
                   .Sum(b => Pence.FromDecimal(b.Price) * Math.Max(1, b.Quantity));
 
         /// <summary>Σ of the discounts already on this basket, in pence, as a POSITIVE number.
@@ -799,7 +799,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
             // Already a return: RevertReturn is that line's job, and silently doing nothing here is
             // how an operator concludes the button is broken.
-            if (SelectedBasketRecord is BasketReturnItem)
+            if (SelectedBasketRecord.IsReturn)
             {
                 await Application.Current.MainPage.DisplayAlert("Already going back",
                     "That line is already a return. Use the line's own menu to undo it.", "OK".Translate());
@@ -2394,7 +2394,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 var change = 0.0m;
 
-                var refundOnly = !Basket.Any(bR => bR is BasketItem && !(bR is BasketReturnItem));
+                var refundOnly = !Basket.Any(bR => bR is BasketItem && !bR.IsReturn);
 
                 // ⚠ A REFUND GOES BACK THE WAY IT WAS PAID. Matt, 2026-08-11: *"Refunds need to
                 // ONLY offer the method that was used to pay. E.g. if it was a card payment, needs
@@ -2416,8 +2416,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
 
-                sale.Total = Basket.Sum(bR => bR.Price * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
-                sale.TotalExTax = Basket.Sum(bR => bR.PriceExTax * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
+                sale.Total = Basket.Sum(bR => bR.Price * (bR.IsReturn ? -1 : 1) * bR.Quantity);
+                sale.TotalExTax = Basket.Sum(bR => bR.PriceExTax * (bR.IsReturn ? -1 : 1) * bR.Quantity);
 
                 const NumberStyles testStyles = NumberStyles.AllowCurrencySymbol | NumberStyles.AllowThousands
                     | NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign;
@@ -2524,8 +2524,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                                 // ÃÂ¢ÃÂÃÂ  The BASKET stays authoritative for `sale.Total` ÃÂ¢ÃÂÃÂ the commit
                                 // guard compares the header against the sum of the lines, so a total
                                 // computed anywhere else is a second opinion about money.
-                                sale.Total = Basket.Sum(bR => bR.Price * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
-                                sale.TotalExTax = Basket.Sum(bR => bR.PriceExTax * (bR is BasketReturnItem ? -1 : 1) * bR.Quantity);
+                                sale.Total = Basket.Sum(bR => bR.Price * (bR.IsReturn ? -1 : 1) * bR.Quantity);
+                                sale.TotalExTax = Basket.Sum(bR => bR.PriceExTax * (bR.IsReturn ? -1 : 1) * bR.Quantity);
                                 feePence = Pence.FromDecimal(feeLine.Price * feeLine.Quantity);
                             }
                         }
@@ -3257,7 +3257,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         private Dictionary<string, Func<PaymentMethodModel>> GenPaymentMethodActions(
             IReadOnlyCollection<byte> refundToTenderTypes = null)
         {
-            var refundOnly = !Basket.Any(bR => bR is BasketItem && !(bR is BasketReturnItem));
+            var refundOnly = !Basket.Any(bR => bR is BasketItem && !bR.IsReturn);
 
             var offered = refundOnly
                 ? Services.Sales.TillTenders.OfferedForRefund(refundToTenderTypes)
