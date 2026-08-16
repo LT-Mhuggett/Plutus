@@ -32,18 +32,38 @@ namespace Plutus.Frontend.AppClient.Services.Sales
     public static class TillTenders
     {
         /// <summary>
-        /// What the sheet offers. ⚠ `Online` is never here: it is how a WEBSTORE order ingests, not
-        /// something an operator can press. `Credit` and `GiftCard` are online-only by design (they
-        /// draw down a server-held balance and cannot be verified offline) and arrive with their
-        /// own steps — until then, offering a button that must fail is worse than not offering it.
+        /// The name the store-credit button carries.
+        ///
+        /// ⚠ IT MUST CONTAIN "credit" AND NOT "gift". <see cref="Tenders.FromMethodName"/> matches on
+        /// substrings and deliberately tests "gift" FIRST, so a name like "Gift credit" would file
+        /// this money against the gift-card liability instead. The name is the wire byte here.
         /// </summary>
-        public static IReadOnlyList<TillTender> Offered(bool refundOnly = false)
+        public const string StoreCreditName = "Store credit";
+
+        /// <summary>
+        /// What the sheet offers. ⚠ `Online` is never here: it is how a WEBSTORE order ingests, not
+        /// something an operator can press. `GiftCard` arrives with WP13.
+        /// </summary>
+        /// <param name="creditAvailablePence">The attached customer's store-credit balance, or 0 when
+        /// nobody is attached, the balance is empty, or the till is offline. ⚠ **Store credit appears
+        /// only when it can actually be spent.** It draws down a server-held balance, so it cannot be
+        /// verified — or redeemed — offline, and a button that can only fail is worse than no button:
+        /// that is the exact trap `Offered` was written to fix when a portal-provisioned till showed
+        /// a payment sheet with nothing on it.</param>
+        public static IReadOnlyList<TillTender> Offered(bool refundOnly = false, long creditAvailablePence = 0)
         {
             var tenders = new List<TillTender>
             {
                 new("Cash", Tenders.Cash, GivesChange: true, GivesCashback: false),
                 new("Card", Tenders.Card, GivesChange: false, GivesCashback: true),
             };
+
+            // ⚠ NEVER ON A REFUND, matching the web till (`CheckoutDialog.tsx:141` filters it out).
+            // Binding default 19 says a refund goes back **only to the tender that took the money**;
+            // store credit took none, so refunding INTO it would mint spendable value out of a
+            // return — which is the gift-card cash-out exploit wearing a different hat.
+            if (!refundOnly && creditAvailablePence > 0)
+                tenders.Add(new(StoreCreditName, Tenders.Credit, GivesChange: false, GivesCashback: false));
 
             // ⚠ A refund gives money BACK, so nothing here gives change or cashback on top of it —
             // both would hand over the same money twice.

@@ -1061,6 +1061,15 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         public bool HasAttachedCustomer => _attachedCustomer != null;
 
         /// <summary>
+        /// How much store credit the attached customer has, in pence — 0 when nobody is attached.
+        ///
+        /// ⚠ THE FIGURE FROM THE LAST LIVE READ, not a cached or derived one. It is refreshed on
+        /// every attach; the SERVER remains the authority and refuses an overdraw at redeem time, so
+        /// this decides only whether the button is offered and what it is capped at.
+        /// </summary>
+        public long CreditAvailablePence => _attachedCustomer?.CreditBalancePence ?? 0;
+
+        /// <summary>
         /// What the operator sees at the top of the sale — the member's name and, when it grants
         /// one, the tier and rate.
         ///
@@ -1495,6 +1504,69 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 // an item by the operator's next Enter.
                 ItemId = string.Empty;
             }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Spend the store credit this sale is settling with, if any. False means **abort the sale**.
+        ///
+        /// ⚠ Called BEFORE the commit, deliberately — see the call site. Everything it can refuse is
+        /// something the server would have refused anyway; refusing here is what keeps the sale
+        /// abandonable.
+        ///
+        /// ⚠ THE ENTRY ID IS MINTED ONCE, HERE. It is what makes the redeem idempotent, so a retry
+        /// of the same attempt draws the balance down once. ⚠ Any retry the operator makes is a NEW
+        /// attempt with a new sale, so a fresh id is correct there — what must never happen is one
+        /// attempt generating two.
+        /// </summary>
+        private async Task<bool> TryRedeemStoreCreditAsync(
+            IReadOnlyList<Plutus.Contracts.Client.IngestTender> tenders)
+        {
+            var creditPence = tenders
+                .Where(t => t.TenderType == SharedKernel.Tenders.Credit)
+                .Sum(t => t.AmountPence);
+
+            if (creditPence <= 0) return true;   // nothing to spend — the ordinary case
+
+            // ⚠ Defence in depth: the button is only offered with a customer attached, but the
+            // basket and the attachment are separate state and a detach mid-checkout is possible.
+            // Committing a sale carrying credit nobody owns would be money from nowhere.
+            if (AttachedCustomer is null)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "This sale is paying with store credit but no member is attached any more. Nothing has been taken.",
+                    "OK".Translate());
+                return false;
+            }
+
+            var api = await Services.Storage.TillPlacement.TryCreateApiAsync();
+            if (api is null)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "Store credit can only be taken while the till is online. Nothing has been taken — take the payment another way.",
+                    "OK".Translate());
+                return false;
+            }
+
+            var (ok, problem) = await api.RedeemCreditAsync(
+                AttachedCustomer.Id, creditPence, Uuid7.New(), Uuid7.New());
+
+            if (!ok)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    (problem ?? "That store credit couldn't be taken.")
+                    + " Nothing has been taken — the basket is still here.",
+                    "OK".Translate());
+                return false;
+            }
+
+            Logger.LogEvent(AppLogLevel.Info, $"{GetType().Name}: Store credit redeemed",
+                new Dictionary<string, string>
+                {
+                    { "CustomerId", AttachedCustomer.Id.ToString() },
+                    { "AmountPence", creditPence.ToString() },
+                });
 
             return true;
         }
@@ -2185,6 +2257,17 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                             .DefaultIfEmpty(0)
                             .First();
 
+                        // ⚠ STORE CREDIT IS CAPPED AT THE BALANCE, through the SAME mechanism finding
+                        // Y built for refunds — the loop already knows how to refuse a tender that
+                        // exceeds its own limit and to word the prompt from it. Inventing a second
+                        // cap here would be a second rule about how much a tender may take.
+                        //
+                        // ⚠ It caps what can be TYPED. The server still refuses an overdraw at redeem
+                        // time, and that refusal still aborts the sale — this only means the operator
+                        // meets the limit before the customer does.
+                        if (SharedKernel.Tenders.FromMethodName(method.Name) == SharedKernel.Tenders.Credit)
+                            capPence = CreditAvailablePence;
+
                         return new Plutus.Client.Core.TenderChoice(
                             picked, method.IsChangeable, feePence, capPence);
                     },
@@ -2508,6 +2591,18 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 // customer has already been handed a receipt for.
                 var tenders = Services.Storage.CheckoutCommit.TendersFrom(
                     sale.PaySales.Select(p => ((string?)p.TempPayMethod?.Name, p.Amount, p.Change)));
+
+                // ⚠⚠ STORE CREDIT IS SPENT BEFORE THE SALE IS RECORDED, AND A FAILURE ABORTS.
+                //
+                // The SERVER owns the balance, so anything it will refuse — an overdraw, a repeat —
+                // has to be refused while the sale can still be abandoned. Redeeming afterwards
+                // would leave a recorded sale that was never fully paid, with the customer gone and
+                // nothing on the till to say so. Same order, and the same reason, as the web till
+                // (`api.ts:1090`) and as FE7's gift cards.
+                //
+                // ⚠ NOTHING HAS BEEN TAKEN when this refuses: no sale row, no outbox entry. The
+                // basket survives, which is what lets the operator take the money another way.
+                if (!await TryRedeemStoreCreditAsync(tenders)) return;
 
                 var outcome = await Services.Storage.CheckoutCommit.CommitAsync(
                     Basket, tenders, App.GetViewModel().SignedInOperator?.UserId);
@@ -2871,7 +2966,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
             var offered = refundOnly
                 ? Services.Sales.TillTenders.OfferedForRefund(refundToTenderTypes)
-                : Services.Sales.TillTenders.Offered(false);
+                // ⚠ The attached customer's LIVE balance, read at attach. Zero when nobody is
+                // attached — which is what keeps the button off the sheet unless it can be spent.
+                : Services.Sales.TillTenders.Offered(false, CreditAvailablePence);
 
             return offered.ToDictionary<
                 Services.Sales.TillTender, string, Func<PaymentMethodModel>>(

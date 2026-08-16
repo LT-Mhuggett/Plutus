@@ -1,6 +1,6 @@
 # Test Maui — the MAUI till hand-test script
 
-**For till 1.57.0.** Anyone can run this. You do not need to know the codebase, and you should not
+**For till 1.58.0.** Anyone can run this. You do not need to know the codebase, and you should not
 need to ask anyone what a step means — if a step is unclear, that is a bug in this document, so please
 say so.
 
@@ -13,7 +13,7 @@ if that is all the time you have.
 
 | | |
 |---|---|
-| **Run** | `D:\tmp\plutus-till-1.57.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
+| **Run** | `D:\tmp\plutus-till-1.58.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
 | **Sign in as** | any operator with **Supervisor** or above — some steps need permission to change stock |
@@ -718,3 +718,35 @@ are items in the basket, **the discount appears immediately**.
 
 ⚠ If no tiers exist yet it should say they are created in the portal, rather than showing an empty
 list.
+
+## G11. Store credit as a payment — **NEW in 1.58.0**
+
+You need a member with a **store-credit balance** (add one in the portal).
+
+1. Put **£10** of items in the basket. Attach that member.
+2. Press **Checkout**.
+
+**✅ Expected:** the payment list now offers **Store credit** alongside Cash and Card — *only*
+because a member with a balance is attached.
+
+3. Choose **Store credit** and pay **part** of the sale, say £4. Then pay the rest by cash.
+
+**✅ Expected:** the split works exactly like a cash/card split; the sale completes.
+
+4. Check the member's balance in the portal.
+
+**✅ Expected:** it has gone down by **exactly** what you spent, once.
+
+## G12. ⚠ The store-credit refusals — these are the money ones
+
+| Do | Expect |
+|---|---|
+| **Detach** the member, then checkout | **No** Store credit button at all |
+| Attach a member whose balance is **£0** | **No** Store credit button |
+| Try to spend **more** than the balance | Refused, and it says how much is actually there |
+| Do a **refund** with a member attached | **No** Store credit button — a refund never goes back onto credit |
+| Pull the **network**, then try to pay with credit | Refused, saying the till must be online. **Nothing taken**, basket intact |
+
+⚠ **The last row matters most.** Store credit is spent on the server *before* the sale is recorded,
+so if that fails the sale must not happen at all. Check the basket is still there and that **no sale
+appears** in the portal afterwards.

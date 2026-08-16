@@ -1048,6 +1048,63 @@ public sealed class PlutusApiClient
     }
 
     /// <summary>
+    /// Spend a customer's store credit against a sale.
+    ///
+    /// ⚠⚠ CALL IT **BEFORE** THE SALE IS RECORDED, and abort the sale if it fails — the ordering is
+    /// the rule, not a preference. The SERVER owns the balance, so anything it will refuse (an
+    /// overdraw, a second attempt) must be refused while the sale can still be abandoned. Redeem
+    /// after committing and an overdraw leaves a recorded sale that was never fully paid, with the
+    /// customer gone. The web till does exactly this at `api.ts:1090`.
+    ///
+    /// ⚠ IDEMPOTENT BY <paramref name="entryId"/>, which is what makes a
+    /// queued-then-drained sale safe: the same entry id can arrive twice and only draws down once.
+    /// **Generate it once per attempt and reuse it on retry** — a fresh id on retry spends the
+    /// balance twice.
+    ///
+    /// ⚠ ONLINE-ONLY, permanently. A till cannot verify a server-held balance offline, which is why
+    /// `TillTenders` only offers the button when there is a live balance to spend.
+    /// </summary>
+    /// <param name="amountPence">Positive pence to draw down.</param>
+    public async Task<(bool Ok, string? Problem)> RedeemCreditAsync(
+        Guid customerId, long amountPence, Guid saleId, Guid entryId, CancellationToken ct = default)
+    {
+        if (amountPence <= 0) return (false, "A store-credit payment has to be more than nothing.");
+
+        try
+        {
+            using var req = new HttpRequestMessage(
+                HttpMethod.Post, $"/api/v1/customers/{customerId:D}/credit/redeem")
+            {
+                Content = JsonContent.Create(new Dictionary<string, object?>
+                {
+                    ["amountPence"] = amountPence,
+                    ["saleId"] = saleId,
+                    ["entryId"] = entryId,
+                    // ⚠ The same wording the web till sends, so one report reads consistently
+                    // whichever till took the money.
+                    ["reason"] = "till sale",
+                }, options: Json),
+            };
+
+            await AuthoriseAsync(req, ct);
+            using var res = await _http.SendAsync(req, ct);
+            if (res.IsSuccessStatusCode) return (true, null);
+
+            // ⚠ A 400 here is almost always an OVERDRAW, and the server's own words name the real
+            // balance — far more use at a counter than "that didn't work".
+            var detail = await res.Content.ReadAsStringAsync(ct);
+            return (false, string.IsNullOrWhiteSpace(detail)
+                ? $"Plutus wouldn't take that store credit ({(int)res.StatusCode})."
+                : detail);
+        }
+        catch (Exception ex)
+        {
+            // ⚠ A failure to REACH the server must read as "not taken", never as "probably fine".
+            return (false, $"Store credit couldn't be taken: {ex.Message}");
+        }
+    }
+
+    /// <summary>
     /// Assign a member one of the tenant's tiers.
     ///
     /// ⚠ Needs **`customers.manage`** — Supervisor and up (binding default 20: *"Supervisor to
