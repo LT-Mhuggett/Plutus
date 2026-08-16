@@ -314,6 +314,16 @@ namespace Plutus.Frontend.AppClient.Services.Sync
                 Analytics.CrashLog.Write("TillCadence.VatBands", ex);
             }
 
+            // 4b. The store's RECEIPT LAYOUT, set in the portal (step 26).
+            //
+            // ⚠ REFRESHED ON THE CADENCE, NEVER AT PRINT TIME. A printer job must not wait on the
+            // network — a receipt is the one thing an operator is standing there watching for — so
+            // the template is fetched here and read from the cache when the paper is built.
+            //
+            // ⚠ Never blocks the tick, and a failure keeps the LAST-KNOWN template rather than
+            // reverting a shop's receipt mid-day.
+            await Printing.ReceiptBranding.RefreshAsync(ct).ConfigureAwait(false);
+
             // 5. Re-read WHO MAY USE THIS TILL, and what they may do.
             //
             // ⚠ NOTHING DID THIS ON A CADENCE UNTIL 2026-08-11, and Matt spotted it: *"MAUI getting

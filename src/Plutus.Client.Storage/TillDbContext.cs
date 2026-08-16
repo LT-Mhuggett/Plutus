@@ -317,4 +317,17 @@ public static class MetaKeys
     /// them. ⚠ Never "today's rate" — the timeline is what lets an offline till apply a
     /// future-dated rate change on the correct day.</summary>
     public const string VatBands = "vatBands";
+
+    /// <summary>
+    /// The store's receipt layout as the portal set it — the raw `receiptTemplateJson` blob.
+    ///
+    /// ⚠ CACHED SO A RECEIPT PRINTS THE SAME WITH THE LINE DOWN. The template decides what a
+    /// customer's paper says about the trader; falling back to a hardcoded layout during an outage
+    /// would print a different receipt for the same shop, and the customer's copy is the only
+    /// evidence they have.
+    ///
+    /// ⚠ The RAW blob, not a parsed one — the same reasoning as `VatBands`. A field this build does
+    /// not understand survives the round trip and reaches a till that does.
+    /// </summary>
+    public const string ReceiptTemplate = "receiptTemplate";
 }

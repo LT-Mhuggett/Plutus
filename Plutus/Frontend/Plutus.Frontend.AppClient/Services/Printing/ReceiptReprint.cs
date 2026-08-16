@@ -120,7 +120,10 @@ namespace Plutus.Frontend.AppClient.Services.Printing
                 return;
             }
 
-            var doc = ReceiptDocumentBuilder.Build(input with { Columns = status.Columns });
+            // ⚠ The portal's layout is applied HERE, at the last moment, so all three print paths
+            // get it from one place — see `ReceiptBranding`.
+            var branded = await ReceiptBranding.ApplyAsync(input with { Columns = status.Columns });
+            var doc = ReceiptDocumentBuilder.Build(branded);
             var ok = await new TillAgentClient(Http).PrintAsync(doc, App.GetViewModel().TillAgentTokenSetting ?? "");
 
             await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),

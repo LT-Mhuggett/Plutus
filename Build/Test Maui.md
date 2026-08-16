@@ -955,3 +955,36 @@ find.
 
 ⚠ **Your own till's sales must still reprint with the network down.** That is the common case and it
 does not need Plutus at all.
+
+## G23. The receipt now obeys the PORTAL — **NEW in 1.67.0**
+
+Until now MAUI's receipt layout was hardcoded. It now uses the store's template from the portal, the
+same one the web till uses.
+
+1. In the **portal**, open the store's receipt template. Set a **header line** ("Kapow! Comics"), a
+   **footer line** ("No refunds after 30 days"), and turn **Show VAT number** off.
+2. Wait a minute on the till (it refreshes on the 60-second cycle), or restart it.
+3. Sell something and print.
+
+**✅ Expected:** the receipt shows your header at the top and your footer at the bottom, and has **no
+VAT number**.
+
+4. Turn **Show VAT number** back on and print again.
+
+**✅ Expected:** the VAT number is back.
+
+5. ⚠ **Clear the template's store name and address in the portal**, then print.
+
+**✅ Expected:** it falls back to the **store's own** name and address — **not** a blank space where
+they were. A receipt has to identify the trader.
+
+6. Compare with a receipt printed from the **web till** for the same shop.
+
+**✅ Expected:** the same header, footer, address and toggles. Same shop, same paper.
+
+7. ⚠ **Pull the network and print.**
+
+**✅ Expected:** it still uses the last template it saw — **not** a reverted hardcoded layout. A
+customer's copy must not change shape because the broadband dropped.
+
+⚠ **Reprints too** (§G22): a reprint and a cross-till reprint use the same layout as the original.

@@ -79,8 +79,12 @@ namespace Plutus.Frontend.AppClient.Services.Printing
             // on a printer that treats a second kick as a fault, not at all.
             if (sale is null || status is null || !Paired) return false;
 
-            var doc = ReceiptDocumentBuilder.Build(
+            // ⚠ The portal's receipt layout is applied here, from the SAME overlay the two reprint
+            // paths use — one shop, one receipt, whichever door the paper came out of.
+            var branded = await ReceiptBranding.ApplyAsync(
                 InputFor(sale, basket, store, status.Columns, openDrawer && status.DrawerSupported));
+
+            var doc = ReceiptDocumentBuilder.Build(branded);
 
             return await Client.PrintAsync(doc, Token);
         }
