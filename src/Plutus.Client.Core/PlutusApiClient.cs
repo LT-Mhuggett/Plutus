@@ -1146,6 +1146,175 @@ public sealed class PlutusApiClient
         }
     }
 
+    // ── gift cards (WP13) ──────────────────────────────────────────────────────────────────────
+    //
+    // ⚠⚠ ALL THREE NEED CONNECTIVITY AND THERE IS NO OFFLINE QUEUE FOR THEM, deliberately. The
+    // SERVER is the balance authority; a card redeemed twice offline is money given away, and one
+    // activated twice is stored value created out of nothing. Ordinary sales stay offline-capable —
+    // these do not, and that is a property of the feature rather than a gap in it.
+
+    /// <summary>
+    /// What a scanned card is — balance, status and the tenant's VAT treatment.
+    ///
+    /// ⚠ 404 on an unknown or mis-keyed code, which is an ordinary outcome at a counter and returns
+    /// null rather than throwing.
+    /// </summary>
+    public Task<GiftCardLookupDto?> LookupGiftCardAsync(string code, CancellationToken ct = default) =>
+        GetAsync<GiftCardLookupDto>($"/api/v1/giftcards/{Uri.EscapeDataString(code ?? string.Empty)}/lookup", ct);
+
+    /// <summary>
+    /// SELL a card: load it with <paramref name="amountPence"/>.
+    ///
+    /// ⚠ CALL IT BEFORE THE SALE IS RECORDED and abort if it fails — a card that cannot be loaded
+    /// (already active, for instance) must stop the sale BEFORE the customer is charged for it.
+    /// ⚠ Idempotent by <paramref name="entryId"/>; **409 if the card is already active**.
+    /// </summary>
+    public Task<(bool Ok, long BalancePence, string? Problem)> ActivateGiftCardAsync(
+        string code, long amountPence, Guid saleId, Guid entryId,
+        Guid? customerId = null, CancellationToken ct = default) =>
+        GiftCardPostAsync(code, "activate", new Dictionary<string, object?>
+        {
+            ["amountPence"] = amountPence,
+            ["saleId"] = saleId,
+            ["entryId"] = entryId,
+            ["customerId"] = customerId,
+        }, ct);
+
+    /// <summary>
+    /// SPEND a card against a sale.
+    ///
+    /// ⚠ Same ordering rule as store credit and for the same reason: the server owns the balance, so
+    /// anything it will refuse must be refused while the sale can still be abandoned.
+    /// ⚠ Idempotent by <paramref name="entryId"/>; **409 on over-redeem, expired, void or unsold**.
+    /// </summary>
+    public Task<(bool Ok, long BalancePence, string? Problem)> RedeemGiftCardAsync(
+        string code, long amountPence, Guid saleId, Guid entryId, CancellationToken ct = default) =>
+        GiftCardPostAsync(code, "redeem", new Dictionary<string, object?>
+        {
+            ["amountPence"] = amountPence,
+            ["saleId"] = saleId,
+            ["entryId"] = entryId,
+        }, ct);
+
+    /// <summary>
+    /// A gift-card write.
+    ///
+    /// ⚠⚠ IT SURFACES THE SERVER'S OWN `detail`, unlike every other write on this client. A gift-card
+    /// refusal is a sentence the CASHIER has to read and act on — *"that card only has £12.50 left"* —
+    /// not a status code to swallow. The web till makes the same exception (`giftCardPost`) and for
+    /// the same reason.
+    ///
+    /// ⚠ A 409 WITH NO SETTINGS MEANS THE TENANT HAS NOT CHOSEN A VAT TREATMENT. `GiftCardSettings`'
+    /// absence 409s generate, activate AND redeem — by design, because the treatment decides when VAT
+    /// falls due and guessing it would put a wrong number on a VAT return. The message says so, or a
+    /// cashier is left reading "conflict" at a counter.
+    /// </summary>
+    private async Task<(bool Ok, long BalancePence, string? Problem)> GiftCardPostAsync(
+        string code, string action, Dictionary<string, object?> body, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return (false, 0, "No gift-card number was given.");
+
+        try
+        {
+            using var req = new HttpRequestMessage(
+                HttpMethod.Post, $"/api/v1/giftcards/{Uri.EscapeDataString(code)}/{action}")
+            {
+                Content = JsonContent.Create(body, options: Json),
+            };
+
+            await AuthoriseAsync(req, ct);
+            using var res = await _http.SendAsync(req, ct);
+
+            if (res.IsSuccessStatusCode)
+            {
+                var ok = await res.Content.ReadFromJsonAsync<GiftCardWriteResultDto>(Json, ct);
+                return (true, ok?.BalancePence ?? 0, null);
+            }
+
+            var detail = await res.Content.ReadAsStringAsync(ct);
+
+            // ⚠ The server sends ProblemDetails; pull `detail` out of it rather than showing an
+            // operator a JSON blob. Falling back to the raw body is deliberate — an unexpected shape
+            // is still more use than "something went wrong".
+            var message = TryReadProblemDetail(detail) ?? detail;
+
+            if (string.IsNullOrWhiteSpace(message))
+                message = $"Plutus wouldn't {action} that gift card ({(int)res.StatusCode}).";
+
+            return (false, 0, message);
+        }
+        catch (Exception ex)
+        {
+            // ⚠ Unreachable must read as "not done", never as "probably fine".
+            return (false, 0, $"That gift card couldn't be reached: {ex.Message}");
+        }
+    }
+
+    private static string? TryReadProblemDetail(string? body)
+    {
+        if (string.IsNullOrWhiteSpace(body)) return null;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(body);
+            return doc.RootElement.TryGetProperty("detail", out var d) ? d.GetString() : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>What a gift-card write answers with.</summary>
+    public sealed class GiftCardWriteResultDto
+    {
+        public Guid EntryId { get; set; }
+        public string? Code { get; set; }
+        public long BalancePence { get; set; }
+    }
+
+    /// <summary>
+    /// A gift card as the till needs to see it.
+    /// </summary>
+    /// <remarks>
+    /// ⚠ <see cref="VatTreatment"/> IS NOT COSMETIC — it decides WHEN the card's VAT falls due, and
+    /// the two answers are genuinely different taxes at different moments:
+    ///   • <b>multi</b> (the tenant sells mixed rates): **no VAT when the card is sold** — it is a
+    ///     liability, not a supply — and VAT comes off the goods when the card is SPENT.
+    ///   • <b>single</b> (everything one rate): VAT is charged when the card is **SOLD**, and a
+    ///     redemption then reduces the sale's VAT-able total rather than acting as a plain tender.
+    /// Guessing it puts a wrong figure on a VAT return, which is why the server 409s rather than
+    /// defaulting when the tenant has not chosen.
+    /// </remarks>
+    public sealed class GiftCardLookupDto
+    {
+        public string? Code { get; set; }
+
+        /// <summary>Grouped for reading aloud — "K7QP-2M9W-XT4R-8".</summary>
+        public string? Pretty { get; set; }
+
+        public long BalancePence { get; set; }
+
+        /// <summary>unsold · active · spent · expired · void</summary>
+        public string? Status { get; set; }
+
+        public DateTime? ExpiresAtUtc { get; set; }
+        public Guid? CustomerId { get; set; }
+
+        /// <summary>The catalogue row an activation is rung through — stock-untracked. ⚠ Compare it
+        /// with <see cref="Plutus.SharedKernel.GiftCards.ItemIdOne"/>, never a literal.</summary>
+        public string? ItemIdOne { get; set; }
+
+        /// <summary>"multi" or "single" — see the remarks on this class.</summary>
+        public string? VatTreatment { get; set; }
+
+        /// <summary>⚠ Can this card be SPENT right now? Only an `active` card with money on it.
+        /// `unsold` is the trap: a card on the rack has a code and looks real, and taking it as
+        /// payment would give away goods against value nobody ever bought.</summary>
+        public bool IsSpendable =>
+            string.Equals(Status, "active", StringComparison.OrdinalIgnoreCase) && BalancePence > 0;
+    }
+
     private async Task<T?> GetAsync<T>(string url, CancellationToken ct)
     {
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
