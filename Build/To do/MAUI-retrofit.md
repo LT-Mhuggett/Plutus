@@ -52,7 +52,13 @@ item-identity seam all outlive the retrofit, and archiving them unlifted buries 
 ## Where it stands
 
 **Counted from Part B, not estimated — recounted 2026-08-16: 77 capability rows.**
-**42 ✅ both tills · 15 MAUI ⬜ · 7 MAUI 🟡 · 7 where MAUI is AHEAD of the web till.**
+**42 ✅ both tills · 8 MAUI ⬜ · 14 MAUI 🟡 · 7 where MAUI is AHEAD of the web till.**
+
+⚠ **Recounted 2026-08-16 after steps 27 and 26.** The ⬜ column halved because step 27 (loyalty, gift
+cards, store credit) and step 26 (reporting, tables, cross-till lookup, receipt template) landed —
+but **almost everything they moved went to 🟡, not ✅**, because NO PERSON HAS RUN ANY OF IT. 🟡 here
+means "built, tested where testable, unverified on screen". Five status markers were found wrong in
+one week; a sixth is not being added by calling untested screens done.
 
 ⚠ **Recount, not a re-estimate.** Two rows were added 2026-08-14 (the discount audit trail, ✅ both;
 the discount ceiling + step-up, ⬜ on the **web** till), and **refund-only baskets moved ⬜ → ✅ on
@@ -1198,6 +1204,40 @@ all."*
 shipped, but is either unreachable from the UI or reachable only in a way that cannot affect the
 platform.
 
+> ### ⚠ A REMOVAL SWEEP IS OWED, AND IT IS NOT THE SAME AS THIS REGISTER
+>
+> **Matt, 2026-08-16:** *"I think we need to go through at one point and check what can be removed
+> from MAUI."*
+>
+> **This register lists what was ALREADY KNOWN to be legacy when it was written (L1–L10).** It is not
+> the answer to *"what in this app is now dead?"* — the retrofit has since replaced whole screens,
+> and things fall out of use without anybody noticing. Four examples found by accident in one
+> session on 2026-08-14/16, none of them in L1–L10:
+>
+> - ~35 lines building `sale.Transactions` / `sale.Refunds` on **every checkout**, read by nothing
+> - `sale.Notes`, copied at checkout and read back at print time, for no reason
+> - a **duplicate** `GetReportSummaryAsync` that no caller used
+> - `SaleFinder`, a whole class, unused within an hour of being written
+>
+> ⚠ **Each was found by tripping over it, not by looking** — which is exactly why a deliberate sweep
+> is worth doing rather than trusting that the register is complete.
+>
+> **What the sweep should actually do** (~1–2d, and best AFTER the remaining steps land, or it will
+> be redone):
+> 1. Every `public`/`internal` type in `Plutus.Frontend.AppClient` with **no reference** outside its
+>    own file or tests — the `SaleFinder` shape.
+> 2. Every **legacy-model write** whose value is never read back — the `sale.Transactions` shape.
+>    ⚠ Grep for assignments into `Database.Models` types from the till path.
+> 3. Every **XAML view with no route** into it, and every viewmodel only that view constructs.
+> 4. Duplicate client methods hitting **one endpoint** two ways.
+> 5. ⚠ The **`Plutus.Frontend.ClientUI`** project (L10) — still in `Plutus.slnx`, still building.
+>
+> ⚠⚠ **A "no references" grep is a starting list, NOT a verdict.** MAUI resolves things by NAME at
+> runtime — XAML `x:Class`, `{Binding}` paths, `MessagingCenter` subscriptions, Shell routes — and
+> none of those are compile-time references. **Anything the sweep proposes gets checked against the
+> XAML and the messaging centre before it goes**, or a screen renders blank in Release and nobody
+> finds out until a hand-run.
+
 > ⚠ **Do the deletions LAST, and in the stated order.** Several are load-bearing for each other —
 > `Helpers/Database/Database.cs` cannot go until every screen above it has, and the legacy models
 > cannot go until that does. Deleting bottom-up produces a build that will not compile and a diff
@@ -1259,8 +1299,22 @@ this till has never once succeeded.**
 
 ### L4 — Till-side reporting
 
-**Code:** `ViewModels/MainTill/Statistics/SalesReportsViewModel.cs`, `StockOuttakeViewModel.cs` and
-their views. ⚠️ **Live — still reachable; warned, not hidden.** **Replaced by step 26.** **Order:** after step 26 ships.
+**Code:** `ViewModels/MainTill/Statistics/SalesReportsViewModel.cs`, `StockOuttakeViewModel.cs`,
+`StatisticsViewModel.cs` and their views.
+
+⚠️ **HIDDEN 2026-08-16 (till 1.68.0) — MARKED FOR DELETION, NOT DELETED.** Matt: *"Can you hide this
+and mark it for deletion but NOT delete it."* The tab registration in `AppShell.xaml.cs` is commented
+out with the reasoning beside it; **every file remains in the build.** Replaced by the **Reports**
+tab (step 26), which reads the platform.
+
+⚠⚠ **IT IS BLOCKED ON A QUESTION, NOT ON CODE.** Deleting these screens deletes the **only** reader
+of the pre-cutover legacy file. A till migrated from NatApp still holds real history there and
+nothing else in the app can show it. **The question for Matt: does anyone still need pre-cutover
+history ON A TILL, given the platform holds everything since?** If no, this deletes cleanly and takes
+Syncfusion with it. **Do not answer it by quietly deleting the files.**
+
+⚠ **Hidden is already most of the benefit**: nobody can now reach a screen that reports £0.00 for a
+day the shop took £2,000. What deletion additionally buys is the Syncfusion removal below.
 
 Both read the legacy local database throughout. Since step 11, sales go to the v2 store and the
 platform — **not** there — so on a portal-provisioned till these report **zero** for everything sold

@@ -44,7 +44,25 @@ namespace Plutus.Frontend.AppClient
             // in that legacy file, and its screens are the only way to see it. It goes with L4, once
             // the cross-till lookup lands and there is nothing left it uniquely answers.
             tabBar.Items.Add(Tab(new Views.MainTill.Reports.ReportsView()));
-            tabBar.Items.Add(Tab(new Views.MainTill.Statistics.StatisticsView()));
+
+            // ⚠⚠ STATISTICS IS HIDDEN, NOT DELETED — Matt, 2026-08-16: *"Can you hide this and mark
+            // it for deletion but NOT delete it."*
+            //
+            // Its three viewmodels read the LEGACY LOCAL DATABASE, and sales stopped being written
+            // there at cutover step 11 — so the tab showed £0.00 for everything sold since, behind a
+            // red warning. Reports (above) replaces it and reads the platform.
+            //
+            // ⚠ THE CODE STAYS because it is the only reader of the pre-cutover legacy file. A till
+            // migrated from NatApp still holds real history there, and nothing else in the app can
+            // show it. Deleting the screens deletes the only way to look at it — cheap to do, and
+            // unrecoverable if somebody still needs it.
+            //
+            // ⚠ REMOVING IT IS [L4], and it is BLOCKED ON A QUESTION, not on code: does anyone still
+            // need pre-cutover history on a till, given the platform holds everything since? That is
+            // Matt's call and it is recorded in `MAUI-retrofit.md` §10 L4 — do not answer it here by
+            // quietly deleting the files.
+            //
+            //   tabBar.Items.Add(Tab(new Views.MainTill.Statistics.StatisticsView()));
             // ⚠ Loyalty landed with step 27 (2026-08-16) — the comment above said it was absent
             // deliberately "until the capability exists", and it now does: members, tiers and store
             // credit are all readable, and a tier is assigned from the Till tab against an attached
