@@ -858,3 +858,25 @@ list — that reads as "this shop has no members", which is a confident wrong st
 
 ⚠ **This tab is a LOOKUP.** You cannot create a tier here — tiers are made in the portal — and you
 assign one from the **Till** tab with a member attached (§G10).
+
+## G19. The table controls — **NEW in 1.62.0**, and they are new to this till entirely
+
+⚠ **No MAUI screen has ever had a sortable or paged table.** The Loyalty tab is the first. If these
+work here they get rolled out across reporting, so it is worth being fussy.
+
+On the **Loyalty** tab, with a decent number of members:
+
+| Do | Expect |
+|---|---|
+| Tap the **Member** header | Sorts by name. Tap again — reverses. The marker changes **⇅ → ▲ → ▼** |
+| Tap the **Credit** header | Sorts by amount. ⚠ **£100 must come after £9**, not before — that is the whole point |
+| Change **Show** to 50 or 100 | More rows per page, and it jumps back to page 1 |
+| Press **Next** / **Prev** | Moves a page. The counter reads **"26–50 of 240"** |
+| Get to the **last page** | **Next** goes grey — it must not vanish, or the row jumps about |
+| Search (the box at the top) | Re-queries Plutus, and the table returns to **page 1** |
+
+⚠ **The one most likely to be wrong is sorting by Credit.** If it puts £100 before £9 it is sorting
+the text rather than the number.
+
+⚠ **Also check "Till 2" sorts before "Till 10"** anywhere a numbered name appears. Plain sorting gets
+that backwards and it is the most visible way a table looks broken.

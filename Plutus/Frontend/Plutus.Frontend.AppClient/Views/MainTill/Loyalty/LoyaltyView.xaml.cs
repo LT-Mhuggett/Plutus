@@ -10,7 +10,7 @@ namespace Plutus.Frontend.AppClient.Views.MainTill.Loyalty
         public LoyaltyView()
         {
             InitializeComponent();
-            BindingContext = _vm = new LoyaltyViewModel(Rows, StatusLabel);
+            BindingContext = _vm = new LoyaltyViewModel(TableHost, StatusLabel);
         }
 
         /// <summary>

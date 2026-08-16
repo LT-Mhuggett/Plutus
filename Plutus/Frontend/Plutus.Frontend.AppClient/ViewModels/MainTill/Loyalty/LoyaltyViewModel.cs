@@ -23,14 +23,23 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
     /// </summary>
     public class LoyaltyViewModel : BaseViewModel
     {
-        private readonly Layout _rows;
+        private readonly ContentView _tableHost;
         private readonly Label _status;
+        private readonly Controls.TillTable<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto> _table;
         private string _search = string.Empty;
 
-        public LoyaltyViewModel(Layout rows, Label status)
+        public LoyaltyViewModel(ContentView tableHost, Label status)
         {
-            _rows = rows;
+            _tableHost = tableHost;
             _status = status;
+
+            // ⚠ NO SEARCH BOX ON THE TABLE. The page already has one, and that one re-queries the
+            // SERVER — the list is capped server-side, so filtering only what is on screen would
+            // quietly hide members who exist. Two boxes doing different things is worse than one.
+            _table = new Controls.TillTable<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>(
+                Columns(), search: null, emptyText: "No members or store credit yet.");
+
+            _tableHost.Content = _table;
 
             Title = "Loyalty";
             Icon = "card_membership";
@@ -105,55 +114,47 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
             MainThread.BeginInvokeOnMainThread(() =>
             {
                 _status.Text = status;
-                _rows.Clear();
-
-                if (rows is null) return;
-
-                foreach (var r in rows)
-                    _rows.Add(RowFor(r));
+                _table.SetRows(rows ?? Array.Empty<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>());
             });
         }
 
-        /// <summary>One member's line. ⚠ Every figure is formatted from what the SERVER said —
-        /// nothing is re-derived here, least of all whether a membership has expired.</summary>
-        private static View RowFor(Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto r)
+        /// <summary>
+        /// The columns, per `table-standard.md`.
+        ///
+        /// ⚠ THE BALANCE IS `Numeric`, WHICH IS NOT COSMETIC. It right-aligns so the column can be
+        /// read down, and — more importantly — it sorts as a NUMBER. Ordered as text, £100 comes
+        /// before £9, and a manager looking for the biggest balances gets nonsense.
+        ///
+        /// ⚠ The tier column sorts on the TIER NAME rather than its rendered text, so "Gold" and
+        /// "Gold (expired)" group together instead of splitting on a bracket.
+        /// </summary>
+        private static Controls.TableColumn<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>[] Columns() => new[]
         {
-            var grid = new Grid
-            {
-                ColumnSpacing = 8,
-                ColumnDefinitions =
-                {
-                    new ColumnDefinition { Width = GridLength.Star },
-                    new ColumnDefinition { Width = GridLength.Auto },
-                    new ColumnDefinition { Width = GridLength.Auto },
-                },
-            };
+            new Controls.TableColumn<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>(
+                "Member",
+                r => string.IsNullOrWhiteSpace(r.MemberNo)
+                    ? (string.IsNullOrWhiteSpace(r.Name) ? "(no name)" : r.Name)
+                    : $"{(string.IsNullOrWhiteSpace(r.Name) ? "(no name)" : r.Name)} · {r.MemberNo}"),
 
-            var name = string.IsNullOrWhiteSpace(r.Name) ? "(no name)" : r.Name;
-            var who = string.IsNullOrWhiteSpace(r.MemberNo) ? name : $"{name} · {r.MemberNo}";
+            new Controls.TableColumn<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>(
+                "Tier",
+                // ⚠ AN EXPIRED MEMBERSHIP SAYS SO. "Gold 10%" beside a lapsed member is an operator
+                // promising a discount the till will not give. `Expired` is the SERVER's verdict,
+                // never re-derived from a renewal date against this till's clock.
+                r => string.IsNullOrWhiteSpace(r.Tier)
+                    ? string.Empty
+                    : r.Expired
+                        ? $"{r.Tier} (expired)"
+                        : MemberDiscount.Label(r.Tier, r.AutoDiscountRate ?? 0m),
+                SortText: r => r.Tier ?? string.Empty),
 
-            grid.Add(new Label { Text = who, VerticalOptions = LayoutOptions.Center }, 0);
-
-            // ⚠ AN EXPIRED MEMBERSHIP SAYS SO. Showing "Gold 10%" beside a lapsed member is how an
-            // operator promises a discount the till will not give — the shared rule decides, and
-            // `Expired` is the SERVER's verdict, never re-derived from a renewal date here.
-            var tier = string.IsNullOrWhiteSpace(r.Tier)
-                ? string.Empty
-                : r.Expired
-                    ? $"{r.Tier} (expired)"
-                    : MemberDiscount.Label(r.Tier, r.AutoDiscountRate ?? 0m);
-
-            grid.Add(new Label { Text = tier, VerticalOptions = LayoutOptions.Center }, 1);
-
-            grid.Add(new Label
-            {
-                Text = r.CreditBalancePence == 0
+            new Controls.TableColumn<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>(
+                "Credit",
+                r => r.CreditBalancePence == 0
                     ? string.Empty
                     : (r.CreditBalancePence / 100m).ToString("C2", CultureInfo.CurrentCulture),
-                VerticalOptions = LayoutOptions.Center,
-            }, 2);
-
-            return grid;
-        }
+                Numeric: true,
+                SortNumber: r => r.CreditBalancePence),
+        };
     }
 }

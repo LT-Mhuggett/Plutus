@@ -23,6 +23,9 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
+        <!-- ⚠ The SERVER search box, distinct from the table's own. This one re-queries Plutus
+             (the list is capped server-side); the table's filters what is already on screen. Two
+             boxes would confuse, so the table is built without one — see the viewmodel. -->
         <Grid Grid.Row="0" ColumnSpacing="6">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -37,8 +40,8 @@
 
         <Label Grid.Row="1" x:Name="StatusLabel" Margin="0,6" />
 
-        <ScrollView Grid.Row="2">
-            <VerticalStackLayout x:Name="Rows" Spacing="2"/>
-        </ScrollView>
+        <!-- ⚠ The table is added HERE in code (`TillTable`), because it is generic and XAML cannot
+             express `TillTable<LoyaltyRowDto>` without a markup extension nobody else needs. -->
+        <ContentView Grid.Row="2" x:Name="TableHost"/>
     </Grid>
 </ContentPage>
