@@ -1187,3 +1187,59 @@ Unplug the network and press **Help and support**.
 
 **❌ If it ever says a ticket was sent while offline, that is a serious bug.** Tickets are deliberately
 NOT queued: a shop that believes it has reached support is worse off than one that knows it has not.
+
+## G27. ⚠⚠ A removed till must stop — and a REQUEST must not — **NEW in 1.70.0**
+
+⚠⚠ **This is a security step, and it is the most important one in 1.70.0.** Until now, revoking a
+till in the portal did **not** stop it: device tokens have no server-side denylist, so a lost or
+stolen till carried on selling for **up to 12 hours**. Nothing on the till ever asked.
+
+⚠ **Both halves matter, and the second one more.** A till that stops when it shouldn't is a shop
+that can't trade.
+
+### G27a. Ask for this till to be removed
+
+1. **Plutus tab** → **Ask for this till to be removed** → confirm.
+
+**✅ Expected:** *"Plutus has your request. A manager approves it in the portal — this till keeps
+working until they do."*
+
+2. **Now go and sell something.**
+
+**✅ Expected: the sale goes through completely normally.** The till is `PendingRemoval`, which is
+**not** a stop signal.
+
+**❌ If the till stops trading here, that is a serious bug** — it would mean anybody able to press
+that button can close a shop.
+
+3. Check the **portal**: the till appears in the removal queue.
+4. **Reject** the removal in the portal. Within a minute the Plutus tab shows the till Active again.
+
+### G27b. ⚠⚠ Now actually revoke it
+
+1. In the portal, **approve** the removal (or revoke the device directly).
+2. **Leave the till alone and watch it — do not touch the Plutus tab.**
+
+**✅ Expected: within about a minute the till signs itself out on its own**, showing:
+*"This till has been removed in Plutus and can no longer be used. Speak to your manager — it can be
+re-enrolled from the portal."*
+
+3. Try to sign in again.
+
+**✅ Expected: it refuses.**
+
+**❌ If the till keeps selling, say so immediately** — that is the whole point of this step, and it
+is exactly what happened on every build before 1.70.0.
+
+⚠ **Re-enrol it from the portal afterwards** so the till is usable for the rest of your testing.
+
+### G27c. ⚠ And the case that must NOT stop it — pull the network cable
+
+With the till working normally, **unplug the network** and leave it for a few minutes.
+
+**✅ Expected: the till carries on completely normally.** It may say it can't reach Plutus; it must
+**never** sign itself out or claim it has been removed.
+
+**❌ If a network drop ever signs the till out, that is a worse bug than the one G27b tests** — it
+would close a shop every time its broadband hiccuped, and it would hit the worst-connected shops
+first.

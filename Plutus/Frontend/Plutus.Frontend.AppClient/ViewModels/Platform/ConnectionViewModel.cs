@@ -182,6 +182,20 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
         private Command _forgetCommand;
         public Command ForgetCommand => _forgetCommand ??= new Command(async () => await ForgetAsync());
 
+        Command _requestRemovalCommand;
+
+        /// <summary>
+        /// Ask the platform to take this till off the estate (WP4, step 21).
+        ///
+        /// ⚠ NOT THE SAME AS "Forget this till", and the wording has to keep them apart. *Forget* is
+        /// local and immediate — this machine drops its credential. *Request removal* asks the
+        /// PLATFORM, a manager approves it in the portal, and the till **keeps trading** until they
+        /// do. Somebody who wanted one and pressed the other has either stranded a working till or
+        /// left a stolen one enrolled.
+        /// </summary>
+        public Command RequestRemovalCommand =>
+            _requestRemovalCommand ??= new Command(async () => await RequestRemovalAsync());
+
         private Command _continueCommand;
         public Command ContinueCommand => _continueCommand ??= new Command(Continue);
 
@@ -568,6 +582,70 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
                 LastAction = Friendly("Couldn't sync staff", ex);
             }
             finally { Busy = false; }
+        }
+
+        /// <summary>
+        /// Ask the platform to un-enrol this till. WP4's last piece — there was no client code at
+        /// all, so the server's endpoint had nothing calling it.
+        ///
+        /// ⚠⚠ IT DOES NOT REMOVE ANYTHING, and the confirmation says so twice. The device becomes
+        /// `PendingRemoval` and **carries on trading** until a human approves it in the portal —
+        /// because halting a till the moment somebody requests it back would make un-enrolment a way
+        /// to take a shop down. An operator told "this till has been removed" would stop using a
+        /// till that still works, which is the same outage by a different route.
+        ///
+        /// ⚠ A till may only request its OWN removal; the server refuses any other device id with a
+        /// 403, so one enrolled till cannot start the removal of every other till in the estate.
+        /// </summary>
+        private async Task RequestRemovalAsync()
+        {
+            if (Busy) return;
+
+            if (_credentials?.DeviceId is not Guid deviceId)
+            {
+                LastAction = "This till isn't enrolled, so there is nothing to remove.";
+                return;
+            }
+
+            var confirmed = await App.Current.MainPage.DisplayAlert(
+                "Ask for this till to be removed?",
+                "This asks Plutus to take this till off your estate. A manager has to approve it in "
+                + "the portal.\n\nNothing changes yet — the till carries on working normally until "
+                + "they do.",
+                "Ask for removal", "Cancel");
+
+            if (!confirmed) return;
+
+            try
+            {
+                Busy = true;
+
+                var api = await TillPlacement.TryCreateApiAsync();
+
+                // ⚠ NEVER SAY "asked" UNLESS IT WAS. A till that reports a request nobody received
+                // is worse than one that reports a failure — the manager waits for a queue entry
+                // that will never arrive.
+                if (api is not null && await api.RequestUnenrolAsync(deviceId))
+                {
+                    LastAction = "Plutus has your request. A manager approves it in the portal — "
+                               + "this till keeps working until they do.";
+                    await CheckAsync();
+                }
+                else
+                {
+                    LastAction = "That didn't reach Plutus, so nothing has been asked for. "
+                               + "Try again when the connection is back.";
+                }
+            }
+            catch (Exception ex)
+            {
+                Services.Analytics.CrashLog.Write("Connection.RequestRemoval", ex);
+                LastAction = "That didn't work. Nothing has been asked for.";
+            }
+            finally
+            {
+                Busy = false;
+            }
         }
 
         private async Task ForgetAsync()

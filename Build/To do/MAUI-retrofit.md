@@ -587,9 +587,12 @@ yet"*.
 takes effect on the next sign-in; an employee created on the till can sign in on the web till and
 vice versa.
 
-⚠ **Help / support tickets ride here** (§4) — `/api/v1/support/tickets`, gated `support.tickets`,
-which every built-in role holds because a lone cashier with a dead till must be able to shout for
-help. Needs the operator token, which is wired.
+⚠ ~~**Help / support tickets ride here**~~ — ✅ **DONE 2026-08-16 (till 1.70.0), ahead of this step.**
+It needed none of step 24's employee work, so it went with the rest of the notices cluster:
+**Settings → Help and support**, `Services/Support/SupportDesk.cs` + `Client.Core/SupportLabels.cs`
++ four `PlutusApiClient` methods (there was no shared half at all). `/api/v1/support/tickets`, gated
+`support.tickets`, which every built-in role holds because a lone cashier with a dead till must be
+able to shout for help. Uses the operator token, which was already wired.
 
 ### Step 26 — WP11 reporting + cross-till lookup · **10–12d** · ⚠ a rewrite, not a port
 
@@ -1035,7 +1038,7 @@ against the tree 2026-08-12:
 | Delete `SettingsViewModel.ExecuteDeleteDb` | ✅ Gone |
 | Fix `AppViewModel.EmployeeId` = `Employees.Last().Id` | ✅ **No longer crashes** — null is a normal answer now. Its *deletion* is [L9](#l9--appviewmodelemployeeid-and-appviewmodelemployees) |
 | ⚠⚠ **Delete `LoginViewModel.EnsureStoreAsync`** | ⬜ **BLOCKED — and this row was WRONG TWICE. Corrected against the tree 2026-08-14.** ❌ *"still throws every time"* — **it cannot throw at all**: the whole body sits in a `try` whose `catch` swallows to `CrashLog` precisely so a missing store can never block sign-in (`:394`). ❌ *"this is a deletion, ~½d"* — **deleting it NullReferences two inventory screens**. Step 14's Meta cache replaced the store's *details* for display, but **`Store.Id` is the blocker, not the details**, and two screens dereference it outright: `AddEditViewModel.cs:330` and `ViewAllViewModel.cs:1324` (⚠ the code's own comment names only the first — corrected in the same commit). `Database.cs:43` also uses it but is null-guarded, so it degrades rather than breaks. **It goes with step 25**, when inventory moves off the legacy store and nothing needs a legacy store id — not before. ⚠ Do **not** "fix" this by null-coalescing the two dereferences to `0`: that silently writes stock rows against store 0. ⚠ Two printing call sites reference its five paths in comments (`PosPrinterManager.cs:150`, `TillAgentPrinting.cs:104`) — **a missing store must not lose the receipt**, and both already handle null |
-| **Un-enrol request + manager approval** | ⬜ **~1d.** WP4's last piece; there is **no client code at all** (grep for `unenrol` in the app returns nothing). The server side is ready — `POST /api/v1/tills/unenrol-request` got its device-token policy in step 19. ⚠ **`PendingRemoval` is not a stop signal, deliberately**: halting a till the moment someone requests it back would make un-enrolment a way to take a shop's till down. Only `Revoked` stops, and the till learns which from `GET /api/v1/tills/devices/{deviceId}/status` — and it **must poll it**, because device tokens are bearer tokens with **no server-side denylist**, so a revoked till otherwise keeps working until its 12h token expires |
+| **Un-enrol request + manager approval** | ✅ **DONE 2026-08-16 (till 1.70.0).** *"Ask for this till to be removed"* sits on the **Plutus tab** beside *Forget this till*, and `TillCadence` step 6 now polls device status on the 60s beat so a **revoked till actually stops** — `DeviceRevocation` (19 tests, mutation-checked both ways) decides, `TillCadence.DeviceRevoked` → `App.ForceSignOut` acts. ⚠ The polling half was the one that mattered: `ConnectivityProbe` already knew how to ask but ran only at sign-in and on the Plutus tab, so a till revoked mid-shift was never told and kept selling for up to its 12h token life. ⚠ Only an explicit `Revoked` stops anything — a failed poll, 401/403, 404 and unknown statuses all keep trading, because closing a shop on a network blip is the worse outage. Original note: WP4's last piece; there is **no client code at all** (grep for `unenrol` in the app returns nothing). The server side is ready — `POST /api/v1/tills/unenrol-request` got its device-token policy in step 19. ⚠ **`PendingRemoval` is not a stop signal, deliberately**: halting a till the moment someone requests it back would make un-enrolment a way to take a shop's till down. Only `Revoked` stops, and the till learns which from `GET /api/v1/tills/devices/{deviceId}/status` — and it **must poll it**, because device tokens are bearer tokens with **no server-side denylist**, so a revoked till otherwise keeps working until its 12h token expires |
 
 ### The cluster with no step at all
 

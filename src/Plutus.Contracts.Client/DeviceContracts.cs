@@ -35,6 +35,18 @@ public sealed record DeviceTokenRequest(Guid DeviceId, string ClientSecret);
 public sealed record DeviceTokenResult(string AccessToken, int ExpiresInSeconds);
 
 /// <summary>
+/// POST /api/v1/tills/unenrol-request — this till asks to be taken off the estate.
+///
+/// ⚠ A DEVICE MAY ONLY UN-ENROL ITSELF; the server refuses any other <c>DeviceId</c> with a 403.
+/// Without that, one enrolled till could start the removal of every other till in the estate, and
+/// removals are approved from a portal queue where a flood of plausible requests gets waved through.
+///
+/// ⚠ It does NOT remove anything. The device becomes <c>PendingRemoval</c> and **keeps trading**
+/// until somebody approves it in the portal.
+/// </summary>
+public sealed record UnenrolRequest(Guid DeviceId);
+
+/// <summary>
 /// GET /api/v1/tills/devices/{deviceId}/status — <c>"Active"</c> | <c>"PendingRemoval"</c> |
 /// <c>"Revoked"</c>. Gated <c>sales.ingest</c>, one indexed lookup.
 ///

@@ -158,6 +158,20 @@ public sealed class PlutusApiClient
         return (res.StatusCode, body);
     }
 
+    /// <summary>
+    /// Ask for this till to be taken off the estate (WP4, step 21).
+    ///
+    /// ⚠ THE TILL'S OWN DEVICE ID, always. The server refuses any other with a 403 — a till may only
+    /// un-enrol itself, or one enrolled till could start the removal of every other till in the
+    /// estate and the portal's approval queue would fill with plausible requests.
+    ///
+    /// ⚠ NOTHING IS REMOVED BY THIS. The device becomes <c>PendingRemoval</c> and keeps trading
+    /// until a human approves it in the portal — so the caller must not tell an operator the till
+    /// has been un-enrolled.
+    /// </summary>
+    public Task<bool> RequestUnenrolAsync(Guid deviceId, CancellationToken ct = default) =>
+        PostJsonAsync("/api/v1/tills/unenrol-request", new UnenrolRequest(deviceId), ct);
+
     /// <summary>WP5 heartbeat. Returns null when the server did not answer usefully — the caller
     /// treats that as "no signals", never as an error worth showing a customer-facing till.</summary>
     public async Task<HeartbeatResult?> HeartbeatAsync(HeartbeatRequest body, CancellationToken ct = default)

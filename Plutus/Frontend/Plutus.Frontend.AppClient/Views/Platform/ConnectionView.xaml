@@ -79,6 +79,16 @@
 
             <BoxView HeightRequest="1" Color="#22000000"/>
 
+            <!-- ⚠⚠ ASK FIRST, FORGET SECOND, and in that order on purpose (WP4, step 21). Asking is
+                 the reversible one: a manager approves it in the portal and the till keeps trading
+                 meanwhile. Forgetting is immediate and local, and a till forgotten by mistake needs
+                 a fresh enrolment code from somebody who may not be in the building.
+                 ⚠ It is NOT styled as destructive, because nothing is destroyed by pressing it. -->
+            <Button Text="Ask for this till to be removed" Command="{Binding RequestRemovalCommand}"
+                    IsEnabled="{Binding NotBusy}"/>
+            <Label FontSize="Micro" Opacity="0.6" LineBreakMode="WordWrap"
+                   Text="Asks Plutus to take this till off your estate. A manager approves it in the portal — the till keeps working until they do."/>
+
             <Button Text="Forget this till" Command="{Binding ForgetCommand}" BackgroundColor="#C1272D" TextColor="White"
                     IsEnabled="{Binding NotBusy}"/>
             <Label FontSize="Micro" Opacity="0.6" LineBreakMode="WordWrap"

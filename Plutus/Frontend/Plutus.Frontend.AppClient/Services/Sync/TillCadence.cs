@@ -59,6 +59,20 @@ namespace Plutus.Frontend.AppClient.Services.Sync
         /// </summary>
         public static Action<string> OperatorRevoked { get; set; }
 
+        /// <summary>
+        /// Told when the PLATFORM has revoked this DEVICE (WP4, step 21) — not the operator, the
+        /// till itself.
+        ///
+        /// ⚠ Separate from <see cref="OperatorRevoked"/> because the two need different words. An
+        /// operator is told their account is disabled and to see their manager; a revoked till must
+        /// say it is the TILL, or somebody tries another login, then another, and concludes the
+        /// staff accounts are broken.
+        ///
+        /// ⚠ Wired beside `Start()` in `App.xaml.cs`, never off a screen — the check must keep
+        /// working after everybody is signed out, which is exactly when a stolen till is revoked.
+        /// </summary>
+        public static Action<string> DeviceRevoked { get; set; }
+
         /// <summary>The last tick's outcome, for the Plutus tab to display. Never null after a tick.</summary>
         public static string LastResult { get; private set; } = "Not started.";
 
@@ -376,6 +390,46 @@ namespace Plutus.Frontend.AppClient.Services.Sync
             catch (Exception ex) when (!ct.IsCancellationRequested)
             {
                 Analytics.CrashLog.Write("TillCadence.Roster", ex);
+            }
+
+            // 6. ⚠⚠ IS THIS TILL STILL A TILL? (WP4, step 21.)
+            //
+            // Device tokens are HMAC bearer tokens with **no server-side denylist**, so revoking a
+            // device in the portal does NOT invalidate the token it already holds: a lost or stolen
+            // till keeps selling for up to its **12h TTL** unless it asks. This poll is the only
+            // revocation signal that reaches a till, and until now nothing on the beat asked —
+            // `ConnectivityProbe` knew how, but only ran at sign-in and on the Plutus tab.
+            //
+            // ⚠ ASKED VIA DEVICE STATUS, NOT BY MINTING A TOKEN. The token endpoint is rate-limited
+            // to 5/min per IP, so polling it would make a healthy till report itself revoked (429) —
+            // and tills sharing one shop's public IP would do it to each other.
+            //
+            // ⚠⚠ ONLY AN EXPLICIT `Revoked` STOPS ANYTHING — see `DeviceRevocation`. A failed poll,
+            // a 401/403, a 404 and an unknown status all keep trading, because stopping a shop on a
+            // network blip is a worse outage than the one this prevents. `PendingRemoval` trades on
+            // purpose too: halting a till the moment somebody *requests* it back would make
+            // un-enrolment a way to take a shop down.
+            try
+            {
+                var credential = await Connectivity.SecureDeviceCredentialStore.LoadAsync().ConfigureAwait(false);
+
+                // ⚠ A till with no device credential has nothing to be revoked — it has never been
+                // enrolled, and the login screen already handles that case.
+                if (credential?.DeviceId is Guid standingDeviceId)
+                {
+                    var (code, status) = await api.GetDeviceStatusAsync(standingDeviceId, ct).ConfigureAwait(false);
+
+                    if (Plutus.Client.Core.DeviceRevocation.MustStop(
+                            Plutus.Client.Core.DeviceRevocation.Check(code, status)))
+                    {
+                        DeviceRevoked?.Invoke(Plutus.Client.Core.DeviceRevocation.RevokedMessage);
+                    }
+                }
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                // ⚠ A poll that threw is not a revocation. Never blocks the tick.
+                Analytics.CrashLog.Write("TillCadence.DeviceStanding", ex);
             }
 
             var locked = beat.Locked ? $" ⚠ This till has been locked: {beat.LockReason}" : "";

@@ -71,6 +71,14 @@ namespace Plutus.Frontend.AppClient
                 () => GetViewModel()?.SignedInOperator?.UserId;
             Services.Sync.TillCadence.OperatorRevoked = ForceSignOut;
 
+            // ⚠⚠ AND WHEN THE PLATFORM REVOKES THE TILL ITSELF (WP4, step 21). Device tokens have no
+            // server-side denylist, so a stolen till keeps selling for up to 12h unless the beat
+            // asks and acts. Same door as an operator revocation — the till goes back to the login
+            // screen, where `TillConnectionCheck` then refuses to let anybody in — but a DIFFERENT
+            // message, because "your account is disabled" would send somebody hunting for a working
+            // login on a till that is finished.
+            Services.Sync.TillCadence.DeviceRevoked = ForceSignOut;
+
             Services.Sync.TillCadence.Start();
 
             // Where a till starts (2026-08-08, Matt: "When you have enrolled a till, what is the
