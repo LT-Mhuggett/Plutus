@@ -36,6 +36,11 @@ namespace Plutus.Frontend.AppClient
             tabBar.Items.Add(Tab(new Views.MainTill.Cash.CashView()));
             tabBar.Items.Add(Tab(new Views.MainTill.Inventory.InventoryView()));
             tabBar.Items.Add(Tab(new Views.MainTill.Statistics.StatisticsView()));
+            // ⚠ Loyalty landed with step 27 (2026-08-16) — the comment above said it was absent
+            // deliberately "until the capability exists", and it now does: members, tiers and store
+            // credit are all readable, and a tier is assigned from the Till tab against an attached
+            // member. It is a LOOKUP; tiers are still created in the portal only (default 20).
+            tabBar.Items.Add(Tab(new Views.MainTill.Loyalty.LoyaltyView()));
             if (DeviceInfo.Idiom == DeviceIdiom.Desktop)
             {
                 tabBar.Items.Add(Tab(new Views.MainTill.StoreOptions.StoreOptionsView()));

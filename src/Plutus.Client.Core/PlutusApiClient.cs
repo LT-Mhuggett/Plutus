@@ -1146,6 +1146,58 @@ public sealed class PlutusApiClient
         }
     }
 
+    /// <summary>
+    /// The loyalty list — everyone who is a member **or** holds store credit, with their tier,
+    /// auto-discount, renewal and live balance.
+    ///
+    /// ⚠ IT IS A LOOKUP, NOT A CONFIGURATION SCREEN. Tiers are created in the portal only (binding
+    /// default 20); a till reads this to answer *"what does this customer have?"* away from a sale.
+    ///
+    /// ⚠ The server orders by balance then name and clamps `take` to 1–500. The default of 200
+    /// matches the web till's, so the two show the same page of the same list.
+    /// </summary>
+    public async Task<List<LoyaltyRowDto>?> GetLoyaltyAsync(
+        string? search = null, int take = 200, CancellationToken ct = default)
+    {
+        var url = $"/api/v1/loyalty?take={take}" +
+                  (string.IsNullOrWhiteSpace(search) ? "" : $"&search={Uri.EscapeDataString(search)}");
+
+        // ⚠ The payload is `{ count, rows }`, not a bare array — reading it as an array silently
+        // yields nothing, which looks exactly like "this tenant has no members".
+        var page = await GetAsync<LoyaltyPageDto>(url, ct);
+        return page?.Rows;
+    }
+
+    private sealed class LoyaltyPageDto
+    {
+        public int Count { get; set; }
+        public List<LoyaltyRowDto>? Rows { get; set; }
+    }
+
+    /// <summary>One row of the loyalty list.</summary>
+    public sealed class LoyaltyRowDto
+    {
+        public Guid Id { get; set; }
+        public string? Name { get; set; }
+        public string? Email { get; set; }
+        public string? Phone { get; set; }
+        public string? MemberNo { get; set; }
+        public Guid? TierId { get; set; }
+        public string? Tier { get; set; }
+
+        /// <summary>⚠ The TIER's current rate, not a snapshot taken when it was assigned — re-rating
+        /// "Gold" in the portal moves every Gold member at once.</summary>
+        public decimal? AutoDiscountRate { get; set; }
+
+        public string? RenewalDay { get; set; }
+
+        /// <summary>⚠ The SERVER's verdict, never re-derived from <see cref="RenewalDay"/> against a
+        /// till's clock — one clock decides, or two tills disagree about who is entitled.</summary>
+        public bool Expired { get; set; }
+
+        public long CreditBalancePence { get; set; }
+    }
+
     // ── gift cards (WP13) ──────────────────────────────────────────────────────────────────────
     //
     // ⚠⚠ ALL THREE NEED CONNECTIVITY AND THERE IS NO OFFLINE QUEUE FOR THEM, deliberately. The

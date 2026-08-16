@@ -1,0 +1,44 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:i18n="clr-namespace:I18N_L10N.Extensions;assembly=I18N_L10N"
+             x:Class="Plutus.Frontend.AppClient.Views.MainTill.Loyalty.LoyaltyView"
+             Title="{Binding Title}"
+             IconImageSource="{Binding Icon, Converter={StaticResource MaterialIconConverter}}">
+    <!--
+        ⚠ THE ROWS ARE BUILT IN CODE, like Cash and Statistics, and deliberately so. MAUI bindings
+        fail SILENTLY — a binding to a property that no longer exists renders BLANK and never
+        throws — and every row here is somebody's money and somebody's entitlement. A blank tier is
+        a customer told they have no discount; a blank balance is credit that looks spent. Built in
+        code, a typo is a compile error.
+
+        ⚠ A Grid with an Auto/Auto/* triple, never a StackLayout: MAUI's StackLayout measures
+        children to their DESIRED height and does not distribute what is left, so a scrollable list
+        inside one collapses to a few rows. That exact mistake shipped on the item list.
+    -->
+    <Grid RowSpacing="0" Padding="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" ColumnSpacing="6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Entry Grid.Column="0"
+                   Text="{Binding Search, Mode=TwoWay}"
+                   Placeholder="{i18n:Translate SearchMembers}"
+                   ReturnCommand="{Binding RefreshCommand}"/>
+            <Button Grid.Column="1" Text="{i18n:Translate Search}" Command="{Binding RefreshCommand}"/>
+        </Grid>
+
+        <Label Grid.Row="1" x:Name="StatusLabel" Margin="0,6" />
+
+        <ScrollView Grid.Row="2">
+            <VerticalStackLayout x:Name="Rows" Spacing="2"/>
+        </ScrollView>
+    </Grid>
+</ContentPage>

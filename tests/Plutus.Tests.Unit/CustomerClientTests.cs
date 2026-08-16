@@ -52,6 +52,61 @@ public class CustomerClientTests
     private static HttpResponseMessage Text(string body, HttpStatusCode code)
         => new(code) { Content = new StringContent(body, System.Text.Encoding.UTF8, "text/plain") };
 
+    // ── the loyalty list (step 27) ──
+
+    /// <summary>
+    /// ⚠⚠ THE PAYLOAD IS `{ count, rows }`, NOT A BARE ARRAY. Reading it as an array yields nothing
+    /// and looks exactly like "this tenant has no members" — a silent empty screen with no error,
+    /// which is the hardest kind of wrong to notice.
+    /// </summary>
+    [Fact]
+    public async Task The_loyalty_list_is_read_out_of_the_paged_envelope()
+    {
+        var api = Api(_ => Json(
+            """{"count":2,"rows":[{"name":"Jo","creditBalancePence":500},{"name":"Sam","expired":true}]}"""),
+            out _);
+
+        var rows = await api.GetLoyaltyAsync();
+
+        Assert.Equal(2, rows!.Count);
+        Assert.Equal("Jo", rows[0].Name);
+        Assert.Equal(500, rows[0].CreditBalancePence);
+        Assert.True(rows[1].Expired);
+    }
+
+    /// <summary>⚠ The default take matches the web till's 200, so the two show the same page of the
+    /// same list rather than disagreeing about who is "in" it.</summary>
+    [Fact]
+    public async Task The_loyalty_list_defaults_to_the_web_tills_page_size()
+    {
+        var api = Api(_ => Json("""{"count":0,"rows":[]}"""), out var h);
+
+        await api.GetLoyaltyAsync();
+
+        Assert.Contains("take=200", h.Sent[0].RequestUri!.AbsoluteUri);
+    }
+
+    /// <summary>⚠ `&` is the character that matters for encoding — a raw one would reach the server
+    /// as a stray parameter and silently search for the wrong thing. `AbsoluteUri`, because
+    /// `Uri.ToString()` unescapes and cannot tell the two apart.</summary>
+    [Fact]
+    public async Task A_loyalty_search_term_is_encoded()
+    {
+        var api = Api(_ => Json("""{"count":0,"rows":[]}"""), out var h);
+
+        await api.GetLoyaltyAsync("Marks & Spencer");
+
+        Assert.Contains("search=Marks%20%26%20Spencer", h.Sent[0].RequestUri!.AbsoluteUri);
+    }
+
+    [Fact]
+    public async Task A_loyalty_list_that_cannot_be_read_is_nothing_rather_than_a_throw()
+    {
+        var api = Api(_ => new HttpResponseMessage(HttpStatusCode.Forbidden), out _);
+
+        Assert.Null(await api.GetLoyaltyAsync());
+    }
+
     // ── search: the URL the web till uses, character for character ──
 
     [Fact]

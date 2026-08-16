@@ -379,6 +379,9 @@ Please try again.</value>
   <data name="RemoveMember" xml:space="preserve">
     <value>Remove member</value>
   </data>
+  <data name="SearchMembers" xml:space="preserve">
+    <value>Search members</value>
+  </data>
   <data name="SetTier" xml:space="preserve">
     <value>Set tier</value>
   </data>

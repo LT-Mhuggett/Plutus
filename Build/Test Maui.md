@@ -832,3 +832,29 @@ Attach a member with a tier discount, then put **a gift card and an ordinary ite
 **✅ Expected:** the discount comes off the **item only**. The gift card is **never** discounted —
 selling £20 of spendable value for £18 hands over £20 of purchasing power, which then gets spent on
 already-discounted goods.
+
+## G18. The Loyalty tab — **NEW in 1.61.0**
+
+There is a new **Loyalty** tab. It lists everyone who is a member **or** holds store credit.
+
+1. Open it.
+
+**✅ Expected:** a list of members showing **name · member number**, their **tier and rate**
+(e.g. `Gold 10%`), and any **store-credit balance**. A count at the top.
+
+2. Type a name, part of an email, or a **member number** into the search box and press Search.
+
+**✅ Expected:** the list narrows. A member number should find exactly that person.
+
+3. Find a member whose membership has **expired**.
+
+**✅ Expected:** their tier reads **`Gold (expired)`** — not `Gold 10%`. ⚠ Showing a rate beside a
+lapsed member is how an operator promises a discount the till will not give.
+
+4. **Pull the network** and open the tab.
+
+**✅ Expected:** it says members can only be listed while online. ⚠ It must **not** show an empty
+list — that reads as "this shop has no members", which is a confident wrong statement.
+
+⚠ **This tab is a LOOKUP.** You cannot create a tier here — tiers are made in the portal — and you
+assign one from the **Till** tab with a member attached (§G10).
