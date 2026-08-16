@@ -1,6 +1,6 @@
 # Test Maui — the MAUI till hand-test script
 
-**For till 1.69.0.** Anyone can run this. You do not need to know the codebase, and you should not
+**For till 1.70.0.** Anyone can run this. You do not need to know the codebase, and you should not
 need to ask anyone what a step means — if a step is unclear, that is a bug in this document, so please
 say so.
 
@@ -38,7 +38,7 @@ on 2026-08-11 came from somebody noticing something, not from a step asking the 
 
 | | |
 |---|---|
-| **Run** | `D:\tmp\plutus-till-1.69.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
+| **Run** | `D:\tmp\plutus-till-1.70.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **1.70.0 has not been built yet — ask for it and it takes a couple of minutes.** Builds are made on request rather than after every change, so that what you test is the newest work and not the fourth build of five. The newest one on disk is **1.69.0**, which is everything below except §A1b. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
 | **Sign in as** | any operator with **Supervisor** or above — some steps need permission to change stock |
@@ -121,6 +121,32 @@ the list shows it. Press **Cancel** and confirm nothing changed.
 
 ⚠ **Adding a NEW item still uses the old question-then-form flow** (titled "New item — step 1 of 4").
 That is known, not a new bug — say if it bothers you and it gets the same treatment.
+
+## A1b. Change a price — does the VAT follow it? ⚠ NEW in 1.70.0
+
+Same screen as A1. This is a **money** step: the ex-VAT price is what every VAT return is built from,
+and you never type it — the till works it out from the band.
+
+1. **Inventory Management → View all items**, edit any **standard-rated (20%)** item.
+2. Set the **Price** to exactly **£10.00**, leave the band alone, **Save**.
+3. Find the item in the portal (or re-open it) and look at its **ex-VAT price**.
+
+**✅ Expected: £8.33.** Not £12.00, and not £10.00.
+
+4. Now set the price to **£7.99** and save again. **✅ Expected: £6.66.**
+
+**❌ If you see £12.00**, the till multiplied where it should have divided — stop and say so, because
+every item saved since would be wrong by 44%.
+
+⚠ **Why this is worth two minutes of your time:** free-typed ex-prices once corrupted **47 live
+items** — a £7.99 item carrying a £799.00 ex price — and with them every VAT figure downstream. The
+till no longer lets that number be typed at all, which is the actual fix; this step just confirms the
+arithmetic that replaced it.
+
+⚠ **One case you cannot easily test by hand**, so it is covered by tests instead: an item with **no
+VAT band** whose stored prices are already nonsense. The till used to carry that nonsense into the new
+price; it now refuses to, saves the item as VAT-free, and warns you that giving it a band is the fix.
+If you ever do see that warning, the item it names genuinely needs a band.
 
 ## A2. Click into the Inventory search box
 

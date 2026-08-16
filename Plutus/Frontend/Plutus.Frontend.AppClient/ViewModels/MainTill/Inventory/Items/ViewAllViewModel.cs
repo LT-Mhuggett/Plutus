@@ -640,10 +640,45 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 // ⚠ Falls back to the item's EXISTING pair ratio when the band is unknown to
                 // `/api/Tax/Index` — which keeps an unclassified item editable instead of
                 // unsaveable.
-                var exPrice = chosenBand is not null && chosenBand.Rate > 0
-                    ? Math.Round(price / chosenBand.Rate, 2, MidpointRounding.AwayFromZero)
-                    : Math.Round(price * (current.Price > 0 ? current.ExPrice / current.Price : 1m), 2,
-                                 MidpointRounding.AwayFromZero);
+                // ⚠ The arithmetic moved to `Services.Inventory.ItemPricing` (WP10, 2026-08-16) so it
+                // can be tested without a device — the reasoning above is unchanged and lives there
+                // now.
+                var bandMultiplier = chosenBand is not null && chosenBand.Rate > 0
+                    ? chosenBand.Rate
+                    : (decimal?)null;
+
+                var exPrice = Services.Inventory.ItemPricing.ExPriceFor(
+                    price, bandMultiplier, current.Price, current.ExPrice);
+
+                // ⚠⚠ THE ONE CASE THAT CAN ACTUALLY GO WRONG (WP10). With a known band the pair above
+                // is consistent by construction, so nothing can be said about it. With an UNKNOWN
+                // band we fall back to the item's existing ratio — and if that pair is itself one of
+                // the corrupt ones, the item is about to be saved with no usable VAT at all.
+                //
+                // ⚠ Say so rather than saving quietly. `ExPriceFor` has already dropped the bad
+                // ratio for ex == inc, so the save is safe; what the operator needs to know is that
+                // this item now carries NO VAT, and that giving it a band is the fix.
+                if (bandMultiplier is null
+                    && !Services.Inventory.ItemPricing.CarriedRatioIsUsable(current.Price, current.ExPrice))
+                {
+                    var carryOn = await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "Plutus can't work out the VAT on this item — it has no VAT band, and the "
+                        + "prices already on it don't make sense. Saving now records it as VAT-free. "
+                        + "Give it a VAT band to fix that.",
+                        "Save anyway".Translate(), "Cancel".Translate());
+
+                    if (!carryOn) return;
+                }
+
+                // ⚠ THE BACKSTOP. This cannot fire while the ex price is derived — see
+                // `ItemPricing.IsBandConsistent`, which explains why it is kept anyway.
+                if (!Services.Inventory.ItemPricing.IsBandConsistent(price, exPrice, bandMultiplier))
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        Services.Inventory.ItemPricing.InconsistencyMessage(price, bandMultiplier),
+                        "OK".Translate());
+                    return;
+                }
 
                 var (ok, problem) = await api.UpdateItemFieldsAsync(itemId, business, item =>
                 {

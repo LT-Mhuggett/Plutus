@@ -229,6 +229,9 @@
   <data name="Hmm" xml:space="preserve">
     <value>Hmm...</value>
   </data>
+  <data name="Save anyway" xml:space="preserve">
+    <value>Save anyway</value>
+  </data>
   <data name="No" xml:space="preserve">
     <value>No</value>
   </data>
