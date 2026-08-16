@@ -58,15 +58,28 @@ namespace Plutus.Frontend.AppClient.Services.Printing
                            + (r.GrossPence < 0 ? " · REFUND" : "")
                            + $" · {r.LineCount} item{(r.LineCount == 1 ? "" : "s")}"
                            + (string.IsNullOrWhiteSpace(r.FirstItemIdOne) ? "" : $" · {r.FirstItemIdOne}"))
-                .ToArray();
+                .ToList();
+
+            // ⚠⚠ THE SAME TWO-STEP SHAPE AS THE REFUND PICKER, and deliberately so — step 26 says
+            // these are one screen with two callers. THIS TILL'S SALES FIRST, because they are the
+            // common case and the only ones available with the line down; the platform lookup is an
+            // explicit second step, so a reprint never depends on the network unless it has to.
+            labels.Add(AnotherTill);
 
             var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
                 Application.Current.MainPage.DisplayActionSheet(
-                    "Which receipt?", "Cancel".Translate(), null, labels));
+                    "Which receipt?", "Cancel".Translate(), null, labels.ToArray()));
 
             if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return;
 
-            var index = Array.IndexOf(labels, picked);
+            if (picked == AnotherTill)
+            {
+                if (await PickPlatformSaleAsync() is Guid fromPlatform)
+                    await ReprintAsync(fromPlatform);
+                return;
+            }
+
+            var index = labels.IndexOf(picked);
             if (index < 0 || index >= recent.Count) return;
 
             await ReprintAsync(recent[index].SaleId);
@@ -78,15 +91,25 @@ namespace Plutus.Frontend.AppClient.Services.Printing
             var stored = await Services.Storage.TillStoreAccess.TryUseAsync(
                 s => s.FindLocalSaleAsync(saleId));
 
-            if (stored is null)
+            // ⚠⚠ CROSS-TILL REPRINT (step 26). This used to stop here with "it may have been rung up
+            // on another till" — which is true, unhelpful, and precisely the half a customer asks
+            // for at the counter: they bought it at the other branch and want their receipt.
+            //
+            // ⚠ The platform's record is a PROJECTION of the sale, not the payload this till sent —
+            // `SaleDto` says so itself. For another till's sale that projection IS the authority, so
+            // printing from it is right; what must not happen is deriving figures from anything else.
+            var input = stored is not null
+                ? await InputForAsync(stored)
+                : await InputFromPlatformAsync(saleId);
+
+            if (input is null)
             {
                 await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                    "This till doesn't have that sale — it may have been rung up on another till.",
+                    "That sale isn't on this till, and Plutus couldn't be reached to fetch it. "
+                    + "Try again when the connection is back.",
                     "OK".Translate());
                 return;
             }
-
-            var input = await InputForAsync(stored);
             var status = await TillAgentPrinting.ResolveAsync();
 
             if (status is null)
@@ -105,8 +128,132 @@ namespace Plutus.Frontend.AppClient.Services.Printing
                 "OK".Translate());
         }
 
+        private const string AnotherTill = "Sold on another till — look it up in Plutus…";
+
+        /// <summary>
+        /// Pick a sale from the PLATFORM — the only path to another till's receipt.
+        ///
+        /// ⚠ A FORTNIGHT, not everything: reprints are overwhelmingly recent, and the server clamps
+        /// `take` anyway. A picker holding months of sales is one nobody reads.
+        ///
+        /// ⚠ REFUNDS ARE INCLUDED HERE, unlike the refund picker's platform list. A refund is its own
+        /// sale, the customer was handed a receipt for it, and they can lose that one too —
+        /// reprinting a refund is legitimate where refunding one is not.
+        /// </summary>
+        private static async Task<Guid?> PickPlatformSaleAsync()
+        {
+            var api = await Services.Connectivity.PlutusApi.GetOperatorAsync();
+            if (api is null)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "Looking up another till's sale needs someone signed in and a connection to "
+                    + "Plutus. This till's own sales are in the previous list.", "OK".Translate());
+                return null;
+            }
+
+            var today = Plutus.SharedKernel.BusinessDay.Today();
+            var sales = await api.GetSalesAsync(today.AddDays(-14), today, tillId: null, take: 40);
+
+            if (sales is null || sales.Count == 0)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    sales is null
+                        ? "Plutus couldn't be reached, so other tills' sales can't be listed."
+                        : "Plutus has no sales in the last fortnight.",
+                    "OK".Translate());
+                return null;
+            }
+
+            var thisTill = await Services.Storage.TillStoreAccess.TryUseAsync(
+                s => s.GetGuidMetaAsync(Plutus.Client.Storage.MetaKeys.TillId));
+
+            var labels = sales
+                .Select(s => $"{s.OccurredAtUtc.ToLocalTime():dd MMM HH:mm} · {s.GrossPence / 100m:C}"
+                           + (s.GrossPence < 0 ? " · REFUND" : "")
+                           // ⚠ Says WHOSE sale it is — without it the operator cannot tell a
+                           // neighbouring till's from one of their own.
+                           + (thisTill is Guid t && s.TillId == t ? " · this till" : " · another till"))
+                .ToList();
+
+            var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
+                Application.Current.MainPage.DisplayActionSheet(
+                    "Which sale, from Plutus?", "Cancel".Translate(), null, labels.ToArray()));
+
+            if (string.IsNullOrEmpty(picked) || picked == "Cancel".Translate()) return null;
+
+            var index = labels.IndexOf(picked);
+            return index >= 0 && index < sales.Count ? sales[index].Id : null;
+        }
+
         // ⚠ One client for the app's lifetime — a new one per reprint leaks sockets into TIME_WAIT.
         private static readonly System.Net.Http.HttpClient Http = new System.Net.Http.HttpClient();
+
+        /// <summary>
+        /// Build the paper for a sale THIS TILL NEVER TOOK, from the platform's record.
+        ///
+        /// ⚠ Returns null when the platform cannot be reached or does not know the sale — the caller
+        /// says so rather than printing a blank receipt, which a customer would take as proof of a
+        /// purchase nobody can find.
+        ///
+        /// ⚠⚠ EVERY FIGURE IS THE SERVER'S. Names, quantities, unit prices, discounts, tenders and
+        /// the totals all come from the projection — nothing is re-derived from this till's catalogue.
+        /// A reprint that priced from today's catalogue would hand a customer a different receipt
+        /// from the one they were given, which is the whole reason the local path stores its payload.
+        ///
+        /// ⚠ It is marked as a COPY, like every reprint, and carries the platform sale id so the
+        /// paper stays searchable.
+        /// </summary>
+        private static async Task<ReceiptDocInput> InputFromPlatformAsync(Guid saleId)
+        {
+            var api = await Services.Connectivity.PlutusApi.GetOperatorAsync();
+            if (api is null) return null;
+
+            var sale = await api.GetSaleAsync(saleId);
+            if (sale is null) return null;
+
+            var store = App.GetViewModel().Store ?? new Database.Models.StoreModel();
+
+            var lines = sale.Lines
+                .Select(l => new ReceiptDocLine(
+                    // ⚠ The projection CARRIES the name, unlike the wire payload — so unlike the
+                    // local path there is no catalogue lookup here, and nothing to go stale.
+                    string.IsNullOrWhiteSpace(l.ItemName) ? l.ItemIdOne ?? "(item)" : l.ItemName,
+                    Math.Abs(l.Qty),
+                    l.UnitPricePence,
+                    l.LineGrossPence,
+                    // ⚠ A return line is NEGATIVE on the wire. The paper says so rather than
+                    // printing a minus quantity nobody reads as a refund.
+                    IsReturn: l.Qty < 0,
+                    DiscountPence: l.DiscountPence))
+                .ToList();
+
+            var tenders = sale.Tenders
+                .Select(t => new ReceiptDocTender(t.TenderType ?? "", t.AmountPence, t.ChangePence))
+                .ToList();
+
+            return new ReceiptDocInput
+            {
+                StoreName = store.StoreName,
+                AddressLines = AddressOf(store),
+                VatNumber = store.VatIN,
+                Phone = store.ContactNumber,
+                WhenLocal = sale.OccurredAtUtc.ToLocalTime(),
+                OperatorName = sale.OperatorName,
+                Lines = lines,
+                ExPence = sale.GrossPence - sale.VatPence,
+                GrossPence = sale.GrossPence,
+                Tenders = tenders,
+                SaleId = sale.Id.ToString("D"),
+                IsReprint = true,
+            };
+        }
+
+        /// <summary>The store's address lines, blanks dropped — a receipt with an empty line in the
+        /// middle of the address looks misprinted.</summary>
+        private static IReadOnlyList<string> AddressOf(Database.Models.StoreModel store) =>
+            new[] { store.AdLine1, store.AdLine2, store.City, store.PostCode, store.Country }
+                .Where(l => !string.IsNullOrWhiteSpace(l))
+                .ToList();
 
         /// <summary>
         /// Rebuild the paper from the payload the platform ACCEPTED.

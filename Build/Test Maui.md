@@ -928,3 +928,30 @@ all. Both surfaces now ask Plutus the same question.
 ⚠ **If "Items sold" shows a warning like "Showing 2,000 of 5,000 lines"** that is correct behaviour,
 not a bug — the server caps the rows and the till now says so rather than showing a short total
 silently.
+
+## G22. Reprint a receipt from ANOTHER till — **NEW in 1.66.0**
+
+This is the half a customer actually asks for: they bought it at the other counter and want their
+receipt.
+
+1. Ring up a sale on **till B** (or the web till).
+2. On **till A**, go to reprint a receipt.
+
+**✅ Expected:** the list shows **this till's** recent sales, and at the bottom
+**"Sold on another till — look it up in Plutus…"**.
+
+3. Choose that, and pick the sale you rang up on till B.
+
+**✅ Expected:** it prints. The paper shows the right items, quantities, prices and totals, is marked
+as a **copy**, and carries the sale's barcode.
+
+⚠ **Check the figures against till B's original receipt** if you still have it — they must match.
+
+4. ⚠ **Pull the network and try the same thing.**
+
+**✅ Expected:** it says the sale isn't on this till and Plutus couldn't be reached. It must **not**
+print a blank or half-empty receipt — a customer would take that as proof of a purchase nobody can
+find.
+
+⚠ **Your own till's sales must still reprint with the network down.** That is the common case and it
+does not need Plutus at all.
