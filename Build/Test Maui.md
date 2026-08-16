@@ -1,11 +1,36 @@
 # Test Maui — the MAUI till hand-test script
 
-**For till 1.59.0.** Anyone can run this. You do not need to know the codebase, and you should not
+**For till 1.69.0.** Anyone can run this. You do not need to know the codebase, and you should not
 need to ask anyone what a step means — if a step is unclear, that is a bug in this document, so please
 say so.
 
-**Time:** about 45 minutes for the whole thing. About 15 for §A alone, which is the part worth doing
-if that is all the time you have.
+**Time:** about **2 hours** for everything now — this grew a lot between 1.54 and 1.69. About 15
+minutes for §A alone, which is still the part worth doing if that is all the time you have.
+
+---
+
+## ⚠ RUN ORDER — do it in this order, not the order the sections are numbered
+
+The sections grew by date, so the newest work is at the bottom. **These four come first**, because
+each one can make everything after it look broken, and knowing they are clean tells you what a later
+failure actually means.
+
+| # | Do | Why first |
+|---|---|---|
+| **1** | **§G24 — money on every basket row** | The basket's money changed underneath. If a £3.30 item shows **£330.00**, stop and report it; nothing else is worth testing until that is right |
+| **2** | **§G1 — does the bottom of the till screen still look right?** | A new row was added to that grid and everything under it renumbered. MAUI bindings fail **silently** — a blank button means the renumber is wrong |
+| **3** | **§A0 — can the till take a sale at all?** | It could not, on 1.48.0. Everything else assumes it can |
+| **4** | **§A4b — refund a sale paid two ways** | The money one. Fixed across several builds and never yet run by a person |
+
+**Then the rest, in order:** §A → §B → §F (discounts) → §G (members, gift cards, reports, receipts)
+→ §C (needs two people) → §E.
+
+⚠ **Almost everything in §F and §G has NEVER been run by anyone.** It was built between 2026-08-14
+and 2026-08-16 and is marked 🟡 — "built and tested where a test can reach, unverified on screen".
+That is why this document exists.
+
+⚠ **Write down anything odd even if no step asks about it.** Every one of the fourteen faults found
+on 2026-08-11 came from somebody noticing something, not from a step asking the right question.
 
 ---
 
@@ -13,7 +38,7 @@ if that is all the time you have.
 
 | | |
 |---|---|
-| **Run** | `D:\tmp\plutus-till-1.59.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
+| **Run** | `D:\tmp\plutus-till-1.69.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
 | **Sign in as** | any operator with **Supervisor** or above — some steps need permission to change stock |
@@ -372,20 +397,21 @@ hardware.
 
 **These are not bugs. Do not report them.** They are on the plan and each has a work package.
 
+⚠ **REWRITTEN 2026-08-16.** Six things this list used to name are now BUILT — loyalty, gift cards,
+store credit, customer attach, the fuller reports, and refunding another till's sale. Leaving them
+here would have told you not to report them, so you would not have tested them. **They are now in
+§F–§G and you should test them.**
+
 | Not in MAUI yet | Where it is |
 |---|---|
-| Loyalty, members, tiers | step 27 |
-| Gift cards — sell and redeem | step 27 |
-| Store credit as a payment method | step 27 |
-| Attaching a customer to a sale | step 27 |
+| Colour themes pushed from the portal | step 22 — **deliberately last**, see below |
 | Users — add an employee, set a password | step 24 |
-| Colour themes pushed from the portal | step 22 |
-| Fuller reports (items sold, VAT, best sellers) | step 26 |
-| Refunding a sale rung up on **another** till | step 26 — you must type the sale id |
+| Announcements, help tickets, update prompts | platform notices, no step yet |
+| Un-enrolling a till from itself | step 21 |
 | Restoring an item from the Bin **on the till** | portal-side, by design |
-| Reopening a closed day **on the WEB till** | MAUI only for now — next on the list |
+| Reopening a closed day **on the WEB till** | MAUI only for now |
 | **Adding** a new item as one screen | still the old question-then-form flow; the EDIT screen is the new one |
-| Announcements, help tickets, update prompts | platform notices |
+| The old **Statistics** tab | **hidden on purpose** — it read the pre-cutover local database and showed £0.00 for everything since. Use **Reports** |
 
 ---
 
