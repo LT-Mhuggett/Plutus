@@ -164,6 +164,17 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 OnPropertyChanged(nameof(Basket));
                 OnPropertyChanged(nameof(SaleExTax));
                 OnPropertyChanged(nameof(SaleIncTax));
+
+                // ⚠⚠ THE MEMBER'S DISCOUNT FOLLOWS THE BASKET (step 27). The web till re-applies it
+                // reactively on `[customer, lines]`; this is that effect. Doing it here rather than
+                // at each mutating command is deliberate — there are a dozen ways a line enters or
+                // leaves this basket, and the one somebody forgets is the one where a member is
+                // silently charged full price.
+                //
+                // ⚠ RE-ENTRANT BY CONSTRUCTION: the refresh adds and removes a `BasketAlteration`,
+                // which fires this very handler. `RefreshMemberDiscount` guards on a flag and is a
+                // no-op while it is running.
+                RefreshMemberDiscount();
             };
             Alterations.CollectionChanged += (sender, e) =>
             {
@@ -330,6 +341,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 return;
             }
 
+            // ⚠ THE SCAN BOX IS THE DOOR A SCANNER ACTUALLY FEEDS. I added this to
+            // `ExecuteItemAddArg` first and not here — which is precisely the hole the comment above
+            // was written about, made again, two commits later. One method, every door.
+            if (await TryRouteMemberScanAsync(ItemId)) return;
+
             IsBusy = true;
             try
             {
@@ -411,6 +427,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             // via the `AddToBasket` message, and this path had NO day-closed check — so a Z-closed
             // till refused a scan and accepted the same item from the item list.
             if (await RefuseIfDayClosedAsync()) return;
+
+            if (await TryRouteMemberScanAsync(id)) return;
 
             IsBusy = true;
             try
@@ -1017,6 +1035,303 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         {
             throw new NotImplementedException();
         }
+
+        #region Customer (step 27 — WP12 attach)
+
+        private Plutus.Client.Core.PlutusApiClient.CustomerDetailDto _attachedCustomer;
+        private bool _refreshingMemberDiscount;
+
+        /// <summary>
+        /// The member attached to this sale, or null. ⚠ Held as the **live detail read**, never the
+        /// search summary: the summary carries no tier and no balance, and the tier is what decides
+        /// the money.
+        /// </summary>
+        public Plutus.Client.Core.PlutusApiClient.CustomerDetailDto AttachedCustomer
+        {
+            get => _attachedCustomer;
+            private set
+            {
+                _attachedCustomer = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(AttachedCustomerLabel));
+                OnPropertyChanged(nameof(HasAttachedCustomer));
+            }
+        }
+
+        public bool HasAttachedCustomer => _attachedCustomer != null;
+
+        /// <summary>
+        /// What the operator sees at the top of the sale — the member's name and, when it grants
+        /// one, the tier and rate.
+        ///
+        /// ⚠ AN EXPIRED MEMBERSHIP SAYS SO, out loud. Showing "Jo Bloggs — Gold 10%" while charging
+        /// full price is the worst of both: the operator tells the customer they got their discount
+        /// and the receipt disagrees, at the counter, with a queue.
+        /// </summary>
+        public string AttachedCustomerLabel
+        {
+            get
+            {
+                if (_attachedCustomer is null) return string.Empty;
+
+                var name = string.IsNullOrWhiteSpace(_attachedCustomer.Name)
+                    ? _attachedCustomer.MemberNo ?? "Member"
+                    : _attachedCustomer.Name;
+
+                var m = _attachedCustomer.Membership;
+                if (m is null) return name;
+
+                if (m.Expired)
+                    return $"{name} — {m.Tier} (expired, no discount)";
+
+                return SharedKernel.MemberDiscount.Applies(true, false, m.AutoDiscountRate)
+                    ? $"{name} — {SharedKernel.MemberDiscount.Label(m.Tier, m.AutoDiscountRate)}"
+                    : name;
+            }
+        }
+
+        private Command _attachCustomerCommand;
+        public Command AttachCustomerCommand => _attachCustomerCommand ??=
+            new Command(ExecuteAttachCustomer);
+
+        private Command _detachCustomerCommand;
+        public Command DetachCustomerCommand => _detachCustomerCommand ??=
+            new Command(ExecuteDetachCustomer);
+
+        /// <summary>
+        /// Find a member and attach them.
+        ///
+        /// ⚠ An action sheet and an input alert, like every other picker in this app since the
+        /// Syncfusion removal — and through `Modal`, because this leads into a second dialog and two
+        /// dialogs in quick succession is what closed the till at the payment prompt (pitfalls 11–14).
+        /// </summary>
+        private async void ExecuteAttachCustomer()
+        {
+            if (IsBusy) return;
+            IsBusy = true;
+
+            try
+            {
+                IValidator[] validators = { new RequiredValidator() };
+                ViewElementData[] elements =
+                {
+                    new ViewElementData(1, "Name, phone, email or member number".Translate(), "",
+                        validators.AsEnumerable(), false, true),
+                };
+
+                var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                    elements, "Search".Translate(), false, "Find a member".Translate(), "Cancel".Translate());
+
+                answers.TryGetValue(1, out var term);
+                if (string.IsNullOrWhiteSpace(term)) return;
+
+                await SearchAndAttachAsync(term);
+            }
+            catch (Exception ex)
+            {
+                // ⚠ `async void` — without this the till closes.
+                CrashLog.Write("TillViewModel.ExecuteAttachCustomer", ex);
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "The member couldn't be looked up. The sale is unaffected.".Translate(), "OK".Translate());
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+        /// <summary>
+        /// Search, let the operator pick, then attach — shared by the button and the card scan.
+        ///
+        /// ⚠ ONLINE ONLY, and it says so rather than failing vaguely. The tier decides money and a
+        /// till holds no customer cache; guessing from a stale local copy is how a member gets a
+        /// discount they are no longer entitled to.
+        /// </summary>
+        private async Task SearchAndAttachAsync(string term)
+        {
+            var api = await Services.Storage.TillPlacement.TryCreateApiAsync();
+            if (api is null)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "Members can only be looked up when the till is online. The sale is unaffected.".Translate(),
+                    "OK".Translate());
+                return;
+            }
+
+            var matches = await api.SearchCustomersAsync(term);
+
+            if (matches is null || matches.Count == 0)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    string.Format("No member found for '{0}'.".Translate(), term), "OK".Translate());
+                return;
+            }
+
+            var chosen = matches[0];
+
+            // ⚠ Only ask when there is genuinely a choice. A scanned card resolves to one member and
+            // an action sheet with a single row is a keypress that teaches operators to tap blind.
+            if (matches.Count > 1)
+            {
+                var names = matches
+                    .Select(m => string.IsNullOrWhiteSpace(m.MemberNo)
+                        ? m.Name ?? "(no name)"
+                        : $"{m.Name} · {m.MemberNo}")
+                    .ToArray();
+
+                var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
+                    Application.Current.MainPage.DisplayActionSheet(
+                        "Which member?".Translate(), "Cancel".Translate(), null, names));
+
+                if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return;
+
+                var index = Array.IndexOf(names, picked);
+                if (index < 0) return;
+                chosen = matches[index];
+            }
+
+            // ⚠ THE LIVE DETAIL READ, every time — the search carries no tier and no balance.
+            var detail = await api.GetCustomerAsync(chosen.Id);
+            if (detail is null)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "That member couldn't be read. The sale is unaffected.".Translate(), "OK".Translate());
+                return;
+            }
+
+            AttachedCustomer = detail;
+            RefreshMemberDiscount();
+
+            Logger.LogEvent(AppLogLevel.Info, $"{GetType().Name}: Member attached",
+                new Dictionary<string, string>
+                {
+                    { "CustomerId", detail.Id.ToString() },
+                    { "Tier", detail.Membership?.Tier ?? "none" },
+                    { "Expired", (detail.Membership?.Expired ?? false).ToString() },
+                });
+
+            // ⚠ Say what changed. An operator who cannot see that a discount was applied will apply
+            // one by hand as well — finding W's lesson, on a different screen.
+            if (MemberDiscountBasketOn() is BasketAlteration applied)
+            {
+                await Application.Current.MainPage.DisplayAlert(
+                    "Member".Translate(),
+                    string.Format("{0} — {1} off this basket.".Translate(),
+                        AttachedCustomerLabel, Math.Abs(applied.Price).ToString("C2", CultureInfo.CurrentCulture)),
+                    "OK".Translate());
+            }
+        }
+
+        /// <summary>
+        /// Take the member off this sale.
+        ///
+        /// ⚠ Removes the members' discount ONLY — an operator's own manual discounts stay, because
+        /// they were a separate decision. `MemberDiscountBasket.ExistingOn` finds it by sentinel id
+        /// for exactly this reason.
+        /// </summary>
+        private void ExecuteDetachCustomer()
+        {
+            AttachedCustomer = null;
+            RefreshMemberDiscount();
+        }
+
+        /// <summary>
+        /// Was that scan a membership card? If so, attach the member and report handled.
+        ///
+        /// ⚠⚠ ONE METHOD, EVERY DOOR — the lesson `RefuseIfDayClosedAsync` was extracted for, and
+        /// which I re-learned here: this went onto `ExecuteItemAddArg` (Inventory → Add to till)
+        /// before the scan box, which is the door a scanner actually feeds. **A rule enforced
+        /// per-entry-point is a rule with a hole in it.**
+        ///
+        /// ⚠ A MEMBER CARD IS NOT A PRODUCT. Scanners are keyboard-wedge into the same box, so a
+        /// membership barcode arrives exactly like an EAN. `LooksLikeMemberScan` is deliberately
+        /// STRICTER than `TryCanonicalise`: it requires the "C" prefix AND a valid check character,
+        /// so a bare six-digit product code can never be mistaken for a member.
+        ///
+        /// ⚠ Its own `IsBusy` bracket, because it is called BEFORE the callers take theirs. Sharing
+        /// one would leave a dialog flow holding a gate it then waits on — finding U exactly.
+        /// </summary>
+        private async Task<bool> TryRouteMemberScanAsync(string scanned)
+        {
+            if (!SharedKernel.MemberNumbers.LooksLikeMemberScan(scanned)) return false;
+
+            if (IsBusy) return true;   // handled: it is a card, and we are mid-flow
+            IsBusy = true;
+
+            try
+            {
+                await SearchAndAttachAsync(scanned);
+            }
+            catch (Exception ex)
+            {
+                CrashLog.Write("TillViewModel.TryRouteMemberScanAsync", ex);
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "That card couldn't be looked up. The sale is unaffected.".Translate(), "OK".Translate());
+            }
+            finally
+            {
+                IsBusy = false;
+                // ⚠ The box is cleared whatever happened — a card left in it would be re-scanned as
+                // an item by the operator's next Enter.
+                ItemId = string.Empty;
+            }
+
+            return true;
+        }
+
+        private BasketAlteration MemberDiscountBasketOn() =>
+            Services.Storage.MemberDiscountBasket.ExistingOn(Basket);
+
+        /// <summary>
+        /// Rebuild the members' discount to match the basket as it stands.
+        ///
+        /// ⚠⚠ RE-ENTRANCY IS THE WHOLE RISK HERE. This is called FROM `Basket.CollectionChanged`, and
+        /// it adds and removes a basket record — so without the flag it would recurse until the
+        /// stack ran out, on the first scan a member ever made.
+        ///
+        /// ⚠ REMOVE THEN REBUILD, never edit in place: the alteration's associated-items list is
+        /// what decides where the money lands, and mutating it would leave a stale association
+        /// pointing at lines that are no longer in the basket.
+        ///
+        /// ⚠ Silent by design. A member discount that cannot be computed must not interrupt a sale;
+        /// the worst case is the pre-existing behaviour (no discount), which is visible on screen.
+        /// </summary>
+        private void RefreshMemberDiscount()
+        {
+            if (_refreshingMemberDiscount) return;
+            _refreshingMemberDiscount = true;
+
+            try
+            {
+                var existing = MemberDiscountBasketOn();
+                if (existing != null) Basket.Remove(existing);
+
+                var m = AttachedCustomer?.Membership;
+                if (m is null) return;
+
+                var rebuilt = Services.Storage.MemberDiscountBasket.Build(
+                    Basket,
+                    m.Tier,
+                    m.AutoDiscountRate,
+                    hasMembership: true,
+                    expired: m.Expired,
+                    operatorUserId: App.GetViewModel().SignedInOperator?.UserId ?? Guid.Empty);
+
+                if (rebuilt != null) Basket.Add(rebuilt);
+            }
+            catch (Exception ex)
+            {
+                CrashLog.Write("TillViewModel.RefreshMemberDiscount", ex);
+            }
+            finally
+            {
+                _refreshingMemberDiscount = false;
+                OnPropertyChanged(nameof(SaleExTax));
+                OnPropertyChanged(nameof(SaleIncTax));
+            }
+        }
+
+        #endregion
 
         #region Transaction
         #region Alter

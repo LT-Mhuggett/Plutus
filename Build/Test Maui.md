@@ -1,6 +1,6 @@
 # Test Maui — the MAUI till hand-test script
 
-**For till 1.54.1.** Anyone can run this. You do not need to know the codebase, and you should not
+**For till 1.56.0.** Anyone can run this. You do not need to know the codebase, and you should not
 need to ask anyone what a step means — if a step is unclear, that is a bug in this document, so please
 say so.
 
@@ -13,7 +13,7 @@ if that is all the time you have.
 
 | | |
 |---|---|
-| **Run** | `D:\tmp\plutus-till-1.54.1\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
+| **Run** | `D:\tmp\plutus-till-1.56.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
 | **Sign in as** | any operator with **Supervisor** or above — some steps need permission to change stock |
@@ -589,3 +589,99 @@ is a printed-output change, so it needs eyes.**
 it did on 1.53.0. No blank lines where a note used to be.
 
 **❌ What to report:** a missing note, a missing discount line, an empty line, or the same note twice.
+
+---
+
+# G. Members and the tier discount — **NEW in 1.56.0**
+
+**Why this section exists, and it is a money one.** The browser till has applied a member's tier
+discount for months. The MAUI till could not — it had no way to attach a customer at all. So **a Gold
+member has been charged 10% more on this till than on the web till for the same basket**. 1.56.0 is
+the fix, and nobody has run it.
+
+⚠ **This adds a bar to the top of the till's totals area and renumbers every row under it.** MAUI
+bindings fail *silently* — a missed one renders **blank** rather than erroring — so **G1 is really a
+check that the rest of the screen still works.**
+
+You will need a customer in the portal with a **tier** (e.g. Gold at 10%). Set one up first if there
+is not one.
+
+## G1. ⚠ FIRST — does the bottom of the till screen still look right?
+
+Open the **Till** tab and just look at it, before doing anything else.
+
+**✅ Expected:** an **Add member** button, and below it the **Sale ex tax** / **Sale inc tax** figures,
+the **Alter Transaction** / **Bag** / **Store Transaction** / **Checkout** buttons and **Cancel
+Transaction** — all present, all with their normal text.
+
+**❌ What to report:** any button with **blank text**, a missing total, two controls on top of each
+other, or a button that has moved somewhere odd. That is the renumber being wrong, and it is the most
+likely fault in this build.
+
+## G2. Attach a member by searching
+
+1. Press **Add member**. Type part of a name, or a phone number, or an email.
+2. If more than one matches, pick one from the list.
+
+**✅ Expected:** the button is replaced by the member's **name and tier** — e.g. `Jo Bloggs — Gold 10%`
+— and a **Remove member** button. A message says how much came off the basket.
+
+⚠ Put a few items in the basket **first**, so there is something to discount.
+
+## G3. The discount actually appears, and it is right
+
+With a member attached and, say, a £10 item in the basket:
+
+**✅ Expected:** a line in the basket reading **`Gold 10%`** for **−£1.00**, and the **Sale inc tax**
+total drops by exactly that.
+
+⚠ **Check the arithmetic on an awkward basket:** three items at **£3.33** at 10% should come off as
+**99p**, not £1.00. It is worked out per line, like the browser till.
+
+## G4. Scan a membership card
+
+Scan a member's card into the **scan box** (or type the `C…` number and press Enter).
+
+**✅ Expected:** it attaches that member — it does **not** search for an item, and it does **not** say
+"item not found". The box clears.
+
+⚠ **Also try the same number from Inventory → Add to till**, if your till offers it. Both doors must
+behave the same; they did not at first.
+
+## G5. ⚠ The exclusions — this is the money-correctness step
+
+| Do | Expect |
+|---|---|
+| Attach a member, then **discount one line by hand** | The member's 10% covers the OTHER lines only. **No stacking** on the hand-discounted one |
+| Attach a member to a basket holding a **return** | The returned line gets **no** member discount |
+| Attach a member, then pay by **card** (if your till charges a card fee) | The fee gets **no** member discount |
+| Add more items **after** attaching | The `Gold 10%` line **updates** to cover them |
+| **Remove** items after attaching | It updates again, and never goes negative |
+
+⚠ **The fourth row is the one most likely to be wrong** — the discount is rebuilt every time the
+basket changes, and a mistake there makes it silently collapse to nothing while the line still shows.
+
+## G6. Remove the member
+
+Press **Remove member**.
+
+**✅ Expected:** the `Gold 10%` line disappears and the total goes back up. ⚠ **Any discount YOU
+applied by hand must still be there** — only the member's comes off.
+
+## G7. An expired membership
+
+Attach a member whose membership has **expired** (set a past renewal date in the portal).
+
+**✅ Expected:** the bar says so — `Jo Bloggs — Gold (expired, no discount)` — and **no discount is
+applied**. ⚠ It must not say "Gold 10%" and then charge full price; that is the operator telling a
+customer something the receipt contradicts.
+
+## G8. Sell it, and check the receipt and the record
+
+Complete a sale with a member attached.
+
+**✅ Expected:** the receipt shows the `Gold 10%` line. Look the sale up in the portal afterwards —
+the discount should be recorded against the lines it applied to, with the reason `Gold 10%`.
+
+⚠ **Compare one basket against the web till** if you can — same member, same items. **The two totals
+must match to the penny.** That is the whole point of this section.

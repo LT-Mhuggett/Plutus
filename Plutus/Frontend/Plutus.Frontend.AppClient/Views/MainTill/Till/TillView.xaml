@@ -175,6 +175,10 @@
                 </ListView>
                 <Grid VerticalOptions="End">
                     <Grid.RowDefinitions>
+                        <!-- ⚠ Row 0 is the CUSTOMER BAR (step 27). Rows below shift by one; every
+                             Grid.Row in this grid was renumbered with it. MAUI bindings fail
+                             SILENTLY, so a missed one renders blank rather than erroring. -->
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
@@ -187,20 +191,35 @@
                         <ColumnDefinition Width="1*"/>
                         <ColumnDefinition Width="1*"/>
                     </Grid.ColumnDefinitions>
-                    <Label  Grid.Row="0" Grid.Column="0" Text="{i18n:Translate SaleExTax}"/>
-                    <Label  Grid.Row="0" Grid.Column="1" Text="{Binding SaleExTax, StringFormat='{0:C2}'}"/>
-                    <Label  Grid.Row="0" Grid.Column="4" Text="{i18n:Translate SaleIncTax}"/>
-                    <Label  Grid.Row="0" Grid.Column="5" Text="{Binding SaleIncTax, StringFormat='{0:C2}'}"/>
-                    <Button Grid.Row="1" Grid.Column="0" Grid.RowSpan="2" Text="{i18n:Translate AltTransaction}"
+                    <!-- ⚠ THE CUSTOMER BAR. "Add member" when nobody is attached; the member's name
+                         and tier when one is, with a button to take them off again. The two swap on
+                         HasAttachedCustomer so the operator always has exactly one of them. -->
+                    <Button Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                            Text="{i18n:Translate AddMember}"
+                            IsVisible="{Binding HasAttachedCustomer, Converter={StaticResource InverseBool}}"
+                            Command="{Binding AttachCustomerCommand}"/>
+                    <Label  Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4" VerticalOptions="Center"
+                            IsVisible="{Binding HasAttachedCustomer}"
+                            Text="{Binding AttachedCustomerLabel}"/>
+                    <Button Grid.Row="0" Grid.Column="4" Grid.ColumnSpan="2"
+                            Text="{i18n:Translate RemoveMember}"
+                            IsVisible="{Binding HasAttachedCustomer}"
+                            Command="{Binding DetachCustomerCommand}"/>
+
+                    <Label  Grid.Row="1" Grid.Column="0" Text="{i18n:Translate SaleExTax}"/>
+                    <Label  Grid.Row="1" Grid.Column="1" Text="{Binding SaleExTax, StringFormat='{0:C2}'}"/>
+                    <Label  Grid.Row="1" Grid.Column="4" Text="{i18n:Translate SaleIncTax}"/>
+                    <Label  Grid.Row="1" Grid.Column="5" Text="{Binding SaleIncTax, StringFormat='{0:C2}'}"/>
+                    <Button Grid.Row="2" Grid.Column="0" Grid.RowSpan="2" Text="{i18n:Translate AltTransaction}"
                             Command="{Binding AlterTransactionSelectorCommand}"/>
-                    <Button Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Text="{i18n:Translate Bag}"
+                    <Button Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Text="{i18n:Translate Bag}"
                             IsVisible="{Binding DefaultBagId, Mode=OneWay, Converter={StaticResource StringNullToBool}}"
                             Command="{Binding ManualAddCommandArg}" CommandParameter="{Binding DefaultBagId}"/>
-                    <Button Grid.Row="1" Grid.Column="3" Grid.ColumnSpan="2" Text="{i18n:Translate StoreTransaction}"
+                    <Button Grid.Row="2" Grid.Column="3" Grid.ColumnSpan="2" Text="{i18n:Translate StoreTransaction}"
                             Command="{Binding StoreTransactionCommand}"/>
-                    <Button Grid.Row="1" Grid.Column="5" Grid.RowSpan="2" Text="{i18n:Translate CheckoutTransaction}"
+                    <Button Grid.Row="2" Grid.Column="5" Grid.RowSpan="2" Text="{i18n:Translate CheckoutTransaction}"
                             Command="{Binding CheckoutTransactionCommand}"/>
-                    <Button Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="4"
+                    <Button Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="4"
                             Text="{i18n:Translate CancelTransaction}" Command="{Binding CancelTransactionCommand}"/>
                 </Grid>
             </StackLayout>

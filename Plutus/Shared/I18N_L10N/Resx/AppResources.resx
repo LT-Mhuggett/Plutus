@@ -370,6 +370,15 @@ Please try again.</value>
   <data name="AltTransaction" xml:space="preserve">
     <value>Alter Transaction</value>
   </data>
+  <!-- Step 27 — the customer bar on the till screen. ⚠ A key missing from this file THROWS in
+       DEBUG (crashing the Till tab as it is constructed) and renders the raw key as button text in
+       RELEASE. Both were live risks when these buttons were added. -->
+  <data name="AddMember" xml:space="preserve">
+    <value>Add member</value>
+  </data>
+  <data name="RemoveMember" xml:space="preserve">
+    <value>Remove member</value>
+  </data>
   <data name="Bag" xml:space="preserve">
     <value>Bag</value>
   </data>
