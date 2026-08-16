@@ -287,6 +287,57 @@ namespace Plutus.Frontend.AppClient.Services.Storage
         }
 
         /// <summary>
+        /// The basket line that SELLS a gift card, priced by the tenant's voucher treatment (WP13).
+        ///
+        /// ⚠⚠ THE PRICE PAIR IS THE VAT DECLARATION. Under `Multi` ex == inc, so
+        /// `VatLineMath.ForLine` derives 0bp and the sale of the card declares no VAT — it is stored
+        /// value, not a supply, and the VAT falls due when the card is SPENT. Under `Single` the VAT
+        /// is inside the face value. `GiftCardVat` owns that decision; nothing here invents it.
+        ///
+        /// ⚠ A REAL LINE AGAINST THE PROVISIONED `GIFT-CARD` ROW, exactly like the card surcharge —
+        /// a money-carrying `BasketNote` is refused by the commit's reconciliation guard, and the
+        /// server's stock projection needs an `itemIdOne` it recognises.
+        ///
+        /// ⚠ QUANTITY IS ALWAYS 1. Two cards are two lines with two codes; one line of quantity two
+        /// would activate one code twice, which the server refuses on the second attempt — after the
+        /// customer has been charged for both.
+        /// </summary>
+        /// <param name="standardRateBp">The PUBLISHED standard rate, for the `Single` treatment.</param>
+        public static BasketItem GiftCardItem(
+            string code, long loadedPence, VoucherTreatment treatment, int standardRateBp)
+        {
+            var (inc, ex) = GiftCardVat.PairFor(loadedPence, treatment, standardRateBp);
+
+            // Pence ÷ 100 into the legacy decimal model is lossless; LinesFrom multiplies back.
+            return new BasketItem(new Database.Models.ItemModel
+            {
+                Id = GiftCards.ItemIdOne,
+                Name = "Gift card",
+                Price = inc / 100m,
+                ExPrice = ex / 100m,
+                Vat = new Database.Models.TaxModel { Name = "" },
+            }, quantity: 1)
+            {
+                GiftCardCode = code,
+            };
+        }
+
+        /// <summary>
+        /// The gift cards this basket is SELLING — code and the amount to load, in basket order.
+        ///
+        /// ⚠ Each must be activated on the server BEFORE the sale is recorded, and a failure must
+        /// abort: a card that cannot be loaded (one already active, say) has to stop the sale before
+        /// the customer is charged for it.
+        /// </summary>
+        internal static IReadOnlyList<(string Code, long AmountPence)> GiftCardsSoldIn(
+            IEnumerable<IBasketRecord> basket) =>
+            (basket ?? Enumerable.Empty<IBasketRecord>())
+                .OfType<BasketItem>()
+                .Where(i => !string.IsNullOrWhiteSpace(i.GiftCardCode))
+                .Select(i => (i.GiftCardCode, Pence.FromDecimal(i.Price) * Math.Max(1, i.Quantity)))
+                .ToList();
+
+        /// <summary>
         /// The notes that go on the receipt, in basket order — an operator's note, and the label of
         /// every discount applied.
         ///

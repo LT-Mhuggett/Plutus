@@ -45,6 +45,39 @@ namespace Plutus.Frontend.AppClient.Services.Storage
                 b => string.Equals(b.Key, key, StringComparison.OrdinalIgnoreCase))?.DisplayName;
         }
 
+        /// <summary>
+        /// The PUBLISHED standard rate in basis points right now, or null when this till has not
+        /// been told it.
+        ///
+        /// ⚠⚠ NULL IS AN ANSWER THE CALLER MUST HANDLE, NOT A REASON TO ASSUME 2000. It is needed to
+        /// price a single-purpose gift card, and a guessed rate there is a wrong VAT return — so the
+        /// till refuses the sale instead. `Till_libraries_stay_platform_neutral_and_hold_no_VAT_rates
+        /// _of_their_own` is the architecture test that keeps a literal out of here.
+        ///
+        /// ⚠ Reads the LOCAL cache; the client is only its refresh path, so a till that has been
+        /// told the bands still answers with the network down.
+        /// </summary>
+        public static async Task<int?> StandardRateBpAsync(CancellationToken ct = default)
+        {
+            try
+            {
+                var api = await TillPlacement.TryCreateApiAsync().ConfigureAwait(false);
+
+                var cache = await TillStoreAccess.TryUseAsync(
+                    s => Task.FromResult(api is null ? null : new VatBandCache(api, new MetaVatBandStore(s))), ct)
+                    .ConfigureAwait(false);
+                if (cache is null) return null;
+
+                return await cache.RateBpAtAsync(
+                    Plutus.SharedKernel.VatRateHistory.Standard, DateTime.UtcNow, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Analytics.CrashLog.Write("VatBands.StandardRateBpAsync", ex);
+                return null;
+            }
+        }
+
         private static async Task<string?> ResolveAsync(
             Guid itemId, Func<VatBandCache, int, Task<string?>> resolve, CancellationToken ct)
         {

@@ -50,6 +50,21 @@ namespace Plutus.Frontend.AppClient.Models
         }
 
         public string Tax => Item.Vat.Name;
+
+        /// <summary>
+        /// When this line SELLS a gift card, the code being loaded — WP13.
+        ///
+        /// ⚠ THE LINE IS THE SALE OF STORED VALUE, NOT A PAYMENT. A card being SPENT is held in page
+        /// state and appears as a tender; a card being SOLD is a line like any other, priced at its
+        /// face value, and this is what says which card to activate at commit.
+        ///
+        /// ⚠ Its VAT is decided by the tenant's voucher treatment (`SharedKernel.GiftCardVat`), NOT
+        /// by the catalogue band on the `GIFT-CARD` row — the row is a carrier, and the treatment is
+        /// what HMRC cares about.
+        ///
+        /// ⚠ Null on every ordinary line, and on a basket parked before 2026-08-16.
+        /// </summary>
+        public string GiftCardCode { get; set; }
         #endregion
         #endregion
 

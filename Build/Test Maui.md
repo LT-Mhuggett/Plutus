@@ -786,3 +786,49 @@ Accepting it would hand over goods against money nobody ever paid.
 
 ⚠ **Also try a product barcode beginning with G.** It must be treated as a **product**, not sent off
 as a gift-card lookup.
+
+## G15. Sell a gift card — **NEW in 1.60.0**
+
+You need an **unsold** card (generated in the portal, not yet sold).
+
+1. **Scan it** into the scan box.
+
+**✅ Expected:** it asks **"Amount to load"** — it knows the card has not been sold yet, so it assumes
+you are selling it. ⚠ It must **not** say "that card hasn't been sold yet"; that message is for a
+card someone tries to *pay* with.
+
+2. Enter **£20** and confirm.
+
+**✅ Expected:** a **Gift card** line appears in the basket at **£20.00**.
+
+3. Complete the sale.
+
+4. Now **scan the same card again**.
+
+**✅ Expected:** it is now **active**, holding **£20.00**, offered as payment.
+
+## G16. ⚠ Gift-card VAT — the one that cannot be seen on screen
+
+This is the step that matters most and shows least. Sell a card as above, complete the sale, then
+look the sale up in the **portal**.
+
+**✅ Expected, if your voucher treatment is "multi"** (mixed VAT rates — the usual case):
+the gift-card line declares **£0.00 VAT**. The card is stored value, not goods; the VAT is charged
+later on whatever it is spent on.
+
+**✅ Expected, if your treatment is "single"** (everything one VAT rate): the line declares VAT
+**inside** the £20 — about £3.33 at 20% — and the customer still pays exactly £20.
+
+**❌ What to report:** VAT declared on a "multi" card. That means the shop would pay VAT twice on the
+same money — once when the card was sold, again when it was spent.
+
+⚠ **If no voucher treatment has been set in the portal**, selling must be **refused** with a message
+saying so. It must never guess: that choice decides which VAT period the money lands in.
+
+## G17. A member discount must not touch a gift card
+
+Attach a member with a tier discount, then put **a gift card and an ordinary item** in the basket.
+
+**✅ Expected:** the discount comes off the **item only**. The gift card is **never** discounted —
+selling £20 of spendable value for £18 hands over £20 of purchasing power, which then gets spent on
+already-discounted goods.

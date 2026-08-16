@@ -1639,6 +1639,14 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 return true;
             }
 
+            // ⚠ AN UNSOLD CARD IS BEING BOUGHT, NOT SPENT. Same fork as the web till: a code off the
+            // rack means the customer is buying it, so ask what to load it with rather than refusing.
+            if (string.Equals(card.Status, "unsold", StringComparison.OrdinalIgnoreCase))
+            {
+                await OfferToSellGiftCardAsync(card);
+                return true;
+            }
+
             if (!card.IsSpendable)
             {
                 // ⚠ Name the actual state. "Not valid" sends an operator round in circles; "that
@@ -1662,6 +1670,131 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 "Gift card".Translate(),
                 string.Format("{0} — take it as payment at checkout.".Translate(), PresentedGiftCardLabel),
                 "OK".Translate());
+
+            return true;
+        }
+
+        /// <summary>
+        /// SELL a gift card — ask what to load it with and put it in the basket (WP13).
+        ///
+        /// ⚠⚠ THE TENANT'S VOUCHER TREATMENT DECIDES THE VAT, AND AN UNCHOSEN ONE REFUSES THE SALE.
+        /// `GiftCardVat` throws rather than guessing, because the treatment decides whether VAT falls
+        /// due now or when the card is spent — and a guess writes a wrong figure onto a VAT return.
+        /// The message names the portal, because that is where it is fixed.
+        ///
+        /// ⚠ NOTHING IS ACTIVATED HERE. The line goes in the basket; the card is loaded on the
+        /// server at commit, before the sale is recorded. Activating now would leave a live card
+        /// behind if the operator then cleared the basket.
+        /// </summary>
+        private async Task OfferToSellGiftCardAsync(
+            Plutus.Client.Core.PlutusApiClient.GiftCardLookupDto card)
+        {
+            var treatment = SharedKernel.GiftCardVat.FromWireName(card.VatTreatment);
+
+            if (!SharedKernel.GiftCardVat.CanSell(treatment))
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "Gift cards can't be sold until the VAT treatment for vouchers is set in the Plutus portal. "
+                    + "It decides whether VAT is charged now or when the card is spent, so it can't be guessed.",
+                    "OK".Translate());
+                return;
+            }
+
+            const NumberStyles styles = NumberStyles.AllowCurrencySymbol | NumberStyles.AllowThousands
+                | NumberStyles.AllowDecimalPoint;
+
+            IValidator[] validators = { new RequiredValidator(), new CurrencyValueValidator(styles) };
+
+            ViewElementData[] elements =
+            {
+                new ViewElementData(1, "Amount to load".Translate(), "", validators.AsEnumerable(), false, true),
+            };
+
+            var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                elements, "Confirm".Translate(), false, "Sell a gift card".Translate(), "Cancel".Translate());
+
+            answers.TryGetValue(1, out var typed);
+            if (string.IsNullOrWhiteSpace(typed)) return;
+
+            if (!decimal.TryParse(typed, styles, CultureInfo.CurrentCulture, out var amount) || amount <= 0)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "That isn't an amount a card can be loaded with.", "OK".Translate());
+                return;
+            }
+
+            // ⚠ THE PUBLISHED standard rate, never a literal 2000 — a tenant on 5% must get 5%.
+            // Only needed for the `Single` treatment; `PairFor` ignores it under `Multi`.
+            var standardRateBp = 0;
+            if (treatment == SharedKernel.VoucherTreatment.Single)
+            {
+                var resolved = await Services.Storage.VatBands.StandardRateBpAsync();
+                if (resolved is not int bp)
+                {
+                    // ⚠ REFUSE rather than assume 20%. This till has not been told the rate, and a
+                    // guessed rate on a card sale is a wrong VAT return.
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "This till doesn't know the current VAT rate yet, so a gift card can't be priced. "
+                        + "Check the connection on the Plutus tab, then try again.",
+                        "OK".Translate());
+                    return;
+                }
+                standardRateBp = bp;
+            }
+
+            var line = Services.Storage.CheckoutCommit.GiftCardItem(
+                card.Code, Pence.FromDecimal(amount), treatment, standardRateBp);
+
+            Basket.Add(line);
+
+            Logger.LogEvent(AppLogLevel.Info, $"{GetType().Name}: Gift card added to basket",
+                new Dictionary<string, string>
+                {
+                    { "AmountPence", Pence.FromDecimal(amount).ToString() },
+                    { "Treatment", treatment.ToString() },
+                });
+        }
+
+        /// <summary>
+        /// Load every gift card this sale is SELLING. False means **abort the sale**.
+        ///
+        /// ⚠ BEFORE THE COMMIT, like the redeems: a card that cannot be loaded — one already active,
+        /// most likely — must stop the sale BEFORE the customer is charged for it.
+        ///
+        /// ⚠ Idempotent by entry id, so a retried attempt loads once.
+        /// </summary>
+        private async Task<bool> TryActivateGiftCardsAsync()
+        {
+            var selling = Services.Storage.CheckoutCommit.GiftCardsSoldIn(Basket);
+            if (selling.Count == 0) return true;
+
+            var api = await Services.Storage.TillPlacement.TryCreateApiAsync();
+            if (api is null)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "A gift card can only be sold while the till is online — Plutus has to load it. Nothing has been taken.",
+                    "OK".Translate());
+                return false;
+            }
+
+            foreach (var (code, amountPence) in selling)
+            {
+                var (ok, _, problem) = await api.ActivateGiftCardAsync(
+                    code, amountPence, Uuid7.New(), Uuid7.New(),
+                    customerId: AttachedCustomer?.Id);
+
+                if (!ok)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        (problem ?? "That gift card couldn't be loaded.")
+                        + " Nothing has been taken — the basket is still here.",
+                        "OK".Translate());
+                    return false;
+                }
+
+                Logger.LogEvent(AppLogLevel.Info, $"{GetType().Name}: Gift card activated",
+                    new Dictionary<string, string> { { "AmountPence", amountPence.ToString() } });
+            }
 
             return true;
         }
@@ -2759,6 +2892,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 // basket survives, which is what lets the operator take the money another way.
                 if (!await TryRedeemStoreCreditAsync(tenders)) return;
                 if (!await TryRedeemGiftCardAsync(tenders)) return;
+
+                // ⚠ ACTIVATE LAST OF THE THREE, and still before the commit. A card being SOLD is
+                // the only one of these that creates value rather than spending it — so if a redeem
+                // above has already refused, no card has been loaded that a cancelled sale would
+                // leave live in the customer's hand.
+                if (!await TryActivateGiftCardsAsync()) return;
 
                 var outcome = await Services.Storage.CheckoutCommit.CommitAsync(
                     Basket, tenders, App.GetViewModel().SignedInOperator?.UserId);

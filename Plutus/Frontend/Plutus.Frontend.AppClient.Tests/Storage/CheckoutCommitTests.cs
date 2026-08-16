@@ -402,6 +402,96 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
             Assert.Empty(CheckoutCommit.TendersFrom(null));
         }
 
+        // ── selling a gift card (WP13) ──
+
+        /// <summary>
+        /// ⚠⚠ THE VAT DECLARATION HAS TO SURVIVE THE WHOLE COMMIT PATH, not just the rule. A
+        /// multi-purpose card is stored value — nothing supplied, so nothing VAT-able yet — and the
+        /// price pair is what says so. This asserts on the assembled LINE, because that is what the
+        /// server actually receives.
+        /// </summary>
+        [Fact]
+        public void A_multi_purpose_gift_card_reaches_the_sale_line_declaring_no_vat()
+        {
+            var basket = new List<IBasketRecord>
+            {
+                CheckoutCommit.GiftCardItem("CODE1", 2000, VoucherTreatment.Multi, standardRateBp: 2000),
+            };
+
+            var line = Assert.Single(CheckoutCommit.LinesFrom(basket));
+
+            Assert.Equal(2000, line.UnitIncPence);
+            Assert.Equal(2000, line.UnitExPence);   // ex == inc ⇒ 0bp on the wire
+            Assert.Equal(GiftCards.ItemIdOne, line.IdOne);
+        }
+
+        /// <summary>⚠ And a single-purpose card carries the VAT inside its face value — the customer
+        /// still pays £20.</summary>
+        [Fact]
+        public void A_single_purpose_gift_card_carries_vat_inside_its_face_value()
+        {
+            var basket = new List<IBasketRecord>
+            {
+                CheckoutCommit.GiftCardItem("CODE1", 2000, VoucherTreatment.Single, standardRateBp: 2000),
+            };
+
+            var line = Assert.Single(CheckoutCommit.LinesFrom(basket));
+
+            Assert.Equal(2000, line.UnitIncPence);
+            Assert.Equal(1667, line.UnitExPence);
+        }
+
+        /// <summary>
+        /// ⚠⚠ A GIFT CARD IS NEVER DISCOUNTED — selling £20 of spendable value for £18 hands over
+        /// £20 of purchasing power, which is then spent again on already-discounted goods. This runs
+        /// it through the REAL commit path with a member attached, because that is where a mistake
+        /// would actually reach the money.
+        /// </summary>
+        [Fact]
+        public void A_members_discount_never_touches_a_gift_card_line()
+        {
+            var goods = Item("A", 10m, 10m);
+            var card = CheckoutCommit.GiftCardItem("CODE1", 2000, VoucherTreatment.Multi, 2000);
+
+            var basket = new List<IBasketRecord> { goods, card };
+            basket.Add(MemberDiscountBasket.Build(
+                basket, "Gold", 0.10m, hasMembership: true, expired: false, Cashier));
+
+            var lines = CheckoutCommit.LinesFrom(basket);
+
+            Assert.Equal(100, lines.Single(l => l.IdOne == "A").DiscountPence);          // 10% of £10
+            Assert.Equal(0, lines.Single(l => l.IdOne == GiftCards.ItemIdOne).DiscountPence);
+        }
+
+        /// <summary>⚠ Each card is its own line with its own code — one line of quantity two would
+        /// activate one code twice, which the server refuses on the second attempt, AFTER the
+        /// customer has been charged for both.</summary>
+        [Fact]
+        public void Every_gift_card_sold_is_listed_with_its_own_code_and_amount()
+        {
+            var basket = new List<IBasketRecord>
+            {
+                Item("A", 5m, 5m),
+                CheckoutCommit.GiftCardItem("CODE1", 2000, VoucherTreatment.Multi, 2000),
+                CheckoutCommit.GiftCardItem("CODE2", 500, VoucherTreatment.Multi, 2000),
+            };
+
+            var selling = CheckoutCommit.GiftCardsSoldIn(basket);
+
+            Assert.Equal(2, selling.Count);
+            Assert.Equal(("CODE1", 2000L), selling[0]);
+            Assert.Equal(("CODE2", 500L), selling[1]);
+        }
+
+        /// <summary>⚠ An ordinary basket sells no cards, so nothing is activated — the common case
+        /// must not reach the server at all.</summary>
+        [Fact]
+        public void An_ordinary_basket_sells_no_gift_cards()
+        {
+            Assert.Empty(CheckoutCommit.GiftCardsSoldIn(new List<IBasketRecord> { Item("A", 5m, 5m) }));
+            Assert.Empty(CheckoutCommit.GiftCardsSoldIn(null));
+        }
+
         // ── receipt notes (step 11b: extracted from the untestable checkout method) ──
 
         /// <summary>
