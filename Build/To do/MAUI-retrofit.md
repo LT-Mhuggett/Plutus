@@ -51,8 +51,13 @@ item-identity seam all outlive the retrofit, and archiving them unlifted buries 
 
 ## Where it stands
 
-**Counted from Part B, not estimated — 2026-08-12: 75 capability rows.**
-**40 ✅ both tills · 15 MAUI ⬜ · 7 MAUI 🟡 · 5 where MAUI is AHEAD of the web till.**
+**Counted from Part B, not estimated — recounted 2026-08-16: 77 capability rows.**
+**42 ✅ both tills · 15 MAUI ⬜ · 7 MAUI 🟡 · 7 where MAUI is AHEAD of the web till.**
+
+⚠ **Recount, not a re-estimate.** Two rows were added 2026-08-14 (the discount audit trail, ✅ both;
+the discount ceiling + step-up, ⬜ on the **web** till), and **refund-only baskets moved ⬜ → ✅ on
+2026-08-16 having been built for some time** — the fifth stale marker in a week. ⚠ **The gap is now
+as much about the WEB till as MAUI**: seven rows where MAUI leads, against fifteen where it trails.
 
 | | |
 |---|---|
@@ -1034,7 +1039,10 @@ Not fifteen problems — **five clusters**, each already owned by a step above:
 - **Theming + portal-controlled receipt template** (2 rows) → **steps 22 and 26**
 - **Users** (1 row) → **step 24**
 - **Un-enrol request + manager approval** (1 row) → **step 21, ~1d**
-- **Refund-only baskets** (1 row) → **steps 11b / 27**
+- **VAT-band consistency guard** (1 row) → **WP10**
+
+✅ **Refund-only baskets left this list on 2026-08-16** — built, tested and hand-run; the row had
+been ⬜ against a Notes cell that described the *server* half. **Grep before believing a marker.**
 
 ## 7. How long, honestly
 
