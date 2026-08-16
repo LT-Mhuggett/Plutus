@@ -1,6 +1,6 @@
 # Test Maui — the MAUI till hand-test script
 
-**For till 1.56.0.** Anyone can run this. You do not need to know the codebase, and you should not
+**For till 1.57.0.** Anyone can run this. You do not need to know the codebase, and you should not
 need to ask anyone what a step means — if a step is unclear, that is a bug in this document, so please
 say so.
 
@@ -13,7 +13,7 @@ if that is all the time you have.
 
 | | |
 |---|---|
-| **Run** | `D:\tmp\plutus-till-1.56.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
+| **Run** | `D:\tmp\plutus-till-1.57.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
 | **Sign in as** | any operator with **Supervisor** or above — some steps need permission to change stock |
@@ -685,3 +685,36 @@ the discount should be recorded against the lines it applied to, with the reason
 
 ⚠ **Compare one basket against the web till** if you can — same member, same items. **The two totals
 must match to the penny.** That is the whole point of this section.
+
+## G9. Add a new member at the till — **NEW in 1.57.0**
+
+Signed in as a **Cashier** (not a supervisor):
+
+1. Press **Add member**. Fill in a name; email and phone are optional.
+
+**✅ Expected:** the member is created, given a membership number, and **attached to the sale
+straight away**. The message tells you the number, and says *"A supervisor can set their tier."*
+
+⚠ **There must be NO tier picker in that dialog.** That is deliberate, and it is the browser till's
+scar: creating a member and setting a tier are two different permissions, so offering both to a
+cashier produced a member who WAS created followed by a "forbidden" error — and the natural retry
+made a duplicate.
+
+2. Try it with the till **offline** (pull the network).
+
+**✅ Expected:** it refuses, saying the membership number comes from Plutus and **nothing has been
+saved**. That is correct, not a bug — two offline tills would mint the same number.
+
+## G10. Set a member's tier — Supervisor and up
+
+1. Signed in as a **Cashier**, with a member attached: is there a **Set tier** button?
+
+**✅ Expected: no.** A cashier does not see it at all.
+
+2. Sign in as a **Supervisor**, attach a member, press **Set tier**, pick one.
+
+**✅ Expected:** the tier is set, and the member's bar updates — e.g. `Jo Bloggs — Gold 10%`. If there
+are items in the basket, **the discount appears immediately**.
+
+⚠ If no tiers exist yet it should say they are created in the portal, rather than showing an empty
+list.

@@ -195,12 +195,24 @@
                          and tier when one is, with a button to take them off again. The two swap on
                          HasAttachedCustomer so the operator always has exactly one of them. -->
                     <Button Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
-                            Text="{i18n:Translate AddMember}"
+                            Text="{i18n:Translate Search}"
                             IsVisible="{Binding HasAttachedCustomer, Converter={StaticResource InverseBool}}"
                             Command="{Binding AttachCustomerCommand}"/>
-                    <Label  Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4" VerticalOptions="Center"
+                    <!-- ⚠ Hidden when the operator lacks `pos.customers.add` OR `customers.manage`.
+                         A control that is only going to refuse is worse than no control. -->
+                    <Button Grid.Row="0" Grid.Column="2" Grid.ColumnSpan="2"
+                            Text="{i18n:Translate AddMember}"
+                            IsVisible="{Binding MayAddCustomers}"
+                            Command="{Binding AddMemberCommand}"/>
+                    <Label  Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" VerticalOptions="Center"
                             IsVisible="{Binding HasAttachedCustomer}"
                             Text="{Binding AttachedCustomerLabel}"/>
+                    <!-- ⚠ Supervisor and up (`customers.manage`) — a tier changes every future
+                         basket that customer puts through, so it is not a cashier's decision. -->
+                    <Button Grid.Row="0" Grid.Column="3" Grid.ColumnSpan="1"
+                            Text="{i18n:Translate SetTier}"
+                            IsVisible="{Binding MayManageCustomers}"
+                            Command="{Binding SetTierCommand}"/>
                     <Button Grid.Row="0" Grid.Column="4" Grid.ColumnSpan="2"
                             Text="{i18n:Translate RemoveMember}"
                             IsVisible="{Binding HasAttachedCustomer}"

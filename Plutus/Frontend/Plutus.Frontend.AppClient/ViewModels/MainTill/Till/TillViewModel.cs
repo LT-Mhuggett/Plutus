@@ -586,18 +586,18 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             switch (d.Verdict)
             {
                 case Plutus.SharedKernel.DiscountVerdict.NothingToDiscount:
-                    return "There's nothing in the basket to discount. A returned item can't be discounted — a refund gives back what the customer actually paid.".Translate();
+                    return "There's nothing in the basket to discount. A returned item can't be discounted — a refund gives back what the customer actually paid.";
 
                 case Plutus.SharedKernel.DiscountVerdict.NotAnAmount:
-                    return "A discount has to be more than nothing.".Translate();
+                    return "A discount has to be more than nothing.";
 
                 default:
                     return d.AlreadyPence > 0
                         ? string.Format(
-                            "That's more than is left to discount. {0} is already off, so the most you can take off now is {1}.".Translate(),
+                            "That's more than is left to discount. {0} is already off, so the most you can take off now is {1}.",
                             Gbp(d.AlreadyPence), Gbp(d.HeadroomPence))
                         : string.Format(
-                            "A discount can't be more than the basket. The most you can take off is {0}.".Translate(),
+                            "A discount can't be more than the basket. The most you can take off is {0}.",
                             Gbp(d.HeadroomPence));
             }
         }
@@ -650,15 +650,15 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             verdict switch
             {
                 Plutus.SharedKernel.DiscountAuditVerdict.NoReason =>
-                    "Every discount has to say why it was given. Try again and type a short reason.".Translate(),
+                    "Every discount has to say why it was given. Try again and type a short reason.",
 
                 Plutus.SharedKernel.DiscountAuditVerdict.NoAuthoriser =>
-                    "This discount is above your limit, so a supervisor has to authorise it. Nothing has been taken off.".Translate(),
+                    "This discount is above your limit, so a supervisor has to authorise it. Nothing has been taken off.",
 
                 Plutus.SharedKernel.DiscountAuditVerdict.SelfAuthorised =>
-                    "A discount can't be authorised by the person giving it. Ask someone else to sign in on the prompt.".Translate(),
+                    "A discount can't be authorised by the person giving it. Ask someone else to sign in on the prompt.",
 
-                _ => "This discount can't be recorded.".Translate(),
+                _ => "This discount can't be recorded.",
             };
 
         /// <summary>
@@ -1115,12 +1115,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 IValidator[] validators = { new RequiredValidator() };
                 ViewElementData[] elements =
                 {
-                    new ViewElementData(1, "Name, phone, email or member number".Translate(), "",
+                    new ViewElementData(1, "Name, phone, email or member number", "",
                         validators.AsEnumerable(), false, true),
                 };
 
                 var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
-                    elements, "Search".Translate(), false, "Find a member".Translate(), "Cancel".Translate());
+                    elements, "Search".Translate(), false, "Find a member", "Cancel".Translate());
 
                 answers.TryGetValue(1, out var term);
                 if (string.IsNullOrWhiteSpace(term)) return;
@@ -1132,7 +1132,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 // ⚠ `async void` — without this the till closes.
                 CrashLog.Write("TillViewModel.ExecuteAttachCustomer", ex);
                 await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                    "The member couldn't be looked up. The sale is unaffected.".Translate(), "OK".Translate());
+                    "The member couldn't be looked up. The sale is unaffected.", "OK".Translate());
             }
             finally
             {
@@ -1153,7 +1153,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             if (api is null)
             {
                 await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                    "Members can only be looked up when the till is online. The sale is unaffected.".Translate(),
+                    "Members can only be looked up when the till is online. The sale is unaffected.",
                     "OK".Translate());
                 return;
             }
@@ -1163,7 +1163,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             if (matches is null || matches.Count == 0)
             {
                 await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                    string.Format("No member found for '{0}'.".Translate(), term), "OK".Translate());
+                    string.Format("No member found for '{0}'.", term), "OK".Translate());
                 return;
             }
 
@@ -1181,7 +1181,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
                     Application.Current.MainPage.DisplayActionSheet(
-                        "Which member?".Translate(), "Cancel".Translate(), null, names));
+                        "Which member?", "Cancel".Translate(), null, names));
 
                 if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return;
 
@@ -1195,7 +1195,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             if (detail is null)
             {
                 await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                    "That member couldn't be read. The sale is unaffected.".Translate(), "OK".Translate());
+                    "That member couldn't be read. The sale is unaffected.", "OK".Translate());
                 return;
             }
 
@@ -1216,9 +1216,229 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             {
                 await Application.Current.MainPage.DisplayAlert(
                     "Member".Translate(),
-                    string.Format("{0} — {1} off this basket.".Translate(),
+                    string.Format("{0} — {1} off this basket.",
                         AttachedCustomerLabel, Math.Abs(applied.Price).ToString("C2", CultureInfo.CurrentCulture)),
                     "OK".Translate());
+            }
+        }
+
+        private Command _addMemberCommand;
+        public Command AddMemberCommand => _addMemberCommand ??= new Command(ExecuteAddMember);
+
+        private Command _setTierCommand;
+        public Command SetTierCommand => _setTierCommand ??= new Command(ExecuteSetTier);
+
+        /// <summary>Can this operator add a member? Drives the button's visibility as well as the
+        /// gate, so a cashier without the grant is not shown a control that will refuse them.</summary>
+        public bool MayAddCustomers =>
+            Services.Security.TillGate.CheckAny(
+                App.GetViewModel().SignedInOperator, null,
+                PermissionCatalogue.PosCustomersAdd, PermissionCatalogue.CustomersManage).Allowed;
+
+        /// <summary>Can this operator change a member's tier? Supervisor and up.</summary>
+        public bool MayManageCustomers =>
+            Services.Security.TillGate.Check(
+                App.GetViewModel().SignedInOperator, PermissionCatalogue.CustomersManage).Allowed;
+
+        /// <summary>
+        /// Sign a new member up at the till — binding default 20, *"Till operator to add new loyalty
+        /// members"*.
+        ///
+        /// ⚠⚠ **NO TIER PICKER IN THIS DIALOG, AND THAT IS THE WEB TILL'S SCAR, NOT A SIMPLIFICATION.**
+        /// Creating a member and setting their tier are two calls with two different permissions:
+        /// `pos.customers.add` creates, `customers.manage` sets the tier. A dialog that offers both
+        /// to a cashier gets **201 on the create and 403 on the tier** — an error message in front of
+        /// a customer, for a member who HAS actually been added, whose natural retry creates a
+        /// duplicate. So the tier is a separate, separately-gated action (`SetTierCommand`), and this
+        /// dialog says who to ask.
+        ///
+        /// ⚠ ONLINE-ONLY, deliberately and permanently: the membership number comes from a
+        /// tenant-wide counter, so two offline tills would mint the same one. The refusal says so
+        /// rather than implying a retry will help.
+        ///
+        /// ⚠ CREATE-ONLY. There is no edit path on this till at all — changing a member's email
+        /// quietly redirects their account.
+        /// </summary>
+        private async void ExecuteAddMember()
+        {
+            if (IsBusy) return;
+
+            var gate = Services.Security.TillGate.CheckAny(
+                App.GetViewModel().SignedInOperator, null,
+                PermissionCatalogue.PosCustomersAdd, PermissionCatalogue.CustomersManage);
+
+            if (!gate.Allowed)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), gate.Message, "OK".Translate());
+                return;
+            }
+
+            IsBusy = true;
+            try
+            {
+                IValidator[] required = { new RequiredValidator() };
+
+                ViewElementData[] elements =
+                {
+                    new ViewElementData(1, "Name".Translate(), "", required.AsEnumerable(), false, true),
+                    new ViewElementData(2, "Email (optional)", "", new List<IValidator>(), false, false),
+                    new ViewElementData(3, "Phone (optional)", "", new List<IValidator>(), false, false),
+                };
+
+                var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                    elements, "Add".Translate(), false, "New member", "Cancel".Translate());
+
+                answers.TryGetValue(1, out var name);
+                if (string.IsNullOrWhiteSpace(name)) return;
+
+                answers.TryGetValue(2, out var email);
+                answers.TryGetValue(3, out var phone);
+
+                var api = await Services.Storage.TillPlacement.TryCreateApiAsync();
+                if (api is null)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "A member can only be added while the till is online — their membership number comes from Plutus. Nothing has been saved.",
+                        "OK".Translate());
+                    return;
+                }
+
+                var (ok, id, memberNo, problem) = await api.CreateCustomerAsync(name, email, phone);
+
+                if (!ok)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        problem ?? "That member couldn't be added.", "OK".Translate());
+                    return;
+                }
+
+                Logger.LogEvent(AppLogLevel.Info, $"{GetType().Name}: Member added",
+                    new Dictionary<string, string> { { "CustomerId", id.ToString() }, { "MemberNo", memberNo ?? "" } });
+
+                // ⚠ Attach them straight away. They were added mid-sale, so the operator's next
+                // action is always to put them on it — and re-reading gives us the membership shape
+                // the discount needs rather than assuming a new member has none.
+                var detail = await api.GetCustomerAsync(id);
+                if (detail != null)
+                {
+                    AttachedCustomer = detail;
+                    RefreshMemberDiscount();
+                }
+
+                await Application.Current.MainPage.DisplayAlert(
+                    "Member".Translate(),
+                    string.Format("{0} added. Membership number {1}.", name, memberNo ?? "(pending)")
+                    + (MayManageCustomers
+                        ? ""
+                        : " " + "A supervisor can set their tier."),
+                    "OK".Translate());
+            }
+            catch (Exception ex)
+            {
+                CrashLog.Write("TillViewModel.ExecuteAddMember", ex);
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "That member couldn't be added. Nothing has been saved.", "OK".Translate());
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+        /// <summary>
+        /// Set or change the attached member's tier — **Supervisor and up** (`customers.manage`).
+        ///
+        /// ⚠ THE TILL SENDS A TIER ID AND NOTHING ELSE. The tier owns its discount rate and renewal
+        /// length, so re-rating "Gold" in the portal moves every Gold member at once instead of
+        /// leaving a snapshot behind on whichever till assigned it. A till never types a rate.
+        ///
+        /// ⚠ The customer is RE-READ afterwards rather than patched locally: the server decides the
+        /// renewal date and the expiry verdict, and the discount on this basket must follow the
+        /// server's answer, not this till's guess at it.
+        /// </summary>
+        private async void ExecuteSetTier()
+        {
+            if (IsBusy) return;
+
+            if (AttachedCustomer is null)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "Attach a member first, then set their tier.", "OK".Translate());
+                return;
+            }
+
+            var gate = Services.Security.TillGate.Check(
+                App.GetViewModel().SignedInOperator, PermissionCatalogue.CustomersManage);
+
+            if (!gate.Allowed)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), gate.Message, "OK".Translate());
+                return;
+            }
+
+            IsBusy = true;
+            try
+            {
+                var api = await Services.Storage.TillPlacement.TryCreateApiAsync();
+                if (api is null)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "Tiers can only be changed while the till is online.", "OK".Translate());
+                    return;
+                }
+
+                var tiers = (await api.GetLoyaltyTiersAsync())?.Where(t => t.Active).ToList();
+
+                // ⚠ Tiers are created in the PORTAL only (binding default 20). An empty list is a
+                // configuration answer, not an error, and saying so stops an operator hunting for a
+                // till setting that does not exist.
+                if (tiers is null || tiers.Count == 0)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "No membership tiers have been set up yet. They're created in the Plutus portal.",
+                        "OK".Translate());
+                    return;
+                }
+
+                var names = tiers
+                    .Select(t => $"{t.Name} · {SharedKernel.MemberDiscount.Label(t.Name, t.AutoDiscountRate)}")
+                    .ToArray();
+
+                var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
+                    Application.Current.MainPage.DisplayActionSheet(
+                        "Which tier?", "Cancel".Translate(), null, names));
+
+                if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return;
+
+                var index = Array.IndexOf(names, picked);
+                if (index < 0) return;
+
+                var (ok, problem) = await api.SetMembershipAsync(AttachedCustomer.Id, tiers[index].Id);
+
+                if (!ok)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        problem ?? "That tier couldn't be set.", "OK".Translate());
+                    return;
+                }
+
+                // ⚠ Re-read, never patch locally — see the header.
+                var refreshed = await api.GetCustomerAsync(AttachedCustomer.Id);
+                if (refreshed != null)
+                {
+                    AttachedCustomer = refreshed;
+                    RefreshMemberDiscount();
+                }
+            }
+            catch (Exception ex)
+            {
+                CrashLog.Write("TillViewModel.ExecuteSetTier", ex);
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "That tier couldn't be set.", "OK".Translate());
+            }
+            finally
+            {
+                IsBusy = false;
             }
         }
 
@@ -1266,7 +1486,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             {
                 CrashLog.Write("TillViewModel.TryRouteMemberScanAsync", ex);
                 await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                    "That card couldn't be looked up. The sale is unaffected.".Translate(), "OK".Translate());
+                    "That card couldn't be looked up. The sale is unaffected.", "OK".Translate());
             }
             finally
             {

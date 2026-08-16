@@ -337,6 +337,35 @@ is needed before anyone installs this on a shop PC, and is not needed to test.
     hour; a takings total eight hours stale looks exactly like a correct one. **When you find one
     stale screen, go and look for its siblings straight away.**
 
+18. ⚠⚠ **`.Translate()` ON AN ENGLISH SENTENCE CRASHES A DEBUG BUILD.** `TranslateExtension.ProvideValue`
+    looks the string up as a **resource key**; when it misses it **throws `ArgumentException` in
+    DEBUG** and silently returns the key itself in RELEASE. The XAML form `{i18n:Translate Foo}`
+    behaves identically. So a missing key is invisible in every build we ship and fatal in the one
+    developers press F5 on — and because these strings live in `DisplayAlert` calls, the crash lands
+    on the money path, from an `async void`, mid-sale.
+
+    ⚠ **I introduced 17 of these in one week and did not notice**, because the test path is a
+    **Release** publish (see § MAUI till build) where the fallback hides it. `WhyThisDiscount`
+    shipped in till 1.54.0 as a key that did not exist.
+
+    **The rule this codebase already follows:** `.Translate()` takes a **short key** that exists in
+    `Plutus/Shared/I18N_L10N/Resx/AppResources.resx` (`"Hmm"`, `"OK"`, `"HowMuchRefund"`). A new
+    English sentence for an alert is passed **untranslated**, exactly as
+    *"Something went wrong taking payment…"* already is.
+
+    **Sweep for it before shipping — both forms:**
+    ```bash
+    R=Plutus/Shared/I18N_L10N/Resx/AppResources.resx
+    A=Plutus/Frontend/Plutus.Frontend.AppClient
+    # C# keys
+    grep -rohP '"[^" ]+"\.Translate\(' --include=*.cs $A/ | sed 's/"\(.*\)"\.Translate(/\1/' | sort -u \
+      | while read k; do grep -q "name=\"$k\"" $R || echo "MISSING $k"; done
+    # XAML keys
+    grep -rohP 'i18n:Translate \w+' --include=*.xaml $A/ | awk '{print $2}' | sort -u \
+      | while read k; do grep -q "name=\"$k\"" $R || echo "MISSING $k"; done
+    ```
+    ⚠ A key **containing a space is always wrong** — that is a sentence, not a key.
+
 ⚠ **The standing check these came from:** a green suite proves a component works, never that
 anything *uses* it. `OutboxPusher.DrainAsync`, the catalogue browse and `TillStore.SearchAsync` were
 each fully built and tested while the screen in front of them looked broken. When a screen misbehaves,

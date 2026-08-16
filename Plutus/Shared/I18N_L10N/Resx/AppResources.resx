@@ -379,6 +379,17 @@ Please try again.</value>
   <data name="RemoveMember" xml:space="preserve">
     <value>Remove member</value>
   </data>
+  <data name="SetTier" xml:space="preserve">
+    <value>Set tier</value>
+  </data>
+  <data name="Member" xml:space="preserve">
+    <value>Member</value>
+  </data>
+  <!-- ⚠ Added 2026-08-16 with the keys above: this shipped in 1.54.0 as a `.Translate()` on a key
+       that did not exist, which throws in DEBUG. See runbook pitfall 18. -->
+  <data name="WhyThisDiscount" xml:space="preserve">
+    <value>Why is this discount being given?</value>
+  </data>
   <data name="Bag" xml:space="preserve">
     <value>Bag</value>
   </data>
