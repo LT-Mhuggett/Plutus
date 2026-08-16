@@ -68,7 +68,7 @@ try again"*, which never worked.
 
 | | Version | State |
 |---|---|---|
-| Backend | **1.17.0** | ✅ **DEPLOYED & verified** — rollback `~/PLUTUS/backend.pre-1.17.0`. Untouched today; re-probed after the web deploy (`POST /api/v1/tokens/device` → **401 "Device not enrolled"**, i.e. the DB path is healthy, not just `/swagger`) |
+| Backend | **1.17.1** | ✅ **DEPLOYED & verified 2026-08-16** — rollback `~/PLUTUS/backend.pre-1.17.1`. Behaviour-neutral: it picks up `GiftCardCodes` from its new SharedKernel home. Verified on the DB path (`POST /api/v1/tokens/device` → **401 "Device not enrolled"**), not just `/swagger` — which answered 200 throughout the 2026-08-09 outage. Error log **0 bytes**, `restart_time 0`, clean boot. ⚠ `appsettings.json` was hash-compared against the live copy **before** shipping (identical) — the publish overwrites it. ⚠ Extracted to `backend.new` and only then swapped, so a bad tarball could not leave the box with no `backend` at all. |
 | Web till | **1.9.0** (`index-BLeVrCti.js`) | ✅ **DEPLOYED & verified 2026-08-14** — rollback `/srv/apps/PLUTUS/web/current.pre-1.9.0` (holds `index-BXTgzlgt.js` = 1.8.0) |
 | Portal | 1.8.0 (`index-X2HmT_BH.js`) | unchanged — **confirmed untouched** by the web deploy |
 | platform | **1.35.0** | ships inside the others; in the web till as deployed |

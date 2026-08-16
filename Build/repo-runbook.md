@@ -203,6 +203,19 @@ there and is not evidence of a bad build.
 
 ## MAUI till build (Windows)
 
+> ⚠⚠ **BUILD ONE ONLY WHEN MATT ASKS.** Matt, 2026-08-16: *"Can you only deploy new MAUI tills when I
+> ask please. When doing a lot of change, you might deploy 5 and I only test the latest."*
+>
+> Keep bumping `versions/till-maui.txt` per slice and keep committing — that history is the release
+> record and it is right. **Do not run the publish below** until he asks for a build, or says he is
+> about to test. A queue of artefacts nobody asked for is churn, and worse, it implies a testing
+> history that does not exist.
+>
+> When he does ask: build **current HEAD**, verify the artefact's version, **delete superseded
+> builds** so there is no ambiguity about which to run, and point `Build/Test Maui.md`'s *Run* line
+> at it. ⚠ Keep that script up to date as work lands regardless — it is cheap, and it is what makes
+> a later hand-run possible at all.
+
 ⚠ **The Release MSIX is UNSIGNED and will not install.** `Configuration != Debug` sets
 `WindowsPackageType=MSIX`, but nothing in the project configures a signing certificate — so
 `publish` produces `AppPackages\…\*.msix` with no `.cer` beside it, and Windows refuses it with
