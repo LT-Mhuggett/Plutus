@@ -10,7 +10,7 @@ import EmployeesPage from "./EmployeesPage.tsx";
 import HelpPanel from "./HelpPanel.tsx";
 import LoginPage from "./LoginPage.tsx";
 import { PlutusMark } from "./PlutusMark.tsx";
-import { ackPickNotification, drainOutbox, fetchActiveAnnouncements, fetchPickNotifications, fetchTillName, loadReceiptTemplate, loadVatBands, onOutboxChanged, sendHeartbeat, syncCatalogue, type ActiveAnnouncement, type PickNotification } from "./api.ts";
+import { ackPickNotification, drainOutbox, fetchActiveAnnouncements, showsOnATill, fetchPickNotifications, fetchTillName, loadReceiptTemplate, loadVatBands, onOutboxChanged, sendHeartbeat, syncCatalogue, type ActiveAnnouncement, type PickNotification } from "./api.ts";
 import { getDeviceCredential, sessionScopes } from "./pipeline.ts";
 import { startAgentReporter } from "./hardware.ts";
 import { startUpdateWatcher } from "./appUpdate.ts";
@@ -130,9 +130,11 @@ export default function App() {
     const pollNotes = () => void fetchPickNotifications().then(setPickNotes).catch(() => undefined);
     pollNotes();
     const notesTimer = window.setInterval(pollNotes, 60_000);
-    // WP15.1: show Maintenance/Incident announcements (Info is portal-only) on the same cadence.
+    // WP15.1: show announcements that belong on a till (Info is portal-only) on the same cadence.
+    // ⚠ The filter is `showsOnATill`, the twin of MAUI's `NoticesClient.ShowsOnATill` — it used to be
+    // an inline allow-list here, which silently dropped any severity this build had not heard of.
     const pollAnn = () => void fetchActiveAnnouncements()
-      .then((a) => setAnnouncements(a.filter((x) => x.severity === "Maintenance" || x.severity === "Incident")))
+      .then((a) => setAnnouncements(a.filter((x) => showsOnATill(x.severity))))
       .catch(() => undefined);
     pollAnn();
     const annTimer = window.setInterval(pollAnn, 60_000);

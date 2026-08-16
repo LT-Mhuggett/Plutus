@@ -324,6 +324,19 @@ namespace Plutus.Frontend.AppClient.Services.Sync
             // reverting a shop's receipt mid-day.
             await Printing.ReceiptBranding.RefreshAsync(ct).ConfigureAwait(false);
 
+            // 4c. The NOTICEBOARD — pick-from-floor notes and platform announcements (WP5b).
+            //
+            // ⚠ `Plutus.Client.Core.NoticesClient` shipped 2026-08-09 with 23 tests and was
+            // referenced exactly once in this app, in a comment. This is the caller it was waiting
+            // for — the rules were never the missing part.
+            //
+            // ⚠ EVERY TICK, matching the web till, which polls both feeds on the same 60s beat.
+            //
+            // ⚠ A FAILED POLL DOES NOT CLEAR THE BOARD — see `Noticeboard.Apply`. An empty answer
+            // and no answer are different things, and confusing them takes a live incident banner
+            // off the screen the first time the shop's broadband blinks.
+            await Notices.Noticeboard.RefreshAsync(ct).ConfigureAwait(false);
+
             // 5. Re-read WHO MAY USE THIS TILL, and what they may do.
             //
             // ⚠ NOTHING DID THIS ON A CADENCE UNTIL 2026-08-11, and Matt spotted it: *"MAUI getting

@@ -329,9 +329,29 @@ export const searchCustomers = (term: string) =>
 
 export const getCustomer = (id: string) => get<CustomerDetail>(`/api/v1/customers/${id}`);
 
-// WP15.1 in-app announcements (till shows Maintenance/Incident only).
+// WP15.1 in-app announcements.
 export interface ActiveAnnouncement { id: string; severity: string; title: string; body: string; startsAtUtc: string; endsAtUtc: string }
 export const fetchActiveAnnouncements = () => get<ActiveAnnouncement[]>("/api/v1/announcements/active");
+
+/**
+ * Whether an announcement belongs on a TILL at all — the twin of
+ * `Plutus.Client.Core.NoticesClient.ShowsOnATill`, which MAUI uses. See till-design.md C2.
+ *
+ * ⚠ `Info` is portal-only. The banner interrupts someone mid-transaction, so it is reserved for the
+ * two severities that change what they should do. Putting release notes there teaches operators to
+ * ignore the banner, and then the incident goes unread too.
+ *
+ * ⚠⚠ IT IS A DENY-LIST, AND THAT IS THE WHOLE POINT. This was an allow-list until 2026-08-16
+ * (`severity === "Maintenance" || severity === "Incident"`), which meant a severity this build had
+ * never heard of was SILENTLY DROPPED — and a severity a later backend adds will be at least as
+ * urgent as maintenance, so defaulting to "hide" blanks exactly the messages worth reading. MAUI's
+ * copy had always shown them. Two tills in one shop, one showing the incident and one not.
+ *
+ * ⚠ Trimmed and case-insensitive for the same reason: `" Incident"` or `"incident"` from a future
+ * backend must not decide whether a shop hears about an outage.
+ */
+export const showsOnATill = (severity: string | null | undefined): boolean =>
+  (severity ?? "").trim().toLowerCase() !== "info";
 
 declare const __APP_VERSION__: string;
 

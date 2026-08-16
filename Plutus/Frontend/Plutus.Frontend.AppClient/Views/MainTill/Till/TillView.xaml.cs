@@ -14,6 +14,37 @@ namespace Plutus.Frontend.AppClient.Views.MainTill.Till
             InitializeComponent();
         }
 
+        /// <summary>
+        /// ⚠ REDRAW THE NOTICEBOARD WHENEVER IT CHANGES, and once on the way in — the cadence has
+        /// almost certainly polled before this page was ever opened, so a banner that only reacted to
+        /// future changes would stay empty until the next beat.
+        /// </summary>
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            (BindingContext as TillViewModel)?.Notices.Redraw();
+            Services.Notices.Noticeboard.Changed += OnNoticesChanged;
+        }
+
+        /// <summary>
+        /// ⚠ UNSUBSCRIBE, ALWAYS. `Changed` is a STATIC event: a page that subscribes and never
+        /// detaches is held alive for the life of the process, and every visit adds another handler.
+        /// </summary>
+        protected override void OnDisappearing()
+        {
+            Services.Notices.Noticeboard.Changed -= OnNoticesChanged;
+            base.OnDisappearing();
+        }
+
+        /// <summary>
+        /// ⚠ ARRIVES ON THE CADENCE'S BACKGROUND THREAD, so it marshals itself — `Redraw` writes an
+        /// `ObservableCollection` a `CollectionView` is bound to, and doing that off the UI thread is
+        /// the kind of fault that works in testing and throws on a shop floor.
+        /// </summary>
+        private void OnNoticesChanged() =>
+            Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(
+                () => (BindingContext as TillViewModel)?.Notices.Redraw());
+
         private void Quantity_Completed(object sender, EventArgs e)
         {
             if (!string.IsNullOrEmpty((BindingContext as TillViewModel)?.ItemId))

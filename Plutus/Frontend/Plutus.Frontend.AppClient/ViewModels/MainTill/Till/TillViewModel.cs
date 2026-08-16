@@ -47,6 +47,19 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             set => SetProperty(ref _isDesktop, value);
         }
         public double TopBarFontSize => new Label().FontSize;
+
+        /// <summary>
+        /// The noticeboard banner at the top of this page — pick-from-floor notes and platform
+        /// announcements (WP5b).
+        ///
+        /// ⚠ ITS OWN VIEWMODEL, not another dozen properties on this one. This class is already the
+        /// largest on the till, and the banner has nothing to do with selling: keeping it separate
+        /// means the XAML binds `{Binding Notices.Rows}` and the two can be read apart.
+        ///
+        /// ⚠ Filled by <see cref="Services.Sync.TillCadence"/>, redrawn by the page on each tick.
+        /// It does not poll on its own.
+        /// </summary>
+        public NoticeboardViewModel Notices { get; } = new();
         public string ItemId
         {
             get => _itemId;

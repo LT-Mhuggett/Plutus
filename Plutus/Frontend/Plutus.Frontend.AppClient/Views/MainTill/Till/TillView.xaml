@@ -10,6 +10,7 @@
              xmlns:i18n="clr-namespace:I18N_L10N.Extensions;assembly=I18N_L10N"
              mc:Ignorable="d"
              x:Class="Plutus.Frontend.AppClient.Views.MainTill.Till.TillView"
+             x:Name="TillPage"
              Title="{Binding Title}"
              IconImageSource="{Binding Icon, Converter={StaticResource MaterialIconConverter}}">
     <ContentPage.BindingContext>
@@ -113,6 +114,53 @@
     <ContentPage.Content>
         <Grid>
             <StackLayout>
+                <!-- ⚠⚠ THE NOTICEBOARD (WP5b) — pick-from-floor notes and platform announcements.
+                     The web till has had this since Phase 6; MAUI had the shared rules
+                     (`Client.Core.NoticesClient`, 23 tests) and no caller and no banner.
+
+                     ⚠ AT THE TOP OF THE SELLING SCREEN, because that is the only page an operator
+                     is guaranteed to be looking at. A notice on the Plutus tab is a notice nobody
+                     reads — the pick note exists to stop a web order being oversold, which is a
+                     race against somebody else selling the last one off the shelf.
+
+                     ⚠ THE WHOLE THING COLLAPSES when there is nothing to say. A permanent empty
+                     strip costs the pixels for good and trains people not to look at that region.
+
+                     ⚠ Announcements first, then pick notes — see `NoticeboardViewModel.Redraw`. -->
+                <StackLayout IsVisible="{Binding Notices.HasAnything}" Margin="0,0,0,6" Spacing="4">
+                    <CollectionView ItemsSource="{Binding Notices.Rows}">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="10,6" Margin="0,2" StrokeThickness="0"
+                                        BackgroundColor="{Binding Accent}">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                        <StackLayout Grid.Column="0" Spacing="0">
+                                            <Label Text="{Binding Headline}" FontAttributes="Bold"
+                                                   TextColor="White" LineBreakMode="WordWrap"/>
+                                            <Label Text="{Binding Detail}" FontSize="Small"
+                                                   TextColor="White" LineBreakMode="WordWrap"/>
+                                        </StackLayout>
+                                        <!-- ⚠ HIDDEN, not disabled, on an announcement: those cannot be
+                                             acknowledged at all, and a greyed-out button invites
+                                             somebody to keep pressing it.
+                                             ⚠ The command lives on the PAGE's viewmodel, not the row,
+                                             so it is reached by name through the CollectionView. -->
+                                        <Button Grid.Column="1" Text="{i18n:Translate Done}"
+                                                IsVisible="{Binding CanAck}" Padding="12,4"
+                                                VerticalOptions="Center"
+                                                Command="{Binding Path=BindingContext.Notices.AckCommand, Source={x:Reference Name=TillPage}}"
+                                                CommandParameter="{Binding .}"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                    <!-- ⚠ ONLY ALONGSIDE SOMETHING. "This may be out of date" over an empty board is
+                         a warning about nothing, every time a shop's line drops. -->
+                    <Label IsVisible="{Binding Notices.ShowStale}" FontSize="Micro" Opacity="0.7"
+                           Text="⚠ Plutus can't be reached — these notices may be out of date."/>
+                </StackLayout>
+
                 <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
                     <!-- ⚠ THE QUANTITY BOX, NO LONGER SYNCFUSION. Matt, 2026-08-10: *"I am not
                          going to renew Syncfusion, it seems like it can be replaced."* This was an
@@ -251,4 +299,4 @@
             <!--Alterations selection Picker: now an action sheet, see TillViewModel-->
         </Grid>
     </ContentPage.Content>
-</ContentPage>
+</ContentPage>

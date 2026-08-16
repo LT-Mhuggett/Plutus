@@ -1073,3 +1073,63 @@ a money change shows up as corruption rather than as a wrong-looking number.
 5. Complete a sale and check the **receipt** and the **portal** agree with the screen.
 
 ⚠ **If G24 is clean, the rest of §A and §F–§G are far less likely to surprise you.**
+
+## G25. ⚠ The noticeboard — pick notes and platform announcements — **NEW in 1.70.0**
+
+The web till has had this since Phase 6. MAUI had the rules and no screen, so **nothing on this till
+has ever shown a pick-from-floor note.** A banner now sits at the **top of the Till tab**.
+
+⚠ **It is on the selling screen on purpose.** A pick note means a web customer just bought something
+that is physically on your shelf, and it is a race against somebody selling the last one over the
+counter. On the Plutus tab it would be a notice nobody reads.
+
+### G25a. A pick note arrives and can be acknowledged
+
+1. In the portal (or the Woo site), cause a **web order** for an item that is in shop-floor stock.
+2. Watch the **Till tab**. Within **60 seconds**, a blue bar appears at the top:
+   **🛒 Pick from the shop floor** with the order details and a **Done — acknowledged** button.
+3. Press **Done — acknowledged**.
+
+**✅ Expected:** the bar disappears **immediately** — not in a minute's time — and does not come back
+on later polls. Check the web till: the same note should be gone there too.
+
+**❌ If it reappears a minute later**, the acknowledgement did not reach Plutus. Say so.
+
+### G25b. It must not show OTHER shops' notes
+
+If you have more than one store: cause a web order fulfilled by a **different** store.
+
+**✅ Expected: nothing appears on this till.** ⚠ This one is worth doing because getting it wrong is
+invisible — staff go hunting for stock that was never on their shelves, and the shop that really has
+it assumes someone else dealt with it.
+
+### G25c. An announcement shows, and cannot be dismissed
+
+1. In the portal, publish an **Incident** announcement, then a **Maintenance** one.
+
+**✅ Expected:** within 60 seconds a **red** bar (⛔ incident) and an **orange** bar (🛠 maintenance)
+appear above any pick notes, with **no Done button** — announcements are not yours to dismiss, the
+server decides when they stop.
+
+2. Publish an **Info** announcement.
+
+**✅ Expected: it does NOT appear on the till.** Info is portal-only — the banner interrupts someone
+mid-transaction, and filling it with release notes teaches people to ignore the incident too.
+
+3. Compare against the **web till**: the same three should behave identically. ⚠ They did **not**
+before 1.70.0 — the web till used a different rule and would silently hide any severity it had not
+been taught, which is why this comparison is here.
+
+### G25d. Pull the network cable while a notice is showing
+
+With a notice on screen, **unplug the network**.
+
+**✅ Expected: the notice STAYS**, and a small grey line appears under it —
+*"⚠ Plutus can't be reached — these notices may be out of date."*
+
+**❌ If the banner vanishes, that is a bug**, and an important one: an incident notice explaining why
+the card machine is failing must not disappear the moment the line drops. Plug back in — within 60
+seconds the grey line goes and the notice is current again.
+
+⚠ **And check the empty case:** with no notices at all, the top of the Till tab should look exactly
+as it did in 1.69.0 — no empty strip, no grey warning line.
