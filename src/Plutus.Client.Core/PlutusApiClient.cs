@@ -1198,6 +1198,75 @@ public sealed class PlutusApiClient
         public long CreditBalancePence { get; set; }
     }
 
+    // ── reporting (WP11 / step 26) ─────────────────────────────────────────────────────────────
+    //
+    // ⚠⚠ THE UNIT IS IN THE TYPE NAME. `summary-rich` answers in POUNDS; every other report answers
+    // in PENCE. See `ReportContracts.cs` — two endpoints on one screen, one a hundred times the
+    // other, and the JSON gives no clue which is which.
+    //
+    // ⚠ MAUI's Statistics tab read LOCAL SQLITE and has therefore reported ZERO for everything sold
+    // since cutover step 11, when sales stopped being written there. These replace it. **No report
+    // reads the local database.**
+
+    /// <summary>
+    /// The till's own Summary — takings, orders, top items, tenders and VAT bands for a date range.
+    /// ⚠⚠ **POUNDS.** Uniquely among the reports; see the type name.
+    /// </summary>
+    public Task<SalesSummaryPounds?> GetSalesSummaryAsync(
+        DateOnly from, DateOnly to, CancellationToken ct = default) =>
+        GetAsync<SalesSummaryPounds>(
+            $"/api/v1/reports/summary-rich?from={Day(from)}&to={Day(to)}", ct);
+
+    /// <summary>Bucketed takings. **PENCE.**</summary>
+    /// <param name="granularity">day · week · month. ⚠ The web till defaults to `day` here and
+    /// `month` on VAT — matched, so the same range gives the same buckets on both.</param>
+    public Task<ReportSummary?> GetReportSummaryAsync(
+        int storeId, DateOnly from, DateOnly to, string granularity = "day", CancellationToken ct = default) =>
+        GetAsync<ReportSummary>(
+            $"/api/v1/reports/summary?level=store&id={storeId}&from={Day(from)}&to={Day(to)}&granularity={granularity}", ct);
+
+    /// <summary>The VAT table. **PENCE.** ⚠ Defaults to MONTH buckets, matching the web till — VAT
+    /// is returned monthly, and a daily VAT table is a different question nobody asked.</summary>
+    public Task<ReportVat?> GetReportVatAsync(
+        int storeId, DateOnly from, DateOnly to, string granularity = "month", CancellationToken ct = default) =>
+        GetAsync<ReportVat>(
+            $"/api/v1/reports/vat?level=store&id={storeId}&from={Day(from)}&to={Day(to)}&granularity={granularity}", ct);
+
+    /// <summary>
+    /// Every line sold in a range. **PENCE.**
+    ///
+    /// ⚠⚠ THE SERVER CAPS THIS AT <see cref="ItemsSoldRowCap"/> ROWS AND THE CAP IS SILENT. A busy
+    /// fortnight exceeds it, and the report then shows a total that is quietly short. The caller
+    /// MUST surface it — see `count` against the rows returned.
+    /// </summary>
+    public Task<ItemsSold?> GetItemsSoldAsync(
+        int storeId, DateOnly from, DateOnly to, Guid? operatorUserId = null, CancellationToken ct = default) =>
+        GetAsync<ItemsSold>(
+            $"/api/v1/reports/items-sold?from={Day(from)}&to={Day(to)}&storeId={storeId}&take={ItemsSoldRowCap}" +
+            (operatorUserId is Guid op ? $"&operatorUserId={op:D}" : ""), ct);
+
+    /// <summary>⚠ The row cap `items-sold` is requested with — matching the web till's 2000, so the
+    /// two truncate at the same point rather than disagreeing about a total.</summary>
+    public const int ItemsSoldRowCap = 2000;
+
+    /// <summary>Sales by category — a report MAUI has never had. **PENCE.**</summary>
+    public Task<CategorySales?> GetCategorySalesAsync(
+        DateOnly from, DateOnly to, CancellationToken ct = default) =>
+        GetAsync<CategorySales>(
+            $"/api/v1/reports/category-sales?from={Day(from)}&to={Day(to)}", ct);
+
+    /// <summary>Best sellers — also new to MAUI. **PENCE.**</summary>
+    /// <param name="by">`qty` or `gross`. ⚠ They rank differently and both are legitimate: a shop's
+    /// best seller by units is rarely its best by money.</param>
+    public Task<BestSellers?> GetBestSellersAsync(
+        DateOnly from, DateOnly to, string by = "qty", int take = 25, CancellationToken ct = default) =>
+        GetAsync<BestSellers>(
+            $"/api/v1/reports/best-sellers?from={Day(from)}&to={Day(to)}&by={by}&take={take}", ct);
+
+    /// <summary>⚠ `yyyy-MM-dd`, the only format these endpoints accept — and INVARIANT, because a
+    /// till in a culture that formats dates differently would silently query the wrong range.</summary>
+    private static string Day(DateOnly d) => d.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+
     // ── gift cards (WP13) ──────────────────────────────────────────────────────────────────────
     //
     // ⚠⚠ ALL THREE NEED CONNECTIVITY AND THERE IS NO OFFLINE QUEUE FOR THEM, deliberately. The

@@ -87,3 +87,175 @@ public sealed class ReportBucket
     [JsonPropertyName("txnCount")] public int TxnCount { get; set; }
     [JsonPropertyName("avgBasketPence")] public long AvgBasketPence { get; set; }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// Step 26 additions — the reports MAUI's Statistics tab is being repointed at.
+//
+// ⚠⚠⚠ READ THIS BEFORE ADDING ANOTHER. `/reports/summary-rich` answers in **POUNDS**
+// (`ReportsController.cs:241` divides by 100 first); **every other report answers in PENCE**. The
+// JSON gives no clue — `total` and `grossPence` look equally plausible on a takings figure — so the
+// unit lives in the NAME. `ReportSummary` above already carries `…Pence` on every property; the
+// pounds type carries it on the TYPE as well, because every one of its members is pounds and one
+// missed suffix is a 100× error on a figure somebody banks against. Binding default 17.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+/// <summary>
+/// `/api/v1/reports/summary-rich` — the till's Summary screen: takings, orders, top items, tenders
+/// and VAT bands.
+///
+/// ⚠⚠ **POUNDS, UNIQUELY.** Every other report on this till is pence. The type name says so because
+/// this is the one place the two meet on a single screen.
+/// </summary>
+public sealed class SalesSummaryPounds
+{
+    [JsonPropertyName("totalSales")] public decimal TotalSalesPounds { get; set; }
+    [JsonPropertyName("totalSalesExTax")] public decimal TotalSalesExTaxPounds { get; set; }
+    [JsonPropertyName("totalOrders")] public int TotalOrders { get; set; }
+
+    [JsonPropertyName("byDay")] public List<SummaryDayPounds> ByDay { get; set; } = new();
+    [JsonPropertyName("topItems")] public List<SummaryTopItemPounds> TopItems { get; set; } = new();
+    [JsonPropertyName("byPayMethod")] public List<SummaryPayMethodPounds> ByPayMethod { get; set; } = new();
+    [JsonPropertyName("byTaxRate")] public List<SummaryTaxRatePounds> ByTaxRate { get; set; } = new();
+}
+
+public sealed class SummaryDayPounds
+{
+    [JsonPropertyName("date")] public string? Date { get; set; }
+    [JsonPropertyName("total")] public decimal TotalPounds { get; set; }
+    [JsonPropertyName("totalExTax")] public decimal TotalExTaxPounds { get; set; }
+    [JsonPropertyName("orders")] public int Orders { get; set; }
+}
+
+public sealed class SummaryTopItemPounds
+{
+    [JsonPropertyName("itemId")] public string? ItemId { get; set; }
+    [JsonPropertyName("name")] public string? Name { get; set; }
+    [JsonPropertyName("quantity")] public int Quantity { get; set; }
+    [JsonPropertyName("gross")] public decimal GrossPounds { get; set; }
+    [JsonPropertyName("grossExTax")] public decimal GrossExTaxPounds { get; set; }
+}
+
+public sealed class SummaryPayMethodPounds
+{
+    [JsonPropertyName("method")] public string? Method { get; set; }
+    [JsonPropertyName("total")] public decimal TotalPounds { get; set; }
+}
+
+public sealed class SummaryTaxRatePounds
+{
+    [JsonPropertyName("tax")] public string? Tax { get; set; }
+    [JsonPropertyName("gross")] public decimal GrossPounds { get; set; }
+    [JsonPropertyName("net")] public decimal NetPounds { get; set; }
+    [JsonPropertyName("vat")] public decimal VatPounds { get; set; }
+}
+
+/// <summary>
+/// `/api/v1/reports/vat` — the VAT table. **PENCE.**
+///
+/// ⚠ Its `vatPence` is VAT on the takings in the period. It is NOT interchangeable with any other
+/// report's VAT figure, and the two must never be added or compared — default 17 names this trap.
+/// </summary>
+public sealed class ReportVat
+{
+    [JsonPropertyName("totals")] public ReportVatTotals Totals { get; set; } = new();
+    [JsonPropertyName("buckets")] public List<ReportVatBucket> Buckets { get; set; } = new();
+}
+
+public sealed class ReportVatTotals
+{
+    [JsonPropertyName("grossPence")] public long GrossPence { get; set; }
+    [JsonPropertyName("netPence")] public long NetPence { get; set; }
+    [JsonPropertyName("vatPence")] public long VatPence { get; set; }
+}
+
+public sealed class ReportVatBucket
+{
+    [JsonPropertyName("period")] public string? Period { get; set; }
+
+    /// <summary>⚠ BASIS POINTS, not a percentage — 2000 is 20%. A report that printed "2000%" would
+    /// at least be obvious; one that divided by the wrong power of ten would not.</summary>
+    [JsonPropertyName("vatRateBp")] public int VatRateBp { get; set; }
+
+    [JsonPropertyName("grossPence")] public long GrossPence { get; set; }
+    [JsonPropertyName("netPence")] public long NetPence { get; set; }
+    [JsonPropertyName("vatPence")] public long VatPence { get; set; }
+}
+
+/// <summary>`/api/v1/reports/items-sold` — every line sold in a range. **PENCE.**</summary>
+public sealed class ItemsSold
+{
+    /// <summary>⚠ The server's count of MATCHING rows, which can exceed `Rows.Count` when the take
+    /// cap bites. Compare the two before believing a total — see `PlutusApiClient.ItemsSoldRowCap`.</summary>
+    [JsonPropertyName("count")] public int Count { get; set; }
+
+    [JsonPropertyName("totals")] public ItemsSoldTotals Totals { get; set; } = new();
+    [JsonPropertyName("rows")] public List<ItemSoldRow> Rows { get; set; } = new();
+}
+
+public sealed class ItemsSoldTotals
+{
+    [JsonPropertyName("qty")] public int Qty { get; set; }
+    [JsonPropertyName("grossPence")] public long GrossPence { get; set; }
+    [JsonPropertyName("discountPence")] public long DiscountPence { get; set; }
+}
+
+public sealed class ItemSoldRow
+{
+    [JsonPropertyName("dateSold")] public string? DateSold { get; set; }
+    [JsonPropertyName("itemIdOne")] public string? ItemIdOne { get; set; }
+    [JsonPropertyName("itemName")] public string? ItemName { get; set; }
+    [JsonPropertyName("category")] public string? Category { get; set; }
+
+    /// <summary>⚠ WHICH TILL — the cross-till half. A report that cannot say where a line was rung
+    /// up is one store's figures pretending to be one till's.</summary>
+    [JsonPropertyName("tillName")] public string? TillName { get; set; }
+
+    [JsonPropertyName("staffName")] public string? StaffName { get; set; }
+    [JsonPropertyName("qty")] public int Qty { get; set; }
+    [JsonPropertyName("unitPricePence")] public long UnitPricePence { get; set; }
+    [JsonPropertyName("discountPence")] public long DiscountPence { get; set; }
+    [JsonPropertyName("lineGrossPence")] public long LineGrossPence { get; set; }
+}
+
+/// <summary>`/api/v1/reports/category-sales` — a report MAUI has never had. **PENCE.**</summary>
+public sealed class CategorySales
+{
+    [JsonPropertyName("totals")] public CategorySalesTotals Totals { get; set; } = new();
+    [JsonPropertyName("rows")] public List<CategorySalesRow> Rows { get; set; } = new();
+}
+
+public sealed class CategorySalesTotals
+{
+    [JsonPropertyName("grossPence")] public long GrossPence { get; set; }
+    [JsonPropertyName("qty")] public int Qty { get; set; }
+    [JsonPropertyName("categories")] public int Categories { get; set; }
+}
+
+public sealed class CategorySalesRow
+{
+    [JsonPropertyName("category")] public string? Category { get; set; }
+    [JsonPropertyName("qty")] public int Qty { get; set; }
+    [JsonPropertyName("grossPence")] public long GrossPence { get; set; }
+    [JsonPropertyName("discountPence")] public long DiscountPence { get; set; }
+
+    /// <summary>⚠ A PERCENTAGE the server already worked out — not a fraction, and not pence. The
+    /// one number on these reports that is neither money nor a count.</summary>
+    [JsonPropertyName("sharePct")] public decimal SharePct { get; set; }
+}
+
+/// <summary>`/api/v1/reports/best-sellers` — also new to MAUI. **PENCE.**</summary>
+public sealed class BestSellers
+{
+    [JsonPropertyName("rows")] public List<BestSellerRow> Rows { get; set; } = new();
+}
+
+public sealed class BestSellerRow
+{
+    [JsonPropertyName("rank")] public int Rank { get; set; }
+    [JsonPropertyName("itemIdOne")] public string? ItemIdOne { get; set; }
+    [JsonPropertyName("itemName")] public string? ItemName { get; set; }
+    [JsonPropertyName("category")] public string? Category { get; set; }
+    [JsonPropertyName("qty")] public int Qty { get; set; }
+    [JsonPropertyName("grossPence")] public long GrossPence { get; set; }
+    [JsonPropertyName("sharePct")] public decimal SharePct { get; set; }
+}
