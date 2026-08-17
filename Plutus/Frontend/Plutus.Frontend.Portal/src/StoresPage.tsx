@@ -703,7 +703,12 @@ function StoreCard({ store, defaultOpen, onSaved, tills, busy, buckets, onRename
   const dirty = JSON.stringify(edit) !== JSON.stringify(store);
   const addr = [store.adLine1, store.city, store.postCode].filter((x) => x && x !== "N/A").join(", ");
 
+  // ⚠ 2026-08-17: the hours must be READABLE before they can be saved. See `hoursProblem` — the
+  // portal is the strict end of this agreement and the tills are the tolerant end.
+  const hoursFault = hoursProblem(edit.openingHoursJson);
+
   const save = async () => {
+    if (hoursFault) { setSaveError(`Opening hours: ${hoursFault}`); return; }
     setSaving(true);
     setSaveError("");
     try {
@@ -737,10 +742,25 @@ function StoreCard({ store, defaultOpen, onSaved, tills, busy, buckets, onRename
         {saveError && <span className="error small">{saveError}</span>}
       </div>
 
-      <details className="sub">
-        <summary className="muted small">Opening hours</summary>
+      <details className="sub" open={hoursFault !== null}>
+        {/* ⚠ Forced open when the stored hours are unreadable — a fault hidden behind a collapsed
+            summary is a fault nobody knows they have. */}
+        <summary className="muted small">
+          Opening hours{hoursFault !== null && <span className="error small"> — the tills can't read these</span>}
+        </summary>
         <OpeningHoursEditor value={edit.openingHoursJson} onChange={(v) => setEdit({ ...edit, openingHoursJson: v })} />
-        {dirty && <p className="muted small">Edit hours above, then press "Save" in the address row.</p>}
+        {/* ⚠⚠ ITS OWN SAVE BUTTON, 2026-08-17. This section used to say "press Save in the address
+            row" — a button in a different part of the card, above a collapsed section, which is a fine
+            way to lose an operator's work without telling them. Hours set and never saved look
+            identical to hours never set. */}
+        {dirty && (
+          <div className="toolbar">
+            <button className="primary small" disabled={saving || hoursFault !== null} onClick={() => void save()}>
+              {saving ? "Saving…" : "Save opening hours"}
+            </button>
+            {hoursFault === null && <span className="muted small">Saves the whole store card, address included.</span>}
+          </div>
+        )}
       </details>
 
       <details className="sub">
@@ -801,14 +821,58 @@ function AddStore({ companies, onSaved }: { companies: Company[]; onSaved: () =>
   );
 }
 
+/**
+ * What is wrong with this opening-hours blob — or null when nothing is.
+ *
+ * ⚠⚠ 2026-08-17. The advanced textarea below sent whatever was typed straight to the server with **no
+ * check of any kind**, and the simple editor's `catch { return {} }` then showed a malformed value back
+ * as *"no hours set"* — every day unticked. So the portal could hold hours that no till could read
+ * while looking, to the person who typed them, exactly like a store with hours set. Reported by Matt:
+ * *"webtill does not show the opening hours set in the portal."*
+ *
+ * ⚠ THE PORTAL IS THE STRICT END, THE TILLS ARE THE TOLERANT END, and that asymmetry is deliberate.
+ * The tills stretch to read what already exists in the field (`openingHours.ts` /
+ * `Client.Core/OpeningHours.cs`); this refuses to CREATE anything they would have to stretch for. A
+ * writer as lax as its readers guarantees that the next odd shape reaches production.
+ */
+function hoursProblem(value: string | null): string | null {
+  if (!value || !value.trim()) return null;   // nothing stored is a legitimate answer
+
+  let raw: unknown;
+  try { raw = JSON.parse(value); } catch (e) { return e instanceof Error ? e.message : String(e); }
+  if (raw === null) return null;
+
+  if (typeof raw !== "object" || Array.isArray(raw))
+    return `expected an object of days, got ${Array.isArray(raw) ? "a list" : typeof raw}`;
+
+  const days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+  const bad = Object.keys(raw as Record<string, unknown>).filter((k) => !days.includes(k));
+  if (bad.length) return `not a day: ${bad.join(", ")} — use ${days.join(", ")}`;
+
+  for (const [day, spans] of Object.entries(raw as Record<string, unknown>)) {
+    if (!Array.isArray(spans)) return `${day} must be a list of {"open","close"} times`;
+    for (const s of spans) {
+      const span = s as { open?: unknown; close?: unknown } | null;
+      const ok = (t: unknown) => typeof t === "string" && /^\d{2}:\d{2}$/.test(t);
+      if (!span || !ok(span.open) || !ok(span.close))
+        return `${day} needs 24-hour times, e.g. {"open":"09:00","close":"17:30"}`;
+    }
+  }
+  return null;
+}
+
 /** WP11.3: opening hours as tick-box days + 24-hour times, writing the same JSON the API stores.
  *  Multi-interval days (e.g. lunch closing) drop to an advanced raw-JSON view. */
 function OpeningHoursEditor({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
   const parsed: Record<string, { open: string; close: string }[]> = (() => {
     try { return value ? JSON.parse(value) : {}; } catch { return {}; }
   })();
+  const problem = hoursProblem(value);
   const multiInterval = Object.values(parsed).some((a) => Array.isArray(a) && a.length > 1);
-  const [advanced, setAdvanced] = useState(multiInterval);
+  // ⚠ A blob that cannot be read opens in the ADVANCED view, showing the operator the actual text.
+  // Dropping them into the simple editor would show every day unticked — the portal's own version of
+  // the lie the tills were telling, and it hides the very characters that need fixing.
+  const [advanced, setAdvanced] = useState(multiInterval || problem !== null);
 
   function setDay(day: string, next: { open: string; close: string } | null) {
     const obj = { ...parsed };
@@ -822,7 +886,14 @@ function OpeningHoursEditor({ value, onChange }: { value: string | null; onChang
       <label className="block">
         Opening hours (advanced JSON)
         <textarea rows={3} value={value ?? ""} onChange={(e) => onChange(e.target.value || null)} />
-        <button className="ghost small" type="button" onClick={() => setAdvanced(false)}>Back to simple editor</button>
+        {/* ⚠ LIVE, and it gates Save (see the store card). A textarea that accepts anything and a
+            till that then says "not set" is two screens disagreeing with nobody to referee. */}
+        {problem
+          ? <span className="error small">The tills won't be able to read this: {problem}</span>
+          : value?.trim() && <span className="muted small">✓ Readable by the tills.</span>}
+        <button className="ghost small" type="button" onClick={() => setAdvanced(false)}>
+          {problem ? "Start again with the simple editor" : "Back to simple editor"}
+        </button>
       </label>
     );
   }

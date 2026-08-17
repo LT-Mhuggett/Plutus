@@ -1923,3 +1923,89 @@ Only reachable by editing the setting directly in the database — a negative `S
 **✅ Expected:** the sale is **REFUSED** at checkout with a sentence naming the problem, and the till
 stays usable so the operator can take cash. ⚠ Fail **closed** on money: completing without the fee
 takes the wrong money silently, and a blank screen loses the basket as well as the sale.
+
+## W9 / G33. Store Information — **both tills, and the portal** (web 1.12.0 · till 1.74.0)
+
+⚠⚠ **This section exists because of two different faults with one symptom.** Matt, 2026-08-17:
+*"webtill does not show the opening hours set in the portal"* and *"MAUI looks nothing like the
+webtill."* The first was a **message** that could not tell three states apart; the second was a
+**screen** that was unreadable while every register row said the capability worked.
+
+### W9a. ⚠⚠ THE DIAGNOSIS — what the web till now says about your hours
+
+On the **web till**, go to **Store Information**.
+
+Whatever it says, it is now one of exactly three things, and which one it is *is* the answer:
+
+| It says | It means | Do this |
+|---|---|---|
+| A week of days and times | The portal's hours are stored and readable | Nothing — check the times match the portal |
+| *"Not set — add opening hours in the management portal"* | **Nothing is stored.** The field is genuinely empty | Set them in the portal (W9c) — and note that they were never saved before |
+| *"The portal has opening hours for this store, but this till can't read them: …"* | **Something IS stored and it is malformed.** The message names the fault | W9c — the portal now shows the same fault |
+
+⚠ **Before this build all three printed the middle message.** If you now get the third one, that is
+the original report explained: the hours were saved, as text no till could parse.
+
+### W9b. The rest of the web till's card, unchanged
+
+Business (name, VAT number) · Store (name, address, contact number) · Opening hours · then Store id
+and Till id. **✅ Expected:** exactly as it was — this change touched only the hours.
+
+### W9c. ⚠⚠ THE PORTAL — where hours could be saved unreadable
+
+⚠ Needs **portal 1.9.0**, which is **built and NOT deployed** at the time of writing. Skip this
+section on the live portal; it will not behave as described.
+
+**Locations → this store → Opening hours.**
+
+1. If the stored hours are unreadable, **✅ Expected:** the section is **already open**, the summary
+   says *"the tills can't read these"*, the **advanced JSON view** is showing (not the simple editor
+   with everything unticked, which is what it used to do), and the fault is named underneath.
+2. Type something broken on purpose — `{mon: "09:00-17:30"}` — into the advanced box.
+   **✅ Expected:** *"The tills won't be able to read this: …"*, and **Save is disabled**.
+   ⚠ It used to save happily. That is how this started.
+3. Fix it — `{"mon":[{"open":"09:00","close":"17:30"}]}`. **✅ Expected:** *"✓ Readable by the
+   tills"*, Save enabled.
+4. Press **Save opening hours** — ⚠ **the button inside this section**, which is new. It used to say
+   *"press Save in the address row"*, a button in a different part of the card above a collapsed
+   section, so hours could be set and never saved. **Hours set and not saved look identical to hours
+   never set**, which is a third way to produce the original report.
+5. Reload the portal. **✅ Expected:** the hours are still there.
+6. Back on the **web till**, reload. **✅ Expected:** the week, matching the portal.
+
+### W9d. ⚠⚠ MAUI's Store Information — rebuilt
+
+On the **MAUI till**, **Store Information**.
+
+**✅ Expected — it should now look like the web till:**
+
+1. Heading, then *"Read-only here — edit these details in the management portal…"* — the web till's
+   own words.
+2. **Three cards**: Business · Store · Opening hours, in that order, with the same field labels.
+3. ⚠⚠ **EVERY LABEL MUST BE LEGIBLE.** The old screen drew every field label in light grey on a
+   near-white surface — the data was all there and none of it readable. This is the specific thing to
+   check, and it is the whole reason this section exists.
+4. **Gone, and none of it should come back:** the grey top bar; the empty store block inside it; the
+   **Region** panel with *Start of Week* and a currency format string like `£###,###.##/-£###,###.##`;
+   the bare **Bag** button under an invisible heading.
+5. Below the cards: **Store id** and **Till id**. ⚠ The till id is what you get asked for on a support
+   call; MAUI showed it nowhere.
+6. The bag setting now reads *"Quick-sell bag: which item the till's Bag button rings up. This till
+   only."* with a button naming the current item. Press it, give a real barcode, **✅ Expected:**
+   accepted. Give nonsense, **✅ Expected:** *"we can't find an item with that ID"*.
+7. ⚠ **Set a theme in the portal while this screen is open.** **✅ Expected:** the card colours and the
+   text follow it. The old screen assigned fixed colours, which a theme change could not move —
+   half a themed screen is worse than none.
+8. ⚠ Compare the hours with the web till's, **word for word**. Both read the same field through the
+   same rule (`OpeningHours` / `openingHours.ts`), so a difference here is a real divergence.
+
+### W9e. With the line down
+
+1. Pull the cable, restart the till, open **Store Information**.
+
+**✅ Expected:** the last-known details, including the hours. ⚠ Never the legacy local record, and
+never blank — a null answer must not clear the cache, or the next receipt has no shop on it.
+
+2. On a till that has **never** connected: **✅ Expected:** *"Unavailable — this till hasn't been told
+its store details yet. It fills in on the next connection."* — and the Store id / Till id rows still
+render, because they come from this machine.

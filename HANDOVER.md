@@ -9,7 +9,7 @@
 > [`archive/handover-history-to-2026-08-17.md`](Build/archive/handover-history-to-2026-08-17.md).
 > **Do not grow this file back into a history.** Rewrite it; the commits are the record.
 
-**Written:** 2026-08-17 · **Head:** `git log -1` · **Suites:** unit 1310 · MAUI 598 · web till **178** — all green
+**Written:** 2026-08-17 · **Head:** `git log -1` · **Suites:** unit **1336** · MAUI 598 · web till **205** — all green
 
 ---
 
@@ -21,9 +21,14 @@
 D:\tmp\plutus-till-1.73.0\Plutus.Frontend.AppClient.exe
 ```
 
-The artefact reads `1.73.0+7cf5f2dc`, which is HEAD. It is the **only** till build on the box — 1.71.0
-was deleted so there is no question which to run. ⚠ It will say the till isn't enrolled; that is
-expected for an unpackaged build (runbook § MAUI till build) — enrol it as a fresh till.
+It is the **only** till build on the box — 1.71.0 was deleted so there is no question which to run.
+⚠ It will say the till isn't enrolled; that is expected for an unpackaged build (runbook § MAUI till
+build) — enrol it as a fresh till.
+
+⚠⚠ **BUT 1.73.0 DOES NOT HAVE THE STORE-INFORMATION FIX.** That is `till-maui` **1.74.0**, which is in
+code and **not compiled**, per your standing "build only when I ask" rule. So §W9d will fail on this
+artefact exactly as your screenshot shows — **ask for 1.74.0 before testing that one section**;
+everything else in §G is valid on 1.73.0.
 
 ⚠ **Install agent 1.4.0 as well.** Web till → Settings → Hardware → *Download the agent (v1.4.0)*, or
 `tools\Plutus.TillAgent\publish-out\PlutusTillAgent-1.4.0.exe`. ⚠⚠ Put it in
@@ -61,7 +66,10 @@ which makes the hand-run the single highest-value thing anybody can do to this p
 | **The legacy DB import** | ⚠ Matt has *"a more recent DB to import"* and everything must be **retained and translated** — [L4](Build/To%20do/MAUI-retrofit.md) is now a work package, not a deletion. ⚠ **Do not start by writing an importer**: look at the DB first and record what is in it. An importer against a guessed schema mangles history, and that one is not reversible once the takings are wrong |
 | **`origin` history surgery** | `origin` cannot be pushed — a 151 MB blob in old history that `upstream` already has. Needs an LFS migration or an orphan branch. `upstream` is the off-machine copy meanwhile |
 | **Whether W5's mechanics come next** | Its policy half is built (`AgentUpdatePrompt`); the packaging, exe swap and `ExpectedAgentVersion` are not |
-| ⚠⚠ **Web till 1.11.0: ALL SEVEN §5b SLICES ARE DONE, and it is NOT DEPLOYED** | **[§5b](Build/To%20do/MAUI-retrofit.md) W-P1…W-P7 complete in code.** A revoked browser till stops; a disabled operator is signed out inside 60 s; a cashier has a discount limit with a supervisor step-up; the till **signs in, sells and takes cash with the line down**; a Z-closed day can be reopened; a past receipt reprints **on the thermal printer** (cross-till, which MAUI cannot do); and the tenant's **card fee** is charged with the fee's VAT following the basket. **178 vitest tests** (was 45), `tsc` clean, **19 mutants run — 18 killed, 1 that needed a new vector**. ⚠ Nothing on that plan is waiting on more code: what is left is **deploy** (your call) and the **hand-run**, `Test Maui.md` **§W1–§W8**. ⚠ Not to skip: **§W4f** (the discount limit must survive the network dropping), **§W6b** (a Z must wait for its own day's sales) and **§W8a** (with no card fee set, the checkout screen must look *exactly* as it did yesterday) |
+| ✅ **Web till 1.12.0 is DEPLOYED** — go and look at **Store Information** | The opening-hours message now distinguishes **three** states, and which one you see *is* the answer to *"why don't my hours show?"*: a week of times (fine), *"Not set"* (**nothing is stored** — they were never saved), or *"the portal has hours but this till can't read them: …"* (**stored and malformed** — the message names the fault). Before this build all three printed the middle one. ⚠ Also live: all seven §5b slices, which never shipped under their own 1.11.0 label. **§W9a** is the two-minute version of this test |
+| ⚠ **The portal fix is BUILT, NOT DEPLOYED** (1.9.0) | The tills can only *report* unreadable hours; the portal is where they get **created**. Its advanced-JSON box had **no validation at all**, its simple editor showed a malformed value back as *every day unticked*, and its Save button lived in a different section — so hours could be saved unreadable, or set and never saved, and both look identical to *"not set"*. Now validated, Save-gated, and with its own button. ⚠ **Say the word and I'll deploy it** — same four-axis verification, rollback copy taken first |
+| ⚠ **MAUI 1.74.0 is BUILT-IN-CODE, NOT COMPILED to an artefact** | The **Store Information** screen is rebuilt to match the web till: three cards, same labels, **legible labels** (every one was light grey on near-white — the data was all there and none of it readable), no grey legacy bar, no currency-format-string panel, no stray *Bag* button, and Store id / Till id which it never showed. ⚠ **Not built, per your standing rule.** Say so and I'll produce 1.74.0 |
+| ⚠⚠ **§5b W-P1…W-P7 — all seven done** | **[§5b](Build/To%20do/MAUI-retrofit.md) W-P1…W-P7 complete in code.** A revoked browser till stops; a disabled operator is signed out inside 60 s; a cashier has a discount limit with a supervisor step-up; the till **signs in, sells and takes cash with the line down**; a Z-closed day can be reopened; a past receipt reprints **on the thermal printer** (cross-till, which MAUI cannot do); and the tenant's **card fee** is charged with the fee's VAT following the basket. **178 vitest tests** (was 45), `tsc` clean, **19 mutants run — 18 killed, 1 that needed a new vector**. ⚠ Nothing on that plan is waiting on more code: what is left is **deploy** (your call) and the **hand-run**, `Test Maui.md` **§W1–§W8**. ⚠ Not to skip: **§W4f** (the discount limit must survive the network dropping), **§W6b** (a Z must wait for its own day's sales) and **§W8a** (with no card fee set, the checkout screen must look *exactly* as it did yesterday) |
 
 ---
 

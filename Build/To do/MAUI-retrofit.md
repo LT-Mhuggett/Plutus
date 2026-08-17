@@ -63,11 +63,12 @@ item-identity seam all outlive the retrofit, and archiving them unlifted buries 
 | | Version | State — as of **2026-08-17** |
 |---|---|---|
 | Backend | **1.17.1** | ✅ DEPLOYED & verified. Rollback `~/PLUTUS/backend.pre-1.17.1`. Verified on the DB path (`POST /api/v1/tokens/device` → 401 "Device not enrolled"), **not** `/swagger` — which answered 200 throughout the 2026-08-09 outage |
-| Web till | **1.10.0** (`index-DBZqCOhi.js`) | ✅ DEPLOYED & verified on all four axes. Rollback `current.pre-1.10.0` = 1.9.0 (`index-BLeVrCti.js`) |
-| Web till — **in code** | **1.11.0** | ⚠⚠ **BUILT, NOT DEPLOYED, NOT SEEN BY ANYBODY.** All seven §5b slices (W-P1…W-P7): revocation, roster, discount ceiling + step-up, offline sign-in, offline cash + Z-reopen, printer reprint, card surcharge. **178 vitest cases, `tsc` clean, 19 mutants run.** Hand-tests **§W1–§W8** never run. ⚠ Every register row is **🟡**, not ✅ |
+| Web till | **1.12.0** (`index-fooggnrJ.js`) | ✅ **DEPLOYED 2026-08-17 & verified on all four axes** — the till host names the hash, 362,039 bytes (not the ~1 KB SPA fallback), `1.12.0` and a string only this change introduced both present, no unsubstituted defines, portal confirmed still on `index-X2HmT_BH.js`. Rollback `current.pre-1.12.0` = 1.10.0 (`index-DBZqCOhi.js`). ⚠ **This is 1.11.0's content plus the store-info fix** — 1.11.0 never shipped as an artefact, so §5b's slices reached the shop inside this build. ⚠⚠ **Deployed ≠ verified by a person**: every §5b register row is still **🟡** and **§W1–§W9 have never been run** |
+| Portal — **in code** | **1.9.0** | ⚠ **BUILT, NOT DEPLOYED.** The opening-hours write path: the advanced-JSON box is validated, Save is gated on the hours being readable, the section forces itself open when the stored value is not, and it has **its own Save button** (it used to say *"press Save in the address row"*). Live is **1.8.0**. ⚠ This is the half that stops unreadable hours being CREATED — the tills can only report them |
+| till-maui — **in code** | **1.74.0** | ⚠ **NOT BUILT.** Disk holds 1.73.0. Adds the rebuilt Store Information screen (§G33/W9d) on top of 1.74.0's predecessor content |
 | Portal | 1.8.0 (`index-X2HmT_BH.js`) | ✅ Live, confirmed untouched by the web deploy |
 | Agent | **1.4.0** | ✅ Published — the web till's **Settings → Hardware** offers it (HTTP 200, 70,293,789 bytes) |
-| till-maui | **1.72.0** | ⚠⚠ **NOT BUILT.** Disk holds 1.71.0, missing the percentage money fix (§F7b) and the roster move (§G30) |
+| till-maui | **1.73.0** | ✅ **BUILT 2026-08-17** at `D:\tmp\plutus-till-1.73.0` — the only build on the box, and it reads `1.73.0+7cf5f2dc`. ⚠ **This row said "1.72.0, NOT BUILT, disk holds 1.71.0" until 2026-08-17** while `D:\tmp\plutus-till-1.73.0` had existed for hours. **Eighteenth stale marker**, and the cheapest kind to check: `ls /d/tmp/plutus-till-*` |
 | platform | 1.47.0 | Ships inside the others |
 
 ⚠ **A deploy is verified on the ARTEFACT, never on a 200.** Both hosts SPA-fallback to `index.html`,
@@ -116,8 +117,8 @@ say so rather than quietly doing something else.**
 
 ### 0.4 ⚠⚠ The lesson this project keeps re-learning
 
-**Seventeen status markers have been found wrong in nine days** (ten by 2026-08-16, six more while
-consolidating this document, and one on 2026-08-17 during W-P6), and every one failed the same way: a
+**Nineteen status markers have been found wrong in nine days** (ten by 2026-08-16, six more while
+consolidating this document, and three on 2026-08-17), and almost every one failed the same way: a
 claim about *behaviour* written from reading a call site instead of following what it calls.
 
 - ✅ rows for work that was not built · ⬜ rows for work that was
@@ -126,6 +127,16 @@ claim about *behaviour* written from reading a call site instead of following wh
 - `FileOperatorStore`'s header explaining that a move was impossible because of an EF 3.1 pin — that
   had been 9.0.18 since the .NET 10 upgrade
 - `publish-agent.ps1` silently broken for ten days behind a `latest.json` that read as a current release
+- ⚠⚠ **A ✅ THAT WAS TRUE AND USELESS, 2026-08-17.** Part B said MAUI's **Store Information** worked, and
+  it did: the endpoint was called, the data arrived, the labels were populated. It was also **drawn in
+  light grey on a near-white surface**, so not one field was legible — above an empty grey bar bound to
+  the legacy store model and a panel printing a currency *format string*. Matt: *"MAUI looks nothing
+  like the webtill."* ⚠ **A capability register cannot catch this**, and pretending otherwise is the
+  mistake: *"can the till show its store details"* is answered by data arriving, not by anybody being
+  able to read it. **Only a person looking at the screen finds this class of defect** — which is the
+  argument for the hand-run, stated by the thing itself rather than by me.
+- ⚠ **A "NOT BUILT" over a build that existed** (till-maui 1.73.0, §0.1). `ls /d/tmp/plutus-till-*`.
+  The cheapest possible check, not done, for hours.
 - ⚠⚠ **A NEW FLAVOUR, 2026-08-17 (W-P6): a ⬜ hiding a capability that was PARTLY built.** "Reprint a
   receipt" read ⬜ on the web till while the button, the sale lookup and the copy-marking had all
   existed for months — only the *printer* was missing. The row was not stale, it was **measuring the

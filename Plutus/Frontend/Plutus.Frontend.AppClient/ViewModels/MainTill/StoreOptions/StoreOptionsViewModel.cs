@@ -21,122 +21,70 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.StoreOptions
 {
     public class StoreInformationViewModel : BaseViewModel
     {
-        #region Fields
-        private bool _displayLogo;
-        private string _currencyFormat;
-        private string _positiveCurrencyFormat;
-        private string _negativeCurrencyFormat;
-        #endregion
-
         #region Properties
+        /// <summary>
+        /// ⚠ THE LEGACY LOCAL STORE, KEPT ONLY BECAUSE OTHER SCREENS STILL BIND IT. Nothing on THIS
+        /// screen reads it any more (2026-08-17): cutover step 20 made the platform the source of
+        /// truth for store details, and on a portal-provisioned till this model is empty — which is
+        /// exactly what Matt's screenshot showed, a grey band with nothing in it above the same
+        /// facts fetched properly.
+        /// </summary>
         public StoreModel Store
         {
             get => App.GetViewModel().Store;
         }
-        public bool DisplayLogo
-        {
-            get => _displayLogo;
-            set => SetProperty(ref _displayLogo, value);
-        }
-        public CultureInfo CultureInfo
-        {
-            get => CultureInfo.CurrentCulture;
-        }
-        public string PositiveCurrencyDisplay
-        {
-            get => _positiveCurrencyFormat.Replace("n", _currencyFormat);
-        }
-        public string NegativeCurrencyDisplay
-        {
-            get => _negativeCurrencyFormat.Replace("n", _currencyFormat);
-        }
-        public string CurrencyDisplay
-        {
-            get => $"{PositiveCurrencyDisplay}/{NegativeCurrencyDisplay}";
-        }
         #endregion
 
-        public StoreInformationViewModel(StackLayout leftColumn, StackLayout rightColumn)
+        public StoreInformationViewModel(VerticalStackLayout body)
         {
             Title = "StoreInformation".Translate();
             Icon = "md-store";
 
-            // ⚠ NULL-SAFE ON PURPOSE. This ran inside a CONSTRUCTOR that AppShell invokes while it
-            // is being built, so a null store did not degrade one tab — it threw
-            // NullReferenceException out of `new AppShell()` and the operator was told
-            // "Something went wrong signing in" after typing a correct password. A screen that
-            // cannot render its own data should show nothing; it must never be able to stop
-            // somebody signing in.
-            // ⚠ THE LOGO IS DROPPED (binding default 18, cutover step 20). There is no logo field
-            // on the store-info contract, so a logo on this screen could only ever have been THIS
-            // machine's local opinion — set by an edit command that no longer exists, differing
-            // from every other till, and printed on receipts as though it were the company's. The
-            // XAML `Image` is left in place and simply never shown: hiding it is a one-line change
-            // whose effect I can reason about, whereas deleting an element from a layout I cannot
-            // run is how a screen quietly loses its spacing.
-            DisplayLogo = false;
+            // ⚠ NULL-SAFE, AND IT MUST STAY THAT WAY. This runs inside a CONSTRUCTOR that AppShell
+            // invokes while it is being built, so a failure here does not degrade one tab — it
+            // throws out of `new AppShell()` and the operator is told "Something went wrong signing
+            // in" after typing a correct password. A screen that cannot render its own data shows
+            // nothing; it must never be able to stop somebody signing in.
+            //
+            // ⚠ THE LOGO IS DROPPED (binding default 18, cutover step 20). There is no logo field on
+            // the store-info contract, so a logo here could only ever have been THIS machine's local
+            // opinion — differing from every other till, and printed on receipts as the company's.
+            _body = body;
 
-            SetCurrencyDisplays();
+            // ⚠ The heading and the read-only note are the web till's own words, verbatim
+            // (`StoreInformationPage.tsx`). Parity in what the operator READS is the point — Matt,
+            // 2026-08-17: "MAUI looks nothing like the webtill."
+            _body.Children.Add(Heading("Store Information", FontSizes.Title));
+            _body.Children.Add(Muted(
+                "Read-only here — edit these details in the management portal under Company and Locations."));
 
-            var buttonsAndSubHeadings = new List<Tuple<string, string>>
-            {
-                Tuple.Create("Store".Translate(), ""),
-                // ⚠ Name / address / logo / phone / VAT number are no longer BUTTONS — the portal
-                // owns them (WP6.1) and they are rendered read-only below. Only the bag, which is a
-                // per-till preference rather than a company fact, is still editable here.
-                Tuple.Create("Bag".Translate(), "StoreDefaultBagChangeCommand"),
-                /*Tuple.Create("Region".Translate(), ""),
-                Tuple.Create("Currency", "CurrencySettingsChangeCommand"),
-                Tuple.Create("Date", "DateSettingsChangeCommand"),
-                Tuple.Create("Employee".Translate(), ""),
-                Tuple.Create($"{"Add".Translate()} {"Employee".Translate()}", "AddEmployeeCommand"),
-                Tuple.Create(string.Format("ViewAllArg".Translate(), "Employees".Translate()), "ViewAllEmployeesCommand"),*/
-                Tuple.Create("","")
-            };
+            _body.Children.Add(_cards);
+            _body.Children.Add(_thisTill);
 
-            StackLayout stack = null;
-            int? n = null;
-            for (int i = 0; i < buttonsAndSubHeadings.Count; i++)
-            {
-                if (buttonsAndSubHeadings[i].Item2 == "")
-                {
-                    if (n == null)
-                        n = 0;
-                    else
-                    {
-                        if (n % 2 == 0)
-                            leftColumn.Children.Add(stack);
-                        else
-                            rightColumn.Children.Add(stack);
-                        n++;
-                    }
-                    stack = new StackLayout();
-                    stack.Children.Add(new Label
-                    {
-                        Text = buttonsAndSubHeadings[i].Item1,
-                        FontSize = new Label().FontSize,
-                        TextColor = Colors.LightGray,
-                        FontAttributes = FontAttributes.Bold
-                    });
-                }
-                else
-                {
-                    var button = new Button { Text = buttonsAndSubHeadings[i].Item1 };
-                    button.SetBinding(Button.CommandProperty, buttonsAndSubHeadings[i].Item2);
-                    stack.Children.Add(button);
-                }
-            }
-
-            // ⚠ The store's own details, READ-ONLY, from the portal (cutover step 20). Added in
-            // code rather than XAML because this whole screen is built in code — and because the
-            // labels are filled from an async fetch, which a XAML binding to a missing property
-            // would render as a silent blank.
-            leftColumn.Children.Add(_storeDetails);
             LoadStoreDetails();
         }
 
-        /// <summary>Where the read-only store details are rendered.</summary>
-        private readonly StackLayout _storeDetails = new();
+        /// <summary>The page body, filled in code — see the XAML's header for why.</summary>
+        private readonly VerticalStackLayout _body;
+
+        /// <summary>
+        /// The three cards — Business / Store / Opening hours — wrapping like the web till's
+        /// `.info-cards` grid.
+        ///
+        /// ⚠ `FlexLayout Wrap` rather than a Grid reflowed from `OnSizeAllocated`, which is what this
+        /// screen used to do. The platform already knows how to wrap; a size callback that moves
+        /// children between cells re-enters on every resize.
+        /// </summary>
+        private readonly FlexLayout _cards = new()
+        {
+            Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap,
+            JustifyContent = Microsoft.Maui.Layouts.FlexJustify.Start,
+            AlignItems = Microsoft.Maui.Layouts.FlexAlignItems.Start,
+        };
+
+        /// <summary>Facts about THIS machine, not about the shop — kept visually separate for that
+        /// reason, exactly as the web till separates them below its cards.</summary>
+        private readonly VerticalStackLayout _thisTill = new() { Spacing = 6 };
 
         /// <summary>
         /// Show what the PORTAL says this store is.
@@ -151,6 +99,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.StoreOptions
             _ = Task.Run(async () =>
             {
                 Plutus.Contracts.Client.StoreInfoResult info = null;
+                Guid? deviceId = null;
                 try
                 {
                     info = await Services.Storage.StoreInfoCache.RefreshAsync();
@@ -160,27 +109,85 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.StoreOptions
                     Services.Analytics.CrashLog.Write("StoreInformationViewModel.LoadStoreDetails", ex);
                 }
 
+                try
+                {
+                    // ⚠ The web till shows its till id on this screen and MAUI showed nothing at all.
+                    // It is the first thing anybody is asked for when a till misbehaves, and reading
+                    // it off a support call beats hunting for it in the Plutus tab.
+                    deviceId = (await Services.Connectivity.SecureDeviceCredentialStore.LoadAsync())?.DeviceId;
+                }
+                catch (Exception ex)
+                {
+                    Services.Analytics.CrashLog.Write("StoreInformationViewModel.LoadDeviceId", ex);
+                }
+
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
-                    _storeDetails.Children.Clear();
+                    _cards.Children.Clear();
+                    _thisTill.Children.Clear();
 
                     if (info is null)
                     {
-                        _storeDetails.Children.Add(Detail("Store".Translate(),
-                            "Unavailable — this till hasn't been told its store details yet."));
-                        return;
+                        // ⚠ Says WHY, and says it is recoverable. "Unavailable" on its own reads as
+                        // broken; this till simply has not been told yet.
+                        _cards.Children.Add(Card("Store", new[]
+                        {
+                            Muted("Unavailable — this till hasn't been told its store details yet. "
+                                + "It fills in on the next connection."),
+                        }));
+                    }
+                    else
+                    {
+                        // ⚠ THE SAME THREE CARDS, IN THE SAME ORDER, WITH THE SAME FIELD LABELS as
+                        // the web till's Store Information page. Somebody moving between a browser
+                        // till and this one should not have to re-learn where a VAT number lives.
+                        _cards.Children.Add(Card("Business", new View[]
+                        {
+                            Detail("Name", info.BusinessName),
+                            Detail("VAT number", Dashless(info.VatNumber)),
+                        }));
+
+                        _cards.Children.Add(Card("Store", new View[]
+                        {
+                            Detail("Store name", info.Name),
+                            Detail("Address", Services.Storage.StoreInfoCache.AddressOf(info)),
+                            Detail("Contact number", Dashless(info.ContactNumber)),
+                        }));
+
+                        _cards.Children.Add(Card("Opening hours", OpeningHoursViews(info.OpeningHoursJson)));
                     }
 
-                    _storeDetails.Children.Add(Detail("Name".Translate(), info.Name));
-                    _storeDetails.Children.Add(Detail("Business", info.BusinessName));
-                    _storeDetails.Children.Add(Detail("Address".Translate(),
-                        Services.Storage.StoreInfoCache.AddressOf(info)));
-                    _storeDetails.Children.Add(Detail("ContactNumber".Translate(), info.ContactNumber));
-                    _storeDetails.Children.Add(Detail("VatIN".Translate(), info.VatNumber));
-                    _storeDetails.Children.Add(OpeningHours(info.OpeningHoursJson));
+                    // ⚠ Below the cards, like the web till: these identify the MACHINE, not the shop.
+                    _thisTill.Children.Add(Detail("Store id",
+                        info is null ? null : info.StoreId.ToString(CultureInfo.InvariantCulture)));
+                    _thisTill.Children.Add(Detail("Till id",
+                        deviceId is Guid id ? id.ToString() : "Not enrolled"));
+
+                    // ⚠ The bag is a per-DEVICE preference, not a company fact — the web till keeps
+                    // the same setting in its own preferences (`prefs.ts bagBarcode`). It used to sit
+                    // under a near-invisible "Store" heading as a bare button called "Bag", which is
+                    // the stray button in Matt's screenshot: no label, no explanation, no clue that
+                    // pressing it asks for a barcode.
+                    _thisTill.Children.Add(Muted(
+                        "Quick-sell bag: which item the till's Bag button rings up. This till only."));
+                    var bag = new Button
+                    {
+                        Text = string.IsNullOrWhiteSpace(DefaultBagId)
+                            ? "Choose the bag item…"
+                            : $"Bag item: {DefaultBagId} — change…",
+                        Command = StoreDefaultBagChangeCommand,
+                        HorizontalOptions = LayoutOptions.Start,
+                    };
+                    _thisTill.Children.Add(bag);
                 });
             });
         }
+
+        /// <summary>⚠ The legacy tables store "not set" as a literal <c>-</c> or <c>N/A</c>, and
+        /// printing those verbatim makes a blank field look like real data. Same rule as the web
+        /// till, which filters `-` out of its address and contact fields.</summary>
+        private static string Dashless(string value) =>
+            string.IsNullOrWhiteSpace(value) || value.Trim() is "-" or "N/A" ? null : value;
 
         /// <summary>
         /// The week, as the portal set it — finding Z2, 2026-08-13.
@@ -199,101 +206,126 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.StoreOptions
         /// ⚠ Unparseable JSON reads as "not set" rather than throwing. A store screen must never be the
         /// thing that takes the till down, and a malformed field is the portal's problem to fix.
         /// </summary>
-        private static View OpeningHours(string openingHoursJson)
+        private static IReadOnlyList<View> OpeningHoursViews(string openingHoursJson)
         {
-            var stack = new StackLayout
-            {
-                Children =
+            var reading = Plutus.Client.Core.OpeningHours.Parse(openingHoursJson);
+
+            if (reading.State == Plutus.Client.Core.OpeningHoursState.Unset)
+                return new View[] { Muted("Not set — add opening hours in the management portal.") };
+
+            if (reading.State == Plutus.Client.Core.OpeningHoursState.Unreadable)
+                return new View[]
                 {
-                    new Label
-                    {
-                        Text = "Opening hours",
-                        FontSize = new Label().FontSize,
-                        TextColor = Colors.LightGray,
-                        FontAttributes = FontAttributes.Bold,
-                    },
-                },
+                    // ⚠ It names the FIELD and the FAULT. Sending somebody back to the portal to
+                    // retype hours that are already there, into the box that is already wrong, is
+                    // what the old single message did.
+                    Error($"The portal has opening hours for this store, but this till can't read "
+                        + $"them: {reading.Detail}."),
+                    Muted("Fix them in Locations → this store → Opening hours. If the advanced JSON "
+                        + "box was used, switching back to the simple editor and re-ticking the days "
+                        + "will rewrite it cleanly."),
+                };
+
+            var views = new List<View>();
+            foreach (var day in reading.Week)
+                views.Add(Detail(day.Label, Plutus.Client.Core.OpeningHours.DayText(day)));
+
+            // ⚠ Named rather than dropped: a key nobody reads is a setting somebody thinks is in
+            // effect. The web till says the same thing in the same place.
+            var leftovers = Plutus.Client.Core.OpeningHours.UnknownDayKeys(openingHoursJson);
+            if (leftovers.Count > 0)
+                views.Add(Muted($"Ignored (not a day): {string.Join(", ", leftovers)}."));
+
+            return views;
+        }
+
+        // ── the look ──────────────────────────────────────────────────────────
+        //
+        // ⚠⚠ EVERY COLOUR IS A **DYNAMIC** RESOURCE, and that is not a style preference. A theme set
+        // in the portal is applied at runtime by `Services/Theming/Theming.cs`, which swaps the values
+        // of these keys in `Application.Current.Resources`. A `TextColor = Colors.X` assignment — which
+        // is what this screen used to do — captures the colour once and never follows a theme change,
+        // so a themed till would show a half-themed screen.
+        //
+        // ⚠⚠ AND `Colors.LightGray` WAS THE ACTUAL BUG IN MATT'S SCREENSHOT: every field LABEL on this
+        // screen was light grey on a near-white surface. The information was all there and none of it
+        // was legible. Labels are `ThemeInkMuted` now — muted is a contrast step, not an invisibility
+        // setting.
+
+        private static class FontSizes
+        {
+            internal const double Title = 20;
+            internal const double CardHeading = 15;
+            internal const double Body = 14;
+            internal const double Small = 12;
+        }
+
+        private static Label Heading(string text, double size)
+        {
+            var label = new Label { Text = text, FontSize = size, FontAttributes = FontAttributes.Bold };
+            label.SetDynamicResource(Label.TextColorProperty, "ThemeInk");
+            return label;
+        }
+
+        private static Label Muted(string text)
+        {
+            var label = new Label { Text = text, FontSize = FontSizes.Small };
+            label.SetDynamicResource(Label.TextColorProperty, "ThemeInkMuted");
+            return label;
+        }
+
+        private static Label Error(string text)
+        {
+            var label = new Label { Text = text, FontSize = FontSizes.Small };
+            label.SetDynamicResource(Label.TextColorProperty, "Error");
+            return label;
+        }
+
+        /// <summary>
+        /// One of the web till's `.info-card`s: an accent heading over label/value pairs, on a
+        /// surface with a hairline border.
+        /// </summary>
+        private static View Card(string heading, IReadOnlyList<View> rows)
+        {
+            var stack = new VerticalStackLayout { Spacing = 6 };
+            var title = Heading(heading, FontSizes.CardHeading);
+            title.SetDynamicResource(Label.TextColorProperty, "ThemeAccent");
+            stack.Children.Add(title);
+            foreach (var row in rows) stack.Children.Add(row);
+
+            var card = new Border
+            {
+                Content = stack,
+                Padding = 12,
+                Margin = new Microsoft.Maui.Thickness(0, 0, 12, 12),
+                // ⚠ A minimum rather than a fixed width: three cards fit a desktop till side by side
+                // and wrap on a narrow one, which is what the web till's grid does. A fixed width
+                // would clip a long address on the smallest screen it has to work on.
+                MinimumWidthRequest = 260,
+                StrokeThickness = 1,
+                StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 6 },
             };
+            card.SetDynamicResource(Border.BackgroundColorProperty, "ThemeSurface");
+            card.SetDynamicResource(Border.StrokeProperty, "ThemeLineBrush");
+            return card;
+        }
 
-            Dictionary<string, List<OpeningSpan>> week = null;
-            if (!string.IsNullOrWhiteSpace(openingHoursJson))
+        /// <summary>A label pair. ⚠ An empty value reads "Not set" rather than rendering blank — a
+        /// blank row is indistinguishable from a binding to a property that does not exist, which is
+        /// the failure mode MAUI hands you for free.</summary>
+        private static View Detail(string label, string value)
+        {
+            var stack = new VerticalStackLayout();
+            stack.Children.Add(Muted(label));
+
+            var text = new Label
             {
-                try
-                {
-                    week = System.Text.Json.JsonSerializer
-                        .Deserialize<Dictionary<string, List<OpeningSpan>>>(openingHoursJson);
-                }
-                catch (System.Text.Json.JsonException ex)
-                {
-                    Services.Analytics.CrashLog.Write("StoreOptions.OpeningHours", ex);
-                }
-            }
-
-            if (week is null || week.Count == 0)
-            {
-                stack.Children.Add(new Label
-                {
-                    Text = "Not set — add opening hours in the management portal.",
-                    TextColor = Colors.Gray,
-                });
-                return stack;
-            }
-
-            foreach (var (key, label) in Days)
-            {
-                var spans = week.TryGetValue(key, out var found) ? found : null;
-                var text = spans is null || spans.Count == 0
-                    ? "Closed"
-                    : string.Join(", ", spans.Select(s => $"{s.open}–{s.close}"));
-
-                stack.Children.Add(new Label { Text = $"{label}   {text}" });
-            }
-
+                Text = string.IsNullOrWhiteSpace(value) ? "Not set" : value,
+                FontSize = FontSizes.Body,
+            };
+            text.SetDynamicResource(Label.TextColorProperty, "ThemeInk");
+            stack.Children.Add(text);
             return stack;
-        }
-
-        /// <summary>⚠ The portal's own keys, in the portal's own order — not `DayOfWeek`, which starts
-        /// on Sunday and would silently reorder a shop's week.</summary>
-        private static readonly (string Key, string Label)[] Days =
-        {
-            ("mon", "Monday"), ("tue", "Tuesday"), ("wed", "Wednesday"), ("thu", "Thursday"),
-            ("fri", "Friday"), ("sat", "Saturday"), ("sun", "Sunday"),
-        };
-
-        /// <summary>One open period. ⚠ Lower-case members: these are the JSON's own names, and the
-        /// portal writes `{"open":"09:00","close":"17:30"}`.</summary>
-        private sealed class OpeningSpan
-        {
-            public string open { get; set; }
-            public string close { get; set; }
-        }
-
-        /// <summary>A label pair. ⚠ An empty value reads "Not set" rather than rendering blank —
-        /// a blank row is indistinguishable from a broken binding, which is exactly the failure
-        /// mode MAUI hands you for free.</summary>
-        private static View Detail(string label, string value) => new StackLayout
-        {
-            Children =
-            {
-                new Label { Text = label, FontSize = new Label().FontSize, TextColor = Colors.LightGray, FontAttributes = FontAttributes.Bold },
-                new Label { Text = string.IsNullOrWhiteSpace(value) ? "Not set" : value },
-            },
-        };
-
-        private void SetCurrencyDisplays()
-        {
-            CultureInfo.NumberFormat.CurrencyGroupSizes.ForEach((group) =>
-            {
-                _currencyFormat += new string('#', group);
-                _currencyFormat += CultureInfo.NumberFormat.CurrencyGroupSeparator;
-            });
-            _currencyFormat +=
-                $"{new string('#', CultureInfo.NumberFormat.CurrencyGroupSizes[0])}" +
-                $"{CultureInfo.NumberFormat.CurrencyDecimalSeparator}" +
-                $"{new string('#', CultureInfo.NumberFormat.CurrencyDecimalDigits)}";
-
-            _negativeCurrencyFormat = (-1).ToString("C0", CultureInfo.NumberFormat).Replace('1', 'n');
-            _positiveCurrencyFormat = 1.ToString("C0", CultureInfo.NumberFormat).Replace('1', 'n');
         }
 
         #region Commands
@@ -326,36 +358,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.StoreOptions
             get => _storeDefaultBagChangeCommand ?? (_storeDefaultBagChangeCommand = new Command(ExecuteStoreDefaultBagChange));
         }
         #endregion
-        #region Region
-        Command _currencySettingsChangeCommand;
 
-        public Command CurrencySettingsChangeCommand
-        {
-            get => _currencySettingsChangeCommand ?? (_currencySettingsChangeCommand = new Command(ExecuteCurrencySettingsChange));
-        }
-
-        Command _dateSettingsChangeCommand;
-
-        public Command DateSettingsChangeCommand
-        {
-            get => _dateSettingsChangeCommand ?? (_dateSettingsChangeCommand = new Command(ExecuteDateSettingsChange));
-        }
-        #endregion
-        #region Employee
-        Command _addEmployeeCommand;
-
-        public Command AddEmployeeCommmand
-        {
-            get => _addEmployeeCommand ?? (_addEmployeeCommand = new Command(ExecuteAddEmployee));
-        }
-
-        Command _viewAllEmployees;
-
-        public Command ViewAllEmployeeCommand
-        {
-            get => _viewAllEmployees ?? (_viewAllEmployees = new Command(ExecuteViewAllEmployees));
-        }
-        #endregion
+        // ⚠ THE REGION AND EMPLOYEE COMMANDS ARE GONE (2026-08-17). Four `Command` properties —
+        // currency, date, add-employee, view-all-employees — each wrapping an EMPTY `Execute` method,
+        // bound by nothing since the buttons were commented out. A command that does nothing is worse
+        // than no command: the next person to want "edit the currency" finds a property that looks
+        // like the wiring already exists. Currency and date come from the platform's own settings;
+        // employees are the portal's (Users), and the till reads the roster.
         #endregion
 
         #region Execute Commands
@@ -420,30 +429,6 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.StoreOptions
             }
         }
         #endregion
-        #region Region
-        private void ExecuteCurrencySettingsChange()
-        {
-
-        }
-
-        private void ExecuteDateSettingsChange()
-        {
-
-        }
-        #endregion
-        #region Employee
-        private void ExecuteAddEmployee()
-        {
-
-        }
-        private void ExecuteViewAllEmployees()
-        {
-
-        }
-        #endregion
-        #endregion
-
-        #region Operation
         #endregion
     }
 }
