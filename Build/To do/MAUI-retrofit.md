@@ -476,6 +476,35 @@ built or verified here. Both land on the next Mac build, per the runbook's front
 > reminder has to survive a restart — otherwise closing the till becomes the way to dismiss it for
 > ever, which is a "no" nobody chose. ⚠ And it must never interrupt a live basket; the cadence already
 > has `BasketIsOpen` for exactly this.
+>
+> #### ✅ THE DECISION IS BUILT — `Client.Core/AgentUpdatePrompt.cs` (2026-08-17)
+>
+> The ruling above is now code, with 18 tests and two mutants killed. **What remains of W5 is the
+> mechanics, not the policy.** `Decide(installed, offered, declinedVersion, declinedAtUtc, now,
+> basketIsOpen)` → `Ask` | `Nothing`, and it encodes:
+>
+> - ⚠⚠ **A decline is PER VERSION.** Saying no to 1.4.0 is not saying no to 1.5.0 — blanket would let
+>   one "not now" suppress every future update on that till, permanently and invisibly. *(mutant: kills 1)*
+> - ⚠⚠ **A decline expires** after `RemindAfter` = **4 hours** — inside the trading day, outside the
+>   queue of customers. Shorter is nagging, and a nagged operator dismisses without reading, which is
+>   the silent install again with an extra click. *(mutant: kills 2)*
+> - ⚠ **A decline with no timestamp asks again.** The failure that costs a shop is an agent that never
+>   updates and never mentions it, not one that asks twice.
+> - ⚠ **Never mid-basket**, never a downgrade, and **no agent at all is not an update** — "install one"
+>   is a different sentence and a different decision.
+> - ⚠ Tolerates the `1.4.0+<sha>` informational suffix the artefacts actually carry.
+>
+> **⬜ Still to build, in order:**
+>
+> | | ⚠ |
+> |---|---|
+> | **Persist `declinedVersion` + `declinedAtUtc`** | Two `MetaKeys` entries. ⚠ It **must** survive a restart, or closing the till becomes a permanent "no" |
+> | **Ship the agent in the till package** | `plutus-till-<v>\agent\`. ⚠ **Install to `%LOCALAPPDATA%\Plutus\Agent\`, never inside the versioned folder** — that would break auto-start on every release, which is the 2026-08-17 fault on a schedule |
+> | **The copy itself** | ⚠ You cannot overwrite a running exe. Ask the agent to exit over loopback, copy, relaunch — this is the fiddly part, not the decision |
+> | **`ExpectedAgentVersion` on the heartbeat** | Beside `ExpectedMauiVersion`/`ExpectedWebVersion`, plus the portal field. ⚠ Lets the PLATFORM drive it rather than each till's package |
+>
+> ⚠ **And part of W5 already existed** — the web till hosts the download (`public/agent/` +
+> `latest.json` + the Hardware card). So the browser side is done; W5 is the MAUI half.
 
 ⚠ **W1 and W4 are web-till TypeScript, so they need the Mac** — there is no Node on the Windows box.
 Every TS edit made here is flagged **NOT TYPECHECKED** and goes onto §8.
