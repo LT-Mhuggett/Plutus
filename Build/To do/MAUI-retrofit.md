@@ -49,6 +49,88 @@ lifted up to `Build/` level — into `till-design.md` or `repo-runbook.md` — *
 per [`index.md`](../index.md). ⚠ That lift matters: binding defaults 1–21, §15's pitfalls and §16's
 item-identity seam all outlive the retrofit, and archiving them unlifted buries them.
 
+## 0. Live state, and every ruling that binds this work
+
+> ⚠ **Moved here from `HANDOVER.md` on 2026-08-17.** Matt: *"move everything relevant from handover.md
+> into the Maui-Retrofit.md document… I only want the handover to be for the following day."* The
+> handover is now a next-session brief; **this section is where the durable state lives.** The
+> day-by-day narrative back to 2026-07-28 is kept verbatim in
+> [`archive/handover-history-to-2026-08-17.md`](../archive/handover-history-to-2026-08-17.md) — history,
+> not instruction, and every "START HERE" in it is superseded.
+
+### 0.1 What is deployed, and what is only built
+
+| | Version | State — as of **2026-08-17** |
+|---|---|---|
+| Backend | **1.17.1** | ✅ DEPLOYED & verified. Rollback `~/PLUTUS/backend.pre-1.17.1`. Verified on the DB path (`POST /api/v1/tokens/device` → 401 "Device not enrolled"), **not** `/swagger` — which answered 200 throughout the 2026-08-09 outage |
+| Web till | **1.10.0** (`index-DBZqCOhi.js`) | ✅ DEPLOYED & verified on all four axes. Rollback `current.pre-1.10.0` = 1.9.0 (`index-BLeVrCti.js`) |
+| Portal | 1.8.0 (`index-X2HmT_BH.js`) | ✅ Live, confirmed untouched by the web deploy |
+| Agent | **1.4.0** | ✅ Published — the web till's **Settings → Hardware** offers it (HTTP 200, 70,293,789 bytes) |
+| till-maui | **1.72.0** | ⚠⚠ **NOT BUILT.** Disk holds 1.71.0, missing the percentage money fix (§F7b) and the roster move (§G30) |
+| platform | 1.47.0 | Ships inside the others |
+
+⚠ **A deploy is verified on the ARTEFACT, never on a 200.** Both hosts SPA-fallback to `index.html`,
+so a 200 proves almost nothing: check the host names the new bundle hash, the bundle is the real size
+rather than the ~1 KB fallback, the `__APP_VERSION__`/`__BUILD_TIME__` defines are substituted, and a
+string only this change introduced is present. That last one caught the 2026-08-09 blank portal, which
+both `tsc` and `vite build` passed straight through.
+
+⚠ **`origin` CANNOT be pushed** — it is blocked, not behind. A **151 MB** zip lives in old history
+(`3cc9e508`), which `upstream` already has and `origin`, 442 commits behind, does not; GitHub's
+pre-receive hook refuses it. HEAD itself is clean — that file is a 134-byte stub and the largest blob
+in HEAD is 0.7 MB. Fixing it needs an LFS migration or an orphan branch, i.e. history surgery on a
+shared repo. **`upstream` is the off-machine copy meanwhile.**
+
+### 0.2 ⚠⚠ Matt's rulings — the ones that decide what gets built
+
+Chronological. **Each is a decision, not a preference — build against these, and if one looks wrong,
+say so rather than quietly doing something else.**
+
+| Date | Ruling | What it settles |
+|---|---|---|
+| 2026-08-08 | *"The tills need to be in parity. This is the point of the MAUI retrofit. In addition when adding new functionality, it needs to be added to all tills going forward."* | Parity is the DEFAULT. A feature is not done until its Part B row is filled for **every** till — ✅, or a ⬜ naming the work package that will close it |
+| 2026-08-08 | *"Each till needs a specific version as they will end up diverging."* | One version file per deployable in `versions/`. ⚠ A shared number would force the web till to claim a release it had no changes in |
+| 2026-08-08 | *"When you have enrolled a till, what is the point of seeing the Connect to Plutus tab?"* | Enrolment, not a local database, decides where a till starts |
+| 2026-08-11 | *"As part of the heartbeat, the re-read of permissions needs to happen. If a user is disabled, the user needs immediately logging out with an information message."* | The roster rides the 60 s beat; revocation signs the operator out. ⚠ Only from a roster the server ANSWERED with — see `OperatorRevocation` |
+| 2026-08-11 | *"No self update for MAUI."* | The update prompt is **advisory**. Nothing may refuse to sell over it. ⚠ The **agent** is the exception — see W5 |
+| 2026-08-11 | *"Does the heartbeat from the till check for updates? All tills should do this."* | `ExpectedMauiVersion` / `ExpectedWebVersion` on the beat |
+| 2026-08-10 | *"I am not going to renew Syncfusion, it seems like it can be replaced."* | No licensed control on any selling path. ⚠ L4 no longer buys its removal — see the L4 ruling below |
+| 2026-08-13 | *"You cannot have a discount greater than the basket."* | Binding default 22a. Checked **before** the permission ceiling — "more than the basket" is true regardless of who is signed in |
+| 2026-08-13 | *"All discounts need to be tracked."* | Every discount carries a reason; step-ups carry an authoriser (`DiscountAudit`) |
+| 2026-08-14 | *"Base it on roles."* | A discount level **IS** a role's `pos.discount` `MaxPence`. ⚠ A separate tier entity would state a cashier's money limit twice with nothing to notice them disagreeing |
+| 2026-08-14 | *"Credits are only ever earned, never purchased, not transferable to cash."* | Loyalty credit is a **DISCOUNT**, not a tender. ⚠ That same line separates it from a gift card, which IS purchased and IS a liability — hence zero VAT on activation |
+| 2026-08-16 | *"Can you only deploy new MAUI tills when I ask please."* | Bump `versions/till-maui.txt` per slice, but **build only on request** |
+| 2026-08-16 | *"Tables only."* | Reports match the web till's **table behaviour**; no chart. The portal is the home for charts |
+| 2026-08-17 | *"Make it %"* | The discount box takes a percent NUMBER — `10` means 10%. Made it a **money** bug, not a label one. Fixed |
+| 2026-08-17 | *"I would not install silently, I would inform with a 'Continue or cancel' option… But if they say no, it needs to remind them."* | Agent updates are **asked for** and a decline **returns**. See W5 |
+| 2026-08-17 | ⚠⚠ *"Do not drop anything. I have a more recent DB to import and will need to translate where required and retain all legacy sales."* | **L4 is not a deletion.** Legacy history is imported and translated, not discarded — see L4 |
+
+### 0.3 ⚠ Open, and not tracked anywhere else
+
+| | What | Where | Why it is still open |
+|---|---|---|---|
+| 🟠 | **`LoginViewModel.EnsureStoreAsync` throws on every sign-in** — `InvalidOperationException: Unable to track an entity of type 'StoreModel' because its primary key property 'Id' is null` | `LoginViewModel.cs` | Caught and harmless; the screen it fed is read-only off `StoreInfoCache`. ⚠ It also CREATES the legacy `Database.db` on every sign-in, which is what made the enrolment gate a one-way door. **Goes with step 25**, not 21 — see [L7](#l7--loginviewmodelensurestoreasync) |
+| ⚠ | **The UI fixes of 2026-08-10 are held by REVIEW, not tests** | dialogs, navigation, checkout | Nothing in that family can be exercised without a UI host. Weaker than it should be for two overlay bugs in two days — which is why step 11b moved up the order, and why §8's USER-VERIFY list exists |
+| ⚠ | **The store-gate deadline convention is unpinned** | `TillStoreAccess.UseAsync` callers | The next caller written without a deadline restores the 2026-08-10 fault in full. Held by convention and a code comment |
+
+### 0.4 ⚠⚠ The lesson this project keeps re-learning
+
+**Ten status markers have been found wrong in eight days**, and every one failed the same way: a claim
+about *behaviour* written from reading a call site instead of following what it calls.
+
+- ✅ rows for work that was not built · ⬜ rows for work that was
+- A **➖** ("not applicable") that stopped being true when the architecture moved, while a row eight
+  lines below recorded the very move that falsified it
+- `FileOperatorStore`'s header explaining that a move was impossible because of an EF 3.1 pin — that
+  had been 9.0.18 since the .NET 10 upgrade
+- `publish-agent.ps1` silently broken for ten days behind a `latest.json` that read as a current release
+
+**The rule: grep the callers, check the csproj, run the thing — before believing any marker, including
+your own from last week.** ⚠ And **➖ is the most dangerous of the four**: ✅ and ⬜ both invite a check,
+➖ invites none.
+
+---
+
 ## Where it stands
 
 **Counted from Part B, not estimated — recounted 2026-08-16: 77 capability rows.**

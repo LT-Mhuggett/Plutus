@@ -8,8 +8,14 @@ Three places, one rule each. Nothing is ever deleted — a plan just moves right
 | [`Build/To do/`](To%20do/) | **Plans with work still in them.** If it's here, something is unbuilt. |
 | [`Build/archive/`](archive/) | **Delivered.** Each carries a banner saying what shipped and what didn't. |
 
-**The living state of the project is [`HANDOVER.md`](../HANDOVER.md), not this folder.** Ask it
-what's deployed, what broke, and where the rollback tags are. Ask these documents *why*.
+⚠⚠ **CHANGED 2026-08-17 — where the living state lives.** Matt: *"I only want the handover to be for
+the following day."* So:
+
+| | Is now |
+|---|---|
+| [`HANDOVER.md`](../HANDOVER.md) | **ONE DAY LONG.** What to do next session, and nothing else. ⚠ Do not let it grow back into a history — rewrite it; the commits are the record |
+| [`To do/MAUI-retrofit.md`](To%20do/MAUI-retrofit.md) **§0** | **The living state** — what is deployed, every one of Matt's rulings, open items, and the lesson about stale status markers |
+| [`archive/handover-history-to-2026-08-17.md`](archive/handover-history-to-2026-08-17.md) | The old handover's day-by-day narrative back to 2026-07-28, **verbatim, dropped from nothing**. ⚠ History, not instruction: every "START HERE" in it is superseded and its version numbers were true on their date. Read it for the reasoning — how fourteen faults were found on 2026-08-10, six invisible to every automated test — never for the state |
 
 ⚠⚠ **For the MAUI till there is exactly ONE document:
 [`To do/MAUI-retrofit.md`](To%20do/MAUI-retrofit.md)** — what remains, how to build it, what is done,

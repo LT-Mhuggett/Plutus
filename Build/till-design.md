@@ -55,6 +55,162 @@ basket disagree on **every VAT return, forever**, and nothing flags it. *That's 
 
 # Part A — What the tills are
 
+## A0. ⚠⚠ FUNCTIONAL PARITY AT A GLANCE — **can the till do the thing?**
+
+> **Matt, 2026-08-17:** *"Can there be a table in there showing the parity across the tills, showing
+> parity in FUNCTIONALITY, not in how the functions operate."*
+>
+> So this table answers **one** question per row: *can an operator do this on that till?* It says
+> nothing about how, which endpoint, which rule, or what went wrong on the way — all of that is
+> **Part B**, and Part B wins on any disagreement. Read this to see the shape of the gap; read Part B
+> before changing anything.
+>
+> ⚠ **Deliberately NOT a list of screens.** "Both have a Reports tab" can be true while one of them
+> cannot answer what yesterday's VAT was. The rows below are things a shop needs done.
+
+**Key:** ✅ works · 🟡 **built, never run by a person** · ⬜ cannot do it · ➖ deliberately not applicable
+
+⚠⚠ **🟡 IS NOT A SOFT ✅.** It means the code exists and passes every test a machine can run, and **no
+human has ever seen it work.** MAUI carries a lot of it right now because 21 versions have landed since
+the last hand-run — and every hand-run so far has found faults the tests could not (2026-08-10: fourteen,
+six invisible to every automated test). Treat 🟡 as unknown until [`Test Maui.md`](Test%20Maui.md) says
+otherwise.
+
+### Selling
+
+| Can the till… | Web | MAUI |
+|---|---|---|
+| Ring up an item by scanning it | ✅ | ✅ |
+| Find an item by name or part of a name | ✅ | ✅ |
+| Change a line's quantity | ✅ | ✅ |
+| Put an item back (return it) | ✅ | ✅ |
+| Add a note to the sale | ✅ | ✅ |
+| Take a fixed-amount discount off | ✅ | ✅ |
+| Take a **percentage** discount off | ✅ | 🟡 |
+| Refuse a discount bigger than the basket | ✅ | ✅ |
+| Record **why** a discount was given | ✅ | ✅ |
+| Hold a cashier to a discount **limit**, and step up to a supervisor | ⬜ | ✅ |
+| Park a basket and recall it | ✅ | ✅ |
+| Take **cash** | ✅ | ✅ |
+| Take **card** | ✅ | ✅ |
+| Split one sale across two tenders | ✅ | ✅ |
+| Take a **gift card** as payment | ✅ | 🟡 |
+| **Sell** a gift card | ✅ | 🟡 |
+| Take **store credit** as payment | ✅ | 🟡 |
+| Attach a customer to the sale | ✅ | 🟡 |
+| Apply a member's automatic discount | ✅ | 🟡 |
+| **Complete a sale with the network down** | ✅ | ✅ |
+
+### Giving money back
+
+| Can the till… | Web | MAUI |
+|---|---|---|
+| Refund a sale | ✅ | ✅ |
+| Put the money back **the way it was paid** | ✅ | ✅ |
+| Refund a sale that was paid **two** ways, correctly | ✅ | 🟡 |
+| Refuse to refund more than was taken | ✅ | ✅ |
+
+### Receipts and hardware
+
+| Can the till… | Web | MAUI |
+|---|---|---|
+| Print a receipt | ✅ | ✅ |
+| Open the cash drawer | ✅ | 🟡 |
+| Reprint a receipt for an earlier sale | ⬜ | ✅ |
+| Reprint a sale rung up on **another till** | ⬜ | 🟡 |
+| Use the receipt layout set in the portal | ✅ | 🟡 |
+| Show a customer the receipt on screen | ✅ | ⬜ |
+
+### The drawer and the day
+
+| Can the till… | Web | MAUI |
+|---|---|---|
+| Open a float | ✅ | ✅ |
+| Record money in and out | ✅ | ✅ |
+| Do an X read | ✅ | ✅ |
+| Close the day (Z) | ✅ | ✅ |
+| Say whether the drawer was **short or over** | ✅ | ✅ |
+| **Record cash movements with the network down** | ⬜ | ✅ |
+| Reopen a day closed by mistake | ⬜ | ✅ |
+| Refuse to sell after the day is closed | ✅ | ✅ |
+
+### Stock and the catalogue
+
+| Can the till… | Web | MAUI |
+|---|---|---|
+| Look up what is in stock | ✅ | ✅ |
+| Change an item's price or details | ✅ | ✅ |
+| Work out the ex-VAT price from the band | ✅ | 🟡 |
+| Add a **new** item | ✅ | 🟡 |
+| Add a new item on **one screen** | ✅ | ⬜ |
+| Adjust stock, with a reason | ✅ | ✅ |
+| Withdraw an item from sale (the Bin) | ✅ | ✅ |
+| Put a withdrawn item back | ✅ | ⬜ |
+| Manage categories | ✅ | ✅ |
+| **Scan an item with the network down** | ✅ | ✅ |
+| Stop selling a withdrawn item **while offline** | ✅ | ✅ |
+
+### Knowing what happened
+
+| Can the till… | Web | MAUI |
+|---|---|---|
+| See today's takings | ✅ | ✅ |
+| See sales over a date range | ✅ | 🟡 |
+| See a VAT breakdown | ✅ | 🟡 |
+| See what sold, and what sold best | ✅ | 🟡 |
+| Sort, search and page a report | ✅ | 🟡 |
+| Find a sale rung up on **another till** | ✅ | 🟡 |
+| See a **chart** | ✅ | ➖ *the portal is the home for charts — Matt, 2026-08-16: "tables only"* |
+| See pre-cutover history from the old system | ➖ | 🟡 *hidden, retained — see L4* |
+
+### People
+
+| Can the till… | Web | MAUI |
+|---|---|---|
+| Sign somebody in | ✅ | ✅ |
+| **Sign somebody in with the network down** | ⬜ | ✅ |
+| Show who works here | ✅ | 🟡 |
+| Add a member of staff | ✅ | 🟡 |
+| Set or reset a password | ✅ | 🟡 |
+| Sign an operator out the moment they are disabled | ⬜ | ✅ |
+| Set roles and permissions | ➖ | ➖ *portal only, deliberately — a till is the wrong place to widen authority from* |
+
+### Being a citizen of the platform
+
+| Can the till… | Web | MAUI |
+|---|---|---|
+| Be enrolled from the portal | ✅ | ✅ |
+| Tell the platform it is alive, and which build it is | ✅ | ✅ |
+| Report its **hardware agent** and printer | ✅ | 🟡 |
+| Be told it is out of date | ✅ | ✅ |
+| **Stop trading when it is revoked** | ⬜ | 🟡 |
+| Ask to be taken off the estate | ✅ | 🟡 |
+| Tell a shop something sold online needs picking off the shelf | ✅ | 🟡 |
+| Show a platform announcement | ✅ | 🟡 |
+| Raise a support ticket, and read the reply | ✅ | 🟡 |
+| Get its VAT bands from the portal | ✅ | ✅ |
+| Apply a future-dated VAT change **while offline** | ✅ | ✅ |
+| Take its colours from the portal | ✅ | ⬜ *step 22 — Matt: last* |
+| Tell network trouble from server trouble from being revoked | 🟡 | ✅ |
+| Install its own updates | ➖ | ➖ *no self-update — Matt, 2026-08-11. ⚠ The **agent** is the exception: W5* |
+
+### ⚠ Where the WEB till is behind — parity runs both ways
+
+Reading down the ⬜ column on the web till's side, and it is not a short list:
+
+| The web till cannot… | ⚠ |
+|---|---|
+| Sign anybody in offline | **The shop that loses broadband loses the till** — the thing the whole offline design exists to prevent |
+| Record cash movements offline | A float taken while the line is down is a day that cannot be reconciled |
+| Stop trading when revoked | It is on `navigator.onLine` — the network interface, not the server. A lost or stolen browser till keeps selling |
+| Sign out a disabled operator proactively | It signs out only when something happens to 401, and tokens are cached 12 hours with their permissions |
+| Hold a cashier to a discount limit | No client-side permission model at all — a web cashier can take off any amount |
+| Reprint an earlier receipt | Joins the reporting screen that already lists sales |
+| Reopen a day closed by mistake | Server side is done and live; nothing calls it |
+
+⚠ **This half is easy to forget** because the web till is the one that gets used. Matt's 2026-08-08
+ruling — *"the tills need to be in parity"* — points in **both** directions.
+
 ## A1. The surfaces
 
 Everything that can produce a sale, and what it's made of.
@@ -62,7 +218,7 @@ Everything that can produce a sale, and what it's made of.
 | Surface | Technology | Runs on | Local state | Reaches the server via |
 |---|---|---|---|---|
 | **Web till** — `Plutus.Frontend.WebApp` | React 19 + TypeScript, Vite | Any browser | IndexedDB (outbox + catalogue cache) | `POST /api/v1/sales`, plus some legacy `/api/*` |
-| **MAUI till** — `Plutus.Frontend.AppClient` | .NET MAUI (Sean's rework, NatApp lineage) | `net10.0-windows`, `-android`, `-ios` | SQLite — legacy schema today, local store v2 at cutover | Not yet — WP5+ wires it through `Plutus.Client.Core` |
+| **MAUI till** — `Plutus.Frontend.AppClient` | .NET MAUI (Sean's rework, NatApp lineage) | `net10.0-windows`, `-android`, `-ios` | **SQLite local store v2** (`TillDbContext`) — ⚠ the legacy schema is still present and still read by the hidden pre-cutover reports ([L4](To%20do/MAUI-retrofit.md)), but **sales, cash, the outbox, the catalogue, the roster and every Meta key are v2** | ✅ **`POST /api/v1/sales` through `Plutus.Client.Core`**, plus the 60 s cadence (heartbeat, catalogue, cash drain, VAT bands, receipt template, noticeboard, agent status, device standing) and some legacy `/api/*` for the item editor and staff. ⚠ **This cell read *"Not yet — WP5+ wires it"* until 2026-08-17**, long after it was wired |
 | **Webstore connector** | Backend module `Plutus.Webstore` | Server | — | Its sink builds an `IngestSaleRequest` and calls `SalesIngestService` **directly** |
 | **Hardware agent** — `tools/Plutus.TillAgent` | WinForms tray app + Kestrel on `127.0.0.1:9123` | `net10.0-windows` | Token in local config | Not a sales path — it prints and kicks the drawer for the *browser* till |
 | **Portal** — `Plutus.Frontend.Portal` | React 19 + TypeScript | Any browser | — | The **source of truth**, not a till: it publishes what tills obey |
@@ -112,7 +268,7 @@ surprise six months later.
 | **Refund-only baskets** (negative sale) | ✅ | ✅ | `POST /api/v1/sales` | Server half shipped 2026-08-07 (invariants are sign-agnostic). ⚠ **The MAUI half was marked ⬜ until 2026-08-16 and had in fact been built** — corrected against the tree, and this is the **fifth** stale marker found in a week. `TillViewModel:1507` derives `refundOnly` (a basket with no SALE lines), and it drives four things: the tender set is restricted to the origin sale's tenders (`TillTenders.Offered(refundOnly: true)`), each tender is **capped** at what it actually took (finding Y), the card surcharge is suppressed, and the prompts say *refund* rather than *pay*. Pinned by `RefundTenderTests` + `TillTendersTests`, and **hand-run** — A4b on 1.49.3+ returns a split-paid sale, which IS a refund-only basket. ⚠ The Notes that justified the ⬜ described the SERVER half and were read as though they described the client's. |
 | Park / retrieve basket | ✅ | ✅ | — | MAUI must reserialise as contract JSON, no `$type` — WP2. |
 | Split payment / change | ✅ | ✅ | — | |
-| **Gift cards — sell & redeem** | ✅ | 🟡 | `/api/v1/giftcards/*` | **Whole feature missing.** Zero references in MAUI. ⚠ Gated on the per-tenant VAT-treatment decision — `GiftCardSettings`' absence **409s** generate/activate/redeem, so a MAUI till that doesn't understand this gets errors it can't explain. **WP13** (body + DoD). ⚠ **PARTIALLY BUILT 2026-08-16 (till 1.59.0): REDEEM yes, SELL not yet.** A card can be scanned, looked up, held in page state and spent — capped at its balance through finding Y's tender-cap mechanism, redeemed **before** the sale is recorded with a failure aborting, and never offered on a refund (refunding onto a card turns returned goods into fresh spendable value — the classic way a scheme is drained). ⚠ **`unsold` is refused at the till with its own sentence**: a card off the rack has a real code and scans perfectly, and taking it would hand over goods against value nobody bought. ⚠ **ACTIVATION (selling one) is still ⬜** — that is where the zero-VAT treatment lives, and it is the half that must not be guessed. Shared client: 18 tests. |
+| **Gift cards — sell & redeem** | ✅ | 🟡 | `/api/v1/giftcards/*` | ✅ **BOTH HALVES BUILT — activation landed 2026-08-16 (till 1.60.0).** ⚠ **This row said "ACTIVATION is still ⬜" until 2026-08-17**, after the commit that closed it. Selling one now posts through `SharedKernel/GiftCardVat.PairFor` in `CheckoutCommit` — the tenant's voucher treatment decides the VAT and **nothing at the till invents it**: multi-purpose is ex == inc (no VAT at sale, it is a liability not revenue), single-purpose carries VAT inside the face value, and `NotChosen` **throws** rather than guessing. 🟡 rather than ✅ only because no person has run it — §G13. Original note: **Whole feature missing.** Zero references in MAUI. ⚠ Gated on the per-tenant VAT-treatment decision — `GiftCardSettings`' absence **409s** generate/activate/redeem, so a MAUI till that doesn't understand this gets errors it can't explain. **WP13** (body + DoD). ⚠ **REDEEM landed first (till 1.59.0).** A card can be scanned, looked up, held in page state and spent — capped at its balance through finding Y's tender-cap mechanism, redeemed **before** the sale is recorded with a failure aborting, and never offered on a refund (refunding onto a card turns returned goods into fresh spendable value — the classic way a scheme is drained). ⚠ **`unsold` is refused at the till with its own sentence**: a card off the rack has a real code and scans perfectly, and taking it would hand over goods against value nobody bought. ⚠ Activation was held back deliberately at that point — it is where the zero-VAT treatment lives, and it was the half that must not be guessed. Shared client: 18 tests. |
 | Customer attach at sale + auto-discount | ✅ | 🟡 | `/api/v1/customers` | WP12. ⚠⚠ **THIS ROW WAS A LIVE MONEY DIFFERENCE** (found 2026-08-13): the web till applies the tier discount at `TillPage.tsx:122–123` and `autoDiscountRate` appeared **nowhere** in `Plutus.Frontend.AppClient`, so **a Gold member was charged 10% more on MAUI for the same basket**. ✅ **BUILT 2026-08-16 (till 1.56.0)** — `MemberDiscountBasket` (the engine, 16 tests, mutation-checked twice) plus the screen: a customer bar with attach/detach, search by name/phone/email/member number, **scan-to-attach on both add doors**, and the discount rebuilt reactively from `Basket.CollectionChanged` with a re-entrancy guard. ⚠ **🟡 NOT ✅ DELIBERATELY: no person has run it.** The engine is covered by tests; the *screen* cannot be — MAUI bindings fail silently and this row is one grid-row renumber away from a blank customer bar. **Closes at hand-run §G** (`Test Maui.md`). ⚠ Still ⬜ separately: the **create dialog** and the **tier picker** — see their own rows. |
 | Member-number scan-to-attach | ✅ | 🟡 | `/api/v1/customers` | ✅ **BUILT 2026-08-16** — `TryRouteMemberScanAsync` sits on **both** add doors (the scan box and Inventory → Add to till). ⚠ **It went on one door first**, which is the identical hole `RefuseIfDayClosedAsync` was extracted to close, made again two commits later — a rule enforced per-entry-point is a rule with a hole in it. Now one method both call. ⚠ 🟡 until a person scans a real card (§G). Original notes: | FE2 `NNNNNNC` barcode. **WP12** — body + DoD added 2026-08-08; the check-digit rule is `SharedKernel.MemberNumbers`, never re-derived. ✅ **The rule is now actually there** (moved 2026-08-13 — it had been in `Plutus.Customers`, a module MAUI cannot reference, so this Notes cell described an intention rather than a fact). `MemberNumbers.LooksLikeMemberScan` is the routing predicate: prefixed + valid check → attach; prefixed + invalid → say the card did not scan, never fall through to an item search. |
 | **Add a new member at the till** | ✅ | 🟡 | `POST /api/v1/customers` — **`pos.customers.add` OR `customers.manage`** | ✅ **Backend, permission and the WEB till all landed 2026-08-13** (binding default 20; Matt: *"Till operator to add new loyalty members"*). ⚠ **CREATE-ONLY** — editing a member and setting a tier stay `customers.manage`, pinned by `A_cashier_can_ADD_a_member_but_not_edit_one_or_set_a_tier` (mutation-checked: widening the edit gate is caught). Web till: `pipeline.ts` `mayAddCustomer`/`canAddCustomers` gate **＋ New** on the sale screen and **Add member** on the Loyalty page, while `edit` and the row action stay on `canManageCustomers()`; 4 vitest cases, mutation-checked (OR → AND fails both permissive cases). ⚠ **A cashier gets NO tier picker in the member dialog, deliberately** — the dialog creates the customer and *then* assigns the tier as two calls, so leaving the control visible meant 201 on the create and **403 on the tier**: an error in front of a customer for a member who *had* been added, whose natural retry creates a duplicate. It says who to ask instead. ⚠ **Online-only on every till** — the number comes from a tenant-wide counter, so two offline tills would mint the same one. ⚠ **Needs only a sign-out/in after deploy** — login tokens cache for 12h with the permission set baked in. It does **not** need `SeedMigrator rbac`: `RolePermissionReconciler` delivers new catalogue grants on every boot (I wrote the opposite here first, trusting a stale runbook line, and corrected both). ✅ **LIVE 2026-08-13** — backend 1.17.0, till-web 1.8.0. ✅ **MAUI BUILT 2026-08-16 (till 1.57.0)** — `AddMemberCommand`, gated `TillGate.CheckAny(PosCustomersAdd, CustomersManage)` (till-side code first, so the refusal names the one an operator can act on), online-only with a refusal that says *why*, and the new member is attached to the sale straight away. ⚠ **NO tier picker in that dialog, carrying the web till's scar across deliberately** — create and set-tier are two permissions, so offering both to a cashier yields 201-then-403: a member who WAS created, an error in front of a customer, and a retry that makes a duplicate. The tier is a separate `SetTierCommand` gated `customers.manage`, hidden outright when not held. ⚠ **🟡 until hand-run §G9/§G10.** |
@@ -133,7 +289,12 @@ surprise six months later.
 | ⚠ **Finding a past sale AT ALL** (list / search recent sales) | ✅ | 🟡 | `GET /api/v1/sales` — already answers | ⚠ **THIS, not the refund rule, is what made refunds unusable.** Returns, the refund cap and the read path all shipped at steps 15–17 — but the "Returns" dialog asked for the **original sale ID**, and `TillStore.FindLocalSaleAsync` takes a `Guid` with **no browse, no search, no "today's sales"** anywhere in the app. The only source of that id was the **barcode on a printed receipt**, so a till with no printer could not refund anything. A complete feature with no door; reported by Matt 2026-08-10 as *"In MAUI I cannot do a refund?"*. ✅ **Closed 2026-08-10**: `TillStore.ListRecentSalesAsync` + a picker in front of the Returns dialog — pick the sale, then give only the reason. ⚠ Reads THIS TILL's own record, so it works with the line down, which is when a shop most needs to hand money back; typing an id remains for goods bought on another till. ⚠ **A QUEUED sale is offered** — the money left the drawer when the goods did, whatever the outbox has managed to deliver. Pinned by `TillStoreReadPathTests` (18). 🟡 until it also covers **cross-till** sales and **reprint** (step 26 — one screen serves both). |
 | Barcode on receipt (sale id) | ✅ | ✅ | — | |
 
-## B3. Tabs the MAUI app has no equivalent for
+## B3. ~~Tabs the MAUI app has no equivalent for~~ → **Areas the web till had first**
+
+⚠ **This heading was true when it was written and is not now** — corrected 2026-08-17. Every area below
+is **built on MAUI**, and on two of them (offline cash, reopening a Z-closed day) **MAUI is ahead of the
+web till**. The heading survives, struck through, because a reader who remembered the old shape needs to
+see that it changed rather than wonder whether they misread it.
 
 | Area | Web | MAUI | Retrofit |
 |---|:--:|:--:|---|
