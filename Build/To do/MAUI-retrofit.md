@@ -1388,11 +1388,37 @@ and mark it for deletion but NOT delete it."* The tab registration in `AppShell.
 out with the reasoning beside it; **every file remains in the build.** Replaced by the **Reports**
 tab (step 26), which reads the platform.
 
-⚠⚠ **IT IS BLOCKED ON A QUESTION, NOT ON CODE.** Deleting these screens deletes the **only** reader
-of the pre-cutover legacy file. A till migrated from NatApp still holds real history there and
-nothing else in the app can show it. **The question for Matt: does anyone still need pre-cutover
-history ON A TILL, given the platform holds everything since?** If no, this deletes cleanly and takes
-Syncfusion with it. **Do not answer it by quietly deleting the files.**
+> ### 🛑 ANSWERED 2026-08-17 — **NOTHING IS DROPPED. L4 IS NOT A DELETION.**
+>
+> Matt, verbatim: *"Do not drop anything. I have a more recent DB to import and will need to
+> translate where required and retain all legacy sales."*
+>
+> **So the question below is settled in the direction that keeps the code.** The screens stay hidden
+> and stay in the build. ⚠ **Do not delete these files, and do not delete Syncfusion on the strength
+> of L4** — the Syncfusion removal has to find another route or wait.
+>
+> ⚠⚠ **AND THIS IS NOW A WORK PACKAGE, NOT A CLEAN-UP.** A newer legacy DB is coming in and its sales
+> must be **translated** into the v2 store and **retained**, not merely left readable in a hidden
+> screen. That is an import/migration job with real money in it:
+>
+> | Needs deciding when it starts | Why it matters |
+> |---|---|
+> | **Where legacy sales LAND** | Translated into the v2 store (so the Reports tab and every VAT return see them), or kept legacy-side and read separately? Only the first makes them count |
+> | **VAT band per legacy line** | Legacy rows carry a `TaxId`, not a published band. `VatBandStamp` backfills on ingest — ⚠ but it stamps *today's* mapping, and a 2024 sale may need the rate that applied **then** (`VatBandCache` holds the timeline, so this is answerable) |
+> | **Idempotency** | An import re-run must not double-count takings. Legacy ids have to map deterministically, the way `DeterministicGuid.ForItem` already does for catalogue rows |
+> | **Money representation** | Legacy is `decimal`; v2 is integer pence. `Pence.FromDecimal` exists **for exactly this** and its header says so — "the one place decimals legitimately still arrive… reading the old Kapow-schema database during cutover" |
+> | **What "translate" covers** | Items, tax rows, employees, customers, discounts — a sale references all of them, and a sale whose item id resolves to nothing is a line nobody can read |
+>
+> ⚠ **Do not begin this by writing an importer.** The first job is to look at the DB Matt has and
+> record what is actually in it — row counts, date range, which tables, whether ids collide with
+> live ones. An importer written against a guessed schema is how history gets silently mangled, and
+> unlike most bugs here **this one is not reversible once the takings are wrong.**
+
+⚠⚠ **THE ORIGINAL QUESTION, kept for the reasoning.** Deleting these screens deletes the **only**
+reader of the pre-cutover legacy file. A till migrated from NatApp still holds real history there and
+nothing else in the app can show it. **The question was: does anyone still need pre-cutover history
+ON A TILL, given the platform holds everything since?** → **Answered: yes, and more than that — it
+must be imported and translated.** **Do not answer it by quietly deleting the files.**
 
 ⚠ **Hidden is already most of the benefit**: nobody can now reach a screen that reports £0.00 for a
 day the shop took £2,000. What deletion additionally buys is the Syncfusion removal below.

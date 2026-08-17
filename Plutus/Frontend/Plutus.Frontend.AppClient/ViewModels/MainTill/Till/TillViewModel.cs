@@ -2034,16 +2034,53 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 var entries = new ViewElementData[1];
 
+                // ⚠⚠ THE PERCENT BOX IS PRE-FILLED AS A PERCENT (Matt, 2026-08-17: *"make it %"*).
+                // `DiscountModel.Amount` from the legacy NatApp table holds a FRACTION — 0.1 for 10%,
+                // which is why the old `Price * Amount` looked plausible. A box that now means
+                // "percent" has to show **10**, or every migrated discount reads as 0.1% and applies
+                // a hundredth of itself.
+                var prefill = alteration.Type == 0
+                    ? alteration.Amount.ToString(CultureInfo.CurrentCulture)
+                    : Plutus.SharedKernel.PercentDiscountInput
+                        .PercentFromFraction(alteration.Amount).ToString(CultureInfo.CurrentCulture);
+
                 if (alteration.Amount == 0.0m)
                     entries[0] = new ViewElementData(1,
                         alteration.Type == 0 ? "Cash".Translate() : "Percent".Translate(), "0", new List<IValidator>(), false, true);
 
                 else
                     entries[0] = new ViewElementData(1,
-                        alteration.Type == 0 ? "Cash".Translate() : "Percent".Translate(), alteration.Amount.ToString(CultureInfo.CurrentCulture), new List<IValidator>(), false, false);
+                        alteration.Type == 0 ? "Cash".Translate() : "Percent".Translate(), prefill, new List<IValidator>(), false, false);
 
                 //data type -> Tuple<List<string>, List<BasketItem>>
                 var (alterationAmounts, applyAlterationsToBasketItems) = await Helpers.CustomViews.InputMultiSelectAlertHelper<string, BasketItem>.LaunchInputMulitSelectAlertAsync(entries, Tuple.Create<IEnumerable<BasketItem>, string>(items, "Name"), default, "Confirm".Translate(), false, "Alterations".Translate());
+
+                // ⚠⚠ THE PERCENT IS PARSED ONCE, HERE, AND REFUSED POLITELY (Matt, 2026-08-17:
+                // *"make it %"*). Until now both percentage branches did
+                // `item.Price * Decimal.Parse(typed)` — so typing **10** for 10% multiplied the price
+                // BY TEN. Nobody was overcharged, because the money rule below refuses a discount
+                // larger than the basket, but the operator was told the basket was too small rather
+                // than that they had typed the wrong thing, and no percentage over 100% could ever
+                // be applied at all.
+                //
+                // ⚠ `LineDiscounts.Percentage` THROWS on a fraction above 1 — correctly, since by
+                // then it is a programming error. An operator mistyping is not, so the parse and the
+                // refusal happen here and the money rule stays strict behind them.
+                decimal fraction = 0m;
+
+                if (alteration.Type != 0)
+                {
+                    if (Plutus.SharedKernel.PercentDiscountInput
+                            .FractionFromTyped(alterationAmounts.First()) is not decimal parsed)
+                    {
+                        await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                            Plutus.SharedKernel.PercentDiscountInput.RefusalMessage(alterationAmounts.First()),
+                            "OK".Translate());
+                        return;
+                    }
+
+                    fraction = parsed;
+                }
 
                 BasketAlteration adjustment;
 
@@ -2070,7 +2107,20 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         }
                         else
                         {
-                            var alterationAmount = Tuple.Create(Math.Abs(Math.Round(item.Price * Decimal.Parse(alterationAmounts.First()), 2, MidpointRounding.AwayFromZero)) * -1, Math.Abs(Math.Round(item.PriceExTax * Decimal.Parse(alterationAmounts.First()), 2, MidpointRounding.AwayFromZero)) * -1);
+                            // ⚠ THE SHARED MONEY RULE, in pence, on both the inc and the ex figure —
+                            // the ex one decides the VAT, so deriving it any other way would put the
+                            // two tills' VAT returns a penny apart on the same basket.
+                            // ⚠ Quantity 1: this branch has already exploded the basket into one
+                            // clone per unit, so each `item` here IS a single unit.
+                            var incOff = Plutus.SharedKernel.LineDiscounts.Percentage(
+                                item.PricePence, 1, fraction, isReturn: false);
+                            var exOff = Plutus.SharedKernel.LineDiscounts.Percentage(
+                                item.PriceExTaxPence, 1, fraction, isReturn: false);
+
+                            var alterationAmount = Tuple.Create(
+                                incOff / -100m,
+                                exOff / -100m);
+
                             adjustment = new BasketAlteration(new NoteModel($"{alteration.Name}, {item.Name} {alterationAmount.Item1.ToString("C2", CultureInfo.CurrentCulture)}"), alteration, item, alterationAmount.Item1, alterationAmount.Item2);
                         }
                         pending.Add(adjustment);
@@ -2085,7 +2135,16 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     }
                     else
                     {
-                        var alterationAmount = Tuple.Create(Math.Abs(Math.Round(applyAlterationsToBasketItems.Sum(tempItem => tempItem.Price) * Decimal.Parse(alterationAmounts.First()), 2, MidpointRounding.AwayFromZero)) * -1, Math.Abs(Math.Round(applyAlterationsToBasketItems.Sum(tempItem => tempItem.PriceExTax) * Decimal.Parse(alterationAmounts.First()), 2, MidpointRounding.AwayFromZero)) * -1);
+                        // ⚠ THE WHOLE-SELECTION BRANCH rounds the SUM once, not each item — the same
+                        // choice the web till makes, and the reason the two branches can differ by a
+                        // penny on odd quantities. `LineDiscounts.Percentage` does that rounding.
+                        var incTotal = applyAlterationsToBasketItems.Sum(t => t.PricePence);
+                        var exTotal = applyAlterationsToBasketItems.Sum(t => t.PriceExTaxPence);
+
+                        var alterationAmount = Tuple.Create(
+                            Plutus.SharedKernel.LineDiscounts.Percentage(incTotal, 1, fraction, isReturn: false) / -100m,
+                            Plutus.SharedKernel.LineDiscounts.Percentage(exTotal, 1, fraction, isReturn: false) / -100m);
+
                         adjustment = new BasketAlteration(new NoteModel($"{alteration.Name}, {alterationAmount.Item1.ToString("C2", CultureInfo.CurrentCulture)}"), alteration, applyAlterationsToBasketItems, alterationAmount.Item1, alterationAmount.Item2);
                     }
                     pending.Add(adjustment);
