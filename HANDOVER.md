@@ -1,12 +1,14 @@
 # Handover — Plutus platform build
 
 **Date:** 2026-08-17 — Platform on **.NET 10**. Backend **1.17.1**, **web till 1.10.0** and portal
-**1.8.0** are DEPLOYED to the test environment and verified. ✅ **till-maui 1.71.0 is BUILT** at
-`D:\tmp\plutus-till-1.71.0` (artefact reads `1.71.0+6e4e787e` = HEAD) and **awaits a hand-run** —
-1.69.0 was deleted so there is no ambiguity. ✅ **Agent 1.4.0** is published and downloadable from the
-web till (Settings → Hardware). All 18 phases + Operator
+**1.8.0** are DEPLOYED to the test environment and verified. ⚠⚠ **till-maui 1.72.0 NEEDS BUILDING —
+that is the only thing standing between here and the hand-run.** The artefact on disk is
+`D:\tmp\plutus-till-1.71.0`, which is missing the **percentage money fix** and the **roster move**.
+✅ **Agent 1.4.0** is published and downloadable from the web till (Settings → Hardware). ✅ 144 commits
+pushed to `upstream`; ⚠ `origin` is **blocked** by a 151 MB blob in old history, not merely behind.
+All 18 phases + Operator
 Portal (OP1–OP4), the **portal/till refresh (P1–P6)** and **FE1–FE10** built & LIVE. The **MAUI
-retrofit**: cutover **steps 1–21, 23, 24 (bar the roster move), 25, 27 and most of 26 are done**;
+retrofit**: cutover **steps 1–21, 23, 24, 25, 27 and most of 26 are done**;
 **22 (theming — Matt's call: LAST), the rest of 26, and 28 remain** — ⚠ **one document:**
 [`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md). The backend gap is closed; everything left is
 screen work against endpoints that exist, are tested and are deployed. VAT follows UK law (HMRC
@@ -35,64 +37,79 @@ Head: see `git log` — this line goes stale; the commits don't.
 |---|---|
 | ✅ **Web till 1.10.0** | **DEPLOYED & verified** — `index-DBZqCOhi.js`, 343,530 bytes, defines substituted, new severity rule present and the old allow-list gone. Rollback `current.pre-1.10.0` (= 1.9.0, `index-BLeVrCti.js`). ETRIE **200**, portal untouched |
 | ✅ **Agent 1.4.0** | Published; the web till's **Settings → Hardware** offers it (verified HTTP 200 / 70,293,789 bytes). ⚠ **Install it to `%LOCALAPPDATA%\Plutus\Agent\`, not Downloads** |
-| ✅ **till-maui 1.71.0** | **BUILT**, `D:\tmp\plutus-till-1.71.0`, artefact reads `1.71.0+6e4e787e` = HEAD. 1.69.0 deleted |
-| ⬜ **The hand-run** | **65 sections, none of it ever run.** §G27 → §G24 → §A0 → §A4b first |
-| ⬜ **Two decisions** | Items 1 and 1b below |
-| ⚠ **144 commits unpushed** | Upstream last saw **2026-08-09**. Item 1c |
+| ⚠⚠ **till-maui 1.72.0 NEEDS BUILDING** | **The only thing standing between you and the hand-run.** The artefact on disk is **1.71.0** and is missing the **percentage money fix** (§F7b) and the **roster move** (§G30). Ask, and it takes a couple of minutes |
+| ⬜ **The hand-run** | **69 sections, none of it ever run.** Order is in the RUN ORDER table of [`Build/Test Maui.md`](Build/Test%20Maui.md) — §G27 → §G24 → §G30b → §A0 → §A4b → §F7b → §G1 |
+| ✅ **Both decisions answered** | The percentage box is **%**, and **nothing is dropped** — see 1 and 1b |
+| ✅ **Pushed to `upstream`** | At `8beb7ad0`. ⚠ **`origin` is BLOCKED, not merely behind** — item 1c |
 
-#### 1c. ⚠ 144 commits exist only on this machine
+#### 1c. ⚠⚠ `origin` CANNOT BE PUSHED — it is blocked, not merely behind
 
-`origin` is 8 days behind — its last commit is `8e45fa23` (2026-08-09). Everything since, including
-all of the MAUI parity work, the money reshape and today's agent fixes, is **local only**. Pushing has
-been "on request" throughout and I have not done it.
+✅ **`upstream` (seank842/Plutus) is up to date** at `8beb7ad0`. Pushed 2026-08-17 on request.
 
-⚠ **This is the one outstanding item with no upside to leaving.** A machine failure loses 8 days; the
-built artefacts in `D:\tmp` are not a backup of source. **Say the word and I will push.** If there is
-a reason not to (a rewrite you want first, or upstream being shared), that reason is worth writing
-down here, because otherwise the next session will ask the same question.
+❌ **`origin` (LT-Mhuggett/Plutus) rejects the push**, and this was mischaracterised before as
+"unpushed on request". It is a hard block:
 
-#### 1. ⚠⚠ THE ONE QUESTION STILL WAITING ON YOU — the percentage discount box
+```
+remote: error: File …ClientUI/Publishing/Plutus.Frontend.ClientUI_3.0.3.0_Test.zip is 151.54 MB;
+remote: error: this exceeds GitHub's file size limit of 100.00 MB
+```
 
-**Unanswered since 2026-08-13.** MAUI's percentage path computes `item.Price * Decimal.Parse(input)`
-under a box labelled **"Percent"**, and never calls `LineDiscounts.Percentage` — the rule that exists
-to prevent exactly *"typed 10 for 10%, charged 10×"*.
+⚠ **HEAD is clean** — that zip is a **134-byte stub** now and the largest blob in HEAD is 0.7 MB. The
+151 MB object lives in an old commit (`3cc9e508`, *".NET Maui Stability improvements"*), which
+**`upstream` already has** and `origin` does not — origin is **442** commits behind, so pushing to it
+re-sends that history and GitHub's pre-receive hook refuses it.
 
-⚠ **Nobody is being overcharged** — the money rule refuses the result rather than charging it. But
-the box is wrong in one of two ways and **the fix is completely different each way**:
+**To fix it you must rewrite history** — an LFS migration for that path, or a fresh orphan branch.
+⚠ **I have not done either.** Rewriting 442 commits of shared history is not something to do off the
+back of "please commit", and it needs your decision about what happens to the old refs.
 
-| If an operator types… | Then… |
-|---|---|
-| `0.1` for 10% | the **LABEL** is wrong — cosmetic |
-| `10` for 10% | the **MATHS** is wrong — a money bug |
+⚠ So `upstream` is your off-machine copy for now. That is sufficient protection against losing the
+work; it is not the same as having it in your own repo.
 
-**Which is it?** I have deliberately not guessed: guessing changes what every percentage discount
-charges.
+#### 1. ✅ ANSWERED — the percentage box is a PERCENT, and the maths was wrong
 
-#### 2. ✅ Till **1.71.0** and agent **1.4.0** are built — the hand-run is what is left
+Matt, 2026-08-17: *"make it %"*. So typing **10** means 10%, which made it a **money bug**, not a
+label one. **Fixed in 1.72.0** — `SharedKernel/PercentDiscountInput.cs`, 32 tests, mutation-checked
+with the original bug restored (kills 14).
 
-Built 2026-08-17 on request. `D:\tmp\plutus-till-1.71.0\Plutus.Frontend.AppClient.exe`, unpackaged —
-double-click, nothing to install. ⚠ It will say the till isn't enrolled; that is expected for an
-unpackaged build (runbook § MAUI till build), enrol it as a fresh till.
+⚠ Hand-test **§F7b**, which did not exist until this was answered. The step to not skip is the fourth
+one: the **ex-VAT** total must drop by ~£1.67 on a £20 item at 10%, because the inc and ex figures are
+discounted separately and the ex one is what every VAT return is built from.
 
+#### 1b. ✅ ANSWERED — nothing is dropped, and L4 stopped being a deletion
+
+Matt, 2026-08-17: *"Do not drop anything. I have a more recent DB to import and will need to translate
+where required and retain all legacy sales."*
+
+So **L4 is not a deletion** — the Statistics screens stay hidden and stay in the build, and Syncfusion
+cannot be removed on L4's strength. ⚠ **It is now a work package**: a newer legacy DB arrives, its
+sales must be **translated into the v2 store** and **retained**. Written up in the MAUI document with
+what needs deciding when it starts — where legacy sales land, **which VAT rate a 2024 line gets**
+(`VatBandStamp` stamps *today's* mapping; `VatBandCache` holds the timeline, so it is answerable),
+idempotency so a re-run cannot double-count takings, and `Pence.FromDecimal` for the money conversion.
+
+⚠ **Do not begin it by writing an importer.** First look at the DB and record what is in it. An
+importer written against a guessed schema mangles history — and unlike most bugs here, **that one is
+not reversible once the takings are wrong.**
+
+#### 2. ⚠⚠ BUILD 1.72.0 — it is the only thing left before testing
+
+The artefact on disk is `D:\tmp\plutus-till-1.71.0` and it is **missing the two newest changes**: the
+**percentage money fix** (§F7b) and the **roster move** (§G30). Everything is committed; only the
+build is behind. **Ask and it takes a couple of minutes.**
+
+⚠ Unpackaged — double-click, nothing to install. It will say the till isn't enrolled; that is expected
+for an unpackaged build (runbook § MAUI till build), enrol it as a fresh till.
 ⚠⚠ **Install agent 1.4.0 as well, and put it in `%LOCALAPPDATA%\Plutus\Agent\`** — §G29 needs it, and
 running it from Downloads is the fault it fixes.
 
-**[`Build/Test Maui.md`](Build/Test%20Maui.md) is written for 1.71.0** and is 65 sections. **Nothing in
+**[`Build/Test Maui.md`](Build/Test%20Maui.md) is written for 1.72.0** and is 69 sections. **Nothing in
 it has ever been run** — the last hand-run findings were 2026-08-13, fixed in 1.49.x–1.50.0, and MAUI
-has gone from there to 1.71.0 unverified. ⚠ Every hand-run so far has found faults tests could not:
+has gone from there to 1.72.0 unverified. ⚠ Every hand-run so far has found faults tests could not:
 **2026-08-10 found 14, six invisible to every automated test**; 2026-08-13 found 5 more including two
 money holes.
 
-**Run these four first**, in this order — each can make everything after it look broken:
-
-| # | | Why first |
-|---|---|---|
-| 1 | **§G27** | A revoked till must stop **and** a network blip must not stop it. Security behaviour, two halves failing in opposite directions |
-| 2 | **§G24** | Money on every basket row. If a £3.30 item reads **£330.00**, stop and report it |
-| 3 | **§A0** | Can the till take a sale at all? It could not, on 1.48.0 |
-| 4 | **§A4b** | Refund a sale paid two ways — the money one, fixed across several builds, never run |
-
-⚠ **Eight sections are new since 1.65** — §A1b, §G25, §G26, §G27, §G28, §G29 among them.
+⚠ The order to run them in is the RUN ORDER table at the top of that document — **§G27 → §G24 → §G30b → §A0 → §A4b → §F7b → §G1**. ⚠ **Ten sections are new since 1.65** — §A1b, §F7b, §G25–§G30 among them.
 
 #### 3. ✅ Web till 1.10.0 DEPLOYED — and three things the deploy turned up
 
@@ -133,7 +150,16 @@ agent download off the site. Verified rather than assumed.
 | **Un-enrol request** | Plutus tab | WP4's last piece — there was **no client code at all**, so the endpoint whose gate was fixed in step 19 still had no caller |
 | **Users screen** (WP8/step 24) | `StaffDirectory.cs`, 28 tests | The people icon said *"not available in this version yet"*. Now: list, add somebody **with their password**, reset a password |
 
-#### 4b. What landed on 2026-08-17 (the agent day)
+#### 4b. What landed on 2026-08-17
+
+| What | Why it mattered |
+|---|---|
+| ⚠⚠ **The percentage discount money fix** | `10` typed for "10%" multiplied the price **by ten**. Fixed via `SharedKernel/PercentDiscountInput.cs` — the one place the conversion happens — applied to **both** the inc and ex figures, because the ex one decides VAT. Negatives are now **refused** rather than `Math.Abs`'d into a silent 10% off. 32 tests; the original bug as a mutant kills 14. **§F7b** hand-tests it |
+| ⚠⚠ **The roster moved into the till database** (step 24 complete) | Two roster stores was drift by construction. ⚠ **The plan's target was wrong** — `TillDbContext.Operators` cannot hold a roster without losing **`Email`** (login matches on it first) and **`AsOfUtc`** (the *server's* clock, which the offline staleness horizon measures from). Stored as the whole wire envelope in `MetaKeys.OperatorRoster` instead: no schema change, no live-DB migration, nothing dropped. ⚠ The **one-time JSON import** is the load-bearing part — without it an **offline** upgrade is a shop that cannot open. **§G30b** |
+| **W5's policy half** | `Client.Core/AgentUpdatePrompt.cs` encodes your ruling: ask, obey a no, **come back**. A decline is **per version** (blanket would kill every future update invisibly) and expires after **4 hours**. 18 tests, two mutants killed. ⚠ The mechanics — persisting the decline, shipping the exe, the running-exe swap, `ExpectedAgentVersion` — are **not** built and are itemised in the MAUI doc |
+| ✅ **Pushed to `upstream`** | 144 commits, at `8beb7ad0`. ⚠ `origin` is blocked — item 1c |
+
+#### 4c. What landed earlier on 2026-08-17 (the agent day)
 
 | What | Why it mattered |
 |---|---|

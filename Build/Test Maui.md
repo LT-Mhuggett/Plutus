@@ -4,7 +4,7 @@
 need to ask anyone what a step means — if a step is unclear, that is a bug in this document, so please
 say so.
 
-**Time:** about **2 hours** for everything now — this grew a lot between 1.54 and 1.69. About 15
+**Time:** about **2½ hours** for everything now — this grew a lot between 1.54 and 1.72. About 15
 minutes for §A alone, which is still the part worth doing if that is all the time you have.
 
 ---
@@ -17,17 +17,25 @@ failure actually means.
 
 | # | Do | Why first |
 |---|---|---|
-| **1** | **§G24 — money on every basket row** | The basket's money changed underneath. If a £3.30 item shows **£330.00**, stop and report it; nothing else is worth testing until that is right |
-| **2** | **§G1 — does the bottom of the till screen still look right?** | A new row was added to that grid and everything under it renumbered. MAUI bindings fail **silently** — a blank button means the renumber is wrong |
-| **3** | **§A0 — can the till take a sale at all?** | It could not, on 1.48.0. Everything else assumes it can |
-| **4** | **§A4b — refund a sale paid two ways** | The money one. Fixed across several builds and never yet run by a person |
+| **1** | **§G27 — a removed till must stop, a network blip must not** | Security behaviour with two halves that fail in **opposite** directions. Before 1.70.0 a revoked till kept selling for up to 12 hours |
+| **2** | **§G24 — money on every basket row** | The basket's money changed underneath. If a £3.30 item shows **£330.00**, stop and report it; nothing else is worth testing until that is right |
+| **3** | **§G30b — sign in after an upgrade with the network DOWN** | The roster moved stores in 1.72.0. If the import failed, this is a shop that cannot open — and it only shows up offline |
+| **4** | **§A0 — can the till take a sale at all?** | It could not, on 1.48.0. Everything else assumes it can |
+| **5** | **§A4b — refund a sale paid two ways** | The money one. Fixed across several builds and never yet run by a person |
+| **6** | **§F7b — a percentage discount** | 1.72.0 money fix. Typing `10` used to try to take **£200** off a £20 item |
+| **7** | **§G1 — does the bottom of the till screen still look right?** | A row was added to that grid and everything under it renumbered. MAUI bindings fail **silently** — a blank button means the renumber is wrong |
 
 **Then the rest, in order:** §A → §B → §F (discounts) → §G (members, gift cards, reports, receipts)
 → §C (needs two people) → §E.
 
 ⚠ **Almost everything in §F and §G has NEVER been run by anyone.** It was built between 2026-08-14
-and 2026-08-16 and is marked 🟡 — "built and tested where a test can reach, unverified on screen".
+and 2026-08-17 and is marked 🟡 — "built and tested where a test can reach, unverified on screen".
 That is why this document exists.
+
+⚠⚠ **The last hand-run findings were 2026-08-13** (fixed in 1.49.x–1.50.0). MAUI has gone from there
+to **1.72.0** with nobody looking at a screen. For scale: the 2026-08-10 hand-run found **fourteen**
+faults, **six of them invisible to every automated test in the project**; 2026-08-13 found five more,
+including two money holes. **Every hand-run so far has found something the tests could not.**
 
 ⚠ **Write down anything odd even if no step asks about it.** Every one of the fourteen faults found
 on 2026-08-11 came from somebody noticing something, not from a step asking the right question.
@@ -612,6 +620,53 @@ Then look the sale up — the **portal**, or the web till's sale history.
 ⚠ **This is the whole point of the section.** Everything above can pass while the record never leaves
 the machine — which is exactly the state 1.53.0 was in. If the reason is on the screen but not on the
 sale, say so.
+
+## F7b. ⚠⚠ A PERCENTAGE discount — **the money fix, NEW in 1.72.0**
+
+⚠⚠ **This is the one to do carefully.** Until 1.72.0 the box labelled **Percent** did the wrong
+arithmetic: typing **10** for "10% off" multiplied the price **by ten**. A £20 item tried to take
+**£200** off.
+
+⚠ **Nobody was ever overcharged** — the money rule refuses a discount bigger than the basket, so it
+was caught every time. But the operator was told *"that's more than the basket"* rather than *"you
+typed the wrong number"*, and **no percentage discount could be applied at all**. If you ever tried a
+percentage and gave up, this is why.
+
+**You need a percentage discount set up** (`Type` = percent) in the till's discount list. ⚠ On a
+portal-provisioned till the legacy discount list is empty and you will be told *"There are no
+discounts set up for this till yet"* — that is a separate known gap, not this fix.
+
+1. Put **one item at £20.00** in the basket.
+2. Apply the **percentage** discount. In the box, type **10**.
+3. Give a reason, confirm.
+
+**✅ Expected: £2.00 comes off.** The basket reads **£18.00**.
+
+**❌ If it refuses, saying the discount is more than the basket, the fix has not taken** — that is
+exactly the old behaviour, because `£20 × 10` is £200.
+
+4. Now check the **VAT**. On a standard-rated item, **Sale ex tax** must drop too — by about **£1.67**,
+not by £2.00 and not by nothing.
+
+⚠ **That fourth step is the one worth not skipping.** The inc and ex figures are discounted
+separately, and the ex one is what every VAT return is built from — if it moves by the wrong amount,
+the till and the web till will disagree on every VAT return for that basket, and nothing flags it.
+
+**Then the edges:**
+
+| Type | Expect |
+|---|---|
+| **100** | The whole £20 comes off. 100% is legitimate |
+| **0** | Nothing comes off |
+| **12.5** | £2.50 off — fractions are allowed |
+| **10%** (with the sign) | Accepted — same as `10` |
+| **150** | ⚠ **Refused, saying it isn't a percentage between 0 and 100** — NOT "more than the basket" |
+| **-10** | ⚠ **Refused.** It must **not** quietly apply 10% off — the old code did |
+| **abc** | Refused politely, basket untouched |
+
+⚠ **And check what the box is PRE-FILLED with.** If your discount is set up as 10% in the list, the
+box should open showing **10** — not `0.1`. The old table stored it as a fraction, so a box showing
+`0.1` would mean somebody typing what they see gets a **0.1%** discount.
 
 ## F8. The things that must NOT have changed
 
