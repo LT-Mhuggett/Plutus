@@ -701,7 +701,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 if (credentials is null) return null;   // cancelled ÃÂ¢ÃÂÃÂ the basket is untouched
 
                 var login = new Plutus.Client.Core.OperatorLogin(
-                    new Services.Connectivity.FileOperatorStore());
+                    new Services.Connectivity.DbOperatorStore());
 
                 var result = await login.AuthoriseOverrideAsync(
                     requestedBy, credentials.Value.EmailOrId, credentials.Value.Password,

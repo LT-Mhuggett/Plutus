@@ -568,7 +568,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
                     return;
                 }
 
-                var count = await new OperatorSync(api, new FileOperatorStore()).RefreshAsync(till);
+                var count = await new OperatorSync(api, new DbOperatorStore()).RefreshAsync(till);
                 LastAction = count is int n
                     ? n == 0
                         ? "Synced, but no staff are assigned to this till yet. Check their roles in the portal."

@@ -622,24 +622,45 @@ permissions stay **portal-side**: the MAUI parity target is the web till's small
 portal's. ~~MAUI's current add-user command is a stopgap dialog reading *"not available in this
 version yet"*.~~
 
-#### ⬜ WHAT REMAINS OF STEP 24 — the roster move · **~1d**
+#### ✅ STEP 24 IS COMPLETE — the roster move landed 2026-08-17 (till 1.72.0)
 
-Move the roster off `FileOperatorStore` (a JSON file) onto `TillDbContext.Operators` — declared,
-mapped, used by nothing. Its stated blocker (EF 3.1 vs 9.0.18) **died with step 1**, and two roster
-stores is drift by construction.
+`Services/Connectivity/DbOperatorStore.cs` replaces `FileOperatorStore` at all five call sites
+(`TillCadence`, `LoginViewModel` ×2, `TillViewModel`, `ConnectionViewModel`). Two roster stores was
+drift by construction — one of them is always the stale one, and which won depended on which code
+path ran last.
 
-⚠⚠ **IT IS NOT JUST A SWAP, which is why it was left rather than rushed.** Five call sites construct
-`new FileOperatorStore()` behind `IOperatorStore` (`TillCadence:380`, `LoginViewModel:352` and `:401`,
-`TillViewModel:704`, `ConnectionViewModel:571`), so the substitution itself is small — but **the
-cached roster is what makes OFFLINE SIGN-IN work**. A till that upgrades while offline, with an empty
-`Operators` table and its JSON no longer read, has **nobody who can sign in** and no way to fetch the
-roster that would fix it. So this needs a **one-time import** from the JSON file, and a test that
-proves sign-in survives the upgrade with the network down.
+⚠⚠ **THE PLAN'S TARGET WAS WRONG, and this is the useful part to carry forward.** It said
+`TillDbContext.Operators`. **A roster cannot go there without dropping two things:**
+
+| Lost | Consequence |
+|---|---|
+| **`Email`** | `LocalOperator` has no such column, and `OperatorLogin` matches on **email first** — relational storage would have broken the normal way staff sign in |
+| **`AsOfUtc`** | Roster-level, with nowhere to live. It is what `OfflineCredentials.Assess` measures staleness from, and it is the **SERVER's** clock by contract *"precisely so a till with a wrong clock cannot decide its own credentials are fresh for ever"*. Substituting a locally-written `UpdatedAtUtc` would have converted a server-anchored horizon into a client-anchored one — silently, with nothing downstream able to detect it |
+
+So the roster is stored as the **whole wire envelope** in `MetaKeys.OperatorRoster`, exactly as
+`VatBands` and `ReceiptTemplate` already are. No schema change, no migration on a live till database,
+and **nothing dropped** (Matt, 2026-08-17: *"Do not drop anything"*). ⚠ A relational move is still
+possible later; it needs `Email` on the entity and a home for the envelope **first**.
+
+⚠⚠ **THE ONE-TIME IMPORT IS THE LOAD-BEARING PART.** `DbOperatorStore.LoadAsync` finds nothing in the
+database, reads the old JSON, and adopts it. Without that, a till upgrading while **offline** wakes
+with no roster and **nobody able to sign in** — and no way to fetch one, because fetching needs the
+network it hasn't got. Hand-tested by **§G30b**, which is the step worth running.
+
+⚠ `FileOperatorStore` and `operators.json` are **kept, not deleted** — the file is the only roster an
+offline upgrade can read. It can go once every till has run 1.72.0 online at least once.
+
+⚠ **`FileOperatorStore`'s own header claimed the move was impossible** — that `Plutus.Client.Storage`
+was on EF Core 9 against a direct EF **3.1.17** pin, so referencing it failed restore. The app is on
+**9.0.18**, the `Database` project is on 9.0.18 including Proxies, and `Plutus.Client.Storage` was
+**already a project reference**. The blocker died with the .NET 10 upgrade and the comment outlived
+it, which is why this plan and that file disagreed about whether the work could be done at all.
 
 *DoD:* ✅ the employee LIST renders from `/api/Employee`; ✅ a **set-password on an EXISTING employee**
 takes effect on the next sign-in; ✅ an employee created on the till can sign in on the web till and
-vice versa (⚠ §G28b step 4 — hand-test still to run). ⬜ the roster reads from `TillDbContext`, and an
-**offline** sign-in still works on a till upgraded from a JSON roster.
+vice versa (⚠ §G28b step 4 — hand-test still to run); ✅ the roster reads from the till database, and
+an **offline** sign-in still works on a till upgraded from a JSON roster (⚠ §G30b — hand-test still to
+run, and it is the one that would close a shop if wrong).
 
 ⚠ ~~**Help / support tickets ride here**~~ — ✅ **DONE 2026-08-16 (till 1.70.0), ahead of this step.**
 It needed none of step 24's employee work, so it went with the rest of the notices cluster:

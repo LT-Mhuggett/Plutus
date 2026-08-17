@@ -349,7 +349,7 @@ namespace Plutus.Frontend.AppClient.ViewModels
                     return new RosterRefresh(true, null);
 
                 var count = await new Plutus.Client.Core.OperatorSync(
-                    api, new Services.Connectivity.FileOperatorStore()).RefreshAsync(till);
+                    api, new Services.Connectivity.DbOperatorStore()).RefreshAsync(till);
 
                 return new RosterRefresh(true, count);
             }
@@ -398,7 +398,7 @@ namespace Plutus.Frontend.AppClient.ViewModels
 
         private async Task<bool> TrySignInFromRosterAsync()
         {
-            var login = new Plutus.Client.Core.OperatorLogin(new Services.Connectivity.FileOperatorStore());
+            var login = new Plutus.Client.Core.OperatorLogin(new Services.Connectivity.DbOperatorStore());
             var result = await login.SignInAsync(_email_UserId ?? string.Empty, _password ?? string.Empty);
 
             // No roster at all → let the legacy local database have a go. Every other failure is a

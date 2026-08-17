@@ -377,7 +377,7 @@ namespace Plutus.Frontend.AppClient.Services.Sync
             {
                 if (await TillPlacement.TillIdAsync(api).ConfigureAwait(false) is Guid rosterTill)
                 {
-                    var roster = await new Plutus.Client.Core.OperatorSync(api, new FileOperatorStore())
+                    var roster = await new Plutus.Client.Core.OperatorSync(api, new DbOperatorStore())
                         .RefreshRosterAsync(rosterTill, ct).ConfigureAwait(false);
 
                     if (Plutus.Client.Core.OperatorRevocation.Check(SignedInOperatorId?.Invoke(), roster)

@@ -319,6 +319,26 @@ public static class MetaKeys
     public const string VatBands = "vatBands";
 
     /// <summary>
+    /// The till's operator roster — the whole <c>TillOperatorsResult</c> as the wire sent it
+    /// (step 24). This is what makes OFFLINE SIGN-IN work.
+    ///
+    /// ⚠⚠ THE WHOLE ENVELOPE, NOT ROWS IN <c>Operators</c>, and that is deliberate. The mapped
+    /// `LocalOperator` entity cannot hold a roster without losing two things: it has **no Email**
+    /// column — and email is login's first match clause, so relational storage would break the normal
+    /// way staff sign in — and there is nowhere for the roster-level <c>AsOfUtc</c>, which
+    /// `OfflineCredentials.Assess` measures its staleness horizons from. ⚠ `AsOfUtc` is the
+    /// **SERVER's** clock by contract, precisely so a till with a wrong clock cannot decide its own
+    /// credentials are fresh for ever; substituting a locally-written `UpdatedAtUtc` would quietly
+    /// convert a server-anchored horizon into a client-anchored one, which nothing downstream could
+    /// detect.
+    ///
+    /// So the roster is stored verbatim, exactly as `VatBands` and `ReceiptTemplate` are, and nothing
+    /// is dropped. A relational move remains possible later — it needs `Email` on the entity and a
+    /// home for the envelope first.
+    /// </summary>
+    public const string OperatorRoster = "operatorRoster";
+
+    /// <summary>
     /// The store's receipt layout as the portal set it — the raw `receiptTemplateJson` blob.
     ///
     /// ⚠ CACHED SO A RECEIPT PRINTS THE SAME WITH THE LINE DOWN. The template decides what a

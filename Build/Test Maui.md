@@ -1,6 +1,6 @@
 # Test Maui — the MAUI till hand-test script
 
-**For till 1.71.0.** Anyone can run this. You do not need to know the codebase, and you should not
+**For till 1.72.0.** Anyone can run this. You do not need to know the codebase, and you should not
 need to ask anyone what a step means — if a step is unclear, that is a bug in this document, so please
 say so.
 
@@ -38,7 +38,7 @@ on 2026-08-11 came from somebody noticing something, not from a step asking the 
 
 | | |
 |---|---|
-| **Run** | `D:\tmp\plutus-till-1.71.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ✅ **BUILT 2026-08-17 and verified — the artefact reads `1.71.0+6e4e787e`, which is HEAD.** It is the **only** till build on the box; 1.69.0 was deleted so there is no question which to run. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
+| **Run** | ⚠⚠ **ASK FOR A 1.72.0 BUILD BEFORE STARTING.** The build on disk is `D:\tmp\plutus-till-1.71.0\Plutus.Frontend.AppClient.exe` (verified `1.71.0+6e4e787e`), and it is **missing two things worth testing**: the **percentage discount fix** (§F — a typed `10` used to multiply the price by ten) and the **roster move** (§G30 — offline sign-in after an upgrade). Both are committed; only the artefact is behind. ⚠ **Nothing older than 1.71.0.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
 | **Agent** | ⚠ **Agent 1.4.0 is REQUIRED for §G29**, and it fixes "start automatically" not working after a reboot. Get it from the **web till → Settings → Hardware → Download the agent (v1.4.0)**, or from `tools\Plutus.TillAgent\publish-out\PlutusTillAgent-1.4.0.exe`. ⚠⚠ **Copy it to `%LOCALAPPDATA%\Plutus\Agent\` and run it from THERE — not from Downloads.** Auto-start records the path it was launched from; a Downloads copy gets cleaned up or renamed `… (1).exe`, and then the till boots and starts nothing. That is the fault this build fixes, and running it once from a permanent folder repairs a stale registration. |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
@@ -1319,3 +1319,47 @@ expect it to jump when you change something.
 
 ⚠ **A till with no agent at all should also show** — as "no agent", not as blank. That is a fact about
 the shop's kit, not a gap.
+
+## G30. ⚠⚠ The roster moved into the till database — **NEW in 1.72.0**
+
+The list of who may sign in used to live in a JSON file beside the database. It now lives **in** the
+till database. Two roster stores was drift by construction: one of them is always the stale one, and
+which one wins depended on which code path ran last.
+
+⚠⚠ **The dangerous case is an upgrade with the network DOWN**, because the cached roster *is* offline
+sign-in. If the upgrade lost it, the shop would open to a till nobody can get into — and no way to
+fetch a new roster, because fetching needs the network it hasn't got.
+
+### G30a. Sign in normally after upgrading
+
+1. On a till that has been used before (so it has a roster), run **1.72.0**.
+2. Sign in as usual — **by email**.
+
+**✅ Expected: it just works**, first time, with no re-sync.
+
+⚠ **Email specifically.** The old file kept an email against each person; the natural place to put a
+roster in the database has no email column, so this step is checking the move did not quietly cost
+you email sign-in. If you can only get in with a user id, say so.
+
+### G30b. ⚠⚠ The one that matters — upgrade OFFLINE
+
+1. Sign in on the older build once, so the roster is cached.
+2. **Unplug the network.**
+3. Close the till and start **1.72.0** — still offline.
+4. Sign in.
+
+**✅ Expected: you get in.** The new build finds no roster in the database, notices the old file, and
+adopts it.
+
+**❌ If it says the till has no staff on it, stop and report it** — that is a shop that cannot open,
+and it is the whole reason this step exists.
+
+### G30c. Nothing was thrown away
+
+The old `operators.json` is **deliberately left in place** — it is the only roster an offline upgrade
+can read, so it stays until every till has run 1.72.0 online at least once. You should not be able to
+tell from the till; this note is here so nobody "tidies" it away.
+
+⚠ **After a "Forget this till"**, both the database roster and the old file are cleared — check that
+signing in afterwards is refused, or a forgotten till would still hold the staff list of the till it
+used to be.
