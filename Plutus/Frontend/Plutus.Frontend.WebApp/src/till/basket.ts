@@ -22,6 +22,14 @@ export interface LineDiscount {
    *  ⚠ Optional in the TYPE only so a basket parked before 2026-08-14 still deserialises. A recalled
    *  basket without one sends no authority rather than a blank one — see `checkout` in api.ts. */
   reason?: string;
+
+  /** W-P3: the SUPERVISOR who authorised a discount over the operator's own ceiling.
+   *
+   *  ⚠⚠ ABSENT means "no step-up was required" — it must NEVER be filled with the requester. That
+   *  would record a self-approval that never happened, and the shared rule (`DiscountAudit`) refuses
+   *  exactly that. Before 2026-08-17 the web till had no ceiling at all, so absent was true of every
+   *  discount it had ever taken. */
+  authorisedBy?: string;
 }
 
 export interface BasketLine {
@@ -52,7 +60,7 @@ type Action =
   | { type: "addGiftCard"; item: Item; code: string; amountPence: number; exAmountPence: number }
   | { type: "quantity"; key: number; delta: number }
   | { type: "adjust"; key: number; pricePence: number }
-  | { type: "applyDiscount"; discount: Discount; keys: number[]; reason: string }
+  | { type: "applyDiscount"; discount: Discount; keys: number[]; reason: string; authorisedBy?: string | null }
   | { type: "clearDiscount"; key: number }
   | { type: "applyMemberDiscount"; rate: number; name: string }
   | { type: "clearMemberDiscount" }
@@ -145,6 +153,10 @@ function reduce(state: BasketState, action: Action): BasketState {
                   // caller of this action stores the same shape — the MAUI till's
                   // `DiscountAudit.NormaliseReason` is the twin, and till-design C2 pins them.
                   reason: normaliseReason(action.reason),
+                  // ⚠ W-P3: present ONLY when a supervisor signed for it. `undefined` rather than
+                  // null, so it is omitted from a parked basket's JSON entirely and an old parked
+                  // basket round-trips byte-identically.
+                  authorisedBy: action.authorisedBy ?? undefined,
                 },
               }
             : l,
@@ -283,6 +295,33 @@ export const lineDiscountPence = (l: BasketLine): number => {
   if (!l.discount || l.isReturn) return 0;
   if (l.discount.type === 0) return Math.round(l.discount.amount * 100) * l.quantity;
   return Math.round(l.pricePence * l.quantity * l.discount.amount);
+};
+
+/**
+ * W-P3: what a discount WOULD come to, in pence, across the lines it is about to be applied to.
+ *
+ * ⚠⚠ IT USES `lineDiscountPence` — THE REAL ENGINE — rather than re-deriving the arithmetic. MAUI
+ * makes the same choice for the same reason (till-design, binding default 22): computing "what will
+ * this come to?" a second time for the permission check produces a copy that can drift from the thing
+ * it is checking, and it would drift only on baskets that do not divide evenly. Building the real
+ * figure and summing it cannot disagree with itself.
+ */
+export const plannedDiscountPence = (lines: BasketLine[], discount: Discount, keys: number[]): number => {
+  // ⚠ The catalogue's `Discount` and a line's `LineDiscount` are different shapes (`id` vs
+  // `discountId`), so this maps rather than spreads — a spread compiled once and would have silently
+  // dropped the id the moment either type changed.
+  const asLine = {
+    discountId: discount.id,
+    name: discount.name,
+    type: discount.type,
+    amount: discount.amount,
+  };
+
+  return lines
+    // ⚠ Same exclusions the reducer applies — returns and gift-card lines take no discount, so
+    // including them here would over-state the planned figure and refuse a legal discount.
+    .filter((l) => keys.includes(l.key) && !l.isReturn && !l.giftCardCode)
+    .reduce((total, l) => total + lineDiscountPence({ ...l, discount: asLine }), 0);
 };
 
 /** Signed line value in pence (returns negative). */

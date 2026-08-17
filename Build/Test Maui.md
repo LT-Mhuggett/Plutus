@@ -1610,3 +1610,66 @@ Deactivate a **different** employee (not the one signed in). **✅ Expected: you
 Worth ten minutes: run §G27 (revoked till) and the disabled-operator check on **MAUI** with the web
 till open beside it. **✅ Both should behave the same way, in the same wording, at the same speed.**
 Anything that differs is a parity bug even if both behaviours look reasonable on their own.
+
+## W4. ⚠⚠ A cashier's discount LIMIT, and the supervisor step-up — **NEW in web 1.11.0**
+
+⚠⚠ **Before this the web till had no permission model at all.** A cashier on the browser till could
+take **any amount** off a basket — the only thing in the way was the server at ingest. MAUI has gated
+this since 2026-08-14. Matt, 2026-08-14: *"Base it on roles"* — a discount level **IS** a role's
+`pos.discount` limit.
+
+**Set up first:** in the portal, give a **Cashier** role a `pos.discount` limit of **£5**, and make
+sure a **Supervisor** account has a higher limit (or none).
+
+### W4a. Inside the limit — nothing should change
+
+Sign in as the **Cashier**. Put a £20 item in the basket and take **£3** off with a reason.
+
+**✅ Expected: it applies exactly as before.** ⚠ If an ordinary small discount has become harder, that
+is a bug — the gate should be invisible until it bites.
+
+### W4b. Over the limit — refused, and offered a supervisor
+
+Now take **£10** off.
+
+**✅ Expected:** it says that is over your limit, **names your limit (£5.00)**, and offers *"Get a
+supervisor to authorise…"*. The Apply button stays disabled.
+
+### W4c. The supervisor authorises
+
+1. Press **Get a supervisor to authorise…**
+2. Enter the **Supervisor's** email and password. ⚠ The password box must be **masked** — a
+   supervisor's password must not be readable over the shoulder of the cashier whose discount it is.
+3. **Authorise.**
+
+**✅ Expected:** it confirms the discount is authorised, and Apply becomes available.
+
+4. Complete the sale, then look at it in the **portal**.
+
+**✅ Expected: the supervisor's name/id is recorded against the discount**, alongside the reason and
+the requesting cashier. ⚠⚠ **This is the point of the whole step** — a discount over a limit with
+nobody's signature on it is exactly what binding default 22(b) exists to prevent.
+
+### W4d. ⚠⚠ The refusals that matter
+
+| Try | ✅ Expected |
+|---|---|
+| The **cashier** authorising their own over-limit discount (their own email + password) | **Refused** — *"You cannot authorise your own discount"*. ⚠ An operator who can sign for their own discount has no limit at all |
+| A supervisor's email with the **wrong password** | Refused, and no discount applied |
+| An email **not on this till** | Refused |
+| A **second cashier** (also limited to £5) authorising the £10 | ⚠ **Refused** — the authoriser must clear the amount themselves, or "step up" becomes "ask anyone at all" |
+
+### W4e. An operator with NO discount permission
+
+Remove `pos.discount` from the Cashier role entirely and sign in again. Open the discount dialog.
+
+**✅ Expected:** it says the account isn't allowed to give discounts — ⚠ **a sentence, not a dead
+button**.
+
+### W4f. ⚠ It must work with the network down
+
+Sign in, then **unplug the network**, then try an over-limit discount.
+
+**✅ Expected: the limit still applies and the step-up still works** — the gate reads the cached
+roster, exactly as MAUI does. ⚠ If limits vanish when the line drops, that is the worst possible
+failure of this feature: it would mean unplugging the network removes every discount limit in the shop.

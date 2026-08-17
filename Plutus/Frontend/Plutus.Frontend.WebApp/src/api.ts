@@ -1193,11 +1193,19 @@ export async function checkout(
                 reason: l.discount.reason,
                 amountPence: disc,
                 requestedBy: session.employeeId || undefined,
-                // ⚠ ABSENT, deliberately: the web till has NO ceiling and NO supervisor step-up
-                // (binding default 22(b) is unbuilt here — see till-design Part B). Absent means
-                // "no step-up was required", which on this till is true of every discount today.
-                // ⚠ It must NOT be filled with the operator: that would record a self-approval that
-                // never happened, and the shared rule refuses exactly that.
+                // ⚠⚠ W-P3 (2026-08-17): the web till NOW HAS a ceiling and a supervisor step-up, so
+                // this is sent when — and only when — one actually happened.
+                //
+                // ⚠ ABSENT still means "no step-up was required", which is the common case: a
+                // discount inside the operator's own `pos.discount` ceiling needs nobody's
+                // signature. ⚠ It must NEVER be filled with the operator: that would record a
+                // self-approval that never happened, and the shared rule (`DiscountAudit`) refuses
+                // exactly that — `DiscountDialog` refuses it at the point of entry too.
+                //
+                // ⚠ Every discount taken on this till BEFORE 2026-08-17 has none, because no
+                // step-up was possible. A reader must not render "absent" and "unauthorised" the
+                // same way.
+                authorisedBy: l.discount.authorisedBy || undefined,
               }]
             : undefined,
           return: l.isReturn && l.originSaleId ? { originSaleId: l.originSaleId } : undefined,

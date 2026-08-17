@@ -696,8 +696,10 @@ export default function TillPage() {
         <DiscountDialog
           lines={basket.lines}
           onClose={() => setDialog("none")}
-          onApply={(discount, keys, reason) => {
-            dispatch({ type: "applyDiscount", discount, keys, reason });
+          onApply={(discount, keys, reason, authorisedBy) => {
+            // ⚠ W-P3: `authorisedBy` is the supervisor who signed for an over-ceiling discount, or
+            // null. It must reach the sale, or the record says a cashier gave it alone.
+            dispatch({ type: "applyDiscount", discount, keys, reason, authorisedBy });
             setDialog("none");
           }}
         />

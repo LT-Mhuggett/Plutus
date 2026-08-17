@@ -1483,7 +1483,41 @@ visible in IndexedDB with `asOfUtc`. **Registers:** Part B "A disabled operator 
 
 ---
 
-### W-P3 — the discount ceiling + supervisor step-up · ~1–1½d
+### W-P3 — the discount ceiling + supervisor step-up · ✅ **DONE 2026-08-17 (web 1.11.0)**
+
+> ✅ **Built as specified.** `src/permissions.ts` mirrors `PermissionResolution.Can` +
+> `PermissionGrant.IsActiveAt` + `EffectivePermission.Merge`; `DiscountDialog` resolves `pos.discount`
+> from the **W-P2 cached roster** (so it works offline), offers the step-up, and refuses
+> self-approval. **22 vitest cases**, two mutants killed (intersection-instead-of-union on ceilings;
+> the gate failing open on an unknown code). Suite **99 tests**, `tsc` clean.
+>
+> ⚠ **`plannedDiscountPence` was added to `basket.ts` rather than re-deriving the amount** — it calls
+> the real `lineDiscountPence` engine, so what the gate checks is what will be applied. MAUI makes the
+> same choice for the same reason (default 22): a second derivation drifts, and only on baskets that
+> do not divide evenly. ⚠ It applies the **same exclusions as the reducer** (returns, gift cards), or
+> it would over-state the figure and refuse a legal discount.
+>
+> ⚠⚠ **The predicted falsification happened and is corrected.** Part B's discount-audit row said
+> *"absent means no step-up was required, which on this till is true of every discount today"* — the
+> web till now **writes `authorisedBy`**, so that sentence is false and the row says so. ⚠ "Absent"
+> now covers **two** histories (no step-up needed, and every web-till discount before 2026-08-17), and
+> still must not be read as "unauthorised".
+>
+> ⚠ **Two rules the plan implied but did not spell out, both enforced:** the authoriser must
+> **themselves** pass the gate for the amount (otherwise "step up" becomes "ask anyone at all"), and an
+> operator with **no** `pos.discount` grant gets a sentence rather than a dead button.
+>
+> ⚠ **`offlineLogin.ts` was created here, not in W-P4** — the plan said to, since the step-up needs the
+> PBKDF2 verify. It carries the four load-bearing parameters (**101010 · SHA-1 · 512 bits · UTF-8**)
+> with the reason SHA-1 is deliberate written next to them, and a constant-time-ish byte compare.
+> W-P4 extends this file rather than starting one.
+>
+> **Registers done:** Part B ceiling row web ⬜→🟡 (+ the audit row's note corrected) · A0 row web
+> ⬜→🟡 · A0's "web till cannot" list updated · **C2 row added** (`PermissionResolution ↔
+> permissions.ts`, marked MONEY) · hand-test **§W4a–f**, including **§W4f — the limit must survive the
+> network dropping**. ⚠ **NOT DEPLOYED.**
+
+### ~~W-P3 — the discount ceiling + supervisor step-up · ~1–1½d~~ *(original brief)*
 
 **Why:** the web till has **no client-side permission model at all** — `session.ts` holds token,
 employeeId, name. A web cashier can take off **any amount**; the only enforcement is server-side at
