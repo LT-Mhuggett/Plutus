@@ -528,10 +528,10 @@ built or verified here. Both land on the next Mac build, per the runbook's front
 
 | # | What | ~ | Why it matters |
 |---|---|---|---|
-| **W1** | **Reopen a Z-closed day on the WEB till** | 1d | MAUI has it (till 1.48.0); the web till does not. Matt asked for *"Web and MAUI"*. The two tills currently disagree about whether a closed day can be recovered — a supervisor on the browser is stranded until midnight. **Server side is done and live** (backend 1.15.0: `ZReopen`, a compensating event, and `CashDay.IsClosed` where the latest Z-mark wins) |
+| **W1** | **Reopen a Z-closed day on the WEB till** — ⚠ **folded into [§5b W-P5](#5b-the-web-till-parity-plan--w-p1w-p7)**, which carries the full build notes | 1d | MAUI has it (till 1.48.0); the web till does not. Matt asked for *"Web and MAUI"*. The two tills currently disagree about whether a closed day can be recovered — a supervisor on the browser is stranded until midnight. **Server side is done and live** (backend 1.15.0: `ZReopen`, a compensating event, and `CashDay.IsClosed` where the latest Z-mark wins) |
 | **W2** | **Add item as ONE screen** | ½d | The EDIT screen was rebuilt as a single page (finding K, three attempts). **Add** still opens three questions then a form — the same shape that was wrong for edit. `EditItemPage` is written; this is a create mode on it |
 | **W3** | **Portal screen for the expected till version** | ½d | `GET`/`PUT /api/v1/platform/till-release` is live and works; nothing sets it from a UI, so the heartbeat's update check cannot be switched on without curl. ⚠ The table is empty, which is correct — the feature is inert until a platform admin PUTs a version |
-| **W4** | **Web till: roster + permissions on a cadence** (WP17.4) | 1–2d | ⚠ A disabled operator is signed out of MAUI within 60s; the web till has **no proactive check at all** — it signs out only when a request happens to 401 (`api.ts:50`), and login tokens are cached 12h with their permission set. Same change also stops it discarding the whole heartbeat response (`Locked`, `SyncNow`, `CatalogueCursor` are dead there) |
+| **W4** | **Web till: roster + permissions on a cadence** (WP17.4) — ⚠ **folded into [§5b W-P2 + W-P3](#5b-the-web-till-parity-plan--w-p1w-p7)**, which carry the full build notes | 1–2d | ⚠ A disabled operator is signed out of MAUI within 60s; the web till has **no proactive check at all** — it signs out only when a request happens to 401 (`api.ts:50`), and login tokens are cached 12h with their permission set. Same change also stops it discarding the whole heartbeat response (`Locked`, `SyncNow`, `CatalogueCursor` are dead there) |
 
 | **W5** | **Ship the agent with the till, and let the platform say it is out of date** | ~1½–2d | ⬜ **Matt asked for this 2026-08-17** — see the ruling below, which is the part that must not be lost. Two halves: (a) the agent travels in the till package and is installed to a **stable** path, (b) `ExpectedAgentVersion` on the heartbeat beside `ExpectedMauiVersion`. ⚠⚠ **The agent must NOT live inside the versioned till folder.** `plutus-till-1.71.0\` changes every release, and the auto-start registration records a path — putting the agent there would break auto-start **on every upgrade**, which is the 2026-08-17 fault on a schedule. Ship it in `…\agent\`, install it to `%LOCALAPPDATA%\Plutus\Agent\` (no admin, matching the per-user `HKCU` Run key). ⚠ **You cannot overwrite a running exe** — the update needs the agent asked to exit over loopback first, and that dance is the real work, not the copy. ⚠ **The web till cannot install anything** (it is a browser), so browser-only till PCs still need a manual install. ⚠ **This is the one out-of-date signal on the platform that can be ACTIONED rather than merely shown** — the MAUI till has no self-update by Matt's decision, but the agent is a single self-contained exe in a per-user folder that the till can replace. |
 
@@ -1277,6 +1277,10 @@ opens.
 
 ## 5. Where the WEB till is behind (parity runs both ways)
 
+> ⚠⚠ **THE IMPLEMENTATION PLAN FOR CLOSING THIS TABLE IS [§5b](#5b-the-web-till-parity-plan--w-p1w-p7),
+> written 2026-08-17 at Matt's request so an agent can execute it with no questions.** This table
+> stays as the register; §5b is the work.
+
 | Row | WP | Note |
 |---|---|---|
 | **Offline sign-in with an expiry** | WP17.1 | MAUI has tiered horizons (`SharedKernel.OfflineCredentials`). The web till **cannot sign in offline at all** — so the shop that loses broadband loses the till, which is the thing the whole offline design exists to prevent. ⚠ Needs WP15's test runner first: the horizons would be a C2 twin |
@@ -1287,6 +1291,324 @@ opens.
 | **Card surcharge** | WP15 | Built on MAUI 2026-08-09; the web till reads `charge`/`minimumCharge` off the legacy wire and ignores them. ⚠ **Kapow's rate is ZERO (confirmed)** and UK consumer surcharges have been banned since **2018-01-13**, so this is a latent trap for a future B2B tenant rather than a live discrepancy |
 | ~~**Every C2 twin's TypeScript half is unexecuted**~~ | ~~**WP15**~~ | ⚠ **STALE — CORRECTED 2026-08-17.** The web till HAS a test runner: `"test": "vitest run"`, vitest 3, and **four test files** (`pipeline`, `notices`, `till/discountReason`, `till/tendering`) — 45 tests, verified green on the Mac this session. So the blocker named here is gone; what remains is that **most twins are still not covered**, which is a smaller and different problem. ⚠ Node lives only on the Mac, so any TS test run needs it. Original note: `package.json` has `dev`, `build`, `preview`, `typecheck` — **no test runner and no test files** beyond the 19 tendering tests added 2026-08-11. `VatLineMathTests` fixes .NET to the numbers `api.ts` produces and **nothing executes `api.ts`**; `LegacySaleBridgeTests` pins item-id derivation to a GUID the TypeScript produced in a 2026-07-24 smoke test; `till/basket.ts basketTotals` is a **third, entirely unpinned** copy of the discount apportionment. Add Vitest (same Vite toolchain, no new build concept) and port the .NET vectors across, then add the C2 row saying what now pins them. ⚠ **Needs Node → the Mac.** ⚠ **Matt's call on timing** — recorded here rather than left unowned, because a twin nobody tests is how two tills come to disagree by a penny on the same basket, for ever, on every VAT return, with nothing flagging it |
 | ~~**It shows every store's pick notes**~~ | ~~WP17.4~~ | ✅ **FIXED SERVER-SIDE 2026-08-09 (WP17.4) — this row is stale, corrected 2026-08-17.** `GET /api/v1/notifications` now filters by the caller's store, **derived from the device token and never from the query string** — which deleted the C2 twin rather than pinning it, because a per-client filter is a rule every future till would have to re-implement correctly. Pinned by two `PickNotesE2eTests`, mutation-checked. Original note: `GET /api/v1/notifications` does **not** filter by store — it returns the tenant's 50 most recent — so addressing is the client's job and `App.tsx:130` applies no filter. Latent for single-store Kapow; wrong the moment a second store exists, and wrong in the expensive direction: the shop that *does* hold the stock sees the same note and may assume the other branch took care of it, so the web order ships short. MAUI is the strict one via `NoticesClient.IsForStore`. ⚠ One `.filter()` — but doing it client-side **creates** a C2 twin; **moving the filter to the server deletes it instead, and is probably the better answer** |
+
+## 5b. The WEB-TILL PARITY PLAN — W-P1…W-P7
+
+> **Matt, 2026-08-17: write this so it can be completed with no questions.** So: every decision is
+> already made and written down here, every rule to copy names its exact source file, and every
+> wording an operator sees is given **verbatim**. If something in the code contradicts this plan,
+> **stop and re-read the named source file — the code wins**, then correct this plan in the same
+> commit (that is how sixteen stale markers happened; do not add a seventeenth).
+>
+> **Scope:** the 8 rows in §5 where the web till is behind MAUI. ~**8–10 days** honest. Everything is
+> **TypeScript in `Plutus/Frontend/Plutus.Frontend.WebApp/src/`**, so everything needs **the Mac** —
+> there is no node on the Windows box (runbook § Frontend build).
+>
+> **Do them in this order.** W-P2 is the spine — W-P3, W-P4 and the gating half of W-P5 all build on
+> its cached roster. W-P6 and W-P7 are independent and can go any time.
+
+### ⚠⚠ W-P0 — ground rules for every slice (read once, apply to all)
+
+1. **Read [`till-design.md`](../till-design.md) first and update it in the same commit** (CLAUDE.md
+   rule). Each slice below says exactly which Part B / A0 rows flip and what the C2 register gains.
+   Flip web ⬜ → **🟡**, never straight to ✅ — 🟡 means "built, tested where a machine can reach,
+   unverified on a screen", and no person will have run it yet.
+2. ⚠⚠ **Every rule copied from .NET is a C2 twin.** For each one: (a) mirror the named source file
+   **exactly** — same numbers, same edge answers, same wording; (b) write **vitest** tests against
+   the same cases the .NET tests pin (the .NET test file is named per slice); (c) add a **C2 row**
+   in `till-design.md` saying what pins the pair. The web till HAS a test runner: `"test": "vitest
+   run"` — 45 tests today, run on the Mac with `npx vitest run`, typecheck with `npx tsc --noEmit`.
+3. ⚠ **Fail open on polls, fail closed on money.** A failed network call never stops the till, never
+   clears a banner, never signs anybody out. Only an explicit server answer changes state. This rule
+   is load-bearing in W-P1, W-P2 and W-P4 and each names its version of it.
+4. **Storage:** durable till state goes in **IndexedDB** via `offline.ts` (`meta` store for blobs, a
+   new store needs a **DB version bump** in `openDB` — copy the existing `objectStoreNames.contains`
+   guard pattern). `localStorage` only for what already lives there (theme, agent snapshot).
+5. **Every poll added to `App.tsx`'s cadence block** copies the existing shape: `const t =
+   window.setInterval(...)` + cleanup in the effect's return, `.catch(() => undefined)`, 60_000ms.
+6. **Deploy** (only when Matt asks; bump `versions/till-web.txt` per slice regardless): build on the
+   Mac per runbook § Frontend build — **tar the whole project, never just `src/`** (`vite.config.ts`
+   is source; a stale one blanked the portal on 2026-08-09), ⚠⚠ **never `rsync --delete`**
+   (`public/agent/` holds a 70 MB exe that is NOT in git — deleting it kills the agent download),
+   `PLUTUS_APP_VERSION=$(cat versions/till-web.txt) npm run build`, then **before copying**: grep
+   `dist/assets/*.js` for `__APP_VERSION__|__BUILD_TIME__` (must be absent), check the bundle is
+   ~340 KB not the ~1 KB SPA fallback, grep for one string only this slice introduced. Back up
+   `current` → `current.pre-<version>`, copy `dist/.` in, re-run the same three checks against the
+   served URL, then `curl` ETRIE's `/health` → must be 200.
+7. **Hand-test steps** go in [`Test Maui.md`](../Test%20Maui.md) under a new `§W` heading ("WEB till
+   checks — needs the deployed web till, not the MAUI build"). That document already compares the
+   two tills side by side (§G25, §G31), so this is its idiom.
+8. ⚠ **Auth:** the web till holds a **device credential** (`getDeviceCredential()` in `pipeline.ts`,
+   null when un-enrolled) and mints device tokens (`getDeviceToken()`); operators get a session
+   token from `POST /api/Auth/Login` (`api.ts login`). Every feature below that needs the device
+   token must **no-op quietly when un-enrolled** — an un-enrolled browser till is a legitimate state.
+
+---
+
+### W-P1 — a revoked web till STOPS TRADING · ~1d
+
+**Why:** the web till's connection state is `navigator.onLine` — the network interface, not the
+server. A lost or stolen browser till keeps selling until its 12 h token dies, because device tokens
+have **no server-side denylist**. MAUI closed this 2026-08-16; the endpoint and the decision rule
+already exist.
+
+**Mirror source:** `src/Plutus.Client.Core/DeviceRevocation.cs` — copy `Check` and `MustStop`
+**exactly**. Its .NET tests: `tests/Plutus.Tests.Unit/DeviceRevocationTests.cs` (19 cases — the
+vitest file mirrors all of them).
+
+**Build:**
+- `src/deviceStanding.ts`: `checkStanding(code: number, body: {status?: string} | null)` returning
+  `"trading" | "removalRequested" | "revoked"`, plus `mustStop(...)`.
+- Poll `GET /api/v1/tills/devices/{deviceId}/status` (gate: `sales.ingest` — the **device token**
+  works; same auth as the heartbeat) on the 60 s cadence in `App.tsx`, only when
+  `getDeviceCredential()` is non-null.
+- On `mustStop`: `signOut()` (it already clears the session), set a blocking full-page state that
+  survives reload (IndexedDB `meta` key `deviceRevoked`), and show — **verbatim**:
+  *"This till has been removed in Plutus and can no longer be used. Speak to your manager — it can
+  be re-enrolled from the portal."*
+- The blocked page's only action is a "check again" that re-polls; an answer other than an explicit
+  revocation clears the flag.
+
+**⚠⚠ Rules that bind (each mutation-killed on the .NET side):**
+- **Only the literal status `"Revoked"` (case-insensitive) stops the till.** A failed poll, a
+  **401/403**, a **404** and an unknown status ALL keep trading — stopping a shop on a network blip
+  or a routing mistake is a worse outage than the one this prevents. Approving a removal sets
+  `Status = Revoked`, it does not delete the row, so the explicit answer always arrives.
+- **`PendingRemoval` trades.** Halting on a *request* makes un-enrolment a way to take a shop down.
+- The message blames **the till**, never the account — otherwise somebody tries login after login
+  and concludes the staff accounts are broken.
+
+**DoD:** revoke the device in the portal → the web till blocks within 60 s **without a reload**; a
+pulled network cable for 10 minutes changes nothing; reject (not approve) a removal request → still
+trading throughout. **Registers:** Part B "A REVOKED TILL STOPS TRADING" web ⬜→🟡; A0 "Stop trading
+when it is revoked" web ⬜→🟡; C2 row `deviceStanding.ts ↔ DeviceRevocation` (pinned both sides).
+**Version:** bump `versions/till-web.txt` minor.
+
+---
+
+### W-P2 — the roster spine + a disabled operator is signed OUT · ~1–1½d
+
+**Why:** the web till signs out only **reactively** (`api.ts:50`: `if (res.status === 401)
+signOut()`) and login tokens are cached **12 h with their permission set** — so a disabled operator
+keeps a working session until something happens to 401. MAUI drops them inside 60 s. ⚠ **This slice
+is the spine: W-P3 (ceiling), W-P4 (offline sign-in) and W-P5's gating all read the roster it
+caches.**
+
+**Mirror sources:** `src/Plutus.Client.Core/OperatorRevocation.cs` (the decision — its header is the
+rule) and `src/Plutus.Client.Core/OperatorLogin.cs` (what the roster is for). Wire shape:
+`src/Plutus.Contracts.Client/OperatorContracts.cs` — `TillOperatorsResult(TillId, AsOfUtc,
+Operators[])`, each `TillOperatorDto(UserId, DisplayName, Email, CredentialHashBase64,
+CredentialSaltBase64, Grants[])`, each `OperatorGrantDto(Code, MaxPence, ValidFromUtc, ValidToUtc,
+DaysOfWeekMask, WindowStartLocal, …)`.
+
+**Build:**
+- `src/roster.ts`: fetch `GET /api/v1/tills/{tillId}/operators` (gate `sales.ingest` — **device
+  token**; the till id is on `getDeviceCredential()`), store the **whole envelope verbatim** in
+  IndexedDB `meta` under `operatorRoster`. Refresh on the 60 s cadence. ⚠ Store the envelope, not
+  rows — `AsOfUtc` is roster-level and W-P4's staleness horizons are measured from it; it is the
+  **server's** clock on purpose, so never substitute a client timestamp.
+- `revocation check`: after each successful fetch, if a session is active and the signed-in
+  operator's `userId` is not in the roster → `signOut()` + show — **verbatim**:
+  *"Your account has been disabled, please speak to your manager"* (Matt's wording, 2026-08-11).
+  ⚠ The web till's session must carry `employeeId` for this — it already does (`session.ts`).
+
+**⚠⚠ The load-bearing rule, copied exactly from `OperatorRevocation`:** **a roster that could not be
+fetched is NOT an empty roster.** Null (failed fetch) → carry on, always. An **empty roster the
+server actually sent** → revoke, correctly. Get this backwards and every broadband hiccup signs the
+whole shop out mid-sale, on the flakiest sites first, with a message accusing the operator of being
+disabled.
+
+**DoD:** disable an operator in the portal → their web-till session ends within 60 s with Matt's
+exact wording; pull the cable for 10 minutes mid-session → nothing happens; the roster envelope is
+visible in IndexedDB with `asOfUtc`. **Registers:** Part B "A disabled operator is signed OUT" web
+⬜→🟡; A0 "Sign an operator out the moment they are disabled" web ⬜→🟡; C2 row
+`roster.ts ↔ OperatorRevocation` — the null≠empty rule pinned by vitest on the TS side.
+
+---
+
+### W-P3 — the discount ceiling + supervisor step-up · ~1–1½d
+
+**Why:** the web till has **no client-side permission model at all** — `session.ts` holds token,
+employeeId, name. A web cashier can take off **any amount**; the only enforcement is server-side at
+ingest. MAUI gates on `pos.discount` with the operator's `MaxPence` and steps up to a supervisor.
+Matt, 2026-08-14: *"Base it on roles"* — a discount level **IS** a role's `pos.discount` `MaxPence`.
+
+**Mirror sources:** `src/Plutus.SharedKernel/Permissions.cs` → `PermissionResolution.Can` (:262) —
+how grants resolve to an effective permission + ceiling (time windows and day masks included);
+`Plutus/Frontend/Plutus.Frontend.AppClient/Services/Security/TillGate.cs` — the gate UX (allowed /
+needs-override / refused); `src/Plutus.SharedKernel/DiscountAudit.cs` — the step-up record.
+**Do NOT re-derive grant resolution** — mirror `Can`'s cases, including its answers for expired
+grants and out-of-window times.
+
+**Build:**
+- `src/permissions.ts`: `effectiveFor(grants, code, nowLocal)` → `{allowed, maxPence}` mirroring
+  `PermissionResolution.Can`. Source of grants: the signed-in operator's row in the W-P2 roster.
+- In `till/DiscountDialog.tsx`, before the reason prompt: resolve `pos.discount`. Over the ceiling →
+  offer step-up. Step-up = a second operator enters **email + password**, verified against the
+  cached roster with the W-P4 PBKDF2 verify (build that function in this slice if W-P4 has not
+  landed; it is ~20 lines — parameters below), and that operator must themselves pass the gate for
+  the amount.
+- ⚠⚠ **Self-approval is refused** — same rule `DiscountAudit` pins on MAUI: the authoriser's
+  `userId` must differ from the requester's.
+- ⚠⚠ **The web till must now WRITE `authorisedBy`** into `LineMeta.discountAuthority[]` on stepped-up
+  discounts. Part B's discount-audit row currently records that the web till writes **no**
+  `authorisedBy` *"— on that till no step-up is possible, so 'absent' is true"*. **This slice makes
+  that sentence false: update that row's note in the same commit.**
+- ⚠ Order of gates is unchanged and matters: **the money rule first** ("more than the basket" is
+  true regardless of who is signed in), then reason, then ceiling/step-up — matching MAUI.
+
+**DoD:** a Cashier with a £5 `MaxPence` grant is refused a £10 discount and offered step-up; the
+supervisor's approval lands in `discountAuthority[]` with their `userId`; self-approval refused with
+its own message; an operator with no `pos.discount` grant cannot open the discount dialog at all.
+**Registers:** Part B "Discount ceiling + supervisor step-up" web ⬜→🟡 **and** the discount-audit
+row's note corrected; A0 "Hold a cashier to a discount limit" web ⬜→🟡; C2 row
+`permissions.ts ↔ PermissionResolution` (⚠ this one is MONEY — vitest mirrors the .NET cases
+exactly).
+
+---
+
+### W-P4 — offline sign-in, with the same expiry horizons · ~2–3d
+
+**Why:** the web till **cannot sign in offline at all** — the shop that loses broadband loses the
+till, which is the thing the whole offline design exists to prevent.
+
+**Mirror sources:** `src/Plutus.SharedKernel/OfflineCredentials.cs` — the horizons, **exactly**:
+`MoneyOutMaxAge 7d · SellMaxAge 30d · WarnAfter 3d · IdleLock 15min · MaxSession 12h`, assessed from
+the roster's **`AsOfUtc`** (server clock), with `SurvivesStaleness`/`SellFloor` deciding which
+permissions outlive the 7-day money-out horizon. Its tests:
+`tests/Plutus.Tests.Unit/OfflineCredentialsTests.cs`. Verification:
+`src/Plutus.SharedKernel/Crypto.cs` `Pbkdf2` — ⚠⚠ **the parameters are load-bearing and deliberate**:
+**101010 iterations · SHA-1 · 64-byte hash · 32-byte salt · UTF-8 password**. SHA-1 is not a mistake
+— it preserves the legacy till hash byte-for-byte (the file says so), and a browser that used SHA-256
+would refuse every valid password. WebCrypto does this natively:
+`crypto.subtle.importKey("raw", utf8(password), "PBKDF2", false, ["deriveBits"])` →
+`crypto.subtle.deriveBits({name:"PBKDF2", hash:"SHA-1", salt, iterations:101010}, key, 512)`, then
+compare against base64-decoded `CredentialHashBase64`.
+
+**Build:**
+- `src/offlineLogin.ts`: on `login()` network failure (⚠ **network failure only** — a 401 is an
+  answer and must NOT fall back, or a disabled operator signs in offline past their own refusal),
+  verify against the W-P2 cached roster: match `email` case-insensitively or `userId`, PBKDF2 as
+  above, then `assess(asOfUtc, now)` mirroring `OfflineCredentials.Assess`.
+- The session it mints is **local-only** and marked so; expiry = `SessionExpiresAtUtc`'s rule
+  (12 h max, 15 min idle lock); past `WarnAfter` (3d) show the staleness warning; past
+  `MoneyOutMaxAge` (7d) money-out permissions (refunds, paid-out, discounts…) are refused with the
+  staleness message while `SellFloor` permissions keep working to 30d; past 30d no offline sign-in.
+- ⚠ An offline session **cannot** call `perm:*` endpoints (no platform token) — queued sales still
+  flow (device token), which is exactly MAUI's shape.
+- Login failure wordings — mirror `OperatorLogin`'s distinctions (no roster / unknown operator /
+  wrong password / no credential set): each gets its own sentence, because *"wrong password"* for
+  all of them once sent someone hunting a typo that did not exist.
+
+**DoD:** enrol + sign in online once → pull the cable → sign in offline succeeds; wrong password
+refused; a roster 8 days old refuses a refund but still sells; 31 days refuses sign-in; **a 401 from
+the server never falls back to offline verify**. **Registers:** Part B "Offline sign-in with an
+expiry" web ⬜→🟡; A0 "Sign somebody in with the network down" web ⬜→🟡; C2 rows
+`offlineLogin.ts ↔ OfflineCredentials` (the five numbers pinned on both sides) and
+`offlineLogin.ts ↔ Crypto.Pbkdf2` (the four parameters pinned on both sides). ⚠ Security posture:
+hashes cached client-side = the same posture as MAUI's roster cache, already documented on
+`FileOperatorStore` — cite it, don't re-argue it.
+
+---
+
+### W-P5 — cash events offline + reopen a Z-closed day · ~2d
+
+**Why:** `CashPage.tsx` posts online-only through `pipeline.ts postCashEvent` — a float taken while
+the line is down is a day that cannot be reconciled. And the server has had `ZReopen` live since
+backend 1.15.0 (**W1**) with nothing on the web till calling it, so a browser till Z-closed by
+mistake is stranded until midnight.
+
+**Mirror source:** `Plutus/Frontend/Plutus.Frontend.AppClient/Services/Sync/CashPushService.cs` —
+copy its decision rules, not its shape: **queued-not-posted** (IndexedDB store `cashOutbox`, ⚠ DB
+version bump in `openDB`); **one Z per business day enforced locally** (refusing every type after
+it, not merely a second Z — the server cannot be consulted with the line down, which is when it
+matters); on drain **409 and 400 are TERMINAL and keep the server's words** (a till that retries
+them forever looks healthy while never banking); ⚠⚠ **a Z waits for its own day's PENDING sales to
+drain first** (expected = float + cash takings + ins − outs, so a Z that overtakes queued sales
+reports a shortage equal to every penny not yet sent — and Pending only, never Failed, or one
+refused sale blocks the till's close forever); **the expected figure is the SERVER's, never
+computed locally**.
+
+**Build:** wrap `postCashEvent` in a queue-first path; drain on the cadence and on the `online`
+event alongside `drainOutbox()`; surface "(waiting to send)" per queued row and clear it when the
+drain reports. Then **ZReopen**: add `"ZReopen"` to `CashEventType` in `pipeline.ts`; a "Reopen this
+day…" button on `CashPage` visible only when the day is closed, gated `pos.cash.reopen` via W-P3's
+`effectiveFor` (Supervisor+ hold it); ⚠ **a reason is REQUIRED** — refuse an empty one; the reopen
+posts **online-only** (it is an audited supervisor action, not drawer money — do not queue it).
+
+**DoD:** open a float with the cable pulled → it queues, shows "(waiting to send)", and lands when
+the line returns; a Z with queued sales waits and says so; a 409 shows the server's words and stops
+retrying; Z-close a day → reopen with a reason as a Supervisor → trading resumes; a Cashier does not
+see the reopen button. **Registers:** Part B "Reversing a Z close" web ⬜→🟡 and the Cash row's
+web-half note updated; A0 "Record cash movements with the network down" and "Reopen a day closed by
+mistake" web ⬜→🟡; C2 row `cash outbox rules ↔ CashPushService`.
+
+---
+
+### W-P6 — reprint a receipt for a past sale · ~1d
+
+**Why:** MAUI has had it since till 1.34.0; the web till cannot hand a customer their paper again.
+
+**Mirror source:** `Plutus/Frontend/Plutus.Frontend.AppClient/Services/Printing/ReceiptReprint.cs` —
+the **money rules**, not the dialogs: ⚠⚠ **the copy is MARKED "REPRINT — not a new sale"** (this
+till's refund flow accepts a sale found by a receipt barcode, so two identical papers for one
+purchase is the shape of a double refund — which has happened here once already); ⚠ **the drawer
+does NOT kick** (no money is moving, and a drawer that opens on a reprint teaches operators the
+drawer means nothing).
+
+**Build:** the reporting page already lists sales (`api.ts fetchSales`, :705). Add a per-row
+"Reprint" action → fetch the single sale (`GET /api/v1/sales/{saleId}` — add `fetchSale(id)` beside
+`fetchSales` if absent; it needs the **operator** token like the rest of reporting) → build the
+receipt through the existing `till/receiptDoc.ts` path with the REPRINT marking and `drawer: false`
+→ print through the agent exactly as a sale receipt prints. Cross-till reprint comes free — the
+platform's projection is the authority for another till's sale.
+
+**DoD:** reprint yesterday's sale → paper says REPRINT, drawer stays shut, figures match the
+original; a sale rung up on the MAUI till reprints from the web till. **Registers:** Part B "Reprint
+a receipt for a past sale" web ⬜→🟡 (and the cross-till row's web half); A0 rows "Reprint a receipt
+for an earlier sale" + "Reprint a sale rung up on another till" web ⬜→🟡.
+
+---
+
+### W-P7 — the card surcharge · ~½–1d
+
+**Why:** the tenant can set a card surcharge and the web till **ignores it** — it reads
+`charge`/`minimumCharge` off the legacy wire and does nothing. MAUI computes it at checkout
+(2026-08-09). Two tills in one shop: one adds the fee, one doesn't. ⚠ Kapow's is **zero**, so
+nothing visibly changes for Matt — the DoD needs a test tenant value.
+
+**Mirror source:** `src/Plutus.SharedKernel/CardSurchargeVat.cs` — `FeePence(surchargeBp,
+flatPence, basketGrossPence)` and `PairFor(...)` (⚠ **the VAT pair follows the basket the fee rides
+on** — that is the whole reason `PairFor` exists; do not invent a flat 20%). The fee line's item id
+is the constant **`CARD-SURCHARGE`** (`ItemIdOne`). Its tests:
+`tests/Plutus.Tests.Unit/CardSurchargeVatTests.cs` — the vitest file mirrors them. Config source:
+`ActiveGatewayDto.SurchargeBp` / `SurchargeFlatPence` (`src/Plutus.Contracts.Client/
+PaymentContracts.cs`) — and `CheckoutDialog.tsx` **already calls `fetchActiveGateway()`**, so extend
+the `ActiveGateway` interface in `api.ts` with the two fields rather than adding a fetch.
+
+**Build:** `src/till/surcharge.ts` twin of `FeePence` + `PairFor`; in `CheckoutDialog`, when a card
+tender is selected and either config value is non-zero, add the `CARD-SURCHARGE` line (both zero =
+no line, the default). ⚠⚠ **The member auto-discount must EXCLUDE the surcharge line** — MAUI's
+`MemberDiscountBasket` excludes it explicitly (a discounted fee under-collects the surcharge);
+`till/basket.ts` ~:155 is where the web till's exclusions live (returns, already-discounted, gift
+cards — add the surcharge). Reference for the checkout wiring: MAUI's `CheckoutCommit.cs` surcharge
+section.
+
+**DoD:** with a test tenant set to 50bp + 20p flat, a £20 card sale gains the fee line with the
+right VAT pair, cash sales don't, a member's discount skips it, and both tills produce **the same
+fee to the penny** on the same basket. **Registers:** Part B "Card surcharge" web ⬜→🟡; C2 row
+`surcharge.ts ↔ CardSurchargeVat` (⚠ MONEY — mirrored tests mandatory).
+
+---
+
+### What ✅ looks like for the whole package
+
+All 8 §5 rows and their A0 mirrors at 🟡; a `§W` section in `Test Maui.md` covering each DoD's
+hand-checks; **five new C2 rows** (device standing, operator revocation, permissions/ceiling,
+offline credentials + PBKDF2, surcharge — plus the cash-rules row) each stating what pins the pair;
+`versions/till-web.txt` bumped per slice; deployed **only when Matt asks**, verified on the
+four-axis artefact check every time. ⚠ 🟡 → ✅ happens only after a person runs §W — no exceptions,
+that is what 🟡 is for.
 
 ## 6. The 15 MAUI ⬜ rows, grouped
 

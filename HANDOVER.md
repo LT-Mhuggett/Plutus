@@ -55,6 +55,7 @@ seventeen rows; there is no remaining MAUI build work that would move any.**
 | **The legacy DB import** | ⚠ Matt has *"a more recent DB to import"* and everything must be **retained and translated** — [L4](Build/To%20do/MAUI-retrofit.md) is now a work package, not a deletion. ⚠ **Do not start by writing an importer**: look at the DB first and record what is in it. An importer against a guessed schema mangles history, and that one is not reversible once the takings are wrong |
 | **`origin` history surgery** | `origin` cannot be pushed — a 151 MB blob in old history that `upstream` already has. Needs an LFS migration or an orphan branch. `upstream` is the off-machine copy meanwhile |
 | **Whether W5's mechanics come next** | Its policy half is built (`AgentUpdatePrompt`); the packaging, exe swap and `ExpectedAgentVersion` are not |
+| **Green-light the web-till parity plan** | ⚠ **Written and ready to hand to an agent with no context**: [`MAUI-retrofit.md` §5b](Build/To%20do/MAUI-retrofit.md), W-P1…W-P7, ~8–10d. Every decision pre-made, every mirror-source named, wordings verbatim. Order matters: W-P2 (the roster spine) unlocks W-P3/W-P4/W-P5. All TypeScript, all needs the Mac |
 
 ---
 
