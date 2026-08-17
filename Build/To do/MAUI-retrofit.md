@@ -1413,7 +1413,37 @@ when it is revoked" web ⬜→🟡; C2 row `deviceStanding.ts ↔ DeviceRevocati
 
 ---
 
-### W-P2 — the roster spine + a disabled operator is signed OUT · ~1–1½d
+### W-P2 — the roster spine + a disabled operator is signed OUT · ✅ **DONE 2026-08-17 (web 1.11.0)**
+
+> ✅ **Built as specified.** `src/roster.ts` — typed wire shapes (`OperatorRoster` / `TillOperator` /
+> `OperatorGrant`), `refreshRoster()` on the 60 s cadence using the **device token** (the endpoint is
+> gated `sales.ingest`, so it works with nobody signed in — which is what lets W-P4 sign the *first*
+> person in offline), the whole envelope cached in IndexedDB `operatorRoster`, and `isStillPermitted`
+> mirroring `OperatorRevocation.Check`. Sign-out uses Matt's sentence verbatim.
+>
+> **11 vitest cases**, mutation-checked on the load-bearing line. `tsc` clean. Suite **77 tests**.
+>
+> ⚠ **Verified before building, because the whole check depends on it:** the web till's
+> `session.employeeId` and the roster's `TillOperatorDto.UserId` are **the same identity** — both are
+> the employee's `Id` (`AuthController` reads `reader.GetGuid(0)`; `TillOperatorsController` sends
+> `UserId: e.Id`). Had they differed, this check would have signed out every operator in the shop.
+>
+> ⚠ **Two details the plan did not specify, decided while building:**
+> - **Matched case-insensitively** on the user id. A Guid can arrive in either case from either end,
+>   and a casing mismatch would sign out *everyone* while the roster was perfectly correct — a fault
+>   indistinguishable from the server having emptied the roster.
+> - **The message goes before `signOut()`**, because `signOut()` reloads the page in password mode, so
+>   anything after it never runs.
+>
+> ⚠ `refreshRoster` **validates the envelope shape before caching** (`asOfUtc` a string, `operators` an
+> array). A truncated body would otherwise replace a good roster with rubbish — and W-P4's offline
+> sign-in depends on that cache being trustworthy.
+>
+> **Registers done:** Part B disabled-operator row web ⬜→🟡 · A0 row web ⬜→🟡 · **C2 row added**
+> (`OperatorRevocation ↔ roster.ts`, both sides pinned) · hand-test **§W2a–c** and **§W3** (the
+> side-by-side comparison). ⚠ **NOT DEPLOYED.**
+
+### ~~W-P2 — the roster spine + a disabled operator is signed OUT · ~1–1½d~~ *(original brief)*
 
 **Why:** the web till signs out only **reactively** (`api.ts:50`: `if (res.status === 401)
 signOut()`) and login tokens are cached **12 h with their permission set** — so a disabled operator

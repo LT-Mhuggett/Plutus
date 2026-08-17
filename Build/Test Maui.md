@@ -1564,3 +1564,49 @@ worst-connected shops first.
 
 Do W1a on the **MAUI** till too (that is §G27). **✅ Both tills should behave identically** — same
 wording, same "still blocked after a restart", same "a network drop changes nothing".
+
+## W2. ⚠⚠ A disabled operator is signed OUT of the web till — **NEW in web 1.11.0**
+
+⚠⚠ **Before this the web till only noticed when something happened to 401** — and login tokens are
+cached for **12 hours** carrying their permissions. So a disabled operator kept a working browser till
+for the rest of the day. MAUI has put them out inside 60 seconds since till 1.41.0.
+
+⚠ The server already refuses a deactivated employee at **login**. What this tests is the person who
+was **already signed in** when they were disabled — the case that actually happens.
+
+### W2a. Disable them mid-session
+
+1. Sign in to the **web till** as an ordinary operator. Leave it on the Till tab.
+2. In the **portal**, deactivate that employee.
+3. Wait up to **a minute**. **Do not touch the till.**
+
+**✅ Expected:** the till says *"Your account has been disabled, please speak to your manager"* and
+returns to the login screen.
+
+⚠ **Check the wording.** It must name the **account**, not the till — *"you have been logged out"*
+sends somebody to reboot the machine instead of to their manager. It should read identically to MAUI
+(§C1).
+
+4. Try to sign in as them again. **✅ Expected: refused.**
+
+### W2b. ⚠⚠ And the case that must NOT sign anybody out — pull the network
+
+1. Sign in. **Unplug the network.**
+2. Leave it for **five minutes**, using the till — add items, park a basket.
+
+**✅ Expected: nothing happens.** You stay signed in.
+
+**❌ If a network drop signs you out — especially with the "account has been disabled" message — stop
+and report it immediately.** That is a worse fault than the one W2a tests: it would sign out every
+shop whose broadband hiccups, blame the operator's account for it, and hit the worst-connected shops
+first.
+
+### W2c. Nobody is dropped when the roster is simply empty of *others*
+
+Deactivate a **different** employee (not the one signed in). **✅ Expected: your session is untouched.**
+
+## W3. Compare W1 and W2 against MAUI, side by side
+
+Worth ten minutes: run §G27 (revoked till) and the disabled-operator check on **MAUI** with the web
+till open beside it. **✅ Both should behave the same way, in the same wording, at the same speed.**
+Anything that differs is a parity bug even if both behaviours look reasonable on their own.

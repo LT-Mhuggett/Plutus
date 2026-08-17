@@ -15,6 +15,7 @@ import { getDeviceCredential, sessionScopes } from "./pipeline.ts";
 import { startAgentReporter } from "./hardware.ts";
 import { startUpdateWatcher } from "./appUpdate.ts";
 import { isRevoked, mustStop, pollDeviceStanding, REVOKED_MESSAGE } from "./deviceStanding.ts";
+import { DISABLED_MESSAGE, isStillPermitted, refreshRoster } from "./roster.ts";
 import { hasPortalAccess, portalUrl } from "./sibling.ts";
 import { onNewItemRequested } from "./newItemHandoff.ts";
 import { basketLineCount } from "./till/basket.ts";
@@ -167,6 +168,27 @@ export default function App() {
     const pollNotes = () => void fetchPickNotifications().then(setPickNotes).catch(() => undefined);
     pollNotes();
     const notesTimer = window.setInterval(pollNotes, 60_000);
+    // ⚠⚠ W-P2 — RE-READ THE ROSTER, AND PUT A DISABLED OPERATOR OUT. Matt, 2026-08-11: *"If a user
+    // is disabled, the user needs immediately logging out with an information message."* MAUI has
+    // done this since till 1.41.0; the web till signed out only REACTIVELY (`handle401`), and login
+    // tokens are cached 12 HOURS carrying their permission set — so a disabled operator kept a
+    // working session until something happened to 401.
+    //
+    // ⚠⚠ A ROSTER THAT COULD NOT BE FETCHED IS NOT AN EMPTY ROSTER. `refreshRoster` returns null on
+    // any failure and `isStillPermitted` treats null as "carry on" — otherwise every broadband
+    // hiccup would sign the whole shop out mid-sale, accusing the operator of being disabled, on the
+    // flakiest sites first. An EMPTY roster the server actually sent does revoke, correctly.
+    const pollRoster = () =>
+      void refreshRoster().then((roster) => {
+        if (isStillPermitted(session?.employeeId, roster)) return;
+        // ⚠ The message first, then the sign-out: `signOut()` reloads the page in password mode, so
+        // anything after it never runs.
+        window.alert(DISABLED_MESSAGE);
+        signOut();
+      });
+    pollRoster();
+    const rosterTimer = window.setInterval(pollRoster, 60_000);
+
     // WP15.1: show announcements that belong on a till (Info is portal-only) on the same cadence.
     // ⚠ The filter is `showsOnATill`, the twin of MAUI's `NoticesClient.ShowsOnATill` — it used to be
     // an inline allow-list here, which silently dropped any severity this build had not heard of.
@@ -194,6 +216,7 @@ export default function App() {
       window.clearInterval(notesTimer);
       window.clearInterval(annTimer);
       window.clearInterval(themeTimer);
+      window.clearInterval(rosterTimer);
       window.clearInterval(vatTimer);
       window.clearInterval(beatTimer);
       window.removeEventListener("online", goOnline);
