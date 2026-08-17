@@ -1502,3 +1502,65 @@ the printer gets, so the totals must be identical. If they are not, that is seri
 ⚠ **Two things it is NOT, by design:** the columns will not line up perfectly (it is not a monospaced
 screen — the figures are the point), and it does not show bold or double-height, because a thermal
 printer's emphasis has no honest text equivalent. Neither is a bug; report anything else.
+
+---
+
+# §W — WEB till checks
+
+⚠ **These need the DEPLOYED WEB TILL**, not the MAUI build — `https://plutus.huggett.dscloud.me`.
+They are here rather than in a separate document because several of them are **side-by-side
+comparisons** with MAUI, and this is the document that already does that (§G25, §G31).
+
+⚠ **Parity runs both ways.** Everything in §W is something MAUI could already do and the browser till
+could not. Matt, 2026-08-08: *"The tills need to be in parity."*
+
+## W1. ⚠⚠ A revoked web till must STOP — and a network blip must not stop it — **NEW in web 1.11.0**
+
+⚠⚠ **Before this, revoking a browser till did nothing.** Its whole idea of "connected" was the
+browser's `navigator.onLine` — the **network cable**, not the server — so a lost or stolen web till
+carried on selling for up to **12 hours**, and it could not tell a revoked till from a dead one.
+
+### W1a. Revoke it, and watch it stop on its own
+
+1. Sign in to the **web till** and leave it sitting on the Till tab. **Do not touch it.**
+2. In the **portal**, revoke that till's device (or approve a removal request for it).
+3. Wait up to **a minute**.
+
+**✅ Expected: the till blocks itself, with no reload**, showing:
+*"This till has been removed in Plutus and can no longer be used. Speak to your manager — it can be
+re-enrolled from the portal."*
+
+4. **Press F5.**
+
+**✅ Expected: it is STILL blocked.** ⚠ That is the point — a revoked till must not come back by
+reloading. It must not offer a login box either.
+
+5. Re-enrol the till in the portal, then press **Check again**.
+
+**✅ Expected:** it lets you back in.
+
+### W1b. ⚠⚠ And the case that must NOT block it — pull the network
+
+With the web till working normally, **unplug the network** (or switch the Wi-Fi off) and leave it for
+**five minutes**. Keep using it — add items to a basket.
+
+**✅ Expected: nothing happens.** It may say it is offline; it must **never** block or claim it has
+been removed.
+
+**❌ If a network drop blocks the till, stop and report it** — that is a worse fault than the one W1a
+tests, because it would close a shop every time its broadband hiccuped, and it would hit the
+worst-connected shops first.
+
+### W1c. A removal REQUEST must not block it
+
+1. From the **portal**, raise (but do **not** approve) a removal request for this till.
+2. Use the till — ring up a sale.
+
+**✅ Expected: it keeps trading completely normally.**
+
+**❌ If it blocks, that is serious**: anyone able to request a removal could close a shop.
+
+### W1d. Compare against MAUI
+
+Do W1a on the **MAUI** till too (that is §G27). **✅ Both tills should behave identically** — same
+wording, same "still blocked after a restart", same "a network drop changes nothing".

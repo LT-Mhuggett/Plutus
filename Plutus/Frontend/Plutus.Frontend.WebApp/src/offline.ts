@@ -93,6 +93,32 @@ export const cacheMeta = (key: "payMethods" | "discounts", value: PayMethod[] | 
 export const cachedMeta = <T>(key: "payMethods" | "discounts"): Promise<T | undefined> =>
   tx("meta", "readonly", (s) => s.get(key) as IDBRequest<T | undefined>);
 
+// ── durable till state (§5b) ────────────────────────────────────────────────
+//
+// ⚠ SEPARATE FROM `cacheMeta` ON PURPOSE. That pair is typed to the two reference-data keys and
+// its value type is `PayMethod[] | Discount[]`; widening it would make every caller's type
+// meaningless. This pair carries arbitrary state blobs, keyed by a closed union so a typo is a
+// compile error rather than a silent miss.
+//
+// ⚠ Same `meta` object store, so no DB version bump is needed — the store already exists.
+export type TillStateKey =
+  /** W-P1: set once the platform has explicitly revoked this device. Survives reload BY DESIGN —
+   *  a revoked till must not come back by pressing F5. */
+  | "deviceRevoked"
+  /** W-P2: the whole `TillOperatorsResult` envelope, verbatim. ⚠ The envelope, not rows —
+   *  `asOfUtc` is roster-level and is the SERVER's clock, which W-P4's staleness horizons are
+   *  measured from. */
+  | "operatorRoster";
+
+export const putTillState = <T>(key: TillStateKey, value: T): Promise<void> =>
+  tx("meta", "readwrite", (s) => s.put(value, key)).then(() => undefined);
+
+export const getTillState = <T>(key: TillStateKey): Promise<T | undefined> =>
+  tx("meta", "readonly", (s) => s.get(key) as IDBRequest<T | undefined>);
+
+export const clearTillState = (key: TillStateKey): Promise<void> =>
+  tx("meta", "readwrite", (s) => s.delete(key)).then(() => undefined);
+
 // ── device sale sequence (WP2.1) ────────────────────────────────────────────
 
 /** Next per-device monotonic sale sequence. get+put in ONE readwrite transaction —

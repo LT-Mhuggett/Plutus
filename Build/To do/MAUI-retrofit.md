@@ -1345,7 +1345,34 @@ opens.
 
 ---
 
-### W-P1 — a revoked web till STOPS TRADING · ~1d
+### W-P1 — a revoked web till STOPS TRADING · ✅ **DONE 2026-08-17 (web 1.11.0)**
+
+> ✅ **Built as specified.** `src/deviceStanding.ts` — `checkStanding` / `mustStop` / `REVOKED_MESSAGE`
+> mirroring `DeviceRevocation.cs`, polled on its own 60 s cadence in `App.tsx`, latched in IndexedDB
+> (`deviceRevoked` via the new `putTillState`/`getTillState` pair — same `meta` store, **no DB version
+> bump needed**), blocking screen with a **Check again** action.
+>
+> **21 vitest cases** mirroring `DeviceRevocationTests.cs` one for one; **both mutants killed** — a
+> failed poll stopping the till kills 10, folding `PendingRemoval` into the stop kills 2.
+> `tsc --noEmit` clean. Web till suite **66 tests** (was 45).
+>
+> ⚠ **Two things the plan did not say, decided while building:**
+> - **The poll effect has NO `session` guard** and its own cadence, deliberately: a stolen till is
+>   revoked while it sits at a login screen, which is exactly when nobody is signed in. Putting it in
+>   the `[session]` block would have made the feature useless in its main case.
+> - **The block renders BEFORE the login gate.** Gating after login would let somebody sign in to a
+>   machine the platform has finished with — a revocation means the hardware stops being a till, not
+>   that one operator stops using it.
+>
+> ⚠ The latch **clears on any other explicit answer**, so re-enrolling in the portal un-blocks the
+> till without anybody clearing browser storage by hand.
+>
+> **Registers done:** Part B revoked-till row web ⬜→🟡 · A0 "Stop trading when it is revoked" web
+> ⬜→🟡 · **C2 row added** (`DeviceRevocation ↔ deviceStanding.ts`, both sides pinned) ·
+> `versions/till-web.txt` → **1.11.0** · hand-test **§W1a–d**. ⚠ **NOT DEPLOYED** — deploy only when
+> Matt asks.
+
+### ~~W-P1 — a revoked web till STOPS TRADING · ~1d~~ *(original brief, kept for the reasoning)*
 
 **Why:** the web till's connection state is `navigator.onLine` — the network interface, not the
 server. A lost or stolen browser till keeps selling until its 12 h token dies, because device tokens

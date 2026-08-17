@@ -14,6 +14,7 @@ import { ackPickNotification, drainOutbox, fetchActiveAnnouncements, showsOnATil
 import { getDeviceCredential, sessionScopes } from "./pipeline.ts";
 import { startAgentReporter } from "./hardware.ts";
 import { startUpdateWatcher } from "./appUpdate.ts";
+import { isRevoked, mustStop, pollDeviceStanding, REVOKED_MESSAGE } from "./deviceStanding.ts";
 import { hasPortalAccess, portalUrl } from "./sibling.ts";
 import { onNewItemRequested } from "./newItemHandoff.ts";
 import { basketLineCount } from "./till/basket.ts";
@@ -65,6 +66,42 @@ export default function App() {
   const portalHref = portalUrl();
   const [pickNotes, setPickNotes] = useState<PickNotification[]>([]);
   const [announcements, setAnnouncements] = useState<ActiveAnnouncement[]>([]);
+  /** W-P1: latched when the platform has explicitly revoked this device. ⚠ Read from IndexedDB on
+   *  boot as well as polled, so a reload does not un-revoke a till. */
+  const [revoked, setRevoked] = useState(false);
+  const [recheckBusy, setRecheckBusy] = useState(false);
+
+  /** The "Check again" button on the blocked screen — lets a re-enrolled till back in without
+   *  somebody clearing browser storage by hand. */
+  async function recheckStanding() {
+    setRecheckBusy(true);
+    try {
+      const standing = await pollDeviceStanding();
+      if (standing !== null && !mustStop(standing)) setRevoked(false);
+    } finally {
+      setRecheckBusy(false);
+    }
+  }
+
+  // ⚠⚠ W-P1 — THE REVOCATION POLL, and it runs WITHOUT A SESSION on purpose: a stolen till is
+  // revoked while it sits at a login screen, which is precisely when nobody is signed in. That is
+  // why this effect has no `session` guard and its own cadence, unlike the block below.
+  //
+  // ⚠ Device tokens have no server-side denylist, so this poll is the ONLY thing that stops a
+  // revoked till inside its 12h token life.
+  useEffect(() => {
+    // The latch first, so a reload of an already-revoked till blocks before any network call.
+    void isRevoked().then((r) => { if (r) setRevoked(true); });
+
+    const check = () =>
+      void pollDeviceStanding().then((standing) => {
+        if (standing !== null) setRevoked(mustStop(standing));
+      });
+
+    check();
+    const timer = window.setInterval(check, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   // OIDC mode: complete the redirect callback, or bounce to the IdP. Password mode: no-op.
   useEffect(() => {
@@ -172,6 +209,29 @@ export default function App() {
           <p className="muted small">Signing in…</p>
           {authError && <p className="error small">{authError}</p>}
           {authError && <button className="primary" onClick={() => void beginLogin()}>Try again</button>}
+        </div>
+      </div>
+    );
+  }
+
+  // ⚠⚠ W-P1: A REVOKED TILL IS BLOCKED BEFORE THE LOGIN SCREEN. Gating after login would let
+  // somebody sign in to a machine the platform has finished with — and the point of a revocation is
+  // that this hardware stops being a till, not that one operator stops being able to use it.
+  //
+  // ⚠ The flag is latched in IndexedDB, so this survives a reload. A revoked till must not come
+  // back by pressing F5.
+  if (revoked) {
+    return (
+      <div className="login-screen">
+        <div className="login-card">
+          <h1><PlutusMark size={34} />Plutus</h1>
+          <p className="error">{REVOKED_MESSAGE}</p>
+          <button className="ghost" onClick={() => void recheckStanding()} disabled={recheckBusy}>
+            {recheckBusy ? "Checking…" : "Check again"}
+          </button>
+          <p className="muted small">
+            If it has just been re-enrolled in the portal, Check again will let this till back in.
+          </p>
         </div>
       </div>
     );
