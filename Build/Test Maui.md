@@ -1673,3 +1673,57 @@ Sign in, then **unplug the network**, then try an over-limit discount.
 **✅ Expected: the limit still applies and the step-up still works** — the gate reads the cached
 roster, exactly as MAUI does. ⚠ If limits vanish when the line drops, that is the worst possible
 failure of this feature: it would mean unplugging the network removes every discount limit in the shop.
+
+## W5. ⚠⚠ Sign in to the web till with the network DOWN — **NEW in web 1.11.0**
+
+⚠⚠ **The web till could not do this at all.** So the shop that lost its broadband lost its till — the
+exact outage the whole offline design exists to prevent. MAUI has had it since WP8.
+
+⚠ **The shape to expect, and it is deliberate:** selling stays alive for a long time, money-out expires
+quickly, and **the till never hard-locks**.
+
+### W5a. The basics
+
+1. Sign in to the web till **online** once (this downloads the staff list).
+2. **Unplug the network.**
+3. **Reload the page** and sign in with the same email and password.
+
+**✅ Expected: you get in.** Ring up a sale — it queues, exactly as it did before.
+
+4. Try a **deliberately wrong password**. **✅ Expected: "Wrong password."** — and you stay out.
+5. Try an email that is **not** on this till. **✅ Expected:** a different message, saying no account
+   matches. ⚠ Two different sentences matter: *"wrong password"* for both once sent somebody hunting a
+   typo that did not exist.
+
+### W5b. ⚠⚠ THE SECURITY ONE — a disabled operator must NOT get in offline
+
+1. **Online**, deactivate an operator in the portal.
+2. Still **online**, try to sign in as them. **✅ Expected: refused** by the server.
+3. Now **unplug the network** and try again with the same correct password.
+
+**✅ Expected: still refused.**
+
+**❌ If they get in offline, stop and report it immediately.** That would mean a disabled account can
+sign in past its own refusal simply by pulling a cable — the till must only fall back to its cached
+staff list when it could not **reach** the server, never when the server **said no**.
+
+### W5c. What a stale till loses, and what it keeps
+
+You cannot easily age a till by a week by hand, so this is covered by tests — but if you ever see a
+till that has been off the network for a while, this is what should happen:
+
+| Offline for | ✅ Expected |
+|---|---|
+| under 3 days | normal, no warning |
+| **3–7 days** | signs in, **warns** that refunds and manager functions stop after 7 days |
+| **7–30 days** | ⚠ **still sells normally**; refunds, cash out and manager functions are withdrawn |
+| **over 30 days** | offline sign-in refused, pointing at a temporary code |
+
+⚠ **The till never locks you out of SELLING inside 30 days.** If a stale till ever refuses to sell,
+that is a bug — it would close a shop over a connection problem.
+
+### W5d. The session ends at the end of the business day
+
+Sign in late in the evening (say after 22:00). **✅ Expected:** the session ends at **midnight**, not 12
+hours later. ⚠ A session spanning two business days puts yesterday's operator on today's X/Z
+breakdown, and after a shift change attributes the new person's sales to the old one.

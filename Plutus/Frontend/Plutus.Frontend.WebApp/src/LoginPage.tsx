@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { login, BUSINESS_NAME } from "./api.ts";
-import type { Session } from "./session.ts";
+import { login, serverAnswered, BUSINESS_NAME } from "./api.ts";
+import { setSession, type Session } from "./session.ts";
 import { PlutusMark } from "./PlutusMark.tsx";
+import { sessionExpiresAt, signInOffline } from "./offlineLogin.ts";
 
 interface Props {
   onLogin: (session: Session) => void;
@@ -12,6 +13,7 @@ export default function LoginPage({ onLogin }: Props) {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  /** W-P4: a stale-but-usable till says so after signing in offline. */
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -21,6 +23,46 @@ export default function LoginPage({ onLogin }: Props) {
     try {
       onLogin(await login(email.trim(), password));
     } catch (err) {
+      // ⚠⚠ W-P4 — OFFLINE SIGN-IN, AND ONLY ON A TRANSPORT FAILURE. `serverAnswered` is true for a
+      // 401 and for any other HTTP answer; falling back after one would let a disabled operator sign
+      // in offline PAST THEIR OWN REFUSAL, because `AuthController` is where a deactivated employee
+      // is turned away. A dead network rejects `fetch` with a TypeError and sets no such flag.
+      //
+      // ⚠ Never `navigator.onLine` for this decision — it reports the network INTERFACE, and says
+      // "online" in a shop whose broadband is down.
+      if (!serverAnswered(err)) {
+        const offline = await signInOffline(email.trim(), password);
+
+        if (offline.ok && offline.operator) {
+          // ⚠ The session is minted LOCALLY and carries no platform token — so `perm:*` endpoints
+          // stay unreachable while offline, exactly as on MAUI. Queued sales still flow: they go on
+          // the DEVICE token, which is a different credential.
+          setSession({
+            token: "",
+            employeeId: offline.operator.userId,
+            name: offline.operator.displayName,
+            // ⚠ The earliest of the 12h cap and the business-day rollover — a session spanning two
+            // business days leaks yesterday's operator into today's X/Z breakdown.
+            expiresAt: sessionExpiresAt(new Date()).toISOString(),
+          });
+
+          // ⚠ Shown BEFORE handing over, so a stale till's warning is not lost behind the shell.
+          if (offline.message) window.alert(offline.message);
+
+          onLogin({
+            token: "",
+            employeeId: offline.operator.userId,
+            name: offline.operator.displayName,
+            expiresAt: sessionExpiresAt(new Date()).toISOString(),
+          });
+          return;
+        }
+
+        setError(offline.message);
+        setBusy(false);
+        return;
+      }
+
       setError(err instanceof Error ? err.message : String(err));
       setBusy(false);
     }

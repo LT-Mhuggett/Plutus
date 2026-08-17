@@ -1558,7 +1558,37 @@ exactly).
 
 ---
 
-### W-P4 — offline sign-in, with the same expiry horizons · ~2–3d
+### W-P4 — offline sign-in, with the same expiry horizons · ✅ **DONE 2026-08-17 (web 1.11.0)**
+
+> ✅ **Built as specified.** `offlineLogin.ts` gains the horizons, the three trust tiers, the sell
+> floor, `assess`, `allowedWhileOffline`, `sessionExpiresAt` and `signInOffline`; `LoginPage` falls
+> back on a transport failure. **30 vitest cases**, mutation-checked (a money-out permission slipped
+> into the sell floor kills 3). Suite **129 tests**, `tsc` clean.
+>
+> ⚠⚠ **THE ONE THING THE PLAN COULD NOT PRE-DECIDE, AND IT IS A SECURITY BOUNDARY.** §5b said "network
+> failure only — a 401 must NOT fall back", but the web till's `login()` threw an indistinguishable
+> `Error` for a 401 and for a dead network, so *there was nothing to branch on*. Added
+> `AnsweredError` + `serverAnswered(err)` in `api.ts`: every HTTP answer is tagged, `fetch`'s
+> `TypeError` is not. ⚠ **`navigator.onLine` is explicitly NOT used for this** — it reports the network
+> interface and says "online" in a shop whose broadband is down, which would have made the guard
+> useless in the exact case it exists for. §W5b hand-tests it.
+>
+> ⚠ **Staleness is measured from the roster envelope's `asOfUtc`.** MAUI uses
+> `LocalOperator.UpdatedAtUtc` because its store is relational; the web till caches the envelope, and
+> the envelope's stamp is the same fact — the *server's* clock, not the browser's. Recorded because the
+> two look like different anchors and are not.
+>
+> ⚠ The offline session carries an **empty token** deliberately, so `perm:*` endpoints stay unreachable
+> while queued sales keep flowing on the **device** token — the same split as MAUI.
+>
+> ⚠ **The horizon is checked BEFORE the password**: past 30 days the answer is the same whatever is
+> typed, and "wrong password" would send somebody to reset a password that was never the problem.
+>
+> **Registers done:** Part B offline-sign-in row web ⬜→🟡 · A0 row web ⬜→🟡 · **C2 row added**
+> (`OfflineCredentials` + `Crypto.Pbkdf2` ↔ `offlineLogin.ts`) · hand-test **§W5a–d**, with **§W5b** as
+> the security case. ⚠ **NOT DEPLOYED.**
+
+### ~~W-P4 — offline sign-in, with the same expiry horizons · ~2–3d~~ *(original brief)*
 
 **Why:** the web till **cannot sign in offline at all** — the shop that loses broadband loses the
 till, which is the thing the whole offline design exists to prevent.

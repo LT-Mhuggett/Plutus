@@ -89,14 +89,38 @@ export async function requestUnenrol(deviceId: string): Promise<{ status: string
 export const fetchDeviceStatus = (deviceId: string) =>
   get<{ status: string }>(`/api/v1/tills/devices/${encodeURIComponent(deviceId)}/status`);
 
+/**
+ * ⚠⚠ W-P4: DID THE SERVER ANSWER? This is the flag that decides whether an offline sign-in may be
+ * attempted, and getting it wrong is a security hole rather than a bug.
+ *
+ * A **401 is an ANSWER** — the platform has refused this password or this account (`AuthController`
+ * refuses a deactivated employee there, FE9.2). Falling back to the cached hash after one would let a
+ * disabled operator sign in offline **past their own refusal**. Only a genuine transport failure — no
+ * server reached at all — may fall back.
+ *
+ * ⚠ `fetch` rejects with a `TypeError` for a dead network and does NOT set this, which is exactly the
+ * distinction. Never infer "offline" from `navigator.onLine`: it reports the network *interface*, and
+ * says "online" in a shop whose broadband is down.
+ */
+export interface AnsweredError extends Error {
+  serverAnswered: true;
+}
+
+export const serverAnswered = (err: unknown): boolean =>
+  typeof err === "object" && err !== null && (err as { serverAnswered?: boolean }).serverAnswered === true;
+
+const answered = (message: string): AnsweredError =>
+  Object.assign(new Error(message), { serverAnswered: true as const });
+
 export async function login(email: string, password: string): Promise<Session> {
   const res = await fetch(`/api/Auth/Login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
-  if (res.status === 401) throw new Error("Unknown email or wrong password.");
-  if (!res.ok) throw new Error(`Login failed (${res.status}).`);
+  // ⚠ Both of these are ANSWERS — see `AnsweredError`. Neither may fall back to an offline sign-in.
+  if (res.status === 401) throw answered("Unknown email or wrong password.");
+  if (!res.ok) throw answered(`Login failed (${res.status}).`);
   const data = await res.json();
   const session: Session = { token: data.token, employeeId: data.employeeId, name: data.name, expiresAt: data.expiresAt };
   setSession(session);
