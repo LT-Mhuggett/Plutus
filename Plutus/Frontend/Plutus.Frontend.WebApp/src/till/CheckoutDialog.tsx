@@ -8,6 +8,7 @@ import {
   assess, capacityFor, parseAmounts, refundCapacities, refundSplitRefusal, refusalReason, restFor,
 } from "./tendering.ts";
 import type { BasketLine } from "./basket.ts";
+import { cachedSurcharge, cardIsTendered, rememberSurcharge, surchargeLine } from "./surcharge.ts";
 import type { ReceiptData } from "./Receipt.tsx";
 
 // Synthetic pay-method id for the store-credit tender (Phase 8 retrofit). Real PayMethod ids
@@ -17,6 +18,10 @@ const CREDIT_PAYID = -1;
 // row would put a free-typed "Gift card" amount on every checkout screen, letting a cashier tender
 // money against no card at all. This row only appears once a card has been scanned and checked.
 const GIFTCARD_PAYID = -2;
+// W-P7: the key on the card-surcharge line. Negative because basket keys start at 1 and count up, so
+// it can never collide with a real line — and the fee is built here, never in basket state, so there
+// is no `nextKey` to draw from.
+const FEE_LINE_KEY = -1;
 
 interface Props {
   lines: BasketLine[];
@@ -42,7 +47,21 @@ export default function CheckoutDialog(
   // 17.2: the tenant's card-payment setup — shown as a hint on the tender screen. Offline or
   // unfetchable → assume standalone (today's flow); never blocks checkout.
   const [gateway, setGateway] = useState<ActiveGateway | null>(null);
-  useEffect(() => { fetchActiveGateway().then(setGateway).catch(() => undefined); }, []);
+  // W-P7: the surcharge setting starts at LAST-KNOWN-GOOD and is refreshed from the portal. A fee
+  // that vanished offline and reappeared online would make two identical baskets total differently
+  // an hour apart, and the operator would wear the argument (see surcharge.ts).
+  const [surcharge, setSurcharge] = useState(cachedSurcharge);
+  useEffect(() => {
+    fetchActiveGateway()
+      .then((g) => {
+        setGateway(g);
+        const bp = g.surchargeBp ?? 0;
+        const flat = g.surchargeFlatPence ?? 0;
+        setSurcharge({ bp, flatPence: flat });
+        rememberSurcharge(bp, flat);
+      })
+      .catch(() => undefined);
+  }, []);
 
   // FE7: a gift card being SPENT on this sale. Scanned/typed here, checked against the server (which
   // owns the balance), then offered as a tender capped at what the card actually holds.
@@ -117,10 +136,55 @@ export default function CheckoutDialog(
     ? [...methods, { id: GIFTCARD_PAYID, name: `Gift card ${card.pretty}`, charge: 0, minimumCharge: 0, isChangeable: false, isCashBackable: false }]
     : methods;
 
+  // ── W-P7: the card surcharge ────────────────────────────────────────────────
+  //
+  // ⚠⚠ THE FEE IS A REAL SALE LINE and it RAISES WHAT IS OWED. `TenderLoop` does exactly this in
+  // .NET (`total += surcharge; outstanding += surcharge`), and it must: the ingest guard requires the
+  // header gross to equal the sum of the line grosses, so a fee on the sale that the operator was
+  // never asked to collect is a short tender the server rejects.
+  //
+  // ⚠ CHOOSING CARD IS WHAT CREATES IT — the twin of MAUI adding the line when a card method is
+  // picked. Here "picked" is a positive amount in a card row.
+  //
+  // ⚠ NO CIRCULARITY: the fee is a function of the GOODS, not of the amounts, so covering the new
+  // remainder cannot move the fee again. Filling the card row settles in one step.
+  //
+  // ⚠ ONCE per sale — `surchargeLine` refuses a basket that already has the line, so a split across
+  // two cards cannot be charged the flat half twice.
+  const cardTendered = parsed.valid && cardIsTendered(
+    tenders.map((m) => ({ tenderType: tenderTypeFor(m.name), pence: parsed.perMethod.get(m.id) ?? 0 })),
+  );
+
+  let fee: BasketLine | null = null;
+  let feeRefusal = "";
+  if (cardTendered && (surcharge.bp > 0 || surcharge.flatPence > 0)) {
+    try {
+      fee = surchargeLine(lines, surcharge.bp, surcharge.flatPence, FEE_LINE_KEY);
+    } catch (e) {
+      // ⚠⚠ FAIL CLOSED ON MONEY. The shared rule throws on a setting or a basket it cannot price
+      // honestly (a negative rate, an ex total outside [0, gross]). Completing the sale without the
+      // fee would take the wrong money silently; blanking the till would lose the basket. So the
+      // sale is REFUSED, with the reason on screen, and the operator can take cash instead.
+      feeRefusal = `This basket's card fee can't be priced (${e instanceof Error ? e.message : String(e)}). `
+        + "Take another tender, or ask for the card surcharge setting to be checked in the portal.";
+    }
+  }
+
+  // ⚠ The fee rides on the wire and the receipt as an ordinary line — nothing downstream needs to
+  // know it is a fee, which is the whole point of pricing it as a pair.
+  const wireLines = fee ? [...lines, fee] : lines;
+  const feePence = fee?.pricePence ?? 0;
+  const effective = fee
+    ? {
+        totalPence: totals.totalPence + fee.pricePence,
+        totalExTaxPence: totals.totalExTaxPence + fee.exPricePence,
+      }
+    : totals;
+
   // A basket of returns worth more than anything bought is a REFUND: the same sale, with every
   // figure negative (the T1.3 invariants are sign-agnostic — see SalesV2Tests). The operator
   // types the amount to hand back as a positive number; it goes on the wire negative.
-  const settled = assess(totals.totalPence, parsed, tenders);
+  const settled = assess(effective.totalPence, parsed, tenders);
   const { refunding, owed, paid, remaining, overpay, overRefund, changeOk } = settled;
 
   // ⚠⚠ FINDING Y (Matt, 2026-08-13): THE MONEY GOES BACK THE WAY IT CAME, IN THE AMOUNTS IT CAME.
@@ -159,7 +223,7 @@ export default function CheckoutDialog(
     : "";
 
   const canComplete = parsed.valid && remaining === 0 && changeOk && !overRefund
-    && !creditOverBalance && !giftOverBalance && !tenderRefusal && !busy;
+    && !creditOverBalance && !giftOverBalance && !tenderRefusal && !feeRefusal && !busy;
 
   function quickFill(id: number) {
     // "rest" = make THIS row cover everything the others don't, so it must ignore what this row
@@ -205,7 +269,10 @@ export default function CheckoutDialog(
         ? payments.filter((p) => p.payId !== GIFTCARD_PAYID)
         : payments;
 
-      const sale = await checkout(lines, wireTenders, totals, {
+      // ⚠ W-P7: `wireLines`/`effective`, not `lines`/`totals` — the fee line and the totals that
+      // include it. The ingest guard compares the header gross against the sum of the line grosses,
+      // so sending one without the other is a sale the server refuses.
+      const sale = await checkout(wireLines, wireTenders, effective, {
         customerId: customer?.id,
         creditRedeemPence: creditRedeem > 0 && customer ? creditRedeem : undefined,
         // FE7: the ledger write happens inside checkout(), BEFORE the sale is recorded, so a card the
@@ -217,9 +284,11 @@ export default function CheckoutDialog(
       onComplete({
         saleId: sale.saleId,
         date: new Date().toISOString(),
-        lines,
-        totalPence: totals.totalPence,
-        totalExTaxPence: totals.totalExTaxPence,
+        // ⚠ The customer's receipt must show the fee it was charged, itemised — a total that is 35p
+        // more than the goods with nothing saying why is the complaint that follows.
+        lines: wireLines,
+        totalPence: effective.totalPence,
+        totalExTaxPence: effective.totalExTaxPence,
         payments: payments.map((p) => ({ name: p.name, amountPence: p.amountPence, changePence: p.changePence })),
         queued: sale.queued,
       });
@@ -232,7 +301,18 @@ export default function CheckoutDialog(
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <div className="dialog">
-        <h2>{refunding ? `Refund — ${gbp(owed)}` : `Checkout — ${gbp(totals.totalPence)}`}</h2>
+        {/* ⚠ W-P7: `effective`, so the heading is the figure the operator must actually collect. */}
+        <h2>{refunding ? `Refund — ${gbp(owed)}` : `Checkout — ${gbp(effective.totalPence)}`}</h2>
+
+        {/* ⚠⚠ W-P7: SAY THE FEE, ITEMISED, BEFORE the sale completes. A total that jumps when a card
+            row is filled and explains nothing is the surcharge complaint every time. */}
+        {feePence > 0 && (
+          <p className="small discount-note">
+            💳 Card fee <strong>{gbp(feePence)}</strong> added — {gbp(totals.totalPence)} of goods
+            {" "}+ {gbp(feePence)}. It comes off if the card row is cleared.
+          </p>
+        )}
+        {feeRefusal && <p className="error small">{feeRefusal}</p>}
 
         {refunding && (
           <p className="small discount-note">
@@ -358,7 +438,7 @@ export default function CheckoutDialog(
             change); this is the matching sentence, from the same tested arithmetic.
             Suppressed while `busy` and when one of the specific messages above is already showing,
             so the operator never gets two explanations of one problem. */}
-        {!busy && !creditOverBalance && !giftOverBalance && !canComplete && (
+        {!busy && !creditOverBalance && !giftOverBalance && !feeRefusal && !canComplete && (
           <p className="muted small">{refusalReason(settled, parsed, gbp)}</p>
         )}
 

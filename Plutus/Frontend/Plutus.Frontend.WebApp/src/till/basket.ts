@@ -69,6 +69,25 @@ type Action =
   | { type: "restore"; state: BasketState }
   | { type: "clear" };
 
+/**
+ * Is this line the card surcharge? W-P7 — the twin of `MemberDiscountBasket`'s own exclusion.
+ *
+ * ⚠⚠ A FEE IS NOT SHOPPING. Discounting a card surcharge means the member is charged less than the
+ * acquirer charges the shop for their transaction, so a loyalty tier would eat into the cost the fee
+ * exists to pass on — and on a large basket at 1.69% that is real money going the wrong way.
+ *
+ * ⚠ It cannot be reached today: `till/surcharge.ts` builds the fee AT CHECKOUT and never puts it in
+ * basket state, so no discount action can see it. The guard is here because the reducer is the one
+ * place that can be sure — and because the MAUI till, which DOES put the line in its basket, needs
+ * exactly this rule. A reader comparing the two must not find it on one side only.
+ *
+ * ⚠ The literal, not `surcharge.ts`'s constant, on purpose: `surcharge.ts` already imports
+ * `basketTotals` from here, and importing back would be a module cycle. Exported so
+ * `surcharge.test.ts` can pin the two spellings together — the same discipline every other twin in
+ * this codebase uses: a test, not an import.
+ */
+export const isCardSurcharge = (l: BasketLine): boolean => l.item.idOne?.toUpperCase() === "CARD-SURCHARGE";
+
 function reduce(state: BasketState, action: Action): BasketState {
   switch (action.type) {
     case "add": {
@@ -171,7 +190,7 @@ function reduce(state: BasketState, action: Action): BasketState {
       return {
         ...state,
         lines: state.lines.map((l) =>
-          !l.isReturn && !l.discount && !l.giftCardCode
+          !l.isReturn && !l.discount && !l.giftCardCode && !isCardSurcharge(l)
             ? {
                 ...l,
                 // ⚠ The tier IS the reason — nobody decided anything, so there is nothing to type

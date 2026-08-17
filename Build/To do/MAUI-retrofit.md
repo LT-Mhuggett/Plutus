@@ -64,6 +64,7 @@ item-identity seam all outlive the retrofit, and archiving them unlifted buries 
 |---|---|---|
 | Backend | **1.17.1** | ✅ DEPLOYED & verified. Rollback `~/PLUTUS/backend.pre-1.17.1`. Verified on the DB path (`POST /api/v1/tokens/device` → 401 "Device not enrolled"), **not** `/swagger` — which answered 200 throughout the 2026-08-09 outage |
 | Web till | **1.10.0** (`index-DBZqCOhi.js`) | ✅ DEPLOYED & verified on all four axes. Rollback `current.pre-1.10.0` = 1.9.0 (`index-BLeVrCti.js`) |
+| Web till — **in code** | **1.11.0** | ⚠⚠ **BUILT, NOT DEPLOYED, NOT SEEN BY ANYBODY.** All seven §5b slices (W-P1…W-P7): revocation, roster, discount ceiling + step-up, offline sign-in, offline cash + Z-reopen, printer reprint, card surcharge. **178 vitest cases, `tsc` clean, 19 mutants run.** Hand-tests **§W1–§W8** never run. ⚠ Every register row is **🟡**, not ✅ |
 | Portal | 1.8.0 (`index-X2HmT_BH.js`) | ✅ Live, confirmed untouched by the web deploy |
 | Agent | **1.4.0** | ✅ Published — the web till's **Settings → Hardware** offers it (HTTP 200, 70,293,789 bytes) |
 | till-maui | **1.72.0** | ⚠⚠ **NOT BUILT.** Disk holds 1.71.0, missing the percentage money fix (§F7b) and the roster move (§G30) |
@@ -115,8 +116,9 @@ say so rather than quietly doing something else.**
 
 ### 0.4 ⚠⚠ The lesson this project keeps re-learning
 
-**Ten status markers have been found wrong in eight days**, and every one failed the same way: a claim
-about *behaviour* written from reading a call site instead of following what it calls.
+**Seventeen status markers have been found wrong in nine days** (ten by 2026-08-16, six more while
+consolidating this document, and one on 2026-08-17 during W-P6), and every one failed the same way: a
+claim about *behaviour* written from reading a call site instead of following what it calls.
 
 - ✅ rows for work that was not built · ⬜ rows for work that was
 - A **➖** ("not applicable") that stopped being true when the architecture moved, while a row eight
@@ -124,10 +126,23 @@ about *behaviour* written from reading a call site instead of following what it 
 - `FileOperatorStore`'s header explaining that a move was impossible because of an EF 3.1 pin — that
   had been 9.0.18 since the .NET 10 upgrade
 - `publish-agent.ps1` silently broken for ten days behind a `latest.json` that read as a current release
+- ⚠⚠ **A NEW FLAVOUR, 2026-08-17 (W-P6): a ⬜ hiding a capability that was PARTLY built.** "Reprint a
+  receipt" read ⬜ on the web till while the button, the sale lookup and the copy-marking had all
+  existed for months — only the *printer* was missing. The row was not stale, it was **measuring the
+  wrong thing**: a binary marker on a capability with two halves reports the state of whichever half
+  the writer looked at. ⚠ It cost nothing here (the fix was one call) but it could as easily have
+  been the reverse — a ✅ over a capability missing its money half.
 
 **The rule: grep the callers, check the csproj, run the thing — before believing any marker, including
 your own from last week.** ⚠ And **➖ is the most dangerous of the four**: ✅ and ⬜ both invite a check,
 ➖ invites none.
+
+⚠⚠ **The 2026-08-17 addition to that rule: a test can be as misleading as a marker.** W-P7's
+TypeScript money rule had **32 tests copied vector-for-vector from the .NET side** and the
+ratio-first mutant still **survived** — `decimal` and `double` round differently, so the vector that
+makes the C# test red passes unconditionally in JS. **A mirrored test proves the two files agree about
+the cases somebody thought of in the other language.** Mutate the rule and watch it go red, or you
+have a suite that reports coverage it does not have.
 
 ---
 
@@ -1292,7 +1307,29 @@ opens.
 | ~~**Every C2 twin's TypeScript half is unexecuted**~~ | ~~**WP15**~~ | ⚠ **STALE — CORRECTED 2026-08-17.** The web till HAS a test runner: `"test": "vitest run"`, vitest 3, and **four test files** (`pipeline`, `notices`, `till/discountReason`, `till/tendering`) — 45 tests, verified green on the Mac this session. So the blocker named here is gone; what remains is that **most twins are still not covered**, which is a smaller and different problem. ⚠ Node lives only on the Mac, so any TS test run needs it. Original note: `package.json` has `dev`, `build`, `preview`, `typecheck` — **no test runner and no test files** beyond the 19 tendering tests added 2026-08-11. `VatLineMathTests` fixes .NET to the numbers `api.ts` produces and **nothing executes `api.ts`**; `LegacySaleBridgeTests` pins item-id derivation to a GUID the TypeScript produced in a 2026-07-24 smoke test; `till/basket.ts basketTotals` is a **third, entirely unpinned** copy of the discount apportionment. Add Vitest (same Vite toolchain, no new build concept) and port the .NET vectors across, then add the C2 row saying what now pins them. ⚠ **Needs Node → the Mac.** ⚠ **Matt's call on timing** — recorded here rather than left unowned, because a twin nobody tests is how two tills come to disagree by a penny on the same basket, for ever, on every VAT return, with nothing flagging it |
 | ~~**It shows every store's pick notes**~~ | ~~WP17.4~~ | ✅ **FIXED SERVER-SIDE 2026-08-09 (WP17.4) — this row is stale, corrected 2026-08-17.** `GET /api/v1/notifications` now filters by the caller's store, **derived from the device token and never from the query string** — which deleted the C2 twin rather than pinning it, because a per-client filter is a rule every future till would have to re-implement correctly. Pinned by two `PickNotesE2eTests`, mutation-checked. Original note: `GET /api/v1/notifications` does **not** filter by store — it returns the tenant's 50 most recent — so addressing is the client's job and `App.tsx:130` applies no filter. Latent for single-store Kapow; wrong the moment a second store exists, and wrong in the expensive direction: the shop that *does* hold the stock sees the same note and may assume the other branch took care of it, so the web order ships short. MAUI is the strict one via `NoticesClient.IsForStore`. ⚠ One `.filter()` — but doing it client-side **creates** a C2 twin; **moving the filter to the server deletes it instead, and is probably the better answer** |
 
-## 5b. The WEB-TILL PARITY PLAN — W-P1…W-P7
+## 5b. The WEB-TILL PARITY PLAN — W-P1…W-P7 · ✅ **ALL SEVEN DONE 2026-08-17 (web 1.11.0)**
+
+> ✅⚠ **COMPLETE IN CODE, NOT DEPLOYED, AND NOT SEEN BY ANYBODY.** All seven slices are built,
+> typechecked and tested on the Mac — **178 vitest cases** (from 45 when this plan was written) and
+> **19 mutants** run across them, **18 killed and one that needed a new test vector to kill** (W-P7 —
+> read that one, it applies to every mirrored-test file in this repo). Live is still **web 1.10.0**;
+> the hand-test sections **§W1–§W8** in [`Test Maui.md`](../Test%20Maui.md) have never been run.
+> Every register row flipped to **🟡**, none to ✅, and that is the honest state: *"built, tested where
+> a machine can reach, never seen by a human."*
+>
+> | Slice | What it closed | State |
+> |---|---|---|
+> | **W-P1** | Stop trading when the device is revoked | ✅ built · 🟡 |
+> | **W-P2** | The cached operator roster (the spine) | ✅ built · 🟡 |
+> | **W-P3** | Discount ceiling + supervisor step-up | ✅ built · 🟡 |
+> | **W-P4** | Sign in with the network down | ✅ built · 🟡 |
+> | **W-P5** | Cash events offline + reopen a Z-closed day | ✅ built · 🟡 |
+> | **W-P6** | Reprint a past receipt through the printer | ✅ built · 🟡 |
+> | **W-P7** | The card surcharge, with the fee's VAT | ✅ built · 🟡 |
+>
+> **Next on this plan: nothing.** What remains is Matt's — **deploy 1.11.0** when he asks, then the
+> hand-run. ⚠ The eight §5 rows all read 🟡 now, so the plan's own definition of done is met and its
+> value from here is as the record of *why* each rule is the way it is.
 
 > **Matt, 2026-08-17: write this so it can be completed with no questions.** So: every decision is
 > already made and written down here, every rule to copy names its exact source file, and every
@@ -1317,7 +1354,11 @@ opens.
    **exactly** — same numbers, same edge answers, same wording; (b) write **vitest** tests against
    the same cases the .NET tests pin (the .NET test file is named per slice); (c) add a **C2 row**
    in `till-design.md` saying what pins the pair. The web till HAS a test runner: `"test": "vitest
-   run"` — 45 tests today, run on the Mac with `npx vitest run`, typecheck with `npx tsc --noEmit`.
+   run"` — 45 tests when this was written, **178 after W-P7**; run on the Mac with `npx vitest run`,
+   typecheck with `npx tsc --noEmit`. ⚠⚠ **And mirroring the .NET vectors is NOT sufficient** — see
+   W-P7's survived mutant: `decimal` and `double` round differently, so a vector that pins the rule in
+   C# can pass unconditionally in TypeScript. **Mutate the TS rule and watch it go red**, or the
+   mirrored test is decoration.
 3. ⚠ **Fail open on polls, fail closed on money.** A failed network call never stops the till, never
    clears a banner, never signs anybody out. Only an explicit server answer changes state. This rule
    is load-bearing in W-P1, W-P2 and W-P4 and each names its version of it.
@@ -1699,7 +1740,41 @@ mistake" web ⬜→🟡; C2 row `cash outbox rules ↔ CashPushService`.
 
 ---
 
-### W-P6 — reprint a receipt for a past sale · ~1d
+### W-P6 — reprint a receipt for a past sale · ✅ **DONE 2026-08-17 (web 1.11.0)**
+
+> ✅ **Built — and the brief was wrong about the starting point, which is the interesting part.**
+> `reporting/SaleDetailDialog.tsx` has had a **Print copy receipt** button for months, and
+> `receiptData()` already marked the copy (`${id} (COPY)` on the sale id). The reporting page already
+> found the sale. What it did *not* have was a **printer**: it called `window.print()`, so a counter
+> with a thermal printer could not hand a customer paper.
+>
+> ⚠⚠ **So the ⬜ was not stale — it was measuring the wrong thing.** The hard halves (find the sale,
+> mark the paper) were done; the missing half was one call. The register said "cannot reprint" and the
+> code said "reprints, badly". **Seventeenth marker corrected this way**, and a new flavour of it:
+> not a ⬜ that should have been ✅, but a ⬜ hiding a *partly* built capability. ⚠ The reflex that
+> found it is the same one: **open the file before believing the row.**
+>
+> **Built:** `printCopy(d)` → `agentAvailable()` → `printDocument(receiptToDocument(receiptData(d),
+> agent.columns ?? 42, **false**))`, and the browser dialog kept as the fallback for no-agent /
+> refused. ⚠ **`false` is `openDrawer`** — no money is moving, same rule MAUI states.
+> ⚠ **A reprint must never be held up by hardware**, so every failure falls through to the browser
+> rather than refusing.
+>
+> ⚠ **The web till reprints CROSS-TILL sales and MAUI cannot.** Its list is `GET /api/v1/sales` — the
+> whole business, server-side — where MAUI reads its own SQLite. The trade runs the other way too:
+> MAUI's works with the line down. Both halves of that are now in Part B.
+>
+> ⚠⚠ **ONE RULE IS NOT CONVERGED, and it is recorded as unconverged rather than quietly counted as
+> done.** MAUI prints `** REPRINT — not a new sale **` above the first rule; the web till marks the
+> **sale-id line only**. Same purpose, weaker signal — the id is small print. The honest fix is
+> `receiptDoc.ts` taking an `isReprint` flag, which touches the shared document builder → **WP15**.
+> C2's reprint-marking row now says so, and **§W7a asks Matt to judge it on real paper**.
+>
+> **Registers done:** Part B reprint row web ⬜→🟡 (with the cross-till note) · A0's two reprint rows
+> web ⬜→🟡 · the A0 ⬜-list entry struck through · C2 marking row rewritten as a live divergence ·
+> hand-test **§W7a–c**. ⚠ **NOT DEPLOYED.**
+
+### ~~W-P6 — reprint a receipt for a past sale · ~1d~~ *(original brief)*
 
 **Why:** MAUI has had it since till 1.34.0; the web till cannot hand a customer their paper again.
 
@@ -1724,7 +1799,69 @@ for an earlier sale" + "Reprint a sale rung up on another till" web ⬜→🟡.
 
 ---
 
-### W-P7 — the card surcharge · ~½–1d
+### W-P7 — the card surcharge · ✅ **DONE 2026-08-17 (web 1.11.0)**
+
+> ✅ **Built as specified.** `src/till/surcharge.ts` — `feePence`, `pairFor`, `surchargeLine`,
+> `cardIsTendered`, `hasSurcharge` and the last-known-good cache — wired into `CheckoutDialog`, with
+> the member auto-discount exclusion in `basket.ts`. **32 vitest cases** using the .NET test's own
+> vectors. Suite **178 tests** (from 146), `tsc` clean.
+>
+> ⚠⚠ **A MUTANT SURVIVED, AND IT IS THE MOST USEFUL THING THIS SLICE PRODUCED.** The brief said "the
+> vitest file mirrors them", and mirroring them is exactly what left the rule unpinned.
+> `CardSurchargeVatTests` forces products-before-division with `3 × 10000 ÷ 12000 = 2.5`: `decimal`
+> computes the ratio as `0.8333…3`, so ratio-first gives 2.4999… and the .NET test goes red. **A
+> double rounds that ratio UP** (`0.8333333333333334`), so ratio-first gives 2.5000000000000004 and
+> the copied vector **passes**. The ratio-first mutant survived the whole suite.
+> **`45 × 70 ÷ 100 = 31.5`** is the vector that discriminates in JS (ratio-first: `45 × 0.7 =
+> 31.499999999999996`) and it is now in the file.
+>
+> ⚠ **A copied vector is not a copied guarantee** — arithmetic is only pinned where the *host
+> language's* rounding can go wrong, and that is a different set of inputs per language. Worth
+> applying to every other "mirrors the .NET tests" file in this repo. C2's new row states it.
+>
+> ⚠ Searched exhaustively afterwards (gross 50p–£50, flat fee 15–60p, every ex/gross ratio from
+> pure-20% to pure-zero-rated): **no divergence anywhere in the money range.** The rule was
+> unprotected, never wrong — said plainly so nobody re-audits old takings looking for a penny.
+>
+> ⚠ The other **five mutants died first time**: truncating the percent half, letting the fee ride on
+> returns, counting a gift card as a card, dropping the once-per-sale guard, and drifting the
+> `CARD-SURCHARGE` spelling between `surcharge.ts` and `basket.ts` (the last one is why
+> `isCardSurcharge` is exported — the two literals are pinned by a test, not an import, because
+> `surcharge.ts` already imports `basketTotals` from `basket.ts` and the reverse would be a cycle).
+>
+> ⚠⚠ **BUILT AT CHECKOUT, NEVER STORED IN BASKET STATE — the one deliberate mechanical difference
+> from MAUI.** MAUI adds the fee line to `Basket`. The web till's basket is **persisted to
+> localStorage**, so a fee line there would survive a cancelled checkout, a park/recall and a switch
+> to cash: a phantom fee on a cash sale is money nobody authorised. Derived in the dialog it cannot
+> outlive the screen that priced it. ⚠ The member-discount exclusion went in **anyway** — the reducer
+> is the one place that can be sure, and MAUI (which *does* put the line in its basket) needs exactly
+> that rule, so a reader comparing the two must not find it on one side only.
+>
+> ⚠ **The web equivalent of "picking a card method" is "a card row holds money"**, and the fee folds
+> into what is owed exactly as `TenderLoop` does it (`total += surcharge; outstanding += surcharge`).
+> ⚠ **No circularity** — the fee is a function of the goods, not of the amounts, so **rest** settles
+> in one press. ⚠ **Once per sale** falls out of the basket being the base, so a split across two
+> cards cannot be charged the flat half twice.
+>
+> ⚠ **`vatBand` is deliberately absent from the fee line** (`taxId: -1`, which no published band can
+> claim). The provisioned item sits on the **zero** band server-side, and sending `vatBand: "zero"`
+> beside a blended 1905bp rate would state that no VAT is due on a line declaring some — on a
+> standard-rated basket that reads as zero-rated output tax. MAUI reaches the same place by sending
+> `VatBandKey: null` on every line.
+>
+> ⚠ **Fails CLOSED**: `feePence`/`pairFor` throw on a negative setting or an impossible ex total, and
+> the dialog catches it, **refuses the sale** and names the problem. Completing without the fee takes
+> the wrong money silently; letting the throw escape would blank the till and lose the basket.
+>
+> ⚠ **Still dormant for Kapow** (rate zero → no line). **§W8a exists to prove exactly that**, and it
+> is the only part of §W8 that applies to normal trade.
+>
+> **Registers done:** Part B "Card surcharge" web ⬜→🟡, with the decayed-deferral note retired ·
+> **A0 row added** ("Charge the tenant's card fee, with the fee's VAT following the basket") · C1's
+> second-implementation column filled · **C2 row added**, carrying the mutation lesson · hand-test
+> **§W8a–f**, with **§W8c** as the VAT case. ⚠ **NOT DEPLOYED.**
+
+### ~~W-P7 — the card surcharge · ~½–1d~~ *(original brief)*
 
 **Why:** the tenant can set a card surcharge and the web till **ignores it** — it reads
 `charge`/`minimumCharge` off the legacy wire and does nothing. MAUI computes it at checkout
@@ -1755,7 +1892,7 @@ fee to the penny** on the same basket. **Registers:** Part B "Card surcharge" we
 
 ---
 
-### What ✅ looks like for the whole package
+### What ✅ looks like for the whole package — ✅ **met 2026-08-17, except the deploy**
 
 All 8 §5 rows and their A0 mirrors at 🟡; a `§W` section in `Test Maui.md` covering each DoD's
 hand-checks; **five new C2 rows** (device standing, operator revocation, permissions/ceiling,
@@ -1763,6 +1900,12 @@ offline credentials + PBKDF2, surcharge — plus the cash-rules row) each statin
 `versions/till-web.txt` bumped per slice; deployed **only when Matt asks**, verified on the
 four-axis artefact check every time. ⚠ 🟡 → ✅ happens only after a person runs §W — no exceptions,
 that is what 🟡 is for.
+
+✅ **Done:** the rows, the A0 mirrors, **§W1–§W8**, and **six** C2 rows (the five above plus
+cash-rules; the surcharge row landed with W-P7 and carries the mutation lesson).
+⬜ **Outstanding, both Matt's:** `versions/till-web.txt` says **1.11.0** and the build has **not been
+deployed** (live is 1.10.0), and **no §W section has been run by a person**. Nothing in this plan is
+waiting on more code.
 
 ## 6. The 15 MAUI ⬜ rows, grouped
 

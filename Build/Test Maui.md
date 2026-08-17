@@ -1791,3 +1791,135 @@ accepted-then-rejected tomorrow. The Z button should be unavailable too.
 
 7. ⚠ **Reopen with the network down.** **✅ Expected: refused** — this one is deliberately online-only.
    It is an audited supervisor action, not drawer money: if it cannot reach Plutus, it has not happened.
+
+## W7. Reprint a receipt on the web till — **NEW in web 1.11.0**
+
+⚠ Half of this has existed for months and nobody could use it in a shop: Reporting → a sale →
+**Print copy receipt** rendered a marked copy, but only through the **browser's** print dialog. A
+counter with a thermal printer had no way to hand a customer their paper again.
+
+### W7a. The copy comes off the receipt printer
+
+Needs the **hardware agent running** and a receipt printer configured.
+
+1. Sell something. Note the total and the sale id on the paper.
+2. Go to **Reporting → Custom → a date range covering today**, and open that sale.
+3. Press **Print copy receipt**.
+
+**✅ Expected:** paper comes out of the **thermal printer** — no browser print dialog at all — and the
+screen says *"Copy receipt printed."*
+
+4. ⚠⚠ **THE DRAWER MUST STAY SHUT.** No money is moving. A drawer that opens when nothing is happening
+   teaches operators that the drawer opening means nothing, which is worse than it never opening.
+5. Compare the two papers: every figure must match — items, discounts, VAT, tenders, change.
+   ⚠ The figures come from the **stored sale**, so a price change since then must not move them.
+6. ⚠ The copy must say **(COPY)** on the sale id, and the **barcode must be the same** as the
+   original's. Marking distinguishes the *paper*, never the *sale* — a copy with a different barcode
+   could not find its sale, which is the only reason anybody asks for one.
+
+⚠ **Known divergence, on purpose (till-design C2):** MAUI prints a banner — `** REPRINT — not a new
+sale **` — above the first rule. The web till marks the sale-id line only. Same purpose, weaker
+signal; converging them is a WP15 job because it touches the shared document builder. **Say so if it
+bothers you on real paper** — that is the decision this test is here to inform.
+
+### W7b. ⚠ It falls back rather than failing
+
+1. **Stop the hardware agent** (or unplug the printer and stop the agent).
+2. Reprint the same sale.
+
+**✅ Expected:** the **browser** receipt view opens, exactly as before this change. A reprint must never
+be held up by hardware — the customer is standing there.
+
+3. Restart the agent and reprint again. **✅ Expected:** back to the thermal printer.
+
+### W7c. ⚠⚠ A sale rung up on the MAUI till, reprinted from the browser
+
+1. Ring up a sale **on the MAUI till** and let it reach the server (Plutus tab → queue empty).
+2. On the **web till**, find that sale in Reporting and reprint it.
+
+**✅ Expected:** it prints. ⚠ This is the one thing the web till does here that **MAUI cannot** — its
+list is `GET /api/v1/sales`, the whole business, where MAUI reads its own SQLite. The trade runs the
+other way too: MAUI's reprint works with the line down and this one needs the server. Try it offline
+and expect the sale not to be found — that is correct, not a fault.
+
+## W8. ⚠⚠ The card fee (surcharge) on the web till — **NEW in web 1.11.0**
+
+⚠⚠ **DORMANT FOR KAPOW.** The rate is zero, so nothing appears and nothing changes. **W8a exists to
+prove exactly that**, and it is the only part of this section that applies to normal trade.
+
+⚠ UK consumer card surcharges have been **banned since 2018-01-13**. This is for tenants where a fee
+is lawful (some B2B), and it exists on the web till because MAUI has charged it since 2026-08-09 —
+two counters in one shop taking different money for the same basket is what parity means here.
+
+### W8a. With no fee set, nothing changes at all
+
+1. Sell something, pay by **card**.
+
+**✅ Expected:** no fee line, no fee message, the total is the goods total. ⚠ If anything about the
+checkout screen looks different from yesterday, **stop and report it** — this whole slice is supposed
+to be invisible until somebody sets a rate.
+
+### W8b. Set a rate, then take a card payment
+
+In the **portal → Company → Card payments**, set **1.69% + 20p**. Then, on the web till:
+
+1. Ring up **£10.00** of standard-rated goods. Open checkout. **✅ Expected:** heading says
+   **£10.00** — the fee is not charged for existing, it is charged for paying by card.
+2. Type **10.00** in the **card** row.
+
+**✅ Expected:** the heading becomes **£10.37**, a line appears saying *"Card fee £0.37 added — £10.00
+of goods + £0.37"*, and **£0.37 still to pay**.
+
+3. Press **rest** on the card row. **✅ Expected:** it fills **10.37** and Complete becomes available.
+   ⚠ The fee must **not** move again — it is a percentage of the **goods**, not of what has been
+   tendered, so this settles in one step. If it climbs each time you press rest, stop.
+4. Complete. **✅ Expected:** the receipt lists **Card surcharge £0.37** as its own line, and the total
+   matches what the card was charged.
+5. ⚠ Clear the card row and pay **cash** instead. **✅ Expected:** the fee disappears and the total goes
+   back to £10.00.
+
+### W8c. ⚠⚠ THE VAT ONE — the fee follows the goods
+
+This is the whole reason the rule is shared rather than written twice.
+
+1. **Zero-rated basket** (a children's book, most food): ring up £10.00 of zero-rated goods, pay by
+   card. **✅ Expected:** the fee is charged, and it carries **no VAT** — check the portal's VAT report
+   for today: the fee must add **nothing** to output tax. ⚠ A hardcoded 20% would take 6p of VAT that
+   HMRC says is not due, and **every total on the receipt would still add up**.
+2. **Mixed basket**: £10 standard + £10 zero-rated, pay by card. **✅ Expected:** the fee's VAT sits
+   **between** the two — apportioned by value, not the standard rate.
+3. ⚠ Compare against the **MAUI till** with the same basket and the same setting. **✅ Expected: the
+   same pence.** Both tills price this from `CardSurchargeVat` / `surcharge.ts`, and a penny of
+   disagreement here is a penny of disagreement on every VAT return afterwards.
+
+### W8d. Once per sale, never on a refund
+
+1. **Split across two cards**: £5 on card, £5.37 on card. **✅ Expected:** the **flat 20p is charged
+   once**, not twice. The fee for the sale is one figure, however many times a card is used.
+2. **A refund** (return an item, nothing sold): pay it back to card. **✅ Expected: no fee.** A refund
+   attracts no surcharge — there is no supply for the fee to follow.
+3. **Gift card / store credit**: pay entirely with one. **✅ Expected: no fee.** Neither is an acquirer
+   transaction, so there is no cost to pass on. ⚠ *"Gift card"* contains the word "card"; if a fee
+   appears here the tender mapping is wrong.
+4. ⚠ **A mixed basket that nets NEGATIVE** (£1 sold, £500 returned) paid by card **does** attract a
+   fee, on **both** tills. It looks odd and it is deliberate — MAUI's rule is *"any sale line at
+   all"*, and inventing a different answer on the web till would be the divergence. Report it if it
+   bites in real trade and it gets changed **in both places**.
+
+### W8e. ⚠ The fee with the line down
+
+1. Take a card payment with a fee set, online. Then **pull the cable** and start a new sale.
+
+**✅ Expected:** the same fee is still charged — last-known-good, from `localStorage` (MAUI caches it
+in its Meta store for the same reason). ⚠ A fee that vanished offline and came back online would make
+two identical baskets total differently an hour apart, and the operator would wear the argument.
+
+2. On a till that has **never** connected: **✅ Expected: no fee.** Charging nothing beats guessing.
+
+### W8f. ⚠ Set a rate the portal would not allow
+
+Only reachable by editing the setting directly in the database — a negative `SurchargeBp`.
+
+**✅ Expected:** the sale is **REFUSED** at checkout with a sentence naming the problem, and the till
+stays usable so the operator can take cash. ⚠ Fail **closed** on money: completing without the fee
+takes the wrong money silently, and a blank screen loses the basket as well as the sale.

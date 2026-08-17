@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { fetchSaleDetail, type SaleDetail } from "../api.ts";
 import { gbp } from "../money.ts";
 import Receipt, { type ReceiptData } from "../till/Receipt.tsx";
+import { receiptToDocument } from "../till/receiptDoc.ts";
+import { agentAvailable, printDocument } from "../hardware.ts";
 
 const p = (pounds: number) => Math.round(pounds * 100);
 
@@ -10,6 +12,47 @@ export default function SaleDetailDialog({ saleId, onClose }: { saleId: string; 
   const [detail, setDetail] = useState<SaleDetail | null>(null);
   const [error, setError] = useState("");
   const [reprint, setReprint] = useState(false);
+  /** W-P6: set once the copy has gone to the thermal printer, so the browser dialog is not also raised. */
+  const [notice, setNotice] = useState("");
+  const [printing, setPrinting] = useState(false);
+
+  /**
+   * W-P6 — send the copy to the RECEIPT PRINTER, falling back to the browser dialog.
+   *
+   * ⚠⚠ WHY THIS WAS THE GAP. This dialog could already reprint, but only through `window.print()` —
+   * the browser's own print path. MAUI sends a reprint to the thermal printer via the agent (till
+   * 1.34.0), so "reprint a past receipt" was a capability the web till half had: a shop with a
+   * receipt printer could not hand a customer their paper again from the browser till.
+   *
+   * ⚠⚠ THE DRAWER MUST NOT KICK — `openDrawer: false`, the third argument. No money is moving. A
+   * reprint that opened the drawer would teach operators that the drawer opening means nothing, which
+   * is worse than it not opening at all. Same rule MAUI's `ReceiptReprint` states.
+   *
+   * ⚠ THE COPY IS MARKED — `receiptData` puts `(COPY)` on the sale id, and that is a MONEY rule, not a
+   * courtesy: this platform's refund flow finds a sale by the barcode on a receipt, so two
+   * indistinguishable papers for one purchase is the shape of a double refund.
+   *
+   * ⚠ Any failure falls through to the browser receipt, exactly as a sale receipt does — a reprint must
+   * never be held up by hardware.
+   */
+  async function printCopy(d: SaleDetail) {
+    setPrinting(true);
+    setNotice("");
+    try {
+      const agent = await agentAvailable();
+      if (agent) {
+        const ok = await printDocument(receiptToDocument(receiptData(d), agent.columns ?? 42, false));
+        if (ok) {
+          setNotice("Copy receipt printed.");
+          return;
+        }
+      }
+      // No agent, or it refused — the browser dialog is the fallback, as before.
+      setReprint(true);
+    } finally {
+      setPrinting(false);
+    }
+  }
 
   useEffect(() => {
     fetchSaleDetail(saleId)
@@ -43,6 +86,7 @@ export default function SaleDetailDialog({ saleId, onClose }: { saleId: string; 
       <div className="dialog wide">
         <h2>Sale detail</h2>
         {error && <p className="error small">{error}</p>}
+        {notice && <p className="muted small">{notice}</p>}
         {!detail && !error && <p className="muted">Loading…</p>}
 
         {detail && (
@@ -148,8 +192,8 @@ export default function SaleDetailDialog({ saleId, onClose }: { saleId: string; 
             Close
           </button>
           {detail && (
-            <button className="primary" onClick={() => setReprint(true)}>
-              Print copy receipt
+            <button className="primary" disabled={printing} onClick={() => void printCopy(detail)}>
+              {printing ? "Printing…" : "Print copy receipt"}
             </button>
           )}
         </div>

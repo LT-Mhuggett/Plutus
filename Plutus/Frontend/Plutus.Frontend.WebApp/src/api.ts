@@ -415,7 +415,22 @@ export async function sendHeartbeat(): Promise<void> {
 
 // 17.2 the tenant's card-payment setup: provider label + whether an integration is wired.
 // "standalone" (the default) = external chip & pin, cashier confirms approval before completing.
-export interface ActiveGateway { provider: string; label: string; integrated: boolean }
+/**
+ * The tenant's card-payment setup, as the till needs it.
+ *
+ * ⚠ W-P7: `surchargeBp` / `surchargeFlatPence` are the tenant's CARD SURCHARGE (percent bp + flat
+ * pence; both zero = none), and they are money. The till applies them as a `CARD-SURCHARGE` line
+ * whose VAT FOLLOWS THE BASKET (`till/surcharge.ts`, the twin of `SharedKernel.CardSurchargeVat`) —
+ * never a hardcoded rate. Optional in the TYPE only so a till pointed at a backend older than
+ * 2026-08-09 reads them as absent and charges nothing, rather than NaN.
+ */
+export interface ActiveGateway {
+  provider: string;
+  label: string;
+  integrated: boolean;
+  surchargeBp?: number;
+  surchargeFlatPence?: number;
+}
 export const fetchActiveGateway = () => get<ActiveGateway>("/api/v1/payments/gateway/active");
 
 // OP4 / WP6.3: support tickets from the till — raise + read history + reply (gated support.tickets).

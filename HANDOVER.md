@@ -9,7 +9,7 @@
 > [`archive/handover-history-to-2026-08-17.md`](Build/archive/handover-history-to-2026-08-17.md).
 > **Do not grow this file back into a history.** Rewrite it; the commits are the record.
 
-**Written:** 2026-08-17 · **Head:** `git log -1` · **Suites:** unit 1310 · MAUI 598 · web till 45 — all green
+**Written:** 2026-08-17 · **Head:** `git log -1` · **Suites:** unit 1310 · MAUI 598 · web till **178** — all green
 
 ---
 
@@ -46,6 +46,12 @@ so far has found something the tests could not.**
 parity is closed *on paper*; those 17 🟡 are the ones no human has seen. **Running §G validates
 seventeen rows; there is no remaining MAUI build work that would move any.**
 
+⚠⚠ **And as of 2026-08-17 the WEB till's eight ⬜ rows are 🟡 too** (§5b W-P1…W-P7 — see the table
+below). So **every capability row on both tills is now ✅ or 🟡**, and there is no build work left on
+either till that would move one. **The only thing that turns 🟡 into ✅ is a person at a screen** —
+which makes the hand-run the single highest-value thing anybody can do to this project right now, and
+§W the newest, least-looked-at part of it.
+
 ---
 
 ## What a person needs to decide next (nothing is blocked on it today)
@@ -55,7 +61,7 @@ seventeen rows; there is no remaining MAUI build work that would move any.**
 | **The legacy DB import** | ⚠ Matt has *"a more recent DB to import"* and everything must be **retained and translated** — [L4](Build/To%20do/MAUI-retrofit.md) is now a work package, not a deletion. ⚠ **Do not start by writing an importer**: look at the DB first and record what is in it. An importer against a guessed schema mangles history, and that one is not reversible once the takings are wrong |
 | **`origin` history surgery** | `origin` cannot be pushed — a 151 MB blob in old history that `upstream` already has. Needs an LFS migration or an orphan branch. `upstream` is the off-machine copy meanwhile |
 | **Whether W5's mechanics come next** | Its policy half is built (`AgentUpdatePrompt`); the packaging, exe swap and `ExpectedAgentVersion` are not |
-| ⚠ **Web till 1.11.0 is BUILT but NOT DEPLOYED** | **W-P1, W-P2 and W-P3 of [§5b](Build/To%20do/MAUI-retrofit.md) are done** — a revoked browser till now stops, a disabled operator is signed out inside 60 s, and a cashier has a discount limit with a supervisor step-up. **99 vitest tests** (was 45), `tsc` clean, six mutants killed. ⚠ Hand-tests **§W1–§W4** in `Test Maui.md`, and **§W4f** is the one to not skip — the limit must survive the network dropping. **W-P4…W-P7 remain** (~5–6d): offline sign-in, cash offline + Z-reopen, past-receipt reprint, card surcharge |
+| ⚠⚠ **Web till 1.11.0: ALL SEVEN §5b SLICES ARE DONE, and it is NOT DEPLOYED** | **[§5b](Build/To%20do/MAUI-retrofit.md) W-P1…W-P7 complete in code.** A revoked browser till stops; a disabled operator is signed out inside 60 s; a cashier has a discount limit with a supervisor step-up; the till **signs in, sells and takes cash with the line down**; a Z-closed day can be reopened; a past receipt reprints **on the thermal printer** (cross-till, which MAUI cannot do); and the tenant's **card fee** is charged with the fee's VAT following the basket. **178 vitest tests** (was 45), `tsc` clean, **19 mutants run — 18 killed, 1 that needed a new vector**. ⚠ Nothing on that plan is waiting on more code: what is left is **deploy** (your call) and the **hand-run**, `Test Maui.md` **§W1–§W8**. ⚠ Not to skip: **§W4f** (the discount limit must survive the network dropping), **§W6b** (a Z must wait for its own day's sales) and **§W8a** (with no card fee set, the checkout screen must look *exactly* as it did yesterday) |
 
 ---
 
