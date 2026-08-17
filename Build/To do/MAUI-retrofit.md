@@ -1632,7 +1632,40 @@ hashes cached client-side = the same posture as MAUI's roster cache, already doc
 
 ---
 
-### W-P5 — cash events offline + reopen a Z-closed day · ~2d
+### W-P5 — cash events offline + reopen a Z-closed day · ✅ **DONE 2026-08-17 (web 1.11.0)**
+
+> ✅ **Built as specified.** `cashOutbox.ts` (the queue + drain) and `cashRules.ts` (the three
+> decisions), a `cashOutbox` store on **DB v3**, drained on the beat and on the `online` event,
+> "waiting to send" on the Cash page, and a **Reopen this day…** action gated `pos.cash.reopen`.
+> **17 vitest cases**, both money mutants killed. Suite **146 tests**, `tsc` clean.
+>
+> ⚠ **The decisions were split into `cashRules.ts` rather than left inside the queue.** The queue is
+> IndexedDB and needs a browser; every way this feature can lose or hide money is a *decision*, and a
+> decision tests without one. Same split as `deviceStanding`/`roster`/`permissions`.
+>
+> ⚠ **Two orderings that are load-bearing, both decided while building:**
+> - **Sales drain BEFORE cash.** A Z waits for its own day's sales, so draining cash first would just
+>   stall on a Z that the sales drain is about to unblock.
+> - **Queue BEFORE sending.** A browser that dies between the POST and the local write would otherwise
+>   lose the money; the other order cannot.
+>
+> ⚠ **The expected drawer is still never computed locally** — `expectedPence` is set only when the
+> platform ANSWERED, so an offline X/Z shows the count without inventing an expectation. That rule was
+> already load-bearing on MAUI and is unchanged.
+>
+> ⚠ **The local Z guard refuses every type after a Z, not merely a second Z** — the server's guard
+> cannot be consulted with the line down, which is exactly when it matters. ⚠ And a **ZReopen** is the
+> one exception, because locking the escape hatch inside the thing it unlocks would strand a till until
+> midnight.
+>
+> ⚠ **`ZReopen` was added to `pipeline.ts`'s `CashEventType`** — the server has accepted it since
+> backend 1.15.0; only the client type was missing.
+>
+> **Registers done:** Part B Z-reopen row + the Cash row's web half web ⬜→🟡 · A0's two rows web ⬜→🟡 ·
+> **C2 row added** (`CashPushService ↔ cashRules.ts`) · hand-test **§W6a–d**, with **§W6b** as the money
+> case. ⚠ **NOT DEPLOYED.**
+
+### ~~W-P5 — cash events offline + reopen a Z-closed day · ~2d~~ *(original brief)*
 
 **Why:** `CashPage.tsx` posts online-only through `pipeline.ts postCashEvent` — a float taken while
 the line is down is a day that cannot be reconciled. And the server has had `ZReopen` live since

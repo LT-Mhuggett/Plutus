@@ -264,7 +264,10 @@ export async function postSale(request: IngestSaleRequest): Promise<PostSaleOutc
 // the start/middle of a shift, Z at the end), so — unlike checkout — these post
 // directly rather than through the offline outbox.
 
-export type CashEventType = "OpenFloat" | "PaidIn" | "PaidOut" | "XSnapshot" | "ZClose";
+/** ⚠ `ZReopen` added W-P5 (2026-08-17). It is the ONE event a Z-closed day accepts — a compensating
+ *  event, never a deletion: erasing the ZClose would erase that somebody counted and banked the
+ *  drawer, and the variance computed against it. Both stay. */
+export type CashEventType = "OpenFloat" | "PaidIn" | "PaidOut" | "XSnapshot" | "ZClose" | "ZReopen";
 
 export interface CashEventResult {
   type: CashEventType;

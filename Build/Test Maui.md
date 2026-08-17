@@ -1727,3 +1727,67 @@ that is a bug — it would close a shop over a connection problem.
 Sign in late in the evening (say after 22:00). **✅ Expected:** the session ends at **midnight**, not 12
 hours later. ⚠ A session spanning two business days puts yesterday's operator on today's X/Z
 breakdown, and after a shift change attributes the new person's sales to the old one.
+
+## W6. ⚠⚠ Cash with the network down, and reopening a closed day — **NEW in web 1.11.0**
+
+⚠⚠ **The web till posted cash online-only.** A float taken while the line was down was simply lost —
+and **a shop opens before its broadband does.** The money moves whether or not Plutus hears about it,
+so a float that failed to post is a day whose banking cannot be reconciled at all. MAUI has queued
+these since till 1.44.0.
+
+### W6a. Take a float with the cable out
+
+1. **Unplug the network.** Go to **Cash**.
+2. Open a float of **£50**.
+
+**✅ Expected:** it is accepted, and says it is **recorded on this till and waiting to send** — ⚠ NOT an
+error. If it reports a failure the operator will record it again, and the day will be £50 out.
+
+3. Record a **paid out** of £5 with a reason. **✅ Expected:** also queued.
+4. **Plug the network back in.**
+
+**✅ Expected:** within a minute the "waiting to send" count clears on its own. Check the **portal** —
+both events are there, with their original times.
+
+### W6b. ⚠⚠ A Z close waits for that day's sales
+
+1. **Unplug the network.** Ring up **two sales** (they queue).
+2. Still offline, do a **Z close**, counting the drawer correctly.
+3. **Plug back in** and watch.
+
+**✅ Expected:** the sales go first, **then** the Z — and the variance is **correct**.
+
+**❌ If the Z reports you short by the value of those two sales, stop and report it.** That is the
+failure this rule exists for: the expected drawer is float + **cash takings** + ins − outs, so a Z that
+overtakes its own sales accuses the person who counted correctly. ⚠ And because a Z is final on the
+server, it would then reject those sales — putting the day's real takings into quarantine behind their
+own close.
+
+### W6c. Nothing else goes on a closed day
+
+After a Z (online), try to record a **paid in**.
+
+**✅ Expected: refused**, saying the drawer is closed for today — ⚠ and refused **at the counter**, not
+accepted-then-rejected tomorrow. The Z button should be unavailable too.
+
+### W6d. Reopen a day closed by mistake
+
+⚠ The server has supported this since backend 1.15.0; **nothing on the web till could call it.**
+
+1. Z-close the day.
+2. As a **Supervisor**, press **Reopen this day…**
+3. Try it with an **empty reason**. **✅ Expected: refused** — *"no reason given"* in an audit trail is
+   worse than no trail, because it looks like a record.
+4. Give a reason and reopen.
+
+**✅ Expected:** trading resumes, and you can record cash again.
+
+5. Check the **portal**: ⚠⚠ **both** the close **and** the reopen must be there — *"closed 17:32,
+   reopened 17:41, by X, because Y"*. The close must **not** have vanished: deleting it would erase
+   that somebody counted and banked that drawer.
+
+6. Sign in as a **Cashier** and Z-close again. **✅ Expected:** no reopen button — a supervisor can, they
+   cannot. ⚠ The person who counted the drawer must not be the only one who can quietly un-count it.
+
+7. ⚠ **Reopen with the network down.** **✅ Expected: refused** — this one is deliberately online-only.
+   It is an audited supervisor action, not drawer money: if it cannot reach Plutus, it has not happened.

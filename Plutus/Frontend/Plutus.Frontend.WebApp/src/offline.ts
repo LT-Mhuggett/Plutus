@@ -9,7 +9,10 @@ import type { Item, PayMethod, Discount } from "./api.ts";
 import type { IngestSaleRequest } from "./pipeline.ts";
 
 const DB_NAME = "plutus-till";
-const DB_VERSION = 2;
+// ⚠ v3 (W-P5, 2026-08-17): adds the `cashOutbox` store so cash events survive an outage. ⚠ The bump
+// is required BECAUSE a new object store can only be created inside `onupgradeneeded` — the
+// `contains` guards below make the upgrade idempotent and leave every existing store untouched.
+const DB_VERSION = 3;
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -20,6 +23,10 @@ function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains("meta")) db.createObjectStore("meta");
       if (!db.objectStoreNames.contains("outbox")) db.createObjectStore("outbox", { keyPath: "saleId" });
       if (!db.objectStoreNames.contains("parked")) db.createObjectStore("parked", { keyPath: "saleId" });
+      // ⚠⚠ W-P5: cash events queue here when the line is down. A shop opens before its broadband
+      // does, and the money moves whether or not the platform hears — so a float that failed to post
+      // is a day whose banking cannot be reconciled at all.
+      if (!db.objectStoreNames.contains("cashOutbox")) db.createObjectStore("cashOutbox", { keyPath: "eventId" });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -108,7 +115,10 @@ export type TillStateKey =
   /** W-P2: the whole `TillOperatorsResult` envelope, verbatim. ⚠ The envelope, not rows —
    *  `asOfUtc` is roster-level and is the SERVER's clock, which W-P4's staleness horizons are
    *  measured from. */
-  | "operatorRoster";
+  | "operatorRoster"
+  /** W-P5: the platform's own words on the last terminally-refused cash event, so the Cash screen
+   *  can show it without re-reading the whole outbox. */
+  | "lastCashRefusal";
 
 export const putTillState = <T>(key: TillStateKey, value: T): Promise<void> =>
   tx("meta", "readwrite", (s) => s.put(value, key)).then(() => undefined);
@@ -159,6 +169,23 @@ export interface ParkedSale extends QueuedSale {
 
 export const queueSale = (q: QueuedSale) => tx("outbox", "readwrite", (s) => s.put(q)).then(() => undefined);
 export const queuedSales = (): Promise<QueuedSale[]> => tx("outbox", "readonly", (s) => s.getAll() as IDBRequest<QueuedSale[]>);
+
+/**
+ * W-P5: how many sales for one business day are still waiting to be sent.
+ *
+ * ⚠⚠ THE Z CLOSE WAITS ON THIS. The platform's expected drawer is float + **cash takings** + ins − outs,
+ * so a Z that overtakes queued sales reports a shortage equal to every sale still waiting — a till that
+ * traded £400 through an outage would tell the person who counted it correctly that they were £400
+ * down. ⚠ And because the Z is terminal server-side, it would then refuse those very sales, putting the
+ * day's real takings into quarantine behind their own close.
+ *
+ * ⚠ PENDING ONLY, never parked/refused: a permanently-rejected sale would block this till's close for
+ * ever. It counts the `outbox` store, which is exactly "not yet accepted".
+ *
+ * ⚠ Per business DAY, so one stuck sale from last week cannot block every close from now on.
+ */
+export const pendingSalesForDay = async (day: string): Promise<number> =>
+  (await queuedSales()).filter((s) => s.request?.businessDay === day).length;
 export const removeQueued = (saleId: string) => tx("outbox", "readwrite", (s) => s.delete(saleId)).then(() => undefined);
 export const queuedCount = (): Promise<number> => tx("outbox", "readonly", (s) => s.count());
 

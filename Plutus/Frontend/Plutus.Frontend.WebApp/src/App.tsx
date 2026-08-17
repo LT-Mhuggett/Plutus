@@ -20,7 +20,8 @@ import { hasPortalAccess, portalUrl } from "./sibling.ts";
 import { onNewItemRequested } from "./newItemHandoff.ts";
 import { basketLineCount } from "./till/basket.ts";
 import { refreshTheme } from "./theme.ts";
-import { queuedCount } from "./offline.ts";
+import { pendingSalesForDay, queuedCount } from "./offline.ts";
+import { drainCashOutbox } from "./cashOutbox.ts";
 import { getSession, type Session } from "./session.ts";
 import { oidcMode, signOut } from "./auth.ts";
 import { beginLogin, completeLoginIfCallback } from "./oidc.ts";
@@ -149,14 +150,23 @@ export default function App() {
     const refreshQueued = () => void queuedCount().then(setQueued);
     refreshQueued();
     const offOutbox = onOutboxChanged(refreshQueued);
+    // ⚠ W-P5: the CASH queue drains beside the sale outbox. ⚠ Sales FIRST, deliberately — a Z close
+    // waits for its own day's sales, so draining cash first would just stall on a Z that the sales
+    // drain is about to unblock.
+    const drainBoth = async () => {
+      await drainOutbox();
+      await drainCashOutbox(pendingSalesForDay);
+      await refreshQueued();
+    };
+
     const goOnline = () => {
       setOnline(true);
-      void drainOutbox().then(refreshQueued);
+      void drainBoth();
     };
     const goOffline = () => setOnline(false);
     window.addEventListener("online", goOnline);
     window.addEventListener("offline", goOffline);
-    void drainOutbox().then(refreshQueued); // catch anything queued before a reload
+    void drainBoth(); // catch anything queued before a reload — sales and cash
     void syncCatalogue().catch(() => undefined); // offline scanning working set
     void loadReceiptTemplate(); // WP11.2: cache the per-store receipt template for printing
     void loadVatBands(); // WP2c: the portal's VAT bands — no till holds a VAT rate of its own
