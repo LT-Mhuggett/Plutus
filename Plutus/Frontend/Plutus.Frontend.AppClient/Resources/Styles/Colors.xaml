@@ -1,0 +1,74 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<?xaml-comp compile="true" ?>
+<!--
+    Step 22 / 7a — the MAUI till's palette.
+
+    ⚠ PORTED VERBATIM from `Plutus.Frontend.ClientUI/Resources/Styles/Colors.xaml` (2026-08-17), under
+    the SAME `x:Key` names, so every existing binding resolves unchanged. ClientUI is the abandoned
+    port being retired ([L10]) — the palette had to land here BEFORE that project is dropped from the
+    solution, or the till loses its colour scheme entirely.
+
+    ⚠ AppClient had NO theme resources at all before this: `App.xaml` registered a single value
+    converter. Anything that looked coloured was a hard-coded hex in a view.
+-->
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- ── The stock palette, verbatim from ClientUI ───────────────────────────────────────── -->
+    <Color x:Key="Primary">#272643</Color>
+    <Color x:Key="Secondary">#ffffff</Color>
+    <Color x:Key="Tertiary">#e3f6f5</Color>
+    <Color x:Key="Quaternary">#bae8e8</Color>
+    <Color x:Key="Quinary">#2c698d</Color>
+    <Color x:Key="White">White</Color>
+    <Color x:Key="Black">Black</Color>
+    <Color x:Key="Error">#FF9494</Color>
+
+    <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Primary}"/>
+    <SolidColorBrush x:Key="SecondaryBrush" Color="{StaticResource Secondary}"/>
+    <SolidColorBrush x:Key="TertiaryBrush" Color="{StaticResource Tertiary}"/>
+    <SolidColorBrush x:Key="QuaternaryBrush" Color="{StaticResource Quaternary}"/>
+    <SolidColorBrush x:Key="QuinaryBrush" Color="{StaticResource Quinary}"/>
+    <SolidColorBrush x:Key="WhiteBrush" Color="{StaticResource White}"/>
+    <SolidColorBrush x:Key="BlackBrush" Color="{StaticResource Black}"/>
+
+    <Color x:Key="Cyan100Accent">#28C2D1</Color>
+    <Color x:Key="Cyan200Accent">#7BDDEF</Color>
+    <Color x:Key="Cyan300Accent">#C3F2F4</Color>
+    <Color x:Key="Blue100Accent">#3E8EED</Color>
+    <Color x:Key="Blue200Accent">#72ACF1</Color>
+    <Color x:Key="Blue300Accent">#A7CBF6</Color>
+
+    <!--
+        ── The SEVEN PORTAL SLOTS ───────────────────────────────────────────────────────────────
+
+        ⚠⚠ THE SAME SEVEN NAMES THE WEB TILL USES (`theme.ts SLOT_VARS`), and they are named after the
+        slots rather than mapped onto the legacy palette keys above. Step 22 requires *"same slots, same
+        names, same resolution order as the web till"* — remapping the `accent` slot onto `Quinary` would have
+        worked once and then quietly diverged the first time either palette was touched.
+
+        ⚠ These are the ONLY keys `Theming.Apply` overwrites. Everything above is left alone, which is
+        what makes clearing an override in the portal restore the stock palette **exactly** — and what
+        makes the palette a real fallback rather than dead code.
+
+        ⚠ The values here ARE the stock theme. `ThemeAccent` is `#2c698d` = `Quinary` = the web till's
+        `DEFAULT_ACCENT`; the two palettes were designed together and this literal is the seam.
+    -->
+    <Color x:Key="ThemeAccent">#2c698d</Color>
+    <Color x:Key="ThemeAccentInk">#ffffff</Color>
+    <Color x:Key="ThemeSurface">#ffffff</Color>
+    <Color x:Key="ThemeSurface2">#e3f6f5</Color>
+    <Color x:Key="ThemeInk">#272643</Color>
+    <Color x:Key="ThemeInkMuted">#5a5a6e</Color>
+    <Color x:Key="ThemeLine">#bae8e8</Color>
+
+    <SolidColorBrush x:Key="ThemeAccentBrush" Color="{StaticResource ThemeAccent}"/>
+    <SolidColorBrush x:Key="ThemeAccentInkBrush" Color="{StaticResource ThemeAccentInk}"/>
+    <SolidColorBrush x:Key="ThemeSurfaceBrush" Color="{StaticResource ThemeSurface}"/>
+    <SolidColorBrush x:Key="ThemeSurface2Brush" Color="{StaticResource ThemeSurface2}"/>
+    <SolidColorBrush x:Key="ThemeInkBrush" Color="{StaticResource ThemeInk}"/>
+    <SolidColorBrush x:Key="ThemeInkMutedBrush" Color="{StaticResource ThemeInkMuted}"/>
+    <SolidColorBrush x:Key="ThemeLineBrush" Color="{StaticResource ThemeLine}"/>
+
+</ResourceDictionary>

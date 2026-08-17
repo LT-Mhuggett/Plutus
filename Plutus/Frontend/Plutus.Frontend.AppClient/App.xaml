@@ -5,6 +5,13 @@
              x:Class="Plutus.Frontend.AppClient.App">
     <Application.Resources>
         <ResourceDictionary>
+            <!-- Step 22 / 7a — the palette, ported from ClientUI before that project is dropped
+                 ([L10]). ⚠ Merged rather than inlined so `Theming.Apply` can find the seven
+                 `Theme*` keys by name at runtime and overwrite only those. -->
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
             <xamlHelpers:MaterialIconGlyphConverter x:Key="MaterialIconConverter" />
         </ResourceDictionary>
     </Application.Resources>

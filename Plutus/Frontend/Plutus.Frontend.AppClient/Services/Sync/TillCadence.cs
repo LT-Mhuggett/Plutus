@@ -338,6 +338,17 @@ namespace Plutus.Frontend.AppClient.Services.Sync
             // reverting a shop's receipt mid-day.
             await Printing.ReceiptBranding.RefreshAsync(ct).ConfigureAwait(false);
 
+            // 4b2. The PORTAL'S THEME (FE10 / step 22).
+            //
+            // ⚠ Matt, 2026-08-17: *"Changing the theme in the portal needs to be consistent across the
+            // web and MAUI till."* Same endpoint, same 60s cadence and the same seven slots as the web
+            // till — the server resolves till > group > store > tenant > default, so neither till
+            // decides anything about colour.
+            //
+            // ⚠ A failed fetch keeps the LAST-KNOWN theme. Reverting a shop's branding mid-day because
+            // a poll failed would be a visible fault caused by an invisible one.
+            await Theming.Theming.RefreshAsync(ct).ConfigureAwait(false);
+
             // 4c. The NOTICEBOARD — pick-from-floor notes and platform announcements (WP5b).
             //
             // ⚠ `Plutus.Client.Core.NoticesClient` shipped 2026-08-09 with 23 tests and was

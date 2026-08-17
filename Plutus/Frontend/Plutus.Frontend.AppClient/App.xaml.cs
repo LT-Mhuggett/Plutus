@@ -90,6 +90,13 @@ namespace Plutus.Frontend.AppClient
             //
             // Connect-to-Plutus stays reachable as a tab inside the shell, which is where it belongs
             // once the till is working: diagnostics, not a doorway.
+            // ⚠⚠ THE CACHED THEME GOES ON BEFORE THE FIRST SCREEN (step 22 / FE10). Without this the
+            // till paints the stock palette, then repaints in the shop's colours a moment later — the
+            // flash the web till avoids by applying its cache in `main.tsx` before React mounts.
+            // ⚠ Fire-and-forget and self-marshalling: colours must never delay a till starting, and a
+            // theme that cannot be read is a till in the stock palette, not a till that will not open.
+            _ = Services.Theming.Theming.ApplyCachedAsync();
+
             var enrolled = Services.Connectivity.SecureDeviceCredentialStore.IsEnrolled();
             var hasLegacyDb = ((AppViewModel)BindingContext).DatabaseProviderSetting != null
                               && Helpers.Database.Database.LocalDbExist();

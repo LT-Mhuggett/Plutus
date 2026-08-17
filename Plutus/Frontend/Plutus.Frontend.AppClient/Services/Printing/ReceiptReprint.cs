@@ -114,9 +114,16 @@ namespace Plutus.Frontend.AppClient.Services.Printing
 
             if (status is null)
             {
-                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                    "No printer is set up on this till. Set one up under Settings → Receipt printer.",
-                    "OK".Translate());
+                // ⚠⚠ NO PRINTER IS NO LONGER A DEAD END (2026-08-17). This used to stop here, which
+                // left the one thing the operator was asked for — showing a customer their receipt —
+                // impossible on a till whose printer is unset, out of paper or unplugged. The receipt
+                // exists either way; only the paper is missing. So offer the screen.
+                var seeIt = await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "No printer is set up on this till. Set one up under Settings → Receipt printer.\n\n"
+                    + "You can still show the customer their receipt on screen.",
+                    "Show on screen", "OK".Translate());
+
+                if (seeIt) await ShowOnScreenAsync(input, columns: 42);
                 return;
             }
 
@@ -126,9 +133,50 @@ namespace Plutus.Frontend.AppClient.Services.Printing
             var doc = ReceiptDocumentBuilder.Build(branded);
             var ok = await new TillAgentClient(Http).PrintAsync(doc, App.GetViewModel().TillAgentTokenSetting ?? "");
 
-            await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                ok ? "Sent to the printer." : "The printer didn't take it. Nothing has been changed.",
-                "OK".Translate());
+            // ⚠ A FAILED PRINT OFFERS THE SCREEN. The paper not coming out is exactly when a customer
+            // still needs to see what they were charged, and re-deriving nothing: `doc` is already
+            // built, so the offer costs one branch.
+            if (ok)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), "Sent to the printer.",
+                    "OK".Translate());
+                return;
+            }
+
+            var onScreen = await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                "The printer didn't take it. Nothing has been changed.\n\n"
+                + "You can show the customer their receipt on screen instead.",
+                "Show on screen", "OK".Translate());
+
+            if (onScreen) await ShowDocumentAsync(doc);
+        }
+
+        /// <summary>
+        /// Show a receipt on screen instead of printing it (2026-08-17).
+        ///
+        /// ⚠⚠ IT RENDERS THE SAME `PrintDocument` THE PRINTER WOULD GET — via
+        /// `Client.Core.ReceiptPreview`, which exists so the screen and the paper cannot disagree.
+        /// Laying the receipt out a second time for a screen is how a preview ends up showing the right
+        /// total while the customer's copy says something else.
+        ///
+        /// ⚠ NOT A PIXEL PREVIEW, and the wording says so: bold, double-height and barcodes have no
+        /// honest text equivalent on a thermal printer, so this shows content and layout. Claiming more
+        /// would be lying about a device the till cannot see.
+        /// </summary>
+        public static async Task ShowOnScreenAsync(ReceiptDocInput input, int columns)
+        {
+            var branded = await ReceiptBranding.ApplyAsync(input with { Columns = columns });
+            await ShowDocumentAsync(ReceiptDocumentBuilder.Build(branded));
+        }
+
+        private static async Task ShowDocumentAsync(Plutus.TillAgent.Core.PrintDocument doc)
+        {
+            // ⚠ The receipt is monospaced by construction (the printer's columns), and `DisplayAlert`
+            // renders in the app font — so the columns will not line up perfectly. Accepted
+            // deliberately: a dedicated monospaced page is step-22-adjacent screen work, and the
+            // FIGURES are what a customer is being shown.
+            await Application.Current.MainPage.DisplayAlert(
+                "Receipt", Plutus.Client.Core.ReceiptPreview.Text(doc), "Close");
         }
 
         private const string AnotherTill = "Sold on another till — look it up in Plutus…";

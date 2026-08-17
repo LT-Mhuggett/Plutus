@@ -1,6 +1,6 @@
 # Test Maui — the MAUI till hand-test script
 
-**For till 1.72.0.** Anyone can run this. You do not need to know the codebase, and you should not
+**For till 1.73.0.** Anyone can run this. You do not need to know the codebase, and you should not
 need to ask anyone what a step means — if a step is unclear, that is a bug in this document, so please
 say so.
 
@@ -46,7 +46,7 @@ on 2026-08-11 came from somebody noticing something, not from a step asking the 
 
 | | |
 |---|---|
-| **Run** | ⚠⚠ **ASK FOR A 1.72.0 BUILD BEFORE STARTING.** The build on disk is `D:\tmp\plutus-till-1.71.0\Plutus.Frontend.AppClient.exe` (verified `1.71.0+6e4e787e`), and it is **missing two things worth testing**: the **percentage discount fix** (§F — a typed `10` used to multiply the price by ten) and the **roster move** (§G30 — offline sign-in after an upgrade). Both are committed; only the artefact is behind. ⚠ **Nothing older than 1.71.0.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
+| **Run** | ⚠⚠ **ASK FOR A 1.73.0 BUILD BEFORE STARTING.** The build on disk is `D:\tmp\plutus-till-1.71.0\Plutus.Frontend.AppClient.exe` (verified `1.71.0+6e4e787e`), and it is **missing two things worth testing**: the **percentage discount fix** (§F — a typed `10` used to multiply the price by ten) and the **roster move** (§G30 — offline sign-in after an upgrade). Both are committed; only the artefact is behind. ⚠ **Nothing older than 1.71.0.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
 | **Agent** | ⚠ **Agent 1.4.0 is REQUIRED for §G29**, and it fixes "start automatically" not working after a reboot. Get it from the **web till → Settings → Hardware → Download the agent (v1.4.0)**, or from `tools\Plutus.TillAgent\publish-out\PlutusTillAgent-1.4.0.exe`. ⚠⚠ **Copy it to `%LOCALAPPDATA%\Plutus\Agent\` and run it from THERE — not from Downloads.** Auto-start records the path it was launched from; a Downloads copy gets cleaned up or renamed `… (1).exe`, and then the till boots and starts nothing. That is the fault this build fixes, and running it once from a permanent folder repairs a stale registration. |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
@@ -1418,3 +1418,87 @@ tell from the till; this note is here so nobody "tidies" it away.
 ⚠ **After a "Forget this till"**, both the database roster and the old file are cleared — check that
 signing in afterwards is refused, or a forgotten till would still hold the staff list of the till it
 used to be.
+
+## G31. ⚠⚠ The portal's theme — and it must MATCH the web till — **NEW in 1.73.0**
+
+⚠ **A till does not choose its colours; it is told them.** There is deliberately no theme picker on the
+till: an operator changing it locally would make the portal's assignment a suggestion, and two tills in
+one shop would stop matching for reasons nobody could see from the portal.
+
+⚠⚠ **Matt's requirement is the point of this step: the same assignment must look the same on the web
+till and on MAUI.** So test them side by side, not one after the other.
+
+### G31a. Assign a scheme and watch both tills
+
+1. In the **portal → Locations**, assign a colour scheme to **this store**.
+2. Open the **web till** and the **MAUI till** next to each other.
+3. Within **60 seconds** both should change.
+
+**✅ Expected: the same colours on both** — the band/buttons, the page background, the card and dialog
+backgrounds, the text, and the borders.
+
+**❌ If they differ, say which is which and photograph both.** That is the exact failure this step
+exists to catch, and it means the two tills read the portal's blob differently.
+
+### G31b. The resolution order — a till override beats the store
+
+1. Assign a **different** scheme to **this till specifically**.
+
+**✅ Expected: the till-level scheme wins** on both tills, within a minute.
+
+2. **Clear** the till-level override.
+
+**✅ Expected:** both fall back to the **store's** scheme.
+
+3. Clear **every** override.
+
+**✅ Expected: both return to the stock Plutus colours** — a blue-ish accent (`#2c698d`), light
+background. ⚠ Not "whatever was set last" — this is the check that the fallback is real.
+
+### G31c. Light and dark
+
+Set the scheme's base mode to **dark**, then **light**, then **system**.
+
+**✅ Expected:** dark and light force themselves on both tills; **system** follows the device's own
+setting. Change Windows to dark mode with the theme on "system" and the till should follow.
+
+### G31d. ⚠ Colours survive a restart with the network off
+
+1. With a scheme assigned, **unplug the network**.
+2. Close the MAUI till and start it again.
+
+**✅ Expected: it opens in the shop's colours**, not the stock palette — and **without flashing** the
+stock palette first.
+
+**❌ If it opens stock-coloured, the cached theme is not being applied** — which on a themed estate
+looks like the assignment stopped working.
+
+### G31e. ⚠⚠ THE RECEIPT MUST IGNORE THE THEME
+
+With a **dark** scheme applied, **print a receipt**.
+
+**✅ Expected: normal black-on-white paper.**
+
+**❌ If the print comes out faint or near-white, stop and report it.** Printing from a dark scheme once
+put near-white ink on paper — receipts are deliberately immune to theming, and this is the check.
+
+## G32. Show a receipt on screen — **NEW in 1.73.0**
+
+For a customer who wants to see what they were charged when paper is not an option.
+
+1. **Unset the receipt printer** (Settings → Receipt printer), or unplug it.
+2. Reprint a past receipt (Plutus tab → reprint, or the sale picker).
+
+**✅ Expected:** instead of the old dead end, it offers **"Show on screen"** — and shows the receipt:
+shop name, the lines, the total, the tenders, and the sale number.
+
+3. Set the printer back up and reprint with the **printer switched off** so the print fails.
+
+**✅ Expected:** the failure message also offers **"Show on screen"**.
+
+⚠ **Check the figures against the paper copy if you have one.** The screen renders the *same document*
+the printer gets, so the totals must be identical. If they are not, that is serious — say so.
+
+⚠ **Two things it is NOT, by design:** the columns will not line up perfectly (it is not a monospaced
+screen — the figures are the point), and it does not show bold or double-height, because a thermal
+printer's emphasis has no honest text equivalent. Neither is a bug; report anything else.

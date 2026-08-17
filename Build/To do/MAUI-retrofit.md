@@ -671,7 +671,32 @@ not take a sale at all because the two dialogs and the loop were wired together 
 covered; **the seam between the loop and the UI is not, and that seam is where every checkout defect
 has now come from.** Whatever this step does, it must leave that seam testable.
 
-### Step 22 — WP7 theming · **3–4d**
+### Step 22 — WP7 theming · ✅ **DONE 2026-08-17 (till 1.73.0)**
+
+> ✅ **Both halves landed.** **7a**: ClientUI's palette ported **verbatim** under the same `x:Key` names
+> into `Resources/Styles/Colors.xaml`, merged in `App.xaml` — so it is in place **before** [L10] drops
+> that project, and AppClient went from **no theme resources at all** to a full palette. **7b**: the
+> pushed theme, on the 60s beat, cached in `MetaKeys.EffectiveTheme` and applied **before the first
+> screen** so there is no flash of the stock palette.
+>
+> ⚠⚠ **Matt, 2026-08-17: *"Changing the theme in the portal needs to be consistent across the web and
+> MAUI till."*** That is why the parse-and-validate rule went to `Client.Core/ThemeSlots.cs` rather than
+> into the MAUI service — a **C2 twin** of `theme.ts`, 41 tests, two mutants killed. The seven slots are
+> XAML keys **named after the slots** (`ThemeAccent`, `ThemeSurface2`, …) rather than remapped onto the
+> legacy palette keys: remapping works once and diverges the first time either palette is touched.
+>
+> ⚠ **`colorsJson` is opaque and the server does not validate it**, so `ThemeSlots` is the only thing
+> between a bad value and an unreadable till: six-digit hex only, a bad or absent slot falls back to
+> stock rather than a substitute, and ⚠⚠ **a malformed blob still applies the base mode**.
+>
+> ⚠ **Receipts verified immune** — no print path reads a `Theme*` key. §G31e hand-tests it, because
+> printing from a dark scheme once put near-white ink on paper.
+>
+> ⚠ **L10 is now unblocked**: the palette has landed, so `Plutus.Frontend.ClientUI` can be dropped from
+> `Plutus.slnx` without the till losing its colours. That removal is still Matt's to action.
+>
+> ⚠ 🟡 not ✅ on Part B until §G31 is hand-run — and §G31a is the one that matters: **both tills side by
+> side, same assignment, same colours.**
 
 *7a — the palette.* AppClient's `App.xaml` registers only a value converter — **no theme resources at
 all**. Port ClientUI's `Resources/Styles/Colors.xaml` **verbatim** under the same `x:Key` names

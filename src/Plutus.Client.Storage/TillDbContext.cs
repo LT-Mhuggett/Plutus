@@ -350,4 +350,18 @@ public static class MetaKeys
     /// not understand survives the round trip and reaches a till that does.
     /// </summary>
     public const string ReceiptTemplate = "receiptTemplate";
+
+    /// <summary>
+    /// The portal's effective theme for this till, as the wire sent it (FE10 / step 22).
+    ///
+    /// ⚠ CACHED SO COLOURS SURVIVE AN OFFLINE RESTART. A till assigned a scheme must wear it after a
+    /// reboot with the line down — otherwise the shop opens in the stock palette and somebody
+    /// reasonably reports the assignment as broken. The web till caches the same blob in
+    /// `localStorage` for the same reason, and applies it before first paint.
+    ///
+    /// ⚠ Stored VERBATIM, including `colorsJson`, which is an **opaque blob owned by the frontends** —
+    /// the server does not validate it and neither does this. Reading it is
+    /// `Client.Core.ThemeSlots`' job, and that is the only place a bad value is caught.
+    /// </summary>
+    public const string EffectiveTheme = "effectiveTheme";
 }
