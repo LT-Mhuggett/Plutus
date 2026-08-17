@@ -150,4 +150,92 @@ public class KapowMigrationTests
         var result = KapowSaleMapper.MapSale(input, new IdRemap<string>());
         Assert.True(result.IsQuarantined);
     }
+
+    // ── KapowDelta (translation plan §3.2) — a NEWER backup of the same till imports safely ──
+
+    private static KapowSaleInput SaleWithRef(string legacyId, string dateOfSale)
+    {
+        var s = ValidSale();
+        s.LegacyId = legacyId;
+        s.DateOfSaleLocal = dateOfSale;
+        s.CreatedLocal = dateOfSale;
+        return s;
+    }
+
+    /// <summary>The live need in miniature: 3 sales in the backup, 1 already recorded, 1 already
+    /// quarantined — exactly 1 imports, numbered after the existing high-water mark.</summary>
+    [Fact]
+    public void Delta_skips_recorded_and_quarantined_and_numbers_after_the_high_water_mark()
+    {
+        var inputs = new[]
+        {
+            SaleWithRef("100", "2026-07-01 10:00:00"),
+            SaleWithRef("200", "2026-07-02 10:00:00"),
+            SaleWithRef("300", "2026-08-01 10:00:00"),
+        };
+
+        var plan = KapowDelta.Plan(
+            inputs,
+            recordedLegacyRefs: new HashSet<string> { "100" },
+            quarantinedLegacyRefs: new HashSet<string> { "200" },
+            maxExistingDeviceSeq: 21653);
+
+        Assert.Equal(3, plan.InBackup);
+        Assert.Equal(1, plan.AlreadyRecorded);
+        Assert.Equal(1, plan.AlreadyQuarantined);
+        var only = Assert.Single(plan.ToImport);
+        Assert.Equal("300", only.LegacyId);
+        // ⚠ 21654, not 1: the unique index (TenantId, DeviceId, DeviceSeq) makes a reused number a
+        // failed insert at best — and at worst the silent claim of a quarantined sale's slot.
+        Assert.Equal(21654, only.DeviceSeq);
+        Assert.Equal(21654, plan.FirstDeviceSeq);
+    }
+
+    /// <summary>Same backup twice = nothing to do. This is the property the 2026-07 one-shot
+    /// lacked, and the reason re-runs used to require dropping every LegacyRef row first.</summary>
+    [Fact]
+    public void Delta_of_an_already_imported_backup_is_empty()
+    {
+        var inputs = new[] { SaleWithRef("100", "2026-07-01 10:00:00"), SaleWithRef("200", "2026-07-02 10:00:00") };
+
+        var plan = KapowDelta.Plan(inputs, new HashSet<string> { "100", "200" }, new HashSet<string>(), 2);
+
+        Assert.Empty(plan.ToImport);
+        Assert.Equal(2, plan.AlreadyRecorded);
+    }
+
+    /// <summary>⚠ Ordered by DATE, not by legacy id — the id is an UNPADDED timestamp string, so
+    /// "202681…" (1 Aug) sorts before "2026724…" (24 Jul) and id order scrambles the sequence.</summary>
+    [Fact]
+    public void Delta_orders_by_date_of_sale_not_by_the_unpadded_legacy_id()
+    {
+        var inputs = new[]
+        {
+            SaleWithRef("202681110000000", "2026-08-01 11:00:00"),   // 1 Aug — id sorts FIRST
+            SaleWithRef("2026724100000000", "2026-07-24 10:00:00"),  // 24 Jul — id sorts second
+        };
+
+        var plan = KapowDelta.Plan(inputs, new HashSet<string>(), new HashSet<string>(), 0);
+
+        Assert.Equal("2026724100000000", plan.ToImport[0].LegacyId);
+        Assert.Equal(1, plan.ToImport[0].DeviceSeq);
+        Assert.Equal("202681110000000", plan.ToImport[1].LegacyId);
+        Assert.Equal(2, plan.ToImport[1].DeviceSeq);
+    }
+
+    /// <summary>⚠ A ref in BOTH sets counts as recorded — the sale exists, so it must not import
+    /// again, whatever a stale quarantine row says about it.</summary>
+    [Fact]
+    public void Delta_treats_recorded_as_winning_over_quarantined()
+    {
+        var plan = KapowDelta.Plan(
+            new[] { SaleWithRef("100", "2026-07-01 10:00:00") },
+            new HashSet<string> { "100" },
+            new HashSet<string> { "100" },
+            0);
+
+        Assert.Empty(plan.ToImport);
+        Assert.Equal(1, plan.AlreadyRecorded);
+        Assert.Equal(0, plan.AlreadyQuarantined);
+    }
 }

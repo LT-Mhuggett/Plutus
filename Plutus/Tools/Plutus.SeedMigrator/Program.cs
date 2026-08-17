@@ -81,18 +81,22 @@ var mysqlConn = dryRun ? null : args[2 == args.Length ? 1 : 2];
 if (!dryRun && args[1] == "--mysql") mysqlConn = args[2];
 if (!File.Exists(oldDbPath)) { Console.Error.WriteLine($"not found: {oldDbPath}"); return 1; }
 
-// ── T1.8 thin runner: Kapow → sales-v2. Reuses the Plutus.Migration.Kapow library. ──
-//   Plutus.SeedMigrator <kapow.db> sales-v2 --sqlite <out.db>      (validation run)
-//   Plutus.SeedMigrator <kapow.db> sales-v2 --mysql "<connstring>" (cutover)
+// ── T1.8 runner: Kapow → sales-v2. Reuses the Plutus.Migration.Kapow library. ──
+//   Plutus.SeedMigrator <kapow.db> sales-v2 --sqlite <out.db>                (validation run)
+//   Plutus.SeedMigrator <kapow.db> sales-v2 --mysql "<connstring>" --verify  (what WOULD import)
+//   Plutus.SeedMigrator <kapow.db> sales-v2 --mysql "<connstring>" --apply   (delta import)
+//
+// ⚠⚠ INCREMENTAL SINCE 2026-08-17 (translation plan §3.2). The original one-shot form assumed an
+// empty target and minted a fresh random till/device id per invocation — so the only safe re-run
+// was "drop every LegacyRef sale and reload", which re-mints every sale's UUID and breaks anything
+// that captured one (a refund's origin id, a receipt barcode). This form reads the identity the
+// FIRST run stamped, skips every sale the target already has (by LegacyRef — the NatApp Sales.Id),
+// and numbers new sales after the existing DeviceSeq high-water mark. Same backup twice = no-op.
 if (Array.IndexOf(args, "sales-v2") >= 0)
 {
     var tenantId = Plutus.Entities.Tenancy.KnownTenants.Kapow;
-    using var kapowConn = new SqliteConnection(
-        new SqliteConnectionStringBuilder { DataSource = oldDbPath, Mode = SqliteOpenMode.ReadOnly }.ToString());
-    kapowConn.Open();
-    var inputs = new Plutus.Migration.Kapow.KapowSalesReader(kapowConn)
-        .Read(tenantId, tillId: Guid.NewGuid(), deviceId: Guid.NewGuid());
-    Console.WriteLine($"read {inputs.Count} Kapow sales; mapping…");
+    var verify = Array.IndexOf(args, "--verify") >= 0;
+    var apply = Array.IndexOf(args, "--apply") >= 0;
 
     var tenantCtx = new Plutus.Entities.Tenancy.FixedTenantContext(tenantId);
     var sqliteIdx = Array.IndexOf(args, "--sqlite");
@@ -103,22 +107,189 @@ if (Array.IndexOf(args, "sales-v2") >= 0)
         var outPath = args[sqliteIdx + 1];
         if (File.Exists(outPath)) File.Delete(outPath);
         options.UseSqlite($"Data Source={outPath}");
+        apply = apply || !verify;   // a scratch sqlite target keeps the old write-by-default
     }
     else if (mysqlIdx >= 0 && mysqlIdx + 1 < args.Length)
+    {
         options.UseMySql(args[mysqlIdx + 1], MySqlServerVersion.LatestSupportedServerVersion);
+        // ⚠ A MYSQL TARGET IS SOMEBODY'S LIVE (or their rehearsal of live): writing is opt-in.
+        // The TenantRestore convention — verify prints what an apply WOULD do and touches nothing.
+        if (!verify && !apply)
+        { Console.Error.WriteLine("sales-v2 --mysql needs --verify (read-only) or --apply (write)"); return 1; }
+    }
     else { Console.Error.WriteLine("sales-v2 needs --sqlite <out.db> or --mysql <conn>"); return 1; }
 
     using var target = new MySqlDbContext(options.Options, tenantCtx);
     target.Database.EnsureCreated();
+
+    // ── Identity: reuse what the first run stamped; mint only on a genuinely empty target. ──
+    // ⚠ The 21,646 historical rows all carry ONE (tillId, deviceId) pair — reading it back is
+    // what makes the unique index (TenantId, DeviceId, DeviceSeq) an idempotency key instead of
+    // a booby trap, and keeps the whole NatApp history attributable as one till.
+    var stamped = target.SalesV2.IgnoreQueryFilters().AsNoTracking()
+        .Where(s => s.TenantId == tenantId && s.LegacyRef != null)
+        .Select(s => new { s.TillId, s.DeviceId })
+        .FirstOrDefault();
+    var legacyTillId = stamped?.TillId ?? Guid.NewGuid();
+    var legacyDeviceId = stamped?.DeviceId ?? Guid.NewGuid();
+    Console.WriteLine(stamped != null
+        ? $"target already holds legacy sales for till {legacyTillId} / device {legacyDeviceId} — reusing"
+        : $"target holds no legacy sales — minting till {legacyTillId} / device {legacyDeviceId}");
+
+    using var kapowConn = new SqliteConnection(
+        new SqliteConnectionStringBuilder { DataSource = oldDbPath, Mode = SqliteOpenMode.ReadOnly }.ToString());
+    kapowConn.Open();
+    var inputs = new Plutus.Migration.Kapow.KapowSalesReader(kapowConn).Read(tenantId, legacyTillId, legacyDeviceId);
+    Console.WriteLine($"read {inputs.Count} Kapow sales from the backup; computing delta…");
+
+    // ── Delta: skip what the target already has (recorded or quarantined). ──
+    var recordedRefs = target.SalesV2.IgnoreQueryFilters().AsNoTracking()
+        .Where(s => s.TenantId == tenantId && s.LegacyRef != null)
+        .Select(s => s.LegacyRef!)
+        .ToHashSet(StringComparer.Ordinal);
+    // ⚠ SaleQuarantine.PayloadJson holds the raw LegacyId — that is what the migrator writes there.
+    var quarantinedRefs = target.SaleQuarantine.IgnoreQueryFilters().AsNoTracking()
+        .Where(q => q.TenantId == tenantId)
+        .Select(q => q.PayloadJson)
+        .ToHashSet(StringComparer.Ordinal);
+    var maxSeq = target.SalesV2.IgnoreQueryFilters().AsNoTracking()
+        .Where(s => s.TenantId == tenantId && s.DeviceId == legacyDeviceId)
+        .Select(s => (long?)s.DeviceSeq).Max() ?? 0;
+
+    var plan = Plutus.Migration.Kapow.KapowDelta.Plan(inputs, recordedRefs, quarantinedRefs, maxSeq);
+    Console.WriteLine(plan);
+    if (plan.ToImport.Count == 0) { Console.WriteLine("nothing to import — target is already current."); return 0; }
+
+    // ── WP3.4 guardrail: refuse to write into a CLOSED financial period. ──
+    // ⚠ The one incident this tool family has actually caused (£44k mis-posted) was an ETL running
+    // after a period close. Sales for closed days must not be silently back-posted; a human reopens
+    // the period first or decides the sales belong elsewhere. Checked against the DELTA's dates,
+    // not the backup's (history already in the target doesn't matter here).
+    var minDay = DateOnly.Parse(plan.MinDate![..10]);
+    var maxDay = DateOnly.Parse(plan.MaxDate![..10]);
+    var closed = target.FinancialPeriods.IgnoreQueryFilters().AsNoTracking()
+        .Where(p => p.TenantId == tenantId && p.Status == Plutus.Entities.Models.PeriodStatus.Closed
+                 && p.StartDay <= maxDay && p.EndDay >= minDay)
+        .Select(p => p.Name)
+        .ToList();
+    if (closed.Count > 0)
+    {
+        Console.Error.WriteLine(
+            $"REFUSED: the delta ({minDay}→{maxDay}) overlaps closed financial period(s): " +
+            string.Join(", ", closed) + ". Reopen the period(s) first, or resolve which days these sales belong to.");
+        return 1;
+    }
+
     var recon = Plutus.Migration.Kapow.KapowMigrator.Migrate(
-        inputs, target, new Plutus.Migration.Kapow.IdRemap<string>(), log: Console.WriteLine);
+        plan.ToImport, target, new Plutus.Migration.Kapow.IdRemap<string>(), log: Console.WriteLine,
+        write: apply && !verify, knownQuarantinedRefs: quarantinedRefs);
     Console.WriteLine();
+    Console.WriteLine(verify ? "VERIFY ONLY — nothing was written. An --apply would record:" : "applied:");
     Console.WriteLine(recon);
     if (recon.QuarantineReasons.Count > 0)
     {
         Console.WriteLine("sample quarantine reasons:");
         foreach (var q in recon.QuarantineReasons) Console.WriteLine("  - " + q);
     }
+    return 0;
+}
+
+// ── items-delta runner: INSERT-ONLY catalogue top-up for a NEWER backup (plan §3.2's
+//    "upsert-by-old-id", scoped to inserts — 2026-08-17). ──
+//   Plutus.SeedMigrator <kapow.db> items-delta --mysql "<conn>" --verify|--apply
+//
+// ⚠ WHY IT EXISTS: a delta SALES import can reference items created on the till after the
+// original seed — sale lines join Items by barcode for their NAME, so without the item row those
+// lines report as bare barcodes and the item can never be sold at a Plutus till. This inserts
+// ONLY items whose (IdOne, IdTwo) is absent (and any missing category they point at), with the
+// same mapping conventions as the original loader: TaxId = the file's VatId (lifted 1:1 by the
+// seed), CatId = DetGuid("category", oldId), StrE coercions, >20-char ids skipped, CI dedupe.
+//
+// ⚠⚠ IT NEVER UPDATES. The portal owns the catalogue now (WP6.1): an item whose price moved on
+// the OLD till after the seed keeps its portal value here, and the difference is REPORTED so a
+// human decides. "Do NOT overwrite anything that is new" — Matt, 2026-08-17.
+if (Array.IndexOf(args, "items-delta") >= 0)
+{
+    var verify = Array.IndexOf(args, "--verify") >= 0;
+    var apply = Array.IndexOf(args, "--apply") >= 0;
+    var mysqlIdx = Array.IndexOf(args, "--mysql");
+    if (mysqlIdx < 0 || mysqlIdx + 1 >= args.Length || (!verify && !apply))
+    { Console.Error.WriteLine("items-delta needs --mysql <conn> and --verify or --apply"); return 1; }
+
+    var idTenant = Plutus.Entities.Tenancy.KnownTenants.Kapow;
+    var idBusiness = DetGuid("business", "kapow");
+    var idOptions = new DbContextOptionsBuilder<MySqlDbContext>()
+        .UseMySql(args[mysqlIdx + 1], MySqlServerVersion.LatestSupportedServerVersion);
+    using var idDb = new MySqlDbContext(idOptions.Options, new Plutus.Entities.Tenancy.FixedTenantContext(idTenant));
+    idDb.CurrentUser = "items-delta";
+
+    using var idConn = new SqliteConnection(
+        new SqliteConnectionStringBuilder { DataSource = oldDbPath, Mode = SqliteOpenMode.ReadOnly }.ToString());
+    idConn.Open();
+    IEnumerable<System.Data.IDataRecord> IdRows(string sql)
+    {
+        using var cmd = idConn.CreateCommand();
+        cmd.CommandText = sql;
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) yield return r;
+    }
+    static string? IdStr(object v) => v is null or DBNull ? null : Convert.ToString(v);
+    static string IdStrE(object v) { var s = IdStr(v); return string.IsNullOrWhiteSpace(s) ? "-" : s; }
+    static decimal IdDec(object v) => v is null or DBNull ? 0m : decimal.Parse(Convert.ToString(v)!, CultureInfo.InvariantCulture);
+
+    var haveItems = idDb.Items.IgnoreQueryFilters().AsNoTracking()
+        .Where(i => i.IdTwo == idBusiness).Select(i => i.IdOne).ToList()
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    var haveCats = idDb.Category.IgnoreQueryFilters().AsNoTracking()
+        .Where(c => c.IdTwo == idBusiness).Select(c => c.IdOne).ToList().ToHashSet();
+
+    // ⚠ Only barcodes a RECORDED sale line actually references — the sales made them matter.
+    // Unreferenced till-side items wait for the full-catalogue cutover import (plan step 4/9).
+    var referenced = idDb.SaleLines.IgnoreQueryFilters().AsNoTracking()
+        .Where(l => l.TenantId == idTenant && l.ItemIdOne != null)
+        .Select(l => l.ItemIdOne!).Distinct().ToList()
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    var fileCats = new Dictionary<string, (string Name, string? Desc)>();
+    foreach (var r in IdRows("SELECT Id, Name, Description FROM Category"))
+        fileCats[IdStr(r["Id"])!] = (IdStrE(r["Name"]), IdStr(r["Description"]));
+
+    var newItems = new List<Item>();
+    var newCats = new Dictionary<Guid, Category>();
+    var skippedUnreferenced = 0;
+    foreach (var r in IdRows("SELECT * FROM Items"))
+    {
+        var id = IdStr(r["Id"]);
+        if (id == null || id.Length > 20) continue;
+        if (haveItems.Contains(id)) continue;
+        if (!referenced.Contains(id)) { skippedUnreferenced++; continue; }
+
+        var catOld = IdStr(r["CatId"]) ?? "";
+        var catId = DetGuid("category", catOld);
+        if (!haveCats.Contains(catId) && !newCats.ContainsKey(catId) && fileCats.TryGetValue(catOld, out var fc))
+            newCats[catId] = new Category { IdOne = catId, IdTwo = idBusiness, Name = fc.Name, Description = fc.Desc };
+
+        newItems.Add(new Item
+        {
+            IdOne = id, IdTwo = idBusiness,
+            // ⚠ Desc has no [Required] but the COLUMN is NOT NULL — a null here fails at MySQL,
+            // not at validation (found on the t1 rehearsal, which is what rehearsals are for).
+            Name = IdStrE(r["Name"]), Brand = IdStrE(r["Brand"]), Desc = IdStr(r["Desc"]) ?? "",
+            Cost = IdDec(r["Cost"]), ExPrice = IdDec(r["ExPrice"]), Price = IdDec(r["Price"]),
+            TaxId = r["VatId"] is null or DBNull ? 0 : Convert.ToInt32(r["VatId"]), CatId = catId,
+        });
+        haveItems.Add(id);
+    }
+
+    Console.WriteLine($"items-delta: {newItems.Count} missing item(s) referenced by recorded sales; " +
+        $"{newCats.Count} missing categorie(s); {skippedUnreferenced} new-but-unreferenced left for the cutover import.");
+    foreach (var i in newItems) Console.WriteLine($"  + {i.IdOne}  {i.Name}  £{i.Price:0.00} (tax {i.TaxId})");
+    if (!apply || verify) { Console.WriteLine("VERIFY ONLY — nothing was written."); return 0; }
+
+    foreach (var c in newCats.Values) idDb.Category.Add(c);
+    foreach (var i in newItems) idDb.Items.Add(i);
+    idDb.SaveChanges();
+    Console.WriteLine($"applied: {newItems.Count} item(s), {newCats.Count} categorie(s) inserted. Nothing updated.");
     return 0;
 }
 

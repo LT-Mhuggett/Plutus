@@ -37,12 +37,23 @@ namespace Plutus.Migration.Kapow
     /// </summary>
     public static class KapowMigrator
     {
+        /// <param name="write">False = a VERIFY pass: map everything and produce the full
+        /// reconciliation, write NOTHING. The numbers printed are exactly the numbers an apply
+        /// would produce, because it is the same code path with the two Add calls and SaveChanges
+        /// skipped — not a parallel estimate that can drift from the real thing.</param>
+        /// <param name="knownQuarantinedRefs">Legacy ids already in SaleQuarantine for this
+        /// tenant (plan §3.2 step 3). ⚠ The 2026-07 runs logged every failure once per run —
+        /// 8 failures became 16 rows — because nothing remembered. Pass the set read from the
+        /// target and re-runs stop re-logging; in-run duplicates are caught by the same set
+        /// because entries are added to it as they are written.</param>
         public static KapowReconciliation Migrate(
             IReadOnlyList<KapowSaleInput> inputs, MySqlDbContext target, IdRemap<string> itemRemap,
-            int saveEvery = 500, Action<string>? log = null)
+            int saveEvery = 500, Action<string>? log = null,
+            bool write = true, ISet<string>? knownQuarantinedRefs = null)
         {
             target.CurrentUser = "kapow-migrator";
             var recon = new KapowReconciliation { SalesRead = inputs.Count };
+            var quarantined = knownQuarantinedRefs ?? new HashSet<string>();
             var pending = 0;
 
             foreach (var input in inputs)
@@ -54,12 +65,15 @@ namespace Plutus.Migration.Kapow
                 {
                     recon.Quarantined++;
                     if (recon.QuarantineReasons.Count < 50) recon.QuarantineReasons.Add(result.QuarantineReason!);
-                    target.SaleQuarantine.Add(new SaleQuarantine
-                    {
-                        Id = Uuid7.New(), TenantId = input.TenantId, SaleId = Uuid7.New(),
-                        PayloadJson = input.LegacyId, Reason = Trunc(result.QuarantineReason, 500),
-                        ReceivedAtUtc = DateTime.UtcNow,
-                    });
+                    // ⚠ Add() returns false when the ref is already logged — one row per failed
+                    // sale, ever, however many times a backup containing it is re-run.
+                    if (write && quarantined.Add(input.LegacyId))
+                        target.SaleQuarantine.Add(new SaleQuarantine
+                        {
+                            Id = Uuid7.New(), TenantId = input.TenantId, SaleId = Uuid7.New(),
+                            PayloadJson = input.LegacyId, Reason = Trunc(result.QuarantineReason, 500),
+                            ReceivedAtUtc = DateTime.UtcNow,
+                        });
                 }
                 else
                 {
@@ -68,10 +82,10 @@ namespace Plutus.Migration.Kapow
                     if (result.WasReconciled) recon.Reconciled++;
                     recon.RecordedGrossPence += s.GrossPence;
                     recon.RecordedVatPence += s.VatPence;
-                    target.SalesV2.Add(s);
+                    if (write) target.SalesV2.Add(s);
                 }
 
-                if (++pending >= saveEvery)
+                if (write && ++pending >= saveEvery)
                 {
                     target.SaveChanges();
                     target.ChangeTracker.Clear();
@@ -79,7 +93,7 @@ namespace Plutus.Migration.Kapow
                     log?.Invoke($"  … {recon.Recorded + recon.Quarantined}/{recon.SalesRead}");
                 }
             }
-            if (pending > 0) target.SaveChanges();
+            if (write && pending > 0) target.SaveChanges();
             return recon;
         }
 

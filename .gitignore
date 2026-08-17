@@ -325,3 +325,4 @@ publish-osx/
 # FE3: the Till Agent's self-contained publish output (a 61MB exe — built on demand, never committed)
 tools/Plutus.TillAgent/bin/
 tools/Plutus.TillAgent/obj/
+seedmigrator-l4.tgz

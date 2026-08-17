@@ -70,6 +70,7 @@ item-identity seam all outlive the retrofit, and archiving them unlifted buries 
 | Agent | **1.4.0** | ✅ Published — the web till's **Settings → Hardware** offers it (HTTP 200, 70,293,789 bytes) |
 | till-maui | **1.73.0** | ✅ **BUILT 2026-08-17** at `D:\tmp\plutus-till-1.73.0` — the only build on the box, and it reads `1.73.0+7cf5f2dc`. ⚠ **This row said "1.72.0, NOT BUILT, disk holds 1.71.0" until 2026-08-17** while `D:\tmp\plutus-till-1.73.0` had existed for hours. **Eighteenth stale marker**, and the cheapest kind to check: `ls /d/tmp/plutus-till-*` |
 | platform | 1.47.0 | Ships inside the others |
+| **Live DATA** | — | ⚠⚠ **2026-08-17: the NatApp till's sales through 15_08 are IN.** 198 sales / £4,923.86 imported from `Kapow…15_08_2026.db` (delta vs the 23_07 seed), + the 48 items they reference, + the orphaned legacy till got a real row ("Kapow shop till (NatApp)") so the whole history attributes to **store 1** instead of the store-0 bucket. Four-way penny reconciliation green (£562,563.74 / £25,784.71 VAT / 21,888 sales). Dumps: `plutus-pre-20260817-l4-preimport.sql.gz` (+ copy on `D:\tmp`) and `plutus-post-20260817-l4-import.sql.gz`. **Full record: [`NatApp-Translation-Agent-Plan…`](NatApp-Translation-Agent-Plan-2026-08-05.md) §7.** ⚠ Anything the shop sells after 15_08 on the old till needs the **next bridge run** — now a routine documented there |
 
 ⚠ **A deploy is verified on the ARTEFACT, never on a 200.** Both hosts SPA-fallback to `index.html`,
 so a 200 proves almost nothing: check the host names the new bundle hash, the bundle is the real size
@@ -2200,6 +2201,34 @@ tab (step 26), which reads the platform.
 > record what is actually in it — row counts, date range, which tables, whether ids collide with
 > live ones. An importer written against a guessed schema is how history gets silently mangled, and
 > unlike most bugs here **this one is not reversible once the takings are wrong.**
+>
+> ### ✅ THE IMPORT RAN — 2026-08-17, from the 15_08 backup
+>
+> **Every row above got its answer, and the record lives in
+> [`NatApp-Translation-Agent-Plan-2026-08-05.md`](NatApp-Translation-Agent-Plan-2026-08-05.md) §7**
+> (that plan was the mechanism, as Matt confirmed on 2026-08-08). The shape of it:
+>
+> - **Looked FIRST, imported second** — the delta between the 23_07 and 15_08 backups was measured
+>   and proven purely additive (0 changed rows, 0 lost rows) before any code was written.
+> - **198 sales / £4,923.86**, 2026-07-24→2026-08-15, into SalesV2 via the existing
+>   `Migration.Kapow` mapper — now **incremental** (LegacyRef delta, stable till/device identity,
+>   DeviceSeq continuation, quarantine dedupe, `--verify`-before-`--apply`, closed-period guard).
+> - **Where legacy sales land** → the v2 store, same as the 21,646 before them. **VAT per line** →
+>   the file's own `VatId → Vats.Rate` (the 2026-07-24 `VatReconstructed` rule; source-header VAT
+>   £131.97 vs recorded £140.33, difference explained in §7). **Idempotency** → LegacyRef, proven:
+>   same backup twice = "nothing to import", on t1 AND live. **Money** → `KapowMoney.ParsePence`.
+>   **"Translate" covered** → the 48 items the new sales reference (insert-only); 2 till-side price
+>   changes and stock deliberately NOT taken — Matt's "do not overwrite anything new".
+> - **Rehearsed on `plutus_t1` first** (re-cloned same-day), which caught a real defect before live.
+> - **Four-way penny reconciliation after**: SalesV2 == ΣSaleLines == SalesRollups == VatRollups =
+>   £562,563.74 / £25,784.71 VAT / 21,888 sales. The orphaned `d4fa2572…` till got its real
+>   `Till`+`TillDetails` row ("Kapow shop till (NatApp)", store 1), so the whole shop history now
+>   attributes to the shop instead of the store-0 bucket.
+>
+> ⚠ **L4's screens still stay** — the hidden tab remains the only reader of a migrated till's local
+> pre-cutover file, and Matt's "do not drop anything" stands. What changed is that the PLATFORM now
+> holds the till's sales through 2026-08-15, so the gap the screens papered over is three weeks
+> smaller. The **final** bridge run happens at cutover, from a backup taken after the till stops.
 
 ⚠⚠ **THE ORIGINAL QUESTION, kept for the reasoning.** Deleting these screens deletes the **only**
 reader of the pre-cutover legacy file. A till migrated from NatApp still holds real history there and

@@ -1,7 +1,9 @@
 # NatApp → Plutus Translation Agent — Plan
 
 **Date:** 2026-08-05
-**Status:** Plan only — no code changed.
+**Status:** ⚠⚠ **EXECUTED for the bridge-run case, 2026-08-17** — steps 1–3 built, rehearsed on
+`plutus_t1`, applied to live. See §7 at the bottom for exactly what ran, the numbers, and what is
+deliberately still open (steps 4–6 partially, 9 untouched).
 **Companion docs:** `Build/Migration-2026-07-22-plan.md` (Workstream G), `Build/kapow-db-gap-analysis.md`, `HANDOVER.md` (Phase 3/6 notes), `tools/Plutus.TenantRestore/RUNBOOK.md` (the operational pattern this plan follows).
 
 ## 0. Terminology (confusingly, "Plutus" names two different things)
@@ -164,3 +166,87 @@ Guardrails: refuses to run if the tenant's current `FinancialPeriod` is closed o
 3. **Catalogue-side target schema (§3.3):** commit to option (a) or (b) now, so it isn't quietly decided by default.
 4. **Cutover date/trigger:** what actually gates "retire the physical till" — is it this tool reaching parity, or an unrelated business decision?
 5. **Multi-tenant generalization (§4 step 9):** is there a concrete next NatApp-based customer to design against, or should the parameterization stay speculative until one exists?
+
+---
+
+## 7. ⚠⚠ EXECUTED 2026-08-17 — the first bridge run, from the 15_08 backup
+
+**Input:** `Build/seed-data/Kapow Comics ltd - Database - 15_08_2026 16_53_11.db` (same 7-migration
+schema, `PRAGMA integrity_check` ok). Matt's constraints: full DB backup first; **do NOT overwrite
+anything new in the DB**; sales data only; VAT checks on what was imported.
+
+### What was built (steps 1–3 + the verify default)
+
+| Plan item | What landed |
+|---|---|
+| §3.1 stable identity | `sales-v2` now **reads the till/device the first run stamped** (`d4fa2572…`/`9979c2ec…`) from the target's own LegacyRef rows and reuses them; mints only when the target has none. The **orphaned-till backfill** was done as recorded SQL: a `Till` row (StoreId 1) + `TillDetails` ("Kapow shop till (NatApp)") — the cheap option the plan itself recommends, so all 21,646 historic rows joined a real till without one of them being touched. ⚠ The portal renders a device-less till fine — "Byram Till" has lived in exactly that state for weeks |
+| §3.2 delta detection | `KapowDelta.Plan(...)` (new, unit-tested): skips refs already **recorded** (SalesV2.LegacyRef) or already **quarantined** (SaleQuarantine.PayloadJson), orders survivors by DateOfSale (⚠ NOT by the unpadded legacy id, which scrambles Aug before Jul), renumbers DeviceSeq from MAX(existing)+1 (21654…) so the (TenantId, DeviceId, DeviceSeq) unique index stays an idempotency key. **Same backup twice = "nothing to import" — proven on t1 and live** |
+| §3.2 catalogue upsert | Scoped to the actual need: **`items-delta`** inserts ONLY items that recorded sale lines reference and the target lacks (48 of the 101 new), plus missing categories (0 needed). **Insert-only, never UPDATE** — "do not overwrite anything that is new". The 52 unreferenced new items wait for the cutover import |
+| §3 step 3 quarantine dedupe | `KapowMigrator` now takes the known-quarantined set and skips re-logging; in-run dupes caught by the same set. The 18 existing rows were left exactly as they are |
+| §3.4 verify-not-just-insert | `--mysql` targets now **refuse to run without `--verify` or `--apply`**; verify maps everything and prints the full reconciliation with zero writes — same code path, Add/Save skipped, so the printed numbers ARE the apply's numbers |
+| §3.5 period guardrail | The runner refuses when the delta's date range overlaps a **Closed** `FinancialPeriod` (the WP3.4 £44k lesson). Live has 0 periods today, so it cannot fire yet — built anyway, it's the cheapest insurance in the file |
+| §3.5 rehearsal | `plutus_t1` re-cloned from the **same-day pre-import dump**, full sequence rehearsed there first — which caught a real defect (`Items.Desc` is a NOT NULL column with no `[Required]` attribute, so nulls fail at MySQL, not at validation) |
+
+### The numbers (live, verified to the penny)
+
+- **Backups:** pre `~/PLUTUS/backups/plutus-pre-20260817-l4-preimport.sql.gz` (+ a copy on the
+  Windows box at `D:\tmp\`), post `plutus-post-20260817-l4-import.sql.gz`. Both gzip-verified with
+  the `Dump completed` trailer present.
+- **Delta:** 198 sales / 639 lines / 198 tenders, 2026-07-24 → 2026-08-15, **£4,923.86 gross —
+  source and recorded EXACTLY equal**, 31 reconciled-to-Total (the established lossy-lines rule),
+  **0 quarantined**. Tender split: Card 154 (£3,995.42) · Cash 35 (£717.59) · Online 9 (£298.53).
+- **Four-way penny reconciliation after rollups-rebuild:** SalesV2 headers == ΣSaleLines ==
+  SalesRollups == VatRollups — **£562,563.74 gross / £25,784.71 VAT / 21,888 sales**, all four
+  identical. Per-imported-sale: 0 header≠Σlines, 0 tenderNet≠gross, 0 duplicate LegacyRef.
+- **Store attribution:** store 0 (the orphan bucket) is **gone** — the shop's history now rolls up
+  under store 1 (£562,328.91 / 21,864 txns); the Huggett Home test sales stay under store 4.
+- **VAT on the imported 198, by rate:** zero-rated 625 lines £4,081.55 (VAT £0) · standard 45 lines
+  £842.31 (**VAT £140.33**). 167 of 198 sales are entirely zero-rated (comics).
+- ⚠ **Source-header VAT vs recorded VAT: £131.97 vs £140.33.** Deliberate, and the SAME rule as all
+  21,646 prior sales (decision 2026-07-24): per-line reconstruction from the item's VAT band is
+  trusted over the legacy header's own ex-tax arithmetic, which for 31 of these 198 didn't even sum
+  internally; the −£68.93 of reconciling Δ-lines carries 0 VAT (conservative). Every imported row is
+  flagged `VatReconstructed`.
+
+### ⚠ Reported, deliberately NOT done (Matt's "don't overwrite" + sales-only scope)
+
+1. **Two items changed price on the till after 23_07** (`5011921156955` £43.99→£44.49,
+   `5011921173686` £49.99→£51.99). The portal owns the catalogue now — live keeps its values; the
+   imported sale lines carry the price actually paid regardless. **Decide in the portal** if the new
+   till prices are wanted.
+2. **Stock was not touched.** The 639 imported lines have no stock movements (the historic ETL never
+   moved stock either — it was seeded once from the 23_07 `Stocks` table). The shop has traded ~3
+   weeks on the NatApp till AND the webstore against one physical pile; neither system knows the
+   other's decrements. A stock-count in Plutus (or a re-seed from a final till backup at cutover) is
+   the honest reconciliation — a formula is not.
+3. **15 sale notes and 16 price-override records in the delta were dropped** — the reader has never
+   carried them (all 21,646 prior sales imported without theirs too). Adding them only for the delta
+   would make 198 sales carry a record the other 21,646 lack; a uniform backfill for ALL legacy sales
+   is possible later if wanted.
+4. **The 44 post-cutover platform sales** (web-till tests, MAUI tests, webstore) were not touched —
+   "test data" per Matt, but webstore orders in that set are real money; nothing here needed to
+   distinguish them because nothing here deleted anything.
+
+### How to run the NEXT bridge (this is now routine)
+
+```sh
+# on the Mac (the tool lives at ~/PLUTUS/seedmigrator-l4, connects over the unix socket):
+source ~/PLUTUS/secrets/mysql.env
+CONN="Server=/tmp/mysql.sock;ConnectionProtocol=unix;User=plutus;Password=$MYSQL_PLUTUS_PASSWORD;Database=plutus"
+./Plutus.SeedMigrator "<newer-backup>.db" sales-v2   --mysql "$CONN" --verify   # read-only plan
+./Plutus.SeedMigrator "<newer-backup>.db" sales-v2   --mysql "$CONN" --apply
+./Plutus.SeedMigrator "<newer-backup>.db" items-delta --mysql "$CONN" --verify  # then --apply
+./Plutus.SeedMigrator rollups-rebuild                --mysql "$CONN"
+# then the four-way penny check (SalesV2 == ΣSaleLines == SalesRollups == VatRollups)
+```
+⚠ Dump the DB first, rehearse on `plutus_t1` (re-cloned from that dump) when anything about the
+backup looks unusual, and remember `mysqldump` needs `--no-tablespaces --skip-lock-tables
+--set-gtid-purged=OFF` and the SOCKET (TCP auth is dead — caching_sha2, see the runbook).
+
+### Still open from §4
+
+- Steps 4–6 in full generality (whole-catalogue upsert, snapshot tooling, one-command sequencing) —
+  today's run did each piece by hand with the checks recorded above.
+- Step 9 (multi-tenant parameterisation) — untouched, still gated on §3.3(a) per the 2026-08-08 note.
+- §6 Q1 (how backups reach the tooling) — this one arrived in `Build/seed-data/` by hand; fine for
+  bridge runs, but the CUTOVER run wants a same-day export taken after the till stops trading.
