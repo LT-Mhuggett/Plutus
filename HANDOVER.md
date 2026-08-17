@@ -9,44 +9,42 @@
 > [`archive/handover-history-to-2026-08-17.md`](Build/archive/handover-history-to-2026-08-17.md).
 > **Do not grow this file back into a history.** Rewrite it; the commits are the record.
 
-**Written:** 2026-08-17 · **Head:** `git log -1` · **Suites:** unit 1258 · MAUI 598 · web till 45 — all green
+**Written:** 2026-08-17 · **Head:** `git log -1` · **Suites:** unit 1310 · MAUI 598 · web till 45 — all green
 
 ---
 
-## ⏰ THE ONE THING OUTSTANDING — build till **1.72.0**
+## ⏰ START HERE — the build exists, and no person has ever run it
 
-Nothing else blocks the hand-run. The artefact on disk is **1.71.0** and is missing the two newest
-changes:
+✅ **Till 1.73.0 is BUILT and verified.** Double-click:
 
-- ⚠⚠ the **percentage discount money fix** — typing `10` for 10% used to try to take **£200** off a £20
-  item (§F7b)
-- ⚠⚠ the **roster move** — offline sign-in after an upgrade (§G30)
-
-```bash
-# clean first: MSBuild caches the evaluated version and will re-emit the old one
-rm -rf Plutus/Frontend/Plutus.Frontend.AppClient/{bin,obj}/Release
-dotnet publish Plutus/Frontend/Plutus.Frontend.AppClient/Plutus.Frontend.AppClient.csproj \
-  -c Release -f net10.0-windows10.0.19041.0 -p:WindowsPackageType=None -o /d/tmp/plutus-till-1.72.0
+```
+D:\tmp\plutus-till-1.73.0\Plutus.Frontend.AppClient.exe
 ```
 
-Then **verify the artefact's stamped version**, delete `plutus-till-1.71.0`, and point the *Run* row of
-`Build/Test Maui.md` at the new folder. ⚠ Builds are made **on request only** (Matt, 2026-08-16).
+The artefact reads `1.73.0+7cf5f2dc`, which is HEAD. It is the **only** till build on the box — 1.71.0
+was deleted so there is no question which to run. ⚠ It will say the till isn't enrolled; that is
+expected for an unpackaged build (runbook § MAUI till build) — enrol it as a fresh till.
+
+⚠ **Install agent 1.4.0 as well.** Web till → Settings → Hardware → *Download the agent (v1.4.0)*, or
+`tools\Plutus.TillAgent\publish-out\PlutusTillAgent-1.4.0.exe`. ⚠⚠ Put it in
+`%LOCALAPPDATA%\Plutus\Agent\` and run it from **there**, not Downloads — §G29 and §G31 need it, and
+Downloads is the fault it fixes.
 
 ---
 
-## Then: the hand-run. 69 sections, and none of it has ever been run
+## The hand-run. 69 sections, and none of it has ever been run
 
 **[`Build/Test Maui.md`](Build/Test%20Maui.md)** — the RUN ORDER table at its top is the order. About
 **2½ hours**, or ~15 minutes for §A alone if that is all there is.
 
-⚠⚠ **The last hand-run findings were 2026-08-13.** MAUI has gone from 1.49.x to **1.72.0** with nobody
+⚠⚠ **The last hand-run findings were 2026-08-13.** MAUI has gone from 1.49.x to **1.73.0** with nobody
 looking at a screen. For scale: 2026-08-10 found **fourteen** faults, **six invisible to every
 automated test in the project**; 2026-08-13 found five more including two money holes. **Every hand-run
 so far has found something the tests could not.**
 
-⚠ **Install agent 1.4.0 too** — web till → Settings → Hardware → *Download the agent (v1.4.0)*. Put it
-in `%LOCALAPPDATA%\Plutus\Agent\` and run it from **there**, not Downloads: §G29 needs it, and
-Downloads is the fault it fixes.
+⚠ **Part B now has ZERO MAUI ⬜ rows** — 50 ✅ both · **17 🟡** · 0 ⬜ MAUI · 8 ⬜ web till. Functional
+parity is closed *on paper*; those 17 🟡 are the ones no human has seen. **Running §G validates
+seventeen rows; there is no remaining MAUI build work that would move any.**
 
 ---
 
