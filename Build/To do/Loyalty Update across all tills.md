@@ -1,9 +1,54 @@
-# Loyalty Offering — Design Document
+# Loyalty Update across all tills — design document
 
 **Product:** Loyalty section for store / club platform
 **Author:** Matt Huggett (Leading Talent) with Claude
-**Date:** 13 August 2026
-**Status:** Draft for review
+**Date:** 13 August 2026 · renamed from `updatedesign.md` 2026-08-17
+**Status:** Draft for review — ⚠ **NOT STARTED. No part of this is implemented; see the box below.**
+
+> ## ⚠⚠ NOTHING HERE IS BUILT — verified against the code 2026-08-17
+>
+> Grep for this design's own types and **every one returns zero files**: `LoyaltySettings`,
+> `LoyaltyPointEntry`, `PencePerPoint`, `SpendPerPointPence`, `PencePerPointAtEarn`, `ExpiryChoice`,
+> `NameSingular`/`NamePlural`, `LoyaltyCache`. There is no earning engine either.
+>
+> ⚠ **And §17's "first platform slice" has not been cut:** `IngestSaleRequest` still carries no
+> `CustomerId`, so **every sale arrives anonymous**, and `LineMeta` has no `earnsCredits`. Without the
+> member link on the sale header there is nothing to earn against — which is exactly why the design
+> named it first.
+>
+> **What DOES exist is the foundation this extends, not this programme:** customers with member
+> numbers, `LoyaltyTier` + `AutoDiscountRate` (manually assigned, discount applied on both tills),
+> **store credit** (`CreditEntry`, append-only, a `CREDIT` tender — ⚠ that is *money* from refunds, not
+> gems), `GiftCardSettings` as the idiom `LoyaltySettings` copies, and refund plumbing whose clawback
+> hooks are unused.
+>
+> ⚠ **Retrofit step 27 is the PARITY slice, not this.** It closed "a Gold member is charged 10% more on
+> MAUI" by bringing MAUI level with the web till on members, tiers, the tier discount, store credit and
+> a Loyalty tab. This programme is a separate **~45–55 days**.
+>
+> ✅ **Nothing is half-built** — no orphan tables, no dead `LoyaltyPoint` types, no partially-wired
+> endpoints. It is a design waiting on a start, which is the cleanest state for it to be in.
+>
+> ### ⚠ Before any of it starts — nine of twenty-one decisions are not yours yet
+>
+> **Open (4):** 3 tier qualification basis · 4 tier downgrade policy & grace period · 6 transfers /
+> family pooling · 7 enrolment opt-in vs automatic. ⚠ Two of those four are about **tiers**, and §5 is
+> eight lines long.
+>
+> **Proposed — my recommendation, never ratified (5):** 12 where earning is computed · 13 loyalty
+> credits vs store credit · 14 earn rounding · 16 reward catalogue · ⚠⚠ **18 refund symmetry**.
+>
+> ⚠⚠ **Decision 18 is the one not to leave sitting.** A refund must claw back the earn **and** restore
+> the burn: the earn alone is a gem printer — buy £1,000, refund it, keep 100 gems. ⚠ **Decision 14 has
+> a deadline** — carrying remainders forward *later* means recomputing every sale ever made.
+>
+> ### ⚠ The depth is uneven, and §18 is 46% of the document
+>
+> Everything interrogated at the 2026-08-13 review is deep and buildable — the economics (§18, 361
+> lines), redemption, earning, parity. What was not is still headline bullets: **§15 Core Entities is
+> nine names and no schema**, **§13 Legal & Financial (UK) is eight lines** for a feature carrying a
+> real accounting liability (breakage, outstanding liability), and §5 tiers, §10 member portal and §12
+> enrolment are sketches. **Phase A is specified well enough to build; B–D are not.**
 
 ---
 
@@ -523,7 +568,12 @@ alone:
    ticket. ⚠ And note the inverse is the exploit: refunding the **full** £100 *and* returning the
    gems pays the discount out in cash. Exactly one of those two may happen.
 
-### 18.6 ⚠ Found while checking this: MAUI applies no tier discount at all
+### 18.6 ~~⚠ Found while checking this: MAUI applies no tier discount at all~~ → ✅ CLOSED 2026-08-16
+
+> ✅ **Fixed by retrofit step 27** (`1f0aa9af` the members' discount engine, `274c6d53` the attach screen).
+> MAUI now applies the tier discount through `SharedKernel.MemberDiscount`, shared with the web till.
+> ⚠ 🟡 not ✅ on Part B until a person has run it. **The gap below was real on 2026-08-13 and is not now** —
+> kept because it is the clearest example in this document of why §16's parity rule exists.
 
 Not a design question — a **live parity gap**, found in the code today. `TillPage.tsx:122–123`
 applies the member discount on the web till:
