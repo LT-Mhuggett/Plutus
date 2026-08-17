@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Windows.Forms;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Win32;
+using Plutus.TillAgent.Core;
 
 namespace Plutus.TillAgent
 {
@@ -112,20 +113,71 @@ namespace Plutus.TillAgent
             return SystemIcons.Application;
         }
 
-        /// <summary>Auto-start at login via the Run key (per user — no admin needed, and the till
-        /// PC logs in automatically anyway).</summary>
-        public static bool AutoStartEnabled()
+        /// <summary>
+        /// Auto-start at login via the `Run` key (per user — no admin needed).
+        ///
+        /// ⚠ AT LOGIN, NOT AT BOOT. `HKCU\…\Run` fires when a user signs in, so a till PC that boots
+        /// to a login screen starts no agent until somebody does. That is fine where the till PC
+        /// auto-logs-in — and it costs nothing where it does not, because the agent's only client is
+        /// the till UI running in that same session. ⚠ It also means this can never be the mechanism
+        /// for "up before anyone signs in"; that needs a service, and a tray app cannot be one.
+        /// </summary>
+        private static string? StoredAutoStartValue()
         {
             using var key = Registry.CurrentUser.OpenSubKey(RunKey);
-            return key?.GetValue(RunValue) != null;
+            return key?.GetValue(RunValue) as string;
         }
+
+        /// <summary>⚠ Reports the state of a registration that actually points HERE — see
+        /// <see cref="AutoStartRegistration.ShowsAsEnabled"/> for why "a value exists" is the wrong
+        /// question and what it cost.</summary>
+        public static bool AutoStartEnabled() =>
+            AutoStartRegistration.ShowsAsEnabled(StoredAutoStartValue(), Environment.ProcessPath ?? "");
 
         public static void SetAutoStart(bool enabled)
         {
-            using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true);
+            // ⚠ CreateSubKey, not OpenSubKey. `OpenSubKey` returns null when the key is missing and
+            // the old code then `return`ed — so on a profile without a `Run` key, ticking the box did
+            // NOTHING and reported success. `Run` almost always exists, which is exactly why a silent
+            // no-op there would have gone unexplained for a long time.
+            using var key = Registry.CurrentUser.CreateSubKey(RunKey, writable: true);
             if (key == null) return;
-            if (enabled) key.SetValue(RunValue, $"\"{Environment.ProcessPath}\"");
+
+            if (enabled) key.SetValue(RunValue, AutoStartRegistration.ValueFor(Environment.ProcessPath ?? ""));
             else key.DeleteValue(RunValue, throwOnMissingValue: false);
+        }
+
+        /// <summary>
+        /// ⚠⚠ CALLED ON EVERY LAUNCH. If auto-start is on but the stored path points somewhere else,
+        /// rewrite it to this exe.
+        ///
+        /// This is the fix for a real fault: the registration was written once when the box was
+        /// ticked and never revisited, so an agent ticked while running from `Downloads` left
+        /// `"…\Downloads\PlutusTillAgent (1).exe"` behind for ever. When that file went, every boot
+        /// launched nothing — silently, with the checkbox still showing ticked.
+        ///
+        /// ⚠ It matters more from here on, not less: once the agent ships inside the till package it
+        /// gets REPLACED on a schedule, so a registration frozen at one path would break on a
+        /// cadence rather than by accident.
+        ///
+        /// ⚠ Never throws and never blocks startup. A hive it cannot write is a setting the operator
+        /// must fix by hand — it is not a reason for the agent not to run.
+        /// </summary>
+        public static void ReconcileAutoStart()
+        {
+            try
+            {
+                var exe = Environment.ProcessPath ?? "";
+                if (AutoStartRegistration.Reconcile(StoredAutoStartValue(), exe) != AutoStartAction.Rewrite)
+                    return;
+
+                using var key = Registry.CurrentUser.CreateSubKey(RunKey, writable: true);
+                key?.SetValue(RunValue, AutoStartRegistration.ValueFor(exe));
+            }
+            catch (Exception)
+            {
+                // ⚠ Deliberately swallowed. See the header — the agent still starts.
+            }
         }
     }
 
@@ -138,7 +190,12 @@ namespace Plutus.TillAgent
         private readonly ComboBox _emulation = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 330 };
         private readonly TextBox _token = new() { Width = 330, ReadOnly = true };
         private readonly TextBox _origin = new() { Width = 330 };
-        private readonly CheckBox _autoStart = new() { Text = "Start automatically when this PC logs in", AutoSize = true };
+        // ⚠ "SOMEBODY LOGS IN", not "this PC starts". `HKCU\…\Run` fires at interactive logon, so on
+        // a till PC without auto-logon nothing starts until a person signs in — and somebody reading
+        // "when this PC logs in" reasonably expects a reboot to be enough. The wording is the only
+        // honest place to say so, because the mechanism cannot be changed without making the agent a
+        // service, and a tray app cannot be one.
+        private readonly CheckBox _autoStart = new() { Text = "Start automatically when somebody logs in to this PC", AutoSize = true };
         private readonly Label _status = new() { AutoSize = true, MaximumSize = new Size(360, 0) };
 
         public SettingsForm(AgentState state)

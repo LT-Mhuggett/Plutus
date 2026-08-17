@@ -21,11 +21,26 @@ Self-contained single file — **no .NET install needed on the till PC**.
 
 ## Install on a till PC
 
-1. Copy `PlutusTillAgent.exe` anywhere sensible (`C:\Plutus\PlutusTillAgent.exe`).
+1. ⚠⚠ **Copy `PlutusTillAgent.exe` to a permanent place and run it from THERE.**
+   `%LOCALAPPDATA%\Plutus\Agent\PlutusTillAgent.exe` is the recommended path — it needs no admin,
+   which matches the per-user auto-start below.
+   **Do NOT run it from `Downloads`.** Auto-start records the path the agent was running from, and a
+   Downloads copy gets cleaned up, renamed `… (1).exe` by a second download, or replaced — after
+   which the till boots and starts nothing. That is a real fault, found on a till on 2026-08-17:
+   the registration read `"…\Downloads\PlutusTillAgent (1).exe"` for a file that no longer existed.
+   ⚠ Since **1.4.0** the agent repairs its own registration on every launch, so moving the exe and
+   running it once is enough to fix a stale one — but starting in the right place avoids the question.
 2. Run it. It appears in the notification area and opens Settings on first run.
 3. Choose the **receipt printer** (the Windows printer the receipt printer is installed as) and the
    **paper width** (80mm = 42 columns, 58mm = 32).
-4. Tick **Start automatically when this PC logs in**.
+4. Tick **Start automatically when somebody logs in to this PC**.
+   ⚠⚠ **At LOGON, not at boot.** It is an `HKCU\…\Run` value, so it fires when a user signs in — a
+   till PC that boots to a login screen starts no agent until somebody does. Where the till PC
+   **auto-logs-in** this is invisible; where it does not, check that first before assuming the
+   setting is broken. It costs nothing in practice, because the agent's only client is the till UI
+   running in that same session. ⚠ It also means this can never start the agent *before* anyone signs
+   in — that needs a Windows service, and a tray app cannot be one (session 0 has no desktop, so the
+   icon and Settings window would be gone).
 5. **Test print.** If the £ signs and the barcode look right, the printer is good.
 6. **Copy token**, then in the till browser: **Settings → Hardware → Pairing token → Save token**.
 7. Back in the till's Hardware card, use **Test print** and **Open drawer** to confirm the browser

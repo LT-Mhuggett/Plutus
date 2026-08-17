@@ -48,6 +48,13 @@ namespace Plutus.TillAgent
                 return;
             }
 
+            // ⚠⚠ BEFORE ANYTHING ELSE, and before the tray icon exists: if auto-start is on, make
+            // sure it points at THIS exe. The registration used to be written once, when the box was
+            // ticked, and never revisited — so an agent ticked while running from `Downloads` kept a
+            // dead path and launched nothing on every boot, with the checkbox still showing ticked.
+            // ⚠ It matters more once the agent ships with the till and is replaced on a schedule.
+            TrayApp.ReconcileAutoStart();
+
             var config = AgentConfig.Load();
             var transport = new RawSpoolerTransport();
             var state = new AgentState(config, transport);

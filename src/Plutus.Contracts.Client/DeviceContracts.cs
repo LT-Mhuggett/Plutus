@@ -35,6 +35,20 @@ public sealed record DeviceTokenRequest(Guid DeviceId, string ClientSecret);
 public sealed record DeviceTokenResult(string AccessToken, int ExpiresInSeconds);
 
 /// <summary>
+/// POST /api/v1/tills/agent-status (FE3.0) — what this till found when it polled its local hardware
+/// agent.
+///
+/// ⚠ A NULL <c>AgentVersion</c> means "I looked and there is no agent on this PC", which the portal
+/// shows. It is a reading, not a missing field, so it is sent rather than skipped.
+///
+/// ⚠ EVERYTHING BUT THE DEVICE ID IS NULLABLE ON PURPOSE — the server's own record says why: this
+/// project has NRT on, and `[ApiController]` turns a null in a non-nullable property into an
+/// automatic 400 before the action ever runs.
+/// </summary>
+public sealed record AgentStatusRequest(
+    Guid DeviceId, string? AgentVersion, string? PrinterName, bool? PrinterOnline);
+
+/// <summary>
 /// POST /api/v1/tills/unenrol-request — this till asks to be taken off the estate.
 ///
 /// ⚠ A DEVICE MAY ONLY UN-ENROL ITSELF; the server refuses any other <c>DeviceId</c> with a 403.

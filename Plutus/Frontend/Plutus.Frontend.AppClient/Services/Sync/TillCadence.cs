@@ -413,6 +413,18 @@ namespace Plutus.Frontend.AppClient.Services.Sync
             {
                 var credential = await Connectivity.SecureDeviceCredentialStore.LoadAsync().ConfigureAwait(false);
 
+                // 6b. FE3.0 — tell the platform what hardware agent this till has.
+                //
+                // ⚠ The WEB TILL has done this since FE3.0 and MAUI never did, so every MAUI till read
+                // "agent unknown" on the portal's fleet list beside browser tills that reported
+                // properly — which looks like a missing agent rather than missing reporting.
+                //
+                // ⚠ NOT EVERY TICK. `AgentReporting.ShouldSend` — shared with the web till — sends on
+                // a CHANGE or every 6 hours, because this is telemetry the server overwrites in place
+                // and the beat is 60s. It is also cheap when it declines: the agent poll is loopback.
+                if (credential?.DeviceId is Guid agentDeviceId)
+                    await Hardware.AgentReporter.ReportAsync(api, agentDeviceId, ct).ConfigureAwait(false);
+
                 // ⚠ A till with no device credential has nothing to be revoked — it has never been
                 // enrolled, and the login screen already handles that case.
                 if (credential?.DeviceId is Guid standingDeviceId)

@@ -159,6 +159,25 @@ public sealed class PlutusApiClient
     }
 
     /// <summary>
+    /// FE3.0 — report what this till found when it polled its local hardware agent, so the portal's
+    /// Locations page can see the fleet's printers.
+    ///
+    /// ⚠ Send a null <paramref name="agentVersion"/> when there is no agent: "this till PC has none"
+    /// is a fleet fact the portal displays, and skipping it makes a till with no agent look identical
+    /// to a till that has never reported.
+    ///
+    /// ⚠ ASK <see cref="AgentReporting.ShouldSend"/> FIRST. It is telemetry the server overwrites in
+    /// place, and MAUI's cadence is 60s against the web till's 5 minutes — beating on it every tick
+    /// would be hundreds of times the useful traffic to rewrite a row with what it already holds.
+    /// </summary>
+    public Task<bool> ReportAgentStatusAsync(
+        Guid deviceId, string? agentVersion, string? printerName, bool? printerOnline,
+        CancellationToken ct = default)
+        => PostJsonAsync(
+            "/api/v1/tills/agent-status",
+            new AgentStatusRequest(deviceId, agentVersion, printerName, printerOnline), ct);
+
+    /// <summary>
     /// Ask for this till to be taken off the estate (WP4, step 21).
     ///
     /// ⚠ THE TILL'S OWN DEVICE ID, always. The server refuses any other with a 403 — a till may only

@@ -451,6 +451,32 @@ built or verified here. Both land on the next Mac build, per the runbook's front
 | **W3** | **Portal screen for the expected till version** | ½d | `GET`/`PUT /api/v1/platform/till-release` is live and works; nothing sets it from a UI, so the heartbeat's update check cannot be switched on without curl. ⚠ The table is empty, which is correct — the feature is inert until a platform admin PUTs a version |
 | **W4** | **Web till: roster + permissions on a cadence** (WP17.4) | 1–2d | ⚠ A disabled operator is signed out of MAUI within 60s; the web till has **no proactive check at all** — it signs out only when a request happens to 401 (`api.ts:50`), and login tokens are cached 12h with their permission set. Same change also stops it discarding the whole heartbeat response (`Locked`, `SyncNow`, `CatalogueCursor` are dead there) |
 
+| **W5** | **Ship the agent with the till, and let the platform say it is out of date** | ~1½–2d | ⬜ **Matt asked for this 2026-08-17** — see the ruling below, which is the part that must not be lost. Two halves: (a) the agent travels in the till package and is installed to a **stable** path, (b) `ExpectedAgentVersion` on the heartbeat beside `ExpectedMauiVersion`. ⚠⚠ **The agent must NOT live inside the versioned till folder.** `plutus-till-1.71.0\` changes every release, and the auto-start registration records a path — putting the agent there would break auto-start **on every upgrade**, which is the 2026-08-17 fault on a schedule. Ship it in `…\agent\`, install it to `%LOCALAPPDATA%\Plutus\Agent\` (no admin, matching the per-user `HKCU` Run key). ⚠ **You cannot overwrite a running exe** — the update needs the agent asked to exit over loopback first, and that dance is the real work, not the copy. ⚠ **The web till cannot install anything** (it is a browser), so browser-only till PCs still need a manual install. ⚠ **This is the one out-of-date signal on the platform that can be ACTIONED rather than merely shown** — the MAUI till has no self-update by Matt's decision, but the agent is a single self-contained exe in a per-user folder that the till can replace. |
+
+> #### ⚠⚠ MATT'S RULING — 2026-08-17: an agent update is ASKED FOR, and a "no" is REMINDED
+>
+> Verbatim: *"I would not install silently, I would inform with a 'Continue or cancel' option, do not
+> want to be doing things when nobody knows. But if they say no, it needs to remind them."*
+>
+> **So W5(a) is not a silent copy.** Three requirements, and the third is the one most likely to be
+> dropped because it is the only one that needs state:
+>
+> | | |
+> |---|---|
+> | **Ask** | A **Continue / Cancel** prompt naming what is about to happen. Never a background swap |
+> | **Obey a no** | Cancel means the current agent keeps running. It must **not** re-ask on a loop — asking every 60s *is* a silent install with extra steps |
+> | ⚠⚠ **Remind** | A declined update **comes back**. It must not be dismissible for ever: an operator who says "not now" during a rush has not said "never", and a till left on an old agent because nobody re-asked is exactly the drift this platform keeps finding |
+>
+> ⚠ **The reason for the prompt is diagnostic, not courtesy.** Matt's *"do not want to be doing things
+> when nobody knows"* is the operative half: a printer that stops working right after a silent agent
+> swap is un-attributable, and somebody spends an afternoon on the printer. A prompt makes the
+> connection obvious to whoever was standing there.
+>
+> ⚠ Design note for whoever builds it: "remind" needs a **declined-at** stamp and an interval, and the
+> reminder has to survive a restart — otherwise closing the till becomes the way to dismiss it for
+> ever, which is a "no" nobody chose. ⚠ And it must never interrupt a live basket; the cadence already
+> has `BasketIsOpen` for exactly this.
+
 ⚠ **W1 and W4 are web-till TypeScript, so they need the Mac** — there is no Node on the Windows box.
 Every TS edit made here is flagged **NOT TYPECHECKED** and goes onto §8.
 

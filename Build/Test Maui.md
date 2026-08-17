@@ -1,6 +1,6 @@
 # Test Maui — the MAUI till hand-test script
 
-**For till 1.70.0.** Anyone can run this. You do not need to know the codebase, and you should not
+**For till 1.71.0.** Anyone can run this. You do not need to know the codebase, and you should not
 need to ask anyone what a step means — if a step is unclear, that is a bug in this document, so please
 say so.
 
@@ -38,7 +38,7 @@ on 2026-08-11 came from somebody noticing something, not from a step asking the 
 
 | | |
 |---|---|
-| **Run** | `D:\tmp\plutus-till-1.70.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **1.70.0 has not been built yet — ask for it and it takes a couple of minutes.** Builds are made on request rather than after every change, so that what you test is the newest work and not the fourth build of five. The newest one on disk is **1.69.0**, which is everything below except §A1b. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
+| **Run** | `D:\tmp\plutus-till-1.71.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. ⚠ **1.71.0 has not been built yet — ask for it and it takes a couple of minutes.** Builds are made on request rather than after every change, so that what you test is the newest work and not the fourth build of five. The newest one on disk is **1.69.0**, which is everything below except §A1b. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
 | **Sign in as** | any operator with **Supervisor** or above — some steps need permission to change stock |
@@ -1295,3 +1295,26 @@ role here, say so — but it is a decision, not an omission.
 
 ⚠ **If your business has more than 100 staff**, the till shows the first 100 and **says so**. Check
 you get that warning rather than a silently short list.
+
+## G29. The portal should now know which agent this till has — **NEW in 1.71.0**
+
+⚠ **Before 1.71.0 every MAUI till read "agent unknown" on the portal's Locations page**, beside
+browser tills that reported properly — which looks like a missing agent rather than missing
+reporting. MAUI knew the version all along and never said.
+
+1. With the till running and paired to an agent, wait **a minute or two**.
+2. Open the **portal → Locations** and find this till.
+
+**✅ Expected:** it shows the **agent version** and the **printer name**, with a recent "reported at"
+— the same as a browser till.
+
+3. **Turn the receipt printer off.** Within a couple of minutes the portal should show the printer as
+   **offline**.
+4. Turn it back on. It should go healthy again.
+
+⚠ **It does not report every minute, deliberately** — only when something **changes**, or every **6
+hours** to confirm it is still alive. So don't expect the "reported at" time to tick over constantly;
+expect it to jump when you change something.
+
+⚠ **A till with no agent at all should also show** — as "no agent", not as blank. That is a fact about
+the shop's kit, not a gap.
