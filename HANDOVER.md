@@ -1,9 +1,10 @@
 # Handover — Plutus platform build
 
-**Date:** 2026-08-16 — Platform on **.NET 10**. Backend **1.17.1** and portal **1.8.0** are DEPLOYED
-and verified. ⚠ **Web till 1.10.0 is COMMITTED, NOT DEPLOYED** — 1.9.0 is live; see START HERE item 3,
-because the Mac's source tree is already at 1.10.0. ⚠ **till-maui 1.70.0 is a VERSION ONLY — no
-artefact exists**; the newest build on disk is **1.69.0**. Agent **1.3.3**. All 18 phases + Operator
+**Date:** 2026-08-17 — Platform on **.NET 10**. Backend **1.17.1**, **web till 1.10.0** and portal
+**1.8.0** are DEPLOYED to the test environment and verified. ✅ **till-maui 1.71.0 is BUILT** at
+`D:\tmp\plutus-till-1.71.0` (artefact reads `1.71.0+6e4e787e` = HEAD) and **awaits a hand-run** —
+1.69.0 was deleted so there is no ambiguity. ✅ **Agent 1.4.0** is published and downloadable from the
+web till (Settings → Hardware). All 18 phases + Operator
 Portal (OP1–OP4), the **portal/till refresh (P1–P6)** and **FE1–FE10** built & LIVE. The **MAUI
 retrofit**: cutover **steps 1–21, 23, 24 (bar the roster move), 25, 27 and most of 26 are done**;
 **22 (theming — Matt's call: LAST), the rest of 26, and 28 remain** — ⚠ **one document:**
@@ -26,10 +27,29 @@ Head: see `git log` — this line goes stale; the commits don't.
 > Older references below that say `Build/<plan>.md` now mean `Build/archive/<plan>.md` or
 > `Build/To do/<plan>.md`.
 
-### ⏰⏰⏰⏰⏰⏰⏰⏰⏰⏰ START HERE — **2026-08-16**
+### ⏰⏰⏰⏰⏰⏰⏰⏰⏰⏰ START HERE — **2026-08-17**
 
-**Five commits, all MAUI parity. Nothing was deployed and no till was built.** Everything below is
-committed to `main` and green; the two things that need a human are items 1 and 2.
+**Everything buildable and deployable is done. What is left is a hand-run and two decisions.**
+
+| | |
+|---|---|
+| ✅ **Web till 1.10.0** | **DEPLOYED & verified** — `index-DBZqCOhi.js`, 343,530 bytes, defines substituted, new severity rule present and the old allow-list gone. Rollback `current.pre-1.10.0` (= 1.9.0, `index-BLeVrCti.js`). ETRIE **200**, portal untouched |
+| ✅ **Agent 1.4.0** | Published; the web till's **Settings → Hardware** offers it (verified HTTP 200 / 70,293,789 bytes). ⚠ **Install it to `%LOCALAPPDATA%\Plutus\Agent\`, not Downloads** |
+| ✅ **till-maui 1.71.0** | **BUILT**, `D:\tmp\plutus-till-1.71.0`, artefact reads `1.71.0+6e4e787e` = HEAD. 1.69.0 deleted |
+| ⬜ **The hand-run** | **65 sections, none of it ever run.** §G27 → §G24 → §A0 → §A4b first |
+| ⬜ **Two decisions** | Items 1 and 1b below |
+| ⚠ **144 commits unpushed** | Upstream last saw **2026-08-09**. Item 1c |
+
+#### 1c. ⚠ 144 commits exist only on this machine
+
+`origin` is 8 days behind — its last commit is `8e45fa23` (2026-08-09). Everything since, including
+all of the MAUI parity work, the money reshape and today's agent fixes, is **local only**. Pushing has
+been "on request" throughout and I have not done it.
+
+⚠ **This is the one outstanding item with no upside to leaving.** A machine failure loses 8 days; the
+built artefacts in `D:\tmp` are not a backup of source. **Say the word and I will push.** If there is
+a reason not to (a rewrite you want first, or upstream being shared), that reason is worth writing
+down here, because otherwise the next session will ask the same question.
 
 #### 1. ⚠⚠ THE ONE QUESTION STILL WAITING ON YOU — the percentage discount box
 
@@ -48,29 +68,59 @@ the box is wrong in one of two ways and **the fix is completely different each w
 **Which is it?** I have deliberately not guessed: guessing changes what every percentage discount
 charges.
 
-#### 2. ⚠ Say the word and I will build till **1.70.0** — it does not exist yet
+#### 2. ✅ Till **1.71.0** and agent **1.4.0** are built — the hand-run is what is left
 
-You asked (2026-08-14) that MAUI tills be built **only on request**, so the version file says 1.70.0
-and no artefact was produced. **The newest build on disk is `D:\tmp\plutus-till-1.69.0`**, which has
-none of today's work.
+Built 2026-08-17 on request. `D:\tmp\plutus-till-1.71.0\Plutus.Frontend.AppClient.exe`, unpackaged —
+double-click, nothing to install. ⚠ It will say the till isn't enrolled; that is expected for an
+unpackaged build (runbook § MAUI till build), enrol it as a fresh till.
 
-⚠ **[`Build/Test Maui.md`](Build/Test%20Maui.md) is written for 1.70.0** and its "Before you start" row
-says so plainly. Five new sections were added today — **§A1b, §G25, §G26, §G27, §G28** — and **§G27 is
-the one I would run first**, because it is a security behaviour and it has two halves that fail in
-opposite directions.
+⚠⚠ **Install agent 1.4.0 as well, and put it in `%LOCALAPPDATA%\Plutus\Agent\`** — §G29 needs it, and
+running it from Downloads is the fault it fixes.
 
-#### 3. ⚠⚠ THE WEB TILL'S SOURCE ON THE MAC IS AHEAD OF WHAT IS DEPLOYED
+**[`Build/Test Maui.md`](Build/Test%20Maui.md) is written for 1.71.0** and is 65 sections. **Nothing in
+it has ever been run** — the last hand-run findings were 2026-08-13, fixed in 1.49.x–1.50.0, and MAUI
+has gone from there to 1.71.0 unverified. ⚠ Every hand-run so far has found faults tests could not:
+**2026-08-10 found 14, six invisible to every automated test**; 2026-08-13 found 5 more including two
+money holes.
 
-Today's announcement-severity fix touches the **web till**, so `versions/till-web.txt` is **1.10.0**.
-It is **committed but NOT deployed** — the live bundle is still **1.9.0**.
+**Run these four first**, in this order — each can make everything after it look broken:
 
-⚠⚠ **And I copied three files to the Mac to run its test suite** (there is no node on Windows):
-`api.ts`, `App.tsx`, `notices.test.ts` in `~/PLUTUS/Plutus.Frontend.WebApp/src/`. The Mac's source
-tree is **not a git checkout** (runbook — it is hand-synced with `scp`), so **the next `npm run build`
-anybody runs there will ship 1.10.0 whether they meant to or not.** Either deploy it deliberately or
-know that it is sitting there. Nothing was built or restarted; the running site is untouched.
+| # | | Why first |
+|---|---|---|
+| 1 | **§G27** | A revoked till must stop **and** a network blip must not stop it. Security behaviour, two halves failing in opposite directions |
+| 2 | **§G24** | Money on every basket row. If a £3.30 item reads **£330.00**, stop and report it |
+| 3 | **§A0** | Can the till take a sale at all? It could not, on 1.48.0 |
+| 4 | **§A4b** | Refund a sale paid two ways — the money one, fixed across several builds, never run |
 
-#### 4. What landed today
+⚠ **Eight sections are new since 1.65** — §A1b, §G25, §G26, §G27, §G28, §G29 among them.
+
+#### 3. ✅ Web till 1.10.0 DEPLOYED — and three things the deploy turned up
+
+Deployed 2026-08-17 and verified on every axis the runbook demands: the till host names the new hash
+(`index-DBZqCOhi.js`), the bundle is **343,530 bytes** rather than the ~1 KB SPA fallback, the defines
+are substituted (the 2026-08-09 blank-portal trap), the new severity rule is present and the old
+allow-list is gone. Rollback `current.pre-1.10.0` = **1.9.0** (`index-BLeVrCti.js`). **ETRIE 200**,
+portal confirmed untouched. ⚠ The earlier note that the Mac's source was "ahead of what is deployed"
+is resolved — the whole project was synced, not just `src/`, per the runbook.
+
+⚠⚠ **THE AGENT WAS ALREADY SHIPPED WITH THE WEB TILL, which changes part of W5.** `public/agent/`
+carries the versioned exe, `latest.json` is its manifest, and `SettingsPage`'s Hardware card renders
+*"Download the agent (vX.Y.Z)"* from it. So distribution to **browser** tills already existed; what W5
+adds is the **MAUI** side and the platform-side "you are behind" signal.
+
+⚠⚠ **`publish-agent.ps1` HAD BEEN SILENTLY BROKEN FOR TEN DAYS.** It parsed `<Version>` out of the
+csproj as literal text, but that element now evaluates from `versions/agent.txt` — so it tried to write
+an exe whose *filename contained an MSBuild expression*. Last successful run: **2026-08-07** (agent
+1.3.3), before that change. Its stale `latest.json` sat there looking like a current release, so the
+folder read as published-and-fine. Fixed to read the version file directly, and it now refuses a
+version that is not `MAJOR.FEATURE.FIX`.
+
+⚠ **And a near miss worth knowing about.** `public/agent/` is **empty in git** (the exe is 70 MB and
+excluded), so syncing the project could have wiped the live download. `tar -x` does not delete files
+absent from the archive, so it survived — but that route is one `rsync --delete` away from taking the
+agent download off the site. Verified rather than assumed.
+
+#### 4. What landed on 2026-08-16
 
 | | What | Why it mattered |
 |---|---|---|
@@ -83,7 +133,22 @@ know that it is sitting there. Nothing was built or restarted; the running site 
 | **Un-enrol request** | Plutus tab | WP4's last piece — there was **no client code at all**, so the endpoint whose gate was fixed in step 19 still had no caller |
 | **Users screen** (WP8/step 24) | `StaffDirectory.cs`, 28 tests | The people icon said *"not available in this version yet"*. Now: list, add somebody **with their password**, reset a password |
 
-#### 5. ⚠ Three judgement calls I made today — reverse any of them freely
+#### 4b. What landed on 2026-08-17 (the agent day)
+
+| What | Why it mattered |
+|---|---|
+| ⚠⚠ **The agent didn't start after reboot — diagnosed, not guessed** | The Run value read `"C:\Users\admin\Downloads\PlutusTillAgent (1).exe"` → **file gone**. Two defects: the registration was written **once** when the box was ticked and never revisited, and the checkbox asked only whether a value **existed** — so it showed **ticked** while auto-start was dead. ⚠ A setting asserting the opposite of the truth is worse than an obviously broken one: **nobody investigates a tick** |
+| **It now repairs itself on launch** | `ReconcileAutoStart` rewrites a stale path every start, so the stale case is **impossible** rather than merely detectable. ⚠ That matters more once the agent ships with the till and is replaced on a schedule. Also `CreateSubKey` not `OpenSubKey` (a missing Run key was a silent no-op reporting success), and the label now says *"when somebody logs in"* — `HKCU\…\Run` fires at **logon, not boot**, and the old wording promised a reboot would do |
+| ⚠⚠ **MAUI never reported its hardware agent** | Web till has since FE3.0. Part B said **➖ — "MAUI drives OPOS directly and has no agent to report on"** — which **stopped being true on 2026-08-10** when MAUI moved onto the agent's print route, while a row eight lines below recorded the very move that falsified it. Symptom: every MAUI till read *"agent unknown"* on the portal's fleet list. Now `AgentReporter` on the beat; **WHEN to send is a C2 twin** (change, or 6 hours) |
+| ⚠ **The register's ➖ rule now carries a warning** | ✅ and ⬜ both invite a check; **➖ invites none**, which makes it the most dangerous marker in the file. *"When a till changes how it does something, grep for ➖ first."* |
+| **§G24's machine-checkable half** | Every currency-formatted binding in `TillView.xaml` is now asserted **not** to name a pence field and to resolve to a `decimal`. ⚠ **Does not replace §G24** — a correctly-aimed binding can still be in the wrong column, and only eyes catch that |
+
+⚠ **Two mutation checks found real defects rather than confirming code**, which is the argument for
+doing them at all: `CanSetPassword`/`PasswordProblem` each held their **own copy** of the password
+comparison (only one mutant died — now one rule), and the Users flow's `catch` called `DisplayAlert`
+unguarded, so it **threw from inside the handler meant to contain the failure**.
+
+#### 5. ⚠ Three judgement calls made on 2026-08-16 — reverse any of them freely
 
 1. **A revoked till stops; almost nothing else does.** A failed poll, a **401/403**, a **404** and an
    unknown status **all keep trading**. Closing a shop on a network blip is a worse outage than the
@@ -113,17 +178,20 @@ know that it is sitting there. Nothing was built or restarted; the running site 
 
 | Next | ~ | Note |
 |---|---|---|
+| ⬜ **THE HAND-RUN** | ~2h of yours | ⚠⚠ **The only thing genuinely blocking progress.** 65 sections, none ever run, 21 versions of unverified work. Item 2 has the order |
 | **The roster move** (step 24's last item) | ~1d | `FileOperatorStore` → `TillDbContext.Operators`; 5 call sites behind `IOperatorStore`. ⚠ **Not just a swap** — it needs a one-time import of the existing JSON roster, or a till that upgrades **offline** loses its cached staff list and **nobody can sign in**. That is why I stopped rather than rushed it |
+| **W5 — ship the agent with the till** | ~1½–2d | Fully specified in the MAUI doc §2, **including your Continue/Cancel-and-remind ruling**. ⚠ Part of it already exists — the web till hosts the download; W5 is the MAUI half + `ExpectedAgentVersion` |
 | **Step 28** — online-first login | | |
 | **The rest of step 26** | | see the MAUI document |
+| **W1–W4** — web-till catch-up | ~3–4d | Reopen a Z-closed day, add-item as one screen, the expected-version portal field, roster on a cadence. ⚠ All TypeScript, so all need the Mac |
 | **Step 22 — theming** | | ⚠ **LAST, your call (2026-08-14)** — it spans portal, web till and MAUI |
 | **The MAUI removal sweep** | | L4 deletion is ⚠ **blocked on you**: can pre-cutover local history be dropped? |
 
 #### 8. Test state
 
-**MAUI 592 · unit 1172 · web till 45** — all green. Web-till tests and `tsc --noEmit` were run **on the
-Mac**, because there is no node on this Windows box. Every rule added today was mutation-checked, and
-in two places the mutation found a real defect rather than confirming the code:
+**MAUI 598 · unit 1208 · web till 45** — all green as of 2026-08-17. Web-till tests and `tsc --noEmit`
+run **on the Mac**, because there is no node on this Windows box. Every rule added was
+mutation-checked, and in two places the mutation found a real defect rather than confirming the code:
 
 - `CanSetPassword` and `PasswordProblem` each held **their own copy** of the password comparison —
   only one mutant died. Now one rule.
