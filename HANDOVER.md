@@ -20,13 +20,13 @@
 
 ## ⏰ START HERE — the build exists, and no person has ever run it
 
-✅ **Till 1.92.0 is BUILT; backend 1.17.8, web till 1.17.0 and portal 1.10.0 are DEPLOYED.** ⚠⚠ **Hand-run 1 happened** — see `Test Maui.md`, last section: three sections passed and **four faults came back, all now fixed in this build**. Double-click:
+✅ **Till 1.93.0 is BUILT; backend 1.17.8, web till 1.18.0 and portal 1.10.0 are DEPLOYED.** ⚠⚠ **Hand-run 1 happened** — see `Test Maui.md`, last section: three sections passed and **four faults came back, all now fixed in this build**. Double-click:
 
 ```
 D:\tmp\plutus-till-1.87.0\Plutus.Frontend.AppClient.exe
 ```
 
-⚠ **1.87.0 and 1.88.0 are now deleted** — 1.89.0 is the only build on the box. The artefact reads **`1.92.0+25c5707b`** = HEAD, and this session's work is confirmed **inside the
+⚠ **1.87.0 and 1.88.0 are now deleted** — 1.89.0 is the only build on the box. The artefact reads **`1.93.0+9b447759`** = HEAD, and this session's work is confirmed **inside the
 binary** rather than merely committed — six strings only these changes introduced were found in it.
 ⚠ It will say the till isn't enrolled; that is expected for an unpackaged build (runbook § MAUI till
 build) — enrol it as a fresh till.

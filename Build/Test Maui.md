@@ -46,7 +46,7 @@ on 2026-08-11 came from somebody noticing something, not from a step asking the 
 
 | | |
 |---|---|
-| **Run** | ✅ `D:\tmp\plutus-till-1.92.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-18 and verified inside the binary** (`1.92.0+25c5707b` = HEAD). ⚠ **The only build on the box.** ⚠⚠ **NEEDS BACKEND 1.17.8** (deployed and verified) — it carries the **Created** column and the **customer history** endpoint that the new detail view reads. ⚠ **Web till 1.17.0** is deployed with the matching loyalty columns. ⚠ It will say the till isn't enrolled; expected for an unpackaged build — enrol it as a fresh till. |
+| **Run** | ✅ `D:\tmp\plutus-till-1.93.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-18 and verified inside the binary** (`1.93.0+9b447759` = HEAD). ⚠ **The only build on the box.** ⚠⚠ **NEEDS BACKEND 1.17.8** (deployed) — the Created column and the customer-history endpoint. ⚠ **Web till 1.18.0 is deployed** with the matching detail view and card, so the two can be compared side by side. ⚠ **Print card needs the till agent paired** (Settings → Hardware) and a receipt printer — the button is hidden without one. ⚠ It will say the till isn't enrolled; expected for an unpackaged build. |
 | **Agent** | ⚠ **Agent 1.4.0 is REQUIRED for §G29**, and it fixes "start automatically" not working after a reboot. Get it from the **web till → Settings → Hardware → Download the agent (v1.4.0)**, or from `tools\Plutus.TillAgent\publish-out\PlutusTillAgent-1.4.0.exe`. ⚠⚠ **Copy it to `%LOCALAPPDATA%\Plutus\Agent\` and run it from THERE — not from Downloads.** Auto-start records the path it was launched from; a Downloads copy gets cleaned up or renamed `… (1).exe`, and then the till boots and starts nothing. That is the fault this build fixes, and running it once from a permanent folder repairs a stale registration. |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
@@ -3040,3 +3040,70 @@ panel says it couldn't be read. **No crash, and no empty history pretending to b
 
 ⚠ That distinction matters: an operator reading "nothing has happened" would grant credit believing
 none had ever been given.
+
+---
+
+## G48. ⚠⚠ Print card — and it is a DIFFERENT object on each till. **Till 1.93.0 + web 1.18.0**, WP-L1c
+
+> Matt, 2026-08-18: *"Need to be able to print the card from the till"* … *"Build for both"*.
+>
+> ⚠⚠ **THE TWO TILLS PRINT DIFFERENT THINGS ON PURPOSE.** The web till prints a **CR80 card**
+> (85.6 × 54 mm) from an ordinary printer, exactly as the portal has since FE2. **MAUI's printer is
+> the thermal receipt printer on the counter** — there is no page printer behind it — so it prints a
+> scannable **membership slip**. Same Code 39, same `C`-prefixed payload. **Parity is in what the
+> customer can do with it**; a thermal printer cannot make a plastic card and pretending otherwise
+> would be the lie.
+
+### G48a. MAUI — print a slip
+
+Loyalty → tap a customer with a membership number → **Print card**.
+
+**✅ Expected:** a slip with the shop-style heading *"Membership card"*, their **name**, their tier if
+they have one, a **barcode**, the **number in plain text under it**, and *"Show this when you shop"*.
+Then it cuts.
+
+⚠ **The number must be printed as text as well as bars.** Thermal paper fades and creases; a customer
+whose barcode has stopped scanning can still read it out.
+
+⚠ **The drawer must NOT open.** This is not a sale, and every drawer opening is a moment somebody has
+to account for.
+
+### G48b. ⚠⚠ Scan the slip you just printed — the whole point
+
+Take the printed slip to the **Till** tab and scan its barcode.
+
+**✅ Expected: the customer is ATTACHED to the sale**, exactly as their old card would.
+
+⚠⚠ If it scans as a **product**, or as nothing, the payload has lost its `C` prefix.
+`LooksLikeMemberScan` requires that prefix **and** a valid check character, so a bare number is
+correctly refused — which is why the prefix is not decoration.
+
+### G48c. The web till — print a CR80 card
+
+Web till → **Loyalty** → **Open** a customer → **Print card**.
+
+**✅ Expected:** the browser's print dialog, showing **only the card** — not the till, not the dialog,
+not the history table.
+
+⚠ Print at **100% scale, no "fit to page"**: scaling narrows the bars and it may stop scanning. ⚠
+**Check the printed card with a scanner before running a batch.**
+
+⚠ **Black on white, even under a dark scheme.** Paper is paper. If a dark theme reaches the card, that
+is the same fault the receipt rules already exist to prevent.
+
+### G48d. Hidden when there is nothing to print
+
+⚠ On **MAUI**, unpair the till agent (or use a till with no printer) and open a customer.
+**✅ Expected: no Print card button** — it is not a permission, just whether there is a printer.
+
+⚠ On **either** till, open a customer with **no membership number**. **✅ Expected: no Print card
+button** — there would be nothing to put in the barcode.
+
+### G48e. ⚠ A cashier can print a card
+
+Sign in as a **Cashier** and open a customer.
+
+**✅ Expected: Print card IS there**, while **Edit details** and **Grant credit** are not.
+
+⚠ Deliberate: handing somebody their own card is counter work, and a cashier is who is standing in
+front of them. Making them fetch a supervisor to reprint a lost card would be absurd.
