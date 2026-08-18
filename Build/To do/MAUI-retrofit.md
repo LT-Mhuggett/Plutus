@@ -3040,9 +3040,9 @@ discoverable.
 
 ---
 
-## 5c. ⚠⚠ THE 2026-08-18 PARITY REVIEW — nine findings from a person at a screen
+## 5c. ⚠⚠ THE 2026-08-18 PARITY REVIEW — ten findings from a person at a screen
 
-> Matt ran the MAUI till against the web till and reported nine things in one message. **This section
+> Matt ran the MAUI till against the web till and reported nine things in one message, then asked about colour customisation — item 10. **This section
 > is the work programme.** Sizes are honest; the order is mine and argued.
 >
 > ⚠⚠ **READ THIS FIRST: the register said most of this was done.** Reports, Loyalty, Settings and
@@ -3071,6 +3071,7 @@ discoverable.
 | 7 | ⚠ **Nothing updates unless you navigate away and back** | Systemic: screens load in their constructor and never refresh. **Finding N** was this exact fault on one screen (takings fixed at sign-in); it is everywhere else too. Fix is `OnAppearing` + the 60 s cadence, per screen. ⚠ On a till this is not cosmetic — a stale figure looks exactly like a correct one | **1–1½ d** |
 | 8 | **"Choose bag item" in Store Information** | It sets which item the till's quick **Bag** button rings up. ⚠ **The web till has the identical setting — in Settings** (`prefs.ts bagBarcode`, Settings → Till). So MAUI's is in the **wrong place**, and it moves to Settings with item 9. Not a mystery feature, a misfiled one | **folded into 9** |
 | 9 | **Settings must match the web till** | ⚠ Matt: *"most of the MAUI Plutus tab would move into settings"* — **agreed, and it is the right instinct**: the web till has one Settings page with sections (Till, Printer, Hardware, Device), while MAUI splits device/platform concerns into a separate "Plutus" tab. Merging them is mostly moving existing panels + the bag item from Store Information | **2 d** |
+| 10 | ⚠⚠ **Colour customisation reaches the WEB till and barely touches MAUI** — asked 2026-08-18: *"Is the colour customisation currently implemented?"* | **The plumbing is finished; the paint is not connected.** Portal (`TillThemesSection`, shipped FE10 so it IS in the deployed 1.8.0), backend (`ThemesController` — CRUD, `PUT assignments`, `GET themes/effective`, resolution deliberately server-side) and both clients' fetch/cache/apply paths all exist. ⚠ **The web till is genuinely themed:** all seven slots land as CSS custom properties and **92 rules consume them**, applied before React mounts so a dark till never flashes white. ⚠⚠ **MAUI consumes them in ONE file** — `StoreOptionsViewModel`, and only because Store Information was rewired on 2026-08-18. Every other screen paints with `Primary`/`Secondary`/hard-coded colours. ⚠ Worse, the six brushes in `Colors.xaml` are built with **`StaticResource`**, which captures the colour at parse time — the exact hazard `Theming.cs`'s own header warns about — and **no XAML file anywhere uses `DynamicResource` for a theme slot**. So a scheme set in the portal today repaints the web till and one MAUI screen. **What is needed is wiring, not plumbing:** convert the XAML colour references to `DynamicResource` on the slots, and give till / cash / inventory / settings the surface-ink-line treatment Store Information now has | **1½–2 d** |
 
 ### ⚠ The order I would work in, and why
 
@@ -3078,8 +3079,12 @@ discoverable.
 2. **1, Save/Retrieve buttons** (½ d) — cheapest real win, and it un-hides a feature that already works.
 3. **7, refresh on appear** (1–1½ d) — it makes every other screen trustworthy, including ones already "done".
 4. **2b, credit gating** (1–2 d) — money, and the rule is missing rather than misplaced.
-5. **5 + 5b decision, then 3, 9, 6-rest, 2** — largest last, and 2 is step 11b regardless.
+5. **5 + 5b decision, then 3, 9 + 10 together, 6-rest, 2** — largest last, and 2 is step 11b regardless.
 
-**Total ≈ 13–17 days**, of which about three are money or data integrity and the rest is screens.
+⚠ **10 goes WITH 9, not on its own.** Both are "make MAUI's screens look like the web till's", and both
+edit the same XAML: converting a screen's colours to `DynamicResource` while you are already moving its
+panels is most of one job, whereas doing them separately means touching every view twice.
+
+**Total ≈ 15–19 days**, of which about three are money or data integrity and the rest is screens.
 
 ⚠ **Nothing here changes a Part B row to ✅.** Several rows go the other way — see the register.
