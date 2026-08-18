@@ -2,6 +2,7 @@ using System;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +25,34 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
 
     private static readonly Guid Kapow = Plutus.Entities.Tenancy.KnownTenants.Kapow;
 
+
+    /// <summary>
+    /// One authenticated call, retrying a 429 — the same helper `GiftCardsE2eTests` and
+    /// `GiftCardVatDecisionE2eTests` already carry, for the same reason.
+    ///
+    /// ⚠⚠ WP13.5 THROTTLES PER TENANT (50 rps, a one-second fixed window) AND EVERY TEST IN THIS
+    /// SUITE SHARES KAPOW. So the suite has a latent fragility: adding requests anywhere can push a
+    /// **different** test's second over the limit, and it fails with `TooManyRequests` while asserting
+    /// something else entirely. That is exactly what happened when the credit-reason test below was
+    /// added — `Loyalty_tiers_...` went red on a `BadRequest` assertion, having been rate-limited.
+    ///
+    /// ⚠ THE 429 IS RETRIED, NEVER ACCEPTED. `RateLimitE2eTests` proves the limiter works; nothing
+    /// here weakens it. A fresh `HttpRequestMessage` per attempt — a sent one cannot be re-sent.
+    /// </summary>
+    private static async Task<HttpResponseMessage> Send(
+        HttpClient client, HttpMethod method, string url, string token, object body = null)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            using var req = new HttpRequestMessage(method, url);
+            req.Headers.Authorization = new("Bearer", token);
+            if (body != null) req.Content = JsonContent.Create(body);
+            var resp = await client.SendAsync(req);
+            if (resp.StatusCode != HttpStatusCode.TooManyRequests || attempt >= 4) return resp;
+            resp.Dispose();
+            await Task.Delay(1100);   // the limiter's window is one second
+        }
+    }
     /// <summary>Assigns a user a built-in role that carries customers.manage (Store Manager).</summary>
     private Task<Guid> SeedCustomerManagerAsync() => SeedRoleAsync("Store Manager");
 
@@ -149,6 +178,29 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
             var body = JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement;
             Assert.Equal("Ada King", body.GetProperty("name").GetString());
             Assert.Equal("0700", body.GetProperty("phone").GetString());
+        }
+
+        // ⚠⚠ THE AUDIT MUST SHOW WHAT IT WAS, NOT ONLY WHAT IT BECAME - Matt, 2026-08-18:
+        // *"A customer needs to have a unique ID, because people can change emails over time. Audit
+        // please."*
+        //
+        // ⚠ The audit row used to carry the REQUEST BODY, which is the destination only. An audit
+        // that records `ada@example.com` and nothing else cannot tell you an email CHANGED, let alone
+        // from what - and an email change is the exact event the ruling is about. The identity is
+        // `Customer.Id`, never the email, which is what makes editing one safe at all.
+        using (var scope = _f.Services.CreateScope())
+        {
+            var db = (MySqlDbContext)scope.ServiceProvider.GetRequiredService<RepositoryContext>();
+            var row = await db.AuditLogs.IgnoreQueryFilters()
+                .Where(a => a.Action == "customer.update" && a.EntityId == customerId.ToString())
+                .OrderByDescending(a => a.Id).FirstOrDefaultAsync();
+
+            Assert.NotNull(row);
+            var payload = row!.DetailJson ?? "";
+
+            // Both halves, and the OLD name is the one that proves the point.
+            Assert.Contains("Ada Lovelace", payload);
+            Assert.Contains("Ada King", payload);
         }
 
         // the outsider still cannot edit
@@ -334,20 +386,106 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
         }
 
         // an inactive tier can no longer be assigned
-        using (var req = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/loyalty/tiers/{tierId}"))
+        using (var resp = await Send(client, HttpMethod.Put, $"/api/v1/loyalty/tiers/{tierId}", manager,
+                   new { name = $"Gold Plus-{suffix}", autoDiscountRate = 0.15m, active = false }))
         {
-            req.Headers.Authorization = new("Bearer", manager);
-            req.Content = JsonContent.Create(new { name = $"Gold Plus-{suffix}", autoDiscountRate = 0.15m, active = false });
-            Assert.Equal(HttpStatusCode.OK, (await client.SendAsync(req)).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
         }
-        using (var req = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/customers/{custId}/membership"))
+
+        // ⚠ THROUGH `Send`, WHICH RETRIES A 429. This assertion is the one that went red when the
+        // credit-reason test was added to this class: it was rate-limited and reported
+        // `TooManyRequests` while asserting `BadRequest`, so the failure named the wrong fault
+        // entirely. See `Send`'s header — the suite shares one tenant and the limiter is per second.
+        using (var resp = await Send(client, HttpMethod.Post, $"/api/v1/customers/{custId}/membership", manager,
+                   new { tierId }))
         {
-            req.Headers.Authorization = new("Bearer", manager);
-            req.Content = JsonContent.Create(new { tierId });
-            Assert.Equal(HttpStatusCode.BadRequest, (await client.SendAsync(req)).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
         }
         // ...but its existing member keeps working (deactivation is not deletion)
         m = await MembershipAsync();
         Assert.Equal(0.15m, m.GetProperty("autoDiscountRate").GetDecimal());
+    }
+
+    /// <summary>
+    /// ⚠⚠ MATT'S RULING, 2026-08-18: *"Store credit needs to be for a KNOWN customer. Adding credit
+    /// needs to have a reason and be viewable in the customers history."*
+    ///
+    /// ⚠ A REASON WAS OPTIONAL AND SUBSTITUTED. The endpoint did `body.Reason?.Trim() ?? "grant"` and
+    /// the portal sent `issueReason || "goodwill grant"` — so credit could be put on somebody's account
+    /// with **no reason anybody typed**, and the history would then show a plausible-looking word that
+    /// means nothing. That is worse than a blank: it reads as an audit trail.
+    ///
+    /// ⚠ THE KNOWN-CUSTOMER HALF IS STRUCTURAL and asserted here too: the route carries the customer,
+    /// so an unknown one is a 404. There is deliberately no anonymous credit — a bearer instrument is
+    /// what a GIFT CARD is (WP13), and credit is a liability the shop owes a NAMED person.
+    ///
+    /// ⚠ AND THE REASON MUST COME BACK OUT. Storing it is only half the ruling; `GET .../credit` is
+    /// what makes it *"viewable in the customers history"*, so the round-trip is asserted rather than
+    /// assumed.
+    ///
+    /// ⚠ Every call goes through `Send`, which retries a 429 — see its header. Adding this test is what
+    /// pushed a sibling over the per-tenant limiter.
+    /// </summary>
+    [Fact]
+    public async Task Granting_credit_needs_a_known_customer_and_a_real_reason()
+    {
+        var client = _f.CreateClient();
+        var managerId = await SeedCustomerManagerAsync();
+        var manager = PlutusAppFactory.OperatorTokenFor(managerId, "pos.sell");
+
+        Guid customerId;
+        using (var resp = await Send(client, HttpMethod.Post, "/api/v1/customers", manager,
+                   new { name = "Grace Hopper" }))
+        {
+            Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
+            customerId = JsonDocument.Parse(await resp.Content.ReadAsStringAsync())
+                .RootElement.GetProperty("id").GetGuid();
+        }
+
+        // ⚠ AN UNKNOWN CUSTOMER IS A 404 — there is no anonymous credit to fall back to.
+        using (var resp = await Send(client, HttpMethod.Post,
+                   $"/api/v1/customers/{Guid.NewGuid()}/credit/issue", manager,
+                   new { amountPence = 500, reason = "goodwill" }))
+        {
+            Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
+        }
+
+        // ⚠⚠ NO REASON ⇒ REFUSED. Three shapes, because all three reached the old default: absent,
+        // empty, and whitespace.
+        foreach (var body in new object[]
+                 {
+                     new { amountPence = 500 },
+                     new { amountPence = 500, reason = "" },
+                     new { amountPence = 500, reason = "   " },
+                 })
+        {
+            using var resp = await Send(client, HttpMethod.Post,
+                $"/api/v1/customers/{customerId}/credit/issue", manager, body);
+
+            Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+            Assert.Contains("reason", await resp.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        // A real reason succeeds.
+        using (var resp = await Send(client, HttpMethod.Post,
+                   $"/api/v1/customers/{customerId}/credit/issue", manager,
+                   new { amountPence = 500, reason = "damaged comic, agreed with Matt" }))
+        {
+            Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        }
+
+        // ⚠ AND IT IS VISIBLE AFTERWARDS — the other half of the ruling.
+        using (var resp = await Send(client, HttpMethod.Get,
+                   $"/api/v1/customers/{customerId}/credit", manager))
+        {
+            Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+
+            var body = JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement;
+            Assert.Equal(500, body.GetProperty("balancePence").GetInt64());
+
+            var entries = body.GetProperty("entries");
+            Assert.Equal(1, entries.GetArrayLength());
+            Assert.Equal("damaged comic, agreed with Matt", entries[0].GetProperty("reason").GetString());
+        }
     }
 }

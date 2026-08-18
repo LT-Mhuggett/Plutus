@@ -132,15 +132,33 @@ export default function CustomerDialog({ id, onClose }: { id: string; onClose: (
               </>
             )}
 
+            {/*
+              ⚠⚠ A REASON IS MANDATORY — Matt, 2026-08-18: "Adding credit needs to have a reason and be
+              viewable in the customers history."
+
+              This used to send `issueReason || "goodwill grant"`, and the endpoint itself defaulted a
+              missing reason to "grant". So credit could be put on somebody's account with NO reason
+              anybody typed, and the Credit history below would show a plausible-looking word that means
+              nothing — worse than a blank, because it reads as an audit trail.
+
+              ⚠ The button is gated on BOTH fields and the field is marked, rather than the reason being
+              silently supplied. The endpoint refuses a blank one too (that is the real guard, since the
+              portal is not the only possible caller); this is so the operator finds out before the
+              round trip instead of after it.
+            */}
             <h4>Grant credit</h4>
             <div className="toolbar">
               <label>Amount £ <input className="short" inputMode="decimal" value={issue} onChange={(e) => setIssue(e.target.value)} /></label>
-              <label>Reason <input value={issueReason} onChange={(e) => setIssueReason(e.target.value)} /></label>
-              <button className="primary small" disabled={!issue}
-                onClick={() => run(j("POST", `/api/v1/customers/${id}/credit/issue`, { amountPence: toPence(issue), reason: issueReason || "goodwill grant" }))}>
+              <label>Reason * <input value={issueReason} onChange={(e) => setIssueReason(e.target.value)} /></label>
+              <button className="primary small" disabled={!issue || !issueReason.trim()}
+                onClick={() => run(j("POST", `/api/v1/customers/${id}/credit/issue`, { amountPence: toPence(issue), reason: issueReason.trim() }))}>
                 Issue
               </button>
             </div>
+            <p className="muted small">
+              A reason is required, and it is kept on the credit history below — it is what a manager
+              reads months later to know why the shop owes this money.
+            </p>
 
             <h4>Membership</h4>
             <div className="toolbar">

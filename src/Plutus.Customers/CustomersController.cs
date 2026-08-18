@@ -215,10 +215,33 @@ namespace Plutus.Customers
             if (customer == null) return NotFound();
 
             _db.CurrentUser = Actor.ToString();
+
+            // ⚠⚠ CAPTURED BEFORE THE MUTATION, AND THAT ORDER IS THE WHOLE POINT — Matt, 2026-08-18:
+            // *"A customer needs to have a unique ID, because people can change emails over time. Audit
+            // please."*
+            //
+            // The audit already recorded the request body, which is what the customer BECAME. It did not
+            // record what they WERE — so an audit trail could tell you somebody's email is now
+            // `x@y.com` and never that it used to be something else, which is precisely the change the
+            // ruling is about. A record of the destination is not a record of the journey.
+            //
+            // ⚠ The identity is `Customer.Id` (a UUIDv7) and never the email, which is what makes
+            // editing an email safe at all: nothing resolves a customer by it, so a change cannot
+            // redirect somebody's account. That is the ruling's first half, and it is why the till is
+            // allowed an edit path now.
+            //
+            // ⚠ Anonymous objects, so the payload is self-describing in the audit row rather than
+            // needing this method to be read alongside it.
+            var before = new { name = customer.Name, email = customer.Email, phone = customer.Phone };
+
             customer.Name = body.Name.Trim();
             customer.Email = body.Email?.Trim();
             customer.Phone = body.Phone?.Trim();
-            _db.Audit(_tenant.TenantId, Actor, "customer.update", nameof(Customer), customer.Id.ToString(), body);
+
+            var after = new { name = customer.Name, email = customer.Email, phone = customer.Phone };
+
+            _db.Audit(_tenant.TenantId, Actor, "customer.update", nameof(Customer), customer.Id.ToString(),
+                new { before, after });
             await _db.SaveChangesAsync();
             return Ok(new { id = customer.Id, name = customer.Name, email = customer.Email, phone = customer.Phone });
         }
@@ -255,13 +278,33 @@ namespace Plutus.Customers
         public async Task<IActionResult> IssueCredit([FromRoute] Guid id, [FromBody] CreditBody body)
         {
             if (body == null || body.AmountPence <= 0) return BadRequest(new { detail = "amountPence must be positive." });
+
+            // ⚠⚠ A REASON IS MANDATORY — Matt, 2026-08-18: *"Adding credit needs to have a reason and
+            // be viewable in the customers history."*
+            //
+            // This used to read `body.Reason?.Trim() ?? "grant"`, and the portal sent
+            // `issueReason || "goodwill grant"`. So credit could be put on somebody's account with **no
+            // reason anybody typed**, and the history would then show a plausible word that means
+            // nothing — which is worse than a blank, because it READS as an audit trail. A substituted
+            // reason is the same class of fault as a substituted figure.
+            //
+            // ⚠ Refused rather than defaulted, and refused HERE rather than only in the portal: the
+            // endpoint is the only thing both the portal and any future till path go through.
+            //
+            // ⚠ The customer is known by construction — the route carries the id and an unknown one is
+            // a 404 below. There is deliberately no anonymous credit: it is a liability the shop owes a
+            // NAMED person, and a bearer instrument is what a gift card is (WP13).
+            var reason = body.Reason?.Trim();
+            if (string.IsNullOrWhiteSpace(reason))
+                return BadRequest(new { detail = "A reason is required when granting credit, and it is kept on the customer's history." });
+
             if (await _db.Customers.AllAsync(c => c.Id != id)) return NotFound();
 
             _db.CurrentUser = Actor.ToString();
             var account = await _credit.EnsureAccountAsync(_tenant.TenantId, id);
             await _db.SaveChangesAsync(); // persist a new account before the entry
             var entry = await _credit.IssueAsync(_tenant.TenantId, account.Id, body.AmountPence,
-                body.Reason?.Trim() ?? "grant", body.SaleId, Actor, body.EntryId);
+                reason, body.SaleId, Actor, body.EntryId);
             _db.Audit(_tenant.TenantId, Actor, "credit.issue", nameof(CreditEntry), entry.Id.ToString(),
                 new { customerId = id, body.AmountPence, body.Reason });
             await _db.SaveChangesAsync();
