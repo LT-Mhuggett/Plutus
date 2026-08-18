@@ -46,7 +46,7 @@ on 2026-08-11 came from somebody noticing something, not from a step asking the 
 
 | | |
 |---|---|
-| **Run** | ✅ `D:\tmp\plutus-till-1.74.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. **BUILT 2026-08-18 and verified: the artefact reads `1.74.0+1e456511`, which is HEAD** — and the rebuilt **Store Information** screen is confirmed inside the binary (its four new strings are present; the deleted Region panel's `CurrencyDisplayArg` binding is gone). It is the **only** till build on the box — 1.73.0 was deleted so there is no question which to run. ⚠ **1.73.0 could not pass §W9d/§G33** — it is the build whose Store Information Matt photographed, with every field label light-grey on near-white. ⚠ It will say the till isn't enrolled; that is expected for an unpackaged build (runbook § MAUI till build) — enrol it as a fresh till. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
+| **Run** | ✅ `D:\tmp\plutus-till-1.75.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. **BUILT 2026-08-18 and verified: the artefact reads `1.75.0+d6a993bd`, which is HEAD** — and the rebuilt **Store Information** screen is confirmed inside the binary (its four new strings are present; the deleted Region panel's `CurrencyDisplayArg` binding is gone). It is the **only** till build on the box — 1.73.0 was deleted so there is no question which to run. ⚠ **1.73.0 could not pass §W9d/§G33** — it is the build whose Store Information Matt photographed, with every field label light-grey on near-white. ⚠ It will say the till isn't enrolled; that is expected for an unpackaged build (runbook § MAUI till build) — enrol it as a fresh till. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
 | **Agent** | ⚠ **Agent 1.4.0 is REQUIRED for §G29**, and it fixes "start automatically" not working after a reboot. Get it from the **web till → Settings → Hardware → Download the agent (v1.4.0)**, or from `tools\Plutus.TillAgent\publish-out\PlutusTillAgent-1.4.0.exe`. ⚠⚠ **Copy it to `%LOCALAPPDATA%\Plutus\Agent\` and run it from THERE — not from Downloads.** Auto-start records the path it was launched from; a Downloads copy gets cleaned up or renamed `… (1).exe`, and then the till boots and starts nothing. That is the fault this build fixes, and running it once from a permanent folder repairs a stale registration. |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
@@ -2009,3 +2009,58 @@ never blank — a null answer must not clear the cache, or the next receipt has 
 2. On a till that has **never** connected: **✅ Expected:** *"Unavailable — this till hasn't been told
 its store details yet. It fills in on the next connection."* — and the Store id / Till id rows still
 render, because they come from this machine.
+
+## G34. ⚠⚠ The Reports tab — **fixed in till 1.75.0 + backend 1.17.2**
+
+⚠ **On 1.74.0 and every build before it, EVERY report on this tab answered "This report couldn't be
+read. You may not have permission to see it, or the till is offline."** Matt found it on 2026-08-18.
+Two independent faults, and the message named neither correctly: the till was asking as the **device**
+(a device holds no permissions, so 403 regardless of who is signed in), and five of the six endpoints
+refused a Supervisor even with the right identity.
+
+⚠ **This needs backend 1.17.2 or later.** Against an older backend, four of the six will still refuse.
+
+### G34a. Every report opens
+
+**Reports** tab. For **each** entry in the Report dropdown — **Takings · VAT · Items sold · By
+category · Best sellers · Negative stock** — pick it, set a range that has trade in it (**01/08/2026 →
+18/08/2026** works; the shop's real sales through 15 Aug are now imported) and press **Refresh**.
+
+**✅ Expected, for every one:** a table with figures, or the honest **"Nothing in this range."**
+⚠⚠ **NOT** *"This report couldn't be read."* — if you see that on any of the six, note **which**, and
+whether it says *permission* or *no live sign-in*: those are now different messages naming different
+causes.
+
+### G34b. ⚠ Takings should agree with the platform, to the penny
+
+1. **Takings**, 01/08/2026 → 18/08/2026.
+2. Compare the total against the **portal's** Reporting → Summary for the same range.
+
+**✅ Expected: the same figures.** Both read `SalesV2` through the same rollups. ⚠ August now contains
+**131 imported sales (£3,087.52)** from the old shop till, so this range is no longer near-empty —
+which is what makes it a real check rather than a comparison of two zeros.
+
+### G34c. ⚠⚠ THE ONE THAT WAS ACTUALLY BROKEN — a Supervisor must see the takings
+
+⚠ This is the case the fix exists for, and the one a manager account will NOT exercise: **Owner,
+Company Admin and Store Manager all hold `portal.reports.view`**, so they were only ever blocked by
+fault ①. A **Supervisor** holds `pos.reports.view` and *no portal permission at all*.
+
+1. Sign in as a **Supervisor** (or have one created in the portal → Users).
+2. Open **Reports → Takings**, then **VAT**.
+
+**✅ Expected: both read.** ⚠ A supervisor can **Z-close a day**, so being refused the takings they
+just counted against is the specific nonsense this fixes.
+
+3. Sign in as a **Cashier**. **✅ Expected: refused** — and that is CORRECT, not a bug: a cashier holds
+   neither reporting permission. ⚠ Check the wording tells them it is a *permission* matter.
+
+### G34d. The two refusals must be distinguishable
+
+1. **Sign out**, then reach the Reports tab (or let a session expire overnight and press Refresh).
+   **✅ Expected:** *"Reports are read as the signed-in operator, and this session has no live sign-in…
+   Sign in again"* — ⚠ **it must NOT blame the network.** The old message said "or the till is
+   offline", which sent you to check a cable over an expired token.
+2. **Pull the network cable** and press Refresh. **✅ Expected:** a message about being unable to reach
+   Plutus — and ⚠ **never an empty table**, because "no rows" on a reporting screen is a statement
+   about the shop's trading, and making it when we could not ask is a confident lie.

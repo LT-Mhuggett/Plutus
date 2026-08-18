@@ -85,14 +85,39 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Reports
 
             try
             {
-                var api = await Services.Storage.TillPlacement.TryCreateApiAsync().ConfigureAwait(false);
+                // ⚠⚠ THE **OPERATOR'S** CLIENT, NOT THE TILL'S — and this line was the whole bug
+                // (Matt, 2026-08-18: *"When I look at reports in MAUI, it is saying 'This report
+                // couldn't be read…'"*). It used to be `TillPlacement.TryCreateApiAsync()`, which
+                // authorises as the DEVICE.
+                //
+                // Every report endpoint is gated `perm:*`, and `PermissionAuthorizationHandler`
+                // resolves RBAC by the token's `NameIdentifier`. On a device token that claim is the
+                // **device id** (`PlutusTokenAuthHandler`, the `did` branch) — so the `Guid.TryParse`
+                // succeeds and the lookup then asks "what may this DEVICE do", which is nothing,
+                // because grants hang off users. Result: **403 on every report, for every operator,
+                // whatever their role.** Not a permission that needed granting — the wrong identity
+                // was asking.
+                //
+                // ⚠ `OperatorTokenProvider` was built for exactly this in step 19 and had **one**
+                // call site (`PlutusApi.GetOperatorAsync`), which nothing on this screen used. That
+                // is the fifth component in this codebase found fully built, tested and wired to
+                // nothing — after `OutboxPusher.DrainAsync`, the catalogue browse,
+                // `TillStore.SearchAsync` and `NoticesClient`.
+                //
+                // ⚠ Reports are the till speaking for a PERSON, so the device token is not merely
+                // insufficient here, it is the wrong thing to send. Ingest, the heartbeat and the
+                // catalogue feed keep the device client — they must work overnight with nobody
+                // signed in.
+                var api = await Services.Connectivity.PlutusApi.GetOperatorAsync().ConfigureAwait(false);
                 if (api is null)
                 {
-                    // ⚠ SAY IT, do not show an empty table. "No rows" on a reporting screen is a
-                    // statement about the shop's trading, and making it when we simply could not ask
-                    // is a confident lie.
+                    // ⚠ TWO CAUSES, TWO SENTENCES. `GetOperatorAsync` returns null when nobody is
+                    // signed in OR the session lapsed — neither of which is "offline", and the old
+                    // message said offline for both. Saying the wrong cause sends somebody to check
+                    // the network cable over an expired session.
                     Show(ReportTable.Empty(
-                        "Reports come from Plutus, so the till has to be online. Nothing is shown rather than a wrong figure."));
+                        "Reports are read as the signed-in operator, and this session has no live sign-in "
+                        + "(nobody signed in, or the session has expired). Sign in again to see them."));
                     return;
                 }
 

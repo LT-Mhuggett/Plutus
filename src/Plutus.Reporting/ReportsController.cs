@@ -231,8 +231,16 @@ namespace Plutus.Reporting
         /// top items, by-payment-method, by-tax-rate) — from v1 SalesV2/SaleLines/SaleTenders so it
         /// shows the FULL history. Same JSON shape as the legacy /api/Sale/Summary (amounts in
         /// pounds). Gated on reports.view (the shopkeeper reporting permission).</summary>
+        // ⚠⚠ `pos.reports.view` ADDED 2026-08-18 — the till's **Takings** report calls this, and it
+        // answered 403 to every till operator. A Supervisor holds `pos.reports.view` and, by design,
+        // NOT ONE portal permission (`RbacSeeder`, and the comment there says so) — yet they can close
+        // a day with a Z-read, so they must be able to read the takings they counted against.
+        //
+        // ⚠ The identical fix went onto `/api/v1/reports/summary` at step 26 and **stopped there**,
+        // while five sibling endpoints the same screen calls kept the portal-only gate. A fix applied
+        // to the endpoint that was reported rather than to the rule is a fix that comes back.
         [HttpGet("api/v1/reports/summary-rich")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView + "," + PermissionCatalogue.PosReportsView)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> SummaryRich([FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -303,8 +311,17 @@ namespace Plutus.Reporting
             });
         }
 
+        // ⚠ `pos.reports.view` ADDED 2026-08-18, and this one is a judgement rather than an
+        // oversight: VAT is financials-tier, so a portal-only gate is defensible — but **the till's
+        // Reports tab offers a VAT report**, and offering a shopkeeper a report their own role can
+        // never open is worse than not offering it. It is also no more than they already see: the
+        // X/Z read shows the day's gross AND its VAT, and `/reports/summary` (the takings) has
+        // carried the same alternative since step 26.
+        //
+        // ⚠ If VAT should instead be portal-only, the honest fix is to REMOVE it from
+        // `ReportCatalogue` on the till, not to leave a menu entry that answers 403.
         [HttpGet("api/v1/reports/vat")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalFinancialsView)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalFinancialsView + "," + PermissionCatalogue.PosReportsView)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Vat(
@@ -865,7 +882,7 @@ namespace Plutus.Reporting
         }
 
         [HttpGet("api/v1/reports/items-sold")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView + "," + PermissionCatalogue.PosReportsView)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> ItemsSold(
@@ -947,7 +964,7 @@ namespace Plutus.Reporting
         /// <summary>WP3.7 category-sales: sold gross/qty grouped by item category (+ share of gross).
         /// Uncategorised lines roll into "(no category)".</summary>
         [HttpGet("api/v1/reports/category-sales")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView + "," + PermissionCatalogue.PosReportsView)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CategorySales([FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -970,7 +987,7 @@ namespace Plutus.Reporting
 
         /// <summary>WP3.8 best-sellers: top items by qty (default) or gross, with category + share.</summary>
         [HttpGet("api/v1/reports/best-sellers")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView + "," + PermissionCatalogue.PosReportsView)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> BestSellers([FromQuery] DateOnly from, [FromQuery] DateOnly to, [FromQuery] string by = "qty", [FromQuery] int take = 25)

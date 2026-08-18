@@ -227,6 +227,27 @@ public class TillHardeningE2eTests : IClassFixture<PlutusAppFactory>
                      // does not hold. A supervisor could close the day with a Z-read and be refused
                      // the takings they had just counted against.
                      $"/api/v1/reports/summary?level=till&id={Guid.NewGuid()}&from=2026-08-01&to=2026-08-09",
+
+                     // ⚠⚠ THE FIVE THE TILL'S **REPORTS TAB** CALLS — added 2026-08-18, after Matt
+                     // found every one of them refusing: *"When I look at reports in MAUI, it is
+                     // saying 'This report couldn't be read. You may not have permissions to see it.
+                     // Or the till is offline'"*.
+                     //
+                     // ⚠ The step-26 fix above landed on `/reports/summary` ALONE while these five
+                     // kept a portal-only gate — a fix applied to the endpoint that was reported
+                     // rather than to the rule. Every report on `ReportCatalogue` is now here, so the
+                     // next one added to that screen has a place it must appear.
+                     //
+                     // ⚠ These fail for a SECOND, independent reason too, which this test cannot
+                     // see: the till was sending its DEVICE token, and `perm:*` resolves RBAC by the
+                     // token's NameIdentifier — the device id on a device token, which holds no
+                     // grants. Fixed in `ReportsViewModel` by asking as the operator. A green test
+                     // here does NOT prove the screen works; only opening it does.
+                     "/api/v1/reports/summary-rich?from=2026-08-01&to=2026-08-09",
+                     $"/api/v1/reports/vat?level=store&id=1&from=2026-08-01&to=2026-08-09&granularity=month",
+                     "/api/v1/reports/items-sold?from=2026-08-01&to=2026-08-09&storeId=1&take=50",
+                     "/api/v1/reports/category-sales?from=2026-08-01&to=2026-08-09",
+                     "/api/v1/reports/best-sellers?from=2026-08-01&to=2026-08-09&by=qty&take=20",
                  })
         {
             using var req = new HttpRequestMessage(HttpMethod.Get, url);

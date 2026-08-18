@@ -9,26 +9,30 @@
 > [`archive/handover-history-to-2026-08-17.md`](Build/archive/handover-history-to-2026-08-17.md).
 > **Do not grow this file back into a history.** Rewrite it; the commits are the record.
 
-**Written:** 2026-08-17 · **Head:** `git log -1` · **Suites:** unit **1336** · MAUI 598 · web till **205** — all green
+**Written:** 2026-08-18 · **Head:** `git log -1` · **Suites:** unit **1340** · MAUI 598 · web till **205** — all green
 
 ---
 
 ## ⏰ START HERE — the build exists, and no person has ever run it
 
-✅ **Till 1.74.0 is BUILT and verified.** Double-click:
+✅ **Till 1.75.0 is BUILT and verified.** Double-click:
 
 ```
-D:\tmp\plutus-till-1.74.0\Plutus.Frontend.AppClient.exe
+D:\tmp\plutus-till-1.75.0\Plutus.Frontend.AppClient.exe
 ```
 
-The artefact reads **`1.74.0+1e456511`**, which is HEAD — and the rebuilt **Store Information** screen
-is confirmed *inside the binary*, not merely committed: its four new strings are present and the
-deleted Region panel's `CurrencyDisplayArg` binding is gone. It is the **only** till build on the box —
-1.73.0 was deleted so there is no question which to run. ⚠ It will say the till isn't enrolled; that
-is expected for an unpackaged build (runbook § MAUI till build) — enrol it as a fresh till.
+The artefact reads **`1.75.0+d6a993bd`** — and both changes are confirmed *inside the binary*, not
+merely committed: the rebuilt **Store Information** screen's strings, and the new **Reports** message.
+⚠ It will say the till isn't enrolled; that is expected for an unpackaged build (runbook § MAUI till
+build) — enrol it as a fresh till.
 
-⚠ **1.73.0 was the build in the Store Information screenshot** (every field label light grey on
-near-white). It is gone; **§W9d/§G33 is now testable.**
+⚠⚠ **RUN 1.75.0, NOT 1.74.0 — and 1.74.0 is still on the disk**, which breaks the usual "exactly one
+build" rule. It could not be deleted because **it was running at the time** (file lock). Close it and
+delete `D:\tmp\plutus-till-1.74.0`, or ask and I will.
+
+**Why 1.75.0 exists:** 1.74.0's **Reports tab could not read a single report** — see the decision
+table below. 1.73.0 (the Store Information screenshot, every label light grey on near-white) is gone.
+**§W9d/§G33 and §G-Reports are now testable.**
 
 ⚠ **Install agent 1.4.0 as well.** Web till → Settings → Hardware → *Download the agent (v1.4.0)*, or
 `tools\Plutus.TillAgent\publish-out\PlutusTillAgent-1.4.0.exe`. ⚠⚠ Put it in
@@ -42,7 +46,7 @@ Downloads is the fault it fixes.
 **[`Build/Test Maui.md`](Build/Test%20Maui.md)** — the RUN ORDER table at its top is the order. About
 **2½ hours**, or ~15 minutes for §A alone if that is all there is.
 
-⚠⚠ **The last hand-run findings were 2026-08-13.** MAUI has gone from 1.49.x to **1.73.0** with nobody
+⚠⚠ **The last hand-run findings were 2026-08-13.** MAUI has gone from 1.49.x to **1.75.0** with nobody
 looking at a screen. For scale: 2026-08-10 found **fourteen** faults, **six invisible to every
 automated test in the project**; 2026-08-13 found five more including two money holes. **Every hand-run
 so far has found something the tests could not.**
@@ -68,7 +72,8 @@ which makes the hand-run the single highest-value thing anybody can do to this p
 | **Whether W5's mechanics come next** | Its policy half is built (`AgentUpdatePrompt`); the packaging, exe swap and `ExpectedAgentVersion` are not |
 | ✅ **Web till 1.12.0 is DEPLOYED** — go and look at **Store Information** | The opening-hours message now distinguishes **three** states, and which one you see *is* the answer to *"why don't my hours show?"*: a week of times (fine), *"Not set"* (**nothing is stored** — they were never saved), or *"the portal has hours but this till can't read them: …"* (**stored and malformed** — the message names the fault). Before this build all three printed the middle one. ⚠ Also live: all seven §5b slices, which never shipped under their own 1.11.0 label. **§W9a** is the two-minute version of this test |
 | ⚠ **The portal fix is BUILT, NOT DEPLOYED** (1.9.0) | The tills can only *report* unreadable hours; the portal is where they get **created**. Its advanced-JSON box had **no validation at all**, its simple editor showed a malformed value back as *every day unticked*, and its Save button lived in a different section — so hours could be saved unreadable, or set and never saved, and both look identical to *"not set"*. Now validated, Save-gated, and with its own button. ⚠ **Say the word and I'll deploy it** — same four-axis verification, rollback copy taken first |
-| ⚠ **MAUI 1.74.0 is BUILT-IN-CODE, NOT COMPILED to an artefact** | The **Store Information** screen is rebuilt to match the web till: three cards, same labels, **legible labels** (every one was light grey on near-white — the data was all there and none of it readable), no grey legacy bar, no currency-format-string panel, no stray *Bag* button, and Store id / Till id which it never showed. ⚠ **Not built, per your standing rule.** Say so and I'll produce 1.74.0 |
+| ✅ **MAUI 1.74.0 built — Store Information rebuilt** | Three cards matching the web till, same labels, **legible labels** (every one was light grey on near-white — the data was all there and none of it readable), no grey legacy bar, no currency-format-string panel, no stray *Bag* button, and Store id / Till id which it never showed. Now inside **1.75.0**. |
+| 🔴 **FIXED in 1.75.0 + backend 1.17.2 — the Reports tab could not read ANY report** | Matt, 2026-08-18: *"it is saying 'This report couldn't be read. You may not have permissions to see it. Or the till is offline'"*. **Two independent faults, and the message named neither correctly.** ① `ReportsViewModel` asked with the **device** token; `perm:*` resolves RBAC by the token's `NameIdentifier`, which on a device token is the **device id** — so the lookup asked "what may this DEVICE do" (nothing) and returned **403 for every operator, whatever their role**. Not a permission to grant — the wrong identity was asking. ⚠ `OperatorTokenProvider` was built for exactly this at step 19 and had **one** call site that this screen never used — the **fifth** component here found fully built and wired to nothing. ② **Five of the six report endpoints lacked the `pos.reports.view` alternative**; only `/reports/summary` got it at step 26. So a **Supervisor** — who by design holds *no* portal permission yet can Z-close a day — still could not read the takings they counted against. Both fixed, the gate pinned by an integration test **watched going red** first. ⚠ **The message now separates "no live sign-in" from "offline"** — the old one blamed the network for an expired session |
 | ⚠⚠ **§5b W-P1…W-P7 — all seven done** | **[§5b](Build/To%20do/MAUI-retrofit.md) W-P1…W-P7 complete in code.** A revoked browser till stops; a disabled operator is signed out inside 60 s; a cashier has a discount limit with a supervisor step-up; the till **signs in, sells and takes cash with the line down**; a Z-closed day can be reopened; a past receipt reprints **on the thermal printer** (cross-till, which MAUI cannot do); and the tenant's **card fee** is charged with the fee's VAT following the basket. **178 vitest tests** (was 45), `tsc` clean, **19 mutants run — 18 killed, 1 that needed a new vector**. ⚠ Nothing on that plan is waiting on more code: what is left is **deploy** (your call) and the **hand-run**, `Test Maui.md` **§W1–§W8**. ⚠ Not to skip: **§W4f** (the discount limit must survive the network dropping), **§W6b** (a Z must wait for its own day's sales) and **§W8a** (with no card fee set, the checkout screen must look *exactly* as it did yesterday) |
 
 ---
