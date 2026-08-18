@@ -92,43 +92,41 @@ namespace Plutus.Customers
 
             var custIds = members.Select(m => m.CustomerId).Concat(accounts.Select(a => a.CustomerId)).Distinct().ToList();
 
-            // ⚠⚠ AN EXPLICIT SEARCH REACHES EVERY ACTIVE CUSTOMER, NOT ONLY MEMBERS AND CREDIT HOLDERS.
+            // ⚠⚠ EVERY ACTIVE CUSTOMER IS ON THIS LIST — searched or not. This used to return only
+            // those holding a Membership **or** a CreditAccount, and that was incoherent with the rest
+            // of the product.
             //
-            // Matt, on the first hand-run of §G38 (2026-08-18): *"add a new member, did not work …
-            // saying it added, but its not"*. **It HAD added** — the membership number in the
-            // confirmation is server-minted, so the row existed. This list simply could not show her:
-            // it returned customers who hold a Membership OR a CreditAccount, and somebody just signed
-            // up has **neither**.
+            // Matt, hand-run 1 (2026-08-18): *"add a new member, did not work … saying it added, but
+            // its not"* — and then, after a first fix that widened only the SEARCH: *"I still cannot
+            // see them."* Both rows were in the database the whole time (Susan Testerson 0000103,
+            // Brian McTesty 0000099, both Active). The list was hiding them.
             //
-            // ⚠⚠ AND IT WAS A DEAD END, not just a confusing screen. **Set tier picks from the rows on
-            // screen**, so a newly added member could never be given a tier from the till — the one
-            // action you would take next. Add → invisible → cannot promote.
+            // ⚠⚠ THE ARGUMENT THAT SETTLES IT: **`MemberNoAllocator.NextAsync` runs on EVERY customer
+            // create**, so every customer has a membership number — they *are* a member, and the tier
+            // is an upgrade on top. A button labelled "Add member" that mints a member number, followed
+            // by a member list that denies they exist, cannot both be right.
             //
-            // ⚠ THE DEFAULT VIEW IS UNCHANGED: with no search this is still "who is a member or holds
-            // credit", which is what the tab is for. Only an explicit search widens, and that is the
-            // case where the operator has already named who they are looking for.
+            // ⚠ My first fix widened the search only and left the default narrow "because that is what
+            // the tab is for". It was still invisible to anybody who simply opened the tab and looked,
+            // which is what an operator does. Narrowing a list is not the same as curating it.
             //
-            // ⚠ Filtered in the DATABASE now rather than in memory: the old in-memory pass could only
-            // narrow a set that had already excluded the person being searched for.
-            List<Customer> customers;
+            // ⚠ THIS FIXES THE WEB TILL TOO, which has the identical blind spot: `LoyaltyPage.tsx`
+            // calls `fetchLoyalty()` with **no search**, so it never showed them either. One endpoint,
+            // both tills, and Matt asked for them to be in line.
+            //
+            // ⚠ `take` still caps it (clamped 1..500, default 200), ordered credit-first then by name
+            // below — so a big tenant gets the interesting rows, not an unbounded dump.
+            var q = _db.Customers.AsNoTracking().Where(c => c.Active);
 
             if (!string.IsNullOrWhiteSpace(search))
             {
                 var memberNo = MemberNumbers.TryCanonicalise(search); // FE2: scan/type a card number
-                customers = await _db.Customers.AsNoTracking()
-                    .Where(c => c.Active)
-                    .Where(c => c.Name.Contains(search)
-                             || c.Email.Contains(search)
-                             || (memberNo != null && c.MemberNo == memberNo))
-                    .Take(take)
-                    .ToListAsync();
+                q = q.Where(c => c.Name.Contains(search)
+                              || c.Email.Contains(search)
+                              || (memberNo != null && c.MemberNo == memberNo));
             }
-            else
-            {
-                customers = await _db.Customers.AsNoTracking()
-                    .Where(c => c.Active && custIds.Contains(c.Id))
-                    .ToListAsync();
-            }
+
+            var customers = await q.Take(take).ToListAsync();
 
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
             var rows = customers.Select(c =>

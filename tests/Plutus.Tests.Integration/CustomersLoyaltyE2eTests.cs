@@ -572,13 +572,19 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
             Assert.Contains(rows.EnumerateArray(), r => r.GetProperty("id").GetGuid() == customerId);
         }
 
-        // ⚠ AND THE UNSEARCHED LIST STAYS NARROW - a customer with no tier and no credit is not
-        // "loyalty" until they have one of the two.
+        // ⚠⚠ AND THE UNSEARCHED LIST SHOWS THEM TOO. This assertion used to be
+        // `DoesNotContain` — it pinned the very behaviour that was hiding Susan and Brian, and it
+        // passed while Matt was telling me *"I still cannot see them."*
+        //
+        // ⚠ A TEST CAN ENCODE A DESIGN DECISION AND MAKE IT LOOK LIKE A REQUIREMENT. Mine did: I
+        // widened the search, kept the default narrow "because that is what the tab is for", and wrote
+        // an assertion that froze it. Every customer gets a membership number on create, so every
+        // customer IS a member - the tab was denying what the Add button had just done.
         using (var resp = await Send(client, HttpMethod.Get, "/api/v1/loyalty", manager))
         {
             Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
             var rows = JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement.GetProperty("rows");
-            Assert.DoesNotContain(rows.EnumerateArray(), r => r.GetProperty("id").GetGuid() == customerId);
+            Assert.Contains(rows.EnumerateArray(), r => r.GetProperty("id").GetGuid() == customerId);
         }
     }
 }
