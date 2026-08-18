@@ -274,8 +274,16 @@
                     <Button Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Text="{i18n:Translate Bag}"
                             IsVisible="{Binding DefaultBagId, Mode=OneWay, Converter={StaticResource StringNullToBool}}"
                             Command="{Binding ManualAddCommandArg}" CommandParameter="{Binding DefaultBagId}"/>
-                    <Button Grid.Row="2" Grid.Column="3" Grid.ColumnSpan="2" Text="{i18n:Translate StoreTransaction}"
+                    <!-- ⚠⚠ SAVE **AND** RETRIEVE, side by side (2026-08-18). Retrieve was a toolbar
+                         item labelled "Baskets" that appeared and disappeared with the parked list —
+                         so the feature worked and nobody could find it. Matt asked for two buttons
+                         with Retrieve disabled when there is nothing, which is both clearer and safer:
+                         the old path called `.First()` on an empty collection. -->
+                    <Button Grid.Row="2" Grid.Column="3" Text="{i18n:Translate StoreTransaction}"
                             Command="{Binding StoreTransactionCommand}"/>
+                    <Button Grid.Row="2" Grid.Column="4" Text="{i18n:Translate RetrieveTransaction}"
+                            IsEnabled="{Binding HasStoredTransactions}"
+                            Command="{Binding RetrieveTransactionCommand}"/>
                     <Button Grid.Row="2" Grid.Column="5" Grid.RowSpan="2" Text="{i18n:Translate CheckoutTransaction}"
                             Command="{Binding CheckoutTransactionCommand}"/>
                     <Button Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="4"

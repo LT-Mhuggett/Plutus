@@ -90,6 +90,27 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         Command _quantityDownCommand;
         public Command QuantityDownCommand => _quantityDownCommand ??= new Command(() => Quantity -= 1);
         public ObservableCollection<SavedTransactionModel> StoredTransactions { get; } = new ObservableCollection<SavedTransactionModel>();
+
+        /// <summary>
+        /// Is there anything parked to retrieve? Drives the **Retrieve** button's enabled state.
+        ///
+        /// ⚠⚠ WHY A BUTTON EXISTS AT ALL NOW. Matt, 2026-08-18: *"How do I retrieve a basket in the
+        /// MAUI till? I have saved 2, but cant retreive them. Should there be two buttons? Save and
+        /// retrieve, with the retreive unclickable if you have nothing to retrieve."*
+        ///
+        /// It was never missing — it was a TOOLBAR ITEM labelled "Baskets", inserted into the page's
+        /// toolbar when the first basket is parked and removed when the last one goes. So the feature
+        /// worked and the person using it could not find it, which is the third time that has happened
+        /// here (the refund button, the reprint, this). **A capability nobody can reach is not a
+        /// capability**, so it is now a button next to Save, where the thing it undoes lives.
+        ///
+        /// ⚠ And "unclickable if you have nothing" is not only tidier — `ExecuteRetrieveTransaction`
+        /// called `StoredTransactions.First()` on an empty collection, which throws
+        /// `InvalidOperationException` out of an `async void`. The button being disabled is the first
+        /// guard; the method now checks as well, because a disabled button is a UI state and a crash
+        /// is a crash.
+        /// </summary>
+        public bool HasStoredTransactions => StoredTransactions.Count > 0;
         public ObservableCollection<IBasketRecord> Basket { get; } = new ObservableCollection<IBasketRecord>();
         public IBasketRecord SelectedBasketRecord
         {
@@ -143,6 +164,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             #region Events
             StoredTransactions.CollectionChanged += (sender, e) =>
             {
+                // ⚠ The Retrieve button reads this — MAUI will not work it out on its own.
+                OnPropertyChanged(nameof(HasStoredTransactions));
                 if (StoredTransactions.Count == 0)
                 {
                     var toolbarItem = Shell.Current.CurrentPage.ToolbarItems.FirstOrDefault(tI => tI.Text.Equals("Baskets".Translate()));
@@ -1466,7 +1489,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 answers.TryGetValue(2, out var email);
                 answers.TryGetValue(3, out var phone);
 
-                var api = await Services.Storage.TillPlacement.TryCreateApiAsync();
+                // ⚠⚠ THE **OPERATOR'S** CLIENT, NOT THE TILL'S. `POST`/`PUT /api/v1/customers` are
+                // `perm:`-gated, and `PermissionAuthorizationHandler` resolves RBAC by the token's
+                // `NameIdentifier` — which on a DEVICE token is the device id, and a device holds no
+                // grants. So this answered 403 for every operator whatever their role: **adding a
+                // member has never worked on this till.** Exactly the same fault as the Reports tab
+                // (fixed in 1.75.0), in a second place — found 2026-08-18 while implementing §5c.
+                var api = await Services.Connectivity.PlutusApi.GetOperatorAsync();
                 if (api is null)
                 {
                     await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
@@ -1551,7 +1580,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             IsBusy = true;
             try
             {
-                var api = await Services.Storage.TillPlacement.TryCreateApiAsync();
+                // ⚠⚠ THE OPERATOR'S CLIENT — `PUT /api/v1/customers/{id}` is gated on
+                // `perm:customers.manage`, which a DEVICE token can never satisfy (its
+                // `NameIdentifier` is the device id, and devices hold no grants). Set tier 403'd for
+                // everybody, same as Add member above and the Reports tab before it. 2026-08-18.
+                var api = await Services.Connectivity.PlutusApi.GetOperatorAsync();
                 if (api is null)
                 {
                     await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
@@ -2464,6 +2497,20 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             IsBusy = true;
             try
             {
+                // ⚠⚠ NOTHING PARKED IS NOT AN ERROR, AND IT USED TO BE A CRASH. The `else` branch
+                // below calls `StoredTransactions.First()`, which throws `InvalidOperationException`
+                // on an empty collection — out of an `async void`, so the till died rather than the
+                // action failing. The Retrieve button is disabled when this is empty, but a disabled
+                // button is a UI state and this is the method: both guards, because only one of them
+                // is a guarantee.
+                if (StoredTransactions.Count == 0)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Nothing saved",
+                        "There are no parked baskets to open. Save one with \"Save Transaction\" first.",
+                        "OK".Translate());
+                    return;
+                }
+
                 SavedTransactionModel storedTransaction;
                 if (StoredTransactions.Count > 1)
                 {

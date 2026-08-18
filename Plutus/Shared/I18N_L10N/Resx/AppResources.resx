@@ -420,6 +420,9 @@ Please try again.</value>
   <data name="StoreTransaction" xml:space="preserve">
     <value>Save Transaction</value>
   </data>
+  <data name="RetrieveTransaction" xml:space="preserve">
+    <value>Retrieve</value>
+  </data>
   <data name="ItemNotFoundMesg" xml:space="preserve">
     <value>We can't find an item with that ID, Please check and try again.</value>
   </data>
