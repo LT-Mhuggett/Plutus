@@ -15,30 +15,32 @@
 
 ## ⏰ START HERE — the build exists, and no person has ever run it
 
-✅ **Till 1.76.0 is BUILT and verified.** Double-click:
+✅ **Till 1.77.0 is BUILT and verified.** Double-click:
 
 ```
-D:\tmp\plutus-till-1.76.0\Plutus.Frontend.AppClient.exe
+D:\tmp\plutus-till-1.77.0\Plutus.Frontend.AppClient.exe
 ```
 
-The artefact reads **`1.76.0+ac1d41b1`** — and both changes are confirmed *inside the binary*, not
-merely committed: the rebuilt **Store Information** screen's strings, and the new **Reports** message.
-⚠ It will say the till isn't enrolled; that is expected for an unpackaged build (runbook § MAUI till
-build) — enrol it as a fresh till.
+The artefact reads **`1.77.0+31a485f6`**, and every change is confirmed *inside the binary* rather than
+merely committed. ⚠ It will say the till isn't enrolled; that is expected for an unpackaged build
+(runbook § MAUI till build) — enrol it as a fresh till.
 
-⚠⚠ **RUN 1.76.0. `D:\tmp\plutus-till-1.75.0` is still on the disk** because it was **running** when I
-tried to remove it (file lock) — 1.73.0 and 1.74.0 are gone. Close the running till and delete the
-1.75.0 folder, or ask and I will.
+⚠⚠ **`D:\tmp\plutus-till-1.75.0` is still on the disk** because it was **running** when I tried to
+remove it (file lock). 1.73.0, 1.74.0 and 1.76.0 are gone. Close the running till and delete the 1.75.0
+folder, or ask and I will.
 
-**Why each build exists** — three faults you found, in order:
+**Why each build exists — four faults you found today, in order:**
 
 | Build | Fixed |
 |---|---|
 | 1.74.0 | **Store Information** was illegible — every field label light grey on near-white |
 | 1.75.0 | **Reports** could not read a single report — the till asked as the *device*, and 5 of 6 endpoints refused a Supervisor |
-| **1.76.0** | **Refund crashed the till** (null basket selection), and the **adjust box had no visible way out** — plus a *second* crash that fix uncovered: cancelling the adjust box also killed the app |
+| 1.76.0 | **Refund crashed the till** (null basket selection), and the **adjust box had no visible way out** — plus a *second* crash that fix uncovered: cancelling the adjust box also killed the app |
+| **1.77.0** | **A ✕ on every dialog**, both tills, and the rule written into `till-design.md` **D4** so it is not missed again |
 
-**§W9d/§G33, §G34 (Reports) and §G35 (Refund/adjust) are all now testable.**
+**Testable now: §W9d/§G33** (Store Information) · **§G34** (Reports) · **§G35** (Refund/adjust) ·
+**§G36** (the ✕ on every dialog).
+
 
 ⚠ **Install agent 1.4.0 as well.** Web till → Settings → Hardware → *Download the agent (v1.4.0)*, or
 `tools\Plutus.TillAgent\publish-out\PlutusTillAgent-1.4.0.exe`. ⚠⚠ Put it in
@@ -52,7 +54,7 @@ Downloads is the fault it fixes.
 **[`Build/Test Maui.md`](Build/Test%20Maui.md)** — the RUN ORDER table at its top is the order. About
 **2½ hours**, or ~15 minutes for §A alone if that is all there is.
 
-⚠⚠ **The last hand-run findings were 2026-08-13.** MAUI has gone from 1.49.x to **1.75.0** with nobody
+⚠⚠ **The last hand-run findings were 2026-08-13.** MAUI has gone from 1.49.x to **1.77.0** with nobody
 looking at a screen. For scale: 2026-08-10 found **fourteen** faults, **six invisible to every
 automated test in the project**; 2026-08-13 found five more including two money holes. **Every hand-run
 so far has found something the tests could not.**

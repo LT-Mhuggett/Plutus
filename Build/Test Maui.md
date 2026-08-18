@@ -46,7 +46,7 @@ on 2026-08-11 came from somebody noticing something, not from a step asking the 
 
 | | |
 |---|---|
-| **Run** | ✅ `D:\tmp\plutus-till-1.76.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. **BUILT 2026-08-18 and verified: the artefact reads `1.76.0+ac1d41b1`, which is HEAD** — and the rebuilt **Store Information** screen is confirmed inside the binary (its four new strings are present; the deleted Region panel's `CurrencyDisplayArg` binding is gone). It is the **only** till build on the box — 1.73.0 was deleted so there is no question which to run. ⚠ **1.73.0 could not pass §W9d/§G33** — it is the build whose Store Information Matt photographed, with every field label light-grey on near-white. ⚠ It will say the till isn't enrolled; that is expected for an unpackaged build (runbook § MAUI till build) — enrol it as a fresh till. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
+| **Run** | ✅ `D:\tmp\plutus-till-1.77.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. **BUILT 2026-08-18 and verified: the artefact reads `1.77.0+31a485f6`, which is HEAD** — and the rebuilt **Store Information** screen is confirmed inside the binary (its four new strings are present; the deleted Region panel's `CurrencyDisplayArg` binding is gone). It is the **only** till build on the box — 1.73.0 was deleted so there is no question which to run. ⚠ **1.73.0 could not pass §W9d/§G33** — it is the build whose Store Information Matt photographed, with every field label light-grey on near-white. ⚠ It will say the till isn't enrolled; that is expected for an unpackaged build (runbook § MAUI till build) — enrol it as a fresh till. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
 | **Agent** | ⚠ **Agent 1.4.0 is REQUIRED for §G29**, and it fixes "start automatically" not working after a reboot. Get it from the **web till → Settings → Hardware → Download the agent (v1.4.0)**, or from `tools\Plutus.TillAgent\publish-out\PlutusTillAgent-1.4.0.exe`. ⚠⚠ **Copy it to `%LOCALAPPDATA%\Plutus\Agent\` and run it from THERE — not from Downloads.** Auto-start records the path it was launched from; a Downloads copy gets cleaned up or renamed `… (1).exe`, and then the till boots and starts nothing. That is the fault this build fixes, and running it once from a permanent folder repairs a stale registration. |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
@@ -2148,3 +2148,55 @@ in `MAUI-retrofit.md` **§0.3b**, and the risky ones are **Refund**, **selling a
 the **supervisor prompt** and **checkout**. If one of those dies when you cancel, that is a known and
 recorded fault, not a new mystery — tell me which, and it gets fixed with the right meaning for that
 flow rather than a blanket "do nothing".
+
+## G36. The ✕ on every dialog — **till 1.77.0 · web 1.14.0**
+
+⚠ Matt, 2026-08-18: *"add x's to all relevant boxes and write it into the till-design.md so that it is
+not missed in future."* The rule is now **`till-design.md` Part D4 — the dialog contract**; this section
+is how you check it holds.
+
+### G36a. MAUI — every box has a ✕, top-right
+
+Open each and look for the **✕** in the top-right corner, then press it:
+
+| Dialog | How to reach it |
+|---|---|
+| **Adjust price** | add an item → tap its line → Adjust |
+| **Alterations** | tap a line → Alterations ⚠ **this one had NO exit at all before 1.77.0** |
+| **Returns** | tap a line → Refund → pick a sale |
+| **Cash paid in / out** | Cash tab → Paid in |
+| **Bag item** | Store Information → the bag button |
+| **Edit item / stock** | Inventory → an item → Edit |
+| **Add member** | Loyalty → Add |
+| **Supervisor override** | trigger any gated action as a Cashier |
+
+**✅ Expected, every time:** a ✕ top-right; pressing it closes the box, changes nothing, and **the till
+stays alive**.
+
+⚠⚠ **REPORT ANY CRASH.** The ✕ is deliberately wired to the **Cancel** path, which is the safe one —
+but **17 call sites still mishandle a back-out** (`MAUI-retrofit.md` §0.3b), and the risky ones are
+**refund, gift-card sale, cash, the supervisor prompt and checkout**. If one dies, that is a *known and
+recorded* fault, not a new mystery: tell me which and it gets the right per-flow fix.
+
+### G36b. ⚠ The three exits must all behave the same
+
+On the **Adjust price** box, one at a time: press **✕** · press **Cancel** · tap **outside** · press
+**Escape**.
+
+**✅ Expected: all four do the same thing** — close, leave the price alone, no crash. ⚠ They are not the
+same code path (D4 rule 5: the ✕ and Cancel return blanked fields, the other two return nothing at
+all), which is exactly why all four are worth pressing.
+
+### G36c. Web till — the same ✕, same corner
+
+`https://plutus.huggett.dscloud.me` — open each and press the ✕: **Checkout** · **Apply discount** ·
+**Parked baskets** · **Return item** · **Sale detail** (Reporting) · **Add user** (Users) · **Edit
+item** (Inventory) · **Add member** (Loyalty).
+
+**✅ Expected:** ✕ top-right, closes cleanly, nothing submitted.
+
+⚠⚠ **THE ONE TO CHECK HARDEST IS CHECKOUT.** Several of these dialogs are HTML forms, where a button
+defaults to *submit* — so a mis-built ✕ would **complete the sale** instead of closing the box. It is
+explicitly `type="button"`; pressing ✕ on a filled-in checkout must leave the basket **unsold**.
+
+⚠ Also check a **long title** does not run underneath the ✕ (`Refund — £1,234.56` is the longest).
