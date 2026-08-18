@@ -2064,3 +2064,39 @@ just counted against is the specific nonsense this fixes.
 2. **Pull the network cable** and press Refresh. **✅ Expected:** a message about being unable to reach
    Plutus — and ⚠ **never an empty table**, because "no rows" on a reporting screen is a statement
    about the shop's trading, and making it when we could not ask is a confident lie.
+
+## W10. ⚠⚠ THE WEB TILL COULD NOT TAKE A PAYMENT — fixed in web 1.13.0
+
+⚠⚠ **Checkout crashed on EVERY attempt, and had done since 1.10.0.** Matt, 2026-08-18: *"When I try to
+checkout on the webtill, I get… Minified React error #310"* — *"Rendered more hooks than during the
+previous render."* `CheckoutDialog` called `useMemo` **six lines below a guard clause**, so it rendered
+N hooks on mount and N+1 once the payment methods loaded, and React refused to render.
+
+⚠ **Not an edge case — the only path.** The dialog always mounts before the methods arrive.
+
+⚠ **Nothing automated could have caught it**: `tsc` passes (it is type-correct), `vite build` passes,
+and all 205 vitest cases pass because **no test in this project mounts a component**. A person
+clicking Checkout found it. **§W10a is now the first thing to run after any web-till deploy.**
+
+### W10a. Take a payment — the two-minute smoke test
+
+1. Ring up any item. Press **Checkout**.
+
+**✅ Expected:** the tender screen, with the methods listed. ⚠⚠ **If the screen is blank or the console
+shows React error #310, STOP** — that is this fault back, and the till cannot trade.
+
+2. Type the full amount in **Cash** and Complete. **✅ Expected:** the sale completes, receipt shows.
+3. Do it again by **card**. ⚠ With Kapow's zero surcharge the total must not change (§W8a).
+4. ⚠ **Return an item and refund it** — the refund path is where the offending hook lived
+   (`refundCapacities`), so it is the half most worth re-checking.
+
+### W10b. ⚠ The guard that now stops it recurring
+
+`npm run build` runs **eslint** first, with `react-hooks/rules-of-hooks` as an **error**.
+
+**To prove it still works** (worth doing once, after any dependency change): move a `useMemo` below the
+`if (!methods) return` in `CheckoutDialog.tsx` and run `npm run build`.
+
+**✅ Expected: the build FAILS** with *"React Hook useMemo is called conditionally."* Verified that way
+on 2026-08-18 — the rule was watched catching the real bug and failing the real build before being
+trusted. ⚠ A linter nobody has seen fail is a linter nobody knows is wired up.

@@ -121,6 +121,21 @@ export default function CheckoutDialog(
   // disagree by a penny on one basket disagree on every VAT return afterwards.
   const parsed = useMemo(() => parseAmounts(amounts), [amounts]);
 
+  // ⚠⚠ EVERY HOOK MUST BE ABOVE THE EARLY RETURN BELOW, AND THIS ONE WAS NOT — the defect that
+  // stopped the web till taking money. Matt, 2026-08-18: *"When I try to checkout on the webtill, I
+  // get… Minified React error #310"* = "Rendered more hooks than during the previous render."
+  //
+  // The dialog mounts with `methods === null`, returns early, and renders N hooks. `fetchPayMethods`
+  // resolves, it re-renders, sails past the early return and reaches hook N+1 — and React throws
+  // rather than render. So **checkout crashed on the second render, every single time**: not an edge
+  // case, the ONLY path. It shipped in the deployed 1.10.0 and survived 1.12.0 because the web till's
+  // hand-run has never been run and no automated test in this project mounts a component.
+  //
+  // ⚠ It arrived with finding Y (`e6c6b65d`), which added `caps` — correct arithmetic, placed six
+  // lines the wrong side of a guard clause. ⚠ `refundTenders` is a PROP, so hoisting is behaviour-free.
+  const caps = useMemo(() => refundCapacities(refundTenders), [refundTenders]);
+
+  // ⚠ NOTHING BELOW THIS LINE MAY CALL A HOOK. If you need one, put it above.
   if (!methods) {
     return (
       <div className="overlay">
@@ -194,7 +209,9 @@ export default function CheckoutDialog(
   //
   // ⚠ Binding default 19, from Matt: *"If the card machine is down, we cannot refund cards."* There is
   // no cash exception and no supervisor override.
-  const caps = useMemo(() => refundCapacities(refundTenders), [refundTenders]);
+  //
+  // ⚠ `caps` is COMPUTED ABOVE THE EARLY RETURN now — see the note there. It was here, which is one
+  // hook below a guard clause, which is React error #310 on every second render.
 
   // Refunding ONTO store credit or a gift card would be a ledger write, not a tender — out of
   // scope, so a refund offers only the real money methods.
