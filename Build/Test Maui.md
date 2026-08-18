@@ -46,7 +46,7 @@ on 2026-08-11 came from somebody noticing something, not from a step asking the 
 
 | | |
 |---|---|
-| **Run** | ✅ `D:\tmp\plutus-till-1.75.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. **BUILT 2026-08-18 and verified: the artefact reads `1.75.0+d6a993bd`, which is HEAD** — and the rebuilt **Store Information** screen is confirmed inside the binary (its four new strings are present; the deleted Region panel's `CurrencyDisplayArg` binding is gone). It is the **only** till build on the box — 1.73.0 was deleted so there is no question which to run. ⚠ **1.73.0 could not pass §W9d/§G33** — it is the build whose Store Information Matt photographed, with every field label light-grey on near-white. ⚠ It will say the till isn't enrolled; that is expected for an unpackaged build (runbook § MAUI till build) — enrol it as a fresh till. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
+| **Run** | ✅ `D:\tmp\plutus-till-1.76.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. **BUILT 2026-08-18 and verified: the artefact reads `1.76.0+ac1d41b1`, which is HEAD** — and the rebuilt **Store Information** screen is confirmed inside the binary (its four new strings are present; the deleted Region panel's `CurrencyDisplayArg` binding is gone). It is the **only** till build on the box — 1.73.0 was deleted so there is no question which to run. ⚠ **1.73.0 could not pass §W9d/§G33** — it is the build whose Store Information Matt photographed, with every field label light-grey on near-white. ⚠ It will say the till isn't enrolled; that is expected for an unpackaged build (runbook § MAUI till build) — enrol it as a fresh till. ⚠ **Nothing older.** Each of the builds before it fails a step in this document: **1.48.0** cannot take a sale (A0) · **1.49.0** crashes on a card overpay (A4) · **1.49.1** says nothing during a split payment (A5) · **1.49.2** lets a closed day take items from the item list (A8) · **1.49.3/1.50.0** let a split-paid refund go on one card (A4b) · **1.53.0 and earlier** let a discount be given with no reason recorded (§F). |
 | **Agent** | ⚠ **Agent 1.4.0 is REQUIRED for §G29**, and it fixes "start automatically" not working after a reboot. Get it from the **web till → Settings → Hardware → Download the agent (v1.4.0)**, or from `tools\Plutus.TillAgent\publish-out\PlutusTillAgent-1.4.0.exe`. ⚠⚠ **Copy it to `%LOCALAPPDATA%\Plutus\Agent\` and run it from THERE — not from Downloads.** Auto-start records the path it was launched from; a Downloads copy gets cleaned up or renamed `… (1).exe`, and then the till boots and starts nothing. That is the fault this build fixes, and running it once from a permanent folder repairs a stale registration. |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
@@ -2100,3 +2100,51 @@ shows React error #310, STOP** — that is this fault back, and the till cannot 
 **✅ Expected: the build FAILS** with *"React Hook useMemo is called conditionally."* Verified that way
 on 2026-08-18 — the rule was watched catching the real bug and failing the real build before being
 trusted. ⚠ A linter nobody has seen fail is a linter nobody knows is wired up.
+
+## G35. ⚠⚠ Refund and price-adjust — **fixed in till 1.76.0**
+
+⚠ **On 1.75.0 and earlier, pressing Refund with nothing selected CRASHED the till** — and pressing it
+before selecting a line is what anybody does first. Matt found it on 2026-08-18. A second crash was
+uncovered while fixing the adjust dialog: **cancelling the price-adjust box also killed the app.**
+
+### G35a. Refund with nothing selected — the crash
+
+1. Empty basket, nothing selected. Press **Refund**.
+
+**✅ Expected:** the dialog *"Which item is coming back?"* explaining to scan the item, tap its line,
+then press again. ⚠⚠ **The till must NOT close.** If it vanishes, this fault is back.
+
+2. Add an item but **do not tap its line**. Press **Refund** again. **✅ Expected:** the same guidance.
+3. Now **tap the line**, press **Refund**. **✅ Expected:** the return flow starts and asks which sale
+   it came from.
+4. Mark a line as a return, then press **Refund** on that same line. **✅ Expected:** *"Already going
+   back"* — not a crash, and not silence.
+
+### G35b. ⚠ The adjust box now has a visible way out
+
+1. Add an item, tap its line, choose **Adjust**.
+
+**✅ Expected:** the price box shows **Confirm _and_ Cancel**. ⚠ Cancel is new — previously the only
+exits were tapping outside or Escape, neither of which the box advertised.
+
+2. Press **Cancel**. **✅ Expected:** the box closes, **the price is unchanged**, and ⚠⚠ **the till
+   stays alive** — cancelling used to crash it.
+3. Do it again, this time **tapping outside** the box. **✅ Expected:** same — closed, unchanged, alive.
+4. Press **Escape**. **✅ Expected:** same again.
+5. Now adjust for real: type a new price, **Confirm**. **✅ Expected:** the line's price changes, and
+   the receipt/basket total follow.
+
+### G35c. ⚠ Cancel now appears on EVERY input dialog — check a few
+
+The Cancel button was added to the shared helper, so all 24 dialogs that had none now show one. Worth
+a quick look at: **Cash → paid in/out**, **Inventory → edit item**, **Store Information → the bag
+setting**, **Loyalty → add member**.
+
+**✅ Expected:** each shows Cancel, and pressing it leaves everything untouched.
+
+⚠⚠ **BUT — REPORT ANY CRASH HERE IMMEDIATELY.** Only the adjust dialog's back-out was fixed;
+**17 other call sites still mishandle a cancelled dialog** and may take the till down. The full list is
+in `MAUI-retrofit.md` **§0.3b**, and the risky ones are **Refund**, **selling a gift card**, **Cash**,
+the **supervisor prompt** and **checkout**. If one of those dies when you cancel, that is a known and
+recorded fault, not a new mystery — tell me which, and it gets fixed with the right meaning for that
+flow rather than a blanket "do nothing".

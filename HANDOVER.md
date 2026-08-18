@@ -15,24 +15,30 @@
 
 ## ⏰ START HERE — the build exists, and no person has ever run it
 
-✅ **Till 1.75.0 is BUILT and verified.** Double-click:
+✅ **Till 1.76.0 is BUILT and verified.** Double-click:
 
 ```
-D:\tmp\plutus-till-1.75.0\Plutus.Frontend.AppClient.exe
+D:\tmp\plutus-till-1.76.0\Plutus.Frontend.AppClient.exe
 ```
 
-The artefact reads **`1.75.0+d6a993bd`** — and both changes are confirmed *inside the binary*, not
+The artefact reads **`1.76.0+ac1d41b1`** — and both changes are confirmed *inside the binary*, not
 merely committed: the rebuilt **Store Information** screen's strings, and the new **Reports** message.
 ⚠ It will say the till isn't enrolled; that is expected for an unpackaged build (runbook § MAUI till
 build) — enrol it as a fresh till.
 
-⚠⚠ **RUN 1.75.0, NOT 1.74.0 — and 1.74.0 is still on the disk**, which breaks the usual "exactly one
-build" rule. It could not be deleted because **it was running at the time** (file lock). Close it and
-delete `D:\tmp\plutus-till-1.74.0`, or ask and I will.
+⚠⚠ **RUN 1.76.0. `D:\tmp\plutus-till-1.75.0` is still on the disk** because it was **running** when I
+tried to remove it (file lock) — 1.73.0 and 1.74.0 are gone. Close the running till and delete the
+1.75.0 folder, or ask and I will.
 
-**Why 1.75.0 exists:** 1.74.0's **Reports tab could not read a single report** — see the decision
-table below. 1.73.0 (the Store Information screenshot, every label light grey on near-white) is gone.
-**§W9d/§G33 and §G-Reports are now testable.**
+**Why each build exists** — three faults you found, in order:
+
+| Build | Fixed |
+|---|---|
+| 1.74.0 | **Store Information** was illegible — every field label light grey on near-white |
+| 1.75.0 | **Reports** could not read a single report — the till asked as the *device*, and 5 of 6 endpoints refused a Supervisor |
+| **1.76.0** | **Refund crashed the till** (null basket selection), and the **adjust box had no visible way out** — plus a *second* crash that fix uncovered: cancelling the adjust box also killed the app |
+
+**§W9d/§G33, §G34 (Reports) and §G35 (Refund/adjust) are all now testable.**
 
 ⚠ **Install agent 1.4.0 as well.** Web till → Settings → Hardware → *Download the agent (v1.4.0)*, or
 `tools\Plutus.TillAgent\publish-out\PlutusTillAgent-1.4.0.exe`. ⚠⚠ Put it in
