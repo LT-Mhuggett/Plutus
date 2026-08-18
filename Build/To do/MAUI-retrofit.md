@@ -3108,3 +3108,70 @@ start until somebody answers the questions in 4 and 5 above.
 ⚠⚠ **And nothing in items 1, 6 or 7 could be unit-tested** — the suite went 598 → 598 across all of
 it. Every one of those fixes is verified only by `Test Maui.md` **§G38** and **§G39**, both written for
 a person and neither yet run.
+
+## 5d. ⚠⚠ WP-L1 — the customer DETAIL view, on both tills (2026-08-18)
+
+> Matt, with a screenshot of the portal's customer dialog: *"With Loyalty, I need to be able to see all
+> the information you see in the portal on both MAUI and the webtill. e.g. Need to be able to print the
+> card from the till. Granting credit needs to be supervisor and above. I also need the 'Credit History'
+> to be ALL history. E.g. created, name changed, credit added, credit used. This needs to be scroll and
+> searchable as old accounts will have a LOT of history and needs to be usable."*
+>
+> ⚠ §5c item 6 gave both tills the LIST. This is the row you get when you open one — and only the
+> portal has it today.
+
+### What the portal shows, and who has it
+
+| | Portal | Web till | MAUI |
+|---|---|---|---|
+| Name, email, phone, member no. | ✅ | 🟡 in the edit dialog | 🟡 in the edit dialog |
+| **Barcode + Print card** | ✅ `MemberCard.tsx` | ⬜ | ⬜ |
+| Store credit balance | ✅ | ✅ list column | ✅ list column |
+| Membership: tier · rate · renews | ✅ | ✅ list columns | ✅ list columns |
+| **Grant credit** (amount + mandatory reason) | ✅ | ⬜ | ⬜ |
+| **Set membership** from a picker | ✅ | ✅ in the edit dialog | ✅ separate action |
+| **History** | 🟡 credit only | ⬜ | ⬜ |
+
+### ✅ Two of the four asks were ALREADY TRUE — checked, not assumed
+
+- ⚠ **"Granting credit needs to be supervisor and above" — already the case.**
+  `POST /customers/{id}/credit/issue` is gated `perm:customers.manage`; `RbacSeeder` gives
+  **Supervisor** `CustomersManage` and gives **Cashier** only `PosSell` + `PosCustomersAdd`. So a
+  cashier cannot grant credit today and a supervisor can. **Nothing to change** — recorded here so
+  nobody "fixes" it into something looser.
+- ⚠ **The barcode already exists**: `SharedKernel.MemberNumbers.BarcodePayload`, and the web till
+  already renders Code 39 (`till/Barcode39.tsx`). Printing a card is wiring, not invention.
+
+### ✅ DONE — the history itself (backend 1.17.8)
+
+`GET /api/v1/customers/{id}/history?search=&skip=&take=` — **created, details changed, tier set,
+credit added, credit used, credit expired**, newest first, searchable and paged server-side.
+
+⚠⚠ **IT COULD NOT BE ONE QUERY, AND THE REASON IS A TRAP**: the audit rows are **not filed under the
+customer**. `credit.issue` is audited against the *entry's* id and `membership.set` against the
+*membership's*, with the customer id only inside the payload — so the obvious
+`WHERE EntityId = customerId` returns somebody who was created, renamed, and never given a penny.
+Three sources are merged: the customer's own audit rows, the credit **ledger**, and the audit rows for
+that customer's memberships.
+
+⚠ **Credit comes from the ledger, never the audit row.** Spending credit writes no audit row at all,
+so mixing the two would double-count every grant and lose every redemption.
+
+⚠ A `customer.update` row renders as *"name: Ada Lovelace → Ada King"* — which only works because the
+audit began recording `before` as well as `after` earlier that day. **Rows written before that cannot
+say what a value used to be, and the endpoint says so rather than inventing it.**
+
+⚠ Search and paging are **server-side** because Matt asked by name: an account with years of trade has
+hundreds of rows, and a client-side filter over a truncated page hides exactly the old entry somebody
+went looking for. `total` counts what MATCHED, so "1–50 of 900" is never a lie about a filtered list.
+
+### ⬜ WHAT REMAINS — the screens
+
+| | Size |
+|---|---|
+| **A customer-detail view on the web till** — the portal's dialog, minus what a till has no business doing. Its `CustomerDialog.tsx` is the reference and `DataTable` gives the history scroll/search for free | **1–1½ d** |
+| **The same on MAUI** — `TillTable` already scrolls, sorts, searches and pages, so the history is one table; the facts above it are a card like Store Information's | **1–1½ d** |
+| **Print card** — render the Code 39 payload and print it. ⚠ The web till can already draw one; MAUI needs the receipt printer or a rendered image. ⚠⚠ **Decide what a "card" is first**: a receipt-printer slip with a barcode is cheap and works on hardware every shop already has; a plastic card is a different machine entirely | **1 d, after that decision** |
+
+⚠ **Do the detail view before Print card.** The button lives on it, and a print path with nowhere to
+launch it from is the "built and wired to nothing" pattern this project has hit five times.

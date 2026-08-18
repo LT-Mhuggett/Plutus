@@ -587,4 +587,103 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
             Assert.Contains(rows.EnumerateArray(), r => r.GetProperty("id").GetGuid() == customerId);
         }
     }
+
+    /// <summary>
+    /// ⚠⚠ MATT, 2026-08-18: *"I also need the 'Credit History' to be ALL history. E.g. created,
+    /// name changed, credit added, credit used."*
+    ///
+    /// ⚠⚠ THE HISTORY IS IN THREE PLACES AND TWO OF THEM ARE NOT FILED UNDER THE CUSTOMER.
+    /// `credit.issue` is audited against the ENTRY's id and `membership.set` against the MEMBERSHIP's,
+    /// with the customer id only inside the payload — so the obvious `WHERE EntityId = customerId`
+    /// returns a customer who was created, renamed, and never given a penny. This test walks a whole
+    /// life and asserts every kind of event comes back.
+    ///
+    /// ⚠ Credit comes from the LEDGER, not the audit row: spending credit writes no audit row at
+    /// all, so mixing the two sources would double-count every grant and lose every redemption.
+    /// </summary>
+    [Fact]
+    public async Task Customer_history_is_ALL_history_and_is_searchable_and_paged()
+    {
+        var client = _f.CreateClient();
+        var manager = PlutusAppFactory.OperatorTokenFor(await SeedCustomerManagerAsync(), "pos.sell");
+        var name = $"History Walker {Guid.NewGuid().ToString()[..6]}";
+
+        Guid customerId;
+        using (var resp = await Send(client, HttpMethod.Post, "/api/v1/customers", manager, new { name }))
+        {
+            Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
+            customerId = JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement.GetProperty("id").GetGuid();
+        }
+
+        // a name change
+        using (var resp = await Send(client, HttpMethod.Put, $"/api/v1/customers/{customerId}", manager,
+                   new { name = name + " (renamed)", email = "walker@example.com" }))
+            Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+
+        // credit granted
+        using (var resp = await Send(client, HttpMethod.Post, $"/api/v1/customers/{customerId}/credit/issue", manager,
+                   new { amountPence = 2000, reason = "damaged item goodwill" }))
+            Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+
+        // and some of it spent
+        using (var resp = await Send(client, HttpMethod.Post, $"/api/v1/customers/{customerId}/credit/redeem", manager,
+                   new { amountPence = 750, reason = "used at till" }))
+            Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+
+        using (var resp = await Send(client, HttpMethod.Get, $"/api/v1/customers/{customerId}/history", manager))
+        {
+            Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+            var body = JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement;
+            var types = body.GetProperty("rows").EnumerateArray()
+                .Select(r => r.GetProperty("type").GetString()).ToList();
+
+            // ⚠⚠ ALL FOUR KINDS, which is the whole ask.
+            Assert.Contains("Created", types);
+            Assert.Contains("Details changed", types);
+            Assert.Contains("Credit added", types);
+            Assert.Contains("Credit used", types);
+
+            // ⚠ NEWEST FIRST - a history read oldest-first buries today under years.
+            var stamps = body.GetProperty("rows").EnumerateArray()
+                .Select(r => r.GetProperty("atUtc").GetDateTime()).ToList();
+            Assert.Equal(stamps.OrderByDescending(x => x).ToList(), stamps);
+
+            // ⚠ THE NAME CHANGE SAYS WHAT IT WAS, not just what it became - that is the whole point
+            // of recording `before` as well as `after`.
+            var changed = body.GetProperty("rows").EnumerateArray()
+                .First(r => r.GetProperty("type").GetString() == "Details changed")
+                .GetProperty("detail").GetString();
+            Assert.Contains("(renamed)", changed);
+            Assert.Contains("→", changed);
+
+            // ⚠ The amount travels with the movement, signed as the ledger holds it.
+            var used = body.GetProperty("rows").EnumerateArray()
+                .First(r => r.GetProperty("type").GetString() == "Credit used");
+            Assert.Equal(-750, used.GetProperty("amountPence").GetInt64());
+        }
+
+        // ⚠⚠ SEARCHABLE, because Matt asked for it by name: old accounts have a LOT of history.
+        using (var resp = await Send(client, HttpMethod.Get,
+                   $"/api/v1/customers/{customerId}/history?search=goodwill", manager))
+        {
+            var body = JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement;
+            var rows = body.GetProperty("rows").EnumerateArray().ToList();
+
+            Assert.Single(rows);
+            Assert.Equal("Credit added", rows[0].GetProperty("type").GetString());
+
+            // ⚠ `total` counts what MATCHED, not everything - "1-50 of 900" over a filtered list
+            // would be a lie about what the operator is looking at.
+            Assert.Equal(1, body.GetProperty("total").GetInt32());
+        }
+
+        // ⚠ PAGED. take=2 returns two rows while `total` still reports the whole (filtered) count.
+        using (var resp = await Send(client, HttpMethod.Get,
+                   $"/api/v1/customers/{customerId}/history?skip=0&take=2", manager))
+        {
+            var body = JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement;
+            Assert.Equal(2, body.GetProperty("rows").GetArrayLength());
+            Assert.True(body.GetProperty("total").GetInt32() >= 4);
+        }
+    }
 }

@@ -371,6 +371,204 @@ namespace Plutus.Customers
             }
         }
 
+
+        /// <summary>
+        /// **Everything that has ever happened to this customer**, newest first — created, details
+        /// changed, tier set, credit added, credit spent.
+        ///
+        /// ⚠⚠ MATT, 2026-08-18: *"I also need the 'Credit History' to be ALL history. E.g. created,
+        /// name changed, credit added, credit used. This needs to be scroll and searchable as old
+        /// accounts will have a LOT of history and needs to be usable."*
+        ///
+        /// ⚠⚠ **IT CANNOT BE ONE QUERY, BECAUSE THE HISTORY IS NOT IN ONE PLACE — and worse, the
+        /// audit rows are not filed under the customer.** Three sources:
+        ///
+        /// 1. `AuditLog` where the entity IS the customer → **created** and **details changed**.
+        /// 2. `CreditEntry` through the customer's `CreditAccount` → **credit added / used / expired**,
+        ///    with the reason, the amount and the actor already on the row.
+        /// 3. `AuditLog` for this customer's `Membership` rows → **tier set**.
+        ///
+        /// ⚠ Sources 2 and 3 are invisible to a naive `WHERE EntityId = customerId`: `credit.issue` is
+        /// filed under the **entry's** id and `membership.set` under the **membership's**, with the
+        /// customer id only in the payload. A history built the obvious way silently shows a customer
+        /// who was created, renamed, and never given a penny.
+        ///
+        /// ⚠ **CREDIT COMES FROM THE LEDGER, NOT THE AUDIT ROW.** `credit.issue` writes both, but only
+        /// the ledger has redemptions (spending credit writes no audit row at all) — so taking issues
+        /// from the audit and redemptions from the ledger would double-count every grant.
+        ///
+        /// ⚠ SEARCH AND PAGING ARE SERVER-SIDE because Matt asked for them by name: an account with
+        /// years of trade has hundreds of rows, and a client-side filter over a truncated page hides
+        /// exactly the old entry somebody went looking for.
+        ///
+        /// ⚠ Merged in memory ON PURPOSE. One customer's history is bounded; three ordered queries
+        /// unioned in SQL across two shapes would be harder to read and no faster at this size.
+        ///
+        /// ⚠ READ-GATED AS `Authorize` ONLY, like the balance beside it — a till operator needs to see
+        /// why a customer is owed money. **Writing** credit stays `customers.manage` (Supervisor+).
+        /// </summary>
+        [HttpGet("api/v1/customers/{id}/history")]
+        [Authorize]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> History(
+            [FromRoute] Guid id, [FromQuery] string search, [FromQuery] int skip = 0, [FromQuery] int take = 50)
+        {
+            take = Math.Clamp(take, 1, 200);
+            skip = Math.Max(0, skip);
+
+            var customer = await _db.Customers.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id);
+            if (customer == null) return NotFound();
+
+            var events = new List<HistoryRow>();
+
+            // ── 1. the customer's own audit rows: created, details changed ──────────────────────
+            var own = await _db.AuditLogs.AsNoTracking()
+                .Where(a => a.EntityType == nameof(Customer) && a.EntityId == id.ToString())
+                .ToListAsync();
+
+            foreach (var a in own)
+            {
+                events.Add(new HistoryRow(
+                    a.AtUtc,
+                    a.Action == "customer.create" ? "Created" : "Details changed",
+                    a.Action == "customer.create" ? "Signed up" : DescribeChange(a.DetailJson),
+                    null,
+                    a.ActorUserId));
+            }
+
+            // ── 2. the credit ledger: added, used, expired ──────────────────────────────────────
+            var account = await _db.CreditAccounts.AsNoTracking().FirstOrDefaultAsync(x => x.CustomerId == id);
+            if (account != null)
+            {
+                var entries = await _db.CreditEntries.AsNoTracking()
+                    .Where(e => e.CreditAccountId == account.Id)
+                    .ToListAsync();
+
+                foreach (var e in entries)
+                {
+                    events.Add(new HistoryRow(
+                        e.CreatedAtUtc,
+                        e.Type switch
+                        {
+                            CreditEntryType.Issue => "Credit added",
+                            CreditEntryType.Redeem => "Credit used",
+                            _ => "Credit expired",
+                        },
+                        // ⚠ The reason as recorded. Since 2026-08-18 a granted reason is mandatory and
+                        // never substituted, so a blank one here is genuinely an older row.
+                        string.IsNullOrWhiteSpace(e.Reason) ? "(no reason recorded)" : e.Reason,
+                        e.AmountPence,
+                        e.ActorUserId));
+                }
+            }
+
+            // ── 3. tier changes, found through this customer's memberships ──────────────────────
+            var membershipIds = await _db.Memberships.AsNoTracking()
+                .Where(m => m.CustomerId == id).Select(m => m.Id.ToString()).ToListAsync();
+
+            if (membershipIds.Count > 0)
+            {
+                var tierRows = await _db.AuditLogs.AsNoTracking()
+                    .Where(a => a.EntityType == nameof(Membership) && membershipIds.Contains(a.EntityId))
+                    .ToListAsync();
+
+                foreach (var a in tierRows)
+                    events.Add(new HistoryRow(a.AtUtc, "Tier set", DescribeTier(a.DetailJson), null, a.ActorUserId));
+            }
+
+            // ⚠ FILTERED AFTER MERGING, so a search reaches the type, the detail and the amount
+            // together — "credit" finds both halves, and "gold" finds the tier that granted a rate.
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var needle = search.Trim();
+                events = events.Where(e =>
+                    (e.Type ?? "").Contains(needle, StringComparison.OrdinalIgnoreCase)
+                    || (e.Detail ?? "").Contains(needle, StringComparison.OrdinalIgnoreCase)).ToList();
+            }
+
+            var total = events.Count;
+
+            var rows = events
+                .OrderByDescending(e => e.AtUtc)
+                .Skip(skip).Take(take)
+                .Select(e => new
+                {
+                    atUtc = e.AtUtc,
+                    type = e.Type,
+                    detail = e.Detail,
+                    amountPence = e.AmountPence,
+                    actorUserId = e.ActorUserId,
+                });
+
+            // ⚠ `total` is the count AFTER the search and BEFORE the page — it is what a pager needs,
+            // and reporting the unfiltered count would make "1–50 of 900" a lie about a filtered list.
+            return Ok(new { total, skip, take, rows });
+        }
+
+        /// <summary>⚠ `ActorUserId` is NULLABLE because a credit entry may have none — imported and
+        /// system-generated movements carry no person. An audit row always has one.</summary>
+        private sealed record HistoryRow(DateTime AtUtc, string Type, string Detail, long? AmountPence, Guid? ActorUserId);
+
+        /// <summary>
+        /// Turn a `customer.update` audit payload into a sentence a person can read.
+        ///
+        /// ⚠⚠ TWO SHAPES, BECAUSE THE OLD ONE IS STILL IN THE DATABASE. Since 2026-08-18 the payload is
+        /// `{before,after}`; before that it was the request body alone — the destination with no way to
+        /// know what changed. Rows written then genuinely cannot say what a value used to be, and this
+        /// says so rather than inventing it.
+        ///
+        /// ⚠ NEVER THROWS. A history screen that dies on one malformed row from years ago is worse than
+        /// one that says "changed" for it.
+        /// </summary>
+        private static string DescribeChange(string detailJson)
+        {
+            if (string.IsNullOrWhiteSpace(detailJson)) return "Details changed";
+
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(detailJson);
+                var root = doc.RootElement;
+
+                if (!root.TryGetProperty("before", out var before) || !root.TryGetProperty("after", out var after))
+                    return "Details changed (what they were was not recorded)";
+
+                var parts = new List<string>();
+                foreach (var field in new[] { "name", "email", "phone" })
+                {
+                    var was = before.TryGetProperty(field, out var b) ? b.ToString() : "";
+                    var now = after.TryGetProperty(field, out var a) ? a.ToString() : "";
+                    if (was == now) continue;
+
+                    parts.Add($"{field}: {(string.IsNullOrEmpty(was) ? "—" : was)} → {(string.IsNullOrEmpty(now) ? "—" : now)}");
+                }
+
+                // ⚠ An edit that changed nothing is a real event — somebody opened the form and saved.
+                return parts.Count == 0 ? "Saved with no changes" : string.Join(", ", parts);
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                return "Details changed";
+            }
+        }
+
+        /// <summary>The tier a `membership.set` payload asked for. ⚠ Same never-throws rule.</summary>
+        private static string DescribeTier(string detailJson)
+        {
+            if (string.IsNullOrWhiteSpace(detailJson)) return "Tier set";
+
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(detailJson);
+                if (doc.RootElement.TryGetProperty("tier", out var t) && t.ValueKind == System.Text.Json.JsonValueKind.String)
+                    return $"Tier set to {t.GetString()}";
+                return "Tier set";
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                return "Tier set";
+            }
+        }
         // ── membership / loyalty ──
 
         [HttpPost("api/v1/customers/{id}/membership")]
