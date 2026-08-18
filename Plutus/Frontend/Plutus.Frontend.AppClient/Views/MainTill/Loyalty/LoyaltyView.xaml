@@ -30,12 +30,28 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Entry Grid.Column="0"
                    Text="{Binding Search, Mode=TwoWay}"
                    Placeholder="{i18n:Translate SearchMembers}"
                    ReturnCommand="{Binding RefreshCommand}"/>
             <Button Grid.Column="1" Text="{i18n:Translate Search}" Command="{Binding RefreshCommand}"/>
+
+            <!-- ⚠ ADD MEMBER LIVES HERE, NOT ON THE TILL SCREEN (5c items 4 and 6). A member is
+                 attached to a sale by SCANNING THEIR CARD - neither the web till nor NatApp has an
+                 add button on the sale screen. But when those buttons came off the till screen this
+                 tab had none either, so for a few hours MAUI had no way to add a member at all. -->
+            <Button Grid.Column="2" Text="{i18n:Translate AddMember}"
+                    Command="{Binding AddMemberCommand}"
+                    IsVisible="{Binding MayAddCustomers}"/>
+
+            <!-- ⚠ HIDDEN, not disabled, for an operator without customers.manage: a control that
+                 refuses everybody who can see it is worse than one that is not there. -->
+            <Button Grid.Column="3" Text="{i18n:Translate SetTier}"
+                    Command="{Binding SetTierCommand}"
+                    IsVisible="{Binding MayManageCustomers}"/>
         </Grid>
 
         <Label Grid.Row="1" x:Name="StatusLabel" Margin="0,6" />

@@ -2253,3 +2253,98 @@ new one.
 **✅ Expected: identical ex-VAT figure on both tills.** They now run the same rule
 (`SharedKernel.PriceAdjust` / `till/priceAdjust.ts`). ⚠ A penny of difference here is a penny of
 difference on every VAT return afterwards, which is exactly what the C2 register exists to prevent.
+
+---
+
+## G38. ⚠⚠ Adding a member — **till 1.82.0**. It has never once worked.
+
+> ⚠⚠ **NEEDS 1.82.0, WHICH IS NOT BUILT.** The build on the box is **1.81.0**, and on that one the
+> Loyalty tab has no Add member button — so §G38 will "fail" for the wrong reason. Ask for a build
+> first, or skip this section.
+
+> ⚠⚠ **Read this before running it.** Two separate faults meant adding a loyalty member on MAUI was
+> impossible, not merely awkward:
+>
+> 1. **It answered 403 for every operator** whatever their role (1.81.0) — the till asked as the
+>    *device*, and a device holds no permissions. So *"member added"* has never appeared on this till.
+> 2. **Then the button wasn't there.** Add member / Set tier came off the till screen — correctly,
+>    they do not belong on a sale screen — but the **Loyalty tab had neither**, so for a few hours
+>    there was nowhere left to add a member from. Fixed in 1.82.0: both are on the Loyalty tab now.
+>
+> **So there is no "it used to work" to compare against.** Everything below is being seen for the
+> first time.
+
+### G38a. The buttons are there, and on the right screen
+
+Sign in as **Manager**. Go to the **Loyalty** tab.
+
+**✅ Expected:** the top row reads **[ search box ] [ Search ] [ Add member ] [ Set tier ]**, all four
+on one line, none overlapping. ⚠ Overlapping controls are exactly how this was reported on the till
+screen (*"Add m|ember"* printed over *"Set tier"*) — if they overlap here, say so.
+
+Now go to the **Till** tab. **✅ Expected: NO Search, NO Add member, NO Set tier.** Only the attached-
+customer row (who is on this sale, and Remove) when somebody is attached. ⚠ A member is put on a sale
+by **scanning their card**, which is what the web till and NatApp both do.
+
+### G38b. Add a member — the path that has never completed
+
+Loyalty tab → **Add member**. **✅ Expected:** a box with **Name \***, *Email (optional)*, *Phone
+(optional)*.
+
+⚠ **Check the asterisk is on Name and nowhere else.** A required box that looks optional is a save
+that fails for a reason nobody can see — that is the thing Matt reported.
+
+Type a name only (leave email and phone empty) and confirm.
+
+**✅ Expected:** *"<name> added. Membership number M-xxxx."* — an actual number, from the server. Then
+the search box fills in with that number and the list shows **exactly that one member**.
+
+⚠⚠ **If you get a permission error, stop and report it.** That is the 403 fault back again, and it
+means the operator token is not reaching the API.
+
+### G38c. ⚠ Backing out must add nobody
+
+**Add member** again. Type a name, then close the box with the **✕**. Then again with **Cancel**. Then
+again by tapping outside it.
+
+**✅ Expected, all three times: no alert, no member added, no error.** Clear the search box and press
+**Search** — the name you typed must not be in the list. ⚠ All three exits must behave identically;
+the ✕ used to blank the fields to empty strings which the caller then read as real input, and that
+crashed the till (1.78.0).
+
+### G38d. Set a tier
+
+With that member on screen, press **Set tier**.
+
+**✅ Expected:** *"Whose tier?"* listing the members on screen as **name · membership number**, then
+*"Tier for <name>?"* listing tiers as **name · discount** (e.g. *Gold · 10% off*).
+
+Pick one. **✅ Expected:** the list refreshes and the **Tier** column shows it.
+
+⚠ **The rate must not be typeable anywhere.** The till sends a tier id and nothing else — re-rating
+Gold in the portal has to move every Gold member at once, not leave a snapshot on whichever till
+assigned it.
+
+### G38e. Set tier with nothing to set
+
+Clear the search box, press **Search** so the list is empty, then press **Set tier**.
+
+**✅ Expected:** *"Search for a member first…"* — an instruction, not an error, and **no crash**.
+
+### G38f. ⚠ A cashier must not see Set tier
+
+Sign out; sign in as a **Cashier**.
+
+**✅ Expected: Add member is there, Set tier is NOT.** A cashier may sign somebody up (binding default
+20) but a tier changes every future basket that customer puts through, so it is Supervisor and up.
+
+⚠ It must be **absent, not disabled-and-refusing**. Then add a member as the cashier: the confirmation
+must end *"A supervisor can set their tier."*
+
+### G38g. Offline
+
+Pull the network. **Add member**, then **Set tier**.
+
+**✅ Expected:** both refuse, naming **online and signed in** — *not* "try again". ⚠ Permanently
+online-only and correctly so: the membership number comes from a tenant-wide counter, so two offline
+tills would mint the same one.

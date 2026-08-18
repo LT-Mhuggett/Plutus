@@ -379,6 +379,21 @@ is needed before anyone installs this on a shop PC, and is not needed to test.
     ```
     ⚠ A key **containing a space is always wrong** — that is a sentence, not a key.
 
+19. ⚠ **`dotnet` on the PATH may be the x86 one, which has NO SDKs.** On this box
+    `where dotnet` resolves to `C:\Program Files (x86)\dotnet\dotnet.exe`, and every SDK is installed
+    under the x64 `C:\Program Files\dotnet\`. So `dotnet build` fails with **"No .NET SDKs were
+    found"** and a download link — which reads like a broken machine rather than a wrong `dotnet`,
+    and the same repo builds fine from a shell whose PATH happens to be ordered the other way.
+
+    ```powershell
+    (Get-Command dotnet).Source          # if this says "(x86)", that is the fault
+    & 'C:\Program Files\dotnet\dotnet.exe' build …   # always works
+    ```
+
+    ⚠ **Use the absolute x64 path in any script that must not depend on PATH order.** Setting
+    `DOTNET_ROOT` does not fix it: the x86 `dotnet.exe` is a different host and will not load an x64
+    SDK. Cost: 2026-08-18, two failed builds before the cause was obvious.
+
 ⚠ **The standing check these came from:** a green suite proves a component works, never that
 anything *uses* it. `OutboxPusher.DrainAsync`, the catalogue browse and `TillStore.SearchAsync` were
 each fully built and tested while the screen in front of them looked broken. When a screen misbehaves,
