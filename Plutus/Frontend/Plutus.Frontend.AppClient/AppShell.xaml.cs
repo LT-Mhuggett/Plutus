@@ -73,10 +73,20 @@ namespace Plutus.Frontend.AppClient
                 tabBar.Items.Add(Tab(new Views.MainTill.StoreOptions.StoreOptionsView()));
             }
             tabBar.Items.Add(Tab(new Views.MainTill.Settings.SettingsView()));
-            // MAUI retrofit: enrolment + platform diagnostics. Its own tab rather than a section of
-            // Settings because it is the screen someone opens when the till is NOT working, and it
-            // has to be findable without knowing where to look.
-            tabBar.Items.Add(Tab(new Views.Platform.ConnectionView()));
+            // ⚠⚠ THE "PLUTUS" TAB IS GONE (2026-08-18, §5c item 9). Matt: *"most of the MAUI Plutus
+            // tab would move into settings"* — and the web till has no such tab either: its
+            // equivalents are Settings sections called **Till device** and **Environment**.
+            //
+            // ⚠ THE SCREEN IS NOT DELETED, only un-tabbed. `SettingsViewModel.OpenTillDeviceCommand`
+            // pushes the same `ConnectionView` modally, so the enrolment flow and the five diagnostics
+            // are all still there — flattening them into a button list would have lost the thing that
+            // makes them useful, which is a failure pointing at ONE layer rather than at "the network".
+            //
+            // ⚠ The old comment here argued it deserved a tab because it is *"the screen someone opens
+            // when the till is NOT working, and it has to be findable without knowing where to look"*.
+            // That is a fair instinct and it did not survive contact: this tab bar is only built AFTER
+            // sign-in, so a till too broken to sign in never showed it anyway. Enrolment before
+            // sign-in has its own route — `ConnectionViewModel(firstRun: true)`.
             Items.Add(tabBar);
 
             App.SetLoading(false);

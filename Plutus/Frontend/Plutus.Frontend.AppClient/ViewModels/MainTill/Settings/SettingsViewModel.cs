@@ -68,6 +68,16 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
                 // The webtill can see the receipt printer fine."* Both true, same cause — see
                 // `ExecuteChangePrinter`. The OPOS picker is still reachable from inside that flow
                 // for a till with a genuine PointOfService device; it is no longer the front door.
+                // ⚠⚠ THE SECTION NAMES ARE THE WEB TILL'S — Matt, 2026-08-18 (§5c item 9): *"most of
+                // the MAUI Plutus tab would move into settings"*. `SettingsPage.tsx` has **Till,
+                // Checkout, Printer, Hardware, Database, Till device, Environment**; MAUI had Printer,
+                // Checkout and Help and nothing else, so the two screens shared almost no vocabulary.
+                //
+                // ⚠ TILL COMES FIRST, as it does there — it is the section about the screen the
+                // operator is actually standing at.
+                Tuple.Create("Till", ""),
+                Tuple.Create("Quick-sell bag item", "ChooseBagItemCommand"),
+
                 Tuple.Create("Printer", ""),
                 Tuple.Create("Receipt printer", "ChangePrinterCommand"),
                 Tuple.Create("PrintTestPage".Translate(), "PrintTestPageCommand"),
@@ -78,6 +88,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
 
                 // ⚠ OP4/WP6.3 — the till's way of asking Plutus for help, and of READING THE REPLY.
                 // The web till has had this since WP6.3; MAUI had no route to support at all.
+                // ⚠⚠ WHAT THE "PLUTUS" TAB WAS. The web till calls this **Till device** — this
+                // browser's enrolment as a till: identity, sync queue, un-enrol. MAUI had it as a
+                // whole tab; it is one button here, opening the same screen.
+                Tuple.Create("Till device", ""),
+                Tuple.Create("Connection, enrolment & diagnostics", "OpenTillDeviceCommand"),
+
                 Tuple.Create("Help", ""),
                 Tuple.Create("Help and support", "HelpAndSupportCommand"),
                 Tuple.Create("","")
@@ -99,13 +115,22 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
                         n++;
                     }
                     stack = new StackLayout();
-                    stack.Children.Add(new Label
+                    var heading = new Label
                     {
                         Text = buttonsAndSubHeadings[i].Item1,
                         FontSize = new Label().FontSize,
-                        TextColor = Colors.LightGray,
                         FontAttributes = FontAttributes.Bold
-                    });
+                    };
+
+                    // ⚠⚠ `Colors.LightGray` WAS HARD-CODED HERE, and it is the same fault that made
+                    // Store Information unreadable (build 1.74.0): light grey text that survives on
+                    // exactly one background. Under a dark scheme it is fine; under the stock light
+                    // one these headings were nearly invisible.
+                    //
+                    // ⚠ `ThemeInkMuted` follows the portal's scheme like everything else since
+                    // §5c item 10 — muted is a ROLE, not a colour somebody typed.
+                    heading.SetDynamicResource(Label.TextColorProperty, "ThemeInkMuted");
+                    stack.Children.Add(heading);
                 }
                 else
                 {
@@ -320,6 +345,109 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
         #endregion
         #endregion
 
+
+        Command _chooseBagItemCommand;
+
+        /// <summary>
+        /// Which item the till's quick **Bag** button rings up.
+        ///
+        /// ⚠⚠ MOVED HERE FROM STORE INFORMATION, 2026-08-18 (5c item 8). Matt: *"'Choose bag
+        /// item' in Store Information"* — it was misfiled, not mysterious. **The web till keeps the
+        /// same setting in SETTINGS** (`prefs.ts bagBarcode`, Settings -> Till), and it belongs there:
+        /// it is a per-DEVICE preference, not a company fact. Store Information is read-only and about
+        /// the SHOP; which carrier bag this machine sells is about this machine.
+        ///
+        /// ⚠ `pos.settings.manage`, as it was before the move - a setting that changes what a button
+        /// sells is not a cashier's to change.
+        ///
+        /// ⚠ The barcode is checked against the **V2 catalogue**, the same place a scan resolves.
+        /// Validating against a different list than the one that sells is how a setting is accepted
+        /// here and fails at the counter.
+        /// </summary>
+        public Command ChooseBagItemCommand =>
+            _chooseBagItemCommand ??= new Command(ExecuteChooseBagItem);
+
+        private async void ExecuteChooseBagItem()
+        {
+            try
+            {
+                var gate = Services.Security.TillGate.Check(
+                    App.GetViewModel().SignedInOperator, PermissionCatalogue.PosSettingsManage);
+
+                if (!gate.Allowed)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(), gate.Message, "OK".Translate());
+                    return;
+                }
+
+                var validators = new IValidator[] { new RequiredValidator() };
+
+                var viewElements = new ViewElementData[]
+                {
+                    // ⚠ The current value goes in as REAL EDITABLE TEXT, not a grey hint - finding K,
+                    // *"I can ONLY change the tax"*. `InputResults` reads `entry.Text`, so a hint would
+                    // submit empty and the change would be refused with no message.
+                    new ViewElementData(1, "Bag item barcode", DefaultBagId ?? "", validators.AsEnumerable(),
+                        isPassword: false, isEnabled: true, prefillWithPlaceholder: true),
+                };
+
+                var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                    viewElements, "Confirm".Translate(), false, "Quick-sell bag", "Cancel".Translate());
+
+                if (!data.TryGetValue(1, out var bagIdText) || string.IsNullOrWhiteSpace(bagIdText)) return;
+
+                var exists = await Services.Storage.TillStoreAccess.TryUseAsync(
+                    s => s.FindByBarcodeAsync(bagIdText.Trim()));
+
+                if (exists == null)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "ItemNotFoundMesg".Translate(), "OK".Translate());
+                    return;
+                }
+
+                DefaultBagId = bagIdText.Trim();
+
+                await App.Current.MainPage.DisplayAlert("Bag item set",
+                    $"The Bag button will ring up {DefaultBagId} on this till.", "OK".Translate());
+            }
+            catch (Exception ex)
+            {
+                // ⚠ `async void` - an escape here goes to the dispatcher unhandled and takes the till.
+                Services.Analytics.CrashLog.Write("SettingsViewModel.ExecuteChooseBagItem", ex);
+            }
+        }
+
+        /// <summary>
+        /// Open the platform/diagnostics screen — what the **Plutus tab** used to be (5c item 9).
+        ///
+        /// ⚠⚠ THE TAB IS GONE AND THIS IS WHERE IT WENT. Matt: *"most of the MAUI Plutus tab
+        /// would move into settings"*. The web till has no such tab either — its equivalents are
+        /// Settings sections called **Till device** and **Environment**.
+        ///
+        /// ⚠ THE SCREEN ITSELF IS NOT REBUILT, and that is deliberate: it carries live connection
+        /// state, the enrolment flow and five diagnostics that each exercise one layer of the retrofit.
+        /// Flattening that into a button list would lose the thing that makes it useful — a failure
+        /// pointing at a specific layer rather than at "the network". So it is the same page, reached
+        /// from here instead of from a tab.
+        ///
+        /// ⚠ PUSHED MODALLY rather than through a Shell route: it is a `ContentPage` that was only
+        /// ever hosted as a tab, and a modal push needs no route registration to get wrong.
+        /// </summary>
+        public Command OpenTillDeviceCommand =>
+            _openTillDeviceCommand ??= new Command(async () =>
+            {
+                try
+                {
+                    await App.Current.MainPage.Navigation.PushModalAsync(
+                        new Views.Platform.ConnectionView());
+                }
+                catch (Exception ex)
+                {
+                    Services.Analytics.CrashLog.Write("SettingsViewModel.OpenTillDevice", ex);
+                }
+            });
+
+        Command _openTillDeviceCommand;
         #region Execute Commands
         #region Database
         /// <summary>

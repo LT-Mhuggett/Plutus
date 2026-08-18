@@ -179,22 +179,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.StoreOptions
                     _thisTill.Children.Add(Detail("Till id",
                         deviceId is Guid id ? id.ToString() : "Not enrolled"));
 
-                    // ⚠ The bag is a per-DEVICE preference, not a company fact — the web till keeps
-                    // the same setting in its own preferences (`prefs.ts bagBarcode`). It used to sit
-                    // under a near-invisible "Store" heading as a bare button called "Bag", which is
-                    // the stray button in Matt's screenshot: no label, no explanation, no clue that
-                    // pressing it asks for a barcode.
-                    _thisTill.Children.Add(Muted(
-                        "Quick-sell bag: which item the till's Bag button rings up. This till only."));
-                    var bag = new Button
-                    {
-                        Text = string.IsNullOrWhiteSpace(DefaultBagId)
-                            ? "Choose the bag item…"
-                            : $"Bag item: {DefaultBagId} — change…",
-                        Command = StoreDefaultBagChangeCommand,
-                        HorizontalOptions = LayoutOptions.Start,
-                    };
-                    _thisTill.Children.Add(bag);
+                    // ⚠⚠ THE BAG SETTING MOVED TO **SETTINGS → TILL** (2026-08-18, §5c item 8). Matt
+                    // listed *"'Choose bag item' in Store Information"* as one of ten findings, and it
+                    // was misfiled rather than mysterious: **the web till keeps the same setting in
+                    // Settings** (`prefs.ts bagBarcode`), and it belongs there. This screen is
+                    // READ-ONLY and about the SHOP; which carrier bag this machine sells is about this
+                    // machine. `SettingsViewModel.ChooseBagItemCommand` is the same code, moved.
                 });
             });
         }
@@ -368,11 +358,6 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.StoreOptions
         // The LOGO went with them (binding default 18): there is no logo field on the store-info
         // contract, so a locally-set one could only ever have been this machine's opinion.
 
-        Command _storeDefaultBagChangeCommand;
-        public Command StoreDefaultBagChangeCommand
-        {
-            get => _storeDefaultBagChangeCommand ?? (_storeDefaultBagChangeCommand = new Command(ExecuteStoreDefaultBagChange));
-        }
         #endregion
 
         // ⚠ THE REGION AND EMPLOYEE COMMANDS ARE GONE (2026-08-17). Four `Command` properties —
@@ -385,65 +370,6 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.StoreOptions
 
         #region Execute Commands
         #region Store Details
-        /// <summary>
-        /// Which item the till's quick "Bag" button rings up. The web till has the same setting
-        /// (`prefs.ts bagBarcode`), and like it this is a per-DEVICE preference: which carrier bag a
-        /// shop sells is a shop-floor fact, not a platform one.
-        ///
-        /// ⚠ It was on the legacy gate and the legacy catalogue, so on a portal-provisioned till it
-        /// could not work in three separate ways: `IsAuthorised` crashed the app rather than
-        /// refusing, `RequestAuthorisedUserInput` re-prompted for ever if it hadn't, and the
-        /// existence check ran against the legacy `Items` table — empty on a portal till, so a
-        /// perfectly good barcode came back as "we can't find an item with that ID".
-        /// </summary>
-        private async void ExecuteStoreDefaultBagChange()
-        {
-            try
-            {
-                var gate = Services.Security.TillGate.Check(
-                    App.GetViewModel().SignedInOperator, PermissionCatalogue.PosSettingsManage);
-
-                if (!gate.Allowed)
-                {
-                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(), gate.Message, "OK".Translate());
-                    return;
-                }
-
-                var validators = new IValidator[] { new RequiredValidator() };
-
-                var viewElements = new ViewElementData[]
-                {
-                    new ViewElementData(1, string.Format("IdArg".Translate(), "Bag".Translate()), DefaultBagId, validators.AsEnumerable(), false, true),
-                };
-
-                var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
-                    viewElements, "Confirm".Translate(), false, cancelText: "Cancel".Translate());
-
-                if (data == null || data.Any(d => string.IsNullOrEmpty(d.Value))) return;
-
-                _ = data.TryGetValue(1, out var bagIdText);
-                if (string.IsNullOrWhiteSpace(bagIdText)) return;
-
-                // ⚠ Checked against the V2 CATALOGUE — the same place the basket resolves a scan.
-                // Validating against a different list than the one that sells is how a setting is
-                // accepted here and fails at the counter.
-                var exists = await Services.Storage.TillStoreAccess.TryUseAsync(
-                    s => s.FindByBarcodeAsync(bagIdText.Trim()));
-
-                if (exists == null)
-                {
-                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "ItemNotFoundMesg".Translate(), "OK".Translate());
-                    return;
-                }
-
-                DefaultBagId = bagIdText.Trim();
-            }
-            catch (Exception ex)
-            {
-                // ⚠ `async void` — see Authorisation's header.
-                Services.Analytics.CrashLog.Write("StoreOptionsViewModel.ExecuteStoreDefaultBagChange", ex);
-            }
-        }
         #endregion
         #endregion
     }
