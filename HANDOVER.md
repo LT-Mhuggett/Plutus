@@ -15,20 +15,20 @@
 
 ## ⏰ START HERE — the build exists, and no person has ever run it
 
-✅ **Till 1.73.0 is BUILT and verified.** Double-click:
+✅ **Till 1.74.0 is BUILT and verified.** Double-click:
 
 ```
-D:\tmp\plutus-till-1.73.0\Plutus.Frontend.AppClient.exe
+D:\tmp\plutus-till-1.74.0\Plutus.Frontend.AppClient.exe
 ```
 
-It is the **only** till build on the box — 1.71.0 was deleted so there is no question which to run.
-⚠ It will say the till isn't enrolled; that is expected for an unpackaged build (runbook § MAUI till
-build) — enrol it as a fresh till.
+The artefact reads **`1.74.0+1e456511`**, which is HEAD — and the rebuilt **Store Information** screen
+is confirmed *inside the binary*, not merely committed: its four new strings are present and the
+deleted Region panel's `CurrencyDisplayArg` binding is gone. It is the **only** till build on the box —
+1.73.0 was deleted so there is no question which to run. ⚠ It will say the till isn't enrolled; that
+is expected for an unpackaged build (runbook § MAUI till build) — enrol it as a fresh till.
 
-⚠⚠ **BUT 1.73.0 DOES NOT HAVE THE STORE-INFORMATION FIX.** That is `till-maui` **1.74.0**, which is in
-code and **not compiled**, per your standing "build only when I ask" rule. So §W9d will fail on this
-artefact exactly as your screenshot shows — **ask for 1.74.0 before testing that one section**;
-everything else in §G is valid on 1.73.0.
+⚠ **1.73.0 was the build in the Store Information screenshot** (every field label light grey on
+near-white). It is gone; **§W9d/§G33 is now testable.**
 
 ⚠ **Install agent 1.4.0 as well.** Web till → Settings → Hardware → *Download the agent (v1.4.0)*, or
 `tools\Plutus.TillAgent\publish-out\PlutusTillAgent-1.4.0.exe`. ⚠⚠ Put it in
