@@ -9,7 +9,12 @@
 > [`archive/handover-history-to-2026-08-17.md`](Build/archive/handover-history-to-2026-08-17.md).
 > **Do not grow this file back into a history.** Rewrite it; the commits are the record.
 
-**Written:** 2026-08-18 · **Head:** `git log -1` · **Suites:** unit **1340** · MAUI 598 · web till **205** · lint clean — all green
+**Written:** 2026-08-18 · **Head:** `git log -1` · **Suites:** unit **1358** · MAUI **605** · web till **224** · integration **174** · architecture **17** · lint clean — all green
+
+> ⚠⚠ **THE ARCHITECTURE SUITE IS IN THAT LIST NOW BECAUSE IT HAD BEEN RED SINCE 2026-08-16 AND NOBODY
+> KNEW.** It was not in the suite line, so it was not what anybody ran before committing — two days of
+> green-looking commits over a failing convention test. **Run all five.** ⚠ It is also now the only
+> automated check on MAUI's XAML (`XamlResourceTests`), which is where the silent failures live.
 
 ---
 
