@@ -15,13 +15,13 @@
 
 ## ⏰ START HERE — the build exists, and no person has ever run it
 
-✅ **Till 1.78.0 is BUILT and verified.** Double-click:
+✅ **Till 1.79.0 is BUILT and verified.** Double-click:
 
 ```
-D:\tmp\plutus-till-1.78.0\Plutus.Frontend.AppClient.exe
+D:\tmp\plutus-till-1.79.0\Plutus.Frontend.AppClient.exe
 ```
 
-The artefact reads **`1.78.0+7c362315`**, and every change is confirmed *inside the binary* rather than
+The artefact reads **`1.79.0+8ff8900b`**, and every change is confirmed *inside the binary* rather than
 merely committed. ⚠ It will say the till isn't enrolled; that is expected for an unpackaged build
 (runbook § MAUI till build) — enrol it as a fresh till.
 
@@ -29,7 +29,7 @@ merely committed. ⚠ It will say the till isn't enrolled; that is expected for 
 which to run. If a till is still open from an earlier crash, close it first (see the orphaned-process
 note in the decision table).
 
-**Why each build exists — five faults you found today, in order:**
+**Why each build exists — six changes today, in order:**
 
 | Build | Fixed |
 |---|---|
@@ -37,10 +37,11 @@ note in the decision table).
 | 1.75.0 | **Reports** could not read a single report — the till asked as the *device*, and 5 of 6 endpoints refused a Supervisor |
 | 1.76.0 | **Refund crashed the till** (null basket selection), and the **adjust box had no visible way out** — plus a *second* crash that fix uncovered: cancelling the adjust box also killed the app |
 | 1.77.0 | **A ✕ on every dialog**, both tills, and the rule written into `till-design.md` **D4** |
-| **1.78.0** | ⚠ **THREE CRASHES**: Save Transaction (a bare event raise), the adjust **✕** (my regression — it blanked fields to `""` and the caller parsed them), and the **overlapping Add member / Set tier** on the till screen. ⚠ The Save-Transaction fix is also the best candidate for **the login crash** |
+| 1.78.0 | ⚠ **THREE CRASHES**: Save Transaction (a bare event raise), the adjust **✕** (my regression — it blanked fields to `""` and the caller parsed them), and the **overlapping Add member / Set tier** on the till screen. ⚠ The Save-Transaction fix is also the best candidate for **the login crash** |
+| **1.79.0** | ⚠⚠ **A VAT FIX**: price-adjust asked for ex **and** inc and wrote both, so a mistyped pair declared the line's VAT rate (5% on a 20% item). Now one box, ex derived from the catalogue proportion — the same shared rule the web till uses |
 
 **Testable now: §W9d/§G33** (Store Information) · **§G34** (Reports) · **§G35** (Refund/adjust) ·
-**§G36** (the ✕ on every dialog).
+**§G36** (the ✕ on every dialog) · **§G37** (price adjust — ⚠ written as a **VAT** check, including a zero-rated case and a both-tills-agree-to-the-penny case).
 
 
 ⚠ **Install agent 1.4.0 as well.** Web till → Settings → Hardware → *Download the agent (v1.4.0)*, or
