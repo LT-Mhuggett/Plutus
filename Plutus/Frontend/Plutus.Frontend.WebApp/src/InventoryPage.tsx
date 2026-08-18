@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import DialogX from "./DialogX.tsx";
 import {
   createItem,
   createStock,
@@ -254,6 +255,7 @@ function ItemDialog({
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <form className="dialog" onSubmit={submit}>
         <h2>{item ? "Edit item" : "Add item"}</h2>
+        <DialogX onClose={onClose} disabled={busy} />
         <div className="form-grid">
           <label>
             Barcode / id (max 20)

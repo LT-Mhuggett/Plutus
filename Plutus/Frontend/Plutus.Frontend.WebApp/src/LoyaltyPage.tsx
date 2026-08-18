@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import DialogX from "./DialogX.tsx";
 import {
   createCustomer, fetchLoyalty, fetchLoyaltyTiers, setMembership, updateCustomer,
   type LoyaltyTier, type V1LoyaltyRow,
@@ -115,6 +116,7 @@ function MemberDialog({ row, canSetTier, onClose, onDone }:
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <form className="dialog" onSubmit={submit}>
         <h2>{row ? "Edit member" : "Add member"}</h2>
+        <DialogX onClose={onClose} disabled={busy} />
         <div className="form-grid">
           <label>Name <input value={name} onChange={(e) => setName(e.target.value)} required disabled={busy} /></label>
           <label>Email <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={busy} /></label>

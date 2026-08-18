@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import DialogX from "../DialogX.tsx";
 import {
   checkout, fetchActiveGateway, fetchPayMethods, lookupGiftCard, tenderTypeFor,
   type ActiveGateway, type CustomerDetail, type GiftCardLookup, type PayMethod,
@@ -320,6 +321,7 @@ export default function CheckoutDialog(
       <div className="dialog">
         {/* ⚠ W-P7: `effective`, so the heading is the figure the operator must actually collect. */}
         <h2>{refunding ? `Refund — ${gbp(owed)}` : `Checkout — ${gbp(effective.totalPence)}`}</h2>
+        <DialogX onClose={onClose} disabled={busy} />
 
         {/* ⚠⚠ W-P7: SAY THE FEE, ITEMISED, BEFORE the sale completes. A total that jumps when a card
             row is filled and explains nothing is the surcharge complaint every time. */}

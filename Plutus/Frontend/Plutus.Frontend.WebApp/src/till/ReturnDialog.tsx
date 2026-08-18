@@ -1,4 +1,5 @@
 import { useState } from "react";
+import DialogX from "../DialogX.tsx";
 import { fetchSaleDetail, fetchSales, findItemById, type Item, type Sale, type SaleDetail } from "../api.ts";
 import { gbp, toPence } from "../money.ts";
 
@@ -105,6 +106,7 @@ export default function ReturnDialog({ onPick, onClose }: Props) {
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <div className="dialog wide">
         <h2>Return item</h2>
+        <DialogX onClose={onClose} disabled={busy} />
 
         {!detail && (
           <>

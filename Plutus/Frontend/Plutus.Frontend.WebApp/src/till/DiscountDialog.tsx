@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import DialogX from "../DialogX.tsx";
 import { fetchDiscounts, type Discount } from "../api.ts";
 import { MAX_DISCOUNT_REASON, normaliseReason, plannedDiscountPence, type BasketLine } from "./basket.ts";
 import { can, ceilingFor, POS_DISCOUNT } from "../permissions.ts";
@@ -113,6 +114,7 @@ export default function DiscountDialog({ lines, onApply, onClose }: Props) {
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="dialog">
         <h2>Apply discount</h2>
+        <DialogX onClose={onClose} />
         {error && <p className="error small">{error}</p>}
         {!discounts && !error && <p className="muted">Loading…</p>}
 

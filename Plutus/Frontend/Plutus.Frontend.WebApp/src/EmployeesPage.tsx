@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import DialogX from "./DialogX.tsx";
 import { createEmployee, fetchEmployees, setEmployeePassword, type Employee } from "./api.ts";
 import DataTable from "./DataTable.tsx";
 
@@ -98,6 +99,7 @@ function AddUserDialog({ onClose, onDone }: { onClose: () => void; onDone: (msg:
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <form className="dialog" onSubmit={submit}>
         <h2>Add user</h2>
+        <DialogX onClose={onClose} disabled={busy} />
         <div className="form-grid">
           <label>
             First name

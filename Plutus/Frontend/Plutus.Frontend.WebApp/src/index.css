@@ -606,6 +606,9 @@ tr.adjusted td:first-child {
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 1.25rem;
+  /* ⚠ Anchors the close ✕ (.dialog-x, end of file). Without it the button positions against the
+     OVERLAY and lands in the corner of the screen instead of the corner of the dialog. */
+  position: relative;
 }
 
 .pay-methods {
@@ -1404,3 +1407,39 @@ button.primary.slim {
    the colours themselves stay fixed: an incident banner must look like an incident everywhere) */
 .pick-note.incident { background: #dc2626; border-color: #b91c1c; color: #fff; }
 .pick-note.maintenance { background: #d97706; border-color: #b45309; color: #fff; }
+
+/* ⚠⚠ THE CLOSE ✕ ON EVERY DIALOG — Matt, 2026-08-18: "add x's to all relevant boxes … so that it is
+   not missed in future". Every dialog here closed via a Cancel button and by clicking the overlay,
+   and not one of them showed a ✕. The rule is written down in Build/till-design.md Part D4; the MAUI
+   twin is CustomViews.DialogHeader. Markup: src/DialogX.tsx. */
+.dialog-x {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  /* ⚠ 2.25rem square — a finger-sized target on a touch till, not a mouse-sized one. */
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  line-height: 1;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.dialog-x:hover:not(:disabled) {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.dialog-x:disabled { opacity: 0.4; cursor: default; }
+
+/* ⚠ Keeps a long heading clear of the ✕ — without it the title runs under the button and both look
+   broken. Applies to the first heading only, which is the one on the same line as the ✕. */
+.dialog > h2:first-of-type,
+.dialog > h3:first-of-type { padding-right: 2.5rem; }

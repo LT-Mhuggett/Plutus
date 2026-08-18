@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import DialogX from "../DialogX.tsx";
 import { deleteParked, fetchParked, type ParkedTransaction } from "../api.ts";
 import type { BasketState } from "./basket.ts";
 
@@ -49,6 +50,7 @@ export default function ParkedDialog({ onLoad, onClose }: Props) {
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <div className="dialog">
         <h2>Parked baskets</h2>
+        <DialogX onClose={onClose} disabled={busy} />
         {error && <p className="error small">{error}</p>}
         {!parked && !error && <p className="muted">Loading…</p>}
         {parked && parked.length === 0 && <p className="muted">Nothing parked.</p>}

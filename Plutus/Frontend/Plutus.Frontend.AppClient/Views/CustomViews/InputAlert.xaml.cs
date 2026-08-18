@@ -53,14 +53,10 @@ namespace Plutus.Frontend.AppClient.Pages.CustomViews
         {
             InitializeComponent();
 
-            if (title != null)
-                MainLayout.Children.Add(new Label()
-                {
-                    Text = title,
-                    HorizontalOptions = LayoutOptions.FillAndExpand,
-                    FontSize = new Label().FontSize,
-                    FontAttributes = FontAttributes.Bold
-                });
+            // ⚠ ALWAYS, even with no title: the ✕ is the visible way out (till-design D4), and a
+            // dialog with no title is exactly the sort nobody can work out how to leave.
+            // ⚠ Wired to CANCEL, not the raw dismiss — see `DialogHeader`.
+            MainLayout.Children.Add(global::CustomViews.DialogHeader.For(title, CancelBut_Clicked));
 
             //Create entire form validation group
             ValidationGroup = new ValidationGroupBehavior();
@@ -125,14 +121,10 @@ namespace Plutus.Frontend.AppClient.Pages.CustomViews
         {
             InitializeComponent();
 
-            if (title != null)
-                MainLayout.Children.Add(new Label()
-                {
-                    Text = title,
-                    HorizontalOptions = LayoutOptions.FillAndExpand,
-                    FontSize = new Label().FontSize,
-                    FontAttributes = FontAttributes.Bold
-                });
+            // ⚠ ALWAYS, even with no title: the ✕ is the visible way out (till-design D4), and a
+            // dialog with no title is exactly the sort nobody can work out how to leave.
+            // ⚠ Wired to CANCEL, not the raw dismiss — see `DialogHeader`.
+            MainLayout.Children.Add(global::CustomViews.DialogHeader.For(title, CancelBut_Clicked));
 
             //Create entire form validation group
             ValidationGroup = new ValidationGroupBehavior();
@@ -220,14 +212,10 @@ namespace Plutus.Frontend.AppClient.Pages.CustomViews
         {
             InitializeComponent();
 
-            if (title != null)
-                MainLayout.Children.Add(new Label()
-                {
-                    Text = title,
-                    HorizontalOptions = LayoutOptions.FillAndExpand,
-                    FontSize = new Label().FontSize,
-                    FontAttributes = FontAttributes.Bold
-                });
+            // ⚠ ALWAYS, even with no title: the ✕ is the visible way out (till-design D4), and a
+            // dialog with no title is exactly the sort nobody can work out how to leave.
+            // ⚠ Wired to CANCEL, not the raw dismiss — see `DialogHeader`.
+            MainLayout.Children.Add(global::CustomViews.DialogHeader.For(title, CancelBut_Clicked));
 
             //Create entire form validation group
             ValidationGroup = new ValidationGroupBehavior();

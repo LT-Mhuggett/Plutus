@@ -733,7 +733,68 @@ days at the end of July and MAUI silently fell behind on all nine, because each 
 when it worked in the browser. Parity is not a phase of the retrofit that ends; it is the standing
 condition every till commit has to leave true.
 
-## D4. Keeping this true
+## D4. ⚠⚠ THE DIALOG CONTRACT — every box an operator can open
+
+> **Matt, 2026-08-18:** *"if I add an item to the till and want to adjust it, the box it pops has no X
+> to close the box. I know you can click outside of the box to close it but its not intuative"*, then
+> *"add x's to all relevant boxes and write it into the till-design.md so that it is not missed in
+> future"*.
+>
+> **This section is that rule.** It exists because a dialog is the one control that can trap an
+> operator: a screen with no visible exit, in a queue, with a customer waiting.
+
+### The five rules
+
+Every dialog on every till, no exceptions:
+
+| # | Rule | Why |
+|---|---|---|
+| **1** | **A visible ✕, top-right.** | Backing out already worked on every dialog in this codebase — Escape/back always cancels, and tapping outside cancels on most. **What was missing was any way to KNOW that.** An exit nobody can see is not an exit |
+| **2** | **Escape / the back button always cancels.** | `AlertDialogBase.OnBackButtonPressed` — it once returned `true` unconditionally and swallowed both |
+| **3** | **Tapping outside cancels**, unless the dialog is deliberately modal (`interuptable: false`) — and if it is, rules 1 and 2 are the only exits, so they must work | A 40%-black scrim over a till with no way out is a dead counter |
+| **4** | ⚠⚠ **THE CALLER HANDLES "BACKED OUT" — and this is the money rule.** A cancelled dialog returns *nothing*, and the caller must treat that as "the operator changed their mind", never dereference it | **This is where the crashes are.** `LaunchInputAlertAsync` returns **null** on back-out; `data.TryGetValue(…)` on null is a `NullReferenceException`, and in an `async void` handler that **kills the till**. See `MAUI-retrofit.md` §0.3b — **17 call sites still get this wrong** |
+| **5** | **The ✕ is wired to CANCEL, not to the raw dismiss.** | Not cosmetic. On MAUI the two return *different things*: Cancel blanks the fields and returns a dictionary of nulls that every caller's `if (x != null)` guard already survives; the raw dismiss returns **null**, which is rule 4's crash. Wiring the ✕ to Cancel gives the operator a visible exit **without widening the reach of a bug that is still open** |
+
+### Where it is implemented — one place per till, on purpose
+
+| Till | Implementation | Covers |
+|---|---|---|
+| **MAUI** | `Plutus/Shared/CustomViews/DialogHeader.cs` — `DialogHeader.For(title, onClose)` returns the title row with the ✕ | `InputAlert`'s three constructors, so **all 24 call sites** and the **Alterations** dialog (which inherits from it) |
+| **Web till** | `src/DialogX.tsx` + `.dialog-x` in `index.css` | The 8 overlay dialogs: users, inventory item, loyalty member, sale detail, checkout, discount, parked baskets, return |
+
+⚠ **Both are single helpers so a new dialog cannot quietly ship without a ✕** — which is exactly what
+happened before: three MAUI dialogs each hand-built their own title `Label`, and when a fourth arrived
+there was nothing to notice the omission. **If you add a dialog, use the helper.** If you find yourself
+writing a title label by hand, that is the smell.
+
+⚠ **`type="button"` on the web ✕ is load-bearing.** Several of those dialogs are `<form>`s, and a bare
+`<button>` inside a form defaults to `type="submit"` — which would turn Close into Confirm. On
+`CheckoutDialog` that means taking money.
+
+### ⚠ What is NOT yet true, stated honestly
+
+- **Rule 4 is unmet in 17 places** (`MAUI-retrofit.md` §0.3b). The ✕ is deliberately wired to the safe
+  path so it does not make that worse, but **cancelling some MAUI dialogs by tapping outside can still
+  crash the till** — refund, gift-card sale, cash, the supervisor prompt and checkout among them.
+  Until that list is closed, this contract is 4/5 honoured.
+- **`SliderAlert` has no ✕ and did not get one: it is dead code** (zero references in the solution).
+  Recorded here rather than fixed, because adding chrome to an unreachable dialog is how dead code
+  starts looking maintained. **Delete it or wire it up.**
+- ⚠ **Native `DisplayAlert`/`DisplayActionSheet` are out of scope** — the platform draws those and they
+  come with their own dismissal. This contract governs the dialogs *we* build.
+
+### The check, when you touch a dialog
+
+```bash
+# MAUI — a hand-built title Label in a dialog means a missing ✕
+grep -rn "MainLayout.Children.Add(new Label" Plutus/Frontend/Plutus.Frontend.AppClient/Views/CustomViews/
+
+# Web till — every .dialog should have a DialogX
+grep -rln 'className="dialog' Plutus/Frontend/Plutus.Frontend.WebApp/src --include=*.tsx |
+  xargs grep -Lc DialogX
+```
+
+## D5. Keeping this true
 
 - **Verify against code, not memory.** Every ⬜ in Part B was checked by grepping both codebases;
   that is the standard, and it took under an hour.

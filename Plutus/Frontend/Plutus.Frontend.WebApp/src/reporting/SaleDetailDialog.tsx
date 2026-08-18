@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import DialogX from "../DialogX.tsx";
 import { fetchSaleDetail, type SaleDetail } from "../api.ts";
 import { gbp } from "../money.ts";
 import Receipt, { type ReceiptData } from "../till/Receipt.tsx";
@@ -85,6 +86,7 @@ export default function SaleDetailDialog({ saleId, onClose }: { saleId: string; 
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="dialog wide">
         <h2>Sale detail</h2>
+        <DialogX onClose={onClose} />
         {error && <p className="error small">{error}</p>}
         {notice && <p className="muted small">{notice}</p>}
         {!detail && !error && <p className="muted">Loading…</p>}

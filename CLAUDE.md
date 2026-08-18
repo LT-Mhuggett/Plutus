@@ -48,6 +48,7 @@ cheap path, not the disciplined one.
 | Write a rule that could live in more than one place | Put it in `Plutus.SharedKernel`; add a row to C1 |
 | Find yourself copying logic between TypeScript and .NET | Add a row to C2 saying what pins the copies — or state honestly that nothing does |
 | Add a new till surface or platform | Follow D2, then add its column to Part B |
+| **Add or change a dialog** on any till | ⚠ **Read `till-design.md` D4 — the dialog contract.** A visible ✕ (use the shared helper: MAUI `DialogHeader`, web `DialogX`), Escape cancels, and ⚠⚠ **the caller must handle "backed out" without dereferencing it** — that is the crash in §0.3b |
 | Discuss tills at all | Cite `till-design.md`, and say if it's out of date |
 
 ## The other standing documents
