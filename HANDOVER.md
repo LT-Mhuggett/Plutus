@@ -20,41 +20,52 @@
 
 ## ⏰ START HERE — the build exists, and no person has ever run it
 
-✅ **Till 1.81.0 is BUILT and verified.** Double-click:
+✅ **Till 1.87.0 is BUILT, and backend 1.17.4 + portal 1.10.0 are DEPLOYED.** Double-click:
 
 ```
-D:\tmp\plutus-till-1.81.0\Plutus.Frontend.AppClient.exe
+D:\tmp\plutus-till-1.87.0\Plutus.Frontend.AppClient.exe
 ```
 
-The artefact reads **`1.81.0+a5d571c6`**, and every change is confirmed *inside the binary* rather than
-merely committed. ⚠ It will say the till isn't enrolled; that is expected for an unpackaged build
-(runbook § MAUI till build) — enrol it as a fresh till.
+The artefact reads **`1.87.0+9da2b5f2`** = HEAD, and this session's work is confirmed **inside the
+binary** rather than merely committed — six strings only these changes introduced were found in it.
+⚠ It will say the till isn't enrolled; that is expected for an unpackaged build (runbook § MAUI till
+build) — enrol it as a fresh till.
 
-⚠ **Only 1.81.0 is on the box** — every earlier build is deleted, so there is no question which to run.
+⚠ **Only 1.87.0 is on the box** — 1.81.0 was deleted, so there is no question which to run.
 
-**Why each build exists — eight changes today, in order:**
+⚠⚠ **THE BACKEND DEPLOY IS NOT OPTIONAL FOR THIS BUILD.** Without 1.17.4 the new **Stock** and
+**Negative stock** reports read for nobody below Store Manager. It is deployed and verified on both
+axes (swagger 200 **and** the device-token probe answering *"Device not enrolled or revoked"*, which
+is the one that proves the DB path). Rollback: `~/PLUTUS/backend.pre-1.17.4`.
 
-| Build | Fixed |
+⚠ **Portal 1.10.0 is deployed too** (`index-Befe7Xwa.js` on **admin.**plutus…, verified by hash, size
+and content; rollback `current.pre-1.10.0`). It carries **1.9.0's opening-hours validation**, which had
+been built-not-deployed since 2026-08-17, **plus** the mandatory credit reason.
+
+**Six §5c items landed today, in order:**
+
+| Build | What it fixes |
 |---|---|
-| 1.74.0 | **Store Information** was illegible — every field label light grey on near-white |
-| 1.75.0 | **Reports** could not read a single report — the till asked as the *device*, and 5 of 6 endpoints refused a Supervisor |
-| 1.76.0 | **Refund crashed the till** (null basket selection), and the **adjust box had no visible way out** — plus a *second* crash that fix uncovered: cancelling the adjust box also killed the app |
-| 1.77.0 | **A ✕ on every dialog**, both tills, and the rule written into `till-design.md` **D4** |
-| 1.78.0 | ⚠ **THREE CRASHES**: Save Transaction (a bare event raise), the adjust **✕** (my regression — it blanked fields to `""` and the caller parsed them), and the **overlapping Add member / Set tier** on the till screen. ⚠ The Save-Transaction fix is also the best candidate for **the login crash** |
-| 1.79.0 | ⚠⚠ **A VAT FIX**: price-adjust asked for ex **and** inc and wrote both, so a mistyped pair declared the line's VAT rate (5% on a 20% item). Now one box, ex derived from the catalogue proportion — the same shared rule the web till uses |
-| 1.80.0 | **Search / Add member removed from the till screen** — on neither the web till nor NatApp; a member is attached by **scanning their card** |
-| **1.81.0** | **§5c items 1 + 6a**: Retrieve is now a **button** beside Save (it was a toolbar item nobody could find) and disabled when nothing is parked — ⚠ that path also crashed on an empty list. And ⚠⚠ **Add member / Set tier answered 403 for every operator** — they used the device client on `perm:`-gated endpoints, so adding a member has never worked |
+| 1.82.0 | ⚠⚠ **A member could not be added ANYWHERE.** Add member / Set tier came off the till screen (correctly) but the Loyalty tab had neither — and before that they had 403'd for every operator since they were written. Both now on the Loyalty tab, moved not copied |
+| 1.83.0 | **Nothing updated unless you navigated away and back** — the third report of one fault. Now one shared `LiveScreen`; **Store Information could not refresh at all** and is the likely case behind the report |
+| 1.84.0 | **Stock** and **Negative stock** reports — and the `pos.reports.view` gate wrong for the **fourth** time, on the endpoint six lines below the comment recording the third fix |
+| 1.85.0 | ⚠⚠ **DRILL-DOWN** — a **Sales** report across every till; tap a row to see its lines, VAT, how it was paid and what has gone back. *"The one that turns a report into an answer"* |
+| 1.86.0 | **Tap the price to adjust it** — and a **money bug** beside it: a second scan joined a hand-adjusted line **at the adjusted price** |
+| **1.87.0** | **The basket rows are styled at last** (two styles referenced 20× and defined nowhere), and MAUI **consumes its first theme slot** |
 
-**Testable now: §W9d/§G33** (Store Information) · **§G34** (Reports) · **§G35** (Refund/adjust) ·
-**§G36** (the ✕ on every dialog) · **§G37** (price adjust — ⚠ written as a **VAT** check, including a zero-rated case and a both-tills-agree-to-the-penny case).
+**Testable now, and NONE of it has been run: §G38** (add a member — it has never once worked) ·
+**§G39** (screens refresh while you watch) · **§G40** (Stock / Negative stock) · **§G41** (drill-down)
+· **§G42** (tap the price — ⚠ **§G42d is a money check**) · **§G43** (the styled basket, ⚠ **look at
+§G43a first**).
 
+⚠⚠ **§G42a IS THE ONE MOST LIKELY TO FAIL AND IT IS FINE IF IT DOES.** Whether a tap gesture fires
+inside a `ViewCell` on WinUI could not be verified by any test in this project. The right-click
+**Adjust** menu still works either way — just report it, because the fix would be a different control.
 
 ⚠ **Install agent 1.4.0 as well.** Web till → Settings → Hardware → *Download the agent (v1.4.0)*, or
 `tools\Plutus.TillAgent\publish-out\PlutusTillAgent-1.4.0.exe`. ⚠⚠ Put it in
 `%LOCALAPPDATA%\Plutus\Agent\` and run it from **there**, not Downloads — §G29 and §G31 need it, and
 Downloads is the fault it fixes.
-
----
 
 ## The hand-run. 69 sections, and none of it has ever been run
 
