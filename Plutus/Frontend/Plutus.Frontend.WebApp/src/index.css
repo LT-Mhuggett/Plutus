@@ -742,6 +742,33 @@ tr.return-line td {
   flex: 1;
 }
 
+/* ⚠⚠ THE ✕ WAS HALF THE DIALOG WIDE, and this is why. Matt, 2026-08-18: *"can you make the parked
+   baskets buttons smaller, they are ridiculously large."*
+
+   It sits inside `.results`, so it inherited `.results button { width: 100%; display: flex }` — meant
+   for the full-width "load" rows — and then `button.ghost` gave it a border and rounding, so it
+   rendered as a giant empty box next to the name. Two rules that are each correct on their own,
+   colliding on one element.
+
+   ⚠ `flex: 0 0 auto` as well as `width: auto`: inside a flex row, `width` alone still lets it grow. */
+.parked-row > button:last-child {
+  width: auto;
+  flex: 0 0 auto;
+  /* ⚠ 2rem square, not smaller — still a finger-sized target on a touch till. "Smaller" means
+     proportionate, not unhittable. */
+  min-width: 2rem;
+  padding: 0.2rem 0.45rem;
+  justify-content: center;
+  border-bottom: 1px solid var(--line);
+}
+
+/* ⚠ And the rows themselves were taller than a list needs: `.results button`'s 0.45rem is sized for
+   the scan-results list, where each row is a whole product. A parked basket is one short name. */
+.parked-row > button:first-child {
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+}
+
 /* ── receipt ──────────────────────────────────────────── */
 .receipt {
   font-family: ui-monospace, "Cascadia Mono", monospace;
