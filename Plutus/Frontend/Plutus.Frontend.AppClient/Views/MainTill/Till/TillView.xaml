@@ -12,7 +12,8 @@
              x:Class="Plutus.Frontend.AppClient.Views.MainTill.Till.TillView"
              x:Name="TillPage"
              Title="{Binding Title}"
-             IconImageSource="{Binding Icon, Converter={StaticResource MaterialIconConverter}}">
+             IconImageSource="{Binding Icon, Converter={StaticResource MaterialIconConverter}}"
+             BackgroundColor="{DynamicResource ThemeSurface}">
     <ContentPage.BindingContext>
         <viewModels:TillViewModel/>
     </ContentPage.BindingContext>

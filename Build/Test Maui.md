@@ -2684,3 +2684,63 @@ With one line at 50p and one at £5 on the basket:
 
 ⚠ Then take a payment and check the receipt shows both lines separately. The sale's VAT is derived
 from each line's inc/ex pair, which is why two prices must never share one row.
+
+---
+
+## G43. The basket rows are styled and themed at last — **till 1.87.0**, §5c item 10
+
+> ⚠⚠ **Two styles were referenced twenty times and defined nowhere.** Every basket row label asks for
+> `ListItemDetailTextStyle`; there was no such key in the application, and `DynamicResource` to a
+> missing key **applies nothing, silently** — clean build, clean XamlC, screen renders with platform
+> defaults. So the money screen's rows have never been styled at all.
+>
+> ⚠ Fixing that and starting the theming were the same change: the styles now take their ink from the
+> portal's `ThemeInk` slot. **This is the first XAML in MAUI that consumes a theme slot at all.**
+
+### G43a. The basket still reads correctly — look before anything else
+
+Ring up two or three items.
+
+**✅ Expected: quantity, name, price and tax all legible, correctly aligned, nothing blank.**
+
+⚠⚠ **This is the check that matters.** The change sets a text colour on every basket row label. If the
+rows are blank, faint, or white-on-white, **stop and report it** — that is the Store Information fault
+(1.74.0) on the money screen, and it is exactly what the ink/surface pairing is meant to prevent.
+
+⚠ Prices must still read `£3.30`, never `£330.00`.
+
+### G43b. Set a colour scheme in the portal and watch the till
+
+In the portal: **Settings → Till themes**, create or pick a scheme with an obviously different
+**surface** and **ink** (e.g. a dark surface with light ink), and **assign it to this till**.
+
+⚠⚠ **Assigning it is the step that was missing before** — on 2026-08-18 the scheme existed and
+`TillThemeAssignments` was empty, so nothing was applied to anything. Check the assignment saved.
+
+Wait up to a minute (it arrives on the 60-second cadence) or restart the till.
+
+**✅ Expected: the till page background and the basket row text both change**, and the text stays
+readable against the new background.
+
+⚠ **Expected NOT to change yet: cash, inventory, reports, loyalty, settings.** Those screens still
+paint with platform defaults — item 10 is half done and says so. If they *do* change, something
+unplanned is happening.
+
+### G43c. ⚠ Clear the assignment — the palette must come back exactly
+
+Remove the till's theme assignment in the portal, then wait a minute.
+
+**✅ Expected: the stock palette returns exactly** — the same look as G43a.
+
+⚠ That is `Theming.Apply` restoring each slot to the value captured before anything overwrote it. If a
+cleared assignment leaves the last scheme's colours behind, the fallback is a lie and every "reset to
+default" in the portal is broken.
+
+### G43d. Print a receipt while a dark scheme is applied
+
+With a dark scheme on, take a cash sale and print.
+
+**✅ Expected: the receipt prints normally — black on white.**
+
+⚠⚠ Receipts are immune to theming by design (till-design C1) and nothing on a print path may read a
+theme slot: printing from a dark scheme once put near-white ink on paper.

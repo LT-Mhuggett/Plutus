@@ -49,9 +49,33 @@ public class ConventionTests
     /// ⚠ This is an exception for a WIRE MIRROR, never for logic. Anything that ADDS, COMPARES or
     /// APPORTIONS money still uses integer pence — see `Pence`, `VatLineMath`, `TenderLoop`.
     /// </summary>
+    /// <remarks>
+    /// <b>ReportContracts.cs</b> — `GET /api/v1/reports/summary-rich` is the ONE reporting endpoint
+    /// that answers in **POUNDS** rather than pence (binding default 17), and `TotalSalesPounds`,
+    /// `TotalPounds` and their siblings mirror that wire exactly. A DTO that declared them as pence
+    /// would not round wrongly — it would deserialise `97.94` into a `long` and **silently produce 0**,
+    /// reporting a day's takings as nothing.
+    ///
+    /// ⚠ THE MITIGATION IS IN THE NAMES: every one of these members ends in `Pounds`, so a caller
+    /// cannot mistake the unit, and `ReportCatalogue` scales them at the point of display
+    /// (`(long)(TotalPounds * 100m)` for the sort key). Every OTHER contract in the file is pence and
+    /// says so.
+    ///
+    /// ⚠⚠ THE COST OF THIS ENTRY, STATED PLAINLY: the exclusion is per FILE, so `ReportContracts.cs`
+    /// as a whole is now outside the pence guard — including the stock and sale contracts added to it
+    /// on 2026-08-18. `The_decimal_money_exclusions_contain_no_arithmetic` below is what keeps it
+    /// honest, and it is the only thing that does. A better fix is a per-MEMBER exclusion; nobody has
+    /// written one.
+    ///
+    /// ⚠ FOUND RED, NOT BROKEN TODAY: this test has been failing since **2026-08-16** (`beda9baf`,
+    /// step 26) and nobody noticed, because the architecture suite is not in the handover's list of
+    /// suites — so it is not what anybody runs before committing. That omission is the more useful
+    /// finding than the exemption.
+    /// </remarks>
     private static readonly HashSet<string> VerbatimLegacyWireContracts = new()
     {
         "ItemContracts.cs",
+        "ReportContracts.cs",
     };
 
     /// <summary>

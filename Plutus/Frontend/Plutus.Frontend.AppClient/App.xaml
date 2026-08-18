@@ -10,6 +10,11 @@
                  `Theme*` keys by name at runtime and overwrite only those. -->
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
+                <!-- ⚠ AFTER Colors, because these styles reference the seven `Theme*` keys it defines.
+                     ⚠⚠ And this dictionary is where MAUI first CONSUMES a theme slot: two of its styles
+                     were referenced twenty times across the basket templates and defined nowhere at
+                     all, so those rows were unstyled AND unthemed. See the file. -->
+                <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <xamlHelpers:MaterialIconGlyphConverter x:Key="MaterialIconConverter" />
