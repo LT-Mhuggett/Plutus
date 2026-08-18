@@ -15,28 +15,29 @@
 
 ## ⏰ START HERE — the build exists, and no person has ever run it
 
-✅ **Till 1.77.0 is BUILT and verified.** Double-click:
+✅ **Till 1.78.0 is BUILT and verified.** Double-click:
 
 ```
-D:\tmp\plutus-till-1.77.0\Plutus.Frontend.AppClient.exe
+D:\tmp\plutus-till-1.78.0\Plutus.Frontend.AppClient.exe
 ```
 
-The artefact reads **`1.77.0+31a485f6`**, and every change is confirmed *inside the binary* rather than
+The artefact reads **`1.78.0+7c362315`**, and every change is confirmed *inside the binary* rather than
 merely committed. ⚠ It will say the till isn't enrolled; that is expected for an unpackaged build
 (runbook § MAUI till build) — enrol it as a fresh till.
 
-⚠⚠ **`D:\tmp\plutus-till-1.75.0` is still on the disk** because it was **running** when I tried to
-remove it (file lock). 1.73.0, 1.74.0 and 1.76.0 are gone. Close the running till and delete the 1.75.0
-folder, or ask and I will.
+⚠ **Only 1.78.0 is on the box now** — every earlier build has been deleted, so there is no question
+which to run. If a till is still open from an earlier crash, close it first (see the orphaned-process
+note in the decision table).
 
-**Why each build exists — four faults you found today, in order:**
+**Why each build exists — five faults you found today, in order:**
 
 | Build | Fixed |
 |---|---|
 | 1.74.0 | **Store Information** was illegible — every field label light grey on near-white |
 | 1.75.0 | **Reports** could not read a single report — the till asked as the *device*, and 5 of 6 endpoints refused a Supervisor |
 | 1.76.0 | **Refund crashed the till** (null basket selection), and the **adjust box had no visible way out** — plus a *second* crash that fix uncovered: cancelling the adjust box also killed the app |
-| **1.77.0** | **A ✕ on every dialog**, both tills, and the rule written into `till-design.md` **D4** so it is not missed again |
+| 1.77.0 | **A ✕ on every dialog**, both tills, and the rule written into `till-design.md` **D4** |
+| **1.78.0** | ⚠ **THREE CRASHES**: Save Transaction (a bare event raise), the adjust **✕** (my regression — it blanked fields to `""` and the caller parsed them), and the **overlapping Add member / Set tier** on the till screen. ⚠ The Save-Transaction fix is also the best candidate for **the login crash** |
 
 **Testable now: §W9d/§G33** (Store Information) · **§G34** (Reports) · **§G35** (Refund/adjust) ·
 **§G36** (the ✕ on every dialog).
