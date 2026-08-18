@@ -1591,13 +1591,56 @@ public sealed class PlutusApiClient
             string.Equals(Status, "active", StringComparison.OrdinalIgnoreCase) && BalancePence > 0;
     }
 
+    /// <summary>
+    /// GET and deserialise, or hand back `default` — **never throw at a screen**.
+    ///
+    /// ⚠⚠ IT USED TO THROW, and that was a real hole rather than a style point. `ReadFromJsonAsync`
+    /// raises `JsonException` when the server's answer is not the shape asked for, and nothing here
+    /// caught it — so every caller inherited an exception path none of them handled. It stayed hidden
+    /// because the reports that use this all deserialise OBJECTS, and the empty object `{}` is valid
+    /// for an object; the first caller to ask for a JSON **array** (`GET /api/v1/sales`, the sale
+    /// drill-down, 2026-08-18) threw immediately, and it was `No_report_throws_when_the_server_
+    /// answers_with_nonsense` — a test written for exactly this — that caught it.
+    ///
+    /// ⚠ `GetStockLevelsAsync` has carried this same catch **by hand** since it was written, which
+    /// means somebody hit this before and fixed their own call site instead of the helper. Same
+    /// failure mode as §5c item 7 and as the `pos.reports.view` gate: a local fix teaches the next
+    /// caller nothing. It is now in the one place every GET goes through.
+    ///
+    /// ⚠ NULL MEANS "COULD NOT READ", and every caller already treats it that way — a report says so
+    /// on screen rather than rendering £0.00, which would tell an operator the shop sold nothing.
+    ///
+    /// ⚠⚠ **ONLY THE DESERIALISATION FAULTS ARE SWALLOWED. TRANSPORT EXCEPTIONS STILL PROPAGATE**,
+    /// and that is not caution — it is a correction. Catching `HttpRequestException` here as well
+    /// broke `SyncClientTests.A_dead_network_is_an_outcome_not_an_exception`, whose whole point is
+    /// that a dead line must be an outcome **carrying its reason**: the catalogue sync puts the
+    /// exception's message into `outcome.Error`, so swallowing it turned *"No such host is known"*
+    /// into a bare *"the catalogue feed did not answer"*. A till on a flaky line then cannot tell DNS
+    /// from a refused connection from a wrong URL. ⚠ The test caught me widening this too far; the
+    /// narrower catch fixes the hole above and changes nothing else.
+    ///
+    /// ⚠ So a caller that needs to explain a NETWORK failure still can, and a caller that only needs
+    /// to know "is there data?" still gets null for a malformed answer. Those are different questions
+    /// and the split is deliberate.
+    /// </summary>
     private async Task<T?> GetAsync<T>(string url, CancellationToken ct)
     {
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         await AuthoriseAsync(req, ct);
         using var res = await _http.SendAsync(req, ct);
         if (!res.IsSuccessStatusCode) return default;
-        return await res.Content.ReadFromJsonAsync<T>(Json, ct);
+
+        try
+        {
+            return await res.Content.ReadFromJsonAsync<T>(Json, ct);
+        }
+        catch (Exception e) when (e is JsonException or NotSupportedException)
+        {
+            // ⚠ The server answered, and the answer was not the shape we asked for. That is not a
+            // network problem and must not be reported as one — it is "no data", which is what every
+            // caller's null branch already says.
+            return default;
+        }
     }
 
     /// <summary>POST a JSON body where the CALLER only needs to know whether it worked.</summary>

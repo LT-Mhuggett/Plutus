@@ -60,6 +60,7 @@ namespace Plutus.Frontend.AppClient.Services.Reporting
             BestSellers(),
             Stock(),
             NegativeStock(),
+            Sales(),
         };
 
         private static string Gbp(long pence) =>
@@ -195,9 +196,88 @@ namespace Plutus.Frontend.AppClient.Services.Reporting
             });
 
 
+
+        /// <summary>
+        /// Every sale in the range — **and the only report you can open a row of**.
+        ///
+        /// ⚠⚠ **THIS IS THE DRILL-DOWN** (§5c item 5, the third of its three gaps). A takings figure
+        /// tells a manager the day is £40 light; only the sale behind it tells them why. Matt: it is
+        /// *"the one that turns a report into an answer"*, and MAUI had nothing of the kind.
+        ///
+        /// ⚠ EVERY TILL, not just this one (`tillId: null`). Looking for a sale you did not ring up
+        /// is the usual reason for looking — a customer returns to a different counter with a receipt.
+        ///
+        /// ⚠⚠ **A REFUND IS ITSELF A SALE, AND ITS GROSS IS NEGATIVE.** It is shown as such rather
+        /// than hidden or shown positive: a list where a −£13.99 refund reads as £13.99 taken is a
+        /// day's takings that cannot be reconciled, and offering a refund as something to refund
+        /// AGAINST cost £13.99 twice on 2026-08-10.
+        ///
+        /// ⚠ `take` is clamped 1..500 server-side and asked for 200 here — enough to cover a busy
+        /// day, and the cap is said when it bites.
+        /// </summary>
+        private static ReportDefinition Sales() => new(
+            "sales", "Sales (tap to open)",
+            async (api, q, ct) =>
+            {
+                var rows = await api.GetSalesAsync(q.From, q.To, take: SalesRowCap, ct: ct)
+                    .ConfigureAwait(false);
+
+                if (rows is null) return ReportTable.Empty(Unreadable);
+
+                if (rows.Count == 0)
+                    return ReportTable.Empty("No sales in that range.");
+
+                var note = rows.Count >= SalesRowCap
+                    ? $"⚠ Showing the first {SalesRowCap:N0} — narrow the dates to see the rest."
+                    : "Tap a sale to see its lines, its payments and its VAT.";
+
+                // ⚠ The totals line counts refunds SEPARATELY rather than netting them into one
+                // figure. "42 sales" that silently includes 6 refunds is a number nobody can check
+                // against a drawer.
+                var refunds = rows.Count(r => r.GrossPence < 0);
+                var net = rows.Sum(r => r.GrossPence);
+
+                return ReportTable.From(
+                    rows,
+                    new[] { "When", "Till", "Channel", "VAT", "Total" },
+                    new[] { false, false, false, true, true },
+                    r => new[]
+                    {
+                        // ⚠ LOCAL TIME for a person to read, from a UTC instant — and the time as
+                        // well as the date, because "which of today's four £9.99 sales" is exactly
+                        // the question being asked.
+                        new ReportCell(r.OccurredAtUtc.ToLocalTime()
+                            .ToString("dd MMM HH:mm", CultureInfo.CurrentCulture)),
+
+                        // ⚠ The till's ID shortened, not hidden: this list has no till NAMES (the
+                        // endpoint answers ids), and a blank column would make the cross-till point
+                        // of the report invisible. Eight characters is enough to tell two apart.
+                        new ReportCell(Short(r.TillId)),
+
+                        new ReportCell(r.Channel ?? "Till"),
+                        new ReportCell(Gbp(r.VatPence), true, r.VatPence),
+                        new ReportCell(Gbp(r.GrossPence), true, r.GrossPence),
+                    },
+                    note,
+                    refunds == 0
+                        ? $"{rows.Count:N0} sales · {Gbp(net)}"
+                        : $"{rows.Count - refunds:N0} sales and {refunds:N0} refunds · {Gbp(net)} net",
+                    // ⚠⚠ THE DRILL KEY. Without this the rows render identically and tap does
+                    // nothing — which is worse than no drill-down, because the title invites it.
+                    drill: r => r.Id);
+            });
+
+        /// <summary>⚠ Asked for, not assumed: the server clamps 1..500. 200 covers a busy day and
+        /// keeps the payload sane on a till over a shop's broadband.</summary>
+        private const int SalesRowCap = 200;
+
+        /// <summary>⚠ Enough of a GUID to tell two tills apart, and never presented as if it were a
+        /// name — a truncated id that looks like a label is worse than an obvious fragment.</summary>
+        private static string Short(Guid id) => id.ToString("D").Substring(0, 8);
+
         /// <summary>
         /// On-hand stock. ⚠⚠ **QUANTITIES, NOT PENCE — the only report here that is not money**, and
-        /// the units note at the top of this class is about the other five.
+        /// the units note at the top of this class is about the money ones.
         ///
         /// ⚠ Closes one of the three gaps §5c item 5 found against the web till, which has had
         /// **Stock** and **Negative stock** since it was written.

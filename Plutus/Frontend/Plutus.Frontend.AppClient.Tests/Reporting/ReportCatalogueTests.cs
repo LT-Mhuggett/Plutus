@@ -350,6 +350,45 @@ namespace Plutus.Frontend.AppClient.Tests.Reporting
                 Assert.Equal(shouldFilter, asked!.Contains("filter=negative", StringComparison.Ordinal));
             }
         }
+
+        /// <summary>
+        /// ⚠⚠ THE DRILL KEY IS WHAT MAKES THE ROW OPENABLE, and without it the Sales report
+        /// renders identically and tapping does nothing — which is worse than having no drill-down at
+        /// all, because the report's own title invites the tap.
+        /// </summary>
+        [Fact]
+        public async Task Every_sales_row_carries_the_sale_it_is_about()
+        {
+            var api = Api(r => Json(SampleFor(r.RequestUri!.AbsoluteUri)));
+
+            var table = await ReportCatalogue.All.Single(r => r.Key == "sales")
+                .LoadAsync(api, Query, default);
+
+            var row = Assert.Single(table.Rows);
+            Assert.Equal(Guid.Parse("0199d0f6-0000-7000-8000-000000000001"), row.DrillSaleId);
+
+            // ⚠ A refund's gross is NEGATIVE and stays that way — read as positive it is a day's
+            // takings that cannot be reconciled. 1399 pence here, and the sort key is the signed value.
+            Assert.Equal(1399, row.Cells.Last().SortNumber);
+        }
+
+        /// <summary>
+        /// ⚠ AND NO OTHER REPORT'S ROWS DO. A tap on a VAT bucket or a stock row must be inert —
+        /// the renderer offers a gesture on every row, so a stray id would open somebody's sale from a
+        /// row that is not about one.
+        /// </summary>
+        [Fact]
+        public async Task No_other_report_claims_its_rows_are_sales()
+        {
+            var api = Api(r => Json(SampleFor(r.RequestUri!.AbsoluteUri)));
+
+            foreach (var report in ReportCatalogue.All.Where(r => r.Key != "sales"))
+            {
+                var table = await report.LoadAsync(api, Query, default);
+
+                Assert.All(table.Rows, row => Assert.Null(row.DrillSaleId));
+            }
+        }
         private static string SampleFor(string url) =>
             url.Contains("summary-rich") ? """{"totalSales":1,"totalOrders":1,"byDay":[{"date":"d","total":1,"totalExTax":1,"orders":1}]}"""
             : url.Contains("/vat") ? """{"totals":{},"buckets":[{"period":"p","vatRateBp":2000,"grossPence":1,"netPence":1,"vatPence":1}]}"""
@@ -361,6 +400,10 @@ namespace Plutus.Frontend.AppClient.Tests.Reporting
             // above, so their headers, their numeric flags and their row shape would all be
             // "verified" by a loop that never saw a row. Kapow really does have items at -28,508.
             : url.Contains("stock/levels") ? """{"totalCatalogueItems":9,"inStock":2,"matched":1,"skip":0,"take":200,"rows":[{"itemIdOne":"A","name":"Thing","category":"C","location":"Shop floor","quantity":-28508}]}"""
+            // ⚠⚠ A JSON **ARRAY**, and the only one here. Every other report deserialises an
+            // object, which is why `{}` satisfied them all and hid the fact that GetAsync did not
+            // catch JsonException - this endpoint is what found it.
+            : url.Contains("/api/v1/sales") ? """[{"id":"0199d0f6-0000-7000-8000-000000000001","businessDay":"2026-08-18","occurredAtUtc":"2026-08-18T09:30:00Z","tillId":"0199d0f6-0000-7000-8000-0000000000aa","channel":"Till","grossPence":1399,"vatPence":233}]"""
             : "{}";
     }
 }

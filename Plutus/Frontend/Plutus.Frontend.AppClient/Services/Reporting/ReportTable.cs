@@ -26,6 +26,22 @@ namespace Plutus.Frontend.AppClient.Services.Reporting
 
         public ReportCell Cell(int index) =>
             index >= 0 && index < Cells.Count ? Cells[index] : new ReportCell(string.Empty);
+
+        /// <summary>
+        /// The sale this row is ABOUT, when it is about one — tap the row to open it.
+        ///
+        /// ⚠⚠ **DRILL-DOWN IS WHAT TURNS A REPORT INTO AN ANSWER** (§5c item 5). A takings figure
+        /// tells a manager the day is £40 light; only the sale behind a row tells them why.
+        ///
+        /// ⚠ `init`, not a constructor parameter, deliberately: every existing `new ReportRow(cells)`
+        /// in the catalogue keeps compiling and keeps meaning "this row is not drillable". A required
+        /// parameter would have made five reports declare a `null` they have no opinion about.
+        ///
+        /// ⚠ A **row-level** id rather than a table-level flag, because the two are different
+        /// questions: a report can mix rows that identify a sale with rows that do not (a totals row,
+        /// a day summary), and the renderer must not offer a tap that leads nowhere.
+        /// </summary>
+        public Guid? DrillSaleId { get; init; }
     }
 
     /// <summary>
@@ -54,7 +70,8 @@ namespace Plutus.Frontend.AppClient.Services.Reporting
             IReadOnlyList<bool> numeric,
             Func<T, IReadOnlyList<ReportCell>> cells,
             string note = "",
-            string totals = "")
+            string totals = "",
+            Func<T, Guid?> drill = null)
         {
             if (headers.Count != numeric.Count)
                 throw new ArgumentException(
@@ -65,7 +82,11 @@ namespace Plutus.Frontend.AppClient.Services.Reporting
             return new ReportTable(
                 headers,
                 numeric,
-                (rows ?? Enumerable.Empty<T>()).Select(r => new ReportRow(cells(r))).ToList(),
+                (rows ?? Enumerable.Empty<T>())
+                    // ⚠ `drill` is optional and defaults to nothing, so the five reports written
+                    // before drill-down existed are untouched — see `ReportRow.DrillSaleId`.
+                    .Select(r => new ReportRow(cells(r)) { DrillSaleId = drill?.Invoke(r) })
+                    .ToList(),
                 note,
                 totals);
         }

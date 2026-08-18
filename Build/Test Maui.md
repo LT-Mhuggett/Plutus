@@ -2515,3 +2515,94 @@ Sign in as a **Cashier** and open both reports.
 portal permission**, and before backend 1.17.3 that combination was refused — the fourth time that
 same defect has been fixed, and the previous fix missed this endpoint despite fixing its own sibling
 six lines above it in the same file.
+
+---
+
+## G41. ⚠⚠ Drill-down — open a sale from a report. **Till 1.85.0**, §5c item 5
+
+> ⚠ MAUI has never had this. Matt, 2026-08-18: the reports set did not match the web till **and
+> drill-down was absent entirely** — *"the one that turns a report into an answer"*. A takings figure
+> says the day is £40 light; only the sale behind a row says why.
+>
+> ⚠ **Nothing here is machine-testable end to end.** The report's data and its drill key are pinned by
+> tests; the tap, the dialog and its scrolling are not, and cannot be — a MAUI `Page` cannot be
+> constructed in the test project at all.
+
+### G41a. The Sales report
+
+Reports tab → pick **Sales (tap to open)**. Leave the range on the default last-7-days.
+
+**✅ Expected:** rows of **When · Till · Channel · VAT · Total**, newest first-ish, and a note under
+the title saying *"Tap a sale to see its lines, its payments and its VAT."*
+
+⚠ **Check the time is there, not just the date.** *"Which of today's four £9.99 sales"* is exactly the
+question being asked, and a date alone cannot answer it.
+
+⚠ **Sales from OTHER tills must appear** — that is deliberate (`tillId: null`). Looking for a sale you
+did not ring up is the usual reason for looking.
+
+### G41b. ⚠ Tap a row — the whole point
+
+Tap any sale.
+
+**✅ Expected: a dialog headed "Sale"** with a **✕ top-right** and a **Close** button, showing:
+
+| | |
+|---|---|
+| **When** | the local date and time, in full |
+| **Business day** | ⚠ shown SEPARATELY, and it can differ — a sale at 00:30 belongs to the previous trading day, and that is the Z-read it reconciles under |
+| **Till** and **Operator** | *"(not recorded)"* for an imported legacy sale is correct, not a fault |
+| **Lines** | `qty × name`, the line total, its VAT rate and amount, and any discount on its own line |
+| **Paid** | Cash / Card / GiftCard with the amount, and **change given** where there was any |
+| **Already refunded or voided** | only when there is some — with the **reason** |
+| **Total** | VAT, then Gross |
+
+⚠ **A £20 note against a £13.99 sale must read as £20.00 tendered and £6.01 change**, not as £13.99
+taken. That is part of the answer to "what happened at this till".
+
+### G41c. ⚠ A long sale must SCROLL
+
+Find or ring up a sale with **a dozen or more lines**, then open it.
+
+**✅ Expected: the dialog scrolls, and the Close button is reachable.**
+
+⚠⚠ This is the exact failure the item editor had — it lost five of its eight fields and was reported
+as *"I can ONLY change the tax"* (2026-08-11), because the height cap was on the inner stack instead
+of the scroller. If the bottom of this dialog is cut off, that is the same bug again.
+
+### G41d. ⚠ A refund opens too, and says it is one
+
+Find a row with a **negative** total and open it.
+
+**✅ Expected:** the totals show a negative gross, and a line saying *"This is a refund — it is
+recorded as a sale with a negative total."*
+
+⚠ It must **not** be hidden from the list and must **not** display positive. A refund reading as money
+taken is a day's takings that cannot be reconciled — and offering a refund as something to refund
+*against* cost £13.99 twice on 2026-08-10.
+
+### G41e. ⚠ Tapping other reports' rows must do NOTHING
+
+Go to **VAT**, then **Stock**, then **Takings**. Tap rows on each.
+
+**✅ Expected: nothing happens at all.** No dialog, no error message, no flicker.
+
+⚠ Every row in every report is tappable as far as the renderer is concerned; only rows that carry a
+sale do anything. A message saying *"that isn't a sale"* would be wrong too — the operator did not ask
+a question, they brushed a list.
+
+### G41f. Backing out, and offline
+
+Open a sale and close it with the **✕**. Open another and close it with **Close**. Open a third and
+click **outside** the dialog.
+
+**✅ Expected: all three close cleanly, and the app is usable afterwards** — no dark sheet left over
+the till.
+
+⚠⚠ An un-popped popup is a 40%-black scrim over a till nobody can dismiss, mid-shift. That has
+happened here before, which is why the pop is in a `finally`.
+
+Now pull the network and tap a sale.
+
+**✅ Expected:** *"A sale can only be opened while the till is online and somebody is signed in."* —
+and **no crash**.

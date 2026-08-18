@@ -64,9 +64,68 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Reports
             _table = new TillTable<ReportRow>(
                 Array.Empty<TableColumn<ReportRow>>(),
                 search: r => r.SearchText,
-                emptyText: "Nothing in this range.");
+                emptyText: "Nothing in this range.",
+                // ⚠⚠ DRILL-DOWN (§5c item 5). Only rows that identify a sale do anything — see
+                // `ReportRow.DrillSaleId`. Every other report's rows carry no id and a tap is inert,
+                // which is why this can be wired once here rather than per report.
+                onRowTap: OpenSale);
 
             _tableHost.Content = _table;
+        }
+
+        /// <summary>
+        /// Open the sale a row is about — the drill-down (5c item 5).
+        ///
+        /// ⚠⚠ A TAP ON A ROW THAT IS NOT A SALE DOES NOTHING, SILENTLY. Six of the seven
+        /// reports carry no sale id, and a tap on a VAT bucket must not raise a dialog saying "that
+        /// isn't a sale" — the operator did not ask a question, they brushed a list.
+        ///
+        /// ⚠ NOT `async void`. This is called from a gesture, and an escaping exception from an
+        /// `async void` goes to the dispatcher unhandled, which on MAUI kills the till — the shape of
+        /// every crash Matt reported on 2026-08-18. `TillTable` also catches around the callback; two
+        /// guards, because only one of them is a guarantee.
+        /// </summary>
+        private void OpenSale(ReportRow row)
+        {
+            if (row?.DrillSaleId is not Guid saleId) return;
+
+            _ = OpenSaleAsync(saleId, row);
+        }
+
+        private async Task OpenSaleAsync(Guid saleId, ReportRow row)
+        {
+            try
+            {
+                // ⚠ THE OPERATOR'S CLIENT, not the till's. `GET /api/v1/sales/{id}` is `perm:`-gated
+                // and RBAC resolves by the token's NameIdentifier - the device id on a device token,
+                // which holds no grants. That is the fault that made this whole tab unreadable in
+                // 1.75.0, and it would be just as wrong here.
+                var api = await Services.Connectivity.PlutusApi.GetOperatorAsync();
+
+                if (api is null)
+                {
+                    Say(string.Empty, "A sale can only be opened while the till is online and somebody is signed in.");
+                    return;
+                }
+
+                var sale = await api.GetSaleAsync(saleId);
+
+                if (sale is null)
+                {
+                    // ⚠ NULL IS NOT "EMPTY SALE". A 403 or an unreadable answer must not render as a
+                    // sale with no lines, which would read as a sale that took no money.
+                    Say(string.Empty, "That sale couldn't be read. You may not have permission to see it, or the till is offline.");
+                    return;
+                }
+
+                // ⚠ The till column from the ROW, because the detail endpoint does not answer one.
+                await Helpers.CustomViews.SaleDetailHelper.ShowAsync(sale, row.Cell(1).Text);
+            }
+            catch (Exception ex)
+            {
+                CrashLog.Write("ReportsViewModel.OpenSale", ex);
+                Say(string.Empty, "That sale couldn't be opened.");
+            }
         }
 
         private Command _refreshCommand;

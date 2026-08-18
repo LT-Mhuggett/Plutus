@@ -35,15 +35,28 @@ namespace Plutus.Frontend.AppClient.Controls
         private readonly Button _prev = new() { Text = "‹ Prev" };
         private readonly Button _next = new() { Text = "Next ›" };
 
+        /// <summary>
+        /// Tap a row to open it — null for a table that is only there to be read.
+        ///
+        /// ⚠ OPT-IN, so the four tables that existed before drill-down get no gesture and cannot
+        /// change behaviour. See `RowFor`.
+        /// </summary>
+        private readonly Action<T> _onRowTap;
+
+        /// <param name="onRowTap">Optional. What to do when a row is tapped — see
+        /// <see cref="_onRowTap"/>. ⚠ It must decide for itself whether the row it was handed is
+        /// actually openable; the table knows nothing about what a row means.</param>
         public TillTable(
             IReadOnlyList<TableColumn<T>> columns,
             Func<T, string> search = null,
-            string emptyText = "No rows.")
+            string emptyText = "No rows.",
+            Action<T> onRowTap = null)
         {
             _columns = columns ?? throw new ArgumentNullException(nameof(columns));
             _search = search;
             _view = new TableView<T>(columns, search);
             _emptyText = emptyText;
+            _onRowTap = onRowTap;
 
             RowSpacing = 4;
             RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });   // search + page size
@@ -221,6 +234,38 @@ namespace Plutus.Frontend.AppClient.Controls
                     HorizontalTextAlignment = _columns[i].Numeric ? TextAlignment.End : TextAlignment.Start,
                     VerticalOptions = LayoutOptions.Center,
                 }, i, 0);
+            }
+
+            // ⚠⚠ TAP TO OPEN, only when a screen asked for it. `_onRowTap` defaults to null, so the
+            // four tables written before drill-down existed (Cash, Statistics, Inventory, Loyalty)
+            // get no gesture at all and behave exactly as they did — the reason this is opt-in rather
+            // than a behaviour every table suddenly gained.
+            if (_onRowTap != null)
+            {
+                var tap = new TapGestureRecognizer();
+
+                // ⚠ THE HANDLER CANNOT THROW. It runs on the UI thread from a gesture, so an escape
+                // goes to the dispatcher unhandled — the same shape as every `async void` crash this
+                // app has had. A table is not the right place to lose a till from.
+                tap.Tapped += (_, _) =>
+                {
+                    try
+                    {
+                        _onRowTap(row);
+                    }
+                    catch (Exception ex)
+                    {
+                        Services.Analytics.CrashLog.Write("TillTable.RowTap", ex);
+                    }
+                };
+
+                grid.GestureRecognizers.Add(tap);
+
+                // ⚠ A TAP TARGET NEEDS TO BE THE WHOLE ROW, not just the glyph. `Grid` only receives
+                // gestures where it has been painted, so a row with a transparent background swallows
+                // taps in the gaps between its labels — which reads as "it works sometimes".
+                grid.BackgroundColor = Colors.Transparent;
+                grid.InputTransparent = false;
             }
 
             return grid;
