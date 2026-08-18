@@ -46,7 +46,7 @@ on 2026-08-11 came from somebody noticing something, not from a step asking the 
 
 | | |
 |---|---|
-| **Run** | ✅ `D:\tmp\plutus-till-1.89.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-18 (evening) and verified inside the binary** (`1.89.0+f3acb24c` = HEAD; six of item 6's own strings found in it). ⚠ **The only build on the box** — 1.87.0 and 1.88.0 are deleted, so there is no question which to run. ⚠⚠ **NEEDS BACKEND 1.17.6**, deployed and verified — **1.17.5 was not enough**: it made a new member findable by SEARCH but the tab still looked empty. 1.17.6 lists every active customer. ⚠ It will say the till isn't enrolled; expected for an unpackaged build — enrol it as a fresh till. ⚠ **What is new since hand-run 1: §G44** (the Loyalty tab is now the web till's screen) plus the four fixes it found — re-run **§G38** and **§G41**, and set a scheme for **§G43b**. |
+| **Run** | ✅ `D:\tmp\plutus-till-1.90.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-18 (evening) and verified inside the binary** (`1.90.0+56746953` = HEAD). ⚠ **The only build on the box.** ⚠⚠ **NEEDS BACKEND 1.17.7** (deployed and verified) — the **Created** column is a server field, so without it that column is empty on both tills. ⚠ **Web till 1.17.0 is deployed too** (`index-b3Er8Ggn.js`) and carries the same two new columns, so the two screens can be compared side by side. ⚠ It will say the till isn't enrolled; expected for an unpackaged build — enrol it as a fresh till. |
 | **Agent** | ⚠ **Agent 1.4.0 is REQUIRED for §G29**, and it fixes "start automatically" not working after a reboot. Get it from the **web till → Settings → Hardware → Download the agent (v1.4.0)**, or from `tools\Plutus.TillAgent\publish-out\PlutusTillAgent-1.4.0.exe`. ⚠⚠ **Copy it to `%LOCALAPPDATA%\Plutus\Agent\` and run it from THERE — not from Downloads.** Auto-start records the path it was launched from; a Downloads copy gets cleaned up or renamed `… (1).exe`, and then the till boots and starts nothing. That is the fault this build fixes, and running it once from a permanent folder repairs a stale registration. |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
@@ -2830,3 +2830,62 @@ As a Supervisor: **Set tier** → pick the member → pick the tier.
 because `InputAlert` has no dropdown. **Same capability, one more tap** — parity is in what you can do,
 not in how it is done. ⚠ It must stay separately gated: create-then-tier as one dialog is how a cashier
 gets 201 on the member and 403 on the tier, and retries into a duplicate.
+
+---
+
+## G45. The Loyalty table's layout — **till 1.90.0 + backend 1.17.7 + web till 1.17.0**
+
+> Matt, 2026-08-18, with a screenshot: *"The MAUI till is all over the place!"* — the headers ran
+> together and the numeric columns were crushed against the right edge.
+>
+> ⚠ The cause was `TillTable`'s sizing rule: numeric columns sized to their content and every other
+> column took an equal share of the rest. Fine at three columns; at six the text columns split the
+> whole row between them. Columns now carry a **width weight**.
+
+### G45a. Eight columns, evenly spread
+
+Loyalty tab, on a **maximised** window.
+
+**✅ Expected:** **Customer · Email · Member no. · Tier · Discount · Renews · Created · Credit** — each
+heading sitting **directly over its own data**, with visible gaps between all eight. Nothing touching,
+nothing crushed against the right edge.
+
+⚠ **Email is its own column now**, not a second line under the name — so every row is single height.
+
+### G45b. ⚠ Resize the window — this is what weights are for
+
+Drag the window narrower, then wider, then maximise it.
+
+**✅ Expected: the columns keep their proportions** and the headings stay over their data at every
+size. Customer and Email give up space first because they are the widest weights.
+
+⚠ Widths are weights, never pixels: a till runs windowed, full-screen and on a small terminal, and a
+column measured in pixels is right on exactly one of them.
+
+### G45c. The Created column has real dates
+
+**✅ Expected:** every row shows a joining date as `yyyy-MM-dd` — including the members added during
+hand-run 1, who should read **2026-08-18**.
+
+⚠ If Created is empty on every row, the till is talking to a backend older than **1.17.7** — it is a
+server field, not something the till works out.
+
+⚠ Empty cells everywhere else read **—**, never blank: a blank cell looks like a screen that failed
+to load.
+
+### G45d. ⚠ Side by side with the web till
+
+Open the web till's **Loyalty & store credit** page on `https://plutus.huggett.dscloud.me`.
+
+**✅ Expected: the same eight columns, in the same order, with the same headings.** Both were changed
+in the same commit.
+
+⚠ The web till sorts and pages with its own control, so spacing will not be pixel-identical — **the
+columns and their order are what must match**, not the rendering.
+
+### G45e. Sorting still works after the change
+
+Tap **Credit**, then **Created**, then **Customer**.
+
+**✅ Expected:** each sorts, and the ⇅ marker moves to the tapped column. ⚠ **Credit and Discount must
+sort as NUMBERS** — if £100 comes before £9, the numeric flag has been lost.
