@@ -51,8 +51,40 @@ namespace Plutus.Frontend.AppClient.Services.Theming
             _ => "",
         };
 
-        /// <summary>The stock value of each slot, captured before anything overwrites it.</summary>
+        /// <summary>The stock value of each slot, captured before anything overwrites it. ⚠ These are
+        /// the LIGHT palette — `Colors.xaml` defines one set, and it is the light one.</summary>
         private static readonly System.Collections.Generic.Dictionary<string, Color> Stock = new();
+
+        /// <summary>
+        /// The stock palette's **dark half**, which `Colors.xaml` does not have.
+        ///
+        /// ⚠⚠ WITHOUT THIS, A DARK SCHEME THAT SETS ONLY SOME SLOTS PRODUCES A LIGHT APP IN DARK MODE.
+        /// The live "Kapow Test" theme is exactly that shape — `baseMode: dark` with
+        /// `{"accent":…,"line":…}` and nothing else — so `UserAppTheme` went Dark while `ThemeSurface`
+        /// fell back to the stock **#ffffff**: white pages, dark platform chrome, and a scheme that
+        /// "does not look like it worked". A partial scheme is the normal case, not an edge one; the
+        /// portal lets you set one slot.
+        ///
+        /// ⚠ IT IS A FALLBACK, NEVER AN OVERRIDE. A slot the scheme DOES set still wins, in either
+        /// mode — this only answers "what should the slots it left alone be, given the mode it asked
+        /// for?"
+        ///
+        /// ⚠ INK AND SURFACE AS A PAIR, the same rule the styles follow: swapping the surface without
+        /// swapping the ink is the unreadable-label fault (1.74.0) with the lights off.
+        ///
+        /// ⚠ The accent keeps its stock hue in both modes — it is the brand, and a shop's colour does
+        /// not change because the room is dark. Only its INK flips, so text on it stays legible.
+        /// </summary>
+        private static readonly System.Collections.Generic.Dictionary<string, Color> DarkStock = new()
+        {
+            ["ThemeAccent"] = Color.FromArgb("#2c698d"),
+            ["ThemeAccentInk"] = Color.FromArgb("#ffffff"),
+            ["ThemeSurface"] = Color.FromArgb("#161d26"),
+            ["ThemeSurface2"] = Color.FromArgb("#212b38"),
+            ["ThemeInk"] = Color.FromArgb("#eef2f6"),
+            ["ThemeInkMuted"] = Color.FromArgb("#9aa7b4"),
+            ["ThemeLine"] = Color.FromArgb("#33404f"),
+        };
 
         /// <summary>
         /// Apply a theme to the running app. ⚠ MUST be called on the UI thread.
@@ -69,12 +101,23 @@ namespace Plutus.Frontend.AppClient.Services.Theming
 
             // Base mode first: it is useful on its own, and `ThemeSlots.ColoursFrom` returns empty for
             // a malformed blob precisely so this still happens.
-            Application.Current!.UserAppTheme = ThemeSlots.ModeFrom(theme?.BaseMode) switch
+            var mode = ThemeSlots.ModeFrom(theme?.BaseMode);
+
+            Application.Current!.UserAppTheme = mode switch
             {
                 ThemeBaseMode.Light => AppTheme.Light,
                 ThemeBaseMode.Dark => AppTheme.Dark,
                 _ => AppTheme.Unspecified,   // ⚠ = follow the device, the web till's "light dark"
             };
+
+            // ⚠⚠ WHICH STOCK PALETTE THE UNSET SLOTS FALL BACK TO — see `DarkStock`. A scheme that asks
+            // for dark and sets only an accent must not leave the surfaces white; that is the live
+            // theme's exact shape, and it is why a dark scheme looked like it had done nothing.
+            //
+            // ⚠ `Unspecified` follows the DEVICE, and the device's mode is not knowable here — so it
+            // keeps the light stock, which is what the app has always shipped. Guessing dark from a
+            // device setting the theme did not mention would be inventing a decision nobody made.
+            var darkFallback = mode == ThemeBaseMode.Dark;
 
             var colours = ThemeSlots.ColoursFrom(theme?.ColorsJson);
 
@@ -88,7 +131,13 @@ namespace Plutus.Frontend.AppClient.Services.Theming
 
                 if (colours.TryGetValue(slot, out var hex))
                 {
+                    // ⚠ THE SCHEME ALWAYS WINS, in either mode. `DarkStock` answers only for the slots
+                    // it did not set.
                     resources[key] = Color.FromArgb(hex);
+                }
+                else if (darkFallback && DarkStock.TryGetValue(key, out var dark))
+                {
+                    resources[key] = dark;
                 }
                 else if (Stock.TryGetValue(key, out var original))
                 {

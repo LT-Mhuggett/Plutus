@@ -65,7 +65,11 @@ namespace Plutus.Frontend.AppClient.Controls
             RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });   // pager
 
             this.Add(BuildControls(search != null), 0, 0);
-            this.Add(_header, 0, 1);
+            // ⚠ The header and its rule share row 1, stacked — the rule spans the whole table.
+            var headerBlock = new VerticalStackLayout { Spacing = 0 };
+            headerBlock.Children.Add(_header);
+            headerBlock.Children.Add(HeaderRule());
+            this.Add(headerBlock, 0, 1);
             // ⚠ A ScrollView with a * row, never a StackLayout — MAUI's StackLayout measures to
             // DESIRED height and does not distribute what is left, so a scrollable list inside one
             // collapses to a few rows. That mistake already shipped on the item list.
@@ -188,6 +192,27 @@ namespace Plutus.Frontend.AppClient.Controls
             }
         }
 
+
+        /// <summary>
+        /// The hairline under the headings — and the ONLY thing in the app that consumes `ThemeLine`.
+        ///
+        /// ⚠⚠ THE LIVE SCHEME SETS `line` AND NOTHING READ IT. "Kapow Test" is
+        /// `{"accent":"#337061","line":"#2c3a4d"}` — half of what the shop chose was landing in a
+        /// resource dictionary that no control looked at. A slot the portal offers and no till renders
+        /// is a setting that lies to whoever sets it.
+        ///
+        /// ⚠ `SetDynamicResource`, never a fetched colour: a value read once here would freeze at
+        /// construction and ignore every later scheme change.
+        ///
+        /// ⚠ It is also what makes the headings read as headings rather than as a first row - which
+        /// is the other half of "the MAUI till is all over the place".
+        /// </summary>
+        private static BoxView HeaderRule()
+        {
+            var rule = new BoxView { HeightRequest = 1, Margin = new Thickness(0, 2, 0, 0) };
+            rule.SetDynamicResource(VisualElement.BackgroundColorProperty, "ThemeLine");
+            return rule;
+        }
         private void Redraw()
         {
             BuildHeader();
