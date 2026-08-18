@@ -1,74 +1,105 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <!--
-    The styles the screens actually ask for — step 22 / 7b, §5c item 10.
+    The styles every screen gets — step 22 / 7b, §5c item 10.
 
-    ⚠⚠ **THE TWO STYLES BELOW WERE REFERENCED TWENTY TIMES AND DEFINED NOWHERE.** Every basket row
-    label carries `Style="{DynamicResource ListItemDetailTextStyle}"`, and there was no such key in
-    the application — `DynamicResource` to a missing key **silently applies nothing**, so the money
-    screen's rows have never been styled at all. Found 2026-08-18 by listing every resource the XAML
-    references and checking each one exists; the two that did not are these.
+    ⚠⚠ **THIS IS WHERE MAUI WEARS THE PORTAL'S COLOURS.** Matt, first hand-run 2026-08-18: *"Colours,
+    does not seem to work on MAUI it does on the webtill."* He was right, and the reason was simple:
+    the plumbing has been finished for ages — the portal assigns a scheme, the backend resolves it,
+    `Theming.Apply` writes the seven `Theme*` keys into `Application.Resources` on start-up and on the
+    60-second cadence — but **only two things in the whole app read one of those keys**. A scheme
+    moved a page background and the basket rows, and nothing else.
 
-    ⚠⚠ **AND THIS IS WHERE MAUI STARTS CONSUMING THE PORTAL'S COLOURS.** The plumbing was finished
-    long ago — the portal assigns a scheme, the backend resolves it, `Theming.Apply` writes the seven
-    `Theme*` keys into `Application.Resources` — and **nothing in any XAML file read one of them**
-    (Matt, 2026-08-18: *"the colours do NOT appear to have changed when I set a new colour scheme"*;
-    the immediate cause was an empty `TillThemeAssignments`, but had it been populated, only Store
-    Information would have moved). Defining the missing styles from the slots fixes both faults with
-    one change, and its blast radius is exactly the elements that already asked for these keys.
+    ⚠⚠ **IMPLICIT STYLES, DELIBERATELY, AND THIS IS THE ARGUMENT.** The alternative was to set the
+    colour of every label on seventeen pages by hand: more edits, more places to be wrong, and it
+    leaves the NEXT screen unthemed by default. The web till does not do it that way either — it
+    defines seven CSS custom properties and lets ~92 rules consume them. This file is that stylesheet.
 
-    ⚠⚠ **`DynamicResource`, NEVER `StaticResource`, for a theme slot.** `StaticResource` resolves once
-    at parse time, so a control would keep the palette that was current when its page was built and a
-    scheme applied afterwards would move some controls and not others. **Half a themed screen is worse
-    than none** — the same hazard `Theming.cs`'s own header records.
+    ⚠⚠ **INK AND SURFACE MOVE TOGETHER OR NOT AT ALL.** Setting a text colour without owning the colour
+    behind it is how Store Information shipped unreadable (1.74.0). So the rules below come in pairs: a
+    surface for pages, dialogs and inputs; ink for the text on them; accent with accent-ink for buttons.
+    **A scheme that sets a dark surface therefore also gets light ink** — and one that sets neither is
+    left at the stock palette exactly, because `Theming.Apply` restores every slot it was not given.
+    **Unthemed looks like today**, with the one deliberate exception noted on `Button`.
 
-    ⚠⚠ **INK AND SURFACE ARE APPLIED AS A PAIR, ALWAYS.** Setting a text colour without owning the
-    colour behind it is how Store Information shipped with every label light-grey on near-white and
-    unreadable (build 1.74.0) — and it is how a dark-mode device would render `ThemeInk` (#272643,
-    near-black) on its own near-black background. `Theming.Apply` sets `UserAppTheme` from the theme's
-    base mode, so a scheme decides light or dark; a screen that takes its ink from a slot **must** take
-    its surface from one too. See `till-design.md` D5's sibling rule.
+    ⚠ `DynamicResource`, NEVER `StaticResource`, for a slot — `StaticResource` resolves once at parse
+    time, so a page built before a scheme arrived would keep the old palette while later pages changed.
+    Half a themed app is worse than none. `XamlResourceTests` fails on both mistakes: a key that does
+    not exist, and a slot reached statically.
 -->
 <?xaml-comp compile="true" ?>
 <ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
-    <!-- ⚠ The primary row text — quantity, and anything that is the row's subject. -->
+    <!-- ══ implicit: everything, unless a control says otherwise ══════════════════════════════ -->
+
+    <!--
+        ⚠ EVERY PAGE OWNS ITS BACKGROUND. Without this a themed page shows the platform's default
+        behind themed text — the unreadable pairing, and on a dark-mode device near-black on near-black.
+    -->
+    <Style TargetType="ContentPage" ApplyToDerivedTypes="True">
+        <Setter Property="BackgroundColor" Value="{DynamicResource ThemeSurface}" />
+    </Style>
+
+    <!-- ⚠ The other half of the pair. Stock `ThemeInk` is #272643, close to the platform default, so
+         an unthemed till looks unchanged. -->
+    <Style TargetType="Label" ApplyToDerivedTypes="True">
+        <Setter Property="TextColor" Value="{DynamicResource ThemeInk}" />
+    </Style>
+
+    <!-- ⚠ TYPED TEXT NEEDS BOTH TOO. Left alone under a dark scheme an entry draws dark ink in a
+         light box on a dark page, which reads as a rendering fault rather than a theme. -->
+    <Style TargetType="Entry" ApplyToDerivedTypes="True">
+        <Setter Property="TextColor" Value="{DynamicResource ThemeInk}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource ThemeSurface2}" />
+    </Style>
+
+    <Style TargetType="Editor" ApplyToDerivedTypes="True">
+        <Setter Property="TextColor" Value="{DynamicResource ThemeInk}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource ThemeSurface2}" />
+    </Style>
+
+    <!--
+        ⚠⚠ BUTTONS ARE THE MOST VISIBLE SIGNAL THAT A SCHEME ARRIVED, and this is the one rule here
+        that changes an UNTHEMED till's appearance: buttons were the platform's default grey and are
+        now the stock accent (#2c698d) with white on top.
+
+        ⚠ Deliberate rather than a side effect — `Colors.xaml` records that those values **are** the
+        stock theme and that the accent is the web till's own. Matt, 2026-08-17: *"MAUI looks nothing
+        like the webtill."* This is part of closing that, and `ThemeAccentInk` is what keeps the text
+        readable on a dark accent.
+    -->
+    <Style TargetType="Button" ApplyToDerivedTypes="True">
+        <Setter Property="BackgroundColor" Value="{DynamicResource ThemeAccent}" />
+        <Setter Property="TextColor" Value="{DynamicResource ThemeAccentInk}" />
+    </Style>
+
+    <!-- ══ keyed: asked for by name ═══════════════════════════════════════════════════════════ -->
+
+    <!--
+        ⚠⚠ THESE TWO WERE REFERENCED TWENTY TIMES AND DEFINED NOWHERE until 2026-08-18. Every basket
+        row label carries `Style="{DynamicResource ListItemDetailTextStyle}"` and there was no such key
+        — `DynamicResource` to a missing key **applies nothing, silently**: clean build, clean XamlC,
+        screen renders with platform defaults. `XamlResourceTests` now fails on it.
+    -->
     <Style x:Key="ListItemTextStyle" TargetType="Label">
         <Setter Property="TextColor" Value="{DynamicResource ThemeInk}" />
         <Setter Property="VerticalTextAlignment" Value="Center" />
     </Style>
 
     <!--
-        ⚠ The row's detail text — name, price, tax.
-
-        ⚠⚠ IT USES `ThemeInk`, **NOT** `ThemeInkMuted`, AND THAT IS DELIBERATE. "Detail" here means
-        *the rest of the row*, not *less important*: the price and the VAT column are on it. Muting the
-        price of an item is precisely the fault that made Store Information unreadable, and on the
-        basket it would mute the numbers the customer is being charged. ⚠ `ThemeInkMuted` is for
-        genuine asides — hints, empty-state notes, "(waiting to send)".
+        ⚠⚠ `ThemeInk`, **NOT** `ThemeInkMuted`, and that is deliberate. "Detail" here means *the rest of
+        the row*, not *less important*: the price and the VAT column are on it. Muting the price of an
+        item is the fault that made Store Information unreadable, and on the basket it would mute the
+        numbers the customer is being charged.
     -->
     <Style x:Key="ListItemDetailTextStyle" TargetType="Label">
         <Setter Property="TextColor" Value="{DynamicResource ThemeInk}" />
         <Setter Property="VerticalTextAlignment" Value="Center" />
     </Style>
 
-    <!--
-        ⚠ For genuine asides, and the one style that IS muted. Not yet used by any screen — it exists
-        so that the next person who wants grey text takes it from the theme instead of typing a hex,
-        which is how the unreadable-label fault got in.
-    -->
+    <!-- ⚠ For genuine asides — hints, empty-state notes, "(waiting to send)". The one muted style. -->
     <Style x:Key="MutedTextStyle" TargetType="Label">
         <Setter Property="TextColor" Value="{DynamicResource ThemeInkMuted}" />
-    </Style>
-
-    <!--
-        ⚠ A page that owns its own background, so the ink above is guaranteed something to sit on —
-        see the pairing rule at the top of this file. Applied per page rather than as an implicit
-        `ContentPage` style: an implicit style would repaint every screen in the app at once, including
-        ones nobody has looked at, on a UI framework where nobody can currently run the app.
-    -->
-    <Style x:Key="ThemedPageStyle" TargetType="ContentPage">
-        <Setter Property="BackgroundColor" Value="{DynamicResource ThemeSurface}" />
     </Style>
 
 </ResourceDictionary>

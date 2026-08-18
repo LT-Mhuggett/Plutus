@@ -47,7 +47,42 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
             using var req = new HttpRequestMessage(method, url);
             req.Headers.Authorization = new("Bearer", token);
             if (body != null) req.Content = JsonContent.Create(body);
-            var resp = await client.SendAsync(req);
+            var resp = await SendAsync(client, req);
+            if (resp.StatusCode != HttpStatusCode.TooManyRequests || attempt >= 4) return resp;
+            resp.Dispose();
+            await Task.Delay(1100);   // the limiter's window is one second
+        }
+    }
+
+    /// <summary>
+    /// Send a prepared request, retrying a 429 — the drop-in for `SendAsync(client, req)`.
+    ///
+    /// ⚠⚠ A SENT REQUEST CANNOT BE RE-SENT, which is why this CLONES rather than retrying the
+    /// original. That is the whole reason the raw call could not simply be wrapped, and why 24 call
+    /// sites in this file were each a separate chance to be rate-limited.
+    ///
+    /// ⚠ WHY THIS FILE NEEDS IT AT ALL: WP13.5 throttles **50 rps per tenant** and every test in the
+    /// suite shares Kapow, so requests added anywhere can push a **different** test's second over the
+    /// limit — it then fails with `TooManyRequests` while asserting something else entirely, naming the
+    /// wrong fault. This class grew by a dozen requests on 2026-08-18 and tipped a sibling over twice.
+    ///
+    /// ⚠ THE 429 IS RETRIED, NEVER ACCEPTED — `RateLimitE2eTests` proves the limiter works and must
+    /// keep seeing raw 429s, which is why this is per-file rather than a handler on the shared factory.
+    /// </summary>
+    private static async Task<HttpResponseMessage> SendAsync(HttpClient client, HttpRequestMessage req)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            using var clone = new HttpRequestMessage(req.Method, req.RequestUri);
+            foreach (var h in req.Headers) clone.Headers.TryAddWithoutValidation(h.Key, h.Value);
+            if (req.Content != null)
+            {
+                var bytes = await req.Content.ReadAsByteArrayAsync();
+                clone.Content = new ByteArrayContent(bytes);
+                foreach (var h in req.Content.Headers) clone.Content.Headers.TryAddWithoutValidation(h.Key, h.Value);
+            }
+
+            var resp = await client.SendAsync(clone);
             if (resp.StatusCode != HttpStatusCode.TooManyRequests || attempt >= 4) return resp;
             resp.Dispose();
             await Task.Delay(1100);   // the limiter's window is one second
@@ -98,7 +133,7 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
         {
             req.Headers.Authorization = new("Bearer", cashier);
             req.Content = JsonContent.Create(new { name = $"Queue Signup {Guid.NewGuid().ToString()[..8]}" });
-            var resp = await client.SendAsync(req);
+            var resp = await SendAsync(client, req);
             Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
             var body = JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement;
             customerId = body.GetProperty("id").GetGuid();
@@ -111,7 +146,7 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
         {
             req.Headers.Authorization = new("Bearer", cashier);
             req.Content = JsonContent.Create(new { name = "Renamed By Cashier", email = "redirected@example.com" });
-            Assert.Equal(HttpStatusCode.Forbidden, (await client.SendAsync(req)).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync(client, req)).StatusCode);
         }
 
         // SET A TIER → refused. That is the supervisor's call, and it changes every future basket.
@@ -119,7 +154,7 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
         {
             req.Headers.Authorization = new("Bearer", cashier);
             req.Content = JsonContent.Create(new { tier = "Gold", autoDiscountRate = 0.10m });
-            Assert.Equal(HttpStatusCode.Forbidden, (await client.SendAsync(req)).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync(client, req)).StatusCode);
         }
 
         // ⚠ And a Supervisor — who holds BOTH codes — can do the tier half, so the split above is a
@@ -129,7 +164,7 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
         {
             req.Headers.Authorization = new("Bearer", supervisor);
             req.Content = JsonContent.Create(new { tier = "Gold", autoDiscountRate = 0.10m });
-            Assert.Equal(HttpStatusCode.Created, (await client.SendAsync(req)).StatusCode);   // SetMembership creates
+            Assert.Equal(HttpStatusCode.Created, (await SendAsync(client, req)).StatusCode);   // SetMembership creates
         }
     }
 
@@ -144,7 +179,7 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
         {
             req.Headers.Authorization = new("Bearer", outsider);
             req.Content = JsonContent.Create(new { name = "Blocked" });
-            Assert.Equal(HttpStatusCode.Forbidden, (await client.SendAsync(req)).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync(client, req)).StatusCode);
         }
 
         // a manager holding customers.manage (Store Manager) → create succeeds
@@ -156,7 +191,7 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
         {
             req.Headers.Authorization = new("Bearer", manager);
             req.Content = JsonContent.Create(new { name = "Ada Lovelace", email = "ada@example.com" });
-            var resp = await client.SendAsync(req);
+            var resp = await SendAsync(client, req);
             Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
             customerId = JsonDocument.Parse(await resp.Content.ReadAsStringAsync())
                 .RootElement.GetProperty("id").GetGuid();
@@ -167,13 +202,13 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
         {
             req.Headers.Authorization = new("Bearer", manager);
             req.Content = JsonContent.Create(new { name = "Ada King", email = "ada@example.com", phone = "0700" });
-            Assert.Equal(HttpStatusCode.OK, (await client.SendAsync(req)).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, req)).StatusCode);
         }
 
         using (var req = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/customers/{customerId}"))
         {
             req.Headers.Authorization = new("Bearer", manager);
-            var resp = await client.SendAsync(req);
+            var resp = await SendAsync(client, req);
             Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
             var body = JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement;
             Assert.Equal("Ada King", body.GetProperty("name").GetString());
@@ -208,7 +243,7 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
         {
             req.Headers.Authorization = new("Bearer", outsider);
             req.Content = JsonContent.Create(new { name = "Hacked" });
-            Assert.Equal(HttpStatusCode.Forbidden, (await client.SendAsync(req)).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync(client, req)).StatusCode);
         }
     }
 
@@ -230,7 +265,7 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
         {
             req.Headers.Authorization = new("Bearer", manager);
             req.Content = JsonContent.Create(new { name });
-            var resp = await client.SendAsync(req);
+            var resp = await SendAsync(client, req);
             Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
             var body = JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement;
             custId = body.GetProperty("id").GetGuid();
@@ -242,7 +277,7 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
         using (var req = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/customers/{custId}"))
         {
             req.Headers.Authorization = new("Bearer", manager);
-            var body = JsonDocument.Parse(await (await client.SendAsync(req)).Content.ReadAsStringAsync()).RootElement;
+            var body = JsonDocument.Parse(await (await SendAsync(client, req)).Content.ReadAsStringAsync()).RootElement;
             Assert.Equal(memberNo, body.GetProperty("memberNo").GetString());
             Assert.Equal("C" + memberNo, body.GetProperty("memberBarcode").GetString());
         }
@@ -251,7 +286,7 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
         {
             using var req = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/customers?search={Uri.EscapeDataString(term)}");
             req.Headers.Authorization = new("Bearer", manager);
-            var resp = await client.SendAsync(req);
+            var resp = await SendAsync(client, req);
             Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
             return JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement
                 .EnumerateArray().Select(e => e.GetProperty("id").GetGuid()).ToList();
@@ -270,7 +305,7 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
         {
             req.Headers.Authorization = new("Bearer", manager);
             req.Content = JsonContent.Create(new { name = name + " II" });
-            var body = JsonDocument.Parse(await (await client.SendAsync(req)).Content.ReadAsStringAsync()).RootElement;
+            var body = JsonDocument.Parse(await (await SendAsync(client, req)).Content.ReadAsStringAsync()).RootElement;
             Assert.NotEqual(memberNo, body.GetProperty("memberNo").GetString());
         }
     }
@@ -292,7 +327,7 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
         {
             req.Headers.Authorization = new("Bearer", outsider);
             req.Content = JsonContent.Create(new { name = $"Blocked-{suffix}", autoDiscountRate = 0.1m });
-            Assert.Equal(HttpStatusCode.Forbidden, (await client.SendAsync(req)).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync(client, req)).StatusCode);
         }
 
         // create a tier (24-month duration so the renewal date is unmistakably tier-derived)
@@ -302,7 +337,7 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
         {
             req.Headers.Authorization = new("Bearer", manager);
             req.Content = JsonContent.Create(new { name = tierName, autoDiscountRate = 0.10m, durationMonths = 24 });
-            var resp = await client.SendAsync(req);
+            var resp = await SendAsync(client, req);
             Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
             tierId = JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement.GetProperty("id").GetGuid();
         }
@@ -312,7 +347,7 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
         {
             req.Headers.Authorization = new("Bearer", manager);
             req.Content = JsonContent.Create(new { name = tierName.ToLower(), autoDiscountRate = 0.2m });
-            Assert.Equal(HttpStatusCode.Conflict, (await client.SendAsync(req)).StatusCode);
+            Assert.Equal(HttpStatusCode.Conflict, (await SendAsync(client, req)).StatusCode);
         }
 
         // rate out of range → 400
@@ -320,7 +355,7 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
         {
             req.Headers.Authorization = new("Bearer", manager);
             req.Content = JsonContent.Create(new { name = $"Bad-{suffix}", autoDiscountRate = 1.5m });
-            Assert.Equal(HttpStatusCode.BadRequest, (await client.SendAsync(req)).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await SendAsync(client, req)).StatusCode);
         }
 
         // a customer assigned the tier by id — no tier name or rate in the body at all
@@ -329,21 +364,21 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
         {
             req.Headers.Authorization = new("Bearer", manager);
             req.Content = JsonContent.Create(new { name = $"Tiered Tina {suffix}" });
-            var resp = await client.SendAsync(req);
+            var resp = await SendAsync(client, req);
             custId = JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement.GetProperty("id").GetGuid();
         }
         using (var req = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/customers/{custId}/membership"))
         {
             req.Headers.Authorization = new("Bearer", manager);
             req.Content = JsonContent.Create(new { tierId });
-            Assert.Equal(HttpStatusCode.Created, (await client.SendAsync(req)).StatusCode);
+            Assert.Equal(HttpStatusCode.Created, (await SendAsync(client, req)).StatusCode);
         }
 
         async Task<JsonElement> MembershipAsync()
         {
             using var req = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/customers/{custId}");
             req.Headers.Authorization = new("Bearer", manager);
-            var resp = await client.SendAsync(req);
+            var resp = await SendAsync(client, req);
             Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
             return JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement.GetProperty("membership").Clone();
         }
@@ -361,7 +396,7 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
         {
             req.Headers.Authorization = new("Bearer", manager);
             req.Content = JsonContent.Create(new { name = $"Gold Plus-{suffix}", autoDiscountRate = 0.15m });
-            Assert.Equal(HttpStatusCode.OK, (await client.SendAsync(req)).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, req)).StatusCode);
         }
 
         m = await MembershipAsync();
@@ -372,7 +407,7 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
         using (var req = new HttpRequestMessage(HttpMethod.Get, "/api/v1/loyalty"))
         {
             req.Headers.Authorization = new("Bearer", manager);
-            var body = JsonDocument.Parse(await (await client.SendAsync(req)).Content.ReadAsStringAsync()).RootElement;
+            var body = JsonDocument.Parse(await (await SendAsync(client, req)).Content.ReadAsStringAsync()).RootElement;
             var row = body.GetProperty("rows").EnumerateArray().First(r => r.GetProperty("id").GetGuid() == custId);
             Assert.Equal($"Gold Plus-{suffix}", row.GetProperty("tier").GetString());
             Assert.Equal(0.15m, row.GetProperty("autoDiscountRate").GetDecimal());
@@ -380,7 +415,7 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
         using (var req = new HttpRequestMessage(HttpMethod.Get, "/api/v1/loyalty/tiers"))
         {
             req.Headers.Authorization = new("Bearer", manager);
-            var tiers = JsonDocument.Parse(await (await client.SendAsync(req)).Content.ReadAsStringAsync()).RootElement;
+            var tiers = JsonDocument.Parse(await (await SendAsync(client, req)).Content.ReadAsStringAsync()).RootElement;
             var tier = tiers.EnumerateArray().First(t => t.GetProperty("id").GetGuid() == tierId);
             Assert.Equal(1, tier.GetProperty("memberCount").GetInt32());
         }
@@ -486,6 +521,64 @@ public class CustomersLoyaltyE2eTests : IClassFixture<PlutusAppFactory>
             var entries = body.GetProperty("entries");
             Assert.Equal(1, entries.GetArrayLength());
             Assert.Equal("damaged comic, agreed with Matt", entries[0].GetProperty("reason").GetString());
+        }
+    }
+
+    /// <summary>
+    /// ⚠⚠ A JUST-ADDED MEMBER MUST BE FINDABLE ON THE LOYALTY LIST. Matt, first hand-run of G38
+    /// (2026-08-18): *"add a new member, did not work ... saying it added, but its not"*. It HAD been
+    /// added — the membership number in that confirmation is server-minted — but `GET /api/v1/loyalty`
+    /// returned only customers holding a Membership OR a CreditAccount, and somebody who has just
+    /// signed up has **neither**.
+    ///
+    /// ⚠⚠ AND IT WAS A DEAD END, not merely a confusing screen: **Set tier picks from the rows on
+    /// screen**, so a new member could never be given a tier from the till. Add, vanish, cannot promote.
+    ///
+    /// ⚠ THE DEFAULT VIEW MUST STAY NARROW. With no search this is still "members and credit
+    /// holders", which is what the tab is for — so both halves are asserted here. Widening only on an
+    /// explicit search is the whole design.
+    /// </summary>
+    [Fact]
+    public async Task A_new_member_with_no_tier_and_no_credit_is_findable_by_search()
+    {
+        var client = _f.CreateClient();
+        var manager = PlutusAppFactory.OperatorTokenFor(await SeedCustomerManagerAsync(), "pos.sell");
+        var name = $"Susan Testerson {Guid.NewGuid().ToString()[..6]}";
+
+        string memberNo;
+        Guid customerId;
+        using (var resp = await Send(client, HttpMethod.Post, "/api/v1/customers", manager, new { name }))
+        {
+            Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
+            var b = JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement;
+            customerId = b.GetProperty("id").GetGuid();
+            memberNo = b.GetProperty("memberNo").GetString();
+        }
+
+        // ⚠ BY NAME - what an operator types.
+        using (var resp = await Send(client, HttpMethod.Get, $"/api/v1/loyalty?search={Uri.EscapeDataString(name)}", manager))
+        {
+            Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+            var rows = JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement.GetProperty("rows");
+            Assert.Contains(rows.EnumerateArray(), r => r.GetProperty("id").GetGuid() == customerId);
+        }
+
+        // ⚠⚠ BY MEMBERSHIP NUMBER - what the till fills the search box with after adding, and what
+        // a scanned card produces.
+        using (var resp = await Send(client, HttpMethod.Get, $"/api/v1/loyalty?search={memberNo}", manager))
+        {
+            Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+            var rows = JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement.GetProperty("rows");
+            Assert.Contains(rows.EnumerateArray(), r => r.GetProperty("id").GetGuid() == customerId);
+        }
+
+        // ⚠ AND THE UNSEARCHED LIST STAYS NARROW - a customer with no tier and no credit is not
+        // "loyalty" until they have one of the two.
+        using (var resp = await Send(client, HttpMethod.Get, "/api/v1/loyalty", manager))
+        {
+            Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+            var rows = JsonDocument.Parse(await resp.Content.ReadAsStringAsync()).RootElement.GetProperty("rows");
+            Assert.DoesNotContain(rows.EnumerateArray(), r => r.GetProperty("id").GetGuid() == customerId);
         }
     }
 }

@@ -126,9 +126,20 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
                 {
                     // ⚠ "Name *", not "Name" — see the header. The other two say "(optional)" for the
                     // same reason, from the other side.
-                    new CustomViews.Structs.ViewElementData(1, "Name *", "", required.AsEnumerable(), false, true),
-                    new CustomViews.Structs.ViewElementData(2, "Email (optional)", "", new List<Helpers.Validators.IValidator>(), false, false),
-                    new CustomViews.Structs.ViewElementData(3, "Phone (optional)", "", new List<Helpers.Validators.IValidator>(), false, false),
+                    //
+                    // ⚠⚠ THE LAST ARGUMENT IS `IsEnabled`, AND EMAIL AND PHONE WERE PASSED `false`.
+                    // Matt, on the first hand-run (2026-08-18): *"email and phone are not editable"* —
+                    // they were **disabled boxes**, exactly as written. The value came straight from
+                    // the till-screen original this was moved from, which nobody could ever reach
+                    // because it answered 403 for every operator (item 6a): **a bug that had never
+                    // been seen because the screen in front of it had never worked.**
+                    //
+                    // ⚠ `IsPassword` is the argument before it — that one is genuinely `false` here.
+                    // The two booleans sit side by side and mean opposite kinds of thing; naming them
+                    // at the call site is what stops the next person swapping them again.
+                    new CustomViews.Structs.ViewElementData(1, "Name *", "", required.AsEnumerable(), isPassword: false, isEnabled: true),
+                    new CustomViews.Structs.ViewElementData(2, "Email (optional)", "", new List<Helpers.Validators.IValidator>(), isPassword: false, isEnabled: true),
+                    new CustomViews.Structs.ViewElementData(3, "Phone (optional)", "", new List<Helpers.Validators.IValidator>(), isPassword: false, isEnabled: true),
                 };
 
                 var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(

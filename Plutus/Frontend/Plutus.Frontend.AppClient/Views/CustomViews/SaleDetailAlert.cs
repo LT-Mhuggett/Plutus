@@ -40,7 +40,33 @@ namespace Plutus.Frontend.AppClient.Views.CustomViews
 
         public SaleDetailAlert(SaleDto sale, string tillLabel)
         {
-            _scroller = new ScrollView { Content = _main };
+            // ⚠⚠ A SOLID BACKGROUND AND A CENTRED BOX — WITHOUT BOTH, THIS DIALOG IS TRANSPARENT.
+            // Reported by Matt on the first hand-run of §G41 (2026-08-18): *"When I open a sales day in
+            // reports. I get a transparent screen"* — the sale's text drew straight over the report
+            // table behind it, unreadable and full-window wide.
+            //
+            // ⚠ `AlertDialogBase` supplies only the 40%-black scrim; the CONTENT's own background is
+            // the dialog. `InputAlert.xaml` sets `BackgroundColor="White"` on **both** its ScrollView
+            // and its inner stack, plus Center/Center options, and it does that because a `ContentView`
+            // defaults to transparent and stretches. Copied here rather than re-derived — see
+            // `repo-runbook.md` "copy these shapes, don't invent".
+            //
+            // ⚠ `ThemeSurface`, NOT a hard-coded white — and only because the ink moved with it in the
+            // same build. `Styles.xaml` now gives every `Label` its colour from `ThemeInk`, so this
+            // dialog's text and its background come from one scheme. Pairing is the whole rule: a
+            // themed surface under default-coloured ink is the unreadable-label fault (1.74.0).
+            //
+            // ⚠ `SetDynamicResource`, not a fetched value: a colour read once here would be frozen at
+            // construction and would not follow a scheme applied afterwards.
+            _scroller = new ScrollView
+            {
+                Content = _main,
+                HorizontalOptions = LayoutOptions.Center,
+                VerticalOptions = LayoutOptions.Center,
+            };
+
+            _scroller.SetDynamicResource(VisualElement.BackgroundColorProperty, "ThemeSurface");
+            _main.SetDynamicResource(VisualElement.BackgroundColorProperty, "ThemeSurface");
 
             // ⚠ A ✕ ON EVERY BOX — D4, and the shared helper rather than a hand-rolled glyph so this
             // one cannot drift from the other twenty-four.

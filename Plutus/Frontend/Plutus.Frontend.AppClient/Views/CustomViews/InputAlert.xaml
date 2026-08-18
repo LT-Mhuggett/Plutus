@@ -22,10 +22,10 @@
         <ScrollView x:Name="Scroller"
                     HorizontalOptions="CenterAndExpand"
                     VerticalOptions="CenterAndExpand"
-                    BackgroundColor="White">
+                    BackgroundColor="{DynamicResource ThemeSurface}">
             <StackLayout
                 x:Name="MainLayout" Padding="10,10,10,10"
-                Spacing="5" BackgroundColor="White"
+                Spacing="5" BackgroundColor="{DynamicResource ThemeSurface}"
                 HorizontalOptions="FillAndExpand"
                 VerticalOptions="StartAndExpand"/>
         </ScrollView>

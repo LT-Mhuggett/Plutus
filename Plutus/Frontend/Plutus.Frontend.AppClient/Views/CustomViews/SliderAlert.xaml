@@ -7,7 +7,7 @@
              x:Class="Plutus.Frontend.AppClient.Views.CustomViews.SliderAlert">
   <ContentView.Content>
         <StackLayout x:Name="StackContainer" Padding="20"
-                BackgroundColor="White"
+                BackgroundColor="{DynamicResource ThemeSurface}"
                 HorizontalOptions="CenterAndExpand"
                 VerticalOptions="CenterAndExpand">
             <ScrollView>

@@ -91,13 +91,43 @@ namespace Plutus.Customers
                 .ToDictionary(x => x.AccountId, x => x.Bal);
 
             var custIds = members.Select(m => m.CustomerId).Concat(accounts.Select(a => a.CustomerId)).Distinct().ToList();
-            var customers = await _db.Customers.AsNoTracking().Where(c => c.Active && custIds.Contains(c.Id)).ToListAsync();
+
+            // ⚠⚠ AN EXPLICIT SEARCH REACHES EVERY ACTIVE CUSTOMER, NOT ONLY MEMBERS AND CREDIT HOLDERS.
+            //
+            // Matt, on the first hand-run of §G38 (2026-08-18): *"add a new member, did not work …
+            // saying it added, but its not"*. **It HAD added** — the membership number in the
+            // confirmation is server-minted, so the row existed. This list simply could not show her:
+            // it returned customers who hold a Membership OR a CreditAccount, and somebody just signed
+            // up has **neither**.
+            //
+            // ⚠⚠ AND IT WAS A DEAD END, not just a confusing screen. **Set tier picks from the rows on
+            // screen**, so a newly added member could never be given a tier from the till — the one
+            // action you would take next. Add → invisible → cannot promote.
+            //
+            // ⚠ THE DEFAULT VIEW IS UNCHANGED: with no search this is still "who is a member or holds
+            // credit", which is what the tab is for. Only an explicit search widens, and that is the
+            // case where the operator has already named who they are looking for.
+            //
+            // ⚠ Filtered in the DATABASE now rather than in memory: the old in-memory pass could only
+            // narrow a set that had already excluded the person being searched for.
+            List<Customer> customers;
+
             if (!string.IsNullOrWhiteSpace(search))
             {
                 var memberNo = MemberNumbers.TryCanonicalise(search); // FE2: scan/type a card number
-                customers = customers.Where(c => (c.Name ?? "").Contains(search, StringComparison.OrdinalIgnoreCase)
-                    || (c.Email ?? "").Contains(search, StringComparison.OrdinalIgnoreCase)
-                    || (memberNo != null && c.MemberNo == memberNo)).ToList();
+                customers = await _db.Customers.AsNoTracking()
+                    .Where(c => c.Active)
+                    .Where(c => c.Name.Contains(search)
+                             || c.Email.Contains(search)
+                             || (memberNo != null && c.MemberNo == memberNo))
+                    .Take(take)
+                    .ToListAsync();
+            }
+            else
+            {
+                customers = await _db.Customers.AsNoTracking()
+                    .Where(c => c.Active && custIds.Contains(c.Id))
+                    .ToListAsync();
             }
 
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
