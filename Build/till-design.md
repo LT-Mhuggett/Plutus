@@ -90,7 +90,7 @@ otherwise.
 | Refuse a discount bigger than the basket | ✅ | ✅ |
 | Record **why** a discount was given | ✅ | ✅ |
 | Hold a cashier to a discount **limit**, and step up to a supervisor | 🟡 | ✅ |
-| Park a basket and recall it | ✅ | ✅ |
+| Park a basket and recall it | ✅ | 🟠 *saves; the RETRIEVE is a toolbar item nobody finds — §5c item 1* |
 | Take **cash** | ✅ | ✅ |
 | Take **card** | ✅ | ✅ |
 | Charge the tenant's **card fee**, with the fee's VAT following the basket | 🟡 | 🟡 |
@@ -837,3 +837,36 @@ grep -rln 'className="dialog' Plutus/Frontend/Plutus.Frontend.WebApp/src --inclu
 
   ⚠ **The failure mode is specific and nasty**: a ✅ that reads as built stops anyone looking, so
   the gap survives every subsequent review of this document. A 🟡 costs nothing and is honest.
+
+---
+
+## ⚠⚠ A0 POSTSCRIPT — what a person found on 2026-08-18 that 1,946 tests did not
+
+Matt ran the MAUI till against the web till and reported **nine** faults in one sitting. Every one had
+passed every automated check in this project. They are itemised as a work programme in
+[`MAUI-retrofit.md`](To%20do/MAUI-retrofit.md) **§5c**; what belongs *here* is what they say about this
+document:
+
+- **🟡 meant less than it reads.** Reports, Loyalty, Settings and checkout were all 🟡 — *"built,
+  tested where a machine can reach, never seen by a human."* In practice that turned out to mean
+  **the data arrives and the screen is wrong**: reports missing half the web till's set and all of its
+  drill-down; a Loyalty tab with no way to add or edit a member; a save that **fails silently** when a
+  mandatory field is empty; screens that never refresh unless you navigate away and back.
+- ⚠ **Two rows were ✅ and should not have been.** "Park a basket and recall it" is now 🟠: the save
+  works, and the *retrieve* is a toolbar item labelled "Baskets" that the person using it could not
+  find. A capability nobody can reach is not a capability — the same lesson as the refund button
+  (finding Z1) and the reprint (§5b W-P6), for the third time.
+- ⚠ **One row was mine and wrong.** I argued the customer Search / Add-member buttons belonged on the
+  till screen. They are on neither the web till nor NatApp, and a member is attached by **scanning
+  their card** on both. Removed. **When Matt says a screen does not match, check the other screen
+  before defending ours.**
+- ⚠ **A capability was claimed that was never built.** "Reports approved in the portal are pushed to
+  each till" does not exist anywhere in the solution — no approval, no publish, no push. Step 26 gave
+  each till its *own* reports over platform data, which is a different thing. **Nothing in Part B
+  claimed it; the belief formed anyway**, which is worth more caution than a stale marker: an
+  unwritten assumption cannot be corrected by grep.
+
+**The standing conclusion.** Part A0 and Part B are honest about *whether code exists*. They are
+**silent about whether a person can use it**, and this review is the fourth demonstration that the gap
+between those two is where the faults live. ⚠ Only [`Test Maui.md`](Test%20Maui.md) closes it, and it
+has still never been run start to finish.

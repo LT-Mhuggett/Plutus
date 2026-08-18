@@ -239,28 +239,27 @@
                         <ColumnDefinition Width="1*"/>
                         <ColumnDefinition Width="1*"/>
                     </Grid.ColumnDefinitions>
-                    <!-- ⚠ THE CUSTOMER BAR. "Add member" when nobody is attached; the member's name
-                         and tier when one is, with a button to take them off again. The two swap on
-                         HasAttachedCustomer so the operator always has exactly one of them. -->
-                    <Button Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
-                            Text="{i18n:Translate Search}"
-                            IsVisible="{Binding HasAttachedCustomer, Converter={StaticResource InverseBool}}"
-                            Command="{Binding AttachCustomerCommand}"/>
-                    <!-- ⚠ Hidden when the operator lacks `pos.customers.add` OR `customers.manage`.
-                         A control that is only going to refuse is worse than no control. -->
-                    <Button Grid.Row="0" Grid.Column="3" Grid.ColumnSpan="3"
-                            Text="{i18n:Translate AddMember}"
-                            IsVisible="{Binding ShowAddMember}"
-                            Command="{Binding AddMemberCommand}"/>
-                    <Label  Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" VerticalOptions="Center"
+                    <!-- ⚠⚠ THE CUSTOMER SEARCH AND "ADD MEMBER" BUTTONS ARE GONE (2026-08-18).
+                         Matt, twice: *"Why is search and add member on the till screen? Neither the
+                         webtill or original NatApp has this here. It should not be there."*
+
+                         ⚠ I argued once that they belonged, and I was wrong on the facts. Verified
+                         against the web till: its till screen has NO customer control at all — a
+                         member is attached by SCANNING THEIR CARD, which `MEMBER_CARD` picks up in
+                         the scan handler. MAUI has the same path (`MemberNumbers.LooksLikeMemberScan`,
+                         TillViewModel ~1648), so nothing is lost by removing the buttons: the
+                         scan still attaches, and the members' auto-discount still applies.
+
+                         ⚠ Adding and editing members belongs on the LOYALTY tab — see
+                         `MAUI-retrofit.md` §5c item 6. The commands stay on the view model because
+                         that tab will call them.
+
+                         What remains here is the ATTACHED-CUSTOMER row: who is on this sale, their
+                         tier, and a way to take them off again. That is about the basket in front of
+                         the operator, not about managing the loyalty scheme. -->
+                    <Label  Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4" VerticalOptions="Center"
                             IsVisible="{Binding HasAttachedCustomer}"
                             Text="{Binding AttachedCustomerLabel}"/>
-                    <!-- ⚠ Supervisor and up (`customers.manage`) — a tier changes every future
-                         basket that customer puts through, so it is not a cashier's decision. -->
-                    <Button Grid.Row="0" Grid.Column="3" Grid.ColumnSpan="1"
-                            Text="{i18n:Translate SetTier}"
-                            IsVisible="{Binding ShowSetTier}"
-                            Command="{Binding SetTierCommand}"/>
                     <Button Grid.Row="0" Grid.Column="4" Grid.ColumnSpan="2"
                             Text="{i18n:Translate RemoveMember}"
                             IsVisible="{Binding HasAttachedCustomer}"

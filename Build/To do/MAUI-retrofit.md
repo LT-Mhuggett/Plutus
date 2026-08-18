@@ -3037,3 +3037,49 @@ instead of killing the app**, then fix the meanings properly afterwards.
 taken a crash reachable only by clicking outside and made it **the obvious button to press**. The fix
 surfaced its own hazard, which is the argument for auditing the call sites of anything you make more
 discoverable.
+
+---
+
+## 5c. ⚠⚠ THE 2026-08-18 PARITY REVIEW — nine findings from a person at a screen
+
+> Matt ran the MAUI till against the web till and reported nine things in one message. **This section
+> is the work programme.** Sizes are honest; the order is mine and argued.
+>
+> ⚠⚠ **READ THIS FIRST: the register said most of this was done.** Reports, Loyalty, Settings and
+> checkout were all **🟡 — "built, tested where a machine can reach, never seen by a human."** A human
+> has now seen them, and 🟡 turned out to mean *"the data arrives and the screen is wrong."* That is
+> the register working exactly as designed, and it is the strongest evidence yet for the hand-run:
+> **every one of these was invisible to 1,348 unit tests and 598 MAUI tests.**
+
+### What was done immediately (2026-08-18)
+
+| # | Finding | Done |
+|---|---|---|
+| 4 | **"Search" and "Add member" on the till screen** — *"Neither the webtill or original NatApp has this here."* | ✅ **REMOVED.** ⚠ I argued once that they belonged and was **wrong on the facts**: the web till's till screen has no customer control at all — a member is attached by **scanning their card** (`MEMBER_CARD` in its scan handler), and MAUI has the same path (`MemberNumbers.LooksLikeMemberScan`). Nothing was lost. The attached-customer row (who is on this sale + Remove) stays, because that is about the basket, not about managing the scheme |
+
+### The programme
+
+| # | Finding | What it needs | Size |
+|---|---|---|---|
+| 1 | **Cannot retrieve a saved basket** | ⚠ **It is not missing — it is the word "Baskets" in the top-right toolbar**, which is why it was not found. Matt's design is better and matches the web till: **two explicit buttons, Save and Retrieve, with Retrieve disabled when there is nothing parked.** ⚠ The web till DOES hold many named baskets (`parkTransaction(name, …)`), so "it can only save one" is a symptom of the same discoverability problem, not a limit. ⚠ That toolbar insertion is also what raised the `ToolbarItemsChanged` crash fixed in 1.78.0 | **½ d** |
+| 2 | **Checkout must match the web till** | The web till's one-screen tender (every method listed, live Paid/Remaining, named refusals) vs MAUI's sequential prompts. ⚠ The ARITHMETIC is already shared and pinned (`TenderLoop` ↔ `tendering.ts`, C2) — this is the SCREEN, which is cutover step 11b and was always going to be the bigger half | **3–4 d** |
+| 2b | ⚠⚠ **Store credit must come from a KNOWN customer, or be gated with a recorded reason** | **This is a money rule and it is new.** Today the web till offers credit only with a customer attached and a positive balance; MAUI's rule must match, **and** the "no known customer" case needs an explicit authorised path with the reason **stored on the sale** — not a local log. ⚠ The shape already exists: `DiscountAudit` does exactly this for discounts (reason mandatory, supervisor recorded, travels on the sale). Reuse it rather than invent a second audit trail | **1–2 d** |
+| 3 | **Click the price in the row to adjust it** | ✅ The **rule** is done and shared (`PriceAdjust`, 1.79.0). What remains is the **interaction**: an inline editable cell in the basket row instead of a modal. ⚠ MAUI's basket is a `ListView`/`CollectionView` — an editable cell there is real work, not a style tweak | **1–1½ d** |
+| 5 | **Reports do not match the web till** | Wanted: Summary (**no graph**), Custom range, VAT, Items sold, Category sales, Best sellers, Stock, Negative stock — **and drill-down into a sale**. ⚠ MAUI's `ReportCatalogue` has six of these; **drill-down is absent entirely**, and it is the one that turns a report into an answer. ⚠ Needs the reports gated on `pos.reports.view` (the 1.75.0 fix) to stay that way | **2–3 d** |
+| 5b | ⚠ **"I thought we had built this where reports approved in the portal are pushed to each till version?"** | **It was never built.** Verified: no approval, publish or push mechanism exists anywhere in the solution — every till has its own hard-coded catalogue. ⚠ It is a good idea and it is **not** what step 26 delivered; step 26 gave the till *its own* reports reading platform data. A portal-curated set pushed to tills is a **new work package**, and it wants a decision: does the portal control *which* reports a till shows, or only *who* may see them (which RBAC already does)? | **decision first, then 2–3 d** |
+| 6 | **Loyalty on MAUI is unusable** | No add, no edit, none of the portal's information, layout not aligned, and ⚠⚠ **a save that fails silently when no tier is chosen**. The silent failure is the urgent half — a member the operator believes they created. Mandatory fields must be marked and the failure must be said out loud | **1½–2 d** (⚠ the silent-save bug alone is **½ d** and should not wait) |
+| 7 | ⚠ **Nothing updates unless you navigate away and back** | Systemic: screens load in their constructor and never refresh. **Finding N** was this exact fault on one screen (takings fixed at sign-in); it is everywhere else too. Fix is `OnAppearing` + the 60 s cadence, per screen. ⚠ On a till this is not cosmetic — a stale figure looks exactly like a correct one | **1–1½ d** |
+| 8 | **"Choose bag item" in Store Information** | It sets which item the till's quick **Bag** button rings up. ⚠ **The web till has the identical setting — in Settings** (`prefs.ts bagBarcode`, Settings → Till). So MAUI's is in the **wrong place**, and it moves to Settings with item 9. Not a mystery feature, a misfiled one | **folded into 9** |
+| 9 | **Settings must match the web till** | ⚠ Matt: *"most of the MAUI Plutus tab would move into settings"* — **agreed, and it is the right instinct**: the web till has one Settings page with sections (Till, Printer, Hardware, Device), while MAUI splits device/platform concerns into a separate "Plutus" tab. Merging them is mostly moving existing panels + the bag item from Store Information | **2 d** |
+
+### ⚠ The order I would work in, and why
+
+1. **6's silent save** (½ d) — it is a data-integrity bug wearing a UX coat: the operator thinks a member exists.
+2. **1, Save/Retrieve buttons** (½ d) — cheapest real win, and it un-hides a feature that already works.
+3. **7, refresh on appear** (1–1½ d) — it makes every other screen trustworthy, including ones already "done".
+4. **2b, credit gating** (1–2 d) — money, and the rule is missing rather than misplaced.
+5. **5 + 5b decision, then 3, 9, 6-rest, 2** — largest last, and 2 is step 11b regardless.
+
+**Total ≈ 13–17 days**, of which about three are money or data integrity and the rest is screens.
+
+⚠ **Nothing here changes a Part B row to ✅.** Several rows go the other way — see the register.
