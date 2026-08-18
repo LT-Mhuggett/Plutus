@@ -20,18 +20,18 @@
 
 ## ⏰ START HERE — the build exists, and no person has ever run it
 
-✅ **Till 1.87.0 is BUILT, and backend 1.17.4 + portal 1.10.0 are DEPLOYED.** Double-click:
+✅ **Till 1.88.0 is BUILT; backend 1.17.5 + portal 1.10.0 are DEPLOYED.** ⚠⚠ **Hand-run 1 happened** — see `Test Maui.md`, last section: three sections passed and **four faults came back, all now fixed in this build**. Double-click:
 
 ```
 D:\tmp\plutus-till-1.87.0\Plutus.Frontend.AppClient.exe
 ```
 
-The artefact reads **`1.87.0+9da2b5f2`** = HEAD, and this session's work is confirmed **inside the
+⚠⚠ **CLOSE 1.87.0 FIRST — it is still on the box because it was RUNNING and could not be deleted, and it is the build with all four faults.** The artefact reads **`1.88.0+f18f1100`** = HEAD, and this session's work is confirmed **inside the
 binary** rather than merely committed — six strings only these changes introduced were found in it.
 ⚠ It will say the till isn't enrolled; that is expected for an unpackaged build (runbook § MAUI till
 build) — enrol it as a fresh till.
 
-⚠ **Only 1.87.0 is on the box** — 1.81.0 was deleted, so there is no question which to run.
+⚠ **Delete `D:	mpplutus-till-1.87.0` once it is closed** — until then there are two builds on the box and only one is worth running.
 
 ⚠⚠ **THE BACKEND DEPLOY IS NOT OPTIONAL FOR THIS BUILD.** Without 1.17.4 the new **Stock** and
 **Negative stock** reports read for nobody below Store Manager. It is deployed and verified on both

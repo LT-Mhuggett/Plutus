@@ -46,7 +46,7 @@ on 2026-08-11 came from somebody noticing something, not from a step asking the 
 
 | | |
 |---|---|
-| **Run** | ✅ `D:\tmp\plutus-till-1.87.0\Plutus.Frontend.AppClient.exe` — just double-click it. Nothing to install. **BUILT 2026-08-18 and verified INSIDE the binary**: the artefact reads `1.87.0+9da2b5f2`, which is HEAD, and six strings introduced by this session's work were found in it (`Sales (tap to open)`, `Negative stock`, `Whose tier?`, `below zero`, `date range above does not apply`, `ListItemDetailTextStyle`). ⚠ It is the **only** till build on the box — 1.81.0 was deleted so there is no question which to run. ⚠ It will say the till isn't enrolled; that is expected for an unpackaged build (runbook § MAUI till build) — enrol it as a fresh till. ⚠⚠ **NEEDS BACKEND 1.17.4, WHICH IS DEPLOYED** (2026-08-18): the Stock and Negative stock reports read for nobody below Store Manager without it. ⚠ **§G38–§G43 are all new and none has ever been run.** |
+| **Run** | ✅ `D:\tmp\plutus-till-1.88.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-18 (evening) and verified inside the binary** (`1.88.0+f18f1100` = HEAD). ⚠⚠ **CLOSE 1.87.0 FIRST — IT IS STILL ON THE BOX.** It could not be deleted because it was **running**, and it is the build with the four faults hand-run 1 found: the transparent sale dialog, the disabled email/phone boxes, the invisible new member and the unthemed screens. Running it again would re-find all four. **Delete `D:\tmp\plutus-till-1.87.0` once it is closed.** ⚠⚠ **NEEDS BACKEND 1.17.5**, deployed and verified 2026-08-18 evening — without it a newly added member is still invisible on the Loyalty tab, because that half of the fix is server-side. ⚠ It will say the till isn't enrolled; expected for an unpackaged build — enrol it as a fresh till. |
 | **Agent** | ⚠ **Agent 1.4.0 is REQUIRED for §G29**, and it fixes "start automatically" not working after a reboot. Get it from the **web till → Settings → Hardware → Download the agent (v1.4.0)**, or from `tools\Plutus.TillAgent\publish-out\PlutusTillAgent-1.4.0.exe`. ⚠⚠ **Copy it to `%LOCALAPPDATA%\Plutus\Agent\` and run it from THERE — not from Downloads.** Auto-start records the path it was launched from; a Downloads copy gets cleaned up or renamed `… (1).exe`, and then the till boots and starts nothing. That is the fault this build fixes, and running it once from a permanent folder repairs a stale registration. |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
@@ -2744,3 +2744,25 @@ With a dark scheme on, take a cash sale and print.
 
 ⚠⚠ Receipts are immune to theming by design (till-design C1) and nothing on a print path may read a
 theme slot: printing from a dark scheme once put near-white ink on paper.
+
+---
+
+## ⚠⚠ HAND-RUN 1 (2026-08-18 evening) — what it found, and where it is fixed
+
+The first person ever to run §G38–§G43. **Three sections passed; four faults came back**, and two of
+them were introduced the day before. This is the record; the fixes are in **till 1.88.0 + backend
+1.17.5**.
+
+| Section | Verdict |
+|---|---|
+| **§G42d** | ✅ **PASSED** — the money check. A second scan of a hand-adjusted item starts its own line at full price |
+| **§G42a** | ✅ **PASSED** — ⚠ and this is the one I said was most likely to fail. **A `TapGestureRecognizer` DOES fire inside a `ViewCell` on WinUI**, so the wrapper approach is sound and item 10 can build on it |
+| **§G43a** | ✅ **PASSED** — the basket rows are legible |
+| **§G38** | 🔴 *"add a new member, did not work … saying it added, but its not"* — ⚠⚠ **IT HAD ADDED.** The membership number in that alert is server-minted. `GET /api/v1/loyalty` returns only customers holding a Membership **or** a CreditAccount, and somebody who has just signed up has **neither** — so she was created and invisible. ⚠ **A DEAD END, not a cosmetic bug**: Set tier picks from the rows on screen, so a new member could never be given a tier from the till. Fixed: an explicit search now reaches every active customer; the unsearched list stays narrow |
+| **§G38** | 🔴 *"email and phone are not editable"* — they were passed `IsEnabled: false`. **Disabled boxes, exactly as written.** Inherited from the till-screen original, which nobody could reach because it 403'd for every operator — **a bug never seen because the screen in front of it never worked** |
+| **§G41** | 🔴 *"I get a transparent screen"* — the sale detail drew over the report behind it. `AlertDialogBase` supplies only the scrim; the content's own background **is** the dialog, and a `ContentView` defaults to transparent. `InputAlert.xaml` had set one all along — I invented instead of copying |
+| **§G43** | 🔴 *"Colours does not seem to work on MAUI it does on the webtill"* — correct: **only two things in the entire app read a theme slot.** Now `Styles.xaml` carries implicit styles for `ContentPage`, `Label`, `Entry`, `Editor` and `Button`, so the scheme reaches everything |
+
+⚠ **The lesson worth keeping**: every one of the four was invisible to 605 MAUI tests, 176 integration
+tests and a clean XamlC build. Two were *silent* by construction — a disabled box and a transparent
+background both render perfectly.
