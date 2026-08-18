@@ -2258,6 +2258,14 @@ order, and not before** — removing the licence registration while a licensed c
 the assembly turns a dormant screen into a **trial-dialog** screen, which is worse than leaving it.
 Detail: [`syncfusion-footprint.md`](../syncfusion-footprint.md).
 
+⚠ **What it costs to keep, measured 2026-08-18:** Syncfusion is **76 MB of the till's 264 MB publish
+output (29%)**, all of it reachable from no screen an operator can open, and the full removal would
+make the artefact **a third smaller**. That is the price of L4's ruling, and it is a fair price —
+recorded so the decision stays informed, **not** as an argument to reopen it. The sequencing, the
+tiers that do NOT need L4 touched, and the 15 MB of `DocumentFormat.OpenXml` the till never calls are
+in [`Shrink MAUI Build.md`](Shrink%20MAUI%20Build.md). ⚠ That page is **packaging only** — this
+document remains the authority on whether these screens live.
+
 ### L5 — The legacy database layer
 
 **Code:** `Helpers/Database/Database.cs`; the `Plutus/Data/Database` project (55 files).
