@@ -234,12 +234,133 @@ namespace Plutus.Frontend.AppClient.Tests.Reporting
             Assert.Contains("Till 2", row.SearchText);
         }
 
+
+        /// <summary>
+        /// ⚠⚠ THE NEGATIVE-STOCK REPORT'S WHOLE SUBJECT IS A NEGATIVE NUMBER, and two things could
+        /// quietly destroy it: clamping the quantity at zero (the report becomes empty and the fault
+        /// becomes a silence), or letting the column sort as TEXT — where "−28508" and "−3" order by
+        /// their first character and the worst offenders hide in the middle of the list.
+        ///
+        /// ⚠ Kapow's real data has items at **−28,508**: sales decremented stock for seven years
+        /// while goods-in was never recorded. That is the figure used here on purpose.
+        /// </summary>
+        [Fact]
+        public async Task Negative_stock_keeps_the_sign_and_sorts_as_a_number()
+        {
+            var api = Api(_ => Json(
+                """{"totalCatalogueItems":9,"inStock":0,"matched":1,"skip":0,"take":200,"rows":[{"itemIdOne":"BACKISSUE","name":"Back issues","category":"Comics","location":"Shop floor","quantity":-28508}]}"""));
+
+            var table = await ReportCatalogue.All.Single(r => r.Key == "negative-stock")
+                .LoadAsync(api, Query, default);
+
+            var row = Assert.Single(table.Rows);
+
+            // ⚠ The SORT key is the signed quantity itself — not its text, and not its absolute value.
+            Assert.Equal(-28508, row.Cells.Last().SortNumber);
+            Assert.Contains("28,508", row.Cells.Last().Text);
+            Assert.Contains("-", row.Cells.Last().Text);
+
+            // ⚠ And it is the only numeric column: Item, Category, Location are all text.
+            Assert.Equal(new[] { false, false, false, true }, table.NumericColumns);
+        }
+
+        /// <summary>
+        /// ⚠⚠ AN EMPTY NEGATIVE-STOCK REPORT IS GOOD NEWS, and it must not look like a failed read.
+        /// "No rows" and "you may not have permission" are opposite answers, and on this report the
+        /// good one is the one that will normally happen once a shop is straight.
+        /// </summary>
+        [Fact]
+        public async Task An_empty_negative_stock_report_says_nothing_is_below_zero()
+        {
+            var api = Api(_ => Json("""{"totalCatalogueItems":9,"inStock":9,"matched":0,"skip":0,"take":200,"rows":[]}"""));
+
+            var table = await ReportCatalogue.All.Single(r => r.Key == "negative-stock")
+                .LoadAsync(api, Query, default);
+
+            Assert.Empty(table.Rows);
+            Assert.Contains("below zero", table.Note, StringComparison.OrdinalIgnoreCase);
+            // ⚠ And it must NOT read as a refusal — that is the sentence the 403 path uses.
+            Assert.DoesNotContain("permission", table.Note, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// ⚠⚠ STOCK IGNORES THE DATE RANGE, AND MUST SAY SO. On-hand stock is a fact about NOW — a
+        /// materialised sum of the whole movement ledger — but the reports screen shows From/To
+        /// pickers above every report. A report that silently ignores the dates above it invites
+        /// somebody to believe they asked for last week's stock and got it.
+        /// </summary>
+        [Fact]
+        public async Task Both_stock_reports_say_the_dates_do_not_apply()
+        {
+            var api = Api(_ => Json(
+                """{"totalCatalogueItems":9,"inStock":1,"matched":1,"skip":0,"take":200,"rows":[{"itemIdOne":"A","name":"Thing","quantity":4}]}"""));
+
+            foreach (var key in new[] { "stock", "negative-stock" })
+            {
+                var table = await ReportCatalogue.All.Single(r => r.Key == key)
+                    .LoadAsync(api, Query, default);
+
+                Assert.Contains("date range above does not apply", table.Note);
+            }
+        }
+
+        /// <summary>
+        /// ⚠⚠ THE SILENT CAP AGAIN, on a second report. The server clamps `take` to 200 and answers
+        /// `matched` with the truth — so a shop with 4,000 stock rows sees 200 and, without this,
+        /// would read the totals line as the whole picture. Same rule as `items-sold`.
+        /// </summary>
+        [Fact]
+        public async Task Stock_says_so_when_the_server_capped_the_rows()
+        {
+            var api = Api(_ => Json(
+                """{"totalCatalogueItems":9000,"inStock":3000,"matched":4000,"skip":0,"take":200,"rows":[{"itemIdOne":"A","name":"Thing","quantity":1}]}"""));
+
+            var table = await ReportCatalogue.All.Single(r => r.Key == "stock")
+                .LoadAsync(api, Query, default);
+
+            Assert.Contains("4,000", table.Note);
+            Assert.Contains("200 at a time", table.Note);
+        }
+
+        /// <summary>
+        /// ⚠⚠ THE FILTER IS THE ONLY THING THAT MAKES THESE TWO REPORTS DIFFERENT, and if it
+        /// were dropped the "Negative stock" report would return EVERY stock row — which, under that
+        /// heading, reads as "every item in the shop is below zero". A worse answer than an error.
+        ///
+        /// ⚠ Found by mutation: clamping the sign or losing the sort key both died against the
+        /// tests above, but sending the wrong query string did not, because a fake that answers every
+        /// URL identically cannot tell the two reports apart. So this asserts the URL itself.
+        /// </summary>
+        [Fact]
+        public async Task Only_the_negative_report_asks_the_server_to_filter()
+        {
+            foreach (var (key, shouldFilter) in new[] { ("stock", false), ("negative-stock", true) })
+            {
+                string? asked = null;
+                var api = Api(r =>
+                {
+                    asked = r.RequestUri!.AbsoluteUri;
+                    return Json("""{"matched":0,"rows":[]}""");
+                });
+
+                await ReportCatalogue.All.Single(r => r.Key == key).LoadAsync(api, Query, default);
+
+                Assert.NotNull(asked);
+                Assert.Contains("/api/v1/stock/levels", asked);
+                Assert.Equal(shouldFilter, asked!.Contains("filter=negative", StringComparison.Ordinal));
+            }
+        }
         private static string SampleFor(string url) =>
             url.Contains("summary-rich") ? """{"totalSales":1,"totalOrders":1,"byDay":[{"date":"d","total":1,"totalExTax":1,"orders":1}]}"""
             : url.Contains("/vat") ? """{"totals":{},"buckets":[{"period":"p","vatRateBp":2000,"grossPence":1,"netPence":1,"vatPence":1}]}"""
             : url.Contains("items-sold") ? """{"count":1,"totals":{},"rows":[{"itemIdOne":"A","qty":1,"lineGrossPence":1}]}"""
             : url.Contains("category-sales") ? """{"totals":{},"rows":[{"category":"C","qty":1,"grossPence":1,"sharePct":1}]}"""
             : url.Contains("best-sellers") ? """{"rows":[{"rank":1,"itemIdOne":"A","qty":1,"grossPence":1,"sharePct":1}]}"""
+            // ⚠⚠ STOCK IS NOT MONEY, AND THE QUANTITY IS NEGATIVE ON PURPOSE. Without a
+            // sample here the two stock reports return an EMPTY table for every contract test
+            // above, so their headers, their numeric flags and their row shape would all be
+            // "verified" by a loop that never saw a row. Kapow really does have items at -28,508.
+            : url.Contains("stock/levels") ? """{"totalCatalogueItems":9,"inStock":2,"matched":1,"skip":0,"take":200,"rows":[{"itemIdOne":"A","name":"Thing","category":"C","location":"Shop floor","quantity":-28508}]}"""
             : "{}";
     }
 }

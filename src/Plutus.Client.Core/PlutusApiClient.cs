@@ -1386,6 +1386,38 @@ public sealed class PlutusApiClient
         GetAsync<BestSellers>(
             $"/api/v1/reports/best-sellers?from={Day(from)}&to={Day(to)}&by={by}&take={take}", ct);
 
+    /// <summary>
+    /// On-hand stock, a page at a time — the till's **Stock** report, and with
+    /// `filter: "negative"` its **Negative stock** report. ⚠ **QUANTITIES, NOT PENCE** — the only
+    /// report on this client that is not money.
+    ///
+    /// ⚠ ONE ENDPOINT, TWO REPORTS, and that is the web till's shape too (`StockView negativeOnly`).
+    /// A second endpoint for "the same rows where quantity &lt; 0" would be two things to keep
+    /// agreeing about what a stock row is.
+    ///
+    /// ⚠ THE SERVER CLAMPS `take` TO 200 and answers `matched` with the true count, so the caller
+    /// must compare the two and SAY when the page is short. Silence there is a stock report that
+    /// looks complete and is not.
+    ///
+    /// ⚠ Needs an OPERATOR token — `portal.reports.view` OR `pos.reports.view`. ⚠⚠ The `pos.*`
+    /// alternative was **missing until 2026-08-18**, so this returned 403 for every Supervisor and
+    /// Cashier: the fourth time that same gate defect has been fixed, and the first three did not
+    /// reach this endpoint even though one of them fixed its own sibling six lines above it.
+    /// </summary>
+    public Task<StockLevelsPage?> GetStockLevelsPageAsync(
+        string? search = null, string? filter = null, int skip = 0, int take = StockRowCap,
+        CancellationToken ct = default) =>
+        GetAsync<StockLevelsPage>(
+            $"/api/v1/stock/levels?skip={skip}&take={take}"
+            // ⚠ ESCAPED. An item code with an ampersand or a space in it would otherwise truncate
+            // the query string and silently return the WRONG page rather than failing.
+            + (string.IsNullOrWhiteSpace(search) ? "" : $"&search={Uri.EscapeDataString(search)}")
+            + (string.IsNullOrWhiteSpace(filter) ? "" : $"&filter={Uri.EscapeDataString(filter)}"), ct);
+
+    /// <summary>⚠ The server's own clamp (`Math.Clamp(take, 1, 200)`). Asking for more would not
+    /// fail — it would quietly return 200 and a `matched` the caller might not check.</summary>
+    public const int StockRowCap = 200;
+
     /// <summary>⚠ `yyyy-MM-dd`, the only format these endpoints accept — and INVARIANT, because a
     /// till in a culture that formats dates differently would silently query the wrong range.</summary>
     private static string Day(DateOnly d) => d.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);

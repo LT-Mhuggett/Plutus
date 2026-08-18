@@ -248,6 +248,19 @@ public class TillHardeningE2eTests : IClassFixture<PlutusAppFactory>
                      "/api/v1/reports/items-sold?from=2026-08-01&to=2026-08-09&storeId=1&take=50",
                      "/api/v1/reports/category-sales?from=2026-08-01&to=2026-08-09",
                      "/api/v1/reports/best-sellers?from=2026-08-01&to=2026-08-09&by=qty&take=20",
+
+                     // ⚠⚠ STOCK AND NEGATIVE STOCK — added 2026-08-18 with those two reports (§5c
+                     // item 5), and the gate was wrong here too.
+                     //
+                     // ⚠ The comment on `POST /api/v1/stock/levels/bulk`, SIX LINES ABOVE this
+                     // endpoint in the same controller, says *"this is the third time the same defect
+                     // has been fixed on the same reasoning"* — and that fix did not reach its own
+                     // sibling. `GET /api/v1/stock/levels` kept a `portal.reports.view`-only gate, so
+                     // a Supervisor — who holds no portal permission by design and can still Z-close
+                     // a day — could not read a stock report on the till. **Four times now, each time
+                     // on the endpoint that happened to be in use rather than on the rule.**
+                     "/api/v1/stock/levels?skip=0&take=25",
+                     "/api/v1/stock/levels?skip=0&take=25&filter=negative",
                  })
         {
             using var req = new HttpRequestMessage(HttpMethod.Get, url);

@@ -259,3 +259,52 @@ public sealed class BestSellerRow
     [JsonPropertyName("grossPence")] public long GrossPence { get; set; }
     [JsonPropertyName("sharePct")] public decimal SharePct { get; set; }
 }
+
+/// <summary>
+/// `GET /api/v1/stock/levels` — on-hand quantity, a page at a time. Backs the till's **Stock** and
+/// **Negative stock** reports and the portal's stock list, from one endpoint.
+///
+/// ⚠⚠ **NOT MONEY. QUANTITIES, AND THEY CAN BE NEGATIVE.** Every other report contract here is in
+/// pence; nothing on this one is. A quantity below zero is not a bug to be clamped away — it is the
+/// negative-stock report's entire subject, and Kapow's legacy data has items at **−28,508** because
+/// sales decremented stock for seven years while goods-in was never recorded.
+/// </summary>
+public sealed class StockLevelsPage
+{
+    /// <summary>Every product in the catalogue — the denominator, not a count of this page.</summary>
+    [JsonPropertyName("totalCatalogueItems")] public int TotalCatalogueItems { get; set; }
+
+    /// <summary>Of the rows matching this filter, how many are actually above zero.</summary>
+    [JsonPropertyName("inStock")] public int InStock { get; set; }
+
+    /// <summary>⚠ Rows matching the FILTER, which can exceed `Rows.Count` — the endpoint clamps
+    /// `take` to 200 server-side. Compare the two before believing a total; a stock report that looks
+    /// complete and is not sends somebody to a shelf for something that was never there.</summary>
+    [JsonPropertyName("matched")] public int Matched { get; set; }
+
+    [JsonPropertyName("skip")] public int Skip { get; set; }
+    [JsonPropertyName("take")] public int Take { get; set; }
+    [JsonPropertyName("rows")] public List<StockLevelRow> Rows { get; set; } = new();
+}
+
+public sealed class StockLevelRow
+{
+    [JsonPropertyName("stockLocationId")] public Guid StockLocationId { get; set; }
+
+    /// <summary>⚠ WHICH STOCK LOCATION — the shop floor and the stockroom are different piles, and a
+    /// count that does not say which one it means cannot be acted on.</summary>
+    [JsonPropertyName("location")] public string? Location { get; set; }
+
+    [JsonPropertyName("itemIdOne")] public string? ItemIdOne { get; set; }
+
+    /// <summary>⚠ NULL when the stock row references an item the catalogue no longer has. The screen
+    /// shows the id rather than a blank, because a blank row is one nobody can investigate.</summary>
+    [JsonPropertyName("name")] public string? Name { get; set; }
+
+    [JsonPropertyName("category")] public string? Category { get; set; }
+
+    /// <summary>⚠ SIGNED, and deliberately not nullable here: this endpoint only returns rows that
+    /// HAVE a stock record, so there is no "never counted" case to represent. (The bulk endpoint is
+    /// the one with `int?`, because it is asked about arbitrary items.)</summary>
+    [JsonPropertyName("quantity")] public int Quantity { get; set; }
+}

@@ -58,6 +58,8 @@ namespace Plutus.Frontend.AppClient.Services.Reporting
             ItemsSold(),
             CategorySales(),
             BestSellers(),
+            Stock(),
+            NegativeStock(),
         };
 
         private static string Gbp(long pence) =>
@@ -192,6 +194,92 @@ namespace Plutus.Frontend.AppClient.Services.Reporting
                     });
             });
 
+
+        /// <summary>
+        /// On-hand stock. ⚠⚠ **QUANTITIES, NOT PENCE — the only report here that is not money**, and
+        /// the units note at the top of this class is about the other five.
+        ///
+        /// ⚠ Closes one of the three gaps §5c item 5 found against the web till, which has had
+        /// **Stock** and **Negative stock** since it was written.
+        /// </summary>
+        private static ReportDefinition Stock() => new(
+            "stock", "Stock",
+            (api, q, ct) => StockPage(api, negativeOnly: false, ct));
+
+        /// <summary>
+        /// Everything that has gone below zero.
+        ///
+        /// ⚠⚠ **NOT A CURIOSITY — IT IS THE ONE STOCK REPORT THIS SHOP NEEDS.** Kapow's legacy data
+        /// has items at **−28,508**: sales decremented stock for seven years while goods-in was never
+        /// recorded. A negative on-hand figure is a shelf nobody can trust, and this is the list of
+        /// them. ⚠ The quantities are NEVER clamped to zero anywhere on the way here — a clamp would
+        /// turn this report into an empty one and the fault into a silence.
+        /// </summary>
+        private static ReportDefinition NegativeStock() => new(
+            "negative-stock", "Negative stock",
+            (api, q, ct) => StockPage(api, negativeOnly: true, ct));
+
+        /// <summary>
+        /// Both stock reports, because they are one endpoint and one table with one filter — the same
+        /// shape the web till uses (`StockView negativeOnly`). ⚠ Two copies of "what a stock row is"
+        /// would be two things to keep agreeing.
+        ///
+        /// ⚠⚠ **NO DATE RANGE, AND THAT IS NOT AN OVERSIGHT.** On-hand stock is a fact about NOW, not
+        /// about a period: it is a materialised sum of the whole movement ledger. So this ignores
+        /// `q.From`/`q.To` deliberately — and the note says so on screen, because a report that
+        /// silently ignores the dates above it invites somebody to believe they asked for last week's
+        /// stock and got it.
+        /// </summary>
+        private static async Task<ReportTable> StockPage(
+            PlutusApiClient api, bool negativeOnly, CancellationToken ct)
+        {
+            var data = await api.GetStockLevelsPageAsync(
+                filter: negativeOnly ? "negative" : null, ct: ct).ConfigureAwait(false);
+
+            if (data is null) return ReportTable.Empty(Unreadable);
+
+            // ⚠ AN EMPTY NEGATIVE-STOCK REPORT IS GOOD NEWS AND MUST READ AS SUCH. "No rows" on this
+            // report looks identical to a failed read otherwise, and the two mean opposite things.
+            if (data.Rows.Count == 0)
+                return ReportTable.Empty(negativeOnly
+                    ? "Nothing is below zero — every counted item is at or above zero."
+                    : "No stock records yet. Stock arrives when goods-in is recorded against an item.");
+
+            // ⚠⚠ THE CAP MUST BE SAID, same rule as `items-sold`. The server clamps to 200 and
+            // answers `matched` with the truth; a stock report that looks complete and is not sends
+            // somebody to a shelf for something that was never there.
+            var note = data.Matched > data.Rows.Count
+                ? $"⚠ Showing {data.Rows.Count:N0} of {data.Matched:N0} rows — the server sends 200 at a time. Search to narrow it."
+                : string.Empty;
+
+            // ⚠ Said on EVERY stock report, capped or not: the dates above are inert here.
+            const string noDates = "On-hand stock is as of now — the date range above does not apply.";
+            note = string.IsNullOrEmpty(note) ? noDates : note + " · " + noDates;
+
+            return ReportTable.From(
+                data.Rows,
+                new[] { "Item", "Category", "Location", "Qty" },
+                new[] { false, false, false, true },
+                r => new[]
+                {
+                    // ⚠ THE ID WHEN THERE IS NO NAME, never a blank. A stock row can outlive the
+                    // catalogue item it points at, and a blank row is one nobody can investigate.
+                    new ReportCell(string.IsNullOrWhiteSpace(r.Name) ? (r.ItemIdOne ?? "(unknown item)") : r.Name),
+                    new ReportCell(r.Category ?? "(none)"),
+                    new ReportCell(r.Location ?? "?"),
+                    // ⚠ SORTS AS A NUMBER, which is the whole point on this report: ordered as text,
+                    // "−28508" and "−3" sort by their first character and the worst offenders hide in
+                    // the middle of the list.
+                    // ⚠ GROUPED (`N0`), unlike the small qty columns on the other reports: stock counts
+                    // reach five digits here, and the totals line right beside this already groups.
+                    // A test caught the two disagreeing.
+                    new ReportCell(r.Quantity.ToString("N0", CultureInfo.CurrentCulture), true, r.Quantity),
+                },
+                note,
+                negativeOnly
+                    ? $"{data.Matched:N0} below zero"
+                    : $"{data.InStock:N0} in stock · {data.Matched:N0} with a stock record · {data.TotalCatalogueItems:N0} products in the catalogue");
+        }
         /// <summary>
         /// ⚠ WHAT A REFUSAL SAYS. These endpoints are gated on `portal.reports.view` /
         /// `portal.financials.view`, so a cashier without the grant gets a 403 — and a report that

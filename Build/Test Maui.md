@@ -2438,3 +2438,80 @@ Pull the network and sit on **Statistics**, then **Store Information**, for two 
 **✅ Expected: the last-known figures stay on screen, no dialogs, no crash, no spinner stuck over the
 app.** ⚠ A refresh that fails must be silent here: these run on a background clock with no operator
 behind them, and a dialog raised from one would land on top of whatever somebody was actually doing.
+
+---
+
+## G40. Stock and Negative stock — **till 1.84.0 + backend 1.17.3**, §5c item 5
+
+> ⚠ **The backend must be deployed too.** `GET /api/v1/stock/levels` was gated on
+> `portal.reports.view` alone, which **no Supervisor or Cashier holds by design** — so on the live
+> backend today these two reports return *"you may not have permission to see it, or the till is
+> offline"* for everybody below Store Manager. Backend **1.17.3** is the fix. ⚠ Verified by adding the
+> URL to `TillHardeningE2eTests` **first** and watching it return 403.
+
+### G40a. Both reports are in the list
+
+Reports tab → the report picker.
+
+**✅ Expected:** eight entries now — Takings, VAT, Items sold, By category, Best sellers, **Stock**,
+**Negative stock**. ⚠ The web till has had Stock and Negative stock all along; these close two of the
+three gaps §5c item 5 found.
+
+### G40b. Stock
+
+Pick **Stock**.
+
+**✅ Expected:** rows of **Item · Category · Location · Qty**, with a line under the title reading
+something like *"N in stock · M with a stock record · P products in the catalogue"*.
+
+⚠ **The Qty column must sort as a NUMBER** — tap the heading twice. If 100 sorts before 9, the column
+is sorting as text and the report is useless for finding the extremes, which is the only reason to
+sort it.
+
+⚠ **Location must be named on every row.** The shop floor and the stockroom are different piles; a
+count that does not say which one it means cannot be acted on.
+
+### G40c. ⚠⚠ Negative stock — the one this shop actually needs
+
+Pick **Negative stock**.
+
+**✅ Expected: a list of items below zero**, and for Kapow's data that list is **not empty** — the
+legacy database has *back issues* at **−28,508**. Sales decremented stock for seven years while
+goods-in was never recorded.
+
+⚠ **Check the minus sign is there and the number is grouped** — *−28,508*, not *28508* and not *0*.
+A quantity clamped at zero anywhere on the way to this screen turns the report empty and the fault
+into a silence.
+
+⚠ **And it must be a DIFFERENT list from Stock.** If Negative stock shows every item in the shop, the
+`filter=negative` is not reaching the server — which under that heading reads as "everything is below
+zero". (Pinned by a test, and the mutation was watched killing it.)
+
+### G40d. ⚠ The date pickers do NOT apply here
+
+With **Stock** on screen, change the From/To dates and re-run.
+
+**✅ Expected: the same rows, and a note saying *"On-hand stock is as of now — the date range above
+does not apply."***
+
+⚠ That is deliberate: on-hand stock is a fact about **now**, a running sum of the whole movement
+ledger, not a total over a period. But the From/To pickers sit above every report on this screen, so
+without that sentence somebody will believe they asked for last week's stock and got it.
+
+### G40e. An empty report must not read like a refusal
+
+Hard to arrange deliberately — but if **Negative stock** is ever empty:
+
+**✅ Expected:** *"Nothing is below zero — every counted item is at or above zero."*
+
+⚠ It must **not** say anything about permissions. "No rows" and "you are not allowed" are opposite
+answers, and once a shop's stock is straight the good one is the one that happens every day.
+
+### G40f. As a Cashier
+
+Sign in as a **Cashier** and open both reports.
+
+**✅ Expected: they read.** ⚠ This is the gate fix. A cashier holds `pos.reports.view` and **not one
+portal permission**, and before backend 1.17.3 that combination was refused — the fourth time that
+same defect has been fixed, and the previous fix missed this endpoint despite fixing its own sibling
+six lines above it in the same file.

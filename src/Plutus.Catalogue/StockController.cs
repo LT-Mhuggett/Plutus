@@ -85,8 +85,33 @@ namespace Plutus.Catalogue
             }));
         }
 
+        /// <summary>
+        /// On-hand quantity, a page at a time — the till's **Stock** and **Negative stock** reports,
+        /// and the portal's stock list. Same data, same endpoint.
+        /// </summary>
+        // ⚠⚠ `pos.reports.view` IS ACCEPTED TOO — added 2026-08-18, and **this is the FOURTH time the
+        // same defect has been fixed on the same reasoning.** The comment on `POST
+        // /api/v1/stock/levels/bulk`, thirty lines above, already recorded the third
+        // (`/api/v1/sales` at step 19, `/api/v1/reports/summary` after it) — **and it did not reach
+        // its own sibling six lines below it.**
+        //
+        // ⚠ `RbacSeeder` gives Supervisor and Cashier NO portal permission at all, by design. So
+        // gated on `portal.reports.view` alone, a Supervisor who can Z-close a day could not open a
+        // stock report on the till — and the till's message for a 403 is *"you may not have
+        // permission to see it, or the till is offline"*, which blames the operator or the network
+        // for a gate that was simply wrong.
+        //
+        // ⚠ THE LESSON, which is the same one as §5c item 7: each of these four fixes was applied to
+        // **the endpoint that happened to be in use** rather than to the rule. When you widen a gate
+        // for a till, grep the whole solution for the policy you are replacing — `TillHardeningE2e`
+        // is where the answer gets pinned, and every report on `ReportCatalogue` must have a URL in
+        // it. Verified 2026-08-18 by adding the two URLs FIRST and watching this exact endpoint
+        // return 403.
+        //
+        // ⚠ It does NOT widen portal access, and it is a READ. A portal user still needs their portal
+        // permission; changing stock stays on `portal.stock.adjust`, a separate decision.
         [HttpGet("api/v1/stock/levels")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView + "," + PermissionCatalogue.PosReportsView)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> Levels(
             [FromQuery] Guid? locationId, [FromQuery] string search, [FromQuery] string filter, [FromQuery] int skip = 0, [FromQuery] int take = 25)
