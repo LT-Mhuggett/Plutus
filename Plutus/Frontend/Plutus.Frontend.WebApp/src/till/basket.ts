@@ -1,6 +1,7 @@
 import { useEffect, useReducer } from "react";
 import type { Discount, Item } from "../api.ts";
 import { toPence } from "../money.ts";
+import { exFromInc } from "./priceAdjust.ts";
 
 export interface LineDiscount {
   discountId: number;
@@ -150,9 +151,23 @@ function reduce(state: BasketState, action: Action): BasketState {
         ...state,
         lines: state.lines.map((l) => {
           if (l.key !== action.key) return l;
-          // keep the tax proportion: scale exPrice by the original ex/inc ratio
-          const ratio = l.item.price > 0 ? l.item.exPrice / l.item.price : 1;
-          return { ...l, pricePence: action.pricePence, exPricePence: Math.round(action.pricePence * ratio), adjusted: true };
+          // ⚠ The ex half is DERIVED from the CATALOGUE pair, keeping the item's VAT proportion. The
+          // rule moved to `priceAdjust.ts` as a C2 twin of `SharedKernel.PriceAdjust`, because MAUI
+          // asked for ex AND inc separately and a mistyped pair became the sale's declared VAT rate.
+          // ⚠ It also MULTIPLIES BEFORE DIVIDING, which the inline `ratio` form below did not: a
+          // double cannot hold 70/100, so `45 × 0.7` was 31.499… and rounded to 31 where the exact
+          // answer is 31.5 → 32. Sub-penny, on manually overridden prices only — but it is the
+          // arithmetic the .NET twin performs, and two tills must not round a price differently.
+          // (The "form below" is gone — this comment records what it did.)
+          return {
+            ...l,
+            pricePence: action.pricePence,
+            exPricePence: exFromInc(action.pricePence, {
+              incPence: toPence(l.item.price),
+              exPence: toPence(l.item.exPrice),
+            }),
+            adjusted: true,
+          };
         }),
       };
     case "applyDiscount":

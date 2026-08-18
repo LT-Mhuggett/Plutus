@@ -2200,3 +2200,56 @@ defaults to *submit* — so a mis-built ✕ would **complete the sale** instead 
 explicitly `type="button"`; pressing ✕ on a filled-in checkout must leave the basket **unsold**.
 
 ⚠ Also check a **long title** does not run underneath the ✕ (`Refund — £1,234.56` is the longest).
+
+## G37. ⚠⚠ Adjusting a price — **till 1.79.0 / web 1.15.0**. This one is a VAT check.
+
+⚠ Until 1.79.0 MAUI asked for the **ex-VAT price AND the inc-VAT price** in one dialog and wrote both
+onto the line. The sale line's declared VAT rate is derived from that pair, so two hand-typed numbers
+*became* the VAT on the sale — £10.00 ex against £10.50 inc declared **5% on a 20% item**, and nothing
+anywhere would have told you. It now asks for one number, like the web till.
+
+### G37a. One field, and the VAT follows the item
+
+1. Add a **standard-rated (20%)** item — say £12.00. Tap its line → **Adjust**.
+
+**✅ Expected:** ONE box, labelled **Price (inc VAT)**, pre-filled with £12.00. ⚠ If you see two boxes,
+you are on an old build.
+
+2. Type **£6.00**, Confirm. **✅ Expected:** the line shows £6.00, and **Sale Ex. Tax shows £5.00** —
+   the ex half derived, the 20% kept.
+3. Complete the sale, then check the **portal → Reporting → VAT** for today. **✅ Expected:** that sale
+   contributes **£1.00** of VAT, at the standard band — not some rate nobody chose.
+
+### G37b. ⚠ A zero-rated item must stay zero-rated
+
+1. Add a **zero-rated** item (a comic — most of the shop). Adjust it to any price.
+
+**✅ Expected:** **Sale Ex. Tax equals Sale Inc. Tax** — no VAT appears. ⚠ This is the case the old
+two-box dialog got wrong most easily: type into the ex box and a zero-rated line acquires VAT.
+
+### G37c. Backing out changes nothing
+
+Adjust → press **✕**, then again with **Cancel**, then **outside**, then **Escape**.
+
+**✅ Expected each time:** the box closes, **the price is unchanged**, and the till stays alive. ⚠ The
+✕ crashed the till in 1.77.0 (`decimal.Parse("")`); that is fixed at the source, and all four exits
+now behave identically.
+
+### G37d. ⚠ Refusals
+
+1. Adjust to **-5.00**. **✅ Expected: refused** — *"A price cannot be negative. Use Refund to send
+   goods back."* ⚠ A negative price is money out of the drawer dressed as a sale line, with no reason
+   recorded and no refund cap; returns are how goods go back.
+2. Adjust to **0.00**. **✅ Expected: allowed** — a giveaway is legitimate, and ex must be £0.00 too.
+3. Adjust the **same line twice** (£6.00, then £7.00). **✅ Expected:** ex tracks each time from the
+   ITEM's proportion (£5.00 then £5.83) — never drifting a penny per edit, which is what deriving from
+   the line's own current pair would do.
+
+### G37e. The web till agrees, to the penny
+
+Same item, same override, on `https://plutus.huggett.dscloud.me` — click the price in the row, type the
+new one.
+
+**✅ Expected: identical ex-VAT figure on both tills.** They now run the same rule
+(`SharedKernel.PriceAdjust` / `till/priceAdjust.ts`). ⚠ A penny of difference here is a penny of
+difference on every VAT return afterwards, which is exactly what the C2 register exists to prevent.

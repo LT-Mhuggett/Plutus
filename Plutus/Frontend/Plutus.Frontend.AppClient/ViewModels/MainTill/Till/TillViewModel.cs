@@ -763,35 +763,57 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     new RequiredValidator(),
                     new CurrencyValueValidator(numberStyles)
                 };
+
+                // ⚠⚠ ONE FIELD, THE INC-VAT PRICE — AND THIS IS A VAT FIX, NOT A LAYOUT ONE.
+                //
+                // It asked for the ex-VAT price AND the inc-VAT price and wrote BOTH onto the line.
+                // The sale line's declared VAT rate is derived from that pair (till-design C1 rule 2),
+                // so two numbers typed by hand WERE the VAT figure on the sale: £10.00 ex against
+                // £10.50 inc declared 5% on a 20% item, with nothing to validate it and nothing
+                // downstream able to tell. Found 2026-08-18 while comparing this screen with the web
+                // till, which has always asked for one number.
+                //
+                // ⚠ The ex half is DERIVED by `SharedKernel.PriceAdjust.ExFromInc` from the
+                // CATALOGUE pair's proportion — the same rule, and now the same code path, as the web
+                // till's `adjust` reducer. A zero-rated item stays zero-rated by construction.
+                //
+                // ⚠ The prompt says what it wants. "Price" alone left the operator guessing which of
+                // the two boxes was which, which is half of why the old shape was dangerous.
                 ViewElementData[] elements = {
-                    new ViewElementData(1, "PriceExTax".Translate(), basketItem.PriceExTax.ToString("C", CultureInfo.CurrentCulture), validators.AsEnumerable(), false, true),
-                    new ViewElementData(2, "Price".Translate(), basketItem.Price.ToString("C", CultureInfo.CurrentCulture), validators.AsEnumerable(), false, true)
+                    new ViewElementData(1, "Price (inc VAT)", basketItem.Price.ToString("C", CultureInfo.CurrentCulture), validators.AsEnumerable(), false, true),
                 };
 
                 var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(elements, "Confirm".Translate(), true, "Adjust".Translate());
 
-                // ⚠⚠ BACKING OUT IS A NULL, AND IT CRASHED THE TILL. `LaunchInputAlertAsync` returns
-                // null when the operator leaves without confirming — tapping outside, pressing Escape,
-                // or now the Cancel button — and `data.TryGetValue` on null is a
-                // NullReferenceException. This method is `async void` with a `try`/`finally` and NO
-                // `catch`, so it went straight out to the dispatcher unhandled: **the app died because
-                // somebody changed their mind about a price.**
-                //
-                // ⚠ Found 2026-08-18 while giving this very dialog the Cancel button Matt asked for —
-                // which would have taken a crash reachable only by clicking outside and made it the
-                // obvious thing to press. ⚠ 17 other call sites still take this shape; the audit is in
-                // `MAUI-retrofit.md` (§ input-alert null returns) rather than fixed blind tonight,
-                // because several sit on money paths and each needs its own answer to "what does
-                // cancelling MEAN here".
-                if (data == null) return;
+                // ⚠⚠ BACKING OUT LEAVES AN **EMPTY** RESULT, NOT A NULL — `InputAlertHelper.ShowAsync`
+                // ends `?? new Dictionary<…>()`, and since 2026-08-18 Cancel and the ✕ clear the
+                // results too, so all four exits agree. `TryGetValue` then returns false and this
+                // returns without touching the price. ⚠ The old code read the blanked values, found
+                // them non-null and ran `decimal.Parse("")` — that is the crash Matt hit with the ✕.
+                if (!data.TryGetValue(1, out string typedPrice) || string.IsNullOrWhiteSpace(typedPrice))
+                    return;
 
-                _ = data.TryGetValue(1, out string priceExTax);
-                _ = data.TryGetValue(2, out string priceTax);
-                if (priceExTax != null && priceTax != null)
+                var newIncPence = Plutus.SharedKernel.Pence.FromDecimal(
+                    decimal.Parse(typedPrice, numberStyles, CultureInfo.CurrentCulture));
+
+                // ⚠ A negative price is money OUT of the drawer dressed as a sale line. Returns are
+                // how goods go back, and they carry a reason and a refund cap; this must not become a
+                // second, unaudited way to do it.
+                if (newIncPence < 0)
                 {
-                    basketItem.PriceExTax = decimal.Parse(priceExTax, numberStyles, CultureInfo.CurrentCulture);
-                    basketItem.Price = decimal.Parse(priceTax, numberStyles, CultureInfo.CurrentCulture);
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "A price cannot be negative. Use Refund to send goods back.", "OK".Translate());
+                    return;
                 }
+
+                // ⚠ The CATALOGUE pair, never the line's current pair — so adjusting the same line
+                // twice derives from the same proportion both times and cannot drift a penny per edit.
+                basketItem.PriceExTaxPence = Plutus.SharedKernel.PriceAdjust.ExFromInc(
+                    newIncPence,
+                    Plutus.SharedKernel.Pence.FromDecimal(basketItem.Item.Price),
+                    Plutus.SharedKernel.Pence.FromDecimal(basketItem.Item.ExPrice));
+                basketItem.PricePence = newIncPence;
+
                 Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Item Adjustment");
             }
             catch (Exception ex)
