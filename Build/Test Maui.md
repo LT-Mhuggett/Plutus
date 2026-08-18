@@ -46,7 +46,7 @@ on 2026-08-11 came from somebody noticing something, not from a step asking the 
 
 | | |
 |---|---|
-| **Run** | ✅ `D:\tmp\plutus-till-1.91.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-18 (evening) and verified inside the binary** (`1.91.0+babba779` = HEAD). ⚠ **The only build on the box.** ⚠⚠ **NEEDS BACKEND 1.17.8** (deployed and verified) — it carries the **Created** column and the new **customer history** endpoint. ⚠ **Web till 1.17.0** is deployed with the same loyalty columns, so the two can be compared side by side. ⚠ It will say the till isn't enrolled; expected for an unpackaged build — enrol it as a fresh till. |
+| **Run** | ✅ `D:\tmp\plutus-till-1.92.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-18 and verified inside the binary** (`1.92.0+25c5707b` = HEAD). ⚠ **The only build on the box.** ⚠⚠ **NEEDS BACKEND 1.17.8** (deployed and verified) — it carries the **Created** column and the **customer history** endpoint that the new detail view reads. ⚠ **Web till 1.17.0** is deployed with the matching loyalty columns. ⚠ It will say the till isn't enrolled; expected for an unpackaged build — enrol it as a fresh till. |
 | **Agent** | ⚠ **Agent 1.4.0 is REQUIRED for §G29**, and it fixes "start automatically" not working after a reboot. Get it from the **web till → Settings → Hardware → Download the agent (v1.4.0)**, or from `tools\Plutus.TillAgent\publish-out\PlutusTillAgent-1.4.0.exe`. ⚠⚠ **Copy it to `%LOCALAPPDATA%\Plutus\Agent\` and run it from THERE — not from Downloads.** Auto-start records the path it was launched from; a Downloads copy gets cleaned up or renamed `… (1).exe`, and then the till boots and starts nothing. That is the fault this build fixes, and running it once from a permanent folder repairs a stale registration. |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
@@ -2962,3 +2962,81 @@ With the dark scheme applied, take a cash sale and print the receipt.
 
 ⚠⚠ Nothing on a print path may read a theme slot (till-design **C1**). Printing from a dark scheme
 once put **near-white ink on paper** — the receipt is not a screen, and the palette must never reach it.
+
+---
+
+## G47. ⚠⚠ The customer detail view — the portal's dialog on a till. **Till 1.92.0**, WP-L1 (§5d)
+
+> Matt, 2026-08-18, with a screenshot of the portal: *"I need to be able to see all the information you
+> see in the portal on both MAUI and the webtill … I also need the 'Credit History' to be ALL history.
+> E.g. created, name changed, credit added, credit used. This needs to be scroll and searchable as old
+> accounts will have a LOT of history and needs to be usable."*
+>
+> ⚠ **NEEDS BACKEND 1.17.8.** The history is a server endpoint; on an older backend the panel will say
+> it could not be read.
+
+### G47a. Tap a customer — everything about them
+
+Loyalty tab → **tap a row** (Jo Bloggs has the most history).
+
+**✅ Expected:** their name as the heading, then **Member no. · Email · Phone · Store credit ·
+Membership** (tier · rate · renews), then a **History** table, then Close.
+
+⚠ A tap used to open the edit box straight away. It now opens the customer, and **Edit details** is a
+button on it — which is where the portal puts it.
+
+### G47b. ⚠⚠ The history is ALL history, not just credit
+
+**✅ Expected on Jo Bloggs:** rows of several kinds — **Created**, **Credit added**, **Credit used**,
+and **Details changed** if anyone has ever edited them.
+
+⚠⚠ **A history showing only credit means the merge is broken.** Two of the three sources are not filed
+under the customer at all — `credit.issue` is audited against the *entry's* id and `membership.set`
+against the *membership's*. The obvious query returns somebody created, renamed, and never given a
+penny.
+
+⚠ **Newest first.** A history read oldest-first buries today under years.
+
+⚠ A rename should read like **`name: Jo Bloggs → J Bloggs`**. ⚠ Older rows may say *"what they were
+was not recorded"* — that is honest, not a bug: the audit only began recording the previous value on
+2026-08-18.
+
+### G47c. It scrolls, sorts and searches — the "usable" test
+
+With the history open: **type in its search box**, then **tap the When and Amount headings**.
+
+**✅ Expected:** the search filters as you type, the headings sort, and long histories page (25 / 50 /
+100).
+
+⚠ **Amount must sort as a NUMBER** — if £100 comes before £9 the numeric flag has been lost. ⚠ Rows
+that are not money show **—** in Amount, never £0.00: a rename is not a zero-pound transaction.
+
+⚠ If a customer has more history than one page, a note says **how many of how many** are shown.
+
+### G47d. ⚠ Grant credit — Supervisor and above
+
+As a **Supervisor** or Manager: open a customer → **Grant credit** → amount and reason.
+
+**✅ Expected:** both fields marked **\***, and the grant appears in the history immediately with your
+reason on it.
+
+⚠ **Leave the reason blank and it must refuse.** A reason nobody typed shows a plausible word in the
+history that means nothing — worse than a blank, because it reads as an audit trail.
+
+⚠ Try a **negative** amount: refused. Taking credit back is a refund, not a grant.
+
+Now sign in as a **Cashier** and open the same customer.
+
+**✅ Expected: no Grant credit button, and no Edit details button** — absent, not greyed out. ⚠ That
+was already the rule (`customers.manage`, which a Cashier does not hold); this only makes the screen
+agree with the server.
+
+### G47e. Offline
+
+Pull the network, then open a customer.
+
+**✅ Expected:** the facts still show — they come from the row already on screen — and the history
+panel says it couldn't be read. **No crash, and no empty history pretending to be an empty life.**
+
+⚠ That distinction matters: an operator reading "nothing has happened" would grant credit believing
+none had ever been given.
