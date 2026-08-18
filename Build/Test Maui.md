@@ -46,7 +46,7 @@ on 2026-08-11 came from somebody noticing something, not from a step asking the 
 
 | | |
 |---|---|
-| **Run** | ✅ `D:\tmp\plutus-till-1.90.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-18 (evening) and verified inside the binary** (`1.90.0+56746953` = HEAD). ⚠ **The only build on the box.** ⚠⚠ **NEEDS BACKEND 1.17.7** (deployed and verified) — the **Created** column is a server field, so without it that column is empty on both tills. ⚠ **Web till 1.17.0 is deployed too** (`index-b3Er8Ggn.js`) and carries the same two new columns, so the two screens can be compared side by side. ⚠ It will say the till isn't enrolled; expected for an unpackaged build — enrol it as a fresh till. |
+| **Run** | ✅ `D:\tmp\plutus-till-1.91.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-18 (evening) and verified inside the binary** (`1.91.0+babba779` = HEAD). ⚠ **The only build on the box.** ⚠⚠ **NEEDS BACKEND 1.17.8** (deployed and verified) — it carries the **Created** column and the new **customer history** endpoint. ⚠ **Web till 1.17.0** is deployed with the same loyalty columns, so the two can be compared side by side. ⚠ It will say the till isn't enrolled; expected for an unpackaged build — enrol it as a fresh till. |
 | **Agent** | ⚠ **Agent 1.4.0 is REQUIRED for §G29**, and it fixes "start automatically" not working after a reboot. Get it from the **web till → Settings → Hardware → Download the agent (v1.4.0)**, or from `tools\Plutus.TillAgent\publish-out\PlutusTillAgent-1.4.0.exe`. ⚠⚠ **Copy it to `%LOCALAPPDATA%\Plutus\Agent\` and run it from THERE — not from Downloads.** Auto-start records the path it was launched from; a Downloads copy gets cleaned up or renamed `… (1).exe`, and then the till boots and starts nothing. That is the fault this build fixes, and running it once from a permanent folder repairs a stale registration. |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
@@ -2889,3 +2889,76 @@ Tap **Credit**, then **Created**, then **Customer**.
 
 **✅ Expected:** each sorts, and the ⇅ marker moves to the tapped column. ⚠ **Credit and Discount must
 sort as NUMBERS** — if £100 comes before £9, the numeric flag has been lost.
+
+---
+
+## G46. ⚠⚠ Colours — the whole app, and a DARK scheme that looks dark. Till 1.91.0, §5c item 10
+
+> Matt, hand-run 1: *"Colours, does not seem to work on MAUI it does on the webtill."*
+>
+> ⚠ The live theme is **`Kapow Test` — `baseMode: dark`, `{"accent":"#337061","line":"#2c3a4d"}`,
+> assigned tenant-wide**, so it always did reach MAUI. Three things were wrong, all now fixed: almost
+> nothing read a slot, the stock palette had no dark half, and **nothing at all read `line`**.
+
+### G46a. The scheme is visible the moment the till opens
+
+Sign in and look at the **Till** tab.
+
+**✅ Expected:** buttons in the scheme's **accent** (`#337061`, a deep green) with readable text on
+them, and pages in the scheme's surface.
+
+⚠ **Buttons change even with no scheme set** — they were platform grey and are now the stock accent
+(`#2c698d`). That is deliberate: `Colors.xaml` records that those values *are* the stock theme and that
+the accent is the web till's own.
+
+### G46b. ⚠⚠ A dark scheme must look DARK — this is the one that was broken
+
+The live theme asks for **dark** and sets only an accent and a line.
+
+**✅ Expected: dark surfaces with light text, throughout.** Pages, dialogs, table rows.
+
+⚠⚠ **Before this build it produced WHITE pages in a dark app.** `Colors.xaml` has one stock palette
+and it is the light one, so every slot the scheme did not set fell back to white — and a partial scheme
+is the normal case, because the portal lets you set one slot. ⚠ **If any screen is white-on-white or
+dark-on-dark, stop and report which** — that pairing is the fault this is meant to end.
+
+### G46c. The heading rule — the `line` slot
+
+Open **Loyalty** or **Reports** and look at the line under the column headings.
+
+**✅ Expected:** a hairline in the scheme's **line** colour (`#2c3a4d`), separating the headings from
+the rows.
+
+⚠ Nothing in the app read `ThemeLine` until now — **half of what the shop chose was going nowhere**. A
+slot the portal offers and no till renders is a setting that lies to whoever sets it.
+
+### G46d. Change the scheme and watch it follow
+
+In the portal, change the accent to something obvious (bright orange), save, and wait up to a minute —
+or restart the till.
+
+**✅ Expected: the buttons change colour without restarting**, and the rest of the app stays coherent.
+
+⚠ Every slot is reached by `DynamicResource`, so a screen built before the change still follows it.
+`StaticResource` would freeze the palette at parse time and repaint only pages opened afterwards —
+half a themed app, which is worse than none. A test fails the build on that mistake now.
+
+### G46e. Clear the assignment — the stock palette must return exactly
+
+Remove the theme assignment in the portal. Wait a minute.
+
+**✅ Expected: the app returns to the stock light palette exactly** — white surfaces, dark text, the
+blue-grey accent.
+
+⚠ Every slot the scheme does not set is RESTORED from the value captured before anything overwrote it.
+If a cleared assignment leaves the last scheme's colours behind, the fallback is a lie and every "reset
+to default" in the portal is broken.
+
+### G46f. ⚠⚠ Receipts are immune — print one under a dark scheme
+
+With the dark scheme applied, take a cash sale and print the receipt.
+
+**✅ Expected: the receipt prints black on white, exactly as always.**
+
+⚠⚠ Nothing on a print path may read a theme slot (till-design **C1**). Printing from a dark scheme
+once put **near-white ink on paper** — the receipt is not a screen, and the palette must never reach it.
