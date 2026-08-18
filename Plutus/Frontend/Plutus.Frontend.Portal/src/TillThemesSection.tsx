@@ -309,6 +309,21 @@ export default function TillThemesSection({ stores, tills }: { stores: StoreRow[
             <span className="small grow">
               <strong>{t.name}</strong>{" "}
               <span className="muted">({t.baseMode === "dark" ? "dark" : "light"} base)</span>
+              {/* ⚠⚠ "NOT APPLIED ANYWHERE" — the trap this closes, 2026-08-18. Matt created a scheme,
+                  expected the tills to change, and reported that colour customisation did not work.
+                  It did: `TillThemes` held his scheme and `TillThemeAssignments` was EMPTY, so
+                  `/themes/effective` correctly resolved to nothing and both tills correctly kept the
+                  default. **Creating a scheme and applying it are two separate steps, and only the
+                  first one looked finished.**
+
+                  ⚠ The count was already being computed — for the DELETE confirmation, which says
+                  "It isn't assigned anywhere." So the till knew, the portal knew, and the only place
+                  it was ever said out loud was a dialog you reach by trying to delete the thing.
+                  Same shape as the opening-hours Save button: the information existed, in the one
+                  place nobody looks. */}
+              {(bundle?.assignments.filter((a) => a.themeKey.toLowerCase() === t.id.toLowerCase()).length ?? 0) === 0
+                ? <span className="error small"> · not applied anywhere — pick it under <em>Where each scheme applies</em></span>
+                : <span className="muted small"> · applied in {bundle?.assignments.filter((a) => a.themeKey.toLowerCase() === t.id.toLowerCase()).length} place(s)</span>}
             </span>
             <button className="ghost small" onClick={() => setEditing(t)}>Edit</button>
             <button className="ghost small" onClick={() => void removeTheme(t)}>Delete</button>
