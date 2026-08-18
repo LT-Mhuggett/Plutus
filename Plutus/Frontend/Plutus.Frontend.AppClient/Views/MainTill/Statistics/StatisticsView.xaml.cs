@@ -15,43 +15,25 @@ namespace Plutus.Frontend.AppClient.Views.MainTill.Statistics
         private StackOrientation _orientationBase = StackOrientation.Horizontal;
         private readonly StatisticsViewModel _vm;
 
+        /// <summary>
+        /// ⚠⚠ THE FIGURES WERE READ ONCE, AT SIGN-IN, AND NEVER AGAIN — finding N. `AppShell` builds
+        /// every tab up front, so today's takings were fixed at the moment somebody signed in and a
+        /// whole day of selling never moved them. **A takings figure silently hours stale is worse
+        /// than none: it is the number a manager counts a drawer against**, and a wrong total looks
+        /// exactly like a right one.
+        ///
+        /// ⚠ Now on `LiveScreen`, which reloads on appearing AND on the 60-second cadence. The
+        /// hand-rolled version here was correct; item 7 exists because being correct on one screen at
+        /// a time taught the others nothing — see `LiveScreen`'s header.
+        /// </summary>
+        private readonly Services.Sync.LiveScreen _live;
+
         public StatisticsView()
         {
             InitializeComponent();
             BindingContext = _vm = new StatisticsViewModel(LeftColumn, RightColumn);
+            _live = new Services.Sync.LiveScreen(this, _vm.LoadToday);
         }
-
-        /// <summary>
-        /// ⚠ RELOAD THE FIGURES — they were read ONCE, at sign-in, and never again. `AppShell` builds
-        /// every tab up front, so today's takings were fixed at the moment somebody signed in and a
-        /// whole day of selling never moved them. A takings figure that is silently hours stale is
-        /// worse than none: it is the number a manager counts a drawer against.
-        ///
-        /// ⚠ Same fault as the cash tab's stuck "(waiting to send)" (Matt, 2026-08-11) — this screen
-        /// just had no visible clue, because a wrong total looks exactly like a right one.
-        /// </summary>
-        protected override void OnAppearing()
-        {
-            base.OnAppearing();
-            _vm.LoadToday();
-            Services.Sync.TillCadence.Ticked += OnTicked;
-        }
-
-        /// <summary>
-        /// ⚠ UNSUBSCRIBE, ALWAYS — `Ticked` is STATIC, and a page that stays attached is kept alive
-        /// for the life of the process along with every till lookup it makes each minute.
-        /// </summary>
-        protected override void OnDisappearing()
-        {
-            Services.Sync.TillCadence.Ticked -= OnTicked;
-            base.OnDisappearing();
-        }
-
-        /// <summary>
-        /// ⚠ Arrives on the cadence loop's thread. `LoadToday` does its own work off-thread and
-        /// marshals its own redraw, and it cannot throw — so this hands straight over.
-        /// </summary>
-        private void OnTicked() => _vm.LoadToday();
 
         protected override void OnSizeAllocated(double width, double height)
         {

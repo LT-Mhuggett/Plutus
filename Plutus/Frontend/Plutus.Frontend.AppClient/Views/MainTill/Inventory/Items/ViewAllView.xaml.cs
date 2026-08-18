@@ -7,9 +7,29 @@ namespace Plutus.Frontend.AppClient.Views.MainTill.Inventory.Items
 {
     public partial class ViewAllView : ContentPage
     {
+        /// <summary>
+        /// ⚠ RELOADS ON APPEARING — the catalogue arrives by sync, so a list built once at sign-in
+        /// would never show an item the portal added today (pitfall 17).
+        ///
+        /// ⚠⚠ **`onCadence: false`, and this is the case that argued for the flag.** `InitItems`
+        /// replaces the whole `ObservableCollection` with up to 500 mapped rows and then fetches stock
+        /// levels over the network. On a tick that would send a `CollectionView` back to the top every
+        /// 60 seconds — **a worse fault than the staleness, and one we would have introduced.** The
+        /// stock column is explicitly not live anyway ("∞" or "—", never a fabricated zero), so
+        /// there is no silent-wrong-figure risk here of the kind the cadence exists to fix.
+        /// </summary>
+        private readonly Services.Sync.LiveScreen _live;
+
         public ViewAllView()
         {
             InitializeComponent();
+
+            // ⚠ Resolved through `BindingContext` at refresh time, not captured now: this page's
+            // context is set in XAML, and reading it in the constructor would bind to whatever
+            // happened to be there — a MAUI binding failure being silent, that would show as a list
+            // that simply never reloads.
+            _live = new Services.Sync.LiveScreen(
+                this, () => (BindingContext as ViewAllViewModel)?.InitItems(), onCadence: false);
         }
 
         /// <summary>
@@ -35,12 +55,6 @@ namespace Plutus.Frontend.AppClient.Views.MainTill.Inventory.Items
 
             if (item is not null && BindingContext is ViewAllViewModel vm)
                 vm.RowTapped(item);
-        }
-
-        protected override void OnAppearing()
-        {
-            base.OnAppearing();
-           ((ViewAllViewModel)BindingContext).InitItems();
         }
     }
 }

@@ -796,7 +796,53 @@ grep -rln 'className="dialog' Plutus/Frontend/Plutus.Frontend.WebApp/src --inclu
   xargs grep -Lc DialogX
 ```
 
-## D5. Keeping this true
+## D5. ⚠⚠ THE LIVE-DATA CONTRACT — every screen that shows a number
+
+> ⚠⚠ **Written 2026-08-18 because the same fault was reported three times and fixed correctly three
+> times.** 2026-08-11: *"The open float was 'Waiting' and never updated. I navigated away and back
+> onto the cash tab and it had updated."* Then finding N: today's takings read at sign-in, and a full
+> day of trading never moving them. Then §5c item 7, as a general statement: *"Nothing updates unless
+> you navigate away and back."*
+>
+> Each fix was right and each was **local**, so the next screen inherited nothing. **A documented
+> pattern is what failed** — which is why the rules below name a shared piece of code rather than a
+> habit.
+
+**The rule.** A screen that displays data the shop can change must reload it when the operator looks
+at it, and — if it shows a small live figure — keep reloading while they are looking. A screen that
+loads in its constructor and never again is **wrong on every till**, because it is the constructor
+that is the trap:
+
+⚠ **`AppShell` builds every tab up front, so a viewmodel constructor runs ONCE — at sign-in.** On the
+web till the equivalent is a `useEffect(…, [])` with no revalidation. Both freeze the screen for the
+session.
+
+| # | Rule | Why |
+|---|---|---|
+| 1 | **Reload on appearing.** MAUI: `Services.Sync.LiveScreen`, two lines in the page constructor, no `OnAppearing` override. Web: the query's `refetch` on mount | Makes *"navigate away and back"* unnecessary — that phrase in a bug report **is** this fault |
+| 2 | **A small live figure also reloads on the 60-second cadence** — the drawer, today's takings, a read-only detail card | *"(waiting to send)"* against money already sent is the reported case. ⚠ The screen must not need the operator to do anything |
+| 3 | ⚠ **A long scrollable table does NOT tick** (`onCadence: false`) | Rebuilding a 500-row collection sends the view back to the top under somebody's hands: **a worse fault than the staleness, and self-inflicted.** It still reloads on arrival and on an explicit Search |
+| 4 | ⚠ **Unsubscribe when the screen goes away** | `TillCadence.Ticked` is a **static** event. A page that stays attached is held alive for the life of the process with every query it makes each minute — and a till runs for a fortnight without a restart |
+| 5 | ⚠ **The refresh marshals to the UI thread and cannot throw** | It arrives on a background clock. Writing an `ObservableCollection` off the UI thread passes every test and throws on a shop floor; an escape goes to the dispatcher unhandled, which kills the till |
+| 6 | ⚠ **A background refresh is SILENT when it fails** | Nobody asked for it. A dialog raised from a tick lands on top of whatever the operator was actually doing — see the cadence's own header: *nothing here may ever surface a dialog* |
+| 7 | ⚠ **Not for modal forms or add/edit pages** | There is nothing to restate, and reloading under somebody mid-type is a fault |
+
+**Where it lives:** `Plutus/Frontend/Plutus.Frontend.AppClient/Services/Sync/LiveScreen.cs` (MAUI).
+⚠ **There is deliberately no per-screen alternative** — Cash and Statistics were rewritten onto it
+*although they already worked*, so that the rule has no exceptions. An exception is how the third
+report happened.
+
+⚠⚠ **THE DANGEROUS STALENESS IS THE SILENT KIND.** A stuck *"(waiting to send)"* gets reported within
+the hour. **A takings total eight hours old looks exactly like a correct one**, and it is the number a
+manager counts a drawer against. When you find one stale screen, go and look for its siblings in the
+same session — and the sibling that bites is the one with *no refresh code at all* to notice, which is
+how Store Information sat un-refreshable for months.
+
+⚠ **None of this can be unit-tested on MAUI.** A `Page` cannot even be constructed in the test project
+(`BindableObject`'s constructor needs a live WinUI3 dispatcher — it is why three tests are skipped).
+`Test Maui.md` **§G39** is the only check that exists, and it says so at the top.
+
+## D6. Keeping this true
 
 - **Verify against code, not memory.** Every ⬜ in Part B was checked by grepping both codebases;
   that is the standard, and it took under an hour.

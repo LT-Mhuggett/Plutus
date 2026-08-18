@@ -86,6 +86,22 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.StoreOptions
         /// reason, exactly as the web till separates them below its cards.</summary>
         private readonly VerticalStackLayout _thisTill = new() { Spacing = 6 };
 
+
+        /// <summary>
+        /// Re-read the store's details — what `LiveScreen` calls on appearing and on every tick.
+        ///
+        /// ⚠⚠ THIS SCREEN HAD NO WAY TO BE RE-READ AT ALL until 2026-08-18. `LoadStoreDetails` ran
+        /// only from the constructor, and `AppShell` builds every tab up front, so a value corrected
+        /// in the portal could not reach this till until somebody signed out and back in — §5c item 7,
+        /// and pitfall 17 in its purest form. ⚠ A till that cannot be shown a corrected value is
+        /// indistinguishable from a portal that never saved it, which is exactly the confusion the
+        /// opening-hours report came out of.
+        ///
+        /// ⚠ Safe to call repeatedly: the load is fire-and-forget, off the UI thread, and swallows
+        /// its own failures — see `LoadStoreDetails`.
+        /// </summary>
+        public void Refresh() => LoadStoreDetails();
+
         /// <summary>
         /// Show what the PORTAL says this store is.
         ///

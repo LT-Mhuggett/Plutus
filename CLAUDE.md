@@ -49,6 +49,7 @@ cheap path, not the disciplined one.
 | Find yourself copying logic between TypeScript and .NET | Add a row to C2 saying what pins the copies — or state honestly that nothing does |
 | Add a new till surface or platform | Follow D2, then add its column to Part B |
 | **Add or change a dialog** on any till | ⚠ **Read `till-design.md` D4 — the dialog contract.** A visible ✕ (use the shared helper: MAUI `DialogHeader`, web `DialogX`), Escape cancels, and ⚠⚠ **the caller must handle "backed out" without dereferencing it** — that is the crash in §0.3b |
+| **Build a screen that shows a number** the shop can change | ⚠ **Read `till-design.md` D5 — the live-data contract.** MAUI: `Services.Sync.LiveScreen`, two lines in the constructor, **never a hand-rolled `OnAppearing`** — the pattern is what failed three times. ⚠ `onCadence: false` for a long scrollable table, or it jumps to the top under the operator's hands |
 | Discuss tills at all | Cite `till-design.md`, and say if it's out of date |
 
 ## The other standing documents

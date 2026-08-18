@@ -2258,7 +2258,7 @@ difference on every VAT return afterwards, which is exactly what the C2 register
 
 ## G38. ⚠⚠ Adding a member — **till 1.82.0**. It has never once worked.
 
-> ⚠⚠ **NEEDS 1.82.0, WHICH IS NOT BUILT.** The build on the box is **1.81.0**, and on that one the
+> ⚠⚠ **NEEDS A BUILD NEWER THAN 1.81.0, AND THERE ISN'T ONE YET.** The build on the box is **1.81.0**, and on that one the
 > Loyalty tab has no Add member button — so §G38 will "fail" for the wrong reason. Ask for a build
 > first, or skip this section.
 
@@ -2348,3 +2348,93 @@ Pull the network. **Add member**, then **Set tier**.
 **✅ Expected:** both refuse, naming **online and signed in** — *not* "try again". ⚠ Permanently
 online-only and correctly so: the membership number comes from a tenant-wide counter, so two offline
 tills would mint the same one.
+
+---
+
+## G39. ⚠⚠ Screens must update while you look at them — **till 1.83.0**, §5c item 7
+
+> ⚠⚠ **This is the third time the same fault has been reported.** 2026-08-11: *"The open float was
+> 'Waiting' and never updated. I navigated away and back onto the cash tab and it had updated."*
+> Then finding N: today's takings were read at sign-in and a day of trading never moved them. Then
+> 2026-08-18, as a general statement: *"Nothing updates unless you navigate away and back."*
+>
+> Each earlier fix was correct **and local**, so the next screen inherited nothing. There is now one
+> shared piece (`Services/Sync/LiveScreen.cs`) and every live screen goes through it.
+>
+> ⚠⚠ **NOTHING HERE CAN BE UNIT-TESTED — not one step.** A MAUI `Page` cannot even be *constructed*
+> in this solution's test project (`BindableObject`'s constructor needs a live WinUI3 dispatcher; it
+> is why three tests are skipped). So the entire behaviour below is unverified by machine, and this
+> section is the only thing that checks it.
+>
+> ⚠ **Two screens were REWRITTEN to use the shared piece — Cash and Statistics — and they already
+> worked.** §G39b is therefore a regression check on the two that were right before. If either has
+> got worse, that is mine.
+
+### G39a. ⚠ The one that could not update at all — Store Information
+
+Sign in. Go to **Store Information** and leave it on screen.
+
+Now, **in the portal on another machine**, change something visible — the store's phone number is
+easiest. Save it.
+
+**✅ Expected: the till's Store Information shows the new value within about a minute, with nobody
+touching the till.**
+
+⚠⚠ **Before this build that was impossible.** The screen loaded in its constructor, `AppShell` builds
+every tab up front, and this page had **no refresh of any kind** — so a portal correction could not
+reach it until somebody signed out and back in. ⚠ That is very likely the concrete thing behind the
+report, and it is the same screen whose opening hours were argued about on 2026-08-17: **a till that
+cannot be shown a corrected value looks exactly like a portal that never saved it.**
+
+### G39b. ⚠ Regression check — the two screens that already worked
+
+**Cash tab.** Ring a cash sale on the Till tab, then go to **Cash**.
+
+**✅ Expected:** the takings include that sale, and any *"(waiting to send)"* clears **by itself**
+within a minute — without navigating away and back. That last part is the original 2026-08-11 report.
+
+**Statistics tab.** Ring another sale, then go to **Statistics**, and stay there.
+
+**✅ Expected:** today's figures include it, and they keep up as more sales are rung — that is
+finding N.
+
+⚠ Both of these had hand-written refresh code that worked, and it was replaced by the shared piece.
+**If either is now worse than it was, say so** — that would be a regression I introduced while
+tidying.
+
+### G39c. ⚠ The long tables must NOT jump — this is deliberate
+
+**Items list** (Inventory → View all Items). Scroll a long way down. **Wait two minutes without
+touching anything.**
+
+**✅ Expected: it stays exactly where you left it.** It must **not** reload, must not jump to the top,
+must not flicker.
+
+⚠ **That is a decision, not an oversight.** A list of up to 500 rows rebuilt every 60 seconds sends
+the view back to the top under the operator's hands — a worse fault than the staleness it would fix,
+and one we would have *introduced*. The same applies to **Loyalty** and **Reports**: try both, scroll
+down, wait. ⚠ They still reload when you **arrive** on them, and when you press **Search** / run the
+report — which is what makes *"navigate away and back"* unnecessary rather than mandatory.
+
+⚠ If any of those three DOES jump on its own, that is a bug — report it.
+
+### G39d. ⚠ Visit a tab five times — nothing should multiply
+
+Go **Cash → Till → Cash → Till → Cash → Till → Cash**, seven or so switches. Then sit on **Cash** for
+two minutes.
+
+**✅ Expected: it refreshes once a minute, calmly.** No flicker-storm, no repeated redraws bunched
+together, no slowdown.
+
+⚠ This is the leak check. `TillCadence.Ticked` is a **static** event, so a screen that subscribes on
+every visit and never unsubscribes accumulates handlers — and sixty seconds later they all fire at
+once, each holding a dead page and its queries alive. A till runs for a fortnight without a restart,
+so this compounds.
+
+### G39e. Offline
+
+Pull the network and sit on **Statistics**, then **Store Information**, for two minutes.
+
+**✅ Expected: the last-known figures stay on screen, no dialogs, no crash, no spinner stuck over the
+app.** ⚠ A refresh that fails must be silent here: these run on a background clock with no operator
+behind them, and a dialog raised from one would land on top of whatever somebody was actually doing.

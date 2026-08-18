@@ -336,19 +336,44 @@ is needed before anyone installs this on a shop PC, and is not needed to test.
     `FileSystem.AppDataDirectory\logs`. ⚠ **Tells for a test-host log**: errors in identical PAIRS,
     timestamps that match your own test runs rather than a shift, and
     `COMException: ClassFactory cannot supply requested class` from `MainThread`/`FileSystem`.
+
 17. ⚠ **`AppShell` BUILDS EVERY TAB UP FRONT, so a viewmodel constructor runs ONCE — at sign-in.**
     Anything loaded there is frozen for the life of the session. `StatisticsViewModel` called
     `LoadToday()` from its constructor, so today's takings were fixed at the moment the operator
     signed in and a full day of trading never moved them. ⚠ **`OnAppearing` is not enough either**
     for anything that changes while the screen is up: the Cash tab showed "(waiting to send)"
     against money the outbox had already delivered, and the only way to find out was to leave the
-    page and come back. **Subscribe to `Services.Sync.TillCadence.Ticked`** in `OnAppearing` and
-    **unsubscribe in `OnDisappearing`** — it is a static event, so a page that stays attached is
-    held alive for the life of the process along with every query it makes each minute. Handlers
-    arrive on the cadence thread, must marshal their own UI work, and must not throw.
-    ⚠ **The dangerous one is the silent one.** A stuck "(waiting to send)" gets reported within the
-    hour; a takings total eight hours stale looks exactly like a correct one. **When you find one
-    stale screen, go and look for its siblings straight away.**
+    page and come back.
+
+    ⚠⚠ **DO NOT HAND-ROLL IT ANY MORE — use `Services/Sync/LiveScreen.cs`.** Two lines in the page's
+    constructor, no `OnAppearing` override, nothing to remember to unsubscribe:
+    ```csharp
+    private readonly Services.Sync.LiveScreen _live;          // keep it in a field
+    _live = new Services.Sync.LiveScreen(this, _vm.Refresh);   // after BindingContext is set
+    ```
+    It hooks the page's public `Appearing`/`Disappearing`, refreshes on appearing, subscribes to
+    `TillCadence.Ticked` while the page is up, unsubscribes on the way out, marshals onto the UI
+    thread, and cannot throw.
+
+    ⚠ **Pass `onCadence: false` for a long scrollable table.** A refresh that rebuilds an
+    `ObservableCollection` sends a `CollectionView` back to the top, so ticking a 500-row item list
+    would yank the page out from under somebody reading it — a worse fault than the staleness, and a
+    self-inflicted one. Items, Loyalty and Reports are `false`; Cash, Statistics and Store
+    Information are `true`.
+
+    ⚠ **Why this is a shared class and not a documented pattern:** it was already documented as a
+    pattern, right here, and the pattern is what failed. The Cash fix taught Statistics nothing,
+    Statistics taught Store Information nothing — which had **no refresh at all** — and the same
+    complaint arrived a third time as *"nothing updates unless you navigate away and back"*
+    (§5c item 7). ⚠ **The dangerous one is the silent one.** A stuck "(waiting to send)" gets
+    reported within the hour; a takings total eight hours stale looks exactly like a correct one.
+    **When you find one stale screen, go and look for its siblings straight away** — and the sibling
+    that bites is the one with no refresh code to notice.
+
+    ⚠ **None of this is machine-testable.** A MAUI `Page` cannot be constructed in the test project
+    at all (`BindableObject`'s constructor needs a live WinUI3 dispatcher — it is why three tests are
+    skipped), so `LiveScreen` has no unit test and cannot have one. `Test Maui.md` **§G39** is the
+    only check that exists.
 
 18. ⚠⚠ **`.Translate()` ON AN ENGLISH SENTENCE CRASHES A DEBUG BUILD.** `TranslateExtension.ProvideValue`
     looks the string up as a **resource key**; when it misses it **throws `ArgumentException` in
