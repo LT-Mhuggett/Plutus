@@ -19,11 +19,15 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
     /// Tiers themselves are created in the **portal only** (binding default 20).
     ///
     /// ⚠⚠ ITS COLUMNS AND ITS ACTIONS ARE THE WEB TILL'S — Matt, 2026-08-18: *"Ensure the webtill and
-    /// maui are inline."* Six columns in its order (Customer with the email under the name, Member
-    /// no., Tier, Discount, Renews, Credit), **Add member** for `pos.customers.add`, and **Edit** —
-    /// which MAUI simply did not have — for `customers.manage`. ⚠ Edit is a **row tap** rather than a
-    /// per-row button: the web till has room for one and a till screen does not. Parity in
-    /// FUNCTIONALITY, not in how the function operates (Matt, 2026-08-17).
+    /// maui are inline."* **Add member** for `pos.customers.add`, and **Edit** — which MAUI simply did
+    /// not have — for `customers.manage`. ⚠ Edit is a **row tap** rather than a per-row button: the web
+    /// till has room for one and a till screen does not. Parity in FUNCTIONALITY, not in how the
+    /// function operates (Matt, 2026-08-17).
+    ///
+    /// ⚠⚠ EIGHT COLUMNS, EACH WITH A WIDTH — *"The MAUI till is all over the place!"* (2026-08-18, with
+    /// a screenshot). Email is **its own column** rather than a second line under the name, **Created**
+    /// was added, and every column now declares a weight: without one the text columns split the whole
+    /// row and the numeric ones were crushed into what was left. Both tills carry the same eight.
     ///
     /// ⚠ ROWS ARE BUILT IN CODE, like Cash and Statistics — MAUI bindings fail silently, and a blank
     /// tier here tells a customer they have no discount while a blank balance makes credit look
@@ -534,39 +538,49 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
         }
 
         /// <summary>
-        /// The columns, and they are **the web till's six, in its order** — Matt, 2026-08-18:
-        /// *"Ensure the webtill and maui are inline."*
+        /// The columns.
         ///
-        /// ⚠⚠ MAUI SHOWED THREE (Member · Tier · Credit) AND THE WEB TILL SHOWS SIX. The two that
-        /// were missing are not decoration: **Renews** is when a membership lapses, and **Discount**
-        /// is what the customer is actually getting off — an operator asked *"why did they not get
-        /// their 10%?"* cannot answer it from a screen that shows neither.
+        /// ⚠⚠ **EVERY COLUMN CARRIES A WIDTH, AND THAT IS THE FIX FOR "ALL OVER THE PLACE"** (Matt,
+        /// 2026-08-18, with a screenshot). `TillTable`'s old rule was *numeric ⇒ size to content,
+        /// everything else ⇒ share what is left*. Fine for three columns; at six the three text
+        /// columns split the entire row between them and **Discount, Renews and Credit were crushed
+        /// into the remainder** — the headers ran together and the dashes under them touched.
         ///
-        /// ⚠ Email moves under the name, exactly as the web till renders it
-        /// (`{r.name}{r.email && <span className="muted small block">…`) — a second line rather than a
-        /// column, because it is long, rarely scanned, and would squeeze the money columns.
+        /// ⚠ Weights, never pixels: a till runs windowed, full-screen and on a small terminal, and a
+        /// column measured in pixels is right on exactly one of them.
         ///
-        /// ⚠ THE BALANCE IS `Numeric`, WHICH IS NOT COSMETIC. It right-aligns so the column can be
-        /// read down and — more importantly — it sorts as a NUMBER. Ordered as text, £100 comes
-        /// before £9, and a manager looking for the biggest balances gets nonsense.
+        /// ⚠ **EMAIL IS ITS OWN COLUMN** — Matt asked for it, and he is right. It was a second line
+        /// under the name (copied from the web till, which renders it that way), which made every row
+        /// double height and left the name column looking oddly empty on rows with no email.
         ///
-        /// ⚠ The tier column sorts on the TIER NAME rather than its rendered text, so "Gold" and
-        /// "Gold (expired)" group together instead of splitting on a bracket.
+        /// ⚠ **CREATED** answers *"is this a regular, or did they sign up last week?"* — and it is the
+        /// only column that distinguishes a member with no tier and no credit from any other.
+        ///
+        /// ⚠ Numeric columns right-align and sort as NUMBERS. Ordered as text, £100 comes before £9.
+        ///
+        /// ⚠ The dates are shown exactly as the server sent them (`yyyy-MM-dd`) rather than reformatted
+        /// per culture — they sort correctly as text that way, and one clock decides what day a thing
+        /// happened on.
         /// </summary>
         private static Controls.TableColumn<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>[] Columns() => new[]
         {
             new Controls.TableColumn<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>(
                 "Customer",
-                r => string.IsNullOrWhiteSpace(r.Email)
-                    ? (string.IsNullOrWhiteSpace(r.Name) ? "(no name)" : r.Name)
-                    : $"{(string.IsNullOrWhiteSpace(r.Name) ? "(no name)" : r.Name)}\n{r.Email}",
-                SortText: r => r.Name ?? string.Empty),
+                r => string.IsNullOrWhiteSpace(r.Name) ? "(no name)" : r.Name,
+                Width: 3),
 
-            // ⚠ "—" NOT BLANK, the web till's `<span className="muted">—</span>`. A blank cell reads as
-            // a screen that failed to load; a dash is an answer.
+            // ⚠ ITS OWN COLUMN NOW, not a second line under the name.
+            new Controls.TableColumn<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>(
+                "Email",
+                r => string.IsNullOrWhiteSpace(r.Email) ? "—" : r.Email,
+                Width: 4),
+
+            // ⚠ "—" NOT BLANK, throughout. A blank cell reads as a screen that failed to load; a dash
+            // is an answer. (The web till renders the same `<span className="muted">—</span>`.)
             new Controls.TableColumn<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>(
                 "Member no.",
-                r => string.IsNullOrWhiteSpace(r.MemberNo) ? "—" : r.MemberNo),
+                r => string.IsNullOrWhiteSpace(r.MemberNo) ? "—" : r.MemberNo,
+                Width: 2),
 
             new Controls.TableColumn<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>(
                 "Tier",
@@ -576,25 +590,29 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
                 r => string.IsNullOrWhiteSpace(r.Tier)
                     ? "—"
                     : r.Expired ? $"{r.Tier} (expired)" : r.Tier,
-                SortText: r => r.Tier ?? string.Empty),
+                SortText: r => r.Tier ?? string.Empty,
+                Width: 2),
 
-            // ⚠ ITS OWN COLUMN, as on the web till, rather than folded into the tier's label. The
-            // rate is the TIER's current one (re-rating "Gold" in the portal moves every Gold member
-            // at once), so it is a fact about today, not a snapshot.
+            // ⚠ The TIER's current rate, not a snapshot from when it was assigned — re-rating "Gold"
+            // in the portal moves every Gold member at once.
             new Controls.TableColumn<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>(
                 "Discount",
                 r => r.AutoDiscountRate is decimal rate && rate > 0m
                     ? $"{System.Math.Round(rate * 100m)}%"
                     : "—",
                 Numeric: true,
-                SortNumber: r => (long)System.Math.Round((r.AutoDiscountRate ?? 0m) * 10000m)),
+                SortNumber: r => (long)System.Math.Round((r.AutoDiscountRate ?? 0m) * 10000m),
+                Width: 2),
 
-            // ⚠ WHEN THE MEMBERSHIP LAPSES. Shown as the server sends it (an ISO day) rather than
-            // reformatted against this till's culture — the same string the web till prints, and one
-            // fewer place for two tills to disagree about a date.
             new Controls.TableColumn<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>(
                 "Renews",
-                r => string.IsNullOrWhiteSpace(r.RenewalDay) ? "—" : r.RenewalDay),
+                r => string.IsNullOrWhiteSpace(r.RenewalDay) ? "—" : r.RenewalDay,
+                Width: 2),
+
+            new Controls.TableColumn<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>(
+                "Created",
+                r => string.IsNullOrWhiteSpace(r.CreatedAtUtc) ? "—" : r.CreatedAtUtc,
+                Width: 2),
 
             new Controls.TableColumn<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>(
                 "Credit",
@@ -602,7 +620,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
                     ? "—"
                     : (r.CreditBalancePence / 100m).ToString("C2", CultureInfo.CurrentCulture),
                 Numeric: true,
-                SortNumber: r => r.CreditBalancePence),
+                SortNumber: r => r.CreditBalancePence,
+                Width: 2),
         };
     }
 }

@@ -662,6 +662,11 @@ export interface V1LoyaltyRow {
   memberNo: string | null;
   tierId: string | null;
   tier: string | null; autoDiscountRate: number | null; renewalDay: string | null; expired: boolean; creditBalancePence: number;
+  /** The day they joined, `yyyy-MM-dd`, as the SERVER formatted it — added 2026-08-18.
+   *  ⚠ A string, not a Date: one clock decides what day something happened on, and a client
+   *  re-formatting an instant against its own timezone is how two tills print different dates for
+   *  the same customer. MAUI's `LoyaltyRowDto.CreatedAtUtc` is the same field, the same way. */
+  createdAtUtc: string | null;
 }
 export const fetchLoyalty = (search = "") =>
   get<{ count: number; rows: V1LoyaltyRow[] }>(`/api/v1/loyalty${search ? `?search=${encodeURIComponent(search)}` : ""}`);

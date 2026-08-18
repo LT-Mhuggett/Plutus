@@ -16,13 +16,32 @@ namespace Plutus.Frontend.AppClient.Controls
     /// text hides its order (a formatted date, say) — hence the override.</param>
     /// <param name="SortNumber">The value to order by when <paramref name="Numeric"/>.</param>
     /// <param name="Sortable">Default true; set false for a column with no meaningful order.</param>
+    /// <param name="Width">
+    /// How much of the row this column gets, as a **star weight** — 2 takes twice the space of 1.
+    /// **0 means size to the content** (`Auto`).
+    ///
+    /// ⚠⚠ THIS EXISTS BECAUSE THE LOYALTY TABLE CAME OUT UNREADABLE. Matt, 2026-08-18: *"The MAUI till
+    /// is all over the place!"* — and he was right. Every text column was `Star` and every numeric one
+    /// was `Auto`, so on a wide window the three text columns split the whole row between them while
+    /// **Discount, Renews and Credit were squeezed into whatever was left** — the headers ran together
+    /// and the dashes under them touched.
+    ///
+    /// ⚠ THE OLD RULE WAS "NUMERIC ⇒ AUTO, EVERYTHING ELSE ⇒ STAR", which is fine for a three-column
+    /// table and falls apart at six. It is kept as the DEFAULT (`Width: 0` behaves exactly as before),
+    /// so Cash, Statistics, Inventory and Reports are untouched — only a table that asks for widths
+    /// gets them.
+    ///
+    /// ⚠ A weight, not pixels: a till runs windowed, full-screen and on a small terminal, and a column
+    /// measured in pixels is right on exactly one of them.
+    /// </param>
     public sealed record TableColumn<T>(
         string Label,
         Func<T, string> Render,
         bool Numeric = false,
         Func<T, string> SortText = null,
         Func<T, long> SortNumber = null,
-        bool Sortable = true);
+        bool Sortable = true,
+        double Width = 0);
 
     /// <summary>
     /// What a till table is SHOWING — search, sort and page, with no UI attached.

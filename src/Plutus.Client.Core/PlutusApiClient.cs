@@ -1385,6 +1385,16 @@ public sealed class PlutusApiClient
         public bool Expired { get; set; }
 
         public long CreditBalancePence { get; set; }
+
+        /// <summary>
+        /// The day they joined, `yyyy-MM-dd`, as the SERVER formatted it.
+        ///
+        /// ⚠ A STRING, NOT A `DateTime`, on purpose - the same choice as `RenewalDay` right above.
+        /// One clock decides what day something happened on, and a till re-formatting an instant
+        /// against its own culture and timezone is how two tills come to print different dates for the
+        /// same customer.
+        /// </summary>
+        public string? CreatedAtUtc { get; set; }
     }
 
     // ── reporting (WP11 / step 26) ─────────────────────────────────────────────────────────────

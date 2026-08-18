@@ -145,6 +145,13 @@ namespace Plutus.Customers
                     renewalDay = mem?.RenewalDay,
                     expired = mem != null && mem.RenewalDay < today,
                     creditBalancePence = bal,
+
+                    // ⚠ WHEN THEY JOINED — Matt, 2026-08-18, asked for it on the loyalty list. It is
+                    // the answer to "is this a regular or somebody who signed up last week", and it is
+                    // the only column that tells a member with no tier and no credit apart from any
+                    // other. Sent as a **day**, not an instant: the list has no room for a time and a
+                    // date is what the question is about.
+                    createdAtUtc = c.CreatedAtUtc.ToString("yyyy-MM-dd"),
                 };
             }).OrderByDescending(r => r.creditBalancePence).ThenBy(r => r.name).Take(take);
             return Ok(new { count = customers.Count, rows });

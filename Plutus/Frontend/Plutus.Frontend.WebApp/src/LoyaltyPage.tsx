@@ -43,11 +43,22 @@ export default function LoyaltyPage() {
       {loading ? <p className="muted">Loading…</p> : (
         <DataTable<V1LoyaltyRow>
           columns={[
-            { key: "name", label: "Customer", render: (r) => <>{r.name}{r.email && <span className="muted small block">{r.email}</span>}</> },
+            // ⚠⚠ EMAIL IS ITS OWN COLUMN, and Created is new — Matt, 2026-08-18, looking at MAUI:
+            // "Can you separate email into its own column, have a 'Created' date column". Applied to
+            // BOTH tills in the same commit, because he had asked the day before for them to be in
+            // line and a column added to one is the fastest way out of line again.
+            //
+            // ⚠ Email used to hang under the name as a second line, which made every row double
+            // height and left the name column looking oddly empty for members with no email.
+            { key: "name", label: "Customer", render: (r) => r.name },
+            { key: "email", label: "Email", render: (r) => r.email || <span className="muted">—</span> },
             { key: "memberNo", label: "Member no.", render: (r) => r.memberNo ? <span className="mono small">{r.memberNo}</span> : <span className="muted">—</span> },
             { key: "tier", label: "Tier", render: (r) => <>{r.tier ?? <span className="muted">—</span>}{r.expired && <span className="error small"> (expired)</span>}</> },
             { key: "autoDiscountRate", label: "Discount", numeric: true, render: (r) => (r.autoDiscountRate ? `${Math.round(r.autoDiscountRate * 100)}%` : "—") },
             { key: "renewalDay", label: "Renews", render: (r) => r.renewalDay ?? "—" },
+            // ⚠ "Is this a regular, or did they sign up last week?" — and the only column that tells a
+            // member with no tier and no credit apart from any other.
+            { key: "createdAtUtc", label: "Created", render: (r) => r.createdAtUtc ?? "—" },
             { key: "creditBalancePence", label: "Credit", numeric: true, render: (r) => gbp(r.creditBalancePence) },
           ]}
           rows={rows} getKey={(r) => r.id} initialSortKey="creditBalancePence" initialSortDir="desc"

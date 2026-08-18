@@ -166,7 +166,7 @@ namespace Plutus.Frontend.AppClient.Controls
             {
                 _header.ColumnDefinitions.Add(new ColumnDefinition
                 {
-                    Width = _columns[i].Numeric ? GridLength.Auto : GridLength.Star,
+                    Width = WidthFor(_columns[i]),
                 });
 
                 var index = i;
@@ -215,6 +215,23 @@ namespace Plutus.Frontend.AppClient.Controls
             _next.IsEnabled = _view.HasNextPage;
         }
 
+
+        /// <summary>
+        /// How wide a column is — used by the header AND the rows, which is the point: they are two
+        /// separate `Grid`s and a column that sizes differently in each is a table whose headings do
+        /// not sit over their own data.
+        ///
+        /// ⚠⚠ THE DEFAULT IS THE OLD RULE, UNCHANGED — numeric sizes to content, everything else
+        /// shares what is left. Cash, Statistics, Inventory and Reports pass no width and behave
+        /// exactly as before; only a table that asks gets anything different.
+        ///
+        /// ⚠ A star WEIGHT, never pixels. A till runs windowed, full-screen and on a small terminal,
+        /// and a column measured in pixels is right on exactly one of them.
+        /// </summary>
+        private static GridLength WidthFor(TableColumn<T> column) =>
+            column.Width > 0
+                ? new GridLength(column.Width, GridUnitType.Star)
+                : (column.Numeric ? GridLength.Auto : GridLength.Star);
         private View RowFor(T row)
         {
             var grid = new Grid { ColumnSpacing = 8 };
@@ -223,7 +240,7 @@ namespace Plutus.Frontend.AppClient.Controls
             {
                 grid.ColumnDefinitions.Add(new ColumnDefinition
                 {
-                    Width = _columns[i].Numeric ? GridLength.Auto : GridLength.Star,
+                    Width = WidthFor(_columns[i]),
                 });
 
                 grid.Add(new Label
