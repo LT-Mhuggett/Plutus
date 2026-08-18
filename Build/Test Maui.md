@@ -46,7 +46,7 @@ on 2026-08-11 came from somebody noticing something, not from a step asking the 
 
 | | |
 |---|---|
-| **Run** | ✅ `D:\tmp\plutus-till-1.93.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-18 and verified inside the binary** (`1.93.0+9b447759` = HEAD). ⚠ **The only build on the box.** ⚠⚠ **NEEDS BACKEND 1.17.8** (deployed) — the Created column and the customer-history endpoint. ⚠ **Web till 1.18.0 is deployed** with the matching detail view and card, so the two can be compared side by side. ⚠ **Print card needs the till agent paired** (Settings → Hardware) and a receipt printer — the button is hidden without one. ⚠ It will say the till isn't enrolled; expected for an unpackaged build. |
+| **Run** | ✅ `D:\tmp\plutus-till-1.94.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT and verified inside the binary** (`1.94.0+6eae51d3` = HEAD). ⚠ **The only build on the box.** ⚠⚠ **NEEDS BACKEND 1.17.8** and **web till 1.18.0**, both deployed. ⚠⚠ **THE "PLUTUS" TAB IS GONE** — it is now **Settings → Till device → Connection, enrolment & diagnostics**, the same screen. If you go looking for the tab, that is why. ⚠ It will say the till isn't enrolled; expected for an unpackaged build. |
 | **Agent** | ⚠ **Agent 1.4.0 is REQUIRED for §G29**, and it fixes "start automatically" not working after a reboot. Get it from the **web till → Settings → Hardware → Download the agent (v1.4.0)**, or from `tools\Plutus.TillAgent\publish-out\PlutusTillAgent-1.4.0.exe`. ⚠⚠ **Copy it to `%LOCALAPPDATA%\Plutus\Agent\` and run it from THERE — not from Downloads.** Auto-start records the path it was launched from; a Downloads copy gets cleaned up or renamed `… (1).exe`, and then the till boots and starts nothing. That is the fault this build fixes, and running it once from a permanent folder repairs a stale registration. |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
@@ -3107,3 +3107,62 @@ Sign in as a **Cashier** and open a customer.
 
 ⚠ Deliberate: handing somebody their own card is counter work, and a cashier is who is standing in
 front of them. Making them fetch a supervisor to reprint a lost card would be absurd.
+
+---
+
+## G49. Settings, and the tab that moved into it — **till 1.94.0**, §5c items 8 + 9
+
+> Matt: *"most of the MAUI Plutus tab would move into settings"*, and *"'Choose bag item' in Store
+> Information"*.
+>
+> ⚠⚠ **THE PLUTUS TAB NO LONGER EXISTS.** Do not report it missing — it is deliberate, and its screen
+> is intact behind **Settings → Till device**.
+
+### G49a. The section names match the web till
+
+Open **Settings** and read the headings.
+
+**✅ Expected:** **Till · Printer · Checkout · Till device · Help**, with **Till first**.
+
+⚠ Compare with the web till's Settings page. Its sections are Till, Checkout, Printer, Hardware,
+Database, Till device, Environment — MAUI had only Printer, Checkout and Help, so the two screens
+shared almost no vocabulary.
+
+⚠⚠ **The headings must be READABLE.** They were hard-coded light grey — the same near-invisible grey
+that made Store Information unreadable in 1.74.0. They follow the theme now, so check them under a
+**dark scheme** as well as the light one.
+
+### G49b. The bag item is in Settings, not Store Information
+
+**Settings → Till → Quick-sell bag item.**
+
+**✅ Expected:** a box asking for the bag's barcode, **with the current one already in it as editable
+text** — not a grey hint.
+
+⚠ Type a barcode that does not exist: it must refuse with "item not found". ⚠ Type a real one: it
+saves and says which item the Bag button will ring up.
+
+Now open **Store Information**. **✅ Expected: NO bag button there** — that is the move.
+
+⚠ Then check the **Bag** button on the Till tab still rings up what you set.
+
+### G49c. ⚠ Till device — the old Plutus tab
+
+**Settings → Till device → Connection, enrolment & diagnostics.**
+
+**✅ Expected: the whole screen you used to reach from the Plutus tab** — connection state, server
+address, this till's identity, the enrolment code, and the five diagnostics (heartbeat, catalogue
+feed, re-download catalogue, sync staff, send queued sales).
+
+⚠ It opens as a **modal page**, so there is a way back out. Check you can close it and land back on
+Settings.
+
+⚠ **Run one diagnostic** — "Send a heartbeat" is the quickest — and confirm it still reports. The
+screen was moved, not rebuilt, so anything broken here is a move that went wrong.
+
+### G49d. A cashier cannot change the bag item
+
+Sign in as a **Cashier** → Settings → Till → Quick-sell bag item.
+
+**✅ Expected: refused**, naming the permission. ⚠ It is `pos.settings.manage`, exactly as it was
+before the move — a setting that changes what a button sells is not a cashier's to change.
