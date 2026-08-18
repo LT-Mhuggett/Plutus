@@ -15,9 +15,15 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
     /// <summary>
     /// The loyalty list — everyone who is a member or holds store credit (step 27, WP12).
     ///
-    /// ⚠ A LOOKUP AND THE SIGN-UP DESK, NOT A CONFIGURATION SCREEN. Tiers are created in the **portal only** (binding
-    /// default 20). This answers *"what does this customer have?"* away from a sale; assigning a
-    /// tier is done HERE, from the list, gated `customers.manage`.
+    /// ⚠ THE MEMBER DESK: look somebody up, sign somebody up, correct their details, set their tier.
+    /// Tiers themselves are created in the **portal only** (binding default 20).
+    ///
+    /// ⚠⚠ ITS COLUMNS AND ITS ACTIONS ARE THE WEB TILL'S — Matt, 2026-08-18: *"Ensure the webtill and
+    /// maui are inline."* Six columns in its order (Customer with the email under the name, Member
+    /// no., Tier, Discount, Renews, Credit), **Add member** for `pos.customers.add`, and **Edit** —
+    /// which MAUI simply did not have — for `customers.manage`. ⚠ Edit is a **row tap** rather than a
+    /// per-row button: the web till has room for one and a till screen does not. Parity in
+    /// FUNCTIONALITY, not in how the function operates (Matt, 2026-08-17).
     ///
     /// ⚠ ROWS ARE BUILT IN CODE, like Cash and Statistics — MAUI bindings fail silently, and a blank
     /// tier here tells a customer they have no discount while a blank balance makes credit look
@@ -43,7 +49,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
             // SERVER — the list is capped server-side, so filtering only what is on screen would
             // quietly hide members who exist. Two boxes doing different things is worse than one.
             _table = new Controls.TillTable<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>(
-                Columns(), search: null, emptyText: "No members or store credit yet.");
+                Columns(), search: null,
+                // ⚠ The web till's own wording, verbatim - two tills that describe the same empty
+                // state differently read as two different products.
+                emptyText: "No members or credit holders yet.",
+                // ⚠⚠ TAP A ROW TO EDIT - the web till has a per-row Edit button; a till screen has
+                // no room for one. Silent for an operator without `customers.manage`.
+                onRowTap: ExecuteEditMember);
 
             _tableHost.Content = _table;
 
@@ -100,8 +112,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
         /// ⚠ ONLINE-ONLY, deliberately and permanently: the membership number comes from a
         /// tenant-wide counter, so two offline tills would mint the same one.
         ///
-        /// ⚠ CREATE-ONLY. There is no edit path on this till at all — changing a member's email
-        /// quietly redirects their account.
+        /// ⚠⚠ NO LONGER CREATE-ONLY — see `ExecuteEditMember`. This said *"there is no edit path on
+        /// this till at all — changing a member's email quietly redirects their account"*, and Matt's
+        /// 2026-08-18 ruling retired the reason: the identity is `Customer.Id`, **nothing resolves a
+        /// customer by email**, so an edit redirects nothing — and the server now records `before` and
+        /// `after` on each one. Edit stays `customers.manage`; adding is still the wider gate.
         /// </summary>
         private async void ExecuteAddMember()
         {
@@ -206,6 +221,119 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
             }
         }
 
+
+        /// <summary>
+        /// Change a member's details — **tap their row**.
+        ///
+        /// ⚠⚠ MAUI HAD NO EDIT AT ALL AND THE WEB TILL HAS HAD ONE SINCE IT WAS WRITTEN (its Loyalty
+        /// page carries a per-row **Edit** button gated `customers.manage`). Matt, 2026-08-18: *"Ensure
+        /// the webtill and maui are inline."*
+        ///
+        /// ⚠⚠ IT WAS ABSENT ON PURPOSE, AND THE RULING REMOVED THE REASON. `PlutusApiClient`'s own
+        /// header said the client *"deliberately exposes no customer edit"* because changing an email
+        /// was thought to redirect somebody's account. Matt, 2026-08-18: *"A customer needs to have a
+        /// unique ID, because people can change emails over time. Audit please."* The id is
+        /// `Customer.Id`, a UUIDv7, and **nothing resolves a customer by email** — so an edit cannot
+        /// redirect anything, and the server records `before` and `after` on every one.
+        ///
+        /// ⚠ A ROW TAP RATHER THAN A BUTTON COLUMN — the web till has room for a per-row action; a
+        /// till screen does not. `TillTable`'s tap hook is opt-in (added for the sale drill-down) and
+        /// hand-run 1 confirmed a gesture really does fire inside a `ViewCell`, which is what makes
+        /// this the cheap option rather than a gamble.
+        ///
+        /// ⚠ THE TIER IS NOT IN THIS DIALOG, unlike the web till's. `InputAlert` has no picker, and
+        /// `SetTierCommand` already does that job with its own permission — the web till's own comment
+        /// explains why create-then-tier must stay two separately-gated calls. Same capability, one
+        /// more tap. **Functional parity, not identical interaction** (Matt, 2026-08-17).
+        ///
+        /// ⚠ CONTACT DETAILS ONLY. `PUT /api/v1/customers/{id}` carries name, email and phone; a
+        /// membership number is minted centrally and is never editable anywhere.
+        /// </summary>
+        private async void ExecuteEditMember(Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto row)
+        {
+            if (row is null || IsBusy) return;
+
+            // ⚠ SILENT WHEN NOT PERMITTED. The whole table is tappable, so a cashier brushing a row
+            // must not be told off for a control they were never offered — the web till simply does
+            // not render its Edit button for them.
+            if (!MayManageCustomers) return;
+
+            IsBusy = true;
+            try
+            {
+                Helpers.Validators.IValidator[] required = { new Helpers.Validators.RequiredValidator() };
+
+                // ⚠⚠ `prefillWithPlaceholder: true` IS WHAT PUTS THE CURRENT VALUES IN THE BOXES AS
+                // REAL, EDITABLE TEXT. Without it they render as grey hint text, and `InputResults` is
+                // seeded from `entry.Text` — so an operator who changed only the phone would submit an
+                // EMPTY name and the save would be refused with no message. That is finding K, *"I can
+                // ONLY change the tax"* (2026-08-10 and again 2026-08-11), and this is the first edit
+                // form written since it was fixed.
+                CustomViews.Structs.ViewElementData[] elements =
+                {
+                    new CustomViews.Structs.ViewElementData(
+                        1, "Name *", row.Name ?? "", required.AsEnumerable(),
+                        isPassword: false, isEnabled: true, prefillWithPlaceholder: true),
+                    new CustomViews.Structs.ViewElementData(
+                        2, "Email", row.Email ?? "", new List<Helpers.Validators.IValidator>(),
+                        isPassword: false, isEnabled: true, prefillWithPlaceholder: true),
+                    new CustomViews.Structs.ViewElementData(
+                        3, "Phone", row.Phone ?? "", new List<Helpers.Validators.IValidator>(),
+                        isPassword: false, isEnabled: true, prefillWithPlaceholder: true),
+                };
+
+                var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                    elements, "Save".Translate(), true,
+                    string.IsNullOrWhiteSpace(row.Name) ? "Edit member" : $"Edit {row.Name}",
+                    "Cancel".Translate());
+
+                // ⚠ An empty result is "they backed out" — all four exits agree since 2026-08-18.
+                answers.TryGetValue(1, out var name);
+                if (string.IsNullOrWhiteSpace(name)) return;
+
+                answers.TryGetValue(2, out var email);
+                answers.TryGetValue(3, out var phone);
+
+                // ⚠ THE OPERATOR'S CLIENT — `PUT /api/v1/customers/{id}` is `perm:`-gated, and a device
+                // token's `NameIdentifier` is the device id, which holds no grants (item 6a).
+                var api = await Services.Connectivity.PlutusApi.GetOperatorAsync();
+                if (api is null)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "A member can only be changed while the till is online and somebody is signed in. Nothing has been changed.",
+                        "OK".Translate());
+                    return;
+                }
+
+                var (ok, problem) = await api.UpdateCustomerAsync(row.Id, name, email, phone);
+
+                if (!ok)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Not changed",
+                        problem ?? "That change couldn't be saved, so nothing has changed.", "OK".Translate());
+                    return;
+                }
+
+                Logger.LogEvent(AppLogLevel.Info, $"{GetType().Name}: Member edited",
+                    new Dictionary<string, string> { { "CustomerId", row.Id.ToString() } });
+
+                Refresh();
+            }
+            catch (Exception ex)
+            {
+                CrashLog.Write("LoyaltyViewModel.ExecuteEditMember", ex);
+                try
+                {
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "That change couldn't be saved. Nothing has changed.", "OK".Translate());
+                }
+                catch (Exception inner) { CrashLog.Write("LoyaltyViewModel.ExecuteEditMember.alert", inner); }
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
         /// <summary>
         /// Set or change a member's tier — **Supervisor and up** (`customers.manage`).
         ///
@@ -406,10 +534,20 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
         }
 
         /// <summary>
-        /// The columns, per `table-standard.md`.
+        /// The columns, and they are **the web till's six, in its order** — Matt, 2026-08-18:
+        /// *"Ensure the webtill and maui are inline."*
+        ///
+        /// ⚠⚠ MAUI SHOWED THREE (Member · Tier · Credit) AND THE WEB TILL SHOWS SIX. The two that
+        /// were missing are not decoration: **Renews** is when a membership lapses, and **Discount**
+        /// is what the customer is actually getting off — an operator asked *"why did they not get
+        /// their 10%?"* cannot answer it from a screen that shows neither.
+        ///
+        /// ⚠ Email moves under the name, exactly as the web till renders it
+        /// (`{r.name}{r.email && <span className="muted small block">…`) — a second line rather than a
+        /// column, because it is long, rarely scanned, and would squeeze the money columns.
         ///
         /// ⚠ THE BALANCE IS `Numeric`, WHICH IS NOT COSMETIC. It right-aligns so the column can be
-        /// read down, and — more importantly — it sorts as a NUMBER. Ordered as text, £100 comes
+        /// read down and — more importantly — it sorts as a NUMBER. Ordered as text, £100 comes
         /// before £9, and a manager looking for the biggest balances gets nonsense.
         ///
         /// ⚠ The tier column sorts on the TIER NAME rather than its rendered text, so "Gold" and
@@ -418,27 +556,50 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
         private static Controls.TableColumn<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>[] Columns() => new[]
         {
             new Controls.TableColumn<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>(
-                "Member",
-                r => string.IsNullOrWhiteSpace(r.MemberNo)
+                "Customer",
+                r => string.IsNullOrWhiteSpace(r.Email)
                     ? (string.IsNullOrWhiteSpace(r.Name) ? "(no name)" : r.Name)
-                    : $"{(string.IsNullOrWhiteSpace(r.Name) ? "(no name)" : r.Name)} · {r.MemberNo}"),
+                    : $"{(string.IsNullOrWhiteSpace(r.Name) ? "(no name)" : r.Name)}\n{r.Email}",
+                SortText: r => r.Name ?? string.Empty),
+
+            // ⚠ "—" NOT BLANK, the web till's `<span className="muted">—</span>`. A blank cell reads as
+            // a screen that failed to load; a dash is an answer.
+            new Controls.TableColumn<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>(
+                "Member no.",
+                r => string.IsNullOrWhiteSpace(r.MemberNo) ? "—" : r.MemberNo),
 
             new Controls.TableColumn<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>(
                 "Tier",
-                // ⚠ AN EXPIRED MEMBERSHIP SAYS SO. "Gold 10%" beside a lapsed member is an operator
+                // ⚠ AN EXPIRED MEMBERSHIP SAYS SO. "Gold" beside a lapsed member is an operator
                 // promising a discount the till will not give. `Expired` is the SERVER's verdict,
                 // never re-derived from a renewal date against this till's clock.
                 r => string.IsNullOrWhiteSpace(r.Tier)
-                    ? string.Empty
-                    : r.Expired
-                        ? $"{r.Tier} (expired)"
-                        : MemberDiscount.Label(r.Tier, r.AutoDiscountRate ?? 0m),
+                    ? "—"
+                    : r.Expired ? $"{r.Tier} (expired)" : r.Tier,
                 SortText: r => r.Tier ?? string.Empty),
+
+            // ⚠ ITS OWN COLUMN, as on the web till, rather than folded into the tier's label. The
+            // rate is the TIER's current one (re-rating "Gold" in the portal moves every Gold member
+            // at once), so it is a fact about today, not a snapshot.
+            new Controls.TableColumn<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>(
+                "Discount",
+                r => r.AutoDiscountRate is decimal rate && rate > 0m
+                    ? $"{System.Math.Round(rate * 100m)}%"
+                    : "—",
+                Numeric: true,
+                SortNumber: r => (long)System.Math.Round((r.AutoDiscountRate ?? 0m) * 10000m)),
+
+            // ⚠ WHEN THE MEMBERSHIP LAPSES. Shown as the server sends it (an ISO day) rather than
+            // reformatted against this till's culture — the same string the web till prints, and one
+            // fewer place for two tills to disagree about a date.
+            new Controls.TableColumn<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>(
+                "Renews",
+                r => string.IsNullOrWhiteSpace(r.RenewalDay) ? "—" : r.RenewalDay),
 
             new Controls.TableColumn<Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto>(
                 "Credit",
                 r => r.CreditBalancePence == 0
-                    ? string.Empty
+                    ? "—"
                     : (r.CreditBalancePence / 100m).ToString("C2", CultureInfo.CurrentCulture),
                 Numeric: true,
                 SortNumber: r => r.CreditBalancePence),

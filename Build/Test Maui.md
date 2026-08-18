@@ -2766,3 +2766,67 @@ them were introduced the day before. This is the record; the fixes are in **till
 ⚠ **The lesson worth keeping**: every one of the four was invisible to 605 MAUI tests, 176 integration
 tests and a clean XamlC build. Two were *silent* by construction — a disabled box and a transparent
 background both render perfectly.
+
+---
+
+## G44. The Loyalty tab is the web till's screen now — **till 1.89.0**, §5c item 6
+
+> Matt, 2026-08-18: *"Ensure the webtill and maui are inline."* So the web till's Loyalty page was the
+> reference and MAUI was matched to it — not the other way round.
+>
+> ⚠ **Run §G38 first** (add a member). This section assumes at least one member exists.
+
+### G44a. Six columns, in the web till's order
+
+Loyalty tab.
+
+**✅ Expected:** **Customer · Member no. · Tier · Discount · Renews · Credit** — and the customer's
+**email on a second line under their name**, which is how the web till renders it.
+
+⚠ MAUI showed three columns (Member, Tier, Credit). **Discount** and **Renews** were missing, and they
+are the two an operator needs when a customer asks *"why didn't I get my 10%?"* — the rate, and whether
+the membership has lapsed.
+
+⚠ **Empty cells must read "—", never blank.** A blank cell reads as a screen that failed to load.
+
+⚠ Compare it side by side with the web till's **Loyalty & store credit** page. Same columns, same
+order, same words. If anything differs, that is the finding.
+
+### G44b. ⚠ Tap a row to edit — MAUI has never had this
+
+Sign in as **Manager** or **Supervisor**. **Tap a member's row.**
+
+**✅ Expected:** an **Edit <name>** box with **Name \***, **Email** and **Phone** — and ⚠⚠ **their
+current values already in the boxes as real, editable text**, not grey hints.
+
+⚠⚠ **THAT DETAIL IS THE TEST.** If the values are grey placeholders, changing only the phone submits
+an **empty name** and the save is refused with no message — finding K, *"I can ONLY change the tax"*.
+This is the first edit form written since that was fixed.
+
+Change the email, save.
+
+**✅ Expected:** the list refreshes and shows the new email under the name.
+
+⚠ Editing an email is **safe and deliberate** now: a customer is identified by an id, never by their
+email, and the server records what it was as well as what it became.
+
+### G44c. A cashier cannot edit, and is not told off
+
+Sign in as a **Cashier**. Tap a member's row.
+
+**✅ Expected: nothing happens at all.** No dialog, no refusal message.
+
+⚠ The whole table is tappable, so a cashier brushing a row must not be scolded for a control they were
+never offered — the web till simply does not render its Edit button for them. ⚠ **Add member must
+still work** for the cashier: signing somebody up at the counter cannot wait for a supervisor.
+
+### G44d. Set tier still works, and is still separate
+
+As a Supervisor: **Set tier** → pick the member → pick the tier.
+
+**✅ Expected:** the **Tier** and **Discount** columns both update, and **Renews** fills in.
+
+⚠ The web till puts the tier picker inside its add/edit dialog; MAUI keeps it as its own action,
+because `InputAlert` has no dropdown. **Same capability, one more tap** — parity is in what you can do,
+not in how it is done. ⚠ It must stay separately gated: create-then-tier as one dialog is how a cashier
+gets 201 on the member and 403 on the tier, and retries into a duplicate.

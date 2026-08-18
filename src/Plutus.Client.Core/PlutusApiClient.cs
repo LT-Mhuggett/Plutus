@@ -1173,6 +1173,70 @@ public sealed class PlutusApiClient
     }
 
     /// <summary>
+    /// Change a member's contact details — name, email, phone.
+    ///
+    /// ⚠⚠ THIS CLIENT DELIBERATELY HAD NO EDIT UNTIL 2026-08-18, and the comment on
+    /// `CreateCustomerAsync` above still records the old reasoning: *"editing is `customers.manage`
+    /// and a cashier holding the add permission must not find an edit call sitting next to it."*
+    /// The gate argument was sound; the fear behind it was that an email change redirects somebody's
+    /// account.
+    ///
+    /// ⚠⚠ MATT'S RULING, 2026-08-18, settles it: *"A customer needs to have a unique ID, because
+    /// people can change emails over time. Audit please."* The id is `Customer.Id` (a UUIDv7) and
+    /// **nothing resolves a customer by email**, so an edit cannot redirect an account — and the
+    /// server records `before` and `after` on every one. The web till has had this since it was
+    /// written (`updateCustomer` in `api.ts`); MAUI was the odd one out.
+    ///
+    /// ⚠ GATED `customers.manage` SERVER-SIDE, which is stricter than adding a member. A 403 gets
+    /// its own sentence, because "Forbidden" in front of a customer tells an operator nothing about
+    /// what to do next.
+    ///
+    /// ⚠ THE TIER IS NOT TOUCHED HERE. `PUT /api/v1/customers/{id}` carries contact details only;
+    /// membership is `SetMembershipAsync`. Two calls, two permissions - see `CreateCustomerAsync`'s
+    /// 201-then-403 scar for why they must not be pretended to be one.
+    /// </summary>
+    public async Task<(bool Ok, string? Problem)> UpdateCustomerAsync(
+        Guid id, string name, string? email = null, string? phone = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return (false, "A name is required.");
+
+        var body = new Dictionary<string, object?>
+        {
+            ["name"] = name.Trim(),
+            ["email"] = string.IsNullOrWhiteSpace(email) ? null : email.Trim(),
+            ["phone"] = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim(),
+        };
+
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/customers/{id:D}")
+            {
+                Content = JsonContent.Create(body, options: Json),
+            };
+            await AuthoriseAsync(req, ct);
+            using var res = await _http.SendAsync(req, ct);
+
+            if (res.IsSuccessStatusCode) return (true, null);
+
+            if (res.StatusCode == HttpStatusCode.Forbidden)
+                return (false, "You don't have permission to change a member's details. A supervisor can.");
+
+            if (res.StatusCode == HttpStatusCode.NotFound)
+                return (false, "That member no longer exists.");
+
+            var detail = await res.Content.ReadAsStringAsync(ct);
+            return (false, string.IsNullOrWhiteSpace(detail)
+                ? $"Plutus wouldn't save that change ({(int)res.StatusCode})."
+                : detail);
+        }
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
+        {
+            return (false, "Couldn't reach Plutus, so nothing has been changed.");
+        }
+    }
+
+    /// <summary>
     /// Spend a customer's store credit against a sale.
     ///
     /// ⚠⚠ CALL IT **BEFORE** THE SALE IS RECORDED, and abort the sale if it fails — the ordering is
