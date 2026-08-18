@@ -2606,3 +2606,81 @@ Now pull the network and tap a sale.
 
 **✅ Expected:** *"A sale can only be opened while the till is online and somebody is signed in."* —
 and **no crash**.
+
+---
+
+## G42. ⚠⚠ Tap the price to adjust it — **and a money bug found next to it**. Till 1.86.0, §5c item 3
+
+> Matt, 2026-08-18: *"Click the price in the row to adjust it."* That is exactly what the web till
+> does — its price cell is a clickable button. On MAUI **Adjust existed only on the right-click /
+> long-press context menu**, with nothing on screen to say so: the same discoverability fault already
+> reported about editing an item (*"I didn't know how to open it"*, 2026-08-10).
+>
+> ⚠⚠ **§G42d is the important one.** Comparing the two tills turned up a real money defect that has
+> nothing to do with where you click.
+
+### G42a. The price is the way in
+
+Ring up any item. **Tap (or click) its price in the basket row.**
+
+**✅ Expected: the Adjust box opens** — one field, *Price (inc VAT)*.
+
+⚠⚠ **IF NOTHING HAPPENS, SAY SO — that is the whole risk of this build.** Whether a
+`TapGestureRecognizer` inside a `ViewCell` fires on WinUI could not be verified by any test in this
+project. ⚠ The right-click **Adjust** menu item is still there, so nothing is lost either way — but
+please report it, because the fix would be a different control.
+
+⚠ **Check the price still displays correctly on every row** (`£3.30`, never `£330.00`). The label and
+its binding were deliberately left untouched, so this should be impossible — but it is the money
+column, and it costs two seconds to look.
+
+### G42b. ⚠ An adjusted line is MARKED
+
+Adjust that line to something obviously different — say 50p on a £5 item — and confirm.
+
+**✅ Expected: the row shows the new price with a `*` beside it.**
+
+⚠ That marker is money-visibility, not decoration: without it a £5 item retyped to 50p looks exactly
+like an item that costs 50p. The web till has always marked adjusted lines. Finding W's lesson on a
+different control — **what an operator cannot see, they do again.**
+
+### G42c. A return line's price is not adjustable
+
+Put a **return** on the basket (Refund an item). Tap its price.
+
+**✅ Expected: nothing happens**, and there is no **Adjust** on its context menu either.
+
+⚠ Correct on both tills: goods going back and goods going out are opposite directions of money, and a
+return already carries a reason and a refund cap. A price override there would be a second, unaudited
+way to move money.
+
+### G42d. ⚠⚠ THE MONEY BUG — scan the same item again after adjusting it
+
+This is the one to run carefully.
+
+1. Ring up a **£5** item (any item; note its real price).
+2. **Adjust it to 50p.**
+3. **Leave that line selected** — do not click elsewhere in the basket.
+4. **Scan or add the same item again.**
+
+**✅ Expected: a SECOND line, at the full £5.** Two rows: one at 50p with a `*`, one at £5.
+
+⚠⚠ **Before this build the second unit joined the adjusted line and the quantity became 2 — at 50p.**
+The shop sold the second one for a tenth of its price, silently, with the receipt as the only
+evidence. MAUI had two merge paths with two different rules, and the *selected-line* one checked only
+the item id. The web till has never behaved that way.
+
+⚠ Now do it again **without** leaving the line selected (click another row first, then scan). **✅ Same
+answer** — a second line at £5. Both paths ask one shared rule (`SharedKernel.BasketMerge`).
+
+⚠ And check the ordinary case still works: ring an item, scan it again **without** adjusting anything.
+**✅ Expected: one line, quantity 2.** If that has stopped merging, this fix went too far.
+
+### G42e. The totals must follow
+
+With one line at 50p and one at £5 on the basket:
+
+**✅ Expected: the basket total is £5.50**, and the VAT column on each line is that line's own.
+
+⚠ Then take a payment and check the receipt shows both lines separately. The sale's VAT is derived
+from each line's inc/ex pair, which is why two prices must never share one row.

@@ -422,22 +422,24 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 //
                 // Ã¢ÂÂ  Guarding on membership rather than only nulling the selection: this makes the bug
                 // structurally impossible however the selection comes to dangle.
-                if (SelectedBasketRecord != null &&
-                    Basket.Contains(SelectedBasketRecord) &&
-                    (SelectedBasketRecord is BasketItem) &&
-                    ((BasketItem)SelectedBasketRecord).Item.Id.Equals(item.Id) &&
-                    !SelectedBasketRecord.IsReturn)
+                // ⚠⚠ ONE RULE, ASKED THE SAME WAY BY BOTH BRANCHES (5c item 3b). The selected-line
+                // fast path used to check only the item id and "not a return", while the search below
+                // also compared the price pair - two paths, two rules. So: ring a 5 pound item, adjust
+                // it to 50p, leave the line selected, scan it again, and the second unit joined the
+                // adjusted line AT 50p. The web till has never done that (`basket.ts` excludes
+                // `l.adjusted`). The rule now lives in `SharedKernel.BasketMerge` (C1) with the
+                // TypeScript twin pinned by shared vectors (C2).
+                if (SelectedBasketRecord is BasketItem selected &&
+                    Basket.Contains(selected) &&
+                    Mergeable(selected, item))
                 {
-                    tempItem = SelectedBasketRecord as BasketItem;
+                    tempItem = selected;
                 }
                 else
                 {
                     tempItem = Basket.Where(bR => bR is BasketItem)
                         .Cast<BasketItem>()
-                        .LastOrDefault(bI => bI.Item.Id.Equals(item.Id) &&
-                            bI.Price.Equals(item.Price) &&
-                            bI.PriceExTax.Equals(item.ExPrice) &&
-                            !bI.IsReturn);
+                        .LastOrDefault(bI => Mergeable(bI, item));
                 }
 
                 if (tempItem == default)
@@ -498,22 +500,24 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 //
                 // Ã¢ÂÂ  Guarding on membership rather than only nulling the selection: this makes the bug
                 // structurally impossible however the selection comes to dangle.
-                if (SelectedBasketRecord != null &&
-                    Basket.Contains(SelectedBasketRecord) &&
-                    (SelectedBasketRecord is BasketItem) &&
-                    ((BasketItem)SelectedBasketRecord).Item.Id.Equals(item.Id) &&
-                    !SelectedBasketRecord.IsReturn)
+                // ⚠⚠ ONE RULE, ASKED THE SAME WAY BY BOTH BRANCHES (5c item 3b). The selected-line
+                // fast path used to check only the item id and "not a return", while the search below
+                // also compared the price pair - two paths, two rules. So: ring a 5 pound item, adjust
+                // it to 50p, leave the line selected, scan it again, and the second unit joined the
+                // adjusted line AT 50p. The web till has never done that (`basket.ts` excludes
+                // `l.adjusted`). The rule now lives in `SharedKernel.BasketMerge` (C1) with the
+                // TypeScript twin pinned by shared vectors (C2).
+                if (SelectedBasketRecord is BasketItem selected &&
+                    Basket.Contains(selected) &&
+                    Mergeable(selected, item))
                 {
-                    tempItem = SelectedBasketRecord as BasketItem;
+                    tempItem = selected;
                 }
                 else
                 {
                     tempItem = Basket.Where(bR => bR is BasketItem)
                         .Cast<BasketItem>()
-                        .LastOrDefault(bI => bI.Item.Id.Equals(item.Id) &&
-                            bI.Price.Equals(item.Price) &&
-                            bI.PriceExTax.Equals(item.ExPrice) &&
-                            !bI.IsReturn);
+                        .LastOrDefault(bI => Mergeable(bI, item));
                 }
 
                 if (tempItem == default)
@@ -708,6 +712,30 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// </summary>
         private readonly record struct SupervisorGrant(Guid AuthorisedByUserId, string AuthorisedByName);
 
+
+        /// <summary>
+        /// May a newly-added unit of <paramref name="item"/> join <paramref name="line"/>?
+        ///
+        /// ⚠ THE RULE ITSELF IS IN `SharedKernel.BasketMerge` (C1) so the web till's copy can be
+        /// pinned against it (C2). This method is only the translation: it maps MAUI's line onto the
+        /// rule's questions and nothing more. ⚠ Keep it that way - a condition added HERE is a
+        /// condition the other till does not have, which is how the two got out of step to begin with.
+        /// </summary>
+        private static bool Mergeable(BasketItem line, Database.Models.ItemModel item) =>
+            Plutus.SharedKernel.BasketMerge.CanMerge(
+                sameItem: line.Item.Id.Equals(item.Id),
+                lineIsReturn: line.IsReturn,
+                lineAdjusted: line.Adjusted,
+                // ⚠ FALSE, and not an oversight. MAUI carries a discount as its OWN basket record
+                // (`MemberDiscountBasket.Build` adds a line) rather than as a field on the sale line,
+                // so there is no per-line discount to test here. The web till passes its `l.discount`.
+                // ⚠⚠ If a per-line discount is ever added to `BasketItem`, this argument is the
+                // line that must change with it.
+                lineHasDiscount: false,
+                lineIncPence: line.PricePence,
+                lineExPence: line.PriceExTaxPence,
+                catalogueIncPence: Plutus.SharedKernel.Pence.FromDecimal(item.Price),
+                catalogueExPence: Plutus.SharedKernel.Pence.FromDecimal(item.ExPrice));
         /// <summary>
         /// Ask a supervisor to authorise this. ⚠ Null means it did NOT happen — cancelled, refused,
         /// nobody signed in, or an error. Every caller must treat null as a refusal, which is why
@@ -836,6 +864,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     Plutus.SharedKernel.Pence.FromDecimal(basketItem.Item.Price),
                     Plutus.SharedKernel.Pence.FromDecimal(basketItem.Item.ExPrice));
                 basketItem.PricePence = newIncPence;
+
+                // ⚠ MARK THE LINE. The web till puts a `*` beside an adjusted price and gives the row
+                // its own class; MAUI showed the new number and nothing else, so a £5 item retyped to
+                // 50p looked exactly like an item that costs 50p. Finding W's lesson on a different
+                // control: what an operator cannot see, they do again.
+                basketItem.Adjusted = true;
 
                 Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Item Adjustment");
             }

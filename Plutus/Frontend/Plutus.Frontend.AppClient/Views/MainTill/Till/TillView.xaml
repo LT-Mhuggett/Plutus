@@ -45,8 +45,41 @@
                                                Style="{DynamicResource ListItemTextStyle}"/>
                             <Label Grid.Column="1" Text="{Binding Name}"
                                                Style="{DynamicResource ListItemDetailTextStyle}"/>
-                            <Label Grid.Column="2" Text="{Binding Price, StringFormat='{0:C}'}"
-                                               Style="{DynamicResource ListItemDetailTextStyle}"/>
+                            <!--
+                                ⚠⚠ THE PRICE IS THE WAY IN (5c item 3). Matt, 2026-08-18:
+                                *"Click the price in the row to adjust it"*, which is exactly what the
+                                web till does - its price cell is a `linklike` BUTTON that opens an
+                                editor. On MAUI, Adjust existed ONLY on the right-click / long-press
+                                context menu, with nothing on screen to say so. That is the same
+                                discoverability fault already reported once about editing an item:
+                                *"I didn't know how to open it"* (2026-08-10).
+
+                                ⚠ THE LABEL AND ITS BINDING ARE UNTOUCHED, deliberately. The gesture
+                                goes on a wrapper, so if a `TapGestureRecognizer` inside a `ViewCell`
+                                turns out not to fire on WinUI, the price still renders exactly as it
+                                does today and only the new affordance is missing - the context menu is
+                                still there. ⚠ A Button here would have been closer to the web till,
+                                and was rejected: its `TextColor` would need to resolve from the theme,
+                                and a price that renders invisible on the money screen is the fault
+                                that cost build 1.74.0. **Feature-absent beats price-invisible.**
+                                ⚠⚠ So whether the tap fires is UNVERIFIED BY MACHINE - `Test Maui.md`
+                                G42 is the only check.
+                            -->
+                            <HorizontalStackLayout Grid.Column="2" Spacing="2">
+                                <HorizontalStackLayout.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Path=BindingContext.AdjustCommandArg, Source={x:Reference Name=TillList}}"
+                                        CommandParameter="{Binding .}"/>
+                                </HorizontalStackLayout.GestureRecognizers>
+                                <Label Text="{Binding Price, StringFormat='{0:C}'}"
+                                                   Style="{DynamicResource ListItemDetailTextStyle}"/>
+                                <!-- ⚠ THE MARKER, and it is money-visibility rather than decoration -
+                                     see `BasketItem.Adjusted`. A separate label on purpose: if THIS
+                                     binding fails the asterisk is missing, whereas folding it into the
+                                     price's own binding would blank the price. -->
+                                <Label Text="*" IsVisible="{Binding Adjusted}"
+                                                   Style="{DynamicResource ListItemDetailTextStyle}"/>
+                            </HorizontalStackLayout>
                             <Label Grid.Column="3" Text="{Binding Tax}"
                                                Style="{DynamicResource ListItemDetailTextStyle}"/>
                         </Grid>

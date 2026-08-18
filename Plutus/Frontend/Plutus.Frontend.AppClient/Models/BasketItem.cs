@@ -92,6 +92,31 @@ namespace Plutus.Frontend.AppClient.Models
 
         public string Tax => Item.Vat.Name;
 
+        private bool _adjusted;
+
+        /// <summary>
+        /// Has this line's price been retyped by hand?
+        ///
+        /// ⚠⚠ THE OPERATOR MUST BE ABLE TO SEE IT. The web till marks an adjusted line with a
+        /// `*` and its own row class; MAUI showed the new price and nothing else, so a line at 50p on
+        /// a 5 pound item looked exactly like an item that costs 50p. That is finding W's lesson on a
+        /// different control: an operator who cannot SEE that money was taken off applies another
+        /// discount on top of it.
+        ///
+        /// ⚠ A DISPLAY FLAG, NOT AN AUDIT TRAIL. What the sale RECORDS about a price override is the
+        /// override record the checkout writes; this is only what the row shows. Do not start deciding
+        /// anything from it.
+        /// </summary>
+        public bool Adjusted
+        {
+            get => _adjusted;
+            set
+            {
+                _adjusted = value;
+                OnPropertyChanged();
+            }
+        }
+
         /// <summary>⚠ THE ONE TYPE TEST. Every other place asks `IsReturn`; when `BasketReturnItem`
         /// is finally collapsed into a flag, this is the line that changes — see `IBasketRecord`.</summary>
         public virtual bool IsReturn => this is BasketReturnItem;
