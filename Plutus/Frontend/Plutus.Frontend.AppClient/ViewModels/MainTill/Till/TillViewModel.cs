@@ -770,6 +770,21 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(elements, "Confirm".Translate(), true, "Adjust".Translate());
 
+                // ⚠⚠ BACKING OUT IS A NULL, AND IT CRASHED THE TILL. `LaunchInputAlertAsync` returns
+                // null when the operator leaves without confirming — tapping outside, pressing Escape,
+                // or now the Cancel button — and `data.TryGetValue` on null is a
+                // NullReferenceException. This method is `async void` with a `try`/`finally` and NO
+                // `catch`, so it went straight out to the dispatcher unhandled: **the app died because
+                // somebody changed their mind about a price.**
+                //
+                // ⚠ Found 2026-08-18 while giving this very dialog the Cancel button Matt asked for —
+                // which would have taken a crash reachable only by clicking outside and made it the
+                // obvious thing to press. ⚠ 17 other call sites still take this shape; the audit is in
+                // `MAUI-retrofit.md` (§ input-alert null returns) rather than fixed blind tonight,
+                // because several sit on money paths and each needs its own answer to "what does
+                // cancelling MEAN here".
+                if (data == null) return;
+
                 _ = data.TryGetValue(1, out string priceExTax);
                 _ = data.TryGetValue(2, out string priceTax);
                 if (priceExTax != null && priceTax != null)
@@ -808,28 +823,66 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// </summary>
         public Command ReturnSelectedCommand => _returnSelectedCommand ??= new Command(async () =>
         {
-            if (IsBusy) return;
-
-            // Already a return: RevertReturn is that line's job, and silently doing nothing here is
-            // how an operator concludes the button is broken.
-            if (SelectedBasketRecord.IsReturn)
+            // ⚠⚠ THE WHOLE BODY IS WRAPPED, AND IT HAS TO BE. `new Command(async () => …)` is an
+            // `async void` in all but spelling: nothing awaits it, so ANY exception escaping here is
+            // posted to the dispatcher unhandled and **takes the till down** — not a failed action, a
+            // dead counter mid-sale. Matt, 2026-08-18: *"if I click the refund button, the till
+            // crashes."*
+            try
             {
-                await Application.Current.MainPage.DisplayAlert("Already going back",
-                    "That line is already a return. Use the line's own menu to undo it.", "OK".Translate());
-                return;
-            }
+                if (IsBusy) return;
 
-            if (SelectedBasketRecord is BasketItem item)
+                // ⚠⚠ NOTHING SELECTED IS THE NORMAL CASE, AND IT WAS THE CRASH. `SelectedBasketRecord`
+                // is null until an operator taps a line, so `SelectedBasketRecord.IsReturn` below
+                // threw a NullReferenceException the instant the button was pressed — which is what
+                // anybody does first, because pressing a button is how you find out what it does.
+                //
+                // ⚠ The bitter part: the guidance for exactly this case already existed at the BOTTOM
+                // of this method ("Which item is coming back?"), and the null dereference sat above
+                // it. The right message was written, and unreachable.
+                if (SelectedBasketRecord is null)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Which item is coming back?",
+                        "Scan or search for the item the customer is returning so it is in the basket, "
+                        + "tap its line to select it, then press this again.\n\nYou will be asked which "
+                        + "sale it came from — pick it from this till's recent sales, or type the number "
+                        + "on the receipt.",
+                        "OK".Translate());
+                    return;
+                }
+
+                // Already a return: RevertReturn is that line's job, and silently doing nothing here is
+                // how an operator concludes the button is broken.
+                if (SelectedBasketRecord.IsReturn)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Already going back",
+                        "That line is already a return. Use the line's own menu to undo it.", "OK".Translate());
+                    return;
+                }
+
+                if (SelectedBasketRecord is BasketItem item)
+                {
+                    ExecuteReturn(item);
+                    return;
+                }
+
+                // Selected, but not an item — a note or a return-placeholder row. Same guidance.
+                await Application.Current.MainPage.DisplayAlert("Which item is coming back?",
+                    "Tap the line for the ITEM the customer is returning, then press this again.",
+                    "OK".Translate());
+            }
+            catch (Exception ex)
             {
-                ExecuteReturn(item);
-                return;
+                Services.Analytics.CrashLog.Write("TillViewModel.ReturnSelectedCommand", ex);
+                // ⚠ Say something. A button that visibly does nothing gets pressed again, and the
+                // operator's next move is to restart the till mid-basket.
+                try
+                {
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "That couldn't be started. The basket is unchanged.", "OK".Translate());
+                }
+                catch (Exception inner) { Services.Analytics.CrashLog.Write("ReturnSelectedCommand.alert", inner); }
             }
-
-            await Application.Current.MainPage.DisplayAlert("Which item is coming back?",
-                "Scan or search for the item the customer is returning so it is in the basket, tap its "
-                + "line to select it, then press this again.\n\nYou will be asked which sale it came "
-                + "from — pick it from this till's recent sales, or type the number on the receipt.",
-                "OK".Translate());
         });
 
         private async void ExecuteReturn(BasketItem basketItem)

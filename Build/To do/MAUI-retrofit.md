@@ -117,6 +117,7 @@ say so rather than quietly doing something else.**
 | 🟠 | **`LoginViewModel.EnsureStoreAsync` throws on every sign-in** — `InvalidOperationException: Unable to track an entity of type 'StoreModel' because its primary key property 'Id' is null` | `LoginViewModel.cs` | Caught and harmless; the screen it fed is read-only off `StoreInfoCache`. ⚠ It also CREATES the legacy `Database.db` on every sign-in, which is what made the enrolment gate a one-way door. **Goes with step 25**, not 21 — see [L7](#l7--loginviewmodelensurestoreasync) |
 | ⚠ | **The UI fixes of 2026-08-10 are held by REVIEW, not tests** | dialogs, navigation, checkout | Nothing in that family can be exercised without a UI host. Weaker than it should be for two overlay bugs in two days — which is why step 11b moved up the order, and why §8's USER-VERIFY list exists |
 | ⚠ | **The store-gate deadline convention is unpinned** | `TillStoreAccess.UseAsync` callers | The next caller written without a deadline restores the 2026-08-10 fault in full. Held by convention and a code comment |
+| 🔴 | ⚠⚠ **17 input-alert call sites do not handle the operator BACKING OUT, and each one can crash the till** | see the table below | `LaunchInputAlertAsync` returns **null** when the operator leaves without confirming — tapping outside, Escape, or the Cancel button. `data.TryGetValue(…)` on null is a `NullReferenceException`, and most of these sit in **`async void`** methods, so it goes to the dispatcher **unhandled and the app dies**. ⚠ **This is not theoretical — it is the same shape as the 2026-08-18 refund crash**, and it is reachable today by the gesture Matt already uses (*"I know you can click outside of the box to close it"*). **Only `ExecuteAdjustItem` was fixed** on 2026-08-18 (the dialog he reported); the rest were left because several are on money paths and *"what does cancelling mean here"* is a per-flow decision, not a blanket `return`. ⚠ Do NOT "fix" this by making the helper return an empty dictionary: **six call sites detect cancellation by testing for null**, and `SupervisorPrompt` is one of them — an empty dictionary there would fall through into reading a password that was never typed |
 
 ### 0.4 ⚠⚠ The lesson this project keeps re-learning
 
@@ -2993,3 +2994,46 @@ Written here because each one cost real time more than once.
     could not take a penny, because the fault was in the wiring, not the logic. **Coverage of a
     component says nothing about the seam that calls it** — the same lesson as the seven
     built-and-uncalled components, from the other direction.
+
+---
+
+## 0.3b ⚠⚠ The input-alert back-out audit (2026-08-18)
+
+`LaunchInputAlertAsync` returns **null** when the operator leaves a dialog without confirming —
+tapping outside, Escape, or the Cancel button. Every ⚠ row below dereferences that null, most inside
+an **`async void`**, so the exception reaches the dispatcher unhandled and **the till dies**.
+
+| File (method) | Line | Back-out handled? |
+|---|---|---|
+| `Till/TillViewModel` (`ExecuteAdjustItem`) | 771 | ✅ **fixed 2026-08-18** — `if (data == null) return;` |
+| `Till/TillViewModel` (`ExecuteRemoveAll`) | 644 | ⚠ no |
+| `Till/TillViewModel` (`ExecuteReturn`) | 957 | ⚠ no — **hands money back** |
+| `Till/TillViewModel` (`ExecuteAttachCustomer`) | 1215 | ⚠ no |
+| `Till/TillViewModel` (`ExecuteAddMember`) | 1381 | ⚠ no |
+| `Till/TillViewModel` (`OfferToSellGiftCardAsync`) | 1764 | ⚠ no — **sells a gift card** |
+| `Till/TillViewModel` (`ExecuteStoreTransaction`) | 2318 | ⚠ no |
+| `Till/TillViewModel` (`ExecuteCheckoutTransaction`) | 2714 | ⚠ no — ⚠⚠ **the CHECKOUT path** |
+| `Helpers/Security/Authorisation.cs` | 93, 125 | ⚠ no — **the security prompt** |
+| `Cash/CashViewModel.cs` | 225 | ⚠ no — **drawer money** |
+| `Inventory/Items/AddEditViewModel.cs` | 269 | ⚠ no |
+| `Inventory/Items/ViewAllViewModel.cs` | 1106, 1349 | ⚠ no |
+| `CopperTransferPlatform.cs` | 192, 219, 292, 299 | ⚠ no — legacy tool, least reachable |
+| `SupervisorPrompt` · `LoginViewModel` ×2 · `SettingsViewModel` ×2 · `StoreOptionsViewModel` | — | ✅ already null-checked |
+
+⚠⚠ **THE TRAP TO AVOID.** The tempting one-line fix — have the helper return an **empty dictionary**
+instead of null — is wrong and dangerous: the six ✅ rows detect cancellation *by testing for null*.
+`SupervisorPrompt` is one of them, so an empty dictionary would carry it straight past the check and
+into reading an override password nobody typed. **The contract stays "null means backed out."**
+
+⚠ **Each ⚠ row needs its own answer to "what does cancelling MEAN here"** — abort the sale, keep the
+old value, leave the basket untouched — which is why they were not swept with a blanket `return` on
+the night they were found. **~½ day**, including reading each flow.
+
+⚠ Cheapest partial mitigation if the hand-run starts hitting these: add
+`catch (Exception ex) { CrashLog.Write(…); }` to the `async void` methods, so a back-out **logs
+instead of killing the app**, then fix the meanings properly afterwards.
+
+⚠ **Why it was found at all:** giving the adjust dialog the Cancel button Matt asked for would have
+taken a crash reachable only by clicking outside and made it **the obvious button to press**. The fix
+surfaced its own hazard, which is the argument for auditing the call sites of anything you make more
+discoverable.

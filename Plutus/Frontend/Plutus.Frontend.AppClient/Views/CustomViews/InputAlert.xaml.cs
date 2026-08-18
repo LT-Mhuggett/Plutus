@@ -92,7 +92,9 @@ namespace Plutus.Frontend.AppClient.Pages.CustomViews
             MainLayout.Children.Add(ConfBut);
 
             //Cancel button
-            if (cancelButText != null)
+            // ⚠ EMPTY suppresses, null never reaches here — `InputAlertHelper` substitutes the standard
+            // "Cancel" so every dialog shows a visible way out (2026-08-18). See its header.
+            if (!string.IsNullOrEmpty(cancelButText))
             {
                 CancelBut = new Button { Text = cancelButText };
                 CancelBut.Clicked += CancelBut_Clicked;
@@ -183,7 +185,9 @@ namespace Plutus.Frontend.AppClient.Pages.CustomViews
             MainLayout.Children.Add(ConfBut);
 
             //Cancel button
-            if (cancelButText != null)
+            // ⚠ EMPTY suppresses, null never reaches here — `InputAlertHelper` substitutes the standard
+            // "Cancel" so every dialog shows a visible way out (2026-08-18). See its header.
+            if (!string.IsNullOrEmpty(cancelButText))
             {
                 CancelBut = new Button { Text = cancelButText };
                 CancelBut.Clicked += CancelBut_Clicked;
@@ -260,7 +264,9 @@ namespace Plutus.Frontend.AppClient.Pages.CustomViews
             MainLayout.Children.Add(ConfBut);
 
             //Cancel button
-            if (cancelButText != null)
+            // ⚠ EMPTY suppresses, null never reaches here — `InputAlertHelper` substitutes the standard
+            // "Cancel" so every dialog shows a visible way out (2026-08-18). See its header.
+            if (!string.IsNullOrEmpty(cancelButText))
             {
                 CancelBut = new Button { Text = cancelButText };
                 CancelBut.Clicked += CancelBut_Clicked;

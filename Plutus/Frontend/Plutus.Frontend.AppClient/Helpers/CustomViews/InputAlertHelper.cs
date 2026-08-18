@@ -1,5 +1,6 @@
 using CustomViews;
 using CustomViews.Structs;
+using Plutus.Frontend.AppClient.Helpers.Extensions;
 using Plutus.Frontend.AppClient.Pages.CustomViews;
 using Mopups.Services;
 using System;
@@ -14,16 +15,40 @@ namespace Plutus.Frontend.AppClient.Helpers.CustomViews
     public class InputAlertHelper
     {
         /// <summary>
-        /// 
+        /// A VISIBLE way out, on every dialog, by default.
+        ///
+        /// ⚠⚠ WHY THIS EXISTS. Matt, 2026-08-18, on the price-adjust box: *"the box it pops has no X
+        /// to close the box. I know you can click outside of the box to close it but its not
+        /// intuative."* He is right, and the interesting part is that backing out ALREADY WORKED —
+        /// `AlertDialogBase.OnBackButtonPressed` always cancels, and `OnBackgroundClicked` cancels
+        /// whenever the dialog is `interuptable`. What was missing was any way to KNOW that.
+        ///
+        /// ⚠ So this is a discoverability fix, not a capability one: it cannot change what a dialog
+        /// permits, only what it advertises. That is why it is safe to apply to every caller at once —
+        /// 24 call sites, of which most passed no `cancelText` and so drew no button.
+        ///
+        /// ⚠ Callers already treat a null result as "the operator backed out" (`if (data == null …)
+        /// return;`), which is exactly what Cancel produces. Nothing downstream needs to change.
+        ///
+        /// ⚠ TO SUPPRESS IT DELIBERATELY, pass <see cref="string.Empty"/> — null now means "give me
+        /// the default". There is currently no caller that should: a dialog an operator cannot leave
+        /// is a till a shop cannot use, which is the fault `OnBackButtonPressed`'s header records.
+        /// </summary>
+        private const string DefaultCancelKey = "Cancel";
+
+        /// <summary>
+        ///
         /// </summary>
         /// <param name="viewElements"></param>
         /// <param name="confirmButText"></param>
         /// <param name="interuptable"></param>
         /// <param name="titleText"></param>
+        /// <param name="cancelText">⚠ Null = the standard "Cancel". Pass "" to suppress — see
+        /// <see cref="DefaultCancelKey"/>.</param>
         /// <returns></returns>
         public static async Task<Dictionary<uint, string>> LaunchInputAlertAsync(IEnumerable<ViewElementData> viewElements, string confirmButText, bool interuptable, string titleText = null, string cancelText = null)
         {
-            var inputAlert = new InputAlert(viewElements, confirmButText, titleText, cancelText);
+            var inputAlert = new InputAlert(viewElements, confirmButText, titleText, cancelText ?? DefaultCancelKey.Translate());
             var popUp = new AlertDialogBase<Dictionary<uint, string>>(inputAlert, interuptable);
 
             inputAlert.ConfirmButtonEHandler += (sender, e) =>
@@ -46,7 +71,9 @@ namespace Plutus.Frontend.AppClient.Helpers.CustomViews
         /// <returns></returns>
         public static async Task<Dictionary<uint, string>> LaunchInputAlertAsync(IEnumerable<ViewElementData> viewElements, string confirmButText, bool interuptable, bool cash, decimal toPay, string titleText = null, string cancelText = null)
         {
-            var inputAlert = new InputAlert(viewElements, confirmButText, cash, toPay, titleText, cancelText);
+            // ⚠ Same default as the overload above — and this is the CASH PAYMENT dialog, the one
+            // `AlertDialogBase`'s header names as having had no exit at all.
+            var inputAlert = new InputAlert(viewElements, confirmButText, cash, toPay, titleText, cancelText ?? DefaultCancelKey.Translate());
             var popUp = new AlertDialogBase<Dictionary<uint, string>>(inputAlert, interuptable);
 
             inputAlert.ConfirmButtonEHandler += (sender, e) =>
