@@ -15,21 +15,24 @@
 
 ## ⏰ START HERE — the build exists, and no person has ever run it
 
-✅ **Till 1.79.0 is BUILT and verified.** Double-click:
+✅ **Till 1.80.0 is BUILT and verified.** Double-click:
 
 ```
-D:\tmp\plutus-till-1.79.0\Plutus.Frontend.AppClient.exe
+D:\tmp\plutus-till-1.80.0\Plutus.Frontend.AppClient.exe
 ```
 
-The artefact reads **`1.79.0+8ff8900b`**, and every change is confirmed *inside the binary* rather than
+The artefact reads **`1.80.0+6943b52f`**, and every change is confirmed *inside the binary* rather than
 merely committed. ⚠ It will say the till isn't enrolled; that is expected for an unpackaged build
 (runbook § MAUI till build) — enrol it as a fresh till.
 
-⚠ **Only 1.78.0 is on the box now** — every earlier build has been deleted, so there is no question
-which to run. If a till is still open from an earlier crash, close it first (see the orphaned-process
-note in the decision table).
+⚠⚠ **RUN 1.80.0.** `plutus-till-1.79.0` is also on disk because it was **running** when I tried to
+remove it; every build older than those two is gone. Close the open till and delete that folder, or
+ask and I will.
 
-**Why each build exists — six changes today, in order:**
+⚠ **1.79.0 is NOT the same build** — it predates the till-screen button removal, so it still shows the
+Search / Add member buttons. If you can see those, you are on the old one.
+
+**Why each build exists — seven changes today, in order:**
 
 | Build | Fixed |
 |---|---|
@@ -38,7 +41,8 @@ note in the decision table).
 | 1.76.0 | **Refund crashed the till** (null basket selection), and the **adjust box had no visible way out** — plus a *second* crash that fix uncovered: cancelling the adjust box also killed the app |
 | 1.77.0 | **A ✕ on every dialog**, both tills, and the rule written into `till-design.md` **D4** |
 | 1.78.0 | ⚠ **THREE CRASHES**: Save Transaction (a bare event raise), the adjust **✕** (my regression — it blanked fields to `""` and the caller parsed them), and the **overlapping Add member / Set tier** on the till screen. ⚠ The Save-Transaction fix is also the best candidate for **the login crash** |
-| **1.79.0** | ⚠⚠ **A VAT FIX**: price-adjust asked for ex **and** inc and wrote both, so a mistyped pair declared the line's VAT rate (5% on a 20% item). Now one box, ex derived from the catalogue proportion — the same shared rule the web till uses |
+| 1.79.0 | ⚠⚠ **A VAT FIX**: price-adjust asked for ex **and** inc and wrote both, so a mistyped pair declared the line's VAT rate (5% on a 20% item). Now one box, ex derived from the catalogue proportion — the same shared rule the web till uses |
+| **1.80.0** | **Search / Add member removed from the till screen** — they are on neither the web till nor NatApp, and a member is attached by **scanning their card** on both. Plus the nine-item parity programme written up as §5c |
 
 **Testable now: §W9d/§G33** (Store Information) · **§G34** (Reports) · **§G35** (Refund/adjust) ·
 **§G36** (the ✕ on every dialog) · **§G37** (price adjust — ⚠ written as a **VAT** check, including a zero-rated case and a both-tills-agree-to-the-penny case).
