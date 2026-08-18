@@ -464,6 +464,52 @@ export async function setMembership(id: string, tierId: string): Promise<void> {
   await send("POST", `/api/v1/customers/${encodeURIComponent(id)}/membership`, { tierId });
 }
 
+/** One thing that has ever happened to a customer (WP-L1a). */
+export interface CustomerHistoryRow {
+  atUtc: string;
+  /** "Created" | "Details changed" | "Tier set" | "Credit added" | "Credit used" | "Credit expired"
+   *  — the SERVER's words, so both tills say the same thing about the same event. */
+  type: string;
+  /** The reason, or what changed: `name: Ada Lovelace -> Ada King`. */
+  detail: string;
+  /** ⚠ SIGNED, and only on a credit movement — null on everything else. A rename is not a
+   *  zero-pound transaction, so it must not render as £0.00. */
+  amountPence: number | null;
+  actorUserId: string | null;
+}
+
+/**
+ * A customer's WHOLE history — created, details changed, tier set, credit added, credit used.
+ *
+ * ⚠⚠ NOT THE CREDIT LEDGER. Matt, 2026-08-18: *"I need the 'Credit History' to be ALL history."* The
+ * server merges three sources, two of which are not filed under the customer at all.
+ *
+ * ⚠ `total` is what MATCHED the search, not what came back — say the cap when it bites.
+ */
+export const fetchCustomerHistory = (id: string, search = "", skip = 0, take = 200) =>
+  get<{ total: number; skip: number; take: number; rows: CustomerHistoryRow[] }>(
+    `/api/v1/customers/${encodeURIComponent(id)}/history?skip=${skip}&take=${take}`
+    + (search ? `&search=${encodeURIComponent(search)}` : ""));
+
+/**
+ * Put credit on a customer's account.
+ *
+ * ⚠⚠ SUPERVISOR AND ABOVE (`customers.manage`), and a REASON IS MANDATORY — the server refuses a
+ * blank one. It used to default to "grant" and this client used to send "goodwill grant", so credit
+ * could be added with no reason anybody typed; the history then showed a plausible word that means
+ * nothing, which is worse than a blank because it reads as an audit trail.
+ *
+ * ⚠ `entryId` is the idempotency anchor: ONE attempt carries ONE id however many times it is
+ * retried, so a repeat cannot credit the account twice.
+ */
+export async function issueCredit(id: string, amountPence: number, reason: string): Promise<void> {
+  await send("POST", `/api/v1/customers/${encodeURIComponent(id)}/credit/issue`, {
+    amountPence,
+    reason: reason.trim(),
+    entryId: crypto.randomUUID(),
+  });
+}
+
 /** FE1: the tenant's loyalty tier catalogue (active only). Readable by any signed-in operator so
  *  the till's assign-tier picker works; tiers are DEFINED in the portal (Loyalty → Manage tiers). */
 export interface LoyaltyTier {

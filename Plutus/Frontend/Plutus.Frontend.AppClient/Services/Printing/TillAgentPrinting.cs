@@ -60,6 +60,24 @@ namespace Plutus.Frontend.AppClient.Services.Printing
         public static Task<bool> OpenDrawerAsync() => Client.OpenDrawerAsync(Token);
 
         /// <summary>
+        /// Print a document this till built itself — the member card (WP-L1c), and anything else that
+        /// is not a sale.
+        ///
+        /// ⚠ EVERY OTHER PRINT PATH HERE BUILDS A RECEIPT. `TryPrintSaleAsync` shapes a sale, applies
+        /// the portal's template and hands it over; there was no way to print a document that is not
+        /// one. This is that door, and it deliberately does NOT apply receipt branding — a membership
+        /// card is not a receipt and must not inherit its header, footer or VAT number.
+        ///
+        /// ⚠ FALSE WHEN THERE IS NO AGENT, never an exception: a till nobody has paired is the
+        /// ordinary case, and the caller says so in words the operator can act on.
+        /// </summary>
+        public static Task<bool> PrintDocumentAsync(Plutus.TillAgent.Core.PrintDocument doc)
+        {
+            if (doc is null || !Paired) return Task.FromResult(false);
+            return Client.PrintAsync(doc, Token);
+        }
+
+        /// <summary>
         /// Print a committed sale, and kick the drawer with the same job when it is a cash sale.
         ///
         /// ⚠ THE DRAWER RIDES WITH THE RECEIPT. One round trip, and the drawer opens as the paper

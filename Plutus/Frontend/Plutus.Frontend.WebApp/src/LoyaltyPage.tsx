@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import DialogX from "./DialogX.tsx";
+import CustomerDetail from "./CustomerDetail.tsx";
 import {
   createCustomer, fetchLoyalty, fetchLoyaltyTiers, setMembership, updateCustomer,
   type LoyaltyTier, type V1LoyaltyRow,
@@ -21,6 +22,7 @@ export default function LoyaltyPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<V1LoyaltyRow | "new" | null>(null);
+  const [viewing, setViewing] = useState<V1LoyaltyRow | null>(null);
   const canManage = canManageCustomers();
   const canAdd = canAddCustomers();
 
@@ -64,7 +66,15 @@ export default function LoyaltyPage() {
           rows={rows} getKey={(r) => r.id} initialSortKey="creditBalancePence" initialSortDir="desc"
           search={(r) => `${r.name} ${r.email ?? ""} ${r.tier ?? ""} ${r.memberNo ?? ""}`}
           searchPlaceholder="Search name / email / tier / member no…"
-          rowActions={canManage ? (r) => <button className="ghost small" onClick={() => setEditing(r)}>Edit</button> : undefined}
+          // ⚠⚠ OPEN comes first and is for EVERYONE — it is the customer's detail view (WP-L1b): their
+          // facts, their whole history, Print card, and Grant credit for a supervisor. Edit stays
+          // gated on `customers.manage`, as it always was.
+          rowActions={(r) => (
+            <>
+              <button className="ghost small" onClick={() => setViewing(r)}>Open</button>
+              {canManage && <button className="ghost small" onClick={() => setEditing(r)}>Edit</button>}
+            </>
+          )}
           emptyText="No members or credit holders yet."
         />
       )}
@@ -75,6 +85,17 @@ export default function LoyaltyPage() {
           canSetTier={canManage}
           onClose={() => setEditing(null)}
           onDone={() => { setEditing(null); refresh(); }}
+        />
+      )}
+
+      {/* ⚠ Granting credit changes the balance shown in the list behind this, so the list refreshes
+          on the way out — otherwise the row still reads the old figure and the operator grants it
+          again. */}
+      {viewing && (
+        <CustomerDetail
+          row={viewing}
+          onClose={() => setViewing(null)}
+          onChanged={() => { setViewing(null); refresh(); }}
         />
       )}
     </section>

@@ -263,7 +263,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
                 // read; rendering "no history" for a customer who has traded for years is a confident
                 // wrong statement, and an operator would then grant credit believing none was ever given.
                 var outcome = await Helpers.CustomViews.CustomerDetailHelper.ShowAsync(
-                    row, history, mayEdit: MayManageCustomers, mayGrantCredit: MayManageCustomers);
+                    row, history,
+                    mayEdit: MayManageCustomers,
+                    mayGrantCredit: MayManageCustomers,
+                    // ⚠ NOT A PERMISSION — just whether this till has an agent to print through. A
+                    // Cashier may print somebody their card; a till with no printer cannot.
+                    mayPrintCard: Services.Printing.TillAgentPrinting.Paired);
 
                 // ⚠⚠ THE DETAIL DIALOG HAS CLOSED BY NOW, and that is required rather than tidy: two
                 // Mopups pages cannot stack, so the second would land behind the first and read as a
@@ -275,6 +280,10 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
                 else if (outcome == Helpers.CustomViews.CustomerDetailHelper.Outcome.GrantCredit)
                 {
                     ExecuteGrantCredit(row);
+                }
+                else if (outcome == Helpers.CustomViews.CustomerDetailHelper.Outcome.PrintCard)
+                {
+                    await PrintCardAsync(row);
                 }
             }
             catch (Exception ex)
@@ -293,6 +302,44 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
             }
         }
 
+
+        /// <summary>
+        /// Print a customer their membership card (WP-L1c, §5d).
+        ///
+        /// ⚠⚠ MATT, 2026-08-18: *"Need to be able to print the card from the till."* — then *"Build for
+        /// both"*, so the web till prints one too.
+        ///
+        /// ⚠⚠ **WHAT COMES OUT IS NOT THE SAME OBJECT ON BOTH TILLS, AND THAT IS DELIBERATE.** The
+        /// portal and the web till render a **CR80 card** (85.6 × 54 mm) and send it to an ordinary
+        /// printer, because a browser can. **MAUI's printer is the thermal receipt printer on the
+        /// counter** — so it prints a scannable membership **slip**. Same Code 39, same `C`-prefixed
+        /// payload, so it scans as a MEMBER on any till. Pretending a thermal printer can produce a
+        /// plastic card would be the lie; parity is in what the customer can do with it.
+        ///
+        /// ⚠ NO PERMISSION GATE. Handing somebody their own card is counter work — a Cashier is who is
+        /// standing in front of them.
+        /// </summary>
+        private async Task PrintCardAsync(Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto row)
+        {
+            if (row is null || string.IsNullOrWhiteSpace(row.MemberNo)) return;
+
+            var ok = await Services.Printing.MemberCardPrint.PrintAsync(
+                row.Name, row.MemberNo, row.Tier, row.RenewalDay);
+
+            // ⚠ SAY WHICH WAY IT WENT. A print that silently fails is a customer sent away without the
+            // card they were promised, and the operator finds out only when they come back.
+            if (ok)
+            {
+                Logger.LogEvent(AppLogLevel.Info, $"{GetType().Name}: Member card printed",
+                    new Dictionary<string, string> { { "CustomerId", row.Id.ToString() } });
+                return;
+            }
+
+            await Application.Current.MainPage.DisplayAlert("Not printed",
+                "That card couldn't be printed. Check the receipt printer is on and the till agent is paired "
+                + "(Settings → Hardware).",
+                "OK".Translate());
+        }
         /// <summary>
         /// Put credit on a customer's account.
         ///

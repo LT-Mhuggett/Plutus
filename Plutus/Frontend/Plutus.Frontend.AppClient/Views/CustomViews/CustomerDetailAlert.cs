@@ -45,11 +45,15 @@ namespace Plutus.Frontend.AppClient.Views.CustomViews
         /// <param name="onEdit">Edit details — null when the operator may not (`customers.manage`).</param>
         /// <param name="onGrantCredit">Grant credit — null when the operator may not. ⚠ Supervisor and
         /// above by design: `RbacSeeder` gives a Cashier neither.</param>
+        /// <param name="onPrintCard">Print their membership card. ⚠⚠ Deliberately NOT gated on
+        /// `customers.manage` — handing a customer their own card is counter work, and a Cashier is
+        /// who is standing there.</param>
         public CustomerDetailAlert(
             Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto row,
             Plutus.Client.Core.PlutusApiClient.CustomerHistoryPage history,
             Action onEdit,
-            Action onGrantCredit)
+            Action onGrantCredit,
+            Action onPrintCard)
         {
             _root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });   // header + facts
             _root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Star });   // the history
@@ -57,7 +61,7 @@ namespace Plutus.Frontend.AppClient.Views.CustomViews
 
             _root.SetDynamicResource(VisualElement.BackgroundColorProperty, "ThemeSurface");
 
-            _root.Add(Facts(row, onEdit, onGrantCredit), 0, 0);
+            _root.Add(Facts(row, onEdit, onGrantCredit, onPrintCard), 0, 0);
             _root.Add(History(history), 0, 1);
 
             var close = new Button { Text = "Close", Margin = new Thickness(0, 6, 0, 0) };
@@ -68,7 +72,8 @@ namespace Plutus.Frontend.AppClient.Views.CustomViews
         }
 
         private View Facts(
-            Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto row, Action onEdit, Action onGrantCredit)
+            Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto row,
+            Action onEdit, Action onGrantCredit, Action onPrintCard)
         {
             var stack = new VerticalStackLayout { Spacing = 3 };
 
@@ -112,6 +117,19 @@ namespace Plutus.Frontend.AppClient.Views.CustomViews
                 var grant = new Button { Text = "Grant credit" };
                 grant.Clicked += (_, e) => { onGrantCredit(); CloseRequested?.Invoke(this, e); };
                 buttons.Children.Add(grant);
+            }
+
+            // ⚠⚠ PRINT CARD IS NOT GATED ON `customers.manage`, unlike the two above. Handing somebody
+            // their own membership card is counter work — a Cashier is who is standing in front of
+            // them, and making them fetch a supervisor to reprint a lost card would be absurd.
+            //
+            // ⚠ Hidden with no membership number, because there would be nothing to put in the
+            // barcode — the button would print a card that scans as nothing.
+            if (onPrintCard != null && !string.IsNullOrWhiteSpace(row.MemberNo))
+            {
+                var print = new Button { Text = "Print card" };
+                print.Clicked += (_, e) => { onPrintCard(); CloseRequested?.Invoke(this, e); };
+                buttons.Children.Add(print);
             }
 
             if (buttons.Children.Count > 0) stack.Children.Add(buttons);

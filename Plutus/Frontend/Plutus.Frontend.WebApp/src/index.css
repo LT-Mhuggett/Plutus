@@ -1387,9 +1387,24 @@ button.primary.slim {
   body * {
     visibility: hidden;
   }
+  /* ⚠ THE CARD JOINS THE RECEIPT IN THE ALLOW-LIST. `body * { visibility: hidden }` above
+     hides everything; whatever is being printed has to opt back in. The card is NOT portalled to
+     <body> like the receipt is, so the `:has(.receipt-overlay) #root` rule does not cover it — this
+     is what makes "Print card" print the card and not the whole till. */
+  .member-card,
+  .member-card *,
   .receipt,
   .receipt * {
     visibility: visible;
+  }
+  /* ⚠ POSITIONED AT THE TOP-LEFT, or a `visibility: visible` island still prints wherever the
+     hidden page happened to put it — the portal learned this the same way. Black on white always:
+     paper is paper, and a dark scheme must never reach card stock. */
+  .member-card {
+    position: absolute; inset: 0 auto auto 0; margin: 0;
+    color-scheme: light;
+    background: #fff;
+    color: #000;
   }
   .receipt {
     color-scheme: light; /* paper is paper — never the dark palette */
@@ -1470,3 +1485,31 @@ button.primary.slim {
    broken. Applies to the first heading only, which is the one on the same line as the ✕. */
 .dialog > h2:first-of-type,
 .dialog > h3:first-of-type { padding-right: 2.5rem; }
+
+/* ── the membership card (WP-L1c) ──────────────────────────────────────────────────────────────
+   CR80, 85.6 x 54 mm — the standard bank/loyalty card size, so it prints onto card stock or
+   adhesive blanks from an ordinary printer. Ported from the portal's `portal.css`, where this has
+   existed since FE2; MAUI cannot do this at all (its printer is the thermal receipt printer on the
+   counter) and prints a scannable slip instead.
+
+   ⚠ ALWAYS BLACK ON WHITE, never a theme slot. Paper is paper — a dark scheme printing near-white
+   ink onto card is the same fault the receipt rules below already record. */
+.member-card {
+  width: 85.6mm; height: 54mm; box-sizing: border-box;
+  margin: 8px auto; padding: 5mm;
+  display: flex; flex-direction: column; justify-content: space-between;
+  border: 1px solid #999; border-radius: 3mm; background: #fff; color: #000;
+}
+.mc-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; }
+.mc-company { font-weight: 700; letter-spacing: 0.3px; }
+.mc-tier { border: 1px solid #000; border-radius: 999px; padding: 0 8px; font-size: 10px; text-transform: uppercase; }
+.mc-name { font-size: 15px; font-weight: 600; }
+.mc-barcode { text-align: center; }
+.mc-foot { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; }
+.mc-no { font-family: ui-monospace, "Cascadia Mono", monospace; letter-spacing: 2px; }
+.mc-renew { color: #444; font-size: 10px; }
+
+/* A definition list for the customer's facts — the detail view's top half. */
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0 0 12px; }
+.facts dt { opacity: 0.7; }
+.facts dd { margin: 0; }

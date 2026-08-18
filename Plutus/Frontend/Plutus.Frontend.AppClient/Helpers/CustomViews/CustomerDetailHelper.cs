@@ -32,13 +32,19 @@ namespace Plutus.Frontend.AppClient.Helpers.CustomViews
 
             /// <summary>They pressed **Grant credit**.</summary>
             GrantCredit = 2,
+
+            /// <summary>They pressed **Print card**.</summary>
+            PrintCard = 3,
         }
 
+        /// <param name="mayPrintCard">⚠ Not a permission — it is simply whether this till has a paired
+        /// agent to print through. A Cashier may print a card; a till with no printer cannot.</param>
         public static async Task<Outcome> ShowAsync(
             Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto row,
             Plutus.Client.Core.PlutusApiClient.CustomerHistoryPage history,
             bool mayEdit,
-            bool mayGrantCredit)
+            bool mayGrantCredit,
+            bool mayPrintCard)
         {
             var result = Outcome.Closed;
 
@@ -48,7 +54,8 @@ namespace Plutus.Frontend.AppClient.Helpers.CustomViews
                 // ⚠ Null when not permitted, which is what makes the button absent rather than
                 // disabled — see the view.
                 mayEdit ? () => result = Outcome.Edit : (Action)null,
-                mayGrantCredit ? () => result = Outcome.GrantCredit : (Action)null);
+                mayGrantCredit ? () => result = Outcome.GrantCredit : (Action)null,
+                mayPrintCard ? () => result = Outcome.PrintCard : (Action)null);
 
             // ⚠ `interuptable: true` — clicking away closes it. This dialog decides nothing and holds
             // no half-finished state, so there is nothing to protect an operator from leaving.
