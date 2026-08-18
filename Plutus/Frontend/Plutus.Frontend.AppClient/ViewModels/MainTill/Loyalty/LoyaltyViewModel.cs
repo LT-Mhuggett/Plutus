@@ -57,9 +57,10 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
                 // ⚠ The web till's own wording, verbatim - two tills that describe the same empty
                 // state differently read as two different products.
                 emptyText: "No members or credit holders yet.",
-                // ⚠⚠ TAP A ROW TO EDIT - the web till has a per-row Edit button; a till screen has
-                // no room for one. Silent for an operator without `customers.manage`.
-                onRowTap: ExecuteEditMember);
+                // ⚠⚠ TAP A ROW TO OPEN THE CUSTOMER — the portal's dialog on a till: their details,
+                // their credit, and their whole history, with **Edit details** and **Grant credit** on
+                // it. A tap used to go straight to the edit box (WP-L1, §5d).
+                onRowTap: ExecuteOpenCustomer);
 
             _tableHost.Content = _table;
 
@@ -226,6 +227,192 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
         }
 
 
+
+        /// <summary>
+        /// Open a customer — **everything the portal shows**, from a row tap (WP-L1, §5d).
+        ///
+        /// ⚠⚠ MATT, 2026-08-18: *"I need to be able to see all the information you see in the portal
+        /// on both MAUI and the webtill."* A tap used to go straight to the edit box; it now opens the
+        /// customer, and **Edit details** is a button on it — exactly where the portal puts it.
+        ///
+        /// ⚠ THE FACTS COME FROM THE ROW ALREADY ON SCREEN, so the dialog opens instantly and shows
+        /// something even when the history cannot be read. Only the history is fetched.
+        ///
+        /// ⚠ NOT `async void` at the gesture: `TillTable` calls this on the UI thread, and an escaping
+        /// exception from an `async void` goes to the dispatcher unhandled — which kills the till.
+        /// </summary>
+        private void ExecuteOpenCustomer(Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto row)
+        {
+            if (row is null || IsBusy) return;
+            _ = OpenCustomerAsync(row);
+        }
+
+        private async Task OpenCustomerAsync(Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto row)
+        {
+            IsBusy = true;
+            try
+            {
+                Plutus.Client.Core.PlutusApiClient.CustomerHistoryPage history = null;
+
+                // ⚠ THE OPERATOR'S CLIENT — the history is `perm:`-gated like everything else here, and
+                // a device token's `NameIdentifier` is the device id, which holds no grants (item 6a).
+                var api = await Services.Connectivity.PlutusApi.GetOperatorAsync();
+                if (api != null) history = await api.GetCustomerHistoryAsync(row.Id);
+
+                // ⚠ A NULL HISTORY IS PASSED THROUGH, NOT SUPPRESSED. The dialog says it could not be
+                // read; rendering "no history" for a customer who has traded for years is a confident
+                // wrong statement, and an operator would then grant credit believing none was ever given.
+                var outcome = await Helpers.CustomViews.CustomerDetailHelper.ShowAsync(
+                    row, history, mayEdit: MayManageCustomers, mayGrantCredit: MayManageCustomers);
+
+                // ⚠⚠ THE DETAIL DIALOG HAS CLOSED BY NOW, and that is required rather than tidy: two
+                // Mopups pages cannot stack, so the second would land behind the first and read as a
+                // frozen till.
+                if (outcome == Helpers.CustomViews.CustomerDetailHelper.Outcome.Edit)
+                {
+                    ExecuteEditMember(row);
+                }
+                else if (outcome == Helpers.CustomViews.CustomerDetailHelper.Outcome.GrantCredit)
+                {
+                    ExecuteGrantCredit(row);
+                }
+            }
+            catch (Exception ex)
+            {
+                CrashLog.Write("LoyaltyViewModel.OpenCustomer", ex);
+                try
+                {
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "That customer couldn't be opened.", "OK".Translate());
+                }
+                catch (Exception inner) { CrashLog.Write("LoyaltyViewModel.OpenCustomer.alert", inner); }
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+        /// <summary>
+        /// Put credit on a customer's account.
+        ///
+        /// ⚠⚠ SUPERVISOR AND ABOVE — Matt, 2026-08-18: *"Granting credit needs to be supervisor and
+        /// above."* That was **already true** and is asserted rather than newly imposed:
+        /// `POST /customers/{id}/credit/issue` is gated `customers.manage`, `RbacSeeder` gives
+        /// Supervisor that code, and a Cashier holds only `pos.sell` + `pos.customers.add`. The gate
+        /// here matches the server's so the refusal happens before the round trip, not after it.
+        ///
+        /// ⚠⚠ THE REASON IS MANDATORY AND IS NEVER SUBSTITUTED. The endpoint refuses a blank one
+        /// (backend 1.17.4) because credit granted with a reason nobody typed shows a plausible word
+        /// in the history that means nothing — worse than a blank, because it READS as an audit trail.
+        /// Marked `*` here so the operator finds out before the round trip.
+        ///
+        /// ⚠ ONLINE-ONLY: the balance is the server's, and a till has no business inventing one.
+        /// </summary>
+        private async void ExecuteGrantCredit(Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto row)
+        {
+            if (row is null || IsBusy) return;
+
+            var gate = Services.Security.TillGate.Check(
+                App.GetViewModel().SignedInOperator, PermissionCatalogue.CustomersManage);
+
+            if (!gate.Allowed)
+            {
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), gate.Message, "OK".Translate());
+                return;
+            }
+
+            IsBusy = true;
+            try
+            {
+                const NumberStyles money = NumberStyles.AllowCurrencySymbol | NumberStyles.AllowThousands
+                    | NumberStyles.AllowDecimalPoint;
+
+                Helpers.Validators.IValidator[] amount =
+                {
+                    new Helpers.Validators.RequiredValidator(),
+                    new Helpers.Validators.CurrencyValueValidator(money),
+                };
+
+                Helpers.Validators.IValidator[] required = { new Helpers.Validators.RequiredValidator() };
+
+                CustomViews.Structs.ViewElementData[] elements =
+                {
+                    new CustomViews.Structs.ViewElementData(
+                        1, "Amount *", "", amount.AsEnumerable(), isPassword: false, isEnabled: true),
+                    new CustomViews.Structs.ViewElementData(
+                        2, "Reason *", "", required.AsEnumerable(), isPassword: false, isEnabled: true),
+                };
+
+                var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                    elements, "Grant".Translate(), true,
+                    $"Grant credit to {(string.IsNullOrWhiteSpace(row.Name) ? "this customer" : row.Name)}",
+                    "Cancel".Translate());
+
+                // ⚠ An empty result is "they backed out" — all four exits agree since 2026-08-18.
+                answers.TryGetValue(1, out var typedAmount);
+                answers.TryGetValue(2, out var reason);
+
+                if (string.IsNullOrWhiteSpace(typedAmount) || string.IsNullOrWhiteSpace(reason)) return;
+
+                var pence = Plutus.SharedKernel.Pence.FromDecimal(
+                    decimal.Parse(typedAmount, money, CultureInfo.CurrentCulture));
+
+                // ⚠ NOT NEGATIVE, NOT ZERO. Taking credit AWAY is not a grant — it is a redemption or
+                // an expiry, both of which have their own paths and their own reasons.
+                if (pence <= 0)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "Credit must be more than nothing. Use a refund to take money back.", "OK".Translate());
+                    return;
+                }
+
+                var api = await Services.Connectivity.PlutusApi.GetOperatorAsync();
+                if (api is null)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "Credit can only be granted while the till is online and somebody is signed in. Nothing has been added.",
+                        "OK".Translate());
+                    return;
+                }
+
+                // ⚠ THE ENTRY ID IS MINTED ONCE, HERE — it is what makes the grant idempotent, so a
+                // retry of the same attempt cannot credit the account twice.
+                var (ok, problem) = await api.IssueCreditAsync(row.Id, pence, reason, Uuid7.New());
+
+                if (!ok)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Not granted",
+                        problem ?? "That credit couldn't be added, so nothing has changed.", "OK".Translate());
+                    return;
+                }
+
+                Logger.LogEvent(AppLogLevel.Info, $"{GetType().Name}: Credit granted",
+                    new Dictionary<string, string>
+                    { { "CustomerId", row.Id.ToString() }, { "AmountPence", pence.ToString() } });
+
+                await Application.Current.MainPage.DisplayAlert("Credit added",
+                    $"{(pence / 100m).ToString("C2", CultureInfo.CurrentCulture)} added to {row.Name}. "
+                    + "The reason is on their history.",
+                    "OK".Translate());
+
+                Refresh();
+            }
+            catch (Exception ex)
+            {
+                CrashLog.Write("LoyaltyViewModel.ExecuteGrantCredit", ex);
+                try
+                {
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "That credit couldn't be added. Nothing has changed.", "OK".Translate());
+                }
+                catch (Exception inner) { CrashLog.Write("LoyaltyViewModel.ExecuteGrantCredit.alert", inner); }
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
         /// <summary>
         /// Change a member's details — **tap their row**.
         ///

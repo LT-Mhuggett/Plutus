@@ -1172,6 +1172,54 @@ public sealed class PlutusApiClient
         public string? MemberNo { get; set; }
     }
 
+
+    /// <summary>
+    /// Everything that has ever happened to one customer — created, details changed, tier set, credit
+    /// added, credit used. Newest first.
+    ///
+    /// ⚠⚠ THE HISTORY IS NOT THE CREDIT LEDGER, and asking for it that way is the mistake this
+    /// endpoint exists to stop. Matt, 2026-08-18: *"I need the 'Credit History' to be ALL history."*
+    /// The server merges three sources, two of which are not filed under the customer at all.
+    ///
+    /// ⚠ `take` is clamped 1..200 SERVER-side and `total` counts what MATCHED the search — so a
+    /// caller that shows `rows.Count` as the answer is lying whenever the cap bites. Say the cap.
+    /// </summary>
+    public Task<CustomerHistoryPage?> GetCustomerHistoryAsync(
+        Guid id, string? search = null, int skip = 0, int take = 200, CancellationToken ct = default) =>
+        GetAsync<CustomerHistoryPage>(
+            $"/api/v1/customers/{id:D}/history?skip={skip}&take={take}"
+            + (string.IsNullOrWhiteSpace(search) ? "" : $"&search={Uri.EscapeDataString(search)}"), ct);
+
+    /// <summary>One page of a customer's history.</summary>
+    public sealed class CustomerHistoryPage
+    {
+        /// <summary>⚠ What MATCHED, not what was returned — compare with `Rows.Count` and SAY when
+        /// the page is short, the same rule as every capped report on this client.</summary>
+        public int Total { get; set; }
+
+        public int Skip { get; set; }
+        public int Take { get; set; }
+        public List<CustomerHistoryRow> Rows { get; set; } = new();
+    }
+
+    public sealed class CustomerHistoryRow
+    {
+        public DateTime AtUtc { get; set; }
+
+        /// <summary>"Created", "Details changed", "Tier set", "Credit added", "Credit used",
+        /// "Credit expired" — the SERVER's words, so both tills say the same thing.</summary>
+        public string? Type { get; set; }
+
+        /// <summary>The reason, or what changed — e.g. `name: Ada Lovelace -> Ada King`.</summary>
+        public string? Detail { get; set; }
+
+        /// <summary>⚠ SIGNED, and only on a credit movement: positive granted, negative spent.
+        /// Null on everything else, which is why it is nullable rather than 0 — a rename is not a
+        /// zero-pound transaction.</summary>
+        public long? AmountPence { get; set; }
+
+        public Guid? ActorUserId { get; set; }
+    }
     /// <summary>
     /// Change a member's contact details — name, email, phone.
     ///
@@ -1236,6 +1284,70 @@ public sealed class PlutusApiClient
         }
     }
 
+
+    /// <summary>
+    /// Put credit on a customer's account.
+    ///
+    /// ⚠⚠ SUPERVISOR AND ABOVE, and that was ALREADY the rule rather than a new one. Matt,
+    /// 2026-08-18: *"Granting credit needs to be supervisor and above."* The endpoint is gated
+    /// `perm:customers.manage`; `RbacSeeder` gives **Supervisor** that code and gives a **Cashier**
+    /// only `pos.sell` + `pos.customers.add`. Verified before writing this, not assumed.
+    ///
+    /// ⚠⚠ A REASON IS MANDATORY AND IS NEVER SUBSTITUTED. The server refuses a blank one
+    /// (backend 1.17.4). It used to default to "grant", and the portal sent "goodwill grant" — so
+    /// credit could be added with **no reason anybody typed**, and the history then showed a
+    /// plausible-looking word that means nothing. **That is worse than a blank, because it reads as an
+    /// audit trail.** This refuses locally too, so the operator is told before the round trip.
+    ///
+    /// ⚠ ONLINE-ONLY, and there is no offline queue for it: the balance is the server's, and a
+    /// till that granted credit offline would be inventing money two tills could then both spend.
+    ///
+    /// ⚠ THE ENTRY ID IS THE CALLER'S, exactly as <see cref="RedeemCreditAsync"/> takes one — it is
+    /// the idempotency anchor, so ONE attempt must carry ONE id however many times it is retried.
+    /// Minting it in here would defeat that: a retry would look like a second grant and credit the
+    /// account twice.
+    /// </summary>
+    public async Task<(bool Ok, string? Problem)> IssueCreditAsync(
+        Guid customerId, long amountPence, string reason, Guid entryId, CancellationToken ct = default)
+    {
+        if (amountPence <= 0) return (false, "Credit must be more than nothing.");
+        if (string.IsNullOrWhiteSpace(reason))
+            return (false, "A reason is required, and it is kept on the customer's history.");
+
+        var body = new Dictionary<string, object?>
+        {
+            ["amountPence"] = amountPence,
+            ["reason"] = reason.Trim(),
+            ["entryId"] = entryId,
+        };
+
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/customers/{customerId:D}/credit/issue")
+            {
+                Content = JsonContent.Create(body, options: Json),
+            };
+            await AuthoriseAsync(req, ct);
+            using var res = await _http.SendAsync(req, ct);
+
+            if (res.IsSuccessStatusCode) return (true, null);
+
+            if (res.StatusCode == HttpStatusCode.Forbidden)
+                return (false, "You don't have permission to grant credit. A supervisor can.");
+
+            if (res.StatusCode == HttpStatusCode.NotFound)
+                return (false, "That customer no longer exists.");
+
+            var detail = await res.Content.ReadAsStringAsync(ct);
+            return (false, string.IsNullOrWhiteSpace(detail)
+                ? $"Plutus wouldn't add that credit ({(int)res.StatusCode})."
+                : detail);
+        }
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
+        {
+            return (false, "Couldn't reach Plutus, so no credit has been added.");
+        }
+    }
     /// <summary>
     /// Spend a customer's store credit against a sale.
     ///
