@@ -794,6 +794,23 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 }
                 Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Item Adjustment");
             }
+            catch (Exception ex)
+            {
+                // ⚠⚠ THIS METHOD IS `async void`: an escaping exception goes to the dispatcher
+                // UNHANDLED and takes the till with it. It had `try`/`finally` and no `catch`, and on
+                // 2026-08-18 a `FormatException` from `decimal.Parse("")` did exactly that when the
+                // operator backed out of the dialog. The root cause is fixed in
+                // `InputAlert.CancelBut_Clicked` (all exits now yield an empty result), and this is the
+                // backstop: a price that cannot be parsed must cost the operator a message, never the
+                // till.
+                Services.Analytics.CrashLog.Write("TillViewModel.ExecuteAdjustItem", ex);
+                try
+                {
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "That price couldn't be applied, so the line is unchanged.", "OK".Translate());
+                }
+                catch (Exception inner) { Services.Analytics.CrashLog.Write("ExecuteAdjustItem.alert", inner); }
+            }
             finally
             {
                 IsBusy = false;
@@ -1121,10 +1138,35 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(AttachedCustomerLabel));
                 OnPropertyChanged(nameof(HasAttachedCustomer));
+                // ⚠ The two combined visibilities depend on it, and MAUI will not work that out.
+                OnPropertyChanged(nameof(ShowAddMember));
+                OnPropertyChanged(nameof(ShowSetTier));
             }
         }
 
         public bool HasAttachedCustomer => _attachedCustomer != null;
+
+        /// <summary>
+        /// Show "Add member"? ⚠ Only when **nobody is attached yet** and the operator may add one.
+        ///
+        /// ⚠⚠ WHY THIS PROPERTY EXISTS. Matt, 2026-08-18, on the till screen: *"There appears to be a
+        /// 'Add member' and 'Set tier'. I believe this is for loyalty, I do not think it should be on
+        /// the till screen?"* — and the screenshot shows *"Add m|ember"* overprinted by *"Set tier"*.
+        /// The buttons DO belong here (binding default 20, *"Till operator to add new loyalty
+        /// members"*, and the members' auto-discount cannot work without attaching somebody), but they
+        /// were bound to the PERMISSION alone: both stayed visible with no customer attached, on top of
+        /// the Search button and each other. A capability that renders as overlapping text reads as
+        /// something that should not be there — which is exactly how it was reported.
+        ///
+        /// ⚠ A combined property rather than a XAML multi-binding or a converter, deliberately: a
+        /// binding to something that does not exist renders BLANK on MAUI with no error, so a screen
+        /// nobody can run is the wrong place for clever binding expressions.
+        /// </summary>
+        public bool ShowAddMember => !HasAttachedCustomer && MayAddCustomers;
+
+        /// <summary>Show "Set tier"? ⚠ Only with a customer attached — there is no tier to set
+        /// otherwise — and only for `customers.manage` (supervisor and up).</summary>
+        public bool ShowSetTier => HasAttachedCustomer && MayManageCustomers;
 
         /// <summary>
         /// How much store credit the attached customer has, in pence — 0 when nobody is attached.

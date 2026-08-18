@@ -242,15 +242,15 @@
                     <!-- ⚠ THE CUSTOMER BAR. "Add member" when nobody is attached; the member's name
                          and tier when one is, with a button to take them off again. The two swap on
                          HasAttachedCustomer so the operator always has exactly one of them. -->
-                    <Button Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                    <Button Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
                             Text="{i18n:Translate Search}"
                             IsVisible="{Binding HasAttachedCustomer, Converter={StaticResource InverseBool}}"
                             Command="{Binding AttachCustomerCommand}"/>
                     <!-- ⚠ Hidden when the operator lacks `pos.customers.add` OR `customers.manage`.
                          A control that is only going to refuse is worse than no control. -->
-                    <Button Grid.Row="0" Grid.Column="2" Grid.ColumnSpan="2"
+                    <Button Grid.Row="0" Grid.Column="3" Grid.ColumnSpan="3"
                             Text="{i18n:Translate AddMember}"
-                            IsVisible="{Binding MayAddCustomers}"
+                            IsVisible="{Binding ShowAddMember}"
                             Command="{Binding AddMemberCommand}"/>
                     <Label  Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" VerticalOptions="Center"
                             IsVisible="{Binding HasAttachedCustomer}"
@@ -259,7 +259,7 @@
                          basket that customer puts through, so it is not a cashier's decision. -->
                     <Button Grid.Row="0" Grid.Column="3" Grid.ColumnSpan="1"
                             Text="{i18n:Translate SetTier}"
-                            IsVisible="{Binding MayManageCustomers}"
+                            IsVisible="{Binding ShowSetTier}"
                             Command="{Binding SetTierCommand}"/>
                     <Button Grid.Row="0" Grid.Column="4" Grid.ColumnSpan="2"
                             Text="{i18n:Translate RemoveMember}"

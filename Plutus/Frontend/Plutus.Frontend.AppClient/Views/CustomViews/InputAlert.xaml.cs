@@ -428,9 +428,31 @@ namespace Plutus.Frontend.AppClient.Pages.CustomViews
                 ConfirmButtonEHandler?.Invoke(this, e);
         }
 
+        /// <summary>
+        /// Backing out — Cancel, or the ✕ in the header.
+        ///
+        /// ⚠⚠ IT MUST LEAVE THE CALLER WITH **NOTHING**, AND UNTIL 2026-08-18 IT LEFT THEM WITH EMPTY
+        /// STRINGS. That difference crashed the till. Matt: *"if I try to adjust a price and use the X
+        /// to close, it crashes"* — `ExecuteAdjustItem` read the blanked values, found them non-null,
+        /// and ran `decimal.Parse("")` → `FormatException`, unhandled, process gone.
+        ///
+        /// ⚠ THE THREE EXITS NOW AGREE. Escape and tapping outside complete the dialog with `default`,
+        /// which `InputAlertHelper.ShowAsync` turns into an EMPTY dictionary — so every caller's
+        /// `TryGetValue` returns false and their existing `!= null` guards hold. Cancel and the ✕ go
+        /// through this method, so this method must produce the same empty dictionary. Clearing
+        /// `InputResults` is what makes all four behave identically, which is what §G36b tests.
+        ///
+        /// ⚠ It still fires `ConfirmButtonEHandler` because that is the only wired completion path
+        /// (both helpers subscribe to it and nothing else); the difference is what it hands over.
+        ///
+        /// ⚠ `Entry` may be null — a `ViewElement` can be a label with no input, and `ShowAsync`
+        /// already filters on `v.Entry != null` for exactly that reason. Blanking one would have been
+        /// its own NullReferenceException.
+        /// </summary>
         private void CancelBut_Clicked(object sender, EventArgs e)
         {
-            ViewElements.ForEach(vE => vE.Entry.Text = default);
+            ViewElements.ForEach(vE => { if (vE.Entry != null) vE.Entry.Text = default; });
+            InputResults.Clear();
             ConfirmButtonEHandler?.Invoke(this, e);
         }
 

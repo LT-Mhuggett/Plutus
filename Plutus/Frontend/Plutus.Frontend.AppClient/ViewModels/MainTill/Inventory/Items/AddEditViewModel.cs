@@ -268,7 +268,10 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                         };
                         var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(viewElements, "Confirm".Translate(), false, "Category".Translate(), "Cancel".Translate());
 
-                        if (data.Any(d => string.IsNullOrEmpty(d.Value)))
+                        // ⚠ `Count == 0` FIRST — backing out now yields an EMPTY dictionary (see
+                        // `InputAlert.CancelBut_Clicked`, 2026-08-18), and `Any(…)` over nothing is
+                        // FALSE, so without this the cancel path fell through to `data[…]` below.
+                        if (data.Count == 0 || data.Any(d => string.IsNullOrEmpty(d.Value)))
                         {
                             Category = Categories.First();
                             return;
@@ -278,8 +281,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                         {
                             var cat = new CategoryModel
                             {
-                                Name = data[0].ToString(),
-                                Description = data[1].ToString()
+                                // ⚠ KEYS 1 AND 2, not 0 and 1 — ViewElementData ids are 1-based (the two
+                                // `new ViewElementData(1…)/(2…)` above), so `data[0]` threw
+                                // KeyNotFoundException on the SUCCESS path: add-category from the item
+                                // editor could never have worked. Found 2026-08-18 while making cancel safe.
+                                Name = data[1],
+                                Description = data[2]
                             };
                             db.Add(cat);
                             if (!db.Save())

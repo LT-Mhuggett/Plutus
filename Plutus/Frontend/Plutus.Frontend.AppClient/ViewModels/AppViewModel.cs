@@ -75,10 +75,23 @@ namespace Plutus.Frontend.AppClient.ViewModels
             get => _toolbarItemsChanged;
             set
             {
+                // ⚠⚠ `?.Invoke` BELOW — IT WAS A BARE `ToolbarItemChanged()`, AND IT KILLED THE TILL.
+                // An event with no subscriber is null, so raising it threw NullReferenceException from
+                // inside a property setter reached via `ObservableCollection.OnCollectionChanged`:
+                // unhandled, on the dispatcher, process gone.
+                //
+                // Matt, 2026-08-18: *"If I try to save a transaction on MAUI, it crashes."*
+                // `ExecuteStoreTransaction` mutates the basket collection, the change notification set
+                // this flag, and nothing was subscribed at that moment — so the till died on Save.
+                //
+                // ⚠ ANY collection change while no page is subscribed hit this, which makes it a
+                // candidate for the sign-in crash too: `AppShell` construction moves these collections
+                // before a page has wired itself up. **Never raise an event without `?.`** — the
+                // compiler will not tell you, and the blast radius is the whole app, not the feature.
                 if (!value)
                     SetProperty(ref _toolbarItemsChanged, value);
                 else
-                    SetProperty(ref _toolbarItemsChanged, value, onChanged: () => ToolbarItemChanged());
+                    SetProperty(ref _toolbarItemsChanged, value, onChanged: () => ToolbarItemChanged?.Invoke());
             }
         }
         #region Loading
