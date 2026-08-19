@@ -5,6 +5,7 @@ import {
   type Company, type CommerceProviderInfo, type GatewayConfig,
 } from "./api.ts";
 import PeriodsPage from "./PeriodsPage.tsx";
+import CarrierBagsSection from "./CarrierBagsSection.tsx";
 
 /** WP11.5: the Company tab — company details (moved off the old Stores & Tills page) with
  *  Financial periods absorbed as a section below (the standalone Periods tab is gone). */
@@ -23,6 +24,12 @@ export default function CompanyPage() {
         {companies.length === 0 && !error && <p className="muted">Loading…</p>}
       </section>
       <PaymentGatewaySection />
+      {/* Ruling 2026-08-19 — carrier bags are defined here and every till offers them.
+          ⚠ Here rather than under Locations (where themes and published reports live) for the reason
+          that page states about itself: those configure a TILL and need its list of tills. A bag list
+          is shop-wide, has no per-till anything, and is a money decision like the card surcharge
+          above it — same tab, same `portal.company.manage` permission. */}
+      <CarrierBagsSection />
       <SecuritySection />
       <PeriodsPage />
     </>

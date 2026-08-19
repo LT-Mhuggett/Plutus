@@ -1,44 +1,59 @@
 # Test Maui — the MAUI till hand-test script
 
-**For till 1.73.0.** Anyone can run this. You do not need to know the codebase, and you should not
-need to ask anyone what a step means — if a step is unclear, that is a bug in this document, so please
-say so.
+**Current build on the box: till 1.102.0.** Anyone can run this. You do not need to know the codebase,
+and you should not need to ask anyone what a step means — if a step is unclear, that is a bug in this
+document, so please say so.
 
-**Time:** about **2½ hours** for everything now — this grew a lot between 1.54 and 1.72. About 15
-minutes for §A alone, which is still the part worth doing if that is all the time you have.
+**Time:** about **3 hours** for everything. About **15 minutes** for the "start here" list below, which
+is the part worth doing if that is all the time you have.
+
+⚠ **Write down anything odd even if no step asks about it.** Every one of the fourteen faults found on
+2026-08-11 came from somebody noticing something, not from a step asking the right question.
 
 ---
 
-## ⚠ RUN ORDER — do it in this order, not the order the sections are numbered
+## ⚠⚠ START HERE — the current queue, 2026-08-19
 
-The sections grew by date, so the newest work is at the bottom. **These four come first**, because
-each one can make everything after it look broken, and knowing they are clean tells you what a later
-failure actually means.
+**The sections are numbered by the date they were written, not the order to run them.** This table is
+the order. Everything below it is reference.
 
-| # | Do | Why first |
+| # | Do | Why now |
 |---|---|---|
-| **1** | **§G27 — a removed till must stop, a network blip must not** | Security behaviour with two halves that fail in **opposite** directions. Before 1.70.0 a revoked till kept selling for up to 12 hours |
-| **2** | **§G24 — money on every basket row** | The basket's money changed underneath. If a £3.30 item shows **£330.00**, stop and report it; nothing else is worth testing until that is right |
-| **3** | **§G30b — sign in after an upgrade with the network DOWN** | The roster moved stores in 1.72.0. If the import failed, this is a shop that cannot open — and it only shows up offline |
-| **4** | **§A0 — can the till take a sale at all?** | It could not, on 1.48.0. Everything else assumes it can |
-| **5** | **§A4b — refund a sale paid two ways** | The money one. Fixed across several builds and never yet run by a person |
-| **6** | **§F7b — a percentage discount** | 1.72.0 money fix. Typing `10` used to try to take **£200** off a £20 item |
-| **7** | **§G1 — does the bottom of the till screen still look right?** | A row was added to that grid and everything under it renumbered. MAUI bindings fail **silently** — a blank button means the renumber is wrong |
+| **1** | **§G56k — the Loyalty customer lookup, on BOTH tills** | It unblocks the next two. There was no way to attach a member on either till, so the money fixes could not be reached |
+| **2** | **§G50a and §G53a — the two money fixes** | A tender must not take its cap twice; money must not move when the sale cannot be recorded. Both need a member with credit — do **§G56e/f** first if you have none |
+| **3** | **§G50g/h and §G56g/h/i — the web till's half** | The same two fixes, on the other till. Parity is the point |
+| **4** | **§G51, §G54, §G55** | Per-report permissions, the portal choosing which reports a till shows, and the new Settings screen |
+| **5** | **§G38–§G49** | Everything from members through to Settings, still unrun |
+| **6** | **§A → §B → §F → §C → §E** | The older body of the script. §C needs two people |
 
-**Then the rest, in order:** §A → §B → §F (discounts) → §G (members, gift cards, reports, receipts)
-→ §C (needs two people) → §E.
+### ✅ Confirmed passing (2026-08-19)
 
-⚠ **Almost everything in §F and §G has NEVER been run by anyone.** It was built between 2026-08-14
-and 2026-08-17 and is marked 🟡 — "built and tested where a test can reach, unverified on screen".
-That is why this document exists.
+**§G56 · §G56a · §G52 · §G56e · §G56f.** Do not re-run these unless something near them changes.
 
-⚠⚠ **The last hand-run findings were 2026-08-13** (fixed in 1.49.x–1.50.0). MAUI has gone from there
-to **1.72.0** with nobody looking at a screen. For scale: the 2026-08-10 hand-run found **fourteen**
-faults, **six of them invisible to every automated test in the project**; 2026-08-13 found five more,
-including two money holes. **Every hand-run so far has found something the tests could not.**
+### ⏸ Written but NOT yet in a build
 
-⚠ **Write down anything odd even if no step asks about it.** Every one of the fourteen faults found
-on 2026-08-11 came from somebody noticing something, not from a step asking the right question.
+**§G57 (carrier bags)** describes till code that is **not in 1.102.0**. Its portal and web-till halves
+can be run as soon as those deploy; the MAUI half needs a new artefact. ⚠ Builds are made **when Matt
+asks**, so this is a deliberate wait, not an oversight.
+
+### ⚠ Superseded — do not run
+
+**§G49b · §G49d · §G56i** — all three tested a per-device carrier-bag barcode that no longer exists.
+**§G57 replaces them.** They are kept, struck through, with a line saying what happened, because a
+section that simply vanishes reads as one somebody forgot.
+
+---
+
+## Where this document stands
+
+**55 sections exist. 5 are confirmed passing. Most of the rest have never been run by anyone.** They
+were built between 2026-08-14 and 2026-08-19 and are marked 🟡 in `till-design.md` — *"built and tested
+where a test can reach, unverified on screen"*. That gap is why this document exists.
+
+⚠⚠ **Every hand-run so far has found something the tests could not.** 2026-08-10: **fourteen** faults,
+**six invisible to every automated test in the project**. 2026-08-13: five more, including two money
+holes. 2026-08-19: four more, one of them a screen an operator could not get out of. **A 🟡 is not a
+soft ✅** — treat it as unknown.
 
 ---
 
@@ -46,7 +61,8 @@ on 2026-08-11 came from somebody noticing something, not from a step asking the 
 
 | | |
 |---|---|
-| **Run** | ✅ `D:\tmp\plutus-till-1.102.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-19 (evening)**, `1.102.0+50a600f6` = HEAD, the lookup label verified in-binary. ⚠ **The only build on the box** — 1.94.0–1.101.0 deleted. ⚠ Treat the FOLDER LISTING as the truth. ⚠⚠ **START WITH §G56k** (Loyalty customer lookup, both tills — the button that was missing), then **§G50a** and **§G53a** (attach with the lookup, or `C` + member number), then §G50g/h and §G56g/h/i on the web till, then the rest. ⚠ **Passing so far:** §G56, §G56a, §G52, §G56e, §G56f. ⚠ **Everything is deployed** — backend **1.17.10**, portal **1.11.0**, web till **1.23.0**. ⚠ A permission change needs a **sign-out/in** (12h token cache). |
+| **Run** | ✅ `D:\tmp\plutus-till-1.102.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-19 (evening)**, `1.102.0+50a600f6`, the lookup label verified in-binary. ⚠ **The only build on the box** — 1.94.0–1.101.0 deleted. ⚠ Treat the FOLDER LISTING as the truth. ⚠ **What to run, in what order: see START HERE at the top.** ⚠ A permission change needs a **sign-out/in** (12h token cache). |
+| **Deployed** | backend **1.17.10** · portal **1.11.0** · web till **1.23.0**. ⚠⚠ **The carrier-bag work (§G57) is in NONE of these yet** — it is committed but not built or deployed. |
 | **Agent** | ⚠ **Agent 1.4.0 is REQUIRED for §G29**, and it fixes "start automatically" not working after a reboot. Get it from the **web till → Settings → Hardware → Download the agent (v1.4.0)**, or from `tools\Plutus.TillAgent\publish-out\PlutusTillAgent-1.4.0.exe`. ⚠⚠ **Copy it to `%LOCALAPPDATA%\Plutus\Agent\` and run it from THERE — not from Downloads.** Auto-start records the path it was launched from; a Downloads copy gets cleaned up or renamed `… (1).exe`, and then the till boots and starts nothing. That is the fault this build fixes, and running it once from a permanent folder repairs a stale registration. |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
@@ -1990,9 +2006,9 @@ On the **MAUI till**, **Store Information**.
    the bare **Bag** button under an invisible heading.
 5. Below the cards: **Store id** and **Till id**. ⚠ The till id is what you get asked for on a support
    call; MAUI showed it nowhere.
-6. The bag setting now reads *"Quick-sell bag: which item the till's Bag button rings up. This till
-   only."* with a button naming the current item. Press it, give a real barcode, **✅ Expected:**
-   accepted. Give nonsense, **✅ Expected:** *"we can't find an item with that ID"*.
+6. ~~The bag setting…~~ ⚠ **SKIP THIS STEP — void from 2026-08-19.** There is no bag setting on a till
+   any more; bags come from the portal (**§G57**). What this step meant to check — that Store
+   Information carries no bag button — is still worth a glance, and the answer is now permanent.
 7. ⚠ **Set a theme in the portal while this screen is open.** **✅ Expected:** the card colours and the
    text follow it. The old screen assigned fixed colours, which a theme change could not move —
    half a themed screen is worse than none.
@@ -2165,7 +2181,7 @@ Open each and look for the **✕** in the top-right corner, then press it:
 | **Alterations** | tap a line → Alterations ⚠ **this one had NO exit at all before 1.77.0** |
 | **Returns** | tap a line → Refund → pick a sale |
 | **Cash paid in / out** | Cash tab → Paid in |
-| **Bag item** | Store Information → the bag button |
+| ~~**Bag item**~~ | ⚠ **void 2026-08-19** — the dialog is gone with the setting (§G57) |
 | **Edit item / stock** | Inventory → an item → Edit |
 | **Add member** | Loyalty → Add |
 | **Supervisor override** | trigger any gated action as a Cashier |
@@ -3132,7 +3148,14 @@ shared almost no vocabulary.
 that made Store Information unreadable in 1.74.0. They follow the theme now, so check them under a
 **dark scheme** as well as the light one.
 
-### G49b. The bag item is in Settings, not Store Information
+### ~~G49b. The bag item is in Settings, not Store Information~~ — ⚠⚠ SUPERSEDED, DO NOT RUN
+
+> **Void from 2026-08-19: run [§G57](#g57--carrier-bags-come-from-the-portal-now--portal-1120--backend-11711--till-11000--web-1240) instead.**
+> The per-device bag barcode this tested no longer exists. Bags are created in the portal and pushed to
+> every till — Matt: *"This would be cleaner than creating a bag at each till."* The move out of Store
+> Information was still right; it just moved again, off the till altogether.
+
+<details><summary>The superseded steps</summary>
 
 **Settings → Till → Quick-sell bag item.**
 
@@ -3145,6 +3168,8 @@ saves and says which item the Bag button will ring up.
 Now open **Store Information**. **✅ Expected: NO bag button there** — that is the move.
 
 ⚠ Then check the **Bag** button on the Till tab still rings up what you set.
+
+</details>
 
 ### G49c. ⚠ Till device — the old Plutus tab
 
@@ -3160,12 +3185,10 @@ Settings.
 ⚠ **Run one diagnostic** — "Send a heartbeat" is the quickest — and confirm it still reports. The
 screen was moved, not rebuilt, so anything broken here is a move that went wrong.
 
-### G49d. A cashier cannot change the bag item
+### ~~G49d. A cashier cannot change the bag item~~ — ⚠ SUPERSEDED, DO NOT RUN
 
-Sign in as a **Cashier** → Settings → Till → Quick-sell bag item.
-
-**✅ Expected: refused**, naming the permission. ⚠ It is `pos.settings.manage`, exactly as it was
-before the move — a setting that changes what a button sells is not a cashier's to change.
+> **Void from 2026-08-19.** There is no bag setting on a till to be refused any more. The equivalent
+> check is **§G57i** — a portal user without *Company manage* cannot change the bags.
 
 ---
 
@@ -3523,12 +3546,16 @@ disabled them without `pos.settings.manage`; MAUI just asked. Found while conver
 
 Settings → **Till** and **Printer**.
 
-**✅ Expected: a muted line under each button showing the current value** — "Currently: `<barcode>`" for
-the quick-sell bag item, "Currently: `<printer>`" for the receipt printer.
+**✅ Expected: a muted line under each button showing the current value** — the bags this till offers
+under **Carrier bags**, and "Currently: `<printer>`" for the receipt printer.
 
-**✅ With nothing chosen it says so usefully:** "No bag item chosen — the Bag button is hidden." and
+**✅ With nothing chosen it says so usefully:** "None set up, so the till shows no Bag button." and
 "No printer chosen — receipts print as PDF." ⚠ Not "not set": what an operator wants to know is the
 consequence, not the state of a field.
+
+⚠ **Updated 2026-08-19**: this row used to read "Currently: `<barcode>`" for a quick-sell bag item. That
+setting is gone — bags come from the portal now (**§G57**) — but the *principle* being tested here is
+unchanged, and the carrier-bags line is what it applies to.
 
 ⚠ These are read when the screen is built, so after changing one, leave Settings and come back to see
 the new value.
@@ -3671,25 +3698,20 @@ verified offline, so a button that could only fail is worse than none.
 ⚠ **This is the §G50a and §G53a precondition.** Grant the credit first, confirm the balance, THEN run
 those two.
 
-### G56i. The carrier-bag barcode tells you whether it resolves
+### ~~G56i. The carrier-bag barcode tells you whether it resolves~~ — ⚠⚠ SUPERSEDED, DO NOT RUN
 
-Web till → Settings → **Carrier bag barcode**. Type `001`.
-
-**✅ Expected: a red line — "No item has this barcode, so the Bag button will refuse."** Now type a real
-one (e.g. `045778022960`). **✅ Expected: "Bag button will ring up: 4 kids walk into a bag — £3.30".**
-
-⚠⚠ **The errors Matt saw were CORRECT** — there is no item `001`, and there is no carrier-bag item in
-this catalogue at all (the only "bag" items are messenger bags and keyrings). What was wrong is that
-this field accepted `001` silently and let him find out mid-sale. **MAUI has always validated here**
-(`ExecuteChooseBagItem` refuses an unknown barcode); the web till checked nothing, so this is where the
-bad value got in.
-
-⚠ It NAMES the item rather than ticking it valid — that is what catches a comic's barcode typed in
-place of a bag's. ⚠ Offline it says it could not check, never that the barcode is bad.
-
-⚠⚠ **A REAL SHOP STILL NEEDS A CARRIER-BAG ITEM** (the 5p/20p levy is a sold line, and it must carry
-its own VAT). None exists in this catalogue, so §G30's bag steps cannot pass until one is added —
-that is a data task, not a code one.
+> **Void within a day of being written (2026-08-19): run §G57 instead.**
+>
+> That section added a live check to a free-text field, because Matt had set it to `001` — a barcode no
+> item has — and found out only when the Bag button refused mid-sale. It was the right fix to the wrong
+> thing. **The field itself was the fault**, and it is gone on both tills: bags are created in the
+> portal and pushed down, so a barcode that cannot work can no longer be typed anywhere.
+>
+> ⚠ The other half of that note has also been answered. It said *"a real shop still needs a carrier-bag
+> item… that is a data task, not a code one"* and left §G30's bag steps blocked on Matt. **It is now a
+> two-minute job in the portal** (§G57a), and it creates the item, its category and its VAT band
+> correctly — which is the part that was never really a data task at all: a bag typed in by hand can
+> land on the wrong VAT band, and this cannot.
 
 ### G56j. ⚠⚠ HOW TO ATTACH A MEMBER — read this before §G50a or §G53a
 
@@ -3776,3 +3798,140 @@ Loyalty tab, where creating a member belongs.
 
 ⚠ Then check the state flips both ways: attach → the button goes and the chip appears; **Remove member**
 → the button comes back.
+
+---
+
+## G57. ⚠⚠ Carrier bags come from the PORTAL now — **portal 1.12.0 + backend 1.17.11 + till 1.100.0 + web 1.24.0**
+
+> Ruling 2026-08-19. Matt: *"Can you add the carrier bag decision to the portal? That creates the 5p and
+> 20p bags at the back and that pushes down to the tills? This could just be a unique item that doesnt
+> show in the Inventory. This would be cleaner than creating a bag at each till."*
+>
+> ⚠⚠ **THIS REPLACES §G49b AND §G56i ENTIRELY.** Both tested a per-device bag barcode that no longer
+> exists. Do not run them.
+>
+> ⚠⚠ **AND IT ANSWERS THE OTHER QUESTION** — *"Is there a time when you would have to charge 5 and 20p
+> for a bag? Or is it one or the other?"* **Both.** A shop normally sells a single-use bag at the
+> statutory minimum AND a dearer bag for life, side by side. They are different products, so this is a
+> list. ⚠ And **5p is out of date in England**: the minimum rose to **10p on 21 May 2021**. Nothing in
+> Plutus hardcodes a figure — the four nations differ and have moved at different times, so the portal
+> asks and deliberately does not prefill.
+
+### G57a. Create the bags in the portal — do this first, everything else depends on it
+
+Portal → **Company → Carrier bags**.
+
+**✅ Expected:** the section explains itself and the table is empty, saying *"No bags yet — the Bag
+button is hidden on every till until you add one."*
+
+Add one at **0.10**, name **Single-use carrier bag**. Add another at **0.20**, name **Bag for life**.
+
+**✅ Expected:** two rows, **cheapest first**, with barcodes `BAG-10` and `BAG-20`.
+
+⚠ The barcode is shown on purpose — it makes "price is the identity" visible rather than a hidden
+convention, and a shop may want it on a shelf label.
+
+### G57b. The same price twice is a RENAME, and it says so
+
+Add another bag at **0.10**, name **Small bag**.
+
+**✅ Expected: a confirmation first** — *"Rename the £0.10 bag? A bag at £0.10 is already on sale as
+'Single-use carrier bag'…"* Confirm it.
+
+**✅ Expected: still two rows**, and the 10p one is now called *Small bag*.
+
+⚠⚠ **This is the rule that stops a shop accumulating three 10p bags** that look identical on a receipt
+and split one line across three report rows. Rename it back to *Single-use carrier bag* before moving on.
+
+⚠ Then try **5.01**. **✅ Expected: refused** — *"That is more than £5.00 for a bag."* A typo cap, not a
+policy: a slipped digit would charge every customer it until somebody noticed.
+
+### G57c. ⚠⚠ Both tills grow a button per bag — and the labels MATCH
+
+**MAUI till** → Till tab. **✅ Expected: TWO buttons where the single "Bag" button used to be —
+`Bag £0.10` and `Bag £0.20`, cheapest first.**
+
+**Web till** → Till screen. **✅ Expected: the same two buttons, the same two labels, same order.**
+
+⚠⚠ **The wording is the test**, under Matt's 2026-08-19 ruling: *"I need the functionality and look and
+feel to be the same across both tills. So if a user swaps between the two, it doesnt matter and they
+would understand how to use it."* If one says `Bag £0.10` and the other says `Carrier bag (£0.10)`, that
+is a fault. ⚠ Their **position** still differs — the two checkout layouts are reconciled by §5c item 2,
+not here.
+
+⚠ **Within a minute, without restarting anything.** MAUI picks the list up on its 60-second cadence; the
+web till on load. If you have just added them, give the MAUI till a minute.
+
+### G57d. Sell one, on each till
+
+Ring up an item, tap **Bag £0.10**, take the cash.
+
+**✅ Expected:** the bag is an ordinary basket line — it has a name, a price, VAT, and it can be
+returned, discounted and refunded like anything else. **✅ The receipt shows it by name.**
+
+⚠ Do it on **both** tills.
+
+### G57e. ⚠⚠ The bags do NOT appear in Inventory — on either till, or the portal
+
+**MAUI** → Inventory. **Web till** → Inventory. **Portal** → Inventory.
+
+**✅ Expected: no `BAG-10` or `BAG-20` anywhere in those lists**, and no "Carrier bags" category
+cluttering the category filter's results.
+
+⚠ Now **search the till's scan box for `BAG-10` and press Enter**. **✅ Expected: it rings up.** Hiding
+them from a browse list must never stop one selling — an exact barcode is looked up directly, before any
+search.
+
+⚠ **Check the page count is honest** while you are there: the web till and portal hide bags
+**server-side** precisely so a page of 25 shows 25 rows and the "X of N" agrees with itself.
+
+### G57f. There is nothing to set on a till any more
+
+**MAUI** → Settings → **Till → Carrier bags**.
+
+**✅ Expected: it NAMES them** — *"This till offers: Single-use carrier bag (£0.10), Bag for life
+(£0.20)"* — and tapping it explains that they are set in the portal. **✅ It must not offer to change
+anything.**
+
+**Web till** → Settings → **Carrier bags**. **✅ Expected: the same sentence, and no input box.**
+
+⚠⚠ **The old field is gone on purpose.** Matt set the web till's to `001` — a barcode no item has — and
+found out only when the Bag button refused mid-sale. MAUI validated its equivalent and the web till did
+not, so the two tills disagreed about whether that setting could even hold a value that cannot work.
+
+### G57g. Stop selling one
+
+Portal → Company → Carrier bags → **Stop selling** on the 20p bag. Read the confirmation.
+
+**✅ Expected:** it says sales already taken keep it on their receipts and in past reports — **nothing is
+deleted.** Confirm.
+
+**✅ Expected: within a minute, the `Bag £0.20` button is gone from BOTH tills**, and the 10p one remains.
+
+⚠ Now **reprint the receipt from §G57d**. **✅ Expected: the bag is still on it, by name.** Withdrawing a
+bag must never rewrite history — that is why it is binned rather than deleted.
+
+⚠ Then add a 20p bag again. **✅ Expected: it comes back** (it un-bins rather than duplicating).
+
+### G57h. ⚠⚠ The offline one — pull the network cable
+
+With both tills showing their bag buttons, **pull the network cable** (or turn the Wi-Fi off).
+
+**✅ Expected: the bag buttons are still there, and still sell.** They are the last list the till was
+told, cached locally.
+
+⚠⚠ **This is the trap the code is written around**: the bag must stay in the till's offline catalogue
+even though it is hidden from every inventory list. Get that wrong and the Bag button works online and
+fails silently offline — which looks fine every single time anybody tests it at a desk.
+
+⚠ On a till that has **never** reached the server, expect **no bag buttons at all** — deliberately.
+Every other portal-pushed setting falls back to a default; this one falls back to nothing, because a
+guessed bag price charges a customer money the shop never set.
+
+### G57i. A cashier cannot change the bags
+
+Sign in to the **portal** as someone without **Company manage**.
+
+**✅ Expected:** they can see the list (it is only what the shop sells) but **Add bag** and **Stop
+selling** answer *"Only someone who can manage company settings may change the bags."* — a sentence,
+never a bare `403`.

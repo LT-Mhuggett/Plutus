@@ -21,6 +21,8 @@
         <ext:CollectionEmptyBoolConverter x:Key="ListEmptyToBool"/>
         <ext:InverseBoolConverter x:Key="InverseBool"/>
         <ext:StringNullEmptyBoolConverter x:Key="StringNullToBool"/>
+        <!-- ⚠ "Bag £0.10" — the web till's exact wording, under the 2026-08-19 look-and-feel ruling. -->
+        <ext:PenceToBagLabelConverter x:Key="PenceToBagLabel"/>
         <ResourceDictionary>
             <DataTemplate x:Key="BasketItem">
                 <ViewCell>
@@ -326,9 +328,29 @@
                     <Label  Grid.Row="1" Grid.Column="5" Text="{Binding SaleIncTax, StringFormat='{0:C2}'}"/>
                     <Button Grid.Row="2" Grid.Column="0" Grid.RowSpan="2" Text="{i18n:Translate AltTransaction}"
                             Command="{Binding AlterTransactionSelectorCommand}"/>
-                    <Button Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Text="{i18n:Translate Bag}"
-                            IsVisible="{Binding DefaultBagId, Mode=OneWay, Converter={StaticResource StringNullToBool}}"
-                            Command="{Binding ManualAddCommandArg}" CommandParameter="{Binding DefaultBagId}"/>
+                    <!-- ⚠⚠ ONE BUTTON PER BAG, cheapest first, each labelled with its price (ruling
+                         2026-08-19). This was a single "Bag" button bound to `DefaultBagId` — one
+                         barcode, free text, held per device — so a shop selling a single-use bag AND a
+                         bag for life could only offer one, and this till held "001", a barcode no item
+                         had. The list now comes from the portal; see `Services.Sales.CarrierBags`.
+                         ⚠ MATCHES THE WEB TILL'S LABEL exactly ("Bag £0.10"), under the 2026-08-19
+                         look-and-feel ruling: an operator moving between tills must not have to learn
+                         two vocabularies. Position still differs — the two checkout layouts are
+                         reconciled by §5c item 2, not here.
+                         ⚠ A HorizontalStackLayout, not more grid cells: the number of bags is the
+                         shop's decision and a fixed grid cannot hold an unknown count. -->
+                    <HorizontalStackLayout Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Spacing="4"
+                                           BindableLayout.ItemsSource="{Binding CarrierBags}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <!-- ⚠ The price is formatted here rather than stored formatted, so it
+                                     follows the till's culture like every other figure on the screen. -->
+                                <Button Text="{Binding PricePence, Converter={StaticResource PenceToBagLabel}}"
+                                        Command="{Binding Path=BindingContext.AddBagCommand, Source={x:Reference Name=TillPage}}"
+                                        CommandParameter="{Binding .}"/>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </HorizontalStackLayout>
                     <!-- ⚠⚠ SAVE **AND** RETRIEVE, side by side (2026-08-18). Retrieve was a toolbar
                          item labelled "Baskets" that appeared and disappeared with the parked list —
                          so the feature worked and nobody could find it. Matt asked for two buttons

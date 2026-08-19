@@ -1096,3 +1096,26 @@ export const putReportPublication = (tillId: string | null, keys: string[]) =>
 /** Stop overriding one till, so it follows the shop default again. */
 export const clearReportPublication = (tillId: string | null) =>
   del<void>(`/api/v1/reports/publication${tillId ? `?tillId=${encodeURIComponent(tillId)}` : ""}`);
+
+// ── carrier bags (ruling 2026-08-19) ──────────────────────────────────────────
+
+/**
+ * A carrier bag the shop sells. ⚠ `idOne` is `BAG-<pence>`, so the PRICE IS THE IDENTITY: two bags at
+ * the same price are one bag, and changing a price means adding the new bag and withdrawing the old.
+ */
+export interface CarrierBagRow {
+  idOne: string;
+  name: string;
+  pricePence: number;
+}
+
+/** Cheapest first, as the tills draw them. */
+export const fetchCarrierBags = () => get<CarrierBagRow[]>("/api/v1/carrier-bags");
+
+/** ⚠ An UPSERT keyed on the price. A blank name takes a sensible default from the server. */
+export const putCarrierBag = (pricePence: number, name: string) =>
+  put<void>("/api/v1/carrier-bags", { pricePence, name });
+
+/** ⚠ Withdraws it from sale (binned, never deleted) — it is on historical receipts. */
+export const withdrawCarrierBag = (pricePence: number) =>
+  del<void>(`/api/v1/carrier-bags/${pricePence}`);

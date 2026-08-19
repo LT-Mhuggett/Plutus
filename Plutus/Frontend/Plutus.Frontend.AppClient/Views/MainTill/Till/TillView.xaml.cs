@@ -24,6 +24,12 @@ namespace Plutus.Frontend.AppClient.Views.MainTill.Till
             base.OnAppearing();
             (BindingContext as TillViewModel)?.Notices.Redraw();
             Services.Notices.Noticeboard.Changed += OnNoticesChanged;
+
+            // ⚠ AND REDRAW THE BAG BUTTONS, for the same reason as the banner: the cadence has almost
+            // certainly polled before this page was first opened, so buttons that only reacted to future
+            // changes would be missing until the next beat (ruling 2026-08-19).
+            (BindingContext as TillViewModel)?.RedrawCarrierBags();
+            Services.Sales.CarrierBags.Changed += OnCarrierBagsChanged;
         }
 
         /// <summary>
@@ -33,6 +39,7 @@ namespace Plutus.Frontend.AppClient.Views.MainTill.Till
         protected override void OnDisappearing()
         {
             Services.Notices.Noticeboard.Changed -= OnNoticesChanged;
+            Services.Sales.CarrierBags.Changed -= OnCarrierBagsChanged;
             base.OnDisappearing();
         }
 
@@ -44,6 +51,15 @@ namespace Plutus.Frontend.AppClient.Views.MainTill.Till
         private void OnNoticesChanged() =>
             Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(
                 () => (BindingContext as TillViewModel)?.Notices.Redraw());
+
+        /// <summary>
+        /// ⚠ ALSO ON THE CADENCE'S BACKGROUND THREAD, so it marshals — `RedrawCarrierBags` writes an
+        /// `ObservableCollection` a `BindableLayout` is bound to, and doing that off the UI thread is the
+        /// kind of fault that works in testing and throws on a shop floor.
+        /// </summary>
+        private void OnCarrierBagsChanged() =>
+            Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(
+                () => (BindingContext as TillViewModel)?.RedrawCarrierBags());
 
         private void Quantity_Completed(object sender, EventArgs e)
         {

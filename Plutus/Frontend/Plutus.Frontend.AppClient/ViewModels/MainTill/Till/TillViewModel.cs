@@ -112,6 +112,38 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// </summary>
         public bool HasStoredTransactions => StoredTransactions.Count > 0;
         public ObservableCollection<IBasketRecord> Basket { get; } = new ObservableCollection<IBasketRecord>();
+
+        /// <summary>
+        /// The carrier bags this shop sells — one button each, cheapest first (ruling 2026-08-19).
+        ///
+        /// ⚠⚠ Matt: *"That creates the 5p and 20p bags at the back and that pushes down to the tills."*
+        /// It replaces `DefaultBagId`, ONE barcode held per device, which is how this till came to
+        /// offer a bag whose barcode no item had. The portal owns the list; nothing is set here.
+        ///
+        /// ⚠ A SHOP SELLS MORE THAN ONE. A single-use bag at the statutory minimum and a dearer bag for
+        /// life sit side by side, so this is a collection and the buttons carry their prices — "Bag"
+        /// alone made the cashier remember which one the till happened to be set to.
+        ///
+        /// ⚠ Read from the local cache, never the network: this runs in a constructor and on the UI
+        /// thread. <see cref="RedrawCarrierBags"/> refills it when the cadence says it moved.
+        /// </summary>
+        public ObservableCollection<Plutus.Contracts.Client.CarrierBagDto> CarrierBags { get; }
+            = new ObservableCollection<Plutus.Contracts.Client.CarrierBagDto>();
+
+        /// <summary>
+        /// Refill the bag buttons from the cache.
+        ///
+        /// ⚠ MUST BE CALLED ON THE UI THREAD — it writes a collection a `BindableLayout` is bound to.
+        /// The page marshals; see `TillView.OnCarrierBagsChanged`.
+        ///
+        /// ⚠ Rebuilt wholesale rather than diffed: it is two or three buttons, and the cadence only
+        /// signals when something actually changed.
+        /// </summary>
+        public void RedrawCarrierBags()
+        {
+            CarrierBags.Clear();
+            foreach (var bag in Services.Sales.CarrierBags.Bags) CarrierBags.Add(bag);
+        }
         public IBasketRecord SelectedBasketRecord
         {
             get => _selectedBasketRecord;
@@ -254,6 +286,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             #endregion
             IsDesktop = DeviceInfo.Idiom == DeviceIdiom.Desktop;
             Quantity = 1;
+
+            // ⚠ From the CACHE, so the buttons are there on the first draw rather than a minute later.
+            // The cadence refreshes them and the page redraws on `Changed` — a constructor is exactly
+            // where this app freezes data for a whole session (pitfall 17), so this is the seed only.
+            RedrawCarrierBags();
         }
 
         #region Commands
@@ -270,6 +307,21 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         private Command _manualAddCommandArg;
 
         public Command ManualAddCommandArg => _manualAddCommandArg ?? (_manualAddCommandArg = new Command<string>(ExecuteItemAddArg, (id) => !string.IsNullOrEmpty(id)));
+
+        private Command _addBagCommand;
+
+        /// <summary>
+        /// Ring up a carrier bag (ruling 2026-08-19).
+        ///
+        /// ⚠ It goes through the SAME add-by-barcode path as everything else, because a bag IS an
+        /// ordinary catalogue item — taxed, discountable, refundable, on the receipt. Nothing about
+        /// selling one is special, and a separate path would be a second place for the price to come
+        /// from.
+        /// </summary>
+        public Command AddBagCommand => _addBagCommand ?? (_addBagCommand =
+            new Command<Plutus.Contracts.Client.CarrierBagDto>(
+                bag => ExecuteItemAddArg(bag.IdOne),
+                bag => bag is not null && !string.IsNullOrEmpty(bag.IdOne)));
 
         #endregion
         #region AutoScan

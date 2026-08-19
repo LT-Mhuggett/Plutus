@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  effectivePriceFor, findItemById, getCustomer, lookupGiftCard, parkTransaction, searchCustomers,
-  searchItemsOfflineAware, createCustomer, updateCustomer,
-  type CustomerDetail, type CustomerSummary, type GiftCardLookup, type Item,
+  effectivePriceFor, fetchCarrierBags, findItemById, getCustomer, lookupGiftCard, parkTransaction,
+  searchCustomers, searchItemsOfflineAware, createCustomer, updateCustomer,
+  type CarrierBag, type CustomerDetail, type CustomerSummary, type GiftCardLookup, type Item,
 } from "../api.ts";
 import { canAddCustomers, canManageCustomers } from "../pipeline.ts";
 import { requestNewItem } from "../newItemHandoff.ts";
@@ -63,6 +63,16 @@ export default function TillPage() {
       : setTimeout(() => setDonePhase("gone"), 600);
     return () => clearTimeout(t);
   }, [receipt, dialog, donePhase]);
+  // Ruling 2026-08-19 — the carrier bags the portal set, one button each. Nothing is configured on
+  // the till any more; see `carrierBags.ts` for why an unreachable server means no buttons rather
+  // than a guessed price.
+  const [bags, setBags] = useState<CarrierBag[]>([]);
+  useEffect(() => {
+    let live = true;
+    void fetchCarrierBags().then((rows) => { if (live) setBags(rows); });
+    return () => { live = false; };
+  }, []);
+
   const prefs = getPrefs();
   // NatApp TillListOrderReversed: display order only — checkout order is unaffected
   const displayLines = prefs.newestFirst ? [...basket.lines].reverse() : basket.lines;
@@ -380,20 +390,28 @@ export default function TillPage() {
           onKeyDown={(e) => e.key === "Enter" && submitScan()}
           disabled={busy}
         />
-        {prefs.bagBarcode && (
+        {/* ⚠⚠ ONE BUTTON PER BAG, cheapest first, labelled with its price — because a shop sells a
+            single-use bag AND a bag for life, and "Bag" alone made the cashier remember which one the
+            till was set to. Nothing here is configurable on the till: the list comes from the portal. */}
+        {bags.map((bag) => (
           <button
+            key={bag.idOne}
             className="ghost"
-            title={`Add carrier bag (${prefs.bagBarcode})`}
+            title={`Add ${bag.name}`}
             disabled={busy}
             onClick={async () => {
-              const bag = await findItemById(prefs.bagBarcode);
-              if (bag) addItem(bag);
-              else setNotice(`Bag barcode "${prefs.bagBarcode}" not found — check Settings.`);
+              const item = await findItemById(bag.idOne);
+              // ⚠ The bag is a real catalogue item, so it is added exactly like anything else —
+              // taxed, discountable, refundable, on the receipt.
+              if (item) addItem(item);
+              // ⚠ This should not happen now the portal owns the list, but if it does, say what to
+              // do rather than "check Settings" — there is nothing to check on this till any more.
+              else setNotice(`“${bag.name}” is missing from the catalogue — re-save it in the portal.`);
             }}
           >
-            Bag
+            Bag {gbp(bag.pricePence)}
           </button>
-        )}
+        ))}
         <button className="ghost" onClick={() => setDialog("return")}>
           Return Item
         </button>

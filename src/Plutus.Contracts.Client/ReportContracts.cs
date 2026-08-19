@@ -327,3 +327,18 @@ public sealed record PublishedReportsDto(
     IReadOnlyList<string> Keys,
     string Scope,
     DateTime? UpdatedAtUtc);
+
+/// <summary>
+/// A carrier bag the shop sells — ruling 2026-08-19.
+///
+/// IdOne is the catalogue barcode BAG-pence, so the PRICE IS THE IDENTITY: two bags at the same
+/// price are one bag, and changing a price means adding the new bag and withdrawing the old.
+///
+/// Cross-check PricePence against IdOne before selling. They can only disagree if the item was
+/// edited behind the portal's back, and a bag ringing up 25p under the id BAG-10 is a receipt
+/// nobody can explain. See SharedKernel.CarrierBags.PriceFromId.
+/// </summary>
+public sealed record CarrierBagDto(
+    string IdOne,
+    string Name,
+    long PricePence);

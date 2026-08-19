@@ -108,14 +108,11 @@ namespace Plutus.Frontend.AppClient.ViewModels
             set => Preferences.Set(nameof(CustomCultureInfo), value);
         }
 
-        /// <summary>
-        /// User defined default BagId
-        /// </summary>
-        public string DefaultBagId
-        {
-            get => Preferences.Get(nameof(DefaultBagId), string.Empty);
-            set => Preferences.Set(nameof(DefaultBagId), value);
-        }
+        // ⚠ `DefaultBagId` was HERE and is gone (ruling 2026-08-19): ONE carrier-bag barcode, per
+        // device, free text — so a five-till shop set it five times, the tills could disagree, and this
+        // one held "001", a barcode no item has. A shop also sells more than one bag, which a single
+        // value cannot express. Bags now come from the portal: see `Services.Sales.CarrierBags`.
+        // ⚠ A stale `DefaultBagId` key left in a till's `Preferences` is harmless — nothing reads it.
 
         /// <summary>
         /// Cash Drawer warning silenced status

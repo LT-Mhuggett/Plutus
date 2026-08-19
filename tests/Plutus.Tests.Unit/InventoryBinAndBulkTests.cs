@@ -264,29 +264,55 @@ public class InventoryBinAndBulkTests
 
     // ── FE5.5 untracked stock ──
 
+    // ⚠ These two used the ids "BAG-1"/"BAG-2" until 2026-08-19, when `BAG-<pence>` became the carrier
+    // bag's real catalogue barcode — so "BAG-2" now means "the 2p bag" and is hidden from item lists by
+    // `ItemParameters.IncludeCarrierBags`. The fixtures are renamed rather than the rule relaxed: what
+    // these tests are about is UNTRACKED STOCK, which has nothing to do with bags, and leaving them
+    // named that way would have made the next reader think untracked and hidden were connected.
     [Fact]
     public async Task Marking_an_item_untracked_is_a_bulk_action()
     {
         using var conn = Open(out var b, out var catA, out _);
-        AddItem(conn, b, catA, "BAG-1", "Carrier bag");
+        AddItem(conn, b, catA, "SVC-1", "Gift wrapping");
 
         using (var db = Ctx(conn))
             Assert.IsType<OkObjectResult>(await Controller(db).Bulk(
-                new BulkBody("set-untracked", null, null, new List<string> { "BAG-1" }, null), default));
+                new BulkBody("set-untracked", null, null, new List<string> { "SVC-1" }, null), default));
 
         using (var db = Ctx(conn))
-            Assert.True(db.Items.Single(i => i.IdOne == "BAG-1").StockUntracked);
+            Assert.True(db.Items.Single(i => i.IdOne == "SVC-1").StockUntracked);
     }
 
     [Fact]
     public void An_untracked_item_is_still_a_normal_sellable_catalogue_item()
     {
         using var conn = Open(out var b, out var catA, out _);
-        AddItem(conn, b, catA, "BAG-2", "Carrier bag", untracked: true);
+        AddItem(conn, b, catA, "SVC-2", "Gift wrapping", untracked: true);
         using var db = Ctx(conn);
         // untracked must NOT imply hidden — it still scans, sells and reports
         var visible = Filtered(db, new ItemParameters());
         Assert.Single(visible);
         Assert.True(visible[0].StockUntracked);
+    }
+
+    /// <summary>
+    /// ⚠⚠ THE TWO RULES ARE INDEPENDENT, pinned together here so neither drifts into the other. A
+    /// carrier bag is untracked AND hidden; an ordinary untracked item is untracked and VISIBLE. If
+    /// somebody ever "simplifies" the hiding rule into "untracked items are hidden", gift wrapping and
+    /// every other service line disappears from inventory and this fails.
+    /// </summary>
+    [Fact]
+    public void A_carrier_bag_is_hidden_but_an_untracked_item_beside_it_is_not()
+    {
+        using var conn = Open(out var b, out var catA, out _);
+        AddItem(conn, b, catA, "BAG-10", "Single-use carrier bag", untracked: true);
+        AddItem(conn, b, catA, "SVC-3", "Gift wrapping", untracked: true);
+
+        using var db = Ctx(conn);
+
+        Assert.Equal("SVC-3", Assert.Single(Filtered(db, new ItemParameters())).IdOne);
+
+        // ⚠ And the bag is reachable when a caller asks for it — the offline catalogue sync must.
+        Assert.Equal(2, Filtered(db, new ItemParameters { IncludeCarrierBags = true }).Count);
     }
 }

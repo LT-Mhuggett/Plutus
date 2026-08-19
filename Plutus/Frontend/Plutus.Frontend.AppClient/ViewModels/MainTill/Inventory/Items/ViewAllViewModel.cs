@@ -218,10 +218,26 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                     // about what was left out.
                     _capped = catalogue.Count >= BrowseLimit;
 
+                    // ⚠⚠ CARRIER BAGS ARE NOT INVENTORY (ruling 2026-08-19). Matt: *"This could just be
+                    // a unique item that doesnt show in the Inventory."* A bag is a real catalogue item
+                    // so it sells, reports and carries VAT — and the till must keep it locally to sell
+                    // one offline — but it is not stock anybody manages or counts.
+                    //
+                    // ⚠ FILTERED HERE, not out of the catalogue sync: dropping bags from the local
+                    // catalogue would stop the Bag button working the moment the line went down.
+                    //
+                    // ⚠ The web till hides them SERVER-SIDE (`ItemParameters.IncludeCarrierBags`)
+                    // because its list is paged by the server and a browser-side filter would show 24
+                    // rows on a page of 25. This list is a capped LOCAL read, so filtering it here is
+                    // exact — same outcome, different mechanism, and a C2 row records the pair.
+                    var sellable = catalogue
+                        .Where(c => !SharedKernel.CarrierBags.IsBagId(c.IdOne))
+                        .ToList();
+
                     // ⚠ Mapped to the legacy `ItemModel` because that is what the list view binds
                     // to, and MAUI bindings fail SILENTLY — swapping the bound type would blank the
                     // rows rather than fail. The model goes when the inventory screen is reshaped.
-                    loaded = catalogue.Select(c => new ItemModel
+                    loaded = sellable.Select(c => new ItemModel
                     {
                         Id = c.IdOne,
                         Name = c.Name,
@@ -253,8 +269,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                     // in the feed, so ∞ is a fact from the moment the rows render; "—" means "this
                     // screen has not been told", which is different from "none" and must not be
                     // rendered as 0. `FillStockLevelsAsync` below replaces the dashes.
+                    // ⚠⚠ INDEXED AGAINST `sellable`, NOT `catalogue`. `loaded` is built from the
+                    // filtered list, so pairing it with the unfiltered one would shift every row's
+                    // stock display by however many bags came before it — a silent off-by-N that would
+                    // read as the wrong stock against the wrong product.
                     for (var i = 0; i < loaded.Count; i++)
-                        loaded[i].StockDisplay = catalogue[i].StockUntracked ? "∞" : "—";
+                        loaded[i].StockDisplay = sellable[i].StockUntracked ? "∞" : "—";
                 }
                 catch (Exception ex)
                 {

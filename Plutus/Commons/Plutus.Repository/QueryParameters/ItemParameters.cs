@@ -37,6 +37,31 @@ namespace Plutus.Repository.QueryParameters
         /// </summary>
         public bool Binned { get; set; }
 
+        /// <summary>
+        /// Ruling 2026-08-19 — carrier bags are hidden from item lists by default.
+        ///
+        /// ⚠⚠ Matt: *"This could just be a unique item that doesnt show in the Inventory."* A bag is a
+        /// real catalogue item so it sells, reports and carries VAT like anything else, but it is not
+        /// stock anybody manages, and a shop with two bags does not want them at the top of an
+        /// alphabetical inventory for ever.
+        ///
+        /// ⚠⚠ **HIDDEN HERE, SERVER-SIDE, AND NOT IN THE PAGES.** Both inventory lists page on the
+        /// server, so dropping bags in the browser would show 24 rows on a page of 25 and an "X of N"
+        /// count that never matches. Same reason the bin filter lives here.
+        ///
+        /// ⚠ Scanning or typing a bag barcode STILL WORKS: the till resolves an exact id through
+        /// <c>/api/Item/{id}</c> before it ever searches, and this filter is not on that path.
+        ///
+        /// ⚠ The test is the id PREFIX (<c>BAG-</c>), because a category id is not known to a query
+        /// parameter. A real product whose barcode began <c>BAG-</c> would be hidden from lists too —
+        /// accepted: retail barcodes are numeric, and the item is still reachable by its exact id.
+        ///
+        /// ⚠ The provisioned <c>GIFT-CARD</c> item is deliberately left VISIBLE. The same argument
+        /// would apply to it, but nobody has asked, and hiding something an owner is used to seeing is
+        /// not a change to make on my own initiative.
+        /// </summary>
+        public bool IncludeCarrierBags { get; set; }
+
         public override Expression<Func<Item, bool>> GetExpression()
         {
             // NB: unlike Search/CatId, the bin filter must apply even with no other criteria —
@@ -46,6 +71,14 @@ namespace Plutus.Repository.QueryParameters
             expr = Binned
                 ? expr.And(i => i.BinnedAtUtc != null)
                 : expr.And(i => i.BinnedAtUtc == null);
+
+            // ⚠ Like the bin filter, this applies with no other criteria: "no filters" must still mean
+            // "no carrier bags". A caller that wants them says so.
+            if (!IncludeCarrierBags)
+            {
+                var bagPrefix = Plutus.SharedKernel.CarrierBags.IdPrefix;
+                expr = expr.And(i => !i.IdOne.StartsWith(bagPrefix));
+            }
 
             if (CatId is Guid cat)
                 expr = expr.And(i => i.CatId == cat);

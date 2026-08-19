@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { effectiveStoreId, fetchDeviceStatus, fetchPayMethods, findItemByBarcode, fetchTillName, loadReceiptTemplate, onOutboxChanged, renameTill, requestUnenrol, BUSINESS_ID, STORE_ID } from "./api.ts";
+import { effectiveStoreId, fetchDeviceStatus, fetchPayMethods, fetchCarrierBags, fetchTillName, loadReceiptTemplate, onOutboxChanged, renameTill, requestUnenrol, BUSINESS_ID, STORE_ID, type CarrierBag } from "./api.ts";
 import { parkedCount, queuedCount, resetDeviceSeq } from "./offline.ts";
 import {
   canEnrolTills,
@@ -98,55 +98,39 @@ const DRIVER_LINKS: { label: string; url: string; covers: string }[] = [
  *  and the manifest lets this page compare it against the installed agent. */
 interface AgentDownload { version: string; file: string }
 
+
 /**
- * Does the carrier-bag barcode actually resolve, and to what? — 2026-08-19.
+ * What bags this till offers, and where they come from — ruling 2026-08-19.
  *
- * ⚠⚠ It exists because the field did not check. Matt set it to "001" and learned it was wrong only
- * when the Bag button refused during a sale. MAUI's equivalent (`ExecuteChooseBagItem`) has always
- * looked the barcode up and refused an unknown one, so the two tills disagreed about whether this
- * setting could hold a value that cannot work — and this was the side that let it in.
- *
- * ⚠ It NAMES the item rather than saying "valid". "Bag button will ring up: 4 kids walk into a bag,
- * £3.30" is what tells an operator they typed a comic's barcode instead of a carrier bag's — which no
- * amount of green ticking would.
- *
- * ⚠ Debounced, because the field saves on every keystroke: a lookup per character would hammer the
- * endpoint and race its own answers. ⚠ A LOOKUP FAILURE IS NOT A BAD BARCODE — offline, it says it
- * could not check rather than calling a working setting broken.
+ * ⚠ It SHOWS the list rather than saying "set in the portal", because the question a cashier actually
+ * has is "why is there no 20p button", and the honest answer is either "the shop has not added one" or
+ * "this till has never reached the server". Naming the bags answers both.
  */
-function BagBarcodeCheck({ barcode }: { barcode: string }) {
-  const [state, setState] = useState<{ kind: "idle" | "checking" | "ok" | "missing" | "unknown"; label?: string }>({ kind: "idle" });
-
+function CarrierBagsInfo() {
+  const [bags, setBags] = useState<CarrierBag[] | null>(null);
   useEffect(() => {
-    const code = barcode.trim();
-    if (code === "") { setState({ kind: "idle" }); return; }
-
-    setState({ kind: "checking" });
     let live = true;
-    const t = setTimeout(() => {
-      findItemByBarcode(code)
-        .then((item) => {
-          if (!live) return;
-          setState(item
-            ? { kind: "ok", label: `${item.name} — ${gbp(Math.round(item.price * 100))}` }
-            : { kind: "missing" });
-        })
-        .catch(() => { if (live) setState({ kind: "unknown" }); });
-    }, 400);
-
-    return () => { live = false; clearTimeout(t); };
-  }, [barcode]);
-
-  if (state.kind === "idle") return null;
-  if (state.kind === "checking") return <span className="muted small block">Checking…</span>;
-  if (state.kind === "ok") return <span className="muted small block">Bag button will ring up: <strong>{state.label}</strong></span>;
-  if (state.kind === "unknown") return <span className="muted small block">Couldn't check this barcode just now.</span>;
+    void fetchCarrierBags().then((rows) => { if (live) setBags(rows); });
+    return () => { live = false; };
+  }, []);
 
   return (
-    <span className="error small block">
-      No item has this barcode, so the Bag button will refuse. Scan the carrier bag itself, or add it in
-      Inventory first.
-    </span>
+    <div className="setting-row">
+      <span className="grow">
+        Carrier bags
+        <span className="muted small block">
+          {bags === null
+            ? "Checking…"
+            : bags.length === 0
+              ? "None set up, so the till shows no Bag button. Add them in the management portal under Company → Carrier bags."
+              : `This till offers: ${bags.map((b) => `${b.name} (${gbp(b.pricePence)})`).join(", ")}.`}
+        </span>
+        <span className="muted small block">
+          Set company-wide in the management portal under Company → Carrier bags — there is nothing to
+          configure on a till.
+        </span>
+      </span>
+    </div>
   );
 }
 
@@ -621,28 +605,12 @@ export default function SettingsPage() {
         </span>
         <input type="checkbox" checked={prefs.matchAllWords} disabled={!canSettings} onChange={() => toggle("matchAllWords")} />
       </label>
-      <label className="setting-row">
-        <span className="grow">
-          Carrier bag barcode
-          <span className="muted small block">When set, the till shows a one-tap "Bag" button that adds this item.</span>
-          {/* ⚠⚠ IT SAYS WHETHER THE BARCODE ACTUALLY RESOLVES, AND TO WHAT (2026-08-19). Matt set this
-              to "001", which is not an item, and found out only when the Bag button refused mid-sale:
-              *"I have added a bag with the bag button and set it as 001, but then get an error of 'Bag
-              barcode 001 not found — check Settings.'"*
-              ⚠ MAUI has always validated here — `ExecuteChooseBagItem` looks the barcode up and refuses
-              an unknown one — while this field saved free text on every keystroke and checked nothing.
-              So the two tills disagreed about whether this setting could hold a value that cannot work,
-              and the web till is where the bad value got in. */}
-          <BagBarcodeCheck barcode={prefs.bagBarcode} />
-        </span>
-        <input
-          className="pref-input"
-          placeholder="scan or type barcode"
-          value={prefs.bagBarcode}
-          disabled={!canSettings}
-          onChange={(e) => setPrefsState(setPrefs({ bagBarcode: e.target.value.trim() }))}
-        />
-      </label>
+      {/* ⚠⚠ READ-ONLY NOW, AND THE FIELD IS GONE (ruling 2026-08-19). This used to be a free-text
+          barcode saved per device on every keystroke, checking nothing: Matt set it to "001", which is
+          not an item, and found out only when the Bag button refused mid-sale. Bags are defined in the
+          portal and pushed to every till — same pattern as the colour scheme below, and for the same
+          reason: two tills in one shop must not sell different bags because somebody fiddled locally. */}
+      <CarrierBagsInfo />
       {/* FE10: read-only on purpose — colours are pushed from the portal (store info pattern),
           so two tills in one store can't drift apart because someone fiddled locally. */}
       <div className="setting-row">

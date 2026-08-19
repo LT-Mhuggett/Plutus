@@ -2,6 +2,7 @@
 // DBService by Caddy. No client library needed (see plan §3.5.1).
 
 import { fetchPublished } from "./reporting/publishedReports.ts";
+import { fetchCarrierBags as fetchBagList, type CarrierBag } from "./till/carrierBags.ts";
 import { getSession, setSession, type Session } from "./session.ts";
 import { accessToken, signOut } from "./auth.ts";
 import {
@@ -202,6 +203,17 @@ async function get<T>(url: string): Promise<T> {
 export const fetchPublishedReports = (): Promise<string[]> =>
   fetchPublished((url) => get<unknown>(url));
 
+/**
+ * The carrier bags the portal set for this shop — ruling 2026-08-19.
+ *
+ * ⚠ The fallback chain (server → cached last-known-good → none) lives in `till/carrierBags.ts` so it
+ * can be tested without a browser, and so it stays the C2 twin of `SharedKernel.CarrierBags`.
+ */
+export const fetchCarrierBags = (): Promise<CarrierBag[]> =>
+  fetchBagList((url) => get<unknown>(url));
+
+export type { CarrierBag };
+
 /** FE4.2: the legacy `Index` endpoints have always returned the row count in `X-Pagination`, and
  *  every frontend threw it away — so pagers guessed ("Next" enabled whenever a full page came
  *  back). Surfacing it gives DataTable a true "X–Y of N" in server mode. total is null when the
@@ -236,16 +248,19 @@ async function send(method: string, url: string, body?: unknown, extraHeaders?: 
   return res;
 }
 
-const itemsUrl = (pageNumber: number, pageSize: number, search: string, catId: string) =>
+const itemsUrl = (pageNumber: number, pageSize: number, search: string, catId: string, bags = false) =>
   `/api/Item/Index?PageNumber=${pageNumber}&PageSize=${pageSize}` +
     (search ? `&Search=${encodeURIComponent(search)}` : "") +
     // device pref: match each word ("batman one" → "Batman Year One"); server default is whole-phrase
     (search && getPrefs().matchAllWords ? "&MatchAllWords=true" : "") +
     // FE5.0: server-side category filter (was client-side over one page — showed nothing)
-    (catId ? `&CatId=${encodeURIComponent(catId)}` : "");
+    (catId ? `&CatId=${encodeURIComponent(catId)}` : "") +
+    // ⚠ Ruling 2026-08-19: carrier bags are hidden from item lists by default. Only the OFFLINE
+    // CATALOGUE SYNC asks for them — see `syncCatalogue` for why that one must.
+    (bags ? "&IncludeCarrierBags=true" : "");
 
-export const fetchItems = (pageNumber: number, pageSize: number, search = "", catId = "") =>
-  get<Item[]>(itemsUrl(pageNumber, pageSize, search, catId));
+export const fetchItems = (pageNumber: number, pageSize: number, search = "", catId = "", bags = false) =>
+  get<Item[]>(itemsUrl(pageNumber, pageSize, search, catId, bags));
 
 /** FE4.2: rows + true total, for the inventory list's server-mode DataTable. */
 export const fetchItemsPaged = (pageNumber: number, pageSize: number, search = "", catId = "") =>
@@ -598,12 +613,20 @@ export const activateGiftCard = (code: string, amountPence: number, saleId: stri
 export const redeemGiftCard = (code: string, amountPence: number, saleId: string, entryId: string) =>
   giftCardPost(code, "redeem", { amountPence, saleId, entryId });
 
-/** Background: pull the whole catalogue (no images) into IndexedDB for offline scanning. */
+/**
+ * Background: pull the whole catalogue (no images) into IndexedDB for offline scanning.
+ *
+ * ⚠⚠ IT ASKS FOR THE CARRIER BAGS TOO. The Index endpoint hides them by default (ruling 2026-08-19,
+ * `ItemParameters.IncludeCarrierBags`) so they stay out of the inventory lists — but this is not a
+ * list, it is what the till SELLS FROM when the line is down. Without the flag the Bag button would
+ * work online and quietly fail offline, which is the worst version of the bug: it would look fine
+ * every time anybody tested it.
+ */
 export async function syncCatalogue(onProgress?: (n: number) => void): Promise<number> {
   let page = 1;
   let total = 0;
   for (;;) {
-    const batch = await fetchItems(page, 2000);
+    const batch = await fetchItems(page, 2000, "", "", true);
     if (batch.length === 0) break;
     await cacheItems(batch);
     total += batch.length;

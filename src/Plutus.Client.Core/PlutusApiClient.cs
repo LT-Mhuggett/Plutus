@@ -323,6 +323,20 @@ public sealed class PlutusApiClient
             ct);
 
     /// <summary>
+    /// The carrier bags the portal set for this shop, cheapest first — ruling 2026-08-19.
+    ///
+    /// ⚠⚠ NULL MEANS "COULD NOT ASK", NOT "NO BAGS". An EMPTY list is a real answer — a shop that
+    /// stopped selling bags — and must replace the caller's cache; null must not.
+    ///
+    /// ⚠⚠ THE FALLBACK DIRECTION IS THE OPPOSITE OF THE PUBLISHED-REPORTS CALL ABOVE, and deliberately.
+    /// A missing Reports tab is worse than an extra report, so that one fails towards MORE. A bag is
+    /// MONEY: failing towards a guessed price charges a customer something the shop never set, so this
+    /// one fails towards NO BUTTON — cached last-known-good, then nothing.
+    /// </summary>
+    public Task<IReadOnlyList<CarrierBagDto>?> GetCarrierBagsAsync(CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<CarrierBagDto>>("/api/v1/carrier-bags", ct);
+
+    /// <summary>
     /// Sign an OPERATOR in online — the same `POST /api/Auth/Login` the web till uses
     /// (binding default 11, cutover step 19).
     ///

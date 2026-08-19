@@ -76,7 +76,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
                 // ⚠ TILL COMES FIRST, as it does there — it is the section about the screen the
                 // operator is actually standing at.
                 Tuple.Create("Till", ""),
-                Tuple.Create("Quick-sell bag item", "ChooseBagItemCommand"),
+                // ⚠⚠ READ-ONLY NOW (ruling 2026-08-19). This was "Quick-sell bag item", a per-device
+                // barcode an operator typed in — so a five-till shop set it five times and could offer
+                // only ONE bag when a shop normally sells a single-use one AND a bag for life. Bags come
+                // from the portal and are pushed to every till, exactly like the colour scheme.
+                Tuple.Create("Carrier bags", "CarrierBagsInfoCommand"),
 
                 Tuple.Create("Printer", ""),
                 Tuple.Create("Receipt printer", "ChangePrinterCommand"),
@@ -192,9 +196,14 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
 
             var text = command switch
             {
-                nameof(ChooseBagItemCommand) => string.IsNullOrWhiteSpace(DefaultBagId)
-                    ? "No bag item chosen — the Bag button is hidden."
-                    : $"Currently: {DefaultBagId}",
+                // ⚠ It NAMES the bags rather than saying "set in the portal", because the question a
+                // cashier actually has is "why is there no 20p button" — and the honest answer is either
+                // "the shop has not added one" or "this till has never reached the server". Same wording
+                // as the web till's Settings → Carrier bags line (2026-08-19 look-and-feel ruling).
+                nameof(CarrierBagsInfoCommand) => Services.Sales.CarrierBags.Bags.Count == 0
+                    ? "None set up, so the till shows no Bag button."
+                    : "This till offers: " + string.Join(", ", Services.Sales.CarrierBags.Bags
+                        .Select(b => $"{b.Name} ({(b.PricePence / 100m):C2})")),
                 _ => null,
             };
 
@@ -516,74 +525,47 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
         #endregion
 
 
-        Command _chooseBagItemCommand;
+        Command _carrierBagsInfoCommand;
 
         /// <summary>
-        /// Which item the till's quick **Bag** button rings up.
+        /// Say where the carrier bags come from — ruling 2026-08-19.
         ///
-        /// ⚠⚠ MOVED HERE FROM STORE INFORMATION, 2026-08-18 (5c item 8). Matt: *"'Choose bag
-        /// item' in Store Information"* — it was misfiled, not mysterious. **The web till keeps the
-        /// same setting in SETTINGS** (`prefs.ts bagBarcode`, Settings -> Till), and it belongs there:
-        /// it is a per-DEVICE preference, not a company fact. Store Information is read-only and about
-        /// the SHOP; which carrier bag this machine sells is about this machine.
+        /// ⚠⚠ IT SETS NOTHING, AND THAT IS THE POINT. This row used to be **"Quick-sell bag item"**, a
+        /// free-typed barcode stored per device, so a five-till shop configured it five times and could
+        /// offer only ONE bag — when a shop normally sells a single-use bag AND a bag for life. Matt:
+        /// *"That creates the 5p and 20p bags at the back and that pushes down to the tills… This would
+        /// be cleaner than creating a bag at each till."*
         ///
-        /// ⚠ `pos.settings.manage`, as it was before the move - a setting that changes what a button
-        /// sells is not a cashier's to change.
+        /// ⚠ It is still a ROW rather than a plain line because that is what this screen is made of, and
+        /// tapping something that then explains itself is better than a caption nobody can act on. The
+        /// subtitle already names the bags; this says who changes them.
         ///
-        /// ⚠ The barcode is checked against the **V2 catalogue**, the same place a scan resolves.
-        /// Validating against a different list than the one that sells is how a setting is accepted
-        /// here and fails at the counter.
+        /// ⚠ No permission gate: it reveals nothing a cashier cannot see on the till's own buttons.
         /// </summary>
-        public Command ChooseBagItemCommand =>
-            _chooseBagItemCommand ??= new Command(ExecuteChooseBagItem);
+        public Command CarrierBagsInfoCommand =>
+            _carrierBagsInfoCommand ??= new Command(ExecuteCarrierBagsInfo);
 
-        private async void ExecuteChooseBagItem()
+        private async void ExecuteCarrierBagsInfo()
         {
             try
             {
-                var gate = Services.Security.TillGate.Check(
-                    App.GetViewModel().SignedInOperator, PermissionCatalogue.PosSettingsManage);
+                var bags = Services.Sales.CarrierBags.Bags;
 
-                if (!gate.Allowed)
-                {
-                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(), gate.Message, "OK".Translate());
-                    return;
-                }
+                var body = bags.Count == 0
+                    ? "This shop has no carrier bags set up, so the till shows no Bag button.\n\n"
+                      + "Add them in the management portal under Company → Carrier bags. Every till "
+                      + "picks them up within a minute."
+                    : "This till offers:\n\n"
+                      + string.Join("\n", bags.Select(b => $"  • {b.Name} — {(b.PricePence / 100m):C2}"))
+                      + "\n\nThey are set in the management portal under Company → Carrier bags, and "
+                      + "every till gets the same list. There is nothing to configure here.";
 
-                var validators = new IValidator[] { new RequiredValidator() };
-
-                var viewElements = new ViewElementData[]
-                {
-                    // ⚠ The current value goes in as REAL EDITABLE TEXT, not a grey hint - finding K,
-                    // *"I can ONLY change the tax"*. `InputResults` reads `entry.Text`, so a hint would
-                    // submit empty and the change would be refused with no message.
-                    new ViewElementData(1, "Bag item barcode", DefaultBagId ?? "", validators.AsEnumerable(),
-                        isPassword: false, isEnabled: true, prefillWithPlaceholder: true),
-                };
-
-                var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
-                    viewElements, "Confirm".Translate(), false, "Quick-sell bag", "Cancel".Translate());
-
-                if (!data.TryGetValue(1, out var bagIdText) || string.IsNullOrWhiteSpace(bagIdText)) return;
-
-                var exists = await Services.Storage.TillStoreAccess.TryUseAsync(
-                    s => s.FindByBarcodeAsync(bagIdText.Trim()));
-
-                if (exists == null)
-                {
-                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "ItemNotFoundMesg".Translate(), "OK".Translate());
-                    return;
-                }
-
-                DefaultBagId = bagIdText.Trim();
-
-                await App.Current.MainPage.DisplayAlert("Bag item set",
-                    $"The Bag button will ring up {DefaultBagId} on this till.", "OK".Translate());
+                await App.Current.MainPage.DisplayAlert("Carrier bags", body, "OK".Translate());
             }
             catch (Exception ex)
             {
-                // ⚠ `async void` - an escape here goes to the dispatcher unhandled and takes the till.
-                Services.Analytics.CrashLog.Write("SettingsViewModel.ExecuteChooseBagItem", ex);
+                // ⚠ `async void` — an escape here goes to the dispatcher unhandled and takes the till.
+                Services.Analytics.CrashLog.Write("SettingsViewModel.ExecuteCarrierBagsInfo", ex);
             }
         }
 

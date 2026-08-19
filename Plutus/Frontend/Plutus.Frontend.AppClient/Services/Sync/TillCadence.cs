@@ -349,6 +349,18 @@ namespace Plutus.Frontend.AppClient.Services.Sync
             // a poll failed would be a visible fault caused by an invisible one.
             await Theming.Theming.RefreshAsync(ct).ConfigureAwait(false);
 
+            // 4b3. The CARRIER BAGS the portal set (ruling 2026-08-19).
+            //
+            // ⚠ Matt: *"That creates the 5p and 20p bags at the back and that pushes down to the
+            // tills."* This is the push. It replaces a per-device `Preferences` value, so a shop that
+            // changes its bag charge changes it once and every till follows within the minute.
+            //
+            // ⚠ A failed fetch keeps the LAST-KNOWN bags. It never invents one: see
+            // `Services.Sales.CarrierBags` for why this is the one cache that fails towards NOTHING
+            // rather than towards a default — a guessed price charges a customer money the shop never
+            // set.
+            await Sales.CarrierBags.RefreshAsync(ct).ConfigureAwait(false);
+
             // 4c. The NOTICEBOARD — pick-from-floor notes and platform announcements (WP5b).
             //
             // ⚠ `Plutus.Client.Core.NoticesClient` shipped 2026-08-09 with 23 tests and was
