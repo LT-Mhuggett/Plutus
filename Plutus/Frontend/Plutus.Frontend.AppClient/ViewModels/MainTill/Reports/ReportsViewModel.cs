@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls;
@@ -31,6 +32,10 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Reports
 
         private ReportTable _current = ReportTable.Empty(string.Empty);
 
+        /// <summary>The reports this operator may actually read — what the picker lists (5b).
+        /// ⚠⚠ The picker's index refers to THIS list, never to `ReportCatalogue.All`.</summary>
+        private readonly System.Collections.Generic.List<ReportDefinition> _visible;
+
         public ReportsViewModel(
             Picker picker, DatePicker from, DatePicker to,
             Label totals, Label note, ContentView tableHost)
@@ -45,8 +50,30 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Reports
             Title = "Reports";
             Icon = "insights";
 
-            foreach (var report in ReportCatalogue.All) _picker.Items.Add(report.Title);
-            _picker.SelectedIndex = 0;
+            // ⚠⚠ ONLY THE REPORTS THIS OPERATOR MAY READ — ruling 5b, 2026-08-18: *"Separate permissions
+            // need to be created for viewing them."*
+            //
+            // ⚠ NOT LISTED, rather than listed-and-refused. Gating the endpoints alone would show eight
+            // reports and refuse seven of them; worse, a greyed-out row **leaks what other roles can
+            // see**. The publish decides the menu, the permission decides the door — and a door nobody
+            // may open is not drawn.
+            //
+            // ⚠⚠ THROUGH `TillGate`, NOT a raw code list. The gate also applies the staleness tier and
+            // the permission window, so a supervisor whose roster is a fortnight old, or who is only
+            // authorised on Saturdays, is answered correctly. `ReportPermissions.CodesThatOpen` owns
+            // WHICH codes open a report; the gate owns whether this person holds one right now.
+            _visible = ReportCatalogue.All
+                .Where(r => Services.Security.TillGate.CheckAny(
+                    App.GetViewModel().SignedInOperator, null,
+                    SharedKernel.ReportPermissions.CodesThatOpen(r.Key)).Allowed)
+                .ToList();
+
+            foreach (var report in _visible) _picker.Items.Add(report.Title);
+
+            // ⚠ AN OPERATOR MAY BE ALLOWED NONE. `SelectedIndex = 0` on an empty picker throws, and
+            // `RefreshAsync` must not then index into nothing — see its own guard.
+            if (_visible.Count > 0) _picker.SelectedIndex = 0;
+
             _picker.SelectedIndexChanged += (_, _) => Refresh();
 
             // ⚠ The last 7 days INCLUDING today. A default of "today" on a reporting screen shows an
@@ -135,10 +162,21 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Reports
 
         private async Task RefreshAsync()
         {
+            // ⚠⚠ INDEXED INTO `_visible`, NEVER INTO `ReportCatalogue.All`. The picker lists only the
+            // reports this operator may read (5b), so position 1 in the picker is not position 1 in the
+            // catalogue — reading from `All` here would run whatever report happened to sit at that
+            // index, which for a narrow role means **running a report they are not allowed**.
             var index = _picker.SelectedIndex;
-            if (index < 0 || index >= ReportCatalogue.All.Count) return;
+            if (index < 0 || index >= _visible.Count)
+            {
+                // ⚠ An operator allowed no reports at all lands here. Say so, rather than leaving an
+                // empty screen that reads as "loading" for ever.
+                if (_visible.Count == 0)
+                    Say(string.Empty, "You don't have permission to view any reports on this till.");
+                return;
+            }
 
-            var report = ReportCatalogue.All[index];
+            var report = _visible[index];
 
             Say(string.Empty, "Loading…");
 

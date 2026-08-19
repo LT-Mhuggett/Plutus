@@ -116,6 +116,51 @@ public static class PermissionCatalogue
     /// </summary>
     public const string PosCustomersAdd = "pos.customers.add";
 
+    // ── POS reports, one code per report (ruling 5b, 2026-08-18) ──
+    //
+    // ⚠⚠ MATT: *"Separate permissions need to be created for viewing them."* Until now all eight
+    // reports shared `pos.reports.view`, which is exactly why widening that gate for a Supervisor
+    // widened it for EVERY report at once — and why the same gate defect has now been fixed four times.
+    //
+    // ⚠⚠ `pos.reports.view` REMAINS A MASTER KEY, and that is the whole compatibility story. Every
+    // report endpoint accepts `pos.reports.view` OR its own code, so:
+    //   - every existing role keeps working, unchanged, with no re-seed and no waiting for a token to
+    //     expire (they cache 12h with the permission set baked in — pitfall 10);
+    //   - a NARROW role is built by granting only the specific codes and NOT the master.
+    // Making the specific codes mandatory instead would have logged every Supervisor out of every
+    // report the moment this deployed, in a live shop, for a feature nobody had asked to be strict.
+    //
+    // ⚠ THE CODES ARE NAMED AFTER THE REPORT, not after a client's menu key. `ReportPermissions` maps
+    // the two, so a till renaming a tab cannot silently change who may read it.
+    //
+    // ⚠ SEEDED TO NOBODY BY DEFAULT. A code no role holds grants nothing, which is the safe
+    // direction: the narrow roles a shop wants are built in the portal, deliberately.
+    public const string PosReportsTakings = "pos.reports.takings";
+    public const string PosReportsVat = "pos.reports.vat";
+    public const string PosReportsItemsSold = "pos.reports.items-sold";
+    public const string PosReportsCategorySales = "pos.reports.category-sales";
+    public const string PosReportsBestSellers = "pos.reports.best-sellers";
+
+    /// <summary>
+    /// On-hand stock, and the negative-stock view of it.
+    ///
+    /// ⚠⚠ ONE CODE FOR BOTH, DELIBERATELY. "Negative stock" is the SAME rows filtered to those
+    /// below zero — it is a subset, so a role that could see stock but not negative stock would be
+    /// nonsense, and one that could see negative stock but not stock would be shown the worst of the
+    /// data and denied the context. They are one permission because they are one dataset.
+    /// </summary>
+    public const string PosReportsStock = "pos.reports.stock";
+
+    /// <summary>
+    /// The sales list and the drill-down into an individual sale.
+    ///
+    /// ⚠ ITS OWN CODE BECAUSE IT IS A DIFFERENT KIND OF LOOK. Every other report is an aggregate;
+    /// this one shows individual transactions, what was in them and how each was paid. A shop may
+    /// reasonably want a role that can read the day's takings without being able to open a customer's
+    /// basket line by line.
+    /// </summary>
+    public const string PosReportsSales = "pos.reports.sales";
+
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
         PortalFinancialsView, PortalUsersManage, PortalStockAdjust, PortalPricesManage,
@@ -123,6 +168,12 @@ public static class PermissionCatalogue
         InventoryBulk, GiftCardsManage,
         PosSell, PosRefund, PosVoid, PosDiscount, PosPriceOverride, PosNoSale, PosReportsView, PosSettingsManage,
         PosStockAdjust, PosCashReopen, PosCustomersAdd,
+
+        // ⚠ The per-report codes (5b). They must be here or the portal cannot offer them: `AdminController`
+        // builds its grantable-permission list from this set, so a code missing from it exists in the
+        // source and can never be given to anybody.
+        PosReportsTakings, PosReportsVat, PosReportsItemsSold, PosReportsCategorySales,
+        PosReportsBestSellers, PosReportsStock, PosReportsSales,
     };
 
     /// <summary>Permissions that may carry a MaxPence ceiling on a grant.</summary>
@@ -187,7 +238,23 @@ public static class PermissionCatalogue
         [PosDiscount] = "Apply discounts. Can carry a per-discount money ceiling.",
         [PosPriceOverride] = "Override an item's price at the point of sale.",
         [PosNoSale] = "Open the cash drawer without a sale.",
-        [PosReportsView] = "View reports on the till.",
+        [PosReportsView] = "View ALL of the till's reports. A master key — grant one of the individual report permissions instead to allow just that report.",
+
+        // ⚠⚠ FE9.3 CAUGHT THESE MISSING. `Every_catalogue_permission_has_a_description_and_a_group`
+        // fails on any code whose description is absent, because `DescribeOf` then echoes the raw code
+        // back and the portal's grant list reads "pos.reports.category-sales" at somebody who is trying
+        // to decide what a role should be allowed to do. A permission whose meaning nobody can read is
+        // one nobody will grant correctly.
+        //
+        // ⚠ Each says WHAT THE REPORT SHOWS, not what it is called — the question being answered is
+        // "what does this role actually let someone do?"
+        [PosReportsTakings] = "View the till's takings — sales totals by day, with VAT and order counts.",
+        [PosReportsVat] = "View the VAT report — net, VAT and gross broken down by rate.",
+        [PosReportsItemsSold] = "View every line sold in a period, with quantities, which till rang it up and what it took.",
+        [PosReportsCategorySales] = "View sales grouped by category, with each category's share of the takings.",
+        [PosReportsBestSellers] = "View the best-selling items, ranked by quantity or by money taken.",
+        [PosReportsStock] = "View on-hand stock, including the negative-stock report. Reading only — changing stock is a separate permission.",
+        [PosReportsSales] = "Open individual sales — the sales list and the drill-down showing a sale's lines, how it was paid, and anything refunded against it.",
         [PosSettingsManage] = "Change this till's device settings — receipt behaviour, carrier-bag barcode, printer.",
         // ⚠ The wording says CHANGE, not count. The endpoint takes a signed delta, and somebody
         // reading this in the portal's role editor must not come away thinking it lets an operator

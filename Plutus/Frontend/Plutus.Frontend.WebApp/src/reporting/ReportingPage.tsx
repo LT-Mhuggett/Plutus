@@ -3,6 +3,8 @@ import SummaryReport from "./SummaryReport.tsx";
 import CustomReport from "../StatisticsPage.tsx";
 import VatReport from "./VatReport.tsx";
 import DataTable from "../DataTable.tsx";
+import { mayReadReport } from "./reportPermissions.ts";
+import { sessionScopes } from "../pipeline.ts";
 import {
   fetchV1ItemsSold, fetchV1Staff, fetchV1StockLevels, fetchV1CategorySales, fetchV1BestSellers,
   type V1ItemsSold, type V1ItemSoldRow, type V1Staff, type V1StockLevel, type V1StockResp,
@@ -20,15 +22,58 @@ const daysAgo = (n: number) => iso(new Date(Date.now() - n * 86400_000));
 const SUBTABS = ["Summary", "Custom", "VAT", "Items sold", "Category sales", "Best sellers", "Stock", "Negative stock"] as const;
 type SubTab = (typeof SUBTABS)[number];
 
+/**
+ * Each subtab's report key, for the permission check — ruling 5b.
+ *
+ * ⚠ THE LABELS ARE NOT THE KEYS. The tabs are titled for a person ("Items sold"); the keys are the
+ * platform's ("items-sold"), shared with MAUI's `ReportCatalogue.Key`. Mapping them here keeps a tab
+ * rename from silently changing who may read it.
+ *
+ * ⚠ "Custom" is the SAME data as Summary over a chosen range — the custom-range takings report — so it
+ * carries the takings key rather than one of its own.
+ */
+const SUBTAB_KEYS: Record<SubTab, string> = {
+  "Summary": "summary",
+  "Custom": "summary",
+  "VAT": "vat",
+  "Items sold": "items-sold",
+  "Category sales": "category-sales",
+  "Best sellers": "best-sellers",
+  "Stock": "stock",
+  "Negative stock": "negative-stock",
+};
+
 export default function ReportingPage() {
-  const [sub, setSub] = useState<SubTab>("Summary");
+  // ⚠⚠ ONLY THE REPORTS THIS OPERATOR MAY READ (5b). Gating the endpoints alone would show eight tabs
+  // and refuse seven of them — and worse, a visible-but-refusing tab **leaks what other roles can
+  // see**. A door nobody may open is not drawn.
+  //
+  // ⚠ Computed once per mount from the session's scopes, which is exactly when they can change: a
+  // different operator means a different session.
+  const scopes = sessionScopes();
+  const visible = SUBTABS.filter((s) => mayReadReport(SUBTAB_KEYS[s], scopes));
+
+  // ⚠ THE FIRST TAB THEY MAY ACTUALLY READ, not a hard-coded "Summary". A narrow role granted only the
+  // VAT report would otherwise land on a Summary tab that is not in their list and render nothing.
+  const [sub, setSub] = useState<SubTab | null>(visible[0] ?? null);
+
+  // ⚠ AN OPERATOR MAY BE ALLOWED NONE. Say so, rather than showing an empty panel that reads as a
+  // screen still loading.
+  if (sub === null) {
+    return (
+      <section className="panel">
+        <div className="panel-head"><h2>Reporting</h2></div>
+        <p className="muted">You don't have permission to view any reports.</p>
+      </section>
+    );
+  }
 
   return (
     <section className="panel">
       <div className="panel-head">
         <h2>Reporting</h2>
         <nav className="subtabs">
-          {SUBTABS.map((s) => (
+          {visible.map((s) => (
             <button key={s} className={s === sub ? "subtab active" : "subtab"} onClick={() => setSub(s)}>{s}</button>
           ))}
         </nav>
