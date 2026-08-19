@@ -36,7 +36,21 @@ namespace CustomViews
         /// Build the row. <paramref name="title"/> may be null — the ✕ still appears, because a
         /// dialog with no title is exactly the sort a person cannot work out how to leave.
         /// </summary>
-        public static View For(string title, EventHandler onClose)
+        public static View For(string title, EventHandler onClose) => For(title, onClose, out _);
+
+        /// <summary>
+        /// The same row, handing back the title `Label` so a caller can restate it later.
+        ///
+        /// ⚠⚠ ADDED FOR THE CHECKOUT SCREEN (§5c item 2, 2026-08-19), where the heading is MONEY: the
+        /// card fee goes on when the card row is filled, so *"Checkout — £13.30"* has to become
+        /// *"Checkout — £13.65"* while the dialog is open. A heading that keeps the pre-fee figure is
+        /// the surcharge complaint in its purest form.
+        ///
+        /// ⚠ AN EXPLICIT `out`, not a cast into the returned Grid's children. A cast would compile for
+        /// ever and start returning null the day this layout changed — and a heading that silently
+        /// stopped updating would show the WRONG TOTAL rather than no total.
+        /// </summary>
+        public static View For(string title, EventHandler onClose, out Label titleLabel)
         {
             var grid = new Grid
             {
@@ -58,6 +72,7 @@ namespace CustomViews
             };
             grid.Add(label);
             Grid.SetColumn(label, 0);
+            titleLabel = label;
 
             // ⚠ A Button, not a TapGestureRecognizer on a Label: a 44pt target that a finger can hit
             // on a touch till, and one that announces itself to accessibility as a button.

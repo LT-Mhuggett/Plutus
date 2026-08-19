@@ -3935,3 +3935,114 @@ Sign in to the **portal** as someone without **Company manage**.
 **✅ Expected:** they can see the list (it is only what the shop sells) but **Add bag** and **Stop
 selling** answer *"Only someone who can manage company settings may change the bags."* — a sentence,
 never a bare `403`.
+
+---
+
+## G58. ⚠⚠ THE CHECKOUT IS ONE SCREEN NOW — **till 1.104.0**, §5c item 2 (closed)
+
+> Matt, 2026-08-19: *"I need the functionality and look and feel to be the same across both tills. So
+> if a user swaps between the two, it doesnt matter and they would understand how to use it."*
+>
+> ⚠⚠ **READ THIS BEFORE RUNNING IT.** This replaces how the MAUI till takes money. Every step below is
+> money, and two of them check that something is **refused**. If a refusal is accepted, stop and say so.
+>
+> ⚠ **Run §G50 and §G53 again afterwards** — those tested the old sequential flow's money rules, and
+> the rules have to survive the new screen.
+
+### G58a. It looks like the web till's
+
+Ring up a £10 item on **MAUI**, press **Checkout**.
+
+**✅ Expected: ONE screen** with a row per payment method — a name, a **rest** button and an amount box
+each — then **Paid**, **Remaining**, and a **Complete sale** button.
+
+⚠⚠ **NO MORE "pick a method, then type an amount, then pick again."** If you get a sequence of pop-ups,
+you are on the old build.
+
+Now open the **web till** and put the same item through to its checkout. **✅ Expected: the same screen,
+the same words** — Paid, Remaining, rest, Complete sale.
+
+### G58b. Split a payment — the case that started this
+
+£10 basket. Type **4.00** against Cash.
+
+**✅ Expected: "Remaining £6.00"** appears **as you type**, and Complete stays disabled with the sentence
+*"£6.00 still to pay."* underneath.
+
+Now type **6.00** against Card. **✅ Expected: Remaining disappears and Complete enables.** Complete it.
+
+⚠⚠ Matt, 2026-08-13, about the old flow: *"I press cash, put in £2, it takes me back to the 'Card or
+cash' screen but doesn't tell me anything has been paid or there is X to pay. I assume its not actually
+working."* **That is the complaint this screen exists to answer** — the two figures are now on screen the
+whole time, not in a title one dialog later.
+
+### G58c. Change, and change that cannot be given
+
+£3.30 basket. Type **20.00** against **Cash**. **✅ Expected: "Change £16.70"**, Complete enabled.
+
+Clear it. Type **20.00** against **Card** instead.
+
+**✅ Expected: REFUSED** — *"Change (not available on chosen methods) £16.70"* and the sentence *"£16.70
+over, and only cash can give change back."* **✅ Complete must be disabled.**
+
+⚠ A card cannot give change. If this completes, stop.
+
+### G58d. ⚠⚠ The double-take, which should now be impossible
+
+Attach a member with **£5.00** store credit (see §G56e/f) and ring up a £20 basket.
+
+**✅ Expected: the Store credit row says "(up to £5.00)"**, and pressing its **rest** puts in **5.00**,
+not 20.00.
+
+⚠⚠ **THEN TRY TO TAKE IT TWICE.** On the old flow you could pick Store credit, take £5, and pick it
+again for another £5 — £10 of credit off a £5 balance (the money defect of 2026-08-19). **✅ Expected:
+there is no way to do it — the method has ONE box.** That is the fix: not a guard, but a shape with no
+second pass in it.
+
+### G58e. The card fee goes on — and comes off again
+
+⚠ Needs a card surcharge configured in the portal.
+
+£13.30 basket → Checkout. Type anything in the **Card** row.
+
+**✅ Expected: the heading and the total go UP by the fee**, and a line says *"💳 Card fee £0.35 added —
+it comes off if the card row is cleared."*
+
+Now **clear the card box**. **✅ Expected: the fee comes off, the heading goes back to £13.30**, and the
+fee line leaves the basket.
+
+⚠⚠ **The old flow could only ever ADD it.** Picking card and changing your mind left the fee on the
+basket and the customer paid it. ⚠ Then put an amount back in the Card row and **split it across two
+entries in that one box** — the fee must be charged **once**.
+
+### G58f. The gift card is behind a button
+
+£10 basket → Checkout.
+
+**✅ Expected: NO gift-card box on screen**, just a **"🎁 Pay with a gift card"** button below the
+tenders. Press it, scan or type a card, and **✅ Expected: the checkout reopens with a Gift card row
+capped at what the card holds.**
+
+⚠ Matt, 2026-08-19: *"There is no point showing it all, unless you ahve a card."* ⚠ The button must be
+**absent** on a refund, and absent when the basket is SELLING a gift card.
+
+### G58g. Backing out takes nothing
+
+Fill in a couple of amounts, then press **✕**. Then do it again and press **Cancel**. Then again and tap
+outside the box.
+
+**✅ Expected, all three times: the basket is exactly as you left it, nothing was taken, and the till is
+still alive.**
+
+⚠⚠ This is dialog contract **D4 rule 4** on the screen where it matters most: a cancelled checkout must
+be *"the operator changed their mind"*, never a partial sale.
+
+### G58h. Refunds still go back the way they were paid
+
+Refund a sale that was paid **£2.00 cash + £2.40 card** (the §A4b sale).
+
+**✅ Expected: the heading says "Refund — £4.40"**, the rows are capped at what each tender actually took
+(*"(up to £2.00)"*, *"(up to £2.40)"*), and putting £4.40 on the card is **refused**.
+
+⚠ **No change on a refund, ever** — hand back exactly what is owed. Typing £5.00 against cash must
+refuse with *"That's more than the refund owes — hand back exactly £4.40."*

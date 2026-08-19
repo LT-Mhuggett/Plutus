@@ -2498,14 +2498,14 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 sale.Total = Basket.Sum(bR => bR.Price * (bR.IsReturn ? -1 : 1) * bR.Quantity);
                 sale.TotalExTax = Basket.Sum(bR => bR.PriceExTax * (bR.IsReturn ? -1 : 1) * bR.Quantity);
 
-                const NumberStyles testStyles = NumberStyles.AllowCurrencySymbol | NumberStyles.AllowThousands
-                    | NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign;
-
-                // ⚠ Remembered across the two callbacks: the amount prompt names the tender the
-                // operator just picked, and each payment row must reuse the SAME
-                // `PaymentMethodModel` instance rather than re-running the factory.
-                var chosenMethods = new Dictionary<string, PaymentMethodModel>();
-                var lastPickedName = string.Empty;
+                // ⚠ `testStyles` and `lastPickedName` were HERE and are gone (2026-08-19): they served
+                // the sequential amount prompt, which no longer exists. The pence parser is now
+                // `TenderSettlement.ParsePence`, a C2 twin of the web till's `money.ts parsePence` —
+                // and deliberately STRICTER than the `NumberStyles` this used, which accepted a leading
+                // sign, so "-5.00" parsed as a negative tender.
+                //
+                // ⚠ `chosenMethods` went with them: it existed so two payments on ONE method could
+                // share a `PaymentMethodModel`, which only the sequential loop could produce.
 
                 // ⚠ THE TENDER SEQUENCE NOW LIVES IN `Client.Core.TenderLoop` (cutover step 11b).
                 //
@@ -2516,265 +2516,30 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 // terminate: a cancel that fell through and appended a £0 payment, a `0` tender that
                 // did the same, and an amount prompt with no exit at all.
                 //
-                // The loop is now 19 unit tests and three mutation checks. What is left here is the
+                // The loop is now 19 unit tests and three mutation checks. What was left here was the
                 // ASKING — dialogs — and mapping the answer onto the legacy sale model.
-                var tender = await Plutus.Client.Core.TenderLoop.RunAsync(
-                    Pence.FromDecimal(sale.Total),
-
-                    // Which tender? ⚠ Also where the surcharge line is added, because choosing CARD
-                    // is what creates it. The fee is returned to the loop, which applies it to the
-                    // outstanding balance AT MOST ONCE — a split card payment must not be charged a
-                    // flat fee twice, and that is now the loop's rule rather than this method's.
-                    chooseMethod: async (outstanding, paidSoFar) =>
-                    {
-                        var payMethNames = payMeths.Keys.ToArray();
-
-                        // ⚠⚠ SAY WHAT HAS BEEN TAKEN AND WHAT IS LEFT. Matt, 2026-08-13, on a £4.40
-                        // basket: *"I press cash, put in £2, it takes me back to the 'Card or cash'
-                        // screen but doesn't tell me anything has been paid or there is X to pay. I
-                        // assume its not actually working."*
-                        //
-                        // ⚠ It WAS working — `A_split_payment_accumulates_to_exactly_the_total` has
-                        // pinned that since the loop was extracted — and this title said only
-                        // "Payment Method", on the second pass exactly as on the first. The balance
-                        // appeared one screen LATER, in the amount prompt, which is no use to someone
-                        // deciding whether the till has just eaten £2 in front of a customer.
-                        //
-                        // ⚠ An operator who cannot tell a working split payment from a broken one will
-                        // stop using split payments, or worse, take the money twice.
-                        //
-                        // ⚠ The web till shows a standing "Paid / Remaining" pair on one form
-                        // (`CheckoutDialog.tsx`); MAUI asks in sequence, so the same two numbers ride
-                        // in the title instead. Same words, same money, different shape — the shapes
-                        // converge when the checkout screen is rebuilt (step 11b).
-                        var owed = Math.Abs(outstanding) / 100m;
-                        var taken = Math.Abs(paidSoFar) / 100m;
-                        var title = paidSoFar == 0
-                            ? $"{"PayMeth".Translate()} — {owed:C} to {(refundOnly ? "refund" : "pay")}"
-                            : refundOnly
-                                ? $"Refunded {taken:C} — {owed:C} left to refund"
-                                : $"Paid {taken:C} — {owed:C} left to pay";
-                        // ⚠ Through `Modal` — one dialog at a time, with a settle between them.
-                        // Entering `0` refuses and loops back HERE, and raising this action sheet
-                        // while the amount popup was still tearing down threw a COMException out of
-                        // an `async void` and closed the till (2026-08-10).
-                        var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
-                            Application.Current.MainPage.DisplayActionSheet(
-                                title, "Cancel".Translate(), null, payMethNames));
-
-                        if (string.IsNullOrEmpty(picked) || picked == "Cancel".Translate()
-                            || !payMeths.ContainsKey(picked))
-                            return Plutus.Client.Core.TenderChoice.Abandoned;
-
-                        var method = payMeths[picked]();
-                        chosenMethods[picked] = method;
-                        lastPickedName = picked;
-
-                        long feePence = 0;
-
-                        // ⚠ THE SURCHARGE IS THE TENANT'S GATEWAY SETTING, NOT THE LEGACY
-                        // `PaymentMethod.Charge`. That field lives on a GLOBAL table — one tenant's
-                        // fee would have been every tenant's — and its old path was broken twice
-                        // over: a misspelt resource key, and a money-carrying `BasketNote` the
-                        // commit guard refuses.
-                        //
-                        // ⚠ A REAL LINE against the provisioned CARD-SURCHARGE item, priced by the
-                        // shared rules: the fee is further consideration for the main supply (Bookit
-                        // C-607/14 / NEC C-130/15), so its VAT FOLLOWS THE BASKET — zero on
-                        // zero-rated goods, blended on a mixed basket, never a hardcoded rate. Card
-                        // tenders only, never on refunds.
-                        if (SharedKernel.Tenders.FromMethodName(method.Name) == SharedKernel.Tenders.Card
-                            && !refundOnly
-                            && !Services.Storage.CheckoutCommit.HasSurcharge(Basket))
-                        {
-                            var (surchargeBp, surchargeFlat) = await Services.Storage.GatewaySurcharge.GetAsync();
-                            var feeLine = Services.Storage.CheckoutCommit.SurchargeItem(Basket, surchargeBp, surchargeFlat);
-                            if (feeLine != null)
-                            {
-                                // ⚠ ON THE UI THREAD. `Basket` is bound, and `TenderLoop` awaits this
-                                // callback with `ConfigureAwait(false)` — so from the second pass
-                                // onwards (any pass after a refusal) we are on a pool thread, where a
-                                // CollectionChanged notification into WinUI is the same crash class as
-                                // A4's dialog. ⚠ Currently DORMANT rather than fixed-in-time: Kapow's
-                                // surcharge rate is zero, so `SurchargeItem` returns null and nothing
-                                // is added. It would have surfaced on the first tenant that charges a
-                                // card fee, as a crash nobody could reproduce here.
-                                await MainThread.InvokeOnMainThreadAsync(() => Basket.Add(feeLine));
-                                // ⚠ The BASKET stays authoritative for `sale.Total` — the commit
-                                // guard compares the header against the sum of the lines, so a total
-                                // computed anywhere else is a second opinion about money.
-                                sale.Total = Basket.Sum(bR => bR.Price * (bR.IsReturn ? -1 : 1) * bR.Quantity);
-                                sale.TotalExTax = Basket.Sum(bR => bR.PriceExTax * (bR.IsReturn ? -1 : 1) * bR.Quantity);
-                                feePence = Pence.FromDecimal(feeLine.Price * feeLine.Quantity);
-                            }
-                        }
-
-                        // ⚠ FINDING Y: the cap travels with the choice, so the loop can enforce it and
-                        // the amount prompt can pre-fill a number that will actually be accepted. Zero
-                        // when this is not a refund, or when the origin's tenders are unknown (a sale
-                        // from another till — see `OriginTenderCapacitiesAsync`).
-                        // ⚠⚠ THE RULE, NOT A LINE OF LINQ HERE (2026-08-19). Null = nothing caps this
-                        // tender; 0 = it may take NOTHING; otherwise the remainder. Those were the same
-                        // value until an already-refunded card, still offered by the picker, reported 0
-                        // and was read as "uncapped" — so a second refund put the money back on it. The
-                        // three-way decision is now `RefundRules.CapacityFor`, C2 twin of the web till's
-                        // `capacityFor`, and it is TESTED, which nothing written inside this method is.
-                        long? capPence = SharedKernel.RefundRules.CapacityFor(
-                            refundCaps, SharedKernel.Tenders.FromMethodName(method.Name));
-
-                        // ⚠ STORE CREDIT IS CAPPED AT THE BALANCE, through the SAME mechanism finding
-                        // Y built for refunds — the loop already knows how to refuse a tender that
-                        // exceeds its own limit and to word the prompt from it. Inventing a second
-                        // cap here would be a second rule about how much a tender may take.
-                        //
-                        // ⚠ It caps what can be TYPED. The server still refuses an overdraw at redeem
-                        // time, and that refusal still aborts the sale — this only means the operator
-                        // meets the limit before the customer does.
-                        if (SharedKernel.Tenders.FromMethodName(method.Name) == SharedKernel.Tenders.Credit)
-                            capPence = CreditAvailablePence;
-
-                        // ⚠ Same mechanism again for the gift card's balance — one rule about how
-                        // much a tender may take, three callers of it.
-                        if (SharedKernel.Tenders.FromMethodName(method.Name) == SharedKernel.Tenders.GiftCard)
-                            capPence = GiftCardAvailablePence;
-
-                        return new Plutus.Client.Core.TenderChoice(
-                            picked, method.IsChangeable, feePence, capPence);
-                    },
-
-                    // How much? ⚠ WITH A CANCEL BUTTON. Raised without one, and with
-                    // `interuptable: false` and an `OnBackButtonPressed` that swallowed Escape, this
-                    // dialog had no exit of any kind — the operator could only leave by killing the
-                    // process, mid-sale.
-                    askAmount: async (outstanding, mostAllowed) =>
-                    {
-                        // ⚠ FINDING Y: the box is pre-filled and worded from what this METHOD may take,
-                        // not from the sale's balance. On a split-paid refund those differ, and a
-                        // default the loop is about to refuse teaches an operator to type over it.
-                        var outstandingDecimal = mostAllowed / 100m;
-                        var balanceDecimal = outstanding / 100m;
-                        var cappedByTender = Math.Abs(mostAllowed) < Math.Abs(outstanding);
-
-                        IValidator[] validators = {
-                            new RequiredValidator(),
-                            new CurrencyValueValidator(testStyles)
-                        };
-
-                        ViewElementData[] elements = {
-                            new ViewElementData(1, "Amount", "", validators.AsEnumerable(), false, true)
-                        };
-
-                        // ⚠⚠ DO NOT WRAP THIS IN `Modal`. `InputAlertHelper` ALREADY DOES, INTERNALLY.
-                        //
-                        // ⚠ This call was wrapped here on 2026-08-11 while fixing *"something went
-                        // wrong taking payment"*, on the belief that the prompt did not go through the
-                        // gate. It did — `InputAlertHelper.ShowAsync` has gated every input alert
-                        // since the `Modal` gate was written the day before. So the flow took a
-                        // non-reentrant `SemaphoreSlim(1,1)` TWICE and waited on itself for ever.
-                        //
-                        // ⚠⚠ THE TILL COULD NOT TAKE A SALE (Matt, 2026-08-13, on 1.48.0): the tender
-                        // sheet closed, the amount box never appeared, and because the deadlock is
-                        // inside the `try`, `finally { IsBusy = false; }` never ran — so the scan box,
-                        // which opens `if (IsBusy) return;`, silently stopped searching too. One
-                        // redundant guard, three symptoms, no exception and no log line.
-                        //
-                        // ⚠ The COMException the wrap was reaching for is real, and it is handled
-                        // where it belongs: the gate inside the helper serialises the push against
-                        // whatever dialog is still tearing down. `Modal` is now re-entrancy-safe as
-                        // well, so this mistake cannot hang the app again — but a redundant wrap is
-                        // still a lie about who owns the gate, so it is gone rather than tolerated.
-                        var tendered = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
-                            elements,
-                            "Confirm".Translate(),
-                            false,
-                            true,
-                            outstandingDecimal,
-                            // ⚠ When a tender's own limit is the binding one, SAY WHICH NUMBER IS WHICH.
-                            // "There is £4.40 left to refund" beside a box that will only accept £2.40 is
-                            // how an operator concludes the till is broken — which is exactly what
-                            // happened with the split payment that told them nothing (finding W).
-                            cappedByTender
-                                ? $"How much to refund with {lastPickedName}? That method took "
-                                  + $"{Math.Abs(Math.Round(outstandingDecimal, 2, MidpointRounding.AwayFromZero)):C} "
-                                  + $"of this sale, and {Math.Abs(Math.Round(balanceDecimal, 2, MidpointRounding.AwayFromZero)):C} "
-                                  + "is left to refund altogether — the rest goes back the way it was paid."
-                                : string.Format(
-                                    refundOnly ? "HowMuchRefund".Translate() : "HowMuchPM".Translate(),
-                                    lastPickedName,
-                                    Math.Round(outstandingDecimal, 2, MidpointRounding.AwayFromZero)),
-                            "Cancel".Translate());
-
-                        _ = tendered.TryGetValue(1, out var amountText);
-
-                        if (tendered.Count == 0 || string.IsNullOrWhiteSpace(amountText))
-                            return Plutus.Client.Core.TenderAmount.Abandoned;
-
-                        // ⚠ TryParse, not Parse. The validators run in the dialog, but this string
-                        // has crossed a UI boundary and a `FormatException` here is thrown from an
-                        // `async void` — which closes the till rather than rejecting the input.
-                        if (!decimal.TryParse(amountText, testStyles, CultureInfo.CurrentCulture, out var typed))
-                            return Plutus.Client.Core.TenderAmount.Abandoned;
-
-                        return Plutus.Client.Core.TenderAmount.Of(Pence.FromDecimal(typed));
-                    },
-
-                    ct: default,
-
-                    // ⚠ SAY WHY, BEFORE ASKING AGAIN. Matt, 2026-08-11: over-paying on a card and
-                    // under-paying in cash both produced *"Something went wrong"*. Neither is a
-                    // fault — they are ordinary operator actions the loop correctly refuses — but a
-                    // prompt that reappears without a word reads as the till ignoring what was
-                    // typed, in front of a customer.
-                    //
-                    // ⚠ THE WORDING IS MATT'S. It names what happened and says the basket is safe,
-                    // because the fear at a counter is that a mistake has cost the sale.
-                    onRefused: async (reason, outstanding) =>
-                    {
-                        var owed = (outstanding / 100m).ToString("C2");
-
-                        var message = reason switch
-                        {
-                            Plutus.Client.Core.TenderRefusal.OverpaidWithoutChange =>
-                                $"You cannot over pay with {lastPickedName}. Your basket is still here, please try again.",
-
-                            // ⚠ Under-payment is NOT refused — the loop takes it and asks for the
-                            // rest, which is how split payments work. Reaching here with Zero means
-                            // they entered nothing at all.
-                            Plutus.Client.Core.TenderRefusal.Zero =>
-                                $"Enough {lastPickedName.ToLowerInvariant()} has not been taken. {owed} is still to pay.",
-
-                            // ⚠⚠ FINDING Y. Not "too much" in the sale's terms — too much for THIS
-                            // method. The sentence has to say where the rest goes, or the operator's
-                            // next move is to try a different card rather than to split the refund.
-                            // ⚠ TWO SENTENCES, because this one refusal now guards two different limits.
-                            // On a REFUND it is the origin sale's capacity (finding Y). On a SALE it is the
-                            // balance on a gift card or a store-credit account — and telling an operator
-                            // taking money IN that it is "more than card took on this sale" sends them
-                            // hunting for a receipt that has nothing to do with it.
-                            Plutus.Client.Core.TenderRefusal.OverTenderCapacity when outstanding < 0 =>
-                                $"That is more than {lastPickedName.ToLowerInvariant()} took on this sale, so it "
-                                + "cannot all go back that way. Refund what this method paid, then pick the "
-                                + $"other one for the rest — {owed} is left to refund altogether.",
-
-                            Plutus.Client.Core.TenderRefusal.OverTenderCapacity =>
-                                $"{lastPickedName} does not have that much left on it. Your basket is still "
-                                + "here — take what it has, then pick another method for the rest. "
-                                + $"{owed} is still to pay.",
-
-                            _ => $"That amount can't settle this. {owed} is still to pay.",
-                        };
-
-                        // ⚠ Through `Modal` for the same reason as the prompts themselves: this
-                        // sits BETWEEN two dialogs, which is precisely where the COMException lived.
-                        // ⚠ `Modal.ShowAsync` needs a Task<T>; a plain three-button DisplayAlert
-                        // returns a bare Task, so it is wrapped rather than bypassed.
-                        await Services.UIHandeling.Modal.ShowAsync(async () =>
-                        {
-                            await Application.Current.MainPage.DisplayAlert(
-                                "Hmm".Translate(), message, "OK".Translate());
-                            return true;
-                        });
-                    });
+                //
+                // ⚠⚠ AND THE ASKING HAS NOW MOVED TOO (2026-08-19). What follows is one call.
+                //
+                // THE ONE-SCREEN CHECKOUT (§5c item 2, 2026-08-19).
+                //
+                // ⚠⚠ MATT: *"I need the functionality and look and feel to be the same across both
+                // tills. So if a user swaps between the two, it doesnt matter and they would
+                // understand how to use it."* That superseded 2026-08-17's *"parity in FUNCTIONALITY,
+                // not in how the functions operate"*, which was the only thing justifying the
+                // sequential prompt chain that used to live here. Every method is now on one screen
+                // with a live Paid / Remaining / Change, exactly like `CheckoutDialog.tsx`.
+                //
+                // ⚠⚠ AND IT KILLS THE DOUBLE-TAKE BY CONSTRUCTION. The loop asked for a method and an
+                // amount over and over, so a capped tender could be picked twice and take its cap each
+                // time — the money defect of 2026-08-19, fixed there with an accumulating guard. One
+                // box per method means there is no second pass to take.
+                //
+                // ⚠ `TenderLoop` IS NOT DELETED. It is still the C1 home of the sequential rules and
+                // is still what a headless caller would use; the arithmetic this screen runs on
+                // (`TenderSettlement`) is the C2 twin of the web till's `tendering.ts`, pinned on both
+                // sides. **Nothing about money is decided in this method.**
+                var tender = await TakeTendersOnOneScreenAsync(sale, payMeths, refundCaps, refundOnly);
 
                 // ⚠ ABANDONED TAKES NOTHING AND LEAVES THE BASKET ALONE. It is not a partial
                 // success: `tender.Payments` is empty by construction. Clearing the basket here
@@ -2790,9 +2555,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 {
                     sale.PaySales.Add(new PaymentMethod_SaleModel
                     {
-                        TempPayMethod = chosenMethods.TryGetValue(taken.MethodName, out var m)
-                            ? m
-                            : payMeths[taken.MethodName](),
+                        // ⚠ A FRESH MODEL PER PAYMENT IS NOW CORRECT (2026-08-19). This used to consult
+                        // a `chosenMethods` cache so two payments on ONE method shared an instance —
+                        // which the sequential loop could produce, because it asked over and over. One
+                        // box per method means one payment per method, so there is nothing to share,
+                        // and the cache was left holding nothing.
+                        TempPayMethod = payMeths[taken.MethodName](),
                         Amount = taken.AmountPence / 100m,
                         Change = taken.ChangePence / 100m,
                     });
@@ -3406,6 +3174,214 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// used — so the money goes back the way it came. Null means "offer everything": either this
         /// is not a refund, or the origin is not on this till and the restriction cannot be
         /// applied. See <see cref="Services.Sales.TillTenders.OfferedForRefund"/>.</param>
+        /// <summary>
+        /// Take the money on ONE screen — §5c item 2, 2026-08-19.
+        ///
+        /// ⚠⚠ THIS METHOD DECIDES NOTHING ABOUT MONEY. It builds the rows, shows the screen, and hands
+        /// back what `Client.Core.TenderSettlement` settled — the C2 twin of the web till's
+        /// `tendering.ts`, pinned on both sides and mutation-checked. Anything here that looks like
+        /// arithmetic is a bug.
+        ///
+        /// ⚠ It returns a <see cref="Plutus.Client.Core.TenderOutcome"/>, the same shape the sequential
+        /// loop returned, so **everything downstream — the sale model, the drawer, the receipt, the
+        /// commit — is untouched by this change.** Replacing how the money is ASKED FOR should not
+        /// reach the code that records it.
+        ///
+        /// ⚠ The gift-card button closes the screen, scans, and REOPENS it. MAUI cannot stack two
+        /// Mopups pages sensibly — the second lands behind the first, which reads as a frozen till —
+        /// so this is the same close-then-reopen dance `CustomerDetailHelper` documents.
+        /// </summary>
+        private async Task<Plutus.Client.Core.TenderOutcome> TakeTendersOnOneScreenAsync(
+            SaleModel sale,
+            Dictionary<string, Func<PaymentMethodModel>> payMeths,
+            IReadOnlyList<SharedKernel.TenderCapacity> refundCaps,
+            bool refundOnly)
+        {
+            // ⚠ Cached so every row reuses the SAME `PaymentMethodModel` instance, as the loop did —
+            // the sale's payment rows point at these, and re-running the factory per row would give
+            // two payments on one method two different objects.
+            var models = payMeths.ToDictionary(kv => kv.Key, kv => kv.Value());
+
+            var (surchargeBp, surchargeFlat) = await Services.Storage.GatewaySurcharge.GetAsync();
+
+            while (true)
+            {
+                var rows = payMeths.Keys.Select(name =>
+                {
+                    var type = SharedKernel.Tenders.FromMethodName(name);
+
+                    // ⚠ ONE RULE ABOUT HOW MUCH A TENDER MAY TAKE, three callers of it — the same
+                    // three the sequential loop had. A cap here is what stops "rest" offering a number
+                    // the redeem would refuse (Matt, 2026-08-19: *"There is No point putting the full
+                    // number in"*), and on a refund it is finding Y's per-tender capacity.
+                    long? cap = null;
+                    if (refundOnly) cap = SharedKernel.RefundRules.CapacityFor(refundCaps, type);
+                    else if (type == SharedKernel.Tenders.Credit) cap = CreditAvailablePence;
+                    else if (type == SharedKernel.Tenders.GiftCard) cap = GiftCardAvailablePence;
+
+                    return new Views.CustomViews.CheckoutAlert.Row
+                    {
+                        // ⚠ A STABLE ID PER METHOD NAME. The settlement keys on it, the change map
+                        // keys on it, and the payment rows are ordered by it — so it must not shuffle
+                        // between one opening of this screen and the next.
+                        PayId = System.Array.IndexOf(payMeths.Keys.ToArray(), name),
+                        Name = name,
+                        IsChangeable = models[name].IsChangeable,
+                        CapPence = cap,
+
+                        // ⚠ SAY THE CEILING, as the web till does — a number the operator cannot use
+                        // should never be a number they have to discover by being refused.
+                        Hint = cap is long c ? $"(up to {(c / 100m):C2})" : null,
+                    };
+                }).ToList();
+
+                var alert = await ShowCheckoutAsync(sale, rows, refundOnly, surchargeBp, surchargeFlat);
+
+                // ⚠ THREE OUTCOMES, NOT TWO. "They want the gift-card box" is not a cancel: the basket
+                // stays, the card is scanned, and the screen reopens with a gift-card row on it.
+                if (alert.WantsGiftCard)
+                {
+                    // ⚠ The EXISTING present-a-card path, unchanged — `TryPresentGiftCardAsync` talks
+                    // to the server, which owns the balance, and already refuses a card this sale may
+                    // not take. This only asks for the code.
+                    await PromptForGiftCardAsync();
+
+                    // ⚠ Rebuilt from `payMeths` next time round the loop, because attaching a card is
+                    // what makes the gift-card tender appear at all (`TillTenders.Offered`).
+                    payMeths = GenPaymentMethodActions(refundOnly ? await OriginTenderTypesAsync() : null);
+                    models = payMeths.ToDictionary(kv => kv.Key, kv => kv.Value());
+                    continue;
+                }
+
+                if (alert.IsAbandoned) return Plutus.Client.Core.TenderOutcome.GaveUp();
+
+                var payments = alert.Payments
+                    .Select(p => new Plutus.Client.Core.TenderPayment(
+                        rows.First(r => r.Name == p.MethodName).Name, p.AmountPence, p.ChangePence))
+                    .ToList();
+
+                return new Plutus.Client.Core.TenderOutcome(
+                    false, payments, alert.ChangePence, 0, Pence.FromDecimal(sale.Total));
+            }
+        }
+
+        /// <summary>
+        /// Ask for a gift-card code, then present it — the checkout's "🎁 Pay with a gift card" button.
+        ///
+        /// ⚠ Matt, 2026-08-19: *"can the Giftcare, go below and say 'Pay with Gift Card' button, which
+        /// then pops the box to scan. There is no point showing it all, unless you ahve a card."*
+        ///
+        /// ⚠⚠ D4 RULE 4 — backing out yields an EMPTY DICTIONARY, not null, so this guards on
+        /// `TryGetValue` failing. A `== null` test here would be dead code that never fires, and
+        /// reading an absent key throws `KeyNotFoundException` from an `async` UI path.
+        ///
+        /// ⚠ It does not decide anything about the card. `TryPresentGiftCardAsync` asks the server,
+        /// which owns the balance, and refuses a card this sale may not take.
+        /// </summary>
+        private async Task PromptForGiftCardAsync()
+        {
+            var viewElements = new[]
+            {
+                new ViewElementData(1, "Gift card code", string.Empty,
+                    new IValidator[] { new RequiredValidator() }.AsEnumerable(),
+                    isPassword: false, isEnabled: true, prefillWithPlaceholder: false),
+            };
+
+            var typed = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                viewElements, "Check card", false, "Pay with a gift card", "Cancel".Translate());
+
+            if (!typed.TryGetValue(1, out var code) || string.IsNullOrWhiteSpace(code)) return;
+
+            await TryPresentGiftCardAsync(code.Trim());
+        }
+
+        /// <summary>
+        /// Show the screen once, applying the CARD FEE live while it is open.
+        ///
+        /// ⚠⚠ THE FEE IS A BASKET LINE, so it is taxed, printed and reported like anything else — and
+        /// so it must go into `Basket`, which is bound to the till screen. The screen therefore says
+        /// *"a card is being used now"* and this adds or removes the line and restates the total.
+        ///
+        /// ⚠ ON THE UI THREAD. `Basket` is an `ObservableCollection` a `CollectionView` is bound to.
+        ///
+        /// ⚠ THE FEE COMES OFF AGAIN when the card row is cleared. The sequential loop could only ever
+        /// add it — pick card, change your mind, and the fee stayed on the basket. On one screen the
+        /// operator can see it appear, so it has to be able to disappear.
+        /// </summary>
+        private async Task<Helpers.CustomViews.CheckoutHelper.Result> ShowCheckoutAsync(
+            SaleModel sale,
+            IReadOnlyList<Views.CustomViews.CheckoutAlert.Row> rows,
+            bool refundOnly,
+            int surchargeBp,
+            long surchargeFlat)
+        {
+            var note = refundOnly
+                ? "↩ This basket returns more than it sells, so it is a refund: enter how much goes "
+                  + "back on each method. The sale is recorded with negative totals."
+                : null;
+
+            var body = new Views.CustomViews.CheckoutAlert(
+                Pence.FromDecimal(sale.Total),
+                rows,
+                note,
+                // ⚠ Not on a refund, not when a card is already held (its row is on screen saying what
+                // it holds), and not when the basket SELLS a card — paying with one in that sale
+                // would launder an expiring balance onto a fresh card. The same three cases the web
+                // till suppresses the button in.
+                offerGiftCard: !refundOnly
+                    && GiftCardAvailablePence == 0
+                    && !Basket.Any(r => r is BasketItem b
+                        && string.Equals(b.Item?.Id, SharedKernel.GiftCards.ItemIdOne,
+                                         StringComparison.OrdinalIgnoreCase)));
+
+            body.CardTenderedChanged += (_, cardNow) =>
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    var had = Services.Storage.CheckoutCommit.HasSurcharge(Basket);
+
+                    if (cardNow && !had)
+                    {
+                        var feeLine = Services.Storage.CheckoutCommit.SurchargeItem(
+                            Basket, surchargeBp, surchargeFlat);
+
+                        // ⚠ Null when the tenant charges no fee, which is the common case — then
+                        // nothing is added and nothing is said.
+                        if (feeLine == null) return;
+                        Basket.Add(feeLine);
+                    }
+                    else if (!cardNow && had)
+                    {
+                        var feeLine = Basket.FirstOrDefault(
+                            b => Services.Storage.CheckoutCommit.HasSurcharge(new[] { b }));
+                        if (feeLine == null) return;
+                        Basket.Remove(feeLine);
+                    }
+                    else
+                    {
+                        return;
+                    }
+
+                    sale.Total = Basket.Sum(bR => bR.Price * (bR.IsReturn ? -1 : 1) * bR.Quantity);
+                    sale.TotalExTax = Basket.Sum(bR => bR.PriceExTax * (bR.IsReturn ? -1 : 1) * bR.Quantity);
+
+                    var fee = Basket
+                        .Where(b => Services.Storage.CheckoutCommit.HasSurcharge(new[] { b }))
+                        .Sum(b => b.Price * b.Quantity);
+
+                    // ⚠⚠ SAY THE FEE, ITEMISED, BEFORE the sale completes. A total that jumps when the
+                    // card row is filled and explains nothing is the surcharge complaint every time.
+                    body.SetTotal(
+                        Pence.FromDecimal(sale.Total),
+                        fee > 0
+                            ? $"💳 Card fee {fee:C2} added — it comes off if the card row is cleared."
+                            : null);
+                });
+            };
+
+            return await Helpers.CustomViews.CheckoutHelper.ShowAsync(body);
+        }
+
         private Dictionary<string, Func<PaymentMethodModel>> GenPaymentMethodActions(
             IReadOnlyCollection<byte> refundToTenderTypes = null)
         {
