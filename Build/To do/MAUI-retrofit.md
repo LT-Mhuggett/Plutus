@@ -178,29 +178,36 @@ have a suite that reports coverage it does not have.
 
 ## Where it stands
 
-**Counted from Part B, not estimated — recounted 2026-08-16: 77 capability rows.**
-**42 ✅ both tills · 8 MAUI ⬜ · 14 MAUI 🟡 · 7 where MAUI is AHEAD of the web till.**
+**Counted from Part B, not estimated — recounted 2026-08-19: 85 capability rows.**
+**50 ✅ both tills · MAUI ✅58 🟡17 ⬜3 · web ✅67 🟡9 ⬜1.**
 
-⚠ **Recounted 2026-08-16 after steps 27 and 26.** The ⬜ column halved because step 27 (loyalty, gift
-cards, store credit) and step 26 (reporting, tables, cross-till lookup, receipt template) landed —
-but **almost everything they moved went to 🟡, not ✅**, because NO PERSON HAS RUN ANY OF IT. 🟡 here
-means "built, tested where testable, unverified on screen". Five status markers were found wrong in
-one week; a sixth is not being added by calling untested screens done.
+⚠ **The shape of what is left has CHANGED, and the headline number with it.** On 2026-08-16 the block
+here read "77 rows, 42 ✅ both, 8 MAUI ⬜, 14 MAUI 🟡" and put ≈35–40 days on the board, two thirds of
+it in steps 26 and 27. **Both of those have landed.** MAUI's ⬜ column has gone 8 → **3**.
 
-⚠ **Recount, not a re-estimate.** Two rows were added 2026-08-14 (the discount audit trail, ✅ both;
-the discount ceiling + step-up, ⬜ on the **web** till), and **refund-only baskets moved ⬜ → ✅ on
-2026-08-16 having been built for some time** — the fifth stale marker in a week. ⚠ **The gap is now
-as much about the WEB till as MAUI**: seven rows where MAUI leads, against fifteen where it trails.
+⚠⚠ **So the risk is no longer unbuilt features — it is UNVERIFIED ones.** 17 MAUI rows sit at 🟡:
+*built, tested where testable, unverified on screen.* That is the largest single block on the board and
+**no amount of building reduces it** — only a person running the till does. **Fifteen hand-run sections
+(§G38–§G52) have never been run by anybody.**
+
+⚠ **The evidence that 🟡 is the honest marker and not pessimism**: everything found by hand in the last
+two days was in code that passed its tests. A tender could take its cap twice (money, live on store
+credit) — `TenderLoop` had 19 green tests. Every `⚠` in the biggest viewmodel had been byte-corrupted
+for eight days, reaching a customer-facing dialog — every suite green throughout, and the corruption had
+even been *triaged* and written off as cosmetic. Seven status markers have now been found wrong in
+under two weeks; an eighth is not being added by calling untested screens done.
 
 | | |
 |---|---|
-| **Till build to run** | **`D:\tmp\plutus-till-1.51.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe. ⚠ **Six builds on 2026-08-13, each fixing what the next test found:** 1.48.0 could not take a sale (U) · 1.49.0 crashed on a card overpay (V) · 1.49.1 said nothing during a split payment (W) · 1.49.2 let a closed day take items from the item list (X) · 1.49.3 and 1.50.0 let a split-paid refund go on one card (Y). ⚠ **§A and §B are run through** (C needs two people) — **open: [Y](#1-open-faults--before-any-new-work)'s web-till half, and Z1–Z5** |
-| **Versions** | till-maui **1.52.0** · backend **1.16.0** (deployed) · platform **1.30.0** · portal **1.8.0** (deployed) · till-web **1.7.0** (deployed) · agent **1.3.3** |
-| **Deploy state** | ⚠ **Nothing MAUI-side is blocked on a deploy.** Every backend endpoint the remaining steps need is live on the test environment |
-| **Suite** | Unit **907** · Integration **169** · Architecture **15** · AppClient **425** (+3 skipped) · web till **19** — all green |
+| **Till build to run** | **`D:\tmp\plutus-till-1.97.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe. ⚠ **The only build on the box**; every earlier one is deleted so there is no ambiguity. ⚠ Treat the FOLDER LISTING as the truth — the version written in prose has been wrong twice in one day. |
+| **Versions** | till-maui **1.97.0** (built, on the box) · backend **1.17.8** *live* / **1.17.9** committed **NOT deployed** · platform **1.47.0** · portal **1.10.0** (deployed) · till-web **1.19.0** (deployed) · agent **1.4.0** |
+| **Deploy state** | ⚠ **One thing is waiting: backend 1.17.9**, the per-report endpoint re-gate (5b(b)). Nothing else is blocked on a deploy, and nothing already deployed needs 1.17.9 to keep working — it only WIDENS the report gates, so the tills run correctly against 1.17.8 today. ⚠ Verified live: `GET /api/v1/ping` reports `1.17.8`. |
+| **Suite** | Unit **1385** · Integration **177** · Architecture **24** · AppClient **605** (+3 skipped) · web till **240** (14 files) — **2,431 green, 2026-08-19**. ⚠ Architecture gained `ReportGateTests` (the report door matches the menu) and `SourceEncodingTests` (no re-encoded UTF-8 in source), both mutation-checked. |
+| **Repo** | 7 commits ahead of `upstream/Matt's-Horror`, unpushed. ⚠ `origin` still refuses a push over a 151 MB blob in old history — unchanged, and history surgery on a shared repo is not a side quest. |
 
-**≈35–40 working days remain.** Two thirds of it is two items: **step 27 (12–15d)** and
-**step 26 (8–10d)**.
+**≈14–19 working days of BUILD remain** — checkout seam + dialog contract (1–2d, and Matt has ruled the
+one-screen checkout is *not* a functional gap), 5b(a) portal report curation (2–3d), §5c item 9's inline
+controls (1d), plus the ⬜/🟡 tail. ⚠ **The hand-run is not in that number and cannot be done by me.**
 
 ---
 
