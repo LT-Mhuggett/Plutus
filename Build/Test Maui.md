@@ -4046,3 +4046,64 @@ Refund a sale that was paid **£2.00 cash + £2.40 card** (the §A4b sale).
 
 ⚠ **No change on a refund, ever** — hand back exactly what is owed. Typing £5.00 against cash must
 refuse with *"That's more than the refund owes — hand back exactly £4.40."*
+
+---
+
+## G59. Typing a member number attaches the member — **till 1.105.0 + web 1.25.0**, WP-T2
+
+> Matt, testing 1.101.0: *"How do I get the credit though? I have people with credit. But there is no
+> way to select them?"*
+>
+> Typing a member number used to answer **"We can't find an item with that ID"** — a missing `C` prefix
+> reported as a broken scanner. This is the fix, and it is on both tills.
+
+### G59a. A bare member number, typed into the scan box
+
+Take a member's number from the Loyalty tab — say `000482P`. In the till's scan box type **482** and
+press Enter.
+
+**✅ Expected: it ASKS** — *"Nothing in the catalogue matches "482", but it looks like member number
+000482P. Attach that member to this sale?"* Say **Attach**.
+
+**✅ Expected: the member is attached**, their chip appears, and their discount and store credit become
+available.
+
+⚠ Then do the same on the **other till**. **✅ Expected: the same question, in the same words.**
+
+⚠ Try the other forms too — all of these must reach the same member: `000482P`, `C000482P`,
+`c000482p`, `000-482-P`, `000482`, and `482`.
+
+### G59b. It asks, and taking "no" leaves you where you were
+
+Type **482** again and answer **Cancel**.
+
+**✅ Expected: no member attached, and you get the normal "nothing found" answer** — including the offer
+to add it to the catalogue if you have permission.
+
+⚠ It asks on purpose: a six-digit code is often just a mistype, and silently attaching a stranger — with
+their discount and their credit on offer — is worse than one extra tap.
+
+### G59c. ⚠⚠ A mistyped number is REFUSED, not looked up
+
+Type **000482Z** (the right digits, the wrong check character).
+
+**✅ Expected: NO member offered.** You get "nothing found".
+
+Now type **000483P** (one digit out).
+
+**✅ Expected: NO member offered**, or a *different* member if 483 genuinely exists — but never 482's.
+
+⚠⚠ **This is the check character doing its job**, and it is the whole reason this is a real port and not
+a pattern match. Without it, one mis-keyed digit attaches somebody else's account — with their discount
+and their store credit — to this sale.
+
+### G59d. A product barcode is still a product
+
+Scan an ordinary product barcode, and then a 13-digit EAN that is not in the catalogue.
+
+**✅ Expected: the product rings up as normal; the unknown EAN offers to be added as an item and is
+NEVER offered as a member.**
+
+⚠⚠ **This is the collision the whole design guards against.** The strict scan test still demands the
+`C` prefix, and the loose parser only runs after the catalogue has already failed to match — so a real
+barcode can never be hijacked into a customer lookup.

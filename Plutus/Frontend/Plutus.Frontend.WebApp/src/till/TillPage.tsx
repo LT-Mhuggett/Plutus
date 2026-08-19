@@ -9,6 +9,7 @@ import { requestNewItem } from "../newItemHandoff.ts";
 import { gbp, parsePence } from "../money.ts";
 import { useBasket, basketTotals, lineDiscountPence, lineTotalPence, type BasketState } from "./basket.ts";
 import { getPrefs } from "../prefs.ts";
+import { tryCanonicalise } from "../memberNumbers.ts";
 import { agentAvailable, openDrawer, printDocument } from "../hardware.ts";
 import { receiptToDocument } from "./receiptDoc.ts";
 import { ask } from "../Ask.tsx";
@@ -321,6 +322,44 @@ export default function TillPage() {
       }
       const found = await searchItemsOfflineAware(term); // all matches — the list scrolls
       if (found.length === 0) {
+        // ⚠⚠ WP-T2 — A BARE MEMBER NUMBER, TYPED, ATTACHES ITS MEMBER (2026-08-19).
+        //
+        // Matt: *"How do I get the credit though? I have people with credit. But there is no way to
+        // select them?"* Typing a member number used to answer "Nothing found" — a missing `C` prefix
+        // reported as a missing product.
+        //
+        // ⚠⚠ SAFE HERE AND NOWHERE EARLIER. `MEMBER_CARD` above is strict on purpose: it demands the
+        // `C` prefix so a six-digit PRODUCT barcode can never be hijacked into a customer lookup.
+        // `tryCanonicalise` is the loose one, and it runs only after BOTH the exact lookup and the
+        // search have failed — so a real barcode has already been found and the collision is
+        // impossible by construction. The strict test stays exactly as it is.
+        //
+        // ⚠ It ASKS. A six-digit code is often just a mistype, and silently attaching a stranger —
+        // with their discount and their credit on offer — is worse than one extra tap. MAUI's twin
+        // asks in the same words.
+        const memberNo = tryCanonicalise(term);
+        if (memberNo) {
+          const matches = await searchCustomers(memberNo);
+          if (matches.length === 1) {
+            const go = await ask.confirm({
+              title: "Member number?",
+              body: (
+                <p>
+                  Nothing in the catalogue matches “{term}”, but it looks like member number{" "}
+                  <strong>{memberNo}</strong> — {matches[0].name}. Attach them to this sale?
+                </p>
+              ),
+              confirmLabel: "Attach",
+            });
+            if (go) {
+              await attachCustomer(matches[0].id);
+              setScan("");
+              setNotice(`Member ${matches[0].name} attached.`);
+              return;
+            }
+          }
+        }
+
         setNotice(`Nothing found for “${term}”`);
         // A scanned barcode that matches nothing is usually new stock, so offer to create it
         // rather than making the cashier retype the code in Inventory (see newItemHandoff.ts).

@@ -3266,6 +3266,45 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         }
 
         /// <summary>
+        /// A code the catalogue does not know, that IS a member number — attach that member (WP-T2).
+        ///
+        /// ⚠ Returns true when it handled the code, so the caller stops rather than also offering to
+        /// create an item with it.
+        ///
+        /// ⚠⚠ IT ASKS FIRST. A six-digit code that is both a plausible member number and a genuine
+        /// mistype is common, and silently attaching a stranger to somebody's sale — with their
+        /// discount and their credit on offer — is a worse failure than one extra tap. The web till's
+        /// twin asks in the same words.
+        ///
+        /// ⚠ `TryCanonicalise` NORMALISES as well as validating (it is what turns `482` into the full
+        /// number with its check character), so the lookup runs on its answer, never on the raw text.
+        ///
+        /// ⚠ A member number that canonicalises but matches NOBODY falls through to the item offer —
+        /// the code was not a member after all, and saying "no such member" would be a dead end where
+        /// "shall I add this item?" is a route forward.
+        /// </summary>
+        private async Task<bool> TryAttachTypedMemberNumberAsync(string typed)
+        {
+            if (SharedKernel.MemberNumbers.TryCanonicalise(typed) is not string memberNo) return false;
+
+            var confirmed = await Application.Current.MainPage.DisplayAlert(
+                "Member number?".Translate(),
+                string.Format(
+                    "Nothing in the catalogue matches “{0}”, but it looks like member number {1}. "
+                    + "Attach that member to this sale?".Translate(),
+                    typed, memberNo),
+                "Attach".Translate(),
+                "Cancel".Translate());
+
+            if (!confirmed) return false;
+
+            // ⚠ THE SAME ATTACH PATH A SCAN USES — it searches, disambiguates and reports "no match"
+            // in one place. A second attach route is how two ways of doing one thing come to disagree.
+            await SearchAndAttachAsync(memberNo);
+            return true;
+        }
+
+        /// <summary>
         /// Ask for a gift-card code, then present it — the checkout's "🎁 Pay with a gift card" button.
         ///
         /// ⚠ Matt, 2026-08-19: *"can the Giftcare, go below and say 'Pay with Gift Card' button, which
@@ -3531,6 +3570,27 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         private async Task OfferToAddUnknownAsync(string barcode)
         {
             var typed = (barcode ?? "").Trim();
+
+            // ⚠⚠ WP-T2 — A BARE MEMBER NUMBER, TYPED, ATTACHES ITS MEMBER (2026-08-19).
+            //
+            // Matt, testing 1.101.0: *"How do I get the credit though? I have people with credit. But
+            // there is no way to select them?"* Typing a member number returned *"We can't find an item
+            // with that ID"* — a missing `C` prefix reported as a broken scanner.
+            //
+            // ⚠⚠ WHY IT IS SAFE HERE AND WOULD NOT BE ON THE SCAN ROUTER. `LooksLikeMemberScan` is
+            // strict on purpose: it demands the `C` prefix so a six-digit PRODUCT barcode can never be
+            // hijacked into a customer lookup. `TryCanonicalise` is the loose one — it accepts a bare
+            // `482` for somebody reading a card down the phone — and it runs **only after the item
+            // lookup has already failed**, so the collision the strict test guards against is
+            // impossible by construction: a real product barcode would have been found.
+            //
+            // ⚠ THE STRICT TEST STAYS. It is what protects the scan path, and it is mutation-checked.
+            // This adds a second, later door; it does not widen the first one.
+            //
+            // ⚠ Before the offer to CREATE an item, because "that is a member number" is a better
+            // answer than "shall I add it to the catalogue?" — and creating an item called `482` is
+            // exactly the ghost barcode that offer exists to prevent.
+            if (await TryAttachTypedMemberNumberAsync(typed)) return;
 
             var allowed = Services.Security.TillGate.Check(
                 App.GetViewModel().SignedInOperator, PermissionCatalogue.PortalPricesManage).Allowed;

@@ -173,7 +173,29 @@ say so rather than quietly doing something else.**
 > L2/L4's to delete, and painting them is how dead code starts looking maintained.
 > ⚠ Sizing: T1.1+T1.3 ≈ ½ d; T1.2 ≈ 1 d including the C2 twin and vectors; T1.4 ≈ ½ d.
 
-### 0.3d ⚠ WP-T2 — a member can only be attached by SCANNING (2026-08-19)
+### 0.3d ✅ WP-T2 — CLOSED 2026-08-19 (till 1.105.0 + web till 1.25.0)
+
+> ✅ **Done, on both tills.** When a code is not found in the catalogue AND `TryCanonicalise` accepts it
+> as a member number, the till **asks** whether to attach that member — before it offers to create an
+> item with the code, because creating an item called `482` is exactly the ghost barcode that offer
+> exists to prevent.
+>
+> ⚠⚠ **The web till had NO member-number logic at all**, only its `MEMBER_CARD` shape regex, so the
+> "twin" was one-sided. `memberNumbers.ts` is a real port of `SharedKernel.MemberNumbers` — check
+> character, 7/3/1 weights, Crockford folding, the six-digit ceiling — with 10 vitest vectors matching
+> `MemberNumberTests`. See till-design **C2**.
+>
+> ⚠ **It ASKS rather than attaching silently**, on both tills and in the same words. A six-digit code is
+> often just a mistype, and putting a stranger's discount and store credit on somebody else's sale is
+> worse than one extra tap.
+>
+> ⚠ **The strict scan test is untouched.** `LooksLikeMemberScan` / `MEMBER_CARD` still demand the `C`
+> prefix; the loose parser is reachable only after the item lookup has already failed, so the collision
+> the strict test guards against is impossible by construction rather than merely unlikely.
+>
+> The original analysis follows.
+
+#### ⚠ The original finding — a member can only be attached by SCANNING (2026-08-19)
 
 > Matt, testing 1.101.0: *"How do I get the credit though? I have people with credit. But there is no way
 > to select them?"*
