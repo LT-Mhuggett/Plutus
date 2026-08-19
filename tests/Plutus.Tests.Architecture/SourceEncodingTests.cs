@@ -63,7 +63,13 @@ public class SourceEncodingTests
             "Quotes `ÃÂ¢ÃÂÃÂ` verbatim while recording that the corruption was noticed on 2026-08-17 — and "
             + "wrongly dismissed as comments-only. The quotation is the evidence; it stays.",
         [Path.Combine("Build", "repo-runbook.md")] =
-            "The pitfall entry showing what the corruption looks like and how to detect it.",
+            "Pitfall 20 shows what the corruption looks like and how to detect it.",
+        [Path.Combine("Build", "Test Maui.md")] =
+            "§G52 quotes the garbled dialog verbatim so the person hand-running the till can recognise it "
+            + "on screen — 'if you see any run of Ã, Â, ¢ around the number, the build is older than "
+            + "1.97.0'. A description alone would not let them match what they are looking at. ⚠ Added "
+            + "2026-08-19 after this very test caught §G52 minutes after it was written, which is the "
+            + "test working: the doc commit had not re-run this suite.",
         [Path.Combine("tests", "Plutus.Tests.Architecture", "SourceEncodingTests.cs")] =
             "This file: the doc comment above quotes the corrupted form on purpose.",
     };
