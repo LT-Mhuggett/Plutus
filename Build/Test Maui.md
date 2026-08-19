@@ -46,7 +46,7 @@ on 2026-08-11 came from somebody noticing something, not from a step asking the 
 
 | | |
 |---|---|
-| **Run** | ✅ `D:\tmp\plutus-till-1.96.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT and verified inside the binary** (`1.96.0+6e659aa4` = HEAD; the new refusal wording and `RefundRules.CapacityFor` both confirmed present, against a control string that predates them). ⚠ **The only build on the box** — 1.94.0 and 1.95.0 deleted. ⚠⚠ **START WITH §G50** — it is the money fix, and §G50a takes two minutes. ⚠ This line read `1.94.0` while 1.95.0 was on the box; the version here is stale the moment a build lands, so treat the folder listing as the truth. ⚠⚠ **NEEDS BACKEND 1.17.8** and **web till 1.18.0**, both deployed. ⚠⚠ **THE "PLUTUS" TAB IS GONE** — it is now **Settings → Till device → Connection, enrolment & diagnostics**, the same screen. If you go looking for the tab, that is why. ⚠ It will say the till isn't enrolled; expected for an unpackaged build. |
+| **Run** | ✅ `D:\tmp\plutus-till-1.97.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT and verified inside the binary** (`1.97.0+bbbd21b3` = HEAD): the repaired text is present, **the corrupted form is gone**, and 1.96.0's tender-cap refusal wording is still in there. ⚠ **The only build on the box** — 1.94.0–1.96.0 deleted. ⚠⚠ **START WITH §G52, then §G50.** §G52 is the garbled text Matt photographed (30 seconds); §G50 is the money fix and §G50a takes two minutes. ⚠ This line read `1.94.0` while 1.95.0 was on the box, and read `1.96.0` in the path while the version said `1.97.0`; the numbers in this prose go stale the moment a build lands, so **treat the folder listing as the truth**. ⚠⚠ **NEEDS BACKEND 1.17.8** (1.17.9 is built but NOT deployed) and **web till 1.19.0**, deployed. ⚠⚠ **THE "PLUTUS" TAB IS GONE** — it is now **Settings → Till device → Connection, enrolment & diagnostics**, the same screen. If you go looking for the tab, that is why. ⚠ It will say the till isn't enrolled; expected for an unpackaged build. |
 | **Agent** | ⚠ **Agent 1.4.0 is REQUIRED for §G29**, and it fixes "start automatically" not working after a reboot. Get it from the **web till → Settings → Hardware → Download the agent (v1.4.0)**, or from `tools\Plutus.TillAgent\publish-out\PlutusTillAgent-1.4.0.exe`. ⚠⚠ **Copy it to `%LOCALAPPDATA%\Plutus\Agent\` and run it from THERE — not from Downloads.** Auto-start records the path it was launched from; a Downloads copy gets cleaned up or renamed `… (1).exe`, and then the till boots and starts nothing. That is the fault this build fixes, and running it once from a permanent folder repairs a stale registration. |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
@@ -3305,3 +3305,54 @@ As **Supervisor**, do a return that needs the sale looked up (scan a receipt).
 (`/api/v1/sales/{saleId}`) is gated for **three** different reasons — portal financials, the till's
 reports, and `pos.refund` — and it was the one gate the mechanical re-gate skipped, because its shape
 differs from the other eight. It was fixed by hand; this step is what proves it.
+
+---
+
+## G52. ⚠⚠ The text a customer can read. **Till 1.97.0** — 30 seconds, do it first
+
+> ⚠ This is the one Matt photographed. Between 2026-08-11 and 2026-08-19 every MAUI build carried
+> text whose punctuation had been byte-corrupted, so a customer-facing dialog read
+> *"Nothing in the catalogue matches ÃÂ¢ÃÂÃÂ759606210602ÃÂ¢ÃÂÃÂ."* The barcode was always fine —
+> what was broken was the quotation marks around it.
+
+### G52a. The barcode dialog — the exact case from the photo
+
+Till screen → scan (or type) a barcode that is **not** in the catalogue, e.g. `759606210602`.
+
+**✅ Expected:** *Nothing in the catalogue matches “759606210602”.* with **proper curly quotes**, and a
+button reading **Add it to the catalogue…** with a real ellipsis.
+
+**❌ The fault:** any run of `Ã`, `Â`, `¢` characters around the number. If you see them, the build is
+older than 1.97.0 — check the folder name.
+
+### G52b. ⚠ It was never only that one dialog — check the lists
+
+The same corruption hit the separator characters in every list built from those strings. Check:
+
+- **Retrieve / sale history** — each row should read `19 Aug 14:32 · £12.40 · ITEM123`, with a clean
+  middle dot between the fields.
+- **The member picker** (Loyalty → attach a member) — `Name · MEMBER-ID · £4.50`.
+- **Search results** with more matches than fit — *"Showing the first N matches — type more to narrow
+  it down"*, with a real em dash.
+
+**✅ Expected: clean dots and dashes everywhere.** ⚠ These are the ones nobody would think to check,
+which is why they are listed: the original triage of this bug concluded "comments only, no behavioural
+effect" and was wrong on exactly this point.
+
+### G52c. Two sentences that only appear when something goes wrong
+
+Harder to reach, so just read them if you happen to trip them — do not go out of your way:
+
+- Take a payment and cause it to fail → *"Something went wrong taking payment. Your basket is still
+  here — please try again."* (em dash, not `ÃÂ¢ÃÂÃÂ`).
+- Return an item bought on a different till → *"Sold on another till — look it up in Plutus…"*
+
+### G52d. Nothing that was RIGHT got broken
+
+⚠ The repair moved 265 byte-runs, so the check that matters is that correct characters survived:
+
+- **Every price still shows a `£`** — on the basket, the receipt, the reports. There were 27 pound
+  signs in the repaired file and a careless fix would have turned them into noise.
+- **The `⚠` and `—` in the till's own screens** read properly wherever they appear.
+
+**✅ Expected: no change at all from what you saw in 1.96.0**, other than the garbage being gone.
