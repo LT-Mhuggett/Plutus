@@ -70,6 +70,11 @@ export default function CheckoutDialog(
   const [card, setCard] = useState<GiftCardLookup | null>(null);
   const [cardBusy, setCardBusy] = useState(false);
   const [cardError, setCardError] = useState("");
+  // ⚠ The gift-card box is CLOSED until asked for (2026-08-19). Matt: *"can the Giftcard go below
+  // and say Pay with Gift Card button, which then pops the box to scan. There is no point showing it
+  // all, unless you have a card."* Most sales involve no gift card, and a permanently-open scan box at
+  // the top of the checkout is the first thing an operator reads on every single sale.
+  const [cardOpen, setCardOpen] = useState(false);
   // Selling a card and paying with one in the same sale would launder an expiring balance into a
   // fresh card, so the tender is not offered when the basket contains an activation.
   const sellingACard = lines.some((l) => l.giftCardCode);
@@ -272,9 +277,18 @@ export default function CheckoutDialog(
     // that doesn't cover the whole basket, and filling the full remainder would just be refused.
     // ⚠ FINDING Y: on a refund the ceiling is what THIS METHOD took on the original sale, so "rest"
     // fills a number that will be accepted rather than one the gate is about to refuse.
+    // ⚠⚠ STORE CREDIT IS CAPPED AT THE BALANCE TOO (2026-08-19). Matt: *"the 'Rest' button needs to
+    // only ever put the max credit they have at the time in. There is No point putting the full number
+    // in."* He is right, and the argument is the one written two lines above for the gift card —
+    // "filling the full remainder would just be refused" — which was made for one balance-backed tender
+    // and not the other. A £76 basket against £10 of credit filled £76, which the redeem then refuses.
+    // ⚠ MAUI has capped this since the tender-cap work: `capPence = CreditAvailablePence`, and the
+    // amount prompt pre-fills the SMALLER of that and the balance. The web till was the odd one out.
     const rowCap = id === GIFTCARD_PAYID
       ? card?.balancePence ?? 0
-      : refunding ? capacityFor(caps, tenderTypeFor(rows.find((m) => m.id === id)?.name ?? "")) ?? undefined : undefined;
+      : id === CREDIT_PAYID
+        ? customer?.creditBalancePence ?? 0
+        : refunding ? capacityFor(caps, tenderTypeFor(rows.find((m) => m.id === id)?.name ?? "")) ?? undefined : undefined;
     const cap = restFor(owed, paid, own, rowCap ?? undefined);
     setAmounts((a) => ({ ...a, [id]: (cap / 100).toFixed(2) }));
   }
@@ -389,21 +403,30 @@ export default function CheckoutDialog(
               remove
             </button>
           </p>
-        ) : (
+        ) : cardOpen ? (
           <div className="setting-row">
-            <span className="grow small">🎁 Paying with a gift card? Scan or type the code.</span>
+            <span className="grow small">🎁 Scan or type the gift-card code.</span>
             <input
               className="pref-input"
               placeholder="e.g. K7QP-2M9W-XT4R-8"
               value={cardInput}
+              // ⚠ Focused on open, because the operator's next act is a SCAN — a box that needs
+              // clicking first turns a scanner into a keyboard that types into nothing.
+              autoFocus
               onChange={(e) => setCardInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void checkCard(); } }}
             />
             <button className="ghost" disabled={cardBusy || !cardInput.trim()} onClick={() => void checkCard()}>
               {cardBusy ? "Checking…" : "Check card"}
             </button>
+            <button
+              className="ghost small"
+              onClick={() => { setCardOpen(false); setCardInput(""); setCardError(""); }}
+            >
+              Cancel
+            </button>
           </div>
-        )}
+        ) : null}
         {cardError && <p className="error small">{cardError}</p>}
 
         <div className="pay-methods">
@@ -413,6 +436,10 @@ export default function CheckoutDialog(
                 {m.name}
                 {m.isChangeable && <span className="muted small"> (gives change)</span>}
                 {m.id === GIFTCARD_PAYID && <span className="muted small"> (up to {gbp(card?.balancePence ?? 0)})</span>}
+                {/* ⚠ Say the ceiling on the credit row too, for the same reason it is said on the gift
+                    card: "rest" now fills at most this, so a number the redeem would refuse is never
+                    offered. Matt: *"There is No point putting the full number in."* */}
+                {m.id === CREDIT_PAYID && <span className="muted small"> (up to {gbp(customer?.creditBalancePence ?? 0)})</span>}
               </span>
               <button className="ghost small" tabIndex={-1} onClick={(e) => { e.preventDefault(); quickFill(m.id); }}>
                 rest
@@ -426,6 +453,20 @@ export default function CheckoutDialog(
             </label>
           ))}
         </div>
+
+        {/* ⚠⚠ BELOW THE TENDERS AND CLOSED BY DEFAULT (2026-08-19). Matt: *"can the Giftcard go below
+            and say Pay with Gift Card button, which then pops the box to scan. There is no point showing
+            it all, unless you have a card."* Most sales involve no gift card, and the scan box used to be
+            the FIRST thing on the checkout screen — read past on every single sale.
+
+            ⚠ Hidden entirely while a card is already attached (the row above says what it holds) and
+            while the basket is SELLING a card — paying with one in that sale would launder an expiring
+            balance onto a fresh card, which is why the tender is refused there anyway. */}
+        {!card && !cardOpen && !sellingACard && !refunding && (
+          <button className="ghost" onClick={() => { setCardOpen(true); setCardError(""); }}>
+            🎁 Pay with a gift card
+          </button>
+        )}
 
         <div className="totals">
           <div className="row muted">

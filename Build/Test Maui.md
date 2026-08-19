@@ -3181,6 +3181,14 @@ before the move — a setting that changes what a button sells is not a cashier'
 
 ### G50a. ⚠⚠ Store credit cannot be spent twice on one basket — **the live one, do this first**
 
+> ⚠⚠ **THIS SECTION IS THE MAUI TILL ONLY — and my wording sent Matt to the wrong one.** He tried it
+> on the web till and reported: *"I cannot take it twice? I cannot complete a sale."* **Correct on that
+> till, and not a fault.** The web till has ONE ROW PER METHOD, so store credit physically cannot be
+> tendered twice — that shape is why the bug could only ever exist on MAUI, whose sequential prompts let
+> the same method be picked again. The web till never needed the fix; it needs the §G50g check below
+> instead. And "cannot complete a sale" with money still outstanding is the till working: £5 of credit
+> against a £76 basket leaves £71 to pay by another method before Complete will light up.
+
 Attach a member with **£5.00** of store credit. Ring up a basket of **£10.00**. Checkout →
 **Store credit** → take the £5.00 it offers. The prompt should pre-fill **£5.00** (not £10.00).
 
@@ -3708,3 +3716,39 @@ comment now describes a route that no longer exists. Recorded as **WP-T2** in §
 **Then:** Store credit appears in the payment sheet only once the attached member has a balance **> 0**
 (§G56h). So the order for §G50a / §G53a is: grant credit in Loyalty → confirm the balance → attach with
 `C…` at the till → checkout.
+
+### G50g. The web till's equivalent — one row, and it cannot exceed the balance
+
+The web till cannot express §G50a's double-take (one row per method), so its check is the CEILING.
+
+Attach a member with **£10.00** of credit, ring a **£76.48** basket, Checkout.
+
+**✅ Expected: the Store credit row says "(up to £10.00)"**, and pressing **rest** fills **£10.00** — not
+£76.48.
+
+⚠⚠ **Before 2026-08-19 "rest" filled the whole basket.** Matt: *"the Rest button needs to only ever put
+the max credit they have at the time in. There is No point putting the full number in."* The gift-card
+row had been capped at its balance since FE7, with the comment *"filling the full remainder would just
+be refused"* — the identical argument, made for one balance-backed tender and not the other. MAUI has
+capped this since the tender-cap work (`capPence = CreditAvailablePence`), so the web till was the odd
+one out.
+
+⚠ Then type £11.00 by hand. **✅ Expected: refused — "Store credit exceeds the customer's balance"** —
+the cap is on "rest", not instead of the guard.
+
+### G50h. The gift-card box is behind a button now, on BOTH tills
+
+Web till → Checkout with no card involved.
+
+**✅ Expected: NO scan box on screen.** Below the tender rows there is a **"🎁 Pay with a gift card"**
+button; pressing it opens the box (focused, ready for a scan) with a Cancel beside it.
+
+⚠ Matt: *"There is no point showing it all, unless you have a card."* The box used to be the FIRST thing
+on the checkout screen, read past on every sale that involved no gift card.
+
+**✅ MAUI already behaves this way** — its Gift card tender appears only once a card has been scanned and
+found spendable (`GiftCardAvailablePence > 0`), so nothing changed there. The web till was the outlier.
+
+⚠ The button is hidden while a card is already attached (the row above states its balance), while the
+basket is SELLING a card, and on a refund — paying with a card in a sale that sells one would launder an
+expiring balance onto a fresh card.
