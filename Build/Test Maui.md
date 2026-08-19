@@ -3599,3 +3599,29 @@ screen with.
 **✅ And every dialog's ✕ is visible** — `DialogHeader` hardcoded it BLACK (1.23:1 on a dark dialog), on
 the very control D4 mandates. It reads `ThemeInk` now. Open any dialog (price adjust is the quickest)
 under the dark theme and look for the ✕.
+
+### G56e. ⚠⚠ Loyalty → Edit details / Grant credit actually OPEN
+
+Loyalty → tap a member → **Edit details**. Then reopen and try **Grant credit**.
+
+**✅ Expected: the detail dialog closes and the next dialog opens.** The close is by design — two
+Mopups pages cannot stack — but something must arrive after it.
+
+**❌ The fault (1.100.0 and earlier):** *"the screen just closes"*. `OpenCustomerAsync` held `IsBusy`
+while dispatching `ExecuteEditMember`, whose own first line is `if (IsBusy) return;` — so it hit the
+flag its own caller was holding and returned **silently**. Nothing opened, nothing threw, nothing
+logged.
+
+⚠ **Print card was the tell**: it worked, because it is the one of the three that does not guard on
+`IsBusy`. If Edit and Grant fail while Print works, this is the fault.
+
+⚠ Then check **Grant credit actually grants** — the whole point is a member with credit for §G50a and
+§G53a, so finish by confirming the balance moved and the reason shows in History.
+
+### G56f. "Try again" on the printer dialog is not a dead button
+
+Settings → **Receipt printer** with the Plutus Till Agent **not running**. The sheet offers
+*"Try again"*. Start the agent, then press it.
+
+**✅ Expected: it looks again and finds the agent.** ⚠ Before the fix it did nothing at all — the same
+`IsBusy` fault, found by sweeping for the shape after §G56e rather than by anyone reporting it.

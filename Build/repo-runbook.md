@@ -455,6 +455,47 @@ is needed before anyone installs this on a shop PC, and is not needed to test.
     2026-08-17 handover recorded it as *"Comments only, no behavioural effect, and confined to that one
     file (checked every `.cs` and `.xaml` in the repo)"*. It was 14 code lines out of 206, at least six
     of them strings a shopkeeper reads, across **three** files. This is not auditable by eye.
+21. ⚠⚠ **NEVER DISPATCH AN `IsBusy`-GUARDED ACTION FROM INSIDE THE GUARD — IT RETURNS SILENTLY.**
+    Every `Execute…` in the MAUI viewmodels opens `if (IsBusy) return;` and then sets it. So a method
+    that holds the flag and calls another one is calling into a guard **its own caller is holding**: the
+    target returns immediately, nothing opens, nothing throws, nothing logs. The operator sees the
+    dialog they were on close and then nothing at all.
+
+    **Three occurrences, and the third was reported from a shop floor.** Matt, on 1.100.0: *"in Loyalty,
+    when I try to edit details or grant credit, the screen just closes."* `OpenCustomerAsync` dispatched
+    `ExecuteEditMember` from inside its own `try`. The same fault had **already been found and fixed** in
+    `TillViewModel.ExecuteAlterTransaction`, whose comment names the mechanism precisely — and the
+    Loyalty code written afterwards reintroduced it. A sibling sweep then found a third in
+    `ExecuteChangePrinter`, where "Try again" invoked itself and did nothing.
+
+    ⚠ **The guards are RIGHT and must stay** — they are what stops a double-tap opening two dialogs.
+    What is wrong is the dispatch site.
+
+    ```csharp
+    // ⚠ WRONG — the target's guard sees the flag this method is holding
+    IsBusy = true;
+    try { var outcome = await ShowDialogAsync(); if (outcome == Edit) ExecuteEdit(row); }
+    finally { IsBusy = false; }
+
+    // ✅ RIGHT — record the decision, act after the flag is released
+    var chosen = Outcome.Closed;
+    IsBusy = true;
+    try { chosen = await ShowDialogAsync(); }
+    finally { IsBusy = false; }
+    if (chosen == Outcome.Edit) ExecuteEdit(row);
+    ```
+
+    ⚠ Releasing the flag *just before* the call (`IsBusy = false; ExecuteEdit(row);`) fixes the guard but
+    leaves a second bug: the target sets `IsBusy = true` and the outer `finally` then clears it
+    underneath the work it just started. Dispatch **after** the `finally`, not before it.
+
+    ⚠⚠ **NOTHING CATCHES THIS CLASS.** No test can reach these `async void` handlers, and the failure is
+    a silent early return — so it is invisible until somebody presses the button. The sweep that found
+    the second and third: for each call to an `Execute…` from inside another method, check whether the
+    caller holds `IsBusy` at that line and whether the target guards on it. ⚠ A crude version of that
+    check reported `ExecuteAlterTransaction` as broken when it was already fixed — it looked for a
+    `finally` and missed an explicit `IsBusy = false`. **Read the call site before believing the sweep.**
+
 
 ⚠ **The standing check these came from:** a green suite proves a component works, never that
 anything *uses* it. `OutboxPusher.DrainAsync`, the catalogue browse and `TillStore.SearchAsync` were

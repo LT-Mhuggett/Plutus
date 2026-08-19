@@ -249,6 +249,10 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
 
         private async Task OpenCustomerAsync(Plutus.Client.Core.PlutusApiClient.LoyaltyRowDto row)
         {
+            // ⚠ What the operator asked for on the way out of the detail dialog, acted on AFTER the
+            // `finally` below releases `IsBusy` — see the comment where it is set.
+            var chosen = Helpers.CustomViews.CustomerDetailHelper.Outcome.Closed;
+
             IsBusy = true;
             try
             {
@@ -270,21 +274,20 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
                     // Cashier may print somebody their card; a till with no printer cannot.
                     mayPrintCard: Services.Printing.TillAgentPrinting.Paired);
 
-                // ⚠⚠ THE DETAIL DIALOG HAS CLOSED BY NOW, and that is required rather than tidy: two
-                // Mopups pages cannot stack, so the second would land behind the first and read as a
-                // frozen till.
-                if (outcome == Helpers.CustomViews.CustomerDetailHelper.Outcome.Edit)
-                {
-                    ExecuteEditMember(row);
-                }
-                else if (outcome == Helpers.CustomViews.CustomerDetailHelper.Outcome.GrantCredit)
-                {
-                    ExecuteGrantCredit(row);
-                }
-                else if (outcome == Helpers.CustomViews.CustomerDetailHelper.Outcome.PrintCard)
-                {
-                    await PrintCardAsync(row);
-                }
+                // ⚠⚠ THE FOLLOW-UP IS DISPATCHED **OUTSIDE** THIS `try`, AND THAT IS THE WHOLE FIX
+                // (2026-08-19). Matt, on 1.100.0: *"in Loyalty, when I try to edit details or grant
+                // credit, the screen just closes."*
+                //
+                // Both `ExecuteEditMember` and `ExecuteGrantCredit` open with
+                // `if (row is null || IsBusy) return;` — and THIS method still held `IsBusy = true`
+                // until its `finally`. So the detail dialog closed exactly as designed, the follow-up
+                // was invoked, its own guard saw the flag its own caller was holding, and it returned
+                // **silently**. Nothing opened, nothing threw, nothing logged.
+                //
+                // ⚠ The guards are right and stay: they are what stops a double-tap opening two
+                // dialogs. What was wrong is dispatching a guarded action from inside the guard, so the
+                // decision is recorded here and acted on after the flag has been released.
+                chosen = outcome;
             }
             catch (Exception ex)
             {
@@ -299,6 +302,28 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
             finally
             {
                 IsBusy = false;
+            }
+
+            // ⚠ The detail dialog has closed and `IsBusy` is clear, so each of these can take the flag
+            // for itself. ⚠⚠ Two Mopups pages still cannot stack, which is why the dialog closes before
+            // any of this rather than after — that part of the original design was correct.
+            switch (chosen)
+            {
+                case Helpers.CustomViews.CustomerDetailHelper.Outcome.Edit:
+                    ExecuteEditMember(row);
+                    break;
+
+                case Helpers.CustomViews.CustomerDetailHelper.Outcome.GrantCredit:
+                    ExecuteGrantCredit(row);
+                    break;
+
+                // ⚠ Awaited rather than fire-and-forget: it is a `Task`, and an unobserved exception
+                // from it would be lost. ⚠ It does NOT guard on `IsBusy`, which is why printing was the
+                // one action of the three that still worked — worth knowing, because it means the
+                // symptom pointed at the guard rather than at the dialog.
+                case Helpers.CustomViews.CustomerDetailHelper.Outcome.PrintCard:
+                    await PrintCardAsync(row);
+                    break;
             }
         }
 

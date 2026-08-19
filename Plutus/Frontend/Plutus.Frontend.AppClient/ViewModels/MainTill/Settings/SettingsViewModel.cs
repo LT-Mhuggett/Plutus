@@ -760,6 +760,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
         {
             if (IsBusy)
                 return;
+
+            // ⚠ Set where the operator asks to retry, acted on after the `finally` releases `IsBusy` —
+            // see the comment at that assignment for why it cannot be dispatched in place.
+            var retry = false;
+
             IsBusy = true;
             try
             {
@@ -787,7 +792,22 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
                             "Start it (or install it) and try again.",
                             "Cancel".Translate(), null, "Try again", fallback));
 
-                    if (choice == "Try again") { ExecuteChangePrinter(); return; }
+                    // ⚠⚠ RETRY IS RE-DISPATCHED AFTER THIS CALL FINISHES, NOT FROM INSIDE IT
+                    // (2026-08-19). `ExecuteChangePrinter` opens with `if (IsBusy) return;` and this
+                    // method still holds that flag until its `finally` — so "Try again" invoked itself,
+                    // hit its own caller's guard and returned SILENTLY. The action sheet closed and
+                    // nothing happened, which reads as a dead button.
+                    //
+                    // ⚠ And the flag was the smaller half: the inner call would have set `IsBusy = true`
+                    // and then this method's `finally` would have cleared it underneath the work it had
+                    // just started — so even had the guard let it through, the busy state would have
+                    // been wrong for the rest of the flow.
+                    //
+                    // ⚠ Found by sweeping for the same shape after Matt hit it in Loyalty. The identical
+                    // fault was already known and fixed once in `TillViewModel.ExecuteAlterTransaction`,
+                    // whose comment names this exact mechanism — third occurrence of one bug.
+                    retry = choice == "Try again";
+
                     if (choice == fallback) await PickOposPrinterAsync();
                     return;
                 }
@@ -846,6 +866,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
             {
                 IsBusy = false;
             }
+
+            // ⚠ `IsBusy` is clear now, so the retry can take it for itself. ⚠⚠ It is a re-entry into this
+            // same method, which is only safe BECAUSE it happens out here: the operator started the agent
+            // and asked us to look again, and looking again is the whole flow, not a step of it.
+            if (retry) ExecuteChangePrinter();
         }
 
         /// <summary>
