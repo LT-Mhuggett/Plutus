@@ -3246,3 +3246,62 @@ type over every default they are ever shown.
   so picking it twice must be fine — if this is refused, the accumulation is being applied to a tender
   that was never capped.
 - **A card surcharge is still charged once**, not twice, across a split card payment (§G-surcharge).
+
+---
+
+## G51. Per-report permissions — a narrow role. **Backend 1.17.9 + till 1.96.0 + web 1.19.0**, ruling 5b(b)
+
+> ⚠⚠ **THE POINT OF THIS SECTION IS THAT THE MENU AND THE SERVER AGREE.** Before 1.17.9 a role could
+> be granted one report, be *offered* it, and get a **403** when it tapped — which reads at a counter
+> as a broken till, not as a permission nobody gave. Both halves have to be checked together: what is
+> LISTED, and what actually OPENS.
+>
+> ⚠ You need a role to test with. In the portal, make a role — call it **VAT only** — with
+> `pos.reports.vat` and the ordinary selling permissions, and **NOT** `pos.reports.view`.
+
+### G51a. ⚠⚠ Nothing changed for anybody who already had reports — do this FIRST
+
+Sign in as **Supervisor** (unchanged, still holds `pos.reports.view`) → Reports on **both** tills.
+
+**✅ Expected: every report still listed and every one still opens.** ⚠ This is the compatibility
+check and it is the one that matters most: tokens bake their permission set in for **12 hours**, so a
+change that narrowed instead of widened would lock every supervisor in a live shop out of every report
+until their token expired. If anything is missing here, stop.
+
+### G51b. The narrow role sees one report — and can READ it
+
+Sign in as **VAT only** → Reports, on the MAUI till.
+
+**✅ Expected: the VAT report is the only one listed, and tapping it shows the figures.** ⚠ Reading it
+is half the test — a list with a 403 behind it is the exact defect 1.17.9 fixed.
+
+### G51c. The same role, the same answer, on the web till
+
+Repeat G51b in the browser. **✅ Expected: identical — one report, and it opens.**
+
+⚠ Both tills filter through the same rule (`ReportPermissions` / `reportPermissions.ts`, 31 shared
+vectors), so a difference here is a C2 drift and worth telling me about immediately.
+
+### G51d. Stock and negative stock travel together
+
+Make a second role with **`pos.reports.stock`** only.
+
+**✅ Expected: BOTH the stock report and the negative-stock report are listed and both open** — they
+are the same rows filtered below zero, so one permission covers them. ⚠ If only one appears, the
+report catalogue and the permission map disagree.
+
+### G51e. A report nobody granted is not listed at all
+
+As **VAT only**, look for Takings, Items sold, Best sellers.
+
+**✅ Expected: absent, not greyed out.** ⚠ A disabled row would leak what other roles can see, which
+is why the ruling says the menu shows nothing rather than a refusal.
+
+### G51f. ⚠ A supervisor doing a return can still see the sale
+
+As **Supervisor**, do a return that needs the sale looked up (scan a receipt).
+
+**✅ Expected: works exactly as before.** ⚠ Why it is worth its own step: the sale drill-down
+(`/api/v1/sales/{saleId}`) is gated for **three** different reasons — portal financials, the till's
+reports, and `pos.refund` — and it was the one gate the mechanical re-gate skipped, because its shape
+differs from the other eight. It was fixed by hand; this step is what proves it.
