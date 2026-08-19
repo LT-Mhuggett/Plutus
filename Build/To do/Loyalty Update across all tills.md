@@ -26,14 +26,22 @@
 > MAUI" by bringing MAUI level with the web till on members, tiers, the tier discount, store credit and
 > a Loyalty tab. This programme is a separate **~45–55 days**.
 >
+> ⚠⚠ **EXCEPT §19 — ARCHIVING A MEMBER, which is NOT blocked behind any of this** (added 2026-08-19 at
+> Matt's request). It touches customers, store credit and the Loyalty screens, all of which exist today,
+> so it is **≈ 2–3 days against the current codebase** with no `LoyaltySettings` and no earning engine.
+> ⚠ Most of it is already in the code: `Customer.Active` exists and **every read path already filters on
+> it** — nothing can ever set it `false`. ⚠ **Build it before the gem engine**, or archiving has to reason
+> about batches, expiry and breakage as well as store credit.
+>
 > ✅ **Nothing is half-built** — no orphan tables, no dead `LoyaltyPoint` types, no partially-wired
 > endpoints. It is a design waiting on a start, which is the cleanest state for it to be in.
 >
-> ### ⚠ Before any of it starts — nine of twenty-one decisions are not yours yet
+> ### ⚠ Before any of it starts — ten of twenty-two decisions are not yours yet
 >
-> **Open (4):** 3 tier qualification basis · 4 tier downgrade policy & grace period · 6 transfers /
-> family pooling · 7 enrolment opt-in vs automatic. ⚠ Two of those four are about **tiers**, and §5 is
-> eight lines long.
+> **Open (5):** 3 tier qualification basis · 4 tier downgrade policy & grace period · 6 transfers /
+> family pooling · 7 enrolment opt-in vs automatic · ⚠⚠ **22 archiving a member who holds a balance**
+> (§19.3 — the only one of the five that can be wrong about *money*). ⚠ Two of the other four are about
+> **tiers**, and §5 is eight lines long.
 >
 > **Proposed — my recommendation, never ratified (5):** 12 where earning is computed · 13 loyalty
 > credits vs store credit · 14 earn rounding · 16 reward catalogue · ⚠⚠ **18 refund symmetry**.
@@ -359,6 +367,7 @@ Target **WCAG 2.2 AA**. Highlights relevant to loyalty screens: AA contrast with
 | 19 | ⚠ Grandfather gems at the rate they were earned? | **YES — grandfathering, with oldest-first consumption**, so the old-rate cohort liquidates itself and a rate change can never take value from a member. ⚠ Requires two things: the member-facing figure becomes **money not a count** (a count has no single value once batches differ), and a redemption becomes **one ledger row per source batch** (so a refund restores the same batches at the same rates). ⚠ Converges for active members; for a hoarder whose owner chose `Never` it is **permanent, not transitional** — §18.8 | ✅ **Decided — Matt, 2026-08-13** |
 | 20 | ⚠ How gems actually expire, and how lapsing is accounted for | **The unexpired balance is computed ON READ from the date** — the `GiftCardLedger.cs:57` precedent, where nothing sweeps at all — so the balance is right **even if no job has run**. A sweeper (`RetentionSweeper`/`JobRun` shape) writes idempotent `Expire` rows **only for the accounting record**, dated when they lapsed, so **breakage lands in a period**; never load-bearing for correctness. ⚠ Breakage and outstanding liability both valued at each batch's **own** rate, from the same code as §18.7's dialog — §18.9 | ✅ **Decided — Matt, 2026-08-13** |
 | 21 | The currency term is configurable | **Yes** — `NameSingular`/`NamePlural` are the **only** place the brand word lives. ⚠ **Code, tables, columns and DTOs use the neutral `Point`** (`LoyaltyPointEntry`, `PencePerPoint`); a `GemBalance` column would make one tenant's brand term permanent schema. "Point" not "credit", because `CreditEntry` already means money. ⚠ Must reach **every** surface incl. receipts and MAUI — §2 | ✅ **Confirmed — Matt, 2026-08-13** |
+| 22 | ⚠⚠ Archiving a member who still holds a balance | **Refuse the ACTION until the balance is zero or written off with a reason — and keep archived members IN the liability figures regardless.** The portal totals Outstanding credit over the same `Where(c => c.Active)` query that hides an archived member, so the naive build drops a real debt out of the reported liability the moment somebody tidies a list. ⚠ Not alternatives: one is about the arithmetic, the other about the button. ⚠ Gems inherit it — not a liability (decision 1) but §18.9's breakage and outstanding-liability figures are real pounds — §19.3 | **Open — Matt's call.** ⚠ The only part of §19 that can be wrong about money |
 
 ### Decisions 10–11, mechanics (so nobody re-derives them)
 
@@ -831,3 +840,151 @@ income, and an accountant will want it in the period it happened. So:
 - ⚠ **If the owner sets expiry, the member has to have been told.** §13's T&Cs and §10's per-batch
   statement are the mechanism; expiring points a member was never warned about is the reputational
   damage §18.7's warning was originally worried about, arriving by a different route.
+
+---
+
+## 19. Archiving a member *(Matt, 2026-08-19)*
+
+> **Matt:** *"Can you add to the Loyalty Update across all tills plan, the ability to archive Loyalty
+> customers so they do not show in the usual screens. But you do need to be able to bring them back
+> from archive."*
+
+**This is the smallest section in the document, and the only one that could be built tomorrow** — because
+the hard half is already in the codebase and has been since customers existed.
+
+### 19.1 ⚠⚠ The filter already exists. Only the write side is missing.
+
+`Customer.Active` is a real column (`Plutus.Entities/Models/Customers.cs:21`), and **every read path
+already filters on it**:
+
+| Read | Where | Filters `Active` |
+|---|---|---|
+| Customer search — the till's member lookup | `CustomersController:60` | ✅ `Where(c => c.Active)` |
+| The loyalty list — portal and both tills | `CustomersController:119` | ✅ |
+| One customer's detail | `CustomersController:249` | ✅ `c.Id == id && c.Active` |
+
+⚠⚠ **And nothing in the solution ever sets it to `false`.** It is written `true` at create (`:231`,
+`:614`) and nowhere else — the `Active = false` at `:602` is a **Membership**, not a Customer. There is no
+endpoint, no portal control and no till action that can archive anybody.
+
+**So this is not a schema change and not a filtering change.** It is: a way to set the flag, a way to see
+what is behind it, a way to set it back — and the four rules below, which is where the actual thinking is.
+
+⚠ **It also means the flag is currently a latent trapdoor.** Anything that sets `Active = false` today —
+a hand-run `UPDATE`, a future bulk import — makes a customer vanish from every screen with **no way back
+through the product**. Building this closes that as a side effect.
+
+### 19.2 Follow the BIN, exactly — do not invent a second vocabulary
+
+The platform already has "withdrawn but not deleted", for items: **the Bin** (FE5.4). Items carry
+`BinnedAtUtc`, list endpoints hide them by default, `?includeBinned=true` loads one to restore or inspect,
+and seeing the Bin is permission-gated.
+
+⚠⚠ **A customer archive that behaves differently from the Bin is a second thing to learn for no gain.**
+Same shape, same words where they fit, and the one deliberate difference stated.
+
+| | Items (built) | Members (this section) |
+|---|---|---|
+| The flag | `BinnedAtUtc` (nullable timestamp) | ⚠ **`ArchivedAtUtc`, not the existing `Active` bool** — see below |
+| Hidden by default | ✅ | ✅ already true |
+| See the hidden ones | `?binned=true` | `?archived=true` |
+| Load one to restore | `?includeBinned=true` | `?includeArchived=true` |
+| Restore | "Put it back" | **"Bring back from archive"** — Matt's own words |
+
+⚠ **Why a timestamp rather than reusing the `Active` bool.** *When* somebody was archived is the question
+asked immediately afterwards — *"who was archived this month?"*, *"this was archived before the credit was
+issued, so how?"* — and a bool cannot answer it. The Bin learned this already.
+
+⚠ **Keep `Active` and derive it** (`Active = ArchivedAtUtc == null`) for one release, so no existing read
+changes behaviour, then retire the bool. A migration that flips both at once cannot be verified one half
+at a time.
+
+⚠ Record **`ArchivedBy`** too: `DiscountAudit` and `CarrierBagsController` both set the precedent that a
+withdrawal names its actor.
+
+### 19.3 ⚠⚠ THE RULE THAT MATTERS: archiving must not hide MONEY
+
+**A member can hold store credit, and store credit is a liability the shop owes a named person.**
+
+The portal's Loyalty page totals **Outstanding credit** over the same `Where(c => c.Active)` query that
+would hide an archived member. Built naively:
+
+> Archive a member holding £12.50 → the shop's reported outstanding liability silently drops by £12.50,
+> and the money is still owed.
+
+⚠⚠ **That is a books-wrong bug wearing a tidy-up feature's clothes**, and it is the whole reason this
+section is not simply "add a flag".
+
+**The rule: a member with a non-zero balance — credit or gems — cannot be quietly archived.** Three
+resolutions, and the choice is Matt's (decision 22):
+
+1. **Refuse the action.** *"Jo Bloggs holds £12.50 in store credit. Settle it or write it off before
+   archiving."* Simplest, hardest to get wrong, and it makes the operator deal with the money.
+2. **Allow it, and keep counting it.** Archive hides them from the *lists*; the liability report and the
+   Outstanding-credit total **still include archived members**, because a debt is unaffected by whether a
+   shop wants to see the name.
+3. **Require an explicit write-off first** — a `Writeoff` credit entry with a mandatory reason, which
+   `CreditEntryType` can already express, so the balance is genuinely zero and the money left the books as
+   a decision somebody signed.
+
+⚠ **My recommendation is 2 for the figures AND 1 for the button.** The totals never lie, and the operator
+is still made to look at the balance before hiding the name. They are not alternatives — one is about
+arithmetic, the other about the action.
+
+⚠ **Gems inherit this argument whole.** They are not a liability (decision 1 — a gem is never bought), but
+§18.9's *breakage* and *outstanding liability* are real figures in pounds, and an archive that quietly
+dropped a hoarder out of them would misstate both.
+
+### 19.4 What happens when an archived member's card is scanned
+
+⚠⚠ **Not "not found".** Today an archived member falls out of `CustomersController:60`, so the till would
+answer *"no match"* about somebody who demonstrably exists — the **exact fault** fixed on 2026-08-19 for
+bare member numbers (WP-T2), where a missing prefix was reported as a missing person.
+
+**The till must say what is true and offer the way out:**
+
+> *"Jo Bloggs (000482P) is archived. Bring them back and attach them to this sale?"*
+
+⚠ Restoring is gated on `customers.manage`, so a Cashier is told to fetch a supervisor rather than
+silently refused. ⚠ **Both tills, same words** — the 2026-08-19 look-and-feel ruling. ⚠ It follows WP-T2's
+route: the lookup runs, fails against active members, and *then* asks — so no ordinary scan pays for it.
+
+### 19.5 ⚠ Archive is NOT erasure, and this document must not let anyone confuse them
+
+| | Archive (this section) | GDPR erasure (**not** this section) |
+|---|---|---|
+| What it is | An operator tidying a list | A data-subject right, on request |
+| Reversible | ✅ **that is the requirement** | ❌ by definition |
+| The sales | Untouched, still on every report | ⚠ **also stay** — a sale is a VAT record for six years; you erase the PERSON from it, not the sale |
+| Member number | Kept, so a restore is exact | Released or redacted |
+
+⚠⚠ **Do not implement erasure as "archive, but harder".** Erasure has to break the link on records it
+cannot delete — a different mechanism with a different failure mode — and it needs §13's legal section,
+which is currently eight lines. **Out of scope here, and named so nobody assumes it was covered.**
+
+### 19.6 Surfaces — the parity row, because a feature is not done on one till
+
+| Surface | What it needs |
+|---|---|
+| **Portal** → Loyalty | An **Archive** action per row; an **Archived** toggle to see them (`customers.manage`); **Bring back from archive** from that view. ⚠ No "Archived" count in the stat row until 19.3 is settled — a count is harmless, a silently reduced liability is not |
+| **Web till** → Loyalty | The same list, the same toggle, the same words |
+| **MAUI till** → Loyalty | The same. ⚠ Its list is a `TillTable`, so the toggle is a filter and not a new screen |
+| **Both tills** → scan | 19.4's offer-to-restore |
+| **Server** | `POST /api/v1/customers/{id}/archive` and `…/restore`, both `customers.manage`, both **audited** — the shape `CarrierBagsController` uses |
+| **Webstore** | ➖ Nothing. A webstore customer is matched by email at ingest; archiving is a back-office view concern |
+
+### 19.7 Size, and where it sits
+
+**≈ 2–3 days, and it does not depend on this programme.** It touches customers, store credit and the
+Loyalty screens — all of which exist today — so it can be built against the current codebase with no
+`LoyaltySettings`, no earning engine and no sale-header `CustomerId` slice.
+
+⚠ **Build it BEFORE the gem engine, not after.** Once gems exist, archiving has to reason about batches,
+expiry and breakage as well as store credit (19.3) — strictly more work for the same feature. Doing it now
+means the gem work inherits a rule that is already settled.
+
+⚠ **Add to §14's decision register:**
+
+| # | Decision | Recommendation | Status |
+|---|---|---|---|
+| 22 | ⚠⚠ Archiving a member who still holds a balance | **Refuse the ACTION until the balance is zero or written off with a reason, and keep archived members IN the liability figures regardless.** A total must never move because somebody tidied a list | **Open — Matt's call.** ⚠ The one part of §19 that is not obvious, and the only part that can be wrong about money |
