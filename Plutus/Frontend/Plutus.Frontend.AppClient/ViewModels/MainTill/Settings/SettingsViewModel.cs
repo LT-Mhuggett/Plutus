@@ -82,9 +82,16 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
                 Tuple.Create("Receipt printer", "ChangePrinterCommand"),
                 Tuple.Create("PrintTestPage".Translate(), "PrintTestPageCommand"),
                 Tuple.Create("CheckoutOptions", ""),
-                Tuple.Create("AskForReceiptOption".Translate(), "ChangeAskForReceiptOptionCommand"),
-                Tuple.Create("ChangeCashDrawerExists".Translate(), "ChangeCashDrawerExistsCommand"),
-                //Tuple.Create("ChangeBarcodeType".Translate(), "ChangeBarcodeTypeCommand"),
+                // ⚠⚠ THE TWO CHECKOUT OPTIONS ARE NOW SWITCHES, NOT BUTTONS — §5c item 9's remaining
+                // half. They were `DisplayAlert("Hmm", "…", "Yes", "No")`, so the only way to learn
+                // whether "ask for receipt" was ON was to open a dialog that offered to change it, and
+                // pressing the wrong button changed a checkout behaviour with no undo.
+                //
+                // ⚠ `toggle:` IN THE SECOND SLOT, so they are built INSIDE this section's stack by the
+                // same loop. Appending them after the loop instead left "Checkout options" as a heading
+                // with nothing under it and the switches floating in whichever column was shorter.
+                Tuple.Create("AskForReceiptOption".Translate(), "toggle:" + nameof(AskForReceipt)),
+                Tuple.Create("ChangeCashDrawerExists".Translate(), "toggle:" + nameof(TryCashDrawer)),
 
                 // ⚠ OP4/WP6.3 — the till's way of asking Plutus for help, and of READING THE REPLY.
                 // The web till has had this since WP6.3; MAUI had no route to support at all.
@@ -132,13 +139,115 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
                     heading.SetDynamicResource(Label.TextColorProperty, "ThemeInkMuted");
                     stack.Children.Add(heading);
                 }
+                else if (buttonsAndSubHeadings[i].Item2.StartsWith("toggle:", StringComparison.Ordinal))
+                {
+                    stack.Children.Add(BuildToggle(
+                        buttonsAndSubHeadings[i].Item1,
+                        buttonsAndSubHeadings[i].Item2["toggle:".Length..]));
+                }
                 else
                 {
                     var button = new Button { Text = buttonsAndSubHeadings[i].Item1 };
                     button.SetBinding(Button.CommandProperty, buttonsAndSubHeadings[i].Item2);
                     stack.Children.Add(button);
+
+                    // ⚠⚠ THE CURRENT VALUE, UNDER THE BUTTON THAT CHANGES IT — §5c item 9's other half.
+                    // "Quick-sell bag item" and "Receipt printer" both opened a picker and told you
+                    // nothing about what was already chosen, so the only way to read a setting was to
+                    // start changing it. The web till shows the live value beside every control.
+                    var live = LiveValueFor(buttonsAndSubHeadings[i].Item2);
+                    if (live is not null) stack.Children.Add(live);
                 }
             }
+        }
+
+        /// <summary>
+        /// A muted line showing what a setting is CURRENTLY set to, under the button that changes it.
+        ///
+        /// ⚠ Returns null for buttons that are actions rather than settings — "Print test page" has no
+        /// value to show, and inventing "not set" for it would be noise.
+        ///
+        /// ⚠ Read once, at construction. These change only through the buttons on this screen, and
+        /// `AppShell` rebuilds nothing — so a value edited here is re-read next time Settings is opened.
+        /// Live-updating them would mean an observable wrapper around `Preferences` for two labels.
+        /// </summary>
+        private Label LiveValueFor(string command)
+        {
+            var text = command switch
+            {
+                nameof(ChooseBagItemCommand) => string.IsNullOrWhiteSpace(DefaultBagId)
+                    ? "No bag item chosen — the Bag button is hidden."
+                    : $"Currently: {DefaultBagId}",
+                nameof(ChangePrinterCommand) => string.IsNullOrWhiteSpace(PrinterLogicalNameSetting)
+                    ? "No printer chosen — receipts print as PDF."
+                    : $"Currently: {PrinterLogicalNameSetting}",
+                _ => null,
+            };
+
+            if (text is null) return null;
+
+            var label = new Label { Text = text, FontSize = 12 };
+            label.SetDynamicResource(Label.TextColorProperty, "ThemeInkMuted");
+            return label;
+        }
+
+        /// <summary>
+        /// A setting that is a yes/no, shown as a switch with the sentence explaining it — the shape
+        /// `SettingsPage.tsx` uses for every one of these (`setting-row`).
+        ///
+        /// ⚠⚠ GATED ON `pos.settings.manage`, WHICH IT WAS NOT BEFORE. Both of these were plain
+        /// `DisplayAlert` yes/no prompts with **no permission check at all**, so any cashier could turn
+        /// the receipt prompt off or tell the till it had no cash drawer. The web till has always
+        /// disabled them without the permission (`canManageSettings`); MAUI simply asked. Found while
+        /// converting them, and it is the reason this is more than a cosmetic change.
+        ///
+        /// ⚠ DISABLED, NOT REFUSED. A switch that cannot move, with the reason under it, tells a
+        /// cashier where they stand before they touch it — a dialog that says no after the fact is how
+        /// an operator learns to treat the screen as unpredictable. The three gated BUTTONS still
+        /// refuse on press, because a button gives nothing away by being pressable.
+        /// </summary>
+        private View BuildToggle(string title, string settingPath)
+        {
+            // ⚠ The sentence lives beside the setting it explains, not in a resource file — these two
+            // are the only ones, and a `.Translate()` key would hide the wording from anyone reading
+            // this screen's code. ⚠⚠ It must not be `.Translate()`d on an English sentence anyway:
+            // runbook pitfall 18 — that crashes a Debug build.
+            var hint = settingPath switch
+            {
+                nameof(AskForReceipt) =>
+                    "The NatApp behaviour — a yes/no prompt when the sale completes. Off: no prompt.",
+                nameof(TryCashDrawer) =>
+                    "On: the till tries to kick a connected cash drawer when a sale is paid in cash.",
+                _ => string.Empty,
+            };
+
+            var allowed = Services.Security.TillGate.Check(
+                App.GetViewModel().SignedInOperator, PermissionCatalogue.PosSettingsManage).Allowed;
+
+            var row = new StackLayout { Margin = new Microsoft.Maui.Thickness(0, 6, 0, 0) };
+
+            var heading = new Label { Text = title, FontAttributes = FontAttributes.Bold };
+            row.Children.Add(heading);
+
+            var explain = new Label
+            {
+                // ⚠ The hint says what the setting DOES; when it is locked, it also says why it cannot
+                // be moved. Two sentences, because "you need a permission" without "and this is what it
+                // would have done" leaves the operator none the wiser.
+                Text = allowed ? hint : $"{hint}\nOnly a supervisor can change this ({PermissionCatalogue.PosSettingsManage}).",
+                FontSize = 12,
+            };
+            explain.SetDynamicResource(Label.TextColorProperty, "ThemeInkMuted");
+            row.Children.Add(explain);
+
+            var toggle = new Microsoft.Maui.Controls.Switch { IsEnabled = allowed, HorizontalOptions = LayoutOptions.Start };
+            // ⚠ TWO-WAY onto the `Settings` property, which reads and writes `Preferences` directly.
+            // There is no `INotifyPropertyChanged` behind it and none is needed: the switch is the only
+            // thing that changes it while this screen is up.
+            toggle.SetBinding(Microsoft.Maui.Controls.Switch.IsToggledProperty, new Binding(settingPath, BindingMode.TwoWay));
+            row.Children.Add(toggle);
+
+            return row;
         }
 
         #region Commands
@@ -325,17 +434,18 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
             get => _printTestPageCommand ?? (_printTestPageCommand = new Command(ExecutePrintTestPage));
         }
 
-        Command _changeAskForReceiptOptionCommand;
-        public Command ChangeAskForReceiptOptionCommand
-        {
-            get => _changeAskForReceiptOptionCommand ?? (_changeAskForReceiptOptionCommand = new Command(ExecuteChangeAskForReceiptOption));
-        }
-
-        Command _changeCashDrawerExistsCommand;
-        public Command ChangeCashDrawerExistsCommand
-        {
-            get => _changeCashDrawerExistsCommand ?? (_changeCashDrawerExistsCommand = new Command(ExecuteChangeCashDrawerExists));
-        }
+        // ⚠⚠ `ChangeAskForReceiptOptionCommand` and `ChangeCashDrawerExistsCommand` ARE GONE (2026-08-19,
+        // §5c item 9). Both settings are switches now — `BuildToggle` — so the commands, their backing
+        // fields and their `Execute…` methods had no caller left.
+        //
+        // ⚠ Deleted rather than left in place with a note. An unreferenced `Command` on a viewmodel is
+        // indistinguishable from one whose binding has a typo, which is exactly how
+        // `StoreOptionsViewModel` ended up with `AddEmployeeCommmand` bound to `AddEmployeeCommand` and
+        // two empty methods that looked live for months.
+        //
+        // ⚠ What they did is worth keeping: each raised `DisplayAlert(…, "Yes", "No")` and assigned the
+        // answer, so the only way to READ either setting was to open a dialog offering to change it —
+        // and neither checked a permission. Both facts are in the commit message and in `BuildToggle`.
         /*
         Command _changeBarcodeTypeCommand;
         public Command ChangeBarcodeTypeCommand
@@ -784,28 +894,6 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
             {
                 IsBusy = false;
             }
-        }
-
-        private async void ExecuteChangeAskForReceiptOption()
-        {
-            if (IsBusy)
-                return;
-            IsBusy = true;
-
-            AskForReceipt = await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "AskForReceiptPrintingText".Translate(), "Yes".Translate(), "No".Translate());
-
-            IsBusy = false;
-        }
-
-        private async void ExecuteChangeCashDrawerExists()
-        {
-            if (IsBusy)
-                return;
-            IsBusy = true;
-
-            TryCashDrawer = await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "ChangeCashDrawerExistsText".Translate(), "Yes".Translate(), "No".Translate());
-
-            IsBusy = false;
         }
 
         /*

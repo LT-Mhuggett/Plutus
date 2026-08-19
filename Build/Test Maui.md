@@ -3475,3 +3475,58 @@ With a report or two unpublished, take the MAUI till offline and reopen Reports.
 fall back to showing everything (that would leak a report an owner hid) and it must not go empty (that
 would look broken). ⚠ A till that has *never once* had an answer shows everything — that is deliberate,
 and only reachable on a brand-new till that has never been online.
+
+---
+
+## G55. Settings works like the web till's, not like a list of buttons. **Till 1.99.0**, §5c item 9 (closed)
+
+> §5c item 9 matched the web till's section NAMES in 1.94.0 and said plainly that the interaction did
+> not match: MAUI was still a button list where the web till has switches and live values. This closes
+> it — and found an ungated setting on the way.
+
+### G55a. The two checkout options are switches, and you can READ them
+
+Settings → **Checkout options**.
+
+**✅ Expected: "Ask for receipt" and "Cash drawer" are SWITCHES**, each with a sentence under it saying
+what it does, and each showing its current state at a glance.
+
+⚠ **What it was:** two buttons. Pressing one opened *"Hmm — Yes / No"*, so the only way to find out
+whether the receipt prompt was on was to open a dialog offering to change it, and pressing the wrong
+button changed a checkout behaviour with no undo.
+
+Flip **Ask for receipt** on, complete a sale. **✅ It asks.** Flip it off, complete another.
+**✅ It does not ask.** Come back to Settings — **✅ the switch shows what you left it on.**
+
+### G55b. ⚠⚠ A cashier cannot change them any more — this is a real change
+
+Sign in as a **Cashier** → Settings → Checkout options.
+
+**✅ Expected: both switches are GREYED OUT and cannot be moved**, with the reason under them —
+"Only a supervisor can change this (pos.settings.manage)".
+
+⚠⚠ **Before 1.99.0 a cashier could change both.** Neither button checked a permission, so any operator
+could turn the receipt prompt off or tell the till it had no cash drawer. The web till has always
+disabled them without `pos.settings.manage`; MAUI just asked. Found while converting them.
+
+⚠ Then sign in as a **Supervisor** — **✅ both switches work normally.**
+
+### G55c. The buttons that stayed now say what they are set to
+
+Settings → **Till** and **Printer**.
+
+**✅ Expected: a muted line under each button showing the current value** — "Currently: `<barcode>`" for
+the quick-sell bag item, "Currently: `<printer>`" for the receipt printer.
+
+**✅ With nothing chosen it says so usefully:** "No bag item chosen — the Bag button is hidden." and
+"No printer chosen — receipts print as PDF." ⚠ Not "not set": what an operator wants to know is the
+consequence, not the state of a field.
+
+⚠ These are read when the screen is built, so after changing one, leave Settings and come back to see
+the new value.
+
+### G55d. Nothing else on the screen moved
+
+**✅ Expected: the sections are still Till · Printer · Checkout options · Till device · Help**, in that
+order, with the same buttons as 1.94.0 apart from the two that became switches. ⚠ "Print test page" has
+NO value line under it — it is an action, not a setting, and inventing "not set" for it would be noise.
