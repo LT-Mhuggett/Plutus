@@ -80,7 +80,7 @@
                  is empty for ever on a portal till) stayed hidden for as long as it did. -->
             <Label Grid.Row="2" Text="{Binding EmptyNotice}" IsVisible="{Binding ShowEmptyNotice}"
                    HorizontalOptions="Center" VerticalOptions="Center" Margin="20"
-                   HorizontalTextAlignment="Center" TextColor="Gray"/>
+                   HorizontalTextAlignment="Center" TextColor="{DynamicResource ThemeInkMuted}"/>
 
             <CollectionView x:Name="ItemsListView" Grid.Row="2"
                             ItemsSource="{Binding ItemGroups}"
@@ -90,8 +90,13 @@
                 <CollectionView.GroupHeaderTemplate>
                     <DataTemplate>
                         <!-- ⚠ Binds to `ItemGroup.Key`, NOT to ItemModel. -->
+                        <!-- ⚠ `ThemeSurface2`, not the old `AppThemeBinding Light=#EEEEEE, Dark=#303030`
+                             (2026-08-19). An AppThemeBinding hardcodes two colours and consults only the
+                             OS light/dark switch — a custom scheme from the portal changes every surface
+                             around it and this header would keep its own greys. Same fault family as the
+                             white row pills beneath it, just less visible. -->
                         <Label Text="{Binding Key}" FontAttributes="Bold" FontSize="Medium"
-                               Padding="6,8,6,4" BackgroundColor="{AppThemeBinding Light=#EEEEEE, Dark=#303030}"/>
+                               Padding="6,8,6,4" BackgroundColor="{DynamicResource ThemeSurface2}"/>
                     </DataTemplate>
                 </CollectionView.GroupHeaderTemplate>
                 <CollectionView.ItemTemplate>
@@ -145,7 +150,7 @@
                  catalogue that can hold twenty thousand, and a cap with no marker reads as
                  completeness — an operator scrolling to "R" concludes the rest was deleted. -->
             <Label Grid.Row="3" Text="{Binding CapNotice}" IsVisible="{Binding ShowCapNotice}"
-                   FontSize="Micro" TextColor="Gray" Padding="6,4"
+                   FontSize="Micro" TextColor="{DynamicResource ThemeInkMuted}" Padding="6,4"
                    HorizontalTextAlignment="Center"/>
         </Grid>
     </ContentPage.Content>

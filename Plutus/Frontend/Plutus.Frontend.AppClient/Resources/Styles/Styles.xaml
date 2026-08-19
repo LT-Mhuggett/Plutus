@@ -71,6 +71,66 @@
     <Style TargetType="Button" ApplyToDerivedTypes="True">
         <Setter Property="BackgroundColor" Value="{DynamicResource ThemeAccent}" />
         <Setter Property="TextColor" Value="{DynamicResource ThemeAccentInk}" />
+        <!-- ⚠⚠ THE EDGE IS WHAT MAKES A BUTTON EXIST ON A DARK SURFACE (2026-08-19). Matt: *"you
+             cannot see the button when the dark theme was set."* The measured arithmetic: the live
+             accent (#337061) on the dark surface (#161d26) is 2.94:1 — under the 3:1 floor for a
+             SHAPE — while the white label on it is 5.8:1. So the text read and the button did not: a
+             column of borderless blocks melting into the page. `ThemeLine` is a slot the live scheme
+             actually sets, and the web till draws its non-primary controls with exactly this edge. -->
+        <Setter Property="BorderColor" Value="{DynamicResource ThemeLine}" />
+        <Setter Property="BorderWidth" Value="1" />
+    </Style>
+
+    <!--
+        ⚠ THE TYPES WITH NO STYLE AT ALL draw from the PLATFORM — i.e. from the OS light/dark switch,
+        never from a custom scheme's surfaces (2026-08-19 audit). Ink and surface as a pair, exactly as
+        the Entry rule above and for its reason. The reachable item editor's tax-band and category
+        Pickers, the report screen's date pickers and the inventory SearchBar were all in this set.
+    -->
+    <Style TargetType="Picker" ApplyToDerivedTypes="True">
+        <Setter Property="TextColor" Value="{DynamicResource ThemeInk}" />
+        <Setter Property="TitleColor" Value="{DynamicResource ThemeInkMuted}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource ThemeSurface2}" />
+    </Style>
+
+    <Style TargetType="DatePicker" ApplyToDerivedTypes="True">
+        <Setter Property="TextColor" Value="{DynamicResource ThemeInk}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource ThemeSurface2}" />
+    </Style>
+
+    <Style TargetType="SearchBar" ApplyToDerivedTypes="True">
+        <Setter Property="TextColor" Value="{DynamicResource ThemeInk}" />
+        <Setter Property="PlaceholderColor" Value="{DynamicResource ThemeInkMuted}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource ThemeSurface2}" />
+    </Style>
+
+    <!--
+        ⚠⚠ A BARE `Frame` RENDERS WHITE, WHATEVER THE THEME SAYS — found by Matt on 1.99.0
+        (2026-08-19): *"In inventory, is each line a white pill? … I do not think its the themeing, I
+        think its what was already there that is causing problems?"* He was right on both counts. The
+        inventory rows are Frames that predate theming and never named a colour, so they never went
+        through it: the LABELS on them followed the global Label style to `ThemeInk` — near-white under
+        a dark scheme — while the pill under them stayed platform-white. White text on a white pill.
+
+        ⚠ A STYLE, NOT A PER-SCREEN PATCH, for the same reason the Label/Entry/Editor rules above are
+        styles: the next Frame anybody adds must be theme-aware without them knowing this story.
+        `Surface2` is the raised-card colour (the same slot dialogs and entries sit on), and the border
+        takes `ThemeLine` so the card still reads as a card when surface and surface2 are close.
+    -->
+    <Style TargetType="Frame" ApplyToDerivedTypes="True">
+        <Setter Property="BackgroundColor" Value="{DynamicResource ThemeSurface2}" />
+        <Setter Property="BorderColor" Value="{DynamicResource ThemeLine}" />
+    </Style>
+
+    <!--
+        ⚠ THE OFF SWITCH WAS INVISIBLE UNDER A DARK SCHEME — a dark thumb on a dark page. The switches
+        arrived in 1.99.0 (§5c item 9) with no colour set, which made them the newest instance of the
+        exact fault they shared a screen with. `ThemeInk` for the thumb keeps it visible in both
+        modes: near-white on a dark surface, near-black on a light one.
+    -->
+    <Style TargetType="Switch" ApplyToDerivedTypes="True">
+        <Setter Property="OnColor" Value="{DynamicResource ThemeAccent}" />
+        <Setter Property="ThumbColor" Value="{DynamicResource ThemeInk}" />
     </Style>
 
     <!-- ══ keyed: asked for by name ═══════════════════════════════════════════════════════════ -->

@@ -67,7 +67,6 @@ namespace CustomViews
                 // ⚠ Ghost styling on purpose — the ✕ must be findable without competing with the
                 // Confirm button for the operator's eye.
                 BackgroundColor = Colors.Transparent,
-                TextColor = Colors.Black,
                 FontAttributes = FontAttributes.Bold,
                 WidthRequest = 44,
                 HeightRequest = 44,
@@ -75,6 +74,14 @@ namespace CustomViews
                 HorizontalOptions = LayoutOptions.End,
                 VerticalOptions = LayoutOptions.Center,
             };
+
+            // ⚠⚠ `ThemeInk`, NOT `Colors.Black` (2026-08-19). Every dialog that carries this header
+            // sits on `ThemeSurface`, and under a dark scheme a hardcoded black ✕ measures 1.23:1
+            // against it — the close control till-design D4 MANDATES was invisible on the very
+            // dialogs it exists for. ⚠ A local value beats the implicit Button style, which is why
+            // hardcoding it here defeated the theme silently; the background stays a local
+            // Transparent for exactly that reason — the ghost look is deliberate.
+            close.SetDynamicResource(Button.TextColorProperty, "ThemeInk");
             // ⚠ Named for a screen reader — the glyph alone reads as nothing useful.
             Microsoft.Maui.Controls.SemanticProperties.SetDescription(close, "Close");
             if (onClose != null) close.Clicked += onClose;

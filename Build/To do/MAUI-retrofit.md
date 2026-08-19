@@ -138,6 +138,36 @@ say so rather than quietly doing something else.**
 | ⚠ | **The store-gate deadline convention is unpinned** | `TillStoreAccess.UseAsync` callers | The next caller written without a deadline restores the 2026-08-10 fault in full. Held by convention and a code comment |
 | 🔴 | ⚠⚠ **17 input-alert call sites do not handle the operator BACKING OUT, and each one can crash the till** | see the table below | `LaunchInputAlertAsync` returns **null** when the operator leaves without confirming — tapping outside, Escape, or the Cancel button. `data.TryGetValue(…)` on null is a `NullReferenceException`, and most of these sit in **`async void`** methods, so it goes to the dispatcher **unhandled and the app dies**. ⚠ **This is not theoretical — it is the same shape as the 2026-08-18 refund crash**, and it is reachable today by the gesture Matt already uses (*"I know you can click outside of the box to close it"*). **Only `ExecuteAdjustItem` was fixed** on 2026-08-18 (the dialog he reported); the rest were left because several are on money paths and *"what does cancelling mean here"* is a per-flow decision, not a blanket `return`. ⚠ Do NOT "fix" this by making the helper return an empty dictionary: **six call sites detect cancellation by testing for null**, and `SupervisorPrompt` is one of them — an empty dictionary there would fall through into reading a password that was never typed |
 
+### 0.3c ⚠ WP-T1 — the theming remainder (2026-08-19 audit, after Matt's white-pill diagnosis)
+
+> Matt, testing 1.99.0: *"In inventory, is each line a white pill? … I do not think its the themeing, I
+> think its what was already there that is causing problems?"* — **and he was right.** The applier was
+> sound; the faults were controls that never asked for a colour (the one bare `Frame` in the app, the
+> 1.99.0 `Switch`es) or asked for a hardcoded one (`DialogHeader`'s black ✕). A 79-finding audit
+> confirmed the mechanism with contrast arithmetic: themed ink on the unthemed pill measured **1.12:1**,
+> and the accent button block on the dark surface **2.94:1** — under the 3:1 shape floor, so the white
+> label read (5.8:1) while the button itself melted into the page.
+>
+> **FIXED 2026-08-19** (with the Close-trap and printer fixes, same commit series): implicit styles for
+> `Frame` (Surface2 + Line border), `Switch` (Accent/Ink), `Picker`/`DatePicker`/`SearchBar`
+> (Ink/Surface2 pairs); the Button style gained a `ThemeLine` edge; `DialogHeader`'s ✕ reads `ThemeInk`
+> (it was `Colors.Black` — the D4-mandated close control, invisible on every dark dialog);
+> `ViewAllView`'s group band moved off the app's only `AppThemeBinding` onto `ThemeSurface2`, and its two
+> `Gray` labels onto `ThemeInkMuted`.
+>
+> **OPEN — in the audit's order, none of it blocking a hand-run:**
+>
+> | # | What | Why it matters |
+> |---|---|---|
+> | T1.1 | **Shell chrome reads no slot** — `AppShell.xaml` is bare, and the tab-bar icons are hardcoded in OPPOSITE directions (`MaterialIconGlyphConverter` defaults `Colors.Black`; the Baskets/Users icons pass `Colors.White`). Both cannot be right on one bar | Add a `Shell` style (Accent/AccentInk); glyph colour must resolve at CONVERT time or icons need rebuilding on a theme change — a converter cannot `SetDynamicResource`. The bar the operator meets first is the one surface that follows no scheme |
+> | T1.2 | **Slots apply UNPAIRED** — `{"accent":"<pale>"}` with no `accentInk` leaves white text on a pale accent everywhere; `baseMode:"system"` (also what NO assignment produces) sets `UserAppTheme=Unspecified` but keeps LIGHT slot values — light slots behind platform-dark chrome on a dark-mode Windows till. That is the DEFAULT configuration, not an edge | Derive/clamp the pair's second half (`accentInk` from accent luminance, `ink` from surface) in `Client.Core.ThemeSlots` so `theme.ts` inherits the rule — **needs a C2 row**, there are two implementations today and nothing pins them. ⚠ `Theming.cs:31`'s claim that a malformed blob "cannot produce white-on-white" is true only for MALFORMED — a well-formed partial one can |
+> | T1.3 | **The literal sweep** — `RecoveryView` title `Gray`; `ConnectionView` `#22000000` dividers + `DarkOrange` "out of date" (2.33:1); `StoreOptionsViewModel` uses `"Error"` (#FF9494, 2.12:1, NOT one of the seven slots so `Apply` can never move it) and accent-as-ink headings (2.94:1); `CashViewModel` sets `TextColor = null` — an explicit local null OUTRANKS the implicit style, deliberately escaping `ThemeInk`; `TillView`'s red refund row needs its four labels' ink PINNED (fixed fill + moving ink is unbounded under a portal ink) | Each is a one-line role fix; the refund red itself STAYS (it means REFUND) as does `#C1272D` "Forget this till" — a destructive control recoloured by a shop's brand can be made to look safe |
+> | T1.4 | **The guard, or this recurs** — `XamlResourceTests` scans XAML only, so every C# `SetDynamicResource("Error")`-style miss passes; nothing forbids new literals | A third Fact: no colour literal / named colour / `AppThemeBinding` in AppClient XAML **or view-building C#**, outside `Colors.xaml` and a reasoned allow-list (the destructive red, the receipt's black-on-paper) — plus a test pinning `Theming.DarkStock` to the web till's dark values |
+>
+> ⚠ Dead screens (`AddEditView`'s `LightGray`, the L4 statistics screens) are NOT in this list — they are
+> L2/L4's to delete, and painting them is how dead code starts looking maintained.
+> ⚠ Sizing: T1.1+T1.3 ≈ ½ d; T1.2 ≈ 1 d including the C2 twin and vectors; T1.4 ≈ ½ d.
+
 ### 0.4 ⚠⚠ The lesson this project keeps re-learning
 
 **Nineteen status markers have been found wrong in nine days** (ten by 2026-08-16, six more while

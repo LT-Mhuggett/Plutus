@@ -3568,21 +3568,34 @@ till that prints through the agent, and the agent has been the front door since 
 none set; no agent but an OPOS device configured; neither. ⚠ And a failed check says *"Couldn't check
 the printer just now"* — never "no printer", or the reported bug returns whenever the agent is busy.
 
-### G56c. ⬜ Inventory Management is readable — NOT YET FIXED
+### G56c. Inventory Management is readable — the white pills are gone
 
 Inventory Management → View All Items, with the **Kapow Test** theme applied.
 
-**Reported:** *"I cannot see anything, as its all rendered white. This is different from the webtill
-experience."* Near-white ink on a near-white surface.
+**✅ Expected: every row sits on a themed card — dark card, near-white text — with the section bands
+("0", "1"…) on the same raised surface.** The search box and its placeholder must be readable too.
 
-⚠ Under investigation — see §0.3. The applier looks right on the face of it (every slot gets the theme,
-then a dark fallback, then a stock restore), so the cause is not where it first appears to be. **Do not
-mark this passed until the rows are readable under BOTH the Kapow Test theme and no theme.**
+⚠⚠ **Matt made this diagnosis, not the audit** — *"I do not think its the themeing, I think its what was
+already there"* — and he was right. Each row was the app's ONE bare `Frame`, which renders WHITE
+whatever the theme says, under labels whose ink the theme had correctly turned near-white: 1.12:1,
+measured. There is now a global Frame style (Surface2 fill + a ThemeLine border), so the next Frame
+anybody adds is theme-aware without knowing this story.
 
-### G56d. ⬜ Settings buttons are colour-aware — NOT YET FIXED
+⚠ Also check under **no theme** (portal → clear the assignment): the rows must be readable there too —
+dark text on the pale card.
 
-**Reported:** *"due to themeing you cannot see the button when the dark theme was set, the buttons need
-to be Colour aware"*.
+### G56d. Settings controls are colour-aware
 
-⚠ There IS already a global `Button` style reading `ThemeAccent`/`ThemeAccentInk`, so this is not simply
-a missing binding — which is why it is still open rather than patched. Same investigation as §G56c.
+Settings, under the dark theme.
+
+**✅ Expected: every button has a visible EDGE.** The measured fault: the accent block on the dark
+surface was 2.94:1 — under the 3:1 shape floor — so the white label read while the button itself melted
+into the page. Buttons now carry a `ThemeLine` border, app-wide.
+
+**✅ And the OFF switch is visible** — its thumb now reads `ThemeInk`, near-white on dark. The 1.99.0
+switches shipped with no colour at all, which made them the newest instance of the fault they shared a
+screen with.
+
+**✅ And every dialog's ✕ is visible** — `DialogHeader` hardcoded it BLACK (1.23:1 on a dark dialog), on
+the very control D4 mandates. It reads `ThemeInk` now. Open any dialog (price adjust is the quickest)
+under the dark theme and look for the ✕.
