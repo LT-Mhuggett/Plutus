@@ -1217,10 +1217,22 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(AttachedCustomerLabel));
                 OnPropertyChanged(nameof(HasAttachedCustomer));
+                OnPropertyChanged(nameof(HasNoAttachedCustomer));
             }
         }
 
         public bool HasAttachedCustomer => _attachedCustomer != null;
+
+        /// <summary>
+        /// Nobody attached — so the lookup button shows and the attached-customer row does not.
+        ///
+        /// ⚠ An explicit inverse rather than a converter: MAUI ships no negating converter, and a
+        /// hand-rolled one is a second place for this to go wrong silently. ⚠ It must be raised in the
+        /// setter above with the others — a `DynamicResource`-style silent failure is bad enough, but a
+        /// binding to a property that never notifies leaves a button that is right once and then wrong
+        /// for the rest of the shift.
+        /// </summary>
+        public bool HasNoAttachedCustomer => _attachedCustomer == null;
 
         /// <summary>
         /// How much store credit the attached customer has, in pence — 0 when nobody is attached.

@@ -299,6 +299,27 @@
                             IsVisible="{Binding HasAttachedCustomer}"
                             Command="{Binding DetachCustomerCommand}"/>
 
+                    <!-- ⚠⚠ THE LOOKUP IS BACK, AND THE LABEL IS THE WHOLE POINT (2026-08-19).
+                         Matt: *"It was on the till screen where it didnt make sense. I asked you to
+                         remove them from the till screen because +Add member didnt make sense. It
+                         implied that it was to add a new member. It needs to be more obvious what that
+                         button was for, which is why I suggested 'Loyalty Customer Lookup'."*
+
+                         ⚠ So the 2026-08-18 removal was an OVER-CORRECTION: his objection was the
+                         WORDING, and I deleted the function. The comment above — *"I argued once that
+                         they belonged, and I was wrong on the facts"* — was itself wrong, and the cost
+                         was real: attaching a member became scan-only, which is what stranded §G50a
+                         and §G53a when a card could not be scanned.
+
+                         ⚠ ONE button, not two. "Add member" belongs on the LOYALTY tab and stays
+                         there; this one only FINDS an existing member, which is what the label now
+                         says. `ExecuteAttachCustomer` already searched by name, phone, email OR member
+                         number — it was never rebuilt, only unbound. -->
+                    <Button Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
+                            Text="Loyalty customer lookup"
+                            IsVisible="{Binding HasNoAttachedCustomer}"
+                            Command="{Binding AttachCustomerCommand}"/>
+
                     <Label  Grid.Row="1" Grid.Column="0" Text="{i18n:Translate SaleExTax}"/>
                     <Label  Grid.Row="1" Grid.Column="1" Text="{Binding SaleExTax, StringFormat='{0:C2}'}"/>
                     <Label  Grid.Row="1" Grid.Column="4" Text="{i18n:Translate SaleIncTax}"/>

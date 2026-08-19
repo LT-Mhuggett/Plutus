@@ -11,9 +11,16 @@ This is not a documentation nicety. It is the mechanism that keeps every till ve
 it exists because both failure modes have already happened here:
 
 **Start at Part A0 — the functional-parity table.** One row per thing a shop needs done, ✅/🟡/⬜/➖ per
-till, no implementation detail (Matt, 2026-08-17: *"parity in FUNCTIONALITY, not in how the functions
-operate"*). It shows the shape of the gap in about a minute. ⚠ **Part B wins on any disagreement** —
-A0 is a summary, and a summary is the thing that goes stale first.
+till, no implementation detail. It shows the shape of the gap in about a minute. ⚠ **Part B wins on any
+disagreement** — A0 is a summary, and a summary is the thing that goes stale first.
+
+⚠⚠ **PARITY NOW INCLUDES LOOK AND FEEL — Matt, 2026-08-19:** *"I need the functionality and look and
+feel to be the same across both tills. So if a user swaps between the two, it doesnt matter and they
+would understand how to use it."* **This supersedes the 2026-08-17 ruling** (*"parity in FUNCTIONALITY,
+not in how the functions operate"*) that used to be quoted here, and it widens the test: an operator who
+moves between tills mid-shift must need no retraining. A0 answers "can the till do the thing", which can
+no longer be the whole question — so a ✅/✅ row whose two tills look nothing alike is now a gap A0
+cannot express, and it belongs in Part B's Notes.
 
 - A feature landed on the web till and the MAUI register silently fell behind → **Part B**, the
   capability register. A capability isn't done until its row exists, with every other till marked

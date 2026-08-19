@@ -464,7 +464,14 @@ export default function TillPage() {
             )}
           </span>
         ) : (
-          <button className="ghost small" onClick={() => setShowCust(true)}>＋ Customer</button>
+          // ⚠⚠ "＋ Customer" IS THE LABEL MATT OBJECTED TO (2026-08-19): *"+Add member didnt make
+          // sense. It implied that it was to add a new member. It needs to be more obvious what that
+          // button was for, which is why I suggested 'Loyalty Customer Lookup'."* The ＋ read as
+          // "create", when the control's job is to FIND an existing member and attach them — creating
+          // one is a fallback inside it when the search finds nothing.
+          // ⚠ Same words as MAUI's button now, per the 2026-08-19 look-and-feel ruling: an operator
+          // swapping tills mid-shift should not have to learn two names for one control.
+          <button className="ghost small" onClick={() => setShowCust(true)}>Loyalty customer lookup</button>
         )}
       </div>
 

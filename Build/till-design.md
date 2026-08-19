@@ -60,6 +60,15 @@ basket disagree on **every VAT return, forever**, and nothing flags it. *That's 
 > **Matt, 2026-08-17:** *"Can there be a table in there showing the parity across the tills, showing
 > parity in FUNCTIONALITY, not in how the functions operate."*
 >
+> ⚠⚠ **AND ON 2026-08-19 HE WIDENED IT, WHICH THIS TABLE CANNOT EXPRESS:** *"I need the functionality
+> and look and feel to be the same across both tills. So if a user swaps between the two, it doesnt
+> matter and they would understand how to use it."* The test is now an operator moving between tills
+> mid-shift with no retraining — so **"how the functions operate" is back in scope**, and a ✅/✅ row
+> whose two tills look nothing alike IS a gap. This table still answers only its own one question; say
+> the rest in Part B's Notes. ⚠ The first casualty of the old reading: §5c item 2, where MAUI's
+> sequential tender prompts were defended as functional parity with the web till's one screen. They are
+> not parity any more.
+>
 > So this table answers **one** question per row: *can an operator do this on that till?* It says
 > nothing about how, which endpoint, which rule, or what went wrong on the way — all of that is
 > **Part B**, and Part B wins on any disagreement. Read this to see the shape of the gap; read Part B

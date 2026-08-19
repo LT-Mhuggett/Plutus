@@ -3752,3 +3752,27 @@ found spendable (`GiftCardAvailablePence > 0`), so nothing changed there. The we
 ⚠ The button is hidden while a card is already attached (the row above states its balance), while the
 basket is SELLING a card, and on a refund — paying with a card in a sale that sells one would launder an
 expiring balance onto a fresh card.
+
+### G56k. ⚠⚠ "Loyalty customer lookup" — on BOTH tills, same words
+
+**MAUI** → Till screen, nothing attached. **✅ Expected: a "Loyalty customer lookup" button.** Press it →
+search by **name, phone, email or member number** → pick → the member attaches and the row shows their
+name, tier and credit, with **Remove member** beside it.
+
+**Web till** → Till screen, nothing attached. **✅ Expected: the same words** — "Loyalty customer lookup",
+where it used to say **"＋ Customer"**.
+
+⚠⚠ **Two faults, one on each till, and both from the same misread.** Matt: *"+Add member didnt make
+sense. It implied that it was to add a new member. It needs to be more obvious what that button was
+for."* On 2026-08-18 I read that as *"the function does not belong"*, deleted MAUI's controls, and wrote
+into the view that I had *"argued once that they belonged, and I was wrong on the facts"*. **The
+objection was the WORDING.** So MAUI lost the function entirely, the web till kept it under a label
+whose `＋` implied "create", and attaching a member became scan-only — which is what stranded §G50a and
+§G53a when there was no card to scan.
+
+⚠ `ExecuteAttachCustomer` was never rebuilt: it still searched name/phone/email/member-number all along,
+it had simply been unbound from any button. ⚠ **One** control, not two — "Add member" stays on the
+Loyalty tab, where creating a member belongs.
+
+⚠ Then check the state flips both ways: attach → the button goes and the chip appears; **Remove member**
+→ the button comes back.
