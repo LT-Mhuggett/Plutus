@@ -419,6 +419,43 @@ is needed before anyone installs this on a shop PC, and is not needed to test.
     `DOTNET_ROOT` does not fix it: the x86 `dotnet.exe` is a different host and will not load an x64
     SDK. Cost: 2026-08-18, two failed builds before the cause was obvious.
 
+20. ⚠⚠ **NEVER EDIT A SOURCE FILE THROUGH A PIPE THAT DOES NOT SET `binmode` / `-encoding`.** On
+    2026-08-11 commit `c93e0fc2` rewrote three files through a filter that read their bytes as
+    Latin-1/cp1252 and re-encoded them as UTF-8. Every `⚠` in `TillViewModel.cs` became
+    `ÃÂ¢ÃÂÃÂ `, and it **shipped in every MAUI build for eight days** until Matt scanned an unknown
+    barcode and got *"Nothing in the catalogue matches ÃÂ¢ÃÂÃÂ759606210602ÃÂ¢ÃÂÃÂ."* in front of a
+    customer. `SourceEncodingTests` now fails the build on it — but the repair is the part worth
+    writing down, because the obvious repair is wrong twice over.
+
+    ⚠ **Detecting it.** The fingerprint is a **C1 control** (U+0080–U+009F, bytes `C2 80`–`C2 9F`),
+    which legitimate text never contains. ⚠ Do NOT grep for what you SEE — the rendered `ÃÂ` contains
+    invisible control characters, so a pattern typed from the screen silently matches nothing and reads
+    as "clean":
+
+    ```bash
+    LC_ALL=C grep -c -a -P '\xc2[\x80-\x9f]' path/to/file      # the real detector
+    LC_ALL=C grep -c -a -P '\xc3[\x82\x83](?:\xc2|\xc3)' file  # the C1-FREE class: a mangled BOM or accent
+    ```
+
+    ⚠⚠ **Do not repair with "reverse while it still looks mangled".** Two traps, both live in this repo:
+    - **The depth VARIES** — 1, 2 and 3 rounds all existed inside one file, so a fixed number of
+      reversals over-decodes the shallow ones into fresh garbage.
+    - **The C1 test stops one round early** for any character whose own UTF-8 is `C2`/`C3 xx`:
+      `·` (U+00B7) corrupted three times passes through `C3 82 C2 B7`, which holds no C1 control and is
+      still wrong. And a blanket reversal **destroys correct characters** — a lone `C2 A3` is a `£` and
+      `C3 97` an `×`, both of which appear here legitimately (27 and 2 times in that one file).
+
+    **The repair that works:** enumerate the distinct corrupted byte runs, derive each one's original by
+    **forward** simulation (corrupt every candidate character 1–3 times and match the bytes exactly),
+    then replace those exact byte strings **longest first**. Verify three ways: C1 count → 0, the
+    legitimate `£`/`×` counts UNCHANGED, and the file's **ASCII skeleton byte-identical** to `HEAD`
+    (`tr -d '\200-\377' | md5sum`) — which proves only non-ASCII bytes moved.
+
+    ⚠ **It was also triaged and written off, which is why the test exists rather than a note.** The
+    2026-08-17 handover recorded it as *"Comments only, no behavioural effect, and confined to that one
+    file (checked every `.cs` and `.xaml` in the repo)"*. It was 14 code lines out of 206, at least six
+    of them strings a shopkeeper reads, across **three** files. This is not auditable by eye.
+
 ⚠ **The standing check these came from:** a green suite proves a component works, never that
 anything *uses* it. `OutboxPusher.DrainAsync`, the catalogue browse and `TillStore.SearchAsync` were
 each fully built and tested while the screen in front of them looked broken. When a screen misbehaves,

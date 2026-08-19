@@ -1,4 +1,4 @@
-Ã¯Â»Â¿using CommonPOSLibrary.Exceptions;
+﻿using CommonPOSLibrary.Exceptions;
 using CommunityToolkit.Maui.Extensions;
 using CommunityToolkit.Maui.Views;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -679,9 +679,9 @@ namespace Plutus.Frontend.ClientUI.ViewModels.MainTill
 
                 BasketItem tempItem;
 
-                // â  SAME BUG AS THE MAUI TILL, fixed the same day (2026-08-11). A selection left
+                // ⚠ SAME BUG AS THE MAUI TILL, fixed the same day (2026-08-11). A selection left
                 // pointing at a line the basket no longer holds made re-adding a just-sold item a
-                // silent no-op â it incremented a detached object. `Basket.Contains` makes that
+                // silent no-op — it incremented a detached object. `Basket.Contains` makes that
                 // structurally impossible. Fixed here too because UI bugs get fixed in BOTH
                 // frontends until ClientUI is actually removed (`Build/To do/MAUI-retrofit.md` §10, L10).
                 if (SelectedBasketRecord != null &&

@@ -21,20 +21,20 @@ namespace Plutus.Frontend.AppClient.Pages.CustomViews
         public Dictionary<uint, string> InputResults { get; set; } = new Dictionary<uint, string>();
         public List<ViewElement> ViewElements { get; set; } = new List<ViewElement>();
         /// <summary>
-        /// â  A FIELD, WHICH MEANS THE `IsEnabled` BINDING ONTO IT IS DEAD. MAUI bindings resolve
+        /// ⚠ A FIELD, WHICH MEANS THE `IsEnabled` BINDING ONTO IT IS DEAD. MAUI bindings resolve
         /// against properties; `SetBinding(IsEnabledProperty, "ValidationGroup.IsValid")` therefore
-        /// never resolves, and `IsEnabled` keeps its default â **true**. So per-field validation
+        /// never resolves, and `IsEnabled` keeps its default — **true**. So per-field validation
         /// still shows its errors, but it does NOT gate Confirm.
         ///
-        /// â  DELIBERATELY LEFT THAT WAY FOR NOW (2026-08-11). Making it a property would suddenly
-        /// start gating a button on this screen â the same screen Matt has just reported as broken â
+        /// ⚠ DELIBERATELY LEFT THAT WAY FOR NOW (2026-08-11). Making it a property would suddenly
+        /// start gating a button on this screen — the same screen Matt has just reported as broken —
         /// and there is no UI host in this repo to test that with. A validation gate that is wrong
         /// leaves an operator with a Confirm that does nothing and no explanation, which is worse
         /// than the current state: every caller re-parses its own input and refuses with a message
         /// (`ExecuteOpenEditItem`, `ExecuteCreateItem`, the tender prompt), so nothing invalid gets
         /// through regardless.
         ///
-        /// â  Recorded in `Build/archive/handrun-2026-08-11.md` rather than silently fixed.
+        /// ⚠ Recorded in `Build/archive/handrun-2026-08-11.md` rather than silently fixed.
         /// </summary>
         public ValidationGroupBehavior ValidationGroup;
         private readonly decimal _targetAmount;
@@ -469,20 +469,20 @@ namespace Plutus.Frontend.AppClient.Pages.CustomViews
         }
         #endregion
         /// <summary>
-        /// â  THIS COULD SIZE THE DIALOG TO NOTHING, and a dialog with no size over a 40%-black
+        /// ⚠ THIS COULD SIZE THE DIALOG TO NOTHING, and a dialog with no size over a 40%-black
         /// scrim is an app that has gone dark with no way out. It read:
         ///
         ///     MainLayout.WidthRequest  = Application.Current.MainPage.Width  / 2;
         ///     MainLayout.HeightRequest = Application.Current.MainPage.Height / 2;
         ///
         /// `VisualElement.Width` and `.Height` are **-1 until the element has been arranged**, so
-        /// during the first layout pass â which is the one that matters, because that is when the
-        /// popup appears â those assignments are `-0.5`. It also reaches for
+        /// during the first layout pass — which is the one that matters, because that is when the
+        /// popup appears — those assignments are `-0.5`. It also reaches for
         /// `Application.Current.MainPage`, which is not this dialog's parent and may be null or a
         /// different page entirely while a Mopups popup is up.
         ///
         /// Now sized from the values the layout actually PASSES IN, and only when they are real.
-        /// A dialog that cannot work out how big it should be must fall back to its natural size â
+        /// A dialog that cannot work out how big it should be must fall back to its natural size —
         /// never to zero.
         /// </summary>
         protected override void OnSizeAllocated(double width, double height)
@@ -492,12 +492,12 @@ namespace Plutus.Frontend.AppClient.Pages.CustomViews
             if (width > 0)
                 MainLayout.WidthRequest = Math.Max(320, width / 2);
 
-            // â  Height is a MAXIMUM, not a request. Forcing half the window onto a stack holding a
+            // ⚠ Height is a MAXIMUM, not a request. Forcing half the window onto a stack holding a
             // cash grid, entries and up to three buttons clipped the buttons off the bottom of the
-            // payment dialog on a short window â including Confirm.
+            // payment dialog on a short window — including Confirm.
             //
-            // â  THE CAP GOES ON THE SCROLLER, NOT ON THE STACK. Capping the inner stack caps the
-            // CONTENT, which leaves the scroller nothing to scroll and clips exactly as before â
+            // ⚠ THE CAP GOES ON THE SCROLLER, NOT ON THE STACK. Capping the inner stack caps the
+            // CONTENT, which leaves the scroller nothing to scroll and clips exactly as before —
             // which is how the item editor lost five of its eight fields and was reported as
             // *"I can ONLY change the tax"* (Matt, 2026-08-11). The stack must be free to be
             // taller than the window; the scroller is what makes that reachable.
@@ -506,10 +506,10 @@ namespace Plutus.Frontend.AppClient.Pages.CustomViews
         }
 
         /// <summary>
-        /// â  BELT AND BRACES ON VISIBILITY. Mopups animates the popup in and restores
+        /// ⚠ BELT AND BRACES ON VISIBILITY. Mopups animates the popup in and restores
         /// <c>Content.Opacity</c> at the end of that animation (<see cref="CustomViews
         /// .AlertDialogBase{T}.OnAppearingAnimationEndAsync"/>). If the animation does not complete
-        /// â and it is the platform's, not ours â the content stays transparent while the scrim
+        /// — and it is the platform's, not ours — the content stays transparent while the scrim
         /// does not, which looks exactly like the app freezing. Nothing about this dialog is worth
         /// leaving to an animation callback.
         /// </summary>
