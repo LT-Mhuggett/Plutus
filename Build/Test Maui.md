@@ -3166,3 +3166,83 @@ Sign in as a **Cashier** → Settings → Till → Quick-sell bag item.
 
 **✅ Expected: refused**, naming the permission. ⚠ It is `pos.settings.manage`, exactly as it was
 before the move — a setting that changes what a button sells is not a cashier's to change.
+
+---
+
+## G50. ⚠⚠ A tender cannot take its cap twice — the money defect of 2026-08-19. **Till 1.96.0**
+
+> ⚠⚠ **READ THIS BEFORE RUNNING IT.** Every other section here checks that something works. This one
+> checks that something is *refused*, and until 1.96.0 it was not. If any step below is **accepted**,
+> stop and say so — it is money leaving by a door that is supposed to be shut.
+>
+> The old defect: the per-tender cap was checked **one pass at a time**, so picking the same method
+> twice took the cap twice. Both halves of this are ordinary operator behaviour — nobody has to be
+> trying anything.
+
+### G50a. ⚠⚠ Store credit cannot be spent twice on one basket — **the live one, do this first**
+
+Attach a member with **£5.00** of store credit. Ring up a basket of **£10.00**. Checkout →
+**Store credit** → take the £5.00 it offers. The prompt should pre-fill **£5.00** (not £10.00).
+
+Now, with £5.00 still to pay, pick **Store credit again**.
+
+**✅ Expected: refused the moment you pick it — you are never asked "how much?".** The message names
+the method and says there is not that much left on it, and the basket is still there. Take the
+remaining £5.00 in cash and the sale completes normally: two payments, £5 credit + £5 cash.
+
+⚠ **The old behaviour:** it asked how much, accepted another £5.00, settled the sale at £10.00 — and
+then the *server* refused the £10 redeem against a £5 balance and **the whole sale aborted**, with the
+goods bagged and the customer's credit gone. Matt: if you see an abort here, that is the old build.
+
+⚠ Check the customer's credit afterwards: **£5.00 spent, £0.00 left** — not £10.
+
+### G50b. Gift card, same shape
+
+A gift card with **£5.00** on it against an **£8.00** basket. Take £5.00 on the card, then pick the
+gift card again.
+
+**✅ Expected: refused at the pick.** Finish in cash. ⚠ Then re-check the card's balance is **£0.00**
+and not overdrawn — a gift card that goes negative is spendable value nobody paid for.
+
+### G50c. ⚠⚠ The refund — Matt's original basket, the wrong way round
+
+Ring a **£4.40** sale paid **£2.00 cash + £2.40 card**. Complete it. Now return the item.
+
+Pick **Card**, refund **£2.40** — accepted, £2.00 still to refund. Now pick **Card again**.
+
+**✅ Expected: refused at the pick**, with a sentence that tells you where the rest goes ("refund what
+this method paid, then pick the other one"). Pick **Cash** for the remaining £2.00 and it completes.
+
+⚠⚠ **The old behaviour was the worst available shape**: it accepted £2.00 more on the card, the till
+said *"Confirmed, transaction complete"*, and the server then **quarantined** the sale — so the money
+had left the card machine and the sale was destroyed afterwards, with nothing on screen. If this step
+is accepted, the build is old; check the portal for a quarantined sale and tell me.
+
+### G50d. A tender already refunded in full is refused
+
+Take the sale from G50c after refunding the card's £2.40 (in a **separate, completed** refund, not the
+same basket). Start another return against the same original sale and pick **Card**.
+
+**✅ Expected: refused — the card has already given back everything it took.** ⚠ This is the second
+half of the same defect: a spent tender reports "£0 left" and is *still offered by the picker*, and a
+£0 cap used to read as "no limit at all".
+
+### G50e. The prompt offers what is LEFT, not the original cap
+
+Gift card with **£5.00**, basket **£10.00**. Take **£3.00** on the card. Pick the gift card again.
+
+**✅ Expected: the amount box pre-fills £2.00** — what is left of the card — not £5.00 and not £7.00.
+
+⚠ Why it matters beyond tidiness: a default the till is about to refuse is how an operator learns to
+type over every default they are ever shown.
+
+### G50f. Nothing else got stricter
+
+⚠ The guard must not have grown teeth it should not have. Confirm the ordinary paths still work:
+
+- **Cash is still uncapped** — a £3.30 basket, hand over £20.00, get £16.70 change.
+- **A split across two DIFFERENT methods** still works: £10.00 basket, £4 cash then £6 card.
+- **Two cash tenders on one sale** still work: £10.00 basket, £4 cash then £6 cash. ⚠ Cash has no cap,
+  so picking it twice must be fine — if this is refused, the accumulation is being applied to a tender
+  that was never capped.
+- **A card surcharge is still charged once**, not twice, across a split card payment (§G-surcharge).

@@ -274,6 +274,186 @@ public class TenderLoopTests
         Assert.Equal(800, outcome.Payments.Sum(p => p.AmountPence));
     }
 
+    // ── ⚠⚠ THE CAP ACCUMULATES ACROSS PASSES. The defect of 2026-08-19 ───────
+
+    /// <summary>
+    /// ⚠⚠ THE DEFECT, in one assertion. The cap was compared per PASS, so picking the same method
+    /// twice took the cap twice: a £4.40 sale paid £2.00 cash + £2.40 card, refunded Card £2.40 and
+    /// then Card AGAIN £2.00 — each one inside the £2.40 cap — put the whole £4.40 back on a card that
+    /// took £2.40.
+    ///
+    /// ⚠ The server does catch it, but only by QUARANTINE (202, terminal in `OutboxPusher`), which is
+    /// the worst shape available: the money has left the card machine, the till has said "complete",
+    /// and the sale is destroyed afterwards.
+    ///
+    /// ⚠ Note the operator is handed the SAME gross cap on the second pick. That is deliberate and is
+    /// the contract — a caller's cap is a stored balance or an origin capacity, and neither knows what
+    /// this loop has taken so far, so the subtraction cannot live out there.
+    /// </summary>
+    [Fact]
+    public async Task A_tender_cannot_take_its_cap_twice_by_being_picked_twice()
+    {
+        var op = new Operator()
+            .PicksCapped("Card", capPence: 240)
+            .PicksCapped("Card", capPence: 240)
+            .Pays(-240, -200);
+
+        var outcome = await Run(-440, op);
+
+        // ⚠ The second pick never reached the amount prompt: the card had nothing left to be asked
+        // about. One question, not two.
+        Assert.Equal(1, op.AmountsAsked);
+        Assert.True(outcome.Abandoned);
+    }
+
+    /// <summary>
+    /// ⚠ And the refund still completes — by the OTHER method the sale was actually paid with. The cap
+    /// exists to route the money correctly, not to block the refund.
+    /// </summary>
+    [Fact]
+    public async Task The_rest_of_a_refund_goes_back_by_the_other_method_that_paid_for_it()
+    {
+        var op = new Operator()
+            .PicksCapped("Card", capPence: 240)
+            .PicksCapped("Card", capPence: 240)   // refused — the card has given back all it took
+            .PicksCash()
+            .Pays(-240, -200);
+
+        var outcome = await Run(-440, op);
+
+        Assert.False(outcome.Abandoned);
+        Assert.Equal(-440, outcome.Payments.Sum(p => p.AmountPence));
+        Assert.Equal(new[] { "Card", "Cash" }, outcome.Payments.Select(p => p.MethodName));
+    }
+
+    /// <summary>
+    /// ⚠⚠ LIVE AT A COUNTER, and not on the refund path at all: £5 of store credit answering a £10
+    /// basket twice over. The loop settled at £10, `TryRedeemStoreCreditAsync` then asked to redeem
+    /// £10 against a £5 balance, the server refused the overdraw, and the whole sale ABORTED — with
+    /// the goods bagged and the operator holding nothing.
+    /// </summary>
+    [Fact]
+    public async Task Store_credit_cannot_be_spent_twice_over_on_one_basket()
+    {
+        var op = new Operator()
+            .PicksCapped("Store credit", capPence: 500)
+            .PicksCapped("Store credit", capPence: 500)
+            .PicksCash()
+            .Pays(500, 500);
+
+        var outcome = await Run(1000, op);
+
+        Assert.False(outcome.Abandoned);
+        Assert.Equal(500, Assert.Single(outcome.Payments, p => p.MethodName == "Store credit").AmountPence);
+        Assert.Equal(1000, outcome.Payments.Sum(p => p.AmountPence));
+    }
+
+    /// <summary>
+    /// ⚠⚠ ZERO IS A LIMIT OF NOTHING, NOT THE ABSENCE OF A LIMIT. They were the same value until
+    /// 2026-08-19. A card whose capacity an earlier refund already used up reports 0 remaining and is
+    /// STILL offered by the picker (`OriginTenderTypesAsync` returns every type the origin used, spent
+    /// or not) — so "0 means uncapped" let a second refund put the money back on it all over again.
+    ///
+    /// ⚠ `RefundRules` has always had this right — see
+    /// `RefundTenderSplitTests.A_tender_with_nothing_left_is_refused_rather_than_capped_at_zero`. The
+    /// loop is what disagreed.
+    /// </summary>
+    [Fact]
+    public async Task A_tender_with_nothing_left_is_refused_at_the_pick_and_never_prompts()
+    {
+        var op = new Operator().PicksCapped("Card", capPence: 0).PicksCash().Pays(-440);
+
+        var outcome = await Run(-440, op);
+
+        Assert.False(outcome.Abandoned);
+        // ⚠ Asked once, for the cash. A prompt whose every possible answer is refused teaches an
+        // operator that the till is broken.
+        Assert.Equal(1, op.AmountsAsked);
+        Assert.Equal("Cash", Assert.Single(outcome.Payments).MethodName);
+    }
+
+    /// <summary>⚠ NULL still means uncapped, which is what an ordinary sale needs — nothing limits how
+    /// much cash a customer may hand over.</summary>
+    [Fact]
+    public async Task No_cap_at_all_limits_nothing()
+    {
+        var op = new Operator().PicksCash().Pays(2000);
+
+        var outcome = await Run(330, op);
+
+        Assert.False(outcome.Abandoned);
+        Assert.Equal(1670, outcome.ChangePence);
+    }
+
+    /// <summary>
+    /// ⚠ THE PRE-FILL MUST BE A NUMBER THAT WILL BE ACCEPTED, and on the second pass of a part-spent
+    /// tender that is the REMAINDER, not the gross cap. A default the loop is about to refuse is how an
+    /// operator learns to type over every default it is ever shown.
+    /// </summary>
+    [Fact]
+    public async Task The_prompt_offers_what_is_LEFT_of_a_part_spent_cap()
+    {
+        var op = new Operator()
+            .PicksCapped("GiftCard", capPence: 500)
+            .PicksCapped("GiftCard", capPence: 500)
+            .PicksCash()
+            .Pays(300, 200, 500);
+
+        var outcome = await Run(1000, op);
+
+        // £5 available at first; £3 of the basket answered by £3 of it, so £2 is the most next time.
+        Assert.Equal(500, op.PromptWasTold[0].MostAllowed);
+        Assert.Equal(200, op.PromptWasTold[1].MostAllowed);
+        Assert.Equal(1000, outcome.Payments.Sum(p => p.AmountPence));
+    }
+
+    /// <summary>
+    /// ⚠⚠ THE C2 PIN, and the reason this class now knows about `RefundRules` at all.
+    ///
+    /// How much may go back to a tender is a rule, and it lives in `SharedKernel.RefundRules` — where
+    /// the SERVER enforces it and the web till's `refundSplitRefusal` mirrors it. The loop is a second
+    /// implementation of the same idea, shaped around one pick at a time, and on 2026-08-19 the two
+    /// disagreed: the rule sums requests against one tender before comparing to the cap, and the loop
+    /// did not. The disagreement was £2.00 of somebody's money.
+    ///
+    /// ⚠ So this asserts the AGREEMENT rather than any particular behaviour: whatever split the loop
+    /// accepts must be one the rule would authorise. It goes red the next time they drift, which is
+    /// something no comment in either file can do.
+    /// </summary>
+    [Fact]
+    public async Task Whatever_split_the_loop_accepts_the_refund_RULE_would_also_authorise()
+    {
+        // Matt's basket: £2.00 cash + £2.40 card.
+        var origin = Plutus.SharedKernel.RefundRules.RefundCapacities(new[]
+        {
+            new KeyValuePair<byte, long>(Plutus.SharedKernel.Tenders.Cash, 200),
+            new KeyValuePair<byte, long>(Plutus.SharedKernel.Tenders.Card, 240),
+        });
+
+        // An operator refunding it who tries the card for everything, twice, before giving up and
+        // splitting it the way the customer actually paid.
+        var op = new Operator()
+            .PicksCapped("Card", capPence: 240)
+            .PicksCapped("Card", capPence: 240)
+            .PicksCapped("Cash", capPence: 200, givesChange: true)
+            .Pays(-440, -240, -200);
+
+        var outcome = await Run(-440, op);
+
+        Assert.False(outcome.Abandoned);
+        Assert.Equal(-440, outcome.Payments.Sum(p => p.AmountPence));
+
+        var decision = Plutus.SharedKernel.RefundRules.AuthoriseSplit(
+            origin,
+            outcome.Payments.Select(p => new KeyValuePair<byte, long>(
+                Plutus.SharedKernel.Tenders.FromMethodName(p.MethodName),
+                Math.Abs(p.AmountPence - p.ChangePence))));
+
+        Assert.True(decision.IsAllowed,
+            $"the loop accepted a split the rule refuses: {decision.OffendingTenderType} asked "
+            + $"{decision.RequestedPence} of {decision.AllowedPence}");
+    }
+
     [Fact]
     public async Task Each_prompt_asks_for_what_is_STILL_outstanding()
     {

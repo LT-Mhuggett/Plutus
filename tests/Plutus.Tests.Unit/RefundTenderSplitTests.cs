@@ -155,6 +155,61 @@ public class RefundTenderSplitTests
         Assert.Equal(240, decision.AllowedPence);
     }
 
+    // ── ⚠⚠ The three-way answer for ONE tender. C2 twin: `capacityFor` in tendering.ts ──
+
+    /// <summary>
+    /// ⚠⚠ NULL IS NOT ZERO, and the MAUI till could not tell them apart until 2026-08-19 — which is how
+    /// a card an earlier refund had already used up came to accept the money a second time.
+    ///
+    /// ⚠ An empty list is IGNORANCE: not a refund at all, or an origin sale this till could not read.
+    /// Nothing may be enforced from it, and the server gate is what stands behind that.
+    /// </summary>
+    [Fact]
+    public void An_empty_capacity_list_caps_nothing_because_it_knows_nothing()
+    {
+        Assert.Null(RefundRules.CapacityFor(Array.Empty<TenderCapacity>(), Tenders.Card));
+        Assert.Null(RefundRules.CapacityFor(null, Tenders.Card));
+    }
+
+    [Fact]
+    public void A_tender_in_the_list_is_capped_at_what_it_has_left()
+    {
+        Assert.Equal(200, RefundRules.CapacityFor(SplitSale(), Tenders.Cash));
+        Assert.Equal(240, RefundRules.CapacityFor(SplitSale(), Tenders.Card));
+    }
+
+    /// <summary>
+    /// ⚠⚠ FINDING G, SECOND LOCK. A tender the sale never used may take nothing back — enforced by the
+    /// rule and not only by which buttons the picker offers, because relying on the picker alone is
+    /// precisely how this went missing.
+    /// </summary>
+    [Fact]
+    public void A_tender_absent_from_a_populated_list_may_take_nothing()
+    {
+        var cardOnly = RefundRules.RefundCapacities(Tendered((Tenders.Card, 440)));
+
+        Assert.Equal(0, RefundRules.CapacityFor(cardOnly, Tenders.Cash));
+    }
+
+    /// <summary>
+    /// ⚠⚠ THE DEFECT OF 2026-08-19 AT ITS SOURCE. A spent card is STILL offered by the picker
+    /// (`OriginTenderTypesAsync` returns every type the origin used, spent or not), so the loop asks
+    /// about it — and the answer must be 0 meaning "nothing", never null meaning "help yourself".
+    ///
+    /// ⚠ The web till reaches the same 0 by a different route: its `refundCapacities` DROPS a spent
+    /// tender from the list entirely, so `capacityFor` falls through to 0. Same answer, and worth knowing
+    /// they differ in the middle — anything that ITERATES capacities sees a spent tender here and not
+    /// there. That is a display difference, not a money one.
+    /// </summary>
+    [Fact]
+    public void A_spent_tender_answers_zero_rather_than_null()
+    {
+        var spent = RefundRules.RefundCapacities(
+            Tendered((Tenders.Card, 240)), Tendered((Tenders.Card, 240)));
+
+        Assert.Equal(0, RefundRules.CapacityFor(spent, Tenders.Card));
+    }
+
     // ── Fail closed ──────────────────────────────────────────────────────────
 
     /// <summary>

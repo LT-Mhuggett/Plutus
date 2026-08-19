@@ -2549,11 +2549,14 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         // the amount prompt can pre-fill a number that will actually be accepted. Zero
                         // when this is not a refund, or when the origin's tenders are unknown (a sale
                         // from another till — see `OriginTenderCapacitiesAsync`).
-                        var capPence = refundCaps
-                            .Where(c => c.TenderType == SharedKernel.Tenders.FromMethodName(method.Name))
-                            .Select(c => c.RemainingPence)
-                            .DefaultIfEmpty(0)
-                            .First();
+                        // ⚠⚠ THE RULE, NOT A LINE OF LINQ HERE (2026-08-19). Null = nothing caps this
+                        // tender; 0 = it may take NOTHING; otherwise the remainder. Those were the same
+                        // value until an already-refunded card, still offered by the picker, reported 0
+                        // and was read as "uncapped" — so a second refund put the money back on it. The
+                        // three-way decision is now `RefundRules.CapacityFor`, C2 twin of the web till's
+                        // `capacityFor`, and it is TESTED, which nothing written inside this method is.
+                        long? capPence = SharedKernel.RefundRules.CapacityFor(
+                            refundCaps, SharedKernel.Tenders.FromMethodName(method.Name));
 
                         // ⚠ STORE CREDIT IS CAPPED AT THE BALANCE, through the SAME mechanism finding
                         // Y built for refunds — the loop already knows how to refuse a tender that
@@ -2679,10 +2682,20 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                             // ⚠⚠ FINDING Y. Not "too much" in the sale's terms — too much for THIS
                             // method. The sentence has to say where the rest goes, or the operator's
                             // next move is to try a different card rather than to split the refund.
-                            Plutus.Client.Core.TenderRefusal.OverTenderCapacity =>
+                            // ⚠ TWO SENTENCES, because this one refusal now guards two different limits.
+                            // On a REFUND it is the origin sale's capacity (finding Y). On a SALE it is the
+                            // balance on a gift card or a store-credit account — and telling an operator
+                            // taking money IN that it is "more than card took on this sale" sends them
+                            // hunting for a receipt that has nothing to do with it.
+                            Plutus.Client.Core.TenderRefusal.OverTenderCapacity when outstanding < 0 =>
                                 $"That is more than {lastPickedName.ToLowerInvariant()} took on this sale, so it "
                                 + "cannot all go back that way. Refund what this method paid, then pick the "
                                 + $"other one for the rest — {owed} is left to refund altogether.",
+
+                            Plutus.Client.Core.TenderRefusal.OverTenderCapacity =>
+                                $"{lastPickedName} does not have that much left on it. Your basket is still "
+                                + "here — take what it has, then pick another method for the rest. "
+                                + $"{owed} is still to pay.",
 
                             _ => $"That amount can't settle this. {owed} is still to pay.",
                         };

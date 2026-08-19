@@ -12,7 +12,8 @@ namespace Plutus.Client.Core;
 /// applies it AT MOST ONCE however many times the method is chosen — see
 /// <see cref="TenderLoop.RunAsync"/>.</param>
 /// <param name="CapPence">
-/// ⚠⚠ THE MOST THIS METHOD MAY TAKE, or 0 for no limit — finding Y, 2026-08-13.
+/// ⚠⚠ THE MOST THIS METHOD MAY TAKE ACROSS THE WHOLE LOOP, or null for no limit — finding Y,
+/// 2026-08-13; accumulated across passes and 0 split from null on 2026-08-19.
 ///
 /// On a REFUND this is what the method actually took on the original sale, less anything already
 /// given back to it (<see cref="Plutus.SharedKernel.RefundRules.RefundCapacities"/>). Matt found the
@@ -24,12 +25,21 @@ namespace Plutus.Client.Core;
 /// then accepts whatever comes back has no rule in it — the operator can always type over a default,
 /// and on a touch till they routinely do.
 ///
-/// ⚠ Zero means UNCAPPED, which is right for an ordinary sale: nothing limits how much cash a
-/// customer may hand over. It does NOT mean "this method may take nothing" — a spent tender is
-/// removed from the offered set instead, so the operator is never shown a method that cannot be used.
+/// ⚠⚠ NULL MEANS UNCAPPED. ZERO MEANS THIS METHOD MAY TAKE NOTHING. They were the same value until
+/// 2026-08-19, and the difference is money. The old comment here claimed a spent tender was "removed
+/// from the offered set instead" — it is not: <c>OriginTenderTypesAsync</c> offers every type the
+/// origin sale used, spent or not, while <see cref="Plutus.SharedKernel.RefundRules.RefundCapacities"/>
+/// correctly reports 0 remaining for one an earlier refund already used up. Under the old rule that 0
+/// read as "no limit", so the SECOND refund of a £2.40 card sale put another £2.40 back on the card.
+/// Uncapped is the absence of a cap, not a cap of nothing.
+///
+/// ⚠⚠ THE CAP IS ON THE TENDER TYPE ACROSS THE WHOLE LOOP, not on one pass of it. Supply the GROSS
+/// figure every time the method is picked; <see cref="TenderLoop.RunAsync"/> subtracts what that type
+/// has already taken. Do NOT try to decrement it in the caller — a caller's number is a stored balance
+/// or an origin capacity, and neither knows what this loop has taken so far.
 /// </param>
 public sealed record TenderChoice(
-    string? MethodName, bool GivesChange, long SurchargePence = 0, long CapPence = 0)
+    string? MethodName, bool GivesChange, long SurchargePence = 0, long? CapPence = null)
 {
     /// <summary>The operator backed out of choosing a method.</summary>
     public static readonly TenderChoice Abandoned = new(null, false);
@@ -203,6 +213,59 @@ public static class TenderLoop
             if (choice is null || choice.IsAbandoned || string.IsNullOrWhiteSpace(method))
                 return TenderOutcome.GaveUp(surcharge);
 
+            // ⚠⚠ THE CAP IS ON THE TENDER TYPE ACROSS THIS WHOLE LOOP, not on the pass in front of us.
+            // `CapPence` arrives GROSS each time the method is picked, so the subtraction happens HERE —
+            // the caller's number is a stored balance or an origin capacity, and neither knows what this
+            // loop has already taken.
+            //
+            // ⚠⚠ THE DEFECT THIS CLOSES (2026-08-19). The cap was compared per PASS, so picking the same
+            // method twice took the cap twice. A £4.40 sale paid £2.00 cash + £2.40 card, refunded Card
+            // £2.40 then Card AGAIN £2.00 — each one inside the £2.40 cap — put the whole £4.40 back on a
+            // card that took £2.40. The server does catch it, but only by QUARANTINE (202, terminal in
+            // `OutboxPusher`): the money has left the card machine, the till has said "complete", and the
+            // sale is destroyed afterwards. On STORE CREDIT and GIFT CARDS the same hole is live at a
+            // counter — £5 of credit answers a £10 basket twice, then the redeem refuses the overdraw and
+            // ABORTS the sale with everything already taken.
+            //
+            // ⚠ Grouped by tender TYPE, not by method name: the type is what the cap is keyed on, what
+            // the server aggregates, and what the web till's `refundSplitRefusal` groups by (C2 twin).
+            // `FromMethodName` is lenient and collapses an unknown name to CARD — here that only ever
+            // makes the cap STRICTER, which is the safe direction for a rule about money going out.
+            var takenByThisType = 0L;
+            if (choice.CapPence is not null)
+            {
+                var pickedType = SharedKernel.Tenders.FromMethodName(method);
+                foreach (var taken in payments)
+                {
+                    if (SharedKernel.Tenders.FromMethodName(taken.MethodName) != pickedType) continue;
+
+                    // ⚠ NET OF CHANGE — what the method actually KEPT. A £20 note against a £3 balance
+                    // takes £3 and hands £17 back, and the £20 is not what it took.
+                    //
+                    // ⚠ Defensive rather than load-bearing TODAY: change is only ever given when the
+                    // amount clears the whole balance, which ends the loop, so no later pass can read
+                    // this. Written net anyway because the alternative is an accumulator that is
+                    // silently wrong the moment that stops being true.
+                    takenByThisType += Math.Abs(taken.AmountPence - taken.ChangePence);
+                }
+            }
+
+            var capRemaining = choice.CapPence is long gross
+                ? Math.Max(0, gross - takenByThisType)
+                : (long?)null;
+
+            // ⚠⚠ REFUSED AT THE PICK, NOT AT THE AMOUNT, and BEFORE the surcharge below — a method with
+            // nothing left cannot be answered by any number, so asking "how much?" first is a prompt
+            // whose every possible answer is refused. Refusing after the surcharge block would leave a
+            // card fee on a sale that took no card money.
+            if (capRemaining == 0)
+            {
+                refusals++;
+                if (onRefused is not null)
+                    await onRefused(TenderRefusal.OverTenderCapacity, outstanding).ConfigureAwait(false);
+                continue;
+            }
+
             // ⚠ AT MOST ONCE, and this is a rule of the LOOP rather than a courtesy of the caller.
             // A split payment across two card tenders must not charge the flat fee twice, and the
             // original relied on the caller re-checking the basket each pass to prevent it.
@@ -217,8 +280,10 @@ public static class TenderLoop
             // a refund, no more than the chosen method took on the original sale (finding Y). Passed to
             // the caller so the box can be pre-filled with a number that will be ACCEPTED — a prompt
             // whose default is refused is a prompt that teaches the operator to ignore it.
-            var mostAllowed = choice.CapPence > 0 && choice.CapPence < Math.Abs(outstanding)
-                ? choice.CapPence * Math.Sign(outstanding)
+            // ⚠ `capRemaining`, not `choice.CapPence` — the pre-fill must be a number that will be
+            // accepted, and on the second pass of a part-spent tender those are different numbers.
+            var mostAllowed = capRemaining is long headroom && headroom < Math.Abs(outstanding)
+                ? headroom * Math.Sign(outstanding)
                 : outstanding;
 
             var answer = await askAmount(outstanding, mostAllowed).ConfigureAwait(false);
@@ -230,7 +295,7 @@ public static class TenderLoop
             // change/overpay rules below, because "that money cannot go back this way" is a different
             // and stricter statement than "this method cannot give change" — and reporting the wrong one
             // sends the operator looking for a different card rather than splitting the refund.
-            if (choice.CapPence > 0 && Math.Abs(amount) > choice.CapPence)
+            if (capRemaining is long limit && Math.Abs(amount) > limit)
             {
                 refusals++;
                 if (onRefused is not null)

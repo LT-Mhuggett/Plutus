@@ -243,6 +243,19 @@ describe("refund tender capacities (finding Y)", () => {
     expect(capacityFor(caps, CARD_T)).toBe(0);
   });
 
+  // ⚠⚠ NULL IS NOT ZERO — the case the C# twin was missing until 2026-08-19, when a spent card read as
+  // "uncapped" on the MAUI till and took a second refund. An empty list is IGNORANCE (not a refund, or an
+  // origin we could not read) and caps nothing; a 0 is a real limit of nothing. C2 twin:
+  // `RefundRules.CapacityFor` — `An_empty_capacity_list_caps_nothing_because_it_knows_nothing`.
+  it("caps nothing when it knows nothing, which is not the same as capping at zero", () => {
+    expect(capacityFor([], CARD_T)).toBeNull();
+    expect(capacityFor(null, CARD_T)).toBeNull();
+    expect(capacityFor(undefined, CARD_T)).toBeNull();
+
+    // …whereas a tender the sale never used may take nothing back — finding G, second lock.
+    expect(capacityFor(refundCapacities([{ tenderType: "Card", amountPence: 440 }]), CASH_T)).toBe(0);
+  });
+
   // ⚠⚠ THE BUG, in one assertion.
   it("refuses the whole refund on a card that only took part of it", () => {
     const refusal = refundSplitRefusal(splitSale(), [{ tenderType: CARD_T, pence: 440 }]);

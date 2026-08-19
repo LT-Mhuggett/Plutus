@@ -260,6 +260,41 @@ public static class RefundRules
     }
 
     /// <summary>
+    /// What ONE tender may take, in the three-way shape a tender loop needs: <see langword="null"/> for
+    /// "nothing caps this", <c>0</c> for "this tender may take nothing", or the remaining capacity.
+    ///
+    /// ⚠⚠ THE THREE-WAY ANSWER IS THE WHOLE POINT, and the reason this is a rule rather than a line of
+    /// LINQ at a call site. Null and 0 were the same value in the MAUI till until 2026-08-19: a card an
+    /// earlier refund had already used up reports 0 remaining, is still OFFERED by the picker, and
+    /// "0 means uncapped" then let the next refund put the money back onto it all over again.
+    ///
+    /// ⚠ AN EMPTY LIST IS THE UNKNOWN CASE — not a refund at all, or an origin sale this till could not
+    /// read — and nothing may be enforced from ignorance. A zero INSIDE a populated list is a real limit
+    /// of nothing.
+    ///
+    /// ⚠ A TENDER ABSENT FROM A POPULATED LIST took nothing on the origin sale, so it may take nothing
+    /// back. That is finding G — a card sale must not be refunded out of the cash drawer — enforced here
+    /// as well as at the picker, because one lock on that door was how it came to be missing.
+    ///
+    /// ⚠⚠ C2 TWIN of <c>capacityFor</c> in <c>till/tendering.ts</c>, decision for decision: the same
+    /// three cases with the same meanings. Two tills that disagree here disagree about how much money is
+    /// allowed to leave — see till-design C2.
+    /// </summary>
+    /// <param name="capacities">From <see cref="RefundCapacities"/>, or empty when unknown.</param>
+    /// <param name="tenderType">The <see cref="Tenders"/> byte being asked about.</param>
+    public static long? CapacityFor(IReadOnlyList<TenderCapacity>? capacities, byte tenderType)
+    {
+        if (capacities is null || capacities.Count == 0) return null;
+
+        // ⚠ NOT `FirstOrDefault` — the struct trap documented in `AuthoriseSplit` below. No match hands
+        // back `default`, whose `TenderType` is 0, which is `Tenders.Cash`.
+        foreach (var c in capacities)
+            if (c.TenderType == tenderType) return c.RemainingPence;
+
+        return 0;
+    }
+
+    /// <summary>
     /// May this refund be split across these tenders, in these amounts?
     ///
     /// ⚠ THE SALE-LEVEL CAP FALLS OUT OF THIS FOR FREE: if every tender is within what it took, the

@@ -329,7 +329,44 @@ shipped.** The message is honest but it still lets an operator get as far as pre
 it properly means the item list knowing the day's state and re-reading it when the day is reopened;
 that is a small piece of **step 25's** screen rather than a one-liner here. **Captured, ~½d.**
 
-### Y — a split-paid sale could be refunded entirely to one tender. ✅ **CLOSED 2026-08-13 on every surface** — rule, ingest, MAUI, web till
+### Y — a split-paid sale could be refunded entirely to one tender. ✅ **CLOSED 2026-08-13** — rule, ingest, web till · ⚠⚠ **REOPENED AND RE-CLOSED AT THE MAUI COUNTER 2026-08-19**
+
+> ⚠⚠ **THIS HEADING SAID "CLOSED ON EVERY SURFACE" FOR SIX DAYS AND IT WAS NOT TRUE OF MAUI.** The
+> rule, the ingest gate and the web till were all closed correctly. The MAUI till enforced the cap
+> **one pass at a time**, so the exact basket in Matt's quote below still went wrong — pick Card for
+> £2.40, then pick Card *again* for £2.00, and each amount is inside the £2.40 cap. £4.40 went back
+> onto a card that took £2.40.
+>
+> ⚠ **Why the ✅ was believable, which is the part worth remembering.** Every artefact a reviewer would
+> reach for was genuinely done: a shared rule in `SharedKernel`, tests on it, an ingest gate, a web
+> till that refuses the basket. The gap was in the one place with no test — the seam between
+> `TenderLoop` and the MAUI dialogs — and the loop's own code *looked* like it enforced the cap,
+> because it did, for a single tender. Nothing in the closure evidence was false; it was incomplete
+> in a direction nobody thought to check.
+>
+> ⚠ **It was found by an adversarial critic re-reading the closure claim, not by the tests, and not by
+> a hand-run.** The hand-run for finding Y (A4b) refunds a split-paid sale correctly and passes — it
+> never picks the same method twice, because a person refunding £4.40 across two cards does the
+> obvious thing once.
+>
+> ⚠⚠ **The server would NOT have saved the shop.** `ValidateRefundCapAsync` does catch the over-refund,
+> but it responds **202 Quarantined**, and `OutboxPusher` treats 202 as terminal. So the money leaves
+> the card machine, the till says *"Confirmed, transaction complete"*, and the sale is destroyed
+> afterwards with no operator anywhere in the loop. A backstop that fires after the money has moved is
+> a record of the loss, not a defence against it.
+>
+> ⚠⚠ **And the same overload was LIVE at Kapow on a path with no refund in it at all.** Store credit
+> and gift cards borrow finding Y's cap mechanism (by design — see till-design C1). £5 of credit
+> answered a £10 basket **twice**, the loop settled, `TryRedeemStoreCreditAsync` then asked the server
+> to redeem £10 against a £5 balance, the server refused, and **the whole sale aborted with the goods
+> bagged and the customer's credit gone**. That is not a dormant refund edge; it is a Tuesday.
+>
+> **Fixed 2026-08-19** — `TenderLoop` now accumulates per tender **type** across the whole loop and
+> refuses an exhausted tender **at the pick** rather than at the amount prompt, and the three-way
+> capacity answer moved out of a LINQ expression inside `ExecuteCheckoutTransaction` into
+> `RefundRules.CapacityFor` (C2 twin of the web till's `capacityFor`, which had it right first). Six
+> new vectors plus one that pins the loop's verdict **against `RefundRules`** so the next drift is red
+> rather than discovered. Two mutants killed. See till-design C1 and C2.
 
 **Matt, 2026-08-13, hand-test B1:** *"I do not believe either till is taking into account the split
 payment return? I can return an item that was just cash, and it only gives me the cash option. But when
