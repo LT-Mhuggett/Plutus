@@ -2232,6 +2232,18 @@ of throwing, and logs that it was reached at all. ⚠ `RequestAuthorisedUserInpu
 it returns, so its `do/while` re-prompts for ever and only Cancel escapes — **supervisor override on
 this till has never once succeeded.**
 
+⚠⚠ **RE-VERIFIED 2026-08-19, and this entry was already right when a duplicate work package
+was written elsewhere for the same thing.** Every caller confirmed unreachable against the tree:
+`AddEditView` was hidden 2026-08-10 (`ExecuteOpenAddItem` says so in its own summary) and
+`UpdateItemStockCommandArg` is declared but **bound to nothing** — no XAML, no other reference.
+A fifth apparent caller, `SettingsViewModel.ExecuteChangeBarcodeType`, is inside a block comment
+(`/*` 899 → `*/` 964) and is not a caller at all, which is why the count here is FOUR.
+
+⚠ `RequestAuthorisedUserInput` now **refuses immediately and logs** rather than looping for ever
+(2026-08-19). That does not advance L3 — it is a backstop so the fault cannot hang the till if any
+of this code is ever reawakened, and its alert is unreachable today. **The removal is still L3,
+still ordered after L2 and L4, and still Matt's call.** See §0.3b for the void notice.
+
 ### L4 — Till-side reporting
 
 **Code:** `ViewModels/MainTill/Statistics/SalesReportsViewModel.cs`, `StockOuttakeViewModel.cs`,
@@ -3121,13 +3133,37 @@ an **`async void`**, so the exception reaches the dispatcher unhandled and **the
 > logs.** Every caller already treats `default` as "abandon the action", so refusing is the shape they
 > were written for — and a readable refusal beats a spinner nobody can escape.
 >
-> ⚠ **WP-A1 — MIGRATE THE FIVE CALLERS (~½ d).** `AddEditViewModel:182, 231, 315`,
-> `ViewAllViewModel:1370`, `SettingsViewModel:865` must move to `SupervisorPrompt.AskAsync` +
-> `OperatorLogin.AuthoriseOverrideAsync`, which is what `TillViewModel` already does. Until they do,
-> **those five actions cannot be supervisor-authorised at all** — which was already true, and is now
-> visible instead of hidden behind a hang. ⚠ Do NOT rebuild verification at the call site: the override
-> rule has one home (till-design C1) and it refuses self-authorisation and applies the supervisor's own
-> ceiling.
+> ⚠⚠ **~~WP-A1 — MIGRATE THE FIVE CALLERS (~½ d)~~ — VOID, 2026-08-19. IT DUPLICATED §10 L3, AND EVERY
+> ONE OF THOSE CALLERS IS UNREACHABLE.** I wrote WP-A1 the same day without checking the legacy-removal
+> register, which already tracked exactly this — the failure mode CLAUDE.md warns about, one register
+> short of a sixth document.
+>
+> **What L3 already said, verbatim:** *"the last callers (`AddEditViewModel` ×3, `ViewAllViewModel` ×1,
+> **all now unreachable from the UI but still compiled**)"*, and *"`RequestAuthorisedUserInput` never
+> assigns the id it returns, so its `do/while` re-prompts for ever and only Cancel escapes — supervisor
+> override on this till has never once succeeded."* Both of my "findings" were on the page already.
+>
+> **Verified against the tree, 2026-08-19** — and L3's count is the right one, mine was wrong:
+>
+> | Call site | Reachable? |
+> |---|---|
+> | `AddEditViewModel.ExecuteCreate` / `ExecuteUpdate` / `ExecuteCreateCategory` | ⬜ **No** — `AddEditView` was hidden 2026-08-10 and `ExecuteOpenAddItem` carries *"⚠ Unreachable — 'Add item' has no button"* |
+> | `ViewAllViewModel.ExecuteUpdateItemStock` | ⬜ **No** — `UpdateItemStockCommandArg` is declared and **bound to nothing**: no XAML, no other reference |
+> | `SettingsViewModel.ExecuteChangeBarcodeType` | ➖ **Not a caller at all** — it sits inside a block comment (`/*` 899 → `*/` 964), which is why L3 counts four and I counted five |
+>
+> **So there is nothing to migrate.** Rewiring a supervisor-override flow through code no operator can
+> open would be half a day spent making dead code more correct — and it would put a fifth caller on
+> `SupervisorPrompt` that no test could ever reach.
+>
+> ⚠ **What the retirement DID buy** (2026-08-19, still worth having): the method can no longer hang the
+> till or throw out of an `async void` if any of that code is ever reawakened, and it logs when it is
+> reached. Its "Not supported on this till" alert is itself unreachable today — deliberately, as a
+> backstop rather than a feature.
+>
+> ⚠ **The real work is L3, unchanged and still ordered after L2 and L4**: delete `Authorisation.cs`'s
+> `IsAuthorised`, `LegacyCheck` and `RequestAuthorisedUserInput` **with their callers**, not before. That
+> is Matt's call under Part 1's legacy-removal register, not a slice to be taken unilaterally.
+
 
 ⚠⚠ **THE TABLE BELOW IS THE ORIGINAL 2026-08-18 AUDIT AND IS SUPERSEDED BY THE BLOCK ABOVE.** Its line numbers are stale and twelve of its ⚠ rows are fixed. It is kept for the per-flow reasoning ("what does cancelling MEAN here"), not as a to-do list — **re-locate by method name and re-check before trusting any row**.
 
