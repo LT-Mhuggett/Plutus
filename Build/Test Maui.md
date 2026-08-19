@@ -3406,3 +3406,72 @@ and discarded, so re-ringing the sale spends the balance a **second** time.
 - **Selling**: a basket containing two gift cards to be activated, on a closed day → refused before
   either is loaded. ⚠ Then check **neither card has a balance** — a card left live with no sale behind
   it is spendable value nobody paid for.
+
+---
+
+## G54. The portal decides which reports a till shows. **Portal 1.11.0 + backend 1.17.10 + till 1.98.0 + web 1.20.0**, ruling 5b(a)
+
+> ⚠⚠ **DO G54a FIRST AND DO NOT SKIP IT.** Before this shipped, every till showed every report. The one
+> way this change could hurt a shop is by publishing *nothing* by default — so the first test is that
+> **nothing changed for anybody who has not touched the new screen.**
+>
+> Portal → **Locations & tills** → **Reports on the tills**.
+
+### G54a. ⚠⚠ Nothing changed until somebody chooses
+
+Without opening the new section at all, look at Reports on **both** tills.
+
+**✅ Expected: every report still there, exactly as before.** Then open the portal section.
+
+**✅ Expected: it says "Nothing has been chosen yet, so every report shows on every till", and every box
+starts TICKED** — matching what the tills are showing.
+
+⚠ If the boxes start EMPTY, stop and tell me: that is the failure mode this whole design is built to
+avoid, and it would read to an owner as "you have switched all your reports off".
+
+### G54b. Turn one off for the whole shop
+
+Untick **VAT** → **Save shop default**. Then on the MAUI till, leave Reports and come back.
+
+**✅ Expected: VAT has gone from the picker; everything else remains.** ⚠ You should NOT need to sign
+out — it refreshes when the screen appears. Check the web till too (reload the page).
+
+⚠ Then check the till did not jump you elsewhere: if you were ON another report, you should still be on
+it. If you were on VAT, it should have moved you to the first remaining one rather than showing an
+empty report that is no longer in its own list.
+
+### G54c. One till, its own list
+
+Choose a specific till from **Applies to**.
+
+**✅ Expected: "This till follows the shop default", boxes seeded from that default.** Untick **Takings**,
+save. **✅ That till loses Takings; every other till keeps it.**
+
+Then **Follow the shop default instead**. **✅ Takings comes back on that till.**
+
+### G54d. ⚠⚠ Publishing is NOT granting — the sentence that matters
+
+Tick **every** report for the shop default and save. Now sign in to a till as the **VAT only** role from
+§G51.
+
+**✅ Expected: still only the VAT report.** Publishing a report does not give anybody permission to read
+it. ⚠ The two rules are independent and both must pass — if ticking boxes in the portal grants reports to
+staff who should not see them, that is a serious fault and I need to know immediately.
+
+### G54e. Publishing nothing is allowed, and confirmed
+
+Untick everything → Save.
+
+**✅ Expected: it asks first** — "Show no reports at all?" — and only then empties the tab. ⚠ On the till
+the Reports tab should say it has nothing to show rather than looking like it failed to load.
+
+Then **Reset to "every report"**. **✅ Back to all eight, and the section says nothing has been chosen.**
+
+### G54f. It survives going offline
+
+With a report or two unpublished, take the MAUI till offline and reopen Reports.
+
+**✅ Expected: the SAME menu as when it was online** — the till caches the last answer. ⚠ It must not
+fall back to showing everything (that would leak a report an owner hid) and it must not go empty (that
+would look broken). ⚠ A till that has *never once* had an answer shows everything — that is deliberate,
+and only reachable on a brand-new till that has never been online.

@@ -1065,3 +1065,34 @@ export const createWebstoreConnection = (name: string, url: string, storeId?: nu
   });
 export const disconnectWebstore = (id: string) =>
   request<{ detail: string }>("DELETE", `/api/v1/webstores/${id}`);
+
+// ── which reports each till shows (ruling 5b(a)) ──────────────────────────────
+
+/** One report the portal can publish — from `SharedKernel.ReportCatalogue`. */
+export interface ReportCatalogueEntry { key: string; label: string; blurb: string }
+
+/**
+ * The curation state.
+ *
+ * ⚠⚠ `tenantKeys` IS NULL WHEN NOBODY HAS CHOSEN, and that is not the same as an empty list. Null
+ * means "every report, because nothing has been decided"; `[]` means an owner deliberately published
+ * none. The screen must show those differently or it will tell a shop it has switched everything off
+ * when it has simply never looked.
+ */
+export interface ReportPublicationState {
+  catalogue: ReportCatalogueEntry[];
+  tenantKeys: string[] | null;
+  tenantUpdatedAtUtc: string | null;
+  tills: { tillId: string; keys: string[]; updatedAtUtc: string }[];
+}
+
+export const fetchReportPublication = () =>
+  get<ReportPublicationState>("/api/v1/reports/publication");
+
+/** ⚠ `tillId` null sets the tenant default; a till id overrides that one till. */
+export const putReportPublication = (tillId: string | null, keys: string[]) =>
+  put<void>("/api/v1/reports/publication", { tillId, keys });
+
+/** Stop overriding one till, so it follows the shop default again. */
+export const clearReportPublication = (tillId: string | null) =>
+  del<void>(`/api/v1/reports/publication${tillId ? `?tillId=${encodeURIComponent(tillId)}` : ""}`);

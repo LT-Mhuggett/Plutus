@@ -8,6 +8,7 @@ import {
 import Barcode39 from "./Barcode39.tsx";
 import DataTable from "./DataTable.tsx";
 import TillThemesSection from "./TillThemesSection.tsx";
+import ReportPublicationSection from "./ReportPublicationSection.tsx";
 import { useNav } from "./nav.tsx";
 import { ask } from "./Ask.tsx";
 
@@ -457,6 +458,14 @@ export default function StoresPage() {
       <details className="card store-card">
         <summary><strong>Till themes</strong></summary>
         <TillThemesSection stores={stores} tills={tills} />
+      </details>
+
+      {/* Ruling 5b(a) — which reports each till shows. ⚠ Here rather than under Company for the same
+          reason themes are: the thing being configured is a TILL, and the per-till override needs this
+          page's list of tills to target. Tills pick it up on their sync cadence. */}
+      <details className="card store-card">
+        <summary><strong>Reports on the tills</strong></summary>
+        <ReportPublicationSection tills={tills} />
       </details>
     </section>
   );
