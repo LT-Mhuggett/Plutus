@@ -30,11 +30,13 @@ the order. Everything below it is reference.
 
 **§G56 · §G56a · §G52 · §G56e · §G56f.** Do not re-run these unless something near them changes.
 
-### ⏸ Written but NOT yet in a build
+### 🆕 New and ready to run — built and deployed 2026-08-19 (late)
 
-**§G57 (carrier bags)** describes till code that is **not in 1.102.0**. Its portal and web-till halves
-can be run as soon as those deploy; the MAUI half needs a new artefact. ⚠ Builds are made **when Matt
-asks**, so this is a deliberate wait, not an oversight.
+**§G57** carrier bags · **§G58** the one-screen checkout · **§G59** typed member numbers · **§G60**
+theming · **§G61** the portal's Loyalty page.
+
+⚠ **§G58 is the one to run first of these** — it changes how the till takes money. §G61 is a two-minute
+portal check.
 
 ### ⚠ Superseded — do not run
 
@@ -61,8 +63,9 @@ soft ✅** — treat it as unknown.
 
 | | |
 |---|---|
-| **Run** | ✅ `D:\tmp\plutus-till-1.102.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-19 (evening)**, `1.102.0+50a600f6`, the lookup label verified in-binary. ⚠ **The only build on the box** — 1.94.0–1.101.0 deleted. ⚠ Treat the FOLDER LISTING as the truth. ⚠ **What to run, in what order: see START HERE at the top.** ⚠ A permission change needs a **sign-out/in** (12h token cache). |
-| **Deployed** | backend **1.17.10** · portal **1.11.0** · web till **1.23.0**. ⚠⚠ **The carrier-bag work (§G57) is in NONE of these yet** — it is committed but not built or deployed. |
+| **Run** | ✅ `D:\tmp\plutus-till-1.107.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-19 (late)**, `1.107.0+07a26ef6` = HEAD. ⚠ **The only build on the box** — 1.102.0 and earlier deleted, so the FOLDER LISTING is the truth. ⚠ **What to run, in what order: see START HERE at the top.** ⚠ A permission change needs a **sign-out/in** (12h token cache). |
+| **Deployed** | backend **1.17.11** · portal **1.13.0** · web till **1.26.0** — all three live and verified on the artefact (bundle hash + a string only today's change introduced + byte size, not a 200). ✅ **§G57–§G61 are all testable now.** |
+| **Verified in-binary** | The till's own artefact carries `Complete sale`, `Pay with a gift card`, `Carrier bags`, `Card fee`, `looks like member number`, `ThemeGood`/`ThemeUnknown`, and `TenderSettlement`'s refusal wording in `Plutus.Client.Core.dll`. ⚠ Checked at **both UTF-16 alignments** — pitfall 20: a literal starting at an odd byte offset is invisible if you decode from byte 0, and my first pass reported four false MISSINGs because of exactly that. |
 | **Agent** | ⚠ **Agent 1.4.0 is REQUIRED for §G29**, and it fixes "start automatically" not working after a reboot. Get it from the **web till → Settings → Hardware → Download the agent (v1.4.0)**, or from `tools\Plutus.TillAgent\publish-out\PlutusTillAgent-1.4.0.exe`. ⚠⚠ **Copy it to `%LOCALAPPDATA%\Plutus\Agent\` and run it from THERE — not from Downloads.** Auto-start records the path it was launched from; a Downloads copy gets cleaned up or renamed `… (1).exe`, and then the till boots and starts nothing. That is the fault this build fixes, and running it once from a permanent folder repairs a stale registration. |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |

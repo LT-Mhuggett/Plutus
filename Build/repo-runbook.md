@@ -252,8 +252,13 @@ is needed before anyone installs this on a shop PC, and is not needed to test.
 ## Hard rules
 
 - **NEVER touch ETRIE.** It shares the Mac mini but is a separate product. After any Mac change,
-  verify `curl -s -o /dev/null -w "%{http_code}" --resolve huggett.dscloud.me:443:127.0.0.1
+  verify `curl -s -o /dev/null -w "%{http_code}" -L --resolve huggett.dscloud.me:443:127.0.0.1
   https://huggett.dscloud.me/health` → 200.
+  ⚠ **`-L` ADDED 2026-08-19, and without it this check now LIES.** The bare host answers **302** to
+  `https://etrie.huggett.dscloud.me/health`, which is the 200. Read as written, the un-redirected 302
+  looks like ETRIE is broken — I hit exactly that mid-deploy and stopped to investigate a healthy
+  service. ⚠ Follow the redirect; do not "fix" it by treating 302 as success, because a 302 to
+  somewhere else would then pass too.
 - **NEVER run `ops/keycloak/run-keycloak.sh`** — it recreates the container and wipes the enrolled
   password/TOTP. Keycloak changes go via `kcadm.sh` inside the running container.
 - Deploy only when the operator asks. Commit per work-package, with the `Co-Authored-By: Claude`
