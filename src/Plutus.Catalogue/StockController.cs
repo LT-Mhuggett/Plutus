@@ -111,7 +111,7 @@ namespace Plutus.Catalogue
         // ⚠ It does NOT widen portal access, and it is a READ. A portal user still needs their portal
         // permission; changing stock stays on `portal.stock.adjust`, a separate decision.
         [HttpGet("api/v1/stock/levels")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView + "," + PermissionCatalogue.PosReportsView)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView + "," + PermissionCatalogue.PosReportsView + "," + PermissionCatalogue.PosReportsStock)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> Levels(
             [FromQuery] Guid? locationId, [FromQuery] string search, [FromQuery] string filter, [FromQuery] int skip = 0, [FromQuery] int take = 25)

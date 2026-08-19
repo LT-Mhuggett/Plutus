@@ -112,8 +112,31 @@ namespace Plutus.Reporting
         // ⚠ The identical defect was fixed for `/api/v1/sales` at step 19 (the comment above that
         // action says so). Adding an alternative does NOT widen portal access: a portal user still
         // needs their portal permission, and a till operator's `pos.*` never reaches anything else.
+        //
+        // ⚠⚠ RULING 5b, 2026-08-19 — EVERY REPORT ENDPOINT ALSO ACCEPTS ITS OWN SPECIFIC CODE.
+        // Matt: *"Separate permissions need to be created for viewing them."* The tills filter their
+        // own menus by `SharedKernel.ReportPermissions` / `reportPermissions.ts`, and **a menu is not a
+        // permission** — without the code on the endpoint too, a role granted only `pos.reports.vat`
+        // sees the VAT report offered and gets a 403 when it taps it. The list and the door must agree;
+        // `mayReadReport` is written to that assumption and says so.
+        //
+        // ⚠ APPENDING TO AN OR-LIST CAN ONLY WIDEN, NEVER NARROW, which is the whole compatibility
+        // story: `pos.reports.view` stays a master key, every existing role keeps every report the
+        // moment this ships, and no cached token loses anything. Tokens carry their permission set baked
+        // in for 12 hours, so a change that narrowed would log every supervisor in a live shop out of
+        // every report — see the same warning in `reportPermissions.ts`.
+        //
+        // ⚠ THREE ENDPOINTS ARE DELIBERATELY LEFT ALONE, because a specific code here would be an
+        // invented mapping rather than an enforced one — `ReportPermissions` names no report key for any
+        // of them, and inventing one is how the list and the door come apart again:
+        //   • `reports/vat-integrity` — a portal diagnostic, not a report on either till's menu;
+        //   • `stock/levels/bulk` — the till's catalogue SYNC, not something an operator reads;
+        //   • `cash-events` — drawer movements, which no report key covers.
+        // ⚠ `items-sold.csv` and `reports/export.csv` (the latter in `PeriodsController`) stay
+        // portal-only, verified 2026-08-19: **no till calls any `.csv` report endpoint.** The web till's
+        // sales CSV is built client-side in `downloadSalesReport` from rows it already has.
         [HttpGet("api/v1/reports/summary")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalFinancialsView + "," + PermissionCatalogue.PosReportsView)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalFinancialsView + "," + PermissionCatalogue.PosReportsView + "," + PermissionCatalogue.PosReportsTakings)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Summary(
@@ -240,7 +263,7 @@ namespace Plutus.Reporting
         // while five sibling endpoints the same screen calls kept the portal-only gate. A fix applied
         // to the endpoint that was reported rather than to the rule is a fix that comes back.
         [HttpGet("api/v1/reports/summary-rich")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView + "," + PermissionCatalogue.PosReportsView)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView + "," + PermissionCatalogue.PosReportsView + "," + PermissionCatalogue.PosReportsTakings)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> SummaryRich([FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -321,7 +344,7 @@ namespace Plutus.Reporting
         // ⚠ If VAT should instead be portal-only, the honest fix is to REMOVE it from
         // `ReportCatalogue` on the till, not to leave a menu entry that answers 403.
         [HttpGet("api/v1/reports/vat")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalFinancialsView + "," + PermissionCatalogue.PosReportsView)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalFinancialsView + "," + PermissionCatalogue.PosReportsView + "," + PermissionCatalogue.PosReportsVat)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Vat(
@@ -719,7 +742,7 @@ namespace Plutus.Reporting
         // looking up today's sales holds POS permissions, never portal ones. Gating the till's own
         // sales list behind a PORTAL permission meant the till 403'd on its own takings.
         [HttpGet("api/v1/sales")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView + "," + PermissionCatalogue.PosReportsView)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView + "," + PermissionCatalogue.PosReportsView + "," + PermissionCatalogue.PosReportsSales)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> SalesList(
@@ -748,7 +771,7 @@ namespace Plutus.Reporting
         // (WP12.2: this replaces the legacy /api/Sale/Detail, which was open to any authenticated
         // user — a supervisor doing a return holds pos.refund, not portal.financials.view).
         [HttpGet("api/v1/sales/{saleId}")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalFinancialsView + "," + PermissionCatalogue.PosReportsView + "," + PermissionCatalogue.PosRefund)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalFinancialsView + "," + PermissionCatalogue.PosReportsView + "," + PermissionCatalogue.PosRefund + "," + PermissionCatalogue.PosReportsSales)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> SaleDetail([FromRoute] Guid saleId)
@@ -882,7 +905,7 @@ namespace Plutus.Reporting
         }
 
         [HttpGet("api/v1/reports/items-sold")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView + "," + PermissionCatalogue.PosReportsView)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView + "," + PermissionCatalogue.PosReportsView + "," + PermissionCatalogue.PosReportsItemsSold)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> ItemsSold(
@@ -964,7 +987,7 @@ namespace Plutus.Reporting
         /// <summary>WP3.7 category-sales: sold gross/qty grouped by item category (+ share of gross).
         /// Uncategorised lines roll into "(no category)".</summary>
         [HttpGet("api/v1/reports/category-sales")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView + "," + PermissionCatalogue.PosReportsView)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView + "," + PermissionCatalogue.PosReportsView + "," + PermissionCatalogue.PosReportsCategorySales)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CategorySales([FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -987,7 +1010,7 @@ namespace Plutus.Reporting
 
         /// <summary>WP3.8 best-sellers: top items by qty (default) or gross, with category + share.</summary>
         [HttpGet("api/v1/reports/best-sellers")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView + "," + PermissionCatalogue.PosReportsView)]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView + "," + PermissionCatalogue.PosReportsView + "," + PermissionCatalogue.PosReportsBestSellers)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> BestSellers([FromQuery] DateOnly from, [FromQuery] DateOnly to, [FromQuery] string by = "qty", [FromQuery] int take = 25)
