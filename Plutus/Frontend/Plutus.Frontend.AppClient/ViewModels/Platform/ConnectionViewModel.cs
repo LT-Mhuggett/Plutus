@@ -33,7 +33,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
         private string _enrolmentCode;
         private string _connectionSummary = "Not checked yet.";
         private string _connectionDetail;
-        private Color _connectionColour = Colors.Gray;
+        // ⚠ WP-T1 T1.3: `ThemeUnknown`, not grey — "not checked yet" is a real state, and it must
+        // read on a dark scheme too. It is NOT a portal slot: a shop must not be able to paint
+        // "revoked" the same colour as "connected".
+        private Color _connectionColour =
+            Helpers.Extensions.XAML.MaterialIconGlyphConverter.ThemeColour("ThemeUnknown", Colors.Gray);
         private string _deviceSummary = "Not enrolled.";
         private string _lastAction;
         private bool _busy;
@@ -291,14 +295,14 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
             if (Busy) return;
             Busy = true;
             ConnectionSummary = "Checking…";
-            ConnectionColour = Colors.Gray;
+            ConnectionColour = Helpers.Extensions.XAML.MaterialIconGlyphConverter.ThemeColour("ThemeUnknown", Colors.Gray);
             try
             {
                 var api = Api(out var error);
                 if (api is null)
                 {
                     ConnectionSummary = error;
-                    ConnectionColour = Colors.OrangeRed;
+                    ConnectionColour = Helpers.Extensions.XAML.MaterialIconGlyphConverter.ThemeColour("ThemeWarn", Colors.OrangeRed);
                     return;
                 }
 
@@ -317,7 +321,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
             catch (Exception ex)
             {
                 ConnectionSummary = Friendly("Couldn't check the connection", ex);
-                ConnectionColour = Colors.Gray;
+                ConnectionColour = Helpers.Extensions.XAML.MaterialIconGlyphConverter.ThemeColour("ThemeUnknown", Colors.Gray);
             }
             finally { Busy = false; }
         }

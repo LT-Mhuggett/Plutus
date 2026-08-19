@@ -61,14 +61,9 @@ public class ThemeLiteralTests
         "LoadingIndicatorView.xaml:Black",
         "LoadingIndicatorView.xaml:White",
 
-        // ⚠ FALLBACKS handed to `ThemeColour(key, fallback)` — reached only when the resource is
-        // missing, which is the one case a themed value cannot help with.
-        "MaterialIconGlyphConverter.cs:Colors.Black",
-        "IconImage.cs:Colors.Black",
-        "IconToolbarItem.cs:Colors.Black",
-        "LoginViewModel.cs:Colors.White",
-        "TillViewModel.cs:Colors.White",
-        "BasicErrorStyle.cs:Colors.Red",
+        // ⚠ Fallbacks handed to `ThemeColour(key, fallback)` used to be listed here, file by file.
+        // They are covered STRUCTURALLY now — see `WithoutComments` — which is a better guard: it
+        // recognises the correct shape rather than enumerating the places somebody used it.
 
         // ⚠ INK ON PAPER. Print paths are deliberately immune to theming (till-design C1) — printing
         // from a dark scheme once put near-white ink on paper.
@@ -77,39 +72,27 @@ public class ThemeLiteralTests
     };
 
     /// <summary>
-    /// ⚠⚠ THE T1.3 BACKLOG — STATUS COLOURS THAT STILL NEED SEMANTIC KEYS. **This list may only ever
-    /// shrink.** A literal not in it and not in <see cref="Deliberate"/> fails the test, so nothing new
-    /// can be added while these are burnt down.
+    /// ⚠⚠ THE T1.3 BACKLOG — AND IT IS EMPTY, which is the point of leaving it here.
     ///
-    /// ⚠ They are all the same shape: a red/amber/green/grey that MEANS something — connected, degraded,
-    /// revoked; a cash variance over or under; a notice's severity. They cannot simply become `ThemeInk`,
-    /// because the colour carries the meaning, and they should not become brand-following slots, because
-    /// a shop could then paint "revoked" the same green as "connected".
+    /// It held 13 entries for a few hours on 2026-08-19: status colours across `TillConnection`,
+    /// `LoginViewModel`, `ConnectionViewModel`, `CashViewModel` and `NoticeboardViewModel` — a
+    /// red/amber/green/grey that MEANT something (connected, degraded, revoked; a cash variance over or
+    /// under; a notice's severity). They could not simply become `ThemeInk`, because the colour carries
+    /// the meaning, and they must not become portal slots, because a shop could then paint "revoked" the
+    /// same green as "connected" and an operator would trust a green dot on a till that was switched off.
     ///
-    /// ⚠ **THE FIX IS A STATUS TRIO** — `ThemeGood` / `ThemeWarn` alongside the `ThemeDanger` that landed
-    /// with T1.3, as mode-only keys the portal cannot set (`Theming.ModeOnlyKeys`). One pair of values
-    /// each, light and dark, so a status reads on both grounds. Then these ~20 call sites point at them
-    /// and the list empties.
+    /// ✅ CLOSED by the STATUS TRIO — `ThemeGood` / `ThemeWarn` / `ThemeUnknown` beside `ThemeDanger`, as
+    /// mode-only keys (`Theming.ModeOnlyKeys`) with a light and a dark value each. One value cannot serve
+    /// both grounds: `#1b873f` is 4.6:1 on white and **2.6:1** on the dark surface, so a shop that chose
+    /// dark was reading its connection status in a colour it could barely see.
     ///
-    /// ⚠ Recorded here rather than in a document because a list in a document goes stale silently and
-    /// this one cannot: the test enumerates it every run.
+    /// ⚠ THREE, not two: *"not known yet"* is a real third state, and rendering it as good or bad is a
+    /// lie — a dot that shows red before the first probe reports a fault that has not happened.
+    ///
+    /// ⚠ **THE EMPTY SET STAYS.** It is the ratchet: the next status colour somebody reaches for has
+    /// nowhere to hide, and the only way to add one is to argue for it here in writing.
     /// </summary>
-    private static readonly HashSet<string> Backlog = new(StringComparer.Ordinal)
-    {
-        "TillConnection.cs:#1B873F",            // connected
-        "TillConnection.cs:#B26A00",            // degraded / stale
-        "TillConnection.cs:#C1272D",            // revoked — same fixed red, here as a STATUS
-        "LoginViewModel.cs:Colors.Gray",        // the connection dot, before it is known
-        "ConnectionViewModel.cs:Colors.Gray",
-        "ConnectionViewModel.cs:Colors.OrangeRed",
-        "CashViewModel.cs:Colors.Red",          // a variance over
-        "CashViewModel.cs:Colors.OrangeRed",
-        "CashViewModel.cs:Colors.Gray",
-        "NoticeboardViewModel.cs:Colors.SlateGray",
-        "NoticeboardViewModel.cs:Colors.Firebrick",
-        "NoticeboardViewModel.cs:Colors.DarkOrange",
-        "NoticeboardViewModel.cs:Colors.SteelBlue",
-    };
+    private static readonly HashSet<string> Backlog = new(StringComparer.Ordinal);
 
     [Fact]
     public void No_colour_literal_escapes_the_theme()
@@ -198,6 +181,13 @@ public class ThemeLiteralTests
 
         if (path.EndsWith(".xaml", StringComparison.Ordinal))
             return Regex.Replace(text, @"<!--.*?-->", blank, RegexOptions.Singleline);
+
+        // ⚠⚠ A `ThemeColour("Role", fallback)` CALL IS THE CORRECT PATTERN, so its fallback is not a
+        // leak — it is reached only when the resource is missing, which is the one case a themed value
+        // cannot help with. Blanking the whole call is a STRUCTURAL rule and it replaced thirteen
+        // file-by-file exceptions: a rule that recognises the right shape is a better guard than a list
+        // of the places somebody used it.
+        text = Regex.Replace(text, @"ThemeColour\(\s*""[A-Za-z]+""\s*,[^;,)]*\)?", blank);
 
         // ⚠ Line comments first, then block comments. Not a C# parser — a colour literal inside a STRING
         // would still be flagged, which is the right way round: a hex in a string is usually a colour.

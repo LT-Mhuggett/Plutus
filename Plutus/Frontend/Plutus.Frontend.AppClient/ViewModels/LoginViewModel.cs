@@ -32,7 +32,11 @@ namespace Plutus.Frontend.AppClient.ViewModels
 
         private string _connectionSummary;
         private string _connectionDetail;
-        private Color _connectionColour = Colors.Gray;
+        // ⚠ WP-T1 T1.3: `ThemeUnknown`, not grey — "not checked yet" is a real state, and it must
+        // read on a dark scheme too. It is NOT a portal slot: a shop must not be able to paint
+        // "revoked" the same colour as "connected".
+        private Color _connectionColour =
+            Helpers.Extensions.XAML.MaterialIconGlyphConverter.ThemeColour("ThemeUnknown", Colors.Gray);
         private bool _isCheckingConnection;
 
         #endregion
@@ -562,7 +566,7 @@ namespace Plutus.Frontend.AppClient.ViewModels
             IsCheckingConnection = true;
             ConnectionSummary = "Checking connection…";
             ConnectionDetail = null;
-            ConnectionColour = Colors.Gray;
+            ConnectionColour = Helpers.Extensions.XAML.MaterialIconGlyphConverter.ThemeColour("ThemeUnknown", Colors.Gray);
             try
             {
                 var status = await Services.Connectivity.TillConnectionCheck.CheckAsync();
@@ -579,7 +583,7 @@ namespace Plutus.Frontend.AppClient.ViewModels
             {
                 Logger.LogError(ex);
                 ConnectionSummary = "Couldn't check the connection.";
-                ConnectionColour = Colors.Gray;
+                ConnectionColour = Helpers.Extensions.XAML.MaterialIconGlyphConverter.ThemeColour("ThemeUnknown", Colors.Gray);
             }
             finally
             {

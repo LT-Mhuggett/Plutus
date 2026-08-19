@@ -336,9 +336,10 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Cash
                                 ? $"{day} — CLOSED. {events.Count} cash event(s)."
                                 : $"{day} — open. {events.Count} cash event(s).";
 
-                        _summary.TextColor = offBy != 0 ? Colors.Red
-                            : closed ? Colors.OrangeRed
-                            : Colors.Gray;
+                        // ⚠ WP-T1 T1.3: status ROLES, so a variance still reads on a dark scheme.
+                        _summary.TextColor = offBy != 0 ? Helpers.Extensions.XAML.MaterialIconGlyphConverter.ThemeColour("ThemeDanger", Colors.Red)
+                            : closed ? Helpers.Extensions.XAML.MaterialIconGlyphConverter.ThemeColour("ThemeWarn", Colors.OrangeRed)
+                            : Helpers.Extensions.XAML.MaterialIconGlyphConverter.ThemeColour("ThemeInkMuted", Colors.Gray);
 
                         _history.Children.Clear();
                         foreach (var e in events.Reverse())
@@ -385,7 +386,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Cash
                                      + balance
                                      + sent,
                                 FontSize = new Label().FontSize - 1,
-                                TextColor = e.VariancePence is long bad && bad != 0 ? Colors.OrangeRed : null,
+                                TextColor = e.VariancePence is long bad && bad != 0
+                                    ? Helpers.Extensions.XAML.MaterialIconGlyphConverter.ThemeColour("ThemeWarn", Colors.OrangeRed)
+                                    : null,
                             });
                         }
                     }

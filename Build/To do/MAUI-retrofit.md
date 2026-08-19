@@ -160,7 +160,7 @@ say so rather than quietly doing something else.**
 > `ViewAllView`'s group band moved off the app's only `AppThemeBinding` onto `ThemeSurface2`, and its two
 > `Gray` labels onto `ThemeInkMuted`.
 >
-> ### ✅ T1.1, T1.2 and T1.4 CLOSED 2026-08-19 (till 1.106.0 + web till 1.26.0) — T1.3 is a ratchet
+> ### ✅ WP-T1 CLOSED IN FULL — 2026-08-19 (till 1.107.0 + web till 1.26.0)
 >
 > **T1.1 — the Shell chrome.** `AppShell.xaml` was bare, so the tab bar was the one surface following no
 > scheme: the first thing an operator meets, in platform default, on a till themed everywhere else. It
@@ -187,7 +187,7 @@ say so rather than quietly doing something else.**
 > it. ⚠ A second Fact pins `Theming.DarkStock` to the web till's dark values as literals, so changing one
 > side fails here instead of giving one shop two brands.
 >
-> **T1.3 — PARTLY DONE, AND THE REST IS A RATCHET.** Fixed: `RecoveryView`'s `Gray` title and divider,
+> **T1.3 — DONE, AND THE BACKLOG IS EMPTY.** Fixed: `RecoveryView`'s `Gray` title and divider,
 > `ConnectionView`'s `#22000000` dividers and `DarkOrange` "out of date", `StoreOptionsViewModel`'s
 > `"Error"` (a palette key that is **not** one of the seven slots, so `Apply` could never move it —
 > frozen at `#FF9494`, 2.12:1 on dark), `BasicErrorStyle`'s `Colors.Red` and `EditItemPage`'s
@@ -196,18 +196,28 @@ say so rather than quietly doing something else.**
 > via `Theming.ModeOnlyKeys`, with a dark half (`#ff8a80`) because `#c1272d` measures 5.9:1 on the stock
 > white surface and ~3.4:1 on the dark one.
 >
-> ⚠⚠ **What is left is enumerated IN THE TEST, not in this document** — `ThemeLiteralTests.Backlog`, 13
-> entries across `TillConnection`, `LoginViewModel`, `ConnectionViewModel`, `CashViewModel` and
-> `NoticeboardViewModel`. **The list may only shrink**; anything new fails. They are all one shape: a
-> red/amber/green/grey that MEANS something (connected, degraded, revoked; a cash variance over or under;
-> a notice's severity), so they can neither become `ThemeInk` nor become brand-following slots — a shop
-> could then paint "revoked" the same green as "connected". **The fix is a status trio** — `ThemeGood` /
-> `ThemeWarn` beside `ThemeDanger`, mode-only, one light/dark pair each — then those call sites point at
-> them and the list empties. ≈ ½ d. ⚠ Recorded in code rather than prose because a list in a document
-> goes stale silently and this one cannot: the test enumerates it every run.
+> ⚠⚠ **AND THE STATUS COLOURS ARE DONE TOO.** The guard first found **35** literals, not the handful the
+> audit had named, and 13 of them were one shape: a red/amber/green/grey that MEANS something —
+> connected, degraded, revoked; a cash variance over or under; a notice's severity. They could not become
+> `ThemeInk` (the colour carries the meaning) and must not become portal slots (a shop could then paint
+> "revoked" the same green as "connected", and an operator would trust a green dot on a till that had
+> been switched off).
 >
-> ⚠ The audit's own list below is kept for the reasoning; the four rows are now T1.1 ✅ / T1.2 ✅ /
-> T1.3 🟡 / T1.4 ✅.
+> Closed by the **STATUS TRIO** — `ThemeGood` / `ThemeWarn` / `ThemeUnknown` beside `ThemeDanger`, all
+> mode-only, each with a light AND a dark value. One value cannot serve both grounds: `#1b873f` is 4.6:1
+> on white and **2.6:1** on the dark surface, so a shop that chose dark was reading its connection status
+> in a colour it could barely see. ⚠ **THREE, not two** — *"not known yet"* is a real third state, and a
+> dot that shows red before the first probe reports a fault that has not happened.
+>
+> ⚠ `ThemeLiteralTests.Backlog` is now **empty, and the empty set stays** — it is the ratchet. Thirteen
+> file-by-file fallback exceptions were also deleted in favour of one STRUCTURAL rule: a literal inside a
+> `ThemeColour("Role", fallback)` call is the correct pattern and is recognised as such. A rule that
+> knows the right shape beats a list of the places somebody used it.
+>
+> ⚠ No C2 row: the status trio is MAUI-only — the web till has no equivalent hardcoded status set, so
+> there is nothing to twin. If one appears, it needs one.
+>
+> ⚠ The audit's own list below is kept for the reasoning; all four rows are now ✅.
 >
 > **The original audit list:**
 >

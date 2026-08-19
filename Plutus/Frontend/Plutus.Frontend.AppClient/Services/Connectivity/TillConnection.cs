@@ -72,12 +72,35 @@ namespace Plutus.Frontend.AppClient.Services.Connectivity
         /// </summary>
         public static Color ColourFor(ConnectionStatus status) => status.State switch
         {
-            TillConnection.Online or TillConnection.NotEnrolled => Color.FromArgb("#1B873F"),
+            TillConnection.Online or TillConnection.NotEnrolled => Themed("ThemeGood"),
             // Amber: reachable, and cannot serve this till. A deploy fixes it — not a cable.
-            TillConnection.ServerTooOld => Color.FromArgb("#B26A00"),
+            TillConnection.ServerTooOld => Themed("ThemeWarn"),
             // Amber, not red: the server is right there. The fix is in the portal, not the router.
-            TillConnection.Rejected => Color.FromArgb("#B26A00"),
-            _ => Color.FromArgb("#C1272D"),
+            TillConnection.Rejected => Themed("ThemeWarn"),
+            _ => Themed("ThemeDanger"),
         };
+
+        /// <summary>
+        /// ⚠ WP-T1 T1.3 (2026-08-19) — these were four hardcoded hexes, so a shop on a DARK scheme read
+        /// its connection status in colours measuring 2.6:1 and worse. They are now the status roles,
+        /// which carry a dark half.
+        ///
+        /// ⚠ STILL NOT PORTAL SLOTS. A shop must not be able to paint "revoked" the same green as
+        /// "connected" — an operator trusting a green dot on a till that has been switched off is the
+        /// whole reason these three colours exist separately from the theme.
+        ///
+        /// ⚠ The fallback is the old literal, so a missing resource degrades to today's behaviour
+        /// rather than to no colour at all.
+        /// </summary>
+        private static Color Themed(string key) => key switch
+        {
+            "ThemeGood" => Colour(key, "#1B873F"),
+            "ThemeWarn" => Colour(key, "#B26A00"),
+            _ => Colour(key, "#C1272D"),
+        };
+
+        private static Color Colour(string key, string fallback) =>
+            Plutus.Frontend.AppClient.Helpers.Extensions.XAML.MaterialIconGlyphConverter.ThemeColour(
+                key, Color.FromArgb(fallback));
     }
 }

@@ -38,7 +38,28 @@ export default function LoyaltyPage() {
     }
   }
 
-  const members = rows.filter((r) => r.tier).length;
+  /**
+   * ⚠⚠ BOTH OF THESE WERE WRONG, AND WRONG PLAUSIBLY — Matt, 2026-08-19: *"In the portal in 'Loyalty'
+   * is says '3 members' when there are 8."*
+   *
+   * They were right when written and were falsified by a fix somewhere else. On 2026-08-18
+   * `GET /api/v1/loyalty` was widened to return **every active customer** — because
+   * `MemberNoAllocator.NextAsync` runs on every create, so *"they ARE a member, and the tier is an
+   * upgrade on top"*. That fix corrected the LIST and left these two counters reading the old shape:
+   *
+   *   • **Members** counted rows with a TIER (3 of 8) — it was measuring the upgrade, not membership;
+   *   • **Credit holders** was `rows.length` (8) — every customer, when exactly one held credit.
+   *
+   * ⚠ So the screen said 3 members and 8 credit holders when the truth is 8 members and 1 credit
+   * holder, with £12.50 outstanding — and the £12.50 sitting beside "8" is what makes it read as
+   * plausible rather than obviously broken.
+   *
+   * ⚠ The tier count is KEPT as its own stat rather than deleted: it was the one genuinely useful
+   * number here, just under the wrong label.
+   */
+  const members = rows.filter((r) => r.memberNo).length;
+  const onATier = rows.filter((r) => r.tier).length;
+  const creditHolders = rows.filter((r) => r.creditBalancePence !== 0).length;
   const totalCredit = rows.reduce((s, r) => s + r.creditBalancePence, 0);
 
   return (
@@ -52,14 +73,21 @@ export default function LoyaltyPage() {
       </div>
       <div className="stat-row">
         <div className="stat"><span className="stat-label">Members</span><span className="stat-value">{members}</span></div>
-        <div className="stat"><span className="stat-label">Credit holders</span><span className="stat-value">{rows.length}</span></div>
+        <div className="stat"><span className="stat-label">On a tier</span><span className="stat-value">{onATier}</span></div>
+        <div className="stat"><span className="stat-label">Credit holders</span><span className="stat-value">{creditHolders}</span></div>
         <div className="stat"><span className="stat-label">Outstanding credit</span><span className="stat-value">{gbp(totalCredit)}</span></div>
       </div>
       {error && <p className="error">{error}</p>}
       {loading ? <p className="muted">Loading…</p> : (
         <DataTable<LoyaltyRow>
           columns={[
-            { key: "name", label: "Customer", render: (r) => <>{r.name}{r.email && <span className="muted small"> · {r.email}</span>}</> },
+            // ⚠ Matt, 2026-08-19: *"Can the email also be split out into a separate column"*. It used
+            // to ride under the name as `Jo Bloggs · jo@example.com`, which cannot be SORTED and cannot
+            // be scanned down — and a column of addresses is exactly what somebody chasing a customer
+            // reads. ⚠ Its own column also makes the missing ones visible: four of these rows have no
+            // email at all, which the inline form hid behind an absent separator.
+            { key: "name", label: "Customer" },
+            { key: "email", label: "Email", render: (r) => r.email ?? <span className="muted">—</span> },
             { key: "memberNo", label: "Member no.", render: (r) => r.memberNo ? <span className="mono small">{r.memberNo}</span> : <span className="muted">—</span> },
             { key: "tier", label: "Tier", render: (r) => <>{r.tier ?? <span className="muted">—</span>}{r.expired && <span className="error small"> (expired)</span>}</> },
             { key: "autoDiscountRate", label: "Discount", numeric: true, render: (r) => (r.autoDiscountRate ? `${Math.round(r.autoDiscountRate * 100)}%` : "—") },

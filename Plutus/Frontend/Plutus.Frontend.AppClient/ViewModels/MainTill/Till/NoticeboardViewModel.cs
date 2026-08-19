@@ -26,7 +26,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// rather than disabled. A greyed-out button invites somebody to keep pressing it.</summary>
         public bool CanAck { get; init; }
 
-        public Color Accent { get; init; } = Colors.SlateGray;
+        public Color Accent { get; init; } =
+            Helpers.Extensions.XAML.MaterialIconGlyphConverter.ThemeColour("ThemeUnknown", Colors.SlateGray);
     }
 
     /// <summary>
@@ -91,7 +92,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     // ⚠ Colour is a HINT, never the message. An unrecognised severity still shows
                     // (see `NoticesClient.ShowsOnATill`) and simply gets the maintenance accent — it
                     // must not be dropped for want of a colour it has no entry for.
-                    Accent = incident ? Colors.Firebrick : Colors.DarkOrange,
+                    Accent = incident
+                        ? Helpers.Extensions.XAML.MaterialIconGlyphConverter.ThemeColour("ThemeDanger", Colors.Firebrick)
+                        : Helpers.Extensions.XAML.MaterialIconGlyphConverter.ThemeColour("ThemeWarn", Colors.DarkOrange),
                 });
             }
 
@@ -108,7 +111,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         ? $"Web order {n.WooOrderId}"
                         : n.Message,
                     CanAck = true,
-                    Accent = Colors.SteelBlue,
+                    Accent = Helpers.Extensions.XAML.MaterialIconGlyphConverter.ThemeColour("ThemeAccent", Colors.SteelBlue),
                 });
             }
 

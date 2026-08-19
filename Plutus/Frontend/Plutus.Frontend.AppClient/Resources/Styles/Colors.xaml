@@ -73,6 +73,18 @@
          move it, and it sat at #FF9494 (2.12:1 on dark) whatever scheme a shop chose. -->
     <Color x:Key="ThemeDanger">#c1272d</Color>
 
+    <!-- ⚠⚠ AND THE REST OF THE STATUS TRIO (WP-T1 T1.3 completed, 2026-08-19). Same rule as danger: a
+         status colour CARRIES MEANING, so it must not follow a brand — a shop could otherwise paint
+         "revoked" the same green as "connected", and an operator reading a green dot would trust a till
+         that had been switched off.
+         ⚠ THREE, not two, because "not known yet" is a real third state and rendering it as either good
+         or bad is a lie: a connection dot that shows red before the first probe reports a fault that
+         has not happened, and one that shows green reports a health nobody has checked.
+         ⚠ Each has a dark half in `Theming.DarkStock` — one value cannot serve both grounds. -->
+    <Color x:Key="ThemeGood">#1b873f</Color>
+    <Color x:Key="ThemeWarn">#b26a00</Color>
+    <Color x:Key="ThemeUnknown">#5a5a6e</Color>
+
     <SolidColorBrush x:Key="ThemeAccentBrush" Color="{StaticResource ThemeAccent}"/>
     <SolidColorBrush x:Key="ThemeAccentInkBrush" Color="{StaticResource ThemeAccentInk}"/>
     <SolidColorBrush x:Key="ThemeSurfaceBrush" Color="{StaticResource ThemeSurface}"/>
@@ -81,5 +93,8 @@
     <SolidColorBrush x:Key="ThemeInkMutedBrush" Color="{StaticResource ThemeInkMuted}"/>
     <SolidColorBrush x:Key="ThemeLineBrush" Color="{StaticResource ThemeLine}"/>
     <SolidColorBrush x:Key="ThemeDangerBrush" Color="{StaticResource ThemeDanger}"/>
+    <SolidColorBrush x:Key="ThemeGoodBrush" Color="{StaticResource ThemeGood}"/>
+    <SolidColorBrush x:Key="ThemeWarnBrush" Color="{StaticResource ThemeWarn}"/>
+    <SolidColorBrush x:Key="ThemeUnknownBrush" Color="{StaticResource ThemeUnknown}"/>
 
 </ResourceDictionary>

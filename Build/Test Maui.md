@@ -4163,3 +4163,63 @@ safe.
 - the **refund row** on the till is still red, with readable ink;
 - **"Forget this till"** is still the same danger red;
 - a printed **receipt** is still black on paper — print from the dark theme and check the paper.
+
+### G60e. Status colours read in BOTH schemes — the T1.3 completion
+
+⚠ On the **dark** theme, check each of these is legible, then switch to **light** and check again:
+
+- **Sign-in screen** → the connection dot and its wording (before it has checked: "not known yet", not
+  red and not green);
+- **Settings → Till device** → the connection summary, and force a failure by unplugging the network;
+- **Cash tab** → close a day with the WRONG money, so the variance line shows;
+- **Till tab** → the noticeboard banner, if a notice is live.
+
+**✅ Expected: readable in both.** ⚠⚠ Thirteen of these were hardcoded, so on a dark scheme a shop was
+reading its connection status at **2.6:1** — the green that says "connected" was barely visible against
+the surface it sat on.
+
+⚠ And they must NOT follow a brand: set a **green** accent in the portal and confirm the "revoked" state
+is still RED. A shop able to paint "revoked" the same green as "connected" is an operator trusting a till
+that has been switched off.
+
+---
+
+## G61. The portal's Loyalty page — **portal 1.13.0**
+
+> Matt, 2026-08-19: *"In the portal in 'Loyalty' is says '3 members' when there are 8. Can the email also
+> be split out into a separate column. Can the viewing area also be expanded? It looks like its ~60%?"*
+
+### G61a. ⚠⚠ The counts are right now — both of them were wrong
+
+Portal → **Loyalty**.
+
+**✅ Expected, for the test data in Matt's screenshot:** **Members 8** · **On a tier 3** ·
+**Credit holders 1** · **Outstanding credit £12.50**.
+
+⚠⚠ **It used to say Members 3 and Credit holders 8 — both wrong, and wrong in opposite directions.**
+"Members" was counting rows with a TIER (the upgrade, not the membership) and "Credit holders" was
+counting EVERY row. The £12.50 sitting beside "8 credit holders" is what made it read as plausible.
+
+⚠ They were correct when written, and were falsified by a fix somewhere else: on 2026-08-18 the loyalty
+endpoint was widened to return every active customer — because every customer gets a member number on
+creation, so *"they ARE a member, and the tier is an upgrade on top"*. The list was corrected and the
+two counters were left reading the old shape.
+
+⚠ Cross-check by counting the rows: every row has a member number, exactly one has a non-zero balance.
+
+### G61b. Email has its own column
+
+**✅ Expected: a sortable **Email** column** between Customer and Member no., with **—** where a customer
+has none.
+
+⚠ It used to ride under the name as `Jo Bloggs · jo@example.com`, which cannot be sorted and cannot be
+read down. ⚠ Click the header — it must sort, and the four customers with no email must group together
+rather than hide behind an absent separator.
+
+### G61c. The page uses the screen
+
+**✅ Expected: the content is much wider** — up to 1600px rather than 1100.
+
+⚠ On a 1900px screen that was 58%, so a third of the monitor sat empty next to tables that were
+scrolling. ⚠ It is still bounded on purpose: a row stretched across an ultrawide loses the eye between
+the name and the figure on the far right. ⚠ Narrow the browser window — the 16px gutter must survive.

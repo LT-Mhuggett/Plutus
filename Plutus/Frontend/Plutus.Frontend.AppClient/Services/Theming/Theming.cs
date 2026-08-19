@@ -94,6 +94,13 @@ namespace Plutus.Frontend.AppClient.Services.Theming
             // 5.9:1 on the stock white surface and only ~3.4:1 on the dark one — under the 4.5:1 text
             // floor. This is the dark half.
             ["ThemeDanger"] = Color.FromArgb("#ff8a80"),
+
+            // ⚠ The rest of the status trio, lifted for a dark ground. `#1b873f` is 4.6:1 on white and
+            // only 2.6:1 on `#161d26`; `#b26a00` is worse. Both are illegible exactly where a shop that
+            // chose dark would be reading them.
+            ["ThemeGood"] = Color.FromArgb("#5ddf8a"),
+            ["ThemeWarn"] = Color.FromArgb("#ffc861"),
+            ["ThemeUnknown"] = Color.FromArgb("#9aa7b4"),
         };
 
         /// <summary>
@@ -107,7 +114,8 @@ namespace Plutus.Frontend.AppClient.Services.Theming
         /// ⚠ The fix is NOT to make danger a slot. Then a shop could set it, and a destructive control
         /// recoloured by a brand can be made to look safe. It follows light/dark and stops there.
         /// </summary>
-        private static readonly string[] ModeOnlyKeys = { "ThemeDanger" };
+        private static readonly string[] ModeOnlyKeys =
+            { "ThemeDanger", "ThemeGood", "ThemeWarn", "ThemeUnknown" };
 
         /// <summary>
         /// Apply a theme to the running app. ⚠ MUST be called on the UI thread.
