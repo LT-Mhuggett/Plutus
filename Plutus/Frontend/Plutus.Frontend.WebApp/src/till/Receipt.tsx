@@ -5,6 +5,7 @@ import { getSession } from "../session.ts";
 import { gbp } from "../money.ts";
 import { lineDiscountPence, lineTotalPence, type BasketLine } from "./basket.ts";
 import Barcode39 from "./Barcode39.tsx";
+import DialogX from "../DialogX.tsx";
 
 export interface ReceiptData {
   saleId: string;
@@ -122,13 +123,33 @@ export default function Receipt({ data, onClose, autoPrint }: Props) {
     }
   }, [autoPrint]);
 
+  // ⚠ ESCAPE CLOSES IT — till-design D4 rule 2. Until 2026-08-19 this dialog had NO exit but the
+  // Close button: no ✕, no Escape, and no overlay click (see below). One button is not a trap, but it
+  // is the only dialog on this till where a single element failing to render would leave an operator
+  // stuck behind a receipt with a queue in front of them.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   // Portalled to <body>, NOT rendered inside #root: print CSS removes the whole app
   // (#root) while a receipt is open, so the printed document is only as tall as the
   // receipt. Rendered inline, the page inherited the app's full height and a roll
   // printer fed a long blank tail after the receipt.
+  // ⚠ NO OVERLAY-CLICK DISMISSAL HERE, and that is a DELIBERATE D4 rule-3 exemption — the one dialog
+  // on this till that keeps it. A stray tap beside the receipt would throw it away before it has been
+  // printed, and the operator's next move is to hunt for a reprint. D4 allows a deliberately-modal
+  // dialog provided rules 1 and 2 ARE met, which is why the ✕ and Escape were added at the same time:
+  // three explicit exits, no accidental one.
   return createPortal(
     <div className="overlay receipt-overlay">
       <div className="dialog receipt-dialog">
+        {/* ⚠ OUTSIDE `.receipt`, WHICH IS WHAT KEEPS IT OFF THE PAPER. Print CSS hides everything
+            (`body * { visibility: hidden }`) and only `.receipt`/`.member-card` subtrees opt back in,
+            so a ✕ placed here cannot appear on a customer's receipt. Nesting it inside `ReceiptBody`
+            would print it. */}
+        <DialogX onClose={onClose} />
         <ReceiptBody data={data} />
 
         <div className="dialog-actions no-print">

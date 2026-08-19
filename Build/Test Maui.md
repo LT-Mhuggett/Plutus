@@ -3356,3 +3356,53 @@ Harder to reach, so just read them if you happen to trip them — do not go out 
 - **The `⚠` and `—` in the till's own screens** read properly wherever they appear.
 
 **✅ Expected: no change at all from what you saw in 1.96.0**, other than the garbage being gone.
+
+---
+
+## G53. ⚠⚠ Money must not move when the sale cannot be recorded. **Till 1.98.0**
+
+> ⚠⚠ **THIS IS THE SHARPEST TEST IN THIS DOCUMENT** and it needs no mistake to reach — just a closed
+> day. Until 1.98.0 the three server calls that spend a customer's value ran **before** the commit that
+> records the sale, and every failure path afterwards said *"Nothing has been taken."*
+
+### G53a. ⚠⚠ Store credit on a closed day — the reachable one
+
+1. Attach a member with, say, **£10.00** of store credit. **Note the balance.**
+2. Cash → **Z read / close the day**.
+3. Go back to the till, ring a **£5.00** basket, attach that member, pay with **Store credit**.
+
+**✅ Expected (1.98.0):** the till refuses **before** taking anything — *"This day has been closed with
+a Z read…"*, offering the supervisor reopen path. Basket intact.
+
+**⚠ Then check the member's balance: it must still be £10.00.**
+
+**❌ The old behaviour:** the credit was redeemed, the commit then refused, and the operator was told
+*"Nothing has been taken"* — with **£5.00 gone from the customer's account and no sale anywhere.** If
+you see the balance drop, the build is older than 1.98.0.
+
+### G53b. The day reopens and the sale goes through normally
+
+Cash → **Reopen the day** (supervisor), then ring the same sale again.
+
+**✅ Expected: completes normally, £5.00 comes off the balance exactly once.** ⚠ Check the balance is
+£5.00 and not £0.00 — a double-spend here would mean the refused attempt took money after all.
+
+### G53c. ⚠ If money HAS already moved, the till says so
+
+Harder to stage deliberately — it needs the commit to fail for a reason other than a closed day (pull
+the network at the wrong instant, or use a basket the ledger rejects). If you ever land on it:
+
+**✅ Expected: a second dialog headed "Money has already moved"**, naming the amount — *"This sale was
+NOT recorded, but £5.00 of store credit has already been taken in Plutus. Do not simply ring it again —
+a supervisor must put that value back first, or the customer pays twice."*
+
+⚠ **That instruction is deliberate and you should follow it.** The redeem's idempotency key is created
+and discarded, so re-ringing the sale spends the balance a **second** time.
+
+### G53d. Gift cards, both directions
+
+- **Redeeming**: a card with £5.00 against a £5.00 basket on a **closed** day → refused before the card
+  is touched; **the card still has £5.00 on it**.
+- **Selling**: a basket containing two gift cards to be activated, on a closed day → refused before
+  either is loaded. ⚠ Then check **neither card has a balance** — a card left live with no sale behind
+  it is spendable value nobody paid for.

@@ -2916,16 +2916,71 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 // nothing on the till to say so. Same order, and the same reason, as the web till
                 // (`api.ts:1090`) and as FE7's gift cards.
                 //
-                // ⚠ NOTHING HAS BEEN TAKEN when this refuses: no sale row, no outbox entry. The
-                // basket survives, which is what lets the operator take the money another way.
+                // ⚠⚠ NOTHING IRREVERSIBLE UNTIL THE SALE IS KNOWN TO BE RECORDABLE (2026-08-19).
+                // Everything below this line spends — or creates — value on the SERVER, and the commit
+                // that follows can still refuse afterwards. `RefuseIfDayClosedAsync` was extracted to
+                // be "ONE METHOD, EVERY DOOR" (see its remarks) and was wired to both add-to-basket
+                // doors and NOT to this one, which is the door where it costs a customer money:
+                //
+                //   Z-close the day → ring a basket paid with store credit → the redeem SUCCEEDS →
+                //   `CommitAsync` refuses at its own day-closed gate → the operator reads
+                //   "Nothing has been taken" → the balance is gone and no sale exists.
+                //
+                // No operator error is required. ⚠ It fails OPEN on a lookup error, deliberately, so
+                // hoisting it here cannot turn a bad local read into a closed shop, and the ledger's
+                // own gate in `CheckoutCommit` still sits behind it — two gates, two jobs.
+                if (await RefuseIfDayClosedAsync()) return;
+
+                // ⚠⚠ WHAT HAS ALREADY MOVED, read BEFORE anything moves. The three calls below hit the
+                // server in order, and every failure path used to be a bare `return` carrying the
+                // sentence "Nothing has been taken — the basket is still here". That sentence is true
+                // of the FIRST guard only; after it, the till was telling the operator the opposite of
+                // the truth about a customer's money.
+                var creditTakenPence = tenders
+                    .Where(t => t.TenderType == SharedKernel.Tenders.Credit)
+                    .Sum(t => t.AmountPence);
+                var giftTakenPence = tenders
+                    .Where(t => t.TenderType == SharedKernel.Tenders.GiftCard)
+                    .Sum(t => t.AmountPence);
+                var creditSpent = false;
+                var giftSpent = false;
+
+                // ⚠ Names the value that HAS moved, so the operator does not re-ring the sale and
+                // charge the customer twice. ⚠⚠ It must not offer a retry: the redeem's idempotency
+                // key is minted inline and discarded, so a second attempt spends the balance again.
+                async Task WarnValueAlreadyTakenAsync()
+                {
+                    if (!creditSpent && !giftSpent) return;
+
+                    var gone = creditSpent && giftSpent
+                        ? $"{creditTakenPence / 100m:C2} of store credit and {giftTakenPence / 100m:C2} from the gift card"
+                        : creditSpent
+                            ? $"{creditTakenPence / 100m:C2} of store credit"
+                            : $"{giftTakenPence / 100m:C2} from the gift card";
+
+                    Services.Analytics.CrashLog.Write("TillViewModel.CheckoutAbortedAfterValueTaken",
+                        new InvalidOperationException(
+                            $"Checkout aborted after value had already been taken. credit={creditTakenPence} "
+                            + $"gift={giftTakenPence} customer={AttachedCustomer?.Id.ToString() ?? "none"}"));
+
+                    await Application.Current.MainPage.DisplayAlert("Money has already moved",
+                        $"This sale was NOT recorded, but {gone} has already been taken in Plutus.\n\n"
+                        + "Do not simply ring it again — a supervisor must put that value back first, "
+                        + "or the customer pays twice.", "OK".Translate());
+                }
+
+                // ⚠ THE ONLY ONE OF THE FOUR THAT IS SAFE AS A BARE RETURN: nothing has moved yet.
                 if (!await TryRedeemStoreCreditAsync(tenders)) return;
-                if (!await TryRedeemGiftCardAsync(tenders)) return;
+                creditSpent = creditTakenPence > 0;
+
+                if (!await TryRedeemGiftCardAsync(tenders)) { await WarnValueAlreadyTakenAsync(); return; }
+                giftSpent = giftTakenPence > 0;
 
                 // ⚠ ACTIVATE LAST OF THE THREE, and still before the commit. A card being SOLD is
                 // the only one of these that creates value rather than spending it — so if a redeem
                 // above has already refused, no card has been loaded that a cancelled sale would
                 // leave live in the customer's hand.
-                if (!await TryActivateGiftCardsAsync()) return;
+                if (!await TryActivateGiftCardsAsync()) { await WarnValueAlreadyTakenAsync(); return; }
 
                 var outcome = await Services.Storage.CheckoutCommit.CommitAsync(
                     Basket, tenders, App.GetViewModel().SignedInOperator?.UserId);
@@ -2935,6 +2990,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     // ⚠ The basket is deliberately NOT cleared. Nothing was recorded, so the sale
                     // is still there to retry — clearing it would lose the sale and the evidence.
                     await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), outcome.Message, "OK".Translate());
+
+                    // ⚠⚠ AND `outcome.Message` SAYS "Nothing has been taken". Once a redeem above has
+                    // succeeded that is false, so the truth follows it rather than replacing it — the
+                    // operator needs both the reason the sale failed and the fact that money moved.
+                    await WarnValueAlreadyTakenAsync();
                     return;
                 }
 

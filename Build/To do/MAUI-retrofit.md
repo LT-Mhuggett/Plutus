@@ -3058,6 +3058,30 @@ Written here because each one cost real time more than once.
 
 ## 0.3b ⚠⚠ The input-alert back-out audit (2026-08-18)
 
+> ⚠⚠ **THE PREMISE OF THIS WHOLE SECTION WAS WRONG, CORRECTED 2026-08-19.** It says the helper returns
+> **null** on back-out. It does not: `InputAlertHelper.ShowAsync` ends
+> `return await popUp.PageClosedTask ?? new Dictionary<uint, string>();`, and because `await` binds
+> tighter than `??` the back-out yields an **EMPTY DICTIONARY**. The method's own header comment says
+> so. `InputAlert.CancelBut_Clicked` also calls `InputResults.Clear()`, so ✕ and Cancel agree with it.
+>
+> **What that changes:**
+> - Guards must test **`Count == 0`** or a failed `TryGetValue` — **never `== null`**. The surviving
+>   `== null` tests (`SupervisorPrompt.cs:43`, `LoginViewModel.cs:227`/`:269`) are **dead checks** that
+>   only appear to work because a whitespace validator runs after them. `SupervisorPrompt` is safe
+>   because it happens to check both.
+> - ⚠ The warning below — *"do NOT fix this by making the helper return an empty dictionary"* — is
+>   **inverted**. It already returns empty; changing it to null now would break the sites since written
+>   against empty. **Leave the helper alone**, for the opposite of the stated reason.
+> - ⚠ **`null` IS still the back-out signal for `DisplayActionSheet`**, which is a different MAUI API.
+>   That contract is real; do not conflate the two.
+> - ⚠ The line numbers in the table below are **stale**, and several ⚠ rows have since been fixed.
+>   Re-locate by method name before trusting any row.
+>
+> ⚠⚠ **And the crash is not the worst outcome.** An absent key throws `KeyNotFoundException` — still
+> fatal inside `async void` — but a caller that reads the empty dictionary via `FirstOrDefault()` gets a
+> **zeroed struct and carries on**. On a cash movement or a price adjust that is a silent wrong number,
+> which no crash log will ever show you.
+
 `LaunchInputAlertAsync` returns **null** when the operator leaves a dialog without confirming —
 tapping outside, Escape, or the Cancel button. Every ⚠ row below dereferences that null, most inside
 an **`async void`**, so the exception reaches the dispatcher unhandled and **the till dies**.
