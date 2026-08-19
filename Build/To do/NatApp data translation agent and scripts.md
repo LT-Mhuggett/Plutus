@@ -1,9 +1,18 @@
-# NatApp → Plutus Translation Agent — Plan
+# NatApp data translation agent and scripts
+
+*(renamed 2026-08-20 from `NatApp-Translation-Agent-Plan-2026-08-05.md` — Matt: it now carries the
+runnable scripts, not just the plan)*
 
 **Date:** 2026-08-05
-**Status:** ⚠⚠ **EXECUTED for the bridge-run case, 2026-08-17** — steps 1–3 built, rehearsed on
-`plutus_t1`, applied to live. See §7 at the bottom for exactly what ran, the numbers, and what is
-deliberately still open (steps 4–6 partially, 9 untouched).
+**Status:** ⚠⚠ **EXECUTED TWICE.** The **bridge run** (top-up, 2026-08-17) — §7. The **full replace**
+(2026-08-20, from the 19_08 backup: imported sales + inventory dropped and reloaded, banking and gift
+cards dropped, everything else kept) — **§8, which also carries the no-questions rerun script**
+(`~/PLUTUS/natapp-replace.sh` on the Mac).
+
+⚠ **Which one to reach for:** a periodic top-up while the till still trades = the BRIDGE (§7's
+`sales-v2` delta — never touches what exists). A fresh backup that should BECOME the truth — stale
+catalogue and all — = the REPLACE (§8). The cutover run, when the till finally stops, is a REPLACE
+taken after its last sale.
 **Companion docs:** `Build/Migration-2026-07-22-plan.md` (Workstream G), `Build/kapow-db-gap-analysis.md`, `HANDOVER.md` (Phase 3/6 notes), `tools/Plutus.TenantRestore/RUNBOOK.md` (the operational pattern this plan follows).
 
 ## 0. Terminology (confusingly, "Plutus" names two different things)
@@ -250,3 +259,159 @@ backup looks unusual, and remember `mysqldump` needs `--no-tablespaces --skip-lo
 - Step 9 (multi-tenant parameterisation) — untouched, still gated on §3.3(a) per the 2026-08-08 note.
 - §6 Q1 (how backups reach the tooling) — this one arrived in `Build/seed-data/` by hand; fine for
   bridge runs, but the CUTOVER run wants a same-day export taken after the till stops trading.
+
+---
+
+## 8. ⚠⚠ EXECUTED 2026-08-20 — the FULL REPLACE from the 19_08 backup, and the script that reruns it
+
+**Matt, 2026-08-19:** *"I need to take a backup of the entire current database. I would like to do a
+full restore from the following .db — Kapow Comics ltd - Database - 19_08_2026 16_54_11… I need all
+sales from the original import deleted and all new from the new data. I need all Inventory from the
+original import deleted and all new from the new data. Banking data can be dropped from the portal, as
+it has not been used before. Any giftcards can be dropped as they did not exist before. Anything else
+new can stay e.g. Users & Roles, Locations & Tills, Company."*
+
+**This is a different operation from §7's bridge run, and it got its own subcommand:** a bridge TOPS UP
+(delta only, never touches what exists); this REPLACES — one consistent source, the newest backup,
+instead of layers of deltas. `Plutus.SeedMigrator <backup.db> replace-from-backup --mysql <conn>
+--verify|--apply`.
+
+### What it deletes, what it keeps — by predicate, not by care
+
+| Deleted | Kept |
+|---|---|
+| Every imported sale (`LegacyRef IS NOT NULL`) + its lines/tenders | **Every platform sale** (`LegacyRef IS NULL`) — ⚠ webstore orders are REAL MONEY |
+| All 18 quarantine rows (re-evaluated from the fresh source) | Customers, memberships, **store credit** (£12.50 verified identical) |
+| All imported inventory: items, stocks, price-change rows, discount links | **GIFT-CARD and BAG-% items** — platform-provisioned; the backup cannot know them |
+| Stock openings (reseeded from the new backup's counts) | Employees/RBAC, stores/tills/devices, themes, report publications |
+| `CashEvents` — the Banking page's data, never really used | `PaymentEvents` — webstore reconciliation, which is not "banking" |
+| Gift cards + entries (none existed — 0+0 deleted) | `GiftCardSettings` — the tenant's chosen configuration, not a card |
+
+### The four safety rails, all encoded in the tool
+
+1. **Identity is captured BEFORE the purge.** `sales-v2` reads its till/device from LegacyRef rows;
+   run after a purge it would mint a random pair — recreating the §3.1 orphaned-till defect. That is
+   why the reimport lives INSIDE this command. With no stamped identity it refuses outright.
+2. **Nothing kept may point at a sale the purge deletes.** Reimported sales get fresh UUIDs, so the
+   tool counts `SaleAdjustments` and `CreditEntries` referencing imported sales and REFUSES if either
+   is non-zero. No override flag on purpose: "no questions" is only safe while the answer is zero.
+3. **The WP3.4 period guard**, against the WHOLE history — a full replace back-posts every day.
+4. **One transaction** for purge + reimport, so any failure leaves the database exactly as dumped —
+   proven live: the first rehearsal apply crashed mid-run and t1 rolled back to the row.
+
+### The run (2026-08-20, ~00:15–00:25)
+
+- **Dumps:** pre `plutus-pre-replace-20260820-001403.sql.gz`, post
+  `plutus-post-replace-20260820-002309.sql.gz` — both gzip-verified with the `Dump completed`
+  trailer, both copied to the Windows box at `D:\tmp\`.
+- **Rehearsed on `plutus_t1`** (recloned from that same pre dump), and the rehearsal EARNED ITS KEEP
+  TWICE: it caught `RebuildLevelsAsync` beginning its own transaction inside the command's ambient one
+  (fixed: the stock reseed moved after the commit — it is idempotent, the money is not), and it caught
+  me shipping only the apphost binary while the code lives in the `.dll` beside it.
+- **Purged:** 21,844 imported sales (83,595 lines, 21,978 tenders), 18 quarantine, 20,392 items,
+  7,842 stocks, 5,723 price-change rows, 0 discount links, 3,193 openings, 12 cash events, 0+0 gift
+  cards/entries.
+- **Imported:** 21,859 sales recorded of 21,866 read (7 quarantined — the same bad-source rows as
+  ever, freshly evaluated; 8,148 reconciled-to-Total under the established lossy-lines rule),
+  20,471 items (30 over-long ids and 2 case-dupes skipped, as the original loader always has),
+  7,921 stocks; openings reseeded 3,246.
+- **After:** 21,859 imported + **49 platform sales — count unchanged**, 20,472 items (20,471 + the
+  protected GIFT-CARD). **Four-way penny check EQUAL: £563,269.76** headers = Σlines = rollups;
+  **VAT £25,832.89** = VatRollups. Customers/credit/tills/devices/themes verified IDENTICAL between
+  live-before and t1-after; the only intended difference was CashEvents 12→0.
+- ⚠ **Stock is now the till's 19_08 16:54 count, declared as truth.** The reseed's heal removes
+  pipeline movements older than the reseed, so webstore decrements the till never saw are superseded
+  rather than double-counted — §7 item 2 said a formula is not the honest reconciliation, and this is
+  not a formula: it is Matt choosing the till's count as the opening position. Webstore sales after
+  the reseed decrement normally.
+- ⚠ **The two portal-side price decisions from §7 item 1 are now moot** — the catalogue is the till's
+  again, so the till's prices (£44.49, £51.99) are what live holds.
+
+### The script — run it again with no questions
+
+Installed at **`~/PLUTUS/natapp-replace.sh`** on the Mac. One argument: the backup file. It dumps,
+reclones and rehearses on `plutus_t1`, gates on the rehearsal's penny check, applies to live, gates
+again, dumps again. Every refusal exits non-zero with live untouched.
+
+```sh
+# on the Mac:
+~/PLUTUS/natapp-replace.sh ~/PLUTUS/seed-data/"<newer NatApp backup>.db"
+```
+
+```sh
+#!/bin/sh
+# natapp-replace.sh — FULL REPLACE of the Kapow tenant's imported sales + inventory from a fresh
+# NatApp till backup. Matt, 2026-08-19: "to be able to run this again with no questions."
+#
+# NO QUESTIONS means every decision is either encoded here or refused by the tool:
+#   - the tool REFUSES (exit non-zero, nothing written) when: the target has no stamped till/device
+#     identity; any kept row references an imported sale (refunds/credit); a CLOSED financial period
+#     overlaps the backup's history. If it refuses, a human looks — that is the one question left.
+#   - what is deleted: imported sales (LegacyRef), quarantine, imported inventory (items/stocks/price
+#     changes/discount links), stock openings, CashEvents (banking), gift cards + entries.
+#   - what is kept, by predicate: platform sales (webstore money), GIFT-CARD + BAG-% items,
+#     customers/credit, employees/RBAC, tills/devices/themes, GiftCardSettings, PaymentEvents.
+#
+# Usage:  ./natapp-replace.sh "<NatApp backup>.db"
+# Runs on the Mac. Rehearses on plutus_t1 first, EVERY time — the rehearsal caught a real defect on
+# the very first run of this tool (a nested-transaction crash), which is why it is not optional.
+set -eu
+
+BACKUP="${1:?usage: natapp-replace.sh <NatApp backup .db>}"
+[ -f "$BACKUP" ] || { echo "backup not found: $BACKUP"; exit 1; }
+
+export PATH=/opt/homebrew/bin:$PATH
+set -a; . "$HOME/PLUTUS/secrets/mysql.env"; set +a
+SOCK=/tmp/mysql.sock
+TOOL="$HOME/PLUTUS/seedmigrator-replace/Plutus.SeedMigrator"
+STAMP=$(date +%Y%m%d-%H%M%S)
+
+dump() { # dump <db> <outfile>
+  mysqldump --socket=$SOCK -u plutus -p"$MYSQL_PLUTUS_PASSWORD" \
+    --no-tablespaces --skip-lock-tables --set-gtid-purged=OFF --single-transaction "$1" | gzip > "$2"
+  gunzip -t "$2"
+  gunzip -c "$2" | tail -1 | grep -q "Dump completed" || { echo "dump of $1 has no completion trailer — STOP"; exit 1; }
+}
+sql() { mysql --socket=$SOCK -u plutus -p"$MYSQL_PLUTUS_PASSWORD" "$@" 2>/dev/null; }
+
+# ── 1. Full pre dump. The apply is one transaction, but the dump is the way back regardless. ──
+PRE="$HOME/PLUTUS/backups/plutus-pre-replace-$STAMP.sql.gz"
+echo "1/5 dumping live → $PRE"
+dump plutus "$PRE"
+
+# ── 2. Rehearse on plutus_t1, recloned from THAT dump — live's exact state, minutes old. ──
+echo "2/5 recloning plutus_t1 and rehearsing"
+sql -e "DROP DATABASE IF EXISTS plutus_t1; CREATE DATABASE plutus_t1 CHARACTER SET utf8mb4;"
+gunzip -c "$PRE" | sql plutus_t1
+T1CONN="Server=$SOCK;ConnectionProtocol=unix;User=plutus;Password=$MYSQL_PLUTUS_PASSWORD;Database=plutus_t1"
+"$TOOL" "$BACKUP" replace-from-backup --mysql "$T1CONN" --verify
+"$TOOL" "$BACKUP" replace-from-backup --mysql "$T1CONN" --apply | tee /tmp/natapp-replace-t1.log
+grep -q "four-way penny check: EQUAL" /tmp/natapp-replace-t1.log || { echo "t1 rehearsal failed its penny check — STOP, live untouched"; exit 1; }
+
+# ── 3. Live: verify, then apply. Identical inputs to the rehearsal that just passed. ──
+echo "3/5 applying to live"
+CONN="Server=$SOCK;ConnectionProtocol=unix;User=plutus;Password=$MYSQL_PLUTUS_PASSWORD;Database=plutus"
+"$TOOL" "$BACKUP" replace-from-backup --mysql "$CONN" --verify
+"$TOOL" "$BACKUP" replace-from-backup --mysql "$CONN" --apply | tee /tmp/natapp-replace-live.log
+grep -q "four-way penny check: EQUAL" /tmp/natapp-replace-live.log || { echo "LIVE PENNY CHECK FAILED — restore from $PRE and investigate"; exit 1; }
+
+# ── 4. Post dump. ──
+POST="$HOME/PLUTUS/backups/plutus-post-replace-$STAMP.sql.gz"
+echo "4/5 dumping live → $POST"
+dump plutus "$POST"
+
+# ── 5. The one external check the tool cannot do for itself. ──
+echo "5/5 backend probe"
+curl -s -o /dev/null -w "backend items endpoint (expect 401): %{http_code}\n" http://127.0.0.1:5100/api/Item/Index
+
+echo "DONE. pre=$PRE post=$POST logs=/tmp/natapp-replace-{t1,live}.log"
+echo "Copy both dumps to the Windows box (D:\\tmp) — the 2026-08-17 precedent keeps a copy off the Mac."
+```
+
+⚠ **When this script is the CUTOVER run** (the till stops trading for good): take the backup AFTER the
+till's last sale, run this, then do the stock count §7 item 2 always wanted — the reseed makes the till's
+final numbers the opening truth, and a physical count is the only thing that can confirm them.
+
+⚠ **What a re-run costs:** reimported sales get fresh UUIDs, so anything that captured one — a receipt
+reprint bookmark, a refund started against an imported sale — breaks. The tool refuses when it can SEE
+such a reference (rail 2); a reference held outside the database (a bookmarked URL) it cannot.

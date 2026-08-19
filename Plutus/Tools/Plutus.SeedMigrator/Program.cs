@@ -293,6 +293,304 @@ if (Array.IndexOf(args, "items-delta") >= 0)
     return 0;
 }
 
+// ── replace-from-backup runner: FULL REPLACE of imported sales + inventory from a fresh NatApp
+//    backup, plus the one-time purges Matt named (translation plan §8, 2026-08-19). ──
+//   Plutus.SeedMigrator <kapow.db> replace-from-backup --mysql "<conn>" --verify|--apply
+//
+// ⚠⚠ MATT: *"I need all sales from the original import deleted and all new from the new data. I need
+// all Inventory from the original import deleted and all new from the new data. Banking data can be
+// dropped… Any giftcards can be dropped… Anything else new can stay e.g. Users & Roles, Locations &
+// Tills, Company."* This is NOT the bridge run: a bridge tops up, this REPLACES — one consistent
+// source (the newest backup) instead of layers of deltas.
+//
+// ⚠⚠ WHAT IT NEVER TOUCHES, by construction, not by care: platform-native sales (LegacyRef IS NULL —
+// webstore orders are REAL MONEY), customers/memberships/credit, employees/RBAC, stores/tills/devices,
+// themes, report publications, PaymentEvents (webstore reconciliation — not "banking"), and the
+// provisioned items the backup cannot know (GIFT-CARD, BAG-%). GiftCardSettings stays too: it is the
+// tenant's chosen configuration, not a card.
+//
+// ⚠⚠ THE IDENTITY IS CAPTURED BEFORE THE PURGE. sales-v2 reads its till/device from the target's own
+// LegacyRef rows; run it AFTER a purge and it would mint a fresh random pair — recreating the exact
+// orphaned-till defect §3.1 exists to prevent. That is why the reimport happens INSIDE this command
+// rather than as a second invocation.
+if (Array.IndexOf(args, "replace-from-backup") >= 0)
+{
+    var rfVerify = Array.IndexOf(args, "--verify") >= 0;
+    var rfApply = Array.IndexOf(args, "--apply") >= 0;
+    var rfMysqlIdx = Array.IndexOf(args, "--mysql");
+    if (rfMysqlIdx < 0 || rfMysqlIdx + 1 >= args.Length || (!rfVerify && !rfApply) || (rfVerify && rfApply))
+    { Console.Error.WriteLine("replace-from-backup needs --mysql <conn> and exactly one of --verify | --apply"); return 1; }
+
+    var rfTenant = Plutus.Entities.Tenancy.KnownTenants.Kapow;
+    var rfBusiness = DetGuid("business", "kapow");
+    var rfOptions = new DbContextOptionsBuilder<MySqlDbContext>()
+        .UseMySql(args[rfMysqlIdx + 1], MySqlServerVersion.LatestSupportedServerVersion);
+    using var rfDb = new MySqlDbContext(rfOptions.Options, new Plutus.Entities.Tenancy.FixedTenantContext(rfTenant));
+    rfDb.CurrentUser = "replace-from-backup";
+    rfDb.Database.SetCommandTimeout(600);   // 20k items + 80k lines in one transaction is not a 30s job
+
+    using var rfConn = new SqliteConnection(
+        new SqliteConnectionStringBuilder { DataSource = oldDbPath, Mode = SqliteOpenMode.ReadOnly }.ToString());
+    rfConn.Open();
+    IEnumerable<System.Data.IDataRecord> RfRows(string sql)
+    {
+        using var cmd = rfConn.CreateCommand();
+        cmd.CommandText = sql;
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) yield return r;
+    }
+    static string? RfStr(object v) => v is null or DBNull ? null : Convert.ToString(v);
+    static string RfStrE(object v) { var s = RfStr(v); return string.IsNullOrWhiteSpace(s) ? "-" : s; }
+    static decimal RfDec(object v) => v is null or DBNull ? 0m : decimal.Parse(Convert.ToString(v)!, CultureInfo.InvariantCulture);
+    static byte[]? RfBlob(object v) => v is null or DBNull ? null : (byte[])v;
+
+    // ── 0. Identity, BEFORE anything is deleted — see the header. ──
+    var rfStamped = rfDb.SalesV2.IgnoreQueryFilters().AsNoTracking()
+        .Where(s => s.TenantId == rfTenant && s.LegacyRef != null)
+        .Select(s => new { s.TillId, s.DeviceId })
+        .FirstOrDefault();
+    if (rfStamped is null)
+    {
+        // ⚠ Refuse rather than mint: with no imported sales there is nothing to replace, and minting a
+        // random identity here is the one thing this command must never do. A first-ever import is the
+        // plain sales-v2 path's job.
+        Console.Error.WriteLine("REFUSED: the target holds no LegacyRef sales, so there is nothing to replace " +
+            "(and no stamped till/device identity to reuse). For a first import use sales-v2.");
+        return 1;
+    }
+    Console.WriteLine($"identity captured: till {rfStamped.TillId} / device {rfStamped.DeviceId}");
+
+    // ── 1. Safety: nothing kept may point at a sale the purge deletes. ──
+    // ⚠ Reimported sales get FRESH UUIDs (the tool's own header warns exactly this), so any platform
+    // row referencing an imported sale's id would be orphaned. Today both counts are zero — Matt's
+    // refund tests were against platform test sales. If either ever fires, a human MUST look; there is
+    // deliberately no override flag, because "no questions" is only safe while the answer is zero.
+    var rfOrphanAdjustments = rfDb.SaleAdjustments.IgnoreQueryFilters().AsNoTracking()
+        .Count(a => a.TenantId == rfTenant && rfDb.SalesV2.Any(s =>
+            s.TenantId == rfTenant && s.LegacyRef != null &&
+            (s.Id == a.OriginalSaleId || s.Id == a.AdjustmentSaleId)));
+    var rfOrphanCredits = rfDb.CreditEntries.IgnoreQueryFilters().AsNoTracking()
+        .Count(e => e.TenantId == rfTenant && e.SaleId != null && rfDb.SalesV2.Any(s =>
+            s.TenantId == rfTenant && s.LegacyRef != null && s.Id == e.SaleId));
+    if (rfOrphanAdjustments > 0 || rfOrphanCredits > 0)
+    {
+        Console.Error.WriteLine($"REFUSED: {rfOrphanAdjustments} sale adjustment(s) and {rfOrphanCredits} " +
+            "credit entrie(s) reference imported sales. Purging would orphan them — resolve by hand first.");
+        return 1;
+    }
+
+    // ── 2. The before picture — every figure the report needs, read while it still exists. ──
+    var rfProtectedGift = Plutus.SharedKernel.GiftCards.ItemIdOne;
+    var rfProtectedBagPrefix = Plutus.SharedKernel.CarrierBags.IdPrefix + "%";
+
+    int CLegacySales() => rfDb.SalesV2.IgnoreQueryFilters().Count(s => s.TenantId == rfTenant && s.LegacyRef != null);
+    int CPlatformSales() => rfDb.SalesV2.IgnoreQueryFilters().Count(s => s.TenantId == rfTenant && s.LegacyRef == null);
+    int CItems() => rfDb.Items.IgnoreQueryFilters().Count(i => i.IdTwo == rfBusiness);
+    int CProtected() => rfDb.Items.IgnoreQueryFilters().Count(i => i.IdTwo == rfBusiness &&
+        (i.IdOne == rfProtectedGift || EF.Functions.Like(i.IdOne, rfProtectedBagPrefix)));
+
+    var before = new
+    {
+        LegacySales = CLegacySales(),
+        PlatformSales = CPlatformSales(),
+        Lines = rfDb.SaleLines.IgnoreQueryFilters().Count(l => l.TenantId == rfTenant),
+        Tenders = rfDb.SaleTenders.IgnoreQueryFilters().Count(t => t.TenantId == rfTenant),
+        Quarantine = rfDb.SaleQuarantine.IgnoreQueryFilters().Count(q => q.TenantId == rfTenant),
+        Items = CItems(), Protected = CProtected(),
+        Stocks = rfDb.Stocks.IgnoreQueryFilters().Count(s => s.IdTwo == rfBusiness),
+        Openings = rfDb.StockMovements.IgnoreQueryFilters().Count(m => m.TenantId == rfTenant &&
+            m.Reason == Plutus.Catalogue.StockRebuilder.OpeningReason),
+        CashEvents = rfDb.CashEvents.IgnoreQueryFilters().Count(c => c.TenantId == rfTenant),
+        GiftCards = rfDb.GiftCards.IgnoreQueryFilters().Count(g => g.TenantId == rfTenant),
+        GiftCardEntries = rfDb.GiftCardEntries.IgnoreQueryFilters().Count(g => g.TenantId == rfTenant),
+        DiscountItems = rfDb.Set<Discount_Item>().IgnoreQueryFilters().Count(d => d.ItemIdTwo == rfBusiness),
+        Cics = rfDb.Set<CheckoutItemChange>().IgnoreQueryFilters().Count(c => c.ItemIdTwo == rfBusiness),
+    };
+    Console.WriteLine($"before: {before.LegacySales} imported + {before.PlatformSales} platform sales · " +
+        $"{before.Items} items ({before.Protected} protected) · {before.Stocks} stocks · {before.Openings} openings · " +
+        $"{before.CashEvents} cash events · {before.GiftCards}/{before.GiftCardEntries} gift cards/entries");
+
+    // ── 3. Read + plan the reimport (both modes — verify's numbers must BE apply's numbers). ──
+    var rfInputs = new Plutus.Migration.Kapow.KapowSalesReader(rfConn).Read(rfTenant, rfStamped.TillId, rfStamped.DeviceId);
+    // ⚠ EMPTY known-sets and seq 0: the plan describes the POST-PURGE world in both modes.
+    var rfPlan = Plutus.Migration.Kapow.KapowDelta.Plan(rfInputs,
+        new HashSet<string>(StringComparer.Ordinal), new HashSet<string>(StringComparer.Ordinal), 0);
+    Console.WriteLine(rfPlan);
+
+    // ⚠ The WP3.4 guardrail, same as sales-v2 — a full replace back-posts EVERY day, so any closed
+    // period overlapping ANY of the history must refuse.
+    var rfMin = DateOnly.Parse(rfPlan.MinDate![..10]);
+    var rfMax = DateOnly.Parse(rfPlan.MaxDate![..10]);
+    var rfClosed = rfDb.FinancialPeriods.IgnoreQueryFilters().AsNoTracking()
+        .Where(p => p.TenantId == rfTenant && p.Status == Plutus.Entities.Models.PeriodStatus.Closed
+                 && p.StartDay <= rfMax && p.EndDay >= rfMin)
+        .Select(p => p.Name).ToList();
+    if (rfClosed.Count > 0)
+    {
+        Console.Error.WriteLine($"REFUSED: closed financial period(s) overlap the backup's history: {string.Join(", ", rfClosed)}");
+        return 1;
+    }
+
+    // Catalogue, read from the backup with the SAME mappings the original loader used (CI dedupe,
+    // >20-char ids skipped, Desc coerced non-null — the t1 lesson — and the Image blob carried).
+    var rfFileCats = new Dictionary<string, (string Name, string? Desc)>();
+    foreach (var r in RfRows("SELECT Id, Name, Description FROM Category"))
+        rfFileCats[RfStr(r["Id"])!] = (RfStrE(r["Name"]), RfStr(r["Description"]));
+
+    var rfHaveCats = rfDb.Category.IgnoreQueryFilters().AsNoTracking()
+        .Where(c => c.IdTwo == rfBusiness).Select(c => c.IdOne).ToHashSet();
+    var rfProtectedKeys = rfDb.Items.IgnoreQueryFilters().AsNoTracking()
+        .Where(i => i.IdTwo == rfBusiness && (i.IdOne == rfProtectedGift || EF.Functions.Like(i.IdOne, rfProtectedBagPrefix)))
+        .Select(i => i.IdOne).ToList().ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    var rfItemsByKey = new Dictionary<string, Item>(StringComparer.OrdinalIgnoreCase);
+    var rfNewCats = new Dictionary<Guid, Category>();
+    int rfSkippedLong = 0, rfSkippedDup = 0, rfSkippedProtected = 0;
+    foreach (var r in RfRows("SELECT * FROM Items"))
+    {
+        var id = RfStr(r["Id"]);
+        if (id is null || id.Length > 20) { rfSkippedLong++; continue; }
+        if (rfItemsByKey.ContainsKey(id)) { rfSkippedDup++; continue; }
+        // ⚠ A backup item colliding with a protected key would PK-collide on insert (the protected row
+        // survives the purge). None exists today — GIFT-CARD/BAG-% are platform inventions — but a
+        // future backup must degrade to a warning, not a crash mid-transaction.
+        if (rfProtectedKeys.Contains(id)) { rfSkippedProtected++; continue; }
+
+        var catOld = RfStr(r["CatId"]) ?? "";
+        var catId = DetGuid("category", catOld);
+        if (!rfHaveCats.Contains(catId) && !rfNewCats.ContainsKey(catId) && rfFileCats.TryGetValue(catOld, out var fc))
+            rfNewCats[catId] = new Category { IdOne = catId, IdTwo = rfBusiness, Name = fc.Name, Description = fc.Desc ?? "" };
+
+        rfItemsByKey[id] = new Item
+        {
+            IdOne = id, IdTwo = rfBusiness,
+            Name = RfStrE(r["Name"]), Brand = RfStrE(r["Brand"]), Desc = RfStr(r["Desc"]) ?? "",
+            Cost = RfDec(r["Cost"]), ExPrice = RfDec(r["ExPrice"]), Price = RfDec(r["Price"]),
+            Image = RfBlob(r["Image"]),
+            TaxId = r["VatId"] is null or DBNull ? 0 : Convert.ToInt32(r["VatId"]),
+            CatId = catId,
+        };
+    }
+    var rfStockByKey = new Dictionary<string, Stock>(StringComparer.OrdinalIgnoreCase);
+    foreach (var r in RfRows("SELECT * FROM Stocks"))
+    {
+        var id = RfStr(r["ItemId"]);
+        if (id is null || !rfItemsByKey.ContainsKey(id)) continue;
+        if (rfStockByKey.TryGetValue(id, out var existing)) { existing.Quantity += Convert.ToInt32(r["Quantity"]); continue; }
+        rfStockByKey[id] = new Stock { IdOne = id, IdTwo = rfBusiness, IdThree = 1, Quantity = Convert.ToInt32(r["Quantity"]) };
+    }
+    Console.WriteLine($"backup: {rfItemsByKey.Count} items ({rfSkippedLong} >20-char, {rfSkippedDup} case-dupes, " +
+        $"{rfSkippedProtected} protected-key collisions skipped) · {rfNewCats.Count} new categories · {rfStockByKey.Count} stocks");
+
+    if (rfVerify)
+    {
+        var rfDry = Plutus.Migration.Kapow.KapowMigrator.Migrate(
+            rfPlan.ToImport, rfDb, new Plutus.Migration.Kapow.IdRemap<string>(), log: Console.WriteLine,
+            write: false, knownQuarantinedRefs: new HashSet<string>(StringComparer.Ordinal));
+        Console.WriteLine(rfDry);
+        Console.WriteLine();
+        Console.WriteLine("VERIFY ONLY — nothing was written. An --apply would:");
+        Console.WriteLine($"  DELETE {before.LegacySales} imported sales (their lines/tenders go with them — {before.Lines} lines exist tenant-wide incl. platform), " +
+            $"{before.Quarantine} quarantine rows, {before.CashEvents} cash events, " +
+            $"{before.GiftCards} gift cards + {before.GiftCardEntries} entries, " +
+            $"{before.Items - before.Protected} items (+{before.Stocks} stocks, {before.DiscountItems} discount links, " +
+            $"{before.Cics} price-change rows, {before.Openings} stock openings)");
+        Console.WriteLine($"  KEEP  {before.PlatformSales} platform sales, {before.Protected} protected items, " +
+            "customers/credit, employees/RBAC, tills/devices, themes, GiftCardSettings, PaymentEvents");
+        Console.WriteLine($"  IMPORT {rfPlan.ToImport.Count} sales, {rfItemsByKey.Count} items, {rfStockByKey.Count} stocks; " +
+            "then reseed stock openings and rebuild rollups");
+        return 0;
+    }
+
+    // ── 4. APPLY — one transaction, so a failure anywhere leaves the database exactly as dumped. ──
+    using (var rfTx = rfDb.Database.BeginTransaction())
+    {
+        // Purge order is FK order: children of Item first, then Items; sale children, then headers.
+        // ⚠ Every delete carries its own tenant/business predicate even though FixedTenantContext
+        // filters would scope most of them anyway — the blast radius here is a shared multi-tenant
+        // schema, and "the filter would have caught it" is not a defence worth relying on twice.
+        var dDiscount = rfDb.Set<Discount_Item>().IgnoreQueryFilters()
+            .Where(d => d.ItemIdTwo == rfBusiness).ExecuteDelete();
+        var dCics = rfDb.Set<CheckoutItemChange>().IgnoreQueryFilters().Where(c => c.ItemIdTwo == rfBusiness).ExecuteDelete();
+        var dStocks = rfDb.Stocks.IgnoreQueryFilters().Where(s => s.IdTwo == rfBusiness).ExecuteDelete();
+        var dItems = rfDb.Items.IgnoreQueryFilters().Where(i => i.IdTwo == rfBusiness &&
+            i.IdOne != rfProtectedGift && !EF.Functions.Like(i.IdOne, rfProtectedBagPrefix)).ExecuteDelete();
+
+        var dTenders = rfDb.SaleTenders.IgnoreQueryFilters().Where(t => t.TenantId == rfTenant &&
+            rfDb.SalesV2.Any(s => s.TenantId == rfTenant && s.LegacyRef != null && s.Id == t.SaleId)).ExecuteDelete();
+        var dLines = rfDb.SaleLines.IgnoreQueryFilters().Where(l => l.TenantId == rfTenant &&
+            rfDb.SalesV2.Any(s => s.TenantId == rfTenant && s.LegacyRef != null && s.Id == l.SaleId)).ExecuteDelete();
+        var dSales = rfDb.SalesV2.IgnoreQueryFilters().Where(s => s.TenantId == rfTenant && s.LegacyRef != null).ExecuteDelete();
+        var dQuar = rfDb.SaleQuarantine.IgnoreQueryFilters().Where(q => q.TenantId == rfTenant).ExecuteDelete();
+
+        var dCash = rfDb.CashEvents.IgnoreQueryFilters().Where(c => c.TenantId == rfTenant).ExecuteDelete();
+        var dGcEntries = rfDb.GiftCardEntries.IgnoreQueryFilters().Where(g => g.TenantId == rfTenant).ExecuteDelete();
+        var dGcCards = rfDb.GiftCards.IgnoreQueryFilters().Where(g => g.TenantId == rfTenant).ExecuteDelete();
+
+        // ⚠ Openings deleted so the reseed below starts from the NEW backup's counts — otherwise
+        // SeedOpeningBalancesAsync's per-item "already seeded" check makes the reseed a no-op.
+        var dOpen = rfDb.StockMovements.IgnoreQueryFilters().Where(m => m.TenantId == rfTenant &&
+            m.Reason == Plutus.Catalogue.StockRebuilder.OpeningReason).ExecuteDelete();
+
+        Console.WriteLine($"purged: {dSales} sales ({dLines} lines, {dTenders} tenders), {dQuar} quarantine, " +
+            $"{dItems} items, {dStocks} stocks, {dDiscount} discount links, {dCics} price-change rows, " +
+            $"{dOpen} openings, {dCash} cash events, {dGcCards}+{dGcEntries} gift cards+entries");
+
+        foreach (var c in rfNewCats.Values) rfDb.Category.Add(c);
+        foreach (var i in rfItemsByKey.Values) rfDb.Items.Add(i);
+        foreach (var s in rfStockByKey.Values) rfDb.Stocks.Add(s);
+        rfDb.SaveChanges();
+        rfDb.ChangeTracker.Clear();   // 20k tracked items would slow every SaveChanges the migrator makes
+
+        var rfRecon = Plutus.Migration.Kapow.KapowMigrator.Migrate(
+            rfPlan.ToImport, rfDb, new Plutus.Migration.Kapow.IdRemap<string>(), log: Console.WriteLine,
+            write: true, knownQuarantinedRefs: new HashSet<string>(StringComparer.Ordinal));
+        Console.WriteLine(rfRecon);
+
+        rfTx.Commit();
+    }
+
+    // ── 5. After the commit: the stock reseed, rollups, and the kept-rows invariant. ──
+    //
+    // ⚠⚠ THE RESEED CANNOT LIVE INSIDE THE TRANSACTION — the t1 rehearsal found this the hard way:
+    // `RebuildLevelsAsync` begins its OWN transaction (StockLedger.cs:162), which throws inside an
+    // ambient one and rolled the whole apply back. Correct placement, not a workaround: the sales and
+    // catalogue are MONEY and stay all-or-nothing above; the ledger seed is IDEMPOTENT — if the
+    // process dies on this line, run `stock-open --mysql <conn>` and it completes the same work.
+    //
+    // The reseed: openings from the new Stocks rows; the heal removes Sale/Return movements older
+    // than the reseed (the backup's count is declared the truth at its timestamp — the webstore
+    // decrements it never saw are superseded, exactly the §7-item-2 call Matt has now made); the
+    // fence stops history replay; levels are rebuilt.
+    var rfOpened = await Plutus.Catalogue.StockRebuilder.SeedOpeningBalancesAsync(rfDb, rfTenant);
+    Console.WriteLine($"stock openings reseeded: {rfOpened}");
+    var (rfSr, rfVr, rfScanned) = await Plutus.Reporting.RollupRebuilder.RebuildAsync(rfDb, rfTenant);
+    Console.WriteLine($"rollups rebuilt: {rfSr} SalesRollups + {rfVr} VatRollups from {rfScanned} sales.");
+
+    var after = new { LegacySales = CLegacySales(), PlatformSales = CPlatformSales(), Items = CItems(), Protected = CProtected() };
+    Console.WriteLine($"after: {after.LegacySales} imported + {after.PlatformSales} platform sales · " +
+        $"{after.Items} items ({after.Protected} protected)");
+    if (after.PlatformSales != before.PlatformSales || after.Protected != before.Protected)
+    {
+        // ⚠ Loud, because this is the invariant the whole design hangs on. The transaction is already
+        // committed — this cannot happen from this code's own deletes (they exclude these rows by
+        // predicate), so if it fires, something else wrote concurrently and a human must reconcile.
+        Console.Error.WriteLine("⚠⚠ INVARIANT BROKEN: platform sales or protected items changed count. INVESTIGATE.");
+        return 1;
+    }
+
+    var penny = rfDb.SalesV2.IgnoreQueryFilters().Where(s => s.TenantId == rfTenant)
+        .GroupBy(_ => 1).Select(g => new { Gross = g.Sum(s => s.GrossPence), Vat = g.Sum(s => s.VatPence), N = g.Count() }).Single();
+    var lineSum = rfDb.SaleLines.IgnoreQueryFilters().Where(l => l.TenantId == rfTenant).Sum(l => l.LineGrossPence);
+    var rollGross = rfDb.SalesRollups.IgnoreQueryFilters().Where(r => r.TenantId == rfTenant).Sum(r => r.GrossPence);
+    var vatRoll = rfDb.VatRollups.IgnoreQueryFilters().Where(r => r.TenantId == rfTenant).Sum(r => r.VatPence);
+    Console.WriteLine($"four-way: headers £{penny.Gross / 100m:0.00} ({penny.N} sales) | Σlines £{lineSum / 100m:0.00} | " +
+        $"rollups £{rollGross / 100m:0.00} | VAT £{penny.Vat / 100m:0.00} vs VatRollups £{vatRoll / 100m:0.00}");
+    Console.WriteLine(penny.Gross == lineSum && penny.Gross == rollGross && penny.Vat == vatRoll
+        ? "four-way penny check: EQUAL ✔" : "⚠⚠ FOUR-WAY PENNY CHECK FAILED — do not walk away from this.");
+    return 0;
+}
+
 // Deterministic ids so re-runs are idempotent and cross-references stable.
 static Guid DetGuid(string kind, string key)
 {

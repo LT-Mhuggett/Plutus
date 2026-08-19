@@ -2404,7 +2404,7 @@ re-running periodically; nothing in CI watches this.**
   stores will need it, so Exempt is a fully working band end to end — see the exempt section above.
   Never treat "Kapow doesn't sell exempt" as licence to simplify the zero-vs-exempt split away.
 - ✅ The **archived legacy till database feeds the translation agent**
-  (`Build/To do/NatApp-Translation-Agent-Plan-2026-08-05.md`) — confirmed by Matt, and it is why
+  (`Build/To do/NatApp data translation agent and scripts.md`) — confirmed by Matt, and it is why
   §9.3 archives rather than merges, and why §9.4 migrates before enrolling.
 
 **Engineering, unblocked:**

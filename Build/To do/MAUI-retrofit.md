@@ -90,7 +90,7 @@ item-identity seam all outlive the retrofit, and archiving them unlifted buries 
 | Agent | **1.4.0** | ✅ Published — the web till's **Settings → Hardware** offers it (HTTP 200, 70,293,789 bytes) |
 | ~~till-maui 1.73.0~~ | — | ⛔ **SUPERSEDED and DELETED 2026-08-18** by 1.74.0 (row below) — one build on the box, no ambiguity about which to run. ⚠ Kept as a line because of what it recorded: this row said *"1.72.0, NOT BUILT, disk holds 1.71.0"* for hours while `D:\tmp\plutus-till-1.73.0` existed. **Eighteenth stale marker**, and the cheapest kind to check: `ls /d/tmp/plutus-till-*` |
 | platform | 1.47.0 | Ships inside the others |
-| **Live DATA** | — | ⚠⚠ **2026-08-17: the NatApp till's sales through 15_08 are IN.** 198 sales / £4,923.86 imported from `Kapow…15_08_2026.db` (delta vs the 23_07 seed), + the 48 items they reference, + the orphaned legacy till got a real row ("Kapow shop till (NatApp)") so the whole history attributes to **store 1** instead of the store-0 bucket. Four-way penny reconciliation green (£562,563.74 / £25,784.71 VAT / 21,888 sales). Dumps: `plutus-pre-20260817-l4-preimport.sql.gz` (+ copy on `D:\tmp`) and `plutus-post-20260817-l4-import.sql.gz`. **Full record: [`NatApp-Translation-Agent-Plan…`](NatApp-Translation-Agent-Plan-2026-08-05.md) §7.** ⚠ Anything the shop sells after 15_08 on the old till needs the **next bridge run** — now a routine documented there |
+| **Live DATA** | — | ⚠⚠ **SUPERSEDED 2026-08-20 by the FULL REPLACE from the 19_08 backup** — imported sales AND the whole catalogue dropped and reloaded from one consistent source (21,859 sales / £563,269.76 four-way-equal, 20,471 items, stock reseeded, banking + gift cards dropped, platform sales and everything else kept; the doc is now `NatApp data translation agent and scripts.md` §8, incl. the no-questions rerun script). The 08-17 record below stands as history: the NatApp till's sales through 15_08 were IN. 198 sales / £4,923.86 imported from `Kapow…15_08_2026.db` (delta vs the 23_07 seed), + the 48 items they reference, + the orphaned legacy till got a real row ("Kapow shop till (NatApp)") so the whole history attributes to **store 1** instead of the store-0 bucket. Four-way penny reconciliation green (£562,563.74 / £25,784.71 VAT / 21,888 sales). Dumps: `plutus-pre-20260817-l4-preimport.sql.gz` (+ copy on `D:\tmp`) and `plutus-post-20260817-l4-import.sql.gz`. **Full record: [`NatApp data translation agent and scripts.md…`](NatApp data translation agent and scripts.md) §7.** ⚠ Anything the shop sells after 15_08 on the old till needs the **next bridge run** — now a routine documented there |
 
 ⚠ **A deploy is verified on the ARTEFACT, never on a 200.** Both hosts SPA-fallback to `index.html`,
 so a 200 proves almost nothing: check the host names the new bundle hash, the bundle is the real size
@@ -2429,7 +2429,7 @@ tab (step 26), which reads the platform.
 > ### ✅ THE IMPORT RAN — 2026-08-17, from the 15_08 backup
 >
 > **Every row above got its answer, and the record lives in
-> [`NatApp-Translation-Agent-Plan-2026-08-05.md`](NatApp-Translation-Agent-Plan-2026-08-05.md) §7**
+> [`NatApp data translation agent and scripts.md`](NatApp data translation agent and scripts.md) §7**
 > (that plan was the mechanism, as Matt confirmed on 2026-08-08). The shape of it:
 >
 > - **Looked FIRST, imported second** — the delta between the 23_07 and 15_08 backups was measured
@@ -2783,7 +2783,7 @@ platform-wide list and **both apply**.
 
 ## 16. Item identity — the seam with the translation agent
 
-[`To do/NatApp-Translation-Agent-Plan-2026-08-05.md`](NatApp-Translation-Agent-Plan-2026-08-05.md)
+[`To do/NatApp data translation agent and scripts.md`](NatApp data translation agent and scripts.md)
 moves **legacy shop data** into the backend; this document makes **a till talk to** it. They run in
 parallel and meet at exactly one point: item identity.
 

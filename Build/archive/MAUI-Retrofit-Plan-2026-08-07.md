@@ -34,7 +34,7 @@ for their reasoning; everything still live in them is carried forward here:
 | `BugFix-2026-07-22-plan.md` | Nothing — all three bugs are **already fixed** in AppClient (§3). |
 | `OfflineMode-2026-07-23-plan.md` | The §4.3 credential fork, which is still an open decision (§10). Its bug list belongs to ClientUI, not AppClient (§3). |
 
-`NatApp-Translation-Agent-Plan-2026-08-05.md` stays standalone — it moves *legacy shop data* into
+`NatApp data translation agent and scripts.md` stays standalone — it moves *legacy shop data* into
 the new backend, which is a different job from making a till talk to it. The two meet at exactly
 one point, recorded in §10.
 
@@ -560,7 +560,7 @@ catalogue count and 10 spot-checked barcodes derive **the same GUIDs the WEB TIL
 the corrected seam in §10); park → kill → restore works and the serialised form contains no `$type`.
 
 ⚠ **The earlier DoD wording — "the same UUIDs the central migration produced" — was wrong and has
-been corrected** (2026-08-08, after reading `NatApp-Translation-Agent-Plan`). It is unsatisfiable:
+been corrected** (2026-08-08, after reading `NatApp data translation agent and scripts.md` (renamed from NatApp-Translation-Agent-Plan)). It is unsatisfiable:
 the server's catalogue has **no item UUIDs at all** (`Items` is still barcode-PK'd, F4 unfixed —
 translation-agent plan §1.3/§3.3), and the only central UUIDs that exist are the **random** ones
 `Migration.Kapow`'s `IdRemap` minted for historic sale lines. Comparing against those would fail a
@@ -1415,7 +1415,7 @@ stale until someone deliberately says otherwise.
 
 ---
 
-## 10. Relationship to `NatApp-Translation-Agent-Plan-2026-08-05.md`
+## 10. Relationship to `NatApp data translation agent and scripts.md`
 
 That document moves **legacy shop data** (the old NatApp SQLite backup) into the new backend — and
 Matt confirmed 2026-08-08 that it is the mechanism for exactly that. This plan makes **a till talk
