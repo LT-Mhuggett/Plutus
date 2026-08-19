@@ -170,6 +170,36 @@ say so rather than quietly doing something else.**
 > L2/L4's to delete, and painting them is how dead code starts looking maintained.
 > ⚠ Sizing: T1.1+T1.3 ≈ ½ d; T1.2 ≈ 1 d including the C2 twin and vectors; T1.4 ≈ ½ d.
 
+### 0.3d ⚠ WP-T2 — a member can only be attached by SCANNING (2026-08-19)
+
+> Matt, testing 1.101.0: *"How do I get the credit though? I have people with credit. But there is no way
+> to select them?"*
+>
+> **There is no way, by design — and the design has a hole in it.** The till screen has no customer
+> control on either till (Matt's own ruling, 2026-08-18: *"Why is search and add member on the till
+> screen? Neither the webtill or original NatApp has this here"*). A member is attached by scanning their
+> card, whose payload is `"C" + MemberNo`.
+>
+> ⚠⚠ **The hole:** `MemberNumbers.LooksLikeMemberScan` is deliberately strict — it requires the `C`
+> prefix so that a six-digit PRODUCT barcode cannot be hijacked into a customer lookup. Its own comment
+> then says *"typing the short form still works because that path goes through **search**, not the
+> scanner."* **That search was removed from the till screen the same week.** So the loose parser
+> (`TryCanonicalise`, which accepts a bare `482` for a human reading a card down the phone) is now
+> reachable from nowhere on the till, and typing a bare member number returns **"We can't find an item
+> with that ID"** — a missing prefix reported as a broken scanner.
+>
+> **The fix worth making, and why it is safe:** on the scan path, when the code is NOT found as an item
+> AND `TryCanonicalise` accepts it as a member number, offer to attach that member. It runs **only after
+> the item lookup has failed**, so the collision the strict test guards against is impossible by
+> construction — a real product barcode would already have been found. That turns the dead end into the
+> answer without putting a customer control back on the till screen.
+>
+> ⚠ **Not done unilaterally**: removing those buttons was Matt's explicit instruction, so anything that
+> changes how a member is reached from the till screen is his call. ⚠ Either way the strict test STAYS —
+> it is what stops a scan being hijacked, and it is mutation-checked. ⚠ ≈ ½ d including the web-till
+> twin (which has the same strictness and the same missing route) and a C2 row, because the two tills
+> would otherwise disagree about what a typed member number does. Documented meanwhile as §G56j.
+
 ### 0.4 ⚠⚠ The lesson this project keeps re-learning
 
 **Nineteen status markers have been found wrong in nine days** (ten by 2026-08-16, six more while

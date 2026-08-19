@@ -3682,3 +3682,29 @@ place of a bag's. ⚠ Offline it says it could not check, never that the barcode
 ⚠⚠ **A REAL SHOP STILL NEEDS A CARRIER-BAG ITEM** (the 5p/20p levy is a sold line, and it must carry
 its own VAT). None exists in this catalogue, so §G30's bag steps cannot pass until one is added —
 that is a data task, not a code one.
+
+### G56j. ⚠⚠ HOW TO ATTACH A MEMBER — read this before §G50a or §G53a
+
+There is **no "select customer" button on the till screen, on either till**, and that is deliberate —
+Matt, 2026-08-18: *"Why is search and add member on the till screen? Neither the webtill or original
+NatApp has this here. It should not be there."* A member is attached by **scanning their card**.
+
+**Two ways to do it:**
+
+1. **Scan the printed card or slip** (Loyalty → the member → **Print card**; §G48). This is the designed
+   path and what §G48b tests.
+2. **Type the card code into the till's scan box: `C` + the member number.** For member `0000055` that
+   is **`C0000055`** — the payload is `"C" + MemberNo` (`PlutusApiClient`: *"what a scanner reads"*).
+
+⚠⚠ **TYPING THE BARE NUMBER DOES NOT WORK, AND THE ERROR IS MISLEADING.** `0000055` fails
+`LooksLikeMemberScan` (which requires the `C` prefix), so it is treated as a product barcode and you get
+*"We can't find an item with that ID"* — which reads as a broken scanner rather than a missing prefix.
+Matt hit exactly this.
+
+⚠ `MemberNumbers`' own comment says *"typing the short form still works because that path goes through
+search, not the scanner"* — **and that search was removed from the till screen on 2026-08-18.** The
+comment now describes a route that no longer exists. Recorded as **WP-T2** in §0.3d.
+
+**Then:** Store credit appears in the payment sheet only once the attached member has a balance **> 0**
+(§G56h). So the order for §G50a / §G53a is: grant credit in Loyalty → confirm the balance → attach with
+`C…` at the till → checkout.
