@@ -63,6 +63,16 @@
     <Color x:Key="ThemeInkMuted">#5a5a6e</Color>
     <Color x:Key="ThemeLine">#bae8e8</Color>
 
+    <!-- ⚠⚠ DANGER IS THE EIGHTH KEY AND THE ONLY ONE THE PORTAL CANNOT SET (WP-T1 T1.3, 2026-08-19).
+         A refusal, an error and a destructive button must not be recolourable by a shop's brand: a
+         destructive control tinted to match a logo can be made to look safe. So this follows the base
+         MODE and nothing else — `Theming.ModeOnlyKeys` is what applies it, and `DarkStock` carries its
+         dark half (#ff8a80), because #c1272d measures 5.9:1 on the stock white surface and only ~3.4:1
+         on the dark one, under the 4.5:1 floor for text.
+         ⚠ It replaces the old `Error` key, which was NOT one of the seven slots — so `Apply` could never
+         move it, and it sat at #FF9494 (2.12:1 on dark) whatever scheme a shop chose. -->
+    <Color x:Key="ThemeDanger">#c1272d</Color>
+
     <SolidColorBrush x:Key="ThemeAccentBrush" Color="{StaticResource ThemeAccent}"/>
     <SolidColorBrush x:Key="ThemeAccentInkBrush" Color="{StaticResource ThemeAccentInk}"/>
     <SolidColorBrush x:Key="ThemeSurfaceBrush" Color="{StaticResource ThemeSurface}"/>
@@ -70,5 +80,6 @@
     <SolidColorBrush x:Key="ThemeInkBrush" Color="{StaticResource ThemeInk}"/>
     <SolidColorBrush x:Key="ThemeInkMutedBrush" Color="{StaticResource ThemeInkMuted}"/>
     <SolidColorBrush x:Key="ThemeLineBrush" Color="{StaticResource ThemeLine}"/>
+    <SolidColorBrush x:Key="ThemeDangerBrush" Color="{StaticResource ThemeDanger}"/>
 
 </ResourceDictionary>

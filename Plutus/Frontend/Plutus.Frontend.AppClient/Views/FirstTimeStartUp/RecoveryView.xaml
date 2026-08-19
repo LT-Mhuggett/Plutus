@@ -28,7 +28,7 @@
                     <!--End of Grid Definitions-->
 
                     <!--Title of Page-->
-                    <Label Grid.Column="0" Grid.Row="0" Text="{Binding Title}" TextColor="Gray" FontSize="Large"/>
+                    <Label Grid.Column="0" Grid.Row="0" Text="{Binding Title}" TextColor="{DynamicResource ThemeInkMuted}" FontSize="Large"/>
                     <!--End of Title of Page-->
 
                     <!--Left data column-->
@@ -39,7 +39,7 @@
 
                     <!--Center column-->
                     <StackLayout x:Name="CenterColumn" Grid.Column="1" Grid.Row="1" Grid.RowSpan="3" VerticalOptions="Center" >
-                        <BoxView HorizontalOptions="Center" VerticalOptions="Center" HeightRequest="100" WidthRequest="1" Opacity=".5" Color="Gray"/>
+                        <BoxView HorizontalOptions="Center" VerticalOptions="Center" HeightRequest="100" WidthRequest="1" Opacity=".5" Color="{DynamicResource ThemeLine}"/>
                     </StackLayout>
                     <!--End of Center column-->
 

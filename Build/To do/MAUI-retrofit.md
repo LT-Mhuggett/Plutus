@@ -160,7 +160,56 @@ say so rather than quietly doing something else.**
 > `ViewAllView`'s group band moved off the app's only `AppThemeBinding` onto `ThemeSurface2`, and its two
 > `Gray` labels onto `ThemeInkMuted`.
 >
-> **OPEN — in the audit's order, none of it blocking a hand-run:**
+> ### ✅ T1.1, T1.2 and T1.4 CLOSED 2026-08-19 (till 1.106.0 + web till 1.26.0) — T1.3 is a ratchet
+>
+> **T1.1 — the Shell chrome.** `AppShell.xaml` was bare, so the tab bar was the one surface following no
+> scheme: the first thing an operator meets, in platform default, on a till themed everywhere else. It
+> now has a `Shell` style (accent ground, `ThemeAccentInk` on it). ⚠ The icons hardcoded in **opposite**
+> directions are reconciled: `MaterialIconGlyphConverter` resolves `ThemeAccentInk` **at convert time**
+> (a converter cannot `SetDynamicResource`), and the two call sites that passed `Colors.White` plus the
+> two compatibility helpers that defaulted `Colors.Black` all read the same key. ⚠ Accepted limit: an
+> icon already built is not recoloured by a later theme change; the bar redraws on the next navigation.
+>
+> **T1.2 — half-set slot pairs.** `ThemeSlots.WithDerivedPairs` fills `accentInk` from `accent` and `ink`
+> from `surface` when the portal set only one of a pair, by WCAG luminance (the 0.179 crossover, so
+> mid-greens are right — and a mid-green is what a shop with a brand colour sets). ⚠⚠ **Separate from
+> `ColoursFrom`, deliberately:** that method's contract is *"only valid slots appear… it must not
+> substitute"*, which is what makes clearing an override restore the stock palette exactly. ⚠ A slot the
+> portal DID set is never touched, even when it contrasts badly. ⚠⚠ **C2 twin** — `theme.ts
+> withDerivedPairs`, same vectors both sides (9 xUnit + 7 vitest), asserted with contrast arithmetic
+> rather than by eye.
+>
+> **T1.4 — the guard.** `ThemeLiteralTests` scans the till's XAML **and its view-building C#** for colour
+> literals, named colours and `AppThemeBinding`. ⚠⚠ It **strips comments first**, and that is not a
+> detail: this codebase documents what it fixed (*"`Colors.LightGray` WAS HARD-CODED HERE…"*), so a
+> scanner that read comments would flag the notes recording the repair and the cheapest way to green it
+> would be to delete the explanation. ⚠ Mutation-checked: a `Colors.HotPink` added to a real view fails
+> it. ⚠ A second Fact pins `Theming.DarkStock` to the web till's dark values as literals, so changing one
+> side fails here instead of giving one shop two brands.
+>
+> **T1.3 — PARTLY DONE, AND THE REST IS A RATCHET.** Fixed: `RecoveryView`'s `Gray` title and divider,
+> `ConnectionView`'s `#22000000` dividers and `DarkOrange` "out of date", `StoreOptionsViewModel`'s
+> `"Error"` (a palette key that is **not** one of the seven slots, so `Apply` could never move it —
+> frozen at `#FF9494`, 2.12:1 on dark), `BasicErrorStyle`'s `Colors.Red` and `EditItemPage`'s
+> `OrangeRed`. All now read **`ThemeDanger`** — an **eighth key the portal cannot set**, because a
+> destructive control recoloured to match a logo can be made to look safe. It follows the base mode only,
+> via `Theming.ModeOnlyKeys`, with a dark half (`#ff8a80`) because `#c1272d` measures 5.9:1 on the stock
+> white surface and ~3.4:1 on the dark one.
+>
+> ⚠⚠ **What is left is enumerated IN THE TEST, not in this document** — `ThemeLiteralTests.Backlog`, 13
+> entries across `TillConnection`, `LoginViewModel`, `ConnectionViewModel`, `CashViewModel` and
+> `NoticeboardViewModel`. **The list may only shrink**; anything new fails. They are all one shape: a
+> red/amber/green/grey that MEANS something (connected, degraded, revoked; a cash variance over or under;
+> a notice's severity), so they can neither become `ThemeInk` nor become brand-following slots — a shop
+> could then paint "revoked" the same green as "connected". **The fix is a status trio** — `ThemeGood` /
+> `ThemeWarn` beside `ThemeDanger`, mode-only, one light/dark pair each — then those call sites point at
+> them and the list empties. ≈ ½ d. ⚠ Recorded in code rather than prose because a list in a document
+> goes stale silently and this one cannot: the test enumerates it every run.
+>
+> ⚠ The audit's own list below is kept for the reasoning; the four rows are now T1.1 ✅ / T1.2 ✅ /
+> T1.3 🟡 / T1.4 ✅.
+>
+> **The original audit list:**
 >
 > | # | What | Why it matters |
 > |---|---|---|

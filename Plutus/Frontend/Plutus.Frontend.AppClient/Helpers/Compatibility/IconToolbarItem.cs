@@ -14,7 +14,10 @@ namespace Plutus.Frontend.AppClient.Helpers.Compatibility
         private static readonly MaterialIconGlyphConverter GlyphConverter = new MaterialIconGlyphConverter();
 
         private string _iconKey;
-        private Color _iconColor = Colors.Black;
+        // ⚠ Themed, not black (WP-T1 T1.1): these sit on the accent chrome, and a hardcoded black
+        // icon on a dark accent is the same invisible-control fault as DialogHeader's ✕ was.
+        private Color _iconColor =
+            Extensions.XAML.MaterialIconGlyphConverter.ThemeColour("ThemeAccentInk", Colors.Black);
 
         public new string IconImageSource
         {

@@ -214,7 +214,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     {
                         Text = "Baskets".Translate(),
                         IconImageSource = "md-shopping-basket",
-                        IconColor = Colors.White,
+                        IconColor = Helpers.Extensions.XAML.MaterialIconGlyphConverter.ThemeColour("ThemeAccentInk", Colors.White),
                         Command = RetrieveTransactionCommand,
                         IsVisible = true
                     });

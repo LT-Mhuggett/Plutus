@@ -4107,3 +4107,59 @@ NEVER offered as a member.**
 ⚠⚠ **This is the collision the whole design guards against.** The strict scan test still demands the
 `C` prefix, and the loose parser only runs after the catalogue has already failed to match — so a real
 barcode can never be hijacked into a customer lookup.
+
+---
+
+## G60. The theme reaches the whole app — **till 1.106.0 + web 1.26.0**, WP-T1
+
+> The 2026-08-19 audit that followed Matt's own diagnosis — *"I do not think its the themeing, I think
+> its what was already there that is causing problems?"*, and he was right.
+
+### G60a. The tab bar follows the scheme
+
+Set a **dark** theme in the portal, wait a minute (or restart the till).
+
+**✅ Expected: the tab bar and title bar follow it** — accent ground, readable icons and labels on it.
+
+⚠⚠ **The bar used to be the ONE surface that followed nothing.** `AppShell.xaml` was empty, so the first
+thing an operator meets rendered in the platform default on a till themed everywhere else — and its
+icons were hardcoded **black in one place and white in two others**, on the same bar, so at most one
+could be right.
+
+⚠ Check **every** tab's icon is legible, including **Baskets** and **Users**.
+
+### G60b. ⚠⚠ A theme that sets only ONE colour must still be readable
+
+Portal → Locations → Till themes. Create a scheme that sets **only the accent**, to a **pale** colour
+(`#f5f5c0` is a good one). Assign it. Wait a minute.
+
+**✅ Expected: the accent buttons have BLACK text on them, and are readable.**
+
+⚠⚠ **This was the live fault, and it is the DEFAULT shape of a theme** — a shop picks one brand colour.
+The accent ink stayed white, so every accent button on both tills was white text on pale yellow. Check
+the **web till** too: it must look the same.
+
+⚠ Then set a **dark surface** and no ink. **✅ Expected: white text on it, not the stock near-black.**
+
+⚠ Now set BOTH halves badly on purpose — a pale accent AND white ink. **✅ Expected: it obeys you.** An
+owner who sets both owns the result; the till only fills silence.
+
+### G60c. An error still looks like an error, in both schemes
+
+With the **dark** theme on, go to **Store Information** and to any form that can show a validation error
+(Inventory → edit an item → clear a required field).
+
+**✅ Expected: the error text is a readable red on the dark surface.**
+
+⚠⚠ It used to be `#FF9494` at **2.12:1** — legible in the light scheme and effectively invisible in the
+dark one, because the key it used was not one of the seven the portal can move. ⚠ And it must NOT change
+colour when a shop sets a brand: a destructive control recoloured to match a logo can be made to look
+safe.
+
+### G60d. The things that must NOT have changed
+
+**✅ Expected, in every scheme:**
+
+- the **refund row** on the till is still red, with readable ink;
+- **"Forget this till"** is still the same danger red;
+- a printed **receipt** is still black on paper — print from the dark theme and check the paper.

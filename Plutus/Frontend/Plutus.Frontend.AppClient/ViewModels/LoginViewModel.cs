@@ -701,7 +701,7 @@ namespace Plutus.Frontend.AppClient.ViewModels
                     {
                         Text = "Users".Translate(),
                         IconImageSource = "md-people",
-                        IconColor = Colors.White,
+                        IconColor = Helpers.Extensions.XAML.MaterialIconGlyphConverter.ThemeColour("ThemeAccentInk", Colors.White),
                         Command = ShowLoggedUsersCommand
                     });
                 }

@@ -85,7 +85,7 @@
                 <Switch x:Name="StockSwitch" Grid.Column="1" VerticalOptions="Center"/>
             </Grid>
 
-            <Label x:Name="ErrorLabel" TextColor="OrangeRed" FontSize="Micro"
+            <Label x:Name="ErrorLabel" TextColor="{DynamicResource ThemeDanger}" FontSize="Micro"
                    IsVisible="False" LineBreakMode="WordWrap"/>
 
             <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,8,0,0">

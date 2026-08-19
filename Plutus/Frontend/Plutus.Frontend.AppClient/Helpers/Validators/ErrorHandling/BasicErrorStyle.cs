@@ -62,7 +62,9 @@ namespace Plutus.Frontend.AppClient.Helpers.Validators.ErrorHandling
                 Text = message,
                 FontSize = 10,
                 StyleId = view.Id.ToString(),
-                TextColor = Colors.Red
+                // ⚠ `ThemeDanger` (WP-T1 T1.3): a validation error must read on a dark surface too,
+                // and must NOT follow a shop's brand — see `ThemeDanger` in Colors.xaml.
+                TextColor = Helpers.Extensions.XAML.MaterialIconGlyphConverter.ThemeColour("ThemeDanger", Colors.Red)
             });
         }
     }

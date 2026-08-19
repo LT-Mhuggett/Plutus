@@ -112,6 +112,87 @@ public static class ThemeSlots
     }
 
     /// <summary>
+    /// The ink that can actually be READ on this background — `#000000` or `#ffffff`.
+    ///
+    /// ⚠⚠ WCAG relative luminance, and the 0.179 threshold is not a guess: it is the point where black
+    /// and white contrast EQUALLY against a background, so either side of it the answer is the one with
+    /// more contrast. Picking by "is the hex big" instead gets mid-greens wrong, and a mid-green accent
+    /// is exactly what a shop with a brand colour will set.
+    ///
+    /// ⚠ Only ever black or white, deliberately. Interpolating a "nearly readable" ink is how you get
+    /// 2.94:1 — legible enough to ship and illegible under a shop's lights, which is the class of fault
+    /// this whole work package exists to close.
+    ///
+    /// ⚠ Returns null for anything that is not a six-digit hex, so a caller falls back to the stock
+    /// value rather than applying a colour derived from rubbish.
+    /// </summary>
+    public static string? ReadableInkOn(string? background)
+    {
+        if (!IsUsableColour(background)) return null;
+
+        var hex = background!.Trim().Substring(1);
+
+        static double Channel(int v)
+        {
+            var s = v / 255.0;
+            return s <= 0.04045 ? s / 12.92 : Math.Pow((s + 0.055) / 1.055, 2.4);
+        }
+
+        var r = Channel(Convert.ToInt32(hex.Substring(0, 2), 16));
+        var g = Channel(Convert.ToInt32(hex.Substring(2, 2), 16));
+        var b = Channel(Convert.ToInt32(hex.Substring(4, 2), 16));
+
+        var luminance = (0.2126 * r) + (0.7152 * g) + (0.0722 * b);
+
+        return luminance > 0.179 ? "#000000" : "#ffffff";
+    }
+
+    /// <summary>
+    /// Fill in the second half of any slot PAIR the portal only half-set — WP-T1 T1.2, 2026-08-19.
+    ///
+    /// ⚠⚠ THE FAULT THIS CLOSES IS THE DEFAULT CONFIGURATION, NOT AN EDGE CASE. A theme of
+    /// `{"accent":"#f5f5c0"}` — one pale colour, which is exactly what a shop picking a brand colour
+    /// sets — leaves `accentInk` at its stock WHITE, so every accent button on both tills renders white
+    /// text on a pale yellow ground. `Theming.cs` claimed a malformed blob "cannot produce
+    /// white-on-white"; that is true of malformed ones and **not** of a well-formed partial one.
+    ///
+    /// ⚠⚠ **SEPARATE FROM <see cref="ColoursFrom"/> ON PURPOSE.** That method's contract is *"only valid
+    /// slots appear… it must not substitute, interpolate or default a missing one"*, and that contract is
+    /// what makes "clear the override in the portal" restore the stock palette EXACTLY. Deriving inside
+    /// it would have quietly broken that. So the parse stays literal and the derivation is a second,
+    /// explicit step a caller opts into.
+    ///
+    /// ⚠ TWO PAIRS, NAMED, AND NO OTHERS. `accentInk` follows `accent`; `ink` follows `surface`. Nothing
+    /// else is inferred — inventing a `surface2` from a `surface` is a design decision this code has no
+    /// business making, and a stock one is a colour somebody chose.
+    ///
+    /// ⚠ A slot the portal DID set is never touched, even when it contrasts badly. An owner who
+    /// deliberately set both halves owns the result; this only fills silence.
+    ///
+    /// ⚠⚠ C2 TWIN of `theme.ts`'s `withDerivedPairs`. Two tills that fill the gap differently show one
+    /// shop two different screens from one theme.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> WithDerivedPairs(
+        IReadOnlyDictionary<string, string>? applied)
+    {
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (applied is null) return result;
+
+        foreach (var (slot, colour) in applied) result[slot] = colour;
+
+        Pair("accent", "accentInk");
+        Pair("surface", "ink");
+
+        return result;
+
+        void Pair(string background, string ink)
+        {
+            if (!result.ContainsKey(background) || result.ContainsKey(ink)) return;
+            if (ReadableInkOn(result[background]) is string derived) result[ink] = derived;
+        }
+    }
+
+    /// <summary>
     /// What Settings shows the operator — *"Plutus Dark — set for this store in the portal"*.
     ///
     /// ⚠ Mirrors `theme.ts currentThemeLabel`, including the no-theme wording, so the two tills describe

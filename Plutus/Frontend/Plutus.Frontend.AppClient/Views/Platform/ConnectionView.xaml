@@ -60,7 +60,7 @@
 
             <Button Text="Check connection" Command="{Binding CheckCommand}" IsEnabled="{Binding NotBusy}"/>
 
-            <BoxView HeightRequest="1" Color="#22000000"/>
+            <BoxView HeightRequest="1" Color="{DynamicResource ThemeLine}"/>
 
             <!-- ── this till's identity ── -->
             <Label Text="This till" FontSize="Title"/>
@@ -70,7 +70,7 @@
             <Entry Text="{Binding EnrolmentCode}" Placeholder="e.g. 4KQ7WX2M" MaxLength="16"/>
             <Button Text="Enrol this till" Command="{Binding EnrolCommand}" IsEnabled="{Binding NotBusy}"/>
 
-            <BoxView HeightRequest="1" Color="#22000000"/>
+            <BoxView HeightRequest="1" Color="{DynamicResource ThemeLine}"/>
 
             <!-- ── prove the layers ── -->
             <Label Text="Check the platform answers" FontSize="Title"/>
@@ -96,7 +96,7 @@
                  enrolled — a till whose broadband is down must still reach its own login screen. -->
             <Button Text="Continue to sign in" Command="{Binding ContinueCommand}" IsVisible="{Binding ShowContinue}"/>
 
-            <BoxView HeightRequest="1" Color="#22000000"/>
+            <BoxView HeightRequest="1" Color="{DynamicResource ThemeLine}"/>
 
             <!-- ⚠⚠ ASK FIRST, FORGET SECOND, and in that order on purpose (WP4, step 21). Asking is
                  the reversible one: a manager approves it in the portal and the till keeps trading
@@ -120,7 +120,7 @@
                  is broken and selling is unaffected — it is a note for whoever comes to look.
                  ⚠ There is no self-update for MAUI, so this deliberately tells you to fetch the
                  build rather than offering a button that cannot exist. -->
-            <Label Margin="0,12,0,0" FontSize="Micro" FontAttributes="Bold" TextColor="DarkOrange"
+            <Label Margin="0,12,0,0" FontSize="Micro" FontAttributes="Bold" TextColor="{DynamicResource ThemeInk}"
                    LineBreakMode="WordWrap" IsVisible="{Binding HasUpdate}"
                    Text="{Binding UpdateAvailable, StringFormat='⚠ This till is out of date — version {0} is available. Selling is unaffected; ask whoever looks after the tills to install it.'}"/>
 

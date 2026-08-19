@@ -30,6 +30,26 @@ namespace Plutus.Frontend.AppClient.Helpers.Extensions.XAML
             ["md-cloud"] = 0xE2BD,
         };
 
+        /// <summary>
+        /// One themed colour, by key, or <paramref name="fallback"/> when it cannot be had.
+        ///
+        /// ⚠ NEVER THROWS. This runs inside a value converter, and an exception there is a control that
+        /// silently renders nothing — the failure mode this whole work package exists to close.
+        /// </summary>
+        internal static Color ThemeColour(string key, Color fallback)
+        {
+            try
+            {
+                return Application.Current?.Resources?.TryGetValue(key, out var value) == true && value is Color c
+                    ? c
+                    : fallback;
+            }
+            catch
+            {
+                return fallback;
+            }
+        }
+
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is not string key || string.IsNullOrEmpty(key) || !Codepoints.TryGetValue(key, out var codepoint))
@@ -39,7 +59,17 @@ namespace Plutus.Frontend.AppClient.Helpers.Extensions.XAML
             {
                 FontFamily = "MaterialIconsRegular",
                 Glyph = char.ConvertFromUtf32(codepoint),
-                Color = parameter as Color ?? Colors.Black,
+                // ⚠⚠ RESOLVED FROM THE THEME AT CONVERT TIME — WP-T1 T1.1, 2026-08-19. This defaulted to
+                // `Colors.Black` while two toolbar items passed `Colors.White`, so the SAME tab bar
+                // carried icons hardcoded in OPPOSITE directions and at most one of them could be right.
+                // The bar now has an accent ground (`Styles.xaml`'s `Shell` style), so its icons take
+                // `ThemeAccentInk` — the pairing T1.2 guarantees is legible.
+                //
+                // ⚠ AT CONVERT TIME, because a converter cannot `SetDynamicResource`. A theme change
+                // therefore does not recolour an icon already built — accepted: the alternative is
+                // rebuilding every `FontImageSource` on a theme change, and the bar is redrawn on the
+                // next navigation anyway.
+                Color = parameter as Color ?? ThemeColour("ThemeAccentInk", Colors.Black),
                 Size = 24,
             };
         }

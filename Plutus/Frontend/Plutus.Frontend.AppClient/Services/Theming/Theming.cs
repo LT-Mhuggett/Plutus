@@ -84,7 +84,30 @@ namespace Plutus.Frontend.AppClient.Services.Theming
             ["ThemeInk"] = Color.FromArgb("#eef2f6"),
             ["ThemeInkMuted"] = Color.FromArgb("#9aa7b4"),
             ["ThemeLine"] = Color.FromArgb("#33404f"),
+
+            // ⚠⚠ `ThemeDanger` IS NOT A PORTAL SLOT, AND THAT IS DELIBERATE (WP-T1 T1.3, 2026-08-19). A
+            // refusal, an error and a destructive button must not be recolourable by a shop's brand —
+            // *"a destructive control recoloured by a shop's brand can be made to look safe"*. So it
+            // follows the BASE MODE and nothing else.
+            //
+            // ⚠ It has to be a pair, because one red cannot serve both grounds: `#c1272d` measures
+            // 5.9:1 on the stock white surface and only ~3.4:1 on the dark one — under the 4.5:1 text
+            // floor. This is the dark half.
+            ["ThemeDanger"] = Color.FromArgb("#ff8a80"),
         };
+
+        /// <summary>
+        /// Stock keys that follow the base MODE but are never overridden by the portal — WP-T1 T1.3.
+        ///
+        /// ⚠⚠ WHY THEY EXIST AT ALL. `StoreOptionsViewModel` asked for `"Error"`, a palette key that is
+        /// **not one of the seven slots**, so `Apply` could never move it: the colour was frozen at
+        /// `#FF9494` whatever a shop set, and measured **2.12:1** on the dark surface. An error nobody
+        /// can read is worse than none — the operator concludes the screen is blank.
+        ///
+        /// ⚠ The fix is NOT to make danger a slot. Then a shop could set it, and a destructive control
+        /// recoloured by a brand can be made to look safe. It follows light/dark and stops there.
+        /// </summary>
+        private static readonly string[] ModeOnlyKeys = { "ThemeDanger" };
 
         /// <summary>
         /// Apply a theme to the running app. ⚠ MUST be called on the UI thread.
@@ -119,7 +142,16 @@ namespace Plutus.Frontend.AppClient.Services.Theming
             // device setting the theme did not mention would be inventing a decision nobody made.
             var darkFallback = mode == ThemeBaseMode.Dark;
 
-            var colours = ThemeSlots.ColoursFrom(theme?.ColorsJson);
+            // ⚠⚠ WP-T1 T1.2 — THE SECOND HALF OF A HALF-SET PAIR IS DERIVED (2026-08-19). A theme of
+            // `{"accent":"#f5f5c0"}` — one pale brand colour, which is exactly what a shop sets — used to
+            // leave `accentInk` at its stock WHITE, so every accent button rendered white on pale yellow.
+            // This file's own header claimed a malformed blob "cannot produce white-on-white": true of
+            // MALFORMED ones, and not of a well-formed partial one.
+            //
+            // ⚠ `ColoursFrom` still returns EXACTLY what the portal sent — its contract, and what makes
+            // clearing an override restore the stock palette precisely. The derivation is this second,
+            // explicit step, and it only ever fills a slot the portal left silent.
+            var colours = ThemeSlots.WithDerivedPairs(ThemeSlots.ColoursFrom(theme?.ColorsJson));
 
             foreach (var slot in ThemeSlots.Names)
             {
@@ -151,6 +183,22 @@ namespace Plutus.Frontend.AppClient.Services.Theming
                 // one bound to `ThemeAccent` changed. Half a themed screen is worse than none.
                 if (resources[key] is Color applied)
                     resources[key + "Brush"] = new SolidColorBrush(applied);
+            }
+
+            // ⚠⚠ THE MODE-ONLY KEYS (WP-T1 T1.3). They take the dark value in dark mode and their stock
+            // value otherwise, and the portal cannot touch them — see `ModeOnlyKeys` for why danger must
+            // not be a slot. Handled in a second pass rather than by widening `ThemeSlots.Names`,
+            // because that array IS the wire contract with the portal and the web till.
+            foreach (var key in ModeOnlyKeys)
+            {
+                if (!Stock.ContainsKey(key) && resources.TryGetValue(key, out var existing) && existing is Color c)
+                    Stock[key] = c;
+
+                if (darkFallback && DarkStock.TryGetValue(key, out var dark)) resources[key] = dark;
+                else if (Stock.TryGetValue(key, out var original)) resources[key] = original;
+
+                if (resources.TryGetValue(key, out var now) && now is Color colour)
+                    resources[key + "Brush"] = new SolidColorBrush(colour);
             }
         }
 

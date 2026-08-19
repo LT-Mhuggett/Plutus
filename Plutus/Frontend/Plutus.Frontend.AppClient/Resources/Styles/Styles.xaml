@@ -162,4 +162,22 @@
         <Setter Property="TextColor" Value="{DynamicResource ThemeInkMuted}" />
     </Style>
 
+
+    <!-- ⚠⚠ THE SHELL CHROME — WP-T1 T1.1, 2026-08-19. `AppShell.xaml` was BARE, so the tab bar was the
+         one surface in the app that followed no scheme at all: the first thing an operator meets, in
+         platform default, on a till themed everywhere else. Matt: *"Changing the theme in the portal
+         needs to be consistent across the web and MAUI till."*
+         ⚠ Accent ground, AccentInk on it — the same pairing the web till's band uses, and now the same
+         pairing T1.2 guarantees is legible even when a shop sets only one of the two. -->
+    <Style TargetType="Shell" ApplyToDerivedTypes="True">
+        <Setter Property="Shell.BackgroundColor" Value="{DynamicResource ThemeAccent}"/>
+        <Setter Property="Shell.ForegroundColor" Value="{DynamicResource ThemeAccentInk}"/>
+        <Setter Property="Shell.TitleColor" Value="{DynamicResource ThemeAccentInk}"/>
+        <Setter Property="Shell.DisabledColor" Value="{DynamicResource ThemeInkMuted}"/>
+        <Setter Property="Shell.UnselectedColor" Value="{DynamicResource ThemeInkMuted}"/>
+        <Setter Property="Shell.TabBarBackgroundColor" Value="{DynamicResource ThemeAccent}"/>
+        <Setter Property="Shell.TabBarForegroundColor" Value="{DynamicResource ThemeAccentInk}"/>
+        <Setter Property="Shell.TabBarTitleColor" Value="{DynamicResource ThemeAccentInk}"/>
+        <Setter Property="Shell.TabBarUnselectedColor" Value="{DynamicResource ThemeInkMuted}"/>
+    </Style>
 </ResourceDictionary>

@@ -283,7 +283,17 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.StoreOptions
         private static Label Error(string text)
         {
             var label = new Label { Text = text, FontSize = FontSizes.Small };
-            label.SetDynamicResource(Label.TextColorProperty, "Error");
+
+            // ⚠⚠ `ThemeDanger`, NOT `"Error"` (WP-T1 T1.3, 2026-08-19). `Error` is a palette key and
+            // **not one of the seven portal slots**, so `Theming.Apply` can never move it — the colour
+            // was frozen at `#FF9494` whatever scheme a shop set, and measured **2.12:1** on the dark
+            // surface. An error message nobody can read is worse than no error message: the operator
+            // concludes the screen is simply blank.
+            //
+            // ⚠ A `SetDynamicResource` to a key that does not exist applies NOTHING, silently — which is
+            // why this class of miss survives every build and every XAML test. T1.4's guard is what
+            // catches the next one.
+            label.SetDynamicResource(Label.TextColorProperty, "ThemeDanger");
             return label;
         }
 

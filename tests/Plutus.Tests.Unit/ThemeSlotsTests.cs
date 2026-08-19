@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using Plutus.Client.Core;
 using Xunit;
@@ -191,4 +192,138 @@ public class ThemeSlotsTests
     [Fact]
     public void A_nameless_theme_is_called_Custom() =>
         Assert.Contains("Custom", ThemeSlots.Describe("some-key", null, "till"));
+}
+
+// ── ⚠⚠ WP-T1 T1.2 — a half-set slot pair (2026-08-19) ────────────────────────
+
+/// <summary>
+/// Deriving the second half of a slot PAIR the portal only half-set.
+///
+/// ⚠⚠ THIS IS THE DEFAULT CONFIGURATION, NOT AN EDGE CASE. A theme of `{"accent":"#f5f5c0"}` — one pale
+/// brand colour, which is what a shop actually sets — left `accentInk` at its stock WHITE, so every
+/// accent button on both tills rendered white text on pale yellow. `Theming.cs` claimed a malformed blob
+/// "cannot produce white-on-white"; that is true of MALFORMED ones and not of a well-formed partial one.
+///
+/// ⚠⚠ C2 TWIN of `theme.ts withDerivedPairs`. The vectors are deliberately the same on both sides.
+/// </summary>
+public class ThemeSlotPairTests
+{
+    /// <summary>⚠ WCAG contrast, so a claim about legibility is arithmetic rather than an opinion.</summary>
+    private static double Contrast(string a, string b)
+    {
+        static double Lum(string hex)
+        {
+            static double Ch(int v)
+            {
+                var s = v / 255.0;
+                return s <= 0.04045 ? s / 12.92 : System.Math.Pow((s + 0.055) / 1.055, 2.4);
+            }
+
+            var h = hex.TrimStart('#');
+            return (0.2126 * Ch(System.Convert.ToInt32(h.Substring(0, 2), 16)))
+                 + (0.7152 * Ch(System.Convert.ToInt32(h.Substring(2, 2), 16)))
+                 + (0.0722 * Ch(System.Convert.ToInt32(h.Substring(4, 2), 16)));
+        }
+
+        var (x, y) = (Lum(a), Lum(b));
+        var (hi, lo) = x > y ? (x, y) : (y, x);
+        return (hi + 0.05) / (lo + 0.05);
+    }
+
+    [Theory]
+    [InlineData("#ffffff", "#000000")]   // white ground → black ink
+    [InlineData("#000000", "#ffffff")]
+    [InlineData("#f5f5c0", "#000000")]   // ⚠ the pale accent from the live fault
+    [InlineData("#2c698d", "#ffffff")]   // ⚠ the stock accent — must still take white
+    [InlineData("#7fbf7f", "#000000")]   // a mid green: the case "is the hex big" gets wrong
+    public void The_readable_ink_is_the_one_with_more_contrast(string background, string expected) =>
+        Assert.Equal(expected, Plutus.Client.Core.ThemeSlots.ReadableInkOn(background));
+
+    /// <summary>⚠ Rubbish in means NOTHING out, so a caller keeps its stock value rather than applying
+    /// a colour derived from a colour that does not exist.</summary>
+    [Theory]
+    [InlineData("#abc")]
+    [InlineData("#12345678")]
+    [InlineData("red")]
+    [InlineData("")]
+    public void An_unusable_background_derives_nothing(string background) =>
+        Assert.Null(Plutus.Client.Core.ThemeSlots.ReadableInkOn(background));
+
+    /// <summary>⚠⚠ THE LIVE FAULT: a pale accent with no accentInk must not leave white on pale.</summary>
+    [Fact]
+    public void A_pale_accent_with_no_ink_gets_a_readable_one()
+    {
+        var paired = Plutus.Client.Core.ThemeSlots.WithDerivedPairs(
+            new Dictionary<string, string> { ["accent"] = "#f5f5c0" });
+
+        Assert.Equal("#000000", paired["accentInk"]);
+
+        // ⚠ And it is legible by the numbers, not by inspection. 4.5:1 is the WCAG text floor.
+        Assert.True(Contrast(paired["accent"], paired["accentInk"]) >= 4.5);
+    }
+
+    [Fact]
+    public void A_dark_surface_with_no_ink_gets_a_readable_one()
+    {
+        var paired = Plutus.Client.Core.ThemeSlots.WithDerivedPairs(
+            new Dictionary<string, string> { ["surface"] = "#101216" });
+
+        Assert.Equal("#ffffff", paired["ink"]);
+        Assert.True(Contrast(paired["surface"], paired["ink"]) >= 4.5);
+    }
+
+    /// <summary>
+    /// ⚠⚠ A SLOT THE PORTAL SET IS NEVER OVERWRITTEN, even when it contrasts badly. An owner who set
+    /// both halves owns the result; this fills silence, it does not police taste. Overwriting would also
+    /// make the portal's own preview a lie.
+    /// </summary>
+    [Fact]
+    public void A_pair_the_portal_set_itself_is_left_alone()
+    {
+        var paired = Plutus.Client.Core.ThemeSlots.WithDerivedPairs(
+            new Dictionary<string, string> { ["accent"] = "#f5f5c0", ["accentInk"] = "#ffffff" });
+
+        Assert.Equal("#ffffff", paired["accentInk"]);
+    }
+
+    /// <summary>
+    /// ⚠⚠ ONLY THE TWO NAMED PAIRS. Inventing a `surface2` from a `surface`, or an `inkMuted` from an
+    /// `ink`, is a design decision this code has no business making — and a stock value is a colour
+    /// somebody chose. If this ever starts filling more slots, it is doing so by accident.
+    /// </summary>
+    [Fact]
+    public void Nothing_beyond_the_two_named_pairs_is_invented()
+    {
+        var paired = Plutus.Client.Core.ThemeSlots.WithDerivedPairs(
+            new Dictionary<string, string> { ["accent"] = "#f5f5c0", ["surface"] = "#101216" });
+
+        Assert.Equal(
+            new[] { "accent", "accentInk", "ink", "surface" },
+            paired.Keys.OrderBy(k => k, System.StringComparer.Ordinal).ToArray());
+    }
+
+    /// <summary>⚠ Nothing set means nothing derived — the stock palette must survive untouched, which is
+    /// what makes "clear the override" restore it exactly.</summary>
+    [Fact]
+    public void An_empty_theme_derives_nothing()
+    {
+        Assert.Empty(Plutus.Client.Core.ThemeSlots.WithDerivedPairs(new Dictionary<string, string>()));
+        Assert.Empty(Plutus.Client.Core.ThemeSlots.WithDerivedPairs(null));
+    }
+
+    /// <summary>
+    /// ⚠ The parse and the derivation compose, and `ColoursFrom` still returns EXACTLY what was sent —
+    /// its own contract, and what makes clearing an override restore the stock palette.
+    /// </summary>
+    [Fact]
+    public void The_parse_stays_literal_and_the_derivation_is_a_separate_step()
+    {
+        const string blob = "{\"accent\":\"#f5f5c0\"}";
+
+        var parsed = Plutus.Client.Core.ThemeSlots.ColoursFrom(blob);
+        Assert.Single(parsed);
+        Assert.False(parsed.ContainsKey("accentInk"));
+
+        Assert.True(Plutus.Client.Core.ThemeSlots.WithDerivedPairs(parsed).ContainsKey("accentInk"));
+    }
 }
