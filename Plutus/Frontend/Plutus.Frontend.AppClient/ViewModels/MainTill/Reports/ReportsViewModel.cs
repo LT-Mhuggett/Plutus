@@ -34,7 +34,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Reports
 
         /// <summary>The reports this operator may actually read — what the picker lists (5b).
         /// ⚠⚠ The picker's index refers to THIS list, never to `ReportCatalogue.All`.</summary>
-        private readonly System.Collections.Generic.List<ReportDefinition> _visible;
+        private System.Collections.Generic.List<ReportDefinition> _visible;
 
         public ReportsViewModel(
             Picker picker, DatePicker from, DatePicker to,
@@ -62,11 +62,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Reports
             // the permission window, so a supervisor whose roster is a fortnight old, or who is only
             // authorised on Saturdays, is answered correctly. `ReportPermissions.CodesThatOpen` owns
             // WHICH codes open a report; the gate owns whether this person holds one right now.
-            _visible = ReportCatalogue.All
-                .Where(r => Services.Security.TillGate.CheckAny(
-                    App.GetViewModel().SignedInOperator, null,
-                    SharedKernel.ReportPermissions.CodesThatOpen(r.Key)).Allowed)
-                .ToList();
+            // ⚠⚠ AND ONLY THE REPORTS THE PORTAL HAS PUBLISHED TO THIS TILL — ruling 5b(a), 2026-08-19:
+            // *"Portal shows which reports a till can show."* Two independent filters, and BOTH must pass.
+            // `PublishedReports.Keys` reads a cache, never the network, so drawing this menu cannot block
+            // on a server — and when this till has never had an answer it returns the whole catalogue.
+            _visible = BuildVisible();
 
             foreach (var report in _visible) _picker.Items.Add(report.Title);
 
@@ -155,6 +155,77 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Reports
             }
         }
 
+        /// <summary>
+        /// The reports to LIST: published to this till (5b(a)) **and** readable by this operator (5b(b)).
+        ///
+        /// ⚠⚠ TWO INDEPENDENT FILTERS AND BOTH MUST PASS. They answer different questions — "does this
+        /// shop want this report on this till" and "may this person read it" — and neither implies the
+        /// other. A report published but unreadable is NOT LISTED, never listed-and-refused: a greyed row
+        /// leaks what other roles can see.
+        ///
+        /// ⚠ Published first because it is a cheap set lookup; the gate check hits the roster.
+        /// </summary>
+        private System.Collections.Generic.List<ReportDefinition> BuildVisible()
+        {
+            var published = Services.Reporting.PublishedReports.Keys;
+
+            return ReportCatalogue.All
+                .Where(r => published.Contains(r.Key, StringComparer.Ordinal))
+                .Where(r => Services.Security.TillGate.CheckAny(
+                    App.GetViewModel().SignedInOperator, null,
+                    SharedKernel.ReportPermissions.CodesThatOpen(r.Key)).Allowed)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Ask the server what is published and rebuild the picker if it changed.
+        ///
+        /// ⚠⚠ THIS IS WHY IT IS NOT ONLY DONE IN THE CONSTRUCTOR. `AppShell` builds every tab up front,
+        /// so a viewmodel constructor runs ONCE at sign-in (runbook pitfall 17) — an owner turning a
+        /// report off in the portal would otherwise not reach the till until the operator signed out and
+        /// in again, which is exactly the "nothing updates unless you navigate away and back" complaint
+        /// (§5c item 7).
+        ///
+        /// ⚠ REBUILT ONLY WHEN IT CHANGED. Re-filling the picker resets `SelectedIndex`, so doing it on
+        /// every appear would throw the operator back to the first report each time they returned to the
+        /// tab. `RefreshAsync` returns false when nothing moved.
+        ///
+        /// ⚠ The operator's CURRENT report is kept if it survived the change; otherwise the picker falls
+        /// back to the first one, because the alternative is a screen showing a report that is no longer
+        /// on its own menu.
+        /// </summary>
+        private async Task ApplyPublicationAsync()
+        {
+            try
+            {
+                if (!await Services.Reporting.PublishedReports.RefreshAsync().ConfigureAwait(false)) return;
+
+                var chosen = _picker.SelectedIndex >= 0 && _picker.SelectedIndex < _visible.Count
+                    ? _visible[_picker.SelectedIndex].Key
+                    : null;
+
+                var rebuilt = BuildVisible();
+
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    _visible = rebuilt;
+                    _picker.Items.Clear();
+                    foreach (var report in _visible) _picker.Items.Add(report.Title);
+
+                    if (_visible.Count == 0) return;
+
+                    var keep = chosen is null ? -1 : _visible.FindIndex(r => r.Key == chosen);
+                    _picker.SelectedIndex = keep >= 0 ? keep : 0;
+                });
+            }
+            catch (Exception ex)
+            {
+                // ⚠ A menu that could not be re-checked keeps the one it has. Never throws: this is on
+                // the appearing path, and an escape from here would be an `async void` kill.
+                CrashLog.Write("ReportsViewModel.ApplyPublication", ex);
+            }
+        }
+
         private Command _refreshCommand;
         public Command RefreshCommand => _refreshCommand ??= new Command(Refresh);
 
@@ -162,6 +233,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Reports
 
         private async Task RefreshAsync()
         {
+            // ⚠ THE MENU BEFORE THE DATA. If the portal has withdrawn a report, the operator must not
+            // watch it load and then vanish — and if it withdrew the one they were looking at, the
+            // selection has to move before anything is fetched for it.
+            await ApplyPublicationAsync();
+
             // ⚠⚠ INDEXED INTO `_visible`, NEVER INTO `ReportCatalogue.All`. The picker lists only the
             // reports this operator may read (5b), so position 1 in the picker is not position 1 in the
             // catalogue — reading from `All` here would run whatever report happened to sit at that

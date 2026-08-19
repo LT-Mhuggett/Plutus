@@ -91,6 +91,10 @@ namespace Plutus.Entities
         /// in <c>TenantOwned</c>: a release decision belongs to the operator, not to a shop.</summary>
         public DbSet<TillReleaseSettings> TillReleaseSettings { get; set; }
         public DbSet<PaymentGatewaySettings> PaymentGatewaySettings { get; set; }
+
+        /// <summary>Which reports the portal has published to a till — ruling 5b(a). ⚠ NO ROW
+        /// MEANS EVERY REPORT: see <c>ReportPublication</c> and <c>SharedKernel.ReportCatalogue</c>.</summary>
+        public DbSet<ReportPublication> ReportPublications { get; set; }
         public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
         public DbSet<SupportTicket> SupportTickets { get; set; }
         public DbSet<SupportMessage> SupportMessages { get; set; }
@@ -197,6 +201,8 @@ namespace Plutus.Entities
             typeof(VatRatePoint), typeof(VatBandTaxMap),
             // Reporting projections (WP3.3).
             typeof(SalesRollup), typeof(VatRollup),
+            // Report publication (ruling 5b(a)) — which reports each till offers.
+            typeof(ReportPublication),
             // Operator usage metering (WP13.1) + request health (WP13.2) — per-tenant rows,
             // platform-admin reads cross-tenant.
             typeof(TenantUsageRollup), typeof(TenantRequestStats),
@@ -705,6 +711,19 @@ namespace Plutus.Entities
                 e.Property(x => x.ConfigJson).IsRequired(false);
                 e.Property(x => x.UpdatedBy).HasMaxLength(128);
                 e.HasIndex(x => x.TenantId).IsUnique();
+            });
+            modelBuilder.Entity<ReportPublication>(e =>
+            {
+                e.ToTable("ReportPublications");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.KeysJson).IsRequired();
+                e.Property(x => x.UpdatedBy).HasMaxLength(128);
+                // ⚠ ONE ROW PER (tenant, till), and the tenant default is the row whose TillId is NULL.
+                // Two rows for one till would make "which menu does this till show" a question with two
+                // answers. ⚠ MySQL treats NULLs as distinct in a unique index, so this does NOT prevent
+                // a second tenant-default row — `Set` upserts by the same key to compensate.
+                e.HasIndex(x => new { x.TenantId, x.TillId }).IsUnique();
             });
             modelBuilder.Entity<SubscriptionPlan>(e =>   // OP2 — GLOBAL price list
             {

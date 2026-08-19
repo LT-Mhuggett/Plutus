@@ -4,8 +4,10 @@ import CustomReport from "../StatisticsPage.tsx";
 import VatReport from "./VatReport.tsx";
 import DataTable from "../DataTable.tsx";
 import { mayReadReport } from "./reportPermissions.ts";
+import { cachedPublished, publishedOr } from "./publishedReports.ts";
 import { sessionScopes } from "../pipeline.ts";
 import {
+  fetchPublishedReports,
   fetchV1ItemsSold, fetchV1Staff, fetchV1StockLevels, fetchV1CategorySales, fetchV1BestSellers,
   type V1ItemsSold, type V1ItemSoldRow, type V1Staff, type V1StockLevel, type V1StockResp,
   type V1CategorySales, type V1CategorySalesRow, type V1BestSellerRow,
@@ -51,11 +53,41 @@ export default function ReportingPage() {
   // ⚠ Computed once per mount from the session's scopes, which is exactly when they can change: a
   // different operator means a different session.
   const scopes = sessionScopes();
-  const visible = SUBTABS.filter((s) => mayReadReport(SUBTAB_KEYS[s], scopes));
+
+  // ⚠⚠ AND ONLY WHAT THE PORTAL HAS PUBLISHED TO THIS TILL — ruling 5b(a), 2026-08-19: *"Portal shows
+  // which reports a till can show."* Two independent filters and BOTH must pass; neither implies the
+  // other. A report published but unreadable is not listed, and a report readable but unpublished is not
+  // listed either.
+  //
+  // ⚠ Seeded from the CACHE so the first paint never waits on a request, then refreshed. With no cache
+  // at all it is the full catalogue — a till must not lose its Reports tab to a slow network.
+  const [published, setPublished] = useState<string[]>(() => publishedOr(cachedPublished()));
+
+  useEffect(() => {
+    let live = true;
+    void fetchPublishedReports().then((keys) => { if (live) setPublished(keys); });
+    return () => { live = false; };
+  }, []);
+
+  const visible = SUBTABS.filter(
+    (s) => published.includes(SUBTAB_KEYS[s]) && mayReadReport(SUBTAB_KEYS[s], scopes),
+  );
 
   // ⚠ THE FIRST TAB THEY MAY ACTUALLY READ, not a hard-coded "Summary". A narrow role granted only the
   // VAT report would otherwise land on a Summary tab that is not in their list and render nothing.
   const [sub, setSub] = useState<SubTab | null>(visible[0] ?? null);
+
+  // ⚠⚠ AND MOVE THEM IF A REFRESH WITHDRAWS THE TAB THEY ARE ON. `sub` is seeded from the CACHED
+  // published set, before the server has answered — so an owner who has just turned the VAT report off
+  // would otherwise leave this page rendering VAT while VAT is no longer one of its tabs.
+  //
+  // ⚠ Keyed on the JOINED list, not the array: `visible` is rebuilt every render, so an array dependency
+  // would re-run this effect for ever.
+  const visibleKey = visible.join("|");
+  useEffect(() => {
+    if (sub !== null && !visible.includes(sub)) setSub(visible[0] ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleKey]);
 
   // ⚠ AN OPERATOR MAY BE ALLOWED NONE. Say so, rather than showing an empty panel that reads as a
   // screen still loading.

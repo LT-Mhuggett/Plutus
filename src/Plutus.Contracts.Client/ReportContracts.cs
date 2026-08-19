@@ -308,3 +308,22 @@ public sealed class StockLevelRow
     /// the one with `int?`, because it is asked about arbitrary items.)</summary>
     [JsonPropertyName("quantity")] public int Quantity { get; set; }
 }
+
+/// <summary>
+/// `GET /api/v1/reports/published` — which reports this till may OFFER. Ruling 5b(a), 2026-08-19.
+///
+/// ⚠⚠ THE PUBLISH DECIDES THE MENU, THE PERMISSION DECIDES THE DOOR. This is only the first half: a
+/// client must still run each key through `ReportPermissions.MayRead` for the signed-in operator, and
+/// show **nothing** for a report they may not read (a greyed row leaks what other roles can see).
+///
+/// ⚠ <paramref name="Keys"/> is already filtered to keys this build knows and sorted into catalogue
+/// order by the server, so a client may render it as-is.
+///
+/// ⚠ <paramref name="Scope"/> is <c>"default-all"</c> when nobody has chosen — which is every report,
+/// not none. A screen can use it to say "following the shop default" instead of implying somebody
+/// picked this list for this till.
+/// </summary>
+public sealed record PublishedReportsDto(
+    IReadOnlyList<string> Keys,
+    string Scope,
+    DateTime? UpdatedAtUtc);

@@ -304,6 +304,25 @@ public sealed class PlutusApiClient
         GetAsync<ActiveGatewayDto>("/api/v1/payments/gateway/active", ct);
 
     /// <summary>
+    /// Which reports the portal has published to this till — ruling 5b(a).
+    ///
+    /// ⚠⚠ NULL MEANS "COULD NOT ASK", NOT "NOTHING PUBLISHED". Offline, or on any failure, the caller
+    /// must fall back to its last known list and then to the FULL catalogue — a till that loses its
+    /// Reports tab because the network blinked is worse than one showing a report an owner meant to hide.
+    /// The server never answers "not configured" with an error for the same reason.
+    ///
+    /// ⚠ The keys come back already filtered to what this build knows and in catalogue order, so a menu
+    /// can render them directly. ⚠ Still run each through <c>ReportPermissions.MayRead</c>: the publish
+    /// decides the menu, the permission decides the door.
+    /// </summary>
+    public Task<PublishedReportsDto?> GetPublishedReportsAsync(Guid? tillId, CancellationToken ct = default) =>
+        GetAsync<PublishedReportsDto>(
+            tillId.HasValue
+                ? $"/api/v1/reports/published?tillId={tillId.Value}"
+                : "/api/v1/reports/published",
+            ct);
+
+    /// <summary>
     /// Sign an OPERATOR in online — the same `POST /api/Auth/Login` the web till uses
     /// (binding default 11, cutover step 19).
     ///

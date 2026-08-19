@@ -1,6 +1,7 @@
 // Thin typed layer over fetch — same-origin /api/* is reverse-proxied to the
 // DBService by Caddy. No client library needed (see plan §3.5.1).
 
+import { fetchPublished } from "./reporting/publishedReports.ts";
 import { getSession, setSession, type Session } from "./session.ts";
 import { accessToken, signOut } from "./auth.ts";
 import {
@@ -186,6 +187,20 @@ export interface ParkedTransaction {
 async function get<T>(url: string): Promise<T> {
   return (await getPaged<T>(url)).rows;
 }
+
+/**
+ * Which reports the portal has published to this till — ruling 5b(a).
+ *
+ * ⚠ NO TILL ID IS SENT, so the web till follows the TENANT default. It has no till id to send: a
+ * browser session carries a token, an employee and a name (`session.ts`), and the per-till override
+ * exists for enrolled MAUI tills which do have one. Stated rather than left implicit, because "why did
+ * my override not apply to the browser" is otherwise a puzzle.
+ *
+ * ⚠ The fallback chain (server → cache → every report) lives in `reporting/publishedReports.ts` so this
+ * file stays a transport. It never throws and never empties the menu because of a failure.
+ */
+export const fetchPublishedReports = (): Promise<string[]> =>
+  fetchPublished((url) => get<unknown>(url));
 
 /** FE4.2: the legacy `Index` endpoints have always returned the row count in `X-Pagination`, and
  *  every frontend threw it away — so pagers guessed ("Next" enabled whenever a full page came
