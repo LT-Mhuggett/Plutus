@@ -76,7 +76,27 @@ export default function CheckoutDialog(
 
   useEffect(() => {
     fetchPayMethods()
-      .then((real) => {
+      .then((all) => {
+        // ⚠⚠ THE LEGACY TABLE CONTAINS A ROW LITERALLY NAMED "Credit", SEEDED IN 2019, AND IT MUST
+        // NEVER BE OFFERED (2026-08-19). Matt found it: *"I can add store credit in the checkout box,
+        // but then nothing? How am I supposed to assign that to a specific user?"*
+        //
+        // He could not, and that is the bug. The server maps a tender to its type BY NAME
+        // (`Tenders.FromMethodName` — anything containing "credit" is the STORE-CREDIT byte), while
+        // `creditRedeemPence` is only sent when a customer is attached. So money typed into that row
+        // was recorded as store credit and drawn from NOBODY's balance: the takings show credit taken,
+        // no account moved, and the books do not reconcile. It is also the same tender byte finding Y's
+        // cap and the 2026-08-19 accumulation fix operate on.
+        //
+        // ⚠ The synthetic row below is the ONLY legitimate source of a store-credit tender, and it
+        // appears only with a customer, a positive balance and a live connection. MAUI never had this
+        // hole because it builds its tender list from `TillTenders.Offered` and ignores this table —
+        // which is why the same basket offered Cash and Card there and four methods here.
+        //
+        // ⚠ Filtered by NAME rather than by id 4, because the name is what the server maps on: a
+        // renamed or re-seeded row would keep the hazard under a different id.
+        const real = all.filter((m) => !/credit/i.test(m.name));
+
         // Store credit is offered only with a customer attached, a positive balance, AND
         // online (the redeem needs a live balance check — it can't queue offline).
         const eligible = customer && customer.creditBalancePence > 0 && navigator.onLine;

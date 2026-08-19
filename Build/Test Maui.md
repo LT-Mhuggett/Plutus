@@ -3625,3 +3625,60 @@ Settings → **Receipt printer** with the Plutus Till Agent **not running**. The
 
 **✅ Expected: it looks again and finds the agent.** ⚠ Before the fix it did nothing at all — the same
 `IsBusy` fault, found by sweeping for the shape after §G56e rather than by anyone reporting it.
+
+### G56g. ⚠⚠ The legacy "Credit" tender is GONE from the web till
+
+Web till → Checkout, with **no member attached**.
+
+**✅ Expected tenders: Card, Cash, Online — and NO "Credit" row.** Store credit appears only once a
+member with a balance is attached, and it is then labelled **"Store credit"**.
+
+⚠⚠ **What it was.** Matt: *"I can add store credit in the checkout box, but then nothing? How am I
+supposed to assign that to a specific user?"* He could not — and that was the bug. The legacy
+`PayMethods` table holds a row named **"Credit"**, seeded 2019-06-12, and the web till listed all four
+rows from it. The server maps a tender to its type BY NAME (`Tenders.FromMethodName` — anything
+containing "credit" is the STORE-CREDIT byte), while `creditRedeemPence` is only sent when a customer
+is attached. **So money typed there was recorded as store credit and drawn from nobody's balance:**
+takings showing credit taken, no account moved, and a VAT/banking reconcile that cannot balance.
+
+⚠ MAUI never had this hole — it builds its tender list from `TillTenders.Offered` and ignores that
+table, which is exactly why the same basket offered Cash and Card there and four methods here. **That
+divergence was the tell, not a MAUI gap.**
+
+⚠ Filtered by NAME, not by id 4: the name is what the server maps on, so a renamed row would keep the
+hazard under a different id.
+
+### G56h. Store credit on MAUI — it is CONDITIONAL, and that is by design
+
+MAUI → ring a basket with **no member** → Checkout. **✅ Expected: Cash and Card only.**
+
+Now attach a member **who has a balance** (Loyalty → tap → Grant credit → then attach at the till).
+**✅ Expected: "Store credit" appears in the payment sheet.**
+
+⚠ Matt hit this as *"In MAUI I cannot see Store credit"* — correct behaviour, but it could not be
+reached until §G56e was fixed, because Grant credit was silently doing nothing. `TillTenders.Offered`
+adds store credit only when the balance is **> 0**: it draws down a server-held figure and cannot be
+verified offline, so a button that could only fail is worse than none.
+
+⚠ **This is the §G50a and §G53a precondition.** Grant the credit first, confirm the balance, THEN run
+those two.
+
+### G56i. The carrier-bag barcode tells you whether it resolves
+
+Web till → Settings → **Carrier bag barcode**. Type `001`.
+
+**✅ Expected: a red line — "No item has this barcode, so the Bag button will refuse."** Now type a real
+one (e.g. `045778022960`). **✅ Expected: "Bag button will ring up: 4 kids walk into a bag — £3.30".**
+
+⚠⚠ **The errors Matt saw were CORRECT** — there is no item `001`, and there is no carrier-bag item in
+this catalogue at all (the only "bag" items are messenger bags and keyrings). What was wrong is that
+this field accepted `001` silently and let him find out mid-sale. **MAUI has always validated here**
+(`ExecuteChooseBagItem` refuses an unknown barcode); the web till checked nothing, so this is where the
+bad value got in.
+
+⚠ It NAMES the item rather than ticking it valid — that is what catches a comic's barcode typed in
+place of a bag's. ⚠ Offline it says it could not check, never that the barcode is bad.
+
+⚠⚠ **A REAL SHOP STILL NEEDS A CARRIER-BAG ITEM** (the 5p/20p levy is a sold line, and it must carry
+its own VAT). None exists in this catalogue, so §G30's bag steps cannot pass until one is added —
+that is a data task, not a code one.

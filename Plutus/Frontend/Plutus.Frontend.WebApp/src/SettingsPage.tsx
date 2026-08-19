@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { effectiveStoreId, fetchDeviceStatus, fetchPayMethods, fetchTillName, loadReceiptTemplate, onOutboxChanged, renameTill, requestUnenrol, BUSINESS_ID, STORE_ID } from "./api.ts";
+import { effectiveStoreId, fetchDeviceStatus, fetchPayMethods, findItemByBarcode, fetchTillName, loadReceiptTemplate, onOutboxChanged, renameTill, requestUnenrol, BUSINESS_ID, STORE_ID } from "./api.ts";
 import { parkedCount, queuedCount, resetDeviceSeq } from "./offline.ts";
 import {
   canEnrolTills,
@@ -21,6 +21,7 @@ import { receiptToDocument } from "./till/receiptDoc.ts";
 import { ask } from "./Ask.tsx";
 import { getSession } from "./session.ts";
 import Receipt, { ReceiptBody, type ReceiptData } from "./till/Receipt.tsx";
+import { gbp } from "./money.ts";
 
 declare const __BUILD_TIME__: string;
 declare const __APP_VERSION__: string;
@@ -96,6 +97,58 @@ const DRIVER_LINKS: { label: string; url: string; covers: string }[] = [
  *  publish-agent.ps1). The filename carries the version so a downloaded exe is identifiable,
  *  and the manifest lets this page compare it against the installed agent. */
 interface AgentDownload { version: string; file: string }
+
+/**
+ * Does the carrier-bag barcode actually resolve, and to what? — 2026-08-19.
+ *
+ * ⚠⚠ It exists because the field did not check. Matt set it to "001" and learned it was wrong only
+ * when the Bag button refused during a sale. MAUI's equivalent (`ExecuteChooseBagItem`) has always
+ * looked the barcode up and refused an unknown one, so the two tills disagreed about whether this
+ * setting could hold a value that cannot work — and this was the side that let it in.
+ *
+ * ⚠ It NAMES the item rather than saying "valid". "Bag button will ring up: 4 kids walk into a bag,
+ * £3.30" is what tells an operator they typed a comic's barcode instead of a carrier bag's — which no
+ * amount of green ticking would.
+ *
+ * ⚠ Debounced, because the field saves on every keystroke: a lookup per character would hammer the
+ * endpoint and race its own answers. ⚠ A LOOKUP FAILURE IS NOT A BAD BARCODE — offline, it says it
+ * could not check rather than calling a working setting broken.
+ */
+function BagBarcodeCheck({ barcode }: { barcode: string }) {
+  const [state, setState] = useState<{ kind: "idle" | "checking" | "ok" | "missing" | "unknown"; label?: string }>({ kind: "idle" });
+
+  useEffect(() => {
+    const code = barcode.trim();
+    if (code === "") { setState({ kind: "idle" }); return; }
+
+    setState({ kind: "checking" });
+    let live = true;
+    const t = setTimeout(() => {
+      findItemByBarcode(code)
+        .then((item) => {
+          if (!live) return;
+          setState(item
+            ? { kind: "ok", label: `${item.name} — ${gbp(Math.round(item.price * 100))}` }
+            : { kind: "missing" });
+        })
+        .catch(() => { if (live) setState({ kind: "unknown" }); });
+    }, 400);
+
+    return () => { live = false; clearTimeout(t); };
+  }, [barcode]);
+
+  if (state.kind === "idle") return null;
+  if (state.kind === "checking") return <span className="muted small block">Checking…</span>;
+  if (state.kind === "ok") return <span className="muted small block">Bag button will ring up: <strong>{state.label}</strong></span>;
+  if (state.kind === "unknown") return <span className="muted small block">Couldn't check this barcode just now.</span>;
+
+  return (
+    <span className="error small block">
+      No item has this barcode, so the Bag button will refuse. Scan the carrier bag itself, or add it in
+      Inventory first.
+    </span>
+  );
+}
 
 function HardwareSection({ canSettings }: { canSettings: boolean }) {
   const [status, setStatus] = useState<AgentStatus | null>(null);
@@ -572,6 +625,15 @@ export default function SettingsPage() {
         <span className="grow">
           Carrier bag barcode
           <span className="muted small block">When set, the till shows a one-tap "Bag" button that adds this item.</span>
+          {/* ⚠⚠ IT SAYS WHETHER THE BARCODE ACTUALLY RESOLVES, AND TO WHAT (2026-08-19). Matt set this
+              to "001", which is not an item, and found out only when the Bag button refused mid-sale:
+              *"I have added a bag with the bag button and set it as 001, but then get an error of 'Bag
+              barcode 001 not found — check Settings.'"*
+              ⚠ MAUI has always validated here — `ExecuteChooseBagItem` looks the barcode up and refuses
+              an unknown one — while this field saved free text on every keystroke and checked nothing.
+              So the two tills disagreed about whether this setting could hold a value that cannot work,
+              and the web till is where the bad value got in. */}
+          <BagBarcodeCheck barcode={prefs.bagBarcode} />
         </span>
         <input
           className="pref-input"
