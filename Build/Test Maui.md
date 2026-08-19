@@ -3530,3 +3530,59 @@ the new value.
 **✅ Expected: the sections are still Till · Printer · Checkout options · Till device · Help**, in that
 order, with the same buttons as 1.94.0 apart from the two that became switches. ⚠ "Print test page" has
 NO value line under it — it is an action, not a setting, and inventing "not set" for it would be noise.
+
+---
+
+## G56. The four faults from Matt's 1.99.0 hand-run
+
+> Reported 2026-08-19 while testing 1.99.0. Two are fixed below; two are theming and were still under
+> investigation when this was written — see §0.3 for their state.
+
+### G56a. ⚠⚠ You can get OUT of Till device — the trap
+
+Settings → **Till device → Connection, enrolment & diagnostics**.
+
+**✅ Expected: a "Close" button at the top, AND Escape closes it.** Both must work.
+
+⚠⚠ **This was a shop-stopper.** Matt: *"I cannot exit this screen. There is no Close and esc doesnt
+work"* — the only way out was killing the app, on the one screen an operator opens when the till is
+already misbehaving. The page had spent its life as a TAB (where leaving meant tapping another tab);
+§5c item 9 un-tabbed it and pushed it modally, and a modal `ContentPage` has no back affordance.
+
+⚠ Then check the enrolment path still works from a FRESH till (before sign-in): the same page is the
+first-run screen and must show **no** Close there — there is nothing behind it to close to.
+
+### G56b. The printer says what is actually set
+
+Settings → **Printer**. Read the muted line under "Receipt printer".
+
+**✅ Expected, when the Plutus Till Agent owns the printer:** *"Currently: `<name>` (via the Plutus Till
+Agent)"* — the real printer name. ⚠ If the agent reports it offline it says so too.
+
+**❌ The fault:** *"No printer chosen — receipts print as PDF."* while the printer is selected and
+printing. Matt: *"The Printer says 'No printer chosen' yet it is selected and prints correctly"*. My
+bug in 1.99.0 — I read `PrinterLogicalNameSetting`, the OPOS **logical name**, which is empty on every
+till that prints through the agent, and the agent has been the front door since 2026-08-10.
+
+⚠ Four states now, because "no printer" was only ever true for one: agent with a printer; agent with
+none set; no agent but an OPOS device configured; neither. ⚠ And a failed check says *"Couldn't check
+the printer just now"* — never "no printer", or the reported bug returns whenever the agent is busy.
+
+### G56c. ⬜ Inventory Management is readable — NOT YET FIXED
+
+Inventory Management → View All Items, with the **Kapow Test** theme applied.
+
+**Reported:** *"I cannot see anything, as its all rendered white. This is different from the webtill
+experience."* Near-white ink on a near-white surface.
+
+⚠ Under investigation — see §0.3. The applier looks right on the face of it (every slot gets the theme,
+then a dark fallback, then a stock restore), so the cause is not where it first appears to be. **Do not
+mark this passed until the rows are readable under BOTH the Kapow Test theme and no theme.**
+
+### G56d. ⬜ Settings buttons are colour-aware — NOT YET FIXED
+
+**Reported:** *"due to themeing you cannot see the button when the dark theme was set, the buttons need
+to be Colour aware"*.
+
+⚠ There IS already a global `Button` style reading `ThemeAccent`/`ThemeAccentInk`, so this is not simply
+a missing binding — which is why it is still open rather than patched. Same investigation as §G56c.

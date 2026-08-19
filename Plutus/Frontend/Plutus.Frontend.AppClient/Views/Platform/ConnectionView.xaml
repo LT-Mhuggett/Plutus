@@ -14,6 +14,25 @@
     <ScrollView>
         <VerticalStackLayout Padding="16" Spacing="14" MaximumWidthRequest="720">
 
+            <!--
+                ⚠⚠ THE WAY OUT — till-design D4 rules 1 and 2, added 2026-08-19 after Matt: *"If I go
+                into settings and 'Till device' Connections, enrollment and diagnostics. I cannot exit
+                this screen. There is no Close and esc doesnt work"*.
+
+                This page was only ever a TAB, where leaving it meant tapping another tab. §5c item 9
+                un-tabbed it and pushed it MODALLY instead — and a modal ContentPage has no back
+                affordance, so the only exit was killing the app. On a counter that is a shop that
+                cannot trade, which is the exact harm D4 exists to prevent.
+
+                ⚠ HIDDEN ON FIRST RUN. The same page is the pre-sign-in enrolment screen, and there is
+                nothing behind it to close back to — see the code-behind, which owns that decision.
+            -->
+            <Button x:Name="CloseButton"
+                    Text="Close"
+                    Clicked="OnCloseClicked"
+                    HorizontalOptions="End"
+                    IsVisible="False"/>
+
             <!-- ── connection ── -->
             <Label Text="Connection" FontSize="Title"/>
             <Grid ColumnSpacing="10" RowSpacing="2">

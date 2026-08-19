@@ -173,22 +173,82 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
         /// </summary>
         private Label LiveValueFor(string command)
         {
+            // ⚠⚠ THE PRINTER IS NOT A LOCAL SETTING, AND READING ONE WAS WRONG (fixed 2026-08-19).
+            // Matt, on 1.99.0: *"The Printer says 'No printer chosen' yet it is selected and prints
+            // correctly"*. `PrinterLogicalNameSetting` is the OPOS **logical name** — the old Windows
+            // device path — and it is empty on every till that prints through the Plutus Till Agent,
+            // which is the front door since 2026-08-10. The real answer comes from the AGENT
+            // (`TillAgentPrinting.StatusAsync().PrinterName`), and asking it is asynchronous.
+            //
+            // ⚠ So the label starts NEUTRAL and is filled in when the agent answers. It must never
+            // claim "no printer" before it has asked: a confident wrong answer about working hardware
+            // is worse than a moment of "checking", and that is precisely the bug being fixed.
+            if (command == nameof(ChangePrinterCommand))
+            {
+                var printerLabel = MutedLabel("Checking the printer…");
+                _ = FillPrinterValueAsync(printerLabel);
+                return printerLabel;
+            }
+
             var text = command switch
             {
                 nameof(ChooseBagItemCommand) => string.IsNullOrWhiteSpace(DefaultBagId)
                     ? "No bag item chosen — the Bag button is hidden."
                     : $"Currently: {DefaultBagId}",
-                nameof(ChangePrinterCommand) => string.IsNullOrWhiteSpace(PrinterLogicalNameSetting)
-                    ? "No printer chosen — receipts print as PDF."
-                    : $"Currently: {PrinterLogicalNameSetting}",
                 _ => null,
             };
 
-            if (text is null) return null;
+            return text is null ? null : MutedLabel(text);
+        }
 
+        private static Label MutedLabel(string text)
+        {
             var label = new Label { Text = text, FontSize = 12 };
             label.SetDynamicResource(Label.TextColorProperty, "ThemeInkMuted");
             return label;
+        }
+
+        /// <summary>
+        /// Ask the agent which printer it owns, then say so.
+        ///
+        /// ⚠ FOUR HONEST ANSWERS, because "no printer" was only ever true for one of them: the agent
+        /// has a printer; the agent is running but has none set; there is no agent but an OPOS device is
+        /// configured; or neither. Collapsing these is what told Matt his working printer did not exist.
+        ///
+        /// ⚠ Never throws. It runs detached from the constructor, so an escape would reach the
+        /// dispatcher unhandled and kill the till.
+        /// </summary>
+        private async Task FillPrinterValueAsync(Label label)
+        {
+            string text;
+            try
+            {
+                var status = await Services.Printing.TillAgentPrinting.StatusAsync();
+
+                text = status switch
+                {
+                    { PrinterName: { Length: > 0 } name } =>
+                        $"Currently: {name} (via the Plutus Till Agent)"
+                        + (status.PrinterOnline ? "" : " — reported OFFLINE"),
+
+                    not null => "The Plutus Till Agent is running but has no printer set.",
+
+                    _ when !string.IsNullOrWhiteSpace(PrinterLogicalNameSetting) =>
+                        $"Currently: {PrinterLogicalNameSetting} (OPOS device)",
+
+                    _ => "No printer chosen — receipts print as PDF.",
+                };
+            }
+            catch (Exception ex)
+            {
+                CrashLog.Write("SettingsViewModel.FillPrinterValue", ex);
+
+                // ⚠ A FAILED CHECK IS NOT "NO PRINTER". Saying so would repeat the reported bug every
+                // time the agent was momentarily busy.
+                text = "Couldn't check the printer just now.";
+            }
+
+            await MainThread.InvokeOnMainThreadAsync(() => label.Text = text);
         }
 
         /// <summary>
