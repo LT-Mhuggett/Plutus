@@ -3086,6 +3086,47 @@ Written here because each one cost real time more than once.
 tapping outside, Escape, or the Cancel button. Every ⚠ row below dereferences that null, most inside
 an **`async void`**, so the exception reaches the dispatcher unhandled and **the till dies**.
 
+> ⚠⚠ **RE-AUDITED AGAINST THE TREE 2026-08-19, AND "17 SITES" WAS WRONG — IT IS FIVE, OF WHICH ONE IS
+> REACHABLE.** Twelve of the rows below had already been fixed since this table was written and nobody
+> came back to strike them through. **Every call site was re-enumerated by grep, not by this list**, and
+> each was read for a guard within 18 lines of the call — the earlier narrow-window sweep produced three
+> false alarms of its own (`TillViewModel` return, `ViewAllViewModel:1349`, the checkout amount prompt
+> all guard correctly, just further down than a 7-line window sees).
+>
+> **The verified state, 2026-08-19:**
+>
+> | Site | State |
+> |---|---|
+> | 20 of 21 input-alert call sites | ✅ **guarded** — `Count == 0`, a checked `TryGetValue`, or an explicit back-out branch |
+> | `Helpers/Security/Authorisation.cs` (`RequestAuthorisedUserInput`) | ✅ **RETIRED 2026-08-19** — see below. It was the one *reachable* unguarded site |
+> | `CopperTransferPlatform.cs` ×4 (192, 219, 292, 299) | ⬜ **unguarded and UNREACHABLE** — `ICopperTransfer` is registered in `MauiProgram` and **nothing resolves it**: no injection, no `GetService`. Left alone deliberately, exactly as `SliderAlert` was (till-design D4) — restructuring four legacy object-initialiser expressions for a path no operator can open is how dead code starts looking maintained. **Delete the tool or wire it up.** |
+>
+> ⚠⚠ **`RequestAuthorisedUserInput` COULD NEVER HAVE SUCCEEDED, and the back-out crash was the least of
+> it.** Traced line by line: `authEmpId` was declared `default` and **never assigned**, under
+> `while (string.IsNullOrEmpty(authEmpId))` — so correct credentials re-prompted **for ever**, and the
+> only exit was cancelling the first box. The password prompt was passed `idElements` (`passElements` was
+> built the line above and discarded), so it asked for an Employee ID while saying "password". The answer
+> was read as `.First().ToString()` on a `Dictionary<uint, string>`, which yields the KeyValuePair's text
+> — `"[1, secret]"` — so `Password.Verify` compared the wrong string and could not match. `.First()` on
+> the empty back-out dictionary threw. And it verified against a local `EmployeeModel` row a
+> portal-provisioned till does not have.
+>
+> ⚠ **Three comments in this codebase already said so** (`SupervisorPrompt`, `TillViewModel`'s override
+> method, `StoreOptionsViewModel`) and it stayed wired to five live call sites regardless, reading like a
+> working supervisor gate. **It now refuses immediately, with a sentence an operator can act on, and
+> logs.** Every caller already treats `default` as "abandon the action", so refusing is the shape they
+> were written for — and a readable refusal beats a spinner nobody can escape.
+>
+> ⚠ **WP-A1 — MIGRATE THE FIVE CALLERS (~½ d).** `AddEditViewModel:182, 231, 315`,
+> `ViewAllViewModel:1370`, `SettingsViewModel:865` must move to `SupervisorPrompt.AskAsync` +
+> `OperatorLogin.AuthoriseOverrideAsync`, which is what `TillViewModel` already does. Until they do,
+> **those five actions cannot be supervisor-authorised at all** — which was already true, and is now
+> visible instead of hidden behind a hang. ⚠ Do NOT rebuild verification at the call site: the override
+> rule has one home (till-design C1) and it refuses self-authorisation and applies the supervisor's own
+> ceiling.
+
+⚠⚠ **THE TABLE BELOW IS THE ORIGINAL 2026-08-18 AUDIT AND IS SUPERSEDED BY THE BLOCK ABOVE.** Its line numbers are stale and twelve of its ⚠ rows are fixed. It is kept for the per-flow reasoning ("what does cancelling MEAN here"), not as a to-do list — **re-locate by method name and re-check before trusting any row**.
+
 | File (method) | Line | Back-out handled? |
 |---|---|---|
 | `Till/TillViewModel` (`ExecuteAdjustItem`) | 771 | ✅ **fixed 2026-08-18** — `if (data == null) return;` |

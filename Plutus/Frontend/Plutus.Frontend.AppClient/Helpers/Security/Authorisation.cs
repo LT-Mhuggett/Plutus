@@ -74,75 +74,60 @@ namespace Plutus.Frontend.AppClient.Helpers.Security
             return false;
         }
 
+        /// <summary>
+        /// ⚠⚠ RETIRED 2026-08-19. It always refuses now, and that is an improvement on what it did
+        /// before, which was **hang the till**.
+        ///
+        /// The old body could not succeed by any path, and each fault hid the next:
+        ///
+        ///   • <c>string authEmpId = default;</c> was **never assigned anywhere**, and the loop condition
+        ///     was <c>while (string.IsNullOrEmpty(authEmpId))</c> — so a supervisor entering CORRECT
+        ///     credentials was asked again, for ever. The only exit was cancelling the first prompt.
+        ///   • The password prompt was handed <c>idElements</c> — <c>passElements</c> was built one line
+        ///     above and never used — so it asked for an Employee ID while claiming to ask for a password.
+        ///   • It read the answer as <c>.First().ToString()</c> on a <c>Dictionary&lt;uint, string&gt;</c>,
+        ///     which yields the **KeyValuePair's** text (<c>"[1, secret]"</c>), not the password. So
+        ///     <c>Password.Verify</c> compared the wrong string and could never match.
+        ///   • <c>.First()</c> on the empty dictionary a back-out returns throws
+        ///     <c>InvalidOperationException</c> — cancelling the password prompt crashed the caller.
+        ///   • And it verified against a LOCAL <c>EmployeeModel</c> row, which a portal-provisioned till
+        ///     does not have at all.
+        ///
+        /// ⚠ Three separate comments in this codebase already said this method "could not succeed" and
+        /// "must not be ported" — <c>SupervisorPrompt</c>, <c>TillViewModel</c>'s override method, and
+        /// <c>StoreOptionsViewModel</c>. It stayed wired to five live call sites regardless, where it
+        /// read like a working supervisor gate.
+        ///
+        /// ⚠⚠ WHY REFUSE RATHER THAN REPAIR. The correct version of this already exists:
+        /// <c>SupervisorPrompt.AskAsync</c> collects the credentials and
+        /// <c>OperatorLogin.AuthoriseOverrideAsync</c> applies the rule — it refuses self-authorisation,
+        /// applies the SUPERVISOR's own ceiling, window and staleness tier, and names both people.
+        /// Rebuilding any of that here would be a second home for the override rule, which till-design
+        /// C1 exists to prevent. **The callers must move**; work package in <c>MAUI-retrofit.md</c> §0.3b.
+        ///
+        /// ⚠ Every caller already treats a <c>default</c> return as "abandon the action"
+        /// (<c>if (empAuthoriser == default) escape = true;</c>), so refusing is the shape they were
+        /// written for — and a refusal an operator can read beats a spinner they cannot escape.
+        /// </summary>
         internal static async Task<string> RequestAuthorisedUserInput(DatabaseProvider databaseProvider)
         {
-            var empIDValidators = new IValidator[]
-            {
-                new RequiredValidator()
-            };
+            _ = databaseProvider;   // ⚠ Kept: the signature is what the five live call sites bind to.
 
-            var idElements = new ViewElementData[]
-            {
-                new ViewElementData(1, string.Format("IdArg".Translate(), "Employee".Translate()), "", empIDValidators.AsEnumerable(), false, true)
-            };
+            Services.Analytics.CrashLog.Write("Authorisation.RequestAuthorisedUserInput", null,
+                "Legacy supervisor gate reached. It cannot authorise anybody and now refuses rather than "
+                + "looping for ever. The caller needs migrating to SupervisorPrompt + "
+                + "OperatorLogin.AuthoriseOverrideAsync.");
 
-            string authEmpId = default;
+            await App.Current.MainPage.DisplayAlert(
+                "Not supported on this till",
+                "This action needs a supervisor to authorise it, and the old authorisation screen cannot "
+                + "do that on a till set up from the portal.\n\nNothing has been changed — ask a supervisor "
+                + "to sign in and make the change themselves.",
+                "OK".Translate());
 
-            do
-            {
-                (await CustomViews.InputAlertHelper.LaunchInputAlertAsync(
-                    idElements,
-                    "Confirm".Translate(),
-                    true,
-                    "AuthReq".Translate(),
-                    "Cancel".Translate())).TryGetValue(1, out var datumId);
-
-                if (datumId == default)
-                    break;
-
-                var authEmp = App.GetViewModel().Employees.FirstOrDefault(e => e.Id.Equals(datumId));
-                if (authEmp == null)
-                {
-                    using (var db = new Database.Database(databaseProvider))
-                    {
-                        authEmp = await db.Get<EmployeeModel>()
-                                    .SingleOrDefaultAsync(e =>
-                                        e.Id.Equals(datumId) ||
-                                        e.Email.Equals(datumId, StringComparison.CurrentCultureIgnoreCase));
-                        if (authEmp != null)
-                        {
-                            var passValidators = new IValidator[]
-                            {
-                                new RequiredValidator(),
-                                new PasswordValidator()
-                            };
-
-                            var passElements = new Tuple<string, string, IEnumerable<IValidator>, bool, bool>[]
-                            {
-                                Tuple.Create("Password".Translate(), "", passValidators.AsEnumerable(), true, true)
-                            };
-
-                            var datumPass = (await CustomViews.InputAlertHelper.LaunchInputAlertAsync(
-                                idElements,
-                                "Confirm".Translate(),
-                                true,
-                                "PassConf".Translate(),
-                                "Cancel".Translate())).First().ToString();
-                            if (datumPass == default)
-                                return default;
-
-                            if (!await Task.Run(() =>
-                                Password.Verify(datumPass, Convert.FromBase64String(authEmp.Salt),
-                                    Convert.FromBase64String(authEmp.HashedPassword))))
-                            {
-                                await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "DetailsNotCorrectORUserNotExistMesg".Translate(), "OK".Translate());
-                            }
-                        }
-                    }
-                }
-            } while (string.IsNullOrEmpty(authEmpId));
-
-            return authEmpId;
+            // ⚠⚠ NEVER a non-null value. Returning an id would authorise an action against a supervisor
+            // nobody verified, which is the one outcome worse than refusing.
+            return default;
         }
     }
 }
