@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import DialogX from "./DialogX.tsx";
 import {
   clientReply, fetchMyThread, fetchMyTickets, raiseTicket,
   SUPPORT_SEVERITY, SUPPORT_STATUS, type SupportMessage, type SupportTicket,
@@ -17,6 +18,13 @@ export default function HelpPanel({ onClose }: { onClose: () => void }) {
 
   const loadTickets = () => fetchMyTickets().then(setTickets).catch((e) => setError(String(e instanceof Error ? e.message : e)));
   useEffect(() => { void loadTickets(); }, []);
+
+  // ⚠ D4 rule 2 — Escape cancels. It had the backdrop and a Close button and not this.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
   useEffect(() => {
     if (!open) { setThread([]); return; }
     void fetchMyThread(open).then(setThread).catch((e) => setError(String(e instanceof Error ? e.message : e)));
@@ -27,6 +35,8 @@ export default function HelpPanel({ onClose }: { onClose: () => void }) {
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="dialog wide" style={{ maxWidth: 900, width: "92%" }}>
+        {/* ⚠ D4 rule 1 — the ✕ joins the Close button and the backdrop click. Escape is wired below. */}
+        <DialogX onClose={onClose} />
         <div className="r-row">
           <h2 className="grow">Help &amp; support</h2>
           <button className="ghost small" onClick={onClose}>Close</button>

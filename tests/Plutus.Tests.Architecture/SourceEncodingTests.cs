@@ -139,9 +139,26 @@ public class SourceEncodingTests
 
             for (var i = 0; i < bytes.Length - 2; i++)
             {
-                // C3 82 = "Â", C3 83 = "Ã" — followed by the start of any other 2-byte sequence.
+                // C3 82 = "Â", C3 83 = "Ã" — the mojibake of a 2-byte character, followed by the start
+                // of another mangled sequence.
                 var isAHat = bytes[i] == 0xC3 && (bytes[i + 1] == 0x82 || bytes[i + 1] == 0x83);
-                if (isAHat && (bytes[i + 2] == 0xC2 || bytes[i + 2] == 0xC3)) hits++;
+                if (isAHat && (bytes[i + 2] == 0xC2 || bytes[i + 2] == 0xC3)) { hits++; continue; }
+
+                // ⚠⚠ THE CASE THIS TEST MISSED ON THE DAY IT WAS WRITTEN. A 3-byte character mangles to
+                // `C3 [A0-AF]` + two `C2 xx` pairs — a box-drawing `─` (E2 94 80) becomes
+                // `C3 A2 C2 94 C2 80`, whose lead is "â", NOT "Â"/"Ã". The narrow rule above walked
+                // straight past it, and the author only noticed because the C1 detector fired.
+                //
+                // ⚠ Two `C2` pairs are required, not one: "é" followed by a non-breaking space is
+                // `C3 A9 C2 A0` and is perfectly legitimate, so a single pair would cry wolf on real
+                // accented text. Two in a row after a `C3 [A0-AF]` lead does not occur naturally.
+                if (i + 4 < bytes.Length
+                    && bytes[i] == 0xC3 && bytes[i + 1] >= 0xA0 && bytes[i + 1] <= 0xAF
+                    && bytes[i + 2] == 0xC2 && bytes[i + 3] >= 0x80 && bytes[i + 3] <= 0xBF
+                    && bytes[i + 4] == 0xC2)
+                {
+                    hits++;
+                }
             }
 
             if (hits > 0) offenders.Add($"{Relative(file)} — {hits} occurrence(s)");
@@ -207,6 +224,30 @@ public class SourceEncodingTests
             if (mangledBom[i] == 0xC3 && (mangledBom[i + 1] == 0x82 || mangledBom[i + 1] == 0x83)
                 && (mangledBom[i + 2] == 0xC2 || mangledBom[i + 2] == 0xC3)) bomHits++;
         Assert.True(bomHits > 0, "The second detector does not fire on a double-encoded BOM.");
+
+        // ⚠⚠ THE REGRESSION THIS PINS. A box-drawing `─` (E2 94 80) double-encoded is
+        // `C3 A2 C2 94 C2 80` — lead byte "â", not "Â"/"Ã". The first version of the second detector
+        // walked past it, and the author corrupted `Ask.tsx` with exactly these bytes an hour after
+        // writing the test. Only the C1 detector caught it.
+        byte[] mangledRule = { 0xC3, 0xA2, 0xC2, 0x94, 0xC2, 0x80 };
+        var ruleHits = 0;
+        for (var i = 0; i + 4 < mangledRule.Length; i++)
+            if (mangledRule[i] == 0xC3 && mangledRule[i + 1] >= 0xA0 && mangledRule[i + 1] <= 0xAF
+                && mangledRule[i + 2] == 0xC2 && mangledRule[i + 3] >= 0x80 && mangledRule[i + 3] <= 0xBF
+                && mangledRule[i + 4] == 0xC2) ruleHits++;
+        Assert.True(ruleHits > 0,
+            "The widened detector does not fire on a double-encoded 3-byte character — the exact shape "
+            + "that slipped past its first version.");
+
+        // ⚠ And it must NOT fire on legitimate accented text: "é" + a non-breaking space is
+        // `C3 A9 C2 A0`, which is one C2 pair, not two.
+        byte[] eAcuteNbsp = { 0xC3, 0xA9, 0xC2, 0xA0, 0x41, 0x42 };
+        var falseHits = 0;
+        for (var i = 0; i + 4 < eAcuteNbsp.Length; i++)
+            if (eAcuteNbsp[i] == 0xC3 && eAcuteNbsp[i + 1] >= 0xA0 && eAcuteNbsp[i + 1] <= 0xAF
+                && eAcuteNbsp[i + 2] == 0xC2 && eAcuteNbsp[i + 3] >= 0x80 && eAcuteNbsp[i + 3] <= 0xBF
+                && eAcuteNbsp[i + 4] == 0xC2) falseHits++;
+        Assert.Equal(0, falseHits);
 
         // ⚠ And it must NOT fire on characters this repo uses legitimately.
         byte[] pound = { 0xC2, 0xA3 };
