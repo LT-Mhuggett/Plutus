@@ -97,13 +97,37 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
         {
             // ── Till ──────────────────────────────────────────────────────────────────────────────
             var till = new Controls.SettingsSection(
-                "Till", "How the till screen behaves — the bag buttons it offers");
+                "Till", "How the till screen behaves — item search, the bag buttons, the colour scheme");
+
+            // ⚠⚠ "ITEM SEARCH MATCHES EACH WORD" WAS MISSING FROM THIS SCREEN AND THE SETTING EXISTED
+            // (2026-08-21). Matt, of the rebuilt Settings page: *"Can you make each section match what
+            // is in the webtill sections please. There are discrepancies."*
+            //
+            // `MatchAllWordsSetting` has been read and honoured by `ViewAllViewModel` and
+            // `TillViewModel` all along — its own header even says it must agree with the web till's
+            // `prefs.ts DEFAULTS.matchAllWords` — and there was **no control anywhere in the app**. A
+            // setting that is enforced and cannot be seen or changed is worse than one that does not
+            // exist: an operator whose searches behave differently from the till next to them has no
+            // way to find out why.
+            //
+            // ⚠ SAME WORDING AS THE WEB TILL ("Item search matches each word"), under the 2026-08-19
+            // look-and-feel ruling.
+            till.Add(BuildToggle("Item search matches each word", nameof(MatchAllWordsSetting)));
 
             // ⚠ READ-ONLY (ruling 2026-08-19). This was "Quick-sell bag item", a per-device barcode an
             // operator typed in — so a five-till shop set it five times and could offer only ONE bag
             // when a shop normally sells a single-use one AND a bag for life. Bags come from the portal
             // and are pushed to every till, exactly like the colour scheme.
             AddAction(till, "Carrier bags", nameof(CarrierBagsInfoCommand));
+
+            // ⚠⚠ APPEARANCE IS A CAPTION, NOT A CONTROL — exactly as the web till renders it, and for
+            // the same reason: the colour scheme is pushed from the portal (WP-T1), so a picker here
+            // would be a control that either lies or fights the next sync. What an operator needs is to
+            // know WHICH scheme they are on and WHERE it is changed, which is what this says.
+            till.Add(Heading("Appearance"));
+            var themeLine = MutedLabel("Checking the colour scheme…");
+            till.Add(themeLine);
+            _ = FillThemeValueAsync(themeLine);
 
             // ── Checkout ──────────────────────────────────────────────────────────────────────────
             var checkout = new Controls.SettingsSection(
@@ -176,16 +200,42 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
             // ⚠⚠ NEW ON MAUI, and it is the section somebody reads out down the phone. The version was
             // a caption in the corner of the page; who is signed in was nowhere at all.
             var environment = new Controls.SettingsSection(
-                "Environment", "Who's signed in, and this app's build");
+                "Environment", "Who's signed in, API status and this app's build");
 
             var operatorName = App.GetViewModel()?.SignedInOperator?.DisplayName;
             environment.Add(Fact("Signed in as", string.IsNullOrWhiteSpace(operatorName) ? "—" : operatorName));
+
+            // ⚠⚠ THE API LINE WAS MISSING AND IT IS THE ONE SUPPORT ASKS FOR FIRST (2026-08-21). Matt:
+            // *"Can you make each section match what is in the webtill sections please. There are
+            // discrepancies."* The web till has had **API: ✅ reachable / ❌ unreachable** here since
+            // this section was written, and it is the question behind half of what reaches the ticket
+            // desk — a report that will not load and a sale that will not sync have the same first
+            // answer.
+            //
+            // ⚠ ASKED, NOT ASSUMED, and asked asynchronously — the same rule as the printer and the
+            // agent above. A confident "unreachable" before anything has been asked is the 1.99.0
+            // printer fault in a different section.
+            var apiLine = Fact("API", "checking…", out var apiValue);
+            environment.Add(apiLine);
+            _ = FillApiValueAsync(apiValue);
+
+            // ⚠ THE BUSINESS ID, because a till that is enrolled to the WRONG TENANT looks exactly
+            // like one with no data — and this is the value somebody reads out to check. ⚠ Null until
+            // the till has enrolled, and it says "not enrolled" rather than showing a blank.
+            var businessLine = Fact("Business id", "checking…", out var businessValue);
+            environment.Add(businessLine);
+            _ = FillBusinessIdAsync(businessValue);
 
             // ⚠ `PlutusVersion.Current`, NOT `AppInfo.VersionString`. The latter reads the package
             // manifest, which is deliberately 0.0.0.0 so the build can substitute the real number —
             // so on a packaged build it answers 0.0.0.0 and on an unpackaged one it answers something
             // else again. This is the number the heartbeat sends, which is the one support needs.
             environment.Add(Fact("Till version", SharedKernel.PlutusVersion.Current));
+
+            // ⚠ WHEN this build was made, which the web till shows as "App build". Two tills on the
+            // same version number and different build times means somebody deployed twice — rare, and
+            // impossible to diagnose without this line.
+            environment.Add(Fact("App build", BuildStamp()));
 
             // ── Help ──────────────────────────────────────────────────────────────────────────────
             //
@@ -224,7 +274,16 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
         }
 
         /// <summary>Label and value on one line — the web till's `&lt;dl class="env-info"&gt;`.</summary>
-        private static View Fact(string label, string value)
+        private static View Fact(string label, string value) => Fact(label, value, out _);
+
+        /// <summary>
+        /// The same, handing back the VALUE label so a caller can fill it in later.
+        ///
+        /// ⚠ THREE FACTS ON THIS SCREEN HAVE TO BE ASKED FOR — the API, the business id and the agent.
+        /// Each is rendered as "checking…" and written once the answer arrives, because a screen that
+        /// blocks on a network call to open is a screen an operator meets as a frozen till.
+        /// </summary>
+        private static View Fact(string label, string value, out Label valueLabel)
         {
             var grid = new Grid { ColumnSpacing = 8 };
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(3, GridUnitType.Star) });
@@ -233,12 +292,105 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
             var name = new Label { Text = label, FontSize = 12 };
             name.SetDynamicResource(Label.TextColorProperty, "ThemeInkMuted");
 
-            var val = new Label { Text = value, FontSize = 12 };
-            val.SetDynamicResource(Label.TextColorProperty, "ThemeInk");
+            valueLabel = new Label { Text = value, FontSize = 12 };
+            valueLabel.SetDynamicResource(Label.TextColorProperty, "ThemeInk");
 
             grid.Add(name, 0, 0);
-            grid.Add(val, 1, 0);
+            grid.Add(valueLabel, 1, 0);
             return grid;
+        }
+
+        /// <summary>
+        /// Is Plutus reachable from this till, right now?
+        ///
+        /// ⚠⚠ THE ANONYMOUS PING, deliberately — `PingAsync` sends no token, so it answers for a till
+        /// that has not enrolled or has been revoked. Asking with credentials would conflate "the
+        /// network is down" with "this till is not welcome", which are the two answers this line exists
+        /// to separate.
+        ///
+        /// ⚠ The web till's exact vocabulary ("✅ reachable" / "❌ unreachable"), under the 2026-08-19
+        /// look-and-feel ruling — somebody reads this down the phone to the same support desk.
+        /// </summary>
+        private static async Task FillApiValueAsync(Label label)
+        {
+            try
+            {
+                var api = await Services.Connectivity.PlutusApi.GetAsync();
+
+                if (api is null)
+                {
+                    label.Text = "❌ unreachable — no server address is set on this till.";
+                    return;
+                }
+
+                var ping = await api.PingAsync();
+
+                // ⚠⚠ THREE ANSWERS, NOT TWO. `PingOutcome` carries `Reached` AND `Supported`, and a
+                // backend that answers but is too OLD for this till is neither "reachable" in any
+                // useful sense nor "unreachable" — it is the one case where the network is fine and
+                // nothing will work. Collapsing it into either would send somebody to check a cable.
+                label.Text = !ping.Reached
+                    ? $"❌ unreachable — {ping.Detail ?? "no answer"}"
+                    : ping.Supported
+                        ? "✅ reachable"
+                        : $"⚠ reachable, but too old for this till — {ping.Detail ?? "update the backend"}";
+            }
+            catch (Exception ex)
+            {
+                Services.Analytics.CrashLog.Write("SettingsViewModel.FillApiValue", ex);
+                label.Text = "❌ unreachable";
+            }
+        }
+
+        /// <summary>
+        /// Which tenant this till is enrolled to.
+        ///
+        /// ⚠ "Not enrolled" IS AN ANSWER and must be said in words. A blank here looks like a
+        /// rendering fault, and a till enrolled to the wrong tenant looks exactly like a till with no
+        /// data — this is the value somebody reads out to tell the two apart.
+        /// </summary>
+        private static async Task FillBusinessIdAsync(Label label)
+        {
+            try
+            {
+                var id = await Services.Storage.TillPlacement.BusinessIdAsync();
+                label.Text = id is null ? "not enrolled" : id.Value.ToString("D");
+            }
+            catch (Exception ex)
+            {
+                Services.Analytics.CrashLog.Write("SettingsViewModel.FillBusinessId", ex);
+                label.Text = "—";
+            }
+        }
+
+        /// <summary>
+        /// When this build was made — the web till's "App build".
+        ///
+        /// ⚠ FROM THE ASSEMBLY ON DISK, not from a compile-time constant. MAUI has no `__BUILD_TIME__`
+        /// the way Vite does, and adding one would mean a source-generation step for a diagnostic line.
+        /// The executable's own timestamp answers the question this is asked for — *"are these two
+        /// tills running the same deploy?"* — without any build plumbing.
+        ///
+        /// ⚠ Local time, because it is read alongside a clock showing local time.
+        /// </summary>
+        private static string BuildStamp()
+        {
+            try
+            {
+                var path = System.Reflection.Assembly.GetExecutingAssembly().Location;
+
+                // ⚠ EMPTY ON A SINGLE-FILE OR TRIMMED PUBLISH, and that is not an error — it is a
+                // packaging choice. Say so rather than showing 01/01/1601, which is what
+                // `File.GetLastWriteTime` answers for a path that does not exist.
+                if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path)) return "—";
+
+                return System.IO.File.GetLastWriteTime(path)
+                    .ToString("dd MMM yyyy HH:mm", System.Globalization.CultureInfo.CurrentCulture);
+            }
+            catch
+            {
+                return "—";
+            }
         }
 
         /// <summary>
@@ -319,6 +471,56 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
             var label = new Label { Text = text, FontSize = 12 };
             label.SetDynamicResource(Label.TextColorProperty, "ThemeInkMuted");
             return label;
+        }
+
+        /// <summary>
+        /// A sub-heading INSIDE a section — the web till's `&lt;h4&gt;` in a settings group.
+        ///
+        /// ⚠ Its ink is `ThemeInk`, not `ThemeInkMuted`. A heading dimmer than the text under it reads
+        /// as a caption on the wrong line, which is how "Appearance" would look sitting above a muted
+        /// sentence if it borrowed `MutedLabel`.
+        /// </summary>
+        private static Label Heading(string text)
+        {
+            var label = new Label
+            {
+                Text = text,
+                FontSize = 13,
+                FontAttributes = FontAttributes.Bold,
+                Margin = new Thickness(0, 8, 0, 0),
+            };
+            label.SetDynamicResource(Label.TextColorProperty, "ThemeInk");
+            return label;
+        }
+
+        /// <summary>
+        /// Which colour scheme this till is on, and where it is changed.
+        ///
+        /// ⚠⚠ THE SOURCE IS THE HALF THAT MATTERS. "Kapow dark" alone does not tell an operator why
+        /// their till looks different from the one beside it; *"set for this store in the portal"*
+        /// does. The web till's Appearance caption says exactly this.
+        ///
+        /// ⚠ THROUGH `Theming.DescribeAsync`, which is `ThemeSlots.Describe` — the SHARED describer,
+        /// already used by the connection screen. Writing a second `Source switch` here would be a
+        /// third opinion on what "tenant" reads as, in an app that already had two.
+        ///
+        /// ⚠ NEVER THROWS and never blocks — fire-and-forget from the section builder, and every path
+        /// writes something. A permanent "Checking…" is not an answer.
+        /// </summary>
+        private static async Task FillThemeValueAsync(Label label)
+        {
+            try
+            {
+                var described = await Services.Theming.Theming.DescribeAsync();
+
+                label.Text = $"Colour scheme: {described}. Change it under Locations → Till themes "
+                           + "in the portal; tills pick it up within a minute.";
+            }
+            catch (Exception ex)
+            {
+                Services.Analytics.CrashLog.Write("SettingsViewModel.FillThemeValue", ex);
+                label.Text = "Couldn't check the colour scheme.";
+            }
         }
 
         /// <summary>
