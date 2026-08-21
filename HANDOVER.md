@@ -12,7 +12,23 @@
 **Written:** 2026-08-21 · **.NET suites — all four run, all green:** unit **1561** · integration **177**
 · MAUI **640** (+3 skipped, was 621) · architecture **31**. AppClient Release builds **0 errors**.
 
-> ⚠⚠ **THE WEB TILL'S AND THE PORTAL'S GATES DID NOT RUN, AND COULD NOT.** There is **no node on this
+> ## ✅ THE GATES RAN — ON THE MAC, AT DEPLOY TIME, AND THREE OF MY OWN TESTS WENT RED
+>
+> **web till: `tsc` 0 · `eslint` 0 errors · vitest 381/381 across 26 files** (including today's three
+> new suites). **portal: `tsc` 0.** The warning below stood all day and is now discharged.
+>
+> ⚠⚠ **AND THE RED WAS THE HONEST ANSWER.** `receiptToDocument` calls `api.businessName()`, which read
+> `localStorage` **unguarded** — while `getReceiptTemplateCached` two lines away has always been
+> wrapped. So formatting a receipt throws outside a browser, `printOnReceiptPrinter`'s catch turned
+> that into a silent *"nothing printed"*, and three tests were exercising the failure path while
+> asserting the happy one. **Green would have been the wrong answer.** `businessName()` is now guarded
+> — reading `localStorage` can THROW, not merely return null, and on the receipt path that is a
+> receipt that quietly refuses to print with the money already taken.
+>
+> ⚠ **The lesson for the day's earlier work:** every "NOT TYPECHECKED" flag was right to be there. The
+> first thing the gates did was find a real fault.
+
+> ~~⚠⚠ **THE WEB TILL'S AND THE PORTAL'S GATES DID NOT RUN, AND COULD NOT.**~~ *(now discharged — above)* There is **no node on this
 > Windows box** — not on `PATH`, not in `Program Files`, nowhere. So today's TypeScript (`cardPayment.ts`,
 > `connectionCheck.ts`, their two test files, `LoginPage.tsx`, `CheckoutDialog.tsx`, `index.css`, and 12
 > portal files) has been **read carefully and typechecked by nobody**. `tsc --noEmit`, vitest and eslint
@@ -33,7 +49,16 @@
 **Deployed: backend 1.20.0 · portal 1.16.0 · web till 1.29.0 · platform 1.49.0 · MAUI artefact
 1.110.0** at `D:\tmp\plutus-till-1.110.0\` (the only build on the box).
 
-**Stamped in the tree and BUILT NOWHERE: MAUI 1.111.0 · web till 1.30.0 · portal 1.17.0.**
+**✅ DEPLOYED 2026-08-21 (afternoon): web till 1.31.0 · portal 1.17.0** — built on the Mac, all gates
+run, verified live on all three axes. Rollbacks `/srv/apps/PLUTUS/web/current.pre-1.31.0` and
+`/srv/apps/PLUTUS/portal/current.pre-1.17.0`.
+
+**Still BUILT NOWHERE: MAUI 1.111.0** — builds only on request (Matt, 2026-08-16). §G69's MAUI half
+needs it; **§G70, §G71 and §G72 are runnable now.**
+
+⚠ **Backend NOT redeployed and did not need to be** — zero changes under `src/` since 1.20.0, checked
+with `git diff` rather than assumed. Probed anyway: swagger **200**, and `POST /api/v1/tokens/device`
+with a junk id → **401 "Device not enrolled or revoked."**, the axis that proves the DB path.
 
 > ⚠⚠ **THAT SECOND LINE IS THE MOST IMPORTANT THING ON THIS PAGE.** Everything done on 2026-08-21 is in
 > the tree and in **no artefact anybody can run**. Testing §G69–§G71 against what is on the box today

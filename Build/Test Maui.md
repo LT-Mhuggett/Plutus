@@ -34,12 +34,18 @@ the order. Everything below it is reference.
 
 | Section | What | Where it is |
 |---|---|---|
-| **§G71** | **Every portal dialog now has a ✕** — 21 boxes, 12 pages | ⚠ **Portal 1.17.0 is BUILT NOWHERE.** Needs a portal build + deploy first |
-| **§G70** | **The web till's login screen says whether Plutus is reachable** | ⚠ **Web till 1.30.0 is BUILT NOWHERE.** Needs a build + deploy first |
-| **§G69** | **The checkout says which card machine to use** (WP14) | ⚠⚠ **Both halves.** MAUI's is in **1.111.0**, which **HAS NOT BEEN BUILT** — the artefact on the box is **1.110.0** and does not contain it |
+| **§G71** | **Every portal dialog now has a ✕** — 21 boxes, 12 pages | ✅ **LIVE — portal 1.17.0 deployed 2026-08-21.** Run it |
+| **§G70** | **The web till's login screen says whether Plutus is reachable** | ✅ **LIVE — web till 1.31.0 deployed 2026-08-21.** Run it |
+| **§G69** | **The checkout says which card machine to use** (WP14) | 🔄 **WEB HALF LIVE** (1.31.0, deployed 2026-08-21) — run §G69a/b/c on the browser till now. ⚠⚠ **MAUI's half is in 1.111.0, which HAS NOT BEEN BUILT** — the artefact on the box is 1.110.0 and does not contain it |
 
-> ⚠⚠ **DO NOT RUN §G69–§G71 AGAINST WHAT IS ON THE BOX TODAY — YOU WILL BE TESTING THE OLD CODE AND
-> REPORTING IT BROKEN.** This warning is here because it has already happened once: on 2026-08-20 Matt
+> ✅ **DEPLOYED 2026-08-21 (afternoon): web till 1.31.0 · portal 1.17.0.** §G70, §G71 and §G72 are
+> runnable now, and so is §G69's **web** half. ⚠⚠ **§G69's MAUI half is NOT — 1.111.0 has not been
+> built**, and the artefact on the box is 1.110.0.
+>
+> ⚠⚠ **THE WARNING BELOW STILL APPLIES TO ANYTHING MAUI, AND IT IS WHY IT IS KEPT:**
+>
+> ~~**DO NOT RUN §G69–§G71 AGAINST WHAT IS ON THE BOX TODAY — YOU WILL BE TESTING THE OLD CODE AND
+> REPORTING IT BROKEN.**~~ This warning is here because it has already happened once: on 2026-08-20 Matt
 > reported the till buttons walking off the bottom **for the second time** — *"I thought I had asked for
 > this already"* — and he had. The fix was real, committed, and sitting in an undeployed bundle while he
 > tested the previous version. **A fix that is built and not shipped is indistinguishable from a fix that
