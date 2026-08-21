@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
@@ -44,7 +45,11 @@ namespace Plutus.DBService.Controllers
         /// <param name="ItemBody">Form body post data</param>
         /// <param name="IsSync">States that this is a sync only request</param>
         /// <returns></returns>
-        [Authorize]
+        // ⚠⚠ SUPERVISOR AND ABOVE, or anyone holding the "Add/edit stock" role — Matt,
+        // 2026-08-21. This was a BARE [Authorize], the same hole `api/Item` had: any signed-in
+        // user could write stock, cashier included. ⚠ Same pair the v1 movements endpoint uses
+        // (`Catalogue/StockController.Movements`), so the two stock write paths now agree.
+        [Authorize(Policy = "perm:" + Plutus.SharedKernel.PermissionCatalogue.PortalStockAdjust + "," + Plutus.SharedKernel.PermissionCatalogue.PosStockAdjust)]
         [RequiredScope(RequiredScopesConfigurationKey = "OpenAPI:Scopes:APIWrite:Name")]
         [HttpPost]
         [ApiConventionMethod(typeof(APIConventions),
@@ -109,7 +114,11 @@ namespace Plutus.DBService.Controllers
             return Ok(entities);
         }
 
-        [Authorize]
+        // ⚠⚠ SUPERVISOR AND ABOVE, or anyone holding the "Add/edit stock" role — Matt,
+        // 2026-08-21. This was a BARE [Authorize], the same hole `api/Item` had: any signed-in
+        // user could write stock, cashier included. ⚠ Same pair the v1 movements endpoint uses
+        // (`Catalogue/StockController.Movements`), so the two stock write paths now agree.
+        [Authorize(Policy = "perm:" + Plutus.SharedKernel.PermissionCatalogue.PortalStockAdjust + "," + Plutus.SharedKernel.PermissionCatalogue.PosStockAdjust)]
         [RequiredScope(RequiredScopesConfigurationKey = "OpenAPI:Scopes:APIWrite:Name")]
         [HttpPatch("{idOne}")]
         [ApiConventionMethod(typeof(APIConventions),
@@ -144,7 +153,11 @@ namespace Plutus.DBService.Controllers
             return NoContent();
         }
 
-        [Authorize]
+        // ⚠⚠ SUPERVISOR AND ABOVE, or anyone holding the "Add/edit stock" role — Matt,
+        // 2026-08-21. This was a BARE [Authorize], the same hole `api/Item` had: any signed-in
+        // user could write stock, cashier included. ⚠ Same pair the v1 movements endpoint uses
+        // (`Catalogue/StockController.Movements`), so the two stock write paths now agree.
+        [Authorize(Policy = "perm:" + Plutus.SharedKernel.PermissionCatalogue.PortalStockAdjust + "," + Plutus.SharedKernel.PermissionCatalogue.PosStockAdjust)]
         [RequiredScope(RequiredScopesConfigurationKey = "OpenAPI:Scopes:APIWrite:Name")]
         [HttpPut("override/{idOne}")]
         [ApiConventionMethod(typeof(APIConventions),
@@ -182,7 +195,13 @@ namespace Plutus.DBService.Controllers
             return NoContent();
         }
 
-        [Authorize]
+        // ⚠⚠ SUPERVISOR AND ABOVE, or anyone holding the "Add/edit stock" role — Matt,
+        // 2026-08-21. This was a BARE [Authorize], the same hole `api/Item` had: any signed-in
+        // user could write stock, cashier included. ⚠ Same pair the v1 movements endpoint uses
+        // (`Catalogue/StockController.Movements`), so the two stock write paths now agree.
+        // ⚠ Its ONLY caller is `Plutus.Frontend.ClientUI` — the legacy Xamarin frontend, which
+        // §10 L10 slates for removal and which is not deployed. Neither live till touches it.
+        [Authorize(Policy = "perm:" + Plutus.SharedKernel.PermissionCatalogue.PortalStockAdjust + "," + Plutus.SharedKernel.PermissionCatalogue.PosStockAdjust)]
         [RequiredScope(RequiredScopesConfigurationKey = "OpenAPI:Scopes:APIWrite:Name")]
         [HttpPatch("UpdateQuantity/{idOne}")]
         [ApiConventionMethod(typeof(APIConventions),

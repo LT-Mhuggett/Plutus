@@ -190,6 +190,27 @@ namespace Plutus.Identity
                               PermissionCatalogue.PosReportsView)),
                 ("Stock & Items", G(PermissionCatalogue.PortalStockAdjust, PermissionCatalogue.PortalPricesManage)),
                 ("Staff Admin", G(PermissionCatalogue.PortalUsersManage)),
+                // ⚠⚠ "ADD/EDIT STOCK" — Matt, 2026-08-21: *"I think I need a 'Add/edit stock'
+                // permission. Which can be turned on for individuals. So long as all edits to stock
+                // items are tracked for each item (History)."*
+                //
+                // ⚠ A ROLE, not a fourth permission code, and that is the whole point: in this model
+                // what you grant to a PERSON is a role, and role grants UNION. So Cashier + this =
+                // a cashier who may do stock, with nobody else affected. It needs no new mechanism —
+                // the portal's Users → Access screen already assigns roles per user.
+                //
+                // ⚠ It carries the TILL codes, deliberately, and that is the difference from
+                // "Stock & Items" below. That role grants `portal.stock.adjust` +
+                // `portal.prices.manage`, which also carry the central price list and category
+                // create/delete — so turning IT on for one cashier would hand them the portal. This
+                // grants exactly the two things Matt described and nothing else.
+                //
+                // ⚠ "Stock & Items" is left alone on purpose: it is what `MapKapowAuthActionsAsync`
+                // maps the legacy `AuthActions["Item"]` onto, so narrowing it would quietly strip
+                // capability from every employee already mapped to it. ⚠ And it could not be narrowed
+                // anyway — `EnsureBuiltInRolesAsync` only ever ADDS template grants, so removing a
+                // code here changes new tenants and not existing ones, which is the worst of both.
+                ("Add/edit stock", G(PermissionCatalogue.PosItemsManage, PermissionCatalogue.PosStockAdjust)),
             };
 
             // WP6.3: everyone can raise/read support tickets (a lone cashier with a dead till must

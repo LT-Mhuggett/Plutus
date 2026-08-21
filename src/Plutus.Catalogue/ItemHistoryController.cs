@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Plutus.Entities;
 using Plutus.Entities.Models;
+using System.Globalization;
 using Plutus.SharedKernel;
 
 namespace Plutus.Catalogue
@@ -98,6 +99,44 @@ namespace Plutus.Catalogue
                 events.Add(new Row(a.AtUtc, type, detail, a.ActorUserId));
             }
 
+            // ── 1b. STOCK MOVEMENTS — every change to what this item HAS ─────────────────────────
+            //
+            // ⚠⚠ MATT'S CONDITION, 2026-08-21: an "Add/edit stock" permission is fine *"so long as all
+            // edits to stock items are tracked for each item (History)"*. The tracking already
+            // existed — every movement has always been a `StockMovement` row with its item, its signed
+            // quantity, its reason, its actor and its timestamp — but **this endpoint read `AuditLogs`
+            // only**, so an item's History showed price and barcode edits and not one stock movement.
+            // One item, two trails, and only one of them on the screen.
+            //
+            // ⚠ MANUAL MOVEMENTS ONLY. A `Sale` or `Return` movement is not somebody editing stock —
+            // it is trading, and folding thousands of sale lines into an item's history would bury the
+            // handful of rows a person is actually looking for. The audit question is *"who changed
+            // this by hand, and why"*, and `Adjustment` / `WriteOff` / `Receipt` are that question.
+            //
+            // ⚠ SIGNED, AND SAID IN WORDS. "+12" and "−3" read as what happened; a bare 12 does not.
+            // The reason is shown verbatim when there is one, because it is the operator's own
+            // sentence and the only thing that explains the number.
+            var movements = await _db.StockMovements.AsNoTracking()
+                .Where(m => m.ItemIdOne == itemIdOne
+                            && (m.Type == StockMovementType.Adjustment
+                                || m.Type == StockMovementType.WriteOff
+                                || m.Type == StockMovementType.Receipt))
+                .OrderByDescending(m => m.AtUtc)
+                .Take(take)
+                .ToListAsync();
+
+            foreach (var m in movements)
+            {
+                var type = m.Type switch
+                {
+                    StockMovementType.WriteOff => "Stock written off",
+                    StockMovementType.Receipt => "Stock received",
+                    _ => "Stock adjusted",
+                };
+                var qty = m.QtyDelta > 0 ? $"+{m.QtyDelta}" : m.QtyDelta.ToString(CultureInfo.InvariantCulture);
+                var detail = string.IsNullOrWhiteSpace(m.Reason) ? qty : $"{qty} — {m.Reason}";
+                events.Add(new Row(m.AtUtc, type, detail, m.ActorUserId));
+            }
             // ── 2. the bookends, for everything that happened before auditing existed ────────────
             //
             // ⚠ ONLY when the audit trail has nothing covering them. An item created today has a real
