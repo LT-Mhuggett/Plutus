@@ -86,7 +86,14 @@ export default function CustomerDetail(
           <div className="toolbar">
             {/* ⚠ PRINT CARD IS NOT GATED ON `customers.manage` — handing somebody their own card is
                 counter work, and a cashier is who is standing there. Hidden with no membership
-                number, because there would be nothing to put in the barcode. */}
+                number, because there would be nothing to put in the barcode.
+
+                ⚠⚠ `window.print()` IS CORRECT HERE — DO NOT "FIX" IT TO THE RECEIPT PRINTER. This
+                prints a **CR80 card**, 85.6 × 54 mm, to an ordinary page printer, deliberately
+                (§5d WP-L1; MAUI prints a thermal slip instead because no page printer sits behind
+                it). `till-design.md` **D6b** makes the agent the default for a *receipt* and names
+                this as the documented exception — sending card stock to a receipt roll would be the
+                same class of mistake in the opposite direction. */}
             {row.memberNo && (
               <button className="ghost" onClick={() => { setPrinting(true); setTimeout(() => { window.print(); setPrinting(false); }, 50); }}>
                 Print card

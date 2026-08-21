@@ -1718,6 +1718,72 @@ request whose box has gone.
 ⚠ **Escape and clicking the grey backdrop should also close every one of them.** They always did; the
 ✕ is there because nothing told you so.
 
+## G72. A receipt goes to the RECEIPT printer, not the A4 one — **web till 1.31.0**
+
+> ⚠⚠ **MATT'S BUG, 2026-08-21:** *"if you complete a sale and print no receipt, the receipt is shown
+> (do not change) but if you try to print it from the next screen, it comes out on the A4 printer, not
+> the receipt printer. It should always default to the receipt printer."*
+>
+> ⚠ **This needs the hardware agent running on the PC** — Settings → Hardware should show it paired.
+> Without an agent every case below correctly falls back to the browser dialog, and you will be
+> testing nothing.
+
+### G72a. ⚠ The reported bug — decline the receipt, then change your mind
+
+Ring up one item. **Checkout → Complete.** At *"Print receipt?"* press **No receipt**.
+
+**✅ Expected:** the receipt still appears on screen. **Do not report that as a bug — Matt asked for
+it to stay.**
+
+Now press **Print** on that receipt.
+
+**✅ Expected:** it prints **on the till's receipt printer**, and a line appears under the receipt
+saying *"✅ Printed on the receipt printer."*
+
+⚠⚠ **THE OLD BEHAVIOUR, AND WHAT YOU ARE CHECKING FOR:** the browser's print dialog opening, and/or
+paper coming out of the **office A4 printer**. If either happens, say so — that is the bug not fixed.
+
+⚠ **The cash drawer must NOT open** when you press Print. It already opened when the sale completed
+(on a cash sale); a second kick for one sale is wrong. Say so if it opens.
+
+### G72b. It still works when the operator DID want a receipt
+
+Ring up an item, complete, and at the ask press **Print**.
+
+**✅ Expected:** it prints on the receipt printer **silently** — no browser dialog at all — and the
+receipt dialog shows with the notice. This is the path that already worked; it is here because §G72's
+change touched it too (`TillPage` now calls the same shared helper).
+
+### G72c. ⚠ The fallback still works — unplug the agent
+
+Stop the Plutus Till Agent (or unplug the receipt printer), then repeat §G72a.
+
+**✅ Expected:** pressing **Print** raises the **browser's** print dialog, and the line under the
+receipt reads *"⚠ No receipt printer answered — this went to the browser's printer instead. Check the
+hardware agent on Settings."*
+
+⚠⚠ **A shop with no receipt printer must be no worse off than before.** If Print does nothing at all,
+that is a worse bug than the one being fixed — say so immediately.
+
+### G72d. The reprint path, which had this fixed already
+
+**Reports → a past sale → Print copy.**
+
+**✅ Expected:** prints on the receipt printer, and the paper says **(COPY)** next to the sale id.
+
+⚠ **The `(COPY)` mark matters and is not decoration:** a refund is found by the barcode on a receipt,
+so two indistinguishable papers for one purchase is the shape of a double refund. ⚠ And the receipt
+from §G72a must **not** say COPY — the operator declined the ask, so that paper is the first one.
+
+### G72e. ⚠ What must NOT have changed — the membership card
+
+**Loyalty → a member → Open → Print card.**
+
+**✅ Expected:** the **browser's** print dialog, going to the ordinary page printer — because this
+prints a **plastic-card-sized card**, not a receipt.
+
+⚠⚠ **IF THIS NOW GOES TO THE RECEIPT PRINTER, THAT IS A REGRESSION**, and the opposite mistake to the
+one being fixed. `till-design.md` **D6b** names it as the documented exception.
 # §W — WEB till checks
 
 ⚠ **These need the DEPLOYED WEB TILL**, not the MAUI build — `https://plutus.huggett.dscloud.me`.

@@ -12,8 +12,8 @@ import { gbp, parsePence } from "../money.ts";
 import { useBasket, basketTotals, lineDiscountPence, lineTotalPence, type BasketState } from "./basket.ts";
 import { getPrefs } from "../prefs.ts";
 import { tryCanonicalise } from "../memberNumbers.ts";
-import { agentAvailable, openDrawer, printDocument } from "../hardware.ts";
-import { receiptToDocument } from "./receiptDoc.ts";
+import { openDrawer } from "../hardware.ts";
+import { printOnReceiptPrinter } from "./receiptPrint.ts";
 import { ask } from "../Ask.tsx";
 import CheckoutDialog from "./CheckoutDialog.tsx";
 import DiscountDialog from "./DiscountDialog.tsx";
@@ -796,14 +796,11 @@ export default function TillPage() {
             // FE3.3: with a healthy agent the receipt prints SILENTLY on the till printer — no
             // browser print dialog. Any failure (no agent, printer off, wrong token) falls straight
             // through to the existing browser/PDF receipt, so a sale is never held up by hardware.
-            let printedOnPaper = false;
-            if (wantsReceipt) {
-              const agent = await agentAvailable();
-              if (agent) {
-                printedOnPaper = await printDocument(
-                  receiptToDocument(data, agent.columns ?? 42, false));
-              }
-            }
+            // ⚠ `printOnReceiptPrinter` — the ONE rule, shared with the receipt dialog and the
+            // sale-detail reprint (`receiptPrint.ts`, `till-design.md` D6b). This was the third inline
+            // copy of it, and the copy in `Receipt.tsx` was the one that sent receipts to the A4
+            // printer for four days after the same bug was fixed in the other dialog.
+            const printedOnPaper = wantsReceipt && await printOnReceiptPrinter(data);
             setPrintOnShow(wantsReceipt && !printedOnPaper);
             setDialog("receipt");
             if (printedOnPaper) setNotice("Receipt printed.");

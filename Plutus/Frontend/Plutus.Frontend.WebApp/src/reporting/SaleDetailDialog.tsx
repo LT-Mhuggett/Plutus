@@ -3,8 +3,7 @@ import DialogX from "../DialogX.tsx";
 import { fetchSaleDetail, type SaleDetail } from "../api.ts";
 import { gbp } from "../money.ts";
 import Receipt, { type ReceiptData } from "../till/Receipt.tsx";
-import { receiptToDocument } from "../till/receiptDoc.ts";
-import { agentAvailable, printDocument } from "../hardware.ts";
+import { printOnReceiptPrinter } from "../till/receiptPrint.ts";
 
 const p = (pounds: number) => Math.round(pounds * 100);
 
@@ -40,13 +39,13 @@ export default function SaleDetailDialog({ saleId, onClose }: { saleId: string; 
     setPrinting(true);
     setNotice("");
     try {
-      const agent = await agentAvailable();
-      if (agent) {
-        const ok = await printDocument(receiptToDocument(receiptData(d), agent.columns ?? 42, false));
-        if (ok) {
-          setNotice("Copy receipt printed.");
-          return;
-        }
+      // ⚠ `printOnReceiptPrinter` — the ONE rule (`till/receiptPrint.ts`, `till-design.md` D6b). This
+      // was the FIRST of three inline copies, and its own header above records finding the same fault
+      // here on 2026-08-17. The copy in `Receipt.tsx` kept sending receipts to the A4 printer for four
+      // more days, because nothing pointed from this fix to the others.
+      if (await printOnReceiptPrinter(receiptData(d))) {
+        setNotice("Copy receipt printed.");
+        return;
       }
       // No agent, or it refused — the browser dialog is the fallback, as before.
       setReprint(true);
