@@ -1220,7 +1220,15 @@ It needed none of step 24's employee work, so it went with the rest of the notic
 `support.tickets`, which every built-in role holds because a lone cashier with a dead till must be
 able to shout for help. Uses the operator token, which was already wired.
 
-### Step 26 — WP11 reporting + cross-till lookup · **10–12d** · ⚠ a rewrite, not a port
+### Step 26 — WP11 reporting + cross-till lookup · ~~10–12d~~ ✅ **SUBSTANTIALLY LANDED** · ⚠ a rewrite, not a port
+
+> ⚠⚠ **THIS HEADING STILL ADVERTISED 10–12 DAYS ON 2026-08-21 — CORRECTED.** §6 has recorded step 26
+> as landed since 2026-08-20, and the register agrees: **no reporting row in A0 or Part B is ⬜ for
+> MAUI.** Verified against the code — `ViewModels/MainTill/Reports/ReportsViewModel.cs` exists, the
+> portal-curated report menu is ✅ on **both** tills (Part B, 2026-08-19), and the cross-till path is
+> live (`TillViewModel` renders *"Sold on another till —"*). The reporting rows sit at ✅/🟡, and 🟡
+> means **hand-run**, not build. ⚠ **A day estimate in a heading is the last thing anybody updates and
+> the first thing anybody reads** — this is the fourth one found stale in two days (step 24, 26, 27, 21).
 
 > ✅ **"TABLES ONLY." Matt, 2026-08-16**, asked whether the rebuild would look and feel like the web
 > app. The honest answer was: **the figures yes, the interface no — and two parts were unspecified.**
@@ -1301,7 +1309,14 @@ it. Cheap to close now (stamp `StoreId` at ingest; have the rebuild read the sta
 expensive later. **Matt's call, taken: no changes for now** — one store is live so the exposure is
 nil. Recorded so it is a decision rather than a year-end discovery.
 
-### Step 27 — WP12 loyalty, then WP13 gift cards · **12–15d** · ⚠ the largest single block
+### Step 27 — WP12 loyalty, then WP13 gift cards · ~~12–15d~~ ✅ **LANDED** · ⚠ was the largest single block
+
+> ⚠⚠ **THIS HEADING STILL ADVERTISED 12–15 DAYS ON 2026-08-21 — CORRECTED.** §6 recorded it closed on
+> 2026-08-20 (*"step 27's body carries five ✅ CLOSED entries"*), and **no loyalty or gift-card row is ⬜
+> for MAUI** in either register. Verified: `LoyaltyViewModel` with `AddMemberCommand`, `SetTierCommand`
+> → `GetLoyaltyTiersAsync`, `ExecuteGrantCredit`, member history, `MemberCardPrint`; store credit is a
+> capped checkout tender (`TryRedeemStoreCreditAsync`); gift cards go through checkout, tenders and
+> printing. ⚠ **All 🟡 — built, never hand-run** (§G38 onward), which is the real remaining cost.
 
 > ⚠⚠ **SCOPE, SETTLED 2026-08-13 — read [`Loyalty Update across all tills.md`](Loyalty%20Update%20across%20all%20tills.md) before starting this
 > step.** Matt's loyalty design expands the programme far beyond this step: a configurable credit
@@ -1652,7 +1667,14 @@ exists and is shared) and the **app-update prompt** (`TillReleaseSettings` +
 `PlutusVersion.IsOlderThan` are live and advisory only — ⚠ **there is no self-update for MAUI**, by
 Matt's decision, so a till can say it is behind and nothing more).
 
-### Step 21 — two pieces still open · **1½d**
+### Step 21 — ⏸ **ONE piece open, and it waits on a DECISION, not a build**
+
+> ⚠⚠ **WAS *"two pieces still open · 1½d"* — corrected 2026-08-21.** Five of the six rows below are ✅.
+> The one that is not is `EnsureStoreAsync`, and **both things blocking it are in UNREACHABLE code** —
+> `AddEditViewModel:337` sits in a view hidden on 2026-08-10, and `ViewAllViewModel:1385` is in
+> `ExecuteUpdateItemStock`, whose command arg is bound to nothing (§0.3b verified both). **So there is
+> no 1½ days of work here.** It rides with L2/L3's deletions, which are Matt's call. ⚠ Calling it
+> "blocked" invites somebody to unblock it by rewriting dead code.
 
 ⚠ **Step 21 is marked ✅ and is not finished, so it is stated here rather than buried.** Verified
 against the tree 2026-08-12:
