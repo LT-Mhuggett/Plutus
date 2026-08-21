@@ -28,9 +28,19 @@ const DATA: ReceiptData = {
   payments: [{ name: "Cash", amountPence: 1000, changePence: 0 }],
 };
 
+/**
+ * ⚠⚠ `buildDocument` IS STUBBED, AND THE FIRST VERSION OF THIS FILE FAILED FOR NOT DOING SO — which
+ * is the useful part. `receiptToDocument` calls `api.businessName()`, which reads `localStorage`
+ * **unguarded** (its neighbour `getReceiptTemplateCached` two lines away is wrapped in try/catch), so
+ * formatting a receipt throws outside a browser. `printOnReceiptPrinter` catches everything, so three
+ * of these tests were quietly asserting the happy path while exercising the failure path — green would
+ * have been the *wrong* answer and red was the honest one. Stubbing the builder makes this a test of
+ * the DECISION, which is what the function is for.
+ */
 const deps = (over: Partial<ReceiptPrinterDeps>): ReceiptPrinterDeps => ({
   agentAvailable: vi.fn().mockResolvedValue({ columns: 42 }),
   printDocument: vi.fn().mockResolvedValue(true),
+  buildDocument: vi.fn().mockReturnValue({ ops: [], columns: 42, openDrawer: false }),
   ...over,
 } as ReceiptPrinterDeps);
 
@@ -83,33 +93,29 @@ describe("printOnReceiptPrinter", () => {
    * kicked once by `TillPage` when a cash sale committed. A drawer that opens when nothing is
    * happening teaches operators that the drawer opening means nothing.
    *
-   * Checked on the built document rather than on the call arguments, because the document is what
-   * reaches the agent — `openDrawer` is a top-level flag on `PrintDocument`, not an op in `ops`.
+   * Asserted on the ARGUMENT passed to the document builder — `receiptToDocument(data, columns,
+   * openDrawer)` — which is stronger than inspecting the document it returns: it pins the call this
+   * function makes, not the formatter's rendering of it.
    */
   it("never asks the agent to open the drawer", async () => {
-    let sent: unknown;
-    await printOnReceiptPrinter(DATA, deps({
-      printDocument: vi.fn().mockImplementation((doc: unknown) => { sent = doc; return Promise.resolve(true); }),
-    }));
+    const buildDocument = vi.fn().mockReturnValue({ ops: [], columns: 42, openDrawer: false });
 
-    expect((sent as { openDrawer: boolean }).openDrawer).toBe(false);
+    await printOnReceiptPrinter(DATA, deps({ buildDocument }));
+
+    expect(buildDocument).toHaveBeenCalledWith(DATA, 42, false);
   });
 
   /** ⚠ The agent reports its own paper width; a hardcoded 42 would wrap wrongly on a 32-col printer. */
   it("honours the width the agent reports, and defaults to 42 when it says nothing", async () => {
-    const widths: number[] = [];
-    const capture = vi.fn().mockImplementation((doc: unknown) => {
-      widths.push((doc as { columns: number }).columns);
-      return Promise.resolve(true);
-    });
+    const buildDocument = vi.fn().mockReturnValue({ ops: [], columns: 0, openDrawer: false });
 
     await printOnReceiptPrinter(DATA, deps({
-      agentAvailable: vi.fn().mockResolvedValue({ columns: 32 }), printDocument: capture,
+      agentAvailable: vi.fn().mockResolvedValue({ columns: 32 }), buildDocument,
     }));
     await printOnReceiptPrinter(DATA, deps({
-      agentAvailable: vi.fn().mockResolvedValue({}), printDocument: capture,
+      agentAvailable: vi.fn().mockResolvedValue({}), buildDocument,
     }));
 
-    expect(widths).toEqual([32, 42]);
+    expect(buildDocument.mock.calls.map((c) => c[1])).toEqual([32, 42]);
   });
 });

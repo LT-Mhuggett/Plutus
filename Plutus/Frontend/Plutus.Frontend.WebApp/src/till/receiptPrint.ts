@@ -27,13 +27,23 @@ import { agentAvailable, printDocument } from "../hardware.ts";
 import { receiptToDocument } from "./receiptDoc.ts";
 import type { ReceiptData } from "./Receipt.tsx";
 
-/** Injectable seams — the default is the real agent, and tests pass fakes. */
+/**
+ * Injectable seams — the default is the real agent, and tests pass fakes.
+ *
+ * ⚠ `buildDocument` is injectable for a reason worth recording: `receiptToDocument` calls
+ * `api.businessName()`, which reads `localStorage` **unguarded**, so merely formatting a receipt
+ * throws in any environment without one. That is fine in a browser and fatal in a vitest run — and
+ * because this function catches everything, the first version of these tests silently exercised the
+ * failure path while asserting the happy one. Injecting the builder keeps this a test of the
+ * DECISION (agent first, never throw, drawer off) rather than of the formatter.
+ */
 export interface ReceiptPrinterDeps {
   agentAvailable: typeof agentAvailable;
   printDocument: typeof printDocument;
+  buildDocument: typeof receiptToDocument;
 }
 
-const REAL: ReceiptPrinterDeps = { agentAvailable, printDocument };
+const REAL: ReceiptPrinterDeps = { agentAvailable, printDocument, buildDocument: receiptToDocument };
 
 /**
  * Try to put this receipt on the thermal printer.
@@ -67,7 +77,7 @@ export async function printOnReceiptPrinter(
     if (!agent) return false;
 
     return await deps.printDocument(
-      receiptToDocument(data, agent.columns ?? 42, false),
+      deps.buildDocument(data, agent.columns ?? 42, false),
     );
   } catch {
     return false;

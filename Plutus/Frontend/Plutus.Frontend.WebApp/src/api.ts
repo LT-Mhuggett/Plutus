@@ -994,8 +994,22 @@ export async function downloadSalesReport(from: Date, to: Date): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
-/** Receipts show the live business name; cache it so the Receipt component stays sync. */
-export const businessName = () => localStorage.getItem("plutus.businessName") || BUSINESS_NAME;
+/**
+ * Receipts show the live business name; cache it so the Receipt component stays sync.
+ *
+ * ⚠ GUARDED, 2026-08-21 — and it was the only unguarded `localStorage` read on the receipt path, two
+ * lines from `getReceiptTemplateCached`, which has always been wrapped. Found because it threw in a
+ * vitest run and `printOnReceiptPrinter`'s catch turned it into a silent *"nothing printed"*.
+ *
+ * ⚠ Reading `localStorage` can THROW, not merely return null — a browser configured to block site
+ * data raises on access. On this path that meant a receipt that quietly refused to print, with the
+ * money already taken. Falling back to the compiled-in name is right: the shop's own name is the one
+ * thing about a receipt we can be sure of.
+ */
+export const businessName = () => {
+  try { return localStorage.getItem("plutus.businessName") || BUSINESS_NAME; }
+  catch { return BUSINESS_NAME; }
+};
 
 // WP11.2: per-store receipt template (header/footer/toggles), fetched from the server and cached
 // so the Receipt component can read it synchronously. Read via the sales.ingest-gated endpoint.
