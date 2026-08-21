@@ -7,31 +7,28 @@
              x:Class="Plutus.Frontend.AppClient.Views.MainTill.Settings.SettingsView"
              Title="{Binding Title}"
              IconImageSource="{Binding Icon, Converter={StaticResource MaterialIconConverter}}">
+    <!--
+        ⚠⚠ ONE COLUMN, since 2026-08-21. Matt: *"Can the settings screen in MAUI be made to look like
+        the webtill please, so its consistent."* This was a TWO-COLUMN grid whose sections were dealt
+        left/right/left/right by arrival order — so "Printer" could sit beside "Till device" with no
+        relationship between them, and the reading order changed with the window width.
+
+        The web till is a single column of collapsible groups, closed by default, "so the page reads as
+        a table of contents" (its own comment). This now is too.
+
+        ⚠ The orientation-swapping code-behind went with it: it existed only to fold two columns into
+        one on a narrow window. One column needs no such thing, and that is the point — a layout with
+        no modes has no mode to get wrong.
+    -->
     <ContentPage.Content>
         <ScrollView>
-            <Grid Margin="5,0">
-                <!--Grid Definitions-->
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="5*"/>
-                    <ColumnDefinition Width="5*"/>
-                </Grid.ColumnDefinitions>
-                <!--End of Grid Definitions-->
-                <!--Content-->
-                <!--Left Column-->
-                <StackLayout x:Name="LeftColumn" Grid.Column="0" Grid.Row="0"/>
-                <!--End of Left Column-->
-
-                <!--Right Column-->
-                <StackLayout x:Name="RightColumn" Grid.Column="1" Grid.Row="0"/>
-                <!--End of Right Column-->
-                <Label Grid.Row="3" Grid.Column="0" FontSize="Caption" Text="{Binding Version}"/>
-            </Grid>
+            <!-- ⚠ MaximumWidth, not Fill: settings read badly as full-width lines on a 24" till
+                 screen, and the web till's own panel is width-capped for the same reason. -->
+            <VerticalStackLayout x:Name="SectionsColumn"
+                                 Margin="10,6"
+                                 Spacing="0"
+                                 MaximumWidthRequest="720"
+                                 HorizontalOptions="Start"/>
         </ScrollView>
     </ContentPage.Content>
 </ContentPage>

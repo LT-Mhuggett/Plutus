@@ -1,4 +1,6 @@
 using CommonPOSLibrary.Exceptions;
+using Microsoft.Maui;
+using Microsoft.Maui.Controls;
 using CustomViews.Structs;
 using Plutus.Client.Core;
 using Plutus.Frontend.AppClient.Helpers.Compatibility;
@@ -40,7 +42,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
         }
         #endregion
 
-        public SettingsViewModel(StackLayout leftColumn, StackLayout rightColumn)
+        public SettingsViewModel(VerticalStackLayout column)
         {
             Title = "Settings".Translate();
             Icon = "md-settings";
@@ -61,109 +63,211 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
             // a portal-provisioned till it crashed the app rather than refusing (same fault as
             // "Change printer", below), and what it restored was a legacy file no screen reads any
             // more.
-            var buttonsAndSubHeadings = new List<Tuple<string, string>>
+            // ⚠⚠ ONE COLUMN OF COLLAPSIBLE SECTIONS, as the web till has — see `BuildSections`.
+            // This was ~90 lines of tuple list plus a loop that dealt sections left/right by
+            // arrival order, so "Printer" could land beside "Till device" with no relationship
+            // between them and the reading order changed with the window width.
+            BuildSections(column);
+        }
+
+        /// <summary>
+        /// Build the Settings page as the WEB TILL builds it — Matt, 2026-08-21: *"Can the settings
+        /// screen in MAUI be made to look like the webtill please, so its consistent."*
+        ///
+        /// ⚠⚠ SAME SECTIONS, SAME ORDER, SAME ONE-LINE DESCRIPTIONS, ALL CLOSED. `SettingsPage.tsx`
+        /// has **Till · Checkout · Printer · Hardware · Database · Till device · Environment**, each a
+        /// `&lt;details&gt;` with a description in its `&lt;summary&gt;`, closed by default *"so the page reads as
+        /// a table of contents"*. The section NAMES were aligned on 2026-08-18 and nothing else was:
+        /// this screen was a flat, always-open, two-column list of bare bold headings.
+        ///
+        /// ⚠ **Help** is MAUI-only and last. The web till reaches support from a **❓ in the app bar**,
+        /// which MAUI has no equivalent of — so it is a section here rather than a missing one there.
+        ///
+        /// ⚠⚠ THREE SECTIONS ARE NEW, AND THEY ARE NOT PADDING. Hardware, Database and Environment
+        /// existed only on the web till, so an operator moving between the two met a screen that was
+        /// missing a third of its answers — including *"is the agent paired"* and *"what version is
+        /// this"*, which are the two questions somebody asks before ringing for help.
+        ///
+        /// ⚠ Where MAUI's honest answer DIFFERS from the web till's, it says so rather than copying the
+        /// wording. **Database** is the clearest case: the web till says it has no device database
+        /// because the server is the source of truth. MAUI has a real local SQLite store, and telling a
+        /// shop otherwise would be a lie about where their unsynced sales are sitting.
+        /// </summary>
+        private void BuildSections(VerticalStackLayout column)
+        {
+            // ── Till ──────────────────────────────────────────────────────────────────────────────
+            var till = new Controls.SettingsSection(
+                "Till", "How the till screen behaves — the bag buttons it offers");
+
+            // ⚠ READ-ONLY (ruling 2026-08-19). This was "Quick-sell bag item", a per-device barcode an
+            // operator typed in — so a five-till shop set it five times and could offer only ONE bag
+            // when a shop normally sells a single-use one AND a bag for life. Bags come from the portal
+            // and are pushed to every till, exactly like the colour scheme.
+            AddAction(till, "Carrier bags", nameof(CarrierBagsInfoCommand));
+
+            // ── Checkout ──────────────────────────────────────────────────────────────────────────
+            var checkout = new Controls.SettingsSection(
+                "Checkout", "What happens after each sale — the receipt prompt");
+
+            // ⚠⚠ SWITCHES, NOT BUTTONS — §5c item 9. These were `DisplayAlert("Hmm", …, "Yes", "No")`,
+            // so the only way to learn whether "ask for receipt" was ON was to open a dialog that
+            // offered to change it, and pressing the wrong button changed a checkout behaviour with no
+            // undo.
+            checkout.Add(BuildToggle("AskForReceiptOption".Translate(), nameof(AskForReceipt)));
+
+            // ── Printer ───────────────────────────────────────────────────────────────────────────
+            var printer = new Controls.SettingsSection(
+                "Printer", "The receipt this till prints — and a test print on paper");
+
+            AddAction(printer, "Receipt printer", nameof(ChangePrinterCommand));
+            AddAction(printer, "PrintTestPage".Translate(), nameof(PrintTestPageCommand));
+
+            // ── Hardware ──────────────────────────────────────────────────────────────────────────
+            //
+            // ⚠⚠ NEW ON MAUI. The web till has had this since the agent shipped; MAUI printed through
+            // the same agent and never said so anywhere on screen. ⚠ The DRAWER toggle moves here from
+            // Checkout, where MAUI had it — the web till groups the drawer with the hardware that
+            // opens it, and "does this till have a cash drawer" is a fact about the PC, not about what
+            // happens after a sale.
+            var hardware = new Controls.SettingsSection(
+                "Hardware", "Receipt printer & cash drawer — the Plutus Till Agent on this PC");
+
+            hardware.Add(BuildToggle("ChangeCashDrawerExists".Translate(), nameof(TryCashDrawer)));
+
+            // ⚠ ASKED, NOT ASSUMED, and asked ASYNCHRONOUSLY — same rule as the printer name below.
+            // A confident "no agent" before anything has been asked is the 1.99.0 fault
+            // ("The Printer says 'No printer chosen' yet it is selected and prints correctly").
+            var agentLine = MutedLabel("Checking the hardware agent…");
+            hardware.Add(agentLine);
+            _ = FillAgentValueAsync(agentLine);
+
+            // ── Database ──────────────────────────────────────────────────────────────────────────
+            //
+            // ⚠⚠ MAUI'S ANSWER IS THE OPPOSITE OF THE WEB TILL'S, AND COPYING ITS WORDING WOULD BE A
+            // LIE. The web till says it has no device database because the server is the single source
+            // of truth. This till has a real local SQLite store holding the catalogue, the roster and —
+            // the part that matters — **sales that have not reached the server yet**. Telling a shop
+            // there is no local data would be telling them their unsynced takings live somewhere they
+            // do not.
+            var database = new Controls.SettingsSection(
+                "Database", "Where this till's data lives");
+
+            database.Add(MutedLabel(
+                "This till keeps its own database on this PC — the catalogue, the staff roster, and any "
+                + "sales taken while offline. Sales are pushed to Plutus as soon as it can reach it; "
+                + "until then this machine is the only copy."));
+            database.Add(MutedLabel(
+                "⚠ The queue of unsent sales is under Till device below. If it is not empty, do not "
+                + "wipe or re-image this PC."));
+
+            // ── Till device ───────────────────────────────────────────────────────────────────────
+            //
+            // ⚠⚠ THIS IS WHAT THE "PLUTUS" TAB WAS. Removed as a tab on 2026-08-18 (§5c item 9); the
+            // web till calls it Till device and so does this. One button, opening the same screen —
+            // flattening its five diagnostics into a button list would have lost the thing that makes
+            // them useful, which is a failure pointing at ONE layer rather than at "the network".
+            var device = new Controls.SettingsSection(
+                "Till device", "This till's enrolment — identity, sync queue, diagnostics, un-enrol");
+
+            AddAction(device, "Connection, enrolment & diagnostics", nameof(OpenTillDeviceCommand));
+
+            // ── Environment ───────────────────────────────────────────────────────────────────────
+            //
+            // ⚠⚠ NEW ON MAUI, and it is the section somebody reads out down the phone. The version was
+            // a caption in the corner of the page; who is signed in was nowhere at all.
+            var environment = new Controls.SettingsSection(
+                "Environment", "Who's signed in, and this app's build");
+
+            var operatorName = App.GetViewModel()?.SignedInOperator?.DisplayName;
+            environment.Add(Fact("Signed in as", string.IsNullOrWhiteSpace(operatorName) ? "—" : operatorName));
+
+            // ⚠ `PlutusVersion.Current`, NOT `AppInfo.VersionString`. The latter reads the package
+            // manifest, which is deliberately 0.0.0.0 so the build can substitute the real number —
+            // so on a packaged build it answers 0.0.0.0 and on an unpackaged one it answers something
+            // else again. This is the number the heartbeat sends, which is the one support needs.
+            environment.Add(Fact("Till version", SharedKernel.PlutusVersion.Current));
+
+            // ── Help ──────────────────────────────────────────────────────────────────────────────
+            //
+            // ⚠ OP4/WP6.3 — the till's way of asking Plutus for help and READING THE REPLY. MAUI-only
+            // as a section: the web till puts it behind a ❓ in the app bar, which MAUI has no
+            // equivalent of.
+            var help = new Controls.SettingsSection(
+                "Help", "Ask Plutus for help, and read the reply");
+
+            AddAction(help, "Help and support", nameof(HelpAndSupportCommand));
+
+            // ⚠ The web till's order exactly. ⚠ An EMPTY section is a heading that lies about having
+            // content, so one is never added — today none can be, but a permission-gated action would
+            // make that possible and the guard costs nothing.
+            foreach (var section in new[] { till, checkout, printer, hardware, database, device, environment, help })
             {
-                // ⚠ "Receipt printer" now opens the AGENT flow, not the Windows device picker.
-                // Matt, 2026-08-10: *"I still cannot see a printer, it says wifi is turned off …
-                // The webtill can see the receipt printer fine."* Both true, same cause — see
-                // `ExecuteChangePrinter`. The OPOS picker is still reachable from inside that flow
-                // for a till with a genuine PointOfService device; it is no longer the front door.
-                // ⚠⚠ THE SECTION NAMES ARE THE WEB TILL'S — Matt, 2026-08-18 (§5c item 9): *"most of
-                // the MAUI Plutus tab would move into settings"*. `SettingsPage.tsx` has **Till,
-                // Checkout, Printer, Hardware, Database, Till device, Environment**; MAUI had Printer,
-                // Checkout and Help and nothing else, so the two screens shared almost no vocabulary.
-                //
-                // ⚠ TILL COMES FIRST, as it does there — it is the section about the screen the
-                // operator is actually standing at.
-                Tuple.Create("Till", ""),
-                // ⚠⚠ READ-ONLY NOW (ruling 2026-08-19). This was "Quick-sell bag item", a per-device
-                // barcode an operator typed in — so a five-till shop set it five times and could offer
-                // only ONE bag when a shop normally sells a single-use one AND a bag for life. Bags come
-                // from the portal and are pushed to every till, exactly like the colour scheme.
-                Tuple.Create("Carrier bags", "CarrierBagsInfoCommand"),
-
-                Tuple.Create("Printer", ""),
-                Tuple.Create("Receipt printer", "ChangePrinterCommand"),
-                Tuple.Create("PrintTestPage".Translate(), "PrintTestPageCommand"),
-                Tuple.Create("CheckoutOptions", ""),
-                // ⚠⚠ THE TWO CHECKOUT OPTIONS ARE NOW SWITCHES, NOT BUTTONS — §5c item 9's remaining
-                // half. They were `DisplayAlert("Hmm", "…", "Yes", "No")`, so the only way to learn
-                // whether "ask for receipt" was ON was to open a dialog that offered to change it, and
-                // pressing the wrong button changed a checkout behaviour with no undo.
-                //
-                // ⚠ `toggle:` IN THE SECOND SLOT, so they are built INSIDE this section's stack by the
-                // same loop. Appending them after the loop instead left "Checkout options" as a heading
-                // with nothing under it and the switches floating in whichever column was shorter.
-                Tuple.Create("AskForReceiptOption".Translate(), "toggle:" + nameof(AskForReceipt)),
-                Tuple.Create("ChangeCashDrawerExists".Translate(), "toggle:" + nameof(TryCashDrawer)),
-
-                // ⚠ OP4/WP6.3 — the till's way of asking Plutus for help, and of READING THE REPLY.
-                // The web till has had this since WP6.3; MAUI had no route to support at all.
-                // ⚠⚠ WHAT THE "PLUTUS" TAB WAS. The web till calls this **Till device** — this
-                // browser's enrolment as a till: identity, sync queue, un-enrol. MAUI had it as a
-                // whole tab; it is one button here, opening the same screen.
-                Tuple.Create("Till device", ""),
-                Tuple.Create("Connection, enrolment & diagnostics", "OpenTillDeviceCommand"),
-
-                Tuple.Create("Help", ""),
-                Tuple.Create("Help and support", "HelpAndSupportCommand"),
-                Tuple.Create("","")
-            };
-            StackLayout stack = null;
-            int? n = null;
-            for (int i = 0; i < buttonsAndSubHeadings.Count; i++)
-            {
-                if (buttonsAndSubHeadings[i].Item2 == "")
-                {
-                    if (n == null)
-                        n = 0;
-                    else
-                    {
-                        if (n % 2 == 0)
-                            leftColumn.Children.Add(stack);
-                        else
-                            rightColumn.Children.Add(stack);
-                        n++;
-                    }
-                    stack = new StackLayout();
-                    var heading = new Label
-                    {
-                        Text = buttonsAndSubHeadings[i].Item1,
-                        FontSize = new Label().FontSize,
-                        FontAttributes = FontAttributes.Bold
-                    };
-
-                    // ⚠⚠ `Colors.LightGray` WAS HARD-CODED HERE, and it is the same fault that made
-                    // Store Information unreadable (build 1.74.0): light grey text that survives on
-                    // exactly one background. Under a dark scheme it is fine; under the stock light
-                    // one these headings were nearly invisible.
-                    //
-                    // ⚠ `ThemeInkMuted` follows the portal's scheme like everything else since
-                    // §5c item 10 — muted is a ROLE, not a colour somebody typed.
-                    heading.SetDynamicResource(Label.TextColorProperty, "ThemeInkMuted");
-                    stack.Children.Add(heading);
-                }
-                else if (buttonsAndSubHeadings[i].Item2.StartsWith("toggle:", StringComparison.Ordinal))
-                {
-                    stack.Children.Add(BuildToggle(
-                        buttonsAndSubHeadings[i].Item1,
-                        buttonsAndSubHeadings[i].Item2["toggle:".Length..]));
-                }
-                else
-                {
-                    var button = new Button { Text = buttonsAndSubHeadings[i].Item1 };
-                    button.SetBinding(Button.CommandProperty, buttonsAndSubHeadings[i].Item2);
-                    stack.Children.Add(button);
-
-                    // ⚠⚠ THE CURRENT VALUE, UNDER THE BUTTON THAT CHANGES IT — §5c item 9's other half.
-                    // "Quick-sell bag item" and "Receipt printer" both opened a picker and told you
-                    // nothing about what was already chosen, so the only way to read a setting was to
-                    // start changing it. The web till shows the live value beside every control.
-                    var live = LiveValueFor(buttonsAndSubHeadings[i].Item2);
-                    if (live is not null) stack.Children.Add(live);
-                }
+                if (!section.IsEmpty) column.Children.Add(section);
             }
         }
+
+        /// <summary>
+        /// A button that runs a command, with the CURRENT VALUE under it where there is one.
+        ///
+        /// ⚠⚠ THE LIVE VALUE IS §5c ITEM 9'S OTHER HALF. "Quick-sell bag item" and "Receipt printer"
+        /// both opened a picker and told you nothing about what was already chosen, so the only way to
+        /// read a setting was to start changing it. The web till shows the value beside every control.
+        /// </summary>
+        private void AddAction(Controls.SettingsSection section, string text, string commandName)
+        {
+            var button = new Button { Text = text };
+            button.SetBinding(Button.CommandProperty, commandName);
+            section.Add(button);
+
+            var live = LiveValueFor(commandName);
+            if (live is not null) section.Add(live);
+        }
+
+        /// <summary>Label and value on one line — the web till's `&lt;dl class="env-info"&gt;`.</summary>
+        private static View Fact(string label, string value)
+        {
+            var grid = new Grid { ColumnSpacing = 8 };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(3, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(5, GridUnitType.Star) });
+
+            var name = new Label { Text = label, FontSize = 12 };
+            name.SetDynamicResource(Label.TextColorProperty, "ThemeInkMuted");
+
+            var val = new Label { Text = value, FontSize = 12 };
+            val.SetDynamicResource(Label.TextColorProperty, "ThemeInk");
+
+            grid.Add(name, 0, 0);
+            grid.Add(val, 1, 0);
+            return grid;
+        }
+
+        /// <summary>
+        /// Ask the agent whether it is there, and say so.
+        ///
+        /// ⚠ NEVER THROWS and never blocks the screen — this runs fire-and-forget from the constructor.
+        /// ⚠ "Not paired" is a real answer and a useful one; "checking…" for ever is not, which is why
+        /// every path below writes something.
+        /// </summary>
+        private static async Task FillAgentValueAsync(Label label)
+        {
+            try
+            {
+                var status = await Services.Printing.TillAgentPrinting.ResolveAsync();
+
+                label.Text = status is null
+                    ? "No hardware agent is paired with this PC — receipts print through Windows instead."
+                    : $"Agent v{status.AgentVersion} is paired"
+                      + (string.IsNullOrWhiteSpace(status.PrinterName)
+                          ? ", with no printer chosen yet."
+                          : $", printing to {status.PrinterName}.");
+            }
+            catch (Exception ex)
+            {
+                Services.Analytics.CrashLog.Write("SettingsViewModel.FillAgentValue", ex);
+                label.Text = "Couldn't check the hardware agent.";
+            }
+        }
+
 
         /// <summary>
         /// A muted line showing what a setting is CURRENTLY set to, under the button that changes it.

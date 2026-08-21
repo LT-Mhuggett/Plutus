@@ -109,7 +109,7 @@ soft ✅** — treat it as unknown.
 
 | | |
 |---|---|
-| **Run** | ✅ `D:\tmp\plutus-till-1.114.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-21**, artefact reads **1.114.0** — verified IN the assembly, with no stale 1.112.0 or 1.110.0 string anywhere in it (MSBuild caches the evaluated version, so a bump can otherwise re-emit the previous one). ⚠ **The ONLY build on the box** — 1.110.0 deleted, so the folder listing is the truth. ⚠ **Launched and ran 25s with no startup crash and no crash log**, which is the most an automated check can say: XAML and resource failures surface **on navigation**, and this repo has no automated coverage of any MAUI screen. ⚠⚠ **NEW IN THIS BUILD: §G74** — an item's barcodes and its history (WP10), reached from **Inventory → View all items → tap a row → Barcodes & history…**. It needs a **Supervisor** login for §G74a–f and a **Cashier** for §G74g. ⚠ It also carries §G69's MAUI half (the card-flow hint on checkout) and §G73d (item editing refused for a cashier). ⚠ It carries the **supervisor-and-above item gate**, so **sign out and in** before testing — a login token caches the whole permission set for 12h. ⚠ **Unpackaged, so it shares no data with any MSIX you have installed**: "this till isn't enrolled" on first run is expected, not a bug. ⚠ **What to run, in what order: see START HERE at the top.** |
+| **Run** | ✅ `D:\tmp\plutus-till-1.115.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-21**, artefact reads **1.115.0** — verified IN the assembly, with no stale 1.112.0 or 1.110.0 string anywhere in it (MSBuild caches the evaluated version, so a bump can otherwise re-emit the previous one). ⚠ **The ONLY build on the box** — 1.110.0 deleted, so the folder listing is the truth. ⚠ **Launched and ran 25s with no startup crash and no crash log**, which is the most an automated check can say: XAML and resource failures surface **on navigation**, and this repo has no automated coverage of any MAUI screen. ⚠⚠ **NEW IN THIS BUILD: §G74** — an item's barcodes and its history (WP10), reached from **Inventory → View all items → tap a row → Barcodes & history…**. It needs a **Supervisor** login for §G74a–f and a **Cashier** for §G74g. ⚠ It also carries §G69's MAUI half (the card-flow hint on checkout) and §G73d (item editing refused for a cashier). ⚠ It carries the **supervisor-and-above item gate**, so **sign out and in** before testing — a login token caches the whole permission set for 12h. ⚠ **Unpackaged, so it shares no data with any MSIX you have installed**: "this till isn't enrolled" on first run is expected, not a bug. ⚠ **What to run, in what order: see START HERE at the top.** |
 | **Deployed** | ✅ **ALL LIVE 2026-08-20** — backend **1.19.0** · portal **1.15.0** · web till **1.28.0**, each verified on the artefact (right host, real byte size, and a string only that change introduced — not a 200). ✅ **§G62–§G66 are all testable now.** ⚠⚠ **But two ordering rules first:** **§G65b** before §G64 (every discount rule has `AutoApply = 0`, so nothing discounts until one is ticked *Apply it automatically* — correct behaviour, not a fault), and **§G66a** before §G66c–h (nothing to scan until a barcode exists). |
 | **Backend 1.19.0 deploy record** | ✅ Verified on four axes: swagger 200 · junk device id → **401 "Device not enrolled or revoked."** (the axis that proves the DB path; a 500 would mean schema and model disagree) · `GET /api/v1/items/barcodes` → **401, not 404** · and the MIGRATION checked as a TABLE, not a history row: `ItemBarcodes` exists with its six columns and **`IX_ItemBarcodes_TenantId_Code` is UNIQUE**. ⚠ **20,474 items before and after** — an additive migration touched nothing. Rollback `~/PLUTUS/backend.pre-1.19.0`; pre-deploy dump `plutus-20260820.sql.gz` verified at **76.5 MB uncompressed, 103 tables** (and confirmed to contain NO `ItemBarcodes` table, so the before/after is real). |
 | **Web till deploy record** | ✅ **1.27.0 live**, verified on the four axes the runbook demands rather than a 200: the right host (`plutus.…`, not `admin.plutus.…`) names `index-BKSYpWKu.js` · the bundle is **377,813 bytes**, not the ~981-byte SPA fallback that answers 200 for anything · the deployed **CSS contains `till-locked`**, a string only this change introduced · the previous bundle now returns **981 bytes**, so it really was replaced. No unsubstituted `__APP_VERSION__`/`__BUILD_TIME__` in the built OR the deployed bundle (the 2026-08-09 blank-portal fault). Rollback: `/srv/apps/PLUTUS/web/current.pre-1.27.0`. |
@@ -139,6 +139,22 @@ project.
 
 ---
 
+> ## ⚠⚠ A VERSION IN A HEADING IS PROVENANCE, NOT AN INSTRUCTION
+>
+> Matt, 2026-08-21: *"A lot of these tests are stale."* He was right, and a chunk of it was version
+> numbers: §G68 still sent people to `plutus-till-1.110.0`, a folder deleted when the next build was
+> made, and every build after that made three more headings wrong.
+>
+> **So the convention, from here:**
+>
+> | | |
+> |---|---|
+> | A **section heading** says *"written for till 1.113.0"* | That is HISTORY. It never needs updating, and a test written for an old build is not a stale test — the check usually still applies |
+> | The **Run** line at the top | That is the TRUTH. It names the one build on the box, and it is the only place that has to change when a build is made |
+>
+> ⚠ **Do not repoint headings at each new build.** That is what created the drift: four places to
+> update, three of them forgotten. If a check genuinely no longer applies — because the screen it names
+> has gone — say so **in the section**, as §G68 now does about the Plutus tab and Statistics.
 <!-- CONTENTS:BEGIN — generated by scratchpad/mkindex.pl; edit the headings, not this list -->
 
 ## Contents — every test, in order
@@ -182,14 +198,14 @@ project.
 | **G27** | A removed till must stop — and a REQUEST must not | **G65** | The portal's Discounts screen |
 | **G28** | Users — add somebody, and set a password | **G66** | Multi-barcode — one item, several barcodes |
 | **G29** | The portal should now know which agent this till has | **G67** | Editing an item's barcodes, and its change history |
-| **G30** | The roster moved into the till database | **G68** | Syncfusion is gone |
+| **G30** | The roster moved into the till database | **G68** | Syncfusion is gone — *written for till 1.110.0* |
 | **G31** | The portal's theme — and it must MATCH the web till | **G69** | The checkout says which card machine to use |
 | **G32** | Show a receipt on screen | **G70** | The web till's login screen says whether Plutus is reachable |
 | **G34** | The Reports tab | **G71** | Every portal dialog has a ✕ |
 | **G35** | Refund and price-adjust | **G72** | PASSED — Matt, 2026-08-21. A receipt goes to the RECEIPT printer |
 | **G36** | The ✕ on every dialog | **G73** | Editing an item needs a supervisor — backend + web till 1.32.0 + MAUI … |
-| **G37** | Adjusting a price | **G74** | An item's barcodes and its history, on MAUI |
-| **G38** | Adding a member |  |  |
+| **G37** | Adjusting a price | **G74** | An item's barcodes and its history, on MAUI — *written for till 1.113.… |
+| **G38** | Adding a member | **G75** | MAUI's Settings screen looks like the web till's — *written for till 1… |
 
 <!-- CONTENTS:END -->
 
@@ -4222,7 +4238,7 @@ item"* offer, unchanged.
 
 ### G66d. The MAUI till — the same alias, the same item
 
-⚠ Run `D:\tmp\plutus-till-1.114.0\Plutus.Frontend.AppClient.exe` and give it a minute on first launch
+⚠ Run `D:\tmp\plutus-till-1.115.0\Plutus.Frontend.AppClient.exe` and give it a minute on first launch
 (the v7 catalogue re-sync above).
 
 Scan `TEST-ALIAS-1`.
@@ -4468,9 +4484,9 @@ it if it gets in your way and it can be closed in one pass.
 - ✅ **Bulk edit**, the **Bin**, **Restore**, **Categories** — untouched.
 - ✅ A till **scan** of an ordinary barcode — untouched.
 
-## G68. Syncfusion is gone — **now on till 1.114.0**, `D:\tmp\plutus-till-1.114.0\Plutus.Frontend.AppClient.exe`
+## G68. Syncfusion is gone — *written for till 1.110.0*
 
-> ⚠ **Written for 1.110.0, which has been DELETED.** Every check still applies unchanged — 1.114.0 carries the same Syncfusion-free build plus later work — but run it against **1.113.0**, the only build on the box.
+> ⚠ **Written for 1.110.0, which has been deleted.** Every check still applies unchanged — every build since carries the same Syncfusion-free build plus later work — but run it against **1.113.0**, the only build on the box.
 
 > Matt, 2026-08-20: *"if the packaging of it removes all you see, what about removing syncfusion now?
 > Worth it?"* — yes, and it is done. **264 MB → 169 MB (−36%).**
@@ -4490,15 +4506,15 @@ it if it gets in your way and it can be closed in one pass.
 > 2019-01-23** into the platform, so the portal has all of it. See `MAUI-retrofit.md` §10 L4.
 >
 > ⚠ **Delete any older build folder you still have.** 1.109.0 was removed from the box on purpose so
-> there is no ambiguity about which exe you are running. Check **Settings → Till device** reads **1.114.0** before
+> there is no ambiguity about which exe you are running. Check **Settings → Till device** reads **1.115.0** before
 > you report anything from this section.
 
-### G68a. It starts, and it says 1.114.0
+### G68a. It starts, and it says 1.115.0
 
 Run the exe. **✅ Expected:** it opens to the login screen as usual.
 
 Sign in, then **Settings → Till device → Connection, enrolment & diagnostics** → confirm the version
-reads **1.114.0**.
+reads **1.115.0**.
 
 > ⚠⚠ **THERE IS NO "PLUTUS TAB" ANY MORE — this step said there was until 2026-08-21.** It was
 > removed on 2026-08-18 (§5c item 9, Matt: *"most of the MAUI Plutus tab would move into settings"*)
@@ -4580,7 +4596,7 @@ break something arbitrarily far from it**, and a sale is the only test that cove
 
 ### G68e. The build folder — what Matt actually asked about
 
-Look at `D:\tmp\plutus-till-1.114.0`.
+Look at `D:\tmp\plutus-till-1.115.0`.
 
 **✅ Expected: 169 MB · 268 files in the root · 88 subfolders** (was 264 MB / 299 / 121).
 
@@ -4903,10 +4919,10 @@ curl -i -X PUT "https://plutus.huggett.dscloud.me/api/Item/<some-item-id>" \
 **✅ Expected: `403`.** ⚠ A `401` means the token is wrong, not that the gate worked — the two are easy
 to confuse and only one of them proves anything. (Pinned in CI by
 `A_cashier_cannot_edit_an_item_and_a_supervisor_can`, but a live check is worth one minute.)
-## G74. An item's barcodes and its history, on MAUI — **till 1.114.0** (WP10)
+## G74. An item's barcodes and its history, on MAUI — *written for till 1.113.0* (WP10)
 
 > **Two A0 rows MAUI was ⬜ on** while the portal and the web till had them from 2026-08-19/20. ⚠ It
-> is on **1.114.0**, the only build on the box.
+> is on **1.115.0**, the only build on the box.
 >
 > ⚠⚠ **1.113.0 SHOWED THE BARCODES AND NOT THE HISTORY** — Matt, 2026-08-21: *"I cannot see an Item history in MAUI. I can in the webtill."* He was right and the cause was layout, not data: the history sits in a `Star` row, and a `Star` row inside a Mopups popup with no bounded height resolves to **zero**. `CustomerDetailAlert` has five lines of `OnSizeAllocated` that cap it; this dialog was copied from it and that was the one thing not copied. **A layout that fails this way looks exactly like missing data.** Fixed in 1.114.0 — §G74b is the check.
 >
@@ -5014,6 +5030,94 @@ both believe they had succeeded.
 
 ⚠ **The till must still SELL normally with the network down.** If this screen's failure affects
 scanning or checkout at all, that is a serious bug — say so immediately.
+
+## G75. MAUI's Settings screen looks like the web till's — *written for till 1.115.0*
+
+> **Matt, 2026-08-21:** *"Can the settings screen in MAUI be made to look like the webtill please, so
+> its consistent."*
+>
+> ⚠ **Open both side by side for this one.** The whole test is whether they read the same; checking
+> MAUI alone tells you it looks tidy, which is not the question.
+
+### G75a. It reads as a table of contents
+
+**MAUI → Settings.**
+
+**✅ Expected:** a **single column** of **eight collapsed sections**, each a header row with a small
+grey line under it saying what is in it:
+
+| | Section | The line under it says roughly |
+|---|---|---|
+| 1 | **Till** | the bag buttons it offers |
+| 2 | **Checkout** | what happens after each sale |
+| 3 | **Printer** | the receipt this till prints, and a test print |
+| 4 | **Hardware** | receipt printer & cash drawer — the agent on this PC |
+| 5 | **Database** | where this till's data lives |
+| 6 | **Till device** | enrolment, sync queue, diagnostics, un-enrol |
+| 7 | **Environment** | who's signed in, and this app's build |
+| 8 | **Help** | ask Plutus for help |
+
+⚠⚠ **EVERYTHING SHOULD BE SHUT WHEN YOU ARRIVE.** If sections are already expanded, the change has not
+taken. ⚠ **TWO COLUMNS IS THE OLD SCREEN** — say so if you see one.
+
+⚠ Now open the **web till → Settings**. **The first seven names and their order must match exactly.**
+**Help** is MAUI-only (the web till has a **❓** in its app bar instead) and is last.
+
+### G75b. They open and shut
+
+Tap a header. **✅ Expected:** the chevron turns from **▸** to **▾** and the controls appear
+underneath. Tap again and it shuts.
+
+⚠ **Tab to a header and press Space or Enter.** ✅ It must open — the headers are real buttons, not
+tappable boxes, precisely so a keyboard-and-scanner till can reach them.
+
+### G75c. ⚠ The three sections MAUI has never had
+
+**Hardware** → ✅ a line naming the agent version and the printer it prints to, e.g. *"Agent v1.4.0 is
+paired, printing to Star TSP143"*. With no agent: *"No hardware agent is paired with this PC —
+receipts print through Windows instead."*
+
+⚠⚠ **IT MUST NOT SAY "no agent" BEFORE IT HAS ASKED.** It should read *"Checking the hardware agent…"*
+for a moment first. A confident wrong answer about working hardware is the 1.99.0 printer bug again.
+
+**Database** → ✅ says this till keeps its own database on this PC — catalogue, roster, and sales taken
+offline — and warns not to wipe the PC while the queue is not empty.
+
+⚠ **The web till says the OPPOSITE** ("no device database, the server is the source of truth") **and
+that is correct for it.** Both are true of their own till. If MAUI ever says it has no local database,
+that is wrong and dangerous — it is where unsynced takings live.
+
+**Environment** → ✅ **Signed in as** *(your name)* and **Till version** *1.115.0*.
+
+⚠ The version used to be a caption in the page corner and who was signed in was nowhere at all. These
+are the two things somebody reads out when they ring for help.
+
+### G75d. Nothing that worked has stopped working
+
+Open each section and check its controls still do what they did:
+
+- **Till → Carrier bags** — names the bags this till offers, or says none are set up
+- **Checkout → Ask "print receipt?"** — a **switch**, showing its current state
+- **Printer → Receipt printer** — opens the agent flow; the line under it names the current printer
+  (*"Checking the printer…"* first)
+- **Printer → Print test page** — prints
+- **Hardware → cash drawer** — a switch. ⚠ **It MOVED here from Checkout**, matching the web till,
+  which groups the drawer with the hardware that opens it
+- **Till device** — opens the connection/enrolment/diagnostics screen (what the old Plutus tab was)
+- **Help → Help and support** — raises a ticket and shows replies
+
+⚠⚠ **If any of these is missing, that is a regression, not a tidy-up.** The screen was rebuilt, and a
+control that fell out would look exactly like one that was never there.
+
+### G75e. It survives a resize
+
+Make the window narrow, then wide again.
+
+**✅ Expected:** nothing jumps between columns — there is only one — and the sections stay open or shut
+as you left them.
+
+⚠ The old screen re-parented a whole column into a new row below a certain width. That code is gone
+with the second column; this step is here to confirm nothing was left behind that still tries.
 
 # §W — WEB till checks
 
