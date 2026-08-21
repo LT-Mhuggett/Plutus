@@ -3,6 +3,7 @@ import { downloadSalesReport, fetchSales, type Sale } from "./api.ts";
 import { gbp } from "./money.ts";
 import SaleDetailDialog from "./reporting/SaleDetailDialog.tsx";
 import DataTable from "./DataTable.tsx";
+import { apiDateTime } from "./apiTime.ts";
 
 const dateInput = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -97,7 +98,7 @@ export default function StatisticsPage() {
               whole range is browsable without exporting. */}
           <DataTable<Sale>
             columns={[
-              { key: "dateOfSale", label: "Date", render: (s) => new Date(s.dateOfSale).toLocaleString("en-GB") },
+              { key: "dateOfSale", label: "Date", render: (s) => apiDateTime(s.dateOfSale) },
               { key: "id", label: "Sale id", render: (s) => <span className="mono small">{s.id}</span> },
               { key: "totalExTax", label: "Net (ex VAT)", numeric: true, render: (s) => gbp(Math.round(s.totalExTax * 100)) },
               { key: "vat", label: "VAT", numeric: true, sort: (s) => s.total - s.totalExTax, render: (s) => gbp(Math.round((s.total - s.totalExTax) * 100)) },

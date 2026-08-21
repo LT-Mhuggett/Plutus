@@ -4,6 +4,7 @@ import {
   SUPPORT_STATUS, SUPPORT_SEVERITY, type TicketRow, type TicketMessage,
 } from "./api.ts";
 import DataTable from "./DataTable.tsx";
+import { apiDateTime } from "./apiTime.ts";
 
 /** OP4: the client's "Ask for help" — raise a support ticket to the Plutus operator and follow the
  *  reply thread. Tenant-isolated server-side (you only ever see your own tickets). */
@@ -28,7 +29,7 @@ export default function HelpPage() {
           { key: "subject", label: "Subject" },
           { key: "severity", label: "Severity", render: (t) => SUPPORT_SEVERITY[t.severity] ?? String(t.severity) },
           { key: "status", label: "Status", render: (t) => SUPPORT_STATUS[t.status] ?? String(t.status) },
-          { key: "updatedAtUtc", label: "Updated", render: (t) => <span className="small">{new Date(t.updatedAtUtc + "Z").toLocaleString("en-GB")}</span> },
+          { key: "updatedAtUtc", label: "Updated", render: (t) => <span className="small">{apiDateTime(t.updatedAtUtc)}</span> },
         ]}
         rows={tickets} getKey={(t) => t.id} initialSortKey="updatedAtUtc" initialSortDir="desc"
         search={(t) => `${t.subject} ${SUPPORT_SEVERITY[t.severity] ?? ""} ${SUPPORT_STATUS[t.status] ?? ""}`}
@@ -84,7 +85,7 @@ function Thread({ id, onBack }: { id: string; onBack: () => void }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {msgs.map((m, i) => (
           <div key={i} style={{ alignSelf: m.fromOperator ? "flex-start" : "flex-end", maxWidth: "75%", background: m.fromOperator ? "#e0e7ff" : "#dcfce7", padding: "8px 12px", borderRadius: 8 }}>
-            <div className="muted small">{m.authorName} · {new Date(m.atUtc + "Z").toLocaleString("en-GB")}</div>
+            <div className="muted small">{m.authorName} · {apiDateTime(m.atUtc)}</div>
             <div>{m.body}</div>
           </div>
         ))}

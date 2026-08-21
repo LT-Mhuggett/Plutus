@@ -4,6 +4,7 @@ import {
   type ItemsSold, type StaffRow, type StoreRow,
 } from "./api.ts";
 import DataTable from "./DataTable.tsx";
+import { apiDateTime } from "./apiTime.ts";
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const today = () => iso(new Date());
@@ -114,7 +115,7 @@ function ItemsSoldTable({ rows }: { rows: ItemsSold["rows"] }) {
   return (
     <DataTable<ItemsSoldRow>
       columns={[
-        { key: "dateSold", label: "Date sold", render: (r) => <span className="small">{new Date(r.dateSold + "Z").toLocaleString("en-GB")}</span> },
+        { key: "dateSold", label: "Date sold", render: (r) => <span className="small">{apiDateTime(r.dateSold)}</span> },
         { key: "itemName", label: "Item", render: (r) => <><span className="mono small">{r.itemIdOne}</span> {r.itemName}</> },
         { key: "category", label: "Category", render: (r) => <span className="small">{r.category ?? "—"}</span> },
         { key: "tillName", label: "Location", render: (r) => <span className="small">Store {r.storeId} · {r.tillName}</span> },

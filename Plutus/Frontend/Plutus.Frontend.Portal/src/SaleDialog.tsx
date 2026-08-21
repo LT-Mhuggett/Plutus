@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchSaleDetail, gbp, type SaleDetail } from "./api.ts";
 import Barcode39 from "./Barcode39.tsx";
 import DialogX from "./DialogX.tsx";
+import { apiDateTime } from "./apiTime.ts";
 
 // One sale, fully expanded: details view + a printable copy-receipt with its scannable barcode.
 // Extracted from Dashboard.tsx (WP3.2) so both the Dashboard drill-down and the Reporting→Custom
@@ -11,7 +12,7 @@ import DialogX from "./DialogX.tsx";
 function ReceiptView({ id, sale }: { id: string; sale: SaleDetail }) {
   return (
     <div className="receipt-view" id="receipt-print">
-      <p className="centre small">{new Date(sale.occurredAtUtc + "Z").toLocaleString("en-GB")}</p>
+      <p className="centre small">{apiDateTime(sale.occurredAtUtc)}</p>
       <hr />
       <table className="receipt-lines">
         <tbody>
@@ -56,7 +57,7 @@ export default function SaleDialog({ id, onClose }: { id: string; onClose: () =>
         {sale && !asReceipt && (
           <>
             <dl className="kv">
-              <dt>When</dt><dd>{new Date(sale.occurredAtUtc + "Z").toLocaleString("en-GB")} (day {sale.businessDay})</dd>
+              <dt>When</dt><dd>{apiDateTime(sale.occurredAtUtc)} (day {sale.businessDay})</dd>
               <dt>Channel</dt><dd>{sale.channel} · seq {sale.deviceSeq}{sale.legacyRef ? ` · legacy ${sale.legacyRef}` : ""}</dd>
               <dt>Gross / VAT</dt><dd>{gbp(sale.grossPence)} / {gbp(sale.vatPence)}{sale.vatReconstructed ? " (VAT reconstructed)" : ""}</dd>
               {sale.note && (<><dt>Note</dt><dd>{sale.note}</dd></>)}

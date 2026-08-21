@@ -77,7 +77,7 @@ namespace Plutus.Frontend.AppClient.Services.Inventory
                 labels.Add(addNew);
 
                 var picked = await UIHandeling.Modal.ShowAsync(() =>
-                    Application.Current.MainPage.DisplayActionSheet(
+                    Plutus.Frontend.AppClient.Helpers.CustomViews.ChoiceHelper.AskAsync(
                         "Categories", "Done", null, labels.ToArray()));
 
                 if (string.IsNullOrWhiteSpace(picked) || picked == "Done") return changed;
@@ -136,7 +136,7 @@ namespace Plutus.Frontend.AppClient.Services.Inventory
             const string delete = "Delete this category…";
 
             var picked = await UIHandeling.Modal.ShowAsync(() =>
-                Application.Current.MainPage.DisplayActionSheet(
+                Plutus.Frontend.AppClient.Helpers.CustomViews.ChoiceHelper.AskAsync(
                     $"Category: {category.Name} — {category.ItemCount} item{(category.ItemCount == 1 ? "" : "s")}",
                     "Cancel".Translate(), null, rename, move, delete));
 
@@ -197,7 +197,7 @@ namespace Plutus.Frontend.AppClient.Services.Inventory
             var labels = targets.Select(c => c.Name ?? c.Id.ToString("D")).ToArray();
 
             var picked = await UIHandeling.Modal.ShowAsync(() =>
-                Application.Current.MainPage.DisplayActionSheet(
+                Plutus.Frontend.AppClient.Helpers.CustomViews.ChoiceHelper.AskAsync(
                     $"Move all {from.ItemCount} items to…", "Cancel".Translate(), null, labels));
 
             if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return false;

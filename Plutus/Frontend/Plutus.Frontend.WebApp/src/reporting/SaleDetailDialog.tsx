@@ -4,6 +4,7 @@ import { fetchSaleDetail, type SaleDetail } from "../api.ts";
 import { gbp } from "../money.ts";
 import Receipt, { type ReceiptData } from "../till/Receipt.tsx";
 import { printOnReceiptPrinter } from "../till/receiptPrint.ts";
+import { apiDateTime } from "../apiTime.ts";
 
 const p = (pounds: number) => Math.round(pounds * 100);
 
@@ -94,7 +95,7 @@ export default function SaleDetailDialog({ saleId, onClose }: { saleId: string; 
           <>
             <dl className="env-info">
               <dt>Date</dt>
-              <dd>{new Date(detail.dateOfSale).toLocaleString("en-GB")}</dd>
+              <dd>{apiDateTime(detail.dateOfSale)}</dd>
               <dt>Served by</dt>
               <dd>{detail.employee ?? "—"}</dd>
               <dt>Sale id</dt>

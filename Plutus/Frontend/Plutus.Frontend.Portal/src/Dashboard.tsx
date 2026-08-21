@@ -6,6 +6,7 @@ import {
 import DataTable from "./DataTable.tsx";
 import { useNav } from "./nav.tsx";
 import SaleDialog from "./SaleDialog.tsx";
+import { apiClock } from "./apiTime.ts";
 
 /** Adds the weekday to a day period (2026-07-18 → "2026-07-18 · Sat") and the month name to a
  *  month period; year unchanged. */
@@ -251,7 +252,7 @@ export default function Dashboard({ variant = "report" }: { variant?: "report" |
           <h3>Sales</h3>
           <DataTable<SaleRow>
             columns={[
-              { key: "occurredAtUtc", label: "Time", render: (s) => new Date(s.occurredAtUtc + "Z").toLocaleTimeString("en-GB") },
+              { key: "occurredAtUtc", label: "Time", render: (s) => apiClock(s.occurredAtUtc) },
               { key: "channel", label: "Channel", render: (s) => `${s.channel}${s.legacyRef ? " (migrated)" : ""}` },
               { key: "grossPence", label: "Gross", numeric: true, render: (s) => gbp(s.grossPence) },
               { key: "vatPence", label: "VAT", numeric: true, render: (s) => gbp(s.vatPence) },

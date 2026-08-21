@@ -17,6 +17,7 @@ import {
 } from "./api.ts";
 import { beginImpersonation } from "./auth.ts";
 import DataTable from "./DataTable.tsx";
+import { apiDateTime, apiDay, apiMs } from "./apiTime.ts";
 
 // FE4.5 row aliases for tables whose rows the API nests inside a response object.
 type AdoptionRow = AnalyticsResponse["adoption"][number];
@@ -68,12 +69,21 @@ export default function PlatformPage() {
   const [screen, setScreen] = useState<"Subscribers" | "Tickets" | "Health" | "Jobs" | "Flags" | "Comms" | "Commercial" | "Analytics" | "Notifications" | "Billing" | "Plans">("Subscribers");
   return (
     <section className="panel">
-      <div className="toolbar">
-        <h2 className="grow">Platform</h2>
+      {/* ⚠⚠ THE SCREEN SWITCHER IS ITS OWN ROW (2026-08-21). Matt, of the health dashboard: *"Which
+          I believe exists, but I can't get to it."* It does exist — it is **Platform → Health** — and
+          eleven peer tabs crammed into the toolbar beside the `Platform` heading is why nobody found
+          it. On a narrow window they wrapped behind the title; on a wide one they read as decoration
+          trailing off to the right.
+
+          ⚠ A `nav.tabs`, the same control the main menu uses, so they read as NAVIGATION rather than
+          as buttons that do something to the page. This is the 2026-08-19 look-and-feel rule applied
+          within one screen: the same thing should look the same wherever it appears. */}
+      <div className="toolbar"><h2 className="grow">Platform</h2></div>
+      <nav className="tabs platform-tabs">
         {(["Subscribers", "Tickets", "Plans", "Health", "Jobs", "Flags", "Comms", "Commercial", "Analytics", "Notifications", "Billing"] as const).map((s) => (
           <button key={s} className={s === screen ? "tab active" : "tab"} onClick={() => setScreen(s)}>{s}</button>
         ))}
-      </div>
+      </nav>
       {screen === "Tickets" && <TicketsScreen />}
       {screen === "Plans" && <PlansScreen />}
       {screen === "Subscribers" && <TenantsScreen />}
@@ -118,7 +128,7 @@ function TicketsScreen() {
           { key: "subject", label: "Subject" },
           { key: "severity", label: "Severity", render: (t) => SUPPORT_SEVERITY[t.severity] ?? String(t.severity) },
           { key: "status", label: "Status", render: (t) => SUPPORT_STATUS[t.status] ?? String(t.status) },
-          { key: "updatedAtUtc", label: "Updated", render: (t) => <span className="small">{new Date(t.updatedAtUtc + "Z").toLocaleString("en-GB")}</span> },
+          { key: "updatedAtUtc", label: "Updated", render: (t) => <span className="small">{apiDateTime(t.updatedAtUtc)}</span> },
         ]}
         rows={tickets} getKey={(t) => t.id} initialSortKey="updatedAtUtc" initialSortDir="desc"
         search={(t) => `${t.tenant ?? ""} ${t.subject} ${t.raisedByName}`}
@@ -145,7 +155,7 @@ function TicketThread({ ticket, onBack }: { ticket?: TicketRow; onBack: () => vo
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {msgs.map((m, i) => (
           <div key={i} style={{ alignSelf: m.fromOperator ? "flex-end" : "flex-start", maxWidth: "75%", background: m.fromOperator ? "#dcfce7" : "#e0e7ff", padding: "8px 12px", borderRadius: 8 }}>
-            <div className="muted small">{m.authorName} · {new Date(m.atUtc + "Z").toLocaleString("en-GB")}</div>
+            <div className="muted small">{m.authorName} · {apiDateTime(m.atUtc)}</div>
             <div>{m.body}</div>
           </div>
         ))}
@@ -363,7 +373,7 @@ function NotificationsScreen() {
       <h4>Delivery log</h4>
       <DataTable<MessageEventRow>
         columns={[
-          { key: "atUtc", label: "When", render: (e) => <span className="small">{new Date(e.atUtc + "Z").toLocaleString("en-GB")}</span> },
+          { key: "atUtc", label: "When", render: (e) => <span className="small">{apiDateTime(e.atUtc)}</span> },
           { key: "channel", label: "Ch", render: (e) => (e.channel === 0 ? "email" : "sms") },
           { key: "toAddress", label: "To", render: (e) => <span className="small">{e.toAddress}</span> },
           { key: "fromAddress", label: "From", render: (e) => <span className="small">{e.fromAddress}</span> },
@@ -502,7 +512,7 @@ function CommsScreen() {
           { key: "title", label: "Title" },
           {
             key: "startsAtUtc", label: "Window",
-            render: (a) => <span className="small">{new Date(a.startsAtUtc + "Z").toLocaleString("en-GB")} → {new Date(a.endsAtUtc + "Z").toLocaleString("en-GB")}</span>,
+            render: (a) => <span className="small">{apiDateTime(a.startsAtUtc)} → {apiDateTime(a.endsAtUtc)}</span>,
           },
           { key: "tenantIds", label: "Targets", render: (a) => <span className="small">{a.tenantIds ? "targeted" : "all"}</span> },
         ]}
@@ -580,7 +590,7 @@ function TenantsScreen() {
   const live = tenants.filter((t) => !t.isSandbox && (t.status === 0 || t.status === 1));
   const mrr = live.reduce((sum, t) => sum + priceOf(t), 0);
   const statusCounts = STATUS.map((label, i) => ({ label, n: tenants.filter((t) => !t.isSandbox && t.status === i).length }));
-  const daysUntil = (iso: string) => Math.ceil((new Date(iso + "Z").getTime() - Date.now()) / 86_400_000);
+  const daysUntil = (iso: string) => Math.ceil((apiMs(iso) - Date.now()) / 86_400_000);
 
   if (openId) return <TenantDetail tenantId={openId} tenant={tenants.find((t) => t.id === openId)} onClose={() => setOpenId(null)} />;
 
@@ -620,7 +630,7 @@ function TenantsScreen() {
               const d = daysUntil(c.renewalAtUtc);
               return (
                 <span className="small" style={{ color: d <= 30 ? "#d97706" : undefined }}>
-                  {new Date(c.renewalAtUtc + "Z").toLocaleDateString("en-GB")}{d >= 0 ? ` (${d}d)` : " (past)"}
+                  {apiDay(c.renewalAtUtc)}{d >= 0 ? ` (${d}d)` : " (past)"}
                 </span>
               );
             },
@@ -906,7 +916,7 @@ function HealthScreen() {
             { key: "tenantId", label: "Tenant", render: (a) => short(a.tenantId) },
             { key: "message", label: "Message", render: (a) => <span className="small">{a.message}</span> },
             { key: "occurrences", label: "×", numeric: true },
-            { key: "raisedAtUtc", label: "Since", render: (a) => <span className="small">{new Date(a.raisedAtUtc + "Z").toLocaleString("en-GB")}</span> },
+            { key: "raisedAtUtc", label: "Since", render: (a) => <span className="small">{apiDateTime(a.raisedAtUtc)}</span> },
           ]}
           rows={alerts} getKey={(a) => a.alertKey} initialSortKey="raisedAtUtc" initialSortDir="desc"
           search={(a) => `${a.kind} ${a.jobName} ${a.message}`}
@@ -942,9 +952,9 @@ function HealthScreen() {
           },
           { key: "connector", label: "Connector", render: (c) => <span className="mono">{c.connector}</span> },
           { key: "tenantId", label: "Tenant", render: (c) => short(c.tenantId ?? null) },
-          { key: "lastPollAtUtc", label: "Last poll", render: (c) => <span className="small">{c.lastPollAtUtc ? new Date(c.lastPollAtUtc + "Z").toLocaleString("en-GB") : "—"}</span> },
-          { key: "lastWebhookAtUtc", label: "Last webhook", render: (c) => <span className="small">{c.lastWebhookAtUtc ? new Date(c.lastWebhookAtUtc + "Z").toLocaleString("en-GB") : "—"}</span> },
-          { key: "lastOutboundAtUtc", label: "Last outbound", render: (c) => <span className="small">{c.lastOutboundAtUtc ? new Date(c.lastOutboundAtUtc + "Z").toLocaleString("en-GB") : "—"}</span> },
+          { key: "lastPollAtUtc", label: "Last poll", render: (c) => <span className="small">{c.lastPollAtUtc ? apiDateTime(c.lastPollAtUtc) : "—"}</span> },
+          { key: "lastWebhookAtUtc", label: "Last webhook", render: (c) => <span className="small">{c.lastWebhookAtUtc ? apiDateTime(c.lastWebhookAtUtc) : "—"}</span> },
+          { key: "lastOutboundAtUtc", label: "Last outbound", render: (c) => <span className="small">{c.lastOutboundAtUtc ? apiDateTime(c.lastOutboundAtUtc) : "—"}</span> },
           { key: "errorStreak", label: "Err streak", numeric: true },
         ]}
         rows={connectors} getKey={(c) => `${c.connector}:${c.tenantId ?? "platform"}`}
@@ -989,7 +999,7 @@ function JobsScreen() {
           {
             key: "lastRun", label: "Last run",
             sort: (j) => j.finishedAtUtc ?? j.startedAtUtc,
-            render: (j) => <span className="small">{new Date((j.finishedAtUtc ?? j.startedAtUtc) + "Z").toLocaleString("en-GB")}</span>,
+            render: (j) => <span className="small">{apiDateTime(j.finishedAtUtc ?? j.startedAtUtc)}</span>,
           },
           { key: "runStatus", label: "Outcome" },
           { key: "detail", label: "Detail", render: (j) => <span className="small">{j.detail ?? "—"}</span> },

@@ -37,7 +37,7 @@ namespace Plutus.Frontend.AppClient.Views.CustomViews
     public class ItemDetailAlert : ContentView
     {
         /// <summary>What the operator asked for. ⚠ `Closed` means they left — a real answer.</summary>
-        public enum Kind { Closed = 0, AddBarcode = 1, EditBarcode = 2, RemoveBarcode = 3 }
+        public enum Kind { Closed = 0, AddBarcode = 1, EditBarcode = 2, RemoveBarcode = 3, EditFields = 4 }
 
         private readonly Grid _root = new() { Padding = 10, RowSpacing = 6 };
 
@@ -95,6 +95,28 @@ namespace Plutus.Frontend.AppClient.Views.CustomViews
             stack.Children.Add(global::CustomViews.DialogHeader.For(
                 string.IsNullOrWhiteSpace(itemName) ? "Item" : itemName,
                 (_, e) => CloseRequested?.Invoke(this, e)));
+
+            // ⚠⚠ NAME AND PRICE ARE EDITED FROM HERE, 2026-08-21 — THIS IS THE ITEM EDITOR NOW.
+            //
+            // Matt: *"Is there any reason its a separate right click, as opposed to going through the
+            // edit button like on the web till?"* No, and the reason I had was not good enough: I split
+            // it to avoid a six-item tap menu, which is a layout preference losing to the parity rule.
+            //
+            // ⚠ THE WEB TILL PUTS ALL OF THIS IN ONE DIALOG — `InventoryPage`'s editor renders the
+            // fields, then `ItemBarcodeList`, then `ItemHistory` at the bottom. Two doors to one item on
+            // one till and one door on the other is exactly what the 2026-08-19 look-and-feel ruling is
+            // about: an operator moving between tills mid-shift must not have to relearn where things
+            // are.
+            //
+            // ⚠ IT CLOSES AND THE CALLER REOPENS, like every other action here — MAUI cannot stack two
+            // Mopups pages, and the fields prompt is itself a dialog. That is the loop in
+            // `ExecuteOpenItemDetail`, not a shortcut around it.
+            if (mayManage)
+            {
+                var editFields = new Button { Text = "Edit name & price…", Margin = new Thickness(0, 4, 0, 4) };
+                editFields.Clicked += (_, _) => Ask(Kind.EditFields, null);
+                stack.Children.Add(editFields);
+            }
 
             stack.Children.Add(Heading("Barcodes"));
 

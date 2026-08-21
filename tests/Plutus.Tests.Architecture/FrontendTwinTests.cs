@@ -46,6 +46,17 @@ public class FrontendTwinTests
         // The close ✕ itself (till-design D4). The portal had NO copy at all until 2026-08-20.
         { Path.Combine(WebApp, "DialogX.tsx"), Path.Combine(Portal, "DialogX.tsx") },
 
+        // ⚠⚠ THE UTC RULE (2026-08-21). Matt: *"Why are the sales a correct time on the portal
+        // and an hour earlier on the webtill?"* — because each app had its own idea of how to read a
+        // timestamp, and one of them was `new Date(bare)`. The rule is now one file, twinned, and its
+        // .NET third is `Plutus.SharedKernel.ApiTime` (`till-design.md` C2).
+        { Path.Combine(WebApp, "apiTime.ts"), Path.Combine(Portal, "apiTime.ts") },
+
+        // ⚠ ITS TESTS ARE TWINNED TOO. A twinned rule with the tests on one side only is a rule the
+        // other side can break silently — and the portal has no vitest, so its copy is carried here
+        // for identity rather than executed. The web till runs them.
+        { Path.Combine(WebApp, "apiTime.test.ts"), Path.Combine(Portal, "apiTime.test.ts") },
+
         // Code 39 rendering for membership cards and receipts.
         { Path.Combine(WebApp, "till", "Barcode39.tsx"), Path.Combine(Portal, "Barcode39.tsx") },
 

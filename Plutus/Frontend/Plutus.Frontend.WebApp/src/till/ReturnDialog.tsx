@@ -2,6 +2,7 @@ import { useState } from "react";
 import DialogX from "../DialogX.tsx";
 import { fetchSaleDetail, fetchSales, findItemById, type Item, type Sale, type SaleDetail } from "../api.ts";
 import { gbp, toPence } from "../money.ts";
+import { apiDateTime, apiTime } from "../apiTime.ts";
 
 export interface ReturnPick {
   item: Item;
@@ -138,7 +139,7 @@ export default function ReturnDialog({ onPick, onClose }: Props) {
                   <li key={s.id}>
                     <button onClick={() => open(s.id)} disabled={busy}>
                       <span className="grow">
-                        {new Date(s.dateOfSale).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                        {apiTime(s.dateOfSale)}
                         <span className="mono muted small barcode">{s.id.slice(0, 8)}…</span>
                       </span>
                       <span>{gbp(toPence(s.total))}</span>
@@ -153,7 +154,7 @@ export default function ReturnDialog({ onPick, onClose }: Props) {
         {detail && (
           <>
             <p className="muted small">
-              {new Date(detail.dateOfSale).toLocaleString("en-GB")} · {gbp(toPence(detail.total))} ·{" "}
+              {apiDateTime(detail.dateOfSale)} · {gbp(toPence(detail.total))} ·{" "}
               {detail.payments.map((p) => p.method).join(" + ") || "—"} · served by {detail.employee ?? "—"}
             </p>
             {error && <p className="error small">{error}</p>}

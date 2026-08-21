@@ -503,11 +503,15 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 const string addToBasket = "Add to basket";
                 const string edit = "Edit item";
 
-                // ⚠⚠ WP10, 2026-08-21 — the two A0 rows MAUI was ⬜ on while both other surfaces had
-                // them. ⚠ ONE entry for both, not two: the web till puts barcodes and history inside
-                // its item editor, so a single dialog is the closer parity — and a six-item tap menu on
-                // a shop floor is a menu nobody reads to the bottom of.
-                const string detail = "Barcodes & history…";
+                // ⚠⚠ FOUR ENTRIES, NOT FIVE — "Barcodes & history…" IS GONE FROM HERE (2026-08-21).
+                // Matt: *"Is there any reason its a separate right click, as opposed to going through
+                // the edit button like on the web till?"* No. It was a separate entry for one turn,
+                // added with WP10 to avoid a six-item tap menu, and a layout preference does not beat
+                // the parity rule.
+                //
+                // ⚠ **Edit item now opens the ITEM DIALOG**, which carries the fields button, the
+                // barcodes and the history — the shape the web till has had all along
+                // (`InventoryPage`'s editor: fields, then `ItemBarcodeList`, then `ItemHistory`).
 
                 // ⚠ "Move to the Bin" is a DESTRUCTIVE-LOOKING action on a tap menu, so it is last
                 // and it confirms. Binning withdraws the item from sale on every till in the
@@ -517,20 +521,16 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
 
                 // ⚠ Not offered for an UNTRACKED item. Its level is meaningless by design, and a
                 // movement against it writes a number nothing will ever read.
-                // ⚠ `detail` sits after `edit` and before the two that CHANGE something, because it is
-                // the read: an operator checking what happened to an item should not have to walk past
-                // "Adjust stock…" and "Move to the Bin…" to reach it.
                 var actions = item.StockDisplay == "∞"
-                    ? new[] { addToBasket, edit, detail, bin }
-                    : new[] { addToBasket, edit, detail, stock, bin };
+                    ? new[] { addToBasket, edit, bin }
+                    : new[] { addToBasket, edit, stock, bin };
 
                 var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
-                    App.Current.MainPage.DisplayActionSheet(
+                    Plutus.Frontend.AppClient.Helpers.CustomViews.ChoiceHelper.AskAsync(
                         item.Name ?? "Item", "Cancel".Translate(), null, actions));
 
                 if (picked == addToBasket) ExecuteAddToBasket(item.Id);
-                else if (picked == edit) ExecuteOpenEditItem(item.Id);
-                else if (picked == detail) ExecuteOpenItemDetail(item);
+                else if (picked == edit) ExecuteOpenItemDetail(item);
                 else if (picked == stock) ExecuteAdjustStock(item);
                 else if (picked == bin) ExecuteBinItem(item);
             }
@@ -634,6 +634,16 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
 
                     var done = outcome.Kind switch
                     {
+                        // ⚠⚠ THE FIELDS EDIT IS JUST ANOTHER ACTION IN THIS LOOP (2026-08-21). It closes
+                        // the dialog, prompts, writes, and the loop reopens — the same rule the barcode
+                        // actions follow, and for the same reason: MAUI cannot stack two Mopups pages,
+                        // so the second lands *behind* the first and reads as a frozen till.
+                        //
+                        // ⚠ `OpenEditItemAsync`, not `ExecuteOpenEditItem`. The `async void` version
+                        // would return the instant it hit its first await, and the loop would reopen
+                        // this dialog OVER the prompt it just launched.
+                        Views.CustomViews.ItemDetailAlert.Kind.EditFields =>
+                            await OpenEditItemAsync(item.Id),
                         Views.CustomViews.ItemDetailAlert.Kind.AddBarcode =>
                             await PromptAddBarcodeAsync(api, item.Id),
                         Views.CustomViews.ItemDetailAlert.Kind.EditBarcode =>
@@ -768,7 +778,31 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 "OK".Translate());
         }
 
+        /// <summary>
+        /// ⚠⚠ A THIN `async void` WRAPPER, and that is the only reason it exists. The body moved to
+        /// <see cref="OpenEditItemAsync"/> on 2026-08-21 so the item dialog's loop can AWAIT the edit
+        /// and reopen behind it — Matt: *"Is there any reason its a separate right click, as opposed
+        /// to going through the edit button like on the web till?"*
+        ///
+        /// ⚠ A `Command` needs `void`; a caller that must know when the edit finished needs `Task`.
+        /// Having both is the fix, and the wrapper never lets an exception escape — an unhandled throw
+        /// from an `async void` goes to the dispatcher and closes the till.
+        /// </summary>
         private async void ExecuteOpenEditItem(string itemId)
+        {
+            try
+            {
+                await OpenEditItemAsync(itemId);
+            }
+            catch (Exception ex)
+            {
+                Services.Analytics.CrashLog.Write("ViewAllViewModel.ExecuteOpenEditItem", ex);
+            }
+        }
+
+        /// <returns>⚠ <c>true</c> only when the catalogue actually CHANGED — a cancelled prompt and a
+        /// refused write both answer false, so a caller can refresh on the one case that needs it.</returns>
+        private async Task<bool> OpenEditItemAsync(string itemId)
         {
             try
             {
@@ -785,7 +819,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 if (!gate.Allowed)
                 {
                     await App.Current.MainPage.DisplayAlert("Hmm".Translate(), gate.Message, "OK".Translate());
-                    return;
+                    return false;
                 }
 
                 // ⚠ The OPERATOR's client. The legacy item controllers read an `objectidentifier`
@@ -796,7 +830,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 {
                     await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
                         "Editing an item needs someone signed in and a connection to Plutus.", "OK".Translate());
-                    return;
+                    return false;
                 }
 
                 var businessId = await Services.Storage.TillStoreAccess.UseAsync(
@@ -805,7 +839,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 {
                     await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
                         "This till hasn't learnt which business it belongs to yet.", "OK".Translate());
-                    return;
+                    return false;
                 }
 
                 var current = await api.GetItemAsync(itemId, business);
@@ -813,7 +847,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 {
                     await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
                         "Plutus couldn't find that item.", "OK".Translate());
-                    return;
+                    return false;
                 }
 
                 const NumberStyles money = NumberStyles.AllowCurrencySymbol | NumberStyles.AllowThousands
@@ -861,7 +895,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 var edited = await Views.MainTill.Inventory.Items.EditItemPage.ShowAsync(
                     current, itemId, bands, categories);
 
-                if (edited is null) return;   // cancelled — change nothing, say nothing
+                if (edited is null) return false;   // cancelled — change nothing, say nothing
 
                 var name = edited.Name;
                 var brand = edited.Brand;
@@ -914,7 +948,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                         + "Give it a VAT band to fix that.",
                         "Save anyway".Translate(), "Cancel".Translate());
 
-                    if (!carryOn) return;
+                    if (!carryOn) return false;
                 }
 
                 // ⚠ THE BACKSTOP. This cannot fire while the ex price is derived — see
@@ -924,7 +958,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                     await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
                         Services.Inventory.ItemPricing.InconsistencyMessage(price, bandMultiplier),
                         "OK".Translate());
-                    return;
+                    return false;
                 }
 
                 var (ok, problem) = await api.UpdateItemFieldsAsync(itemId, business, item =>
@@ -946,7 +980,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                     // to do about it — better than anything this screen could invent.
                     await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
                         problem ?? "Plutus refused the change.", "OK".Translate());
-                    return;
+                    return false;
                 }
 
                 // ⚠ Pull the catalogue so the change is visible HERE. Without it the operator edits
@@ -956,13 +990,17 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 InitItems();
 
                 Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Item Edited");
+                return true;
             }
             catch (Exception ex)
             {
-                // ⚠ `async void` — an escape here closes the till.
+                // ⚠ CAUGHT HERE TOO, not only in the `async void` wrapper. This is also awaited from
+                // the item dialog's loop, and a throw there would take the loop down and shut a dialog
+                // the operator is working in.
                 Services.Analytics.CrashLog.Write("ViewAllViewModel.EditItem", ex);
                 await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
                     "That didn't work. Nothing has been changed.", "OK".Translate());
+                return false;
             }
         }
 
@@ -1015,7 +1053,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 const string cameIn = "Add some (found, returned to stock, delivery)";
 
                 var direction = await Services.UIHandeling.Modal.ShowAsync(() =>
-                    App.Current.MainPage.DisplayActionSheet(
+                    Plutus.Frontend.AppClient.Helpers.CustomViews.ChoiceHelper.AskAsync(
                         $"{item.Name} — {item.StockDisplay} in stock",
                         "Cancel".Translate(), null, wroteOff, cameIn));
 
@@ -1492,7 +1530,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 // gives me the tax rates still."* It was step 1 of 4 and nothing said so. Three
                 // sequential action sheets in front of a form NEED to be numbered, or each one looks
                 // like the entire feature and the operator backs out of the first.
-                App.Current.MainPage.DisplayActionSheet(
+                Plutus.Frontend.AppClient.Helpers.CustomViews.ChoiceHelper.AskAsync(
                     "New item — step 1 of 4: tax band", "Cancel".Translate(), null, labels));
 
             if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return null;
@@ -1532,7 +1570,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 .ToArray();
 
             var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
-                App.Current.MainPage.DisplayActionSheet(
+                Plutus.Frontend.AppClient.Helpers.CustomViews.ChoiceHelper.AskAsync(
                     "New item — step 2 of 4: category", "Cancel".Translate(), null, labels));
 
             if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return null;
@@ -1561,7 +1599,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
             };
 
             var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
-                App.Current.MainPage.DisplayActionSheet(
+                Plutus.Frontend.AppClient.Helpers.CustomViews.ChoiceHelper.AskAsync(
                     "New item — step 3 of 4: stock", "Cancel".Translate(), null, labels));
 
             if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return null;

@@ -12,6 +12,8 @@
  * `PermissionGrant.IsActiveAt` ships its window raw rather than an answer.
  */
 
+import { apiMs } from "../apiTime.ts";
+
 /** `Discount.Type` — a DB/wire contract, not an enum anybody may renumber. */
 export const DISCOUNT_FIXED = 0;
 /** A fraction: 0.10 is 10%. */
@@ -75,12 +77,15 @@ export const discountPence = (type: number, amount: number, unitIncPence: number
  * ⚠ A UTC instant that arrived WITHOUT its `Z` is still a UTC instant. `Date.parse` reads a bare
  * `"2026-08-19T00:00:00"` as LOCAL time, so a server that serialised a `DateTime` with an unspecified
  * Kind would shift every promotion boundary by the till's offset — an hour of wrong prices at each
- * end, twice a year. The portal already learned this (`new Date(closedAtUtc + "Z")`).
+ * end, twice a year.
+ *
+ * ⚠⚠ THIS WAS ITS OWN COPY OF THE RULE UNTIL 2026-08-21, and having a private copy is how the rest of
+ * the till got it wrong: promotions were right while every **sale time** on the screen read an hour
+ * early, because `SaleDetailDialog`, `StatisticsPage` and `ReturnDialog` each wrote a plain
+ * `new Date(dateOfSale)` and nothing pointed them here. Matt: *"Why are the sales a correct time on
+ * the portal and an hour earlier on the webtill?"* Now `apiTime.ts` holds it once.
  */
-const asUtcMs = (iso: string): number => {
-  const hasZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(iso);
-  return Date.parse(hasZone ? iso : iso + "Z");
-};
+const asUtcMs = (iso: string): number => apiMs(iso);
 
 /** `"HH:mm"`, `"HH:mm:ss"` or `"HH:mm:ss.fff"` → seconds since midnight; null when unreadable. */
 const secondsOfDay = (t: string | null | undefined): number | null => {

@@ -1146,7 +1146,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     labels.Add(typeItInstead);
 
                     var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
-                        Application.Current.MainPage.DisplayActionSheet(
+                        Plutus.Frontend.AppClient.Helpers.CustomViews.ChoiceHelper.AskAsync(
                             "Which sale is this going back to?", "Cancel".Translate(), null, labels.ToArray()));
 
                     if (string.IsNullOrEmpty(picked) || picked == "Cancel".Translate())
@@ -1514,7 +1514,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     .ToArray();
 
                 var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
-                    Application.Current.MainPage.DisplayActionSheet(
+                    Plutus.Frontend.AppClient.Helpers.CustomViews.ChoiceHelper.AskAsync(
                         "Which member?", "Cancel".Translate(), null, names));
 
                 if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return;
@@ -2117,7 +2117,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 // COMException that closed the till at the payment prompt.
                 var names = AlterationNames.ToArray();
                 var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
-                    Application.Current.MainPage.DisplayActionSheet(
+                    Plutus.Frontend.AppClient.Helpers.CustomViews.ChoiceHelper.AskAsync(
                         "Alterations".Translate(), "Cancel".Translate(), null, names));
 
                 if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return;
@@ -2505,7 +2505,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     var baskets = new string[StoredTransactions.Count];
                     for (int i = 0; i < StoredTransactions.Count; i++)
                         baskets[i] = StoredTransactions.ElementAt(i).Name;
-                    var action = await Application.Current.MainPage.DisplayActionSheet("Baskets".Translate(), "Cancel".Translate(), null, baskets);
+                    var action = await Plutus.Frontend.AppClient.Helpers.CustomViews.ChoiceHelper.AskAsync("Baskets".Translate(), "Cancel".Translate(), null, baskets);
                     if (action == "Cancel".Translate())
                     {
                         Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Transaction Retrieved", new Dictionary<string, string> { { "Canceled", "True" } });
@@ -3797,7 +3797,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             // and two modals in quick succession is what threw the COMException that closed the
             // till at the payment prompt.
             var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
-                Application.Current.MainPage.DisplayActionSheet(
+                Plutus.Frontend.AppClient.Helpers.CustomViews.ChoiceHelper.AskAsync(
                     $"Nothing in the catalogue matches “{typed}”.", "Cancel".Translate(), null, add));
 
             if (picked != add) return;
@@ -3880,7 +3880,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 .ToList();
 
             var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
-                Application.Current.MainPage.DisplayActionSheet(
+                Plutus.Frontend.AppClient.Helpers.CustomViews.ChoiceHelper.AskAsync(
                     "Which sale, from Plutus?", "Cancel".Translate(), null, labels.ToArray()));
 
             if (string.IsNullOrEmpty(picked) || picked == "Cancel".Translate()) return null;
@@ -3914,7 +3914,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 ? $"Showing the first {SearchPickerLimit} matches — type more to narrow it down"
                 : $"{shown.Count} matches for \"{typed}\"";
 
-            var picked = await Application.Current.MainPage.DisplayActionSheet(
+            var picked = await Plutus.Frontend.AppClient.Helpers.CustomViews.ChoiceHelper.AskAsync(
                 title, "Cancel".Translate(), null, choices);
 
             // ⚠ Cancel — and dismissing by tapping away, which returns null — is ABANDONED, not

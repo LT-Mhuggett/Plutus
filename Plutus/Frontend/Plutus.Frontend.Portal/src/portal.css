@@ -29,7 +29,11 @@ footer { margin-top: 24px; text-align: center; }
 
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
 .panel h2 { margin: 4px 0 12px; font-size: 17px; }
-.card { border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin: 8px 0; }
+/* ⚠ A CARD IS WHITE, LIKE A PANEL (2026-08-21). Matt, of Discount Settings: *"Can the discount
+   settings box be white like the others please."* It had a border and no background, so it showed
+   the page's grey through — beside `.panel`, which sets one. Two containers that look like
+   different kinds of thing when they are the same kind of thing. */
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin: 8px 0; }
 /* collapsible store cards */
 .store-card > summary { cursor: pointer; font-size: 15px; padding: 2px 0; list-style: none; }
 .store-card > summary::-webkit-details-marker { display: none; }
@@ -316,3 +320,8 @@ th.sortable:hover { color: var(--ink); }
 .gc-tile-head { font-size: 10px; letter-spacing: 2px; }
 .gc-tile-code { font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 12px; letter-spacing: 2px; }
 .gc-tile-foot { font-size: 8px; color: #444; }
+
+/* ⚠ THE PLATFORM SCREEN SWITCHER (2026-08-21) — eleven peer screens, so they WRAP onto as many rows
+   as they need and sit under the heading rather than beside it. See `PlatformPage`: the health
+   dashboard was unreachable in practice because its tab was lost in the toolbar. */
+.platform-tabs { flex-wrap: wrap; margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }

@@ -437,6 +437,160 @@ unsynced sales **before** it is locked — the interesting case is not the empty
 that reads as open. Its A0 and Part B rows are ⬜ on both tills and stay that way until piece 4 lands.
 
 ---
+## 12c. The 2026-08-21 backlog — eighteen items, nine work packages
+
+> **Matt, 2026-08-21**, in one message, spanning the portal, reporting, tenancy, a public site, the
+> ticket desk and the till. Registered here rather than half-started: several are a day or more each,
+> and the four that were minutes were done the same afternoon (see **Already done** below).
+
+⚠ **The ordering below is by DEPENDENCY, not by size.** WP-FY has to land before the VAT report can be
+made to match anything, and WP-DRILL is worthless while the reports still lie about which days exist.
+
+### Already done, 2026-08-21 — do not raise these again
+
+| Asked | What it was | Where |
+|---|---|---|
+| *"How do I turn off the 'Test' on the webtill?"* | ⚠⚠ **You could not.** The literal string `test` in `App.tsx`, so the badge that says *"this is not the real till"* would have shipped **onto the real till**. Now `VITE_ENV_BADGE`: any text shows it, **unset shows nothing**, and unset is the default — a forgotten environment must fail towards no badge. | `App.tsx`, `vite-env.d.ts`, `.env.example` |
+| *"a health dashboard … which I believe exists, but I can't get to it"* | It does: **Platform → Health** — error rate, p95, consumer lag, quarantine, alerts. Eleven peer tabs were crammed into the toolbar beside the `Platform` heading, so on a narrow window they wrapped behind the title and on a wide one they read as decoration. Now their own `nav.tabs` row. | `PlatformPage.tsx`, `portal.css` |
+| *"Can the discount settings box be white like the others"* | `.card` had a border and **no background**, so the page's grey showed through beside `.panel`, which sets one. | `portal.css` |
+| *"Also Prices, can it be collapsed like discount settings"* | ⚠ `open` by default, unlike Discount Settings — this is the Prices page, and a page whose main content is shut on arrival reads as broken. | `PricesPage.tsx` |
+
+### WP-FY — the company year and the VAT periods, set in the portal · **≈1½d**
+
+> *"I need to be able to set the company year in the portal. And the VAT periods. This then needs to
+> be reflected in the reports, specifically the VAT reports needs to match the months it reports on."*
+
+⚠⚠ **THE PERIODS ARE QUERY PARAMETERS WITH DEFAULTS, NOT SETTINGS.** `ReportsController.VatCorrections`
+takes `basis = "quarter"` and `staggerEndMonth = 3` off the query string, and `VatPeriodOf` buckets on
+them. So the shop's actual stagger is **whatever the caller last typed**, and every screen that omits
+them silently gets stagger 1 — right for most retailers, wrong for the ones it is wrong for, with
+nothing on screen admitting which.
+
+| # | Piece | ⚠ |
+|---|---|---|
+| 1 | **Store it** — financial-year start, VAT basis (quarter/month), stagger group, on the tenant | ⚠ **Not per store.** A VAT return is filed by the business, and a per-store setting would invite two stores to disagree about one return. |
+| 2 | **Portal control** — Company page, beside the other business facts | ⚠ Changing a stagger **re-buckets history**. Say so before saving, and record who changed it: this moves numbers on a filed return. |
+| 3 | **The report reads it** — the query parameters become an override, not the source | ⚠ Keep the parameters: `vat-corrections` is also how you *test* a different basis. What changes is that the default stops being a constant. |
+| 4 | **The report says which basis it used**, on screen | ⚠⚠ A VAT report that does not name its period basis cannot be checked against a filed return, which is the only thing it is for. |
+
+**Done when** a stagger-2 business sets it once in the portal and every VAT screen buckets
+Jan/Apr/Jul/Oct without anyone passing a parameter — and the report says so in words.
+
+### WP-ZERO — a day with no sales is a zero, not a gap · **≈½d** · ⚠ DO THIS FIRST
+
+> *"The reports still have to show ALL days, even ones where no sales were made e.g. this graph jumps
+> from the 15th to the 17th."*
+
+⚠⚠ **THE SAME CLASS OF FAULT AS THE 2026-08-21 TIMESTAMP BUG: the client renders what the server
+returned and assumes that is what exists.** A day with no takings has no row, so the chart draws the
+next bar adjacent and the axis silently lies about the interval — 15 Aug beside 17 Aug reads as two
+consecutive days. Nobody can spot a closed Sunday, and **nobody can spot a till that stopped syncing**,
+which is the failure this graph should make obvious.
+
+⚠ `EnumeratePeriods` already exists in `ReportsController` and already does exactly this for the
+granularity buckets (~line 157). The daily series does not use it. **Fix it server-side, not in the
+chart** — every consumer of that series has the same hole, and a client-side fill would be a third copy
+of "which days are in this range" (C2).
+
+**Done when** a range containing a closed day renders a labelled zero bar, and the same range exported
+to CSV has a row for it.
+
+### WP-DRILL — click a day, get that day's sales · **≈½d**
+
+> *"when I click on a day in the dashboard it needs to take be to reporting filtered on the sales taken
+> on THAT day, which is a custom report filtered on that specific day … In reporting, I need to be able
+> to click on a day and it shows all the sales from that specific day."*
+
+Two entry points, **one destination**: the custom report, filtered from = to = that day. ⚠ Build it as
+one function both callers use — two drill implementations would drift the way the timestamp readers
+did, and the tell would be two different day boundaries.
+
+⚠ **Depends on WP-ZERO**: a drill from a bar is only trustworthy once the bars and the days line up.
+
+### WP-TABTOP — a tab click returns to that tab's top level · **≈¼d**
+
+> *"Clicking on the tabs at the top needs to take you back to the top level of that tab."*
+
+Today a tab keeps whatever sub-screen it was left on, so clicking the tab you are already on does
+nothing visible, and returning to one drops you where you were — right for a browser, wrong for a till.
+⚠ **Both surfaces.** The portal has the deeper stacks (Platform's eleven screens, the store cards); the
+web till has the same expectation and MAUI's Shell tabs behave the same way.
+
+### WP-LIVE — the "Live" dot is fed by heartbeats · **≈½d**
+
+> *"The 'Live' grey icon needs to be fed from the heart beats. If the tills are active, then the client
+> is active."*
+
+⚠⚠ **GREY MEANS "NO API TRAFFIC IN THE LAST HOUR", NOT "NO TILLS".** `healthColor` returns grey for a
+tenant with no `HealthTenantRow`. A shop trading all day on a till whose heartbeats are landing can
+therefore read grey — the dot answers *"did the API see requests"* and is labelled as if it answered
+*"is this customer alive"*. ⚠ `TillPresence` already holds the heartbeat, and `StoresPage` already
+renders "last online" from it, so the signal exists and is not wired to this.
+
+**Done when** a tenant with a till that heartbeated inside the window reads live whatever the API
+traffic — and the hover text names which signal it used, because two signals that can disagree must say
+which one answered.
+
+### WP-TICKETS — the support desk, four gaps · **≈2d**
+
+> *"There needs to be a summary view of all tickets. Today, 7 days, last month, last 90 days. Which
+> clients have raised etc … When I reply to a live ticket, how is the user informed? … The help screen
+> also needs to check if there has been an update as it never updates without a navigation … There is
+> no 'Request ticket to be closed' from either person, also the button 'Close' … there is nothing
+> visual within the ticket itself?"*
+
+| # | Piece | ⚠ |
+|---|---|---|
+| 1 | **Summary view** — Today / 7 / 30 / 90 days, and by client | ⚠ Count by **status as well as age**: "12 tickets this week" with 11 closed is a good week and reads as a bad one. |
+| 2 | ⚠⚠ **The customer is never told a reply arrived.** | Answer: **the heartbeat**, which both tills already run — it is the only channel that reaches a till with nobody watching a browser tab. A badge on the ❓, cleared by opening the thread. |
+| 3 | **The help screen does not refresh** — it reloads only on navigation | ⚠ `till-design.md` **D5**, the live-data contract, already governs this and was not applied. MAUI: `Services.Sync.LiveScreen`, `onCadence: false` — it is a long scrollable thread and must not jump under the reader. |
+| 4 | ⚠⚠ **A closed ticket does not LOOK closed, and neither side can ask to close one.** | One fix, two halves: a visible state in the thread, and "request closure" from either side. ⚠ **From the customer's side it is a REQUEST, not a command** — a shop closing its own open incident is how a fault gets lost. |
+
+
+### WP-TZ — a store's timezone, set in the portal · **≈1d** · ⚠ deferred deliberately
+
+> **Matt, 2026-08-21**, alongside the live-clock request: *"somehow to set it in the portal I assume."*
+> Chosen scope: **the clock now, the portal timezone later as a WP.**
+
+The clock in both tills' app bars reads **the device's own clock**, and its hover caption says so and
+names the timezone. That is correct for a shop whose till PCs are set to the shop's timezone — which is
+every shop this platform has — and it is the diagnostic half: `Europe/London` on the caption of a till
+reading an hour out tells you at a glance whether the fault is the PC or the data. That question took a
+morning on 2026-08-21.
+
+⚠⚠ **THE WORK IS NOT THE SETTING, IT IS EVERY RENDER.** A store timezone that only the clock obeys is
+worse than none: the clock would say 14:32 while the sale list beside it said 13:32, and the screen
+would contradict itself. So this package is `apiTime.ts` and `SharedKernel.ApiTime` learning a target
+zone, every formatter routed through them, and a portal control — **in that order**.
+
+⚠ And it is a **money** change, not a display one: which day a late-evening sale falls on decides which
+VAT period it lands in. `till-design.md` C2 covers the readers; a target zone belongs in the same row.
+### WP-SIGNUP — a new tenant can sign up · **≈3–4d** · ⚠ NOT A UI JOB
+
+> *"I need to be able to add a new tennant, I don't think there is anyway to sign up at the moment?"*
+
+Correct — there is not. `TenantLifecycleService` provisions one, but nothing reaches it from outside.
+
+⚠⚠ **THE HARD PART IS EVERYTHING AROUND THE FORM.** An unauthenticated endpoint that creates a tenant
+is an open door: it needs email verification, rate limiting and abuse controls before it needs a page.
+⚠ **Sandbox first** — the Demo Store row is already flagged `SANDBOX`, and a self-serve tenant that
+starts live is one that starts taking real money before anybody has looked at it.
+
+### WP-LANDING — the public site · **≈2–3d**
+
+> *"I need a customer facing landing page, that describes Plutus, with a login screen to take you to
+> the till."*
+
+⚠ **A separate app, not a route in the portal or the till.** It is unauthenticated, public and
+indexable; both existing apps assume a session, and neither should learn to serve anonymous traffic.
+
+⚠ Its "login" is a **link** to the till and the portal, not a third auth implementation. There are two
+already (`oidc.ts` and the password mode) and a third would be the C2 problem in a place where getting
+it wrong is a breach rather than an hour.
+
+⚠ **Depends on WP-SIGNUP** for the half that matters: a landing page whose only call to action is
+"email us" is a brochure, and this is asked for as a front door.
+---
 ## 13. Hosting map (Azure ↔ self-hosted)
 
 Code against abstractions so this is a deployment choice, not a rewrite.

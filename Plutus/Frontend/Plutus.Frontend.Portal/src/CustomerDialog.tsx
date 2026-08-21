@@ -4,6 +4,7 @@ import { accessToken } from "./auth.ts";
 import Barcode39 from "./Barcode39.tsx";
 import MemberCard from "./MemberCard.tsx";
 import DialogX from "./DialogX.tsx";
+import { apiDateTime, apiDay } from "./apiTime.ts";
 
 // The full customer editor (details / store credit / membership), extracted from CustomersPage
 // (WP5.1) so BOTH the Customers tab and the Loyalty tab open the same dialog — loyalty is now
@@ -127,7 +128,7 @@ export default function CustomerDialog({ id, onClose }: { id: string; onClose: (
                   {detail.externalRefs.map((r) => (
                     <li key={`${r.provider}-${r.externalId}`}>
                       {providerLabel(r.provider)} <span className="mono">{r.externalId}</span>
-                      {r.email ? ` · ${r.email}` : ""} <span className="muted">· last seen {new Date(r.lastSeenAtUtc + "Z").toLocaleDateString("en-GB")}</span>
+                      {r.email ? ` · ${r.email}` : ""} <span className="muted">· last seen {apiDay(r.lastSeenAtUtc)}</span>
                     </li>
                   ))}
                 </ul>
@@ -187,7 +188,7 @@ export default function CustomerDialog({ id, onClose }: { id: string; onClose: (
               <tbody>
                 {credit?.entries.map((e, i) => (
                   <tr key={i}>
-                    <td>{new Date(e.createdAtUtc + "Z").toLocaleString("en-GB")}</td>
+                    <td>{apiDateTime(e.createdAtUtc)}</td>
                     <td>{e.type}</td>
                     <td className="num">{e.amountPence >= 0 ? "+" : ""}{gbp(e.amountPence)}</td>
                     <td className="small">{e.reason}</td>

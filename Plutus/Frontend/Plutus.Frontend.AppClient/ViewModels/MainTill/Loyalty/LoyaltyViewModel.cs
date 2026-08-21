@@ -650,7 +650,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
                     .ToArray();
 
                 var pickedWho = await Services.UIHandeling.Modal.ShowAsync(() =>
-                    Application.Current.MainPage.DisplayActionSheet(
+                    Plutus.Frontend.AppClient.Helpers.CustomViews.ChoiceHelper.AskAsync(
                         "Whose tier?", "Cancel".Translate(), null, who));
 
                 if (string.IsNullOrWhiteSpace(pickedWho) || pickedWho == "Cancel".Translate()) return;
@@ -689,7 +689,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Loyalty
                     .ToArray();
 
                 var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
-                    Application.Current.MainPage.DisplayActionSheet(
+                    Plutus.Frontend.AppClient.Helpers.CustomViews.ChoiceHelper.AskAsync(
                         $"Tier for {(string.IsNullOrWhiteSpace(member.Name) ? "this member" : member.Name)}?",
                         "Cancel".Translate(), null, names));
 

@@ -3,6 +3,7 @@ import { ApiError } from "./api.ts";
 import { accessToken } from "./auth.ts";
 import DataTable from "./DataTable.tsx";
 import DialogX from "./DialogX.tsx";
+import { apiDateTime } from "./apiTime.ts";
 
 // WP5.2 stock screens: central view (all locations) / per-store view (location filter),
 // per-item movements drill, manual adjustment, stock-take count, transfers + in-transit.
@@ -87,7 +88,7 @@ export default function StockPage() {
                 key: "fromLocationId", label: "From → To",
                 render: (t) => <span className="small">{locations.find((l) => l.id === t.fromLocationId)?.name} → {locations.find((l) => l.id === t.toLocationId)?.name}</span>,
               },
-              { key: "createdAtUtc", label: "Since", render: (t) => new Date(t.createdAtUtc + "Z").toLocaleString("en-GB") },
+              { key: "createdAtUtc", label: "Since", render: (t) => apiDateTime(t.createdAtUtc) },
             ]}
             rows={transfers} getKey={(t) => t.id} initialSortKey="createdAtUtc" initialSortDir="desc"
             search={(t) => t.itemIdOne}
@@ -221,7 +222,7 @@ export function AdjustmentsReport({ locations }: { locations?: LocationRow[] }) 
       )}
       <DataTable<AdjustmentRow>
         columns={[
-          { key: "atUtc", label: "When", render: (r) => new Date(r.atUtc + "Z").toLocaleString("en-GB") },
+          { key: "atUtc", label: "When", render: (r) => apiDateTime(r.atUtc) },
           { key: "type", label: "Type" },
           { key: "itemIdOne", label: "Item", render: (r) => <span className="mono small">{r.itemIdOne}</span> },
           { key: "itemName", label: "Name", render: (r) => r.itemName ?? <span className="muted">?</span> },
@@ -333,7 +334,7 @@ function ItemDialog({ level, locations, onClose }: { level: LevelRow; locations:
             standard table even though it lives in a dialog */}
         <DataTable<MovementRow>
           columns={[
-            { key: "atUtc", label: "When", render: (m) => new Date(m.atUtc + "Z").toLocaleString("en-GB") },
+            { key: "atUtc", label: "When", render: (m) => apiDateTime(m.atUtc) },
             { key: "type", label: "Type" },
             { key: "qtyDelta", label: "Δ", numeric: true, render: (m) => (m.qtyDelta > 0 ? `+${m.qtyDelta}` : String(m.qtyDelta)) },
             { key: "reason", label: "Reason / ref", render: (m) => <span className="small">{m.reason ?? (m.refId ? `sale/transfer ${m.refId.slice(0, 8)}…` : "")}</span> },

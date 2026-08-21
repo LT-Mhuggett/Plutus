@@ -7,6 +7,7 @@ import {
   type Assignment, type AuditRow, type PermissionInfo, type PortalUser, type Role,
 } from "./api.ts";
 import DialogX from "./DialogX.tsx";
+import { apiDateTime, apiDay, apiMs } from "./apiTime.ts";
 
 /** Users & roles (WP3.1/3.2 + FE9): who holds which role at which scope, what each role actually
  *  grants, and per-user access. The permission catalogue itself is fixed in code — this surface
@@ -59,10 +60,10 @@ export default function UsersPage() {
 
   const ago = (iso: string | null) => {
     if (!iso) return <span className="muted">never</span>;
-    const days = Math.floor((Date.now() - new Date(iso + "Z").getTime()) / 86400_000);
-    const label = new Date(iso + "Z").toLocaleDateString("en-GB");
+    const days = Math.floor((Date.now() - apiMs(iso)) / 86400_000);
+    const label = apiDay(iso);
     // dormant accounts are the ones worth removing — flag them
-    return <span className="small" title={new Date(iso + "Z").toLocaleString("en-GB")}>
+    return <span className="small" title={apiDateTime(iso)}>
       {label}{days >= 90 && <span className="muted"> ({days}d)</span>}
     </span>;
   };
@@ -299,7 +300,7 @@ function ActivityDialog({ user, onClose }: { user: PortalUser; onClose: () => vo
             columns={[
               {
                 key: "atUtc", label: "When",
-                render: (a) => <span className="small" title={a.atUtc}>{new Date(a.atUtc + "Z").toLocaleString("en-GB")}</span>,
+                render: (a) => <span className="small" title={a.atUtc}>{apiDateTime(a.atUtc)}</span>,
               },
               { key: "action", label: "Action", render: (a) => <span className="mono small">{a.action}</span> },
               { key: "entityType", label: "On", render: (a) => a.entityType ?? "—" },

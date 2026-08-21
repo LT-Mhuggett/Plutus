@@ -100,6 +100,27 @@ body {
   padding: 0.75rem 1rem 0.5rem;
 }
 
+/* ⚠ THE TILL CLOCK (2026-08-21). Matt asked for a live time on both tills after sale times read an
+   hour early — see `TillClock.tsx`.
+
+   ⚠ TABULAR FIGURES ARE NOT A FLOURISH. Proportional digits are different widths, so a clock ticking
+   in a flex row nudges everything beside it once a second — the ❓ and 👥 buttons would jitter
+   under the operator's cursor all day. `font-variant-numeric` fixes the digit advance.
+
+   ⚠ It is deliberately QUIETER than the badges around it: it is a reference, not a status. A clock
+   styled like the OFFLINE badge would read as a warning. */
+.till-clock {
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  padding: 0.2rem 0.5rem;
+  color: var(--accent-ink);
+  opacity: 0.85;
+  white-space: nowrap;
+  cursor: default;
+}
+
 .env-badge {
   font-size: 0.7rem;
   font-weight: 700;

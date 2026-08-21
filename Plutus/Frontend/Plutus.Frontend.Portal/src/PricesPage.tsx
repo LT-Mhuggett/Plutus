@@ -4,6 +4,7 @@ import { accessToken } from "./auth.ts";
 import DataTable from "./DataTable.tsx";
 import DiscountRulesSection from "./DiscountRulesSection.tsx";
 import DialogX from "./DialogX.tsx";
+import { apiDateTime } from "./apiTime.ts";
 
 // WP5.4 portal pricing: global price editor (policy, HQ price incl. scheduling, store
 // override, force-reset) + the per-store variance view.
@@ -69,8 +70,14 @@ export default function PricesPage() {
           catalogue meant scrolling past every item to reach it. It stays COLLAPSED, so being first
           costs nothing to somebody who came here for prices. */}
       <DiscountRulesSection />
-      <section className="panel">
-      <h2>Prices</h2>
+      {/* ⚠⚠ COLLAPSIBLE, LIKE DISCOUNT SETTINGS ABOVE IT (2026-08-21). Matt: *"Also Prices, can it be
+          collapsed like discount settings please."*
+
+          ⚠ AND IT OPENS BY DEFAULT (`open`), which Discount Settings does not — this is the Prices
+          page, and a page whose main content is shut on arrival reads as broken. Collapsing it is for
+          getting it out of the way to reach the discounts, not for hiding it. */}
+      <details className="panel store-card" open>
+      <summary><strong>Prices</strong></summary>
       <div className="toolbar">
         <label>Quick open (barcode / id) <input value={lookup} onChange={(e) => setLookup(e.target.value)} placeholder="5011921068203" /></label>
         <button className="primary small" disabled={!lookup.trim()} onClick={() => void open(lookup.trim())}>Open price editor</button>
@@ -120,7 +127,7 @@ export default function PricesPage() {
         <PriceDialog detail={detail} onClose={() => { setDetail(null); void refreshVariance(); void refreshList(); }}
           onChanged={() => void open(detail.itemIdOne)} />
       )}
-      </section>
+      </details>
     </>
   );
 }
@@ -200,7 +207,7 @@ function PriceDialog({ detail, onClose, onChanged }: { detail: PriceDetail; onCl
           <tbody>
             {detail.central.map((c, i) => (
               <tr key={i} className={i === 0 ? "" : "muted"}>
-                <td>{new Date(c.effectiveFromUtc + "Z").toLocaleString("en-GB")}</td>
+                <td>{apiDateTime(c.effectiveFromUtc)}</td>
                 <td className="num">{gbp(c.pricePence)}</td>
                 <td className="num">{gbp(c.exPricePence)}</td>
               </tr>
@@ -219,7 +226,7 @@ function PriceDialog({ detail, onClose, onChanged }: { detail: PriceDetail; onCl
                   <tr key={i}>
                     <td>{o.storeId}</td>
                     <td className="num">{gbp(o.pricePence)}</td>
-                    <td>{new Date(o.effectiveFromUtc + "Z").toLocaleString("en-GB")}</td>
+                    <td>{apiDateTime(o.effectiveFromUtc)}</td>
                   </tr>
                 ))}
               </tbody>

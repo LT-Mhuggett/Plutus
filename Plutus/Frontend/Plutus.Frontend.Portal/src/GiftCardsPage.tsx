@@ -10,6 +10,7 @@ import Barcode39 from "./Barcode39.tsx";
 import DataTable from "./DataTable.tsx";
 import { ask } from "./Ask.tsx";
 import DialogX from "./DialogX.tsx";
+import { apiDateTime, apiDay } from "./apiTime.ts";
 
 /**
  * FE7 gift cards. Codes are minted here (worthless until a till sells one), sold and spent at the
@@ -27,7 +28,7 @@ const statusChip = (status: string) => {
   return <span className={cls}>{status}</span>;
 };
 
-const day = (iso: string | null) => (iso ? new Date(iso + "Z").toLocaleDateString("en-GB") : "—");
+const day = (iso: string | null) => (iso ? apiDay(iso) : "—");
 
 export default function GiftCardsPage() {
   const [rows, setRows] = useState<GiftCardRow[]>([]);
@@ -403,7 +404,7 @@ function CardDialog({ code, onClose, onNotice }:
                 <span className="mono">{card.pretty}</span>
                 <div><Barcode39 value={card.barcode} height={30} showText={false} /></div>
               </dd>
-              <dt>Sold</dt><dd>{card.issuedAtUtc ? new Date(card.issuedAtUtc + "Z").toLocaleString("en-GB") : <span className="muted">not sold yet</span>}</dd>
+              <dt>Sold</dt><dd>{card.issuedAtUtc ? apiDateTime(card.issuedAtUtc) : <span className="muted">not sold yet</span>}</dd>
               <dt>Expires</dt><dd>{card.expiresAtUtc ? day(card.expiresAtUtc) : <span className="muted">never</span>}</dd>
               <dt>Batch</dt><dd>{card.batch ?? <span className="muted">—</span>}</dd>
               <dt>Customer</dt>
@@ -435,7 +436,7 @@ function CardDialog({ code, onClose, onNotice }:
               <tbody>
                 {card.entries.map((e) => (
                   <tr key={e.id}>
-                    <td className="small">{new Date(e.atUtc + "Z").toLocaleString("en-GB")}</td>
+                    <td className="small">{apiDateTime(e.atUtc)}</td>
                     <td>{e.type}{e.reason ? <span className="muted small"> · {e.reason}</span> : null}</td>
                     <td className="num">{e.amountPence > 0 ? "+" : ""}{gbp(e.amountPence)}</td>
                     <td className="mono small">{e.saleId ? e.saleId.slice(0, 8) + "…" : "—"}</td>

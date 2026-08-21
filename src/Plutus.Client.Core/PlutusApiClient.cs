@@ -29,7 +29,29 @@ public sealed class PlutusApiClient
     private readonly HttpClient _http;
     private readonly IDeviceTokenProvider? _tokens;
 
-    public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    /// <summary>
+    /// ⚠⚠ `ApiTime.Utc` IS WHY EVERY `DateTime` OFF THIS CLIENT MEANS WHAT IT SAYS (2026-08-21).
+    ///
+    /// Without it, a timestamp that came off a MySQL column arrives as `"2026-08-21T14:30:00"` — no
+    /// `Z` — and `System.Text.Json` hands back `DateTimeKind.Unspecified`. **`.ToLocalTime()` on an
+    /// `Unspecified` value does nothing at all**, so the Sales report read an hour early all summer
+    /// and would have read correctly all winter. Matt found it on the web till, which had the
+    /// identical fault in TypeScript: *"Why are the sales a correct time on the portal and an hour
+    /// earlier on the webtill?"*
+    ///
+    /// ⚠ HERE, NOT AT THE CALL SITES. Thirteen `.ToLocalTime()`s were wrong; fixing thirteen call
+    /// sites leaves the fourteenth to be written wrong. See `ApiTime`, and `till-design.md` C2 for
+    /// what pins this to the two TypeScript copies.
+    /// </summary>
+    public static readonly JsonSerializerOptions Json = Configure(new(JsonSerializerDefaults.Web));
+
+    /// <summary>⚠ Both converters, always — `JsonConverter&lt;DateTime&gt;` does not cover `DateTime?`.</summary>
+    private static JsonSerializerOptions Configure(JsonSerializerOptions o)
+    {
+        o.Converters.Add(new Plutus.SharedKernel.ApiTime.Utc());
+        o.Converters.Add(new Plutus.SharedKernel.ApiTime.UtcNullable());
+        return o;
+    }
 
     public PlutusApiClient(HttpClient http, IDeviceTokenProvider? tokens = null)
     {

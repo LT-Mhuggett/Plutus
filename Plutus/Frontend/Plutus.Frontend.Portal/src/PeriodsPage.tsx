@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { closePeriod, createPeriod, fetchPeriods, gbp, type Period } from "./api.ts";
 import DataTable from "./DataTable.tsx";
 import { ask } from "./Ask.tsx";
+import { apiDay } from "./apiTime.ts";
 
 /** Financial periods (WP3.4): create, close (snapshot + lock). Late sales into a closed
  *  period post to the next open day and are flagged in the audit trail. */
@@ -49,7 +50,7 @@ export default function PeriodsPage() {
         columns={[
           { key: "name", label: "Name" },
           { key: "startDay", label: "Range", render: (p) => `${p.startDay} → ${p.endDay}` },
-          { key: "status", label: "Status", render: (p) => `${p.status}${p.closedAtUtc ? ` (${new Date(p.closedAtUtc + "Z").toLocaleDateString("en-GB")})` : ""}` },
+          { key: "status", label: "Status", render: (p) => `${p.status}${p.closedAtUtc ? ` (${apiDay(p.closedAtUtc)})` : ""}` },
           { key: "snapshotJson", label: "Snapshot at close", sortable: false, render: (p) => <span className="small">{snapshotSummary(p.snapshotJson)}</span> },
         ]}
         rows={periods} getKey={(p) => p.id} initialSortKey="startDay"

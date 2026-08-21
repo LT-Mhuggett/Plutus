@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchSales, gbp, type SaleRow } from "./api.ts";
 import SaleDialog from "./SaleDialog.tsx";
 import DataTable from "./DataTable.tsx";
+import { apiDateTime } from "./apiTime.ts";
 
 // WP3.2 Custom report (portal, net-new): a date-range sales listing with per-sale drill-in (the
 // shared SaleDialog) and a client-side CSV export — the portal equivalent of the till's Statistics
@@ -68,7 +69,7 @@ export default function CustomReport() {
               client-side cap is gone: every loaded sale is now reachable. */}
           <DataTable<SaleRow>
             columns={[
-              { key: "occurredAtUtc", label: "Date", render: (s) => new Date(s.occurredAtUtc + "Z").toLocaleString("en-GB") },
+              { key: "occurredAtUtc", label: "Date", render: (s) => apiDateTime(s.occurredAtUtc) },
               { key: "id", label: "Sale id", render: (s) => <span className="mono small">{s.id.slice(0, 8)}…</span> },
               { key: "channel", label: "Channel", render: (s) => `${s.channel}${s.legacyRef ? " (migrated)" : ""}` },
               { key: "netPence", label: "Net (ex VAT)", numeric: true, sort: (s) => s.grossPence - s.vatPence, render: (s) => gbp(s.grossPence - s.vatPence) },

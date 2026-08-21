@@ -13,6 +13,7 @@ import {
   type V1CategorySales, type V1CategorySalesRow, type V1BestSellerRow,
 } from "../api.ts";
 import { gbp } from "../money.ts";
+import { apiDateTime } from "../apiTime.ts";
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const today = () => iso(new Date());
@@ -179,7 +180,7 @@ function ItemsSoldView() {
           </div>
           <DataTable<V1ItemSoldRow>
             columns={[
-              { key: "dateSold", label: "Date", render: (r) => <span className="small">{new Date(r.dateSold + "Z").toLocaleString("en-GB")}</span> },
+              { key: "dateSold", label: "Date", render: (r) => <span className="small">{apiDateTime(r.dateSold)}</span> },
               { key: "itemName", label: "Item", render: (r) => <><span className="mono small">{r.itemIdOne}</span> {r.itemName}</> },
               { key: "category", label: "Category", render: (r) => <span className="small">{r.category ?? "—"}</span> },
               { key: "staffName", label: "Staff", render: (r) => <span className="small">{r.staffName}</span> },

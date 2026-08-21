@@ -237,6 +237,42 @@
                     <Entry HorizontalOptions="FillAndExpand" Text="{Binding ItemId}"
                            ReturnCommand="{Binding ManualAddCommand}" FontSize="Medium"
                            IsVisible="{Binding IsDesktop, Mode=OneWay}"/>
+                    <!-- ⚠⚠ THE BAG BUTTONS MOVED UP HERE, 2026-08-21. Matt: *"Can the bag button in
+                         MAUI be moved up the top like on the webtill please."* They sat in the bottom
+                         action grid among Alter / Save / Retrieve / Checkout / Cancel; the web till has
+                         had them in the SCAN ROW beside the Return button since it was written.
+
+                         ⚠ The 2026-08-19 look-and-feel ruling: an operator who moves between tills
+                         mid-shift must not have to hunt. The old comment on this block conceded
+                         *"position still differs — the two checkout layouts are reconciled by §5c item
+                         2, not here"* — that deferral is now closed.
+
+                         ⚠⚠ AND THE POSITION IS THE RIGHT ONE ON ITS OWN MERITS. A bag is scanned-in
+                         goods, not a checkout decision: it is added WHILE ringing items through, so it
+                         belongs with the scan box, not beside Checkout where it reads as a payment
+                         step. That is also why it sits before Return — the two things an operator adds
+                         to a basket by hand, together.
+
+                         ⚠ ONE BUTTON PER BAG, cheapest first, each labelled with its price (ruling
+                         2026-08-19). This was a single "Bag" button bound to `DefaultBagId` — one
+                         barcode, free text, held per device — so a shop selling a single-use bag AND a
+                         bag for life could only offer one, and this till held "001", a barcode no item
+                         had. The list comes from the portal; see `Services.Sales.CarrierBags`.
+                         ⚠ MATCHES THE WEB TILL'S LABEL exactly ("Bag £0.10").
+                         ⚠ A HorizontalStackLayout, not grid cells: the number of bags is the shop's
+                         decision and a fixed grid cannot hold an unknown count. -->
+                    <HorizontalStackLayout Spacing="4"
+                                           BindableLayout.ItemsSource="{Binding CarrierBags}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <!-- ⚠ The price is formatted here rather than stored formatted, so it
+                                     follows the till's culture like every other figure on the screen. -->
+                                <Button Text="{Binding PricePence, Converter={StaticResource PenceToBagLabel}}"
+                                        Command="{Binding Path=BindingContext.AddBagCommand, Source={x:Reference Name=TillPage}}"
+                                        CommandParameter="{Binding .}"/>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </HorizontalStackLayout>
                     <!-- ⚠⚠ THE VISIBLE DOOR ONTO A REFUND (finding Z1, 2026-08-13). The only way in was
                          a RIGHT-CLICK on a basket line, which nothing on screen advertised — Matt asked
                          where the web till's button was. A feature reachable only by right-click on a
@@ -347,29 +383,16 @@
                     <Label  Grid.Row="1" Grid.Column="5" Text="{Binding SaleIncTax, StringFormat='{0:C2}'}"/>
                     <Button Grid.Row="2" Grid.Column="0" Grid.RowSpan="2" Text="{i18n:Translate AltTransaction}"
                             Command="{Binding AlterTransactionSelectorCommand}"/>
-                    <!-- ⚠⚠ ONE BUTTON PER BAG, cheapest first, each labelled with its price (ruling
-                         2026-08-19). This was a single "Bag" button bound to `DefaultBagId` — one
-                         barcode, free text, held per device — so a shop selling a single-use bag AND a
-                         bag for life could only offer one, and this till held "001", a barcode no item
-                         had. The list now comes from the portal; see `Services.Sales.CarrierBags`.
-                         ⚠ MATCHES THE WEB TILL'S LABEL exactly ("Bag £0.10"), under the 2026-08-19
-                         look-and-feel ruling: an operator moving between tills must not have to learn
-                         two vocabularies. Position still differs — the two checkout layouts are
-                         reconciled by §5c item 2, not here.
-                         ⚠ A HorizontalStackLayout, not more grid cells: the number of bags is the
-                         shop's decision and a fixed grid cannot hold an unknown count. -->
-                    <HorizontalStackLayout Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Spacing="4"
-                                           BindableLayout.ItemsSource="{Binding CarrierBags}">
-                        <BindableLayout.ItemTemplate>
-                            <DataTemplate>
-                                <!-- ⚠ The price is formatted here rather than stored formatted, so it
-                                     follows the till's culture like every other figure on the screen. -->
-                                <Button Text="{Binding PricePence, Converter={StaticResource PenceToBagLabel}}"
-                                        Command="{Binding Path=BindingContext.AddBagCommand, Source={x:Reference Name=TillPage}}"
-                                        CommandParameter="{Binding .}"/>
-                            </DataTemplate>
-                        </BindableLayout.ItemTemplate>
-                    </HorizontalStackLayout>
+                    <!-- ⚠⚠ THE BAG BUTTONS ARE NOT HERE ANY MORE (2026-08-21). Matt: *"Can the bag
+                         button in MAUI be moved up the top like on the webtill please."* They are in
+                         the SCAN ROW now, beside Return, which is where the web till has always had
+                         them — see the block up there for why that is also the better place.
+
+                         ⚠ COLUMNS 1 AND 2 ARE NOW FREE ON THIS ROW, and they are deliberately left
+                         empty rather than closed up. This grid's columns are shared with rows 1 and 3
+                         (the totals, and Cancel spanning 1–4); narrowing them to absorb the gap would
+                         move the totals, which are the two figures an operator checks against a
+                         customer's screen. -->
                     <!-- ⚠⚠ SAVE **AND** RETRIEVE, side by side (2026-08-18). Retrieve was a toolbar
                          item labelled "Baskets" that appeared and disappeared with the parked list —
                          so the feature worked and nobody could find it. Matt asked for two buttons

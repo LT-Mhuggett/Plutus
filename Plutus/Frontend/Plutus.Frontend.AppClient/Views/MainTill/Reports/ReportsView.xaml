@@ -30,17 +30,17 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Picker Grid.Column="0" x:Name="ReportPicker" Title="Report"/>
-            <!-- ⚠⚠ MOVED HERE 2026-08-21 BECAUSE IT HAD BECOME UNREACHABLE. Reprint lived on the
-                 Statistics tab, and Statistics was taken off the tab bar on 2026-08-16 when Reports
-                 replaced it — so `ReceiptReprint.PickAndReprintAsync` had exactly ONE caller, on a
-                 screen no operator could open. Part B claimed MAUI could reprint a receipt; for five
-                 days it could not. ⚠ It belongs here anyway: the web till reprints from its
-                 reporting screen, beside the list of past sales. -->
-            <Button Grid.Column="1" Text="Reprint a receipt" Command="{Binding ReprintReceiptCommand}"/>
-            <Button Grid.Column="2" Text="{i18n:Translate Refresh}" Command="{Binding RefreshCommand}"/>
+            <!-- ⚠⚠ NO "REPRINT A RECEIPT" BUTTON, 2026-08-21. One was added here that morning to
+                 rescue a capability the dropped Statistics tab had taken with it. Matt: *"Why is there
+                 a button there in MAUI and not in the webtill? Reprinting receipts needs to be done
+                 from reports and looking at the specific sales in a day."*
+
+                 The web till reprints from its SALE DETAIL dialog, off a report row — so a toolbar
+                 picker here was a second way to find a sale, beside the **Sales** report that already
+                 lists them. Reprint now lives on `SaleDetailAlert`, which those rows open. -->
+            <Button Grid.Column="1" Text="{i18n:Translate Refresh}" Command="{Binding RefreshCommand}"/>
         </Grid>
 
         <Grid Grid.Row="1" ColumnSpacing="6">

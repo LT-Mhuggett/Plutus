@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using System.Globalization;
 using Microsoft.Maui;
 using Microsoft.Maui.Controls;
@@ -34,11 +35,15 @@ namespace Plutus.Frontend.AppClient.Views.CustomViews
         private readonly VerticalStackLayout _main = new() { Padding = 10, Spacing = 4 };
         private readonly ScrollView _scroller;
 
+        /// <summary>The web till's exact wording (`SaleDetailDialog`), so an operator who moves
+        /// between tills mid-shift reads the same button on both.</summary>
+        private const string PrintLabel = "Print copy receipt";
+
         /// <summary>Raised when the operator closes it — wired to the ✕ AND to the Close button, so
         /// both exits behave identically (till-design **D4**).</summary>
         public event EventHandler CloseRequested;
 
-        public SaleDetailAlert(SaleDto sale, string tillLabel)
+        public SaleDetailAlert(SaleDto sale, string tillLabel, Func<Task> printCopy = null)
         {
             // ⚠⚠ A SOLID BACKGROUND AND A CENTRED BOX — WITHOUT BOTH, THIS DIALOG IS TRANSPARENT.
             // Reported by Matt on the first hand-run of §G41 (2026-08-18): *"When I open a sales day in
@@ -190,11 +195,68 @@ namespace Plutus.Frontend.AppClient.Views.CustomViews
                 _main.Children.Add(Muted(
                     "This is a refund — it is recorded as a sale with a negative total."));
 
+            // ── the two exits ────────────────────────────────────────────────────────────────────
+            //
+            // ⚠⚠ **PRINT COPY RECEIPT LIVES HERE, AND ONLY HERE.** Matt, 2026-08-21, on the standalone
+            // button the Reports tab briefly had: *"Why is there a button there in MAUI and not in the
+            // webtill? Reprinting receipts needs to be done from reports and looking at the specific
+            // sales in a day."*
+            //
+            // He is right, and the button he saw was a bad fix. Reprint had become unreachable when
+            // the Statistics tab was dropped, and moving it to the Reports toolbar restored the
+            // capability while inventing a MAUI-only control — a second, parallel way to find a sale
+            // (a picker of "recent sales") sitting next to the report that already lists them. The web
+            // till has never had one: it reprints from `SaleDetailDialog`, off a report row, which is
+            // where an operator is already standing when a customer asks.
+            //
+            // ⚠ SAME LABEL AS THE WEB TILL ("Print copy receipt"), under the 2026-08-19 look-and-feel
+            // ruling, and the same order — Close, then print.
+            var buttons = new Grid { ColumnSpacing = 6, Margin = new Thickness(0, 10, 0, 0) };
+            buttons.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Star });
+            buttons.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Star });
+
             // ⚠ A SECOND, OBVIOUS EXIT as well as the ✕. Matt on the price-adjust box: *"I know you
             // can click outside of the box to close it but its not intuative."*
-            var close = new Button { Text = "Close", Margin = new Thickness(0, 10, 0, 0) };
+            var close = new Button { Text = "Close" };
             close.Clicked += (_, e) => CloseRequested?.Invoke(this, e);
-            _main.Children.Add(close);
+            buttons.Add(close, 0, 0);
+
+            // ⚠ ONLY IF SOMEBODY CAN PRINT. `printCopy` is null on any caller that has no printer path
+            // to offer, and a dead button is worse than no button — it tells an operator a copy is
+            // available and then does nothing when the customer is waiting.
+            if (printCopy is not null)
+            {
+                var print = new Button { Text = PrintLabel };
+                buttons.Add(print, 1, 0);
+
+                // ⚠⚠ NOT `async void`, and DISABLED WHILE IT RUNS. A reprint reaches the network and
+                // then the agent, so it is slow enough to be pressed twice — and two presses is two
+                // papers for one purchase, which is the shape of the double refund `ReceiptReprint`'s
+                // header records. ⚠ The `finally` restores the button even when the print throws:
+                // a stuck "Printing…" would leave the operator unable to try again.
+                print.Clicked += async (_, _) =>
+                {
+                    if (!print.IsEnabled) return;
+
+                    print.IsEnabled = false;
+                    print.Text = "Printing…";
+                    try
+                    {
+                        await printCopy();
+                    }
+                    catch (Exception ex)
+                    {
+                        Services.Analytics.CrashLog.Write("SaleDetailAlert.PrintCopy", ex);
+                    }
+                    finally
+                    {
+                        print.Text = PrintLabel;
+                        print.IsEnabled = true;
+                    }
+                };
+            }
+
+            _main.Children.Add(buttons);
 
             Content = _scroller;
         }

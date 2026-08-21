@@ -107,11 +107,25 @@ namespace Plutus.Frontend.AppClient
         /// translated — the titles come from <c>I18N_L10N</c>, and hard-coding them here would
         /// quietly ship an English-only tab bar.
         /// </summary>
-        private static ShellContent Tab(Page page) => new()
+        private static ShellContent Tab(Page page)
         {
-            Title = page.Title,
-            Icon = page.IconImageSource,
-            Content = page,
-        };
+            // ⚠⚠ THE APP BAR GOES ON EVERY TAB (2026-08-21). Matt: *"The help needs to be in the top
+            // corner of the MAUI till like the web till … It is also missing the users etc."* The web
+            // till's app bar is one header above the whole shell; MAUI's equivalent is Shell's
+            // `TitleView`, and Shell resolves that **per page** — there is no shell-wide one.
+            //
+            // ⚠ SO EACH PAGE GETS ITS OWN INSTANCE, and it has to: a `View` cannot have two parents,
+            // and sharing one across seven tabs re-parents it on every tab change (it would appear on
+            // whichever tab was opened last and nowhere else). `TillAppBar` is built for that — the
+            // clock subscribes to ONE static tick rather than each instance owning a timer.
+            Shell.SetTitleView(page, new Controls.TillAppBar());
+
+            return new ShellContent
+            {
+                Title = page.Title,
+                Icon = page.IconImageSource,
+                Content = page,
+            };
+        }
     }
 }

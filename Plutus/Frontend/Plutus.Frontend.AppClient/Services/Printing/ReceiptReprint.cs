@@ -67,7 +67,7 @@ namespace Plutus.Frontend.AppClient.Services.Printing
             labels.Add(AnotherTill);
 
             var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
-                Application.Current.MainPage.DisplayActionSheet(
+                Plutus.Frontend.AppClient.Helpers.CustomViews.ChoiceHelper.AskAsync(
                     "Which receipt?", "Cancel".Translate(), null, labels.ToArray()));
 
             if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return;
@@ -227,7 +227,7 @@ namespace Plutus.Frontend.AppClient.Services.Printing
                 .ToList();
 
             var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
-                Application.Current.MainPage.DisplayActionSheet(
+                Plutus.Frontend.AppClient.Helpers.CustomViews.ChoiceHelper.AskAsync(
                     "Which sale, from Plutus?", "Cancel".Translate(), null, labels.ToArray()));
 
             if (string.IsNullOrEmpty(picked) || picked == "Cancel".Translate()) return null;

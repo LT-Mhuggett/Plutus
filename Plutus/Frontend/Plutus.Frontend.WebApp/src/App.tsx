@@ -26,6 +26,13 @@ import { getSession, type Session } from "./session.ts";
 import { oidcMode, signOut } from "./auth.ts";
 import { beginLogin, completeLoginIfCallback } from "./oidc.ts";
 import AskHost, { ask } from "./Ask.tsx";
+import TillClock from "./TillClock.tsx";
+
+/**
+ * ⚠ THE ENVIRONMENT BADGE. `VITE_ENV_BADGE=test` on the test deploy; unset in production, which shows
+ * nothing. ⚠ Trimmed, so a stray space in a `.env` file does not render an empty pill.
+ */
+const envBadge = (import.meta.env.VITE_ENV_BADGE ?? "").trim();
 
 declare const __BUILD_TIME__: string;
 declare const __APP_VERSION__: string;
@@ -344,7 +351,22 @@ export default function App() {
             ⬆ Update — reload
           </button>
         )}
-        <span className="env-badge">test</span>
+        {/* ⚠ THE CLOCK, LEFT OF THE ENV BADGE (2026-08-21). Matt asked for it in the same breath as
+            the hour-out sale times: a live time on the screen is what makes a wrong one obvious. Its
+            hover caption names the timezone, which is the half that says whether the fault is the PC
+            or the data. See `TillClock`. */}
+        <TillClock />
+        {/* ⚠⚠ THE ENVIRONMENT BADGE IS CONFIGURED, NOT HARD-CODED (2026-08-21). Matt: *"How do I turn
+            off the 'Test' on the webtill?"* — you could not. It was the literal string `test` in this
+            file, so the only way to remove it from a production till was a code change and a deploy,
+            and the badge that exists to say "this is not the real till" would have shipped **onto the
+            real till**.
+
+            ⚠ SET `VITE_ENV_BADGE` PER ENVIRONMENT: any text shows that text; **empty or unset shows
+            nothing**. Unset is the safe default precisely because production is the environment
+            nobody remembers to configure — a missing setting must fail towards "no badge", never
+            towards a live till labelled `test`. */}
+        {envBadge && <span className="env-badge">{envBadge}</span>}
         {/* WP6.3: Help, top-right next to the users button — raise/track support tickets. */}
         <button className="user-btn" title="Help &amp; support" onClick={() => setHelpOpen(true)}>❓</button>
         {/* the users button — the original till's people icon, now functional */}

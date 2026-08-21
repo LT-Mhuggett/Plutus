@@ -11,6 +11,7 @@ import TillThemesSection from "./TillThemesSection.tsx";
 import ReportPublicationSection from "./ReportPublicationSection.tsx";
 import { useNav } from "./nav.tsx";
 import { ask } from "./Ask.tsx";
+import { apiDateTime } from "./apiTime.ts";
 
 /**
  * A till's device state. Only the LIVE device (Active, or PendingRemoval awaiting approval) is a
@@ -22,34 +23,23 @@ import { ask } from "./Ask.tsx";
  * common case is exactly one chip.
  */
 /**
- * Parse a timestamp the API sent, whether or not it already says it is UTC.
+ * ⚠⚠ THE LOCAL `apiDate` IS GONE, 2026-08-21 — it moved to `apiTime.ts`, unchanged in behaviour.
  *
- * ⚠⚠ THIS EXISTS BECAUSE `+ "Z"` SHIPPED A BUG THE SAME DAY IT FIXED ONE. Matt, 2026-08-12, with a
- * screenshot: every till read **"Invalid Date"**.
+ * Its header recorded exactly the right rule and it was **file-private**, so nothing else on this
+ * platform could reach it. The web till then shipped the very bug this function was written to
+ * prevent: Matt, 2026-08-21, *"Why are the sales a correct time on the portal and an hour earlier on
+ * the webtill?"* — because every `dateOfSale` over there was a bare `new Date(...)`.
  *
- * The pattern all over this file was `new Date(value + "Z")`, which assumes the server always sends
- * a BARE timestamp. It did, while "last online" came from a MySQL column — EF hands those back as
- * `DateTimeKind.Unspecified`, which System.Text.Json writes without a suffix. The fix on 2026-08-11
- * made the value come from `TillPresence` instead, which records `DateTime.UtcNow` — **Kind=Utc**,
- * which serialises **with a trailing `Z`**. So `+ "Z"` produced `…ZZ`, and `Date` gave up.
- *
- * ⚠ The tell was in the screenshot: the webstore row said "never" (no device, so null, so the empty
- * branch) while every row with a live till said "Invalid Date". Only the non-null path was broken.
- *
- * ⚠ So this stops guessing what the server meant. A value that already carries `Z` or a `+01:00`
- * offset is passed through untouched; a bare one is treated as UTC, which is what every timestamp
- * on this API is. The whole class of bug goes with it.
+ * ⚠ A correct rule that only one file can call is a rule the next file will get wrong. That is now a
+ * C2 row (`till-design.md`), pinning this app's copy, the web till's, and MAUI's `ApiTime`.
  */
-function apiDate(value: string): Date {
-  return new Date(/[Zz]$|[+-]\d\d:?\d\d$/.test(value) ? value : value + "Z");
-}
 
 /** FE3.0: what we know about a device's hardware agent, as a chip. Never reported → nothing (a
  *  native till, or a web till from before this feature). Reported without a version → the web till
  *  looked at its PC and found no agent installed. */
 function AgentChip({ d }: { d: TillRow["devices"][number] }) {
   if (!d.agentReportedAtUtc) return null;
-  const reported = apiDate(d.agentReportedAtUtc).toLocaleString("en-GB");
+  const reported = apiDateTime(d.agentReportedAtUtc);
   if (!d.agentVersion) {
     return <span className="chip" title={`The till checked its PC and found no hardware agent (last checked ${reported}). Receipts print as PDF.`}>no agent</span>;
   }
@@ -76,7 +66,7 @@ function AgentChip({ d }: { d: TillRow["devices"][number] }) {
  * of the BACKEND is expected and resolves itself.
  */
 function VersionChip({ d }: { d: TillRow["devices"][number] }) {
-  const seen = d.lastSeenUtc ? apiDate(d.lastSeenUtc).toLocaleString("en-GB") : null;
+  const seen = d.lastSeenUtc ? apiDateTime(d.lastSeenUtc) : null;
 
   if (!d.appVersion) {
     return (
@@ -374,7 +364,7 @@ export default function StoresPage() {
             // empty case has to be handled explicitly rather than left to the formatter.
             key: "lastOnline", label: "Last online",
             render: (t) => t.lastOnline
-              ? <span className="small">{apiDate(t.lastOnline).toLocaleString("en-GB")}</span>
+              ? <span className="small">{apiDateTime(t.lastOnline)}</span>
               : <span className="muted small">never</span>,
           },
           ]}
@@ -529,7 +519,7 @@ function TillsTable({ tills, busy, onRename, onRemove, onRevoke, storeId, onNewT
             // empty case has to be handled explicitly rather than left to the formatter.
             key: "lastOnline", label: "Last online",
             render: (t) => t.lastOnline
-              ? <span className="small">{apiDate(t.lastOnline).toLocaleString("en-GB")}</span>
+              ? <span className="small">{apiDateTime(t.lastOnline)}</span>
               : <span className="muted small">never</span>,
           },
           {

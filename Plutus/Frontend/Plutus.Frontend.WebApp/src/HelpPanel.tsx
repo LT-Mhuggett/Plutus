@@ -4,6 +4,7 @@ import {
   clientReply, fetchMyThread, fetchMyTickets, raiseTicket,
   SUPPORT_SEVERITY, SUPPORT_STATUS, type SupportMessage, type SupportTicket,
 } from "./api.ts";
+import { apiDateTime, apiDay } from "./apiTime.ts";
 
 // WP6.3: the till's Help — opened from the appbar (top-right, next to the users button). Raise a
 // ticket, see history with status, read/reply to the operator's thread. Endpoints gated on
@@ -56,7 +57,7 @@ export default function HelpPanel({ onClose }: { onClose: () => void }) {
                   >
                     <span className="grow">
                       {t.subject}
-                      <span className="muted small block">{SUPPORT_SEVERITY[t.severity] ?? "—"} · {new Date(t.updatedAtUtc + "Z").toLocaleDateString("en-GB")}</span>
+                      <span className="muted small block">{SUPPORT_SEVERITY[t.severity] ?? "—"} · {apiDay(t.updatedAtUtc)}</span>
                     </span>
                     <span className={`chip ${t.status === 2 ? "" : "ok"}`}>{SUPPORT_STATUS[t.status] ?? t.status}</span>
                   </button>
@@ -128,7 +129,7 @@ function Thread({ ticket, messages, onReplied }: { ticket: SupportTicket; messag
       <div className="help-thread" style={{ maxHeight: 340, overflowY: "auto", margin: "8px 0" }}>
         {messages.map((m, i) => (
           <div key={i} className="setting-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 2 }}>
-            <span className="muted small">{m.fromOperator ? "Plutus" : m.authorName} · {new Date(m.atUtc + "Z").toLocaleString("en-GB")}</span>
+            <span className="muted small">{m.fromOperator ? "Plutus" : m.authorName} · {apiDateTime(m.atUtc)}</span>
             <span>{m.body}</span>
           </div>
         ))}

@@ -9,6 +9,7 @@ import {
 import DataTable from "./DataTable.tsx";
 import { ask } from "./Ask.tsx";
 import DialogX from "./DialogX.tsx";
+import { apiDateTime } from "./apiTime.ts";
 
 // FE4.3 row aliases for the alignment tables (the API groups them under AlignmentResp).
 type PriceDiffRow = AlignmentRow;
@@ -44,15 +45,15 @@ export default function WebstorePage() {
               <span className="stat-value">{conn.pendingSkus}</span>
               <span className="muted small">awaiting review</span></div>
             <div className="stat"><span className="stat-label">Orders synced to</span>
-              <span className="stat-value small">{conn.ordersCursorUtc ? new Date(conn.ordersCursorUtc + "Z").toLocaleString("en-GB") : "—"}</span></div>
+              <span className="stat-value small">{conn.ordersCursorUtc ? apiDateTime(conn.ordersCursorUtc) : "—"}</span></div>
             <div className="stat"><span className="stat-label">Catalogue swept</span>
-              <span className="stat-value small">{conn.lastFullProductSweepUtc ? new Date(conn.lastFullProductSweepUtc + "Z").toLocaleString("en-GB") : "pending first sweep"}</span></div>
+              <span className="stat-value small">{conn.lastFullProductSweepUtc ? apiDateTime(conn.lastFullProductSweepUtc) : "pending first sweep"}</span></div>
             {health && (
               <div className="stat"><span className="stat-label">Connector health</span>
                 <span className="stat-value small" style={{ color: health.silent || health.errorStreak > 0 ? "#dc2626" : "#16a34a" }}>
                   {health.silent ? "silent" : health.errorStreak > 0 ? `${health.errorStreak} error(s)` : "healthy"}
                 </span>
-                <span className="muted small">last poll {health.lastPollAtUtc ? new Date(health.lastPollAtUtc + "Z").toLocaleString("en-GB") : "—"}</span></div>
+                <span className="muted small">last poll {health.lastPollAtUtc ? apiDateTime(health.lastPollAtUtc) : "—"}</span></div>
             )}
             <div className="stat">
               <button className="ghost small" onClick={async () => {
@@ -235,7 +236,7 @@ function Catalogue({ id }: { id: string }) {
         </label>
         <span className="grow" />
         <span className="muted small">
-          {resp?.lastRefreshed ? `Last refreshed ${new Date(resp.lastRefreshed + "Z").toLocaleString("en-GB")}` : "not swept yet"}
+          {resp?.lastRefreshed ? `Last refreshed ${apiDateTime(resp.lastRefreshed)}` : "not swept yet"}
         </span>
         <button className="ghost small" disabled={busy} onClick={() => {
           setBusy(true); setError("");
@@ -320,7 +321,7 @@ function Outbound({ id }: { id: string }) {
       {msg && <p className="callout small">{msg}</p>}
       <DataTable<OutboundLogRow>
         columns={[
-          { key: "createdAtUtc", label: "When", render: (r) => <span className="small">{new Date(r.createdAtUtc + "Z").toLocaleString("en-GB")}</span> },
+          { key: "createdAtUtc", label: "When", render: (r) => <span className="small">{apiDateTime(r.createdAtUtc)}</span> },
           { key: "kind", label: "Kind" },
           { key: "lane", label: "Lane" },
           { key: "itemIdOne", label: "Item", render: (r) => <span className="mono small">{r.itemIdOne}</span> },

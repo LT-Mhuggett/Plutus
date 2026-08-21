@@ -21,5 +21,15 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": ["src"],
+
+  /* ⚠⚠ THE TWINNED TEST FILES ARE CARRIED, NOT RUN (2026-08-21). `apiTime.test.ts` exists here
+     byte-identical to the web till's copy because `FrontendTwinTests` holds the pair together, and a
+     twinned rule with its tests on one side only is a rule this side can break silently. This app has
+     no vitest, so `tsc` cannot resolve the import — and adding a test runner to the portal is its own
+     decision, not a side effect of fixing a timestamp.
+
+     ⚠ The file IS typechecked, on the other side: the web till compiles and runs the identical bytes.
+     That is what makes carrying it honest rather than decorative. */
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

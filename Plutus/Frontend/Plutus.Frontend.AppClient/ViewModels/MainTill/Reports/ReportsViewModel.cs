@@ -227,49 +227,22 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Reports
             }
         }
 
-        /// <summary>
-        /// Print another copy of a receipt this till has already issued.
-        ///
-        /// ⚠⚠ MOVED HERE FROM `StatisticsViewModel` ON 2026-08-21, BECAUSE IT HAD BECOME UNREACHABLE.
-        /// Statistics was taken off the tab bar on 2026-08-16 when Reports replaced it — deliberately,
-        /// because its viewmodels read the legacy local database and showed £0.00 for everything sold
-        /// since cutover. But **Reprint was the one thing on that tab that still worked**, and it went
-        /// with it: `ReceiptReprint.PickAndReprintAsync` was left with exactly one caller, on a screen
-        /// no operator could open.
-        ///
-        /// ⚠ Part B recorded MAUI as able to reprint a receipt throughout. **A capability marked ✅
-        /// whose only entry point has been hidden is indistinguishable from one that works** — this is
-        /// the eighth instance of that pattern in this project, and the first where something WAS wired
-        /// and quietly became unwired.
-        ///
-        /// ⚠ It belongs on Reports regardless: the web till reprints from its reporting screen, beside
-        /// the list of past sales, which is where somebody asking for another copy is already looking.
-        ///
-        /// ⚠ `async void` on a Command — so it must not let anything escape. An unhandled exception
-        /// here is not a failed button, it is a closed till.
-        /// </summary>
-        private Command _reprintReceiptCommand;
-        public Command ReprintReceiptCommand => _reprintReceiptCommand ??= new Command(ExecuteReprintReceipt);
-
-        private async void ExecuteReprintReceipt()
-        {
-            if (IsBusy) return;
-            IsBusy = true;
-            try
-            {
-                await Services.Printing.ReceiptReprint.PickAndReprintAsync();
-            }
-            catch (Exception ex)
-            {
-                CrashLog.Write("ReportsViewModel.Reprint", ex);
-                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                    "That didn't work. Nothing has been printed.", "OK".Translate());
-            }
-            finally
-            {
-                IsBusy = false;
-            }
-        }
+        // ⚠⚠ THERE IS NO "REPRINT A RECEIPT" BUTTON HERE, AND THAT IS DELIBERATE (2026-08-21).
+        //
+        // One lived here for a few hours. Reprint had become unreachable when the Statistics tab was
+        // dropped on 2026-08-16 — `ReceiptReprint.PickAndReprintAsync` was left with one caller, on a
+        // screen no operator could open — and a toolbar button restored the capability. Matt: *"Why is
+        // there a button there in MAUI and not in the webtill? Reprinting receipts needs to be done
+        // from reports and looking at the specific sales in a day."*
+        //
+        // ⚠ THE FIX WAS A PARITY BREACH IN THE OTHER DIRECTION. The web till has no such button; it
+        // reprints from `SaleDetailDialog`, opened off a report row. A toolbar picker of "recent sales"
+        // is a SECOND way to find a sale, sitting next to the **Sales** report that already lists them
+        // — two finders for one job, only one of which the other till has.
+        //
+        // ⚠ The capability is not lost: it moved to `SaleDetailAlert`, which the **Sales** report's
+        // rows already open (`drill:` in `ReportCatalogue`). `PickAndReprintAsync` and its two pickers
+        // went with the button — see `ReceiptReprint`.
 
         private Command _refreshCommand;
         public Command RefreshCommand => _refreshCommand ??= new Command(Refresh);

@@ -8,6 +8,7 @@ import {
 } from "./api.ts";
 import { gbp } from "./money.ts";
 import { canManageCustomers } from "./pipeline.ts";
+import { apiDateTime } from "./apiTime.ts";
 
 /**
  * One customer, everything about them — WP-L1b, the web till's half.
@@ -120,7 +121,7 @@ export default function CustomerDetail(
               )}
               <DataTable<CustomerHistoryRow>
                 columns={[
-                  { key: "atUtc", label: "When", render: (r) => new Date(r.atUtc + "Z").toLocaleString("en-GB") },
+                  { key: "atUtc", label: "When", render: (r) => apiDateTime(r.atUtc) },
                   { key: "type", label: "What", render: (r) => r.type },
                   { key: "detail", label: "Detail", render: (r) => <span className="small">{r.detail}</span> },
                   {
