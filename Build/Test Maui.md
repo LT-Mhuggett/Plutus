@@ -1724,7 +1724,14 @@ request whose box has gone.
 ⚠ **Escape and clicking the grey backdrop should also close every one of them.** They always did; the
 ✕ is there because nothing told you so.
 
-## G72. A receipt goes to the RECEIPT printer, not the A4 one — **web till 1.31.0**
+## G72. ✅ PASSED — Matt, 2026-08-21. A receipt goes to the RECEIPT printer — **web till 1.31.0**
+
+> ✅ **CONFIRMED WORKING BY MATT, 2026-08-21** — *"G72 works"*. The bug he reported the same day is
+> closed **and verified by a person**, which is the only thing that turns a 🟡 into a ✅ here.
+>
+> ⚠ Kept in full rather than struck through: §G72e (the membership card must still use the browser
+> and its page printer) is a **regression check**, and it is worth re-running whenever anything
+> touches a print path.
 
 > ⚠⚠ **MATT'S BUG, 2026-08-21:** *"if you complete a sale and print no receipt, the receipt is shown
 > (do not change) but if you try to print it from the next screen, it comes out on the A4 printer, not
