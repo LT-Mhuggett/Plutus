@@ -198,10 +198,10 @@ namespace Plutus.Frontend.AppClient.Services.POSHandeling
             uint pageCharsMax = (uint)await AppServices.Get<IPOSCommunication>().SendAndGetResponseAsync(keyValue);
 
             double pricePercent = 18.77;
-            if (basketRecords.Where(bR => bR is BasketItem && !(bR is BasketReturnItem)).Count() > 0)
+            if (basketRecords.OfType<BasketItem>().Any(b => !b.IsReturn))
             {
                 int basketItemMaxChar = 0;
-                foreach (var basketItem in basketRecords.Where(bR => bR is BasketItem && !(bR is BasketReturnItem)).Cast<BasketItem>())
+                foreach (var basketItem in basketRecords.OfType<BasketItem>().Where(b => !b.IsReturn))
                     basketItemMaxChar = basketItem.Item.Id.Length > basketItemMaxChar ? basketItem.Item.Id.Length : basketItemMaxChar;
 
                 double itemPercent = (double)(basketItemMaxChar + 1) / pageCharsMax * 100;
@@ -214,7 +214,7 @@ namespace Plutus.Frontend.AppClient.Services.POSHandeling
                 WriteText($"{"Price".Translate()}\t{pricePercent}", bold: "true");
                 WriteText($"{"qty".Translate()}\t{qtyPercent}", bold: "true");
 
-                foreach (var basketItem in basketRecords.Where(bR => bR is BasketItem && !(bR is BasketReturnItem)).Cast<BasketItem>())
+                foreach (var basketItem in basketRecords.OfType<BasketItem>().Where(b => !b.IsReturn))
                 {
                     WriteText($"{basketItem.Item.Id}\t{itemPercent}");
                     WriteText($"{basketItem.Name}\t{namePercent}");
@@ -224,10 +224,10 @@ namespace Plutus.Frontend.AppClient.Services.POSHandeling
                 ScoreReceipt();
             }
 
-            if (basketRecords.Where(bR => bR is BasketReturnItem).Count() > 0)
+            if (basketRecords.OfType<BasketItem>().Any(b => b.IsReturn))
             {
                 int basketReturnItemMaxChar = 0;
-                foreach (var basketReturnItem in basketRecords.Where(bR => bR is BasketReturnItem).Cast<BasketReturnItem>())
+                foreach (var basketReturnItem in basketRecords.OfType<BasketItem>().Where(b => b.IsReturn))
                     basketReturnItemMaxChar = basketReturnItem.Item.Id.Length > basketReturnItemMaxChar ? basketReturnItem.Item.Id.Length : basketReturnItemMaxChar;
 
                 double returnItemPercent = ((double)basketReturnItemMaxChar + 1) / pageCharsMax * 100;
@@ -241,7 +241,7 @@ namespace Plutus.Frontend.AppClient.Services.POSHandeling
                 WriteText($"{"qty".Translate()}\t{qtyPercent}", bold: "true");
 
 
-                foreach (var basketReturnItem in basketRecords.Where(bR => bR is BasketReturnItem).Cast<BasketReturnItem>())
+                foreach (var basketReturnItem in basketRecords.OfType<BasketItem>().Where(b => b.IsReturn))
                 {
                     WriteText($"{basketReturnItem.Item.Id}\t{returnItemPercent}");
                     WriteText($"{basketReturnItem.Name}\t{namePercent}");

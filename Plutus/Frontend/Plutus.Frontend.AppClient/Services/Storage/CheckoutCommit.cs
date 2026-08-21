@@ -380,16 +380,62 @@ namespace Plutus.Frontend.AppClient.Services.Storage
             basket?.Any(r => r is BasketItem b && b.Item?.Id == CardSurchargeVat.ItemIdOne) == true;
 
         /// <summary>
-        /// What the basket is worth, by the SAME sum the till's own `sale.Total` uses — every
-        /// record, returns negated, quantity applied.
+        /// What the basket is worth — every record, returns negated, quantity applied.
         ///
         /// ⚠ Converted per record, never as `Pence.FromDecimal(Σ prices)`. Summing decimals first
         /// and rounding once gives a different answer from rounding each line, and this figure has
         /// to match one that was built line by line.
+        ///
+        /// ⚠⚠ **THE ONLY PLACE THIS SUM LIVES, SINCE 2026-08-21 (step 11b).** Its own header used to
+        /// read *"by the SAME sum the till's own `sale.Total` uses"* — describing, rather than being,
+        /// the one derivation. `TillViewModel` had **four** copies of it in `decimal` pounds
+        /// (`SaleIncTax`, `SaleExTax`, and `sale.Total`/`TotalExTax` at two sites), and one of them
+        /// finished `Pence.FromDecimal(sale.Total)` — **precisely the round-the-sum mistake the
+        /// paragraph above forbids**, feeding the number the checkout screen tenders against while
+        /// this method guarded the commit. They agree today only because `Price` is an exact
+        /// projection of `PricePence`; nothing was holding that, and the reconciliation guard's
+        /// refusal message would have been the operator's only clue.
         /// </summary>
         public static long BasketMoneyPence(IEnumerable<IBasketRecord> basket) =>
             (basket ?? Enumerable.Empty<IBasketRecord>())
                 .Sum(r => r.PricePence * r.Quantity * (r.IsReturn ? -1L : 1L));
+
+        /// <summary>
+        /// The same sum, ex-VAT — what the till shows beside the gross.
+        ///
+        /// ⚠ NOT `BasketMoneyPence` minus a VAT calculation. Every record carries its own
+        /// ex-VAT figure, and re-deriving VAT here would be a fourth opinion about the split
+        /// (rule 3: gross − ex, never rate arithmetic — `till-design.md` C1).
+        /// </summary>
+        public static long BasketMoneyExPence(IEnumerable<IBasketRecord> basket) =>
+            (basket ?? Enumerable.Empty<IBasketRecord>())
+                .Sum(r => r.PriceExTaxPence * r.Quantity * (r.IsReturn ? -1L : 1L));
+
+        /// <summary>
+        /// Does this basket only send goods BACK?
+        ///
+        /// ⚠⚠ IT DECIDES REAL MONEY BEHAVIOUR, and it had no test until 2026-08-21. A refund-only
+        /// basket may be tendered **only to the methods the original sale used** (Matt, 2026-08-11:
+        /// *"if it was a card payment, needs to go back to card"* — refunding a card sale in cash is
+        /// the oldest till fraud there is), it takes the finding-Y per-tender refund caps, and it
+        /// attracts **no card surcharge**. Getting it wrong in either direction is a money fault:
+        /// false → a cash payout on a card sale; true → a customer refused the tender they want.
+        ///
+        /// ⚠ A SALE LINE, NOT A RECORD. `BasketNote`, `BasketAlteration` and the card-surcharge line
+        /// are not goods, so a basket holding one return and a discount is still refund-only.
+        ///
+        /// ⚠⚠ AN EMPTY BASKET ANSWERS **TRUE**, and that is the behaviour as it shipped — this method
+        /// was lifted out of `ExecuteCheckoutTransaction` verbatim on 2026-08-21 and the predicate is
+        /// unchanged, deliberately. Tightening it to *"has at least one return"* while extracting it
+        /// would have been a silent money-path change smuggled in behind a refactor, and the empty
+        /// case is unreachable anyway: an empty basket offers the origin-tender list, tenders
+        /// nothing, and `SaleAssembler` refuses a sale with no tender. **Recorded rather than
+        /// tidied** — if it should read false, that is a decision with its own test, not a
+        /// side effect of moving code. Pinned by `An_empty_basket_answers_true_because_that_is_what_shipped`.
+        /// </summary>
+        public static bool IsRefundOnly(IEnumerable<IBasketRecord> basket) =>
+            !(basket ?? Enumerable.Empty<IBasketRecord>())
+                .Any(r => r is BasketItem && !r.IsReturn);
 
         private static Guid? OriginOf(IBasketRecord record) =>
             record is BasketReturnItem r && Guid.TryParse(r.ReturnSaleId, out var id) ? id : null;

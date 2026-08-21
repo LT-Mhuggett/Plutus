@@ -10,7 +10,7 @@
 > **Do not grow this file back into a history.** Rewrite it; the commits are the record.
 
 **Written:** 2026-08-21 · **.NET suites — all four run, all green:** unit **1561** · integration **177**
-· MAUI **628** (+3 skipped, was 621) · architecture **31**. AppClient builds **0 errors**.
+· MAUI **640** (+3 skipped, was 621) · architecture **31**. AppClient Release builds **0 errors**.
 
 > ⚠⚠ **THE WEB TILL'S AND THE PORTAL'S GATES DID NOT RUN, AND COULD NOT.** There is **no node on this
 > Windows box** — not on `PATH`, not in `Program Files`, nowhere. So today's TypeScript (`cardPayment.ts`,
@@ -45,7 +45,7 @@
 
 | What | Hand-run | State |
 |---|---|---|
-| 🔴→✅ **The back-out crash audit — CLOSED.** It was never 17 sites | *(no hand-run — code fix, 628 tests)* | ✅ in the tree |
+| 🔴→✅ **The back-out crash audit — CLOSED.** It was never 17 sites | *(no hand-run — code fix)* | ✅ in the tree |
 | ✅ **WP14 — the checkout says which card machine to use**, both tills | **§G69** | ⚠ MAUI needs a **1.111.0 build**; web needs a **1.30.0 build** |
 | ✅ **WP16a — the web till's login screen says whether Plutus is reachable** | **§G70** | ⚠ needs a **web till 1.30.0 build + deploy** |
 | ✅ **All 21 portal dialogs now have a ✕** (12 files) | **§G71** | ⚠ needs a **portal 1.17.0 build + deploy** |
@@ -109,7 +109,7 @@ same tap-to-refresh, `verifyIdentity: false` on both tills. 13 vitest cases mirr
 
 ---
 
-## The three things that were actually built
+## The four things that were actually built
 
 ### WP14 — the checkout says which card machine to use (MAUI + the web till's pin)
 
@@ -157,6 +157,57 @@ Mechanical, and it went wrong twice in ways worth keeping:
 
 **D4's check now returns empty on all three surfaces.**
 
+## ⚠⚠ AND THEN STEP 11b — where the fourth stale claim was, and the real fault behind it
+
+Matt asked to continue, so the top of §7 got the same treatment as the do-first list: **verified
+against the code before starting.** Step 11b said 4 days. Its own section contradicted itself — the
+body records the pence reshape as landing on 2026-08-16 and the to-do list eleven lines below still
+asks for it — and §7's headline was worse: *"`ExecuteCheckoutTransaction` is a ~200-line `async void`
+and the last money-adjacent cluster in this app with no test coverage at all."*
+
+**It is 243 lines of which roughly 45 execute**; the rest is commentary. Its money was already covered
+three ways over — `TenderSettlement` (mutation-checked, C2-twinned), `CheckoutHelper.Settle` (11
+tests), `CheckoutCommit` (36). **What genuinely had nothing was the orchestration**, and that is what
+this closed.
+
+### ⚠⚠ The real fault: the till derived its own basket total FOUR times, in decimal pounds
+
+`SaleIncTax`, `SaleExTax`, and `sale.Total`/`TotalExTax` at two sites — while
+`CheckoutCommit.BasketMoneyPence` is the figure the commit reconciles the payload against. **One of
+the four ended `Pence.FromDecimal(sale.Total)`** — rounding the *sum* rather than the *lines*, which
+`BasketMoneyPence`'s own header forbids in as many words — and it fed **the number on the checkout
+screen the operator tenders against**.
+
+⚠ **Latent, not live, and worth stating precisely:** they agreed to the penny because `Price` is an
+exact projection of `PricePence`. **Nothing was holding that invariant.** The first basket record
+priced from anywhere else would have produced a till whose screen and payload differ by a penny —
+visible to a shop only as the commit refusing a sale with a message about a discount that isn't
+attached to anything.
+
+- ✅ **One derivation**: `BasketMoneyPence` + a new `BasketMoneyExPence`, in pence, projected to pounds
+  for the two labels. ⚠ They stay `decimal` — `TillView.xaml` binds both `StringFormat='{0:C2}'`, and
+  a `long` behind that renders £3.30 as **£330.00**, silently. That trap is what the whole reshape
+  exists to avoid, so it was not "fixed" by switching types.
+- ✅ **`refundOnly` lifted to `CheckoutCommit.IsRefundOnly`, predicate UNCHANGED.** It decides whether
+  a customer can be paid back in cash. Tightening it during an extraction would be a silent money-path
+  change behind a refactor — so the empty-basket case still answers `true`, and there is a test
+  *named* `An_empty_basket_answers_true_because_that_is_what_shipped`.
+- ✅ `SaleLinesGrossPence` stopped round-tripping through `Pence.FromDecimal(b.Price)` to reach a
+  number already sitting in `b.PricePence`.
+- ✅ Six `is BasketReturnItem` type-tests in `PosPrinterManager` collapsed onto `IsReturn`. ⚠ Checked
+  for reachability **first** — it is a live fallback on the print path, not dead code like
+  `CopperTransferPlatform`.
+
+✅ **`BasketMoneyTests` — 12 cases, mutation-checked three ways**: dropping the return negation (3
+red), `BasketMoneyExPence` reading the inc-VAT price (2 red), dropping `IsRefundOnly`'s negation (5
+red).
+
+⚠⚠ **And the mutant it CANNOT kill is written into the test's own header.** Sum-then-round stays green
+while `Price` remains an exact projection — which is exactly why the fault was dormant. **A test file
+that overstates what it pins is worse than one that admits the gap.**
+
+---
+
 ---
 
 ## ⚠⚠ Two tooling traps that cost time today — worth a runbook line
@@ -179,7 +230,7 @@ Mechanical, and it went wrong twice in ways worth keeping:
 | ⚠⚠ **Run the TS gates on the Mac** | `tsc --noEmit` + vitest + eslint for the web till, `tsc --noEmit` for the portal. **Nothing from today's TypeScript has been executed.** This is the gate, not a formality |
 | **Build + deploy portal 1.17.0 and web till 1.30.0?** | Small and independent of each other. §G70 and §G71 cannot be run until they are |
 | **Build MAUI 1.111.0?** | Only when you ask — Matt, 2026-08-16. §G69's MAUI half needs it |
-| **Step 11b — reshape the basket (4d)** | Now the **largest** thing left, and the only real build on the list. `ExecuteCheckoutTransaction` is **243 lines** of `async void` and the last money-adjacent code with no coverage at all. Unblocks L6 |
+| **~~Step 11b (4d)~~ → ≈1–2d, and it is the SEAM that is left** | ⚠⚠ **"243 lines of `async void` with no coverage at all" was the stalest claim on the page** — ~45 of those lines execute, and the money was covered three ways over. ✅ The **orchestration** was closed 2026-08-21 (see below). ⬜ What remains is the wiring between the dialogs and the commit — the seam finding U broke while `TenderLoop`'s 19 tests stayed green. **Only §G58's hand-run reaches it** |
 | **WP10 — an item editor on the till at all** | ⚠ Matt's call, and arguably not a gap: all four A0 ⬜s are this, and MAUI has no editor *deliberately* — a till-created item reaches no report, no other till and no VAT return |
 | **`origin` history surgery** | Still unpushable — a 151 MB blob in old history. `upstream` is the off-machine copy |
 

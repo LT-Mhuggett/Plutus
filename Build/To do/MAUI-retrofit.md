@@ -900,7 +900,7 @@ Step numbers are the cutover plan's and do not renumber — they are cited in co
 and Part B Notes. Line references in bodies are **2026-08-09 anchors, not gospel**: re-locate by
 symbol name if the file has moved on (§12.6).
 
-### Step 11b — reshape the basket · **4d** · ⚠ DO THIS FIRST
+### Step 11b — reshape the basket · ~~4d~~ **≈1–2d left** · ✅ the orchestration closed 2026-08-21
 
 `BasketItem` to long pence, `BasketReturnItem` collapsed to an `IsReturn` flag, the nine
 `is BasketReturnItem` type-tests, both Mapster configs, `BasketDataTemplateSelector`, and every XAML
@@ -947,9 +947,67 @@ form *"is this a return?"* now asks the flag. What still tests the TYPE genuinel
 own data — `ReturnSaleId`, `Reason` — plus `BasketDataTemplateSelector`, which picks the row template
 by type and would render the wrong row silently if got wrong.
 
-**⚠ STILL TO DO — and the trap is silent:**
+✅ ✅ ✅ **THE ORCHESTRATION HALF IS DONE — 2026-08-21 (till 1.111.0). ⚠⚠ AND THE "STILL TO DO" LIST BELOW WAS STALE IN FOUR OF ITS FIVE BULLETS.**
 
-- The `BasketItem` → **long pence** reshape and the nine `is BasketReturnItem` type-tests.
+> ⚠⚠ **THIS SECTION CONTRADICTED ITSELF, TOP AND BOTTOM.** Its own body says the money half landed on
+> 2026-08-16 with `PricePence` as the store and `Price` as a pounds view — and eleven lines later the
+> to-do list still asked for *"the `BasketItem` → long pence reshape"*. Same document, same section.
+> **Verified against the code before starting, which is the fourth time in two days that check has
+> deleted the work rather than scoped it.**
+>
+> | The bullet said | Actually |
+> |---|---|
+> | *"the `BasketItem` → long pence reshape"* | ✅ **Done 2026-08-16.** `PricePence`/`PriceExTaxPence` are the store; `Price`/`PriceExTax` are pounds-shaped views. Nothing to do |
+> | *"the nine `is BasketReturnItem` type-tests"* | **11 mentions, of which 2 are a comment and `IsReturn`'s own single implementation.** Of the rest, three genuinely need the subclass (`BasketDataTemplateSelector` picks the row template; `TillAgentPrinting` and `OriginOf` read `Reason`/`ReturnSaleId`) — ✅ **the six in `PosPrinterManager` are collapsed onto `IsReturn`.** ⚠ Checked for reachability first: it is a **live fallback** on the print path, not dead like `CopperTransferPlatform` |
+> | *"the XAML binding inventory"* | ✅ Already done, and unchanged by this work — `SaleIncTax`/`SaleExTax` **stay `decimal`**, see below |
+> | *"switching them to `long` renders £3.30 as £330.00"* | ⚠ **Still true and still the trap** — which is why nothing was switched to `long`. The view is pounds; the derivation is pence |
+>
+> ⚠⚠ **AND §7's HEADLINE CLAIM WAS THE STALEST OF ALL:** *"`ExecuteCheckoutTransaction` is a ~200-line
+> `async void` and the last money-adjacent cluster in this app with no test coverage at all."* It is 243
+> lines **of which roughly 45 execute** — the rest is commentary — and its money was already covered
+> three ways over: `TenderSettlement` (mutation-checked, C2-twinned), `CheckoutHelper.Settle`
+> (`CheckoutScreenTests`, 11), `CheckoutCommit` (36). **What genuinely had no test was the
+> ORCHESTRATION**, and that is what this slice closed.
+>
+> **What was actually wrong, and it was worth finding:**
+>
+> ⚠⚠ **THE TILL DERIVED ITS OWN BASKET TOTAL FOUR TIMES, IN `decimal` POUNDS** — `SaleIncTax`,
+> `SaleExTax`, and `sale.Total`/`TotalExTax` at two sites — while `CheckoutCommit.BasketMoneyPence`
+> is the figure the commit reconciles the payload against. **One of the four ended
+> `Pence.FromDecimal(sale.Total)`**, rounding the SUM instead of the lines — which
+> `BasketMoneyPence`'s own header forbids in as many words — and it fed
+> **the number on the checkout screen the operator tenders against**.
+>
+> ⚠ **Latent, not live, and said plainly:** they agreed to the penny because `Price` is an exact
+> projection of `PricePence`. Nothing was holding that invariant. The first record priced from
+> anywhere else would have produced a till whose screen and payload differ by a penny — visible to a
+> shop only as `CheckoutCommit` refusing a sale with a message about a discount that isn't attached
+> to anything.
+>
+> ✅ **Now one derivation**: `BasketMoneyPence` + a new `BasketMoneyExPence`, in pence, projected to
+> pounds for the two `StringFormat='{0:C2}'` labels. ✅ **`refundOnly` lifted to
+> `CheckoutCommit.IsRefundOnly`** — predicate **unchanged**, deliberately: tightening it during an
+> extraction would be a silent money-path change behind a refactor, so the empty-basket case still
+> answers `true` and there is a test *named* for the fact that this is what shipped. ✅
+> `SaleLinesGrossPence` stopped round-tripping through `Pence.FromDecimal(b.Price)` to reach a number
+> already sitting in `b.PricePence`.
+>
+> ✅ **`BasketMoneyTests` — 12 cases, mutation-checked three ways**: dropping the return negation
+> (3 red), `BasketMoneyExPence` reading the inc-VAT price (2 red), dropping `IsRefundOnly`'s negation
+> (5 red). ⚠⚠ **The one mutant it CANNOT kill is recorded in the test's own header** — sum-then-round
+> stays green while `Price` remains an exact projection, which is exactly why the fault was dormant.
+> **A test file that overstates what it pins is worse than one that admits the gap.**
+>
+> **⬜ What is genuinely left of step 11b**, and it is small: `ExecuteCheckoutTransaction` is still an
+> `async void` (it is a `Command` handler; that is what they are) and the **seam** the section's own
+> closing warning names — the wiring between the dialogs and the commit — is still only reachable by
+> hand. Finding U happened in that seam with `TenderLoop`'s 19 tests all green. **The decisions have
+> been lifted out one at a time; what remains in the method is sequencing, and sequencing is what
+> §G58's hand-run is for.**
+
+**⚠ WAS THE "STILL TO DO" LIST — kept for the reasoning, superseded by the table above:**
+
+- ~~The `BasketItem` → **long pence** reshape~~ ✅ done 2026-08-16 · ~~and the nine `is BasketReturnItem` type-tests~~ ✅ the six collapsible ones done 2026-08-21.
 - **The XAML binding inventory is already done.** The Till view binds `Name`, `Price`, `Tax`,
   `Quantity`, `Basket`, `SelectedBasketRecord`, `SaleExTax`, `SaleIncTax` through `IBasketRecord`
   (`Quantity`, `Name`, `Price`, `PriceExTax`, `Tax`) plus `BasketDataTemplateSelector`.
@@ -2238,7 +2296,7 @@ waiting on more code.
 > | | Work | Est. | Verified how |
 > |---|---|---|---|
 > | ✅ | **~~§0.3b — 17 input-alert call sites that can CRASH the till on back-out~~ — CLOSED 2026-08-21** | ~~1–2d~~ **0** | ⚠⚠ **This row was WRONG, and it was the top of the do-first list for two days running.** §0.3b's own 2026-08-19 re-audit had already replaced 17 with "five, of which one is reachable" — and this table, which §6 says should be *re-derived from the register, never maintained by hand*, was maintained by hand. **Re-enumerated by grep 2026-08-21: 23 call sites; every reachable one guarded.** The real residue — five dead `answers is null` checks and `ViewAllViewModel.ExecuteUpdateItemStock`'s `Any(…)`-over-empty fall-through — was closed the same morning (build 0 errors, MAUI suite **621**). ⬜ 4 unreachable `CopperTransferPlatform` sites left alone on purpose |
-> | ⚠ | **Step 11b — reshape the basket** | **4d** | ⚠⚠ **The other thing that actually matters.** `ExecuteCheckoutTransaction` is still a ~200-line `async void` and **the last money-adjacent cluster in this app with no test coverage at all**. Also unblocks L6 |
+> | 🔄 | **Step 11b — reshape the basket** | ~~4d~~ **≈1–2d left** | ⚠⚠ **THE "~200-LINE `async void` WITH NO TEST COVERAGE AT ALL" WAS THE STALEST CLAIM ON THIS PAGE.** 243 lines **of which ~45 execute**; the rest is commentary. Its money was already covered three ways — `TenderSettlement` (mutation-checked, C2-twinned), `CheckoutHelper.Settle` (11), `CheckoutCommit` (36). ✅ **The ORCHESTRATION, which genuinely had nothing, was closed 2026-08-21**: the till derived its own basket total **four times in `decimal` pounds** — one of them `Pence.FromDecimal(sale.Total)`, rounding the sum instead of the lines, feeding **the figure the operator tenders against** while `CheckoutCommit` reconciled the payload against a per-record pence sum. Latent only because `Price` is an exact projection of `PricePence`, and nothing held that. Now one derivation + `IsRefundOnly` lifted out with its predicate **unchanged**; `BasketMoneyTests`, 12 cases, 3 mutants killed, and the one it cannot kill is written into its own header. ⬜ **What is left is the SEAM** — the wiring between the dialogs and the commit, which finding U broke with `TenderLoop`'s 19 tests all green. Only a hand-run (§G58) reaches it |
 > | ✅ | **~~WP14 — payment-gateway awareness on the checkout XAML~~ — DONE 2026-08-21** | ~~1–2d~~ **½d** | The one row on this list that was accurately ⬜. `CheckoutAlert` now carries the card sentence in the web till's exact words, above the tender rows where the web till puts it; the display comes off the **same** `GET /api/v1/payments/gateway/active` the checkout already made (`GatewaySurcharge` → `GatewaySettings`, which kept two of that answer's five fields and threw away the three WP14 needed). ⚠ The composer returns plain `HintSpan` records, not a `FormattedString`: that type derives from `Element` and throws a `COMException` outside a UI host, so the first cut was untestable — on the one screen whose whole family of defects shipped for exactly that reason. 7 tests; MAUI suite **628**; build 0 errors. ⚠ **The web till's half was ✅ and had drifted anyway** — its three cases were an inline ternary, now `till/cardPayment.ts` with vectors mirroring `PaymentGatewayTests.cs`. See C2 |
 > | ✅ | **~~WP16 — connectivity states on the login screen~~ — DONE 2026-08-21, ON THE SIDE THAT WAS ACTUALLY MISSING** | ~~1–2d~~ **½d** | ⚠⚠ **"0 references on `LoginView`/`LoginViewModel`" WAS WRONG**, and wrong in a way worth keeping: the grep was for `ConnectivityProbe`, and MAUI reaches it through `Services.Connectivity.TillConnectionCheck`. **A grep for a shared type is not a check for a capability when a wrapper sits between them.** MAUI has had the badge all along — four bound properties, `RefreshConnectionAsync`, tap-to-refresh and the clock-skew line (`LoginView.xaml` 72–97) — and 16b is done too (`OperatorLogin` → `OfflineCredentials.Assess`). ⚠⚠ **The gap was the WEB till's login screen: 111 lines, no indicator at all**, so a dead backend was indistinguishable from a wrong password. ✅ Closed with `connectionCheck.ts` — the C2 twin of the probe, same four states and sentences, `verifyIdentity: false` on both tills, 13 vitest cases mirroring `ConnectivityProbeTests.cs`. ⚠ **Part B stays 🟡/🟡**: MAUI's has never been hand-run, and the web till's APP-WIDE badge (`App.tsx:64`) is still `navigator.onLine`. ⚠⚠ **NOT TYPECHECKED HERE** — there is no node on this box; `tsc --noEmit`, vitest and eslint must run on the Mac before this ships |
 > | ⬜ | **Step 28 — online-first login** | 2–3d | Hardening; unchanged |

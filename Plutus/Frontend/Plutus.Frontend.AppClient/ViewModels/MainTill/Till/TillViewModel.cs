@@ -149,9 +149,29 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             get => _selectedBasketRecord;
             set => SetProperty(ref _selectedBasketRecord, value);
         }
-        public decimal SaleExTax => Basket.Sum(bR => bR.PriceExTax * (bR.IsReturn ? -1 : 1) * bR.Quantity);
+        /// <summary>
+        /// What the basket is worth, for the two labels at the bottom of the till screen.
+        ///
+        /// ⚠⚠ POUNDS-SHAPED VIEWS OVER ONE PENCE SUM, since 2026-08-21 (step 11b). This was
+        /// `Basket.Sum(bR => bR.Price * …)` — a `decimal` re-derivation of
+        /// <see cref="Services.Storage.CheckoutCommit.BasketMoneyPence"/>, which is the figure the
+        /// commit's reconciliation guard checks the payload against. **Four copies of that sum lived
+        /// in this file** and one of them ended `Pence.FromDecimal(sale.Total)` — rounding the sum
+        /// instead of the lines, which `BasketMoneyPence`'s own header forbids in as many words.
+        ///
+        /// ⚠ They agreed only because `Price` is an exact projection of `PricePence`. Nothing was
+        /// holding that, and the first person to give a basket record a price from anywhere else
+        /// would have produced a till whose screen and payload differ by a penny — visible to the
+        /// operator only as the commit refusing a sale it cannot explain.
+        ///
+        /// ⚠ STILL `decimal`, and that is not an oversight: `TillView.xaml` binds both with
+        /// `StringFormat='{0:C2}'`, and a `long` behind that formatter renders £3.30 as **£330.00**,
+        /// silently. Same reason `IBasketRecord.Price` stayed a decimal.
+        /// </summary>
+        public decimal SaleExTax => Services.Storage.CheckoutCommit.BasketMoneyExPence(Basket) / 100m;
 
-        public decimal SaleIncTax => Basket.Sum(bR => bR.Price * (bR.IsReturn ? -1 : 1) * bR.Quantity);
+        /// <inheritdoc cref="SaleExTax"/>
+        public decimal SaleIncTax => Services.Storage.CheckoutCommit.BasketMoneyPence(Basket) / 100m;
         public ObservableCollection<DiscountModel> Alterations { get; } = new ObservableCollection<DiscountModel>();
         public ObservableCollection<string> AlterationNames
         {
@@ -688,10 +708,16 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// −£20. `VatLineMath.ForLine` drops a discount on a return by design, so money apportioned
         /// onto one vanishes and the sale then fails the server's reconcile invariant.
         /// </summary>
+        /// <remarks>
+        /// ⚠ `PricePence` DIRECTLY, not `Pence.FromDecimal(b.Price)` (2026-08-21). `Price` is a
+        /// pounds-shaped view *of* `PricePence`, so converting it back was a round trip through a
+        /// lossy shape to reach a number that was already there — and it read as though pounds were
+        /// the store, which is the impression step 11b's whole reshape exists to remove.
+        /// </remarks>
         private long SaleLinesGrossPence() =>
             Basket.OfType<BasketItem>()
                   .Where(b => !b.IsReturn)
-                  .Sum(b => Pence.FromDecimal(b.Price) * Math.Max(1, b.Quantity));
+                  .Sum(b => b.PricePence * Math.Max(1, b.Quantity));
 
         /// <summary>Σ of the discounts already on this basket, in pence, as a POSITIVE number.
         /// ⚠ Same shape as `CheckoutCommit.ApplyAlterations` reads them (magnitude × quantity), so
@@ -2592,7 +2618,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 var change = 0.0m;
 
-                var refundOnly = !Basket.Any(bR => bR is BasketItem && !bR.IsReturn);
+                // ⚠ Lifted to `CheckoutCommit.IsRefundOnly` on 2026-08-21 (step 11b), predicate
+                // unchanged. It decides which tenders are offered, whether the finding-Y refund caps
+                // apply and whether a card surcharge is charged — three money behaviours that had no
+                // test between them while the decision sat inside an `async void` nothing can reach.
+                var refundOnly = Services.Storage.CheckoutCommit.IsRefundOnly(Basket);
 
                 // ⚠ A REFUND GOES BACK THE WAY IT WAS PAID. Matt, 2026-08-11: *"Refunds need to
                 // ONLY offer the method that was used to pay. E.g. if it was a card payment, needs
@@ -2614,8 +2644,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
 
-                sale.Total = Basket.Sum(bR => bR.Price * (bR.IsReturn ? -1 : 1) * bR.Quantity);
-                sale.TotalExTax = Basket.Sum(bR => bR.PriceExTax * (bR.IsReturn ? -1 : 1) * bR.Quantity);
+                // ⚠ ONE SUM, IN PENCE — see `SaleIncTax`. `sale.Total` feeds the checkout screen's
+                // heading and the confirm dialog, and `CheckoutCommit` reconciles the payload against
+                // `BasketMoneyPence`; deriving them separately is how a screen and a payload come to
+                // disagree by a penny.
+                sale.Total = Services.Storage.CheckoutCommit.BasketMoneyPence(Basket) / 100m;
+                sale.TotalExTax = Services.Storage.CheckoutCommit.BasketMoneyExPence(Basket) / 100m;
 
                 // ⚠ `testStyles` and `lastPickedName` were HERE and are gone (2026-08-19): they served
                 // the sequential amount prompt, which no longer exists. The pence parser is now
@@ -3384,7 +3418,10 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     .ToList();
 
                 return new Plutus.Client.Core.TenderOutcome(
-                    false, payments, alert.ChangePence, 0, Pence.FromDecimal(sale.Total));
+                    false, payments, alert.ChangePence, 0,
+                    // ⚠ Straight off the basket in pence, not `Pence.FromDecimal(sale.Total)` —
+                    // one derivation, and the one `CheckoutCommit` reconciles against.
+                    Services.Storage.CheckoutCommit.BasketMoneyPence(Basket));
             }
         }
 
@@ -3484,7 +3521,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 : null;
 
             var body = new Views.CustomViews.CheckoutAlert(
-                Pence.FromDecimal(sale.Total),
+                // ⚠ Pence off the basket, never `Pence.FromDecimal(sale.Total)` — see `SaleIncTax`.
+                Services.Storage.CheckoutCommit.BasketMoneyPence(Basket),
                 rows,
                 note,
                 // ⚠ Not on a refund, not when a card is already held (its row is on screen saying what
@@ -3526,19 +3564,26 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         return;
                     }
 
-                    sale.Total = Basket.Sum(bR => bR.Price * (bR.IsReturn ? -1 : 1) * bR.Quantity);
-                    sale.TotalExTax = Basket.Sum(bR => bR.PriceExTax * (bR.IsReturn ? -1 : 1) * bR.Quantity);
+                    // ⚠⚠ ONE SUM, IN PENCE, AND THIS SITE IS WHY IT MATTERS. It used to hand
+                    // `Pence.FromDecimal(sale.Total)` to the screen — rounding the SUM rather than the
+                    // lines — while `CheckoutCommit` guarded the commit with a per-record pence sum.
+                    // `BasketMoneyPence`'s own header forbids exactly that conversion, and the number
+                    // it produced is the one the operator tenders against. A penny apart and the
+                    // commit refuses a sale the operator has already taken money for on screen.
+                    var totalPence = Services.Storage.CheckoutCommit.BasketMoneyPence(Basket);
+                    sale.Total = totalPence / 100m;
+                    sale.TotalExTax = Services.Storage.CheckoutCommit.BasketMoneyExPence(Basket) / 100m;
 
-                    var fee = Basket
+                    var feePence = Basket
                         .Where(b => Services.Storage.CheckoutCommit.HasSurcharge(new[] { b }))
-                        .Sum(b => b.Price * b.Quantity);
+                        .Sum(b => b.PricePence * b.Quantity);
 
                     // ⚠⚠ SAY THE FEE, ITEMISED, BEFORE the sale completes. A total that jumps when the
                     // card row is filled and explains nothing is the surcharge complaint every time.
                     body.SetTotal(
-                        Pence.FromDecimal(sale.Total),
-                        fee > 0
-                            ? $"💳 Card fee {fee:C2} added — it comes off if the card row is cleared."
+                        totalPence,
+                        feePence > 0
+                            ? $"💳 Card fee {feePence / 100m:C2} added — it comes off if the card row is cleared."
                             : null);
                 });
             };
