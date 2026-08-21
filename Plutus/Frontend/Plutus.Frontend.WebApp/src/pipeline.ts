@@ -67,6 +67,25 @@ export const canManageSettings = () => sessionScopes().includes("pos.settings.ma
  *  operator who cannot do it is not shown a control that will refuse them. */
 export const canManageBarcodes = () => sessionScopes().includes("portal.stock.adjust");
 
+/** May this operator create or edit an ITEM — its price, name, details?
+ *
+ *  ⚠⚠ SUPERVISOR AND ABOVE. Matt, 2026-08-21: *"I also need editing of items to be a supervisor and
+ *  above permission across all tills."*
+ *
+ *  ⚠⚠ THIS TILL HAD NO GATE AT ALL until then — the item editor was open to anybody signed in,
+ *  including a Cashier, and the SERVER only required a valid token (`ItemController` inherited a bare
+ *  `[Authorize]` from the legacy CRUD base). Both halves are closed now, and the server one is the
+ *  one that counts.
+ *
+ *  ⚠ `pos.items.manage` OR `portal.prices.manage`, matching the server exactly. A **Supervisor holds
+ *  no portal permission at all**, which is why the portal code alone could never express "supervisor
+ *  and above" — the same reasoning that produced `pos.stock.adjust` and `pos.cash.reopen`.
+ *
+ *  ⚠ UI-only, as every client-side check here is. The server gates regardless; this exists so an
+ *  operator who cannot do it is not shown a control that will refuse them. */
+export const canManageItems = () =>
+  sessionScopes().some((s) => s === "pos.items.manage" || s === "portal.prices.manage");
+
 /** May this operator see an item's change history? (multi-barcode, 2026-08-20)
  *
  *  ⚠ `portal.reports.view`, matching the server's gate on `GET /api/v1/items/{id}/history` — NOT

@@ -1790,6 +1790,79 @@ prints a **plastic-card-sized card**, not a receipt.
 
 ⚠⚠ **IF THIS NOW GOES TO THE RECEIPT PRINTER, THAT IS A REGRESSION**, and the opposite mistake to the
 one being fixed. `till-design.md` **D6b** names it as the documented exception.
+## G73. Editing an item needs a supervisor — **backend + web till 1.32.0 + MAUI 1.112.0**
+
+> **Matt, 2026-08-21:** *"I also need editing of items to be a supervisor and above permission across
+> all tills."*
+>
+> ⚠⚠ **THIS NEEDS TWO LOGINS: a Cashier and a Supervisor.** Without both you cannot tell a working
+> gate from a broken screen. If no cashier account exists, make one in the portal (Users → Add user,
+> role **Cashier**) — and ⚠ **sign out and in again after any permission change**, because a login
+> token caches the whole permission set for 12 hours.
+
+### G73a. ⚠ The refusal — as a CASHIER, on the web till
+
+Sign in to the browser till as a **Cashier**. Go to **Inventory**.
+
+**✅ Expected:** the item list loads normally and is fully searchable — **but there is no "Add item"
+button and no "Edit" action on any row.**
+
+⚠ Looking up a price must still work perfectly. If the list itself is broken or empty, that is a bug,
+not the gate.
+
+### G73b. ⚠⚠ The one with an operational cost — an unknown scan, as a CASHIER
+
+Still signed in as the cashier, scan (or type) a barcode that does not exist, e.g. `9999999999999`.
+
+**✅ Expected:** *"Nothing scans to 9999999999999. Adding a new item needs a supervisor — ask one to
+add it, then scan again."* **No "＋ Add this item" button.**
+
+⚠⚠ **THIS IS THE PART TO THINK ABOUT AND REPORT ON.** Before today a cashier could add a new item
+straight from the counter, and that flow exists because the alternative is ringing new stock through
+as a miscellaneous line — lost to every stock figure and category report it belongs in. **If that
+matters more than the restriction, say so and creation can be given back to the Cashier while
+EDITING stays supervisor-and-above.** The message deliberately says who to ask rather than hiding the
+control and leaving a dead end.
+
+### G73c. The same, as a SUPERVISOR
+
+Sign out. Sign in as a **Supervisor**. Repeat §G73a and §G73b.
+
+**✅ Expected:** **Add item** and **Edit** are both back, and the unknown scan offers *"＋ Add this
+item"* again. Edit a price and save — it must land.
+
+⚠⚠ **A SUPERVISOR COULD NOT DO THIS BEFORE TODAY EITHER**, on MAUI — the gate was
+`portal.prices.manage`, which a supervisor does not hold. So this is the widening half of the ruling,
+and it is as much the point as the refusal.
+
+### G73d. ⚠ The same on MAUI, both roles
+
+MAUI till → **Inventory** → **View all items** → tap a row.
+
+**✅ Expected as a Supervisor:** the tap menu offers **Edit item** and it works.
+**✅ Expected as a Cashier:** choosing **Edit item** is refused with a message naming the permission —
+it is not silently ignored.
+
+⚠ **Add to basket, Adjust stock… and Move to the Bin… must be UNAFFECTED** for whoever already had
+them. Adjust stock is `pos.stock.adjust`, which a supervisor holds and a cashier does not; the Bin is
+`inventory.bulk`, which is manager-and-above. **If any of those three changed behaviour, say so** —
+they were not meant to.
+
+### G73e. ⚠⚠ The check a screen cannot do — the SERVER refuses too
+
+⚠ Ask before doing this one; it needs a terminal, not the till.
+
+The point of the change is that the gate is no longer client-side. With a **cashier's** token:
+
+```bash
+curl -i -X PUT "https://plutus.huggett.dscloud.me/api/Item/<some-item-id>" \
+  -H "Authorization: Bearer <CASHIER_TOKEN>" -H "BusinessId: <business-guid>" \
+  -H "Content-Type: application/json" -d '{ … }'
+```
+
+**✅ Expected: `403`.** ⚠ A `401` means the token is wrong, not that the gate worked — the two are easy
+to confuse and only one of them proves anything. (Pinned in CI by
+`A_cashier_cannot_edit_an_item_and_a_supervisor_can`, but a live check is worth one minute.)
 # §W — WEB till checks
 
 ⚠ **These need the DEPLOYED WEB TILL**, not the MAUI build — `https://plutus.huggett.dscloud.me`.

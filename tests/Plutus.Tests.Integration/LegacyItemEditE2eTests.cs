@@ -52,6 +52,37 @@ public class LegacyItemEditE2eTests : IClassFixture<PlutusAppFactory>
         return (businessId, catId, itemId);
     }
 
+    /// <summary>
+    /// An operator who may change an item, and one who may not.
+    ///
+    /// ⚠⚠ THESE TESTS USED `OperatorToken("pos.sell")` AND PASSED, because until 2026-08-21 the
+    /// item write endpoints inherited a bare `[Authorize]` from the legacy CRUD base — **any signed-in
+    /// user could create or edit any item.** Matt: *"editing of items to be a supervisor and above
+    /// permission across all tills."* Now gated `perm:portal.prices.manage,pos.items.manage`.
+    ///
+    /// ⚠ `perm:*` resolves from **RbacRoleAssignments**, never from the token's Scope claim — which is
+    /// why a scope-only token 403s however generous the scope string looks.
+    /// </summary>
+    private async Task<string> TokenForRoleAsync(string roleName)
+    {
+        using var scope = _f.Services.CreateScope();
+        var db = (MySqlDbContext)scope.ServiceProvider.GetRequiredService<RepositoryContext>();
+        db.CurrentUser = "legacy-item-e2e";
+        var tenantId = Plutus.Entities.Tenancy.KnownTenants.Kapow;
+        await Plutus.Identity.RbacSeeder.EnsureBuiltInRolesAsync(db, tenantId);
+        var role = await db.RbacRoles.FirstAsync(r => r.Name == roleName && r.TenantId == tenantId);
+        var userId = Uuid7.New();
+        db.RbacRoleAssignments.Add(new RbacRoleAssignment
+        {
+            Id = Uuid7.New(), TenantId = tenantId, UserId = userId, RoleId = role.Id,
+            ScopeType = RbacScopeType.Tenant, ScopeId = "", CreatedAtUtc = DateTime.UtcNow,
+        });
+        await db.SaveChangesAsync();
+        // � The TENANT must be on the token, or the principal falls back to the default one and the
+        // assignment just made is invisible.
+        return PlutusAppFactory.OperatorTokenFor(userId, "pos.sell", tenantId);
+    }
+
     /// <summary>The body the portal/till actually send — ids, no navigation objects, no audit stamps.</summary>
     private static object ItemBody(Guid businessId, Guid catId, string itemId, string name, decimal ex, decimal inc) => new
     {
@@ -78,7 +109,7 @@ public class LegacyItemEditE2eTests : IClassFixture<PlutusAppFactory>
     {
         var client = _f.CreateClient();
         var (businessId, catId, itemId) = await SeedAsync();
-        var token = PlutusAppFactory.OperatorToken("pos.sell");
+        var token = await TokenForRoleAsync("Supervisor");
 
         var (status, body) = await PutAsync(client, token, businessId, itemId,
             ItemBody(businessId, catId, itemId, "After", 10m, 12m));
@@ -107,7 +138,7 @@ public class LegacyItemEditE2eTests : IClassFixture<PlutusAppFactory>
     {
         var client = _f.CreateClient();
         var (businessId, catId, itemId) = await SeedAsync();
-        var token = PlutusAppFactory.OperatorToken("pos.sell");
+        var token = await TokenForRoleAsync("Supervisor");
 
         // £12.00 inc at the 20% band means £10.00 ex — £99 is nonsense and must be refused
         var (status, body) = await PutAsync(client, token, businessId, itemId,
@@ -115,5 +146,68 @@ public class LegacyItemEditE2eTests : IClassFixture<PlutusAppFactory>
 
         Assert.Equal(HttpStatusCode.BadRequest, status);
         Assert.Contains("does not match", body);
+    }
+
+    /// <summary>
+    /// ⚠⚠ THE RULE MATT ASKED FOR, PROVED FROM THE OTHER SIDE. *"Editing of items to be a supervisor
+    /// and above permission across all tills."* — so a **Cashier must be refused**, on the SERVER,
+    /// whatever the client offers.
+    ///
+    /// ⚠ This is the test that would have failed before 2026-08-21, and it is the point of the whole
+    /// change: the endpoints inherited a bare `[Authorize]`, so a cashier's token edited items happily.
+    /// Both tills gated it in their own UI — MAUI really did, the web till not at all — and a
+    /// client-side gate is a suggestion.
+    ///
+    /// ⚠ A price is what the customer is charged. A cashier changing one unsupervised is a discount
+    /// with no reason, no ceiling and no audit row.
+    /// </summary>
+    [Fact]
+    public async Task A_cashier_cannot_edit_an_item_and_a_supervisor_can()
+    {
+        var client = _f.CreateClient();
+        var (businessId, catId, itemId) = await SeedAsync();
+
+        var cashier = await TokenForRoleAsync("Cashier");
+        var (refused, _) = await PutAsync(client, cashier, businessId, itemId,
+            ItemBody(businessId, catId, itemId, "Cashier edit", 10m, 12m));
+        Assert.Equal(HttpStatusCode.Forbidden, refused);
+
+        // ⚠ And the refusal WROTE NOTHING — a 403 that still saved would be the worst outcome.
+        using (var scope = _f.Services.CreateScope())
+        {
+            var db = (MySqlDbContext)scope.ServiceProvider.GetRequiredService<RepositoryContext>();
+            var untouched = await db.Items.IgnoreQueryFilters().AsNoTracking()
+                .FirstAsync(i => i.IdOne == itemId && i.IdTwo == businessId);
+            Assert.Equal("Before", untouched.Name);
+        }
+
+        // The same edit, by a supervisor, lands — so the gate is a gate and not a wall.
+        var supervisor = await TokenForRoleAsync("Supervisor");
+        var (allowed, body) = await PutAsync(client, supervisor, businessId, itemId,
+            ItemBody(businessId, catId, itemId, "Supervisor edit", 10m, 12m));
+        Assert.True(allowed is HttpStatusCode.OK or HttpStatusCode.NoContent, $"PUT → {(int)allowed}: {body}");
+    }
+
+    /// <summary>⚠ Creation is gated the same way, and by the same reasoning — a new catalogue row is
+    /// not a smaller act than editing one. ⚠ This is the change with an operational cost: a cashier
+    /// scanning a new delivery can no longer add it (`TillPage` now says who to ask).</summary>
+    [Fact]
+    public async Task A_cashier_cannot_CREATE_an_item_either()
+    {
+        var client = _f.CreateClient();
+        var (businessId, catId, _) = await SeedAsync();
+        var cashier = await TokenForRoleAsync("Cashier");
+
+        // ⚠ `Bearer` and `BusinessId`, exactly as `PutAsync` above does it. Built by hand first with
+        // an "Authorization: PlutusToken …" header, which answered **401 not 403** — an authentication
+        // failure wearing the costume of an authorisation one, and it would have "passed" a sloppier
+        // assertion while proving nothing about the gate.
+        using var req = new HttpRequestMessage(HttpMethod.Post, "/api/Item");
+        req.Headers.Authorization = new("Bearer", cashier);
+        req.Headers.Add("BusinessId", businessId.ToString());
+        req.Content = JsonContent.Create(ItemBody(businessId, catId, "CASHIER-NEW-1", "Nope", 10m, 12m));
+
+        var res = await client.SendAsync(req);
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
     }
 }

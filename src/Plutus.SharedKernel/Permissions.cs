@@ -89,6 +89,34 @@ public static class PermissionCatalogue
     public const string PosCashReopen = "pos.cash.reopen";
 
     /// <summary>
+    /// Change an item's price or details FROM A TILL.
+    ///
+    /// ⚠⚠ Matt, 2026-08-21: *"I also need editing of items to be a supervisor and above permission
+    /// across all tills."* Third instance of exactly the <see cref="PosStockAdjust"/> shape, and the
+    /// third time for the same reason: a **Supervisor holds no portal permission at all**, so
+    /// <see cref="PortalPricesManage"/> could never express "supervisor and above" — under it, a
+    /// supervisor correcting a mispriced shelf edge has to wait for a manager.
+    ///
+    /// ⚠ Granting the PORTAL code to Supervisor instead would have been one line and the wrong shape:
+    /// it also carries the central price list and per-store override writes. A till permission has to
+    /// be expressed as a till permission.
+    ///
+    /// ⚠⚠ AND IT CLOSED A REAL HOLE, WHICH IS THE PART WORTH KEEPING. Before this existed the item
+    /// write endpoints inherited a bare <c>[Authorize]</c> from the legacy CRUD base — **any signed-in
+    /// user could create or edit any item**, including a Cashier, and the web till's item editor had
+    /// **no client gate at all**. MAUI's gate was real but client-side only. So the ask was not just a
+    /// widening for supervisors: it was the first server-side gate this capability has ever had.
+    ///
+    /// ⚠ Seeded to Owner / Company Admin / Store Manager / **Supervisor** — never Cashier. A price is
+    /// what the customer is charged; a cashier changing one unsupervised is a discount with no reason,
+    /// no ceiling and no audit row.
+    ///
+    /// ⚠ The endpoints accept this **OR** <see cref="PortalPricesManage"/> (the `CheckAny` shape), so
+    /// portal users keep working unchanged and nothing needs re-granting.
+    /// </summary>
+    public const string PosItemsManage = "pos.items.manage";
+
+    /// <summary>
     /// WP12 / step 27: sign a new loyalty member up FROM A TILL.
     ///
     /// ⚠ Matt, 2026-08-13: *"Supervisor to change tiers. Till operator to add new loyalty members."*
@@ -167,7 +195,7 @@ public static class PermissionCatalogue
         PortalTillsEnrol, PortalReportsView, PortalCompanyManage, CustomersManage, SupportTickets,
         InventoryBulk, GiftCardsManage,
         PosSell, PosRefund, PosVoid, PosDiscount, PosPriceOverride, PosNoSale, PosReportsView, PosSettingsManage,
-        PosStockAdjust, PosCashReopen, PosCustomersAdd,
+        PosStockAdjust, PosCashReopen, PosCustomersAdd, PosItemsManage,
 
         // ⚠ The per-report codes (5b). They must be here or the portal cannot offer them: `AdminController`
         // builds its grantable-permission list from this set, so a code missing from it exists in the
@@ -263,6 +291,10 @@ public static class PermissionCatalogue
         // ⚠ Says plainly that nothing is deleted: the fear this wording answers is "will I lose the
         // Z read?", and the honest answer is that both the close and the reopening stay on record.
         [PosCashReopen] = "Reopen a day that has been closed with a Z read, so the till can trade again. The Z read is kept — both the close and the reopening are recorded. Always needs a reason.",
+        // ⚠ Says "from a till" and names the price, because in a role editor "manage items" reads
+        // as a portal capability. The owner granting this needs to know it is the shelf-edge fix at
+        // the counter, not the central price list.
+        [PosItemsManage] = "Change an item's price or details from a till — the fix for a wrong shelf edge, without waiting for a manager. Does not include bulk catalogue edits or the central price list.",
         // ⚠ Spells out the create/edit line, because "add customers" in a role editor reads as
         // "manage customers" and this deliberately is not that. Also says the till must be online:
         // an owner granting it needs to know why a cashier still cannot do it on a dead connection.

@@ -552,8 +552,15 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         {
             try
             {
-                var gate = Services.Security.TillGate.Check(
-                    App.GetViewModel().SignedInOperator, PermissionCatalogue.PortalPricesManage);
+                // ⚠⚠ SUPERVISOR AND ABOVE (Matt, 2026-08-21). `CheckAny`, not `Check`: a
+                // **Supervisor holds no portal permission at all**, so `portal.prices.manage`
+                // alone meant a supervisor correcting a wrong shelf edge had to wait for a
+                // manager. Same shape as the stock gate below — and the SERVER now enforces the
+                // same pair (`ItemController.Post`/`Put`), which it never did before: this gate
+                // was client-side only, and a client-side gate is a suggestion.
+                var gate = Services.Security.TillGate.CheckAny(
+                    App.GetViewModel().SignedInOperator, null,
+                    PermissionCatalogue.PosItemsManage, PermissionCatalogue.PortalPricesManage);
 
                 if (!gate.Allowed)
                 {
@@ -1006,8 +1013,15 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         {
             try
             {
-                var gate = Services.Security.TillGate.Check(
-                    App.GetViewModel().SignedInOperator, PermissionCatalogue.PortalPricesManage);
+                // ⚠⚠ SUPERVISOR AND ABOVE (Matt, 2026-08-21). `CheckAny`, not `Check`: a
+                // **Supervisor holds no portal permission at all**, so `portal.prices.manage`
+                // alone meant a supervisor correcting a wrong shelf edge had to wait for a
+                // manager. Same shape as the stock gate below — and the SERVER now enforces the
+                // same pair (`ItemController.Post`/`Put`), which it never did before: this gate
+                // was client-side only, and a client-side gate is a suggestion.
+                var gate = Services.Security.TillGate.CheckAny(
+                    App.GetViewModel().SignedInOperator, null,
+                    PermissionCatalogue.PosItemsManage, PermissionCatalogue.PortalPricesManage);
 
                 if (!gate.Allowed)
                 {

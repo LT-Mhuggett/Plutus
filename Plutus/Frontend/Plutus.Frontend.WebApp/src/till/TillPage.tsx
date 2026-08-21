@@ -6,7 +6,7 @@ import {
   type Item,
 } from "../api.ts";
 import { NO_MEMBER } from "./autoDiscounts.ts";
-import { canAddCustomers, canManageCustomers } from "../pipeline.ts";
+import { canAddCustomers, canManageCustomers, canManageItems } from "../pipeline.ts";
 import { requestNewItem } from "../newItemHandoff.ts";
 import { gbp, parsePence } from "../money.ts";
 import { useBasket, basketTotals, lineDiscountPence, lineTotalPence, type BasketState } from "./basket.ts";
@@ -583,17 +583,33 @@ export default function TillPage() {
       </div>
 
       {notice && <p className="error small">{notice}</p>}
+      {/* ⚠⚠ SUPERVISOR AND ABOVE since 2026-08-21 (Matt: *"editing of items to be a supervisor and
+          above permission across all tills"*), and this is the ONE place that ruling has an
+          operational cost worth stating: a **cashier scanning a new delivery can no longer add it**.
+          That flow exists because the alternative is ringing new stock through as a miscellaneous
+          line, lost to every stock figure and category report it belongs in.
+          ⚠ So the refusal SAYS WHO TO ASK rather than hiding the button and leaving a dead end — a
+          cashier who cannot see why the till will not sell an item goes looking for a workaround. */}
       {unknownScan && (
         <p className="small">
-          <button
-            className="ghost small"
-            onClick={() => { requestNewItem(unknownScan); setUnknownScan(null); setScan(""); setNotice(""); }}
-          >
-            ＋ Add this item
-          </button>{" "}
-          <span className="muted">
-            Creates a new catalogue item with barcode <span className="mono">{unknownScan}</span>.
-          </span>
+          {canManageItems() ? (
+            <>
+              <button
+                className="ghost small"
+                onClick={() => { requestNewItem(unknownScan); setUnknownScan(null); setScan(""); setNotice(""); }}
+              >
+                ＋ Add this item
+              </button>{" "}
+              <span className="muted">
+                Creates a new catalogue item with barcode <span className="mono">{unknownScan}</span>.
+              </span>
+            </>
+          ) : (
+            <span className="muted">
+              Nothing scans to <span className="mono">{unknownScan}</span>. Adding a new item needs a
+              supervisor — ask one to add it, then scan again.
+            </span>
+          )}
         </p>
       )}
       {results && (

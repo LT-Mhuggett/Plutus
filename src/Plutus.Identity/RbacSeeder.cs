@@ -111,6 +111,11 @@ namespace Plutus.Identity
                 // till's gate is one code for everybody — these three roles already hold
                 // customers.manage, which the endpoint also accepts.
                 PermissionCatalogue.PosCustomersAdd,
+                // Matt, 2026-08-21: *"editing of items to be a supervisor and above permission
+                // across all tills."* In the POS bundle for the same reason as the three lines
+                // above — the till's gate checks ONE code whoever is signed in. These three roles
+                // already hold `portal.prices.manage`, which the endpoints also accept.
+                PermissionCatalogue.PosItemsManage,
             };
             static List<EffectivePermission> G(params string[] codes) =>
                 codes.Select(c => new EffectivePermission(c, null)).ToList();
@@ -162,6 +167,13 @@ namespace Plutus.Identity
                     // WP12: a supervisor can both ADD a member and change their tier — the tier half
                     // comes from CustomersManage above, which they already hold.
                     new(PermissionCatalogue.PosCustomersAdd, null),
+                    // ⚠⚠ THE THIRD TIME THIS EXACT SHAPE HAS BEEN NEEDED (Matt, 2026-08-21):
+                    // *"editing of items to be a supervisor and above permission across all tills."*
+                    // A supervisor holds NO portal permission, so `portal.prices.manage` could never
+                    // express "supervisor and above" — under it, correcting a wrong shelf edge waits
+                    // for a manager. ⚠ Deliberately NOT `inventory.bulk`: this changes ONE item, that
+                    // one moves thousands. Same split as stock adjust above.
+                    new(PermissionCatalogue.PosItemsManage, null),
                 }),
                 // ⚠ NOT the Cashier for stock or cash reopen. A cashier changing stock counts
                 // unsupervised is how shrinkage stops being visible — the count and the person who

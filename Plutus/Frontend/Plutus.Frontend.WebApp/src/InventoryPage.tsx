@@ -18,7 +18,7 @@ import { gbp } from "./money.ts";
 import DataTable from "./DataTable.tsx";
 import { takeNewItemBarcode } from "./newItemHandoff.ts";
 import ItemBarcodeList, { ItemHistory } from "./ItemBarcodes.tsx";
-import { canManageBarcodes, canViewItemHistory } from "./pipeline.ts";
+import { canManageBarcodes, canManageItems, canViewItemHistory } from "./pipeline.ts";
 
 export default function InventoryPage() {
   const [items, setItems] = useState<Item[]>([]);
@@ -47,7 +47,10 @@ export default function InventoryPage() {
   const [newBarcode, setNewBarcode] = useState("");
   useEffect(() => {
     const handed = takeNewItemBarcode();
-    if (handed) { setNewBarcode(handed); setEditing("new"); }
+    // ⚠ `canManageItems()` HERE TOO, not only on the button. The handoff is a SEPARATE entry
+    // point, and without this a cashier arriving from the till (or a deep link) would get the
+    // Add dialog and a 403 on save — refused after typing, which is the worst possible order.
+    if (handed && canManageItems()) { setNewBarcode(handed); setEditing("new"); }
   }, []);
 
   function load() {
@@ -80,9 +83,14 @@ export default function InventoryPage() {
     <section className="panel">
       <div className="panel-head">
         <h2>Inventory</h2>
-        <button className="ghost" onClick={() => setEditing("new")}>
-          Add item
-        </button>
+        {/* ⚠⚠ SUPERVISOR AND ABOVE (Matt, 2026-08-21). Hidden rather than disabled: a disabled
+            "Add item" invites a cashier to ask why, and the honest answer is that it is not their job.
+            ⚠ The server refuses regardless (`ItemController.Post`) — this only stops offering it. */}
+        {canManageItems() && (
+          <button className="ghost" onClick={() => setEditing("new")}>
+            Add item
+          </button>
+        )}
         <label className="small">Category{" "}
           <select value={catFilter} onChange={(e) => { setSkip(0); setCatFilter(e.target.value); }}>
             <option value="">All</option>
@@ -93,6 +101,9 @@ export default function InventoryPage() {
 
       {notice && <p className="small discount-note">{notice}</p>}
       {state === "error" && <p className="error">Could not load inventory: {error}</p>}
+      {/* ⚠ Edit is offered only to a supervisor and above (Matt, 2026-08-21). No action at all
+          for a cashier rather than a disabled one — the list stays fully readable, which is the
+          point: looking up a price is everybody's job, changing one is not. */}
       <DataTable<Item>
         columns={[
           { key: "idOne", label: "Barcode / Id", render: (i) => <span className="mono small">{i.idOne}</span> },
@@ -120,7 +131,7 @@ export default function InventoryPage() {
           onPage: (s, t) => { setSkip(s); setTake(t); },
         }}
         searchPlaceholder="Search name, barcode, brand…"
-        rowActions={(i) => <button className="ghost small" onClick={() => setEditing(i)}>Edit</button>}
+        rowActions={canManageItems() ? (i) => <button className="ghost small" onClick={() => setEditing(i)}>Edit</button> : undefined}
         emptyText={state === "loading" ? "Loading…" : `No items${search ? ` matching “${search}”` : ""}.`}
       />
 

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -115,6 +116,31 @@ namespace Plutus.DBService.Controllers
                 .FirstOrDefaultAsync();
         }
 
+        /// <summary>
+        /// ⚠⚠ SUPERVISOR AND ABOVE — Matt, 2026-08-21: *"I also need editing of items to be a
+        /// supervisor and above permission across all tills."*
+        ///
+        /// ⚠⚠ THIS IS THE FIRST SERVER-SIDE GATE THIS CAPABILITY HAS EVER HAD. It inherited a bare
+        /// <c>[Authorize]</c> from the legacy CRUD base, so **any signed-in user could create or edit
+        /// any item** — and the web till's item editor had no client gate at all, while MAUI's was
+        /// real but client-side only. A client-side gate is a suggestion.
+        ///
+        /// ⚠ EITHER code: <c>portal.prices.manage</c> keeps the portal working unchanged, and
+        /// <c>pos.items.manage</c> is the till code a **Supervisor** actually holds — a supervisor
+        /// holds no portal permission at all, which is why the portal code alone could never express
+        /// "supervisor and above". Third instance of the <c>pos.stock.adjust</c> shape.
+        ///
+        /// ⚠ A CASHIER IS REFUSED, deliberately. A price is what the customer is charged; changing one
+        /// unsupervised is a discount with no reason, no ceiling and no audit row.
+        ///
+        /// ⚠⚠ NEEDS AN OPERATOR TOKEN, NOT A DEVICE TOKEN. <c>perm:*</c> resolves RBAC by the token's
+        /// <c>NameIdentifier</c>, which on a device token is the DEVICE id — and a device holds no
+        /// grants, so a device token 403s here whatever the operator's role. Both tills already use
+        /// their operator client for item writes. ⚠ The legacy <c>isSync=true</c> path is driven by no
+        /// client in this repo (checked 2026-08-21); if anything ever drives it from a device, this is
+        /// the line that will refuse it.
+        /// </summary>
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalPricesManage + "," + PermissionCatalogue.PosItemsManage)]
         public override async Task<ActionResult<Item>> Post([FromHeader] Guid businessId, [FromBody] ItemBody body, [FromQuery] bool isSync = false)
         {
             if (!isSync && body != null)
@@ -150,6 +176,8 @@ namespace Plutus.DBService.Controllers
             return result;
         }
 
+        /// <summary>⚠ Same gate as <see cref="Post"/> — see its remarks. Supervisor and above.</summary>
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalPricesManage + "," + PermissionCatalogue.PosItemsManage)]
         public override async Task<ActionResult<Item>> Put([FromRoute] string id1, [FromHeader] Guid businessId, [FromBody] Item entity, [FromQuery] bool isSync = false)
         {
             if (!isSync && entity != null)
