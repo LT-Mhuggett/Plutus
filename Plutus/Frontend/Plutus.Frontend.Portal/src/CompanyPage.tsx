@@ -6,6 +6,7 @@ import {
 } from "./api.ts";
 import PeriodsPage from "./PeriodsPage.tsx";
 import CarrierBagsSection from "./CarrierBagsSection.tsx";
+import VatPeriodsSection from "./VatPeriodsSection.tsx";
 
 /** WP11.5: the Company tab — company details (moved off the old Stores & Tills page) with
  *  Financial periods absorbed as a section below (the standalone Periods tab is gone). */
@@ -34,6 +35,9 @@ export default function CompanyPage() {
           is shop-wide, has no per-till anything, and is a money decision like the card surcharge
           above it — same tab, same `portal.company.manage` permission. */}
       <CarrierBagsSection />
+      {/* ⚠ WP-FY (2026-08-21) — after the card surcharge and before Security, with the other
+          money settings. These are facts HMRC knows the business by, not per-store config. */}
+      <VatPeriodsSection />
       <SecuritySection />
       <PeriodsPage />
     </>

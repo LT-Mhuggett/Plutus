@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { downloadCsv, csvUrl, fetchVat, fetchVatIntegrity, gbp, type VatBucket, type VatIntegrity, type VatPartialExemption, type VatReturnTotals } from "./api.ts";
 import DataTable from "./DataTable.tsx";
+import { fetchVatPeriods, type VatPeriodSettings } from "./api.ts";
 
 type OffBandItem = VatIntegrity["offBandItems"][number];
 
@@ -13,8 +14,9 @@ type OffBandItem = VatIntegrity["offBandItems"][number];
 // fraction to takings (Notice 727 §3.4.1); this renders that, and shows what the tills actually
 // charged next to it so the rounding gap is visible rather than folded away.
 
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const isoDay = (d: Date) => d.toISOString().slice(0, 10);
+// ⚠ `MONTHS` and `isoDay` went with the calendar-quarter picker (WP-FY, 2026-08-21). They existed
+// only to build "Q1 (Jan–Mar)" labels and the UTC date bounds behind them; the periods and their
+// labels now come from the server, which is the only place the stagger arithmetic lives.
 const rateLabel = (bp: number) => (bp === 0 ? "0%" : `${(bp / 100).toFixed(2).replace(/\.00$/, "")}%`);
 
 /** Zero-rated and exempt are both 0% and completely different in law, so the class is shown as a
@@ -34,10 +36,23 @@ function ClassChip({ vatClass }: { vatClass: string }) {
 
 export default function VatReturn() {
   const now = new Date();
-  const [view, setView] = useState<"month" | "quarter">("quarter");
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth());
-  const [quarter, setQuarter] = useState(Math.floor(now.getMonth() / 3) + 1);
+
+  /**
+   * ⚠⚠ THE PERIOD PICKER IS BUILT FROM THE BUSINESS'S VAT SETTINGS (WP-FY, 2026-08-21).
+   *
+   * ⚠⚠ IT USED TO OFFER CALENDAR QUARTERS — `Q1 (Jan–Mar)` … `Q4 (Oct–Dec)` — computed inline from
+   * the quarter number. **That is stagger 1 and only stagger 1.** A business filing on stagger 2
+   * files November to January, and this screen — the one an accountant actually files from — could
+   * not produce that range at all. Matt: *"the VAT reports needs to match the months it reports
+   * on."*
+   *
+   * ⚠ THE DATES COME FROM THE SERVER (`/api/v1/companies/vat-periods`), never from arithmetic here.
+   * Deriving quarter boundaries in TypeScript as well as in `FinancialCalendar` would be a C2 twin
+   * over money — the same mistake `apiTime.ts` was written to end the same week.
+   */
+  const [settings, setSettings] = useState<VatPeriodSettings | null>(null);
+  const [fyear, setFyear] = useState<number | null>(null);
+  const [periodKey, setPeriodKey] = useState<string | null>(null);
   const [buckets, setBuckets] = useState<VatBucket[]>([]);
   const [totals, setTotals] = useState<VatReturnTotals | null>(null);
   const [pe, setPe] = useState<VatPartialExemption | null>(null);
@@ -46,17 +61,38 @@ export default function VatReturn() {
   const [showOffenders, setShowOffenders] = useState(false);
   const [error, setError] = useState("");
 
-  const from = view === "month" ? isoDay(new Date(Date.UTC(year, month, 1))) : isoDay(new Date(Date.UTC(year, (quarter - 1) * 3, 1)));
-  const to = view === "month" ? isoDay(new Date(Date.UTC(year, month + 1, 0))) : isoDay(new Date(Date.UTC(year, quarter * 3, 0)));
+  // ⚠ The settings load once and then again per financial year — the periods of FY2025 are not the
+  // periods of FY2026 shifted by twelve months once a stagger straddles a year boundary.
+  useEffect(() => {
+    fetchVatPeriods(fyear ?? undefined)
+      .then((v) => {
+        setSettings(v);
+        if (fyear === null) setFyear(v.financialYear);
+      })
+      .catch((e) => setError(String(e instanceof Error ? e.message : e)));
+  }, [fyear]);
+
+  const periods = settings?.periods ?? [];
+
+  // ⚠ LANDS ON THE PERIOD CONTAINING TODAY, not on the first of the year — that is the one somebody
+  // opening this screen wants, and the server already says which it is.
+  const selected = periods.find((p) => p.key === periodKey)
+    ?? periods.find((p) => p.current)
+    ?? periods[0]
+    ?? null;
+
+  const from = selected?.from ?? "";
+  const to = selected?.to ?? "";
 
   useEffect(() => { fetchVatIntegrity().then(setIntegrity).catch(() => undefined); }, []);
   useEffect(() => {
+    if (!from || !to) return;
     setError("");
     // granularity "year" collapses period grouping; we re-aggregate by band below regardless.
     fetchVat(from, to, "year")
       .then((r) => { setBuckets(r.buckets); setTotals(r.totals); setBasis(r.basis); setPe(r.partialExemption); })
       .catch((e) => setError(String(e instanceof Error ? e.message : e)));
-  }, [view, year, month, quarter]);
+  }, [from, to]);
 
   // Sum by BAND (the server already snapped each line's derived rate to its band; this just
   // collapses the period dimension when the range spans several).
@@ -73,39 +109,53 @@ export default function VatReturn() {
     return [...m.values()].sort((a, b) => (a.unclassified ? 1 : 0) - (b.unclassified ? 1 : 0) || b.gross - a.gross);
   }, [buckets]);
 
-  const years = Array.from({ length: now.getFullYear() - 2019 + 1 }, (_, i) => 2019 + i).reverse();
+  const years = Array.from({ length: now.getFullYear() - 2019 + 2 }, (_, i) => 2019 + i).reverse();
   const diff = totals?.roundingDifferencePence ?? 0;
 
   return (
     <section className="panel">
       <div className="toolbar">
-        <label>View{" "}
-          <select value={view} onChange={(e) => setView(e.target.value as "month" | "quarter")}>
-            <option value="month">Month</option><option value="quarter">Quarter</option>
+        {/* ⚠⚠ THE PERIODS ARE THIS BUSINESS'S, NOT CALENDAR QUARTERS (WP-FY). Each option is
+            labelled with its actual MONTHS — "Q1" meant Jan–Mar on the old picker and means
+            something else entirely for two of the three HMRC staggers, so a number here would be a
+            label that is wrong for most businesses. */}
+        <label>VAT period{" "}
+          <select
+            value={selected?.key ?? ""}
+            disabled={periods.length === 0}
+            onChange={(e) => setPeriodKey(e.target.value)}
+          >
+            {periods.map((p) => (
+              <option key={p.key} value={p.key}>{p.label}{p.current ? " (current)" : ""}</option>
+            ))}
           </select>
         </label>
-        {view === "month" ? (
-          <label>Month{" "}
-            <select value={month} onChange={(e) => setMonth(Number(e.target.value))}>
-              {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
-            </select>
-          </label>
-        ) : (
-          <label>Quarter{" "}
-            <select value={quarter} onChange={(e) => setQuarter(Number(e.target.value))}>
-              {[1, 2, 3, 4].map((q) => <option key={q} value={q}>Q{q} ({MONTHS[(q - 1) * 3].slice(0, 3)}–{MONTHS[q * 3 - 1].slice(0, 3)})</option>)}
-            </select>
-          </label>
-        )}
-        <label>Year{" "}
-          <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
-            {years.map((y) => <option key={y} value={y}>{y}</option>)}
+
+        {/* ⚠ THE FINANCIAL YEAR, not the calendar year — that is what "the company year" being a
+            setting is for. Changing it re-asks the server for that year's periods rather than
+            shifting these by twelve months, because a stagger that straddles a year boundary does
+            not shift cleanly. */}
+        <label>Financial year{" "}
+          <select value={fyear ?? ""} onChange={(e) => { setFyear(Number(e.target.value)); setPeriodKey(null); }}>
+            {years.map((y) => <option key={y} value={y}>{y}/{String((y + 1) % 100).padStart(2, "0")}</option>)}
           </select>
         </label>
+
         <span className="muted small">{from} – {to}</span>
         <span className="grow" />
-        <button className="ghost btn" onClick={() => void downloadCsv(csvUrl("vat", from, to), `${from}-${to}-vat.csv`)}>Export CSV</button>
+        <button className="ghost btn" disabled={!from} onClick={() => void downloadCsv(csvUrl("vat", from, to), `${from}-${to}-vat.csv`)}>Export CSV</button>
       </div>
+
+      {/* ⚠⚠ WP-FY REQUIREMENT 4: THE REPORT SAYS WHICH BASIS IT USED. A VAT report that does not
+          name its period basis cannot be checked against a filed return, which is the only thing it
+          is for — and when nobody has set one, it says THAT, because a default presented as a
+          choice is a lie to whoever is reconciling. */}
+      {settings && (
+        <p className="muted small">
+          {settings.describe}
+          {!settings.configured && <> — <strong>set them under Company → Financial year &amp; VAT periods</strong>.</>}
+        </p>
+      )}
 
       {integrity && integrity.offBandCount > 0 && (
         <div className="error" style={{ padding: "8px 12px" }}>

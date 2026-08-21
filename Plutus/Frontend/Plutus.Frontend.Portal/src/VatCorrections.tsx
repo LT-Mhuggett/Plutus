@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchVatCorrections, gbp, type VatCorrections } from "./api.ts";
+import { fetchVatPeriods, type VatPeriodSettings } from "./api.ts";
 
 // WP2c — RESTATING PAST VAT RETURNS. Matt's instruction, 2026-08-08: "correct past return".
 //
@@ -23,11 +24,33 @@ const STAGGERS = [
 
 const day = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
+/**
+ * The VAT restatement (WP2c).
+ *
+ * ⚠⚠ THE BASIS DEFAULTS TO THE BUSINESS'S OWN SETTING SINCE WP-FY (2026-08-21). These two controls
+ * used to seed from `useState("quarter")` / `useState(3)` and pass them on every call, so this
+ * screen silently asserted stagger 1 for every shop — and `VatReturn` next door asserted calendar
+ * quarters. Two VAT screens, two different opinions about which quarter a day was in, neither
+ * saying which it had used.
+ *
+ * ⚠ THE CONTROLS STAY, and they are now honestly what they always looked like: an OVERRIDE, for
+ * answering *"what would this look like on a different basis"* — the question somebody asks right
+ * before changing the setting. They start on what the business actually files.
+ */
 export default function VatCorrections() {
+  const [settings, setSettings] = useState<VatPeriodSettings | null>(null);
   const [basis, setBasis] = useState<"quarter" | "month">("quarter");
   const [stagger, setStagger] = useState(3);
   const [data, setData] = useState<VatCorrections | null>(null);
   const [error, setError] = useState("");
+
+  // ⚠ SEEDED FROM THE SERVER, THEN LEFT ALONE. Re-seeding on every settings change would fight an
+  // operator who has deliberately switched the override to compare.
+  useEffect(() => {
+    fetchVatPeriods()
+      .then((v) => { setSettings(v); setBasis(v.basis); setStagger(v.staggerEndMonth); })
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     setError("");
@@ -54,6 +77,19 @@ export default function VatCorrections() {
           </label>
         )}
       </div>
+
+      {/* ⚠⚠ WP-FY REQUIREMENT 4 — THE REPORT SAYS WHICH BASIS IT USED, and whether anybody chose
+          it. Two controls that look like settings but are actually an override need to say what
+          they are overriding, or the screen reads as the source of truth for a shop's VAT periods
+          when the Company tab is. */}
+      {settings && (
+        <p className="muted small">
+          This business files on <strong>{settings.describe.replace(/ — .*$/, "")}</strong>
+          {!settings.configured && <> (the default — set it under Company → Financial year &amp; VAT periods)</>}
+          {(basis !== settings.basis || (basis === "quarter" && stagger !== settings.staggerEndMonth)) &&
+            <> — <strong>you are previewing a different basis below</strong>.</>}
+        </p>
+      )}
 
       {error && <p className="error">{error}</p>}
 

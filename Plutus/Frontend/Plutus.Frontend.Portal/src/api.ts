@@ -611,6 +611,46 @@ export interface Company {
 export const fetchCompanies = () => get<Company[]>(`/api/v1/companies`);
 export const updateCompany = (id: string, body: Partial<Company>) => put<void>(`/api/v1/companies/${id}`, body);
 
+/**
+ * WP-FY — the company year and the VAT periods this business files on.
+ *
+ * ⚠⚠ `configured: false` MEANS NOBODY HAS SET THEM and the rest of the object is the HMRC-typical
+ * default. Every screen that renders a VAT period must say which of the two it is showing — a
+ * default presented as a choice is a lie to somebody checking a return.
+ */
+export interface VatPeriodSettings {
+  companyId: string | null;
+  basis: "quarter" | "month";
+  /** The month a VAT QUARTER ENDS, 1–12. 3 = stagger 1, 1 = stagger 2, 2 = stagger 3. */
+  staggerEndMonth: number;
+  yearStartMonth: number;
+  yearStartDay: number;
+  configured: boolean;
+  /** Words for a report header, including whether it was chosen. */
+  describe: string;
+  changedAtUtc: string | null;
+  /** The financial year these periods belong to, named by the year it STARTS in. */
+  financialYear: number;
+  currentFinancialYear: number;
+  /**
+   * ⚠⚠ THE PERIODS COME FROM THE SERVER AND THE CLIENT NEVER COMPUTES A BOUNDARY. Working the dates
+   * out here from a stagger would be a C2 twin over money — two implementations of "when does this
+   * VAT quarter start", in two languages, which is the exact class of bug `apiTime.ts` was written
+   * to end. The picker renders what it is given.
+   */
+  periods: { key: string; from: string; to: string; label: string; current: boolean }[];
+}
+
+export const fetchVatPeriods = (year?: number) =>
+  get<VatPeriodSettings>(`/api/v1/companies/vat-periods${year ? `?year=${year}` : ""}`);
+
+export const setVatPeriods = (body: {
+  basis: "quarter" | "month";
+  staggerEndMonth: number | null;
+  yearStartMonth: number;
+  yearStartDay: number;
+}) => put<void>(`/api/v1/companies/vat-periods`, body);
+
 // ── catalogue management: LEGACY bridge (WP4.2/4.4) ──────────────────────────
 // The portal normally speaks only /api/v1. Item + category + tax MANAGEMENT is the one
 // deliberate exception: it reuses the guardrailed legacy MVC controllers the web till already

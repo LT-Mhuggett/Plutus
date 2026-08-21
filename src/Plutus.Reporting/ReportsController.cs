@@ -534,14 +534,41 @@ namespace Plutus.Reporting
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> VatCorrections(
-            [FromQuery] string basis = "quarter", [FromQuery] int staggerEndMonth = 3,
+            [FromQuery] string basis = null, [FromQuery] int? staggerEndMonth = null,
             [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? filedCorrectlyFrom = null)
         {
-            basis = (basis ?? "quarter").ToLowerInvariant();
-            if (basis is not ("quarter" or "month"))
+            // ⚠⚠ WP-FY, 2026-08-21 — THE DEFAULTS COME FROM THE BUSINESS NOW, NOT FROM THIS
+            // SIGNATURE. Matt: *"I need to be able to set the company year in the portal. And the
+            // VAT periods. This then needs to be reflected in the reports."*
+            //
+            // These used to be `basis = "quarter", staggerEndMonth = 3`, so the shop's real stagger
+            // was **whatever the caller last typed** and every screen that omitted them silently got
+            // stagger 1 — right for most retailers and wrong for the ones it is wrong for, with
+            // nothing on screen admitting which.
+            //
+            // ⚠ THE QUERY PARAMETERS STAY, as an OVERRIDE. This endpoint is also how you test what a
+            // different basis would produce, which is exactly the question somebody asks before
+            // changing the setting. What changed is that omitting them no longer means "stagger 1",
+            // it means "whatever this business files on".
+            var stored = await VatSettingsAsync();
+
+            var effective = FinancialCalendar.Resolve(
+                basis ?? stored.Basis,
+                staggerEndMonth ?? stored.StaggerEndMonth,
+                stored.YearStartMonth,
+                stored.YearStartDay);
+
+            // ⚠ AN EXPLICIT OVERRIDE IS STILL VALIDATED AND STILL REFUSED. `Resolve` silently falls
+            // back for a bad stored row so a report cannot crash on one; a caller who TYPED a bad
+            // value must be told, not quietly given something else.
+            if (basis is not null && basis.Trim().ToLowerInvariant() is not ("quarter" or "month"))
                 return BadRequest(new { detail = "basis must be quarter or month." });
-            if (staggerEndMonth is < 1 or > 12)
+            if (staggerEndMonth is not null && staggerEndMonth is < 1 or > 12)
                 return BadRequest(new { detail = "staggerEndMonth must be 1-12 (the month a VAT quarter ends)." });
+
+            // ⚠ The names the rest of this method and the response already use.
+            basis = effective.Basis;
+            var stagger = effective.StaggerEndMonth;
 
             // Everything the tills have ever recorded — the restatement has to cover whatever was
             // actually filed, and the caller narrows it with `from` if the early history is out of
@@ -554,7 +581,7 @@ namespace Plutus.Reporting
                 .Select(r => new { r.BusinessDay, r.VatRateBp, r.GrossPence, r.VatPence })
                 .ToListAsync();
             if (rows.Count == 0)
-                return Ok(new { basis, staggerEndMonth, periods = Array.Empty<object>(), summary = (object)null, guidance = CorrectionGuidance() });
+                return Ok(new { basis, staggerEndMonth = stagger, periodBasis = effective.Describe(), configured = effective.Configured, periods = Array.Empty<object>(), summary = (object)null, guidance = CorrectionGuidance() });
 
             // The date from which returns were produced on the CORRECT basis. Periods ending on or
             // after it were never mis-filed, so they are shown for completeness but excluded from
@@ -564,7 +591,7 @@ namespace Plutus.Reporting
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
             var periods = rows
-                .GroupBy(r => VatPeriodOf(r.BusinessDay, basis, staggerEndMonth))
+                .GroupBy(r => FinancialCalendar.VatPeriodOf(r.BusinessDay, effective))
                 .OrderBy(g => g.Key.End)
                 .Select(g =>
                 {
@@ -623,7 +650,15 @@ namespace Plutus.Reporting
             return Ok(new
             {
                 basis,
-                staggerEndMonth,
+                staggerEndMonth = stagger,
+
+                // ⚠⚠ WP-FY REQUIREMENT 4: **THE REPORT SAYS WHICH BASIS IT USED, IN WORDS.** A VAT
+                // report that does not name its period basis cannot be checked against a filed
+                // return, which is the only thing it is for. ⚠ `configured` is the half that matters
+                // most — it distinguishes "quarterly, ending March" chosen by this business from the
+                // same words guessed on their behalf.
+                periodBasis = effective.Describe(),
+                configured = effective.Configured,
                 filedCorrectlyFrom = fixedFrom,
                 returnBasis = VatGuidance.ReturnBasis,
                 periods,
@@ -679,32 +714,52 @@ namespace Plutus.Reporting
             url = "https://www.gov.uk/guidance/how-to-correct-vat-errors-and-make-adjustments-or-claims-vat-notice-70045",
         };
 
+
         /// <summary>
-        /// The VAT period a business day falls in. Quarters follow the HMRC stagger group — the
-        /// month a quarter ENDS — rather than calendar quarters, because a business filing on
-        /// stagger 2 (Jan/Apr/Jul/Oct) would otherwise have every correction attributed to the
-        /// wrong return.
+        /// What this business files VAT on — WP-FY, 2026-08-21.
+        ///
+        /// ⚠⚠ ONE READ, ONE RESOLVER, USED BY EVERY VAT ENDPOINT HERE. Three endpoints defaulting
+        /// from nulls separately is three chances to default differently, and a VAT report that
+        /// disagrees with another VAT report about which quarter a day is in is the exact failure
+        /// this package exists to remove.
+        ///
+        /// ⚠ NO BUSINESS ROW IS NOT AN ERROR — a tenant mid-provisioning has none, and the caller
+        /// still needs a period to bucket on. `Resolve(null, …)` answers the HMRC-typical default
+        /// and flags itself unconfigured, which is the honest reading of "we have not been told".
         /// </summary>
-        /// <remarks>Public and static so the period arithmetic is unit-testable without a database
-        /// — getting a stagger wrong silently files every correction against the wrong return, and
-        /// that is not a thing to discover in production. MVC does not route static members.</remarks>
-        public static (string Key, DateOnly Start, DateOnly End) VatPeriodOf(DateOnly day, string basis, int staggerEndMonth)
+        private async Task<FinancialCalendar.VatSettings> VatSettingsAsync()
         {
-            if (basis == "month")
-            {
-                var start = new DateOnly(day.Year, day.Month, 1);
-                return ($"{day.Year:0000}-{day.Month:00}", start, start.AddMonths(1).AddDays(-1));
-            }
+            var b = await _db.Business.AsNoTracking()
+                .Select(x => new
+                {
+                    x.VatBasis, x.VatStaggerEndMonth,
+                    x.FinancialYearStartMonth, x.FinancialYearStartDay,
+                })
+                .FirstOrDefaultAsync();
 
-            // A quarter ending in month E starts at E-2. How many months is this day into its own
-            // quarter? Modulo 3 off that start, normalised for negatives (stagger 2 ends in
-            // January, so its start month is "-1" = November of the previous year).
-            var monthsIn = ((day.Month - (staggerEndMonth - 2)) % 3 + 3) % 3;
-            var qStart = new DateOnly(day.Year, day.Month, 1).AddMonths(-monthsIn);
-            var qEnd = qStart.AddMonths(3).AddDays(-1);
-            return ($"{qStart.Year:0000}-{qStart.Month:00}..{qEnd.Year:0000}-{qEnd.Month:00}", qStart, qEnd);
+            return FinancialCalendar.Resolve(
+                b?.VatBasis, b?.VatStaggerEndMonth, b?.FinancialYearStartMonth, b?.FinancialYearStartDay);
         }
+        /// <summary>
 
+        /// <summary>
+        /// The VAT period a business day falls in.
+        ///
+        /// ⚠⚠ A THIN DELEGATE TO <see cref="FinancialCalendar.VatPeriodOf"/> SINCE WP-FY
+        /// (2026-08-21). The arithmetic moved to `SharedKernel` because it was **private to this
+        /// controller**, and that is precisely why the screen an accountant actually files from —
+        /// `VatReturn` — never used it and offered CALENDAR quarters instead.
+        ///
+        /// ⚠ IT IS KEPT, NOT DELETED, BECAUSE `VatCorrectionTests` PINS IT with its own vectors.
+        /// Deleting it would have meant rewriting those tests against the new signature, and a test
+        /// rewritten in the same commit as the code it guards has guarded nothing. Left as a
+        /// delegate, those vectors now hold the shared implementation instead.
+        /// </summary>
+        /// <remarks>Public and static so the period arithmetic is unit-testable without a database —
+        /// getting a stagger wrong silently files every correction against the wrong return, and
+        /// that is not a thing to discover in production. MVC does not route static members.</remarks>
+        public static (string Key, DateOnly Start, DateOnly End) VatPeriodOf(DateOnly day, string basis, int staggerEndMonth) =>
+            FinancialCalendar.VatPeriodOf(day, FinancialCalendar.Resolve(basis, staggerEndMonth, null, null));
         /// <summary>
         /// The tenant's VAT bands for return purposes: the effective-dated <c>VatRatePoints</c> the
         /// portal owns, falling back to the legacy <c>Taxes</c> rows for a tenant not yet migrated

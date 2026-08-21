@@ -455,7 +455,7 @@ made to match anything, and WP-DRILL is worthless while the reports still lie ab
 | *"Can the discount settings box be white like the others"* | `.card` had a border and **no background**, so the page's grey showed through beside `.panel`, which sets one. | `portal.css` |
 | *"Also Prices, can it be collapsed like discount settings"* | ⚠ `open` by default, unlike Discount Settings — this is the Prices page, and a page whose main content is shut on arrival reads as broken. | `PricesPage.tsx` |
 
-### WP-FY — the company year and the VAT periods, set in the portal · **≈1½d**
+### WP-FY — the company year and the VAT periods, set in the portal · **≈1½d** -> **DONE 2026-08-21**
 
 > *"I need to be able to set the company year in the portal. And the VAT periods. This then needs to
 > be reflected in the reports, specifically the VAT reports needs to match the months it reports on."*
