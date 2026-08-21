@@ -51,6 +51,42 @@ item-identity seam all outlive the retrofit, and archiving them unlifted buries 
 
 ## 0. Live state, and every ruling that binds this work
 
+> # ⚠⚠ FULL AUDIT, 2026-08-21 — TWELVE ROWS IN THIS DOCUMENT WERE STALE
+>
+> Matt: *"Check what is live and what still needs to be completed."* Every open marker was checked
+> **against the code**, not against the prose around it. **Twelve were wrong, and eleven of the twelve
+> were wrong in the SAME direction — describing as outstanding work that was already built.**
+>
+> | Said | Actually | Where |
+> |---|---|---|
+> | 17 input-alert sites crash the till | ✅ every reachable site guarded; residue closed | §0.3, §7, D4 |
+> | WP16 — 0 refs on `LoginView` | ✅ MAUI had it all along; the **web till** was the gap | §7 |
+> | Step 24 — ~1d, the roster move | ✅ complete 2026-08-17; the section's own body said so | heading, §7 |
+> | Step 21 — "genuinely blocked" | ⏸ both blockers are in **unreachable** code — rides with L2/L3 | §7 |
+> | Step 11b — 4d, "no coverage at all" | 🔄 ~45 executable lines, money covered 3 ways; orchestration closed | §3, §7 |
+> | Step 26 — receipt template "(Part B ⬜)" | ✅ live on the main print path since 1.67.0 | §3 |
+> | Step 27 — WP12 "everything still ⬜" | ✅ all five built | §3 |
+> | §2 W1 — web till cannot reopen a Z day | ✅ done, W-P5 | §2 |
+> | §2 W4 — web till has no roster poll | ✅ done, W-P2 | §2 |
+> | §5b — "till-web is 1.11.0, live is 1.10.0" | live **1.29.0**, tree **1.30.0** | §5b |
+> | WP15 — web-till test runner ⬜ | 🟡 vitest + 25 test files; **no CI** is the real gap | §21 |
+> | WP-L1 — six ⬜s on the customer detail | ✅ all six built, on both tills | §5d |
+>
+> ⚠⚠ **THE PATTERN, AND IT IS WHY THIS BANNER IS HERE.** Nine of the twelve sat in a section whose own
+> body already recorded the closure a few lines below — a heading reading *"~1d left"* above a
+> subsection headed `✅ COMPLETE`; a *"WHAT REMAINS"* table of three rows each beginning `✅ DONE`.
+> **A section whose heading and body disagree is read by its heading.** §6 already says these counts
+> must be re-derived from `till-design.md` and never maintained by hand — and that instruction was
+> being ignored on the page that carries it.
+>
+> ⚠ **A stale ⬜ costs more than a stale ✅ here.** Before this audit the open work read as ≈10–15 days;
+> it is **≈4–6**, and two of the remaining items are Matt's decisions rather than builds. Yesterday §7
+> was corrected from 35–40 days to 10–15 for the same reason. **Grep before you schedule.**
+>
+> ✅ **What the audit did NOT find:** a single capability marked ✅ that turned out to be missing. Every
+> error was pessimistic. That is the safer direction to be wrong in, and it is still expensive.
+
+
 > ⚠ **Moved here from `HANDOVER.md` on 2026-08-17.** Matt: *"move everything relevant from handover.md
 > into the Maui-Retrofit.md document… I only want the handover to be for the following day."* The
 > handover is now a next-session brief; **this section is where the durable state lives.** The
@@ -369,7 +405,7 @@ have a suite that reports coverage it does not have.
 ## Where it stands
 
 **Counted from Part B, not estimated — recounted 2026-08-20: 83 rows in B1–B5.**
-**MAUI ✅60 🟡19 ⬜4 · A0's parity table: MAUI ✅44 🟡36 ⬜4.**
+**Re-derived from the register 2026-08-21 — Part B MAUI ✅60 🟡21 ⬜4 · A0 MAUI ✅44 🟡37 ⬜4 ➖3.** ⚠ The 🟡 counts moved because rows were **ADDED** (the WP14 card-flow row, the two barcode rows), not because anything slipped. ⚠⚠ **Counted with `awk` over the MAUI column, not by hand** — §6 says these must be re-derived from `till-design.md` and never maintained here, and every hand-kept count on this page has gone stale within days.
 
 ⚠ **Two of MAUI's four ⬜ arrived on 2026-08-20, not from slippage** — the new *manage barcodes* and
 *item change history* rows, which are ⬜ on MAUI because it has no item editor at all (WP10 / L2, a
@@ -829,6 +865,22 @@ built or verified here. Both land on the next Mac build, per the runbook's front
 
 ## 2. Small, and each closes a real inconsistency
 
+> ⚠⚠ **AUDITED AGAINST THE CODE 2026-08-21 — THREE OF THESE FIVE ARE DONE, AND THE TABLE STILL READS
+> AS ≈4–6 DAYS OF WORK.** W1, W2 and W4 all carry a *"folded into §5b"* pointer and then describe the
+> **unbuilt** state underneath it — *"the web till does not"*, *"no proactive check at all"* — with their
+> day estimates intact. §5b has said **all seven W-P slices are DONE (web 1.11.0, 2026-08-17)** ever since.
+>
+> | | Verified 2026-08-21 |
+> |---|---|
+> | **W1** reopen a Z-closed day | ✅ **DONE** — `cashOutbox.ts` treats `ZReopen` as the one event a closed day accepts; `CashPage.tsx` gates the button on `pos.cash.reopen` |
+> | **W2** add item as one screen | ⏸ **Not a slice — it is the WP10 item-editor cluster**, and `ExecuteOpenAddItem` is unreachable dead code. **Matt's call**, not a day of work waiting to be booked |
+> | **W3** portal screen for the expected till version | ⬜ **REAL, ~½d.** `GET`/`PUT /api/v1/platform/till-release` is live; **zero** references to it in the portal source |
+> | **W4** web-till roster on a cadence | ✅ **DONE** — `roster.ts` + `App.tsx:191` `pollRoster`, and a disabled operator is signed out |
+> | **W5** ship the agent with the till | ⬜ **REAL, ~1½–2d.** Every sub-item unbuilt: `AgentUpdatePrompt` has **0 callers**, `ExpectedAgentVersion` exists **nowhere**, and the 1.110.0 artefact has **no `agent` folder**. Only the shared policy rule is written |
+>
+> ⚠ **So §2 is ~2 days, not ~6** — and a row that points at its own closure while still describing the
+> gap underneath is the hardest kind of stale to notice, because it *looks* maintained.
+
 | # | What | ~ | Why it matters |
 |---|---|---|---|
 | **W1** | **Reopen a Z-closed day on the WEB till** — ⚠ **folded into [§5b W-P5](#5b-the-web-till-parity-plan--w-p1w-p7)**, which carries the full build notes | 1d | MAUI has it (till 1.48.0); the web till does not. Matt asked for *"Web and MAUI"*. The two tills currently disagree about whether a closed day can be recovered — a supervisor on the browser is stranded until midnight. **Server side is done and live** (backend 1.15.0: `ZReopen`, a compensating event, and `CashDay.IsClosed` where the latest Z-mark wins) |
@@ -1094,7 +1146,9 @@ stock palette; **a printed receipt is byte-identical under a light and a dark sc
 ⚠ **Cheap to carry here:** the announcements banner and pick-from-floor notices (§4) are one cadence
 step plus XAML each, and this step is already touching the shell.
 
-### Step 24 — WP8 Users screen · ~~3d~~ → 🟡 **DoD MET 2026-08-16; ~1d left (the roster move)**
+### Step 24 — WP8 Users screen · ✅ **COMPLETE — the roster move landed 2026-08-17 (till 1.72.0)**
+
+> ⚠⚠ **THIS HEADING SAID *"~1d left (the roster move)"* UNTIL 2026-08-21** — while the section's own body, four screens below, says `#### ✅ STEP 24 IS COMPLETE — the roster move landed 2026-08-17`. `DbOperatorStore` replaced `FileOperatorStore` at all five call sites. §7 carried the same phantom day. **A heading is the only part of a long section most readers reach.**
 
 > ✅ **The screen is built (till 1.70.0).** The people icon on the **login screen** — list, add
 > somebody **with their password**, reset a password. `Services/People/StaffDirectory.cs` (28 tests)
@@ -1215,7 +1269,7 @@ shape and the same 🟡 for the cross-till case.
 pro-rated per-tender ex-VAT series and the per-day-by-tender breakdown go, gross-per-tender stays,
 calendar bounds come from the queried range. Local re-derivation is C2 drift by construction.
 
-**Also here: the portal-controlled receipt template** (Part B ⬜) —
+**~~Also here: the portal-controlled receipt template~~ ✅ DONE — and this line was stale twice over.** It says *"(Part B ⬜)"*; Part B has read **🟡** since 2026-08-15/16 (till 1.67.0+), §4's own table records it as done, and the code is live on the **main print path** — `Services/Printing/ReceiptBranding.cs`, called from `TillAgentPrinting`, `ReceiptReprint` ×2 and `TillCadence`. ⚠ Verified 2026-08-21. **Original brief:**
 `GET /api/v1/stores/{id}/receipt-template`, cached with the catalogue sync like the web till, so
 header/footer lines and toggles are obeyed instead of `PosPrinterManager`'s hardcoded layout.
 
@@ -1517,7 +1571,7 @@ returns, but **not** already-discounted lines or gift-card lines — both of whi
 with the eligible items** rather than left whole-basket, or it lands on lines the shared rule says it
 must not touch. That association is also what keeps it clear of the throw above.
 
-**WP12 — the rest.** Screens. Everything below the client is still ⬜ in both MAUI projects. Customer search/attach on the sale screen
+**~~WP12 — the rest.~~ ✅ ALL FIVE ARE BUILT — verified against the code 2026-08-21.** This paragraph said *"Everything below the client is still ⬜ in both MAUI projects"* while §6 recorded step 27 as closed; the two disagreed for days. Present: customer search/attach (`TillViewModel.ExecuteAttachCustomer`), the create dialog (`LoyaltyViewModel.AddMemberCommand`), the tier picker (`SetTierCommand` → `ExecuteSetTier` → `GetLoyaltyTiersAsync`, `customers.manage`), the store-credit tender (`TryRedeemStoreCreditAsync` + `CreditAvailablePence` as a capped checkout row) and the management list (`LoyaltyViewModel`). ⚠ **All 🟡 — built, never hand-run.** **Original brief:** customer search/attach on the sale screen
 (`GET /api/v1/customers?search=`, then a live `GET /api/v1/customers/{id}` for balance and
 membership), a create dialog gated **`pos.customers.add` OR `customers.manage`**, a **tier-assign
 picker gated `customers.manage`** reading `GET /api/v1/loyalty/tiers`, a store-credit tender
@@ -2249,9 +2303,10 @@ that is what 🟡 is for.
 
 ✅ **Done:** the rows, the A0 mirrors, **§W1–§W8**, and **six** C2 rows (the five above plus
 cash-rules; the surcharge row landed with W-P7 and carries the mutation lesson).
-⬜ **Outstanding, both Matt's:** `versions/till-web.txt` says **1.11.0** and the build has **not been
-deployed** (live is 1.10.0), and **no §W section has been run by a person**. Nothing in this plan is
-waiting on more code.
+⬜ **Outstanding:** ~~`versions/till-web.txt` says 1.11.0 and the build has not been deployed
+(live is 1.10.0)~~ — **stale since 2026-08-17, corrected 2026-08-21.** The web till has shipped many
+times since: live is **1.29.0** and the tree stands at **1.30.0**. What genuinely remains is what it
+always was — **no §W section has been run by a person.** Nothing in this plan is waiting on more code.
 
 ## 6. ~~The 15 MAUI ⬜ rows, grouped~~ → **RE-COUNTED 2026-08-20: there are FOUR, and one of them is ⬜ on both tills**
 
@@ -2263,8 +2318,12 @@ waiting on more code.
 >
 > | | ✅ | 🟡 | ⬜ |
 > |---|---:|---:|---:|
-> | **A0 parity table**, MAUI column | 44 | 36 | **4** |
-> | **Part B** (B1–B5), MAUI column | 60 | 19 | **4** |
+> | **A0 parity table**, MAUI column | 44 | 37 | **4** | *(+3 ➖)*
+> | **Part B** (B1–B5), MAUI column | 60 | 21 | **4** |
+>
+> ⚠ **Re-derived 2026-08-21 with `awk` over the MAUI column, not counted by hand.** The 🟡
+> figures rose because rows were **added** — the WP14 card-flow row and the two barcode rows —
+> not because anything slipped back.
 >
 > **All four A0 ⬜ rows are ONE cluster — the item editor**: give an item another barcode · see who
 > changed an item · add a new item on one screen · put a withdrawn item back. In Part B the four are the
@@ -2300,8 +2359,8 @@ waiting on more code.
 > | ✅ | **~~WP14 — payment-gateway awareness on the checkout XAML~~ — DONE 2026-08-21** | ~~1–2d~~ **½d** | The one row on this list that was accurately ⬜. `CheckoutAlert` now carries the card sentence in the web till's exact words, above the tender rows where the web till puts it; the display comes off the **same** `GET /api/v1/payments/gateway/active` the checkout already made (`GatewaySurcharge` → `GatewaySettings`, which kept two of that answer's five fields and threw away the three WP14 needed). ⚠ The composer returns plain `HintSpan` records, not a `FormattedString`: that type derives from `Element` and throws a `COMException` outside a UI host, so the first cut was untestable — on the one screen whose whole family of defects shipped for exactly that reason. 7 tests; MAUI suite **628**; build 0 errors. ⚠ **The web till's half was ✅ and had drifted anyway** — its three cases were an inline ternary, now `till/cardPayment.ts` with vectors mirroring `PaymentGatewayTests.cs`. See C2 |
 > | ✅ | **~~WP16 — connectivity states on the login screen~~ — DONE 2026-08-21, ON THE SIDE THAT WAS ACTUALLY MISSING** | ~~1–2d~~ **½d** | ⚠⚠ **"0 references on `LoginView`/`LoginViewModel`" WAS WRONG**, and wrong in a way worth keeping: the grep was for `ConnectivityProbe`, and MAUI reaches it through `Services.Connectivity.TillConnectionCheck`. **A grep for a shared type is not a check for a capability when a wrapper sits between them.** MAUI has had the badge all along — four bound properties, `RefreshConnectionAsync`, tap-to-refresh and the clock-skew line (`LoginView.xaml` 72–97) — and 16b is done too (`OperatorLogin` → `OfflineCredentials.Assess`). ⚠⚠ **The gap was the WEB till's login screen: 111 lines, no indicator at all**, so a dead backend was indistinguishable from a wrong password. ✅ Closed with `connectionCheck.ts` — the C2 twin of the probe, same four states and sentences, `verifyIdentity: false` on both tills, 13 vitest cases mirroring `ConnectivityProbeTests.cs`. ⚠ **Part B stays 🟡/🟡**: MAUI's has never been hand-run, and the web till's APP-WIDE badge (`App.tsx:64`) is still `navigator.onLine`. ⚠⚠ **NOT TYPECHECKED HERE** — there is no node on this box; `tsc --noEmit`, vitest and eslint must run on the Mac before this ships |
 > | ⬜ | **Step 28 — online-first login** | 2–3d | Hardening; unchanged |
-> | 🟡 | **Step 24 — the roster move** | ~1d | DoD already met |
-> | ⬜ | **Step 21 — delete `LoginViewModel.EnsureStoreAsync`** | — | ⚠ **Still genuinely blocked**, re-checked: `AddEditViewModel.cs:337` and `ViewAllViewModel.cs:1379` still dereference `Store.Id`. ⚠ Step 25 is done, so the *stated* blocker has cleared and only these two sites remain — and `ViewAllViewModel` has already moved two of its three reads onto `MetaKeys.StoreId` |
+> | ✅ | **~~Step 24 — the roster move~~ — COMPLETE 2026-08-17 (till 1.72.0)** | ~~1d~~ **0** | ⚠ Phantom. The step's own body says `✅ STEP 24 IS COMPLETE`; only its heading and this row said otherwise |
+> | ⏸ | **Step 21 — delete `LoginViewModel.EnsureStoreAsync`** | — | ⚠⚠ **NOT BLOCKED BY WORKING CODE — corrected 2026-08-21.** Both remaining `Store.Id` dereferences are in **UNREACHABLE** code, which this row never said: `AddEditViewModel:337` sits in a view **hidden on 2026-08-10**, and `ViewAllViewModel:1385` is in `ExecuteUpdateItemStock`, whose `UpdateItemStockCommandArg` is **bound to nothing** (both verified in §0.3b). It waits on no build — **it rides with L2/L3's deletions, which are Matt's call.** ⚠ Reading it as "blocked" invites somebody to unblock it by rewriting dead code |
 > | ⬜ | **WP10 / L2 — an item editor on the till** | — | ⚠⚠ **Matt's call, and arguably NOT a gap at all.** All four A0 ⬜ rows are this. MAUI has no item editor deliberately: a till-created item reaches no report, no other till and no VAT return, and `ExecuteOpenAddItem` is unreachable dead code. C1 says *"Portal decides, till obeys"* — **decide whether this is ever wanted before costing it** |
 > | ⬜ | **Remote lock of a lost or stolen till** | — | ⬜ on **both** tills — platform work, not MAUI catch-up |
 > | ⏸ | **L1–L10 legacy removal** | — | Matt actions last. **L4 closed 2026-08-20** with the Syncfusion removal |
@@ -3247,7 +3306,7 @@ waiting on it); settled against the tree on 2026-08-12.
 | **9** Cash | ✅ | Step 23 |
 | **10** Inventory + stock ledger | ✅ | Step 25 |
 | **14** Payment-gateway awareness | 🔨 | Shared half done — `Client.Core.PaymentGateway.Resolve`, 13 tests, mutation-checked. ⚠ **The rule is `integrated`, not `provider`**: every provider reports `integrated: false` today, so a till reading the *name* would wait for a terminal that never answers. Remaining: the checkout XAML |
-| **15** Web-till test runner + C2 pins | ⬜ | §5. Needs the Mac; Matt's call on timing |
+| **15** Web-till test runner + C2 pins | 🟡 | ⚠ **CORRECTED 2026-08-21 — the runner EXISTS.** `package.json` carries `"test": "vitest run"` + vitest ^3, and there are **25 test files** under `src/`. C2 pins have been landing all week (tendering, surcharge, deviceStanding, scheduled/auto discounts, barcodeProblem, and today cardPayment + connectionCheck). ⚠ What is still true is narrower and worth keeping: **there is no CI** — the suite runs when somebody runs it, on the Mac |
 | **16** Connectivity + offline credentials | 🔨 | Shared half done — `/api/v1/ping` (anonymous, **touches no database**, so it answers during a MySQL blip and for a till not yet enrolled), `ConnectivityProbe`, `OfflineCredentials` horizons, 42 tests. ⚠ **"Offline" is three different faults wearing one word** and the operator is the person who has to act on the difference: no network (their cable), no server (nothing they can do), or **this till has been revoked** (a manager's job, and no amount of rebooting the router fixes it). ⚠ **Never probe `POST /api/v1/tokens/device`** — rate-limited 5/min per IP, so probing it would make a healthy till report itself revoked, and tills sharing one public IP would do it to each other. Remaining: the MAUI login-screen UI and the web till's half |
 | **17** Web till catches up | 🔨 | 17.2 done (the ambiguous VAT-band tie — the only one that puts a wrong number on a VAT return). ⚠ **Worth noting how it hid:** the function's doc comment already *described* the strict rule, so reading the comment would have told you the code was fine. **A comment is not a pin.** Remaining: 17.1, 17.3, 17.4 — §5 |
 | **Build guards** | ✅ | Two things that made green mean less than it looked: **CI ran none of the modern suites**, and **Debug never validated XAML** (MAUI inflates at runtime in Debug, so a bad property only failed when a human opened the tab). Both fixed, mutation-checked both ways |
@@ -3647,12 +3706,12 @@ a person and neither yet run.
 | | Portal | Web till | MAUI |
 |---|---|---|---|
 | Name, email, phone, member no. | ✅ | 🟡 in the edit dialog | 🟡 in the edit dialog |
-| **Barcode + Print card** | ✅ `MemberCard.tsx` | ⬜ | ⬜ |
+| **Barcode + Print card** | ✅ `MemberCard.tsx` | ✅ `CustomerDetail.tsx` | ✅ `CustomerDetailAlert` → `MemberCardPrint` |
 | Store credit balance | ✅ | ✅ list column | ✅ list column |
 | Membership: tier · rate · renews | ✅ | ✅ list columns | ✅ list columns |
-| **Grant credit** (amount + mandatory reason) | ✅ | ⬜ | ⬜ |
+| **Grant credit** (amount + mandatory reason) | ✅ | ✅ | ✅ `LoyaltyViewModel.ExecuteGrantCredit`, gated `MayManageCustomers`, refuses ≤ 0 |
 | **Set membership** from a picker | ✅ | ✅ in the edit dialog | ✅ separate action |
-| **History** | 🟡 credit only | ⬜ | ⬜ |
+| **History** | 🟡 credit only | ✅ full, in its own `DataTable` | ✅ `GetCustomerHistoryAsync` on the detail dialog |
 
 ### ✅ Two of the four asks were ALREADY TRUE — checked, not assumed
 
@@ -3687,7 +3746,12 @@ say what a value used to be, and the endpoint says so rather than inventing it.*
 hundreds of rows, and a client-side filter over a truncated page hides exactly the old entry somebody
 went looking for. `total` counts what MATCHED, so "1–50 of 900" is never a lie about a filtered list.
 
-### ⬜ WHAT REMAINS — the screens
+### ✅ WHAT REMAINED — the screens · **ALL DONE, and the heading outlived them**
+
+> ⚠⚠ **THE TABLE ABOVE SHOWED SIX ⬜s FOR WORK THAT WAS FINISHED**, and this heading said *"WHAT
+> REMAINS"* over three rows each beginning `✅ DONE`. Corrected 2026-08-21 after checking every cell
+> against the code: MAUI has grant-credit, print-card and full history; so does the web till
+> (`CustomerDetail.tsx`). **A section whose heading and body disagree is read by its heading.**
 
 | | Size |
 |---|---|
