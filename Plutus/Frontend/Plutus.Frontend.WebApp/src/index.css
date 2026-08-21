@@ -1695,3 +1695,30 @@ button.primary.slim {
 .login-conn.warn .dot { background: light-dark(#b45309, #fbbf24); }
 
 .login-conn.bad .dot { background: light-dark(#b3261e, #ff9494); }
+
+/* ⚠ THE SUPPORT BADGE ON THE ❓ (WP-TICKETS, 2026-08-21) — an unread count from the heartbeat.
+
+   ⚠ ABSOLUTE INSIDE A RELATIVE BUTTON, so it does not change the button's size. A badge that grew
+   the ❓ would nudge the 👥 beside it every time support replied — the same jitter the till clock's
+   tabular figures exist to avoid.
+
+   ⚠ It uses the DANGER colour deliberately: this is the one thing in the app bar that is asking the
+   operator to do something, and a quiet grey pill next to four other quiet grey pills is not a
+   notification. */
+.user-btn { position: relative; }
+.badge-dot {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  pointer-events: none;
+}

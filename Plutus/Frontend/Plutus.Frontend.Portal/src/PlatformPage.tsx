@@ -18,6 +18,8 @@ import {
 import { beginImpersonation } from "./auth.ts";
 import DataTable from "./DataTable.tsx";
 import { apiDateTime, apiDay, apiMs } from "./apiTime.ts";
+import { fetchTicketSummary, type TicketSummary, type TicketClientRow } from "./api.ts";
+import { operatorRequestClose, keepTicketOpen } from "./api.ts";
 
 // FE4.5 row aliases for tables whose rows the API nests inside a response object.
 type AdoptionRow = AnalyticsResponse["adoption"][number];
@@ -137,13 +139,86 @@ export default function PlatformPage() {
   );
 }
 
+/**
+ * ⚠⚠ THE TICKET SUMMARY (WP-TICKETS, 2026-08-21). Matt: *"There needs to be a summary view of all
+ * tickets. Today, 7 days, last month, last 90 days. Which clients have raised etc."*
+ *
+ * The inbox was a flat list ordered by last update, so "is this week worse than last" and "which
+ * customer is struggling" were questions you answered by counting rows on screen.
+ *
+ * ⚠ EVERY WINDOW CARRIES raised / open / closed / urgent. "12 tickets this week" with 11 closed is a
+ * good week and reads as a bad one, and a single urgent among forty questions is not the same week
+ * as forty questions.
+ */
+function TicketSummaryStrip({ summary }: { summary: TicketSummary | null }) {
+  if (!summary) return null;
+
+  return (
+    <>
+      <div className="stat-row">
+        {summary.windows.map((w) => (
+          <div className="stat" key={w.label}>
+            <span className="stat-label">{w.label}</span>
+            <span className="stat-value">{w.raised}</span>
+            <span className="muted small">
+              {w.open} open · {w.closed} closed
+              {w.urgent > 0 && <> · <strong>{w.urgent} urgent</strong></>}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* ⚠ THE OLDEST STILL-OPEN TICKET, not an average. An average says nothing about the one that
+          has been ignored for three weeks, and that is the one that loses a customer. */}
+      <p className="muted small">
+        {summary.openTotal} open in total
+        {summary.oldestOpenAtUtc && <> · oldest raised {apiDateTime(summary.oldestOpenAtUtc)}</>}
+      </p>
+    </>
+  );
+}
+
+/** ⚠ WHICH CLIENTS HAVE RAISED — over 90 days, matching the widest pill above so the two agree. */
+function TicketsByClient({ rows }: { rows: TicketClientRow[] }) {
+  if (rows.length === 0) return null;
+
+  return (
+    <>
+      <h4>Who has raised tickets (90 days)</h4>
+      <DataTable<TicketClientRow>
+        columns={[
+          { key: "tenant", label: "Subscriber" },
+          { key: "raised", label: "Raised", numeric: true },
+          { key: "open", label: "Open", numeric: true },
+          {
+            key: "urgent", label: "Urgent", numeric: true,
+            render: (r) => (r.urgent > 0 ? <strong>{r.urgent}</strong> : <span className="muted">—</span>),
+          },
+          { key: "lastAtUtc", label: "Last activity", render: (r) => <span className="small">{apiDateTime(r.lastAtUtc)}</span> },
+        ]}
+        rows={rows} getKey={(r) => r.tenantId}
+        initialSortKey="open" initialSortDir="desc"
+        search={(r) => r.tenant}
+        searchPlaceholder="Search subscriber…"
+        emptyText="Nobody has raised a ticket in 90 days."
+      />
+    </>
+  );
+}
+
 // OP4: operator ticket inbox — cross-tenant support tickets, reply + set status/assignee.
 function TicketsScreen() {
   const [tickets, setTickets] = useState<TicketRow[]>([]);
+  const [summary, setSummary] = useState<TicketSummary | null>(null);
   const [filter, setFilter] = useState<number | "">("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const refresh = () => fetchTickets(filter === "" ? undefined : filter).then((t) => { setTickets(t); setError(""); }).catch((e) => setError(String(e)));
+  const refresh = () => {
+    // ⚠ The summary is refreshed with the list, not once on mount: closing a ticket from the thread
+    // changes both, and a stale pill row beside a fresh table is worse than no pills.
+    void fetchTicketSummary().then(setSummary).catch(() => undefined);
+    return fetchTickets(filter === "" ? undefined : filter).then((t) => { setTickets(t); setError(""); }).catch((e) => setError(String(e)));
+  };
   useEffect(() => { void refresh(); }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (openId) {
@@ -153,6 +228,7 @@ function TicketsScreen() {
   return (
     <>
       {error && <p className="error">{error}</p>}
+      <TicketSummaryStrip summary={summary} />
       <div className="toolbar">
         <label>Status
           <select value={filter} onChange={(e) => setFilter(e.target.value === "" ? "" : Number(e.target.value))}>
@@ -174,10 +250,19 @@ function TicketsScreen() {
         rowActions={(t) => <button className="ghost small" onClick={() => setOpenId(t.id)}>Open</button>}
         emptyText="No tickets."
       />
+      <TicketsByClient rows={summary?.byClient ?? []} />
     </>
   );
 }
 
+/**
+ * One ticket's thread, operator side.
+ *
+ * ⚠⚠ A CLOSED TICKET NOW **LOOKS** CLOSED (WP-TICKETS, 2026-08-21). Matt: *"the button 'Close' I
+ * assume closes the ticket, but there is nothing visual within the ticket itself?"* It did close it,
+ * and the thread said nothing at all — the only trace was a status word in a list the reader had
+ * navigated away from.
+ */
 function TicketThread({ ticket, onBack }: { ticket?: TicketRow; onBack: () => void }) {
   const [msgs, setMsgs] = useState<TicketMessage[]>([]);
   const [reply, setReply] = useState("");
@@ -185,25 +270,69 @@ function TicketThread({ ticket, onBack }: { ticket?: TicketRow; onBack: () => vo
   const id = ticket?.id ?? "";
   const load = () => fetchOperatorThread(id).then(setMsgs).catch((e) => setError(String(e)));
   useEffect(() => { if (id) void load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ⚠ `onBack()` after an action that changes the ticket ROW, not just the thread: closing or
+  // asking to close alters the list behind, and this component only ever re-reads its messages.
   const act = (p: Promise<unknown>) => void p.then(() => { setReply(""); return load(); }).catch((e) => setError(String(e)));
+  const actAndBack = (p: Promise<unknown>) => void p.then(onBack).catch((e) => setError(String(e)));
+
+  const closed = ticket?.status === 2;
+  const asked = ticket?.closureRequestedByOperator;
+
   return (
     <>
-      <div className="toolbar"><button className="ghost small" onClick={onBack}>← Tickets</button><h3 className="grow">{ticket?.tenant}: {ticket?.subject}</h3></div>
+      <div className="toolbar"><button className="ghost small" onClick={onBack}>← Tickets</button><h3 className="grow">{ticket?.tenant} — {ticket?.subject}</h3></div>
       {error && <p className="error small">{error}</p>}
+
+      {/* ⚠⚠ THE STATE OF THE TICKET, IN THE THREAD. Both of these were invisible here before: a
+          closed ticket read exactly like an open one, and a standing closure request appeared
+          nowhere at all. */}
+      {closed && (
+        <p className="muted small">
+          🔒 <strong>Closed</strong>
+          {ticket?.closedAtUtc && <> on {apiDateTime(ticket.closedAtUtc)}</>}. The client can no
+          longer reply to this thread.
+        </p>
+      )}
+      {!closed && asked === true && (
+        <p className="muted small">
+          You have asked the client to close this{ticket?.closureRequestedAtUtc && <> ({apiDateTime(ticket.closureRequestedAtUtc)})</>} — waiting for them.
+        </p>
+      )}
+      {!closed && asked === false && (
+        <p className="muted small">
+          ⚠ <strong>The client has asked to close this.</strong>
+        </p>
+      )}
+
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {msgs.map((m, i) => (
-          <div key={i} style={{ alignSelf: m.fromOperator ? "flex-end" : "flex-start", maxWidth: "75%", background: m.fromOperator ? "#dcfce7" : "#e0e7ff", padding: "8px 12px", borderRadius: 8 }}>
+          <div key={i} style={{ alignSelf: m.fromOperator ? "flex-end" : "flex-start", maxWidth: "75%", background: m.fromOperator ? "var(--accent)" : "var(--panel-alt, #eef1f5)", color: m.fromOperator ? "var(--accent-ink)" : "inherit", borderRadius: 8, padding: "6px 10px" }}>
             <div className="muted small">{m.authorName} · {apiDateTime(m.atUtc)}</div>
             <div>{m.body}</div>
           </div>
         ))}
         {msgs.length === 0 && <p className="muted">No messages.</p>}
       </div>
-      <div className="toolbar" style={{ marginTop: 12 }}>
-        <input className="grow" placeholder="Reply to the client…" value={reply} maxLength={4000} onChange={(e) => setReply(e.target.value)} />
-        <button className="primary small" disabled={!reply.trim()} onClick={() => act(operatorReply(id, reply.trim()))}>Reply</button>
-        <button className="ghost small" onClick={() => act(setTicket(id, { status: 2 }))}>Close</button>
-      </div>
+
+      {/* ⚠ A CLOSED THREAD OFFERS NO REPLY BOX. The server refuses a client reply on a closed ticket,
+          and an input that looks usable and is not is worse than one that is absent. */}
+      {!closed && (
+        <div className="toolbar" style={{ marginTop: 12 }}>
+          <input className="grow" placeholder="Reply to the client…" value={reply} maxLength={4000} onChange={(e) => setReply(e.target.value)} />
+          <button className="primary small" disabled={!reply.trim()} onClick={() => act(operatorReply(id, reply.trim()))}>Reply</button>
+
+          {/* ⚠ ASKING IS THE POLITE PATH AND CLOSING IS STILL THERE. Support sometimes has to end a
+              thread; usually it should ask, and until now it could only do the former. */}
+          {asked !== true && (
+            <button className="ghost small" onClick={() => actAndBack(operatorRequestClose(id))}>Ask to close</button>
+          )}
+          {asked !== null && asked !== undefined && (
+            <button className="ghost small" onClick={() => actAndBack(keepTicketOpen(id))}>Keep open</button>
+          )}
+          <button className="ghost small" onClick={() => actAndBack(setTicket(id, { status: 2 }))}>Close now</button>
+        </div>
+      )}
     </>
   );
 }

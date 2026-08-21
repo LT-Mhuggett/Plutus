@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Plutus.Entities;
+using Plutus.Entities.Models;
 using Plutus.SharedKernel;
 
 namespace Plutus.Tenancy.Controllers
@@ -26,10 +27,16 @@ namespace Plutus.Tenancy.Controllers
     /// <summary>
     /// ⚠⚠ THIS IS A SECOND COPY OF THE WIRE CONTRACT. `Plutus.Contracts.Client.HeartbeatResult`
     /// declares the same shape, and the CLIENT deserialises against that one while the server
-    /// serialises this one. Nothing enforces that they match — they are matched by name and by luck.
-    /// Adding a field to one and not the other produces a field the till silently never sees, which
-    /// is the quietest possible failure: no error, no log, just a feature that does nothing.
-    /// Discovered on 2026-08-11 while adding the version fields; both were updated together.
+    /// serialises this one. Adding a field to one and not the other produces a field the till
+    /// silently never sees, which is the quietest possible failure: no error, no log, just a feature
+    /// that does nothing. Discovered on 2026-08-11 while adding the version fields.
+    ///
+    /// ⚠⚠ **IT IS NO LONGER MATCHED BY LUCK.** `HeartbeatContractTwinTests` compares the two
+    /// parameter lists — names, types and order — and fails the build if they drift. WP-TICKETS
+    /// (2026-08-21) added `UnreadSupportReplies` and walked straight into the trap this comment
+    /// describes: the field went on the contract, the server kept compiling against this one, and
+    /// the only reason it surfaced was a named-argument error. A test is cheaper than that luck.
+    ///
     /// ⚠ If you touch either, touch both — and see C2 in `till-design.md`.
     /// </summary>
     public sealed record HeartbeatResult(
@@ -39,7 +46,8 @@ namespace Plutus.Tenancy.Controllers
         string? LockReason,
         DateTime ServerUtcNow,
         string? ExpectedMauiVersion = null,
-        string? ExpectedWebVersion = null);
+        string? ExpectedWebVersion = null,
+        int UnreadSupportReplies = 0);
 
     /// <summary>
     /// WP5 — POST /api/v1/heartbeat. A till says it is alive and collects whatever the platform
@@ -157,6 +165,38 @@ namespace Plutus.Tenancy.Controllers
             // machine ran a test build.
             var release = await _db.TillReleaseSettings.AsNoTracking().FirstOrDefaultAsync(r => r.Id == 1);
 
+            // ⚠⚠ THE SUPPORT BADGE RIDES THE BEAT (WP-TICKETS, 2026-08-21). Matt: *"When I reply to
+            // a live ticket, how is the user informed? Does the heartbeat need to check for an
+            // update?"* Yes — this is the only channel that reaches a till with nobody watching a
+            // browser tab, and tills sit behind NAT so nothing can reach in.
+            //
+            // ⚠ COUNTED HERE RATHER THAN FETCHED BY THE TILL, because the till would have to poll a
+            // second endpoint on its own timer to do it — a second cadence to get wrong, for a
+            // number that is one join away from a request already being made every minute.
+            //
+            // ⚠⚠ NEVER FAILS THE BEAT. The heartbeat is what keeps a till trading: it renews the
+            // token, carries the lock and triggers the drain. A support badge is the least important
+            // thing on it, and an exception here would take all of that down with it.
+            var unread = 0;
+            try
+            {
+                unread = await UnreadSupportRepliesAsync(device.TenantId);
+            }
+            catch
+            {
+                // ⚠⚠ SWALLOWED, AND THIS IS THE ONE PLACE IT IS RIGHT TO. The heartbeat is what keeps
+                // a till trading — it renews the token, carries the lock and triggers the drain — and
+                // a support badge is the least important thing riding on it. Letting this throw would
+                // stop a shop selling because their ticket count could not be read.
+                //
+                // ⚠ THE FAILURE MODE IS VISIBLE, WHICH IS WHY SILENCE IS ACCEPTABLE: a persistent
+                // fault here shows up as a badge that never appears, and the desk itself still works
+                // — `GET /api/v1/support/unread` answers the same question with a real status code
+                // when somebody opens Help. There is no logger on this module's controllers to write
+                // to, and adding a dependency to one for this would be out of proportion.
+                unread = 0;
+            }
+
             return Ok(new HeartbeatResult(
                 CatalogueCursor: await CatalogueCursorAsync(),
                 SyncNow: syncNow,
@@ -164,12 +204,48 @@ namespace Plutus.Tenancy.Controllers
                 LockReason: device.LockReason,
                 ServerUtcNow: DateTime.UtcNow,
                 ExpectedMauiVersion: Blank(release?.ExpectedMauiVersion),
-                ExpectedWebVersion: Blank(release?.ExpectedWebVersion)));
+                ExpectedWebVersion: Blank(release?.ExpectedWebVersion),
+                UnreadSupportReplies: unread));
 
             // Empty string and null both mean "say nothing"; the wire carries one of them, not two.
             static string? Blank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
         }
 
+
+        /// <summary>
+        /// How many of this tenant's tickets have an unread operator reply — WP-TICKETS, 2026-08-21.
+        ///
+        /// ⚠⚠ `SupportRules.IsUnreadByClient` DECIDES, not this. `SupportController` answers the same
+        /// question on `/api/v1/support/unread` and both tills render the same badge; three
+        /// implementations of "is this unread" would be three badges that disagree, and the one that
+        /// disagreed would be the one nobody trusted.
+        ///
+        /// ⚠ `IgnoreQueryFilters` WITH AN EXPLICIT TENANT PREDICATE. The heartbeat runs on a DEVICE
+        /// token, which carries no tenant context for the query filter to use — so the scope has to
+        /// be stated, and stated once, right here.
+        /// </summary>
+        private async Task<int> UnreadSupportRepliesAsync(Guid tenantId)
+        {
+            var open = await _db.SupportTickets.IgnoreQueryFilters().AsNoTracking()
+                .Where(t => t.TenantId == tenantId && t.Status != (byte)SupportStatus.Closed)
+                .Select(t => new { t.Id, t.Status, t.ClientLastReadAtUtc })
+                .ToListAsync();
+
+            if (open.Count == 0) return 0;
+
+            var ids = open.Select(t => t.Id).ToList();
+
+            var last = (await _db.SupportMessages.IgnoreQueryFilters().AsNoTracking()
+                    .Where(m => ids.Contains(m.TicketId))
+                    .Select(m => new { m.TicketId, m.FromOperator, m.AtUtc })
+                    .ToListAsync())
+                .GroupBy(m => m.TicketId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(m => m.AtUtc).First());
+
+            return open.Count(t =>
+                last.TryGetValue(t.Id, out var m)
+                && SupportRules.IsUnreadByClient(t.Status, m.FromOperator, m.AtUtc, t.ClientLastReadAtUtc));
+        }
         /// <summary>
         /// The newest catalogue change this tenant holds, as the same opaque cursor
         /// <c>/catalogue/changes</c> issues. A till compares it against its own and pulls if they

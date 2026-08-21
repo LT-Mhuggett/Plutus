@@ -90,6 +90,28 @@ namespace Plutus.Frontend.AppClient.Services.Sync
         public static string UpdateAvailable { get; private set; }
 
         /// <summary>
+        /// How many support replies this shop has not read — WP-TICKETS, 2026-08-21.
+        ///
+        /// ⚠⚠ MATT: *"When I reply to a live ticket, how is the user informed? Does the heartbeat
+        /// need to check for an update?"* It does now. The beat is the only thing on this till that
+        /// runs whether or not anybody is looking at the screen, and a till behind NAT cannot be
+        /// reached any other way.
+        ///
+        /// ⚠ SET EVERY TICK, so it clears itself the moment somebody opens the thread — on THIS till
+        /// or on the one beside it. Nothing has to remember to reset it.
+        ///
+        /// ⚠ AND IT ONLY MOVES ON A DELIVERED BEAT. A failed heartbeat must not blank the badge: the
+        /// replies are still unread, and a shop that briefly lost its link should not lose the one
+        /// thing telling them support has answered.
+        /// </summary>
+        public static int UnreadSupportReplies { get; private set; }
+
+        /// <summary>Raised when <see cref="UnreadSupportReplies"/> changes. ⚠ The app bar subscribes
+        /// on load and unsubscribes on unload — a static event holding a dead page is the leak that
+        /// shows up as "the till got slow" after a week open.</summary>
+        public static event Action<int> UnreadSupportChanged;
+
+        /// <summary>
         /// Raised after every tick, so a screen showing queued state can redraw.
         ///
         /// ⚠ Matt, 2026-08-11: *"The open float was 'Waiting' and never updated. I navigated away
@@ -274,6 +296,19 @@ namespace Plutus.Frontend.AppClient.Services.Sync
             // work: a till that stopped selling over a version number would strand a shop with no
             // route out.
             UpdateAvailable = beat.UpdateAvailable;
+
+            // ⚠ THE SUPPORT BADGE (WP-TICKETS). Only on a DELIVERED beat: a failed heartbeat must
+            // not blank it — the replies are still unread, and a shop that briefly lost its link
+            // should not lose the one thing telling them support has answered.
+            if (beat.Delivered && UnreadSupportReplies != beat.UnreadSupportReplies)
+            {
+                UnreadSupportReplies = beat.UnreadSupportReplies;
+
+                // ⚠ A BAD SUBSCRIBER MUST NOT STOP THE CADENCE. This runs inside the tick that also
+                // drains the outbox; an exception escaping here would take the drain with it.
+                try { UnreadSupportChanged?.Invoke(UnreadSupportReplies); }
+                catch (Exception ex) { Services.Analytics.CrashLog.Write("TillCadence.UnreadSupport", ex); }
+            }
 
             // 2. Drain. ⚠ BEFORE the catalogue pull: a sale already rung up is worth more than a
             // price that has not been asked for yet, and on a slow link the catalogue can take the

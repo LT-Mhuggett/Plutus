@@ -1,3 +1,5 @@
+using System;
+
 namespace Plutus.Client.Core;
 
 /// <summary>
@@ -51,4 +53,18 @@ public static class SupportLabels
 
     /// <summary>The severity for "this is stopping us trading".</summary>
     public const byte UrgentSeverity = 2;
+
+
+    /// <summary>
+    /// ⚠ A DELEGATE TO <see cref="Plutus.SharedKernel.SupportRules.IsUnreadByClient"/> since
+    /// WP-TICKETS (2026-08-21). The rule lives in `SharedKernel` because the **server** needs it too
+    /// — `SupportController` answers the unread count — and `Plutus.Tenancy` does not reference this
+    /// client library, nor should it: that would invert the dependency.
+    ///
+    /// ⚠ Kept here so MAUI's call sites read naturally beside `Status()` and `StaffLine()`.
+    /// </summary>
+    public static bool IsUnreadByClient(
+        byte status, bool lastMessageFromOperator, DateTime? lastMessageAtUtc, DateTime? clientLastReadAtUtc) =>
+        Plutus.SharedKernel.SupportRules.IsUnreadByClient(
+            status, lastMessageFromOperator, lastMessageAtUtc, clientLastReadAtUtc);
 }

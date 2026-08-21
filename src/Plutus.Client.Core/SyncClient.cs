@@ -41,7 +41,7 @@ public sealed record SyncOutcome(int Pages, int ItemsApplied, string? Cursor, bo
 /// updates? All tills should do this."* 26a0 The comparison happens HERE, once, using
 /// `PlutusVersion.IsOlderThan` 2014 never a string compare, or a till on 1.10.0 is told it is behind
 /// 1.9.0 for ever. 26a0 ADVISORY ONLY: nothing downstream may refuse to sell because of it.</param>
-public sealed record HeartbeatOutcome(bool Delivered, bool SyncNow, bool Locked, string? LockReason, bool CatalogueStale, string? UpdateAvailable = null);
+public sealed record HeartbeatOutcome(bool Delivered, bool SyncNow, bool Locked, string? LockReason, bool CatalogueStale, string? UpdateAvailable = null, int UnreadSupportReplies = 0);
 
 /// <summary>
 /// WP5 — the till's sync loop: beat, and pull the catalogue when it has moved.
@@ -109,7 +109,16 @@ public sealed class SyncClient
                 // `0.0.0` sentinel as ancient.
                 UpdateAvailable: PlutusVersion.IsOlderThan(appVersion, result.ExpectedMauiVersion)
                     ? result.ExpectedMauiVersion
-                    : null);
+                    : null,
+
+                // ⚠⚠ THE SUPPORT BADGE (WP-TICKETS, 2026-08-21). Matt: *"When I reply to a live
+                // ticket, how is the user informed? Does the heartbeat need to check for an
+                // update?"* Yes — and it rides the beat because the beat is the only thing on a
+                // till that runs whether or not anybody is looking at the screen.
+                //
+                // ⚠ CARRIED, NOT ACTED ON, exactly like `UpdateAvailable` above it: nothing here
+                // interrupts a sale, and a badge is the least important passenger on this request.
+                UnreadSupportReplies: result.UnreadSupportReplies);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

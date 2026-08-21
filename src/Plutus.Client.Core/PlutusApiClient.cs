@@ -329,6 +329,37 @@ public sealed class PlutusApiClient
     public Task<bool> ReplyToSupportTicketAsync(Guid ticketId, string body, CancellationToken ct = default) =>
         PostJsonAsync($"/api/v1/support/tickets/{ticketId}/messages", new TicketReplyRequest(body), ct);
 
+    // ── WP-TICKETS, 2026-08-21 ──────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// How many replies this shop has not read.
+    ///
+    /// ⚠ THE TILL ALSO GETS THIS ON THE HEARTBEAT (`HeartbeatResult.UnreadSupportReplies`), which is
+    /// the channel that reaches a till with nobody watching a screen. This one exists for the moment
+    /// Help is opened, when a fresh number matters more than a cheap one.
+    /// </summary>
+    public Task<UnreadSupportDto?> GetUnreadSupportAsync(CancellationToken ct = default) =>
+        GetAsync<UnreadSupportDto>("/api/v1/support/unread", ct);
+
+    /// <summary>⚠ Called when a THREAD IS OPENED — the badge is a consequence of the state, never
+    /// the owner of it, or the other till in the shop stays lit.</summary>
+    public Task<bool> MarkTicketReadAsync(Guid ticketId, CancellationToken ct = default) =>
+        PostJsonAsync($"/api/v1/support/tickets/{ticketId}/read", new { }, ct);
+
+    /// <summary>⚠ A REQUEST, NOT A CLOSE: a shop closing its own open incident is how a fault gets
+    /// lost. Plutus support confirms.</summary>
+    public Task<bool> RequestTicketCloseAsync(Guid ticketId, CancellationToken ct = default) =>
+        PostJsonAsync($"/api/v1/support/tickets/{ticketId}/request-close", new { }, ct);
+
+    /// <summary>Withdraw your own request, or decline support's — either party may end the question.</summary>
+    public Task<bool> KeepTicketOpenAsync(Guid ticketId, CancellationToken ct = default) =>
+        PostJsonAsync($"/api/v1/support/tickets/{ticketId}/keep-open", new { }, ct);
+
+    /// <summary>⚠ Only valid while SUPPORT has asked; without a standing request the server 400s and
+    /// this answers false.</summary>
+    public Task<bool> AcceptTicketCloseAsync(Guid ticketId, CancellationToken ct = default) =>
+        PostJsonAsync($"/api/v1/support/tickets/{ticketId}/accept-close", new { }, ct);
+
     /// <summary>WP14: the tenant's selected card gateway, and whether a terminal integration is
     /// wired. ⚠ Read it through <c>PaymentGateway.Resolve</c> rather than acting on the fields
     /// directly — "which flow does the operator use" is a rule, not a property.</summary>

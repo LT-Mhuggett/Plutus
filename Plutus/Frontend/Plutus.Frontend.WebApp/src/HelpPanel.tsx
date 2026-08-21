@@ -5,6 +5,7 @@ import {
   SUPPORT_SEVERITY, SUPPORT_STATUS, type SupportMessage, type SupportTicket,
 } from "./api.ts";
 import { apiDateTime, apiDay } from "./apiTime.ts";
+import { markTicketRead, requestTicketClose, acceptTicketClose, keepTicketOpen } from "./api.ts";
 
 // WP6.3: the till's Help — opened from the appbar (top-right, next to the users button). Raise a
 // ticket, see history with status, read/reply to the operator's thread. Endpoints gated on
@@ -26,10 +27,35 @@ export default function HelpPanel({ onClose }: { onClose: () => void }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+  /**
+   * ⚠⚠ IT REFRESHES ITSELF NOW (WP-TICKETS, 2026-08-21). Matt: *"The help screen also needs to check
+   * if there has been an update as it never updates without a navigation."* It loaded on mount and
+   * then sat there — a shop watching this panel for an answer watched a static page.
+   *
+   * ⚠ `till-design.md` **D5**, the live-data contract, already required this and had not been
+   * applied here. 20 seconds: a person waiting on support will accept it, and an estate of shops
+   * polling every second would not be free.
+   *
+   * ⚠ AND OPENING A THREAD MARKS IT READ — which is what clears the ❓ badge, on this till and on
+   * every other one in the shop. Re-marked on each poll too: a reply that lands while the thread is
+   * on screen HAS been seen, and leaving it unread would badge a message the reader is looking at.
+   */
   useEffect(() => {
     if (!open) { setThread([]); return; }
-    void fetchMyThread(open).then(setThread).catch((e) => setError(String(e instanceof Error ? e.message : e)));
-  }, [open]);
+
+    const pull = () => {
+      void fetchMyThread(open).then(setThread).catch((e) => setError(String(e instanceof Error ? e.message : e)));
+      // ⚠ Never mind the outcome: failing to record a read must not stop somebody reading.
+      void markTicketRead(open).catch(() => undefined);
+      // ⚠ The LIST too — the status chip and the closure state live on the ticket row, not on the
+      // messages, so polling only the thread would leave "Closed" invisible until a navigation.
+      void loadTickets();
+    };
+
+    pull();
+    const t = window.setInterval(pull, 20_000);
+    return () => window.clearInterval(t);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selected = tickets.find((t) => t.id === open) ?? null;
 
@@ -112,6 +138,15 @@ function Thread({ ticket, messages, onReplied }: { ticket: SupportTicket; messag
   const [state, setState] = useState<"idle" | "sending">("idle");
   const [error, setError] = useState("");
   const closed = ticket.status === 2;
+  const asked = ticket.closureRequestedByOperator;
+
+  // ⚠ Every closure action refreshes the LIST as well as the thread — the closed state and the
+  // standing request live on the ticket row, not on the messages.
+  const act = (p: Promise<unknown>) => {
+    setState("sending"); setError("");
+    void p.then(() => { setState("idle"); onReplied(); })
+      .catch((e) => { setError(String(e instanceof Error ? e.message : e)); setState("idle"); });
+  };
 
   const send = () => {
     setState("sending"); setError("");
@@ -136,12 +171,48 @@ function Thread({ ticket, messages, onReplied }: { ticket: SupportTicket; messag
         {messages.length === 0 && <p className="muted small">No messages.</p>}
       </div>
       {error && <p className="error small">{error}</p>}
+
+      {/* ⚠⚠ A CLOSED TICKET SAYS SO **WITH THE DATE** (WP-TICKETS, 2026-08-21). Matt, of the
+          operator's Close button: *"there is nothing visual within the ticket itself?"* The chip
+          above said "Closed" and the thread said nothing — and a chip is not where somebody reading
+          a conversation is looking. */}
       {closed
-        ? <p className="muted small">This ticket is closed. Raise a new one if you still need help.</p>
+        ? (
+          <p className="muted small">
+            🔒 This ticket is closed{ticket.closedAtUtc && <> — {apiDay(ticket.closedAtUtc)}</>}.
+            Raise a new one if you still need help.
+          </p>
+        )
         : (
           <div className="stack" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {/* ⚠ THE STANDING REQUEST, IN THE THREAD. Neither side could see one before, so an
+                operator asking to close was a question nobody was shown. */}
+            {asked === true && (
+              <p className="muted small">
+                <strong>Plutus support has asked to close this.</strong> If it is sorted, say so —
+                otherwise keep it open and tell them why.
+              </p>
+            )}
+            {asked === false && (
+              <p className="muted small">You have asked to close this — waiting for Plutus support.</p>
+            )}
+
             <textarea className="pref-input" style={{ minHeight: 70 }} placeholder="Reply…" value={reply} maxLength={4000} onChange={(e) => setReply(e.target.value)} />
-            <button className="primary" disabled={state === "sending" || !reply.trim()} onClick={send}>{state === "sending" ? "Sending…" : "Send reply"}</button>
+            <button className="primary" disabled={state === "sending" || !reply.trim()} onClick={send}>{state === "sending" ? "Sending…" : "Send"}</button>
+
+            {/* ⚠⚠ THE SHOP ASKS; IT DOES NOT CLOSE. A shop closing its own open incident is how a
+                fault gets lost — unless support asked first, in which case agreeing IS the close.
+                The server enforces exactly that; these buttons only offer what it will accept. */}
+            {asked === true
+              ? (
+                <div className="r-row" style={{ gap: 6 }}>
+                  <button className="ghost small" disabled={state === "sending"} onClick={() => act(acceptTicketClose(ticket.id))}>Yes, close it</button>
+                  <button className="ghost small" disabled={state === "sending"} onClick={() => act(keepTicketOpen(ticket.id))}>No, keep it open</button>
+                </div>
+              )
+              : asked === false
+                ? <button className="ghost small" disabled={state === "sending"} onClick={() => act(keepTicketOpen(ticket.id))}>Cancel my close request</button>
+                : <button className="ghost small" disabled={state === "sending"} onClick={() => act(requestTicketClose(ticket.id))}>Ask to close this</button>}
           </div>
         )}
     </div>

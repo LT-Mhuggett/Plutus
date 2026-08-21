@@ -477,12 +477,42 @@ declare const __APP_VERSION__: string;
  * ⚠ Silent when the till has no device credential — an un-enrolled browser has no identity to
  * report, and posting one would be inventing a till.
  */
+/**
+ * ⚠⚠ THE HEARTBEAT NOW CARRIES THE SUPPORT BADGE COUNT (WP-TICKETS, 2026-08-21). Matt: *"When I
+ * reply to a live ticket, how is the user informed? Does the heartbeat need to check for an
+ * update?"* Yes — and the beat is where it belongs, because it is the one request this till already
+ * makes on a timer whether or not anybody is looking at the screen.
+ *
+ * ⚠ SUBSCRIBERS RATHER THAN A RETURN VALUE. `sendHeartbeat` is called from a cadence that ignores
+ * its result; the app bar needs the number. A tiny listener list keeps the beat's caller unchanged.
+ */
+let unreadSupport = 0;
+const unreadListeners = new Set<(n: number) => void>();
+
+/** The last count the heartbeat brought back. ⚠ 0 until the first beat lands, so nothing flashes. */
+export const getUnreadSupport = () => unreadSupport;
+
+/** ⚠ Returns its own unsubscribe — a listener left behind after a component unmounts is the leak
+ *  that shows up as "it got slow" on a till left open for days. */
+export function onUnreadSupport(fn: (n: number) => void): () => void {
+  unreadListeners.add(fn);
+  return () => { unreadListeners.delete(fn); };
+}
+
+function setUnreadSupport(n: number) {
+  // ⚠ ONLY ON A CHANGE. The beat runs every 60s; re-rendering the app bar each time for the same
+  // number is work nobody asked for.
+  if (n === unreadSupport) return;
+  unreadSupport = n;
+  for (const fn of unreadListeners) { try { fn(n); } catch { /* a bad listener must not stop the rest */ } }
+}
+
 export async function sendHeartbeat(): Promise<void> {
   const cred = getDeviceCredential();
   if (!cred?.deviceId) return;
 
   try {
-    await send("POST", "/api/v1/heartbeat", {
+    const resp = await send("POST", "/api/v1/heartbeat", {
       deviceId: cred.deviceId,
       appVersion: __APP_VERSION__,
       // ⚠ Zero, honestly, rather than omitted: the web till drains its outbox through its own
@@ -492,6 +522,14 @@ export async function sendHeartbeat(): Promise<void> {
       oldestUnsyncedAgeSeconds: null,
       deviceClockUtc: new Date().toISOString(),
     });
+
+    // ⚠ THE BADGE MUST NEVER BREAK THE BEAT. A malformed or older response simply leaves the count
+    // where it was — the heartbeat renews the session and reports presence, and neither is worth
+    // risking for a number on a button.
+    try {
+      const body = await resp.json() as { unreadSupportReplies?: number };
+      if (typeof body?.unreadSupportReplies === "number") setUnreadSupport(body.unreadSupportReplies);
+    } catch { /* not JSON, or an older backend — leave the count alone */ }
   } catch {
     // presence is not worth a single interrupted sale
   }
@@ -518,7 +556,7 @@ export interface ActiveGateway {
 export const fetchActiveGateway = () => get<ActiveGateway>("/api/v1/payments/gateway/active");
 
 // OP4 / WP6.3: support tickets from the till — raise + read history + reply (gated support.tickets).
-export interface SupportTicket { id: string; subject: string; status: number; severity: number; raisedByName: string; createdAtUtc: string; updatedAtUtc: string }
+export interface SupportTicket { closedAtUtc?: string | null; closureRequestedByOperator?: boolean | null; closureRequestedAtUtc?: string | null; id: string; subject: string; status: number; severity: number; raisedByName: string; createdAtUtc: string; updatedAtUtc: string }
 export interface SupportMessage { fromOperator: boolean; authorName: string; body: string; atUtc: string }
 export const SUPPORT_STATUS = ["Open", "Waiting on client", "Closed"];
 export const SUPPORT_SEVERITY = ["Question", "Problem", "Urgent"];
@@ -527,6 +565,22 @@ export async function raiseTicket(subject: string, body: string, severity: numbe
 }
 export const fetchMyTickets = () => get<SupportTicket[]>("/api/v1/support/tickets");
 export const fetchMyThread = (id: string) => get<SupportMessage[]>(`/api/v1/support/tickets/${id}/messages`);
+
+// ── WP-TICKETS, 2026-08-21 ────────────────────────────────────────────────────────────────────
+
+/** ⚠ Called when a THREAD IS OPENED, never when a badge is clicked — the badge is a consequence of
+ *  the state, never the owner of it, or the other till in the shop stays lit. */
+export async function markTicketRead(id: string): Promise<void> { await send("POST", `/api/v1/support/tickets/${id}/read`, {}); }
+
+/** ⚠ A REQUEST, NOT A CLOSE: a shop closing its own open incident is how a fault gets lost. */
+export async function requestTicketClose(id: string): Promise<void> { await send("POST", `/api/v1/support/tickets/${id}/request-close`, {}); }
+
+/** Withdraw your own request, or decline support's — either party may end the question. */
+export async function keepTicketOpen(id: string): Promise<void> { await send("POST", `/api/v1/support/tickets/${id}/keep-open`, {}); }
+
+/** ⚠ Only valid while SUPPORT has asked; without a standing request this 400s. */
+export async function acceptTicketClose(id: string): Promise<void> { await send("POST", `/api/v1/support/tickets/${id}/accept-close`, {}); }
+
 export async function clientReply(id: string, body: string): Promise<void> {
   await send("POST", `/api/v1/support/tickets/${encodeURIComponent(id)}/messages`, { body });
 }

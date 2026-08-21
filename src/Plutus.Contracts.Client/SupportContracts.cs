@@ -18,7 +18,25 @@ public sealed record SupportTicketDto(
     byte Severity,
     string RaisedByName,
     DateTime CreatedAtUtc,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+
+    // ── WP-TICKETS, 2026-08-21 ──────────────────────────────────────────────────────────────────
+    //
+    // ⚠ OPTIONAL WITH DEFAULTS, so an older backend still deserialises into this record rather than
+    // throwing on a till somebody has not updated yet.
+
+    /// <summary>When it closed. ⚠ Matt: *"the button 'Close' … there is nothing visual within the
+    /// ticket itself?"* This is what the thread's "closed on …" line is drawn from.</summary>
+    DateTime? ClosedAtUtc = null,
+
+    /// <summary>Who asked to close — true the operator, false the client, null nobody.</summary>
+    bool? ClosureRequestedByOperator = null,
+
+    DateTime? ClosureRequestedAtUtc = null,
+
+    /// <summary>When this shop last opened the thread. ⚠ With the last message's author it decides
+    /// the unread badge — see `SharedKernel.SupportRules.IsUnreadByClient`.</summary>
+    DateTime? ClientLastReadAtUtc = null);
 
 /// <summary>
 /// One message in a ticket's thread. `GET /api/v1/support/tickets/{id}/messages`.
@@ -37,3 +55,11 @@ public sealed record RaiseTicketRequest(string Subject, string Body, byte Severi
 
 /// <summary>Reply on an existing thread. `POST /api/v1/support/tickets/{id}/messages`.</summary>
 public sealed record TicketReplyRequest(string Body);
+
+/// <summary>
+/// WP-TICKETS — how many replies this shop has not read, and the newest few subjects.
+///
+/// ⚠ A COUNT PLUS A HANDFUL OF SUBJECTS, not the tickets. A badge saying "3" wants a tooltip naming
+/// the most recent, and the caller should not have to fetch the whole list to build one.
+/// </summary>
+public sealed record UnreadSupportDto(int Unread, string[] Subjects);

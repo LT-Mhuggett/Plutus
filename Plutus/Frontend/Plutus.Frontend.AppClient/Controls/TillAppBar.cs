@@ -2,6 +2,7 @@ using System;
 using Microsoft.Maui;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Dispatching;
+using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Graphics;
 
 namespace Plutus.Frontend.AppClient.Controls
@@ -47,8 +48,15 @@ namespace Plutus.Frontend.AppClient.Controls
 
         private readonly EventHandler _onTick;
 
+        /// <summary>The ❓, kept as a field because its glyph carries the unread count.</summary>
+        private readonly Button _help;
+
+        private readonly Action<int> _onUnread;
+
         public TillAppBar()
         {
+            _help = IconButton("❓", "Help & support", OnHelp);
+
             ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Star });   // spacer
             ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });   // clock
             ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });   // help
@@ -65,14 +73,56 @@ namespace Plutus.Frontend.AppClient.Controls
             ToolTipProperties.SetText(_clock, $"This PC's clock · {TimeZoneInfo.Local.Id}");
 
             this.Add(_clock, 1, 0);
-            this.Add(IconButton("❓", "Help & support", OnHelp), 2, 0);
+            this.Add(_help, 2, 0);
             this.Add(IconButton("👥", "Users", OnUsers), 3, 0);
 
             _onTick = (_, _) => Paint();
             Paint();
 
-            Loaded += (_, _) => { Start(); Tick += _onTick; Paint(); };
-            Unloaded += (_, _) => Tick -= _onTick;
+            // ⚠⚠ THE SUPPORT BADGE (WP-TICKETS, 2026-08-21). Matt: *"When I reply to a live ticket,
+            // how is the user informed?"* They were not — the reply sat in a thread nobody had a
+            // reason to open. The count rides the heartbeat (`TillCadence.UnreadSupportReplies`),
+            // which is the only thing on this till that runs with nobody watching the screen.
+            //
+            // ⚠ IT CLEARS WHEN THE THREAD IS OPENED, not when this button is pressed: the badge is a
+            // consequence of the state, and clearing it here would leave the till beside this one
+            // still lit.
+            _onUnread = n => MainThread.BeginInvokeOnMainThread(() => PaintBadge(n));
+            PaintBadge(Services.Sync.TillCadence.UnreadSupportReplies);
+
+            Loaded += (_, _) =>
+            {
+                Start();
+                Tick += _onTick;
+                Services.Sync.TillCadence.UnreadSupportChanged += _onUnread;
+                Paint();
+                PaintBadge(Services.Sync.TillCadence.UnreadSupportReplies);
+            };
+
+            Unloaded += (_, _) =>
+            {
+                Tick -= _onTick;
+                Services.Sync.TillCadence.UnreadSupportChanged -= _onUnread;
+            };
+        }
+
+        /// <summary>
+        /// Put the unread count on the ❓.
+        ///
+        /// ⚠ THE GLYPH CARRIES IT, rather than an overlaid pill. MAUI has no cheap absolute-position
+        /// overlay inside a Grid cell the way CSS does, and a second column for a badge would move
+        /// the 👥 every time support replied — the same jitter the clock's fixed-width digits avoid.
+        ///
+        /// ⚠ AND THE TOOLTIP SAYS WHAT IT MEANS. A number beside a question mark is not self-
+        /// explanatory; "2 unread replies from Plutus support" is.
+        /// </summary>
+        private void PaintBadge(int unread)
+        {
+            _help.Text = unread > 0 ? $"❓{unread}" : "❓";
+
+            ToolTipProperties.SetText(_help, unread > 0
+                ? $"{unread} unread repl{(unread == 1 ? "y" : "ies")} from Plutus support"
+                : "Help & support");
         }
 
         /// <summary>⚠ SECONDS, deliberately — a clock showing only `HH:MM` is indistinguishable from a

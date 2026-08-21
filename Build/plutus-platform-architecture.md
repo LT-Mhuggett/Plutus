@@ -531,7 +531,7 @@ renders "last online" from it, so the signal exists and is not wired to this.
 traffic — and the hover text names which signal it used, because two signals that can disagree must say
 which one answered.
 
-### WP-TICKETS — the support desk, four gaps · **≈2d**
+### WP-TICKETS — the support desk, four gaps · **≈2d** -> **DONE 2026-08-21**
 
 > *"There needs to be a summary view of all tickets. Today, 7 days, last month, last 90 days. Which
 > clients have raised etc … When I reply to a live ticket, how is the user informed? … The help screen

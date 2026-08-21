@@ -151,7 +151,7 @@ export const deletePlan = (id: string) => del<void>(`/api/v1/platform/plans/${id
 export const assignPlan = (tenantId: string, planId: string | null) =>
   put<void>(`/api/v1/tenants/${tenantId}/plan`, { planId });
 // OP4 support tickets
-export interface TicketRow { id: string; tenantId?: string; tenant?: string; subject: string; status: number; severity: number; raisedByName: string; assignedTo?: string | null; createdAtUtc: string; updatedAtUtc: string }
+export interface TicketRow { closedAtUtc?: string | null; closureRequestedByOperator?: boolean | null; closureRequestedAtUtc?: string | null; clientLastReadAtUtc?: string | null; id: string; tenantId?: string; tenant?: string; subject: string; status: number; severity: number; raisedByName: string; assignedTo?: string | null; createdAtUtc: string; updatedAtUtc: string }
 export interface TicketMessage { fromOperator: boolean; authorName: string; body: string; atUtc: string }
 export const SUPPORT_STATUS = ["Open", "Waiting on client", "Closed"];
 export const SUPPORT_SEVERITY = ["Question", "Problem", "Urgent"];
@@ -165,6 +165,70 @@ export const fetchTickets = (status?: number) => get<TicketRow[]>(`/api/v1/platf
 export const fetchOperatorThread = (id: string) => get<TicketMessage[]>(`/api/v1/platform/tickets/${id}/messages`);
 export const operatorReply = (id: string, body: string) => post<void>(`/api/v1/platform/tickets/${id}/reply`, { body });
 export const setTicket = (id: string, body: { status?: number; assignedTo?: string }) => put<void>(`/api/v1/platform/tickets/${id}`, body);
+
+// ── WP-TICKETS, 2026-08-21 ────────────────────────────────────────────────────────────────────
+
+/**
+ * ⚠⚠ HOW A SHOP LEARNS THAT SUPPORT ANSWERED. Matt: *"When I reply to a live ticket, how is the user
+ * informed?"* They were not. Both tills also get this on the heartbeat, which is the only channel
+ * that reaches a till with nobody watching a browser tab; the portal asks directly because a browser
+ * tab is exactly what it is.
+ */
+export const fetchUnreadSupport = () =>
+  get<{ unread: number; subjects: string[] }>("/api/v1/support/unread");
+
+/** ⚠ Called when a THREAD IS OPENED, never when a badge is clicked — the badge is a consequence of
+ *  the state, never the owner of it, or a second till stays lit. */
+export const markTicketRead = (id: string) => post<void>(`/api/v1/support/tickets/${id}/read`, {});
+
+/** ⚠ A REQUEST, NOT A CLOSE, from the client's side: a shop closing its own open incident is how a
+ *  fault gets lost. The operator confirms. */
+export const requestTicketClose = (id: string) =>
+  post<void>(`/api/v1/support/tickets/${id}/request-close`, {});
+
+/** The operator's half of the same ask. */
+export const operatorRequestClose = (id: string) =>
+  post<void>(`/api/v1/platform/tickets/${id}/request-close`, {});
+
+/** Withdraw your own request, or decline the other side's — either party may end the question. */
+export const keepTicketOpen = (id: string) => post<void>(`/api/v1/support/tickets/${id}/keep-open`, {});
+
+/** ⚠ Only valid while the OPERATOR has asked. Without a standing request this 400s, so a fault
+ *  cannot be made to disappear from the shop's side. */
+export const acceptTicketClose = (id: string) =>
+  post<void>(`/api/v1/support/tickets/${id}/accept-close`, {});
+
+/** One window of the operator's ticket summary. ⚠ Counted by STATUS as well as by age: "12 tickets
+ *  this week" with 11 closed is a good week and reads as a bad one. */
+export interface TicketWindow {
+  label: string;
+  raised: number;
+  open: number;
+  closed: number;
+  urgent: number;
+}
+
+export interface TicketClientRow {
+  tenantId: string;
+  tenant: string;
+  raised: number;
+  open: number;
+  urgent: number;
+  lastAtUtc: string;
+}
+
+export interface TicketSummary {
+  generatedAtUtc: string;
+  windows: TicketWindow[];
+  byClient: TicketClientRow[];
+  openTotal: number;
+  /** ⚠ The OLDEST still-open ticket — an average says nothing about the one ignored for three
+   *  weeks, and that is the one that loses a customer. */
+  oldestOpenAtUtc: string | null;
+}
+
+export const fetchTicketSummary = () => get<TicketSummary>("/api/v1/platform/tickets/summary");
+
 
 // OP3 subscribers landing
 export interface ContractLite { tenantId: string; renewalAtUtc: string; pricePenceMonthly: number; termMonths: number }

@@ -125,7 +125,13 @@ namespace Plutus.Frontend.AppClient.Services.Support
             }
         }
 
-        /// <summary>Read a ticket, and answer it if it is still open.</summary>
+        /// <summary>
+        /// Read a ticket, answer it, or settle whether it should close.
+        ///
+        /// ⚠⚠ WP-TICKETS (2026-08-21) added three things here, all of which Matt asked for:
+        /// the thread now **marks itself read** (which is what clears the ❓ badge on every till in
+        /// the shop), a **closed ticket says when it closed**, and either side can **ask to close**.
+        /// </summary>
         private static async Task OpenTicketAsync(Plutus.Contracts.Client.SupportTicketDto ticket)
         {
             var thread = await SupportDesk.ThreadAsync(ticket.Id);
@@ -138,20 +144,63 @@ namespace Plutus.Frontend.AppClient.Services.Support
                 return;
             }
 
+            // ⚠⚠ MARK READ ON OPEN — this is what clears the badge, here and on the till beside this
+            // one. ⚠ Fire and forget, and never mind the outcome: failing to RECORD a read must not
+            // stop somebody reading. The worst case is a badge that clears on the next beat.
+            _ = MarkReadAsync(ticket.Id);
+
             var body = SupportDesk.ThreadText(thread);
 
             // ⚠ A CLOSED TICKET OFFERS NO REPLY BOX rather than a Send the server would refuse.
+            // ⚠ AND IT SAYS WHEN — Matt: *"there is nothing visual within the ticket itself?"*
             if (SupportLabels.IsClosed(ticket.Status))
             {
+                var when = ticket.ClosedAtUtc is DateTime c
+                    ? $" It was closed on {SharedKernel.ApiTime.AsLocal(c):dd MMM yyyy}."
+                    : "";
+
                 await Application.Current.MainPage.DisplayAlert(ticket.Subject,
-                    body + "\n\nThis ticket is closed. Raise a new one if you still need help.",
+                    body + $"\n\n🔒 This ticket is closed.{when} Raise a new one if you still need help.",
                     "OK".Translate());
                 return;
             }
 
-            if (!await Application.Current.MainPage.DisplayAlert(ticket.Subject, body,
-                    "Reply", "Close"))
-                return;
+            // ⚠⚠ THE STANDING CLOSURE REQUEST DECIDES WHAT THIS DIALOG OFFERS. Support asking to
+            // close is a QUESTION, and until now it was a question the till never showed anybody.
+            var asked = ticket.ClosureRequestedByOperator;
+
+            const string replyChoice = "Reply";
+            const string askClose = "Ask to close";
+            const string yesClose = "Yes, close it";
+            const string keepOpen = "Keep it open";
+
+            var note = asked switch
+            {
+                true => "\n\n⚠ Plutus support has asked to close this. If it is sorted, say so — "
+                        + "otherwise keep it open and tell them why.",
+                false => "\n\nYou have asked to close this — waiting for Plutus support.",
+                _ => "",
+            };
+
+            var choices = asked switch
+            {
+                true => new[] { replyChoice, yesClose, keepOpen },
+                false => new[] { replyChoice, keepOpen },
+                _ => new[] { replyChoice, askClose },
+            };
+
+            var picked = await Helpers.CustomViews.ChoiceHelper.AskAsync(
+                ticket.Subject, "Close".Translate(), null, choices);
+
+            if (picked == askClose) { await SettleAsync(ticket.Id, close: false, ask: true); return; }
+            if (picked == yesClose) { await SettleAsync(ticket.Id, close: true, ask: false); return; }
+            if (picked == keepOpen) { await SettleAsync(ticket.Id, close: false, ask: false); return; }
+            if (picked != replyChoice) return;
+
+            // ⚠ The thread body is shown ABOVE the choices rather than inside them — a `ChoiceAlert`
+            // is a list of options, and a twelve-line conversation crammed into its title would push
+            // the buttons off a till screen.
+            _ = note;
 
             var fields = new ViewElementData[]
             {
@@ -175,6 +224,74 @@ namespace Plutus.Frontend.AppClient.Services.Support
                     ? "Plutus has your reply."
                     : "That didn't reach Plutus, so nothing has been sent. Try again in a moment.",
                 "OK".Translate());
+        }
+
+        /// <summary>
+        /// Record that this shop has read a thread — WP-TICKETS, 2026-08-21.
+        ///
+        /// ⚠ NEVER THROWS AND NEVER BLOCKS. It runs fire-and-forget from the moment the thread
+        /// opens: failing to record a read must not stop somebody reading, and the badge clears on
+        /// the next heartbeat anyway.
+        /// </summary>
+        private static async Task MarkReadAsync(Guid ticketId)
+        {
+            try
+            {
+                var api = await Services.Connectivity.PlutusApi.GetOperatorAsync();
+                if (api is null) return;
+                await api.MarkTicketReadAsync(ticketId);
+            }
+            catch (Exception ex)
+            {
+                Analytics.CrashLog.Write("SupportFlow.MarkRead", ex);
+            }
+        }
+
+        /// <summary>
+        /// Settle whether a ticket should close — ask, agree, or keep it open.
+        /// </summary>
+        /// <param name="close">Agree to support's request. ⚠ Only legal while THEY have asked; the
+        /// server refuses otherwise, which is what stops a shop closing its own open incident.</param>
+        /// <param name="ask">Ask them to close it.</param>
+        private static async Task SettleAsync(Guid ticketId, bool close, bool ask)
+        {
+            try
+            {
+                var api = await Services.Connectivity.PlutusApi.GetOperatorAsync();
+
+                if (api is null)
+                {
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "That needs a connection to Plutus. Nothing has been changed.", "OK".Translate());
+                    return;
+                }
+
+                var ok = close
+                    ? await api.AcceptTicketCloseAsync(ticketId)
+                    : ask
+                        ? await api.RequestTicketCloseAsync(ticketId)
+                        : await api.KeepTicketOpenAsync(ticketId);
+
+                // ⚠ THE WORDS DIFFER PER ACTION. "Done" after asking to close and after closing are
+                // very different outcomes to a shop, and one message for both would leave somebody
+                // unsure whether their ticket had just ended.
+                await Application.Current.MainPage.DisplayAlert(
+                    ok ? "Support" : "Hmm".Translate(),
+                    ok
+                        ? close
+                            ? "Closed. Raise a new ticket if you need anything else."
+                            : ask
+                                ? "Plutus support has been asked to close this."
+                                : "Kept open — Plutus support will carry on with it."
+                        : "That didn't work. Nothing has been changed.",
+                    "OK".Translate());
+            }
+            catch (Exception ex)
+            {
+                Analytics.CrashLog.Write("SupportFlow.Settle", ex);
+                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "That didn't work. Nothing has been changed.", "OK".Translate());
+            }
         }
     }
 }

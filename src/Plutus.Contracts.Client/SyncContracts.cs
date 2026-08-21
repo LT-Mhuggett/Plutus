@@ -49,6 +49,18 @@ public sealed record HeartbeatRequest(
 /// <param name="ExpectedWebVersion">The same for the web till. ⚠ Expected to stay null: the browser
 /// already detects a new deploy exactly, by comparing its running bundle hash against the one the
 /// server serves. Carried so both surfaces are configured in one place, not because it is needed.</param>
+/// <param name="UnreadSupportReplies">
+/// ⚠⚠ HOW A SHOP LEARNS THAT SUPPORT ANSWERED (WP-TICKETS, 2026-08-21). Matt: *"When I reply to a
+/// live ticket, how is the user informed? Does the heartbeat need to check for an update?"* It did,
+/// and it does: **the beat is the platform's only way to tell a till anything** — tills sit behind
+/// NAT and nothing can reach in — and it is the only channel that reaches a till with nobody
+/// watching a browser tab.
+///
+/// ⚠ A COUNT, NOT A LIST. The beat runs every 60 seconds on every till in the estate, so it carries
+/// the cheapest thing that can drive a badge; the ❓ opens the desk, which fetches the threads.
+///
+/// ⚠ ZERO, NEVER NULL, so a till that cannot read the desk shows no badge rather than a broken one.
+/// </param>
 public sealed record HeartbeatResult(
     string? CatalogueCursor,
     bool SyncNow,
@@ -56,7 +68,8 @@ public sealed record HeartbeatResult(
     string? LockReason,
     DateTime ServerUtcNow,
     string? ExpectedMauiVersion = null,
-    string? ExpectedWebVersion = null);
+    string? ExpectedWebVersion = null,
+    int UnreadSupportReplies = 0);
 
 /// <summary>
 /// One catalogue row as a till holds it.

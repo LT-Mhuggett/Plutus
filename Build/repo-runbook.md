@@ -568,8 +568,18 @@ is needed before anyone installs this on a shop PC, and is not needed to test.
     edit bytes, write bytes — then the multi-byte characters are never interpreted at all, and
     interpretation is the only thing that can corrupt them.
 
-    ✅ **AND CHECK AFTERWARDS, because the build will not.** `grep -c '⚠' <file>` before and after:
-    the count is unchanged if the file is fine, and 0 if it is ruined.
+    ✅ **AND CHECK AFTERWARDS WITH THE ARCHITECTURE SUITE, NOT WITH A GREP.**
+
+    ```bash
+    dotnet test tests/Plutus.Tests.Architecture/Plutus.Tests.Architecture.csproj
+    ```
+
+    `SourceEncodingTests` sweeps every source file for double-encoded UTF-8 and names the file and
+    the occurrence count. ⚠⚠ **A `grep` FOR ONE MANGLED SEQUENCE IS NOT ENOUGH, and I proved it on
+    2026-08-21:** after a "Wide character in print" warning I grepped for double-encoded `⚠`, got 0,
+    and moved on — the damaged character was an **em dash**, and it sat in the tree until the
+    architecture suite failed. The mangling hits whichever wide characters are in the string, not the
+    one you thought of.
 
 23. ⚠⚠ **A `perl -0pi` one-liner that reassigns `@ARGV` MID-STREAM TRUNCATES THE FILE TO ZERO BYTES.**
     `local(@ARGV, $/) = "other-file"` inside the `-e` script — a common idiom for slurping a

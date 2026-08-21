@@ -27,6 +27,7 @@ import { oidcMode, signOut } from "./auth.ts";
 import { beginLogin, completeLoginIfCallback } from "./oidc.ts";
 import AskHost, { ask } from "./Ask.tsx";
 import TillClock from "./TillClock.tsx";
+import { getUnreadSupport, onUnreadSupport } from "./api.ts";
 
 /**
  * ⚠ THE ENVIRONMENT BADGE. `VITE_ENV_BADGE=test` on the test deploy; unset in production, which shows
@@ -83,6 +84,15 @@ export default function App() {
    * control an operator touches most.
    */
   const [navEpoch, setNavEpoch] = useState(0);
+  /**
+   * ⚠ THE SUPPORT BADGE COUNT, fed by the heartbeat (WP-TICKETS, 2026-08-21) — see `api.ts`
+   * `onUnreadSupport`. Seeded from the last value so a re-render does not blank it, and unsubscribed
+   * on unmount because a listener left behind on a till open for days is the leak that reads as
+   * "it got slow".
+   */
+  const [unread, setUnread] = useState(getUnreadSupport);
+  useEffect(() => onUnreadSupport(setUnread), []);
+
 
   const goTab = (t: Tab) => {
     setTab(t);
@@ -393,8 +403,17 @@ export default function App() {
             nobody remembers to configure — a missing setting must fail towards "no badge", never
             towards a live till labelled `test`. */}
         {envBadge && <span className="env-badge">{envBadge}</span>}
-        {/* WP6.3: Help, top-right next to the users button — raise/track support tickets. */}
-        <button className="user-btn" title="Help &amp; support" onClick={() => setHelpOpen(true)}>❓</button>
+        {/* WP6.3: Help, top-right next to the users button — raise/track support tickets.
+            ⚠⚠ THE BADGE (WP-TICKETS, 2026-08-21). Matt: *"When I reply to a live ticket, how is the
+            user informed?"* They were not — the reply sat in a thread nobody had a reason to open.
+            The count rides the heartbeat, which is the only thing on this till that runs whether or
+            not anybody is looking at the screen.
+            ⚠ It clears when the THREAD is opened, not when this button is clicked: the badge is a
+            consequence of the state, and clearing it here would leave the other till in the shop
+            still lit. */}
+        <button className="user-btn" title={unread > 0 ? `${unread} unread repl${unread === 1 ? "y" : "ies"} from Plutus support` : "Help & support"} onClick={() => setHelpOpen(true)}>
+          ❓{unread > 0 && <span className="badge-dot" aria-label={`${unread} unread`}>{unread}</span>}
+        </button>
         {/* the users button — the original till's people icon, now functional */}
         <div className="user-wrap">
           <button className="user-btn" title="Users" onClick={() => setUserMenu((v) => !v)}>
