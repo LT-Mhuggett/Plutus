@@ -30,9 +30,17 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Picker Grid.Column="0" x:Name="ReportPicker" Title="Report"/>
-            <Button Grid.Column="1" Text="{i18n:Translate Refresh}" Command="{Binding RefreshCommand}"/>
+            <!-- ⚠⚠ MOVED HERE 2026-08-21 BECAUSE IT HAD BECOME UNREACHABLE. Reprint lived on the
+                 Statistics tab, and Statistics was taken off the tab bar on 2026-08-16 when Reports
+                 replaced it — so `ReceiptReprint.PickAndReprintAsync` had exactly ONE caller, on a
+                 screen no operator could open. Part B claimed MAUI could reprint a receipt; for five
+                 days it could not. ⚠ It belongs here anyway: the web till reprints from its
+                 reporting screen, beside the list of past sales. -->
+            <Button Grid.Column="1" Text="Reprint a receipt" Command="{Binding ReprintReceiptCommand}"/>
+            <Button Grid.Column="2" Text="{i18n:Translate Refresh}" Command="{Binding RefreshCommand}"/>
         </Grid>
 
         <Grid Grid.Row="1" ColumnSpacing="6">

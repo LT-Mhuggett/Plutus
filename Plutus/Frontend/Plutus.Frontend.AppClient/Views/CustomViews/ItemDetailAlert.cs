@@ -243,6 +243,29 @@ namespace Plutus.Frontend.AppClient.Views.CustomViews
                 "Who", r => string.IsNullOrWhiteSpace(r.By) ? "—" : r.By, Width: 3),
         };
 
+        /// <summary>
+        /// ⚠⚠ WITHOUT THIS THE HISTORY IS INVISIBLE, AND THAT IS EXACTLY HOW IT SHIPPED FIRST.
+        /// Matt, 2026-08-21, on the 1.113.0 build: *"G74 I cannot see an Item history in MAUI. I can
+        /// in the webtill."* He was right, and the cause is here rather than in the data: the history
+        /// lives in a **`Star` row**, and a `Star` row inside a Mopups popup with no bounded height
+        /// resolves to **zero**. So the barcodes above it rendered, the table below it did not, and
+        /// nothing anywhere reported a fault.
+        ///
+        /// ⚠ It was copied from `CustomerDetailAlert` — which has these five lines — and this is the
+        /// one thing I did not copy. **A layout that depends on `OnSizeAllocated` fails silently and
+        /// looks like missing data**, which is why it reads as "the history isn't there".
+        ///
+        /// ⚠ Width is a REQUEST, height a MAXIMUM — and the cap goes on the ROOT, which is the grid,
+        /// because the table inside it is what scrolls.
+        /// </summary>
+        protected override void OnSizeAllocated(double width, double height)
+        {
+            base.OnSizeAllocated(width, height);
+
+            if (width > 0) _root.WidthRequest = Math.Max(480, width * 0.75);
+            if (height > 0) _root.MaximumHeightRequest = height * 0.9;
+        }
+
         private static Label Heading(string text)
         {
             var label = new Label
